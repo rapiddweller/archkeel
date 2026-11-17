@@ -321,8 +321,6 @@
         "native.archkeel_contract.policy:provenance_paths",
         "native.archkeel_contract:BoundaryAllowance",
         "native.archkeel_contract:BoundaryTypes",
-        "native.archkeel_contract:SymbolClassKind",
-        "native.archkeel_contract:SymbolPlacement",
         "native.archkeel_contract:BudgetName",
         "native.archkeel_contract:CompleteRequires",
         "native.archkeel_contract:CompletenessMode",
@@ -359,6 +357,8 @@
         "native.archkeel_contract:SiblingIsolation",
         "native.archkeel_contract:Signature",
         "native.archkeel_contract:SourceRule",
+        "native.archkeel_contract:SymbolClassKind",
+        "native.archkeel_contract:SymbolPlacement",
         "native.archkeel_contract:Target",
         "native.archkeel_contract:TargetKind",
         "native.archkeel_contract:TargetScope",
@@ -761,7 +761,6 @@
         "native.archkeel_model.boundary_facts:Class",
         "native.archkeel_model.boundary_facts:Entry",
         "native.archkeel_model.boundary_facts:Origin",
-        "native.archkeel_model.placement_facts:Class",
         "native.archkeel_model.condensation:condense",
         "native.archkeel_model.constructs:ConstructMatch",
         "native.archkeel_model.constructs:ConstructSite",
@@ -787,6 +786,7 @@
         "native.archkeel_model.ownership:owner_of",
         "native.archkeel_model.ownership:owners",
         "native.archkeel_model.ownership:source_modules",
+        "native.archkeel_model.placement_facts:Class",
         "native.archkeel_model.published_items:PublicItem",
         "native.archkeel_model.settings:Producer",
         "native.archkeel_model.settings:Settings",
@@ -1369,8 +1369,8 @@
           "component": "eval-violation",
           "rationale": "Write a violation of the rule.",
           "through": [
-            "native.archkeel_eval.violation",
-            "native.archkeel_eval.placement_row"
+            "native.archkeel_eval.placement_row",
+            "native.archkeel_eval.violation"
           ]
         },
         {
@@ -1466,6 +1466,7 @@
         }
       ],
       "public": [
+        "native.archkeel_eval.placement_row:PlacedClass",
         "native.archkeel_eval.violation:Cited",
         "native.archkeel_eval.violation:ConstructViolation",
         "native.archkeel_eval.violation:CycleStep",
@@ -1473,7 +1474,6 @@
         "native.archkeel_eval.violation:Layered",
         "native.archkeel_eval.violation:Published",
         "native.archkeel_eval.violation:UnusedItem",
-        "native.archkeel_eval.placement_row:PlacedClass",
         "native.archkeel_eval.violation:Violation"
       ],
       "decided_by": "architect"
@@ -1584,15 +1584,14 @@
           "component": "eval-violation",
           "rationale": "Write a violation of the rule.",
           "through": [
-            "native.archkeel_eval.violation",
-            "native.archkeel_eval.placement_row"
+            "native.archkeel_eval.placement_row",
+            "native.archkeel_eval.violation"
           ]
         }
       ],
       "public": [
         "native.archkeel_eval.assignment:check",
         "native.archkeel_eval.boundary_types:check",
-        "native.archkeel_eval.placement:check",
         "native.archkeel_eval.constructs:check",
         "native.archkeel_eval.cycles:check",
         "native.archkeel_eval.direction:forbidden",
@@ -1603,6 +1602,7 @@
         "native.archkeel_eval.external:dependency_scope",
         "native.archkeel_eval.interface:check",
         "native.archkeel_eval.layout:check",
+        "native.archkeel_eval.placement:check",
         "native.archkeel_eval.unused_public:check"
       ],
       "decided_by": "architect"
