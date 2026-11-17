@@ -40,3 +40,4 @@
 | 2026-11-17 | l-nest-realworld | 513a8818c | AD-788 (#1546): the repository guard reads the source files outside the scan roots, so they are inputs of the reply (cpython 3.11.12) |
 | 2026-11-17 | synthetic-bundler | 513a8818c | AD-788 (#1546): the repository guard reads the source files outside the scan roots, so they are inputs of the reply (cpython 3.11.12) |
 | 2026-11-17 | synthetic-package-maps | 513a8818c | AD-788 (#1546): the repository guard reads the source files outside the scan roots, so they are inputs of the reply (cpython 3.11.12) |
+| 2026-11-17 | l-nest-realworld | 45233ab1a | AD-810 reads the migration snapshot JSON for code addresses and records it as an input. (cpython 3.11.12) |
