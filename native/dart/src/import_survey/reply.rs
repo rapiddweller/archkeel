@@ -3,29 +3,33 @@
 // SPDX-License-Identifier: MIT
 
 //! The request and the typed reply of the survey (AD-454). The reply declares the sections
-//! `imports` and `unknowns` only, as the import survey of the Python collector does.
+//! `imports`, `unknowns` and `symbols` (AD-796); it writes no call and no reference yet.
 
 use archkeel_facts::envelope::validation::{InterfaceNeed, Registered};
 use archkeel_facts::envelope::{
     LimitSupport, OwnedFile, Profile, ProfileLimits, Provenance, Reply, SectionName, Validation,
 };
 use archkeel_facts::request::DartRequest;
-use archkeel_facts::{GapFact, ImportFact};
+use archkeel_facts::{GapFact, ImportFact, SymbolFact};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::stream::{Head, SectionSink, Tail};
 
 use super::survey;
 
 /// The sections of the survey reply, in their order. No other section is collected.
-const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
+const SURVEY_SECTIONS: [&str; 3] = ["imports", "unknowns", "symbols"];
 
-/// The validation table of the survey (AD-688, AD-468): exactly the sections `imports` and
-/// `unknowns`, no feature and no construct capability. The interface statement needs no feature
+/// The validation table of the survey (AD-688, AD-468, AD-796): exactly the sections `imports`,
+/// `unknowns` and `symbols`, no feature and no construct capability. The interface statement needs no feature
 /// (AD-749). The standard library is `dart`, and its owner also names the SDK libraries.
 fn validation() -> Validation {
     Validation {
         registered: vec![Registered::of(
-            &[SectionName::Imports, SectionName::Unknowns],
+            &[
+                SectionName::Imports,
+                SectionName::Unknowns,
+                SectionName::Symbols,
+            ],
             &[],
         )],
         interface: InterfaceNeed::Nothing,
@@ -63,6 +67,7 @@ pub fn typed_reply(
         validation: validation(),
     };
     let imports = found.imports;
+    let symbols = found.symbols;
     let tail = Tail {
         measures: None,
         selected_files: found.coverage.selected_files,
@@ -73,6 +78,7 @@ pub fn typed_reply(
     let mut reply = archkeel_wire::typed::assemble(version, head, |writer| {
         writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
         writer.write_typed_section::<GapFact>(|emit| tail.gaps.iter().for_each(emit))?;
+        writer.write_typed_section::<SymbolFact>(|emit| symbols.iter().for_each(emit))?;
         Ok(tail)
     })?;
     // AD-749: the survey states the publication surface of each import, so the interface rule

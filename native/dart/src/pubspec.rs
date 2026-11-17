@@ -22,6 +22,7 @@ pub(crate) enum SdkState {
 }
 
 impl SdkState {
+    #[cfg(feature = "dump")]
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             SdkState::Declared => "declared",

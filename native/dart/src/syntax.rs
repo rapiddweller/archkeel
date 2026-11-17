@@ -32,7 +32,6 @@ macro_rules! value {
     };
 }
 
-#[cfg(feature = "dump")]
 pub(crate) use value;
 
 value! {
