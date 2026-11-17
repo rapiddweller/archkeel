@@ -5,7 +5,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static fast-test pr-gate pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-gate pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -27,6 +27,11 @@ generated-check: browser-runtime-install
 
 browser-runtime-generate: browser-runtime-install
 	$(UV) run --locked python tools/browser_runtime.py
+
+# AD-752: the index of the decision records is generated from the files, not committed.
+decision-index:
+	@mkdir -p test-artifacts
+	$(UV) run --locked python tools/decision_index.py --write test-artifacts/decision-index.md
 
 # AD-674: the fast tests (everything but tests/areas.py SLOW_FILES). The main tier runs one area in each
 # job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). A floor in
