@@ -578,6 +578,13 @@
     h("button", { class: "ak-icon-only", title: "Zoom to selection (Shift C)", "aria-label": "Zoom to selection", onclick: () => F.fit() }, icon("focus")),
     zoom);
   root.append(topLeft, topCenter, topRight, rail, bottomLeft, tagBar, bottomRight);
+  // Issue 1618: a diagram larger than the view at the readable zoom says how to see the rest.
+  const scrollHint = h("p", { class: "rp-scroll-hint", role: "status", hidden: true },
+    "Scroll or press Shift 1 to fit");
+  root.querySelector(".flow-map-column")?.append(scrollHint);
+  const showScrollHint = () => { scrollHint.hidden = !A || !root.dataset.overflow; };
+  new MutationObserver(showScrollHint).observe(root, { attributes: true, attributeFilter: ["data-overflow"] });
+  showScrollHint();
 
   // ---------- keep the chrome in sync with every rendered scene ----------
   // Open each diagram fitted without magnifying small graphs.

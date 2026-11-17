@@ -1784,6 +1784,7 @@
       scrollRemainderY = nextScroll - canvas.scrollTop;
     }
     zoomValue.textContent = `${Math.round(transform.k * 100)}%`;
+    markOverflow();
   }
 
   let maxFitScale = 1.4;
@@ -1821,31 +1822,33 @@
         - canvas.clientWidth / 2;
       canvas.scrollTop = (selectedPosition.y - diagramOrigin.y + cardHeight(S.selection.id) / 2) * transform.k
         - canvas.clientHeight / 2;
-    } else if (ATLAS && !whole && (renderedScene?.componentOverview || renderedScene?.moduleOverview)) {
-      const canvasBounds = canvas.getBoundingClientRect();
-      const left = canvasBounds.left + canvas.clientLeft;
-      const top = canvasBounds.top + canvas.clientTop;
-      const right = left + canvas.clientWidth;
-      const bottom = top + canvas.clientHeight;
-      const completeCardVisible = [...nodeLayer.querySelectorAll("[data-uml-id] .card")]
-        .some((card) => {
-          const bounds = card.getBoundingClientRect();
-          return bounds.left >= left && bounds.right <= right
-            && bounds.top >= top && bounds.bottom <= bottom;
-        });
-      if (!completeCardVisible) {
-        const first = renderedScene.nodes
-          .filter((node) => positions[node.id])
-          .sort((a, b) => positions[a.id].y - positions[b.id].y
-            || positions[a.id].x - positions[b.id].x)[0];
-        const position = first && positions[first.id];
-        if (position) {
-          canvas.scrollLeft = Math.max(0, (position.x - diagramOrigin.x - 24) * transform.k);
-          canvas.scrollTop = Math.max(0, (position.y - diagramOrigin.y - 24) * transform.k);
-        }
+    } else if (ATLAS && !whole && (renderedScene?.componentOverview || renderedScene?.moduleOverview)
+        && (canvas.scrollWidth > canvas.clientWidth + 1 || canvas.scrollHeight > canvas.clientHeight + 1)) {
+      // Issue 1618: a diagram larger than the view at the readable zoom opens at its top-left box;
+      // the faded edges and the hint say that it goes on.
+      const first = renderedScene.nodes
+        .filter((node) => positions[node.id])
+        .sort((a, b) => positions[a.id].x + positions[a.id].y - positions[b.id].x - positions[b.id].y)[0];
+      const position = first && positions[first.id];
+      if (position) {
+        canvas.scrollLeft = Math.max(0, (position.x - diagramOrigin.x - 24) * transform.k);
+        canvas.scrollTop = Math.max(0, (position.y - diagramOrigin.y - 24) * transform.k);
       }
     }
+    markOverflow();
   }
+
+  // The sides of the canvas with more of the diagram beyond them (issue 1618).
+  function markOverflow() {
+    const more = [];
+    if (canvas.scrollLeft > 1) more.push("left");
+    if (canvas.scrollLeft + canvas.clientWidth < canvas.scrollWidth - 1) more.push("right");
+    if (canvas.scrollTop > 1) more.push("top");
+    if (canvas.scrollTop + canvas.clientHeight < canvas.scrollHeight - 1) more.push("bottom");
+    const value = more.join(" ");
+    if (root.dataset.overflow !== value) root.dataset.overflow = value;
+  }
+  canvas.addEventListener("scroll", markOverflow, { passive: true });
 
   function zoomBy(factor) {
     cancelPointerTap();
