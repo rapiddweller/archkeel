@@ -75,7 +75,10 @@ pub use door_reach::{Applied, DoorProblem, Doors};
 mod edges;
 mod gap_class;
 mod gap_effects;
-pub use gap_effects::assumed;
+mod premises;
+pub use premises::{
+    kind_word, of_kind_word, premise_words, rule_premises, PremiseKind, UsedPremise,
+};
 mod gaps;
 mod graph;
 mod ids;

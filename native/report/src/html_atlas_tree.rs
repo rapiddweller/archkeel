@@ -199,10 +199,11 @@ impl Tree {
             };
             nodes.push(component_node(component, parent));
         }
+        // Before the groups: many directory boxes of one component are grouped by their path
+        // prefix. A component is grouped by its own name, never by the names of its boxes.
+        let directories = super::atlas_dirs::split(&mut nodes, topology, &index);
         super::atlas_groups::limit(&mut nodes);
         super::atlas_members::aggregate(&mut nodes);
-        // After the groups of the components: a directory box never moves its component.
-        let directories = super::atlas_dirs::split(&mut nodes, topology, &index);
         let owner: BTreeMap<String, usize> = topology
             .modules
             .iter()

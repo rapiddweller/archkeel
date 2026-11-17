@@ -209,6 +209,7 @@ impl<'m> Writer<'m, '_> {
             qualname,
             id,
             class_names: None,
+            slots: Some(HashSet::new()),
         });
         self.push(Def::Function(node), (holder, node.name.as_str()), fact)
     }
@@ -432,6 +433,7 @@ impl<'m> Writer<'m, '_> {
                 qualname: format!("{qualname}.{name}"),
                 id: own.clone(),
                 class_names: Some(bound.names()),
+                slots: members::slots(&node.body),
             });
             found.push((record, own));
         }

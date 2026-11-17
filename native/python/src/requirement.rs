@@ -95,6 +95,29 @@ fn target(
     ))
 }
 
+/// True when the project can run on Python 3.14 or later, where a method annotation reads the
+/// class namespace when it is evaluated (PEP 649, #1523): the run reads it as 3.14, or its
+/// `requires-python` range does not end at or below 3.14. A range that the collector cannot read
+/// can allow 3.14. Without a range, a `python` setting below 3.14 is the statement of the project.
+pub(crate) fn lazy_annotations(
+    snapshot: &mut Snapshot,
+    settings: &PythonSettings,
+    minor: u8,
+) -> bool {
+    if minor >= 14 {
+        return true;
+    }
+    match requirement(snapshot) {
+        (Some(required), _) => {
+            bounds(&required).is_none_or(|(_, upper)| upper.is_none_or(|end| end > [3, 14, 0]))
+        }
+        (None, RequirementState::MetadataMissing | RequirementState::RequirementMissing) => {
+            settings.python.is_none()
+        }
+        (None, _) => true,
+    }
+}
+
 /// The lowest version that the collector supports.
 const LOWEST: [u32; 3] = [3, 11, 0];
 

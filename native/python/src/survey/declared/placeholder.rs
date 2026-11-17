@@ -12,7 +12,7 @@ use archkeel_facts::{ImportFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, Stmt, StmtClassDef, StmtFunctionDef};
 
-use super::shape_names::Names;
+use super::shape_names::{Hidden, Names};
 use crate::module::Module;
 use crate::survey::binders::Binders;
 
@@ -90,7 +90,7 @@ impl Declarations<'_> {
         arguments
             .args
             .iter()
-            .any(|base| match self.names.binding(base, &HashSet::new()) {
+            .any(|base| match self.names.binding(base, &Hidden::default()) {
                 Binding::Builtin { .. } => false,
                 Binding::Imported { target }
                     if target == "typing.Protocol" || target == "typing_extensions.Protocol" =>

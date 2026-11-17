@@ -159,7 +159,18 @@ is FAIL. It is UNKNOWN instead when a use may exist that the facts do not show:
   is judged by its name like any other item: the fix is a leading underscore or
   deletion.
 
-A PASS needs a collector that states every public symbol.
+A PASS needs a collector that states every public symbol. A PASS that holds only
+because of an `external_users` entry is never a plain PASS: it reads
+"PASS assuming N stated external users" (AD-764).
+
+Contract **3.17.0** adds `declarations.premises` (AD-764): the premises that the
+contract states by name, each with an `id`, a `name`, a `rationale` and a
+`provenance`. A premise is a claim about what the scan cannot see, never a proof.
+A rule that rests on a premise reads "PASS assuming <premise>" in the text, the
+frame (`premises`, `assuming`) and the report. The names that the core knows:
+`standard_library_unchanged` ("an unchanged standard library"; no rule rests on
+it yet). An unknown name refuses the contract. A declared door reach (AD-664) and
+a stated external user are premises of the same kind, with their own keys.
 
 Core and reports share immutable typed selections, including all packages and exact
 modules of a uniquely selected legacy component pair. Component display labels do

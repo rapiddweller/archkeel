@@ -20,11 +20,14 @@ fn title(frame: &Frame, places: &Places) -> String {
     );
     let pass = frame.rules_with(RuleVerdict::Pass);
     match frame.status {
-        Some(Status::Pass) if !frame.assumed.is_empty() => format!(
-            "All {} hold; {} {}",
+        Some(Status::Pass) if !frame.premises.is_empty() => format!(
+            "All {} hold; {} hold assuming {}",
             count(pass, "rule"),
-            frame.assumed.len(),
-            super::rules::qualifier(frame.doors).replacen("PASS", "hold", 1)
+            frame.premises.len(),
+            frame
+                .assuming
+                .as_deref()
+                .unwrap_or("a premise of the contract")
         ),
         Some(Status::Pass) => format!("All {} hold", count(pass, "rule")),
         // An unported rule or a named gap has no row: it is no UNKNOWN row, and it is not
@@ -64,17 +67,28 @@ fn premise(frame: &Frame) -> String {
     )
 }
 
-/// The premise of the declared door reaches (AD-664): a PASS under it is never a plain PASS.
+/// The premises of the contract (AD-664, #1549): a PASS under one is never a plain PASS.
 fn doors(frame: &Frame) -> String {
-    if frame.doors == 0 {
+    let Some(qualifier) = super::rules::qualifier(frame) else {
         return String::new();
-    }
-    let qualifier = super::rules::qualifier(frame.doors);
+    };
     format!(
-        "<p class=\"body-sm ak-verdict__note\">{qualifier}: {} hold only under the declared \
-reach of the door sites; the reach is a premise of the contract, not a proof.</p>",
-        count(frame.assumed.len(), "rule")
+        "<p class=\"body-sm ak-verdict__note\">{}: {} hold only under these premises of the \
+contract; a premise is not a proof.</p>",
+        escape(&qualifier),
+        count(frame.premises.len(), "rule")
     )
+}
+
+/// The word of the badge: `PASS assuming <premises>` for a PASS that rests on a premise of the
+/// contract (#1549), else the word of the status.
+fn badge(frame: &Frame) -> String {
+    match super::rules::qualifier(frame) {
+        Some(qualified) if frame.status == Some(Status::Pass) && !frame.premises.is_empty() => {
+            escape(&qualified)
+        }
+        Some(_) | None => run_word(frame.status).to_owned(),
+    }
 }
 
 /// How many calls the core resolved and what an unresolved call does to a verdict (#1327). The
@@ -271,7 +285,7 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
 ",
         run_word(frame.status),
         status_icon(status),
-        run_word(frame.status),
+        badge(frame),
         escape(&title(frame, places)),
         note(frame.status),
         stat("Rules PASS", frame.rules_with(RuleVerdict::Pass)),

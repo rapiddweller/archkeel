@@ -57,6 +57,10 @@ closed! {
         Unbound = "unbound",
         /// A chain of attributes that is not one name of one plain module import.
         Dotted = "dotted",
+        /// On Python 3.14 a method annotation reads the class namespace when it is evaluated
+        /// (PEP 649), and that namespace can hold the name: a `__slots__` entry, an attribute
+        /// write, or a `setattr` with a computed name (#1523).
+        LazyClassNamespace = "lazy_class_namespace",
     }
 }
 

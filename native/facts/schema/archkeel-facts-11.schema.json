@@ -2540,6 +2540,11 @@
           "type": "string",
           "const": "dotted",
           "description": "A chain of attributes that is not one name of one plain module import."
+        },
+        {
+          "type": "string",
+          "const": "lazy_class_namespace",
+          "description": "On Python 3.14 a method annotation reads the class namespace when it is evaluated\n(PEP 649), and that namespace can hold the name: a `__slots__` entry, an attribute\nwrite, or a `setattr` with a computed name (#1523)."
         }
       ],
       "description": "Why the collector does not prove the binding of a name."
