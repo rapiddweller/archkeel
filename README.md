@@ -172,7 +172,7 @@ The plugin needs the CLI above; it adds the agent skill.
 ```bash
 archkeel validate        # check the contract: exit 0, 1 or 2
 archkeel report --text   # the same frame of the core as a report
-archkeel report --output report.html  # one static page; the parent must exist
+archkeel report --output report.html  # one static page; the parent must exist; the scan leaves it out
 ```
 
 `validate` and `report` need an `archkeel.toml` with `language = "rust"` or `"typescript"` (or

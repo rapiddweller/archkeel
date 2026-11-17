@@ -155,6 +155,29 @@ def _jsonc(path: Path) -> str:
     return re.sub(r",(\s*[}\]])", r"\1", "".join(out))
 
 
+# The outputs that the README names: `report --output report.html` in the project, and the CI
+# artifacts. A page of a report holds script text, so in the scan it holds each rule (#1754).
+_OWN_OUTPUTS = frozenset({"report.html", "test-artifacts"})
+# The collector walks an installed-package folder only as far as an import reaches it; a root
+# there would read the whole folder.
+_NOT_ROOTS = _OWN_OUTPUTS | {".git", "node_modules", "jspm_packages", "bower_components"}
+
+
+def _roots(repo: Path, folder: Path) -> tuple[str, ...]:
+    """The scan roots of a TypeScript project (#1754, AD-822): each folder of the project folder
+    and each code file beside them, as they are at the time of the draft, without ArchKeel's own
+    outputs. An entry made later, such as the page of `archkeel report --output`, is outside the
+    scan. A file root is a module of the scan, so only the code files of the `root` component are
+    roots."""
+    found = tuple(
+        entry.relative_to(repo).as_posix()
+        for entry in sorted(folder.iterdir())
+        if entry.name not in _NOT_ROOTS
+        and (entry.is_dir() or (entry.is_file() and entry.suffix in _code_suffixes()))
+    )
+    return found or (folder.relative_to(repo).as_posix(),)
+
+
 def _typescript_project(repo: Path, folder: Path) -> Layout:
     """One component for each folder of the project that holds code; the folders inside `src`
     count instead of `src` itself. The files beside them are the component `root`.
@@ -211,5 +234,5 @@ def _typescript_project(repo: Path, folder: Path) -> Layout:
         parts.append(Part("root", modules=tuple(selector(path) for path in own)))
     if not parts:
         raise _refuse(f"no TypeScript or JavaScript code in {folder.relative_to(repo).as_posix()}")
-    scan = folder.relative_to(repo).as_posix()
-    return Layout("typescript", namespace, (scan,), tuple(parts), _tsconfig(repo, folder) + _TESTS)
+    roots = _roots(repo, folder)
+    return Layout("typescript", namespace, roots, tuple(parts), _tsconfig(repo, folder) + _TESTS)
