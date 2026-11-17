@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ("GRAPH", "assets/explorer/report-graph-scene.js"),
         ("ATLAS", "assets/explorer/report-atlas-deviations.js"),
         ("SCENE", "assets/explorer/report-scene.js"),
-        ("ROUTES", "assets/explorer/report-routes.js"),
+        ("PLACEMENT", "assets/explorer/report-placement.js"),
         ("LAYOUT", "assets/explorer/report-layout.js"),
         ("FLOW", "assets/explorer/flow.runtime.js"),
         ("CANVAS", "assets/explorer/report-canvas.js"),

@@ -47,8 +47,8 @@ const FILES: [(&str, &str); 11] = [
         include_str!("../assets/explorer/report-layout.js"),
     ),
     (
-        "report-routes.js",
-        include_str!("../assets/explorer/report-routes.js"),
+        "report-placement.js",
+        include_str!("../assets/explorer/report-placement.js"),
     ),
     (
         "report-graph-scene.js",
@@ -240,7 +240,8 @@ fn explorer_spacing_and_radius_that_a_token_names_use_the_token() {
 
 #[test]
 fn the_layout_wraps_rows_only_for_boxes_without_a_layer_order() {
-    let layout = include_str!("../assets/explorer/report-layout.js");
+    // The ELK options of the placement (report-placement.js since the split of report-layout.js).
+    let layout = include_str!("../assets/explorer/report-placement.js");
     // A chain or a set of boxes with no edge fills the view in rows; a layer order stays layered.
     assert!(layout.contains("\"elk.layered.wrapping.strategy\": \"MULTI_EDGE\""));
     assert!(layout.contains("!nodes.some((node) => node.id.startsWith(\"LAYER:\"))"));

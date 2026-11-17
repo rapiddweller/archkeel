@@ -40,9 +40,9 @@ pub(super) const SCRIPTS: [(&str, &str, &str); 9] = [
         env!("REPORT_SCENE_HASH"),
     ),
     (
-        include_str!("../assets/explorer/report-routes.js"),
-        " data-report-asset=\"routes\"",
-        env!("REPORT_ROUTES_HASH"),
+        include_str!("../assets/explorer/report-placement.js"),
+        " data-report-asset=\"placement\"",
+        env!("REPORT_PLACEMENT_HASH"),
     ),
     (
         include_str!("../assets/explorer/report-layout.js"),

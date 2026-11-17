@@ -158,7 +158,7 @@
       "packages": [],
       "exact_modules": [
         "browser.native.report.assets.explorer.report_x2d_layout_x2e_js",
-        "browser.native.report.assets.explorer.report_x2d_routes_x2e_js"
+        "browser.native.report.assets.explorer.report_x2d_placement_x2e_js"
       ],
       "public": [
         "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:routeUmlRelationships",
@@ -168,7 +168,7 @@
       ],
       "responsibilities": [
         "Place and route scene inputs; reject incomplete or invalid layout output.",
-        "Route the UML relationships between placed boxes (report-routes.js)."
+        "Place the boxes with the pinned ELK engine (report-placement.js); route the relationships between them (report-layout.js)."
       ],
       "forbidden_responsibilities": [
         "Read DOM state, navigate or derive architecture evidence."
