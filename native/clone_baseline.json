@@ -52,18 +52,18 @@
     "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
     "tokens": 70
   },
-  "model/src/limits.rs|model/src/scope.rs|4106bb7efc": {
+  "model/src/limits.rs|model/src/scope_receipt.rs|4106bb7efc": {
     "files": [
       "model/src/limits.rs",
-      "model/src/scope.rs"
+      "model/src/scope_receipt.rs"
     ],
     "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
     "tokens": 70
   },
-  "model/src/limits.rs|model/src/scope.rs|644e3ad373": {
+  "model/src/limits.rs|model/src/scope_receipt.rs|644e3ad373": {
     "files": [
       "model/src/limits.rs",
-      "model/src/scope.rs"
+      "model/src/scope_receipt.rs"
     ],
     "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
     "tokens": 71

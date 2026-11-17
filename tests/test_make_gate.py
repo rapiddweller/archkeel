@@ -128,6 +128,7 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
         "full-verification.yml",
+        "pages.yml",
         "pr-gate.yml",
         "release.yml",
     }
@@ -178,6 +179,19 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
     for bad in ("failure", "cancelled", "skipped"):
         assert run(ok.replace("success", bad, 1)) != 0, bad
     assert run("") != 0
+
+    # AD-736: the message names what happened; a cancelled run is not called a failure.
+    def message(results: str) -> str:
+        env = {**os.environ, "RESULTS": results}
+        done = subprocess.run(
+            ["bash", "-eu", "-c", script], env=env, capture_output=True, text=True
+        )
+        return done.stderr
+
+    assert "cancelled" in message(ok.replace("success", "cancelled", 1))
+    assert "failed" not in message(ok.replace("success", "cancelled", 1))
+    assert "skipped" in message(ok.replace("success", "skipped", 1))
+    assert "failed" in message(ok.replace("success", "failure", 1))
 
 
 def _needs(body: str) -> set[str]:

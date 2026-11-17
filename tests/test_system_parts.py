@@ -141,4 +141,4 @@ def test_the_gallery_links_each_part_of_a_document_with_three_parts_and_each_lin
     for name in ("one", "two", "three"):
         assert f'href="{name}.html"' in page
         part = (out / "self" / f"{name}.html").read_text()
-        assert 'href="index.html">Back to the system report' in part
+        assert '<a href="index.html">System</a>' in part

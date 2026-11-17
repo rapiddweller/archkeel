@@ -130,7 +130,15 @@ def pytest_testnodedown(error: object | None) -> None:
         pytest.exit(f"Test worker crashed: {error}", returncode=1)
 
 
+TIERS = ("pr", "fast", "full")
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--tier",
+        choices=TIERS,
+        help="the gate tier (AD-736): pr and fast check the floor of each area; full checks none",
+    )
     parser.addoption(
         "--area",
         action="append",
@@ -199,9 +207,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
                 raise pytest.UsageError(f"--area={area} is not an area in tests/areas.py")
         kept = [item for item in items if area_of(item.path.name) in wanted]
         # AD-674: an empty or shrunken selection fails; the floor of a tier may only rise.
-        expression = str(config.getoption("markexpr"))
-        tier = "pr" if "not debug_build" in expression else "fast"
-        if "not slow" in expression:
+        tier = config.getoption("tier")
+        if tier in ("pr", "fast"):
             skipped = {"slow", "debug_build", "heavy"} if tier == "pr" else {"slow"}
             floors = _floors(tier)
             for area in wanted:

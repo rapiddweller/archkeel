@@ -90,6 +90,13 @@ impl Profile {
         }
     }
 
+    /// True when the collector of this profile states each public module-level item that it reads
+    /// as a symbol record, and gives a gap or a record with an unread name for each one that it
+    /// cannot read (AD-670, AD-718). `unused_public` needs it for a PASS.
+    pub fn public_symbols(self) -> bool {
+        !matches!(self, Profile::Dart)
+    }
+
     /// True when a public signature of this language needs public types (AD-670): a type that a
     /// used public item names in its signature may have to stay public although no other part
     /// names it (Rust `private_interfaces`, TypeScript declaration emit). In Python and Dart the

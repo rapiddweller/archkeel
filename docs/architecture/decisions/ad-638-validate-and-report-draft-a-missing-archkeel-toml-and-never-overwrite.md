@@ -18,7 +18,7 @@ only, with no next step, and that `init` read only one Python package.
    components from your package layout. ... Review the open decisions listed below, then run
    archkeel validate again."). Then the run is a normal run with the new files. The first verdict
    is UNKNOWN with the open decisions, never a PASS and never a refusal.
-3. No write: `--no-init`, `ARCHKEEL_NO_INIT=1` (any value but empty or `0`), and a folder that
+3. No write: `--no-init`, `ARCHKEEL_NO_INIT=1` (any value but empty, `0`, `false`, `no` or `off`; AD-735), and a folder that
    cannot be written. The run stops with exit 2 (`invalid_input`) and says: no file written, why,
    what the layout would give (language, namespace, components), and `archkeel init` to save it.
 4. `init` reads more layouts, by folder layout only (no source): one component per subpackage of

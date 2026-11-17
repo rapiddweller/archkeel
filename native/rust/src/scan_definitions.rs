@@ -68,6 +68,19 @@ pub(super) fn define_item(walker: &mut Walker<'_>, item: &Item) {
         Item::Static(s) => (Form::Static, &s.ident, &s.vis),
         Item::Type(t) => (Form::Alias, &t.ident, &t.vis),
         Item::Macro(m) => return define_macro(walker, m),
+        Item::ForeignMod(block) => return foreign_items(walker, block),
+        // syn reads no item of this form (a nightly `pub macro`, a future item): it may
+        // declare a public symbol that no record states (#1450).
+        Item::Verbatim(tokens) => {
+            let span = tokens
+                .clone()
+                .into_iter()
+                .next()
+                .map_or(proc_macro2::Span::call_site(), |t| t.span());
+            let reason =
+                "An item that the scan cannot parse may declare a public symbol".to_owned();
+            return super::attributes::concern(walker, reason, span);
+        }
         _ => return,
     };
     let mut found = definition(walker, form, ident, access(vis));
@@ -95,6 +108,20 @@ pub(super) fn definition(
         variants: Vec::new(),
         receiver: false,
         is_async: false,
+    }
+}
+
+/// The functions and statics of an `extern` block are items of the module (#1450).
+fn foreign_items(walker: &mut Walker<'_>, block: &syn::ItemForeignMod) {
+    for item in &block.items {
+        let (form, ident, vis) = match item {
+            syn::ForeignItem::Fn(f) => (Form::Function, &f.sig.ident, &f.vis),
+            syn::ForeignItem::Static(s) => (Form::Static, &s.ident, &s.vis),
+            syn::ForeignItem::Type(t) => (Form::Alias, &t.ident, &t.vis),
+            _ => continue,
+        };
+        let found = definition(walker, form, ident, access(vis));
+        walker.out.definitions.push(found);
     }
 }
 

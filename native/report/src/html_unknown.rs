@@ -12,6 +12,8 @@ use super::cases::Names;
 use super::causes::{grouped, title, Cause};
 use super::frame::Frame;
 use super::markup::{count, escape, status_icon};
+use super::status::{cause, Shown};
+use crate::head::{RuleVerdict, Status};
 
 /// The most cards, rows and rule ids that the page shows.
 const MAX_CARDS: usize = 12;
@@ -170,7 +172,7 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
         "<article class=\"rp-cause\"><div class=\"rp-cause__head\"><h3 class=\"h3\">{}</h3>\
 <span class=\"ak-badge ak-badge--unknown tag\">{}{}</span></div>",
         escape(&title(found)),
-        status_icon("UNKNOWN"),
+        status_icon(Shown::Unknown),
         badge
     );
     if let Some(line) = advice(found.kind) {
@@ -208,7 +210,9 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
             ));
         }
     }
-    if ["other", "named", "scoped_gaps"].contains(&found.kind) {
+    // The fold is offered only when it adds something: a reason that the title already says whole
+    // is not repeated.
+    if ["other", "named", "scoped_gaps"].contains(&found.kind) && found.reason != title(found) {
         html.push_str(&format!(
             "<details class=\"rp-fold\"><summary class=\"caption\">What the core says</summary><p class=\"rp-fold__body\">{}</p></details>",
             escape(found.reason)
@@ -239,8 +243,11 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
 /// The section of the causes, or nothing when no rule is UNKNOWN and the run is decided.
 pub(super) fn section(frame: &Frame, names: &Names<'_>) -> String {
     let mut cards = grouped(frame);
-    let unknown = frame.rules_with("UNKNOWN");
-    if cards.is_empty() && frame.status != "UNKNOWN" {
+    let unknown = frame.rules_with(RuleVerdict::Unknown);
+    // A decided run without a cause has no section; an open run and a frame without a status
+    // name their cause (AD-730).
+    let decided = matches!(frame.status, Some(Status::Pass | Status::Fail));
+    if cards.is_empty() && decided {
         return String::new();
     }
     let total = cards.len();
@@ -272,7 +279,7 @@ pub(super) fn section(frame: &Frame, names: &Names<'_>) -> String {
         html.push_str(&format!(
             "<article class=\"rp-cause\"><div class=\"rp-cause__head\"><h3 class=\"h3\">The run itself is open</h3></div>\
 <p class=\"body-sm\">{}</p></article>",
-            escape(&frame.cause)
+            escape(cause(frame))
         ));
     }
     html.push_str("</section>\n");
