@@ -79,11 +79,14 @@ def test_an_open_red_run_counts_to_now_and_a_day_without_runs_gives_n_a() -> Non
 
 
 def test_ci_runs_on_main_only_and_a_newer_push_cancels_the_older_run() -> None:
-    """Pipelines run on main only (AD-348): no pull_request trigger and no draft guard."""
+    """The main and nightly tiers have no pull_request trigger and no draft guard (AD-674)."""
     workflows = Path(__file__).parents[1] / ".github/workflows"
-    group = "  group: ${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: true\n"
+    group = (
+        "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}\n"
+        "  cancel-in-progress: true\n"
+    )
     for name in ("ci.yml", "full-verification.yml"):
         text = (workflows / name).read_text()
-        assert "pull_request" not in text.split("\njobs:\n", 1)[0], name
+        assert "pull_request:" not in text.split("\nconcurrency:\n", 1)[0], name
         assert "draft" not in text, name
         assert group in text, name

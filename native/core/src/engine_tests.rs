@@ -79,7 +79,12 @@ pub(crate) fn golden_reply_with(change: impl FnOnce(&mut Value)) -> Vec<u8> {
     value["facts"]["source"]["git_head"] = json!("a");
     value["facts"]["source"]["dirty"] = json!(false);
     value["facts"]["provider_bindings"] = json!([]);
-    value["protocol_version"] = json!("9.0.0");
+    value["protocol_version"] = json!("11.0.0");
+    // The golden form drops the validation table of the collector (AD-688); put it back.
+    value["facts"]["validation"] = serde_json::from_str(include_str!(
+        "../../../tests/golden/typescript/validation.json"
+    ))
+    .unwrap_or_default();
     value["provider_sources"] = json!([]);
     change(&mut value);
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());

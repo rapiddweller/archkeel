@@ -51,7 +51,8 @@ def source() -> str:
         "/// The Unicode version of the table; the Python shell test compares it with its own.\n"
         "#[cfg(test)]\n"
         f'pub(crate) const UNICODE_VERSION: &str = "{unicodedata.unidata_version}";\n\n'
-        "/// Sorted, inclusive and disjoint ranges in hexadecimal: `low-high`, separated by spaces.\n"
+        "/// Sorted, inclusive and disjoint ranges in hexadecimal: `low-high`, "
+        "separated by spaces.\n"
         "#[rustfmt::skip]\n"
         'pub(crate) const HIDDEN: &str = "\\\n'
         f'{body}";\n'

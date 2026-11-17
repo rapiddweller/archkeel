@@ -115,55 +115,6 @@
     },
     {
       "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.python",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.python",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.registered",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.registered",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.registered",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.registered",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.registered",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
       "source": "native.archkeel_store.validate",
       "target": "native.archkeel_facts.envelope",
       "cause": "forbidden dependency",
@@ -200,20 +151,6 @@
     {
       "rule": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
       "source": "native.archkeel_store.dart",
-      "target": "native.archkeel_store.python",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
-      "source": "native.archkeel_store.registered",
-      "target": "native.archkeel_store.python",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
-      "source": "native.archkeel_store.validate",
       "target": "native.archkeel_store.python",
       "cause": "forbidden dependency",
       "issue": 1384
