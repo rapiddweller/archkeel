@@ -31,7 +31,7 @@ fn reply_of(files: &[(&str, &str)]) -> archkeel_facts::envelope::Reply {
 }
 
 #[test]
-fn the_typed_reply_declares_imports_unknowns_and_symbols() {
+fn the_typed_reply_declares_imports_unknowns_symbols_and_sites() {
     let reply = reply_of(&[
         ("pubspec.yaml", "name: shop\nenvironment:\n  sdk: ^3.4.0\n"),
         ("lib/a.dart", "import 'b.dart';\nimport 'dart:io';\n"),
@@ -44,7 +44,9 @@ fn the_typed_reply_declares_imports_unknowns_and_symbols() {
         [
             SectionName::Imports,
             SectionName::Unknowns,
-            SectionName::Symbols
+            SectionName::Symbols,
+            SectionName::Calls,
+            SectionName::References
         ]
     );
     assert!(facts.capabilities.resolution_features.is_empty());

@@ -23,10 +23,6 @@ pub(crate) fn is_name(text: &str) -> bool {
 }
 
 /// The identifier at the start of `text` after white space (`_type_name`).
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "AD-796 S2 reads the type name of a site")
-)]
 pub(crate) fn type_name(text: &str) -> Option<&str> {
     let text = text.trim_start();
     let end = text

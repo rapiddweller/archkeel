@@ -18,16 +18,24 @@
 //! A name of a library outside the snapshot has no binding here, so it stays unresolved.
 
 mod answers;
+mod construct;
 mod formals;
+mod lexical;
+mod members;
 mod namespace;
 mod params;
+mod receivers;
+mod sites;
 pub(crate) mod types;
 
 use std::collections::BTreeMap;
 
+use crate::collection::types::BindingKind;
 use crate::import_survey::index::{Index, Kind, Owners};
 use crate::import_survey::uri::{classify, Uri};
-use crate::syntax::{Definition, DefinitionKind, Directive, DirectiveKind, Span, Syntax};
+use crate::syntax::{
+    Definition, DefinitionKind, Directive, DirectiveKind, MemberKind, Span, Syntax,
+};
 
 /// One top-level declaration of a module, in the file that writes it.
 #[derive(Clone, Copy)]
@@ -56,9 +64,48 @@ pub(crate) struct Bound {
     pub(crate) span: Span,
     pub(crate) module: String,
     pub(crate) name: String,
-    pub(crate) kind: DefinitionKind,
+    pub(crate) kind: BindingKind,
     pub(crate) via_prefix: Option<String>,
     pub(crate) id: String,
+}
+
+impl Bound {
+    /// True for a binding of a class-like declaration.
+    pub(crate) fn class_like(&self) -> bool {
+        matches!(
+            self.kind,
+            BindingKind::Class | BindingKind::Interface | BindingKind::Enum | BindingKind::Mixin
+        )
+    }
+}
+
+/// The binding kind of a top-level declaration.
+pub(crate) fn definition_binding(kind: DefinitionKind) -> BindingKind {
+    match kind {
+        DefinitionKind::Class => BindingKind::Class,
+        DefinitionKind::Interface => BindingKind::Interface,
+        DefinitionKind::Mixin => BindingKind::Mixin,
+        DefinitionKind::Enum => BindingKind::Enum,
+        DefinitionKind::Extension => BindingKind::Extension,
+        DefinitionKind::ExtensionType => BindingKind::ExtensionType,
+        DefinitionKind::Typedef => BindingKind::Typedef,
+        DefinitionKind::Function => BindingKind::Function,
+        DefinitionKind::Getter => BindingKind::Getter,
+        DefinitionKind::Setter => BindingKind::Setter,
+        DefinitionKind::Variable => BindingKind::Variable,
+    }
+}
+
+/// The binding kind of a member of a class.
+pub(crate) fn member_binding(kind: MemberKind) -> BindingKind {
+    match kind {
+        MemberKind::Field => BindingKind::Field,
+        MemberKind::Method => BindingKind::Method,
+        MemberKind::Constructor => BindingKind::Constructor,
+        MemberKind::Getter => BindingKind::Getter,
+        MemberKind::Setter => BindingKind::Setter,
+        MemberKind::Operator => BindingKind::Operator,
+    }
 }
 
 /// The type arguments of a class for its type parameters, in the order of the parameters.
@@ -92,6 +139,8 @@ pub(crate) struct Resolver<'a> {
     definitions: BTreeMap<&'a str, Vec<Decl<'a>>>,
     imports: BTreeMap<&'a str, Vec<(usize, &'a Directive)>>,
     exports: BTreeMap<&'a str, Vec<(usize, &'a Directive)>>,
+    /// The parts of each library, by source index.
+    parts: BTreeMap<usize, Vec<usize>>,
 }
 
 impl<'a> Resolver<'a> {
@@ -138,6 +187,10 @@ impl<'a> Resolver<'a> {
                 .or_default()
                 .extend(of(DirectiveKind::Export).map(|item| (at, item)));
         }
+        let mut parts: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+        for (part, library) in owners {
+            parts.entry(*library).or_default().push(*part);
+        }
         Self {
             index,
             syntax,
@@ -145,6 +198,7 @@ impl<'a> Resolver<'a> {
             definitions,
             imports,
             exports,
+            parts,
         }
     }
 
@@ -203,7 +257,7 @@ impl<'a> Resolver<'a> {
         Bound {
             module: decl.module.to_owned(),
             name: decl.definition.name.clone(),
-            kind: decl.definition.kind,
+            kind: definition_binding(decl.definition.kind),
             via_prefix: prefix.map(str::to_owned),
             id: self.identity(decl),
             at: decl.at,
@@ -238,7 +292,7 @@ impl<'a> Resolver<'a> {
     }
 
     /// The target of one URI of a directive in the file `importer`.
-    fn target(&self, importer: &str, uri: &str) -> Option<Target> {
+    pub(crate) fn target(&self, importer: &str, uri: &str) -> Option<Target> {
         let (module, package, at, builtin) = match classify(importer, uri, self.index.package) {
             Uri::Builtin(module) => (module, "dart".to_owned(), None, true),
             Uri::External { package, module } => (module, package, None, false),

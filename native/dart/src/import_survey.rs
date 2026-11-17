@@ -82,6 +82,10 @@ pub(crate) struct Survey {
     pub evidence: Vec<Evidence>,
     /// The symbol records of the libraries and parts (AD-796), sorted by id.
     pub symbols: Vec<Record<archkeel_facts::SymbolFact>>,
+    /// The call records of the sites (AD-796 S3), sorted by id.
+    pub calls: Vec<Record<archkeel_facts::CallFact>>,
+    /// The reference records of the sites (AD-796 S3), sorted by id.
+    pub references: Vec<Record<archkeel_facts::ReferenceFact>>,
 }
 
 /// The survey of `request`. An error is a refusal of the whole request, never a partial survey.
@@ -147,6 +151,8 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
         named,
         evidence: gaps.evidence.into_values().collect(),
         symbols: collected.symbols,
+        calls: collected.calls,
+        references: collected.references,
     })
 }
 

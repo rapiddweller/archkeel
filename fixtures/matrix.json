@@ -46,7 +46,7 @@
     "H-uml-dart": {
       "language": "dart",
       "runs": [
-      {"name": "H-uml-dart", "section": "clean", "intent": "PASS", "blocked_by": [1533, 1532], "about": "A Dart UML target with four inside contracts.", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 4, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "H-uml-dart", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "A Dart UML target with four inside contracts.", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 5, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-typescript": {

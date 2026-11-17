@@ -161,12 +161,13 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - The core compares the module and import part of `declarations.uml` (AD-494) and the symbol part
-  for TypeScript (AD-512) and, for the declarations only, for Python (AD-518) and Dart (AD-796).
-  Rust gives no symbol facts, and Python and Dart give no site (base, call, reference, `creates`,
-  `instance_of`), so a relationship of a Python or Dart target is UNKNOWN with the cause "the python
-  collector states no symbol sites" (H-uml and H-uml-dart stay UNKNOWN). A Dart class inventory is
-  `partial` when a mixin application, a part of the library or a project extension can add a
-  member that the class body does not show. A Python declaration is written only for a class, function, method
+  for TypeScript (AD-512) and Dart (AD-796) and, for the declarations only, for Python (AD-518).
+  Rust gives no symbol facts, and Python gives no site (base, call, reference, `creates`,
+  `instance_of`), so a relationship of a Python target is UNKNOWN with the cause "the python
+  collector states no symbol sites" (H-uml stays UNKNOWN). A Dart class inventory is `partial` when
+  a mixin application, a part of the library or a project extension can add a member that the class
+  body does not show. A Dart site binds only a declaration of the snapshot: a member that only a
+  base outside it can declare stays unresolved. A Python declaration is written only for a class, function, method
   or class attribute that one plain statement binds once; a second binder (`if`, `try`, `for`,
   `with`, `del`, `global`, walrus, `match`, star import), a decorator other than the builtin
   `staticmethod` or `classmethod`, a keyword or an unproven base, a hazard site or a write from
@@ -180,7 +181,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   (AD-770). Open: a write through `globals()` of another module.
   Every Python member list is `partial`. A target
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
-  passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an
+  passes with symbol facts (H-uml) exits 2. A FAIL for a conflict, a missing base or an
   extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.
   A missing symbol, call or reference is UNKNOWN, never FAIL. A planned member that the matched class lacks is
   UNKNOWN too, where 4.0.1 gives FAIL (AD-512): the collector states no complete member table. A closed scope without an extra

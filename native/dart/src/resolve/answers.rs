@@ -6,20 +6,18 @@
 //! name that a base or a type alias writes, each site and each construction. The collection
 //! asks only for these keys, and a missing key stops it (`CollectionInputGap`).
 //!
-//! S1 of AD-796 resolves the directives and the names. It gives no site a binding: each site and
-//! each construction is `unknown`, and the reply writes no call and no reference section.
+//! S2 of AD-796 resolves each site and each construction (`sites.rs`, `construct.rs`).
 
 use std::collections::BTreeSet;
 
-use super::{class_like, Resolver};
+use super::{class_like, Bound, Resolver};
 use crate::collection::types::{
-    Answers, Construction, ConstructionAnswer, DirectiveAnswer, DirectiveTarget, NameAnswer,
-    Resolution, ResolvedSite, SitesAnswer,
+    Answers, Binding, Construction, ConstructionAnswer, DirectiveAnswer, DirectiveTarget,
+    NameAnswer, ResolvedSite, SitesAnswer,
 };
-use crate::syntax::{Definition, DefinitionKind, DirectiveKind, Site, SiteKind, SiteUse, Syntax};
-
-/// Why a site of S1 has no binding.
-const UNREAD: &str = "the resolver does not read sites yet (AD-796 S1)";
+use crate::syntax::{
+    Definition, DefinitionKind, DirectiveKind, Site, SiteKind, SiteUse, Syntax, Visibility,
+};
 
 impl Resolver<'_> {
     /// The answers for each source with a module and a full parse.
@@ -73,15 +71,21 @@ impl Resolver<'_> {
                 targets: self.resolve_name(at, name),
             });
         }
-        let sites = parsed.sites.iter().flat_map(unread_sites).collect();
-        let mut constructions = BTreeSet::new();
-        for site in parsed
+        let sites = parsed
             .sites
             .iter()
-            .filter(|site| matches!(site.kind, SiteKind::Call | SiteKind::Creation))
-        {
+            .flat_map(|site| self.site_answers(at, site))
+            .collect();
+        let mut constructions = BTreeSet::new();
+        let built = parsed
+            .sites
+            .iter()
+            .filter(|site| matches!(site.kind, SiteKind::Call | SiteKind::Creation));
+        for site in built {
             if constructions.insert((site.span.start_byte, String::as_str(&site.expression))) {
-                answers.constructions.push(unread_construction(&rel, site));
+                answers
+                    .constructions
+                    .push(self.construction_answer(at, &rel, site));
             }
         }
         answers.sites.push(SitesAnswer { rel, sites });
@@ -105,35 +109,54 @@ fn written_names(definition: &Definition) -> Vec<&str> {
     names
 }
 
-/// The answers of one site without a binding; a read-write reference gives a read and a write.
-fn unread_sites(site: &Site) -> Vec<ResolvedSite> {
-    let uses = if site.kind == SiteKind::Reference && site.r#use == SiteUse::ReadWrite {
-        vec![SiteUse::Read, SiteUse::Write]
-    } else {
-        vec![site.r#use]
-    };
-    uses.into_iter()
-        .map(|used| {
-            let mut site = site.clone();
-            site.r#use = used;
-            ResolvedSite {
-                site,
-                status: Resolution::Unknown,
-                bindings: Vec::new(),
-            }
-        })
-        .collect()
-}
+impl Resolver<'_> {
+    /// The answers of one site; a read-write reference gives a read and a write.
+    fn site_answers(&self, at: usize, site: &Site) -> Vec<ResolvedSite> {
+        let uses = if site.kind == SiteKind::Reference && site.r#use == SiteUse::ReadWrite {
+            vec![SiteUse::Read, SiteUse::Write]
+        } else {
+            vec![site.r#use]
+        };
+        uses.into_iter()
+            .map(|used| {
+                let mut site = site.clone();
+                site.r#use = used;
+                let (status, bound) = self.site(at, &site);
+                let bindings = bound.iter().map(|item| self.binding(item)).collect();
+                ResolvedSite {
+                    site,
+                    status,
+                    bindings,
+                }
+            })
+            .collect()
+    }
 
-fn unread_construction(rel: &str, site: &Site) -> ConstructionAnswer {
-    ConstructionAnswer {
-        rel: rel.to_owned(),
-        start: site.span.start_byte,
-        expression: site.expression.clone(),
-        resolution: Construction {
-            status: Resolution::Unknown,
-            binding: None,
-            reason: Some(UNREAD.to_owned()),
-        },
+    fn construction_answer(&self, at: usize, rel: &str, site: &Site) -> ConstructionAnswer {
+        let built = self.construction(at, site);
+        ConstructionAnswer {
+            rel: rel.to_owned(),
+            start: site.span.start_byte,
+            expression: site.expression.clone(),
+            resolution: Construction {
+                status: built.status,
+                binding: built.bound.as_ref().map(|item| self.binding(item)),
+                reason: built.reason.map(str::to_owned),
+            },
+        }
+    }
+
+    /// The typed binding of the collection (`ResolvedBinding`).
+    fn binding(&self, bound: &Bound) -> Binding {
+        Binding {
+            module: bound.module.clone(),
+            name: bound.name.clone(),
+            kind: bound.kind,
+            via_prefix: bound.via_prefix.clone(),
+            declaration_id: bound.id.clone(),
+            rel_path: self.rel(bound.at).to_owned(),
+            span: bound.span.clone(),
+            visibility: Visibility::from_name(&bound.name),
+        }
     }
 }
