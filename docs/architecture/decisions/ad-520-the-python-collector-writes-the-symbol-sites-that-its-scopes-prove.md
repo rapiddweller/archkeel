@@ -21,13 +21,12 @@ twice has no one result. PR #1166 found both on TypeScript; they are rules here 
    only for `name = call()` that `Bound::sole` proves in its function and that no parameter
    shares. A name written twice, a tuple target, an attribute or subscript target, `with`, `for`,
    a walrus and `global` give no binding.
-4. **Callee.** A call is resolved only when its callee is a plain name that is not hidden and
-   names, at module scope, the one sole-bound symbol with a record (AD-518) of this module, or the
-   name of an import that is the sole binder (`survey.sole_binders`) of a symbol with a record
-   in the target module. Everything else is an unresolved site with no target: `self.m()`,
-   `obj.m()`, `super()`, `f()()`, `getattr`, an alias (`h = helper`), a decorated or conditional
-   target, a module path, a name from a star import. A receiver whose type is not proven gives an
-   unresolved `calls` site; PR 3 proves none.
+4. **Callee.** A plain name resolves only when it is not hidden and names one module symbol or
+   imported symbol. A sole, direct, undecorated nested `def` gives a decided call with no target;
+   the model maps this existing status to `ResolutionKind::NotApplicable`. Only a complete run
+   may fail the absent module call. Other forms remain unresolved: `self.m()`, `obj.m()`, `super()`,
+   `f()()`, `getattr`, aliases, decorated or conditional targets, module paths, star imports and
+   receivers whose types are not proven.
 5. **Construction.** A call that resolves to a class gives `construction`, `creates` and, for a
    proven result binding, `instance_of`. A class with `__new__` in its body or in a local base,
    or an unproven base, makes it `partial`. `x = A()` writes a binding with the text `A()`; a call
@@ -44,6 +43,13 @@ twice has no one result. PR #1166 found both on TypeScript; they are rules here 
    writes a `type_alias` with the alias text (4.0.1 admits these two; any other value: none).
 
 **Dead sites.** A call under a constant-false test (`False`, `0`, `None`, `""`, `TYPE_CHECKING`; `if`, `elif`, `while`) or after a `return`, `raise`, `continue` or `break` of its block is an unresolved site with a named reason, and a read there is no reference: Python never runs it. 4.0.1 meets the edge, so a met-edge PASS and a closed-scope FAIL both become UNKNOWN (`closed-dead-if-false`). A documented limit never hides a false PASS, also one that 4.0.1 has. Type parameters (PEP 695) hide like parameters; a name `__x` in a method is mangled and no symbol; a class that a write or an escape can change is not `constructible` (rule 5).
+
+**Open sites from issue #1207.** CPython confirms that `call-comprehension`,
+`call-local-import` and `call-nested-def` do not call the module helper; `ctl-absent` makes no call.
+The tests execute these sources. The sole direct nested `def` now gives a decided no-target site,
+so a complete run can fail that absent module call. Parameter calls stay UNKNOWN because their
+values can be the module helper or another function. Comprehensions, imports, decorated defs and
+absent sites still lack this proof and stay UNKNOWN.
 
 **Plants** (`tests/test_cli_python_sites.py`, pinned against 4.0.1, truth PASS or DIFF each): a
 callee hidden by a parameter, local, `for`, `with`, walrus, comprehension, lambda parameter,

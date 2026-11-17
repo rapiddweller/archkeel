@@ -186,11 +186,29 @@ pub(crate) fn relationship(
     if matched {
         return Assessed::Pass;
     }
-    if sites
-        .iter()
-        .any(|site| site.resolution != ResolutionKind::Resolved)
-    {
+    if sites.iter().any(|site| {
+        site.resolution != ResolutionKind::Resolved
+            && site.resolution != ResolutionKind::NotApplicable
+    }) {
         return Assessed::Unknown(format!("unresolved {} site", word(&kind)));
+    }
+    if kind == RelationshipKind::Calls
+        && complete
+        && sites
+            .iter()
+            .any(|site| site.resolution == ResolutionKind::NotApplicable)
+    {
+        let evidence = sites
+            .iter()
+            .filter(|site| site.resolution == ResolutionKind::NotApplicable)
+            .flat_map(|site| site.evidence.clone())
+            .collect();
+        return Assessed::Fail(UmlDiff {
+            subject: edge.id().as_text().to_owned(),
+            fact: format!("{} -> {}", from.name, to.name),
+            cause: "declared call is absent",
+            evidence,
+        });
     }
     if BASES.contains(&kind) && complete && bases_complete(table, &from.id) {
         return Assessed::Fail(UmlDiff {

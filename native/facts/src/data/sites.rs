@@ -38,7 +38,7 @@ facts_data! {
         [read] source_module: ModuleName,
         /// The scope that holds the source.
         [read] source_scope: String,
-        /// The proof state of the record.
+        /// The proof state of the record. A decided call with no targets proves no scanned target.
         [read] status: Status,
         /// The evidence of the targets.
         [read skip] target_evidence_ids: Option<Vec<EvidenceId>>,

@@ -263,3 +263,25 @@ fn a_type_parameter_hides_the_module_symbol_in_its_body_and_its_annotations() {
     let free = "class U:\n    pass\n\n\ndef build() -> U:\n    pass\n";
     assert_eq!(sites_of(free).1, 1);
 }
+
+#[test]
+fn a_nested_function_without_a_module_target_stays_unresolved() {
+    let source = "def run():\n    def helper():\n        pass\n    helper()\n";
+    let calls = sites_of(source).0;
+    let archkeel_facts::CallFact::Calls(data) = &calls[0].data else {
+        panic!("the collector writes a call site");
+    };
+
+    assert_eq!(data.status, archkeel_facts::vocab::Status::Unresolved);
+}
+
+#[test]
+fn a_decorated_nested_function_stays_unresolved() {
+    let source = "def helper():\n    pass\n\n\ndef replace(_):\n    return helper\n\n\ndef run():\n    @replace\n    def helper():\n        pass\n    helper()\n";
+    let calls = sites_of(source).0;
+    let archkeel_facts::CallFact::Calls(data) = &calls[0].data else {
+        panic!("the collector writes a call site");
+    };
+
+    assert_eq!(data.status, archkeel_facts::vocab::Status::Unresolved);
+}

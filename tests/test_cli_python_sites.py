@@ -25,6 +25,70 @@ STRICTER = {("PASS", "UNKNOWN"), ("FAIL", "UNKNOWN")}
 # (equal, PASS to UNKNOWN, FAIL to UNKNOWN, plants). A release FAIL is true but one.
 
 
+@pytest.mark.parametrize(
+    "name",
+    ("call-comprehension", "call-local-import", "call-nested-def", "ctl-absent"),
+)
+def test_python_executes_no_direct_call_to_the_module_helper(name: str) -> None:
+    plant = PLANTS[name]
+    namespace: dict[str, object] = {"len": lambda: None}
+    exec(compile(plant.source, f"<{name}>", "exec"), namespace)
+    calls: list[str] = []
+    namespace["helper"] = lambda: calls.append("module helper")
+
+    run = namespace["run"]
+    assert callable(run)
+    run()
+
+    assert calls == []
+
+
+def test_cpython_nested_def_calls_its_local_function_not_the_module_function() -> None:
+    namespace: dict[str, object] = {}
+    exec(
+        compile(
+            "events = []\n"
+            "def helper(): events.append('module')\n"
+            "def run():\n"
+            "    def helper(): events.append('local')\n"
+            "    helper()\n",
+            "<nested-def>",
+            "exec",
+        ),
+        namespace,
+    )
+
+    run = namespace["run"]
+    assert callable(run)
+    run()
+
+    assert namespace["events"] == ["local"]
+
+
+def test_cpython_parameter_call_can_reach_the_module_function_or_another_target() -> None:
+    namespace: dict[str, object] = {}
+    exec(
+        compile(
+            "events = []\n"
+            "def helper(): events.append('module')\n"
+            "def other(): events.append('other')\n"
+            "def run(target): target()\n",
+            "<dynamic-call>",
+            "exec",
+        ),
+        namespace,
+    )
+
+    run = namespace["run"]
+    helper = namespace["helper"]
+    other = namespace["other"]
+    assert callable(run) and callable(helper) and callable(other)
+    run(helper)
+    run(other)
+
+    assert namespace["events"] == ["module", "other"]
+
+
 def test_every_plant_has_a_pinned_row() -> None:
     assert set(ROWS) == set(PLANTS)
 
