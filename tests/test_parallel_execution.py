@@ -5,12 +5,12 @@
 
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from xml.etree import ElementTree
 
 import pytest
+from timeout_support import run_bounded
 
 ROOT = Path(__file__).parents[1]
 PARALLEL = ["-n", "2", "--dist=loadfile", "--max-worker-restart=0"]
@@ -46,7 +46,7 @@ def test_parallel_worker_crash_fails_the_command(tmp_path: Path, phase: str) -> 
     else:
         code = "import os\ndef test_crashes():\n    os._exit(17)\n"
     (tmp_path / "test_crash.py").write_text(code)
-    run = subprocess.run(
+    run = run_bounded(
         [sys.executable, "-m", "pytest", "-q", *PARALLEL, "test_crash.py"],
         cwd=tmp_path,
         capture_output=True,
@@ -65,7 +65,7 @@ def test_healthy_runner_finishes_without_a_false_failure(
 ) -> None:
     shutil.copyfile(ROOT / "tests/conftest.py", tmp_path / "conftest.py")
     (tmp_path / "test_healthy.py").write_text("def test_passes():\n    assert True\n")
-    run = subprocess.run(
+    run = run_bounded(
         [sys.executable, "-m", "pytest", "-q", *options, "--junitxml=result.xml"],
         cwd=tmp_path,
         capture_output=True,
