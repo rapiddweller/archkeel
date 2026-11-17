@@ -4826,7 +4826,8 @@
         "native.archkeel_rust_collector.site",
         "native.archkeel_rust_collector.scan.define",
         "native.archkeel_rust_collector.plant",
-        "native.archkeel_rust_collector.macro_items"
+        "native.archkeel_rust_collector.macro_items",
+        "native.archkeel_rust_collector.std_macros"
       ],
       "responsibilities": [
         "Lexical reading of Rust source: tokens, attributes, nesting, nets and the scan of items, definitions, use paths and macros."
@@ -4863,8 +4864,10 @@
         "native.archkeel_rust_collector.scan:Via",
         "native.archkeel_rust_collector.scan:scan",
         "native.archkeel_rust_collector.site:Site",
-        "native.archkeel_rust_collector.tokens:NAME_FROM_CALL",
-        "native.archkeel_rust_collector.tokens:NO_BIND_MACROS"
+        "native.archkeel_rust_collector.std_macros:NO_BIND",
+        "native.archkeel_rust_collector.std_macros:PATHS_ONLY",
+        "native.archkeel_rust_collector.std_macros:has",
+        "native.archkeel_rust_collector.tokens:NAME_FROM_CALL"
       ],
       "decided_by": "architect"
     },
@@ -4962,6 +4965,7 @@
             "native.archkeel_rust_collector.definitions",
             "native.archkeel_rust_collector.nesting",
             "native.archkeel_rust_collector.scan",
+            "native.archkeel_rust_collector.std_macros",
             "native.archkeel_rust_collector.tokens"
           ]
         },
@@ -5127,6 +5131,7 @@
             "native.archkeel_rust_collector.plant",
             "native.archkeel_rust_collector.scan",
             "native.archkeel_rust_collector.site",
+            "native.archkeel_rust_collector.std_macros",
             "native.archkeel_rust_collector.tokens"
           ]
         },

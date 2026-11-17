@@ -16,48 +16,11 @@ use crate::definitions::{Holder, MethodCall};
 use crate::macro_items::{holds_impl, item_level, macro_paths};
 use crate::net;
 use crate::plant;
+use crate::std_macros;
 use crate::tokens::{
     chains, fn_names, idents, macro_names, method_names, names_relative, only_dollar_crate, plain,
-    string_paths, writes_use, Chain, EXPRESSION_MACROS, NO_BIND_MACROS,
+    string_paths, writes_use, Chain,
 };
-
-/// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
-/// inside is a path of this file. A macro of another name that holds a path is UNKNOWN.
-const KNOWN_MACROS: [&str; 33] = [
-    "assert",
-    "assert_eq",
-    "assert_ne",
-    "debug_assert",
-    "debug_assert_eq",
-    "debug_assert_ne",
-    "format",
-    "format_args",
-    "print",
-    "println",
-    "eprint",
-    "eprintln",
-    "write",
-    "writeln",
-    "panic",
-    "unreachable",
-    "todo",
-    "unimplemented",
-    "vec",
-    "matches",
-    "dbg",
-    "env",
-    "option_env",
-    "concat",
-    "stringify",
-    "line",
-    "file",
-    "column",
-    "module_path",
-    "include_str",
-    "include_bytes",
-    "cfg",
-    "json",
-];
 
 /// A `macro_rules!` definition. Its expansion stays in this crate, so its body is read as code
 /// of the file: a path is an edge, and a crate name in any token is checked by the net. An
@@ -96,8 +59,8 @@ pub(super) fn macro_rules(walker: &mut Walker<'_>, node: &ItemMacro) {
         && only_dollar_crate(node.mac.tokens.clone(), 0)
         && calls.iter().all(|call| {
             *call == name
-                || NO_BIND_MACROS.contains(&call.as_str())
-                || EXPRESSION_MACROS.contains(&call.as_str())
+                || std_macros::has(call.as_str(), std_macros::NO_BIND)
+                || std_macros::has(call.as_str(), std_macros::PLACE_EXPRESSION)
         });
     match chains(node.mac.tokens.clone()).filter(|_| strings.is_some()) {
         Some(more) => {
@@ -186,7 +149,10 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
     macro_names(node.tokens.clone(), 0, &mut inner);
     // AD-614: a silent or expression macro of `std`, by its plain name, with only such macros in
     // its tokens, reads no string as a path. A macro of the file of that name is not `std`.
-    let std_only = |name: &str| NO_BIND_MACROS.contains(&name) || EXPRESSION_MACROS.contains(&name);
+    let std_only = |name: &str| {
+        std_macros::has(name, std_macros::NO_BIND)
+            || std_macros::has(name, std_macros::PLACE_EXPRESSION)
+    };
     let local = |name: &str| walker.out.macro_defs.iter().any(|def| def.name == name);
     let plain_strings = node.path.segments.len() == 1
         && std_only(&name)
@@ -244,7 +210,7 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         );
         return;
     };
-    if KNOWN_MACROS.contains(&name.as_str()) {
+    if std_macros::has(name.as_str(), std_macros::EXPRESSION_BODY) {
         walker.refer_chains(found);
     } else if !found.is_empty() {
         let reason = format!("The macro {name}! holds a path that the scan cannot read");
