@@ -150,15 +150,14 @@ fn a_trait_method_through_impl_trait_or_dyn_gives_the_orphan_pair_gap_1004() {
     assert_eq!(pairs("", "pub fn f() {}\n"), vec![]);
 }
 
-/// A member of a block in the file of its type is no candidate: the scan takes the edge to the
-/// type for it. A value that `mid` returns carries no such edge, so the call gives no edge and no
-/// gap. This is an open false-PASS class of the edge model, as #1004; `docs/known-limits.md` names
-/// it, and the self-check test guards the one row of `native/` that a value can reach this way.
+/// A member of a block in the file of its type is a candidate too (#1571): a value that `mid`
+/// returns names no `leaf`, so the call gives the pair gap `app.a -> leaf`, never silence. Before
+/// #1571 this was the open false-PASS class of the edge model that this test pinned.
 #[test]
-fn a_method_in_the_file_of_its_type_on_a_value_of_a_dependency_is_a_named_open_class() {
+fn a_method_in_the_file_of_its_type_on_a_value_of_a_dependency_gives_a_pair_gap() {
     let found = pairs(
         "pub fn get() -> leaf::S {\n    leaf::S\n}\n",
         "pub fn f() -> u8 {\n    mid::get().own()\n}\n",
     );
-    assert_eq!(found, vec![]);
+    assert_eq!(found, vec![("ns.app.a".to_owned(), "ns.leaf".to_owned())]);
 }
