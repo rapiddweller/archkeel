@@ -32,7 +32,7 @@ fn validation() -> Validation {
     Validation {
         registered: vec![Registered::of(&SURVEY_SECTIONS, &[])],
         interface: InterfaceNeed::Nothing,
-        standard_library: Profile::Dart.as_str().to_owned(),
+        standard_library: Profile::as_str(Profile::Dart).to_owned(),
     }
 }
 
@@ -56,7 +56,7 @@ pub fn typed_reply(
         git_head: request.snapshot.git_head.clone(),
         dirty: serde_json::to_value(&request.snapshot.dirty).map_err(|error| error.to_string())?,
         scope: found.scope,
-        sections: SURVEY_SECTIONS.iter().map(|name| name.as_str()).collect(),
+        sections: SURVEY_SECTIONS.map(SectionName::as_str).to_vec(),
         features: Vec::new(),
         constructs: Vec::new(),
         inputs: found.inputs,
