@@ -11,7 +11,7 @@ use proc_macro2::Span;
 
 use super::extracted::Tally;
 use super::receivers::Selves;
-use crate::definitions::{Definition, Field, Holder, ImplBlock, MethodCall, OnSelf};
+use crate::definitions::{Definition, Field, Holder, ImplBlock, MethodCall, OnSelf, ReceiverChain};
 use crate::plant;
 use crate::site::Site;
 use crate::tokens::Chain;
@@ -254,7 +254,7 @@ impl Walker<'_> {
         span: Span,
         (path, arity): (bool, Option<usize>),
     ) {
-        self.method_call_on(name, span, (path, arity), None);
+        self.method_call_on(name, span, (path, arity), (None, None));
     }
 
     pub(super) fn method_call_on(
@@ -262,7 +262,7 @@ impl Walker<'_> {
         name: String,
         span: Span,
         (path, arity): (bool, Option<usize>),
-        on_self: Option<OnSelf>,
+        (on_self, chain): (Option<OnSelf>, Option<ReceiverChain>),
     ) {
         let (site, scope) = (self.site(span), self.inline.clone());
         if plant::lose("method") {
@@ -276,6 +276,7 @@ impl Walker<'_> {
             arity,
             on_self,
             owner: None,
+            chain: chain.map(Box::new),
         });
     }
 

@@ -17,7 +17,31 @@ use crate::source_input::is_window_name;
 pub(crate) struct Found {
     pub name: Option<String>,
     pub span: Span,
+    /// `Some(path)` for a member patch of the global `name` (#1674): `Math.max = f` patches the
+    /// path `max`; a key that is no literal ends the path. `None` for a write of the global itself.
+    pub patch: Option<Vec<String>>,
 }
+
+impl Found {
+    fn global(name: Option<String>, span: Span) -> Self {
+        Found {
+            name,
+            span,
+            patch: None,
+        }
+    }
+
+    fn patch(global: String, member: Option<String>, span: Span) -> Self {
+        Found {
+            name: Some(global),
+            span,
+            patch: Some(member.into_iter().collect()),
+        }
+    }
+}
+
+/// The member that a write patches: see `Found::patch`.
+type Patched = Option<Vec<String>>;
 
 /// The members of `Object` and `Reflect` that write members of their first argument (AD-766).
 const REFLECTIVE: [(&str, &str); 7] = [
@@ -74,14 +98,10 @@ pub(crate) fn writes_of(root: Node, bytes: &[u8], module: bool) -> Vec<Found> {
             }
             _ => None,
         };
-        if let Some(name) = target.and_then(|target| reader.target(target)) {
-            Vec::push(
-                &mut found,
-                Found {
-                    name,
-                    span: reader.source.span(node, None),
-                },
-            );
+        let value = node.child_by_field_name("right");
+        if let Some((name, patch)) = target.and_then(|target| reader.target(target, value)) {
+            let span = reader.source.span(node, None);
+            Vec::push(&mut found, Found { name, span, patch });
         }
     }
     found
@@ -141,11 +161,11 @@ impl Reader<'_> {
     }
 
     /// The global that a write target replaces: `Some(None)` for a name that cannot be read.
-    fn target(&self, target: Node) -> Option<Option<String>> {
+    fn target(&self, target: Node, value: Option<Node>) -> Option<(Option<String>, Patched)> {
         let target = unwrapped(target);
         if Node::kind(&target) == "identifier" {
             let name = Reader::text(self, target);
-            return (!self.declared.contains(&name)).then_some(Some(name));
+            return (!self.declared.contains(&name)).then_some((Some(name), None));
         }
         // The chain from the target down to its root object.
         let mut chain = vec![target];
@@ -164,11 +184,30 @@ impl Reader<'_> {
                 .iter()
                 .rev()
                 .find(|at| self.member(**at).is_none_or(|name| !is_window_name(&name)))?;
-            return Some(self.member(*first));
+            return Some((self.member(*first), None));
         }
-        // A member write of another global (`document.title = t`, `Math.max = f`) changes a member
-        // of a platform object, not the global: a member patch is an open limit (AD-788).
-        None
+        // A member patch of another global (`Math.max = f`, #1674): a call of the member runs the
+        // value. A literal value can be no function.
+        let name = Reader::text(self, root);
+        let global = Node::kind(&root) == "identifier" && !self.declared.contains(&name);
+        let literal = value.is_some_and(|value| {
+            crate::script_types::LITERAL_KINDS.contains(&Node::kind(&unwrapped(value)))
+        });
+        let path = accessors
+            .iter()
+            .rev()
+            .map(|at| self.member(*at))
+            .take_while(Option::is_some)
+            .flatten()
+            .collect();
+        (global && !literal).then_some((Some(name), Some(path)))
+    }
+
+    /// `Some(Some(name))` for an undeclared name, `None` for any other node.
+    fn free(&self, node: Node) -> Option<Option<String>> {
+        let name = Reader::text(self, node);
+        let global = Node::kind(&node) == "identifier" && !self.declared.contains(&name);
+        global.then_some(Some(name))
     }
 
     /// A reflective write on a window name: `Object.defineProperty(window, 'x', …)` and the other
@@ -198,11 +237,18 @@ impl Reader<'_> {
             String::as_str(&method),
             "__defineGetter__" | "__defineSetter__"
         ) {
-            if !self.window(object) {
-                return Vec::new();
+            // `window.__defineGetter__('x', g)` writes `x`; `console.__defineGetter__('log', g)`
+            // patches `console` (#1674).
+            let key = arguments.first().and_then(|key| self.literal(*key));
+            if self.window(object) {
+                return vec![Found::global(key, span())];
             }
-            let name = arguments.first().and_then(|key| self.literal(*key));
-            return vec![Found { name, span: span() }];
+            return self
+                .free(object)
+                .flatten()
+                .map(|global| Found::patch(global, key, span()))
+                .into_iter()
+                .collect();
         }
         let owner = if self.window(object) {
             None
@@ -220,10 +266,37 @@ impl Reader<'_> {
             .as_deref()
             .is_some_and(|owner| REFLECTIVE.contains(&(owner, String::as_str(&method))));
         let on_window = arguments.first().is_some_and(|first| self.window(*first));
-        if !reflective || !on_window {
+        if reflective && !on_window {
+            // A reflective patch of another global: `Object.assign(Math, { max: f })` (#1674).
+            let patched = arguments
+                .first()
+                .map(|first| unwrapped(*first))
+                .filter(|first| {
+                    Node::kind(first) == "identifier"
+                        && !self.declared.contains(&Reader::text(self, *first))
+                });
+            let Some(global) = patched.map(|first| Reader::text(self, first)) else {
+                return Vec::new();
+            };
+            return self
+                .written_keys(&method, &arguments)
+                .into_iter()
+                .map(|member| Found::patch(global.clone(), member, span()))
+                .collect();
+        }
+        if !reflective {
             return Vec::new();
         }
-        let names: Vec<Option<String>> = match String::as_str(&method) {
+        self.written_keys(&method, &arguments)
+            .into_iter()
+            .map(|name| Found::global(name, span()))
+            .collect()
+    }
+
+    /// The members that a reflective write sets on its first argument; `None` for one it cannot
+    /// read.
+    fn written_keys(&self, method: &str, arguments: &[Node]) -> Vec<Option<String>> {
+        match method {
             "defineProperty" | "set" => vec![arguments.get(1).and_then(|k| self.literal(*k))],
             "assign" | "defineProperties" => arguments
                 .iter()
@@ -231,11 +304,7 @@ impl Reader<'_> {
                 .flat_map(|object| self.keys(*object))
                 .collect(),
             _ => vec![None],
-        };
-        names
-            .into_iter()
-            .map(|name| Found { name, span: span() })
-            .collect()
+        }
     }
 
     /// The keys of an object literal; one `None` for a computed key, a spread or another value.
@@ -282,13 +351,7 @@ impl Reader<'_> {
             };
             for name in names {
                 let text = (Node::kind(&name) == "identifier").then(|| Reader::text(self, name));
-                Vec::push(
-                    &mut found,
-                    Found {
-                        name: text,
-                        span: self.source.span(top, None),
-                    },
-                );
+                Vec::push(&mut found, Found::global(text, self.source.span(top, None)));
             }
         }
         found

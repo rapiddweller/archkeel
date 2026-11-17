@@ -20,6 +20,8 @@
 
 9. When a commit has several runs of one check name (a re-run), the newest run counts (the highest check-run id), done or not (#1653).
 
+10. A renamed file (`status: renamed`) counts by its line delta. A file that GitHub lists as removed plus added, but whose non-blank lines are at least half in an added file of the pull request, is a move and not a deletion (#1699). The message names the deleted files and prints a net removal only when it is positive.
+
 **Rejected.** Deleting `merge_check.py` (owner: it stays); a second table in each tool.
 
 **Tests.** `tests/test_merge_pr.py` (every row, the exit codes, `--json`, `--wait`), `tests/test_merge_check.py`.

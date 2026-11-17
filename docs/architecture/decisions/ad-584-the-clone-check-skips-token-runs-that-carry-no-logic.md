@@ -12,7 +12,9 @@ holds one equals another window. Five kinds are marked, each by a strict rule:
    A name followed by `(` is a call and makes it logic.
 3. A `mod name;` declaration, and a `struct` (with its attributes and `pub`) whose body holds
    only names, colons, `<`, `>`, `&`, `'`, brackets, `;` and commas. A literal or a call in the
-   body makes it logic.
+   body makes it logic. A visibility
+   `pub(crate)`, `pub(super)` or `pub(in path)` on the struct or a field is no logic (it was
+   counted as logic until #1717, which made two plain declarations in two crates a clone).
 4. A declaration macro `name! { ... }` whose body holds only names, literals, brackets, commas
    and colons, and at least one `=` where each `=` is followed by a literal (for example
    `closed! { pub enum E { A = "a", } }`). A call in the body makes it logic.

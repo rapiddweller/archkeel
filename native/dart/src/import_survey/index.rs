@@ -25,6 +25,8 @@ pub(crate) enum Kind {
 /// The selected sources of one survey with their parse and their kind.
 pub(crate) struct Index<'a> {
     pub(crate) package: &'a str,
+    /// The package directory below the snapshot root, empty for the root (#1539).
+    pub(crate) package_dir: &'a str,
     pub(crate) sources: &'a [Source],
     pub(crate) syntax: Vec<Option<Syntax>>,
     pub(crate) kinds: Vec<Kind>,
@@ -42,6 +44,11 @@ pub(crate) enum Located {
 }
 
 impl Index<'_> {
+    /// Classify `uri` of a directive in the source `importer` of this package.
+    pub(crate) fn classify(&self, importer: &str, uri: &str) -> super::uri::Uri {
+        super::uri::classify_in(importer, uri, self.package, self.package_dir)
+    }
+
     /// The selected source at `rel`, or whether a file that is not selected exists there.
     pub(crate) fn locate(&self, snapshot: &mut Snapshot, rel: &str) -> Located {
         match self.by_rel.get(rel) {

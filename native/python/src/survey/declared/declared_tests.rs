@@ -25,6 +25,7 @@ fn declared(text: &str, minor: u32) -> Vec<Record<SymbolFact>> {
             &[],
         )
         .remove(0),
+        None,
         &mut EvidenceMap::new(),
     )
     .records
@@ -231,7 +232,7 @@ fn sites_of(text: &str) -> (Vec<archkeel_facts::Record<archkeel_facts::CallFact>
     )
     .remove(0);
     let mut evidence = EvidenceMap::new();
-    let found = records(&module, &binders, escapes, &mut evidence);
+    let found = records(&module, &binders, escapes, None, &mut evidence);
     let none = std::collections::HashSet::new();
     let context = Context::collect(std::slice::from_ref(&found), &[], (&none, &none));
     let (calls, references, _) = site_records((&module, &binders), &found, &context, &mut evidence);

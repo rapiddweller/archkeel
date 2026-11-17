@@ -29,7 +29,7 @@ pub(crate) struct Reached<'a> {
 const MAX_GLOBS: usize = 8;
 
 /// The root of the crate of the workspace that the first name of a path names.
-fn workspace_root<'w>(
+pub(crate) fn workspace_root<'w>(
     workspace: &'w Workspace,
     module: &Module,
     reference: &Reference,

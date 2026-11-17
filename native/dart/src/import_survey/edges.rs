@@ -22,7 +22,7 @@ use super::index::{Index, Kind, Located, Owners};
 use super::names::{GapName, Gaps, Place};
 use super::package_map::PackageMap;
 use super::parts::{directives, missing};
-use super::uri::{classify, Uri};
+use super::uri::Uri;
 use crate::discover::Source;
 use crate::records::cite;
 use crate::syntax::{Directive, DirectiveKind};
@@ -164,7 +164,7 @@ fn resolve(
     if let Some((name, message)) = unproven {
         gaps.named(name, at, &message);
     }
-    let (name, message) = match classify(&source.rel_path, uri, index.package) {
+    let (name, message) = match index.classify(&source.rel_path, uri) {
         Uri::Builtin(module) => {
             if module == "dart.mirrors" {
                 let message = "dart:mirrors can reach code without an import; the edge stays";

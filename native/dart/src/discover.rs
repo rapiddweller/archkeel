@@ -50,8 +50,11 @@ pub(crate) struct Discovery {
     pub(crate) package_files: Vec<String>,
     /// Sorted by path.
     pub(crate) sources: Vec<Source>,
-    /// Empty when the snapshot root has no `pubspec.yaml`.
+    /// Empty when the package directory has no `pubspec.yaml`.
     pub(crate) package_name: String,
+    /// The directory of the package of the scan below the snapshot root, empty for the root: the
+    /// nearest directory at or above each scan root with a `pubspec.yaml` (#1539).
+    pub(crate) package_dir: String,
     pub(crate) sdk: Option<String>,
     pub(crate) sdk_state: SdkState,
     /// The SHA-256 of `pubspec.yaml`, when it exists.
@@ -90,7 +93,8 @@ pub(crate) fn discover(
     for root in roots {
         walk.root(root);
     }
-    let (pubspec, pubspec_digest) = read_pubspec(walk.snapshot)?;
+    let package_dir = package_dir(walk.snapshot, roots);
+    let (pubspec, pubspec_digest) = read_pubspec(walk.snapshot, &package_dir)?;
     let Walk {
         snapshot,
         mut sources,
@@ -121,6 +125,7 @@ pub(crate) fn discover(
     Ok(Discovery {
         sources,
         package_name: pubspec.name.unwrap_or_default(),
+        package_dir,
         sdk: pubspec.sdk,
         sdk_state: pubspec.state,
         pubspec_digest,
@@ -296,10 +301,51 @@ fn excluded_or_link(rel: &str, name: &str, entry: Entry) -> Option<Problem> {
     }
 }
 
-/// The metadata and the digest of the root `pubspec.yaml`. A missing file gives an empty name
-/// that no import matches; a link, an unreadable file or a missing name stops the collection.
-fn read_pubspec(snapshot: &mut Snapshot) -> Result<(Pubspec, Option<String>), String> {
-    let path = "pubspec.yaml";
+/// The `pubspec.yaml` of the package directory `dir` (empty for the snapshot root).
+pub(crate) fn pubspec_path(dir: &str) -> String {
+    if str::is_empty(dir) {
+        "pubspec.yaml".to_owned()
+    } else {
+        format!("{dir}/pubspec.yaml")
+    }
+}
+
+/// The package directory of the scan (#1539): the nearest directory at or above a scan root that
+/// holds a regular `pubspec.yaml`, when every scan root has the same one. Else the snapshot root,
+/// whose `pubspec.yaml` the survey reads as before; a package file between it and a scan root
+/// stays a gap.
+fn package_dir(snapshot: &mut Snapshot, roots: &[String]) -> String {
+    let mut found: Option<String> = None;
+    for root in roots {
+        let parts: Vec<&str> = if root == "." {
+            Vec::new()
+        } else {
+            root.split('/').collect()
+        };
+        let nearest = (0..=parts.len())
+            .rev()
+            .map(|end| parts[..end].join("/"))
+            .find(|dir| {
+                let path = pubspec_path(dir);
+                snapshot.is_file(&path) && !Snapshot::is_link(snapshot, &path)
+            });
+        let Some(nearest) = nearest else {
+            return String::new();
+        };
+        match &found {
+            Some(dir) if *dir != nearest => return String::new(),
+            _ => found = Some(nearest),
+        }
+    }
+    found.unwrap_or_default()
+}
+
+/// The metadata and the digest of the `pubspec.yaml` of the package directory. A missing file
+/// gives an empty name that no import matches; a link, an unreadable file or a missing name stops
+/// the collection.
+fn read_pubspec(snapshot: &mut Snapshot, dir: &str) -> Result<(Pubspec, Option<String>), String> {
+    let path = pubspec_path(dir);
+    let path = path.as_str();
     if Snapshot::is_link(snapshot, path) {
         return Err("regular pubspec.yaml is required inside the snapshot".to_owned());
     }

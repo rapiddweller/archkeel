@@ -50,6 +50,9 @@ pub(crate) struct Collection<'a> {
     pub(crate) script: crate::script_environment::ScriptEnvironment,
     /// `script_pending_effects` of the files: writes that no publication bounds.
     pub(crate) pending_effects: Vec<(String, crate::source::Span)>,
+    /// Each installed file that an import of the scan reaches, with the module and the evidence
+    /// of that import (#1529).
+    pub(crate) installed: Vec<(String, String, String)>,
 }
 
 impl Collection<'_> {

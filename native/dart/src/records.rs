@@ -142,7 +142,7 @@ pub(crate) fn inputs(discovery: &Discovery) -> Vec<Input> {
     if let Some(digest) = &discovery.pubspec_digest {
         inputs.push(Input {
             digest: digest.clone(),
-            path: "pubspec.yaml".to_owned(),
+            path: crate::discover::pubspec_path(&discovery.package_dir),
             role: Role::Resolution,
         });
     }
