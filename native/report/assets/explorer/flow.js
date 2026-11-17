@@ -745,8 +745,6 @@
     const query = new URLSearchParams(location.search);
     const views = ["diagram", "target", "diff"];
     S.view = views.includes(query.get("view")) ? query.get("view") : "diagram";
-    applyTheme(query.get("theme") === "light" || query.get("theme") !== "dark"
-      && window.matchMedia("(prefers-color-scheme: light)").matches);
     S.selection = null; S.module = null; S.cell = null; scopeNotice = null; routeNotice = null;
     navigationHistory.clear(); viewStates.clear();
     focusLabel = null; relationshipKind = null; elementKind = null; positions = Object.create(null);
@@ -905,7 +903,6 @@
       if (presentation.has("perspective")) query.set("perspective", presentation.get("perspective"));
       if (S.selection?.type === "node") query.set("selected", S.selection.id);
     }
-    query.set("theme", document.documentElement.dataset.theme);
     const permissionHash = [...(DATA.boundary_permissions?.declared || []),
       ...(DATA.boundary_permissions?.applied || [])].some((row) => location.hash === `#${encodeURIComponent(row.id)}`)
       ? location.hash : "";
@@ -918,17 +915,27 @@
       else history.pushState(null, "", next);
   }
 
-  // The header switch (archkeel-theme.js) also sets the theme; S follows it.
-  new MutationObserver(() => { S.theme = document.documentElement.dataset.theme; if (ATLAS) publishState(); })
-    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-
-  function applyTheme(light) {
-    document.documentElement.dataset.theme = S.theme = light ? "light" : "dark";
+  // E2: archkeel-theme.js owns the theme (the header switch, localStorage, the OS default). The
+  // Explorer follows data-theme and keeps the theme out of the URL and the history.
+  function followTheme() {
+    const light = document.documentElement.dataset.theme === "light";
+    S.theme = light ? "light" : "dark";
     const button = document.querySelector(".theme-toggle");
     if (button) {
       button.textContent = light ? "☾" : "☀";
       button.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
     }
+    if (ATLAS) publishState();
+  }
+  new MutationObserver(followTheme)
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  followTheme();
+
+  // A theme action goes through the owner: its own header button stores and shows the choice.
+  function setTheme(theme) {
+    const owner = document.querySelector(`[data-ak-theme="${theme}"]`);
+    if (owner) owner.click();
+    else document.documentElement.dataset.theme = theme;
   }
 
   function sidecarNavigation() {
@@ -1117,7 +1124,7 @@
     const permissions = DATA.boundary_permissions;
     const routeLink = (route) => {
       const query = new URLSearchParams({component: route.component_id || "unassigned",
-        view: S.view, origin: route.origin, theme: document.documentElement.dataset.theme});
+        view: S.view, origin: route.origin});
       if (route.module_id) query.set("module", route.module_id);
       if (route.scope_id) query.set("scope", route.scope_id);
       query.set("selected", route.entity_id);
@@ -2142,7 +2149,6 @@
     if (navigation.scope) query.set("scope", navigation.scope);
     if (navigation.selected) query.set("selected", navigation.selected);
     query.set("view", S.view);
-    query.set("theme", document.documentElement.dataset.theme);
     return `${location.pathname}?${query}`;
   }
   function atlasComponentLink(id, label) {
@@ -2251,7 +2257,6 @@
     for (const key of ["component", "scope", "module", "selected", "cell", "content"]) query.delete(key);
     if (parentId) query.set("scope", parentId);
     query.set("view", S.view);
-    query.set("theme", document.documentElement.dataset.theme);
     return query;
   }
 
@@ -3275,7 +3280,7 @@
       case "toggleAllHints": S.allHints = !S.allHints; atlasExplore(atlasLevel()); break;
       case "setDetails": setTargetDetails(action.open); render(); fit(); break;
       case "setExplore": setAtlasExploreOpen(action.open); break;
-      case "setTheme": applyTheme(action.theme === "light"); render(); break;
+      case "setTheme": setTheme(action.theme === "light" ? "light" : "dark"); break;
       case "openRule": {
         openAtlasComponent(action.rule.scope_id || null);
         setTargetDetails(true);
