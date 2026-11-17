@@ -98,6 +98,9 @@ def _message(error: Exception, *, output: bool) -> str:
 
 
 def _refusal_kind(error: Exception) -> RefusalKind:
+    if isinstance(error, CoreError) and error.gap is not None:
+        if error.gap.kind is GapKind.PARSE_WORK_LIMIT:
+            return RefusalKind.PARSE_WORK_LIMIT
     kinds: tuple[tuple[type[Exception], RefusalKind], ...] = (
         (RequestMismatch, RefusalKind.REQUEST_MISMATCH),
         (NotOnThisLine, RefusalKind.NOT_ON_THIS_LINE),

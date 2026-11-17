@@ -88,8 +88,8 @@ fn cells(
             );
             let pair = (e.source.clone(), e.target.clone());
             let owners = (
-                tree.owner.get(&e.source).copied(),
-                tree.owner.get(&e.target).copied(),
+                tree.place.get(&e.source).copied(),
+                tree.place.get(&e.target).copied(),
             );
             let floor = floors.at(tree, owners.0).max(floors.at(tree, owners.1));
             let status = if failing(&e.rules) {
@@ -140,12 +140,16 @@ fn modules(
             .get(&module.name)
             .map(|n| refs.id(&tree.nodes[*n].id));
         let candidates: Vec<usize> = owner.into_iter().collect();
+        let place = tree
+            .place
+            .get(&module.name)
+            .map(|n| refs.id(&tree.nodes[*n].id));
         let (status, reason) = if owner.is_some() {
             (Shown::Pass, owned)
         } else {
             (Shown::Unknown, unowned)
         };
-        assignments.push(json!([i, owner, candidates, status, reason]));
+        assignments.push(json!([i, owner, candidates, status, reason, place]));
     }
     (rows, assignments)
 }
@@ -250,7 +254,7 @@ pub(super) fn levels(
         .nodes
         .iter()
         .filter_map(|n| n.parent)
-        .chain(tree.owner.values().copied())
+        .chain(tree.place.values().copied())
         .collect();
     let inputs = Inputs {
         tree,
@@ -354,11 +358,11 @@ fn level_row(
             }))
             .collect(),
         modules: (0..out.modules.len())
-            .filter(|m| inside(out.modules[*m]["id"].as_str().and_then(|n| tree.owner.get(n).copied())))
+            .filter(|m| inside(out.modules[*m]["id"].as_str().and_then(|n| tree.place.get(n).copied())))
             .collect(),
         cells: (0..cells.len()).filter(|c| inside(cells[*c].owners.0) && inside(cells[*c].owners.1)).collect(),
         findings: (0..found.len())
-            .filter(|f| found[*f].modules.iter().any(|m| inside(tree.owner.get(m).copied())))
+            .filter(|f| found[*f].modules.iter().any(|m| inside(tree.place.get(m).copied())))
             .collect(),
         deviations,
         balance: json!({"declared": permitted.len(), "used": used,

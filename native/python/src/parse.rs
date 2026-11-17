@@ -63,6 +63,22 @@ impl From<Problem> for ParseFailure {
 
 const NULL_BYTES: &str = "source code string cannot contain null bytes";
 
+/// The byte ranges of comments in a parsed source.
+pub(crate) fn comments(text: &str) -> Vec<std::ops::Range<usize>> {
+    let mut lexer = ruff_python_parser::lexer::lex(text, Mode::Module);
+    let mut found = Vec::new();
+    loop {
+        let kind = lexer.next_token();
+        if kind == ruff_python_ast::token::TokenKind::EndOfFile {
+            return found;
+        }
+        if kind == ruff_python_ast::token::TokenKind::Comment {
+            let range = lexer.current_range();
+            found.push(range.start().to_usize()..range.end().to_usize());
+        }
+    }
+}
+
 /// The tree of `text` for Python 3.`minor`, or the failure that the Python collector reports.
 pub(crate) fn parse(text: &str, minor: PyMinor) -> Result<ModModule, ParseFailure> {
     if text.contains('\0') {

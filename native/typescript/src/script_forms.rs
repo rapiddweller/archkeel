@@ -72,12 +72,33 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     pub(crate) fn open_form(&self, node: Node<'t>) -> Option<Reach> {
         let direct = match node.kind() {
             "subscript_expression" => {
-                self.runtime_key_call(node) || self.member_use(node) || self.looked_up_call(node)
+                let direct = self.runtime_key_call(node)
+                    || self.member_use(node)
+                    || self.looked_up_call(node);
+                return if direct {
+                    Some(Reach::Direct)
+                } else {
+                    self.reflective_member(node)
+                };
             }
-            "member_expression" => self.member_use(node) || self.location_value(node),
+            "member_expression" => {
+                let direct = self.member_use(node) || self.location_value(node);
+                return if direct {
+                    Some(Reach::Direct)
+                } else {
+                    self.reflective_member(node)
+                };
+            }
             "identifier" | "shorthand_property_identifier" => self.alias_escape(node),
             "call_expression" => {
-                self.runtime_reflection(node) || self.location_call(node) || self.open_call(node)
+                let direct = self.runtime_reflection(node)
+                    || self.location_call(node)
+                    || self.open_call(node);
+                return if direct {
+                    Some(Reach::Direct)
+                } else {
+                    self.reflective_write(node)
+                };
             }
             "shorthand_property_identifier_pattern" | "pair_pattern" => {
                 return self.window_pattern(node);

@@ -359,11 +359,13 @@ LOCAL: dict[str, Plant] = {
         "UNKNOWN",
         "-",
     ),
+    # AD-762 (#1520): a runner of `code` on the name `code` is a gap whatever binds the name; the
+    # global `code` here has no binding that the scan reads.
     "comprehension-variable-does-not-bind-outside": Plant(
         tree("def f(x):\n    y = [code for code in x]\n    return code.interact\n"),
         "PASS",
         "PASS",
-        "PASS",
+        "UNKNOWN",
         "-",
     ),
     "literal-getattr-of-a-module-attribute": Plant(

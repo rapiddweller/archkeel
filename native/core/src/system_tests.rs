@@ -138,3 +138,55 @@ fn the_topology_of_an_unknown_system_names_the_scope_reason_as_a_gap() {
     assert_eq!(frame["topology"]["gaps"], json!([why]));
     assert_eq!(frame["topology"]["complete"], json!(false));
 }
+
+/// A part that names one gap row for a rule, and the frame of a part whose collect is refused.
+fn rule_gap_part() -> Vec<u8> {
+    let frame = json!({
+        "engine": "e", "protocol": "p", "status": "FAIL", "scope": "complete",
+        "gaps": [{"kind": "decision.open", "subject": "R1", "reason": "open"}],
+        "unsupported": {"rules": {"R1": "open"}, "sections": {}, "report": null},
+    });
+    serde_json::to_vec(&frame).unwrap()
+}
+
+fn refused_part(why: &str) -> Vec<u8> {
+    let frame = json!({
+        "engine": "e", "protocol": "p", "status": "UNKNOWN", "scope": why,
+        "gaps": [{"kind": "other", "subject": "the whole contract", "reason": why}],
+        "self_test": {"contract": {"not_read": why}, "reply": {"absent": why},
+            "collect": {"refused": why}},
+        "unsupported": {"rules": why, "sections": {}, "report": null},
+    });
+    serde_json::to_vec(&frame).unwrap()
+}
+
+/// The pairs (subject, reason) that the shell compares with `unsupported.rules` (AD-546).
+fn gap_pairs(frame: &Value) -> Vec<(String, String)> {
+    let text = |value: &Value| value.as_str().unwrap().to_owned();
+    let rows = frame["gaps"].as_array().unwrap();
+    rows.iter()
+        .map(|row| (text(&row["subject"]), text(&row["reason"])))
+        .collect()
+}
+
+#[test]
+fn a_system_that_names_its_whole_contract_lists_only_that_gap_row() {
+    let why = "collect: unsupported: collector: refused";
+    for parts in [
+        vec![rule_gap_part(), refused_part(why)],
+        vec![refused_part(why), rule_gap_part()],
+        vec![refused_part(why), refused_part("other refusal")],
+    ] {
+        let frame = joined(&parts);
+        assert_eq!(frame["unsupported"]["rules"], json!(why));
+        assert_eq!(frame["self_test"]["collect"]["refused"], json!(why));
+        let whole = ("the whole contract".to_owned(), why.to_owned());
+        assert_eq!(gap_pairs(&frame), vec![whole]);
+    }
+    // Without a whole-contract part the rows of each part stay.
+    let frame = joined(&[rule_gap_part()]);
+    assert_eq!(
+        gap_pairs(&frame),
+        vec![("R1".to_owned(), "open".to_owned())]
+    );
+}

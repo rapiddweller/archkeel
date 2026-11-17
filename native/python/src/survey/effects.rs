@@ -45,6 +45,10 @@ pub(super) fn of(kind: &str, module: &str) -> Option<GapEffect> {
         STAR | AMBIGUOUS => Some(GapEffect::Modules {
             modules: vec![ModuleName::new(module)],
         }),
+        // #1519: the callee may import a module that no statement names.
+        super::external_loader::EXTERNAL_LOADER => Some(GapEffect::Edges {
+            sources: vec![ModuleName::new(module)],
+        }),
         _ => None,
     }
 }

@@ -138,6 +138,10 @@
         {
           "component": "json",
           "rationale": "Type the gap rows that the text writes with the gap type of the JSON part."
+        },
+        {
+          "component": "gaps",
+          "rationale": "Write the grouped lines of the gaps of a scan."
         }
       ],
       "public": [
@@ -147,6 +151,47 @@
         "archkeel.cli.core_text:summary"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-GAPS",
+      "label": "gaps",
+      "role": "component",
+      "layer": "present",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_gaps"
+      ],
+      "responsibilities": [
+        "Write the gaps of a scan as lines for a person: grouped by cause, with a count and one example each (#1614), and the packages that were not found (#1615)."
+      ],
+      "forbidden_responsibilities": [
+        "Decide a verdict, start a process or print a machine code."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "frame",
+          "rationale": "Read the gaps and the locations of a frame to write their lines."
+        },
+        {
+          "component": "words",
+          "rationale": "Read the plain words for kinds and reasons."
+        },
+        {
+          "component": "display",
+          "rationale": "Read the typed gap rows and the declared door reaches."
+        }
+      ],
+      "decided_by": "architect",
+      "public": [
+        "archkeel.cli.core_gaps:SHOWN",
+        "archkeel.cli.core_gaps:group_lines",
+        "archkeel.cli.core_gaps:not_installed_lines",
+        "archkeel.cli.core_gaps:places",
+        "archkeel.cli.core_gaps:rest"
+      ]
     },
     {
       "id": "SHELL-HELP",
@@ -605,6 +650,7 @@
       "decided_by": "architect",
       "public": [
         "archkeel.cli.core_json:CoreError",
+        "archkeel.cli.core_json:CoreExit",
         "archkeel.cli.core_json:Gap",
         "archkeel.cli.core_json:GapKind",
         "archkeel.cli.core_json:RequestMismatch",
@@ -680,10 +726,11 @@
       "packages": [],
       "exact_modules": [
         "archkeel.cli.init_draft",
-        "archkeel.cli.init_areas"
+        "archkeel.cli.init_areas",
+        "archkeel.cli.init_binding"
       ],
       "responsibilities": [
-        "Draft archkeel.toml, a first contract and its provenance page from the folder layout and manifests of a project, or a system document with one part for each language area (Python, Cargo, TypeScript, Dart) of a mixed repository, and write only the files that are missing. Every decision in the draft is a TODO."
+        "Draft archkeel.toml, a first contract and its provenance page from the folder layout and manifests of a project, or a system document with one part for each language area (Python, Cargo, TypeScript, Dart) of a mixed repository, and write only the files that are missing. Every decision in the draft is a TODO, except an interface whose two ends the manifests state (a PyO3 binding, AD-784)."
       ],
       "forbidden_responsibilities": [
         "Read a frame, read a source file, start the core or decide a verdict."

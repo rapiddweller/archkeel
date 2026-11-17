@@ -15,16 +15,16 @@ from collections.abc import Mapping, Sequence
 
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
-from .core_doors import DECLARED, declared, door_lines
+from .core_doors import door_lines
 from .core_doors import qualifier as door_qualifier
-from .core_evidence import CollectionGap, call_lines
+from .core_evidence import call_lines
 from .core_exit import Outcome, verdict_code, word_of
 from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
+from .core_gaps import SHOWN, group_lines, not_installed_lines, places, rest
 from .core_json import Gap
-from .core_words import CAUSE_FIXES, NOT_FOUND_PREFIX, contract_fix, kind_label, plain
+from .core_words import CAUSE_FIXES, contract_fix, kind_label, plain
 
-_SHOWN = 3
 #: The named parts that an `init` draft leaves: decisions that the person has not made yet.
 DRAFT_KINDS = frozenset(
     {
@@ -48,18 +48,6 @@ _VIOLATIONS_SHOWN = 10
 _MAX_JOBS = 3
 _SUMMARY_LINES = 15
 _SUMMARY_VIOLATIONS = 5
-
-
-def _more(total: int, shown: int, show_all: bool) -> str:
-    return "" if show_all or total <= shown else f" and {total - shown} more (--all lists them)"
-
-
-def _places(frame: CoreFrame, evidence: Sequence[str], limit: int) -> list[str]:
-    return [
-        f"{location.path}:{location.line}" if location.line else location.path
-        for key in evidence
-        if (location := frame.locations.get(key))
-    ][:limit]
 
 
 def _invalid(baseline: BaselineResult) -> str:
@@ -92,8 +80,13 @@ def _baseline_reason(frame: CoreFrame, baseline: BaselineResult, code: int) -> s
             if code == 0 and frame.status is Status.FAIL:
                 return f"{sum(frame.violations.values())} violations are accepted by the baseline"
             if code == 2:
+                kept = (
+                    f"{sum(frame.violations.values())} violations accepted by the baseline; "
+                    if frame.violations
+                    else ""
+                )
                 return (
-                    f"{baseline.accepted_unknowns} accepted items stay UNKNOWN: "
+                    f"{kept}{baseline.accepted_unknowns} accepted items stay UNKNOWN: "
                     "a baseline records them and does not decide them"
                 )
             return "nothing differs from the baseline"
@@ -159,12 +152,27 @@ def header(command: Command, frame: CoreFrame, code: int, outcome: Outcome) -> s
     return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)})"
 
 
+def _new_violations(frame: CoreFrame, total: int) -> int:
+    """How many violations the baseline does not accept: all of them when no baseline is read."""
+    baseline = frame.baseline
+    if baseline is None or baseline.state not in {
+        BaselineState.CURRENT,
+        BaselineState.WRITTEN,
+        BaselineState.DRIFT,
+    }:
+        return total
+    return sum(1 for change in baseline.new if change.what.value == "violation")
+
+
 def _next_action(frame: CoreFrame, groups: Sequence[tuple[str, int]]) -> str | None:
     """The top jobs, in the order to do them, each with its count (at most three)."""
     jobs = []
     if frame.details:
         count = sum(len(rows) for rows in frame.details.values())
-        jobs.append(f"remove the {count} violations, or review the declared restriction")
+        if (new := _new_violations(frame, count)) == count:
+            jobs.append(f"remove the {count} violations, or review the declared restriction")
+        elif new:
+            jobs.append(f"remove the {new} new violations that the baseline does not accept")
     for label, count in groups:
         jobs.append(
             "fix the problem above" if label == "the problem above" else f"{count} x {label}"
@@ -183,78 +191,29 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]
     if not rows:
         return []
-    lines = [f"Violations ({len(rows)}):"]
+    new = _new_violations(frame, len(rows))
+    if new == len(rows):
+        lines = [f"Violations ({len(rows)}):"]
+    elif new == 0:
+        lines = [f"Violations accepted by the baseline ({len(rows)}):"]
+    else:
+        lines = [
+            f"Violations ({len(rows)}: {new} new, {len(rows) - new} accepted by the baseline):"
+        ]
+    texts: dict[str, int] = {}
     for rule, row in rows if show_all else rows[:_VIOLATIONS_SHOWN]:
         edge = row.source if row.target is None else f"{row.source} -> {row.target}"
-        where = ", ".join(_places(frame, row.evidence, _SHOWN))
-        lines.append(f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else ""))
-    if more := _more(len(rows), _VIOLATIONS_SHOWN, show_all):
+        where = ", ".join(places(frame, row.evidence, SHOWN))
+        text = f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else "")
+        texts[text] = texts.get(text, 0) + 1  # one line per place; a repeat is counted
+    lines.extend(f"{text} (x{n})" if n > 1 else text for text, n in texts.items())
+    if more := rest(len(rows), _VIOLATIONS_SHOWN, show_all):
         lines.append(f"  {more.strip()}")
     causes = dict.fromkeys(row.cause for _, row in rows)
     lines.extend(
         f"  Fix for '{cause}': {CAUSE_FIXES[cause]}" for cause in causes if cause in CAUSE_FIXES
     )
     return lines
-
-
-_NOT_FOUND_LABEL = "an imported module that has no file in the scan"
-
-
-def _missing(gap: CollectionGap) -> str | None:
-    """The module name of a gap `project_module_not_found: NAME`, or `None`."""
-    return (
-        gap.reason.removeprefix(NOT_FOUND_PREFIX)
-        if gap.reason.startswith(NOT_FOUND_PREFIX)
-        else None
-    )
-
-
-def _group_lines(
-    frame: CoreFrame, show_all: bool, ignored: Mapping[str, str] | None = None
-) -> tuple[list[str], list[tuple[str, int]]]:
-    """The source gaps grouped by cause, the largest group first, and the ranking.
-
-    A module that is imported and has no file is its own group: the line says whether a Git ignore
-    rule covers the file (the usual case of a generated module) and what to do.
-    """
-    groups: dict[str, list[int]] = {}
-    for index, gap in enumerate(frame.collection_gaps):
-        lines_of = [place.line for e in gap.evidence if (place := frame.locations.get(e))]
-        if declared(gap.subjects, lines_of, frame.doors):
-            key = kind_label(DECLARED)
-        else:
-            key = _NOT_FOUND_LABEL if _missing(gap) is not None else kind_label(gap.kind)
-        groups.setdefault(key, []).append(index)
-    ranked = sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
-    lines: list[str] = []
-    for label, members in ranked:
-        first = frame.collection_gaps[members[0]]
-        lead = "" if label == _NOT_FOUND_LABEL else f": {plain(first.reason)}"
-        lines.append(f"  {len(members)} x {label}{lead}")
-        for index in members if show_all else members[:_SHOWN]:
-            gap = frame.collection_gaps[index]
-            where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
-            name = _missing(gap)
-            note = _generated(name, ignored or {}) if name is not None else ""
-            tail = f" ({plain(gap.detail)})" if gap.detail else ""
-            lines.append(f"      {where}{': ' + name if name else ''}{note}{tail}")
-        if more := _more(len(members), _SHOWN, show_all):
-            lines.append(f"      {more.strip()}")
-        if label == _NOT_FOUND_LABEL:
-            lines.append(
-                "      Fix: generate or build the module before the scan, or leave out the files "
-                "that import it."
-            )
-    jobs = [(label, len(rows)) for label, rows in ranked if label != kind_label(DECLARED)]
-    return lines, jobs
-
-
-def _generated(name: str, ignored: Mapping[str, str]) -> str:
-    """What a Git ignore rule says about the missing module, or what to check without one."""
-    rule = ignored.get(name)
-    if rule is None:
-        return " (no file; it may be generated, or the import is wrong)"
-    return f" (no file; the ignore rule {rule} covers it, so it is probably generated)"
 
 
 def _waiting_lines(frame: CoreFrame, show_all: bool) -> list[str]:
@@ -266,8 +225,8 @@ def _waiting_lines(frame: CoreFrame, show_all: bool) -> list[str]:
         return []
     lines = [f"Rules that wait ({len(frame.explained)}):"]
     for reason, rules in sorted(groups.items(), key=lambda item: (-len(item[1]), item[0])):
-        shown = rules if show_all else rules[:_SHOWN]
-        more = _more(len(rules), _SHOWN, show_all)
+        shown = rules if show_all else rules[:SHOWN]
+        more = rest(len(rules), SHOWN, show_all)
         lines.append(f"  {len(rules)} rules: {reason}")
         lines.append(f"      {', '.join(shown)}{more}")
     return lines
@@ -285,11 +244,11 @@ def _named_lines(frame: CoreFrame, show_all: bool) -> tuple[list[str], list[tupl
     )
     for kind, rows in ranked:
         lines.append(f"  {len(rows)} x {kind_label(kind)}")
-        for subject, reason in rows if show_all else rows[:_SHOWN]:
+        for subject, reason in rows if show_all else rows[:SHOWN]:
             lines.append(
                 f"      {reason if subject.startswith('hygiene:') else f'{subject}: {reason}'}"
             )
-        if more := _more(len(rows), _SHOWN, show_all):
+        if more := rest(len(rows), SHOWN, show_all):
             lines.append(f"      {more.strip()}")
     return lines, [(kind_label(kind), len(rows)) for kind, rows in ranked]
 
@@ -339,7 +298,7 @@ def render(
 
     `ignored` maps a missing module to the Git ignore rule that covers its file.
     """
-    gap_lines, ranking = _group_lines(frame, show_all, ignored)
+    gap_lines, ranking = group_lines(frame, show_all, ignored)
     named_lines, named_ranking = _named_lines(frame, show_all)
     ranking = sorted([*ranking, *named_ranking], key=lambda item: -item[1])
     errors = _errors(frame, contract_files)
@@ -351,13 +310,14 @@ def render(
         out.append(f"Next: {action}")
     if frame.premise is not None:
         out.append(f"Assumption: {frame.premise}")
-    out.extend(door_lines(frame.assumed, frame.doors, _SHOWN, show_all))
+    out.extend(door_lines(frame.assumed, frame.doors, SHOWN, show_all))
     if system:
         out.extend(_system(system))
     out.extend(_violation_lines(frame, show_all))
     out.extend(_waiting_lines(frame, show_all))
     if gap_lines:
         out.append(f"Gaps in the scan ({len(frame.collection_gaps)}):")
+        out.extend(not_installed_lines(frame))
         out.extend(gap_lines)
     out.extend(named_lines)
     if frame.baseline is not None and not refused_file:
@@ -405,7 +365,7 @@ def summary(
 
     It prints about fifteen lines at most, whatever the size of the run.
     """
-    _, ranking = _group_lines(frame, False, ignored)
+    _, ranking = group_lines(frame, False, ignored)
     _, named = _named_lines(frame, False)
     errors = _errors(frame, contract_files)
     ranking = sorted([*ranking, *named], key=lambda item: -item[1])

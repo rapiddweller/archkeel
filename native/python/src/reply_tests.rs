@@ -8,6 +8,7 @@
 use std::io::Read;
 
 use archkeel_facts::envelope::{ProtocolVersion, Reply, RequirementState};
+use archkeel_facts::request::PythonRequest;
 use archkeel_snapshot::test_tree::Tree;
 use archkeel_wire::request::decode_python;
 use flate2::read::ZlibDecoder;
@@ -34,8 +35,9 @@ fn request(root: &str) -> PythonRequest {
 fn decoded(files: &[(&str, &str)]) -> (Reply, Value) {
     let tree = Tree::new(files);
     let request = request(&tree.path());
-    let survey = crate::survey::survey(&request).unwrap();
-    let bytes = reply(&request, survey, &BUILD, TargetSource::Legacy).unwrap();
+    let prepared = Prepared::of(&request).unwrap();
+    let survey = crate::survey::survey(&prepared).unwrap();
+    let bytes = reply(&prepared, survey, &BUILD).unwrap();
     let mut text = String::new();
     ZlibDecoder::new(bytes.as_slice())
         .read_to_string(&mut text)
@@ -79,7 +81,8 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
             "getattr",
             "any_annotation",
             "dynamic_import",
-            "cast"
+            "cast",
+            "type_ignore"
         ]
     );
     assert!(capabilities
@@ -98,6 +101,10 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
     assert_eq!(
         capabilities.constructs[8].status,
         archkeel_facts::envelope::ConstructSupport::Partial
+    );
+    assert_eq!(
+        capabilities.constructs[9].status,
+        archkeel_facts::envelope::ConstructSupport::Supported
     );
     let written: Vec<&str> = reply
         .facts
@@ -137,7 +144,7 @@ fn the_validation_table_only_admits_partial_any_annotations() {
         .flat_map(|set| &set.constructs)
         .filter(|entry| entry.name == "any_annotation")
         .collect();
-    assert_eq!(entries.len(), 3);
+    assert_eq!(entries.len(), 4);
     assert!(entries
         .iter()
         .all(|entry| entry.statuses == [ConstructSupport::Partial]));
@@ -187,9 +194,10 @@ fn the_lists_of_the_collection_phase_are_empty() {
 fn a_coverage_that_the_stream_cannot_write_is_no_reply() {
     let tree = Tree::new(&SHOP);
     let request = request(&tree.path());
-    let mut survey = crate::survey::survey(&request).unwrap();
+    let prepared = Prepared::of(&request).unwrap();
+    let mut survey = crate::survey::survey(&prepared).unwrap();
     survey.coverage.full_scope = true;
-    let refused = reply(&request, survey, &BUILD, TargetSource::Legacy).unwrap_err();
+    let refused = reply(&prepared, survey, &BUILD).unwrap_err();
     assert_eq!(
         refused,
         "the coverage of the reply differs from the coverage of the survey"
@@ -200,8 +208,9 @@ fn a_coverage_that_the_stream_cannot_write_is_no_reply() {
 fn a_file_that_changes_after_its_parse_gives_no_reply() {
     let tree = Tree::new(&[("src/app/__init__.py", ""), ("src/app/a.py", "import os\n")]);
     let request = request(&tree.path());
-    let survey = crate::survey::survey(&request).unwrap();
+    let prepared = Prepared::of(&request).unwrap();
+    let survey = crate::survey::survey(&prepared).unwrap();
     std::fs::write(tree.root.join("src/app/a.py"), "import app\n").unwrap();
-    let error = typed(&request, survey, &BUILD, TargetSource::Legacy).unwrap_err();
+    let error = typed(&prepared, survey, &BUILD).unwrap_err();
     assert_eq!(error, "the source changed during the scan: src/app/a.py");
 }

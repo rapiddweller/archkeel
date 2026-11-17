@@ -6,7 +6,9 @@
 
 use archkeel_contract::{Contract, ParsedContract};
 
-use super::symbol_reader;
+use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
+
+use super::{stated_reader, symbol_reader};
 
 const HEAD: &str = r#""rationale": "r", "provenance": ["p"], "decided_by": "architect""#;
 
@@ -128,4 +130,50 @@ fn a_symbol_public_entry_holds_each_interface_rule_only() {
     );
     let module = readers(&rules, "", r#", "public": ["x.b"]"#);
     assert!(module.iter().all(|(_, r)| r.is_none()));
+}
+
+/// The rule that holds each rule of the contract under `stated` (AD-749), by rule id.
+fn holds(rules: &[&str], extra_b: &str, stated: ProfileLimits) -> Vec<(String, Option<String>)> {
+    let Some(contract) = contract(rules, "", extra_b) else {
+        return Vec::new();
+    };
+    contract
+        .rules()
+        .iter()
+        .map(|rule| {
+            let id = archkeel_contract::head_of(rule).id().as_text().to_owned();
+            (id, stated_reader(&contract, rule, stated))
+        })
+        .collect()
+}
+
+fn surface(publication_surface: LimitSupport) -> ProfileLimits {
+    ProfileLimits {
+        dependency_symbols: LimitSupport::Unsupported,
+        interface_boundary: LimitSupport::Supported,
+        publication_surface,
+    }
+}
+
+#[test]
+fn a_publication_surface_reads_a_symbol_public_entry_and_no_target_symbol() {
+    let public = r#", "public": ["x.b:S"]"#;
+    let boundary = kind("BOUNDARY", "interface_boundary");
+    let symbol = forbid("SYMBOL", r#", "target_symbol": "S""#);
+    let alone = [boundary.as_str()];
+    let both = [boundary.as_str(), symbol.as_str()];
+    // Without the statement the symbol entry holds the rule (AD-500).
+    assert_eq!(
+        holds(&alone, public, surface(LimitSupport::Unsupported)),
+        pairs(&[("BOUNDARY", Some("b"))])
+    );
+    assert_eq!(
+        holds(&alone, public, surface(LimitSupport::Supported)),
+        pairs(&[("BOUNDARY", None)])
+    );
+    // A `target_symbol` verdict reads every dependency name, so it still holds both rules.
+    assert_eq!(
+        holds(&both, public, surface(LimitSupport::Supported)),
+        pairs(&[("BOUNDARY", Some("SYMBOL")), ("SYMBOL", Some("SYMBOL"))])
+    );
 }

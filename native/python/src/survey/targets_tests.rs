@@ -32,7 +32,8 @@ fn survey_of(tree: &Tree, roots: &[&str], namespace: &str) -> Survey {
             "version": "3.14.0", "stdlib_module_names": ["importlib", "json", "os", "sys"],
             "builtin_module_names": []}},
     });
-    crate::survey::survey(&decode_python(raw.to_string().as_bytes()).unwrap()).unwrap()
+    let request = decode_python(raw.to_string().as_bytes()).unwrap();
+    crate::survey::survey(&crate::requirement::Prepared::of(&request).unwrap()).unwrap()
 }
 
 pub(crate) fn surveyed(files: &[(&str, &str)]) -> Survey {

@@ -191,13 +191,7 @@ impl Resolver<'_> {
                 || candidates
                     .iter()
                     .all(|target| self.table.count(target) == 1));
-        let status = if unique {
-            Status::Resolved
-        } else if candidates.is_empty() {
-            Status::Unresolved
-        } else {
-            Status::PartiallyResolved
-        };
+        let status = Status::of_candidates(candidates.len(), unique);
         if status == Status::PartiallyResolved && reason.is_none() {
             reason = Some("multiple definition sites share the target name");
         }

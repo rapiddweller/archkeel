@@ -151,3 +151,26 @@ fn a_literal_all_makes_a_unique_import_a_reexport() {
     assert!(found[0].6, "path is in the one literal __all__");
     assert!(!found[1].6, "sep is not exported");
 }
+
+/// One statement that binds the same name twice to the same target (`A, A as A`, the explicit
+/// re-export form) gives one record: both aliases state the same fact, at the same place, so the
+/// second would repeat the id. Another binding name stays its own record.
+#[test]
+fn a_statement_that_binds_one_name_twice_gives_one_record() {
+    let text = "from .m import A, A as A\nfrom .m import B, B as C\nimport os, os\n";
+    let modules = modules(&[("app/x.py", "app.x", text), ("app/m.py", "app.m", "")]);
+    let binders: Vec<Binders> = modules.iter().map(|m| Binders::of(&m.tree)).collect();
+    let mut evidence = EvidenceMap::new();
+    let records = collect(&modules, &binders, "app", &mut evidence).0;
+    let mut ids: Vec<&str> = records.iter().map(|record| record.id.as_str()).collect();
+    let all = ids.len();
+    ids.sort_unstable();
+    ids.dedup();
+    assert_eq!(ids.len(), all, "an id repeats");
+    let mut bindings: Vec<String> = records
+        .iter()
+        .filter_map(|record| record.data.data().binding.clone())
+        .collect();
+    bindings.sort();
+    assert_eq!(bindings, ["A", "B", "C", "os"]);
+}

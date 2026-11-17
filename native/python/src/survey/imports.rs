@@ -428,6 +428,12 @@ impl Collector<'_, '_> {
             _ => format!("Import {}", b.target),
         };
         let id = stable_id("IMP", &parts);
+        // `from m import A, A as A`: both aliases give this record of the statement once.
+        let here = |made: &&Record<ImportFact>| made.evidence_ids[0].as_str() == evidence_id;
+        let mut statement = self.records.iter().rev().take_while(here);
+        if statement.any(|made| made.id.as_str() == id) {
+            return;
+        }
         let one = module_level
             && b.binding
                 .is_some_and(|name| self.bound.sole(name, node.range().start()));
