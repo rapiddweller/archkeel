@@ -160,6 +160,8 @@ fn group(nodes: &[Node], owner: &str, name: &str, parent: Option<usize>) -> Node
         about: Vec::new(),
         forbidden: Vec::new(),
         planned: Vec::new(),
+        provenance: Vec::new(),
+        members: None,
         rank: None,
     }
 }

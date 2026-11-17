@@ -20,7 +20,7 @@ fn part_component(part: &SystemPart, sample: &Map<String, Value>) -> Value {
         .keys()
         .map(|key| (key.clone(), Value::Null))
         .collect();
-    for key in ["packages", "exact_modules", "planned_public"] {
+    for key in ["packages", "exact_modules", "planned_public", "provenance"] {
         row.insert(key.to_owned(), json!([]));
     }
     row.insert("id".to_owned(), json!(format!("PART:{}", part.id)));

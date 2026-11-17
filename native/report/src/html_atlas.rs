@@ -207,7 +207,7 @@ fn components(
                 "public": public, "requires": requires, "used_by": levels.used_by(i),
                 "responsibilities": node.about, "not_responsible_for": node.forbidden,
                 "planned": (!node.planned.is_empty()).then_some(&node.planned),
-                "provenance": [], "decided_by": "architect",
+                "provenance": node.provenance.iter().map(|p| refs.id(p)).collect::<Vec<_>>(), "groups": node.members, "decided_by": "architect",
             })
         })
         .collect()
