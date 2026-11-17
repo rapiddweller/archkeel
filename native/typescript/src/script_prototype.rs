@@ -17,7 +17,9 @@ use tree_sitter::Node;
 use crate::kinds::{F, K};
 use crate::script_names::bound_scope;
 use crate::script_syntax::Producer;
+use crate::script_tree::Tree;
 use crate::script_window::{cooked, Written};
+use crate::tree::cx::Cx;
 
 /// The member names that give a prototype of their object.
 const PROTOTYPE: &str = "prototype";
@@ -36,18 +38,21 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// with a host entry.
     pub(crate) fn prototype_write(&self, target: Node<'t>) -> Option<Written> {
         let tree = self.tree;
-        let target = tree.cx.unwrapped(target);
-        if !matches!(target.kind(), "member_expression" | "subscript_expression") {
+        let target = Cx::unwrapped(&tree.cx, target);
+        if !matches!(
+            Node::kind(&target),
+            "member_expression" | "subscript_expression"
+        ) {
             return None;
         }
-        let keyed = target.kind() == "subscript_expression"
+        let keyed = Node::kind(&target) == "subscript_expression"
             && self
                 .runtime_object(target)
                 .is_some_and(|object| self.platform_prototype(object));
         if keyed {
             return Some(Written::Unknown);
         }
-        let object = tree.field(target, F::Object).map(|o| tree.cx.unwrapped(o));
+        let object = Tree::field(tree, target, F::Object).map(|o| Cx::unwrapped(&tree.cx, o));
         let proto = self.member_key(target).as_deref() == Some(PROTO);
         (proto && !object.is_some_and(|o| self.proven_local(o))).then_some(Written::Amplified)
     }
@@ -56,22 +61,21 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// class of the file, `x.__proto__` on any value, and a call of a member `getPrototypeOf`.
     fn platform_prototype(&self, node: Node<'t>) -> bool {
         let tree = self.tree;
-        let node = tree.cx.unwrapped(node);
+        let node = Cx::unwrapped(&tree.cx, node);
         if tree.in_type(node) {
             return false;
         }
-        match node.kind() {
+        match Node::kind(&node) {
             "member_expression" | "subscript_expression" => {
-                let object = tree.field(node, F::Object).map(|o| tree.cx.unwrapped(o));
+                let object = Tree::field(tree, node, F::Object).map(|o| Cx::unwrapped(&tree.cx, o));
                 match self.member_key(node).as_deref() {
                     Some(PROTO) => true,
                     Some(PROTOTYPE) => !object.is_some_and(|o| self.local_class(o)),
                     _ => false,
                 }
             }
-            "call_expression" => tree
-                .field(node, F::Function)
-                .map(|callee| tree.cx.unwrapped(callee))
+            "call_expression" => Tree::field(tree, node, F::Function)
+                .map(|callee| Cx::unwrapped(&tree.cx, callee))
                 .and_then(|callee| self.member_key(callee))
                 .is_some_and(|name| name == "getPrototypeOf"),
             _ => false,
@@ -82,12 +86,12 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// plain is unknown, and an unknown name can be any of them, so it is the text `__proto__`.
     fn member_key(&self, node: Node<'t>) -> Option<String> {
         let tree = self.tree;
-        match node.kind() {
+        match Node::kind(&node) {
             "member_expression" => {
-                let property = tree.text(tree.field(node, F::Property)?);
+                let property = Tree::text(tree, Tree::field(tree, node, F::Property)?);
                 Some(cooked(&property).unwrap_or_else(|| PROTO.to_owned()))
             }
-            "subscript_expression" => self.text_of(tree.field(node, F::Index)?),
+            "subscript_expression" => self.text_of(Tree::field(tree, node, F::Index)?),
             _ => None,
         }
     }
@@ -97,7 +101,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `prototype` of a function can be written, so a function is no such class.
     fn local_class(&self, object: Node<'t>) -> bool {
         let tree = self.tree;
-        if object.kind() != "identifier" {
+        if Node::kind(&object) != "identifier" {
             return false;
         }
         let expression = self
@@ -109,7 +113,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// A name that one class declaration of its scope binds, and that nothing writes again.
     fn class_declaration(&self, name: Node<'t>) -> bool {
         let tree = self.tree;
-        let text = tree.text(name);
+        let text = Tree::text(tree, name);
         let Some(scope) = bound_scope(tree, name, &text) else {
             return false;
         };
@@ -120,17 +124,16 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
         crate::tree::nodes::named_children(scope)
             .into_iter()
-            .filter_map(|statement| match statement.kind() {
-                "export_statement" => tree.field(statement, F::Declaration),
+            .filter_map(|statement| match Node::kind(&statement) {
+                "export_statement" => Tree::field(tree, statement, F::Declaration),
                 _ => Some(statement),
             })
             .any(|declaration| {
                 matches!(
                     tree.k(declaration),
                     K::ClassDeclaration | K::AbstractClassDeclaration
-                ) && tree
-                    .field(declaration, F::Name)
-                    .is_some_and(|class| tree.text(class) == text)
+                ) && Tree::field(tree, declaration, F::Name)
+                    .is_some_and(|class| Tree::text(tree, class) == text)
             })
     }
 }
