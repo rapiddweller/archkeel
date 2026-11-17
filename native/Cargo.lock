@@ -167,6 +167,7 @@ version = "0.0.0"
 dependencies = [
  "archkeel-contract",
  "archkeel-eval",
+ "archkeel-facts",
  "archkeel-model",
  "archkeel-store",
  "flate2",

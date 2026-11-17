@@ -80,6 +80,7 @@
         "native.archkeel_facts.identity:is_identifier",
         "native.archkeel_facts.identity:module_identity",
         "native.archkeel_facts.identity:package_of",
+        "native.archkeel_facts.identity:readable",
         "native.archkeel_facts.identity:sha256_hex",
         "native.archkeel_facts.identity:stable_id",
         "native.archkeel_facts.ids:EvidenceId",
@@ -1827,6 +1828,13 @@
             "native.archkeel_report.ruling",
             "native.archkeel_report.run_scope"
           ]
+        },
+        {
+          "component": "facts",
+          "rationale": "The manifest declares the typed facts that the page reads back (#1617).",
+          "through": [
+            "native.archkeel_facts"
+          ]
         }
       ],
       "public": [
@@ -2035,6 +2043,13 @@
           "through": [
             "native.archkeel_report.head:RuleVerdict",
             "native.archkeel_report.head:Status"
+          ]
+        },
+        {
+          "component": "facts",
+          "rationale": "Read a module identity back to the characters of its path for the page (#1617).",
+          "through": [
+            "native.archkeel_facts.identity"
           ]
         }
       ],
