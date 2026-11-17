@@ -126,10 +126,11 @@ fn the_store_accepts_a_complete_survey_and_refuses_each_planted_claim() {
 
     type Change = fn(&mut Reply);
     let cases: [(&str, Change); 9] = [
-        ("only the Python import survey", |r| {
+        // AD-688: a TypeScript profile does not register the routes feature of the survey.
+        ("the resolution feature import-routes-v1", |r| {
             r.facts.profile = Profile::TypeScript
         }),
-        ("10.0.0 import survey", |r| {
+        ("10.0.0 or 11.0.0 import survey", |r| {
             r.protocol_version = ProtocolVersion::V9
         }),
         ("resolution feature", |r| {

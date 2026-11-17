@@ -2,11 +2,12 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The JSON schema of the protocol 9 wire, generated from the types (schemars).
+//! The JSON schema of the protocol 11 wire, generated from the types (schemars).
 //!
 //! The schema is a bundle: each type is a definition under `$defs`. A reader refers to
 //! `#/$defs/Section` for a section and to `#/$defs/Record_GapFact` for a coverage gap. The
-//! committed file `native/facts/schema/archkeel-facts-9.schema.json` must equal `schema()` (`schema_tests`).
+//! committed file `native/facts/schema/archkeel-facts-11.schema.json` must equal `schema()` (`schema_tests`).
+//! Protocol 11 adds the validation block of the facts (AD-688).
 //! A published schema never changes, so a type change that changes the schema needs a new protocol.
 
 use schemars::generate::SchemaSettings;
@@ -20,9 +21,9 @@ use crate::sections::{GapFact, Section};
 use crate::vocab::Kind;
 
 /// The path of the committed schema, relative to the crate.
-pub const PATH: &str = "schema/archkeel-facts-9.schema.json";
+pub const PATH: &str = "schema/archkeel-facts-11.schema.json";
 
-/// The schema bundle of protocol 9.
+/// The schema bundle of protocol 11.
 pub fn schema() -> Value {
     let mut generator = SchemaSettings::draft2020_12().into_generator();
     generator.subschema_for::<Section>();
@@ -30,10 +31,11 @@ pub fn schema() -> Value {
     generator.subschema_for::<Kind>();
     generator.subschema_for::<ReasonCode>();
     generator.subschema_for::<crate::envelope::Runtime>();
+    generator.subschema_for::<crate::envelope::Validation>();
     let definitions = generator.take_definitions(true);
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "title": "archkeel-facts protocol 9",
+        "title": "archkeel-facts protocol 11",
         "description": "The source records of a collector reply. Generated from the Rust types.",
         "$defs": definitions,
     })

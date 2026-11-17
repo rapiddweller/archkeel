@@ -8,7 +8,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::envelope::{Evidence, Facts, FileFact, Profile, Target};
+use archkeel_facts::envelope::{Evidence, Facts, FileFact, OwnedFile, Target};
 use archkeel_facts::fields::Named;
 use archkeel_facts::ids::EvidenceId;
 use archkeel_facts::vocab::Status;
@@ -32,7 +32,9 @@ pub(crate) struct Modules<'a> {
     files: HashMap<&'a str, &'a FileFact>,
     by_path: HashMap<&'a str, &'a str>,
     evidence: HashMap<&'a str, &'a Evidence>,
-    part_evidence: bool,
+    /// The files that belong to another module (a Dart part, AD-468): a record of the owner may
+    /// cite their evidence (AD-688: the owned file, not the profile, permits it).
+    owned: &'a [OwnedFile],
 }
 
 /// The module of a runtime-effect gap, bound to the effect record that the visit finds.
@@ -72,7 +74,7 @@ impl<'a> Modules<'a> {
                 .iter()
                 .map(|entry| (entry.id.as_str(), entry))
                 .collect(),
-            part_evidence: facts.profile == Profile::Dart,
+            owned: &facts.owned_files,
         })
     }
 
@@ -138,10 +140,15 @@ impl<'a> Modules<'a> {
         let foreign = |id: &EvidenceId| {
             let path = self.file(id.as_str());
             path != Some(file.rel_path.as_str())
-                && !(self.part_evidence
-                    && path.is_some()
+                && !(path.is_some()
                     && data.source_file == path
-                    && path.is_some_and(|p| selected.contains(p) && !self.by_path.contains_key(p)))
+                    && path.is_some_and(|p| {
+                        self.owned
+                            .iter()
+                            .any(|owned| owned.rel_path == p && owned.owner.as_str() == module)
+                            && selected.contains(p)
+                            && !self.by_path.contains_key(p)
+                    }))
         };
         if view.evidence_ids.is_empty() || view.evidence_ids.iter().any(foreign) {
             return Err("source record evidence disagrees with its module".to_owned());

@@ -11,6 +11,8 @@
 
 use std::io::{self, Write};
 
+use archkeel_facts::envelope::validation::{InterfaceNeed, Registered};
+use archkeel_facts::envelope::{ConstructSupport, Profile, SectionName, Validation};
 use archkeel_facts::{
     BindingFact, CallFact, ConstructFact, ImportFact, IntoSection, Record, ReferenceFact,
     SymbolFact,
@@ -32,6 +34,43 @@ use crate::symbols;
 /// The assumption that the proofs of a script global rest on (AD-540). The report states it with
 /// the verdict. The collector cannot see a caller outside the scan roots.
 const SCRIPT_PREMISE: &str = "code outside the scan roots hands in no global or platform object";
+
+/// The import features that each registered set of the collector states (`native` set).
+const NATIVE_IMPORTS: [&str; 4] = [
+    "literal-imports",
+    "relative-specifiers",
+    "node-builtins",
+    "local-runtime-closure",
+];
+
+/// The validation table of the collector (AD-688; the registered sets of AD-378, lead decision
+/// L-35a, `check/evaluation/evaluate.py:1031-1054`): the four native import features with the
+/// sections `imports` and `unknowns`; or the inner UML set (those features and `inner-uml-v1`,
+/// optionally `script-globals-v1`) with the six inner UML sections and no construct capability,
+/// or with the `constructs` section and exactly `string_literal_compare` `partial`. Each set may
+/// state `bundler-mode-v1`. An interface statement needs no feature; the standard library is
+/// empty.
+pub(crate) fn validation() -> Validation {
+    use SectionName::{Bindings, Calls, Constructs, Imports, References, Symbols, Unknowns};
+    let bundler = ["bundler-mode-v1"];
+    let inner_features: Vec<&str> = NATIVE_IMPORTS.into_iter().chain(["inner-uml-v1"]).collect();
+    let inner_optional = ["bundler-mode-v1", "script-globals-v1"];
+    let inner = [Imports, Unknowns, Symbols, Calls, References, Bindings];
+    let with_constructs = [
+        Imports, Unknowns, Symbols, Calls, References, Bindings, Constructs,
+    ];
+    Validation {
+        registered: vec![
+            Registered::of(&[Imports, Unknowns], &NATIVE_IMPORTS).with_optional_features(&bundler),
+            Registered::of(&inner, &inner_features).with_optional_features(&inner_optional),
+            Registered::of(&with_constructs, &inner_features)
+                .with_optional_features(&inner_optional)
+                .with_construct(STRING_LITERAL_COMPARE, &[ConstructSupport::Partial]),
+        ],
+        interface: InterfaceNeed::Nothing,
+        standard_library: Profile::TypeScript.as_str().to_owned(),
+    }
+}
 
 /// What the producer holds before the first record is written: the targets of the imports, the
 /// table of symbols and the evidence, which the records cite while they are written.
@@ -84,6 +123,7 @@ pub(crate) fn plan(mut facts: Facts, pending: &Pending, track: bool) -> (Head, P
         source_digest: None,
         files: std::mem::take(&mut facts.files),
         imports: std::mem::take(&mut expanded.targets),
+        validation: validation(),
     };
     let plan = Plan {
         pending,

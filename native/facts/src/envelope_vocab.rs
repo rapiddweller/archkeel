@@ -13,6 +13,8 @@ closed! {
         V9 = "9.0.0",
         /// Protocol 10.
         V10 = "10.0.0",
+        /// Protocol 11: the facts carry the validation block (AD-688).
+        V11 = "11.0.0",
     }
 }
 

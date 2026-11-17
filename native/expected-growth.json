@@ -24,16 +24,6 @@
       "entry": [
         "violation",
         "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-        "native.archkeel_store.bindings",
-        "native.archkeel_facts.envelope",
-        "forbidden dependency"
-      ],
-      "reason": "AD-668: store or core names the language vocabulary or a language module (#1384); visible until the code is fixed."
-    },
-    {
-      "entry": [
-        "violation",
-        "NATIVE-NEUTRAL-STORE-NO-PROFILE",
         "native.archkeel_store.python",
         "native.archkeel_facts.envelope",
         "forbidden dependency"
@@ -44,27 +34,7 @@
       "entry": [
         "violation",
         "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-        "native.archkeel_store.records",
-        "native.archkeel_facts.envelope",
-        "forbidden dependency"
-      ],
-      "reason": "AD-668: store or core names the language vocabulary or a language module (#1384); visible until the code is fixed."
-    },
-    {
-      "entry": [
-        "violation",
-        "NATIVE-NEUTRAL-STORE-NO-PROFILE",
         "native.archkeel_store.registered",
-        "native.archkeel_facts.envelope",
-        "forbidden dependency"
-      ],
-      "reason": "AD-668: store or core names the language vocabulary or a language module (#1384); visible until the code is fixed."
-    },
-    {
-      "entry": [
-        "violation",
-        "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-        "native.archkeel_store.standard",
         "native.archkeel_facts.envelope",
         "forbidden dependency"
       ],

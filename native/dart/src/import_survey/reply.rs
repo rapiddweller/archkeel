@@ -5,7 +5,10 @@
 //! The request and the typed reply of the survey (AD-454). The reply declares the sections
 //! `imports` and `unknowns` only, as the import survey of the Python collector does.
 
-use archkeel_facts::envelope::{LimitSupport, OwnedFile, ProfileLimits, Provenance, Reply};
+use archkeel_facts::envelope::validation::{InterfaceNeed, Registered};
+use archkeel_facts::envelope::{
+    LimitSupport, OwnedFile, Profile, ProfileLimits, Provenance, Reply, SectionName, Validation,
+};
 use archkeel_facts::request::DartRequest;
 use archkeel_facts::{GapFact, ImportFact};
 use archkeel_wire::protocol::Version;
@@ -15,6 +18,20 @@ use super::survey;
 
 /// The sections of the survey reply, in their order. No other section is collected.
 const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
+
+/// The validation table of the survey (AD-688, AD-468): exactly the sections `imports` and
+/// `unknowns`, no feature and no construct capability, and no interface statement. The standard
+/// library is `dart`, and its owner also names the SDK libraries.
+fn validation() -> Validation {
+    Validation {
+        registered: vec![Registered::of(
+            &[SectionName::Imports, SectionName::Unknowns],
+            &[],
+        )],
+        interface: InterfaceNeed::Unsupported,
+        standard_library: Profile::Dart.as_str().to_owned(),
+    }
+}
 
 /// Decode a Dart request with the shared wire, as the binary reads it on stdin.
 pub fn decode(payload: &[u8]) -> Result<DartRequest, String> {
@@ -43,6 +60,7 @@ pub fn typed_reply(
         source_digest: None,
         files: found.files,
         imports: found.targets,
+        validation: validation(),
     };
     let imports = found.imports;
     let tail = Tail {

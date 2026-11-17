@@ -12,7 +12,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::envelope::{ConstructSupport, Facts, Profile};
+use archkeel_facts::envelope::{ConstructSupport, Facts};
 use archkeel_facts::vocab::{EvidenceClass, InventoryStatus, MemberKind, Status};
 use archkeel_facts::{FactData, Record, Section};
 
@@ -20,6 +20,10 @@ use crate::bindings::Modules;
 use crate::stored::{visit, Visitor};
 use crate::validate::{unique, Envelope};
 use crate::view::View;
+
+/// The feature under which a reply states script effects and their gaps (AD-688: the feature,
+/// which only a registered set can admit, is the condition; the profile adds nothing).
+const SCRIPT_FEATURE: &str = "script-globals-v1";
 
 /// Kinds whose proof is a Python check that the store does not port yet.
 const UNCHECKED_KINDS: [&str; 5] = [
@@ -248,8 +252,7 @@ impl Pass<'_> {
             if !same {
                 return Err("coverage gap must reference its source UNKNOWN record".to_owned());
             }
-            let effects = self.facts.profile == Profile::TypeScript
-                && self.envelope.features.contains("script-globals-v1");
+            let effects = self.envelope.features.contains(SCRIPT_FEATURE);
             self.modules
                 .effect_gap(&view, sections, &self.places, effects)?;
         }
@@ -306,9 +309,7 @@ pub(crate) fn records(facts: &Facts, envelope: &Envelope<'_>) -> Result<(), Stri
     if !pass.fact_refs.iter().all(known) {
         return Err("dangling source fact reference".to_owned());
     }
-    let script =
-        facts.profile == Profile::TypeScript && envelope.features.contains("script-globals-v1");
-    if pass.effects && !script {
+    if pass.effects && !envelope.features.contains(SCRIPT_FEATURE) {
         return Err("script effects require the registered TypeScript script profile".to_owned());
     }
     pass.member_inventories()?;
