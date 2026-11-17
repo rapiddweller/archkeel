@@ -318,8 +318,8 @@ fn hostile_names_reach_no_markup_in_any_new_block() {
     );
     assert_eq!(
         page.matches("<script").count(),
-        10,
-        "the theme, the data and eight scripts"
+        11,
+        "the theme, the data and nine scripts"
     );
     for block in [
         "id=\"unknown\"",
