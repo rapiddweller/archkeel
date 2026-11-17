@@ -22,13 +22,11 @@
     "NATIVE-EXTERNAL-UNICODE-IDENT": "PASS",
     "NATIVE-INTERFACE-BOUNDARY": "PASS",
     "NATIVE-LAYER-ORDER": "PASS",
-    "NATIVE-NEUTRAL-CORE-NO-PROFILE": "FAIL",
+    "NATIVE-NEUTRAL-CORE-NO-PROFILE": "PASS",
     "NATIVE-NEUTRAL-EVAL-NO-PROFILE": "PASS",
     "NATIVE-NEUTRAL-MODEL-NO-PROFILE": "PASS",
     "NATIVE-NEUTRAL-REPORT-NO-PROFILE": "PASS",
-    "NATIVE-NEUTRAL-STORE-NO-DART-MODULE": "FAIL",
-    "NATIVE-NEUTRAL-STORE-NO-PROFILE": "FAIL",
-    "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE": "FAIL",
+    "NATIVE-NEUTRAL-STORE-NO-PROFILE": "PASS",
     "NATIVE-NO-COLLECT-TO-CONTRACT": "PASS",
     "NATIVE-NO-COLLECT-TO-CORE": "PASS",
     "NATIVE-NO-COLLECT-TO-EVAL": "PASS",
@@ -81,7 +79,7 @@
     "NATIVE-NO-TYPESCRIPT-TO-MODEL": "PASS",
     "NATIVE-NO-TYPESCRIPT-TO-REPORT": "PASS",
     "NATIVE-NO-TYPESCRIPT-TO-STORE": "PASS",
-    "NATIVE-PUBLIC-HAS-A-USER": "UNKNOWN",
+    "NATIVE-PUBLIC-HAS-A-USER": "FAIL",
     "NATIVE-PY-MODULE-NO-SURVEY": "PASS",
     "NATIVE-PY-MODULE-NO-SYMBOLS": "PASS",
     "NATIVE-PY-MODULE-NO-UNPARSE": "PASS",
@@ -96,73 +94,155 @@
     "NATIVE-PY-UNPARSE-NO-SYMBOLS": "PASS",
     "NATIVE-REQUIRES-COMPLETE": "PASS"
   },
-  "unknown": {
-    "NATIVE-PUBLIC-HAS-A-USER": "scope_incomplete"
-  },
+  "unknown": {},
   "gaps": [],
   "violations": [
     {
-      "rule": "NATIVE-NEUTRAL-CORE-NO-PROFILE",
-      "source": "native.archkeel_core.scan",
-      "target": "native.archkeel_collect",
-      "cause": "forbidden dependency",
-      "issue": 1384
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_collect",
+      "target": "native.archkeel_collect:test_features",
+      "cause": "public name that no other component uses",
+      "issue": 1402
     },
     {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-DART-MODULE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_store.dart",
-      "cause": "forbidden dependency",
-      "issue": 1384
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_contract.policy.amendment",
+      "target": "native.archkeel_contract.policy.amendment:amendment_bytes",
+      "cause": "public name that no other component uses",
+      "issue": 1402
     },
     {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_contract.policy.amendment",
+      "target": "native.archkeel_contract.policy.amendment:parse_amendment",
+      "cause": "public name that no other component uses",
+      "issue": 1402
     },
     {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_contract.policy.binding",
+      "target": "native.archkeel_contract.policy.binding:bind",
+      "cause": "public name that no other component uses",
+      "issue": 1402
     },
     {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_contract.policy.compare",
+      "target": "native.archkeel_contract.policy.compare:compare_trees",
+      "cause": "public name that no other component uses",
+      "issue": 1402
     },
     {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_contract.policy.tree",
+      "target": "native.archkeel_contract.policy.tree:MAX_DEPTH",
+      "cause": "public name that no other component uses",
+      "issue": 1402
     },
     {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_facts.nullable",
+      "target": "native.archkeel_facts.nullable:required",
+      "cause": "public name that no other component uses",
+      "issue": 1402
     },
     {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
-      "source": "native.archkeel_store.dart",
-      "target": "native.archkeel_store.python",
-      "cause": "forbidden dependency",
-      "issue": 1384
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_facts.pyrepr",
+      "target": "native.archkeel_facts.pyrepr:escapes",
+      "cause": "public name that no other component uses",
+      "issue": 1402
     },
     {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_store.python",
-      "cause": "forbidden dependency",
-      "issue": 1384
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_facts.schema",
+      "target": "native.archkeel_facts.schema:PATH",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_facts.schema",
+      "target": "native.archkeel_facts.schema:REQUEST_PATH",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_facts.schema",
+      "target": "native.archkeel_facts.schema:request_schema",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_facts.schema",
+      "target": "native.archkeel_facts.schema:request_text",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_facts.schema",
+      "target": "native.archkeel_facts.schema:schema",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_facts.schema",
+      "target": "native.archkeel_facts.schema:text",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_python_collector.pyast.node",
+      "target": "native.archkeel_python_collector.pyast.node:context",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_python_collector.pyast.node",
+      "target": "native.archkeel_python_collector.pyast.node:type_params",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_snapshot.test_tree",
+      "target": "native.archkeel_snapshot.test_tree:charged_bytes",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_snapshot.test_tree",
+      "target": "native.archkeel_snapshot.test_tree:read_bytes",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_snapshot.work",
+      "target": "native.archkeel_snapshot.work:MAX_NESTING",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_snapshot.work",
+      "target": "native.archkeel_snapshot.work:MAX_PARSE_WORK",
+      "cause": "public name that no other component uses",
+      "issue": 1402
+    },
+    {
+      "rule": "NATIVE-PUBLIC-HAS-A-USER",
+      "source": "native.archkeel_snapshot.work",
+      "target": "native.archkeel_snapshot.work:MAX_SCAN_BYTES",
+      "cause": "public name that no other component uses",
+      "issue": 1402
     }
   ]
 }

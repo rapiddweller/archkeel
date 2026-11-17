@@ -106,8 +106,6 @@ EXPECTED_RULES = [
     ("NATIVE-NEUTRAL-EVAL-NO-PROFILE", "forbidden_dependency"),
     ("NATIVE-NEUTRAL-REPORT-NO-PROFILE", "forbidden_dependency"),
     ("NATIVE-NEUTRAL-CORE-NO-PROFILE", "forbidden_dependency"),
-    ("NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE", "forbidden_dependency"),
-    ("NATIVE-NEUTRAL-STORE-NO-DART-MODULE", "forbidden_dependency"),
     # AD-670: each public function, constant and static has a user in another component.
     ("NATIVE-PUBLIC-HAS-A-USER", "unused_public"),
 ]

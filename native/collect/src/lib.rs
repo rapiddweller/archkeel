@@ -36,9 +36,10 @@ use serde_json::{json, Value};
 use crate::refusal::refused;
 pub use crate::refusal::{Refusal, RefusalKind};
 pub use crate::repository::Over;
+pub use crate::run::check;
 #[cfg(test)]
 pub(crate) use crate::run::reply_of;
-pub use archkeel_facts::envelope::Profile;
+use archkeel_facts::envelope::Profile;
 
 /// What the caller gives: the scan identity, never facts.
 pub struct Identity<'a> {
@@ -56,8 +57,8 @@ pub struct Identity<'a> {
 
 /// The result of one scan: what the core needs to decide the run.
 pub struct Scanned {
-    /// The profile whose collector made the reply.
-    pub profile: Profile,
+    /// The profile whose collector made the reply; the core reads its name (`collector`).
+    profile: Profile,
     /// The scan roots of the contract.
     pub roots: Vec<String>,
     /// The namespace of the scanned code.
@@ -72,6 +73,11 @@ pub struct Scanned {
 }
 
 impl Scanned {
+    /// The name of the collector that made the reply: the adapter name that its reply must have.
+    pub fn collector(&self) -> &'static str {
+        self.profile.as_str()
+    }
+
     /// An inside contract: its identity and bytes, `None` when the path is missing, not a file
     /// or outside the root, and `Over` above `budget` bytes (`read_inside` of the shell).
     pub fn read_inside(

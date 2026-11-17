@@ -25,7 +25,7 @@ fn methods_of(table: &SymbolTable) -> Methods {
     for entry in &table.entries {
         let definition = entry.definition;
         let (Some(parent), Some(line), Some(column)) = (
-            entry.parent,
+            entry.parent(),
             definition.parent_line,
             definition.parent_column,
         ) else {
@@ -101,7 +101,7 @@ fn record(
 fn metadata(table: &SymbolTable, cited: &mut Cited, entry: &Entry) -> Core {
     let definition = entry.definition;
     let parent_id = match (definition.parent_line, definition.parent_column) {
-        (Some(line), Some(column)) if entry.parent.is_some() => entry
+        (Some(line), Some(column)) if entry.parent().is_some() => entry
             .parent_qualified()
             .and_then(|name| table.scope(&name, line, column))
             .map(|parent| FactId::new(&parent.id)),

@@ -26,17 +26,22 @@ pub(crate) struct Entry<'a> {
     pub rel: &'a str,
     pub module: &'a str,
     pub definition: &'a Definition,
-    /// The qualified name of the parent definition inside the module, if it has one.
-    pub parent: Option<&'a str>,
     /// `module.parent.name`, or `module.name` for a definition without a parent.
     pub qualified: Rc<str>,
     pub id: String,
 }
 
 impl Entry<'_> {
+    /// The qualified name of the parent inside the module.
+    pub(crate) fn parent(&self) -> Option<&str> {
+        self.definition.parent?;
+        let end = self.qualified.len() - self.definition.name.len() - 1;
+        self.qualified.get(self.module.len() + 1..end)
+    }
+
     /// The qualified name of the parent definition with its module (`parent_name` of Python).
     pub(crate) fn parent_qualified(&self) -> Option<String> {
-        self.parent
+        self.parent()
             .map(|parent| format!("{}.{parent}", self.module))
     }
 
@@ -111,7 +116,8 @@ impl<'a> SymbolTable<'a> {
             let Some(kept) = pending.kept.get(rel) else {
                 continue;
             };
-            for (definition, parent) in &kept.definitions {
+            for definition in &kept.definitions {
+                let parent = definition.parent.map(|at| kept.scopes.qualified(at));
                 table.add(rel, &kept.module, definition, parent.as_deref());
             }
         }
@@ -124,7 +130,7 @@ impl<'a> SymbolTable<'a> {
         rel: &'a str,
         module: &'a str,
         definition: &'a Definition,
-        parent: Option<&'a str>,
+        parent: Option<&str>,
     ) {
         // One copy of the name: the indexes and the entry share it, and a deep nest has names as
         // long as its depth.
@@ -181,7 +187,6 @@ impl<'a> SymbolTable<'a> {
             rel,
             module,
             definition,
-            parent,
             qualified,
             id,
         });

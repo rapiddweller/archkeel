@@ -22,7 +22,7 @@ use serde::Deserialize;
 #[cfg(test)]
 use serde_json::Value;
 
-use archkeel_collect::{Identity, Over, Profile, Refusal, RefusalKind, Scanned};
+use archkeel_collect::{Identity, Over, Refusal, RefusalKind, Scanned};
 use archkeel_facts::envelope::validation::library_family;
 use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
@@ -171,8 +171,8 @@ fn decide(
     }))
     .chain(documents.bound())
     .collect();
+    let collector = scanned.collector();
     let Scanned {
-        profile,
         roots,
         namespace,
         contract: (path, contract),
@@ -198,7 +198,7 @@ fn decide(
         html,
         topology,
         base: None,
-        trust: in_process(profile),
+        trust: in_process(collector),
         collect: Some(crate::dual_run::Collect::Derived {
             request,
             contract_files,
@@ -246,7 +246,7 @@ fn refused(refusal: &Refusal, html: bool) -> Result<Answered, String> {
 /// The trust of the scan request: the reply comes from the collector that this process ran.
 /// The reply must still name the collector of the profile that ran and the code digest of this
 /// build; anything else names the whole contract.
-fn in_process(profile: Profile) -> TrustOf {
+fn in_process(collector: &'static str) -> TrustOf {
     Box::new(move |namespace, reply: Option<&Ingested>| {
         let Some(reply) = reply else {
             return Trust {
@@ -262,15 +262,15 @@ fn in_process(profile: Profile) -> TrustOf {
                 .map(str::to_owned)
                 .collect();
             return Trust {
-                settings: Settings::new(namespace, profile.as_str().to_owned(), names),
+                settings: Settings::new(namespace, collector.to_owned(), names),
                 gap: Some("the target has no standard library table".to_owned()),
             };
         };
         let standard_library = standard_library.into_iter().map(str::to_owned).collect();
-        let settings = Settings::new(namespace, profile.as_str().to_owned(), standard_library);
+        let settings = Settings::new(namespace, collector.to_owned(), standard_library);
         let adapter = &facts.adapter;
-        if facts.profile == profile
-            && adapter.name == profile.as_str()
+        if facts.profile.as_str() == collector
+            && adapter.name == collector
             && library_family(&key) == adapter.name
             && adapter.code_digest == CODE_DIGEST
         {
@@ -284,9 +284,7 @@ fn in_process(profile: Profile) -> TrustOf {
             gap: Some(format!(
                 "{PRODUCER_NOT_VERIFIED}: the collector in the core process ran for {} and its \
                  reply names the adapter {} with the code digest {}",
-                profile.as_str(),
-                adapter.name,
-                adapter.code_digest
+                collector, adapter.name, adapter.code_digest
             )),
         }
     })

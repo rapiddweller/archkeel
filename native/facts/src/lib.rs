@@ -49,6 +49,7 @@ pub mod request;
 mod schema;
 pub mod sections;
 mod skip;
+pub mod surveys;
 pub mod type_shape;
 pub mod vocab;
 mod vocab_constructs;

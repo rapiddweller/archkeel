@@ -2,10 +2,11 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The checks of a Dart import survey (AD-468). The store accepts a Dart reply only as the import
-//! survey of one package (AD-454): the sections `imports` and `unknowns`, typed targets that
-//! agree with the Dart URI rules, and a complete account of each selected input. The generic
-//! checks still run on it: coverage counts, inputs, evidence and module bindings.
+//! The checks of a Dart import survey that only this collector knows (AD-468, AD-688): typed
+//! targets that agree with the Dart URI rules, imports and exports with no specifier, and a
+//! complete account of each selected input. The core runs them through `archkeel-collect` after
+//! the store has validated the reply with its language-free minimum and the validation block (the
+//! sections `imports` and `unknowns`), so they can only add rules.
 
 use std::collections::HashSet;
 
@@ -13,8 +14,8 @@ use archkeel_facts::envelope::{Facts, Target};
 use archkeel_facts::{GapFact, ImportFact, Section};
 
 /// The claims of the survey that the model reads for a decision.
-pub(crate) fn survey(facts: &Facts) -> Result<(), String> {
-    crate::python::gaps_are_unknowns(facts)?;
+pub fn check(facts: &Facts) -> Result<(), String> {
+    archkeel_facts::surveys::gaps_are_unknowns(facts)?;
     let project: HashSet<&str> = facts
         .files
         .iter()
@@ -77,7 +78,7 @@ fn statement(fact: &ImportFact) -> Result<(), String> {
 }
 
 /// Each selected input is the file of a module, a part with a named owner, or the file of a gap.
-/// The owned files themselves are checked by the generic validation (`validate::owned_files`).
+/// The store checks the owned files themselves (its minimum, AD-688).
 fn accounted(facts: &Facts) -> Result<(), String> {
     let owned: HashSet<&str> = facts
         .owned_files
@@ -111,5 +112,12 @@ fn first_part(name: &str) -> &str {
 }
 
 #[cfg(test)]
-#[path = "dart_tests.rs"]
-mod tests;
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_first_part_names_the_namespace_of_a_module() {
+        assert_eq!(first_part("shop.a"), "shop");
+        assert_eq!(first_part("shop"), "shop");
+    }
+}
