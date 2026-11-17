@@ -43,17 +43,6 @@ impl Found {
 /// The member that a write patches: see `Found::patch`.
 type Patched = Option<Vec<String>>;
 
-/// The kinds of a literal value: it is no function.
-const LITERALS: [&str; 7] = [
-    "string",
-    "number",
-    "true",
-    "false",
-    "null",
-    "undefined",
-    "template_string",
-];
-
 /// The members of `Object` and `Reflect` that write members of their first argument (AD-766).
 const REFLECTIVE: [(&str, &str); 7] = [
     ("Object", "assign"),
@@ -201,7 +190,9 @@ impl Reader<'_> {
         // value. A literal value can be no function.
         let name = Reader::text(self, root);
         let global = Node::kind(&root) == "identifier" && !self.declared.contains(&name);
-        let literal = value.is_some_and(|value| LITERALS.contains(&Node::kind(&unwrapped(value))));
+        let literal = value.is_some_and(|value| {
+            crate::script_types::LITERAL_KINDS.contains(&Node::kind(&unwrapped(value)))
+        });
         let path = accessors
             .iter()
             .rev()

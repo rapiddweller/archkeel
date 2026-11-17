@@ -81,6 +81,17 @@ pub(crate) fn key_form() -> &'static str {
     "a key that is no literal and can name constructor"
 }
 
+/// The kinds of a literal value: it is no function, so a write of it patches no call (#1674).
+pub(crate) const LITERAL_KINDS: [&str; 7] = [
+    "string",
+    "number",
+    "true",
+    "false",
+    "null",
+    "undefined",
+    "template_string",
+];
+
 /// A member patch of a free global (#1674): `Math.max = f` patches the path `max` of `Math`,
 /// `document.body.style.x = v` the path `body.style.x`. A key that is no literal ends the path, so
 /// the patch covers every member below the known part. `target` holds the line and column of each name of the

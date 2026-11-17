@@ -30,17 +30,6 @@ const REFLECTIVE: [(&str, &str); 7] = [
     ("Reflect", "setPrototypeOf"),
 ];
 
-/// The kinds of a literal value: it is no function.
-const LITERALS: [&str; 7] = [
-    "string",
-    "number",
-    "true",
-    "false",
-    "null",
-    "undefined",
-    "template_string",
-];
-
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// Each member patch of a free global in the file.
     pub(crate) fn member_patches(&self) -> Vec<Patch> {
@@ -48,7 +37,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let mut found = Vec::new();
         for (owner, target) in &self.targets {
             let value = Tree::field(tree, *owner, F::Right).map(|v| Cx::unwrapped(&tree.cx, v));
-            if value.is_some_and(|v| LITERALS.contains(&Node::kind(&v))) {
+            if value.is_some_and(|v| crate::script_types::LITERAL_KINDS.contains(&Node::kind(&v))) {
                 continue;
             }
             if let Some((global, path)) = self.patched_member(*target) {
