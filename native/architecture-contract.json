@@ -1748,7 +1748,8 @@
           "component": "report-ruling",
           "rationale": "Publish the ruling, the one writer of a status and a rule verdict (AD-388).",
           "through": [
-            "native.archkeel_report.ruling"
+            "native.archkeel_report.ruling",
+            "native.archkeel_report.run_scope"
           ]
         }
       ],
