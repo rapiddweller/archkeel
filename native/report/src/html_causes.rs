@@ -130,6 +130,18 @@ fn hygiene_title(code: &str, members: usize) -> String {
     }
 }
 
+/// The id of the card of a cause on the page (#1764): the kind and the number of its gaps, and for a
+/// cause that only its text tells apart, a short digest of that text. A NEXT link goes to it.
+pub(super) fn anchor(cause: &Cause<'_>) -> String {
+    let text = cause.reason.bytes().fold(0_u32, |hash, byte| {
+        hash.wrapping_mul(31).wrapping_add(u32::from(byte))
+    });
+    match cause.kind {
+        "other" | "named" => format!("cause-{}-{}-{text:08x}", cause.kind, cause.total),
+        kind => format!("cause-{kind}-{}", cause.total),
+    }
+}
+
 /// What the cause is, in one phrase.
 pub(super) fn title(cause: &Cause<'_>) -> String {
     match cause.kind {

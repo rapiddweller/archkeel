@@ -239,7 +239,8 @@
       "packages": [],
       "exact_modules": [
         "archkeel.cli.core_only",
-        "archkeel.cli.core_init"
+        "archkeel.cli.core_init",
+        "archkeel.cli.core_delivery"
       ],
       "responsibilities": [
         "Run one command line: send the scan identity, print the frame as text or JSON and map the status to the exit code."

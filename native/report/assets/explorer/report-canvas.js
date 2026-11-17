@@ -210,7 +210,7 @@
     const inside = components.filter((c) => (c.parent_id ?? null) === (scope ?? null));
     const childCount = (id) => components.filter((c) => c.parent_id === id).length;
     const item = (label, note, onclick, currentItem = false) =>
-      h("button", { role: "menuitem", class: currentItem ? "ak-current" : "", onclick: () => { closePop(); onclick(); } }, label, note ? h("small", {}, note) : null);
+      h("button", { role: "menuitem", class: currentItem ? "ak-current" : "", "aria-label": note ? `${label}, ${note}` : null, onclick: () => { closePop(); onclick(); } }, label, note ? h("small", {}, note) : null);
     openPop(anchor, [
       h("h4", {}, "Belongs to"),
       item(A.repository, "system", () => enterScope(null), !current),
@@ -322,7 +322,7 @@
           class: S.perspective === "language" ? "ak-chip ak-language-badge" : "ak-chip",
           ...(S.perspective === "language" ? { "data-language": languageKey(value) } : {}),
           "data-focus-key": `tag:${value}`, style: `--chip:${perspectiveColor(S.perspective, value)}`, "aria-pressed": String(S.pinnedTag === value),
-          title: `Highlight ${value}`,
+          title: `Highlight ${value}`, "aria-label": `${value}, ${count}`,
           onpointerenter: () => highlightTag(value), onpointerleave: () => highlightTag(S.pinnedTag),
           onclick: () => { present({ pinnedTag: S.pinnedTag === value ? null : value }); highlightTag(S.pinnedTag); renderTagBar(); } },
           h("i"), value, h("b", {}, String(count)))) : []),

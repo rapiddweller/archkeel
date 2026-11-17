@@ -1,0 +1,135 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""A trait impl runs in a module that reaches its module, without a name (#1515, #1516, AD-806).
+
+`b` defines `Y` and a trait impl for it; `c` gives `a` a value of `Y` (`c::make()`). `a` runs the
+impl by a form that writes no name of `b`: a format macro, `*` through `Deref`, an index, a method
+of a foreign trait that a glob brings in. `a` reaches `b` over `c`, so the rule that forbids
+`a -> b` is never PASS. The 17 forms of `rust_orphan_plants` (`OPEN_VALUE_FORMS`,
+`OPEN_TRAIT_FORMS`) are checked in `test_collector_false_pass_rust_orphan_impl.py`; here `cargo
+check` accepts each of them too. Controls: a module that does not reach `b`, and an impl that
+holds only an associated type, keep PASS.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+from rust_orphan_plants import OPEN_TRAIT_FORMS, OPEN_VALUE_FORMS
+from rust_repository import APP, CRATE_RULES, repository, rule, statuses, validate
+
+pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="rustc is the oracle")
+
+NO_A_TO_B = rule(
+    "NO-A-TO-B",
+    "forbidden_dependency",
+    source="native.app.a",
+    target="native.app.b",
+    include_type_checking=True,
+)
+LIB = "mod a;\nmod b;\nmod c;\n"
+MAKE = "pub fn make() -> crate::b::Y {\n    crate::b::Y\n}\n"
+
+
+def _form(impl: str, caller: str) -> dict[str, str]:
+    return {"lib.rs": LIB, "b.rs": f"pub struct Y;\n{impl}", "c.rs": MAKE, "a.rs": caller}
+
+
+FORMS: dict[str, dict[str, str]] = {
+    "Debug through a format macro": _form(
+        "impl std::fmt::Debug for Y {\n    fn fmt(&self, _f: &mut std::fmt::Formatter) "
+        "-> std::fmt::Result {\n        Ok(())\n    }\n}\n",
+        'pub fn f() -> String {\n    format!("{:?}", crate::c::make())\n}\n',
+    ),
+    "Deref through *": _form(
+        "impl std::ops::Deref for Y {\n    type Target = u8;\n"
+        "    fn deref(&self) -> &u8 {\n        &1\n    }\n}\n",
+        "pub fn f() -> u8 {\n    *crate::c::make()\n}\n",
+    ),
+    "Index through []": _form(
+        "impl std::ops::Index<usize> for Y {\n    type Output = u8;\n"
+        "    fn index(&self, _i: usize) -> &u8 {\n        &1\n    }\n}\n",
+        "pub fn f() -> u8 {\n    crate::c::make()[0]\n}\n",
+    ),
+}
+CONTROLS: dict[str, dict[str, str]] = {
+    "a does not reach b": _form(
+        "impl std::fmt::Display for Y {\n    fn fmt(&self, _f: &mut std::fmt::Formatter) "
+        "-> std::fmt::Result {\n        Ok(())\n    }\n}\n",
+        "pub fn f() -> u8 {\n    1\n}\n",
+    ),
+    "the impl holds only an associated type": {
+        **_form(
+            "pub trait K {\n    type T;\n}\nimpl K for Y {\n    type T = u8;\n}\n",
+            "pub fn f() {\n    let _y = crate::c::make();\n}\n",
+        ),
+    },
+}
+VENDOR = {
+    "vendor/trait-ext/Cargo.toml": '[package]\nname = "trait-ext"\nversion = "0.0.0"\n'
+    'edition = "2021"\n[workspace]\n',
+    "vendor/trait-ext/src/lib.rs": "pub trait T {\n    fn m(&self) -> u8;\n}\n",
+}
+GLOB = {
+    "crates/app/Cargo.toml": APP + 'trait-ext = { path = "../../vendor/trait-ext" }\n',
+    "crates/app/src/lib.rs": LIB,
+    "crates/app/src/a.rs": "use trait_ext::*;\npub fn f() -> u8 {\n    crate::c::make().m()\n}\n",
+    "crates/app/src/b.rs": "pub struct Y;\nimpl trait_ext::T for Y {\n"
+    "    fn m(&self) -> u8 {\n        1\n    }\n}\n",
+    "crates/app/src/c.rs": MAKE,
+    **VENDOR,
+}
+
+
+def _rustc_accepts(root: Path) -> None:
+    env = {**os.environ, "CARGO_TARGET_DIR": str(root.parent / "target")}
+    manifest = root / "crates/Cargo.toml"
+    command = ["cargo", "check", "--quiet", "--offline", "--manifest-path", str(manifest)]
+    done = subprocess.run(command, capture_output=True, text=True, env=env, check=False)
+    assert done.returncode == 0, done.stderr
+
+
+def _verdict(tmp_path: Path, core: Path, files: dict[str, str]) -> str:
+    root = repository(tmp_path / "repo", core, files, rules=(*CRATE_RULES, NO_A_TO_B))
+    verdict = statuses(validate(root))["NO-A-TO-B"]
+    _rustc_accepts(root)
+    return verdict
+
+
+def _app(files: dict[str, str]) -> dict[str, str]:
+    return {f"crates/app/src/{name}": text for name, text in files.items()}
+
+
+@pytest.mark.parametrize("name", list(FORMS))
+def test_an_implicit_call_through_another_module_never_passes(
+    tmp_path: Path, release_core: Path, name: str
+) -> None:
+    assert _verdict(tmp_path, release_core, _app(FORMS[name])) in {"FAIL", "UNKNOWN"}
+
+
+def test_a_foreign_trait_that_a_glob_brings_in_never_passes(
+    tmp_path: Path, release_core: Path
+) -> None:
+    assert _verdict(tmp_path, release_core, GLOB) in {"FAIL", "UNKNOWN"}
+
+
+@pytest.mark.parametrize("name", list(CONTROLS))
+def test_a_module_that_cannot_run_the_impl_keeps_its_verdict(
+    tmp_path: Path, release_core: Path, name: str
+) -> None:
+    assert _verdict(tmp_path, release_core, _app(CONTROLS[name])) == "PASS"
+
+
+OPEN = {**OPEN_VALUE_FORMS, **OPEN_TRAIT_FORMS}
+
+
+@pytest.mark.parametrize("name", list(OPEN))
+def test_rustc_accepts_each_dispatch_form_of_the_audit(
+    tmp_path: Path, release_core: Path, name: str
+) -> None:
+    assert _verdict(tmp_path, release_core, _app(OPEN[name])) in {"FAIL", "UNKNOWN"}

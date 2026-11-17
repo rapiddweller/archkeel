@@ -10,6 +10,9 @@ the enum, or by a re-export under another name) gives FAIL. A glob of a whole cr
 is read as a glob of its root module and gives FAIL too (AD-772). A route that the scan does not
 prove beside a rename of the item gives UNKNOWN, never PASS. A type alias is an
 item of its own, as a function that returns the type: a use of the alias names no `Profile`.
+Such a use, and a call of `make` alone, still reach `base.vocab`, where the derived `PartialEq` of
+`Profile` runs: the value flow cannot prove that `app` holds no `Profile`, so the rule is UNKNOWN
+with the trait-dispatch gap `app -> base.vocab` (AD-806), never PASS.
 """
 
 from __future__ import annotations
@@ -92,15 +95,15 @@ PLANTS = [
         "unproven route and no rename",
         OPAQUE + BASE,
         "pub fn f() {\n    base_crate::make();\n}\n",
-        "PASS",
+        "UNKNOWN",
     ),
     (
         "type alias of base",
         BASE,
         "pub fn f() {\n    let _x = base_crate::Alias::Dart;\n}\n",
-        "PASS",
+        "UNKNOWN",
     ),
-    ("no use of the item", BASE, "pub fn f() {\n    base_crate::make();\n}\n", "PASS"),
+    ("no use of the item", BASE, "pub fn f() {\n    base_crate::make();\n}\n", "UNKNOWN"),
 ]
 RULE = rule(
     "NO-PROFILE",
