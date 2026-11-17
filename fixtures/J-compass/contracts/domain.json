@@ -104,7 +104,7 @@
           "responsibilities": [
             "Travel and identity domain models"
           ],
-          "file_path": "lib/domain/models/activity/activity.dart"
+          "file_path": "compass_app/app/lib/domain/models/activity/activity.dart"
         },
         {
           "id": "mod-compass-domain-models-booking-booking",
@@ -119,7 +119,7 @@
           "responsibilities": [
             "Travel and identity domain models"
           ],
-          "file_path": "lib/domain/models/booking/booking.dart"
+          "file_path": "compass_app/app/lib/domain/models/booking/booking.dart"
         },
         {
           "id": "mod-compass-domain-models-booking-booking-summary",
@@ -134,7 +134,7 @@
           "responsibilities": [
             "Travel and identity domain models"
           ],
-          "file_path": "lib/domain/models/booking/booking_summary.dart"
+          "file_path": "compass_app/app/lib/domain/models/booking/booking_summary.dart"
         },
         {
           "id": "mod-compass-domain-models-continent-continent",
@@ -149,7 +149,7 @@
           "responsibilities": [
             "Travel and identity domain models"
           ],
-          "file_path": "lib/domain/models/continent/continent.dart"
+          "file_path": "compass_app/app/lib/domain/models/continent/continent.dart"
         },
         {
           "id": "mod-compass-domain-models-destination-destination",
@@ -164,7 +164,7 @@
           "responsibilities": [
             "Travel and identity domain models"
           ],
-          "file_path": "lib/domain/models/destination/destination.dart"
+          "file_path": "compass_app/app/lib/domain/models/destination/destination.dart"
         },
         {
           "id": "mod-compass-domain-models-itinerary-config-itinerary-config",
@@ -179,7 +179,7 @@
           "responsibilities": [
             "Travel and identity domain models"
           ],
-          "file_path": "lib/domain/models/itinerary_config/itinerary_config.dart"
+          "file_path": "compass_app/app/lib/domain/models/itinerary_config/itinerary_config.dart"
         },
         {
           "id": "mod-compass-domain-models-user-user",
@@ -194,7 +194,7 @@
           "responsibilities": [
             "Travel and identity domain models"
           ],
-          "file_path": "lib/domain/models/user/user.dart"
+          "file_path": "compass_app/app/lib/domain/models/user/user.dart"
         },
         {
           "id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
@@ -209,7 +209,7 @@
           "responsibilities": [
             "Booking domain operations"
           ],
-          "file_path": "lib/domain/use_cases/booking/booking_create_use_case.dart"
+          "file_path": "compass_app/app/lib/domain/use_cases/booking/booking_create_use_case.dart"
         },
         {
           "id": "mod-compass-domain-use-cases-booking-booking-share-use-case",
@@ -224,7 +224,7 @@
           "responsibilities": [
             "Booking domain operations"
           ],
-          "file_path": "lib/domain/use_cases/booking/booking_share_use_case.dart"
+          "file_path": "compass_app/app/lib/domain/use_cases/booking/booking_share_use_case.dart"
         },
         {
           "id": "class-compass-domain-use-cases-booking-booking-create-use-case-bookingcreateusecase",
@@ -2709,7 +2709,7 @@
           "kind": "imports",
           "source_id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
           "target_id": "mod-compass-domain-models-activity-activity",
-          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:11.",
+          "reason": "Selected source import at compass_app/app/lib/domain/use_cases/booking/booking_create_use_case.dart:11.",
           "provenance": [
             "docs/target.md"
           ]
@@ -2719,7 +2719,7 @@
           "kind": "imports",
           "source_id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
           "target_id": "mod-compass-domain-models-booking-booking",
-          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:12.",
+          "reason": "Selected source import at compass_app/app/lib/domain/use_cases/booking/booking_create_use_case.dart:12.",
           "provenance": [
             "docs/target.md"
           ]
@@ -2729,7 +2729,7 @@
           "kind": "imports",
           "source_id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
           "target_id": "mod-compass-domain-models-destination-destination",
-          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:13.",
+          "reason": "Selected source import at compass_app/app/lib/domain/use_cases/booking/booking_create_use_case.dart:13.",
           "provenance": [
             "docs/target.md"
           ]
@@ -2739,7 +2739,7 @@
           "kind": "imports",
           "source_id": "mod-compass-domain-use-cases-booking-booking-create-use-case",
           "target_id": "mod-compass-domain-models-itinerary-config-itinerary-config",
-          "reason": "Selected source import at lib/domain/use_cases/booking/booking_create_use_case.dart:14.",
+          "reason": "Selected source import at compass_app/app/lib/domain/use_cases/booking/booking_create_use_case.dart:14.",
           "provenance": [
             "docs/target.md"
           ]
@@ -2749,7 +2749,7 @@
           "kind": "imports",
           "source_id": "mod-compass-domain-use-cases-booking-booking-share-use-case",
           "target_id": "mod-compass-domain-models-booking-booking",
-          "reason": "Selected source import at lib/domain/use_cases/booking/booking_share_use_case.dart:11.",
+          "reason": "Selected source import at compass_app/app/lib/domain/use_cases/booking/booking_share_use_case.dart:11.",
           "provenance": [
             "docs/target.md"
           ]

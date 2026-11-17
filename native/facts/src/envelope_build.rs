@@ -30,6 +30,7 @@ impl FileFact {
             stable_bindings: Vec::new(),
             blank,
             class_inventory_empty: None,
+            class_inventory_site: None,
             evidence_id: EvidenceId::new(evidence_id),
         }
     }

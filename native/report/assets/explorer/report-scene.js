@@ -23,7 +23,7 @@
     };
     if (ATLAS) {
       ATLAS.modules = ATLAS.modules.map((module) => ({
-        ...module, name: module.id, rank: null, evidence_ids: [], symbol_coverage: 0, symbols: null,
+        name: module.id, ...module, rank: null, evidence_ids: [], symbol_coverage: 0, symbols: null,
       }));
       ATLAS.rule_assessments = (ATLAS.rule_assessments || []).map((item) => ({
         ...item,

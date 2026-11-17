@@ -322,7 +322,7 @@ fn package_dir(snapshot: &mut Snapshot, roots: &[String]) -> String {
         } else {
             root.split('/').collect()
         };
-        let nearest = (0..=parts.len())
+        let nearest = (0..=Vec::len(&parts))
             .rev()
             .map(|end| parts[..end].join("/"))
             .find(|dir| {
@@ -345,7 +345,7 @@ fn package_dir(snapshot: &mut Snapshot, roots: &[String]) -> String {
 /// the collection.
 fn read_pubspec(snapshot: &mut Snapshot, dir: &str) -> Result<(Pubspec, Option<String>), String> {
     let path = pubspec_path(dir);
-    let path = path.as_str();
+    let path = String::as_str(&path);
     if Snapshot::is_link(snapshot, path) {
         return Err("regular pubspec.yaml is required inside the snapshot".to_owned());
     }

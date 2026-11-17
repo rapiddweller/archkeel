@@ -7,7 +7,7 @@ The crate `base` defines `enum Profile`; the rule forbids `app` to name it. rust
 plant.
 Each form that names the item (by its name, by a `use ... as` alias, by a variant path, by a glob of
 the enum, or by a re-export under another name) gives FAIL. A glob of a whole crate of the workspace
-is read as a glob of its root module and gives FAIL too (AD-802). A route that the scan does not
+is read as a glob of its root module and gives FAIL too (AD-772). A route that the scan does not
 prove beside a rename of the item gives UNKNOWN, never PASS. A type alias is an
 item of its own, as a function that returns the type: a use of the alias names no `Profile`.
 """

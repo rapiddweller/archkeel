@@ -244,6 +244,11 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
     Ok(Index {
         package: &found.package_name,
         package_dir: &found.package_dir,
+        modules: found
+            .sources
+            .iter()
+            .map(|source| source.module.as_str())
+            .collect(),
         sources: &found.sources,
         by_rel: found
             .sources

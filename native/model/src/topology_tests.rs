@@ -25,6 +25,7 @@ pub(crate) fn file(module: &str, package: &str) -> FileFact {
         stable_bindings: Vec::new(),
         blank: false,
         class_inventory_empty: None,
+        class_inventory_site: None,
         evidence_id: EvidenceId::new(format!("EVD-{module}")),
     }
 }

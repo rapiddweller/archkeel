@@ -224,6 +224,7 @@ fn cause_entries(cause: &Cause) -> Vec<Stable> {
         Cause::InsideSourceDomain(parent) => ("inside_source_domain", Some(parent.as_str())),
         Cause::OutsideNamespace(reference) => ("outside_namespace", Some(reference.as_str())),
         Cause::OwnedFileOwner(path) => ("owned_file_owner", Some(path.as_str())),
+        Cause::ClassSite(site) => ("class_site", Some(site.as_str())),
     };
     vec![Stable::of("incomplete_scope", coded(code, value))]
 }

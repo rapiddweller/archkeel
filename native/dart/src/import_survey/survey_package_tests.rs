@@ -277,3 +277,29 @@ fn nested_packages_without_a_workspace_keep_their_gap() {
         found.unknowns
     );
 }
+
+/// #1706: without an own package, `package:shop/b.dart` names the module `shop.b` of another
+/// package, which is also the module of `lib/b.dart` in the namespace `shop`. The import is a gap
+/// that names the module; no target says that a local module is external.
+#[test]
+fn an_external_module_with_the_name_of_a_scanned_module_is_a_gap() {
+    for pubspec in [None, Some("name: other\n")] {
+        let mut files = vec![
+            ("lib/a.dart", "import 'package:shop/b.dart';\n"),
+            ("lib/b.dart", "class B {}\n"),
+        ];
+        files.extend(pubspec.map(|text| ("pubspec.yaml", text)));
+        let found = run(&files);
+        assert_eq!(
+            gaps(&found).get("DartUnsupportedUri"),
+            Some(&1),
+            "{:#?}",
+            found.unknowns
+        );
+        assert!(
+            super::edge_rows(&found).is_empty(),
+            "{:?}",
+            super::edge_rows(&found)
+        );
+    }
+}

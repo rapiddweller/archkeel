@@ -8,6 +8,8 @@
 
 The same recipe then runs the clone gate and the API gate of the Rust sources (`tests/test_rust_clones.py`, `tests/test_rust_api.py`, about 12 s) for any change in `native/`: a clone of 87 tokens and a new public name were merged because those gates sat in the main tier only.
 
+`make pr-precheck` runs only the cheap static checks (about 20 s) and `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the gate, cheap ones first, and prints all failures with a fix hint (`tools/pr_report.py`): an author needed four full runs for four small failures. The CI gate stays fail-fast, which keeps it at 3 minutes.
+
 **Rejected.** Clippy of the whole workspace in every native PR (it would take the gate over its budget); running `native-check` in the gate.
 
 **Tests.** `tests/test_native_touched.py`: the selection, and the Make recipe against a stub `cargo` (nothing when native/ is unchanged, fmt then clippy, fmt alone for a pin, an unformatted file stops before clippy).

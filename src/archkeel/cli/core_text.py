@@ -301,6 +301,19 @@ def _errors(frame: CoreFrame, contract_files: Sequence[str]) -> list[str]:
     return errors
 
 
+#: Day one: the first run of a draft that finds a cycle says what it is, once (a cycle stays FAIL).
+_CYCLE_NOTE = (
+    "This is a real cycle in your code that the drafted rule 'no component cycles' catches; "
+    "keep it as a finding, or change the rule in the contract."
+)
+
+
+def _cycle_note(frame: CoreFrame, drafted: bool) -> list[str]:
+    """The day-one note, when this run drafted the contract and a component cycle is violated."""
+    kinds = {frame.rules[rule].kind for rule in frame.details if rule in frame.rules}
+    return [_CYCLE_NOTE] if drafted and "no_component_cycles" in kinds else []
+
+
 def render(
     command: Command,
     frame: CoreFrame,
@@ -308,6 +321,7 @@ def render(
     *,
     outcome: Outcome,
     scanned: str = "",
+    drafted: bool = False,
     problems: Sequence[str] = (),
     show_all: bool = False,
     system: Mapping[str, object] | None = None,
@@ -334,6 +348,7 @@ def render(
     if system:
         out.extend(_system(system))
     out.extend(_violation_lines(frame, show_all))
+    out.extend(_cycle_note(frame, drafted))
     out.extend(_waiting_lines(frame, show_all))
     if gap_lines:
         out.append(f"Gaps in the scan ({len(frame.collection_gaps)}):")

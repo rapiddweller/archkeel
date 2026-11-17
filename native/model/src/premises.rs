@@ -83,11 +83,20 @@ pub fn rule_premises(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
     doors.chain(users).chain(declared(model, rule)).collect()
 }
 
-/// The declared premises that `rule` rests on. No rule reads one yet: the first one,
-/// `standard_library_unchanged`, comes with #1538.
+/// The declared premises that `rule` rests on: `standard_library_unchanged` for each position or
+/// entry of a `boundary_types` rule that it allows (AD-782).
 fn declared(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
-    let _ = (model, rule);
-    Vec::new()
+    let Rule::BoundaryTypes(rule) = rule else {
+        return Vec::new();
+    };
+    let Ok(reading) = crate::boundary_positions::read(model, rule) else {
+        return Vec::new();
+    };
+    let used = |subject: String| UsedPremise {
+        kind: PremiseKind::Declared(PremiseName::StandardLibraryUnchanged),
+        subject,
+    };
+    IntoIterator::into_iter(reading.assumed).map(used).collect()
 }
 
 impl Model {
@@ -166,8 +175,8 @@ mod tests {
         assert_eq!(
             premise_words(2, &used).as_deref(),
             Some(
-                "the declared reach of 2 doors and 2 stated external users and an unchanged \
-                 standard library"
+                "the declared reach of 2 doors and 2 stated external users and outside code \
+                 leaves the standard library unchanged"
             )
         );
     }

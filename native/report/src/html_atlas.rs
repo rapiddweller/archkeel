@@ -197,8 +197,8 @@ fn components(
             let language = (!tree.languages[i].is_empty())
                 .then(|| tree.languages[i].iter().cloned().collect::<Vec<_>>().join(" + "));
             json!({
-                "id": node.id, "label": node.label, "parent_id": node.parent.map(|p| &tree.nodes[p].id),
-                "layer": node.layer, "layer_rank": node.rank, "path": node.path, "scope": node.label,
+                "id": node.id, "label": archkeel_facts::identity::readable(&node.label), "parent_id": node.parent.map(|p| &tree.nodes[p].id),
+                "layer": node.layer, "layer_rank": node.rank, "path": archkeel_facts::identity::readable(&node.path), "scope": node.label,
                 "status": state, "language": language, "reason_ref": refs.id(&reason),
                 "observed_modules": modules[i], "observed_symbols": null, "symbols_complete": false,
                 "public": public, "requires": requires, "used_by": levels.used_by(i),

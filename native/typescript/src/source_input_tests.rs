@@ -186,3 +186,34 @@ fn a_higher_priority_sibling_shadows_a_file() {
     assert!(!shadowed("b.js", &known));
     assert!(!shadowed("c.mts", &known));
 }
+
+#[test]
+fn a_code_scheme_anywhere_is_a_code_address() {
+    for text in [
+        "javascript:open=1",
+        "JavaScript:open=1",
+        "  javascript:x",
+        "go to javascript:x",
+        "java\tscript:x",
+        "java\\tscript:x",
+        "java\\u0009script:x",
+        "vbscript:msgbox",
+        "data:text/html,<script>x</script>",
+        "{\"href\": \"javascript:open=1\"}",
+    ] {
+        assert!(super::code_address(text), "{text}");
+    }
+}
+
+#[test]
+fn another_address_is_no_code_address() {
+    for text in [
+        "https://example.com",
+        "/home",
+        "#top",
+        "data:image/png;base64,AA",
+        "java script:",
+    ] {
+        assert!(!super::code_address(text), "{text}");
+    }
+}
