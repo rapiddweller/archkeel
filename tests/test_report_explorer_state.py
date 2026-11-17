@@ -73,3 +73,51 @@ def test_a_click_on_a_box_selects_it_and_opens_its_facts(site: str, page: Browse
     state = page.state()
     assert (state["selection"], state["details"]) == ("PART:core", True)
     assert "selected=PART%3Acore" in state["search"]
+
+
+def first_module(page: Browser) -> str:
+    return page.evaluate("ArchkeelFlow.state().scene.nodes.find((n) => n.kind === 'module').id")
+
+
+def test_enter_on_a_module_selects_it_on_this_page(site: str, page: Browser) -> None:
+    # #1471: Enter went to architecture.detail.html, which no run writes.
+    page.open(f"{site}/system.html?scope=SHELL-ARGUMENTS")
+    module = first_module(page)
+    page.evaluate(f"document.querySelector('#flow [data-uml-id=\"{module}\"]').focus()")
+    page.press("Enter")
+    page.settle()
+    state = page.state()
+    assert page.evaluate("location.pathname") == "/system.html"
+    assert (state["scope"], state["selection"], state["details"]) == (
+        "SHELL-ARGUMENTS",
+        module,
+        True,
+    )
+    assert "Enter opens direct definitions" not in page.evaluate(
+        "document.querySelector('#flow .flow-legend').textContent"
+    )
+
+
+def test_a_module_found_by_search_opens_at_its_level(site: str, page: Browser) -> None:
+    # #1471: the search result of a module went to architecture.detail.html.
+    page.open(f"{site}/system.html?scope=SHELL-ARGUMENTS")
+    module = first_module(page)
+    page.open(f"{site}/system.html")
+    page.evaluate(
+        "(() => { document.querySelector('#flow .ak-search-btn').click();"
+        " const input = document.querySelector('#flow .ak-palette input');"
+        f" input.value = {module!r}; input.dispatchEvent(new Event('input')); }})()"
+    )
+    page.wait(
+        "document.querySelector('#flow .ak-result[aria-selected=\"true\"] .ak-sub')"
+        "?.textContent.length > 0"
+    )
+    page.evaluate(
+        "document.querySelector('#flow .ak-palette input')"
+        ".dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))"
+    )
+    page.settle()
+    state = page.state()
+    assert page.evaluate("location.pathname") == "/system.html"
+    assert state["selection"] == module
+    assert state["scope"] is not None

@@ -62,22 +62,12 @@
   const componentById = new Map(components.map((item) => [item.id, item]));
   const depthOf = (item) => { let depth = 0; for (let p = item.parent_id; p; p = componentById.get(p)?.parent_id) depth += 1; return depth; };
   const pathOf = (item) => { const names = []; for (let c = item; c; c = componentById.get(c.parent_id)) names.unshift(c.label); return names.join(" / "); };
-  const moduleLevel = new Map();
-  for (const level of A?.levels || []) {
-    const depth = level.parent_id ? depthOf(componentById.get(level.parent_id)) + 1 : 0;
-    for (const module of level.modules) {
-      const previous = moduleLevel.get(module.id);
-      if (!previous || depth > previous.depth) moduleLevel.set(module.id, { level, depth });
-    }
-  }
 
   // ---------- navigation through the report's own routing ----------
   const showComponent = (item) => F.selectComponent(item.id);
   const enterScope = (id) => F.openComponent(id);
-  const showModule = (item) => {
-    const level = moduleLevel.get(item.id)?.level || A.levels.find((level) => level.parent_id === item.component_id) || A.levels[0];
-    location.href = F.moduleHref(item, level);
-  };
+  // Issue 1471: a module opens at its level on this page; no run writes a page for each module.
+  const showModule = (item) => F.openModule(item.id);
   const showRule = (rule) => F.openRule(rule);
   function setParam(key, value) {
     if (!["file:", "http:", "https:"].includes(location.protocol)) return;
