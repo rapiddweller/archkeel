@@ -41,7 +41,6 @@
         "native.archkeel_facts.envelope.validation:InterfaceNeed",
         "native.archkeel_facts.envelope.validation:Registered",
         "native.archkeel_facts.envelope.validation:library_family",
-        "native.archkeel_facts.envelope.validation:library_key",
         "native.archkeel_facts.envelope.validation:versioned_owner",
         "native.archkeel_facts.envelope:Adapter",
         "native.archkeel_facts.envelope:Capabilities",
