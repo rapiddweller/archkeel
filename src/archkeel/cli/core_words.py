@@ -10,6 +10,7 @@ internal code, an issue or decision number, or a path that the user did not type
 from __future__ import annotations
 
 import re
+from enum import StrEnum
 from pathlib import Path
 from typing import Final
 
@@ -57,13 +58,55 @@ FIXES: Final = {
     "core_error": "run again; if it repeats, keep the output and report it with the version.",
     "internal_error": "run again with --verbose and report what it prints; it is a fault.",
     "baseline_not_written": "fix the refused part named above, then write the baseline again.",
+    "parse_work_limit": (
+        "the file is larger or deeper than the scan reads; split it, or leave it out of the scan "
+        "roots."
+    ),
 }
-#: What to do for a refusal whose message starts with a part of the scan (first match wins).
-PART_FIXES: Final = (
-    ("config:", "create archkeel.toml (`archkeel init` drafts one) or pass --config PATH."),
-    ("root:", "run inside a Git work tree, or pass --root PATH to one."),
-    ("contract:", "check `contract` under [scan] in archkeel.toml and that the file exists."),
-    ("system:", "check the system document that --config names, and its parts."),
+
+
+class _RefusedPart(StrEnum):
+    """Each part of the scan that the collector refuses by name (`native/collect/src`, AD-735).
+
+    A collector refusal reads `<part>: <reason>` once the machine prefix is removed. A test reads
+    the Rust sources, so that each part that can reach the user is here.
+    """
+
+    BUILD = "build"
+    COLLECTOR = "collector"
+    CONFIG = "config"
+    CONTRACT = "contract"
+    DIRTY = "dirty"
+    GIT_HEAD = "git head"
+    PARSE_WORK = "parse work"
+    PROFILE = "profile"
+    REQUEST = "request"
+    ROOT = "root"
+    SCAN = "scan"
+    SYSTEM = "system"
+    WORK_BUDGET = "work budget"
+
+
+def _refused_part(message: str) -> _RefusedPart | None:
+    """The part that a collector refusal names before its first colon, or `None`."""
+    head, colon, _ = message.partition(":")
+    try:
+        return _RefusedPart(head.strip().lower()) if colon else None
+    except ValueError:
+        return None
+
+
+#: What to do for a refusal of a part of the scan.
+PART_FIXES: Final = {
+    _RefusedPart.CONFIG: "create archkeel.toml (`archkeel init` drafts one) or pass --config PATH.",
+    _RefusedPart.ROOT: "run inside a Git work tree, or pass --root PATH to one.",
+    _RefusedPart.CONTRACT: (
+        "check `contract` under [scan] in archkeel.toml and that the file exists."
+    ),
+    _RefusedPart.SYSTEM: "check the system document that --config names, and its parts.",
+}
+#: What to do for a refusal whose message names a cause of the file system (first match wins).
+CAUSE_WORD_FIXES: Final = (
     ("file or folder not found", "check the path and run again."),
     ("permission denied", "check the permissions of that path, or pass another path."),
 )
@@ -87,9 +130,11 @@ _OS_ERRORS: Final = (
 def fix_for(kind: str, message: str) -> str | None:
     """What to do after a refusal: a refused scan by the part its message names, else by kind."""
     if kind == "collection_refused":
+        if (part := _refused_part(message)) in PART_FIXES:
+            return PART_FIXES[part]
         lowered = message.lower()
-        for start, fix in PART_FIXES:
-            if lowered.startswith(start) or (not start.endswith(":") and start in lowered):
+        for words, fix in CAUSE_WORD_FIXES:
+            if words in lowered:
                 return fix
     return FIXES.get(kind)
 

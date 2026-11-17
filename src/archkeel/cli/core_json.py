@@ -4,7 +4,18 @@
 """Small checked JSON readers shared by the frame and its evidence metadata."""
 
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import IntEnum, StrEnum
+
+
+class CoreExit(IntEnum):
+    """The exit codes of the core binary (AD-735). Each other code is a dead core."""
+
+    # A frame that names no part that it does not decide.
+    DECIDED = 0
+    # A request that the core cannot read: no frame, and a typed refusal or a message on stderr.
+    REFUSED = 2
+    # A frame that names a part that it does not decide.
+    NAMES_A_GAP = 3
 
 
 class GapKind(StrEnum):

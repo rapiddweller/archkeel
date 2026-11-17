@@ -181,7 +181,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   rule gets the interface lifecycle rows of AD-514. A contract with `declarations.compat` or
   `declarations.measurement_budgets`, and a mounted contract with an `allowed_dependency` rule, get
   a named gap: these checks are not ported.
-- Source that nests deeper than the parse work limit is the typed refusal `core_error` with `parse_work_limit`.
+- Source that nests deeper than the parse work limit is the typed refusal `parse_work_limit` (AD-735).
 - A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
 - The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.
   Below a directory with a `CACHEDIR.TAG` file that starts with the standard signature, the survey
