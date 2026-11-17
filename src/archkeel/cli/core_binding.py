@@ -1,7 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Bind a scan frame to its files and request identity. This module reads no rules."""
+"""Bind a scan frame to its files and request identity. This module reads no rules.
+
+It also names the one project root of a command (`ProjectRoot`, AD-735): `init`, the draft step,
+the configuration reason, the baseline file and the scan request use the same folder.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +15,8 @@ import stat
 import sys
 import tomllib
 from collections.abc import Mapping
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path, PurePosixPath
 
 from .core_json import RequestMismatch, as_object, as_text, as_texts
@@ -34,13 +40,51 @@ def resolve_root(path: Path, *, strict: bool = False) -> Path:
     return resolved
 
 
+def work_tree_top(path: Path) -> Path | None:
+    """The top of the Git work tree at or above `path`, or `None` outside a work tree."""
+    return next((folder for folder in (path, *path.parents) if (folder / ".git").exists()), None)
+
+
+class RootMode(StrEnum):
+    """How a command found its project root."""
+
+    # `--root` names the project.
+    EXPLICIT = "explicit"
+    # The top of the Git work tree at or above the current folder.
+    WORK_TREE = "work_tree"
+    # No work tree: the current folder. The core then refuses the root and names why.
+    CURRENT = "current"
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectRoot:
+    """The folder that holds the configuration and the baseline files, and that the core scans."""
+
+    path: Path
+    mode: RootMode
+
+    @classmethod
+    def of(cls, root: Path | None) -> ProjectRoot:
+        """An explicit `--root`, else the top of the work tree above the current folder."""
+        if root is not None:
+            return cls(resolve_root(root), RootMode.EXPLICIT)
+        here = resolve_root(Path.cwd())
+        top = work_tree_top(here)
+        return cls(top, RootMode.WORK_TREE) if top is not None else cls(here, RootMode.CURRENT)
+
+    @property
+    def discover(self) -> bool:
+        """Whether the core looks for the work tree itself: only without an explicit root."""
+        return self.mode is not RootMode.EXPLICIT
+
+
 def bind_request(
     frame: Mapping[str, object], request: Mapping[str, object], derived: str, started_ns: int | None
 ) -> None:
     """Check identity, not verdicts. Only the located core proves the rule rows."""
     root = resolve_root(Path(as_text(request["root"], "request.root")))
     if request.get("discover_root") is True:
-        root = next((path for path in (root, *root.parents) if (path / ".git").exists()), root)
+        root = work_tree_top(root) or root
     collected = as_object(json.loads(derived), "collect.request")
     snapshot = as_object(collected.get("snapshot"), "collect.request.snapshot")
     if as_text(snapshot.get("root"), "snapshot.root") != str(root):
