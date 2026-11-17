@@ -1,0 +1,114 @@
+{
+  "entries": [
+    {
+      "path": "native/build-support/src/lib.rs",
+      "text": "#![allow(clippy::expect_used)]",
+      "reason": "Known debt: the build script may stop the build with expect; make it return an error"
+    },
+    {
+      "path": "native/dart/src/declarations/members.rs",
+      "text": "#[allow(clippy::too_many_arguments)]",
+      "reason": "Known debt: a function with too many arguments; split its parameters (clippy too_many_arguments)"
+    },
+    {
+      "path": "native/dart-grammar/src/lib.rs",
+      "text": "#[allow(unsafe_code, reason = \"AD-342: the one link to the vendored C parser\")]",
+      "reason": "AD-342: the one link to the vendored C parser"
+    },
+    {
+      "path": "native/snapshot/src/lib.rs",
+      "text": "#[allow(",
+      "reason": "The test-tree helper unwraps in set-up so that a failed set-up fails its test; replace it with a Result helper"
+    },
+    {
+      "path": "native/typescript/src/definitions.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/definitions.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/lib.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/parse.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/script_types.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/script_types.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/script_types.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/script_types.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/script_types.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/script_types.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/script_types.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/site_names.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/site_names.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/site_names.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/site_paths.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/site_types.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/site_types.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    },
+    {
+      "path": "native/typescript/src/walk.rs",
+      "text": "#[cfg_attr(not(feature = \"dump\"), allow(dead_code))]",
+      "reason": "Known debt: an item that only the `dump` feature uses; gate it with cfg(feature = \"dump\") or delete the dump binary (hygiene audit H4, owner decision H8.5)"
+    }
+  ]
+}
