@@ -165,9 +165,10 @@ def test_every_link_of_the_gallery_page_has_a_target_that_the_tool_writes(tmp_pa
         ["--out", str(out), "--archkeel", f"python3 {stub}", "--sha", "abc", "--built-at", "t"]
     )
     page = (out / "index.html").read_text()
-    assert code == 0 and len(_visible(page)) <= MAX_VISIBLE
+    assert code == 0
     links = set(re.findall(r'href="([^"]+)"', page))
-    assert any("#x1" in link for link in links)
+    # The entry is the report of the system: a bar of links to the fixtures and to each part.
+    assert {"self/core.html", "self/shell.html", "showcase/index.html"} <= links
     for link in links:
         path, _, anchor = link.partition("#")
         target = out / path

@@ -39,7 +39,11 @@ impl Builder {
             }
             let first = text.lines().next().unwrap_or("").trim_end();
             let cited = Evidence::at(&rel, 1, 1, 0, first);
-            self.file((&rel, &module), text.trim().is_empty(), cited);
+            self.file(
+                (&rel, &module, archkeel_facts::identity::package_of(&module)),
+                text.trim().is_empty(),
+                cited,
+            );
             self.manifests.push(rel.clone());
             self.declared_edges(workspace, krate, &module);
         }

@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use archkeel_facts::data::GapData;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::envelope::{Evidence, FileFact};
-use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 
@@ -130,11 +130,17 @@ impl Builder {
     }
 
     /// The file fact of a module, with the evidence of its first line.
-    pub(crate) fn file(&mut self, (rel, module): (&str, &str), blank: bool, cited: Evidence) {
+    pub(crate) fn file(
+        &mut self,
+        (rel, module, package): (&str, &str, &str),
+        blank: bool,
+        cited: Evidence,
+    ) {
         let evidence_id = cited.id.as_str().to_owned();
         self.evidence.insert(evidence_id.clone(), cited);
-        self.files
-            .push(FileFact::of((rel, module), blank, evidence_id));
+        let mut file = FileFact::of((rel, module), blank, evidence_id);
+        file.package = PackageName::new(package);
+        self.files.push(file);
     }
 }
 
