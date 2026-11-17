@@ -4593,6 +4593,7 @@
         "native.archkeel_typescript_collector.script_deps",
         "native.archkeel_typescript_collector.script_global",
         "native.archkeel_typescript_collector.script_outside",
+        "native.archkeel_typescript_collector.script_outside_detector",
         "native.archkeel_typescript_collector.script_outside_forms",
         "native.archkeel_typescript_collector.script_outside_names",
         "native.archkeel_typescript_collector.script_outside_page",
@@ -4655,8 +4656,9 @@
         },
         {
           "component": "ts-parse",
-          "rationale": "Read a vendored library as a closed UMD envelope.",
+          "rationale": "Read a vendored library as a closed UMD envelope, and read a file outside the scan roots with the write detector of the scan (AD-788).",
           "through": [
+            "native.archkeel_typescript_collector.parse",
             "native.archkeel_typescript_collector.syntax",
             "native.archkeel_typescript_collector.umd_publication"
           ]
