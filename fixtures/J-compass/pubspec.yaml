@@ -1,47 +1,60 @@
-name: compass_app
-description: >-
-  A sample app that helps users build and book itineraries for trips.
-publish_to: none
-version: 0.1.0
-resolution: workspace
+name: samples
+description: A collection of samples for Dart and Flutter.
 
 environment:
   sdk: ^3.9.0-0
 
-dependencies:
-  cached_network_image: ^3.4.1
-  flutter:
-    sdk: flutter
-  flutter_localizations:
-    sdk: flutter
-  flutter_svg: ^2.0.16
-  freezed_annotation: ^3.0.0
-  go_router: ^16.0.0
-  google_fonts: ^6.2.1
-  intl: any
-  json_annotation: ^4.9.0
-  logging: ^1.3.0
-  provider: ^6.1.2
-  share_plus: ^10.1.3
-  shared_preferences: ^2.3.5
+dependencies: 
+  flutter_lints: ^6.0.0
 
-dev_dependencies:
-  analysis_defaults:
-    path: ../../analysis_defaults
-  flutter_test:
-    sdk: flutter
-  mocktail_image_network: ^1.2.0
-  mocktail: ^1.0.4
-  integration_test:
-    sdk: flutter
-  build_runner: ^2.4.14
-  freezed: '>=3.0.0 <5.0.0'
-  json_serializable: ^6.9.0
+workspace:
+  - add_to_app/android_view/flutter_module_using_plugin_android_view
+  - add_to_app/android_view/flutter_module_using_plugin_content_sizing_android_view
+  - add_to_app/books/flutter_module_books
+  - add_to_app/fullscreen/flutter_module_fullscreen
+  - add_to_app/multiple_flutters/multiple_flutters_module
+  - add_to_app/plugin/flutter_module_using_plugin
+  - add_to_app/prebuilt_module/flutter_module
+  - analysis_defaults
+  - android_splash_screen
+  - animations
+  - asset_transformation
+  - asset_transformation/grayscale_transformer
+  - background_isolate_channels
+  - compass_app/app
+  - compass_app/server
+  - cupertino_gallery
+  - date_planner
+  - desktop_photo_search/fluent_ui
+  - desktop_photo_search/material
+  - dynamic_theme
+  - form_app
+  - google_maps
+  - ios_app_clip
+  - material_3_demo
+  - navigation_and_routing
+  - pedometer
+  - pedometer/example
+  - platform_channels
+  - platform_design
+  - platform_view_swift
+  - simple_sdf
+  - simple_shader
+  - testing_app
+  - tool
+  - web_embedding/element_embedding_demo
+  - web_embedding/ng-flutter/flutter
 
-flutter:
-  uses-material-design: true
-  assets:
-    - assets/activities.json
-    - assets/destinations.json
-    - assets/logo.svg
-    - assets/user.jpg
+skip_ci:
+  - add_to_app/android_view/flutter_module_using_plugin_android_view
+  - add_to_app/android_view/flutter_module_using_plugin_content_sizing_android_view
+  - add_to_app/books/flutter_module_books
+  - add_to_app/fullscreen/flutter_module_fullscreen
+  - add_to_app/multiple_flutters/multiple_flutters_module
+  - add_to_app/plugin/flutter_module_using_plugin
+  - add_to_app/prebuilt_module/flutter_module
+  - cupertino_gallery
+
+skip_ci_beta:
+  # - sample_name_to_skip
+

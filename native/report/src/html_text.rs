@@ -7,10 +7,12 @@
 
 use super::status::Shown;
 
-/// Escape a dynamic text for an HTML text or attribute position.
+/// Escape a dynamic text for an HTML text or attribute position. A module identity is shown with
+/// its real characters (`index_x2e_ts` reads `index.ts`, #1617); the page holds no raw id in an
+/// attribute, and the data of the Explorer keeps each id as it is.
 pub(super) fn escape(text: &str) -> String {
     let mut safe = String::new();
-    for character in text.chars() {
+    for character in archkeel_facts::identity::readable(text).chars() {
         safe.push_str(match character {
             '&' => "&amp;",
             '<' => "&lt;",

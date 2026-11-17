@@ -729,7 +729,8 @@
       "exact_modules": [
         "archkeel.cli.init_draft",
         "archkeel.cli.init_areas",
-        "archkeel.cli.init_binding"
+        "archkeel.cli.init_binding",
+        "archkeel.cli.init_typescript"
       ],
       "responsibilities": [
         "Draft archkeel.toml, a first contract and its provenance page from the folder layout and manifests of a project, or a system document with one part for each language area (Python, Cargo, TypeScript, Dart) of a mixed repository, and write only the files that are missing. Every decision in the draft is a TODO, except an interface whose two ends the manifests state (a PyO3 binding, AD-784)."

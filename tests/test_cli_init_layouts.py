@@ -166,6 +166,36 @@ def test_a_typescript_project_below_the_root_does_not_repeat_its_path_in_its_nam
     assert "web.src.web" not in contract.text
 
 
+def test_a_typescript_root_project_drafts_only_folders_that_its_tsconfig_selects(
+    tmp_path: Path,
+) -> None:
+    """#1710, graphql-js 16.15.0: the root tsconfig includes `src/**/*`. The draft also made the
+    components `benchmark`, `resources` and `website`, and `website` is a project of its own."""
+    root = _write(
+        tmp_path / "graphql",
+        {
+            "package.json": '{"name": "graphql"}',
+            "tsconfig.json": '{\n  // the library\n  "include": ["src/**/*"],\n}\n',
+            "src/error/GraphQLError.ts": "export const e = 1;\n",
+            "src/language/parser.ts": "export const p = 2;\n",
+            "src/__tests__/starWars.ts": "export const s = 3;\n",
+            "src/index.ts": "export * from './error/GraphQLError';\n",
+            "benchmark/run.js": "module.exports = 1;\n",
+            "resources/build.ts": "export const b = 4;\n",
+            "website/package.json": '{"name": "site"}',
+            "website/tsconfig.json": '{"include": ["pages"]}',
+            "website/pages/index.tsx": "export const i = 5;\n",
+        },
+    )
+    result = draft(root)
+    assert result.parts == ("TypeScript graphql", "TypeScript website"), result.parts
+    assert [c for c in result.components if c.startswith("graphql/")] == [
+        "graphql/error",
+        "graphql/language",
+        "graphql/root",
+    ], result.components
+
+
 def test_the_part_at_the_root_is_named_after_the_project_and_not_its_language(
     tmp_path: Path,
 ) -> None:

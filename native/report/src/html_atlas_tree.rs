@@ -25,7 +25,7 @@ impl Refs {
         if let Some(found) = self.index.get(text) {
             return *found;
         }
-        self.list.push(text.to_owned());
+        self.list.push(archkeel_facts::identity::readable(text));
         self.index.insert(text.to_owned(), self.list.len() - 1);
         self.list.len() - 1
     }
