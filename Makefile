@@ -1,28 +1,40 @@
 .DEFAULT_GOAL := check
 MAKEFILE_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
-include $(MAKEFILE_DIR)tests/pr-test.mk
 include $(MAKEFILE_DIR)tools/full.mk
 UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static pr-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-architecture-check typescript-libs-check    core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static fast-test pr-gate pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-architecture-check typescript-libs-check    core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
-.NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static
+.NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
 
 ci: ci-check mermaid
 
 ci-check: ci-artifacts-clean ci-core-check self-validate-native self-validate-shell
 
-ci-pr-check: ci-pr-static pr-test
+ci-pr-check: pr-gate
 
 ci-pr-static: lint typecheck
 
-pr-test: browser-runtime-install
-	$(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
-		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml $(if $(AREA),--area="$(AREA)",) \
-		$(PR_TEST_FILES)
+# AD-674: the fast tests (everything but tests/areas.py SLOW_FILES). The main tier runs one area in each
+# job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). A floor in
+# tests/area_floors.json makes an empty or shrunken selection fail.
+FAST_TEST = ARCHKEEL_PREBUILT_CORE=1 $(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
+	-q --durations=10 --junitxml=test-artifacts/pytest/fast.xml
+
+fast-test: core browser-runtime-install
+	$(FAST_TEST) -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)
+
+# AD-674: the PR gate, at most 3 minutes: static checks, the core build, the self and system check,
+# and the fast tests of the areas that the change selects (tools/select_areas.py).
+PR_BASE ?= origin/main
+pr-gate: ci-pr-static self-validate pr-selected-test
+
+pr-selected-test: core browser-runtime-install
+	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") && echo "areas: $$areas" && \
+		eval "$(FAST_TEST) -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"
 
 # Checks a pull request before its merge: make merge-check PR=<number> (tools/merge_check.py).
 merge-check:
@@ -57,9 +69,8 @@ CARGO_DENY_VERSION := 0.20.2
 CARGO_DENY_SHA256 := 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
 CARGO_AUDITABLE_VERSION := 0.7.7
 
-# pytest reads its options from PYTEST_ADDOPTS, so the test list below stays one line.
-native-check: export PYTEST_ADDOPTS = -n 4 --max-worker-restart=0
-
+# AD-674: the Python tests of native/ (tests/areas.py) run in the area jobs of the main tier, so native-check
+# holds the Rust checks and the self-check only.
 # Rust code in native/ (AD-316). Run from native/ so that rust-toolchain.toml selects the toolchain.
 native-check:
 	@cargo deny --version 2>/dev/null | grep -qx "cargo-deny $(CARGO_DENY_VERSION)" || \
@@ -69,13 +80,13 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --features dump,harness -- -D warnings
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
-	$(UV) run --locked python -m pytest -q tests/test_repository_hygiene.py tests/test_doc_references_exist.py tests/test_ir_owners.py tests/test_rust_clones.py tests/test_rust_api.py tests/test_rust_source.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_native_report.py tests/test_native_core.py tests/test_cli_core_only.py tests/test_cli_help.py tests/test_cli_text_output.py tests/test_cli_core_only_boundary.py tests/test_cli_core_only_build_output.py tests/test_cli_core_only_exit_table.py tests/test_cli_core_only_review.py tests/test_cli_core_only_scan.py tests/test_cli_native_dart_grammar_gate.py tests/test_cli_native_profile_limits.py tests/test_cli_native_core_scan.py tests/test_cli_native_core_scan_rust.py tests/test_cli_native_core_scan_work.py tests/test_cli_native_core_scan_large.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_receivers_compiled.py
-	$(UV) run --locked python -m pytest -q -n 0 tests/test_native_self_rules.py tests/test_native_self_contract.py tests/test_native_self_core_rows.py
 	$(MAKE) self-validate-native
 
 # AD-432: the core is the only decision path. `archkeel` finds this release build of the checkout.
 core:
-	cd native && cargo build --locked --release -p archkeel-core
+	@if [ -n "$$ARCHKEEL_PREBUILT_CORE" ] && [ -x native/target/release/archkeel-core ]; then \
+		echo "core: the prebuilt release core of main is used (AD-674)"; \
+	else cd native && cargo build --locked --release -p archkeel-core; fi
 
 # AD-672: the pins are ratchets. With origin/main present, growth against it needs a reason in the growth file.
 RATCHET_BASE := $(if $(shell git rev-parse --verify -q origin/main),--base-ref origin/main,)

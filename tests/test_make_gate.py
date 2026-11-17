@@ -6,9 +6,9 @@
 from __future__ import annotations
 
 import ast
+import json
 import os
 import re
-import shlex
 import subprocess
 import sys
 import tomllib
@@ -16,7 +16,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from areas import AREAS, area_of
+from areas import AREAS, SLOW_FILES, area_of
 
 ROOT = Path(__file__).parents[1]
 GATE_STEPS = ["check", "sdist", "smoke"]
@@ -41,7 +41,7 @@ def _run_gate(
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     steps = tmp_path / "steps"
     overrides = tmp_path / "Makefile"
-    names = [*CI_STEPS, "pr-test"]
+    names = [*CI_STEPS, "self-validate-system", "pr-selected-test"]
     recipes = []
     for name in names:
         recipes.append(
@@ -109,10 +109,15 @@ def test_ci_check_leaves_mermaid_to_its_parallel_workflow_job(tmp_path: Path, jo
     assert steps == CI_CHECK_STEPS
 
 
-@pytest.mark.parametrize("failed", [None, "pr-test"])
+@pytest.mark.parametrize("failed", [None, "pr-selected-test"])
 def test_pr_gate_keeps_policy_and_stops_before_later_checks(tmp_path, failed):
     result, steps = _run_gate(tmp_path, "ci-pr-check", failed, 2, False, base="a" * 40)
-    expected = ["pr-test"]
+    expected = [
+        "self-validate-native",
+        "self-validate-shell",
+        "self-validate-system",
+        "pr-selected-test",
+    ]
     if failed is not None:
         expected = expected[: expected.index(failed) + 1]
     assert steps == expected
@@ -123,6 +128,7 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
         "full-verification.yml",
+        "pr-gate.yml",
         "release.yml",
     }
 
@@ -322,15 +328,11 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
         listed = re.search(r"\n        area:\n((?:          - .+\n)+)", text)
         assert listed is not None, workflow
         assert [line.split("- ", 1)[1].strip('"') for line in listed[1].splitlines()] == list(AREAS)
-    pr_test = subprocess.run(
-        ["make", "-n", "pr-test"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    assert {area_of(name) for name in re.findall(r"tests/(test_\w+\.py)", pr_test)} == set(AREAS)
+    # AD-674: each area keeps a floor of fast tests, so a selection can never be empty.
+    floors = json.loads((ROOT / "tests/area_floors.json").read_text())
+    for tier in ("fast", "pr"):
+        assert sorted(floors[tier]) == sorted(AREAS)
+        assert all(floor > 0 for floor in floors[tier].values())
 
 
 def _triggers(workflow: str) -> set[str]:
@@ -340,30 +342,22 @@ def _triggers(workflow: str) -> set[str]:
 
 
 def test_ci_runs_on_main_and_dispatch_and_full_runs_nightly_dispatch_or_called() -> None:
-    # AD-348: no pull_request trigger; a PR merges on its review and the local gate.
+    # AD-674: the PR tier is `pr-gate.yml`; ci.yml is the main tier.
     assert _triggers("ci.yml") == {"push", "workflow_dispatch"}
+    assert _triggers("pr-gate.yml") == {"pull_request"}
     assert _triggers("full-verification.yml") == {"workflow_call", "workflow_dispatch", "schedule"}
     assert "branches: [main]" in (ROOT / ".github/workflows/ci.yml").read_text()
 
 
-def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
-    """Full runs every area (make full-test), never the pr-test list: it is not a Full input."""
+def test_the_fast_tests_leave_out_the_nightly_files_and_the_pr_gate_selects_by_area() -> None:
+    """AD-674: `fast-test` takes no file list; the slow files run only in `make full-test`."""
     makefile = (ROOT / "Makefile").read_text()
-    recipe = re.search(r"^pr-test:.*?\n\n", makefile, re.DOTALL | re.MULTILINE)
-    assert recipe is not None
-    assert "tests/test_" not in recipe[0]
-    listed = (ROOT / "tests/pr-test.mk").read_text().split(":=", 1)[1]
-    dry_run = subprocess.run(
-        ["make", "-n", "-o", "browser-runtime-install", "pr-test"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    resolved = [a for a in shlex.split(dry_run.replace("\\\n", " ")) if a.startswith("tests/")]
-    assert resolved == shlex.split(listed.replace("\\\n", " "))
-    assert len(resolved) > 80
+    recipe = re.search(r"^FAST_TEST = .*?\n\n", makefile, re.DOTALL | re.MULTILINE)
+    assert recipe is not None and "tests/test_" not in recipe[0]
+    assert "-m 'not native_wheel and not slow'" in makefile
+    assert "not slow and not debug_build and not heavy" in makefile
+    assert "pr-gate: ci-pr-static self-validate pr-selected-test" in makefile
+    assert all((ROOT / "tests" / name).is_file() for name in SLOW_FILES)
 
 
 FULL_MK = "tools/full.mk"
