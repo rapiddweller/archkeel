@@ -511,7 +511,6 @@
     hit.run(event);
   });
 
-  // ---------- assemble the chrome (moves existing controls; their listeners stay intact) ----------
   const move = (selector) => root.querySelector(selector);
   const markSrc = document.querySelector('link[rel="icon"]')?.href;
   const belongs = h("button", { class: "ak-icon-only", title: "Belongs to · navigate up, across and inside", "aria-label": "Belongs to", "data-ak-pop": "",
@@ -549,8 +548,7 @@
   root.append(h("div", { hidden: true }, legendPanel));
   const bottomLeft = h("div", { class: "ak-bar ak-bottom-left" }, legendButton, move(".flow-filters"),
     h("span", { class: "ak-run-status" }, `Result: ${A.result}`));
-  const summary = move(".atlas-summary");
-  if (summary) summary.classList.add("ak-scene-summary");
+  move(".atlas-summary")?.classList.add("ak-scene-summary");
   const tagBar = h("div", { class: "ak-bar ak-bottom-center", role: "toolbar", "aria-label": "Perspectives" });
   const zoom = move(".flow-zoom-controls");
   zoom?.querySelector(".flow-fit-overview")?.replaceChildren(icon("fit"));
@@ -599,13 +597,12 @@
       topLeft.append(h("p", { class: "rp-empty-note", role: "status" }, noted));
     }
     const key = `${viewMode}|${scope}|${query().get("content") || ""}`;
-    if (key !== fittedKey) {
-      fittedKey = key;
-      // A drill already fitted the whole diagram when its layout finished.
-      if (!event.detail.whole) requestAnimationFrame(() => {
-        if (key === fittedKey) F.fit(!F.state().scene?.moduleOverview);
-      });
-    }
+    if (key === fittedKey) return;
+    fittedKey = key;
+    if (event.detail.whole) return;
+    requestAnimationFrame(() => {
+      if (key === fittedKey) F.fit(!F.state().scene?.moduleOverview);
+    });
   });
   addEventListener("popstate", closePop, { capture: true });
   // After flow.js restored S from the URL of the entry.
