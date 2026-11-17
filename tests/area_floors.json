@@ -1,0 +1,16 @@
+{
+  "fast": {
+    "self-check and CI": 437,
+    "CLI and core": 2521,
+    "collectors": 451,
+    "native collectors": 521,
+    "reports": 60
+  },
+  "pr": {
+    "self-check and CI": 396,
+    "CLI and core": 584,
+    "collectors": 78,
+    "native collectors": 153,
+    "reports": 60
+  }
+}
