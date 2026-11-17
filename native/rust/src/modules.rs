@@ -19,6 +19,7 @@
 
 use crate::resolve::classify;
 use crate::scan::Reference;
+use alias::Aliases;
 mod alias;
 mod climb;
 mod filled;
@@ -147,7 +148,7 @@ impl<'a> Index<'a> {
         let mut names = reference.names.clone();
         for _ in 0..=MAX_HOPS {
             let first = names.first()?;
-            let alias = self.aliases.in_prelude(frame.root, first);
+            let alias = Aliases::in_prelude(&self.aliases, frame.root, first);
             let found = classify(first, frame.krate, &scan.shadows, false).filter(|_| !alias);
             if matches!(found, Some(crate::resolve::Found::Edge(_))) {
                 return (names.len() > 1).then_some(names);
@@ -167,7 +168,7 @@ impl<'a> Index<'a> {
     /// Whether `name` is an alias of the extern prelude for the target that holds `module`.
     pub(crate) fn is_alias(&self, module: &str, name: &str) -> bool {
         let root = self.frames.get(module).map(|frame| frame.root);
-        root.is_some_and(|root| self.aliases.in_prelude(root, name))
+        root.is_some_and(|root| Aliases::in_prelude(&self.aliases, root, name))
     }
     /// From the module `start`, down each segment that names a child module.
     fn follow(&self, start: &str, level: i64, rest: &[String]) -> Outcome {
