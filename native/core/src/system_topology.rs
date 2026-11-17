@@ -55,6 +55,7 @@ fn unique(seen: &mut BTreeSet<String>, kind: &str, id: Option<&str>) -> Result<(
 /// the frame of the part names).
 pub(crate) fn topology(
     parts: &[(&SystemPart, &Map<String, Value>)],
+    open: Option<&str>,
 ) -> Result<Option<Value>, String> {
     let (mut components, mut modules) = (Vec::new(), Vec::new());
     let mut lists: [Vec<Value>; 5] = Default::default();
@@ -119,7 +120,13 @@ pub(crate) fn topology(
     let first = parts
         .iter()
         .find_map(|(_, frame)| frame.get("topology").and_then(Value::as_object));
-    let [edges, component_edges, requires, layers, gaps] = lists;
+    let [edges, component_edges, requires, layers, mut gaps] = lists;
+    // The scope of the system is open: the topology names that reason as a gap (the shell reads
+    // an open scope only with its reason among the gaps).
+    if let Some(reason) = open.filter(|reason| !gaps.iter().any(|gap| gap == reason)) {
+        gaps.push(json!(reason));
+        complete = false;
+    }
     Ok(Some(json!({
         "version": 1, "complete": complete, "truncated": truncated, "gaps": gaps,
         "budgets": first.and_then(|t| t.get("budgets")).cloned().unwrap_or(Value::Null),
