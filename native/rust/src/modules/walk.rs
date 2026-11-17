@@ -14,7 +14,7 @@ use super::filled;
 use super::outcome::{Edge, Outcome};
 use super::state::{lexical, Frame, Index, MAX_HOPS};
 use crate::resolve::{classify, Found, Named};
-use crate::scan::{Reference, Via};
+use crate::scan::Reference;
 use std::collections::BTreeSet;
 
 impl Index<'_> {
@@ -164,14 +164,7 @@ impl Index<'_> {
         if !local {
             return Outcome::None;
         }
-        let scope: Vec<String> = place
-            .0
-            .strip_prefix(frame.module.module.as_str())
-            .unwrap_or("")
-            .split('.')
-            .filter(|part| !part.is_empty())
-            .map(str::to_owned)
-            .collect();
+        let scope = frame.scope_of(place.0);
         let scan = &frame.module.scan;
         let here_count = scan.scoped_counts.get(&(scope, first.clone())).copied();
         let here_bound: Vec<&Reference> = (bound.into_iter().flatten())
@@ -284,20 +277,11 @@ impl Index<'_> {
         names: &[String],
         (level, hops): (i64, usize),
     ) -> Option<Outcome> {
-        let leaves: Vec<&&Reference> = (frame.bound(&names[0]).iter())
-            .filter(|leaf| matches!(leaf.via, Via::Use { block: false, .. }))
-            .filter(|leaf| frame.lexical_at(&leaf.scope) == at)
-            .collect();
+        let leaves = frame.module_leaves(&names[0], at);
         let scan = &frame.module.scan;
         let [leaf] = leaves.as_slice() else {
-            let scope: Vec<String> = (at.strip_prefix(frame.module.module.as_str()))
-                .unwrap_or("")
-                .split('.')
-                .filter(|part| !part.is_empty())
-                .map(str::to_owned)
-                .collect();
-            let undeclared =
-                leaves.is_empty() && !scan.scoped_counts.contains_key(&(scope, names[0].clone()));
+            let key = (frame.scope_of(at), names[0].clone());
+            let undeclared = leaves.is_empty() && !scan.scoped_counts.contains_key(&key);
             if undeclared && filled::may_fill(frame.module) && !filled::binds_nothing(self, frame) {
                 let reason = format!(
                     "A macro call at module level of {at} may bring in {}",
@@ -405,17 +389,5 @@ impl Index<'_> {
             }
             _ => unknown("its path names no module of the crate"),
         }
-    }
-    /// Whether the path of `glob` starts at a crate that the manifest or the sysroot names, and
-    /// the file declares no name that hides it.
-    pub(super) fn external(&self, frame: &Frame<'_>, glob: &Reference) -> bool {
-        let Some(first) = glob.names.first() else {
-            return false;
-        };
-        let none = BTreeSet::new();
-        let declared = frame.module.scan.counts.contains_key(first);
-        !declared
-            && !self.aliases.in_prelude(frame.root, first)
-            && classify(first, frame.krate, &none, glob.absolute).is_some()
     }
 }
