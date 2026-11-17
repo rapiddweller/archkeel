@@ -147,6 +147,9 @@ fn unwritten(frame: &Frame) -> usize {
         topology
             .components
             .iter()
+            // A part box of a system has its own text in the system document; the terminal
+            // counts the components of the contracts only (#1622).
+            .filter(|c| !c.id.starts_with("PART:"))
             .filter(|c| {
                 c.responsibilities
                     .iter()

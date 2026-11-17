@@ -41,3 +41,21 @@ fn near_identical_hygiene_gaps_are_one_card_with_a_list() {
     // one decision stays a plain card with its own reason
     assert!(page.contains("contract hygiene decision.open"));
 }
+
+// #1622: the card of an open run never says `complete`, and a card is not said twice.
+#[test]
+fn the_open_run_card_gives_a_reason_and_is_not_said_twice() {
+    let mut named = serde_json::Map::new();
+    named.insert(
+        "hygiene:decision.open:1".to_owned(),
+        json!("an open decision"),
+    );
+    let with_cards = document(&json!({"status": "UNKNOWN", "scope": "complete",
+        "unsupported": {"rules": named}}));
+    assert!(with_cards.contains("an open decision"));
+    assert!(!with_cards.contains("The run itself is open"));
+    let alone = document(&json!({"status": "UNKNOWN", "scope": "complete"}));
+    assert!(alone.contains("The run itself is open"));
+    assert!(!alone.contains("<p class=\"body-sm\">complete</p>"));
+    assert!(alone.contains("the core does not call the run decided"));
+}

@@ -75,6 +75,8 @@ pub(crate) struct ScriptFacts {
     /// The locations that the analysis cited, in order: the evidence of a location is the last
     /// citation of it (`record_evidence`).
     pub cites: Vec<(String, Span)>,
+    /// The guard applied a stated generated copy (AD-788): the premise names it.
+    pub generated_copies: bool,
 }
 
 impl ScriptFacts {

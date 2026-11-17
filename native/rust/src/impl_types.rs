@@ -407,3 +407,7 @@ mod outside_tests;
 #[cfg(test)]
 #[path = "impl_types_pattern_tests.rs"]
 mod pattern_tests;
+
+#[cfg(test)]
+#[path = "impl_types_let_tests.rs"]
+mod let_tests;

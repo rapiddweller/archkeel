@@ -2,9 +2,11 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The receiver sites of a closure body or a loop body (AD-524, #1571): the place of each name
-//! that is the root of the receiver of a method call, without nested items, macros or closures. A
-//! closure parameter or a loop variable has a proof only at these places.
+//! The receiver sites of a body (AD-524, #1571): the place of each name that is the root of a
+//! chain that the scan reads (the receiver of a method call, the initializer of a `let`, the value
+//! of a `for`, a `match` or a `let` condition), without nested items and macros. A closure, a loop
+//! or a pattern variable has a proof only at these places, and nested closures are left out. A
+//! `let` sees into nested closures (`into_closures`): their parameters count as names bound again.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -21,17 +23,14 @@ pub(super) struct ClosureSites {
     pub(super) found: BTreeMap<String, BTreeSet<(usize, usize)>>,
     /// The names that a pattern of the body binds.
     pub(super) bound: BTreeSet<String>,
+    /// The walk goes into nested closures.
+    pub(super) into_closures: bool,
 }
 
-impl<'ast> Visit<'ast> for ClosureSites {
-    fn visit_item(&mut self, _: &'ast Item) {}
-    fn visit_expr_closure(&mut self, _: &'ast syn::ExprClosure) {}
-    fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
-        self.bound.insert(plain(&node.ident));
-        visit::visit_pat_ident(self, node);
-    }
-    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
-        let mut receiver = &*node.receiver;
+impl ClosureSites {
+    /// Note the root name of a chain.
+    pub(super) fn note(&mut self, expr: &Expr) {
+        let mut receiver = expr;
         for _ in 0..MAX_DEPTH {
             receiver = match receiver {
                 Expr::Field(found) if found.attrs.is_empty() => &found.base,
@@ -55,6 +54,40 @@ impl<'ast> Visit<'ast> for ClosureSites {
                     .insert((at.line, at.column));
             }
         }
+    }
+}
+
+impl<'ast> Visit<'ast> for ClosureSites {
+    fn visit_item(&mut self, _: &'ast Item) {}
+    fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
+        if self.into_closures {
+            visit::visit_expr_closure(self, node);
+        }
+    }
+    fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+        self.bound.insert(plain(&node.ident));
+        visit::visit_pat_ident(self, node);
+    }
+    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+        self.note(&node.receiver);
         visit::visit_expr_method_call(self, node);
+    }
+    fn visit_local(&mut self, node: &'ast syn::Local) {
+        if let Some(init) = &node.init {
+            self.note(&init.expr);
+        }
+        visit::visit_local(self, node);
+    }
+    fn visit_expr_for_loop(&mut self, node: &'ast syn::ExprForLoop) {
+        self.note(&node.expr);
+        visit::visit_expr_for_loop(self, node);
+    }
+    fn visit_expr_match(&mut self, node: &'ast syn::ExprMatch) {
+        self.note(&node.expr);
+        visit::visit_expr_match(self, node);
+    }
+    fn visit_expr_let(&mut self, node: &'ast syn::ExprLet) {
+        self.note(&node.expr);
+        visit::visit_expr_let(self, node);
     }
 }

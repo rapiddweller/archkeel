@@ -10,8 +10,8 @@ Status: accepted. Part of #880 and #1571. It extends AD-383 and AD-524.
 The scan reads each receiver as a chain (`scan_chains.rs`); `impl_types.rs` follows the written
 types along it.
 - **Roots.** `self` of an exact block (AD-383); a parameter, a typed local or closure parameter
-  with a proof (AD-524) and its type arguments (`scan_written.rs`); an untyped top-level local (the
-  chain of its initializer); a literal; a call `f(..)`, `m::f(..)`, `T::f(..)`, a struct literal and
+  with a proof (AD-524) and its type arguments (`scan_written.rs`); an untyped local (the chain of
+  its initializer; in a nested block or shadowed, it holds up to the next `let` of its name); a literal; a call `f(..)`, `m::f(..)`, `T::f(..)`, a struct literal and
   a variant, when no name and no macro call of the `fn` can hide the path.
 - **Steps.** A named field of an exact struct; a method call with the written return type of the
   one member that it reaches (AD-383); `?` on `Result` and `Option`; `&`, `&mut`.
@@ -57,12 +57,12 @@ module. An autoref keeps the gap of AD-383; `Box`, `Rc`, `Arc` give no edge. `ma
 item; an adapter outside the set, a non-std iterator and an array by value give no type.
 
 ## Price
-`native/` self-check: 64 PASS, 28 UNKNOWN, unchanged; pair gaps 1,278 to 1,069 (steps up to 2;
+`native/` self-check: 64 PASS, 28 UNKNOWN, unchanged; pair gaps 1,278 to 1,047 (steps 1 to 3;
 the closed-file rule costs 2). New edges make more modules reachable, so the prune of #1571 keeps
 some sound gaps. tokio 1.48.0: the same verdicts and gaps as main (gated, macro-written modules).
 The edges show 24 real module pairs that the contract did not declare (e.g. `model.graph()
 .imports()` from `archkeel_model.direction`); each is a call of a public member, follows the layer
 order and meets no forbidden dependency, and the contract states it as a `requires`.
 
-Tests: `impl_types_tests.rs`, `impl_types_outside_tests.rs`, `impl_types_pattern_tests.rs`,
+Tests: `impl_types_tests.rs`, `impl_types_outside_tests.rs`, `impl_types_pattern_tests.rs`, `impl_types_let_tests.rs`,
 `scan_chains_tests.rs`; the rustc plants of `tests/test_collector_false_pass_rust_own_file_method.py`.

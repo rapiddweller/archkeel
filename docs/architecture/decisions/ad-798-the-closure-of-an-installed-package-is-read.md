@@ -52,8 +52,8 @@ it 146 false gaps (path directives of `@types/react` and `next`, `typesVersions`
 three repaired declaration files); points 2 to 4 remove them.
 
 ## Open
-- A computed import inside a package (`require(name)`): the string-loader class (Python: #1519).
-- A package that a tool loads without an import of the scan.
+- A computed import inside a package (`require(name)`) is a reach since AD-812 (#1749).
+- A package that a tool loads without an import of the scan: #1750 (P0).
 - A bare `declare module "x"` without `paths` or `baseUrl` is an ambient module, as in the scan.
 
 ## Tests
