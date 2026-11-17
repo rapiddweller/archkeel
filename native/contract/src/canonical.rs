@@ -60,7 +60,8 @@ fn head_position(kind: RuleKind) -> usize {
         | K::CompleteExternalScope
         | K::LayerOrder
         | K::SiblingIsolation
-        | K::BoundaryTypes => 1,
+        | K::BoundaryTypes
+        | K::UnusedPublic => 1,
         K::AllowedDependency
         | K::ForbiddenConstruct
         | K::ExternalDependencyScope

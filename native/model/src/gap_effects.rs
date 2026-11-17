@@ -211,6 +211,8 @@ fn reads(model: &Model, rule: &Rule, module: Option<&str>) -> ReadSet {
         }
         // AD-550 reads the written types of each module, and a type name through its imports.
         Rule::BoundaryTypes(_) => ReadSet::BOTH,
+        // AD-670: a use of a public name can come from any import of any module.
+        Rule::UnusedPublic(_) => ReadSet::BOTH,
         // A kind that no slice decides: its slice states what it reads here (fail closed).
         undecided_rule!() => ReadSet::BOTH,
     }

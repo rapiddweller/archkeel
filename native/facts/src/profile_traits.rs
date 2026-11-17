@@ -90,6 +90,17 @@ impl Profile {
         }
     }
 
+    /// True when a public signature of this language needs public types (AD-670): a type that a
+    /// used public item names in its signature may have to stay public although no other part
+    /// names it (Rust `private_interfaces`, TypeScript declaration emit). In Python and Dart the
+    /// visibility is a naming convention, so an unused public type can take a leading underscore.
+    pub fn signatures_need_public_types(self) -> bool {
+        match self {
+            Profile::Rust | Profile::TypeScript => true,
+            Profile::Python | Profile::Dart => false,
+        }
+    }
+
     /// True when the collector of this profile also states the sites of the symbols: the calls,
     /// the references and the bases. Without them a relationship of a UML target is a named gap,
     /// and no class has a base receipt (AD-518).

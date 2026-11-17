@@ -142,6 +142,25 @@ A route that the collector does not prove is UNKNOWN when some import of the run
 binds the item under another name. A type alias is an item of its own, in the
 same way as a function that returns the type: the alias itself names the item.
 
+Contract **3.16.0** adds `unused_public` (AD-670). Each module-level item below
+`source` that the code declares public must have a user in another component: an
+import of that component names the item, by its own name or by a re-export route.
+Another target of the same package, such as its binary, counts too (AD-622).
+`item_kinds` limits the rule to some kinds (`function`, `class`, `constant`,
+`static_constant`, `type_alias`, `binding`, `alias`, `dynamic_binding`, `macro`).
+A user outside the scan is stated by name in `external_users` (`module:Name`), with
+its consumer and a reason. No other exemption exists. An item with no proven user
+is FAIL. It is UNKNOWN instead when a use may exist that the facts do not show:
+- another component takes its module by a glob, by a whole-module import or
+  through a macro body;
+- another component names the item through a route that is not proven;
+- the item is a type, the language needs public types in a public signature (Rust,
+  TypeScript), and a signature of a used item may need it. In Python and Dart a type
+  is judged by its name like any other item: the fix is a leading underscore or
+  deletion.
+
+A PASS needs a collector that states every public symbol.
+
 Core and reports share immutable typed selections, including all packages and exact
 modules of a uniquely selected legacy component pair. Component display labels do
 not affect matching. See [dependency selection](architecture/dependency-selection.md)

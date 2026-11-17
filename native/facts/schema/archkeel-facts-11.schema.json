@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "archkeel-facts protocol 9",
+  "title": "archkeel-facts protocol 11",
   "description": "The source records of a collector reply. Generated from the Rust types.",
   "$defs": {
     "Section": {
@@ -6266,6 +6266,202 @@
         }
       ],
       "description": "The source of a collector's selected target version."
+    },
+    "Validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "registered": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Registered"
+          },
+          "description": "The capability sets that the collector registers. The sections, the resolution features\nand the construct capabilities of the reply are exactly one of them."
+        },
+        "interface": {
+          "$ref": "#/$defs/InterfaceNeed",
+          "description": "What an interface statement of the collector needs (`profile_limits`)."
+        },
+        "standard_library": {
+          "type": "string",
+          "description": "The owner key of the pinned standard library of the reply (`STANDARD_LIBRARY`): the\nprofile, or the profile and the minor version of its target after `@`. The part before `@`\nis also the owner of the SDK libraries (`SDK_LIBRARIES`)."
+        }
+      },
+      "required": [
+        "registered",
+        "interface",
+        "standard_library"
+      ],
+      "description": "What the store checks of one reply beyond its language-free minimum."
+    },
+    "Registered": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SectionName"
+          },
+          "description": "The sections that the reply must hold."
+        },
+        "optional_sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SectionName"
+          },
+          "description": "The sections that the reply may hold in addition."
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The resolution features that the reply must state."
+        },
+        "optional_features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The resolution features that the reply may state in addition."
+        },
+        "constructs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RegisteredConstruct"
+          },
+          "description": "The construct capabilities of the reply, in order: each name with the statuses it may have."
+        }
+      },
+      "required": [
+        "sections",
+        "optional_sections",
+        "features",
+        "optional_features",
+        "constructs"
+      ],
+      "description": "One registered capability set: the sections and the features that a reply must state, the\nones that it may state in addition, and its construct capabilities in order."
+    },
+    "SectionName": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "symbols",
+          "description": "The symbols section."
+        },
+        {
+          "type": "string",
+          "const": "imports",
+          "description": "The imports section."
+        },
+        {
+          "type": "string",
+          "const": "calls",
+          "description": "The calls section."
+        },
+        {
+          "type": "string",
+          "const": "references",
+          "description": "The references section."
+        },
+        {
+          "type": "string",
+          "const": "bindings",
+          "description": "The bindings section."
+        },
+        {
+          "type": "string",
+          "const": "typing_signals",
+          "description": "The typing signals section."
+        },
+        {
+          "type": "string",
+          "const": "constructs",
+          "description": "The constructs section."
+        },
+        {
+          "type": "string",
+          "const": "unknowns",
+          "description": "The gaps section."
+        }
+      ],
+      "description": "The name of a source section."
+    },
+    "RegisteredConstruct": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the construct kind."
+        },
+        "statuses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstructSupport"
+          },
+          "description": "The statuses that the reply may state for it."
+        }
+      },
+      "required": [
+        "name",
+        "statuses"
+      ],
+      "description": "One construct capability of a registered set: its name and the statuses that it may state."
+    },
+    "ConstructSupport": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "supported",
+          "description": "The collector reads the construct in full."
+        },
+        {
+          "type": "string",
+          "const": "partial",
+          "description": "The collector reads the construct in part."
+        },
+        {
+          "type": "string",
+          "const": "unsupported",
+          "description": "The collector does not read the construct."
+        },
+        {
+          "type": "string",
+          "const": "decided",
+          "description": "The collector decides the construct by its own rule."
+        }
+      ],
+      "description": "How completely the collector examines one construct kind."
+    },
+    "InterfaceNeed": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "nothing",
+          "description": "The statement needs nothing of the reply."
+        },
+        {
+          "type": "string",
+          "const": "unsupported",
+          "description": "The collector makes no interface statement."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "feature": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "feature"
+          ],
+          "additionalProperties": false,
+          "description": "The statement holds exactly when the reply states this resolution feature."
+        }
+      ],
+      "description": "What an interface statement of a collector needs. Each value but `Nothing` adds a check."
     }
   }
 }

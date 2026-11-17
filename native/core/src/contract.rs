@@ -81,22 +81,17 @@ impl Usable {
     /// This is the one owner of the needs of a run: a new reason is one more `Need`.
     pub(crate) fn needs(&self) -> Needs {
         let target = matches!(self.uml, Some(UmlTarget::Compare(_)));
-        let typed = |kind: RuleKind| kind == RuleKind::BoundaryTypes;
-        let boundary = self
+        // The kinds of the rules of every contract of the tree.
+        let kinds: Vec<RuleKind> = self
             .root
             .rules()
             .iter()
             .map(archkeel_contract::kind_of)
             .chain(self.inside.iter().map(|(_, kind)| *kind))
-            .any(typed);
-        let facade = |kind: RuleKind| kind == RuleKind::InterfaceBoundary;
-        let interface = self
-            .root
-            .rules()
-            .iter()
-            .map(archkeel_contract::kind_of)
-            .chain(self.inside.iter().map(|(_, kind)| *kind))
-            .any(facade);
+            .collect();
+        let boundary = kinds.contains(&RuleKind::BoundaryTypes);
+        let interface = kinds.contains(&RuleKind::InterfaceBoundary);
+        let published = kinds.contains(&RuleKind::UnusedPublic);
         // AD-664: the root contract declares the reach of its door sites.
         let doors = self
             .root
@@ -108,7 +103,8 @@ impl Usable {
                 .then_some(Need::UmlTarget)
                 .into_iter()
                 .chain(boundary.then_some(Need::BoundaryTypes))
-                .chain(interface.then_some(Need::InterfaceBoundary)),
+                .chain(interface.then_some(Need::InterfaceBoundary))
+                .chain(published.then_some(Need::UnusedPublic)),
         )
         .with_doors(doors)
     }

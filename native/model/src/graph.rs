@@ -12,6 +12,7 @@
 
 use std::collections::HashMap;
 
+use archkeel_facts::envelope::validation::library_key;
 use archkeel_facts::envelope::{Facts, Target};
 use archkeel_facts::FactData;
 use archkeel_facts::Section;
@@ -43,6 +44,10 @@ pub struct Graph {
     imports: Vec<Import>,
     /// Each name that a record of the reply binds under another name (AD-668).
     renamed: std::collections::HashSet<String>,
+    /// The source and target module of each resolved macro body (AD-670).
+    macro_bodies: Vec<(String, String)>,
+    /// The public module-level items, when a rule of the run reads them (AD-670).
+    published: Option<Vec<crate::published_items::PublicItem>>,
     module_edges: Vec<Edge>,
     package_edges: Vec<Edge>,
     module_measures: Vec<Measure>,
@@ -83,6 +88,9 @@ impl Graph {
                 &graph.modules,
                 graph.observed.symbol_sites,
             ));
+        }
+        if needs.published() {
+            graph.published = Some(crate::published_items::items(facts));
         }
         if needs.boundary() && graph.observed.type_shapes {
             graph.boundary = Some(crate::boundary_facts::BoundaryFacts::derive(facts));
@@ -129,6 +137,17 @@ impl Graph {
             settings,
             imports: split.imports,
             renamed: split.renamed,
+            macro_bodies: split
+                .macro_bodies
+                .iter()
+                .map(|body| {
+                    (
+                        body.source_module().to_owned(),
+                        body.target_module().to_owned(),
+                    )
+                })
+                .collect(),
+            published: None,
             module_edges,
             package_edges,
             module_measures: module_measured.measures,
@@ -182,6 +201,16 @@ impl Graph {
     /// The resolved imports that are not macro bodies, in the order of the reply.
     pub fn imports(&self) -> &[Import] {
         &self.imports
+    }
+
+    /// The source and target module of each resolved macro body (AD-670).
+    pub(crate) fn macro_bodies(&self) -> &[(String, String)] {
+        &self.macro_bodies
+    }
+
+    /// The public module-level items, when a rule of the run reads them (AD-670).
+    pub(crate) fn published(&self) -> Option<&[crate::published_items::PublicItem]> {
+        self.published.as_deref()
     }
 
     /// Whether a record of the reply binds `symbol` under another name (`use a::Profile as Lang`,
@@ -287,7 +316,11 @@ fn symbol_counts(facts: &Facts, modules: &Table<ModuleId, Module>) -> Option<Vec
 /// the profile of the reply, and each module lies in the namespace.
 fn admitted<'a>(reply: &'a Ingested, settings: &Settings) -> Result<&'a Facts, Reason> {
     let facts = &reply.reply().facts;
-    let pinned = archkeel_store::standard_library(facts.profile);
+    let pinned = archkeel_store::standard_library(&library_key(
+        facts.validation.as_ref(),
+        facts.profile,
+        &facts.runtime.version,
+    ));
     settings
         .check(facts.profile.as_str(), &pinned)
         .map_err(Reason::Refused)?;

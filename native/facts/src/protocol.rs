@@ -39,21 +39,19 @@ impl Version {
     }
 
     /// The version of the compressed reply for this request version, or `None` when the version
-    /// has no compressed reply of its own. The host requires the request version back when it
-    /// pins one: 8.0.0 for its built-in collector, 9.0.0 for a test-scoped request. An explicit
-    /// `collector_argv` accepts any valid reply, so a 3.0.0 request gets the 8.0.0 reply.
+    /// has no compressed reply of its own. Each native collector writes the 11.0.0 reply, which
+    /// carries the validation block of its facts (AD-688). A 3.0.0 request is answered as 8.0.0
+    /// (`reply_version`), so it gets the 11.0.0 reply too.
     pub fn compressed(self) -> Option<ProtocolVersion> {
         match self {
             Self::V3 => None,
-            Self::V8 => Some(ProtocolVersion::V8),
-            Self::V9 => Some(ProtocolVersion::V9),
-            Self::V10 => Some(ProtocolVersion::V10),
+            Self::V8 | Self::V9 | Self::V10 => Some(ProtocolVersion::V11),
         }
     }
 }
 
-/// The one place that chooses the reply version for a request version. 8.0.0 and 9.0.0 replies
-/// have the same shape. A 10.0.0 request gets the 10.0.0 reply, which has the shape of 9.0.0.
+/// The request version that a collector answers for a request version: a 3.0.0 request is read as
+/// 8.0.0. The compressed reply of each is 11.0.0 (`Version::compressed`, AD-688).
 pub fn reply_version(request: Version) -> Version {
     match request {
         Version::V3 | Version::V8 => Version::V8,

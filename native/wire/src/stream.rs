@@ -30,7 +30,7 @@ use crate::pieces::{Adler, Piece, ZLIB_HEADER};
 use crate::protocol::Version;
 use archkeel_facts::envelope::{
     Capabilities, Coverage, Evidence, FileFact, Input, NoEntries, ProtocolVersion, Provenance,
-    Source, State, Target,
+    Source, State, Target, Validation,
 };
 
 /// What the reply says before the records: who made it, what it declares, and the small lists.
@@ -59,6 +59,9 @@ pub struct Head {
     pub files: Vec<FileFact>,
     /// The targets that the imports of the files resolve to.
     pub imports: Vec<Target>,
+    /// What the store checks of the reply beyond its minimum, from the table of the collector
+    /// (AD-688).
+    pub validation: Validation,
 }
 
 /// What the reply says after the records.
@@ -232,6 +235,7 @@ struct After<'a> {
     state: State,
     type_shapes: NoEntries,
     uncertain_reexports: NoEntries,
+    validation: &'a Validation,
 }
 
 /// The keys of the reply after `facts`.
@@ -326,6 +330,7 @@ fn write_after(out: &mut Piece, head: &Head, version: Version) -> io::Result<()>
         state: State::default(),
         type_shapes: NoEntries,
         uncertain_reexports: NoEntries,
+        validation: &head.validation,
     };
     write_fields(out, &after)?;
     out.write_all(b"},")?;

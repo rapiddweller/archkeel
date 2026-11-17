@@ -58,6 +58,7 @@ mod direction;
 mod external;
 mod interface;
 mod layout;
+mod unused_public;
 mod violation;
 
 #[cfg(test)]
@@ -148,6 +149,7 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         Rule::ForbiddenEffectUnderCondition(_) => unported(kind), // S15
         Rule::ProtocolDeclarations(_) => unported(kind),          // S16
         Rule::BoundaryTypes(rule) => boundary_types::check(id, rule, model), // AD-550
+        Rule::UnusedPublic(rule) => Ok(unused_public::check(id, rule, model)), // AD-670
     };
     let violations = match found {
         Ok(found) => found,

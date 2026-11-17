@@ -55,6 +55,10 @@ mod vocab_constructs;
 pub use record::{FactData, Record};
 /// The pinned standard-library tables shared by collectors and the store.
 pub const STANDARD_LIBRARY: &str = include_str!("standard_library.txt");
+/// The pinned SDK libraries that a contract can forbid by name although no scan lists them as a
+/// module, one `owner name` pair on each line: the `sdk_libraries` of the Dart profile of release
+/// 4.0.1 (`ir/profiles.py`). A reply names its owner through its standard library key (AD-688).
+pub const SDK_LIBRARIES: &str = include_str!("sdk_libraries.txt");
 pub use sections::{
     BindingFact, CallFact, CommonData, ConstructFact, GapFact, ImportFact, IntoSection,
     ReferenceFact, Section, SymbolFact,
