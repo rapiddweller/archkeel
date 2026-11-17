@@ -121,6 +121,7 @@ def test_the_gate_profile_builds_without_lto_and_with_16_codegen_units(tmp_path:
     first, second = (tmp_path / "profile.log").read_text().split("--\n")[:2]
     assert "CARGO_PROFILE_RELEASE_LTO=false" in first
     assert "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" in first
+    assert "CARGO_PROFILE_RELEASE_OPT_LEVEL=1" in first
     assert "CARGO_PROFILE_RELEASE" not in second
 
 

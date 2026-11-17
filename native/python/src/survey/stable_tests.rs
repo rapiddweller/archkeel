@@ -6,6 +6,128 @@ use super::*;
 use crate::module::EvidenceMap;
 use crate::survey::imports;
 
+#[test]
+fn class_inventory_proof_is_absent_when_a_class_or_namespace_can_be_hidden() {
+    for source in [
+        "",
+        "\"\"\"Module.\"\"\"\nfrom __future__ import annotations\nfrom x import y\ndef test(a: T):\n    assert a.value() == 1\n",
+    ] {
+        let tree = crate::test_tree(source, 12).unwrap();
+        assert!(super::class_inventory::empty(&tree), "{source}");
+    }
+    for source in [
+        "class A: pass\n",
+        "if flag:\n    class A: pass\n",
+        "def f():\n    class A: pass\n",
+        "from x import *\n",
+        "A = type('A', (), {})\n",
+        "def f():\n    global A\n    A = factory()\n",
+        "def f():\n    globals()['A'] = factory()\n",
+        "@factory\ndef f(): pass\n",
+        "def f(x=factory()): pass\n",
+        "def __getattr__(name): return factory(name)\n",
+    ] {
+        let tree = crate::test_tree(source, 12).unwrap();
+        assert!(!super::class_inventory::empty(&tree), "{source}");
+    }
+}
+
+#[test]
+fn empty_class_inventory_is_written_on_its_module_file() {
+    let survey = crate::survey::targets::tests::surveyed(&[
+        ("src/app/empty.py", "def f():\n    return 1\n"),
+        ("src/app/unread.py", "@decorator\nclass A: pass\n"),
+    ]);
+    let file = |name: &str| {
+        survey
+            .files
+            .iter()
+            .find(|file| file.module.as_str() == name)
+            .unwrap()
+    };
+    assert_eq!(file("app.empty").class_inventory_empty, Some(true));
+    assert_eq!(file("app.unread").class_inventory_empty, None);
+    assert_eq!(
+        serde_json::to_value(file("app.empty")).unwrap()["class_inventory_empty"],
+        true
+    );
+    assert!(serde_json::to_value(file("app.unread"))
+        .unwrap()
+        .get("class_inventory_empty")
+        .is_none());
+    let changed = crate::survey::targets::tests::surveyed(&[
+        ("src/app/empty.py", "def f():\n    return 1\n"),
+        (
+            "src/app/writer.py",
+            "import app.empty\napp.empty.X = value\n",
+        ),
+    ]);
+    assert!(changed
+        .files
+        .iter()
+        .all(|file| file.class_inventory_empty.is_none()));
+    let support = crate::survey::targets::tests::surveyed(&[
+        ("src/app/test.py", "from __future__ import annotations\nfrom app.support import Builder\ndef test():\n    assert Builder().valid()\n"),
+        ("src/app/support.py", "from dataclasses import dataclass\n@dataclass\nclass Builder:\n    value: int\n"),
+    ]);
+    assert_eq!(
+        support
+            .files
+            .iter()
+            .find(|file| file.module.as_str() == "app.test")
+            .unwrap()
+            .class_inventory_empty,
+        Some(true)
+    );
+}
+
+#[test]
+fn architecture_test_suites_have_empty_class_inventory_outside_support() {
+    let files = [
+        (
+            "tests/__init__.py",
+            include_str!("../../../../fixtures/F-architecture/tests/__init__.py"),
+        ),
+        (
+            "tests/unit/__init__.py",
+            include_str!("../../../../fixtures/F-architecture/tests/unit/__init__.py"),
+        ),
+        (
+            "tests/unit/test_entities.py",
+            include_str!("../../../../fixtures/F-architecture/tests/unit/test_entities.py"),
+        ),
+        (
+            "tests/integration/__init__.py",
+            include_str!("../../../../fixtures/F-architecture/tests/integration/__init__.py"),
+        ),
+        (
+            "tests/integration/test_place_order.py",
+            include_str!(
+                "../../../../fixtures/F-architecture/tests/integration/test_place_order.py"
+            ),
+        ),
+        (
+            "tests/support/__init__.py",
+            include_str!("../../../../fixtures/F-architecture/tests/support/__init__.py"),
+        ),
+        (
+            "tests/support/orders.py",
+            include_str!("../../../../fixtures/F-architecture/tests/support/orders.py"),
+        ),
+    ];
+    let survey = crate::survey::targets::tests::surveyed_in(&files, &["tests"], "tests");
+    for file in &survey.files {
+        if !file.module.as_str().starts_with("tests.support") {
+            assert_eq!(
+                file.class_inventory_empty,
+                Some(true),
+                "{}",
+                file.module.as_str()
+            );
+        }
+    }
+}
+
 /// The stable bindings of `app/__init__.py` beside the empty modules `app.sib` and `app.sub`.
 fn stable(text: &str, minor: u32) -> Vec<String> {
     let files = [

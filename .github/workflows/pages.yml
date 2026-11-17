@@ -103,6 +103,16 @@ jobs:
             native/target/release/archkeel-core.tree
           key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
+      # The pinned sources of the real-project fixtures (fixtures/*/SOURCE.json) are fetched when
+      # the gallery builds. The cache keeps them between runs; a pin that changes is a new key.
+      - name: Restore the pinned sources of the real projects
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: test-artifacts/source-cache
+          key: gallery-sources-${{ hashFiles('fixtures/*/SOURCE.json') }}
+
+      # A pinned source that cannot be fetched fails this step. The upload and the deploy below do
+      # not run, so the last good page stays online and no half page is published.
       - name: Build the report of each fixture with the core
         run: make report-gallery
 
@@ -115,3 +125,9 @@ jobs:
       - name: Deploy the gallery
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+      - name: Say that the last good page stays online
+        if: failure()
+        run: >-
+          echo "::error title=The gallery was not published::A step failed, for example because a
+          pinned source could not be fetched. The last good page stays online."

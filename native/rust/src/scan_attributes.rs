@@ -24,13 +24,11 @@ pub(super) fn concern(walker: &mut Walker<'_>, reason: String, span: Span) {
 }
 
 pub(super) fn helper_strings(walker: &mut Walker<'_>, attr: &Attribute, list: &syn::MetaList) {
-    let via = std::mem::replace(&mut walker.via, Via::Helper);
     if let Some(found) = crate::attrs::model::helper_paths(attr) {
-        walker.refer_chains(found);
+        walker.refer_chains(found, &Via::Helper);
     } else {
-        attribute_strings(walker, list);
+        attribute_strings(walker, list, &Via::Helper);
     }
-    walker.via = via;
 }
 
 pub(super) fn expansion(walker: &mut Walker<'_>, meta: &Meta, depth: usize) {
@@ -65,7 +63,7 @@ pub(super) fn expansion(walker: &mut Walker<'_>, meta: &Meta, depth: usize) {
             path: vec![name],
             absolute: false,
             complete: true,
-            block: walker.blocks > 0,
+            block: walker.blocks() > 0,
             prelude: walker.tools,
         }));
     } else if (name == "default"
@@ -110,7 +108,7 @@ pub(super) fn derive_expansion(walker: &mut Walker<'_>, meta: &Meta) -> Option<(
             path: parts,
             absolute: path.leading_colon.is_some(),
             complete,
-            block: walker.blocks > 0,
+            block: walker.blocks() > 0,
             prelude: walker.tools,
         }));
         walker.derives.push(concern);
@@ -137,13 +135,13 @@ pub(super) fn expansion_concern(walker: &Walker<'_>, reason: String, span: Span)
 }
 
 /// The paths in the strings of an attribute, under any key but the message keys of `tokens`.
-pub(super) fn attribute_strings(walker: &mut Walker<'_>, list: &syn::MetaList) {
+pub(super) fn attribute_strings(walker: &mut Walker<'_>, list: &syn::MetaList, via: &Via) {
     let mut found = Vec::new();
     if string_paths(list.tokens.clone(), 0, &mut found).is_none() {
         let reason = "A string in an attribute holds a path that the scan cannot read";
         concern(walker, reason.to_owned(), list.delimiter.span().join());
     }
-    walker.refer_chains(found);
+    walker.refer_chains(found, via);
 }
 
 pub(super) fn finish(walker: &mut Walker<'_>) {

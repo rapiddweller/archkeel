@@ -38,6 +38,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from tools import fixture_source
+from tools.fixture_source import SourceError
 from tools.fixture_tree import fixture_tree, needs_copy
 from tools.report_gallery_page import STATUSES, index
 from tools.report_product import (
@@ -171,7 +173,9 @@ def _reports(
     return row
 
 
-def build_run(cli: Sequence[str], run: Mapping[str, Any], out: Path) -> dict[str, Any]:
+def build_run(
+    cli: Sequence[str], run: Mapping[str, Any], out: Path, cache: Path | None = None
+) -> dict[str, Any]:
     """Write both reports of one matrix run into its folder. Return its row."""
     folder = out / run["name"]
     folder.mkdir(parents=True)
@@ -182,34 +186,50 @@ def build_run(cli: Sequence[str], run: Mapping[str, Any], out: Path) -> dict[str
     if not needs_copy(source, edits):
         return _reports(cli, run, folder, "report", prefix)
     # A fixture with resolver inputs, or with a planted change, runs in a copy (AD-462).
-    with fixture_tree(source, edits) as tree:
-        shown = f"<repo>/fixtures/{run['root']}"
-        copies = {str(tree): shown, str(tree.resolve()): shown}
-        prepared = {**run, "root_path": str(tree)}
-        row = _reports(cli, prepared, folder, "report", prefix, copies)
+    try:
+        with fixture_tree(source, edits, cache) as tree:
+            shown = f"<repo>/fixtures/{run['root']}"
+            copies = {str(tree): shown, str(tree.resolve()): shown}
+            prepared = {**run, "root_path": str(tree)}
+            row = _reports(cli, prepared, folder, "report", prefix, copies)
+    except (SourceError, OSError, subprocess.SubprocessError) as err:
+        # A pinned source that cannot be fetched is no result: the build fails, it never skips.
+        return {"run": run, "links": [], "error": f"{type(err).__name__}: {err}"[:300]}
+    spec = fixture_source.load(source)
+    if spec is not None:
+        row["source"] = fixture_source.pin_facts(spec)
     if plant:
-        row["violation"] = violation_block(folder / "report.html", plant["rule"])
+        row["violation"] = violation_block(folder / "report.html", plant)
     return row
 
 
-def violation_block(page: Path, rule: str) -> dict[str, str] | None:
-    """The block of the report page that lists a violation of `rule`: its anchor and its title.
+def _token(word: str) -> re.Pattern[str]:
+    """`word` as a whole name: no name character before or after it."""
+    return re.compile(rf"(?<![\w.:-]){re.escape(word)}(?![\w.:-])")
 
-    The core writes one `rp-dos` block for each place in the code and lists each rule that fails
-    there. None when the page holds no such block.
+
+def violation_block(page: Path, plant: Mapping[str, Any]) -> dict[str, str] | None:
+    """The block of the report page that shows the exact finding of a plant.
+
+    The finding is the rule id plus its source and its target. The core writes one `rp-dos` block
+    for each place in the code and lists each rule that fails there. A block is the finding when
+    it says `Violates <rule id>` (the whole id: `R-1` is not `R-10`) and names both the source and
+    the target as whole names. A rule id alone is not enough: two plants can break the same rule.
+    None when no block shows the finding.
     """
     if not page.is_file():
         return None
     text = page.read_text(encoding="utf-8")
-    blocks = re.split(r'(?=<article class="rp-dos" id="x\d+">)', text)
-    for block in blocks:
+    violates = re.compile(rf"Violates {re.escape(plant['rule'])}(?![\w-])")
+    names = [_token(plant["source"]), _token(plant["target"])]
+    for block in re.split(r'(?=<article class="rp-dos" id="x\d+">)', text):
         found = re.match(r'<article class="rp-dos" id="(x\d+)">', block)
         if not found:
             continue
-        # A block ends where its article ends; a rule id of a later part is not this block's.
         body = block.split("</article>", 1)[0]
         title = re.search(r'<h3 class="h3">(.*?)</h3>', body, re.DOTALL)
-        if title and html.escape(rule) in body:
+        shown = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", body)))
+        if title and violates.search(shown) and all(name.search(shown) for name in names):
             return {"id": found.group(1), "title": html.unescape(re.sub(r"<[^>]+>", "", title[1]))}
     return None
 
@@ -390,6 +410,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--archkeel", default="archkeel", help="the CLI command, split like a shell"
     )
     parser.add_argument("--system", type=Path, default=DOCUMENT, help="the system document")
+    parser.add_argument(
+        "--source-cache",
+        type=Path,
+        default=None,
+        help="where pinned sources are kept between builds",
+    )
     parser.add_argument("--sha", default=None)
     parser.add_argument("--built-at", default=None)
     args = parser.parse_args(argv)
@@ -401,7 +427,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     sha = args.sha or _head_sha()
     system = load(args.system)
     self_rows = [build_self(cli, entry, args.out) for entry in self_runs(system)]
-    rows = [build_run(cli, run, args.out) for run in showcase_runs(args.matrix)]
+    rows = [build_run(cli, run, args.out, args.source_cache) for run in showcase_runs(args.matrix)]
     built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     others = [build_other(cli, entry) for entry in OTHER_RUNS]
     parts: list[Part] = [row["part"] for row in self_rows]

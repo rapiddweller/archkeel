@@ -20,6 +20,8 @@ from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
+from tools import fixture_source
+
 RESOLVER_INPUTS = "resolver-inputs"
 MODULES = "node_modules"
 # A fixed date gives the same commit each time.
@@ -28,7 +30,8 @@ DATE = "2026-01-01T00:00:00+00:00"
 
 def needs_copy(source: Path, overlay: Sequence[Mapping[str, str]] | None = None) -> bool:
     """True when the fixture cannot be scanned in place: resolver inputs or a planted change."""
-    return bool(overlay) or (source / RESOLVER_INPUTS).is_dir()
+    pinned = fixture_source.load(source) is not None
+    return bool(overlay) or pinned or (source / RESOLVER_INPUTS).is_dir()
 
 
 def _git(root: Path, *arguments: str) -> None:
@@ -66,15 +69,22 @@ def apply_edit(root: Path, edit: Mapping[str, str]) -> None:
 
 @contextmanager
 def fixture_tree(
-    source: Path, overlay: Sequence[Mapping[str, str]] | None = None
+    source: Path,
+    overlay: Sequence[Mapping[str, str]] | None = None,
+    cache: Path | None = None,
 ) -> Iterator[Path]:
     """A copy of `source` in a new Git repository, with the planted edits committed on top.
 
-    The source is never written.
+    The source is never written. A fixture with a `SOURCE.json` gets the files of its pinned
+    commit (fetched into `cache`); a failed fetch raises `fixture_source.SourceError`.
     """
     with tempfile.TemporaryDirectory(prefix="archkeel-gallery-") as temporary:
         root = Path(temporary) / source.name
         shutil.copytree(source, root, ignore=shutil.ignore_patterns(".dart_tool", "build"))
+        spec = fixture_source.load(source)
+        if spec is not None:
+            with fixture_source.checkout(spec, cache) as checked:
+                fixture_source.copy_source(checked, spec, root)
         modules = (root / RESOLVER_INPUTS).is_dir()
         if modules:
             shutil.copytree(root / RESOLVER_INPUTS, root / MODULES)

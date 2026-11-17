@@ -961,7 +961,7 @@
   }
 
   function renderRouteNotice() {
-    canvas.hidden = true; alternative.hidden = false; inspector.hidden = false;
+    canvas.hidden = true; alternative.hidden = false; setTargetDetails(true);
     filters.hidden = true; elementKindControl.hidden = true; legend.textContent = "";
     openSelectedButton.disabled = true;
     root.querySelector(".flow-explore").hidden = true;
@@ -983,6 +983,8 @@
       architectureNavigation({ base: null });
       inspectorContent.innerHTML = '<div class="kicker">Fact sheet</div><p>Choose a recorded architecture scope.</p>';
     }
+    root.dataset.layoutState = "ready";
+    if (ATLAS) publishState();
   }
 
   async function renderSidecar() {
@@ -1028,8 +1030,9 @@
   function architectureNavigation(context) {
     if (SIDECAR) { sidecarNavigation(); return; }
     if (ATLAS) {
-      breadcrumb.innerHTML = `<button type="button" data-atlas-depth="0">${esc(ATLAS.repository)}</button>`
-        + S.path.map((entry, index) => `<span> / </span><button type="button" data-atlas-depth="${index + 1}">${esc(REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)}</button>`).join("");
+      // E3: each crumb names itself in full (a title for a shortened one); the current crumb says so.
+      const crumbs = [ATLAS.repository, ...S.path.map((entry) => REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)];
+      breadcrumb.innerHTML = crumbs.map((label, depth) => `${depth ? "<span> / </span>" : ""}<button type="button" data-atlas-depth="${depth}" title="${esc(label)}"${depth === crumbs.length - 1 ? ' aria-current="page"' : ""}><span>${esc(label)}</span></button>`).join("");
       breadcrumb.querySelectorAll("button").forEach((button) => button.onclick = () =>
         dispatch({ type: "goToDepth", depth: Number(button.dataset.atlasDepth) }));
       backButton.hidden = !S.path.length; backButton.textContent = "Back to components"; return;
@@ -1962,9 +1965,15 @@
       focusLabel = null; relationshipKind = null; elementKind = null; positions = Object.create(null); render(); fit(); return;
     }
     if (ATLAS) {
+      // E3: the view of the page is not a new view: fullscreen and the key of the current view lay
+      // the diagram out again and keep the selection.
+      if (nextView === S.view) { relayout(); return; }
       navigate();
       S.view = nextView;
-      S.cell = null; S.module = null; S.hint = null;
+      if (nextView === "target") { S.cell = null; S.module = null; S.hint = null; }
+      const level = atlasLevel();
+      if (S.selection && !level.component_ids.includes(S.selection.id)
+          && !REPORT_SCENE.atlasModules(level, nextView).some((item) => item.id === S.selection.id)) S.selection = null;
       render(); return;
     }
     if (nextView === S.view) return;
@@ -2290,7 +2299,6 @@
     const moved = level !== atlasLevel() || root.dataset.content !== "modules";
     if (!moved) { selectArchitectureSubject("node", id); return; }
     navigate();
-    rememberNavigationState();
     S.path = REPORT_SCENE.componentRoute(level.parent_id).map((item) => ({ id: item.id, origin: "observed" }));
     S.content = "modules";
     S.selection = { type: "node", id };
@@ -2314,7 +2322,6 @@
   function openAtlasComponent(id, content = null) {
     if (!ATLAS.levels.some((level) => level.parent_id === id)) return;
     navigate();
-    if (atlasLevel().parent_id !== id) rememberNavigationState();
     S.path = REPORT_SCENE.componentRoute(id).map((item) => ({ id: item.id, origin: "observed" }));
     S.content = content;
     S.selection = null;
@@ -3175,9 +3182,6 @@
     if (skipSvgClick) { skipSvgClick = false; return; }
     if (!event.target.closest(".node, .hit")) dispatch({ type: "clearSelection" });
   });
-  svg.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") dispatch({ type: "clearSelection" });
-  });
   fullscreenButton.addEventListener("click", async () => {
     if (root.dataset.expanded) {
       restoreExpansion();
@@ -3213,17 +3217,9 @@
   });
   document.addEventListener("fullscreenchange", updateFullscreenState);
   root.addEventListener("keydown", (event) => {
-    if (event.defaultPrevented || event.target.closest("dialog")
-      || event.key === "Escape" && root.querySelector(".ak-pop, .ak-drawer")) return;
-    if (event.key === "Escape" && root.dataset.expanded === "native") {
-      event.preventDefault();
-      event.stopPropagation();
-      document.exitFullscreen?.();
-    } else if (event.key === "Escape" && root.dataset.expanded === "fallback") {
-      event.preventDefault();
-      event.stopPropagation();
-      restoreExpansion();
-    } else if (event.key === "Tab" && root.dataset.expanded === "fallback") {
+    // E3: Escape is one ladder (report-canvas.js): overlay, popover, drawer, expanded, selection.
+    if (event.defaultPrevented || event.target.closest("dialog")) return;
+    if (event.key === "Tab" && root.dataset.expanded === "fallback") {
       const focusable = [...root.querySelectorAll("button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex='0']")]
         .filter((element) => !element.hidden && element.getClientRects().length);
       const first = focusable[0];
@@ -3250,6 +3246,19 @@
   // The presentation choices of report-canvas.js. dispatch stores them in S; their effects stay there.
   const PRESENTATION = ["perspective", "pinnedTag", "drawer", "overlay", "pop"];
 
+  // E3: up one level is derived from S.path; the level that you leave is selected in its parent.
+  function atlasUp() {
+    if (!S.path.length) return;
+    navigate();
+    const child = S.path.at(-1);
+    S.path = S.path.slice(0, -1);
+    S.selection = { type: "node", id: child.id }; S.module = null; S.cell = null; S.hint = null; S.content = null;
+    routeNotice = null; positions = Object.create(null); render(); fit();
+  }
+
+  // A new layout of the same state: the size of the page changed.
+  function relayout() { positions = Object.create(null); render(); fit(); }
+
   function goToDepth(depth) {
     navigate();
     S.path = S.path.slice(0, depth); S.selection = null; routeNotice = null;
@@ -3273,11 +3282,13 @@
       case "goToDepth": goToDepth(action.depth); break;
       case "open": openArchitectureEntity(action.id); break;
       case "openModule": openAtlasModule(action.id); break;
-      case "up": navigate(); leaveArchitectureGraph(); break;
+      case "up": if (ATLAS) atlasUp(); else { navigate(); leaveArchitectureGraph(); } break;
+      case "relayout": relayout(); break;
+      case "collapse": restoreExpansion(); break;
       case "setView": switchArchitectureView(action.view); break;
       case "setContent": navigate(); S.content = action.content; render(); fit(); break;
       case "select": selectArchitectureSubject(action.kind || "node", action.id, action.reveal ?? true); break;
-      case "clearSelection": S.selection = null; render(); break;
+      case "clearSelection": S.selection = null; S.module = null; S.cell = null; S.hint = null; render(); break;
       case "selectMatrix": selectAtlasSheet(atlasLevel(), { cell: action.cell, module: action.module }); break;
       case "selectEdgeCell": selectAtlasSheet(atlasLevel(), { cell: action.cell, module: null, selection: null }); break;
       case "selectEdgeSource":
