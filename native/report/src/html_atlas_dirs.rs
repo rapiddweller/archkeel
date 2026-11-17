@@ -2,19 +2,24 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Directory boxes of the Explorer (issue 1488): one screen shows about `ON_SCREEN` module boxes.
-//! A component with no parts and more modules than that gets one box for each directory of its
-//! modules, and a directory that is still too large is cut into ranges of sorted file names. The
-//! module keeps its owner in the contract; the box only places it on the map.
+//! Directory boxes of the Explorer (issue 1488, AD-794): a component with no parts and more modules
+//! than one screen shows (`ON_SCREEN`) gets one box for each directory of its modules. A directory
+//! that is still too large gets one box inside it for each file prefix that two or more of its
+//! files share (`lazy_binds.rs`, `lazy_cover.rs`). The structure decides; sorted names are never
+//! cut into ranges. The module keeps its owner in the contract; a box only places it on the map.
 
 use std::collections::BTreeMap;
 
-use super::atlas_node::Node;
+use super::atlas_node::{Node, ON_SCREEN};
 use super::frame::Topology;
 
-/// The most module boxes of one level: a 1440 x 900 screen in full view holds 6 x 5 module boxes
-/// at the readable zoom of 85 percent (a box of 200 x 144 with the spacing of the layout).
-pub(super) const ON_SCREEN: usize = 30;
+/// A box to make: its label, the box that holds it (an index into the same list), and the names
+/// of the modules that it places directly.
+struct Planned<'a> {
+    label: String,
+    inside: Option<usize>,
+    members: Vec<&'a str>,
+}
 
 /// The directory boxes of each large component without parts, and the box of each module that
 /// such a box holds.
@@ -38,27 +43,43 @@ pub(super) fn split(
         if has_parts || modules.len() <= ON_SCREEN {
             continue;
         }
-        for (label, members) in boxes(&modules) {
+        let planned = boxes(&modules);
+        let mut made: Vec<usize> = Vec::new();
+        for item in &planned {
+            let parent = item.inside.map_or(owner, |i| made[i]);
+            let count = members_under(&planned, made.len());
             let at = nodes.len();
             nodes.push(directory(
                 nodes,
                 owner,
-                &label,
-                members.len(),
+                parent,
+                &item.label,
+                count,
                 modules.len(),
             ));
-            for name in members {
-                place.insert(name.to_owned(), at);
+            made.push(at);
+            for name in &item.members {
+                place.insert((*name).to_owned(), at);
             }
         }
     }
     place
 }
 
-/// The label and the module names of each box: a directory with at least two modules, cut into
-/// balanced ranges of sorted file names when it holds more than `ON_SCREEN`. A directory of one
-/// module gets no box: the module stays a box of its component.
-fn boxes<'a>(modules: &[(&'a str, &'a str)]) -> Vec<(String, Vec<&'a str>)> {
+/// The number of modules in a planned box and in the boxes inside it.
+fn members_under(planned: &[Planned<'_>], at: usize) -> usize {
+    planned[at].members.len()
+        + (0..planned.len())
+            .filter(|i| planned[*i].inside == Some(at))
+            .map(|i| members_under(planned, i))
+            .sum::<usize>()
+}
+
+/// The boxes of one component: a box for each directory with two or more modules, and inside a
+/// directory with more than `ON_SCREEN` modules a box for each file prefix of two or more files. A
+/// component whose modules all stand in one directory gets the prefix boxes without a directory
+/// box. A module that shares no directory or prefix stays where it is.
+fn boxes<'a>(modules: &[(&'a str, &'a str)]) -> Vec<Planned<'a>> {
     let directory = |path: &str| path.rsplit_once('/').map_or("", |(d, _)| d).to_owned();
     let common = common_directory(modules.iter().map(|(_, p)| directory(p)));
     let mut by_directory: BTreeMap<String, Vec<(&str, &str)>> = BTreeMap::new();
@@ -70,8 +91,12 @@ fn boxes<'a>(modules: &[(&'a str, &'a str)]) -> Vec<(String, Vec<&'a str>)> {
             .push((file, name));
     }
     let mut out = Vec::new();
-    for (dir, mut files) in by_directory {
+    let single = by_directory.len() == 1;
+    let mut boxed: Vec<(String, usize)> = Vec::new();
+    let mut alone: Vec<(String, &'a str)> = Vec::new();
+    for (dir, files) in by_directory {
         if files.len() < 2 {
+            alone.extend(files.iter().map(|(_, name)| (dir.clone(), *name)));
             continue;
         }
         let relative = dir.strip_prefix(&common).unwrap_or(&dir).trim_matches('/');
@@ -81,22 +106,93 @@ fn boxes<'a>(modules: &[(&'a str, &'a str)]) -> Vec<(String, Vec<&'a str>)> {
             (true, false) => format!("{base}/"),
             (false, _) => format!("{relative}/"),
         };
-        files.sort_unstable();
-        let parts = files.len().div_ceil(ON_SCREEN);
-        let (size, extra) = (files.len() / parts, files.len() % parts);
-        let mut start = 0;
-        for part in 0..parts {
-            let chunk = &files[start..start + size + usize::from(part < extra)];
-            start += chunk.len();
-            let name = if parts == 1 {
-                label.clone()
-            } else {
-                format!("{label} {} to {}", chunk[0].0, chunk[chunk.len() - 1].0)
-            };
-            out.push((name, chunk.iter().map(|(_, n)| *n).collect()));
+        let inside = if single {
+            None
+        } else {
+            out.push(Planned {
+                label: label.clone(),
+                inside: None,
+                members: Vec::new(),
+            });
+            Some(out.len() - 1)
+        };
+        // With one directory and no directory box, a module that no prefix box takes stays a box
+        // of the component.
+        let loose = prefixes(&mut out, inside, &label, &files, 1);
+        if let Some(at) = inside {
+            out[at].members = loose;
+            boxed.push((dir, at));
+        }
+    }
+    // A module alone in its directory goes into the box of the nearest directory above it.
+    for (dir, name) in alone {
+        let above = boxed
+            .iter()
+            .filter(|(d, _)| dir.starts_with(&format!("{d}/")))
+            .max_by_key(|(d, _)| d.len());
+        if let Some((_, at)) = above {
+            out[*at].members.push(name);
         }
     }
     out
+}
+
+/// The prefix boxes of a directory with more than `ON_SCREEN` files; the modules that no box takes.
+/// The prefix is the first `depth` parts of the file name at `_` (`lazy`, then `lazy_bind`): the
+/// first depth from `from` on that gives two or more boxes of two or more files. A prefix box that
+/// is still too large gets the boxes of the next depth inside it.
+fn prefixes<'a>(
+    out: &mut Vec<Planned<'a>>,
+    inside: Option<usize>,
+    label: &str,
+    files: &[(&str, &'a str)],
+    from: usize,
+) -> Vec<&'a str> {
+    let all: Vec<&'a str> = files.iter().map(|(_, name)| *name).collect();
+    if files.len() <= ON_SCREEN {
+        return all;
+    }
+    let key = |file: &str, depth: usize| {
+        let stem = file.split('.').next().unwrap_or(file);
+        stem.split('_').take(depth).collect::<Vec<_>>().join("_")
+    };
+    let split = (from..from + 4).find_map(|depth| {
+        let mut by_prefix: BTreeMap<String, Vec<(&str, &'a str)>> = BTreeMap::new();
+        for (file, name) in files {
+            by_prefix
+                .entry(key(file, depth))
+                .or_default()
+                .push((file, name));
+        }
+        (by_prefix.values().filter(|m| m.len() >= 2).count() >= 2).then_some((depth, by_prefix))
+    });
+    let Some((depth, by_prefix)) = split else {
+        return all;
+    };
+    let mut loose = Vec::new();
+    for (prefix, members) in by_prefix {
+        if members.len() < 2 {
+            loose.extend(members.iter().map(|(_, name)| *name));
+            continue;
+        }
+        let joined = members
+            .iter()
+            .all(|(file, _)| file.starts_with(&format!("{prefix}_")));
+        let star = if joined { "_*" } else { "*" };
+        let name = if inside.is_some() {
+            format!("{prefix}{star}")
+        } else {
+            format!("{label}{prefix}{star}")
+        };
+        out.push(Planned {
+            label: name,
+            inside,
+            members: Vec::new(),
+        });
+        let at = out.len() - 1;
+        out[at].members = prefixes(out, Some(at), label, &members, depth + 1);
+    }
+    loose
 }
 
 /// The longest directory that holds every directory of the list, cut at a `/`.
@@ -116,16 +212,28 @@ fn common_directory(mut dirs: impl Iterator<Item = String>) -> String {
     common.join("/")
 }
 
-fn directory(nodes: &[Node], owner: usize, label: &str, count: usize, all: usize) -> Node {
+fn directory(
+    nodes: &[Node],
+    owner: usize,
+    parent: usize,
+    label: &str,
+    count: usize,
+    all: usize,
+) -> Node {
     // An id names one box: a label that an earlier box of the owner has gets a mark.
-    let mut id = format!("FILES:{}:{label}", nodes[owner].id);
+    let scope = if parent == owner {
+        nodes[owner].id.clone()
+    } else {
+        nodes[parent].id.clone()
+    };
+    let mut id = format!("FILES:{scope}:{label}");
     while nodes.iter().any(|n| n.id == id) {
         id.push('\'');
     }
     Node {
         id,
         label: label.to_owned(),
-        parent: Some(owner),
+        parent: Some(parent),
         layer: None,
         public: Vec::new(),
         path: label.to_owned(),
@@ -147,26 +255,68 @@ fn directory(nodes: &[Node], owner: usize, label: &str, count: usize, all: usize
 mod tests {
     use super::boxes;
 
+    fn plan(rows: &[(String, String)]) -> Vec<(String, Option<usize>, usize)> {
+        let modules: Vec<(&str, &str)> =
+            rows.iter().map(|(n, p)| (n.as_str(), p.as_str())).collect();
+        boxes(&modules)
+            .into_iter()
+            .map(|b| (b.label, b.inside, b.members.len()))
+            .collect()
+    }
+
     #[test]
-    fn a_large_flat_directory_is_cut_into_ranges_and_a_lone_module_keeps_no_box() {
-        let names: Vec<String> = (0..52).map(|i| format!("m{i:02}")).collect();
-        let mut modules: Vec<(&str, String)> = names
-            .iter()
-            .map(|n| (n.as_str(), format!("src/survey/{n}.rs")))
-            .collect();
-        modules.push(("d1", "src/survey/declared/a.rs".into()));
-        modules.push(("d2", "src/survey/declared/b.rs".into()));
-        modules.push(("lone", "src/survey/x/y.rs".into()));
-        let rows: Vec<(&str, &str)> = modules.iter().map(|(n, p)| (*n, p.as_str())).collect();
-        let found = boxes(&rows);
-        let labels: Vec<(&str, usize)> = found.iter().map(|(l, m)| (l.as_str(), m.len())).collect();
+    fn a_large_directory_is_split_by_file_prefix_and_never_by_ranges_of_names() {
+        let mut rows: Vec<(String, String)> = Vec::new();
+        for i in 0..20 {
+            rows.push((format!("lazy{i}"), format!("src/survey/lazy_{i:02}.rs")));
+            rows.push((
+                format!("hazards{i}"),
+                format!("src/survey/hazards_{i:02}.rs"),
+            ));
+        }
+        rows.push(("mod".into(), "src/survey/mod.rs".into()));
+        rows.push(("d1".into(), "src/survey/declared/a.rs".into()));
+        rows.push(("d2".into(), "src/survey/declared/b.rs".into()));
+        rows.push(("lone".into(), "src/survey/x/y.rs".into()));
         assert_eq!(
-            labels,
+            plan(&rows),
             [
-                ("survey/ m00.rs to m25.rs", 26),
-                ("survey/ m26.rs to m51.rs", 26),
-                ("declared/", 2),
+                // `mod.rs`, and `x/y.rs`, alone in its directory, in the box above it.
+                ("survey/".to_owned(), None, 2),
+                ("hazards_*".to_owned(), Some(0), 20),
+                ("lazy_*".to_owned(), Some(0), 20),
+                ("declared/".to_owned(), None, 2),
             ]
         );
+    }
+
+    #[test]
+    fn a_prefix_that_every_file_shares_splits_at_the_next_part() {
+        let mut rows: Vec<(String, String)> = Vec::new();
+        for i in 0..20 {
+            rows.push((format!("a{i}"), format!("t/beta/beta_agent_{i:02}.py")));
+            rows.push((format!("s{i}"), format!("t/beta/beta_session_{i:02}.py")));
+        }
+        let found = plan(&rows);
+        assert_eq!(
+            found,
+            [
+                ("beta/beta_agent_*".to_owned(), None, 20),
+                ("beta/beta_session_*".to_owned(), None, 20),
+            ]
+        );
+    }
+
+    #[test]
+    fn files_with_no_shared_prefix_stay_one_box() {
+        let rows: Vec<(String, String)> = (0..40)
+            .map(|i| {
+                (
+                    format!("m{i}"),
+                    format!("src/a/{}.rs", ["x", "y", "z"][i % 3].repeat(i + 1)),
+                )
+            })
+            .collect();
+        assert!(plan(&rows).is_empty());
     }
 }
