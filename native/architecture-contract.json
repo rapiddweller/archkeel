@@ -3867,6 +3867,7 @@
       "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.sites",
+        "native.archkeel_typescript_collector.site_charge",
         "native.archkeel_typescript_collector.site_local",
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
@@ -3875,7 +3876,7 @@
         "native.archkeel_typescript_collector.site_types"
       ],
       "responsibilities": [
-        "Read the use sites of a file: the names, the paths and the syntax of each site. The site_text module keeps only the referenced source bytes and releases per-file parse state (AD-420)."
+        "Read the use sites of a file: the names, the paths and the syntax of each site. The site_text module keeps only the referenced source bytes and releases per-file parse state (AD-420). The site_charge module counts the expression bytes that the records of a file copy and hash (AD-778)."
       ],
       "forbidden_responsibilities": [
         "Resolving a site to a target and building facts."
@@ -3913,6 +3914,7 @@
         }
       ],
       "public": [
+        "native.archkeel_typescript_collector.site_charge:over",
         "native.archkeel_typescript_collector.site_names:NameIndex",
         "native.archkeel_typescript_collector.site_paths:Text",
         "native.archkeel_typescript_collector.site_syntax:ReceiverKind",
@@ -4406,6 +4408,7 @@
           "component": "ts-sites",
           "rationale": "Read the use sites of a file.",
           "through": [
+            "native.archkeel_typescript_collector.site_charge",
             "native.archkeel_typescript_collector.site_names",
             "native.archkeel_typescript_collector.site_paths",
             "native.archkeel_typescript_collector.site_syntax",

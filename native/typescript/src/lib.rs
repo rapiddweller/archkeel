@@ -94,6 +94,7 @@ mod script_vendor;
 mod script_window;
 mod script_wrapper;
 mod script_writes;
+mod site_charge;
 mod site_local;
 mod site_names;
 mod site_paths;
