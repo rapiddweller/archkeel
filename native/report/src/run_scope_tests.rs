@@ -4,7 +4,7 @@
 
 use archkeel_model::{Input, Reason};
 
-use crate::ruling::RunScope;
+use crate::RunScope;
 
 #[test]
 fn the_scope_of_a_run_writes_the_word_complete_or_the_text_of_its_reason() {

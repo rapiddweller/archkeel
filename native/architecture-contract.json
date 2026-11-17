@@ -1757,6 +1757,7 @@
         "native.archkeel_report:Named",
         "native.archkeel_report:RuleReasons",
         "native.archkeel_report:Ruling",
+        "native.archkeel_report:RunScope",
         "native.archkeel_report:Status",
         "native.archkeel_report:construct_row",
         "native.archkeel_report:page",
@@ -2351,6 +2352,7 @@
             "native.archkeel_report:Explain",
             "native.archkeel_report:Named",
             "native.archkeel_report:Ruling",
+            "native.archkeel_report:RunScope",
             "native.archkeel_report:construct_row",
             "native.archkeel_report:rule_with_edge_links"
           ]
