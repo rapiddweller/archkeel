@@ -4,18 +4,49 @@
 
 //! The evidence of a failed rule, copied from its evaluated violation without a second verdict.
 
-use archkeel_eval::{Cited, Violation};
+use archkeel_eval::{Cited, CycleStep, Violation};
 use serde::Serialize;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+/// One violation row. `source` and `target` are its identity, which the baseline reads (AD-546):
+/// for a cycle the sorted members joined by ` -> ` and the first member, as before #1657. That
+/// text is no path; `members` and `path` (AD-786) name the set and the closed path of a cycle.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub(crate) struct ViolationDetail {
     source: String,
     target: Option<String>,
     cause: &'static str,
     evidence: Vec<String>,
+    /// The members of a cycle, sorted: a set without order.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    members: Option<Vec<String>>,
+    /// The closed path of a cycle in import order (AD-484): each step imports the next, and the
+    /// last step ends at the first member. Empty only when the members have no closed path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<Vec<PathStep>>,
 }
 
-/// One detail: the shared shape of every arm of `ViolationDetail::of`.
+/// One step of the closed path of a cycle: the importing member, the imported member, the number
+/// of imports that make the step and the evidence of the first of them (one import site).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+pub(crate) struct PathStep {
+    from: String,
+    to: String,
+    imports: usize,
+    evidence: Option<String>,
+}
+
+impl PathStep {
+    fn of(step: &CycleStep) -> Self {
+        Self {
+            from: step.from.clone(),
+            to: step.to.clone(),
+            imports: Vec::len(&step.imports),
+            evidence: step.evidence.first().cloned(),
+        }
+    }
+}
+
+/// One detail without a cycle: the shared shape of the arms of `ViolationDetail::of`.
 fn detail(
     source: String,
     target: Option<String>,
@@ -27,6 +58,8 @@ fn detail(
         target,
         cause,
         evidence: evidence.to_vec(),
+        members: None,
+        path: None,
     }
 }
 
@@ -92,12 +125,18 @@ impl ViolationDetail {
                 "dependency violates layer order",
                 std::slice::from_ref(&layer.evidence),
             ),
-            Violation::Cycle(cycle) => detail(
-                cycle.members.join(" -> "),
-                cycle.members.first().cloned(),
-                "dependency cycle",
-                &cycle.evidence,
-            ),
+            Violation::Cycle(cycle) => Self {
+                source: cycle.members.join(" -> "),
+                target: cycle.members.first().cloned(),
+                cause: "dependency cycle",
+                evidence: cycle.evidence.clone(),
+                members: Some(cycle.members.clone()),
+                path: Some(
+                    IntoIterator::into_iter(&cycle.path)
+                        .map(PathStep::of)
+                        .collect(),
+                ),
+            },
             Violation::Construct(row) => detail(
                 format!("{} ({})", row.owner, row.construct),
                 None,
@@ -162,6 +201,67 @@ mod tests {
             source_component: "COMP-CLIENT".to_owned(),
             target_component: "COMP-SERVICE".to_owned(),
         }
+    }
+
+    fn step(from: &str, to: &str, evidence: &[&str]) -> archkeel_eval::CycleStep {
+        archkeel_eval::CycleStep {
+            from: from.to_owned(),
+            to: to.to_owned(),
+            from_component: None,
+            to_component: None,
+            imports: evidence.iter().map(|e| format!("IMP-{e}")).collect(),
+            evidence: evidence.iter().map(|e| (*e).to_owned()).collect(),
+        }
+    }
+
+    /// #1657, the shape of pydantic-core: the sorted members are no path (no import
+    /// `argument_markers -> build_tools`). The row keeps the sorted set as its baseline identity
+    /// and gives the closed path in import order, with one import site for each step.
+    #[test]
+    fn a_cycle_names_its_closed_path_in_import_order_and_its_sorted_members() {
+        let members = ["argument_markers", "build_tools", "root", "tools"].map(str::to_owned);
+        let cycle = archkeel_eval::Cyclic {
+            id: "VIO-C".to_owned(),
+            rule: "NO-CYCLES".to_owned(),
+            members: members.to_vec(),
+            facts: Vec::new(),
+            evidence: ["E1", "E2", "E3", "E4"].map(str::to_owned).to_vec(),
+            edges: None,
+            path: vec![
+                step("argument_markers", "tools", &["E3"]),
+                step("tools", "root", &["E4", "E2"]),
+                step("root", "argument_markers", &["E1"]),
+            ],
+        };
+        let detail = ViolationDetail::of(&Violation::Cycle(Box::new(cycle)));
+        assert_eq!(
+            detail.source,
+            "argument_markers -> build_tools -> root -> tools"
+        );
+        assert_eq!(detail.target.as_deref(), Some("argument_markers"));
+        assert_eq!(detail.members.as_deref(), Some(&members[..]));
+        let path: Vec<(&str, &str, Option<&str>, usize)> = detail
+            .path
+            .iter()
+            .flatten()
+            .map(|s| {
+                (
+                    s.from.as_str(),
+                    s.to.as_str(),
+                    s.evidence.as_deref(),
+                    s.imports,
+                )
+            })
+            .collect();
+        assert_eq!(
+            path,
+            [
+                ("argument_markers", "tools", Some("E3"), 1),
+                ("tools", "root", Some("E4"), 2),
+                ("root", "argument_markers", Some("E1"), 1),
+            ]
+        );
+        assert!(ViolationDetail::of(&private_import(None)).path.is_none());
     }
 
     #[test]

@@ -48,6 +48,8 @@ pub(crate) struct Run<'a, 'p> {
     pub partial: bool,
     pub standard: HashSet<String>,
     pub vendors: Vendors,
+    /// The globals that files of the repository outside the scan roots replace (#1546).
+    pub outside: crate::script_outside::Outside,
     pub writes: WriteIndex<'a>,
     pub source_writes: WriteIndex<'a>,
     /// The source writes without repeats, to ask whether one is among them.
