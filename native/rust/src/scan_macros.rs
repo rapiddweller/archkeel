@@ -195,6 +195,7 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
             arity: None,
             on_self: None,
             owner: None,
+            chain: None,
         }));
     walker.out.tally.hidden += walker.out.macro_calls.len() - before;
     if !plant::lose("call") {

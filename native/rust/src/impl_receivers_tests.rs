@@ -79,6 +79,26 @@ fn kept() -> Outcome {
     (Vec::new(), names(&["b", "e"]))
 }
 
+/// #1571 (AD-786): the receiver has the exact type `S` with no `Deref` impl, so the call can reach
+/// only a member of `S`: the gap to the `m` of `T` in `e` goes.
+fn narrowed() -> Outcome {
+    (Vec::new(), names(&["b"]))
+}
+
+/// A `Deref` impl of `S` with the target `T`: the call may reach a member of `T` in `e`.
+const DEREF: (&str, &str) = (
+    "crates/app/src/c.rs",
+    "pub struct S;
+impl std::ops::Deref for S {
+    type Target = crate::d::T;
+    \
+     fn deref(&self) -> &crate::d::T {
+        todo!()
+    }
+}
+",
+);
+
 /// The resolved answer: an edge to `b`, and no gap to `e`, whose `m` belongs to another type.
 fn resolved() -> Outcome {
     (names(&["b"]), Vec::new())
@@ -215,7 +235,11 @@ fn a_cfg_attr_on_the_member_keeps_the_gaps() {
     // `inline` is not a lint, so this conditional attribute is not proved inert.
     let gated = member("#[cfg_attr(test, allow(dead_code), inline)]\n    pub fn m(&self) {}");
     let found = outcome(&gated, &caller("&self", "self.m();"), &[]);
-    assert_eq!(found, kept());
+    assert_eq!(found, narrowed());
+    assert_eq!(
+        outcome(&gated, &caller("&self", "self.m();"), &[DEREF]),
+        kept()
+    );
 }
 
 #[test]
@@ -253,7 +277,7 @@ fn a_conditional_non_lint_keeps_the_receiver_gap() {
         let m = member(&format!("{attr}\n    pub fn m(&self) {{}}"));
         assert_eq!(
             outcome(&m, &caller("&self", "self.m();"), &[]),
-            kept(),
+            narrowed(),
             "{attr}"
         );
     }
@@ -275,7 +299,7 @@ fn members_in_the_two_cases_of_a_cfg_keep_the_gaps() {
         "pub struct T;\n#[cfg(not(unix))]\nimpl crate::c::S {\n    pub fn m(&self) {}\n}\n",
     );
     let found = outcome(both, &caller("&self", "self.m();"), &[other]);
-    assert_eq!(found, (Vec::new(), names(&["b", "d", "e"])));
+    assert_eq!(found, (Vec::new(), names(&["b", "d"])));
 }
 
 #[test]
@@ -284,22 +308,28 @@ fn another_self_form_keeps_the_gaps_because_a_trait_method_can_match_first() {
         ("&mut self", "pub fn m(&self) {}"),
         ("&self", "pub fn m(self) {}"),
         ("self", "pub fn m(&self) {}"),
-        ("self: &Self", "pub fn m(&self) {}"),
         ("&self", "pub fn m(self: &Self) {}"),
     ] {
         let found = outcome(&member(form), &caller(receiver, "self.m();"), &[]);
-        assert_eq!(found, kept(), "{receiver} -> {form}");
+        assert_eq!(found, narrowed(), "{receiver} -> {form}");
     }
+    // A typed `self` has no kind: the scan does not read its type.
+    let found = outcome(
+        &member("pub fn m(&self) {}"),
+        &caller("self: &Self", "self.m();"),
+        &[],
+    );
+    assert_eq!(found, kept());
 }
 
 #[test]
 fn a_member_that_no_inherent_impl_of_the_type_has_keeps_the_gaps() {
-    // A trait method or a deref target of `S` may be the member.
-    let found = outcome(
-        &member("pub fn n(&self) {}"),
-        &caller("&self", "self.m();"),
-        &[],
-    );
+    // A trait method or a deref target of `S` may be the member: with no `Deref` impl of `S`, the
+    // `m` of `T` is no candidate (#1571).
+    let n = member("pub fn n(&self) {}");
+    let found = outcome(&n, &caller("&self", "self.m();"), &[]);
+    assert_eq!(found, (Vec::new(), Vec::new()));
+    let found = outcome(&n, &caller("&self", "self.m();"), &[DEREF]);
     assert_eq!(found, (Vec::new(), names(&["e"])));
 }
 
@@ -314,15 +344,16 @@ fn a_generic_type_or_an_attribute_that_can_rewrite_the_item_keeps_the_gaps() {
     assert_eq!(outcome(&m, generic, &[g]), kept());
     let argument = "impl crate::c::G<u8> {\n    pub fn f(&self) {\n        self.m();\n    }\n}\n";
     assert_eq!(outcome(&m, argument, &[g]), kept());
+    // An attribute on the block in `b` can write any member, but only in `b`.
     let on_block = format!("#[rewrite]\n{m}");
     assert_eq!(
         outcome(&on_block, &caller("&self", "self.m();"), &[]),
-        kept()
+        narrowed()
     );
     let on_member = member("#[rewrite]\n    pub fn m(&self) {}");
     assert_eq!(
         outcome(&on_member, &caller("&self", "self.m();"), &[]),
-        kept()
+        narrowed()
     );
     let on_caller = format!("#[rewrite]\n{}", caller("&self", "self.m();"));
     assert_eq!(
@@ -344,7 +375,7 @@ fn a_generic_type_or_an_attribute_that_can_rewrite_the_item_keeps_the_gaps() {
         let gated = member(&format!("{gate}\n    pub fn m(&self) {{}}"));
         assert_eq!(
             outcome(&gated, &caller("&self", "self.m();"), &[]),
-            kept(),
+            narrowed(),
             "{gate}"
         );
     }
@@ -358,9 +389,12 @@ fn another_arity_or_a_member_that_is_not_certainly_visible_keeps_the_gaps() {
     let restricted = member("pub(in crate::b) fn m(&self, x: u8) {}");
     let found = outcome(&restricted, &call, &[]);
     assert_eq!(found.0, Vec::<String>::new());
-    // A private member of `b` is not visible in `a`: Rust skips it and looks further.
+    // A private member of `b` is not visible in `a`: Rust skips it and looks further, to a deref
+    // target of `S` (#1571: only when `S` has a `Deref` impl).
     let private = member("fn m(&self) {}");
     let found = outcome(&private, &caller("&self", "self.m();"), &[]);
+    assert_eq!(found, (Vec::new(), Vec::new()));
+    let found = outcome(&private, &caller("&self", "self.m();"), &[DEREF]);
     assert_eq!(found, (Vec::new(), names(&["e"])));
 }
 
@@ -372,19 +406,26 @@ fn a_block_whose_type_the_scan_cannot_place_keeps_the_gaps() {
         "use crate::c::*;\npub struct T;\nimpl S {\n    pub fn m(&self) {}\n}\n",
     );
     let found = outcome(&m, &caller("&self", "self.m();"), &[glob]);
-    assert_eq!(found, (Vec::new(), names(&["b", "d", "e"])));
+    assert_eq!(found, (Vec::new(), names(&["b", "d"])));
 }
 
 #[test]
 fn a_receiver_other_than_a_plain_self_or_a_self_that_does_not_reach_keeps_the_gaps() {
     let m = member("pub fn m(&self) {}");
     for body in [
-        "(self).m();",
-        "let s = self;\n        s.m();",
         "fn g(s: &crate::c::S) {\n            s.m();\n        }",
         "let _ = format!(\"{:?}\", self.m());",
     ] {
         assert_eq!(outcome(&m, &caller("&self", body), &[]), kept(), "{body}");
+    }
+    // #1571 (AD-786): a parenthesized `self` and a local of `self` are the receiver chain of
+    // `self`, with the same first step.
+    for body in ["(self).m();", "let s = self;\n        s.m();"] {
+        assert_eq!(
+            outcome(&m, &caller("&self", body), &[]),
+            resolved(),
+            "{body}"
+        );
     }
     let default =
         "pub trait Tr {\n    fn m(&self) {}\n    fn f(&self) {\n        self.m();\n    }\n}\n";
@@ -426,7 +467,7 @@ fn a_member_whose_other_cfg_case_has_another_self_form_keeps_the_gaps() {
         "pub struct T;\n#[cfg(not(unix))]\nimpl crate::c::S {\n    pub fn m(&mut self) {}\n}\n",
     );
     let found = outcome(shared, &caller("&self", "self.m();"), &[unique]);
-    assert_eq!(found, (Vec::new(), names(&["b", "d", "e"])));
+    assert_eq!(found, (Vec::new(), names(&["b", "d"])));
 }
 
 #[test]

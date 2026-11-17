@@ -108,6 +108,7 @@ fn path_call(reference: &crate::scan::Reference) -> MethodCall {
         arity: None,
         on_self: None,
         owner: written_owner(reference),
+        chain: None,
     }
 }
 
@@ -371,6 +372,7 @@ impl Builder {
                     arity: None,
                     on_self: None,
                     owner: written_owner(reference),
+                    chain: None,
                 });
             }
         }
@@ -403,13 +405,38 @@ impl Builder {
                 *self.ended_methods.entry(module.rel.clone()).or_default() += 1;
                 continue;
             }
-            // #1571: a receiver of a std type reaches no inherent member of the workspace; a
-            // macro can still write a trait impl for it (below).
-            let std = at_index < own
-                && receivers::std_receiver((reached.index, frame), module, call, &found.typed);
+            // #1571: the type of the receiver narrows the members that the call can reach.
+            let verdict = match at_index < own {
+                true => types::Context {
+                    index: reached.index,
+                    frame,
+                    module,
+                    at: frame.lexical_at(&call.scope),
+                    typed: &found.typed,
+                    macro_members: &self.macro_members,
+                }
+                .verdict(call),
+                false => types::Verdict::Unknown,
+            };
+            if let types::Verdict::Own(type_name, _, Some(candidate)) = &verdict {
+                let root = call.chain.as_ref().map_or("", |chain| chain.name.as_str());
+                let type_name = type_name.clone();
+                self.member_edge((reached.index, module), call, root, (candidate, type_name));
+                *self.ended_methods.entry(module.rel.clone()).or_default() += 1;
+                continue;
+            }
+            // An inherent block of an own type is in the crate of the type (E0116).
+            let keep = |block: &Foreign<'_>| match (&verdict, &block.ty) {
+                (types::Verdict::Std, _) => false,
+                (types::Verdict::Own((lexical, name), _, _), TypeOf::Known(at, ty)) => {
+                    at == lexical && ty == name
+                }
+                (types::Verdict::Own(_, krate, _), _) => block.module.crate_index == *krate,
+                (types::Verdict::Unknown, _) => true,
+            };
             let at = frame.lexical_at(&call.scope);
             let blocks = found.foreign.get(call.name.as_str()).into_iter().flatten();
-            let blocks = blocks.filter(|_| !std);
+            let blocks = blocks.filter(|block| keep(block));
             for block in blocks.filter(|block| visible(workspace, (module, &at), call, block)) {
                 let target = block.module.module.as_str();
                 let reason = format!(
@@ -419,15 +446,14 @@ impl Builder {
                 self.reached_gap(reached, call, target, &reason);
             }
             // #1571: the call may reach a member in the file of its type (`impl_flow.rs`).
-            let owned = (found.owned.get(call.name.as_str()))
-                .filter(|_| !std)
-                .map_or(&[][..], Vec::as_slice);
+            let owned = (found.owned.get(call.name.as_str())).map_or(&[][..], Vec::as_slice);
             let candidates = (owned, &found.aliases);
             pending.extend(flow::own_candidates(
                 workspace,
                 (module, &at),
                 call,
                 candidates,
+                &keep,
             ));
             // #1196: a macro call can define the method in an impl block outside the file of its
             // type, which the scan does not see; its visibility is not read either. A macro that
@@ -458,6 +484,10 @@ mod flow;
 /// The resolution of a call on a plain `self` (AD-383).
 #[path = "impl_receivers.rs"]
 mod receivers;
+
+/// The type of the receiver of a method call (#1571, AD-786).
+#[path = "impl_types.rs"]
+mod types;
 
 #[cfg(test)]
 #[path = "impl_edges_tests.rs"]

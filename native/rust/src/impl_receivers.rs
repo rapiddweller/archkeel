@@ -29,28 +29,29 @@ use crate::tree::Module;
 
 /// A member of an inherent `impl` block of a placed type.
 pub(super) struct Candidate<'a> {
-    module: &'a Module,
-    /// The lexical module of the block.
-    lexical: String,
-    member: &'a Member,
-    exact: bool,
+    pub(super) module: &'a Module,
+    /// The lexical module of the block, and its inline modules in its file.
+    pub(super) lexical: String,
+    pub(super) scope: &'a [String],
+    pub(super) member: &'a Member,
+    pub(super) exact: bool,
 }
 
 /// The members of the inherent `impl` blocks of the walk, by the type that the scan places.
 #[derive(Default)]
 pub(super) struct Typed<'a> {
-    by_type: BTreeMap<(String, String), Vec<Candidate<'a>>>,
+    pub(super) by_type: BTreeMap<(String, String), Vec<Candidate<'a>>>,
     /// The names of the members of the blocks whose type the scan cannot place.
-    unplaced: BTreeSet<&'a str>,
+    pub(super) unplaced: BTreeSet<&'a str>,
     /// The last name of each type with a `Deref` or `DerefMut` impl in the workspace.
-    derefs: BTreeSet<&'a str>,
+    pub(super) derefs: BTreeSet<&'a str>,
     /// A macro, a `use` leaf or an `extern crate` of the workspace may give the name of a macro of
     /// `std` that binds nothing to another macro (AD-524).
-    shadowed_macros: bool,
+    pub(super) shadowed_macros: bool,
     /// The names of the `macro_rules!` of the workspace.
-    macro_names: BTreeSet<&'a str>,
+    pub(super) macro_names: BTreeSet<&'a str>,
     /// The names of the members of the traits of the workspace.
-    trait_members: BTreeSet<&'a str>,
+    pub(super) trait_members: BTreeSet<&'a str>,
 }
 
 impl<'a> Typed<'a> {
@@ -99,6 +100,7 @@ impl<'a> Typed<'a> {
         found.extend(block.members.iter().map(|member| Candidate {
             module,
             lexical: lexical.clone(),
+            scope: &block.scope,
             member,
             exact: block.exact,
         }));
@@ -175,7 +177,7 @@ pub(super) fn certainly_visible(
 /// Whether the type is a struct or an enum that every configuration has as written: in a module
 /// that no attribute can remove, with only inert attributes, and the only item of its name in its
 /// file.
-fn same_gates(caller: &Module, other: &Module) -> bool {
+pub(super) fn same_gates(caller: &Module, other: &Module) -> bool {
     if !caller.gated && !other.gated {
         return true;
     }
@@ -199,7 +201,7 @@ pub(super) fn exact_type(index: &Index<'_>, caller: &Module, lexical: &str, ty: 
 }
 
 /// The one visible named field of an exact struct, with the file of the struct.
-fn field_of<'f>(
+pub(super) fn field_of<'f>(
     index: &'f Index<'_>,
     caller: &Module,
     at: &str,
@@ -247,60 +249,6 @@ fn field_type(
         return None;
     };
     (!found.derefs.contains(ty.as_str())).then_some((lexical, ty, field.kind))
-}
-
-/// The std types whose methods all live in std, with a deref chain that stays in std (`String` to
-/// `str`): no inherent member of the workspace applies to a receiver of such a type (#1571).
-const STD_RECEIVERS: [&str; 17] = [
-    "str", "String", "bool", "char", "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16",
-    "i32", "i64", "i128", "isize", "f64",
-];
-
-/// Whether a written type names one of `STD_RECEIVERS` for certain: one segment that the file
-/// binds to nothing and that no glob of the file can bring in.
-fn std_type(frame: &Frame<'_>, path: &[String]) -> bool {
-    let [name] = path else {
-        return false;
-    };
-    (STD_RECEIVERS.contains(&name.as_str()) || name == "f32")
-        && !frame.module.scan.counts.contains_key(name.as_str())
-        && frame.globs().next().is_none()
-}
-
-/// Whether the receiver of a call has a std type of `STD_RECEIVERS` for certain: a parameter, a
-/// typed local or `self` with that written type, or a field chain through exact structs to a
-/// field of that type. Such a call reaches no inherent member of the workspace (#1571).
-pub(super) fn std_receiver(
-    (index, frame): (&Index<'_>, &Frame<'_>),
-    module: &Module,
-    call: &MethodCall,
-    found: &Typed<'_>,
-) -> bool {
-    let Some(on_self) = &call.on_self else {
-        return false;
-    };
-    let parameter = !matches!(on_self.name.as_str(), "self" | "Self");
-    let foreign = (on_self.macros.iter()).any(|m| !found.macro_names.contains(m.as_str()));
-    if module.gated || call.path || (parameter && (found.shadowed_macros || foreign)) {
-        return false;
-    }
-    let Some((last, through)) = on_self.fields.split_last() else {
-        return std_type(frame, &on_self.path);
-    };
-    let TypeOf::Known(mut lexical, mut ty) = index.type_of(frame, &on_self.scope, &on_self.path)
-    else {
-        return false;
-    };
-    let at = frame.lexical_at(&call.scope);
-    for field in through {
-        let Some((next, name, _)) = field_type(index, module, &at, (&lexical, &ty, field), found)
-        else {
-            return false;
-        };
-        (lexical, ty) = (next, name);
-    }
-    field_of(index, module, &at, (&lexical, &ty, last), found)
-        .is_some_and(|(owner, field)| std_type(owner, &field.path))
 }
 
 impl Builder {
@@ -381,7 +329,19 @@ impl Builder {
         if !certain(candidate) {
             return false;
         }
-        let root = on_self.name.as_str();
+        self.member_edge((index, module), call, &on_self.name, (candidate, type_name));
+        true
+    }
+
+    /// The edge of a call to the one member that it reaches, of the type `type_name`. `root` is the
+    /// receiver as written.
+    pub(super) fn member_edge(
+        &mut self,
+        (index, module): (&Index<'_>, &Module),
+        call: &MethodCall,
+        root: &str,
+        (candidate, type_name): (&Candidate<'_>, (String, String)),
+    ) {
         let path = match call.path {
             true => format!("{root}::{}", call.name),
             false => format!("{root}.{}", call.name),
@@ -403,7 +363,6 @@ impl Builder {
             member_of: Some(type_name),
         };
         self.module_import(index, module, &reference, &edge);
-        true
     }
 }
 
