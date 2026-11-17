@@ -148,10 +148,10 @@ def test_one_environment_builds_the_shared_release_core() -> None:
         if "ARCHKEEL_VERSION" in path.read_text() and path.name != Path(__file__).name
     }
     assert named == {"core_support.py"}
-    builders = {"core_support.py", "test_cli_native_type_publication.py"}
+    builders = {"core_support.py"}
     for name in builders:
         assert "build_environment()" in (ROOT / "tests" / name).read_text(), name
-    # A test that runs `cargo build --release` for the core must be one of the two builders.
+    # A test that runs `cargo build --release` for the core must be the one builder.
     for path in (ROOT / "tests").glob("*.py"):
         text = path.read_text()
         runs_cargo = bool(re.search(r'"build",\s*"--locked"', text)) and "--release" in text
