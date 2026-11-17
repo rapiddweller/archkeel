@@ -310,7 +310,7 @@ fn reached(text: &str, target: &str, surface: &Surface<'_>, seen: &mut HashSet<S
             }
             match wrapped_of(surface.facts, &qualified) {
                 Some(Wrapped::Unread(reason)) => {
-                    return Judged::gap(GapCause::UnresolvedName, &format!("{text}: {reason}"));
+                    Judged::gap(GapCause::UnresolvedName, &format!("{text}: {reason}"))
                 }
                 Some(Wrapped::Class { .. }) if surface.premise => {
                     if surface.declared.contains(&qualified) {

@@ -66,11 +66,7 @@ pub(super) fn class(
     };
     // shortcut: any repository store of a field name blocks the model, including instance stores;
     // use class-targeted mutation facts to recover precision.
-    if fields
-        .attributes
-        .iter()
-        .any(|name| reader.writes.may_write(name))
-    {
+    if fields.attributes.iter().any(|name| reader.may_write(name)) {
         return unread("the repository may change a dataclass field");
     }
     let slots = super::members::slots(&node.body);

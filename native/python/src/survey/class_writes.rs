@@ -58,11 +58,6 @@ impl ClassWrites {
         self.any || self.names.contains(name)
     }
 
-    /// True when repository code may change a name, including a store through a namespace.
-    pub(crate) fn may_write(&self, name: &str) -> bool {
-        self.can_write(name) || self.namespace
-    }
-
     /// Why code of the repository may change the attribute `name` of a module, if it may
     /// (AD-782): a store of that name, a store with a computed name, or a namespace store.
     pub(crate) fn change_of(&self, name: &str) -> Option<&'static str> {
@@ -76,6 +71,11 @@ impl ClassWrites {
         }
         HashSet::contains(&self.names, name).then_some("an attribute store of this name")
     }
+}
+
+/// True when repository code may change a name, including a store through a namespace.
+pub(crate) fn may_write(writes: &ClassWrites, name: &str) -> bool {
+    writes.any || writes.namespace || HashSet::contains(&writes.names, name)
 }
 
 /// True when the module has `from __future__ import annotations`: its annotations are strings.
