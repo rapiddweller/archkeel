@@ -1,4 +1,4 @@
-# AD-750: The `full_scope` flag of a collection has one rule
+# AD-751: The `full_scope` flag of a collection has one rule
 
 Status: accepted (owner order, #1451 Wave 5, F5). Structural: no frame, text or page changes.
 Part of #880.

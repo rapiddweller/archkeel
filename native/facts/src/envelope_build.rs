@@ -110,7 +110,7 @@ fn parse_support(text: &str) -> Option<ConstructSupport> {
 }
 
 impl Coverage {
-    /// The one rule of `full_scope` (AD-750): a collection covers the whole scope when no gap keeps
+    /// The one rule of `full_scope` (AD-751): a collection covers the whole scope when no gap keeps
     /// it from being complete and no selected file is left unparsed without a gap. Each collector
     /// takes the flag from here.
     pub fn is_full(gaps: usize, unparsed: usize) -> bool {
