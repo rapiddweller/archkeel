@@ -35,6 +35,7 @@ Documentation does not accept these defects. They block the 5.0.0 release.
 | TypeScript prototype patch | replace `EventTarget.prototype.dispatchEvent`, then use it on `window` | false PASS | [#1527](https://github.com/rapiddweller/archkeel/issues/1527) |
 | TypeScript unread source | imports in Vue, Svelte, Astro, MDX, inline HTML and `.es6` | false PASS | [#1528](https://github.com/rapiddweller/archkeel/issues/1528) |
 | TypeScript installed source | a package in `node_modules` imports project source | false PASS | [#1529](https://github.com/rapiddweller/archkeel/issues/1529) |
+| TypeScript outside writer | an outside script assigns a scanned function to `window.open` | false PASS | [#1546](https://github.com/rapiddweller/archkeel/issues/1546) |
 
 These tested forms no longer give a false PASS:
 
@@ -478,7 +479,9 @@ destructuring pattern that takes a window member out of a value.
 Older classes stay open too: a prototype change through a call
 (`Object.defineProperty(EventTarget.prototype, …)`), a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
-`document.defaultView`, and a write in a file outside the scan roots or under `exclude`.
+`document.defaultView`, and a write in a file outside the scan roots (#1546).
+A source file inside the roots that TSConfig `exclude` drops gives a named coverage gap (AD-488),
+including a file that writes a global. It is no longer a silent false PASS.
 A member `source`, `view`, `currentTarget` or a window name is a window, and a member `eval` or
 `Function` is the global, on every object
 ([AD-492](architecture/decisions/ad-492-the-browser-assets-are-pinned-until-their-html-sinks-are-rewritten.md)).
