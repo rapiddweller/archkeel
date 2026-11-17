@@ -140,7 +140,7 @@ fn modules(
                     .then(|| languages.iter().cloned().collect::<Vec<_>>().join(" + "))
             });
         rows.push(json!({
-            "id": module.name, "name": module.name, "path": module.path, "rank": null, "language": language,
+            "id": module.name, "name": archkeel_facts::identity::readable(&module.name), "path": module.path, "rank": null, "language": language,
             "fan_in": fan[i].0.len(), "fan_out": fan[i].1.len(), "evidence_ids": [],
             "symbol_coverage": 0, "symbols": null,
         }));

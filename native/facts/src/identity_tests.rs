@@ -106,3 +106,27 @@ fn a_path_is_inside_when_it_is_relative_and_has_no_parent_part() {
         assert!(!inside(path), "{path}");
     }
 }
+
+#[test]
+fn a_readable_identity_has_its_real_characters() {
+    assert_eq!(readable("web.src.index_x2e_ts"), "web.src.index.ts");
+    assert_eq!(readable("web._x2e_dependency_x2d_cruiser_x2e_js"), "web..dependency-cruiser.js");
+    assert_eq!(readable("web.src._x5f__x5f_tests_x5f__x5f_"), "web.src.__tests__");
+}
+
+#[test]
+fn a_readable_identity_keeps_what_is_no_escape_of_the_collector() {
+    // a letter or digit is never written as an escape; a control character stays escaped
+    assert_eq!(readable("a_x41_b"), "a_x41_b");
+    assert_eq!(readable("a_x7_b"), "a_x7_b");
+    assert_eq!(readable("pkg_xyz_name_x"), "pkg_xyz_name_x");
+    assert_eq!(readable("a_x2e"), "a_x2e");
+}
+
+#[test]
+fn what_the_collector_writes_reads_back() {
+    for name in ["a b", "x-y.z", "é", "__init__", "a_x2e_b"] {
+        let identity = module_identity("ns", &format!("{name}.ts")).unwrap();
+        assert_eq!(readable(&identity), format!("ns.{name}.ts"), "{identity}");
+    }
+}

@@ -136,6 +136,37 @@ fn encoded_segment(value: &str) -> String {
     encoded
 }
 
+/// A module identity with its real characters, for a person (#1617): `encoded_segment` writes each
+/// character that is no ASCII letter or digit as `_x<hex>_`; only such an escape is read back, and
+/// a character that is not printable stays escaped. The identity itself is never changed.
+pub fn readable(text: &str) -> String {
+    let mut shown = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(start) = rest.find("_x") {
+        shown.push_str(&rest[..start]);
+        let after = &rest[start + 2..];
+        let decoded = after.find('_').and_then(|end| {
+            let digits = &after[..end];
+            let valid = (1..=6).contains(&digits.len())
+                && digits.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f'));
+            let character = valid
+                .then(|| u32::from_str_radix(digits, 16).ok().and_then(char::from_u32))
+                .flatten()
+                .filter(|c| !c.is_control() && !c.is_ascii_alphanumeric());
+            character.map(|c| (c, end))
+        });
+        if let Some((character, end)) = decoded {
+            shown.push(character);
+            rest = &after[end + 1..];
+        } else {
+            shown.push_str("_x");
+            rest = after;
+        }
+    }
+    shown.push_str(rest);
+    shown
+}
+
 /// An ASCII identifier. The request decoder accepts only ASCII namespaces.
 pub fn is_identifier(value: &str) -> bool {
     let mut characters = value.chars();
