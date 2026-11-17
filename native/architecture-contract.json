@@ -2118,6 +2118,7 @@
         "native.archkeel_report.ruling:Named",
         "native.archkeel_report.ruling:RuleReasons",
         "native.archkeel_report.ruling:Ruling",
+        "native.archkeel_report.ruling:RunScope",
         "native.archkeel_report.ruling:rule",
         "native.archkeel_report.ruling:rule_with_edge_links"
       ],
