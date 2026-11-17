@@ -20,7 +20,6 @@ mod features;
 mod python;
 mod record_identity;
 mod records;
-mod registered;
 mod standard;
 mod stored;
 mod validate;
@@ -51,7 +50,7 @@ impl Ingested {
     }
 }
 
-/// Decode and validate one compressed reply (protocol 8 to 11) for a library of the core.
+/// Decode and validate one compressed reply (protocol 11) for a library of the core.
 pub fn ingest_reply(payload: &[u8], inflate_limit: u64) -> Result<Ingested, String> {
     ingest(payload, inflate_limit).map(Ingested)
 }
@@ -71,11 +70,10 @@ fn ingest(payload: &[u8], inflate_limit: u64) -> Result<Store, String> {
 /// The one validation of a reply after its decode: the version, the envelope, the registered
 /// sets, the records and their bindings. Both front doors (`ingest_reply`, `ingest_typed`) end here.
 fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Store, String> {
-    validate::version(reply.protocol_version, reply.facts.profile)?;
     validate::invariants(&reply.facts)?;
     let names: Vec<&str> = reply.facts.sections.iter().map(Section::name).collect();
     validate::envelope(&reply.facts, &names)?;
-    validation::check(reply.protocol_version, &reply.facts)?;
+    validation::check(&reply.facts)?;
     records::records(&reply.facts, &validate::index(&reply.facts))?;
     Ok(Store::new(reply))
 }

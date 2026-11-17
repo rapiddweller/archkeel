@@ -150,3 +150,52 @@ fn deeply_nested_rust_gives_a_named_nesting_gap() {
     );
     hostile_gap(&text, "Brackets nest deeper than 256");
 }
+
+/// The validation table of the Rust collector (AD-688; `evaluate.py:1055-1056`, AD-604): the
+/// sections `imports` and `unknowns`, optionally `symbols`, no construct capability, and an
+/// interface statement exactly with the routes feature.
+#[test]
+fn the_table_of_the_rust_collector_registers_its_sections_and_binds_the_interface() {
+    use archkeel_facts::envelope::{ConstructCapability, ConstructSupport, SectionName};
+    let root = repository();
+    let scanned = scan(&identity(root.to_str().unwrap()), 1 << 26).unwrap();
+    let payload = serde_json::to_vec(&scanned.request).unwrap();
+    let reply = run::reply_of(Profile::Rust, &payload).unwrap();
+    let refused = |reply: archkeel_facts::envelope::Reply| {
+        archkeel_store::ingest_typed(reply)
+            .err()
+            .unwrap_or_default()
+    };
+    assert_eq!(refused(reply.clone()), "");
+    let not_registered = "source sections or resolution features are not registered";
+    let mut unknowns = reply.clone();
+    unknowns
+        .facts
+        .capabilities
+        .sections
+        .retain(|name| *name != SectionName::Unknowns);
+    unknowns
+        .facts
+        .sections
+        .retain(|section| section.name() != "unknowns");
+    assert_eq!(refused(unknowns), not_registered);
+    let mut construct = reply.clone();
+    construct
+        .facts
+        .capabilities
+        .constructs
+        .push(ConstructCapability {
+            name: "assert".to_owned(),
+            status: ConstructSupport::Supported,
+        });
+    assert_eq!(refused(construct), not_registered);
+    let mut routes = reply;
+    routes.facts.capabilities.resolution_features.pop();
+    if let Some(limits) = routes.facts.profile_limits.as_mut() {
+        limits.dependency_symbols = archkeel_facts::envelope::LimitSupport::Unsupported;
+    }
+    assert_eq!(
+        refused(routes),
+        "an interface statement holds exactly with the feature rust-item-routes-v1"
+    );
+}

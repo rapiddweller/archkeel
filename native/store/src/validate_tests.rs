@@ -38,7 +38,12 @@ pub(crate) fn golden(case: &str) -> Value {
     value["facts"]["source"]["git_head"] = json!("a");
     value["facts"]["source"]["dirty"] = json!(false);
     value["facts"]["provider_bindings"] = json!([]);
-    value["protocol_version"] = json!("9.0.0");
+    value["protocol_version"] = json!("11.0.0");
+    // The golden form drops the validation table of the collector (AD-688); put it back.
+    value["facts"]["validation"] = serde_json::from_str(include_str!(
+        "../../../tests/golden/typescript/validation.json"
+    ))
+    .unwrap_or_default();
     value["provider_sources"] = json!([]);
     value
 }
@@ -87,7 +92,7 @@ fn the_frozen_reply_passes() -> Result<(), String> {
 #[test]
 fn a_changed_reply_fails_with_the_message_of_the_python_check() {
     type Change = fn(&mut Value);
-    let cases: [(&str, Change); 11] = [
+    let cases: [(&str, Change); 10] = [
         ("duplicate source record id", |v| {
             let first = records(v, "imports")[0].clone();
             if let Some(list) = records(v, "imports").as_array_mut() {
@@ -115,8 +120,9 @@ fn a_changed_reply_fails_with_the_message_of_the_python_check() {
                 names.push(json!("typing_signals"));
             }
         }),
+        // AD-688: the block of the reply registers no such feature.
         (
-            "does not check the resolution feature call-bindings-v1",
+            "source sections or resolution features are not registered",
             |v| {
                 if let Some(features) =
                     v["facts"]["capabilities"]["resolution_features"].as_array_mut()
@@ -125,21 +131,15 @@ fn a_changed_reply_fails_with_the_message_of_the_python_check() {
                 }
             },
         ),
-        (
-            "a Python reply must be the 10.0.0 or 11.0.0 import survey",
-            |v| {
-                v["facts"]["profile"] = json!("archkeel-python-analyzer");
-            },
-        ),
-        // AD-468: a Dart reply is the import survey; it has no resolution feature.
-        ("does not check the resolution feature", |v| {
-            v["facts"]["profile"] = json!("archkeel-dart-analyzer");
+        // AD-688: the block admits the capabilities; the checks of the survey still read the
+        // records of a reply that names the Python or the Dart profile.
+        ("a Python import must be an import statement", |v| {
+            v["facts"]["profile"] = json!("archkeel-python-analyzer");
         }),
-        // A Rust reply may claim only the feature of the Rust collector.
         (
-            "does not check the resolution feature literal-imports",
+            "a Dart import has no specifier, no type flag and no known symbols",
             |v| {
-                v["facts"]["profile"] = json!("archkeel-rust-imports");
+                v["facts"]["profile"] = json!("archkeel-dart-analyzer");
             },
         ),
         ("dangling source evidence reference", |v| {
@@ -167,15 +167,24 @@ fn the_store_reads_only_a_complete_compressed_reply() {
     assert!(error.contains("exceeds its 100 byte limit"), "{error}");
 }
 
+/// AD-688: the store reads only the 11.0.0 reply; the older replies had no validation block.
 #[test]
-fn a_typescript_reply_of_protocol_10_is_refused() {
+fn a_reply_of_an_older_protocol_is_refused() {
+    for old in ["8.0.0", "9.0.0", "10.0.0"] {
+        let mut value = reply();
+        value["protocol_version"] = json!(old);
+        let error = ingest(&compressed(&value), LIMIT).err().unwrap_or_default();
+        assert!(
+            error.contains(&format!("unknown variant `{old}`")),
+            "{error}"
+        );
+    }
     let mut value = reply();
-    value["protocol_version"] = json!("10.0.0");
-    let error = error_of(&value);
-    assert_eq!(
-        error,
-        "protocol 10.0.0 is only the Python import survey (AD-450)"
-    );
+    value["facts"]
+        .as_object_mut()
+        .map(|facts| facts.remove("validation"));
+    let error = ingest(&compressed(&value), LIMIT).err().unwrap_or_default();
+    assert!(error.contains("missing field `validation`"), "{error}");
 }
 
 #[test]
@@ -189,13 +198,6 @@ fn the_typed_door_accepts_the_frozen_reply_and_refuses_a_planted_record() {
     assert_eq!(
         refused,
         ingest(&compressed(&value), LIMIT).err().unwrap_or_default()
-    );
-    // A protocol 10 reply is refused by the typed door too.
-    let mut value = reply();
-    value["protocol_version"] = json!("10.0.0");
-    assert_eq!(
-        typed_error_of(&value),
-        "protocol 10.0.0 is only the Python import survey (AD-450)"
     );
 }
 
@@ -211,7 +213,7 @@ fn the_typed_door_accepts_the_frozen_reply_and_refuses_a_planted_record() {
 /// decode and goes to the typed door without a second decode.
 #[test]
 fn each_decode_time_refusal_that_a_typed_value_can_hold_is_refused_by_both_doors() {
-    use archkeel_facts::envelope::{ProtocolVersion, Reply};
+    use archkeel_facts::envelope::Reply;
     use archkeel_facts::vocab::{Area, ExceptionName};
     use archkeel_facts::{GapFact, Section};
 
@@ -230,25 +232,19 @@ fn each_decode_time_refusal_that_a_typed_value_can_hold_is_refused_by_both_doors
         gap.area = Area::Source;
     }
     type Change = fn(&mut Reply);
-    let cases: [(&str, Change); 2] = [
-        (
-            "an analyzer failure has the area analysis_coverage",
-            |reply| {
-                let facts = &mut reply.facts;
-                let id = facts.coverage.gaps[0].id.clone();
-                failure(&mut facts.coverage.gaps[0]);
-                for section in &mut facts.sections {
-                    if let Section::Unknowns(records) = section {
-                        records.iter_mut().filter(|r| r.id == id).for_each(failure);
-                    }
+    let cases: [(&str, Change); 1] = [(
+        "an analyzer failure has the area analysis_coverage",
+        |reply| {
+            let facts = &mut reply.facts;
+            let id = facts.coverage.gaps[0].id.clone();
+            failure(&mut facts.coverage.gaps[0]);
+            for section in &mut facts.sections {
+                if let Section::Unknowns(records) = section {
+                    records.iter_mut().filter(|r| r.id == id).for_each(failure);
                 }
-            },
-        ),
-        (
-            "protocol 10.0.0 is only the Python import survey (AD-450)",
-            |reply| reply.protocol_version = ProtocolVersion::V10,
-        ),
-    ];
+            }
+        },
+    )];
     let decoded: Reply = serde_json::from_value(golden("f-typescript-story")).unwrap();
     assert_eq!(crate::ingest_typed(decoded.clone()).err(), None);
     for (reason, change) in cases {

@@ -27,7 +27,7 @@
 
 use serde::Deserialize;
 
-use archkeel_facts::envelope::validation::library_key;
+use archkeel_facts::envelope::validation::library_family;
 use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 
@@ -129,17 +129,15 @@ pub(crate) fn stage_one_shell_trust(namespace: String, reply: Option<&Ingested>)
     };
     let facts = &reply.reply().facts;
     let profile = facts.profile;
-    let standard_library = archkeel_store::standard_library(&library_key(
-        facts.validation.as_ref(),
-        profile,
-        &facts.runtime.version,
-    ))
-    .into_iter()
-    .map(str::to_owned)
-    .collect();
+    let standard_library = archkeel_store::standard_library(&facts.validation.standard_library)
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
     let settings = Settings::new(namespace, profile.as_str().to_owned(), standard_library);
     let adapter = &facts.adapter;
-    if adapter.name == profile.as_str() && adapter.code_digest == CODE_DIGEST {
+    // AD-688: the standard library key of a trusted reply names the list of its adapter.
+    let own_list = library_family(&facts.validation.standard_library) == adapter.name;
+    if adapter.name == profile.as_str() && adapter.code_digest == CODE_DIGEST && own_list {
         return Trust {
             settings: settings.with_producer(Producer::Trusted),
             gap: None,
