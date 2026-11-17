@@ -196,6 +196,13 @@ def test_report_and_explorer_label_token_pairs_meet_aa_in_both_themes() -> None:
             levels = sorted((_luminance(text), _luminance(background)))
             ratio = (levels[1] + 0.05) / (levels[0] + 0.05)
             assert ratio >= 4.5, f"{theme}: {language} badge text is {ratio:.2f}:1"
+            # WCAG 1.4.11: the frame is a UI boundary: 3:1 against its own fill and against each
+            # surface that a box or the perspective bar can have.
+            border = tokens[f"--lang-{language}"]
+            for other in (background, *(tokens[f"--surface-{n}"] for n in (1, 2, 3))):
+                levels = sorted((_luminance(border), _luminance(other)))
+                ratio = (levels[1] + 0.05) / (levels[0] + 0.05)
+                assert ratio >= 3.0, f"{theme}: {language} frame on {other} is {ratio:.2f}:1"
         for first, second in itertools.combinations(LANGUAGES, 2):
             assert _delta_e_2000(language_colors[first], language_colors[second]) > 20
         for language, status in itertools.product(LANGUAGES, STATUS_COLORS):
