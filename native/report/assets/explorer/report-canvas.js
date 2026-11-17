@@ -252,6 +252,7 @@
     root.toggleAttribute("data-ak-perspective", Boolean(active));
     F.nodeLayer.querySelectorAll("[data-uml-id]").forEach((group) => {
       group.querySelector(".ak-tag")?.remove();
+      group.querySelectorAll(".stereotype, .uml-icon").forEach((item) => item.removeAttribute("visibility"));
       delete group.dataset.akTag;
       group.style.removeProperty("--ex-tag");
       if (!active) return;
@@ -261,30 +262,31 @@
       group.dataset.akTag = value;
       group.style.setProperty("--ex-tag", perspectiveColor(S.perspective, value));
       // The badge sits in the header row of the box, left of its kind icon (icon at CARD.w - 29).
-      const width = Math.min(100, 12 + value.length * 5.7);
+      // It is as wide as its text and never cut. A badge that does not fit beside the icon starts
+      // at the left edge of the row and takes the place of the kind text and the icon; a value
+      // wider than the whole row (16 to CARD.w - 7) is set in a smaller font.
       const tag = s("g", {
         class: S.perspective === "language" ? "ak-tag ak-language-badge" : "ak-tag",
         ...(S.perspective === "language" ? { "data-language": languageKey(value) } : {}),
-        transform: `translate(${171 - 5 - width} 7)`,
       });
-      tag.append(s("rect", { width: String(width), height: "18", rx: "9" }));
+      const rect = s("rect", { height: "18", rx: "9" });
       const text = s("text", { x: "6", y: "13" });
       text.textContent = value;
-      tag.append(text);
+      tag.append(rect, text);
       group.append(tag);
-      // A mixed value (`python + typescript`) can be longer than the badge: it is cut at the badge
-      // with an ellipsis, and the whole value stays as the title of the badge.
-      const room = width - 12;
-      if (text.getComputedTextLength() > room) {
-        let cut = value;
-        while (cut.length > 1 && text.getComputedTextLength() > room) {
-          cut = cut.slice(0, -1);
-          text.textContent = `${cut.trimEnd()}…`;
-        }
-        const title = s("title");
-        title.textContent = value;
-        tag.append(title);
+      const measure = () => Math.ceil(text.getComputedTextLength() || value.length * 6.6);
+      const row = 200 - 16 - 7;
+      if (measure() + 12 > row) {
+        const size = parseFloat(getComputedStyle(text).fontSize) || 11;
+        text.style.fontSize = `${Math.floor(size * (row - 12) / measure() * 10) / 10}px`;
       }
+      const width = measure() + 12;
+      const left = width <= 171 - 5 - 16 ? 171 - 5 - width : 16;
+      rect.setAttribute("width", String(width));
+      tag.setAttribute("transform", `translate(${left} 7)`);
+      const kind = group.querySelector(".stereotype");
+      if (kind && 16 + kind.getComputedTextLength() + 6 > left) kind.setAttribute("visibility", "hidden");
+      if (left + width > 171 - 5) group.querySelector(".uml-icon")?.setAttribute("visibility", "hidden");
     });
     if (S.pinnedTag && (!active || !(F.state().scene?.nodes || []).some((node) => active.value(node) === S.pinnedTag))) present({ pinnedTag: null });
     highlightTag(S.pinnedTag);
@@ -378,7 +380,7 @@
   }
   function overviewDrawer() {
     const body = [h("h2", {}, "Health check"),
-      h("p", {}, `Whole-run rules: ${A.declared_rules} · Source observation: ${A.observation_complete}`), summary];
+      h("p", {}, `Result: ${A.result}`), summary];
     if (explore) { explore.hidden = false; body.push(explore); }
     overviewEvidence = [...document.querySelectorAll(".report-shell > .atlas-structure-overview, .report-shell > .atlas-source")];
     body.push(...overviewEvidence);
@@ -546,7 +548,7 @@
       A.language_note ? h("p", { class: "ak-sub" }, A.language_note) : null], "left", "legend") }, "Legend");
   root.append(h("div", { hidden: true }, legendPanel));
   const bottomLeft = h("div", { class: "ak-bar ak-bottom-left" }, legendButton, move(".flow-filters"),
-    h("span", { class: "ak-run-status" }, `Rules: ${A.declared_rules} · Observation: ${A.observation_complete}`));
+    h("span", { class: "ak-run-status" }, `Result: ${A.result}`));
   const summary = move(".atlas-summary");
   if (summary) summary.classList.add("ak-scene-summary");
   const tagBar = h("div", { class: "ak-bar ak-bottom-center", role: "toolbar", "aria-label": "Perspectives" });

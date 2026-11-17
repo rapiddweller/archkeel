@@ -342,55 +342,6 @@ fn dart_mirrors_keeps_the_edge_and_is_a_gap() {
 }
 
 #[test]
-fn a_workspace_or_path_dependency_is_a_gap() {
-    let cases = [
-        ("name: shop\nworkspace:\n  - pkgs/a\n", "DartWorkspace"),
-        ("name: shop\nresolution: workspace\n", "DartWorkspace"),
-        (
-            "name: shop\ndependencies:\n  core:\n    path: ../core\n",
-            "DartPathDependency",
-        ),
-    ];
-    for (pubspec, name) in cases {
-        let found = run(&[("pubspec.yaml", pubspec), ("lib/a.dart", "")]);
-        let rows = gaps(&found);
-        assert_eq!(rows.get(name), Some(&1), "{pubspec}: {rows:?}");
-        assert!(!found.coverage.full_scope);
-    }
-}
-
-#[test]
-fn a_workspace_member_outside_the_scan_is_external() {
-    let found = run(&[
-        ("pubspec.yaml", "name: shop\nworkspace:\n  - other\n"),
-        ("other/pubspec.yaml", "name: other\nresolution: workspace\n"),
-        ("lib/a.dart", "import 'package:async/a.dart';"),
-    ]);
-    assert!(found.coverage.full_scope, "{:#?}", found.unknowns);
-    assert!(found
-        .inputs
-        .iter()
-        .any(|input| input.path == "other/pubspec.yaml"));
-}
-
-#[test]
-fn workspace_resolution_without_a_complete_disjoint_map_is_a_gap() {
-    for files in [
-        vec![("pubspec.yaml", "name: shop\nworkspace:\n  - other\n"), ("lib/a.dart", "")],
-        vec![("pubspec.yaml", "name: shop\nresolution: workspace\n"), ("lib/a.dart", "")],
-        vec![("pubspec.yaml", "name: shop\nworkspace:\n  - other\n"), ("other/pubspec.yaml", "name: shop\nresolution: workspace\n"), ("lib/a.dart", "")],
-        vec![("pubspec.yaml", "name: shop\nworkspace:\n  - other\n"), ("other/pubspec.yaml", "name: other\nresolution: workspace\n"), ("lib/a.dart", "import 'package:other/a.dart';")],
-        vec![("pubspec.yaml", "name: shop\nworkspace:\n  - other\n"), ("other/pubspec.yaml", "name: other\nresolution: workspace\ndependency_overrides:\n  dep:\n    path: ../lib\n"), ("lib/a.dart", "")],
-        vec![("pubspec.yaml", "name: shop\nworkspace:\n  - other\n"), ("other/pubspec.yaml", "name: other\nresolution: workspace\n"), ("other/pubspec_overrides.yaml", "dependency_overrides: {}"), ("lib/a.dart", "")],
-        vec![("pubspec.yaml", "name: shop\nworkspace:\n  - other\n"), ("other/pubspec.yaml", "name: other\nresolution: workspace\n"), ("pubspec.lock", "packages: {}"), ("lib/a.dart", "")],
-    ] {
-        let found = run(&files);
-        assert!(gaps(&found).contains_key("DartWorkspace"), "{:#?}", found.unknowns);
-        assert!(!found.coverage.full_scope);
-    }
-}
-
-#[test]
 fn a_nested_package_or_a_package_config_is_a_gap() {
     let found = run(&with_pubspec(&[
         ("lib/a.dart", ""),

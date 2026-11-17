@@ -36,6 +36,7 @@ mod net;
 mod paths;
 mod plant;
 mod registry;
+mod registry_overrides;
 mod reply;
 mod resolve;
 mod routes;

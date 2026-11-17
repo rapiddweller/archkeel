@@ -412,6 +412,6 @@ fn a_subject_has_one_kind_and_one_qualified_name() -> Result<(), Box<dyn std::er
             Err("subject name disagrees with its qualified name".to_owned())
         );
     }
-    assert_eq!(pairs, 18);
+    assert_eq!(pairs, 21);
     Ok(())
 }

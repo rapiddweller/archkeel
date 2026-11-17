@@ -54,7 +54,9 @@ def _make(tmp_path: Path, selected: str, fmt_fails: bool = False) -> tuple[int, 
     log = tmp_path / "cargo.log"
     log.write_text("")
     uv = bin_dir / "uv"
-    uv.write_text(f"#!/bin/sh\necho '{selected}'\n")
+    uv_log = tmp_path / "uv.log"
+    uv_log.write_text("")
+    uv.write_text(f'#!/bin/sh\necho "$@" >> "{uv_log}"\necho \'{selected}\'\n')
     cargo = bin_dir / "cargo"
     cargo.write_text(
         f'#!/bin/sh\necho "$@" >> "{log}"\n'
@@ -72,6 +74,10 @@ def _make(tmp_path: Path, selected: str, fmt_fails: bool = False) -> tuple[int, 
         check=False,
     )
     return done.returncode, log.read_text().splitlines()
+
+
+def _uv_calls(tmp_path: Path) -> list[str]:
+    return (tmp_path / "uv.log").read_text().splitlines()
 
 
 def test_the_recipe_runs_nothing_when_native_is_unchanged(tmp_path: Path) -> None:
@@ -100,3 +106,28 @@ def test_the_pr_gate_workflow_runs_the_native_lint_after_the_core_build() -> Non
     text = (ROOT / ".github/workflows/pr-gate.yml").read_text()
     assert text.index("name: Build the core") < text.index("make pr-native-lint")
     assert "make pr-native-lint PR_BASE=" in text
+
+
+GATES = (
+    "run --locked python -m pytest -q -p no:cacheprovider -n 0 "
+    "tests/test_rust_clones.py tests/test_rust_api.py"
+)
+
+
+def test_a_native_change_also_runs_the_clone_and_the_api_gate_after_fmt_and_clippy(
+    tmp_path: Path,
+) -> None:
+    """A clone or a public name that nobody checked was merged: they run in the PR gate now."""
+    code, _calls = _make(tmp_path, "-p archkeel-core")
+    assert code == 0
+    assert _uv_calls(tmp_path)[-1] == GATES
+    code, _calls = _make(tmp_path, "-")
+    assert code == 0 and _uv_calls(tmp_path)[-1] == GATES
+
+
+def test_the_gates_do_not_run_without_a_native_change_or_after_an_unformatted_file(
+    tmp_path: Path,
+) -> None:
+    assert _make(tmp_path, "")[0] == 0 and GATES not in _uv_calls(tmp_path)
+    code, _calls = _make(tmp_path, "-p archkeel-core", fmt_fails=True)
+    assert code != 0 and GATES not in _uv_calls(tmp_path)

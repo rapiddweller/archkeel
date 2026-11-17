@@ -28,7 +28,9 @@ fn each_gap_name_states_the_effect_that_it_can_prove() {
             | GapName::UnsupportedUri
             | GapName::UriNotLiteral
             | GapName::Mirrors
-            | GapName::Isolate => (own.clone(), None),
+            | GapName::Isolate
+            | GapName::LocalPackage
+            | GapName::UndeclaredPackage => (own.clone(), None),
             _ => (None, None),
         };
         assert_eq!(found, expected, "{name:?}");

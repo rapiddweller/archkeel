@@ -30,6 +30,8 @@ pub(crate) struct Index<'a> {
     pub(crate) kinds: Vec<Kind>,
     pub(crate) by_rel: HashMap<&'a str, usize>,
     pub(crate) isolate_loader: bool,
+    /// The package map of the root package (AD-800).
+    pub(crate) packages: super::package_map::PackageMap,
 }
 
 /// Where a local path is.

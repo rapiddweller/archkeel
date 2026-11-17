@@ -1,7 +1,8 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Find the language areas of a repository and read the folder layout of each (AD-638, AD-660).
+"""Read the folder layout of one language area of a repository (AD-638, AD-660); `init_draft`
+finds the areas.
 
 An area is one scan: a Python project, a Cargo workspace, a TypeScript project (or workspace) or
 a Dart package. A repository with one area is drafted as one configuration (`init_draft`); a
@@ -73,22 +74,31 @@ def _escape(segment: str) -> str:
     return "".join(c if c.isascii() and c.isalnum() else f"_x{ord(c):x}_" for c in segment)
 
 
-def _packages(folder: Path) -> list[Path]:
-    """The subfolders of `folder` that hold Python code at any depth (a folder without
-    `__init__.py` is a namespace package, and the scan reads its modules too)."""
+def _packages(folder: Path, repo: Path) -> list[Path]:
+    """The subfolders of `folder` that hold Python code that is no test source, at any depth (a
+    folder without `__init__.py` is a namespace package, and the scan reads its modules too)."""
     return sorted(
         path
         for path in folder.iterdir()
-        if path.is_dir() and path.name not in _IGNORED and _has_python(path)
+        if path.is_dir() and path.name not in _IGNORED and _has_python(path, repo)
     )
 
 
-def _has_python(folder: Path) -> bool:
-    for _, names, files in os.walk(folder):
+def _has_python(folder: Path, repo: Path) -> bool:
+    for here, names, files in os.walk(folder):
         names[:] = [name for name in names if name not in _IGNORED]
-        if any(file.endswith(".py") for file in files):
+        if any(f.endswith(".py") and not _is_test(Path(here, f).relative_to(repo)) for f in files):
             return True
     return False
+
+
+def _is_test(relative: Path) -> bool:
+    """`is_test_source` of the Python collector (`native/python/src/discover.rs`): a folder `test`,
+    `tests` or `__tests__` above the file, or a name `test_*.py` or `*_test.py`. A Python draft
+    leaves these out of the scan (#1619), as the Rust and TypeScript drafts do."""
+    name = relative.name
+    named = (name.startswith("test_") and name.endswith(".py")) or name.endswith("_test.py")
+    return named or any(part in {"test", "tests", "__tests__"} for part in relative.parts[:-1])
 
 
 def _members(root: Path, patterns: list[str], marker: str) -> list[Path]:
@@ -118,7 +128,9 @@ def _python_layouts(root: Path, folder: Path | None = None) -> list[Layout]:
     src = (folder / "src").is_dir()
     base = folder / "src" if src else folder
     found = (
-        _packages(base) if src else [p for p in _packages(base) if (p / "__init__.py").is_file()]
+        _packages(base, root)
+        if src
+        else [p for p in _packages(base, root) if (p / "__init__.py").is_file()]
     )
     if not found:
         where = base.relative_to(root).as_posix()
@@ -135,11 +147,10 @@ def _python_layouts(root: Path, folder: Path | None = None) -> list[Layout]:
 def _python_single(root: Path, package: Path, note: str) -> Layout:
     """The scan of one package: a component for each folder in it that holds Python."""
     namespace = package.name
-    parts = [Part(p.name, (f"{namespace}.{p.name}",)) for p in _packages(package)]
+    parts = [Part(p.name, (f"{namespace}.{p.name}",)) for p in _packages(package, root)]
     parts.append(Part("root", modules=_beside(namespace, package, {p.label for p in parts}, True)))
-    return Layout(
-        "python", namespace, (package.relative_to(root).as_posix(),), tuple(parts), note=note
-    )
+    scan = package.relative_to(root).as_posix()
+    return Layout("python", namespace, (scan,), tuple(parts), _TESTS, note=note)
 
 
 def _python_scan(root: Path, base: Path, names: list[str], note: str) -> Layout:
@@ -148,19 +159,19 @@ def _python_scan(root: Path, base: Path, names: list[str], note: str) -> Layout:
     parts = [Part(name, (f"{namespace}.{name}",)) for name in names]
     own = (base / "__init__.py").is_file()  # a package `src/__init__.py` is a module of the scan
     parts.append(Part("root", modules=_beside(namespace, base, set(names), own)))
-    return Layout(
-        "python", namespace, (base.relative_to(root).as_posix(),), tuple(parts), note=note
-    )
+    scan = base.relative_to(root).as_posix()
+    return Layout("python", namespace, (scan,), tuple(parts), _TESTS, note=note)
 
 
 def _beside(namespace: str, folder: Path, taken: set[str], itself: bool) -> tuple[str, ...]:
-    """The modules directly in `folder`: the package itself and each `.py` file beside the parts."""
+    """The modules directly in `folder`: the package itself and each `.py` file beside the parts
+    that is no test source."""
     return tuple(
         ([namespace] if itself and (folder / "__init__.py").is_file() else [])
         + [
             f"{namespace}.{path.stem}"
             for path in sorted(folder.glob("*.py"))
-            if path.stem != "__init__" and path.stem not in taken
+            if path.stem != "__init__" and path.stem not in taken and not _is_test(Path(path.name))
         ]
     )
 
@@ -455,42 +466,3 @@ def _layout_of(repo: Path, folder: Path) -> Layout | None:
     if (folder / "pubspec.yaml").is_file():
         return _dart_layout(repo, folder)
     return None
-
-
-def _discover(repo: Path) -> tuple[list[Area], str]:
-    """The areas of `repo`, and the first reason that a folder gave none (for a refusal)."""
-    areas: list[Area] = []
-    claimed: list[Path] = []
-    why = ""
-    for folder in _folders(repo):
-        if any(folder.is_relative_to(done) for done in claimed):
-            continue
-        relative = folder.relative_to(repo).as_posix() or "."
-        try:
-            layout = _layout_of(repo, folder)
-            if layout is not None:
-                areas.append(Area(relative, layout))
-                # The members of a workspace are inside it; a project owns its folder.
-                members = [repo / root for root in layout.roots] if _workspaces(folder) else []
-                claimed += members or ([folder] if folder != repo else [])
-        except NothingToDraft as error:
-            why = why or str(error)
-        # A Python project can share its folder with a Cargo or Node manifest.
-        if folder == repo or any((folder / n).is_file() for n in ("pyproject.toml", "setup.py")):
-            try:
-                areas += [Area(layout.roots[0], layout) for layout in _python_layouts(repo, folder)]
-            except NothingToDraft as error:
-                why = why or str(error)
-    return areas, why
-
-
-def _detect(repo: Path) -> list[Area]:
-    """The areas of the repository, or `NothingToDraft` when it has none."""
-    areas, why = _discover(repo)
-    if not areas:
-        raise NothingToDraft(
-            why
-            or "no Python package, Cargo workspace, TypeScript project or Dart package found "
-            "(folder layout and manifest only)."
-        )
-    return areas

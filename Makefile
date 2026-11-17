@@ -49,13 +49,15 @@ PR_BASE ?= origin/main
 pr-gate: $(if $(strip $(SKIP_STATIC)),,ci-pr-static) self-validate pr-selected-test
 
 # AD-756: Rust format and lint in the PR gate when the change touches native/: `cargo fmt --check` for the
-# whole workspace (about 2 s) and `clippy -D warnings` for the touched crates only (tools/native_touched.py).
+# whole workspace (about 2 s), `clippy -D warnings` for the touched crates only (tools/native_touched.py), and
+# the clone gate and the API gate of the Rust sources (about 12 s; they sit in the main tier otherwise).
 pr-native-lint:
 	@crates="$$($(UV) run --locked python tools/native_touched.py "$(PR_BASE)")"; \
 	if [ -z "$$crates" ]; then echo "native lint: native/ is unchanged, nothing to check"; exit 0; fi; \
 	echo "native lint: fmt and clippy for '$$crates'"; \
-	cd native && cargo fmt --all -- --check && \
-	{ [ "$$crates" = "-" ] || cargo clippy --locked --all-targets $$crates -- -D warnings; }
+	(cd native && cargo fmt --all -- --check) && \
+	{ [ "$$crates" = "-" ] || (cd native && cargo clippy --locked --all-targets $$crates -- -D warnings); } && \
+	$(UV) run --locked python -m pytest -q -p no:cacheprovider -n 0 tests/test_rust_clones.py tests/test_rust_api.py
 
 pr-selected-test: core browser-runtime-install
 	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") && echo "areas: $$areas" && \

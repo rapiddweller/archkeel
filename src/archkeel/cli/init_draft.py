@@ -29,7 +29,10 @@ from .init_areas import (
     Layout,
     NothingToDraft,
     Part,
-    _detect,
+    _folders,
+    _layout_of,
+    _python_layouts,
+    _workspaces,
 )
 from .init_binding import _binding, _uses
 
@@ -43,6 +46,48 @@ __all__ = [
     "draft",
     "write_missing",
 ]
+
+
+# Which language areas a repository has; `init_areas` drafts the layout of one folder.
+def _discover(repo: Path) -> tuple[list[Area], str]:
+    """The areas of `repo`, and the first reason that a folder gave none (for a refusal)."""
+    areas: list[Area] = []
+    claimed: list[Path] = []
+    why = ""
+    for folder in _folders(repo):
+        if any(folder.is_relative_to(done) for done in claimed):
+            continue
+        relative = folder.relative_to(repo).as_posix() or "."
+        try:
+            layout = _layout_of(repo, folder)
+            if layout is not None:
+                areas.append(Area(relative, layout))
+                # The members of a workspace are inside it; a project owns its folder.
+                members = [repo / root for root in layout.roots] if _workspaces(folder) else []
+                claimed += members or ([folder] if folder != repo else [])
+        except NothingToDraft as error:
+            why = why or str(error)
+        # A Python project can share its folder with a Cargo or Node manifest.
+        if folder == repo or any((folder / n).is_file() for n in ("pyproject.toml", "setup.py")):
+            try:
+                areas += [Area(layout.roots[0], layout) for layout in _python_layouts(repo, folder)]
+            except NothingToDraft as error:
+                why = why or str(error)
+    return areas, why
+
+
+def _detect(repo: Path) -> list[Area]:
+    """The areas of the repository, or `NothingToDraft` when it has none."""
+    areas, why = _discover(repo)
+    if not areas:
+        raise NothingToDraft(
+            why
+            or "no Python package, Cargo workspace, TypeScript project or Dart package found "
+            "(folder layout and manifest only)."
+        )
+    return areas
+
+
 CONFIG: Final = "archkeel.toml"
 CONTRACT: Final = "architecture-contract.json"
 SYSTEM: Final = "docs/architecture/architecture-system.json"

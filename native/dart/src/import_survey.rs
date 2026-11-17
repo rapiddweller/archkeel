@@ -10,17 +10,18 @@
 //! symbol, call, reference or binding, and the reply declares the sections `imports` and
 //! `unknowns` only. Each import record states the names that its directive binds (AD-749).
 
-mod binding;
+pub(crate) mod binding;
 mod budget;
 pub(crate) mod claims;
 mod config;
 mod edges;
-mod index;
+pub(crate) mod index;
 mod names;
 mod package;
+mod package_map;
 mod parts;
 pub(crate) mod reply;
-mod uri;
+pub(crate) mod uri;
 
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
 use archkeel_facts::ids::{FactId, ModuleName};
@@ -70,11 +71,17 @@ pub(crate) struct Survey {
     /// Sorted by id.
     pub unknowns: Vec<Record<GapFact>>,
     /// The survey gaps of `unknowns` with their names, sorted by id.
+    #[cfg_attr(
+        not(any(test, feature = "dump")),
+        expect(dead_code, reason = "the survey tests read the gap names")
+    )]
     pub named: Vec<NamedGap>,
     /// The coverage of the survey, with its gaps.
     pub coverage: Coverage,
     /// Sorted by id.
     pub evidence: Vec<Evidence>,
+    /// The symbol records of the libraries and parts (AD-796), sorted by id.
+    pub symbols: Vec<Record<archkeel_facts::SymbolFact>>,
 }
 
 /// The survey of `request`. An error is a refusal of the whole request, never a partial survey.
@@ -89,11 +96,19 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
     discovery_gaps(&found, &mut gaps.evidence, &mut gaps.records);
     let root = &request.snapshot.root;
     let config = config::config_gaps(&mut snapshot, root, &found.package_name, &mut gaps);
-    let index = parse_sources(&found, &mut gaps)?;
-    let packages = package::package_gaps(&mut snapshot, &found, &roots, &index, &mut gaps);
+    let mut index = parse_sources(&found, &mut gaps)?;
+    let (packages, map) = package::package_gaps(&mut snapshot, &found, &roots, &index, &mut gaps);
+    index.packages = map;
     let owners = parts::owners(&mut snapshot, &index, &mut gaps);
     let built = edges::edges(&mut snapshot, &index, &owners, &mut gaps);
     let files = file_facts(&index, &mut gaps);
+    let inputs = with_config(inputs(&found), config, packages);
+    let collected = crate::symbol_survey::collect(request, &found, &index, &owners, &inputs)?;
+    for evidence in collected.evidence {
+        gaps.evidence
+            .entry(evidence.id.as_str().to_owned())
+            .or_insert(evidence);
+    }
     let parts: Vec<PartOwner> = owners
         .iter()
         .map(|(part, library)| PartOwner {
@@ -116,7 +131,7 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
     // AD-468: the selected sources that the survey read; a part counts as a parsed file.
     let read = selected.len();
     Ok(Survey {
-        inputs: with_config(inputs(&found), config, packages),
+        inputs,
         // AD-468: the scope label of a root is `<root>/**`, as the model binds it to the roots.
         scope: roots.iter().map(|root| format!("{root}/**")).collect(),
         coverage: Coverage::of(
@@ -131,6 +146,7 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
         unknowns,
         named,
         evidence: gaps.evidence.into_values().collect(),
+        symbols: collected.symbols,
     })
 }
 
@@ -228,6 +244,7 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
         syntax,
         kinds,
         isolate_loader,
+        packages: package_map::PackageMap::default(),
     })
 }
 
@@ -289,7 +306,11 @@ pub(crate) fn gap_rows(found: &Survey) -> std::collections::BTreeMap<String, usi
 
 #[cfg(test)]
 #[path = "import_survey/survey_tests.rs"]
-mod tests;
+pub(crate) mod tests;
+
+#[cfg(test)]
+#[path = "import_survey/survey_package_tests.rs"]
+mod package_tests;
 
 #[cfg(test)]
 #[path = "import_survey/fixture_tests.rs"]

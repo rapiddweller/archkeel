@@ -6,6 +6,8 @@
 
 **Decision.** `make pr-native-lint` runs in the PR gate after the core build. `tools/native_touched.py` reads the diff: no change in `native/` runs nothing; a change in `native/` runs `cargo fmt --all -- --check` (about 2 s, the whole workspace); a change in a crate also runs `cargo clippy --locked --all-targets -p <crate> ... -- -D warnings` for the touched crates only; a change of `Cargo.toml`, `Cargo.lock`, the toolchain or `clippy.toml` lints the whole workspace; a pin or data file under `native/` runs the format check alone. The main tier keeps its full `make native-check`.
 
+The same recipe then runs the clone gate and the API gate of the Rust sources (`tests/test_rust_clones.py`, `tests/test_rust_api.py`, about 12 s) for any change in `native/`: a clone of 87 tokens and a new public name were merged because those gates sat in the main tier only.
+
 **Rejected.** Clippy of the whole workspace in every native PR (it would take the gate over its budget); running `native-check` in the gate.
 
 **Tests.** `tests/test_native_touched.py`: the selection, and the Make recipe against a stub `cargo` (nothing when native/ is unchanged, fmt then clippy, fmt alone for a pin, an unformatted file stops before clippy).
