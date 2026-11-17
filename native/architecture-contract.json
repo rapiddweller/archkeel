@@ -565,6 +565,7 @@
         "native.archkeel_model:publishes",
         "native.archkeel_model:shape",
         "native.archkeel_model:stable",
+        "native.archkeel_model:stated_users",
         "native.archkeel_model:unused_public"
       ],
       "decided_by": "architect"
@@ -1085,6 +1086,7 @@
         "native.archkeel_model.interface:receipt",
         "native.archkeel_model.published:Unused",
         "native.archkeel_model.published:receipt",
+        "native.archkeel_model.published:stated_users",
         "native.archkeel_model.published:unused"
       ],
       "decided_by": "architect"
@@ -1750,6 +1752,7 @@
           "component": "report-ruling",
           "rationale": "Publish the ruling, the one writer of a status and a rule verdict (AD-388).",
           "through": [
+            "native.archkeel_report.assumed:words",
             "native.archkeel_report.ruling",
             "native.archkeel_report.run_scope"
           ]
@@ -1764,6 +1767,7 @@
         "native.archkeel_report:Status",
         "native.archkeel_report:construct_row",
         "native.archkeel_report:page",
+        "native.archkeel_report:premise_words",
         "native.archkeel_report:rule",
         "native.archkeel_report:rule_with_edge_links",
         "native.archkeel_report:system_status"
@@ -2050,7 +2054,8 @@
             "native.archkeel_model:Verdict",
             "native.archkeel_model:assumed",
             "native.archkeel_model:compare_uml_tree",
-            "native.archkeel_model:shape"
+            "native.archkeel_model:shape",
+            "native.archkeel_model:stated_users"
           ]
         },
         {
@@ -2129,6 +2134,7 @@
         }
       ],
       "public": [
+        "native.archkeel_report.assumed:words",
         "native.archkeel_report.ruling:Explain",
         "native.archkeel_report.ruling:Named",
         "native.archkeel_report.ruling:RuleReasons",
@@ -2933,6 +2939,7 @@
           "through": [
             "native.archkeel_report:Status",
             "native.archkeel_report:page",
+            "native.archkeel_report:premise_words",
             "native.archkeel_report:system_status"
           ]
         }

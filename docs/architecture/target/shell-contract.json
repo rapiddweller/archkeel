@@ -476,7 +476,9 @@
         "archkeel.cli.core_doors:door_lines",
         "archkeel.cli.core_doors:qualifier",
         "archkeel.cli.core_doors:read_doors",
-        "archkeel.cli.core_doors:pass_qualifiers"
+        "archkeel.cli.core_doors:pass_qualifiers",
+        "archkeel.cli.core_doors:Premises",
+        "archkeel.cli.core_doors:read_premises"
       ]
     },
     {
