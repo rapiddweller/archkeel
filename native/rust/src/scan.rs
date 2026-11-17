@@ -275,9 +275,10 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
 
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
         let (arity, on_self) = (Some(node.args.len()), self.walker.selves.of(&node.receiver));
+        let chain = self.walker.selves.chain(&node.receiver);
         let name = plain(&node.method);
         self.walker
-            .method_call_on(name, node.method.span(), (false, arity), on_self);
+            .method_call_on(name, node.method.span(), (false, arity), (on_self, chain));
         visit::visit_expr_method_call(self, node);
     }
 
@@ -291,7 +292,7 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
         if let Some(last) = receivers::self_member(node) {
             let on_self = self.walker.selves.of_type();
             self.walker
-                .method_call_on(plain(last), last.span(), (true, None), on_self);
+                .method_call_on(plain(last), last.span(), (true, None), (on_self, None));
         }
         visit::visit_expr_path(self, node);
     }

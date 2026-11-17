@@ -31,6 +31,8 @@ HOLDER = (
     "pub fn make() -> W {\n    W { s: crate::c::S }\n}\n"
     "pub fn nest() -> V {\n    V { w: make() }\n}\n"
     "pub fn value() -> crate::c::S {\n    crate::c::S\n}\n"
+    "pub static ONE: crate::c::S = crate::c::S;\n"
+    "pub fn shared() -> &'static crate::c::S {\n    &ONE\n}\n"
 )
 CALLERS = {
     "a field of a typed parameter": (
@@ -109,3 +111,46 @@ def test_an_exact_field_and_an_exact_impl_give_the_edge(
     assert _real_target(root) == "c"
     found = statuses(validate(root, capsys))
     assert found.get("NO-A-TO-C") == "FAIL", found
+
+
+# #1571 (AD-804): the receiver type comes from a written return type `&S`, or from the item of a
+# fixed std adapter or loop over `&Vec<S>` / `&[S]` (`&S`): one exact member of the same `self`
+# form, so the call is the edge `a -> c`.
+TYPED = {
+    "a written return type": f"pub fn run() -> {STR} {{\n    crate::d::shared().m()\n}}\n",
+    "a closure of iter().map": (
+        f"pub fn g(v: &Vec<crate::c::S>) -> {STR} {{\n"
+        '    v.iter().map(|s| s.m()).next().unwrap_or("")\n}\n'
+        f"pub fn run() -> {STR} {{\n    g(&vec![crate::d::value()])\n}}\n"
+    ),
+    "a for loop over a slice": (
+        f"pub fn g(v: &[crate::c::S]) -> {STR} {{\n"
+        '    for s in v {\n        return s.m();\n    }\n    ""\n}\n'
+        f"pub fn run() -> {STR} {{\n    g(&[crate::d::value()])\n}}\n"
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(TYPED))
+def test_a_written_receiver_type_gives_the_edge(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], name: str
+) -> None:
+    root = _plant(tmp_path, core_binary, TYPED[name])
+    _rustc_accepts(root)
+    assert _real_target(root) == "c"
+    found = statuses(validate(root, capsys))
+    assert found.get("NO-A-TO-C") == "FAIL", (name, found)
+
+
+def test_a_std_receiver_reaches_no_member_of_the_workspace(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`String::from(..)` gives a `String`: its `len` is the one of std, never `S::len` in `c` (an
+    inherent impl of a std type is E0116). rustc prints the length 2, not 999."""
+    ty = "pub struct S;\nimpl S {\n    pub fn len(&self) -> usize {\n        999\n    }\n}\n"
+    caller = 'pub fn run() -> usize {\n    let x = String::from("ab");\n    x.len()\n}\n'
+    root = _plant(tmp_path, core_binary, caller, ty)
+    _rustc_accepts(root)
+    assert _real_target(root) == "2"
+    found = statuses(validate(root, capsys))
+    assert found.get("NO-A-TO-C") == "PASS", found

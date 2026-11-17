@@ -29,28 +29,29 @@ use crate::tree::Module;
 
 /// A member of an inherent `impl` block of a placed type.
 pub(super) struct Candidate<'a> {
-    module: &'a Module,
-    /// The lexical module of the block.
-    lexical: String,
-    member: &'a Member,
-    exact: bool,
+    pub(super) module: &'a Module,
+    /// The lexical module of the block, and its inline modules in its file.
+    pub(super) lexical: String,
+    pub(super) scope: &'a [String],
+    pub(super) member: &'a Member,
+    pub(super) exact: bool,
 }
 
 /// The members of the inherent `impl` blocks of the walk, by the type that the scan places.
 #[derive(Default)]
 pub(super) struct Typed<'a> {
-    by_type: BTreeMap<(String, String), Vec<Candidate<'a>>>,
+    pub(super) by_type: BTreeMap<(String, String), Vec<Candidate<'a>>>,
     /// The names of the members of the blocks whose type the scan cannot place.
-    unplaced: BTreeSet<&'a str>,
+    pub(super) unplaced: BTreeSet<&'a str>,
     /// The last name of each type with a `Deref` or `DerefMut` impl in the workspace.
-    derefs: BTreeSet<&'a str>,
+    pub(super) derefs: BTreeSet<&'a str>,
     /// A macro, a `use` leaf or an `extern crate` of the workspace may give the name of a macro of
     /// `std` that binds nothing to another macro (AD-524).
-    shadowed_macros: bool,
+    pub(super) shadowed_macros: bool,
     /// The names of the `macro_rules!` of the workspace.
-    macro_names: BTreeSet<&'a str>,
+    pub(super) macro_names: BTreeSet<&'a str>,
     /// The names of the members of the traits of the workspace.
-    trait_members: BTreeSet<&'a str>,
+    pub(super) trait_members: BTreeSet<&'a str>,
 }
 
 impl<'a> Typed<'a> {
@@ -99,6 +100,7 @@ impl<'a> Typed<'a> {
         found.extend(block.members.iter().map(|member| Candidate {
             module,
             lexical: lexical.clone(),
+            scope: &block.scope,
             member,
             exact: block.exact,
         }));
@@ -106,6 +108,17 @@ impl<'a> Typed<'a> {
 }
 
 impl<'a> Typed<'a> {
+    /// The one read member `name` of a placed type, or `None` when it has none or two (Rust
+    /// allows one; two read members mean a `cfg` case).
+    pub(super) fn named(&self, (lexical, ty): (&str, &str), name: &str) -> Option<&Candidate<'a>> {
+        let members = self.by_type.get(&(lexical.to_owned(), ty.to_owned()))?;
+        let mut named = members.iter().filter(|c| c.member.name == name);
+        let (candidate, None) = (named.next()?, named.next()) else {
+            return None;
+        };
+        Some(candidate)
+    }
+
     /// Whether a macro call of a silent name of `std` may be another macro (AD-524).
     pub(super) fn shadowed(&self) -> bool {
         self.shadowed_macros
@@ -137,11 +150,7 @@ impl<'a> Typed<'a> {
         {
             return None;
         }
-        let members = self.by_type.get(&(lexical.to_owned(), ty.to_owned()))?;
-        let mut named = members.iter().filter(|c| c.member.name == name);
-        let (candidate, None) = (named.next()?, named.next()) else {
-            return None;
-        };
+        let candidate = self.named((lexical, ty), name)?;
         let place = (candidate.module, candidate.lexical.as_str());
         let certain = candidate.exact
             && (same_gates(caller, candidate.module) || gated_caller && !candidate.module.gated)
@@ -175,7 +184,7 @@ pub(super) fn certainly_visible(
 /// Whether the type is a struct or an enum that every configuration has as written: in a module
 /// that no attribute can remove, with only inert attributes, and the only item of its name in its
 /// file.
-fn same_gates(caller: &Module, other: &Module) -> bool {
+pub(super) fn same_gates(caller: &Module, other: &Module) -> bool {
     if !caller.gated && !other.gated {
         return true;
     }
@@ -198,14 +207,14 @@ pub(super) fn exact_type(index: &Index<'_>, caller: &Module, lexical: &str, ty: 
     })
 }
 
-/// Resolve a named field from its exact struct, without deref or an ambiguous field.
-fn field_type(
-    index: &Index<'_>,
+/// The one visible named field of an exact struct, with the file of the struct.
+pub(super) fn field_of<'f>(
+    index: &'f Index<'_>,
     caller: &Module,
     at: &str,
     (lexical, ty, name): (&str, &str, &str),
     found: &Typed<'_>,
-) -> Option<(String, String, SelfKind)> {
+) -> Option<(&'f Frame<'f>, &'f crate::definitions::Field)> {
     if !exact_type(index, caller, lexical, ty) || found.derefs.contains(ty) {
         return None;
     }
@@ -231,9 +240,18 @@ fn field_type(
         Access::Private => same_crate && inside(at, lexical),
         Access::Package(_) => false,
     };
-    if !visible {
-        return None;
-    }
+    visible.then_some((frame, *field))
+}
+
+/// Resolve a named field from its exact struct, without deref or an ambiguous field.
+fn field_type(
+    index: &Index<'_>,
+    caller: &Module,
+    at: &str,
+    named: (&str, &str, &str),
+    found: &Typed<'_>,
+) -> Option<(String, String, SelfKind)> {
+    let (frame, field) = field_of(index, caller, at, named, found)?;
     let TypeOf::Known(lexical, ty) = index.type_of(frame, &field.scope, &field.path) else {
         return None;
     };
@@ -318,7 +336,19 @@ impl Builder {
         if !certain(candidate) {
             return false;
         }
-        let root = on_self.name.as_str();
+        self.member_edge((index, module), call, &on_self.name, (candidate, type_name));
+        true
+    }
+
+    /// The edge of a call to the one member that it reaches, of the type `type_name`. `root` is the
+    /// receiver as written.
+    pub(super) fn member_edge(
+        &mut self,
+        (index, module): (&Index<'_>, &Module),
+        call: &MethodCall,
+        root: &str,
+        (candidate, type_name): (&Candidate<'_>, (String, String)),
+    ) {
         let path = match call.path {
             true => format!("{root}::{}", call.name),
             false => format!("{root}.{}", call.name),
@@ -340,7 +370,6 @@ impl Builder {
             member_of: Some(type_name),
         };
         self.module_import(index, module, &reference, &edge);
-        true
     }
 }
 
