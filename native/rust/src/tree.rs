@@ -26,6 +26,8 @@ pub(crate) struct Module {
     /// The root module of the target whose tree holds the file: the library, a binary or the
     /// build script of the package. Each target is a crate of its own (AD-622).
     pub target: String,
+    /// A selected file is a child of this module.
+    pub has_children: bool,
     /// The first line of the file, trimmed at its end: the evidence of the file. The walk does
     /// not keep the text, which only this line and `blank` need.
     pub first_line: String,
@@ -35,6 +37,22 @@ pub(crate) struct Module {
     /// module, of an ancestor file or inside the file may remove the module (AD-383).
     pub gated: bool,
     pub gates: Option<Vec<String>>,
+}
+
+impl Module {
+    /// The file of a crate or an enclosing module belongs to its own module package.
+    pub(crate) fn package(&self) -> &str {
+        if self.module == self.target
+            || self.rel.rsplit('/').next() == Some("mod.rs")
+            || self.has_children
+        {
+            &self.module
+        } else {
+            self.module
+                .rsplit_once('.')
+                .map_or("", |(parent, _)| parent)
+        }
+    }
 }
 
 pub(crate) struct Walked {
@@ -97,6 +115,17 @@ pub(crate) fn walk(source: &mut Snapshot, workspace: &Workspace, exclude_tests: 
                 walked.start(source, index, krate, root);
             }
         }
+    }
+    let mut parents = BTreeSet::new();
+    for module in &walked.modules {
+        let mut name = module.module.as_str();
+        while let Some((parent, _)) = name.rsplit_once('.') {
+            parents.insert(parent.to_owned());
+            name = parent;
+        }
+    }
+    for module in &mut walked.modules {
+        module.has_children = parents.contains(&module.module);
     }
     walked
 }
@@ -179,6 +208,7 @@ impl Walked {
                 module: file.module,
                 crate_index: index,
                 target: target.to_owned(),
+                has_children: false,
                 first_line: first.trim_end().to_owned(),
                 blank: text.trim().is_empty(),
                 scan: scanned,
