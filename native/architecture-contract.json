@@ -570,8 +570,8 @@
         "native.archkeel_model:interface_publications",
         "native.archkeel_model:measure_facts",
         "native.archkeel_model:peers",
-        "native.archkeel_model:premise_words",
         "native.archkeel_model:placement_violations",
+        "native.archkeel_model:premise_words",
         "native.archkeel_model:publishes",
         "native.archkeel_model:rule_premises",
         "native.archkeel_model:shape",
@@ -1145,8 +1145,8 @@
             "native.archkeel_contract:PremiseName",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
-            "native.archkeel_contract:declared_premises",
             "native.archkeel_contract:SymbolPlacement",
+            "native.archkeel_contract:declared_premises",
             "native.archkeel_contract:head_of",
             "native.archkeel_contract:kind_of"
           ]
@@ -1176,9 +1176,9 @@
           "rationale": "Read the modules, owners, imports, edges and symbols of the reply.",
           "through": [
             "native.archkeel_model.door_reach",
+            "native.archkeel_model.graph",
             "native.archkeel_model.ownership",
-            "native.archkeel_model.published_items",
-            "native.archkeel_model.graph"
+            "native.archkeel_model.published_items"
           ]
         },
         {
