@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-722 | [Imported code types in isinstance retain their import gap](ad-722-imported-code-types-in-isinstance-retain-their-import-gap.md) |
 | AD-737 | [Python construct support is one map with downgrade and meet](ad-737-python-construct-support-is-one-map-with-downgrade-and-meet.md) |
 | AD-735 | [The draft step has one outcome and runs after the core is found](ad-735-the-draft-step-has-one-outcome-and-runs-after-the-core-is-found.md) |
 | AD-738 | [One data file owns the source suffixes of both languages](ad-738-one-data-file-owns-the-source-suffixes-of-both-languages.md) |

@@ -67,10 +67,13 @@ pub(super) fn sites(
 ) -> Vec<Site> {
     let bound = bindings(tree);
     let inert_modules = inert::modules(&bound, &binders.unique(), tree);
+    let code_types = inert::code_types(&bound, &binders.unique());
     let mut walk = Walk {
         found: Vec::new(),
         bound,
         inert_modules,
+        code_types,
+        isinstance_visible: binders.builtin_visible("isinstance"),
         uncertain_code: Bound::of(&tree.body).opaque || reflect::deleted_code(tree),
         class_body: false,
         proof,
@@ -101,6 +104,8 @@ struct Walk<'r> {
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
     inert_modules: HashMap<String, String>,
+    code_types: HashSet<String>,
+    isinstance_visible: bool,
     uncertain_code: bool,
     class_body: bool,
     proof: Proof,
@@ -390,6 +395,16 @@ impl<'a> Visitor<'a> for Walk<'_> {
         }
         match expr {
             Expr::Lambda(node) => self.lambda(node),
+            Expr::Call(call)
+                if self.isinstance_visible
+                    && matches!(&*call.func, Expr::Name(name) if name.id.as_str() == "isinstance")
+                    && call.arguments.args.len() == 2
+                    && call.arguments.keywords.is_empty()
+                    && matches!(&call.arguments.args[1], Expr::Name(name)
+                        if self.code_types.contains(name.id.as_str())) =>
+            {
+                self.visit_expr(&call.arguments.args[0]);
+            }
             // AD-472: only the callee of a proven literal call is exempt; its one argument is a
             // string literal, so nothing below the call is left to read.
             Expr::Call(call) => match self.proof.target(call) {

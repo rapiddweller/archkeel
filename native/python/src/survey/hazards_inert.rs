@@ -8,6 +8,22 @@ use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::{ModModule, Stmt};
 
+pub(super) fn code_types(
+    bound: &HashMap<String, Vec<String>>,
+    unique: &HashSet<String>,
+) -> HashSet<String> {
+    ["FunctionType", "CodeType"]
+        .into_iter()
+        .filter(|name| {
+            unique.contains(*name)
+                && bound
+                    .get(*name)
+                    .is_some_and(|origins| origins.as_slice() == [format!("types.{name}")])
+        })
+        .map(str::to_owned)
+        .collect()
+}
+
 pub(super) fn modules(
     bound: &HashMap<String, Vec<String>>,
     unique: &HashSet<String>,
