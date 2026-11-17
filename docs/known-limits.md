@@ -11,6 +11,60 @@ Python and Dart projects: the rules that read the import graph are decided, and 
 
 The details follow.
 
+### Open report false PASS
+
+**Explorer status:** When a run has a failed rule and an unported rule, the report can show PASS
+for boxes whose status is not proven. The run itself is FAIL and exits 1.
+See [#1507](https://github.com/rapiddweller/archkeel/issues/1507).
+
+### Release-blocking collector audit
+
+The 2026-11-17 audit uses the core built from `323f09881`. Each plant is synthetic.
+Run `make core`, then `uv run --locked archkeel validate --config <plant>/archkeel.toml --json`.
+The issues below contain the fixture files and exact output. Each reported false PASS exits 0.
+Documentation does not accept these defects. They block the 5.0.0 release.
+
+| Class | Plant | Result at `323f09881` | Active issue |
+|---|---|---|---|
+| Rust value dispatch | `c::make().m()`, with the type and impl in `b`; 13 forms and a foreign trait glob | false PASS | [#1515](https://github.com/rapiddweller/archkeel/issues/1515) |
+| Rust trait dispatch | a generic bound, supertrait, dyn supertrait or re-export; 4 forms | false PASS | [#1516](https://github.com/rapiddweller/archkeel/issues/1516) |
+| Rust root re-export | a re-export of an extern self alias or of another crate's root | false PASS | [#1517](https://github.com/rapiddweller/archkeel/issues/1517) |
+| Rust registry identity | outside source replacement changes a modeled derive expansion | false PASS | [#1518](https://github.com/rapiddweller/archkeel/issues/1518) |
+| Python external loader | `load("app.lib")` imports the forbidden module and returns `None` | false PASS | [#1519](https://github.com/rapiddweller/archkeel/issues/1519) |
+| Python unknown provider | a parameter supplies `provider.code.interact()` | false PASS | [#1520](https://github.com/rapiddweller/archkeel/issues/1520) |
+| Python library globals | an outside library returns a dict; a computed key selects its importer | false PASS | [#1521](https://github.com/rapiddweller/archkeel/issues/1521) |
+| Python outside writer | an outside script or C extension replaces a re-export with a private function | false PASS | [#1522](https://github.com/rapiddweller/archkeel/issues/1522) |
+| Python lazy annotations | a slot or outside class write changes the allowed `object` annotation | false PASS | [#1523](https://github.com/rapiddweller/archkeel/issues/1523) |
+| TypeScript window flow | callback `this`, event targets, parameters, call results and properties | false PASS | [#1524](https://github.com/rapiddweller/archkeel/issues/1524) |
+| TypeScript function lookup | a run-time-key function is stored, passed or used as an argument | false PASS | [#1525](https://github.com/rapiddweller/archkeel/issues/1525) |
+| TypeScript DOM code | an `open` result, `document.open`, or a dynamic link and click | false PASS | [#1526](https://github.com/rapiddweller/archkeel/issues/1526) |
+| TypeScript prototype patch | replace `EventTarget.prototype.dispatchEvent`, then use it on `window` | false PASS | [#1527](https://github.com/rapiddweller/archkeel/issues/1527) |
+| TypeScript unread source | imports in Vue, Svelte, Astro, MDX, inline HTML and `.es6` | false PASS | [#1528](https://github.com/rapiddweller/archkeel/issues/1528) |
+| TypeScript installed source | a package in `node_modules` imports project source | false PASS | [#1529](https://github.com/rapiddweller/archkeel/issues/1529) |
+| TypeScript outside writer | an outside script assigns a scanned function to `window.open` | false PASS | [#1546](https://github.com/rapiddweller/archkeel/issues/1546) |
+
+At the same audit base, these tested forms no longer give a false PASS:
+
+- Python `import app.lib; app.lib._priv.secret()` gives FAIL. An escaped module binding gives
+  UNKNOWN with an unproven publication route. The fixtures are in
+  `tests/python_interface_module_plants.py` (AD-708, #1415).
+- A scanned writer that uses `marker.__globals__["f"] = secret` gives UNKNOWN with
+  `dynamic_import: __globals__`. A dictionary returned by an outside library remains #1521.
+- For Python lazy annotations, direct `setattr`, a class decorator, a module `globals()` write,
+  a method's `global` write and metaclass `__prepare__` each give a named UNKNOWN.
+  The slot and outside-class-writer plants still give false PASS (#1523).
+- A Rust `macro_rules!` call that adds an unanchored `Display` impl gives UNKNOWN with a pair
+  gap. The fixture is `PLANTS["an impl that a macro of b generates"]` in
+  `tests/test_collector_false_pass_rust_orphan_impl.py` (AD-662).
+- A git URL of the same repository, an outside Cargo patch, a command-line patch and a repository
+  patch each give UNKNOWN with a crate-pair gap (AD-704, #946).
+  `tests/test_collector_false_pass_rust_redirect.py` holds the four compiling fixtures.
+- Direct aliases of `Object`, `Reflect`, `location` and `open`, and direct timer aliases, give
+  UNKNOWN with a source-resolution gap. This does not prove arbitrary value flow safe.
+  `tests/test_cli_native_global_forms.py` checks the direct reflection and navigation aliases.
+- A TypeScript source that TSConfig drops gives UNKNOWN with a named file gap (AD-488).
+  The installed-package and unmodeled-source defects remain open.
+
 Main supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
@@ -44,14 +98,14 @@ mechanism must land before this decision is merged.
 **Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
 from a string, for example a plugin loader, a framework that reads a dotted path from settings, or
 an object deserializer. The survey does not know such a function, so it does not see that edge.
-A forbidden or cyclic dependency that only such a call makes can give PASS. Release 4.0.1 has the
+A forbidden or cyclic dependency that only such a call makes can give PASS (#1519). Release 4.0.1 has the
 same hole. This is an open defect, not an accepted limit. The survey covers the names of AD-450
 point 7: the standard-library doors, the import state and the builtins that run text.
 
 The Python collector does not follow a value from an unknown object to a loader. For example,
 `code = provider.code; code.interact()` gives no loader gap when `provider` is an unknown value.
 The same limit applies when the local name is `c`. A forbidden dependency reached only through
-such a value can give PASS. This is an open false-PASS class, not an accepted limit.
+such a value can give PASS (#1520). This is an open false-PASS class, not an accepted limit.
 
 **Python module and class bindings (AD-642, #1360).** A module- or class-level binding such as
 `for site in sites: site.id` can retain an `import_system_change` gap. These namespaces resolve
@@ -172,15 +226,17 @@ A use of a name through a module object (`import app.lib` then `app.lib._priv.se
 import of that name: each attribute load through a module binding, and through each child module of
 a chain, is a record of its own (AD-708). A module object that escapes (a bare load, an assignment,
 an argument, a namespace attribute, a store) leaves the names of its import unread: the rule is
-UNKNOWN for it. A local name with the spelling of a module binding counts as that binding.
+UNKNOWN for it. A name is read in its scope: a parameter or another local binding of the spelling is
+another value (#1506), and a name that an import and another binding share may be the module.
 
 The core gives PASS where Python binds something else at import time, for one form. 4.0.1 gives
 PASS for it too. It is an open defect, pinned by plants in `tests/python_interface_plants.py`:
 
 - A write to a package from a module outside the scan roots (`conftest.py`, `sitecustomize`, an
-  installed package, a script), from a C extension, or through `globals()` of another module,
+  installed package, a script), or from a C extension (#1522),
   after its statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey
-  gap, so the rule is UNKNOWN.
+  gap, so the rule is UNKNOWN. A direct scanned read of another function's `__globals__` also
+  keeps its named gap; the outside-library dictionary defect is #1521.
 
 ## Before claiming PASS
 
@@ -285,7 +341,7 @@ remain UNKNOWN. An uncertain export cannot hide another private-type violation.
 A name that a class-body statement binds at any place makes its class annotations UNKNOWN on
 every Python version, because 3.14 evaluates them lazily (PEP 649). A `locals()`, `vars()`,
 `globals()`, `exec` or `eval` in the class body makes every class annotation UNKNOWN.
-A field `date: date` is one false UNKNOWN. ArchKeel does not see these writes outside the class
+A field `date: date` is one false UNKNOWN. Release 4.0.1 does not see these writes outside the class
 body ([#775](https://github.com/rapiddweller/archkeel/issues/775)):
 - On 3.14: `__slots__`, `setattr`, a class decorator, a write from another module, a module-level
   `globals()['object'] = Hidden`, and `global object; object = Hidden` in a method.
@@ -433,7 +489,9 @@ destructuring pattern that takes a window member out of a value.
 Older classes stay open too: a prototype change through a call
 (`Object.defineProperty(EventTarget.prototype, …)`), a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
-`document.defaultView`, and a write in a file outside the scan roots or under `exclude`.
+`document.defaultView`, and a write in a file outside the scan roots (#1546).
+A source file inside the roots that TSConfig `exclude` drops gives a named coverage gap (AD-488),
+including a file that writes a global. It is no longer a silent false PASS.
 A member `source`, `view`, `currentTarget` or a window name is a window, and a member `eval` or
 `Function` is the global, on every object
 ([AD-492](architecture/decisions/ad-492-the-browser-assets-are-pinned-until-their-html-sinks-are-rewritten.md)).
@@ -474,7 +532,10 @@ file declares more than once and that may name a module, a glob that the scan ca
 call are UNKNOWN, and so is a macro call that the scan cannot place (in the tokens of another macro, or by the path of a module). A `crate::` path in a macro body is an edge of each call (AD-349). Edition 2015 (or none named
 in the manifest): a `use` path and a `::` path start at the crate root. A method of an `impl` block
 in another module than its type is an edge when a path names it (`impl crate::c::S { fn m() }` in
-`b` and `crate::c::S::m()` in `a`: `a -> b`). A method call `x.m(..)` that may reach such a method
+`b` and `crate::c::S::m()` in `a`: `a -> b`), when the type is exact and the member and its block
+have no `cfg` or other attribute; else the path gives a gap of the pair (#1276). A derive keeps a
+type exact only when `derive` is the macro of the prelude (`use m::rewrite as derive;` makes it an
+attribute macro). A method call `x.m(..)` that may reach such a method
 (it has `self`, the same number of other arguments, and a visibility that holds the caller), and a
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
 `5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). A `cfg_attr` that can add only lint attributes does not change an item (AD-535). A call `x.m()` on a parameter `x: T`, `&T` or `&mut T` is the same edge when `x` is bound once in the `fn`, `T` is a written plain path to one exact struct or enum, and the member has the `self` form of the parameter; a rebinding, a generic or `impl Trait` or `dyn` type, an alias, a mismatched `self` form, a `Deref` impl of the type and a macro that names `x` keep the gaps (AD-524). The host drops that gap only when the
@@ -485,7 +546,7 @@ is defined there; a trait argument never anchors; a block name anchors only with
 that depends on it (AD-516). The price: one orphan in a crate of N modules gives N-1 gaps, and
 `REQUIRES`, `NO-CYCLES` and the pair rule are UNKNOWN until the contract allows each pair; with one
 component for each module the gap `c -> b` stays when `c` holds the type, because `b -> c` closes a
-cycle. Open false PASS, not accepted (#1004), each a true edge, each pinned: (1) a value of a type
+cycle. Open false PASS, not accepted (#1515 and #1516; #1004 is closed), each a true edge, each pinned: (1) a value of a type
 that `b` defines, which the caller gets from another module, with the impl in `b` (13 forms: a method
 call, `Display`, `Drop`, `==`, `for`, `+`, `?`, `impl Trait`, `dyn`, a field, an alias with
 `Default`, a closure, `into()` into a sink of another module); (2) an impl of a trait of `b` for a
@@ -519,9 +580,9 @@ files withhold this proof. Renamed registry dependencies are followed through th
 Any `.cargo/config` or `.cargo/config.toml` below a scan root or on its repository ancestor path
 withholds the model, including files in nested non-crate directories. The search follows no symlink.
 It withholds the model beyond directory depth 128 or one million entries, and at unreadable directories or directory links.
-Open false PASS, not accepted (#1020): build settings outside the repository can replace registry code.
+Open false PASS, not accepted (#1518; #1020 is closed): build settings outside the repository can replace registry code.
 The snapshot cannot see `$CARGO_HOME` configuration, `CARGO_*` source settings or the build invocation environment.
-Such an override can make an unseen expansion pass silently. This is a limit, not a proof of that build.
+Such an override can make an unseen expansion pass silently. This is a release-blocking defect, not a proof of that build.
 These derives generate impl code using their own crate, written types, and documented helper paths.
 Every helper path, type and bound is read as a path use of the item's module, including bare names.
 Unknown helper keys, unsupported conditional metadata, macro values and invalid syntax keep a gap.

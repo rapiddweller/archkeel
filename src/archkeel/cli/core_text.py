@@ -99,6 +99,15 @@ def _baseline_reason(frame: CoreFrame, baseline: BaselineResult, code: int) -> s
             return "nothing differs from the baseline"
 
 
+def _rowless(frame: CoreFrame) -> list[str]:
+    """The rules of the contract that have no row: each unported rule, and each rule that
+    `explain` names without a row (#1507)."""
+    named = {gap.subject for gap in frame.gaps if gap.kind is GapKind.RULE_KIND_NOT_PORTED}
+    if frame.explain is not None:
+        named |= set(frame.explain.rules)
+    return sorted(named - set(frame.rules))
+
+
 def _reason_of(frame: CoreFrame, code: int, outcome: Outcome) -> str:
     """Why the run exits with `code`: one sentence for the header."""
     match outcome:
@@ -122,6 +131,14 @@ def _reason_of(frame: CoreFrame, code: int, outcome: Outcome) -> str:
         return f"all {total} rules pass"
     if frame.status is Status.FAIL:
         return f"{sum(frame.violations.values())} violations in {counts[RuleStatus.FAIL]} rules"
+    # #1507: a rule without a row (an unported kind, or a rule that `explain` names and that has
+    # no row) is no UNKNOWN row, but it does not pass either: the line counts it.
+    rowless = _rowless(frame)
+    if rowless and not counts[RuleStatus.UNKNOWN]:
+        return (
+            f"{total} of {total + len(rowless)} rules pass; {len(rowless)} rules have no "
+            f"decision: {', '.join(rowless[:3])}{', ...' if len(rowless) > 3 else ''}"
+        )
     if not counts[RuleStatus.UNKNOWN] and total:
         held = [gap for gap in frame.gaps if gap.kind is not GapKind.COLLECT]
         draft = [gap for gap in held if gap.kind in DRAFT_KINDS | {GapKind.GRAPH_DRIFT}]

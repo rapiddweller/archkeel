@@ -27,6 +27,14 @@ fn title(frame: &Frame, places: &Places) -> String {
             super::rules::qualifier(frame.doors).replacen("PASS", "hold", 1)
         ),
         Some(Status::Pass) => format!("All {} hold", count(pass, "rule")),
+        // An unported rule or a named gap has no row: it is no UNKNOWN row, and it is not
+        // decided either, so the title counts it (#1507).
+        Some(Status::Fail) if !frame.named.is_empty() => format!(
+            "{} violated in {}, {unknown} unknown, {} not decided",
+            count(fail, "rule"),
+            count(places.total, "place"),
+            count(frame.named.len(), "part")
+        ),
         Some(Status::Fail) => format!(
             "{} violated in {}, {unknown} unknown",
             count(fail, "rule"),

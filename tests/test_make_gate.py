@@ -371,7 +371,10 @@ def test_the_fast_tests_leave_out_the_nightly_files_and_the_pr_gate_selects_by_a
     assert recipe is not None and "tests/test_" not in recipe[0]
     assert "-m 'not native_wheel and not slow'" in makefile
     assert "not slow and not debug_build and not heavy" in makefile
-    assert "pr-gate: ci-pr-static self-validate pr-selected-test" in makefile
+    assert (
+        "pr-gate: $(if $(strip $(SKIP_STATIC)),,ci-pr-static) self-validate pr-selected-test"
+        in makefile
+    )
     assert all((ROOT / "tests" / name).is_file() for name in SLOW_FILES)
 
 

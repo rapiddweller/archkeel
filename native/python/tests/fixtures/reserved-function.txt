@@ -1,0 +1,3 @@
+# A generic function.
+def example[__classdict__]():
+    pass

@@ -1836,6 +1836,7 @@
       ],
       "public": [
         "native.archkeel_report.report:Decided",
+        "native.archkeel_report.report:RunStatus",
         "native.archkeel_report.status:Unexplained",
         "native.archkeel_report.status:run_status",
         "native.archkeel_report.status:system_status"
@@ -6749,7 +6750,8 @@
         "native.archkeel_python_collector.survey.globals_uses",
         "native.archkeel_python_collector.survey.value",
         "native.archkeel_python_collector.survey.uses_typing_guard",
-        "native.archkeel_python_collector.survey.module_uses"
+        "native.archkeel_python_collector.survey.module_uses",
+        "native.archkeel_python_collector.survey.module_scopes"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
@@ -7675,29 +7677,7 @@
       "provenance": [
         "docs/architecture/decisions/ad-670-a-public-name-that-no-other-component-uses-is-a-violation.md"
       ],
-      "decided_by": "architect",
-      "external_users": [
-        {
-          "symbol": "native.archkeel_snapshot.work:MAX_SCAN_BYTES",
-          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
-          "rationale": "the byte cap of a scan: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
-        },
-        {
-          "symbol": "native.archkeel_snapshot.work:MAX_NESTING",
-          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
-          "rationale": "the nesting cap of a parse: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
-        },
-        {
-          "symbol": "native.archkeel_snapshot.test_tree:read_bytes",
-          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
-          "rationale": "the bytes checked at the read boundary: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
-        },
-        {
-          "symbol": "native.archkeel_snapshot.test_tree:charged_bytes",
-          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
-          "rationale": "the input charge of the active scan: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
-        }
-      ]
+      "decided_by": "architect"
     }
   ]
 }

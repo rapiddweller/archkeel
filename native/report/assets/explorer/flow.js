@@ -745,8 +745,6 @@
     const query = new URLSearchParams(location.search);
     const views = ["diagram", "target", "diff"];
     S.view = views.includes(query.get("view")) ? query.get("view") : "diagram";
-    applyTheme(query.get("theme") === "light" || query.get("theme") !== "dark"
-      && window.matchMedia("(prefers-color-scheme: light)").matches);
     S.selection = null; S.module = null; S.cell = null; scopeNotice = null; routeNotice = null;
     navigationHistory.clear(); viewStates.clear();
     focusLabel = null; relationshipKind = null; elementKind = null; positions = Object.create(null);
@@ -905,7 +903,6 @@
       if (presentation.has("perspective")) query.set("perspective", presentation.get("perspective"));
       if (S.selection?.type === "node") query.set("selected", S.selection.id);
     }
-    query.set("theme", document.documentElement.dataset.theme);
     const permissionHash = [...(DATA.boundary_permissions?.declared || []),
       ...(DATA.boundary_permissions?.applied || [])].some((row) => location.hash === `#${encodeURIComponent(row.id)}`)
       ? location.hash : "";
@@ -918,17 +915,27 @@
       else history.pushState(null, "", next);
   }
 
-  // The header switch (archkeel-theme.js) also sets the theme; S follows it.
-  new MutationObserver(() => { S.theme = document.documentElement.dataset.theme; if (ATLAS) publishState(); })
-    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-
-  function applyTheme(light) {
-    document.documentElement.dataset.theme = S.theme = light ? "light" : "dark";
+  // E2: archkeel-theme.js owns the theme (the header switch, localStorage, the OS default). The
+  // Explorer follows data-theme and keeps the theme out of the URL and the history.
+  function followTheme() {
+    const light = document.documentElement.dataset.theme === "light";
+    S.theme = light ? "light" : "dark";
     const button = document.querySelector(".theme-toggle");
     if (button) {
       button.textContent = light ? "☾" : "☀";
       button.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
     }
+    if (ATLAS) publishState();
+  }
+  new MutationObserver(followTheme)
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  followTheme();
+
+  // A theme action goes through the owner: its own header button stores and shows the choice.
+  function setTheme(theme) {
+    const owner = document.querySelector(`[data-ak-theme="${theme}"]`);
+    if (owner) owner.click();
+    else document.documentElement.dataset.theme = theme;
   }
 
   function sidecarNavigation() {
@@ -1117,7 +1124,7 @@
     const permissions = DATA.boundary_permissions;
     const routeLink = (route) => {
       const query = new URLSearchParams({component: route.component_id || "unassigned",
-        view: S.view, origin: route.origin, theme: document.documentElement.dataset.theme});
+        view: S.view, origin: route.origin});
       if (route.module_id) query.set("module", route.module_id);
       if (route.scope_id) query.set("scope", route.scope_id);
       query.set("selected", route.entity_id);
@@ -2058,14 +2065,14 @@
         return `<li><a href="${esc(atlasDeviationHref(item))}">${esc(kind)} · ${esc(source)} → ${esc(target)}</a></li>`;
       }).join("")}</ul>` : ""}</section>`;
   }
-  function atlasInsideDeviationCount(componentId) {
+  function atlasInsideDeviations(componentId) {
     const ids = new Set();
     for (const level of ATLAS.levels) {
       if (level.parent_id === componentId || REPORT_SCENE.componentRoute(level.parent_id).some((item) => item.id === componentId)) {
         (level.deviation_ids || []).forEach((id) => ids.add(id));
       }
     }
-    return ids.size;
+    return (ATLAS.deviations || []).filter((row) => ids.has(row.id));
   }
   function atlasComponentFindingCount(componentId) {
     const level = ATLAS.levels.find((item) => item.parent_id === componentId);
@@ -2147,7 +2154,6 @@
     if (navigation.scope) query.set("scope", navigation.scope);
     if (navigation.selected) query.set("selected", navigation.selected);
     query.set("view", S.view);
-    query.set("theme", document.documentElement.dataset.theme);
     return `${location.pathname}?${query}`;
   }
   function atlasComponentLink(id, label) {
@@ -2256,7 +2262,6 @@
     for (const key of ["component", "scope", "module", "selected", "cell", "content"]) query.delete(key);
     if (parentId) query.set("scope", parentId);
     query.set("view", S.view);
-    query.set("theme", document.documentElement.dataset.theme);
     return query;
   }
 
@@ -2445,6 +2450,15 @@
       <p>${[...new Set(inventories.flatMap((item) => item.provenance))].map(esc).join(" · ")}</p></section>`;
   }
 
+  // The symbols of a module: the count when the run has one, else the limit in plain words, once.
+  // The coverage record states it (`unavailable` and its reason); nothing is said when it states none.
+  function atlasSymbolsLine(module) {
+    if (module.symbols != null) return REPORT_SCENE.countLabel(module.symbols, "observed symbol");
+    const limit = (module.symbol_coverage || []).find((item) => item.status === "unavailable");
+    if (!limit) return "";
+    const reason = (limit.reason || "").replace(/\.$/, "");
+    return `Symbols: not counted in this run${reason ? ` (${esc(reason.charAt(0).toLowerCase() + reason.slice(1))})` : ""}`;
+  }
   // What a box is: a layer or a group of components, or a component.
   function atlasBoxKind(component) {
     // A box that holds one component is that component, whatever its id says.
@@ -2467,8 +2481,8 @@
     while (paths.length && paths.every((parts) => parts.length > shared + 1 && parts[shared] === paths[0][shared])) shared += 1;
     const rows = [...byModule].map(([module, shorts]) => {
       const label = module ? module.split(".").slice(shared).join(".") || module : "";
-      const shown = shorts.slice(0, 8).map(esc).join(", ");
-      return `<li>${label ? `<strong>${esc(label)}</strong> (${shorts.length}): ` : ""}${shown}${shorts.length > 8 ? `, +${shorts.length - 8} more` : ""}</li>`;
+      // Every name is listed: the fold above the list opens to the whole interface.
+      return `<li>${label ? `<strong>${esc(label)}</strong> (${shorts.length}): ` : ""}${shorts.map(esc).join(", ")}</li>`;
     }).join("");
     const title = `Provides · ${REPORT_SCENE.countLabel(names.length, "name")}${byModule.size > 1 ? ` in ${REPORT_SCENE.countLabel(byModule.size, "module")}` : ""}`;
     return names.length > 6 ? `<details class="atlas-provides"><summary>${title}</summary><ul class="plain">${rows}</ul></details>`
@@ -2517,23 +2531,31 @@
       const grouped = (direction) => {
         const rows = ATLAS.cells.filter((cell) => cell[direction === "in" ? "target_id" : "source_id"] === module.id);
         const groups = new Map();
+        let outside = 0;
         for (const cell of rows) {
           const id = cell[direction === "in" ? "source_id" : "target_id"];
           const other = REPORT_SCENE.atlasModuleById(id);
           const binding = ATLAS.assignments.find((item) => item.id === id);
-          const name = REPORT_SCENE.atlasComponent(binding?.component_id)?.label || "UNKNOWN owner / outside this level";
+          const known = REPORT_SCENE.atlasComponent(binding?.component_id)?.label;
+          // A module that no component owns is no component: it is counted apart.
+          if (!known) outside += 1;
+          const name = known || "Outside the contract";
           if (!groups.has(name)) groups.set(name, []);
           groups.get(name).push(`<li>${esc(other.name)} · ${REPORT_SCENE.countLabel(cell.import_sites, "site")}</li>`);
         }
         if (!rows.length) return "";
         // Many modules fold behind the line that counts them, as the provided names do.
-        const title = `${direction === "in" ? "Imported by" : "Imports"} · ${REPORT_SCENE.countLabel(rows.length, "module")} in ${REPORT_SCENE.countLabel(groups.size, "component")}`;
+        const components = groups.size - (outside ? 1 : 0);
+        const counted = [components ? `${REPORT_SCENE.countLabel(rows.length - outside, "module")} in ${REPORT_SCENE.countLabel(components, "component")}` : "",
+          outside ? `${REPORT_SCENE.countLabel(outside, "module")} outside the contract` : ""].filter(Boolean).join(" · ");
+        const title = `${direction === "in" ? "Imported by" : "Imports"} · ${counted}`;
         const body = [...groups].map(([name, items]) => `<h4>${esc(name)}</h4><ul class="plain">${items.join("")}</ul>`).join("");
         return rows.length > 4 ? `<details class="atlas-imports"><summary>${title}</summary>${body}</details>` : `<h3>${title}</h3>${body}`;
       };
       inspectorContent.innerHTML = `<div class="kicker">Observed module · counts over the observed source scope</div>
         <h2>${esc(module.name)}</h2>${atlasModuleShown(module.id) ? "" : `<p>${atlasModuleLink(module, "Show in the module view")}</p>`}${module.path ? `<p><code>${esc(module.path)}</code></p>` : ""}
-        <p>${module.symbols == null ? "" : `${REPORT_SCENE.countLabel(module.symbols, "observed symbol")} · `}fan-in ${module.fan_in ?? "UNKNOWN"} · fan-out ${module.fan_out ?? "UNKNOWN"}</p>
+        <p>${atlasSymbolsLine(module)}</p>
+        <p>fan-in ${module.fan_in ?? "UNKNOWN"} · fan-out ${module.fan_out ?? "UNKNOWN"}</p>
         <h3>Owner</h3><p>${esc(owner?.label || "UNKNOWN")} · ${esc(assignment?.ownership_reason || "No assignment receipt")}</p>
         ${owner ? list("Responsibility", owner.responsibilities) + list("Not responsible for", owner.not_responsible_for) : list("Candidate owners", assignment?.candidate_ids || [])}
         ${grouped("in")}${grouped("out")}
@@ -2923,10 +2945,10 @@
             group.appendChild(findings);
             chipY += 14;
           }
-          const count = atlasInsideDeviationCount(node.id);
-          if (count) {
+          const chipText = window.ArchkeelReportScene.deviationChipText(node.component.status, atlasInsideDeviations(node.id));
+          if (chipText) {
             const deviations = el("text", { class: "atlas-deviation-chip", x: "16", y: String(chipY) });
-            deviations.textContent = `${REPORT_SCENE.countLabel(count, "deviation")} inside`;
+            deviations.textContent = chipText;
             group.appendChild(deviations);
           }
         }
@@ -3269,7 +3291,7 @@
       case "toggleAllHints": S.allHints = !S.allHints; atlasExplore(atlasLevel()); break;
       case "setDetails": setTargetDetails(action.open); render(); fit(); break;
       case "setExplore": setAtlasExploreOpen(action.open); break;
-      case "setTheme": applyTheme(action.theme === "light"); render(); break;
+      case "setTheme": setTheme(action.theme === "light" ? "light" : "dark"); break;
       case "openRule": {
         openAtlasComponent(action.rule.scope_id || null);
         setTargetDetails(true);

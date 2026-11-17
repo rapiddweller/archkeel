@@ -38,6 +38,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from tools.fixture_tree import fixture_tree, needs_copy
+from tools.report_gallery_page import STATUSES, index
 from tools.report_product import (
     Contract,
     Part,
@@ -45,12 +47,10 @@ from tools.report_product import (
     part_of,
     system,
 )
-from tools.report_product_page import shell
 from tools.system_parts import DOCUMENT, System, load
 
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "fixtures" / "matrix.json"
-STATUSES = ("PASS", "FAIL", "UNKNOWN")
 RUN_TIMEOUT = 900
 
 
@@ -118,18 +118,28 @@ def command(cli: Sequence[str], run: Mapping[str, Any], target: Path, form: str)
     return [*arguments, "--output", str(target), "--format", form]
 
 
-def _redact(path: Path) -> None:
-    """Name the repository `<repo>` in a written report: the path of the runner is not published."""
+def _redact(path: Path, copies: Mapping[str, str] | None = None) -> None:
+    """Name the repository `<repo>` in a written report: the path of the runner is not published.
+
+    `copies` maps the path of a temporary copy of a fixture to the name that the report shows.
+    """
     if not path.is_file():
         return
     data = path.read_bytes()
     for known in {str(ROOT), str(ROOT.resolve())}:
         data = data.replace(known.encode(), b"<repo>")
+    for known, name in (copies or {}).items():
+        data = data.replace(known.encode(), name.encode())
     path.write_bytes(data)
 
 
 def _reports(
-    cli: Sequence[str], run: Mapping[str, Any], folder: Path, stem: str, prefix: str
+    cli: Sequence[str],
+    run: Mapping[str, Any],
+    folder: Path,
+    stem: str,
+    prefix: str,
+    copies: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Write both reports of one run as `<stem>.json` and `<stem>.html`. Return its row."""
     row: dict[str, Any] = {"run": run, "links": []}
@@ -155,7 +165,7 @@ def _reports(
         row["error"] = f"{type(err).__name__}: {err}"[:300]
     # A link exists only for a file that the CLI wrote.
     for label, name in (("HTML", f"{stem}.html"), ("JSON", f"{stem}.json")):
-        _redact(folder / name)
+        _redact(folder / name, copies)
         if (folder / name).is_file():
             row["links"].append((label, f"{prefix}{name}"))
     return row
@@ -165,7 +175,15 @@ def build_run(cli: Sequence[str], run: Mapping[str, Any], out: Path) -> dict[str
     """Write both reports of one matrix run into its folder. Return its row."""
     folder = out / run["name"]
     folder.mkdir(parents=True)
-    return _reports(cli, run, folder, "report", f"{run['name']}/")
+    source = ROOT / "fixtures" / run["root"]
+    if not needs_copy(source):
+        return _reports(cli, run, folder, "report", f"{run['name']}/")
+    # A fixture with resolver inputs runs in a copy, as in the tests (AD-462).
+    with fixture_tree(source) as tree:
+        shown = f"<repo>/fixtures/{run['root']}"
+        copies = {str(tree): shown, str(tree.resolve()): shown}
+        prepared = {**run, "root_path": str(tree)}
+        return _reports(cli, prepared, folder, "report", f"{run['name']}/", copies)
 
 
 def badge(row: Mapping[str, Any], label: str) -> dict[str, Any]:
@@ -230,10 +248,16 @@ def build_other(cli: Sequence[str], entry: Mapping[str, str]) -> Contract:
     return contract_of(envelope, entry["title"], problem)
 
 
-def nav(page: str, links: Sequence[tuple[str, str]], current: str = "") -> str:
+def nav(
+    page: str,
+    links: Sequence[tuple[str, str]],
+    current: str = "",
+    apart: tuple[str, str] | None = None,
+) -> str:
     """The page with one visible navigation of its neighbour pages, first in its `<main>`.
 
-    The link of the page that is open is marked with `aria-current="page"`; it is `current`.
+    The link of the page that is open is marked with `aria-current="page"`; it is `current`. The
+    `apart` link, another kind of page, comes last behind a thin divider.
     """
 
     def link(label: str, href: str) -> str:
@@ -241,6 +265,8 @@ def nav(page: str, links: Sequence[tuple[str, str]], current: str = "") -> str:
         return f'<a href="{html.escape(href, quote=True)}"{mark}>{html.escape(label)}</a>'
 
     items = "".join(link(label, href) for label, href in links)
+    if apart:
+        items += '<span class="rp-pages__divider" aria-hidden="true"></span>' + link(*apart)
     bar = f'<nav class="rp-pages" aria-label="Report pages">{items}</nav>'
     # The bar sits first inside `<main>`, where the links have the style of the report.
     if not re.search(r"<main[^>]*>", page):
@@ -270,11 +296,11 @@ def build_system(cli: Sequence[str], system: System, document: Path, out: Path) 
     shown = "System"
     siblings = [(shown, "index.html"), *parts]
     (folder / "index.html").write_text(
-        nav(text, [("Fixture reports", "../showcase/index.html"), *siblings], shown)
+        nav(text, siblings, shown, ("Fixture reports", "../showcase/index.html"))
     )
     entry = [(label, f"self/{href}") for label, href in siblings]
     (out / "index.html").write_text(
-        nav(text, [("Fixture reports", "showcase/index.html"), *entry], shown)
+        nav(text, entry, shown, ("Fixture reports", "showcase/index.html"))
     )
     for part in system.parts:
         each = folder / f"{part.id}.html"
@@ -282,8 +308,9 @@ def build_system(cli: Sequence[str], system: System, document: Path, out: Path) 
             each.write_text(
                 nav(
                     each.read_text(),
-                    [("Fixture reports", "../showcase/index.html"), *siblings],
+                    siblings,
                     part.title,
+                    ("Fixture reports", "../showcase/index.html"),
                 )
             )
     return row
@@ -318,61 +345,6 @@ def build_self(cli: Sequence[str], entry: Mapping[str, str], out: Path) -> dict[
         else frozenset()
     )
     return row
-
-
-def _cell(text: object) -> str:
-    return f"<td>{html.escape(str(text))}</td>"
-
-
-def _verdict(row: Mapping[str, Any]) -> str:
-    summary = row.get("summary")
-    if summary is None:
-        return f'<td colspan="5">no result: {html.escape(row["error"])}</td>'
-    if summary["refusal"]:
-        reason = summary["refusal"]["message"]
-        cause = html.escape(f"refused: {reason}")
-        return _cell(summary["status"]) + f'<td colspan="4">{cause}</td>'
-    counts = summary["counts"]
-    gaps = ", ".join(f"{kind}: {number}" for kind, number in summary["gaps"].items()) or "none"
-    return (
-        _cell(summary["status"]) + "".join(_cell(counts[name]) for name in STATUSES) + _cell(gaps)
-    )
-
-
-def _links(row: Mapping[str, Any]) -> str:
-    # The table is one folder below the root of the site.
-    anchors = [
-        f'<a href="../{html.escape(path, quote=True)}">{label}</a>' for label, path in row["links"]
-    ]
-    return f"<td>{' '.join(anchors) or 'none'}</td>"
-
-
-def index(rows: Sequence[Mapping[str, Any]], sha: str, built_at: str) -> str:
-    """The fixture tables, one for each language, at `showcase/index.html`."""
-    head = "<th>Verdict</th><th>PASS</th><th>FAIL</th><th>UNKNOWN</th><th>Gaps</th><th>Reports</th>"
-    groups = ""
-    for language in sorted({row["run"]["language"] for row in rows}):
-        chosen = [row for row in rows if row["run"]["language"] == language]
-        body = "".join(
-            f"<tr>{_cell(row['run']['name'])}{_verdict(row)}{_links(row)}</tr>\n" for row in chosen
-        )
-        groups += (
-            f'<h2 class="h3">{html.escape(language)}</h2>\n'
-            f'<p class="caption">{len(chosen)} {"run" if len(chosen) == 1 else "runs"}</p>\n'
-            '<table class="rp-mini"><thead><tr><th>Fixture</th>'
-            f"{head}</tr></thead>\n<tbody>\n{body}</tbody></table>\n"
-        )
-    body = (
-        '<h1 class="h2">ArchKeel fixture reports</h1>\n'
-        '<p class="body-sm"><a href="../index.html">ArchKeel as a product</a></p>\n'
-        f'<p class="body-sm">Commit <code>{html.escape(sha)}</code>. '
-        f"Built {html.escape(built_at)}.</p>\n"
-        '<p class="body-sm">Each row is one run of the core on a project of '
-        "<code>fixtures/</code>. "
-        "A refused row shows the exact reason of the core. UNKNOWN is not a pass.</p>\n"
-        f"{groups}"
-    )
-    return shell("ArchKeel fixture reports", "Report \u00b7 fixture reports", body)
 
 
 def _head_sha() -> str:
@@ -410,7 +382,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         json.dumps(system_badge(parts), ensure_ascii=False) + "\n", encoding="utf-8"
     )
     (args.out / "showcase").mkdir()
-    (args.out / "showcase" / "index.html").write_text(index(rows, sha, built_at))
+    (args.out / "showcase" / "index.html").write_text(index(rows, sha, built_at, parts))
     failed = [row["run"]["name"] for row in [*self_rows, *rows] if "error" in row]
     failed += [part.key for part in parts if part.error and part.key not in failed]
     failed += [item.title for item in others if item.error]
