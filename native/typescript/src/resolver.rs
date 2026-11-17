@@ -25,6 +25,14 @@ pub(crate) struct Resolver {
 }
 
 impl Resolver {
+    /// A resolver for Node preloads; unlike the compiler, Node does not apply `paths` or `baseUrl`.
+    pub(crate) fn for_node_preload(&self) -> Self {
+        let mut options = self.options.clone();
+        options.base_url = None;
+        options.paths.clear();
+        Resolver::new(options, self.partial)
+    }
+
     pub(crate) fn new(options: Options, partial: bool) -> Self {
         let mut resolver = Self {
             options,

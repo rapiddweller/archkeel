@@ -18,10 +18,10 @@ use crate::manifest::Lookup;
 use crate::options::Options;
 use crate::parse::parse_for;
 use crate::references::{Form, Reference};
-use crate::resolve::format_of;
 use crate::source_input::{
     classify_file, classify_specifier, skipped_directory, ModuleFormat, SourceKind,
 };
+use crate::{resolve::format_of, resolver::Resolver};
 use names::{package_names, quoted_after, unknown_loader};
 
 /// The most installed files that one run reads. A larger closure is a gap of each importer.
@@ -326,8 +326,7 @@ impl Collection<'_> {
         self.specifier_step(file, (specifier, reference.type_only), mode, step);
     }
 
-    /// A `/// <reference path>` directive names a file relative to its own file; another name is
-    /// resolved as a specifier.
+    /// A reference path is relative to its file; another name is resolved as a specifier.
     fn path_step(&mut self, file: &str, path: &str, step: &mut Step) {
         let target = join(dirname(file), path);
         let snapshot: &mut Snapshot = &mut self.snapshot;
@@ -413,12 +412,13 @@ impl Collection<'_> {
         if class.builtin() {
             return Some(Vec::new());
         }
+        let mut resolver = Resolver::for_node_preload(&self.resolver);
         let modes = [ModuleFormat::Cjs, ModuleFormat::Esm]
             .into_iter()
             .filter(|candidate| mode.is_none_or(|mode| *candidate == mode));
         let mut entries = Vec::new();
         for mode in modes {
-            match self.resolver.resolve_classified(
+            match resolver.resolve_classified(
                 &mut self.snapshot,
                 (&name, &class),
                 file,

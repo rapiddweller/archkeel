@@ -73,6 +73,13 @@ fn an_unreadable_dynamic_preload_target_is_named_as_a_gap() {
         ),
         ["safe", "<dynamic setupFiles target>"]
     );
+    assert_eq!(
+        names_of(
+            "vitest.config.ts",
+            "export default { test: { projects: [{ setupFiles: ['safe'] }, { setupFiles: [getPreload()] }] } }"
+        ),
+        ["safe", "<dynamic setupFiles target>"]
+    );
 }
 
 #[test]

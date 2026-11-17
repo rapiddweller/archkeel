@@ -275,6 +275,43 @@ def test_package_preload_reads_the_actual_mode_specific_runtime_entry(
     assert result.stdout.strip() == "works"
 
 
+def test_node_preload_resolution_ignores_tsconfig_paths(tmp_path: Path, release_core: Path) -> None:
+    hook = (
+        "const Module = require('module'); const old = Module._load;\n"
+        "Module._load = function (...args) { globalThis.__preloadRan = true; "
+        "return Reflect.apply(old, this, args); };\n"
+    )
+    frame = _validate(
+        tmp_path,
+        release_core,
+        {
+            "tsconfig.json": (
+                '{"compilerOptions":{"allowJs":true,"module":"nodenext",'
+                '"moduleResolution":"nodenext","baseUrl":".",'
+                '"paths":{"hook":["benign.js"]}},"include":["src"]}'
+            ),
+            **_scripts("node --require hook src/a/a.js"),
+            "benign.js": "module.exports = true;\n",
+            "node_modules/hook/package.json": '{"name":"hook","main":"index.js"}',
+            "node_modules/hook/index.js": hook,
+        },
+    )["frame"]
+    assert any(
+        "patches the module loader at node_modules/hook/index.js" in gap["reason"]
+        for gap in frame["collection_gaps"]
+    ), frame["collection_gaps"]
+
+    result = _node(
+        tmp_path / "repo",
+        "--require",
+        "hook",
+        "-e",
+        "require('path'); console.log(globalThis.__preloadRan)",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "true"
+
+
 def test_repository_local_preload_is_in_the_writer_guard(
     tmp_path: Path, release_core: Path
 ) -> None:
@@ -299,6 +336,32 @@ def test_repository_local_preload_is_in_the_writer_guard(
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "function"
+
+
+def test_repository_local_preload_module_load_patch_is_reported_and_runs(
+    tmp_path: Path, release_core: Path
+) -> None:
+    hook = (
+        "const Module = require('module'); const old = Module._load; let hits = 0;\n"
+        "Module._load = function (...args) { hits++; return Reflect.apply(old, this, args); };\n"
+        "process.on('exit', () => console.log(hits));\n"
+    )
+    frame = _validate(
+        tmp_path,
+        release_core,
+        {
+            "package.json": '{"scripts":{"start":"node --require ./hook.cjs src/a/a.js"}}',
+            "hook.cjs": hook,
+        },
+    )["frame"]
+    assert any(
+        "patches the module loader at hook.cjs:" in gap["reason"]
+        for gap in frame["collection_gaps"]
+    ), frame["collection_gaps"]
+
+    result = _node(tmp_path / "repo", "--require", "./hook.cjs", "-e", "require('path')")
+    assert result.returncode == 0, result.stderr
+    assert int(result.stdout.strip()) > 0
 
 
 def test_whitespace_module_load_hook_is_detected(tmp_path: Path, release_core: Path) -> None:
@@ -351,3 +414,69 @@ def test_vitest_static_and_dynamic_setup_entries_fail_closed(
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "function"
+
+
+def test_dynamic_setup_in_a_later_vitest_project_is_not_missed(
+    tmp_path: Path, release_core: Path
+) -> None:
+    frame = _validate(
+        tmp_path,
+        release_core,
+        {
+            "vitest.config.cjs": (
+                "function getPreload() { return './hook.cjs'; }\n"
+                "module.exports = { test: { projects: ["
+                "{ test: { name: 'safe', setupFiles: ['./safe.cjs'] } },"
+                "{ test: { name: 'dynamic', setupFiles: [getPreload()] } }"
+                "] } };\n"
+            ),
+            "safe.cjs": "module.exports = true;\n",
+            "hook.cjs": "globalThis.__laterProjectHook = true;\n",
+        },
+    )["frame"]
+    assert frame["rules"]["REQUIRES"][1] != "PASS", frame["collection_gaps"]
+    assert any(
+        "<dynamic setupFiles target>" in gap["reason"] for gap in frame["collection_gaps"]
+    ), frame["collection_gaps"]
+
+    result = _node(
+        tmp_path / "repo",
+        "-e",
+        "const c=require('./vitest.config.cjs'); "
+        "for (const p of c.test.projects) "
+        "for (const setup of p.test.setupFiles) require(require.resolve(setup)); "
+        "console.log(globalThis.__laterProjectHook)",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "true"
+
+
+def test_an_unresolvable_dynamic_setup_target_is_a_gap(tmp_path: Path, release_core: Path) -> None:
+    frame = _validate(
+        tmp_path,
+        release_core,
+        {
+            "vitest.config.cjs": (
+                "function getPreload() { return './missing-hook.cjs'; }\n"
+                "module.exports = { test: { projects: ["
+                "{ test: { name: 'safe', setupFiles: ['./safe.cjs'] } },"
+                "{ test: { name: 'dynamic', setupFiles: [getPreload()] } }"
+                "] } };\n"
+            ),
+            "safe.cjs": "module.exports = true;\n",
+        },
+    )["frame"]
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
+    assert any(
+        "<dynamic setupFiles target>" in gap["reason"] for gap in frame["collection_gaps"]
+    ), frame["collection_gaps"]
+
+    result = _node(
+        tmp_path / "repo",
+        "-e",
+        "const c=require('./vitest.config.cjs'); "
+        "for (const p of c.test.projects) "
+        "for (const setup of p.test.setupFiles) require(require.resolve(setup));",
+    )
+    assert result.returncode != 0
+    assert "missing-hook.cjs" in result.stderr

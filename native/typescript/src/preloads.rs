@@ -19,6 +19,9 @@ use serde_json::Value;
 
 use crate::source_input::{classify_file, ModuleFormat, SourceKind};
 
+#[path = "preloads_dynamic.rs"]
+mod dynamic;
+
 /// Whether a repository data filename can name a tool preload.
 pub(super) fn preload_file(name: &str) -> bool {
     const CONFIGS: [&str; 5] = [
@@ -128,42 +131,12 @@ pub(super) fn names_of(base: &str, text: &str) -> Vec<String> {
             .collect(),
         _ => {
             let mut found = quoted_list(text, "setupFiles");
-            if text.contains("setupFiles") && dynamic_list(text, "setupFiles") {
+            if text.contains("setupFiles") && dynamic::list(text, "setupFiles") {
                 found.push("<dynamic setupFiles target>".to_owned());
             }
             found
         }
     }
-}
-
-/// Whether a setup array contains executable expressions outside its literal entries.
-fn dynamic_list(text: &str, key: &str) -> bool {
-    let Some(at) = text.find(key) else {
-        return false;
-    };
-    let rest = text.get(at + key.len()..).unwrap_or_default();
-    let Some(end) = rest.find(']') else {
-        return true;
-    };
-    let mut quoted = false;
-    let mut quote = '\0';
-    let mut code = String::new();
-    for character in rest[..end].chars() {
-        if quoted {
-            if character == quote {
-                quoted = false;
-            }
-        } else if matches!(character, '\'' | '"' | '`') {
-            quoted = true;
-            quote = character;
-        } else {
-            code.push(character);
-        }
-    }
-    quoted
-        || code
-            .chars()
-            .any(|character| !character.is_whitespace() && !":[],".contains(character))
 }
 
 /// The Node loader mode of a preload, when a command line establishes it.
