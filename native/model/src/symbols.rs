@@ -89,8 +89,6 @@ pub(crate) struct Symbols {
     pub(crate) by_id: HashMap<String, usize>,
     /// Each class and whether each of its bases is resolved (the base receipt of `_coverage`).
     pub(crate) bases: HashMap<String, bool>,
-    /// The member inventories of each class, by the id of the class (AD-747).
-    pub(crate) inventories: HashMap<String, Vec<crate::symbol_inventory::Inventory>>,
     /// Why 4.0.1 refuses these records, when it does.
     pub(crate) broken: Option<String>,
 }
@@ -214,12 +212,7 @@ impl Symbols {
                 None => self.named_parent(record, &ids_of),
             };
             let members = match &record.data {
-                SymbolFact::Class(data) => {
-                    let found = data.member_inventories.iter();
-                    let inventories = found.map(crate::symbol_inventory::Inventory::of).collect();
-                    self.inventories.insert(entity.id.clone(), inventories);
-                    attributes(record, data, &entity)
-                }
+                SymbolFact::Class(data) => attributes(record, data, &entity),
                 _ => Vec::new(),
             };
             self.push(entity);

@@ -15,8 +15,6 @@
 //! - an open scope: PASS when its entity names one module or package of the reply;
 //! - a closed scope over modules and imports: FAIL for each unlisted module or resolved import
 //!   edge in it, else UNKNOWN (4.0.1 proves no module inventory complete);
-//! - a closed scope of a symbol over member kinds: FAIL for each unlisted member, else PASS when
-//!   the collector states each member inventory complete, else UNKNOWN (AD-747);
 //! - each other entity, relationship or scope kind: UNKNOWN, by its kind.
 //!
 //! A row is FAIL with any FAIL assessment, UNKNOWN with any other UNKNOWN assessment, and PASS
