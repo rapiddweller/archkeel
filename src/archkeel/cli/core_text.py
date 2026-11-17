@@ -92,8 +92,13 @@ def _baseline_reason(frame: CoreFrame, baseline: BaselineResult, code: int) -> s
             if code == 0 and frame.status is Status.FAIL:
                 return f"{sum(frame.violations.values())} violations are accepted by the baseline"
             if code == 2:
+                kept = (
+                    f"{sum(frame.violations.values())} violations accepted by the baseline; "
+                    if frame.violations
+                    else ""
+                )
                 return (
-                    f"{baseline.accepted_unknowns} accepted items stay UNKNOWN: "
+                    f"{kept}{baseline.accepted_unknowns} accepted items stay UNKNOWN: "
                     "a baseline records them and does not decide them"
                 )
             return "nothing differs from the baseline"
@@ -159,12 +164,27 @@ def header(command: Command, frame: CoreFrame, code: int, outcome: Outcome) -> s
     return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)})"
 
 
+def _new_violations(frame: CoreFrame, total: int) -> int:
+    """How many violations the baseline does not accept: all of them when no baseline is read."""
+    baseline = frame.baseline
+    if baseline is None or baseline.state not in {
+        BaselineState.CURRENT,
+        BaselineState.WRITTEN,
+        BaselineState.DRIFT,
+    }:
+        return total
+    return sum(1 for change in baseline.new if change.what.value == "violation")
+
+
 def _next_action(frame: CoreFrame, groups: Sequence[tuple[str, int]]) -> str | None:
     """The top jobs, in the order to do them, each with its count (at most three)."""
     jobs = []
     if frame.details:
         count = sum(len(rows) for rows in frame.details.values())
-        jobs.append(f"remove the {count} violations, or review the declared restriction")
+        if (new := _new_violations(frame, count)) == count:
+            jobs.append(f"remove the {count} violations, or review the declared restriction")
+        elif new:
+            jobs.append(f"remove the {new} new violations that the baseline does not accept")
     for label, count in groups:
         jobs.append(
             "fix the problem above" if label == "the problem above" else f"{count} x {label}"
@@ -183,11 +203,22 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]
     if not rows:
         return []
-    lines = [f"Violations ({len(rows)}):"]
+    new = _new_violations(frame, len(rows))
+    if new == len(rows):
+        lines = [f"Violations ({len(rows)}):"]
+    elif new == 0:
+        lines = [f"Violations accepted by the baseline ({len(rows)}):"]
+    else:
+        lines = [
+            f"Violations ({len(rows)}: {new} new, {len(rows) - new} accepted by the baseline):"
+        ]
+    texts: dict[str, int] = {}
     for rule, row in rows if show_all else rows[:_VIOLATIONS_SHOWN]:
         edge = row.source if row.target is None else f"{row.source} -> {row.target}"
         where = ", ".join(_places(frame, row.evidence, _SHOWN))
-        lines.append(f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else ""))
+        text = f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else "")
+        texts[text] = texts.get(text, 0) + 1  # one line per place; a repeat is counted
+    lines.extend(f"{text} (x{n})" if n > 1 else text for text, n in texts.items())
     if more := _more(len(rows), _VIOLATIONS_SHOWN, show_all):
         lines.append(f"  {more.strip()}")
     causes = dict.fromkeys(row.cause for _, row in rows)
