@@ -345,11 +345,24 @@ pub(super) fn section(frame: &Frame, names: &Names<'_>) -> String {
         ));
     }
     if unknown == 0 {
-        html.push_str(&format!(
-            "<article class=\"rp-cause\"><div class=\"rp-cause__head\"><h3 class=\"h3\">The run itself is open</h3></div>\
+        // The word `complete` is the scope, not a reason. When the cards above are the reason,
+        // no card says it twice; with no card at all the page says what it knows (#1622).
+        let said = cause(frame);
+        let reason = if said == "complete" {
+            (cards.is_empty()).then_some(
+                "No rule is UNKNOWN and the scope is complete, but the core does not call the run decided. \
+The JSON frame lists each gap.",
+            )
+        } else {
+            Some(said)
+        };
+        if let Some(reason) = reason {
+            html.push_str(&format!(
+                "<article class=\"rp-cause\"><div class=\"rp-cause__head\"><h3 class=\"h3\">The run itself is open</h3></div>\
 <p class=\"body-sm\">{}</p></article>",
-            escape(cause(frame))
-        ));
+                escape(reason)
+            ));
+        }
     }
     html.push_str("</section>\n");
     html
