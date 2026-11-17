@@ -165,9 +165,9 @@ fn summary(syntax: &Syntax) -> Vec<String> {
     out.push(format!("T {}", named(&syntax.ambient_top_level)));
     out.push(format!(
         "F module={} declaration={} script={}",
-        flag(syntax.module_file),
-        flag(syntax.declaration_file),
-        flag(syntax.script_mode)
+        flag(syntax.module_file()),
+        flag(syntax.declaration_file()),
+        flag(syntax.script_mode())
     ));
     out.push(format!("B {}", syntax.script_bindings.join(",")));
     out

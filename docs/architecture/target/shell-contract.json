@@ -86,6 +86,7 @@
       ],
       "public": [
         "archkeel.cli.core_exit:Outcome",
+        "archkeel.cli.core_exit:envelope",
         "archkeel.cli.core_exit:exit_for",
         "archkeel.cli.core_exit:outcome_of",
         "archkeel.cli.core_exit:require_baseline_part",
@@ -293,6 +294,8 @@
       "public": [
         "archkeel.cli.core_arguments:NotOnThisLine",
         "archkeel.cli.core_arguments:Options",
+        "archkeel.cli.core_arguments:OutputMode",
+        "archkeel.cli.core_arguments:output_mode",
         "archkeel.cli.core_arguments:command_of",
         "archkeel.cli.core_arguments:parse",
         "archkeel.cli.core_arguments:RELEASE",
@@ -602,6 +605,7 @@
       "decided_by": "architect",
       "public": [
         "archkeel.cli.core_json:CoreError",
+        "archkeel.cli.core_json:CoreExit",
         "archkeel.cli.core_json:Gap",
         "archkeel.cli.core_json:GapKind",
         "archkeel.cli.core_json:RequestMismatch",

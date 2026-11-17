@@ -323,16 +323,11 @@ fn base_record(
     let evidence = cited.cite(entry.rel, &base.span);
     // A name that a scope below the module declares is not the module symbol (AD-512).
     let candidates = if base.shadowed { 0 } else { candidates };
-    let (status, reason) = match candidates {
-        1 => (Status::Resolved, None),
-        0 => (
-            Status::Unresolved,
-            Some("Base is not a unique local classifier"),
-        ),
-        _ => (
-            Status::PartiallyResolved,
-            Some("multiple classifier definition sites share the target name"),
-        ),
+    let status = Status::of_candidates(candidates, candidates == 1);
+    let reason = match status {
+        Status::Resolved => None,
+        Status::Unresolved => Some("Base is not a unique local classifier"),
+        _ => Some("multiple classifier definition sites share the target name"),
     };
     let targets = if candidates > 0 {
         vec![qualified]

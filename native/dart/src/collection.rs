@@ -14,7 +14,7 @@ pub(crate) mod types;
 
 use crate::declarations::types as decl;
 use crate::declarations::work::Stop;
-use archkeel_facts::envelope::{Capabilities, FileFact, SectionName};
+use archkeel_facts::envelope::{Capabilities, Coverage, FileFact, SectionName};
 use archkeel_facts::vocab::ExceptionName;
 use builder::{file_span, Builder};
 use types::{Input, Output, Source};
@@ -198,7 +198,8 @@ impl<'a> Builder<'a> {
         self.output.selected_files = self.by_path.keys().cloned().collect();
         self.output.files_read = self.files.len();
         self.output.files_parsed = self.parsed.len();
-        self.output.full_scope = self.decl.gaps.is_empty() && !self.files.is_empty();
+        self.output.full_scope =
+            Coverage::is_full(self.decl.gaps.len(), 0) && !self.files.is_empty();
         Ok(())
     }
 

@@ -4,3 +4,4 @@ roots = ["src"]
 namespace = "nestjs.realworld"
 contract = "architecture-contract.json"
 tsconfig = "tsconfig.build.json"
+exclude_test_sources = true

@@ -23,6 +23,17 @@ const ALIASED: [&str; 4] = ["Object", "Reflect", "location", "open"];
 /// The members that read a descriptor, and so the member `constructor`, with a key.
 const REFLECTION: [&str; 2] = ["getOwnPropertyDescriptor", "getOwnPropertyDescriptors"];
 
+/// The members of `Object` that write members of their first argument.
+const REFLECTIVE_OBJECT: [&str; 4] = [
+    "assign",
+    "defineProperty",
+    "defineProperties",
+    "setPrototypeOf",
+];
+
+/// The members of `Reflect` that write a member or the prototype of their first argument.
+const REFLECTIVE_REFLECT: [&str; 3] = ["set", "defineProperty", "setPrototypeOf"];
+
 fn call_member(name: &str) -> bool {
     matches!(name, "call" | "apply" | "bind")
 }
@@ -71,11 +82,20 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// pattern is an amplifier, each other form is direct.
     pub(crate) fn open_form(&self, node: Node<'t>) -> Option<Reach> {
         let direct = match node.kind() {
-            "subscript_expression" => self.runtime_key_call(node) || self.member_use(node),
+            "subscript_expression" => {
+                self.runtime_key_call(node) || self.member_use(node) || self.looked_up_call(node)
+            }
             "member_expression" => self.member_use(node) || self.location_value(node),
             "identifier" | "shorthand_property_identifier" => self.alias_escape(node),
             "call_expression" => {
-                self.runtime_reflection(node) || self.location_call(node) || self.open_call(node)
+                let direct = self.runtime_reflection(node)
+                    || self.location_call(node)
+                    || self.open_call(node);
+                return if direct {
+                    Some(Reach::Direct)
+                } else {
+                    self.reflective_write(node)
+                };
             }
             "shorthand_property_identifier_pattern" | "pair_pattern" => {
                 return self.window_pattern(node);
@@ -350,6 +370,42 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             });
         let first = self.argument(call, 0);
         global && first.is_some_and(|first| literal(Some(first), tree.cx.source).is_none())
+    }
+
+    /// `Object.assign`, `Object.defineProperty`, `Object.defineProperties`,
+    /// `Object.setPrototypeOf`, `Reflect.set`, `Reflect.defineProperty` or
+    /// `Reflect.setPrototypeOf` on a value that the file does not make: it writes names that the
+    /// check cannot read (#1524). On a window value it is direct, on any other value an amplifier
+    /// form (a host entry can make the value the window).
+    fn reflective_write(&self, call: Node<'t>) -> Option<Reach> {
+        let tree = self.tree;
+        let (object, name) = self.member_call(call)?;
+        let callee = tree.cx.unwrapped(tree.field(call, F::Function)?);
+        let root = tree
+            .field(callee, F::Object)
+            .map(|o| tree.cx.unwrapped(o))?;
+        let free = root.kind() == "identifier" && bound_scope(tree, root, &object).is_none();
+        let writes = match object.as_str() {
+            "Object" => REFLECTIVE_OBJECT.contains(&name.as_str()),
+            "Reflect" => REFLECTIVE_REFLECT.contains(&name.as_str()),
+            _ => false,
+        };
+        if !free || !writes || tree.in_type(call) {
+            return None;
+        }
+        let Some(target) = self.argument(call, 0) else {
+            return Some(Reach::Amplified);
+        };
+        if target.kind() == "spread_element" {
+            return Some(Reach::Direct);
+        }
+        if self.proven_local(target) {
+            return None;
+        }
+        Some(
+            self.window_gate(target)
+                .map_or(Reach::Amplified, |_| Reach::Direct),
+        )
     }
 
     /// The object name and the member name of a call `object.name(…)`.

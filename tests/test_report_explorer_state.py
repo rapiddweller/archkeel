@@ -262,3 +262,126 @@ def test_back_restores_the_drawer_of_the_entry(site: str, page: Browser) -> None
     state = page.state()
     assert (state["scope"], state["drawer"]) == (None, "objects")
     assert page.evaluate("!!document.querySelector('#flow .ak-drawer[aria-label=\"objects\"]')")
+
+
+def theme(page: Browser) -> list[object]:
+    """The theme of the page, the pressed header button, and the URL."""
+    return page.evaluate(
+        "[document.documentElement.dataset.theme,"
+        " document.querySelector('[data-ak-theme][aria-pressed=\"true\"]')?.dataset.akTheme,"
+        " location.search.includes('theme=')]"
+    )
+
+
+def test_back_keeps_the_theme_that_the_user_chose(site: str, page: Browser) -> None:
+    # E2: the header owns the theme; Back set the theme of the old URL again.
+    page.color_scheme("dark")
+    page.open(f"{site}/system.html")
+    page.evaluate("localStorage.removeItem('archkeel-theme')")
+    page.open(f"{site}/system.html")
+    click(page, '[data-ak-theme="light"]')
+    page.evaluate("ArchkeelFlow.dispatch({ type: 'openLevel', id: 'PART:shell' })")
+    page.settle()
+    page.evaluate("history.back()")
+    page.settle()
+    assert theme(page) == ["light", "light", False]
+
+
+def test_a_chosen_theme_stays_after_a_reload_and_adds_no_entry(site: str, page: Browser) -> None:
+    page.color_scheme("dark")
+    page.open(f"{site}/system.html")
+    page.evaluate("localStorage.removeItem('archkeel-theme')")
+    page.open(f"{site}/system.html")
+    entries = page.evaluate("history.length")
+    click(page, '[data-ak-theme="light"]')
+    assert page.evaluate("history.length") == entries
+    page.open(page.evaluate("location.href"))
+    assert theme(page) == ["light", "light", False]
+    assert page.state()["theme"] == "light"
+
+
+def test_a_theme_action_goes_through_the_owner_of_the_theme(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html")
+    page.evaluate("ArchkeelFlow.dispatch({ type: 'setTheme', theme: 'dark' })")
+    assert theme(page) == ["dark", "dark", False]
+    assert page.evaluate("localStorage.getItem('archkeel-theme')") == "dark"
+
+
+CRUMBS = """(() => {
+  const bar = document.querySelector('#flow .flow-breadcrumb'), box = bar.getBoundingClientRect();
+  return [...bar.querySelectorAll('button')].map((crumb) => {
+    const own = crumb.getBoundingClientRect();
+    return { text: crumb.textContent, title: crumb.title,
+      current: crumb.getAttribute('aria-current'),
+      whole: crumb.scrollWidth <= crumb.clientWidth + 1 && own.left >= box.left - 1
+        && own.right <= box.right + 1 };
+  });
+})()"""
+
+
+def test_alt_arrow_up_goes_up_one_level_from_the_current_crumb(site: str, page: Browser) -> None:
+    # E3: up is derived from the path; the current crumb says so.
+    page.open(f"{site}/system.html?scope=LAYER%3APART%3Ashell%3Aprocess")
+    crumbs = page.evaluate(CRUMBS)
+    assert [crumb["current"] for crumb in crumbs] == [None, None, "page"]
+    page.press("ArrowUp", code="ArrowUp", modifiers=1)
+    page.settle()
+    state = page.state()
+    assert (state["scope"], state["selection"]) == ("PART:shell", "LAYER:PART:shell:process")
+    page.evaluate("history.back()")
+    page.settle()
+    assert page.state()["scope"] == "LAYER:PART:shell:process"
+
+
+def test_the_current_crumb_stays_whole_in_fullscreen(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html?scope=LAYER%3APART%3Acore%3Amodel")
+    click(page, "#flow .flow-fullscreen")
+    crumbs = page.evaluate(CRUMBS)
+    click(page, "#flow .flow-fullscreen")
+    assert crumbs[-1]["whole"], crumbs
+    assert [crumb["title"] for crumb in crumbs] == ["System", "Rust core", "model"]
+
+
+def test_fullscreen_and_the_current_view_key_keep_the_selection(site: str, page: Browser) -> None:
+    # E3: a relayout is not a view change; it kept the box but dropped the selected module.
+    page.open(f"{site}/system.html?scope=SHELL-ARGUMENTS")
+    module = first_module(page)
+    page.evaluate(f"ArchkeelFlow.dispatch({{ type: 'select', id: {module!r} }})")
+    entries = page.evaluate("history.length")
+    click(page, "#flow .flow-fullscreen")
+    page.settle()
+    assert page.state()["module"] == module
+    page.press("1")
+    page.settle()
+    click(page, "#flow .flow-fullscreen")
+    state = page.state()
+    assert (state["module"], state["selection"]) == (module, module)
+    assert page.evaluate("history.length") == entries
+
+
+def test_escape_closes_one_layer_at_a_time(site: str, page: Browser) -> None:
+    # E3: overlay > popover > drawer > expanded > selection.
+    page.open(f"{site}/system.html?selected=PART%3Acore&drawer=objects")
+    click(page, "#flow .flow-fullscreen")
+    click(page, '#flow [data-ak-pop][title="Share"]')
+    seen = []
+    for _ in range(5):
+        state = page.state()
+        seen.append((state["pop"], state["drawer"], state["expanded"], state["selection"]))
+        page.press("Escape")
+        page.settle()
+    assert seen == [
+        ("share", "objects", "fallback", "PART:core"),
+        (None, "objects", "fallback", "PART:core"),
+        (None, None, "fallback", "PART:core"),
+        (None, None, None, "PART:core"),
+        (None, None, None, None),
+    ]
+
+
+def test_a_route_notice_opens_details_through_the_state(site: str, page: Browser) -> None:
+    page.send("Page.navigate", url=f"{site}/system.html?scope=NOPE")
+    page.wait("document.getElementById('flow')?.dataset.layoutState === 'ready'")
+    state = page.state()
+    assert state["notice"] and state["details"] is True
+    assert page.evaluate("!document.querySelector('#flow .flow-inspector').hidden")

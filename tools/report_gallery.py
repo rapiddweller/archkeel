@@ -38,6 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from tools.fixture_tree import fixture_tree, needs_copy
 from tools.report_gallery_page import STATUSES, index
 from tools.report_product import (
     Contract,
@@ -117,18 +118,28 @@ def command(cli: Sequence[str], run: Mapping[str, Any], target: Path, form: str)
     return [*arguments, "--output", str(target), "--format", form]
 
 
-def _redact(path: Path) -> None:
-    """Name the repository `<repo>` in a written report: the path of the runner is not published."""
+def _redact(path: Path, copies: Mapping[str, str] | None = None) -> None:
+    """Name the repository `<repo>` in a written report: the path of the runner is not published.
+
+    `copies` maps the path of a temporary copy of a fixture to the name that the report shows.
+    """
     if not path.is_file():
         return
     data = path.read_bytes()
     for known in {str(ROOT), str(ROOT.resolve())}:
         data = data.replace(known.encode(), b"<repo>")
+    for known, name in (copies or {}).items():
+        data = data.replace(known.encode(), name.encode())
     path.write_bytes(data)
 
 
 def _reports(
-    cli: Sequence[str], run: Mapping[str, Any], folder: Path, stem: str, prefix: str
+    cli: Sequence[str],
+    run: Mapping[str, Any],
+    folder: Path,
+    stem: str,
+    prefix: str,
+    copies: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Write both reports of one run as `<stem>.json` and `<stem>.html`. Return its row."""
     row: dict[str, Any] = {"run": run, "links": []}
@@ -154,7 +165,7 @@ def _reports(
         row["error"] = f"{type(err).__name__}: {err}"[:300]
     # A link exists only for a file that the CLI wrote.
     for label, name in (("HTML", f"{stem}.html"), ("JSON", f"{stem}.json")):
-        _redact(folder / name)
+        _redact(folder / name, copies)
         if (folder / name).is_file():
             row["links"].append((label, f"{prefix}{name}"))
     return row
@@ -164,7 +175,43 @@ def build_run(cli: Sequence[str], run: Mapping[str, Any], out: Path) -> dict[str
     """Write both reports of one matrix run into its folder. Return its row."""
     folder = out / run["name"]
     folder.mkdir(parents=True)
-    return _reports(cli, run, folder, "report", f"{run['name']}/")
+    source = ROOT / "fixtures" / run["root"]
+    plant = run.get("plant") or {}
+    edits = plant.get("edits")
+    prefix = f"{run['name']}/"
+    if not needs_copy(source, edits):
+        return _reports(cli, run, folder, "report", prefix)
+    # A fixture with resolver inputs, or with a planted change, runs in a copy (AD-462).
+    with fixture_tree(source, edits) as tree:
+        shown = f"<repo>/fixtures/{run['root']}"
+        copies = {str(tree): shown, str(tree.resolve()): shown}
+        prepared = {**run, "root_path": str(tree)}
+        row = _reports(cli, prepared, folder, "report", prefix, copies)
+    if plant:
+        row["violation"] = violation_block(folder / "report.html", plant["rule"])
+    return row
+
+
+def violation_block(page: Path, rule: str) -> dict[str, str] | None:
+    """The block of the report page that lists a violation of `rule`: its anchor and its title.
+
+    The core writes one `rp-dos` block for each place in the code and lists each rule that fails
+    there. None when the page holds no such block.
+    """
+    if not page.is_file():
+        return None
+    text = page.read_text(encoding="utf-8")
+    blocks = re.split(r'(?=<article class="rp-dos" id="x\d+">)', text)
+    for block in blocks:
+        found = re.match(r'<article class="rp-dos" id="(x\d+)">', block)
+        if not found:
+            continue
+        # A block ends where its article ends; a rule id of a later part is not this block's.
+        body = block.split("</article>", 1)[0]
+        title = re.search(r'<h3 class="h3">(.*?)</h3>', body, re.DOTALL)
+        if title and html.escape(rule) in body:
+            return {"id": found.group(1), "title": html.unescape(re.sub(r"<[^>]+>", "", title[1]))}
+    return None
 
 
 def badge(row: Mapping[str, Any], label: str) -> dict[str, Any]:

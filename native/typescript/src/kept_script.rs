@@ -7,6 +7,7 @@
 use std::collections::HashSet;
 
 use crate::exports::Named;
+use crate::file_mode::FileMode;
 use crate::parse::Parsed;
 use crate::references::Form;
 use crate::script_types::Script;
@@ -16,11 +17,10 @@ use crate::source::Span;
 #[derive(Default)]
 pub(crate) struct ScriptFile {
     pub script: Script,
-    /// The file is a global script, and no other fact in the project reads it as a module
-    /// (`collect._file` clears a script that a resolver format or a `require` makes a module).
-    pub script_mode: bool,
-    pub module_file: bool,
-    pub declaration_file: bool,
+    /// The mode of the file after the project clears a script that a resolver format or a
+    /// `require` makes a module (`collect._file`): a `Script` only when no other fact reads it as
+    /// a module.
+    pub mode: FileMode,
     /// `collect._global_dependency_scope`: a file that can use a browser global.
     pub dependency_scope: bool,
     pub bindings: HashSet<String>,
@@ -38,7 +38,7 @@ impl ScriptFile {
             .references
             .iter()
             .any(|item| matches!(item.form, Form::Require | Form::ImportEquals));
-        let cleared = parsed.syntax.script_mode && (format_known || uses_loader);
+        let cleared = parsed.syntax.script_mode() && (format_known || uses_loader);
         let mut script = std::mem::take(&mut parsed.syntax.script);
         if cleared {
             script.globals.clear();
@@ -53,9 +53,7 @@ impl ScriptFile {
             .collect();
         Self {
             script,
-            script_mode: syntax.script_mode && !cleared,
-            module_file: syntax.module_file,
-            declaration_file: syntax.declaration_file,
+            mode: syntax.mode.cleared(cleared),
             dependency_scope,
             bindings: syntax.script_bindings.iter().cloned().collect(),
             ambient_globals: std::mem::take(&mut syntax.ambient_globals),

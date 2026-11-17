@@ -11,12 +11,14 @@ Never weaken a pinned verdict to make this test pass.
 from __future__ import annotations
 
 import tomllib
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
 from core_support import run
 
 from archkeel.cli import core_only
+from tools.fixture_tree import fixture_tree, needs_copy
 from tools.report_gallery import MATRIX, load_runs, summarize
 
 FIXTURES = MATRIX.parent
@@ -55,10 +57,14 @@ def test_the_release_core_gives_the_pinned_result(
     release_core: Path, monkeypatch: pytest.MonkeyPatch, entry: dict
 ) -> None:
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
-    arguments = [entry["command"], "--root", str(FIXTURES / entry["root"])]
-    if entry.get("config"):
-        arguments += ["--config", entry["config"]]
-    code, envelope = run(*arguments)
+    source = FIXTURES / entry["root"]
+    edits = entry.get("plant", {}).get("edits")
+    # A fixture with resolver inputs or a planted change runs in a copy, as the gallery runs it.
+    with fixture_tree(source, edits) if needs_copy(source, edits) else nullcontext(source) as root:
+        arguments = [entry["command"], "--root", str(root)]
+        if entry.get("config"):
+            arguments += ["--config", entry["config"]]
+        code, envelope = run(*arguments)
     found = summarize(envelope)
     assert found == entry["expect"], "the core result changed: update fixtures/matrix.json"
     assert code == entry["expect"]["exit"]

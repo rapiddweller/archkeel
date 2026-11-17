@@ -35,6 +35,7 @@ mod copy_local;
 mod declared;
 mod effects;
 mod excluded;
+mod external_loader;
 mod failures;
 mod globals_locals;
 mod globals_project;
@@ -55,6 +56,7 @@ mod lazy_table;
 mod lazy_value;
 mod lazy_writes;
 mod literal;
+mod module_scopes;
 mod module_uses;
 mod namespace;
 mod package_body;
@@ -259,6 +261,14 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         let (key, gap) = targets::hazard_gap(site, module, &id);
         sites.insert(key, gap);
     }
+    // #1519: a call of a value from outside the scan with a string that names a module of it.
+    for (index, range, target) in external_loader::find(modules, &stdlib, namespace) {
+        let module = &modules[index];
+        let id = module.evidence(&mut evidence, &range);
+        let kind = external_loader::EXTERNAL_LOADER;
+        let (key, gap) = targets::site_gap(kind, &target, &module.name, &id);
+        sites.insert(key, gap);
+    }
     unknowns.extend(found);
     unknowns.extend(sites.into_values());
     unknowns.extend(layout::problems(&snapshot.problems));
@@ -271,26 +281,26 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         &symbols.records,
         &symbols.dead_sites,
     );
-    let coverage = Coverage {
-        files_parsed: modules.len() as u64,
-        files_read: parsed.files_read,
-        full_scope: modules.len() == scope.selected.len() && unknowns.is_empty(),
-        gaps: unknowns.clone(),
-        measures: Some(
-            modules
-                .iter()
-                .zip(&binders)
-                .map(|(module, binders)| {
-                    let mut row =
-                        call_count::count(module, binders, &symbols.calls, &count_context);
-                    (row.typing_positions, row.untyped_private_accesses) =
-                        typing_count::count(module, binders);
-                    row
-                })
-                .collect(),
-        ),
-        selected_files: scope.selected.clone(),
-    };
+    let mut coverage = Coverage::of(
+        (parsed.files_read as usize, modules.len()),
+        scope.selected.clone(),
+        unknowns.clone(),
+    );
+    // A selected module that did not parse keeps the scope from being full, gap or not.
+    coverage.full_scope =
+        Coverage::is_full(unknowns.len(), scope.selected.len().abs_diff(modules.len()));
+    coverage.measures = Some(
+        modules
+            .iter()
+            .zip(&binders)
+            .map(|(module, binders)| {
+                let mut row = call_count::count(module, binders, &symbols.calls, &count_context);
+                (row.typing_positions, row.untyped_private_accesses) =
+                    typing_count::count(module, binders);
+                row
+            })
+            .collect(),
+    );
     Ok(Survey {
         targets: resolved.targets,
         files,

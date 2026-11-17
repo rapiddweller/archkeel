@@ -105,11 +105,34 @@ def _status_of(row: Mapping[str, Any]) -> str | None:
     return None if summary is None else str(summary["status"])
 
 
+def _planted(row: Mapping[str, Any]) -> str:
+    """The planted change of a violation scenario and the block of the report that shows it.
+
+    The link leads to the violation block of the report (`report.html#x1`). When the report holds
+    no such block, the card says so and gives no link.
+    """
+    plant = row["run"].get("plant")
+    if not plant:
+        return ""
+    where, line, rule = (html.escape(str(plant[key])) for key in ("where", "line", "rule"))
+    text = f'<br><span class="caption">Planted in <code>{where}</code>: <code>{line}</code>. '
+    block = row.get("violation")
+    report = dict(row["links"]).get("HTML")
+    if not block or not report:
+        return (
+            text
+            + f'<span class="ak-t-fail">No violation block of {rule} in the report.</span></span>'
+        )
+    target = html.escape(f"../{report}#{block['id']}", quote=True)
+    title = html.escape(block["title"])
+    return text + f'Caught by <code>{rule}</code>: <a href="{target}">{title}</a></span>'
+
+
 def _scenario(row: Mapping[str, Any]) -> str:
     run = row["run"]
     about = html.escape(str(run.get("about", "")))
     line = intent_line(run, _status_of(row))
-    return f'<td class="body-sm">{about}<br><span class="caption">{line}</span></td>'
+    return f'<td class="body-sm">{about}<br><span class="caption">{line}</span>{_planted(row)}</td>'
 
 
 def _section(key: str, title: str, lede: str, body: str, count: int) -> str:
