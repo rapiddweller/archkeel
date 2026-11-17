@@ -24,9 +24,16 @@ pub(crate) enum Uri {
     Unsupported(&'static str),
 }
 
-/// Classify `uri` of a directive in the source `importer`. `own` is the package name of the root
-/// `pubspec.yaml`, empty when there is none: then a `package:` URI is never local.
+/// Classify `uri` of a directive in the source `importer`, for a package at the snapshot root.
+#[cfg(test)]
 pub(crate) fn classify(importer: &str, uri: &str, own: &str) -> Uri {
+    classify_in(importer, uri, own, "")
+}
+
+/// Classify `uri` of a directive in the source `importer`. `own` is the package name of the
+/// package `pubspec.yaml`, empty when there is none: then a `package:` URI is never local. `dir`
+/// is the package directory below the snapshot root, empty for the root (#1539).
+pub(crate) fn classify_in(importer: &str, uri: &str, own: &str, dir: &str) -> Uri {
     // A percent escape, a backslash and a NUL can name one file in more than one way.
     if uri.is_empty() || uri.contains(['\\', '\0', '?', '#', '%']) {
         return Uri::Unsupported(
@@ -37,7 +44,7 @@ pub(crate) fn classify(importer: &str, uri: &str, own: &str) -> Uri {
     match scheme.as_ref().map(|(head, rest)| (head.as_str(), *rest)) {
         Some(("dart", name)) if is_identifier(name) => Uri::Builtin(format!("dart.{name}")),
         Some(("dart", _)) => Uri::Unsupported("the dart: URI is not one library name"),
-        Some(("package", rest)) => package(rest, own),
+        Some(("package", rest)) => package(rest, own, dir),
         Some(_) => Uri::Unsupported("the URI scheme is not dart: or package:"),
         None if uri.starts_with('/') => Uri::Unsupported("the URI is an absolute path"),
         None => {
@@ -51,7 +58,7 @@ pub(crate) fn classify(importer: &str, uri: &str, own: &str) -> Uri {
     }
 }
 
-fn package(rest: &str, own: &str) -> Uri {
+fn package(rest: &str, own: &str, dir: &str) -> Uri {
     let Some((name, path)) = rest.split_once('/') else {
         return Uri::Unsupported("the package: URI has no path");
     };
@@ -60,10 +67,12 @@ fn package(rest: &str, own: &str) -> Uri {
     }
     if name == own {
         let joined = normpath(&format!("lib/{path}"));
-        return if within("lib", &joined) {
+        return if !within("lib", &joined) {
+            Uri::Outside
+        } else if dir.is_empty() {
             Uri::Local(joined)
         } else {
-            Uri::Outside
+            Uri::Local(format!("{dir}/{joined}"))
         };
     }
     let normalized = normpath(path);

@@ -3277,6 +3277,7 @@
         "native.archkeel_dart_collector.discover:PACKAGE_FILES",
         "native.archkeel_dart_collector.discover:Source",
         "native.archkeel_dart_collector.discover:discover",
+        "native.archkeel_dart_collector.discover:pubspec_path",
         "native.archkeel_dart_collector.discover:scan_roots"
       ],
       "decided_by": "architect"
@@ -7148,6 +7149,8 @@
       "dependency": "saphyr",
       "allowed_sources": [
         "native.archkeel_dart_collector.import_survey.package",
+        "native.archkeel_dart_collector.import_survey.workspace",
+        "native.archkeel_dart_collector.import_survey.pubspec_keys",
         "native.archkeel_dart_collector.cargo_toml"
       ],
       "rationale": "Only the Dart package survey reads YAML package metadata.",
