@@ -444,13 +444,11 @@ the same facts only for files under the limit.
 
 ## Rust profile
 
-Open false PASS, not accepted (AD-502): a registry or git dependency named like a crate of the
-workspace is no edge only when no manifest below the scan roots has `[patch]` or `[replace]` and no
-`.cargo/config.toml` or `.cargo/config` of a manifest directory or above it has `[patch]`,
-`[replace]`, `paths`, `[source]` or `include` (then the whole scan keeps the old edge, with the
-false FAIL of #946). A redirect that the collector does not read gives PASS where the edge is real:
-`$CARGO_HOME/config.toml`, a config above the scan root, the `CARGO_*` environment, `--config` on
-the command line, and a `git` entry that points at the same repository.
+A registry or git dependency named like a crate of the workspace is a pair gap from the module of
+each reference to the module that the path reaches in that crate (AD-704): a redirect in or outside
+the repository (`$CARGO_HOME/config.toml`, the `CARGO_*` environment, `--config`, a patch) or a
+`git` URL of this repository can make it that crate. The pair is UNKNOWN until the contract allows
+it, also where a patch in the repository makes the edge certain.
 
 The native Rust collector reads the crate edges: a `use` path or a qualified path whose first
 segment names another crate, and the module edges inside a crate: a path that starts at `crate`,
