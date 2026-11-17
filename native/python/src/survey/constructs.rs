@@ -11,7 +11,7 @@ use archkeel_facts::sections::SignalFact;
 use archkeel_facts::vocab::{Area, ConstructForm, EvidenceClass, Signal};
 use archkeel_facts::{ConstructFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{CmpOp, ExceptHandler, Expr, Stmt};
+use ruff_python_ast::{CmpOp, ExceptHandler, Expr, Parameter, Stmt};
 use ruff_text_size::Ranged;
 
 use super::binders::Binders;
@@ -129,8 +129,28 @@ impl<'a> Visitor<'a> for Walk<'_> {
             self.owner.push('.');
             self.owner.push_str(name);
         }
+        match stmt {
+            Stmt::FunctionDef(node) => {
+                if let Some(annotation) = &node.returns {
+                    self.annotation(annotation);
+                }
+            }
+            Stmt::AnnAssign(node) => self.annotation(&node.annotation),
+            _ => {}
+        }
         visitor::walk_stmt(self, stmt);
         self.owner.truncate(length);
+    }
+
+    fn visit_parameter(&mut self, parameter: &'a Parameter) {
+        if let Some(annotation) = &parameter.annotation {
+            let length = self.owner.len();
+            self.owner.push(':');
+            self.owner.push_str(parameter.name.as_str());
+            self.annotation(annotation);
+            self.owner.truncate(length);
+        }
+        visitor::walk_parameter(self, parameter);
     }
 
     fn visit_except_handler(&mut self, handler: &'a ExceptHandler) {
@@ -212,6 +232,29 @@ impl<'a> Visitor<'a> for Walk<'_> {
 }
 
 impl Walk<'_> {
+    fn annotation(&mut self, annotation: &Expr) {
+        struct Any(bool);
+        impl<'a> Visitor<'a> for Any {
+            fn visit_expr(&mut self, expr: &'a Expr) {
+                self.0 |= matches!(expr, Expr::Name(name) if name.id.as_str() == "Any")
+                    || matches!(expr, Expr::Attribute(attr) if attr.attr.as_str() == "Any");
+                visitor::walk_expr(self, expr);
+            }
+        }
+        let mut found = Any(false);
+        found.visit_expr(annotation);
+        if !found.0 {
+            return;
+        }
+        let text = &self.module.text()[annotation.start().to_usize()..annotation.end().to_usize()];
+        self.signal(
+            annotation,
+            "any_annotation",
+            "any_annotation",
+            SignalFact::AnyAnnotation(self.signal_data(Signal::AnyAnnotation, Some(text))),
+        );
+    }
+
     fn call(&mut self, expr: &Expr, call: &ruff_python_ast::ExprCall) {
         self.dict_complete = false;
         self.compare_complete = false;
@@ -232,34 +275,33 @@ impl Walk<'_> {
     }
 
     fn getattr(&mut self, node: &impl Ranged) {
+        self.signal(
+            node,
+            "getattr_call",
+            "getattr",
+            SignalFact::GetattrCall(self.signal_data(Signal::GetattrCall, None)),
+        );
+    }
+
+    fn signal_data(&self, signal: Signal, annotation: Option<&str>) -> SignalData {
+        SignalData {
+            annotation: annotation.map(str::to_owned),
+            expression: None,
+            line: None,
+            owner: self.owner.clone(),
+            positions: None,
+            qualified_name: None,
+            signal,
+            statement: None,
+            tag: None,
+        }
+    }
+
+    fn signal(&mut self, node: &impl Ranged, kind: &str, name: &str, data: SignalFact) {
         let place = self.module.location(node);
         let evidence = self.module.evidence(self.evidence, node);
-        let id = stable_id(
-            "TYPE",
-            &[
-                Part::Text(&self.module.rel),
-                Part::Number(place.line),
-                Part::Number(place.column),
-                Part::Text("getattr_call"),
-            ],
-        );
-        let record = self.make(
-            id,
-            evidence,
-            "getattr",
-            Area::TypeArchitecture,
-            SignalFact::GetattrCall(SignalData {
-                annotation: None,
-                expression: None,
-                line: None,
-                owner: self.owner.clone(),
-                positions: None,
-                qualified_name: None,
-                signal: Signal::GetattrCall,
-                statement: None,
-                tag: None,
-            }),
-        );
+        let id = self.site_id("TYPE", &place, kind);
+        let record = self.make(id, evidence, name, Area::TypeArchitecture, data);
         self.signals.push(record);
     }
 
@@ -292,17 +334,21 @@ impl Walk<'_> {
         name: &str,
         data: ConstructFact,
     ) {
-        let id = stable_id(
-            "CONSTRUCT",
+        let id = self.site_id("CONSTRUCT", &place, kind);
+        let record = self.make(id, evidence, name, Area::Constructs, data);
+        self.records.push(record);
+    }
+
+    fn site_id(&self, prefix: &str, place: &Location, kind: &str) -> String {
+        stable_id(
+            prefix,
             &[
                 Part::Text(&self.module.rel),
                 Part::Number(place.line),
                 Part::Number(place.column),
                 Part::Text(kind),
             ],
-        );
-        let record = self.make(id, evidence, name, Area::Constructs, data);
-        self.records.push(record);
+        )
     }
 
     fn make<D>(&self, id: String, evidence: String, name: &str, area: Area, data: D) -> Record<D> {
