@@ -31,11 +31,14 @@
 
 use std::collections::{HashMap, HashSet};
 
+use archkeel_facts::ids::ModuleName;
 use archkeel_facts::pyminor::PyMinor;
+use archkeel_facts::ImportFact;
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::{Entry, Snapshot};
 
 use super::binders::Binders;
+use super::class_writes::ClassWrites;
 use super::imports;
 use super::lazy_cover::Sources;
 use crate::discover::is_test_source;
@@ -76,22 +79,26 @@ struct Files {
 /// The modules of `scan` that code of the repository outside the scan can write.
 pub(super) fn written(
     snapshot: &mut Snapshot,
-    scan: &mut Vec<Module>,
-    selected: &[String],
+    (scan, selected): (&mut Vec<Module>, &[String]),
     namespace: &str,
+    writes: &mut ClassWrites,
 ) -> HashSet<String> {
     let names: HashSet<String> = scan.iter().map(|module| module.name.clone()).collect();
     let selected: HashSet<&str> = selected.iter().map(String::as_str).collect();
     let mut files = walk(snapshot, &selected);
     let mut outside = Vec::new();
     for rel in &files.python {
-        match read(snapshot, rel, outside.len()) {
+        match read(snapshot, rel, Vec::len(&outside)) {
             Read::Module(module) => outside.push(*module),
             Read::Silent => {}
             Read::Opaque => files.native.push(rel.clone()),
         }
     }
     let mut found = native::named(snapshot, &files.native, &names);
+    // #1523: a store of an outside file can give a class of the scan a name (AD-802).
+    for module in &outside {
+        writes.add(&module.tree);
+    }
     let binders: Vec<Binders> = outside
         .iter()
         .map(|module| Binders::of(&module.tree))
@@ -152,13 +159,13 @@ fn escaped(scan: &mut Vec<Module>, files: Vec<Module>, namespace: &str) -> HashS
         .iter()
         .map(|module| first_part(&module.name).to_owned())
         .collect();
-    let count = scan.len();
+    let count = Vec::len(scan);
     scan.extend(files.into_iter().filter(|module| {
         parts
             .iter()
-            .any(|part| module.text().contains(part.as_str()))
+            .any(|part| Module::text(module).contains(String::as_str(part)))
     }));
-    if scan.len() == count {
+    if Vec::len(scan) == count {
         return HashSet::new();
     }
     let binders: Vec<Binders> = scan
@@ -175,12 +182,19 @@ fn escaped(scan: &mut Vec<Module>, files: Vec<Module>, namespace: &str) -> HashS
     let all = super::uses::settled(scan, &records.records, &mut sources.clone());
     scan.truncate(count);
     let own: Vec<_> = (records.records.into_iter())
-        .filter(|record| !outside(record.data.data().source_module.as_str()))
+        .filter(|record| {
+            !outside(ModuleName::as_str(
+                &ImportFact::data(&record.data).source_module,
+            ))
+        })
         .collect();
     let inside = super::uses::settled(scan, &own, &mut sources);
-    let names: HashSet<&str> = scan.iter().map(|module| module.name.as_str()).collect();
+    let names: HashSet<&str> = scan
+        .iter()
+        .map(|module| String::as_str(&module.name))
+        .collect();
     (all.into_iter())
-        .filter(|name| names.contains(name.as_str()) && !inside.contains(name))
+        .filter(|name| names.contains(String::as_str(name)) && !inside.contains(name))
         .collect()
 }
 
@@ -194,14 +208,17 @@ fn walk(snapshot: &mut Snapshot, selected: &HashSet<&str>) -> Files {
     let mut files = Files::default();
     let mut pending = vec![String::new()];
     while let Some(directory) = pending.pop() {
-        let Some(entries) = snapshot.listing(if directory.is_empty() {
+        let Some(entries) = snapshot.listing(if String::is_empty(&directory) {
             "."
         } else {
             &directory
         }) else {
             continue;
         };
-        let names: HashMap<&str, Entry> = entries.iter().map(|(n, e)| (n.as_str(), *e)).collect();
+        let names: HashMap<&str, Entry> = entries
+            .iter()
+            .map(|(n, e)| (String::as_str(n), *e))
+            .collect();
         if MARKERS
             .iter()
             .any(|marker| names.get(marker) == Some(&Entry::File))
@@ -211,8 +228,10 @@ fn walk(snapshot: &mut Snapshot, selected: &HashSet<&str>) -> Files {
         for (name, entry) in &entries {
             let rel = join(&directory, name);
             match entry {
-                Entry::Directory if !SKIPPED.contains(&name.as_str()) => pending.push(rel),
-                Entry::File if !selected.contains(rel.as_str()) && !is_test_source(&rel) => {
+                Entry::Directory if !SKIPPED.contains(&String::as_str(name)) => pending.push(rel),
+                Entry::File
+                    if !selected.contains(String::as_str(&rel)) && !is_test_source(&rel) =>
+                {
                     files.add(rel);
                 }
                 _ => {}

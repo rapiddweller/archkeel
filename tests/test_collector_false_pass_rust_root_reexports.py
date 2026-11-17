@@ -1,12 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""A path through a re-exported module or crate root names the module at its end (#1517, AD-772).
+"""A path through a re-exported module or crate root names the module at its end (#1517, AD-802).
 
 In `crate::c::other::b::g()`, `other` can be a `use` of `c` that names a module, the crate root
 (`crate`, an alias of `extern crate self`), another crate of the workspace, or a name that a glob
 of `c` brings in. rustc then resolves the path into `b`, so a rule that forbids `a -> b` may never
-PASS. Before AD-772, the module resolver stopped at `c` and each form below gave a false PASS.
+PASS. Before AD-802, the module resolver stopped at `c` and each form below gave a false PASS.
 `cargo check` accepts each plant.
 """
 
