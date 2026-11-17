@@ -167,3 +167,24 @@ fn every_explorer_payload_has_an_atlas() {
     let page = document(&json!({"status": "PASS"}));
     assert!(!page.contains("id=\"flow-data\""));
 }
+
+// The Explorer names the result of the run in the words of its verdict (AD-764), not the 4.0.1
+// "observation", which only said that a list of the topology was cut by its budget.
+#[test]
+fn the_explorer_names_the_result_of_the_run_and_no_observation() {
+    let premised = json!({"status": "PASS", "topology": components(2, &[]),
+        "rules": {"R": ["unused_public", "PASS"]},
+        "premises": {"R": [{"kind": "external_user", "subject": "m.f"}]},
+        "assuming": "1 stated external user"});
+    let plain = json!({"status": "PASS", "topology": components(2, &[])});
+    let open = json!({"status": "UNKNOWN", "topology": components(2, &[])});
+    for (frame, result) in [
+        (premised, "PASS assuming 1 stated external user"),
+        (plain, "PASS"),
+        (open, "UNKNOWN"),
+    ] {
+        let data = payload(&document(&frame));
+        assert_eq!(data["atlas"]["result"], result);
+        assert!(data["atlas"].get("observation_complete").is_none());
+    }
+}
