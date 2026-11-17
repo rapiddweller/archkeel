@@ -90,3 +90,25 @@ def test_ci_runs_on_main_only_and_a_newer_push_cancels_the_older_run() -> None:
         assert "pull_request:" not in text.split("\nconcurrency:\n", 1)[0], name
         assert "draft" not in text, name
         assert group in text, name
+
+
+def test_a_red_that_began_the_day_before_carries_into_the_day() -> None:
+    """AD-736: the red of the night before counts from midnight, not only the runs of `day`."""
+    yesterday = [
+        {
+            **_run(8, "Full verification", "22:00:00", "22:30:00", "main", conclusion="failure"),
+            "createdAt": "2026-11-09T22:00:00Z",
+            "updatedAt": "2026-11-09T22:30:00Z",
+        }
+    ]
+    line = daily_line(yesterday, lambda run_id: [], DAY, NOW)
+    assert line.endswith("red main 20.0 h")  # 00:00 to NOW 20:00, still open
+
+
+def test_a_timed_out_full_run_is_red_and_a_cancelled_one_is_not() -> None:
+    timed = [_run(9, "Full verification", "10:00:00", "10:40:00", "main", conclusion="timed_out")]
+    assert daily_line(timed, lambda run_id: [], DAY, NOW).endswith("red main 10.0 h")
+    cancelled = [
+        _run(9, "Full verification", "10:00:00", "10:40:00", "main", conclusion="cancelled")
+    ]
+    assert daily_line(cancelled, lambda run_id: [], DAY, NOW).endswith("red main 0.0 h")

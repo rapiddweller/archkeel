@@ -7,6 +7,62 @@
 use super::*;
 
 #[test]
+fn direct_metadata_version_reads_keep_the_import_gap() {
+    for source in [
+        "import importlib.metadata\nx = importlib.metadata.version('pip')\n",
+        "import importlib.metadata\nx = importlib.metadata.PackageNotFoundError\n",
+        "import importlib.metadata\nx = importlib.metadata.distribution('pip')\n",
+        "from importlib import metadata as m\nx = m.distributions()\n",
+        "from importlib import metadata as m\nx = m.version('pip')\n",
+        "import importlib.metadata as m\nx = m.version('pip')\n",
+    ] {
+        let tree = crate::test_tree(source, 12).expect("valid probe");
+        let found = sites(
+            &tree,
+            Proof::default(),
+            &Binders::of(&tree),
+            &HashSet::new(),
+        );
+        assert_eq!(
+            found
+                .iter()
+                .filter(|site| site.detail == "importlib.metadata")
+                .count(),
+            1,
+            "{source}"
+        );
+        assert!(
+            found
+                .iter()
+                .any(|site| site.detail == "importlib.metadata" && site.door.is_none()),
+            "{source}"
+        );
+    }
+    for source in [
+        "import importlib.metadata\nimportlib.metadata.version = replacement\n",
+        "import importlib.metadata\nimportlib = other\nx = importlib.metadata.version\n",
+        "import importlib.metadata\nfrom elsewhere import *\nx = importlib.metadata.version\n",
+        "import importlib.metadata\nx = importlib.metadata.version.other\n",
+        "import importlib\nx = importlib.metadata.version\n",
+    ] {
+        let tree = crate::test_tree(source, 12).expect("valid probe");
+        let found = sites(
+            &tree,
+            Proof::default(),
+            &Binders::of(&tree),
+            &HashSet::new(),
+        );
+        assert!(
+            found.iter().any(|site| site.detail == "importlib.metadata"),
+            "{source}"
+        );
+        if !source.starts_with("import importlib\n") {
+            assert!(found.len() >= 2, "{source}");
+        }
+    }
+}
+
+#[test]
 fn imported_inert_attribute_keeps_its_import_gap() {
     for source in [
         "from importlib.abc import Traversable\ndef f() -> Traversable: pass\n",

@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 
 use proc_macro2::{TokenStream, TokenTree};
 
+use crate::macro_public::{head, item_start, public_item, type_name, Arm, Items};
 use crate::tokens::{called, holds_word, is_punct, plain, writes_use, MAX_DEPTH};
 
 /// What the expansion of a `macro_rules!` body writes at the item level of the module of its call
@@ -35,6 +36,51 @@ pub(crate) struct ItemLevel {
     /// inherent impl) and its self type. A name is one identifier or a metavariable (`$name`);
     /// any other form (a path, a reference, a tuple) is the empty string, which no proof anchors.
     pub impls: BTreeSet<(Option<String>, String)>,
+    /// Each item at item level that the expansion may declare public (`pub`, or a `$vis`
+    /// metavariable): its kind (`fn`, `const`, `static`, `type`, a type keyword, `macro`, or
+    /// `mod`, whose items are not read), its name or metavariable, and whether a `$vis`
+    /// metavariable gives the visibility (#1450).
+    pub public: BTreeSet<(String, String, bool)>,
+    /// Each item-level call: the macro name and the leading literal tokens of its input.
+    pub item_calls: Vec<(String, Vec<String>)>,
+    /// The arms, each with the leading literal tokens of its matcher (#1450).
+    pub arms: Vec<Arm>,
+    /// A metavariable starts an item at item level: the expansion may write items of the call
+    /// tokens (`$($t)*`, `$pub $struct $name`), which only the call shows (#1450).
+    pub opaque: bool,
+}
+
+/// True when an input with the literal head `input` may match an arm with the head `arm`.
+fn may_match(arm: &[String], input: &[String]) -> bool {
+    arm.iter().zip(input).all(|(a, b)| a == b)
+}
+
+/// The items that a call of the macro `own` with the input head `input` may publish at item
+/// level: the arms that the head may match, and each arm that an item-level call of `own` in
+/// one of them may match (#1450).
+pub(crate) fn published(level: &ItemLevel, own: &str, input: &[String]) -> (Items, bool) {
+    let mut reached = vec![false; level.arms.len()];
+    let mut heads = vec![input.to_vec()];
+    while let Some(input) = heads.pop() {
+        for (at, arm) in level.arms.iter().enumerate() {
+            if reached[at] || !may_match(&arm.head, &input) {
+                continue;
+            }
+            reached[at] = true;
+            let own_calls = arm.item_calls.iter().filter(|(name, _)| name == own);
+            heads.extend(own_calls.map(|(_, head)| head.clone()));
+        }
+    }
+    let arms: Vec<&Arm> = (level.arms.iter().zip(reached))
+        .filter_map(|(arm, hit)| hit.then_some(arm))
+        .collect();
+    let opaque = arms.iter().any(|arm| arm.opaque);
+    (
+        arms.iter()
+            .flat_map(|arm| arm.public.iter().cloned())
+            .collect(),
+        opaque,
+    )
 }
 
 impl ItemLevel {
@@ -69,19 +115,6 @@ impl ItemLevel {
 fn anchored((tr, ty): &(Option<String>, String), declared: &impl Fn(&str) -> bool) -> bool {
     let written = |name: &str| !name.is_empty() && !name.starts_with('$') && declared(name);
     written(ty) || tr.as_deref().is_some_and(written)
-}
-
-/// The name of a type at `at`: an identifier, or `$` and a metavariable.
-fn type_name(tokens: &[TokenTree], at: usize) -> Option<String> {
-    match (tokens.get(at), tokens.get(at + 1)) {
-        (Some(TokenTree::Punct(dollar)), Some(TokenTree::Ident(name)))
-            if dollar.as_char() == '$' =>
-        {
-            Some(format!("${}", plain(name)))
-        }
-        (Some(TokenTree::Ident(name)), _) => Some(plain(name)),
-        _ => None,
-    }
 }
 
 /// The trait and the self type of the `impl` at `at`, up to its body. Generic parameters and
@@ -132,6 +165,19 @@ pub(crate) fn item_level(rules: TokenStream) -> ItemLevel {
             found.path_calls |= arm.path_calls;
             found.defines_macros |= arm.defines_macros;
             found.calls.extend(arm.calls);
+            found.public.extend(arm.public.iter().cloned());
+            found.opaque |= arm.opaque;
+            let matcher = match at.checked_sub(3).map(|i| &tokens[i]) {
+                Some(TokenTree::Group(group)) => head(group.stream()),
+                _ => Vec::new(),
+            };
+            found.arms.push(Arm {
+                head: matcher,
+                public: arm.public,
+                item_calls: arm.item_calls.clone(),
+                opaque: arm.opaque,
+            });
+            found.item_calls.extend(arm.item_calls);
             let defines = arm.defines;
             let own = arm
                 .impls
@@ -141,6 +187,60 @@ pub(crate) fn item_level(rules: TokenStream) -> ItemLevel {
         }
     }
     found
+}
+
+/// A `pub` or a metavariable at `at`: the public item that it declares, or, for a metavariable at
+/// the start of an item that is no visibility, an item that the call tokens may write (#1450).
+fn visibility(tokens: &[TokenTree], at: usize, found: &mut ItemLevel) {
+    let item = public_item(tokens, at);
+    let metavariable = !matches!(&tokens[at], TokenTree::Ident(word) if word == "pub");
+    let start = metavariable && at >= 1 && item_start(tokens, at - 1);
+    found.opaque |= item.is_none() && start;
+    found.public.extend(item);
+}
+
+/// A `pub`, or a metavariable other than `$crate`, at `at`.
+fn visible_at(tokens: &[TokenTree], at: usize) -> bool {
+    match &tokens[at] {
+        TokenTree::Ident(word) => {
+            word == "pub" || (word != "crate" && at > 0 && is_punct(&tokens[at - 1], '$'))
+        }
+        _ => false,
+    }
+}
+
+/// A module of the expansion holds items that are not read, `pub` or not (#1450).
+fn module(tokens: &[TokenTree], at: usize, found: &mut ItemLevel) {
+    let name = type_name(tokens, at + 1).unwrap_or_default();
+    found.public.insert(("mod".to_owned(), name, false));
+}
+
+/// A `macro_rules!` of the expansion at `at`: a macro that no scan of a definition sees, public
+/// with `#[macro_export]` (#1346, #1450).
+fn macro_definition(tokens: &[TokenTree], at: usize, depth: usize, found: &mut ItemLevel) {
+    found.defines_macros = true;
+    // `#[macro_export]` before the definition publishes the macro at the crate root.
+    let exported = at > 0
+        && matches!(&tokens[at - 1], TokenTree::Group(g) if g.delimiter() == proc_macro2::Delimiter::Bracket
+            && g.stream().into_iter().any(|t| matches!(t, TokenTree::Ident(w) if w == "macro_export")));
+    if exported {
+        let name = type_name(tokens, at + 2).unwrap_or_default();
+        found.public.insert(("macro".to_owned(), name, false));
+    }
+    let body = tokens[at + 1..].iter().find_map(|token| match token {
+        TokenTree::Group(group) => Some(group),
+        _ => None,
+    });
+    found.writes_use |= body.is_none_or(|body| writes_use(body.stream(), depth));
+}
+
+/// A call at item level at `at`, by its last name.
+fn item_call(tokens: &[TokenTree], at: usize, name: String, found: &mut ItemLevel) {
+    found.path_calls |= at > 0 && is_punct(&tokens[at - 1], ':');
+    if let Some(TokenTree::Group(input)) = tokens.get(at + 2) {
+        found.item_calls.push((name.clone(), head(input.stream())));
+    }
+    found.calls.insert(name);
 }
 
 fn items(stream: TokenStream, depth: usize, found: &mut ItemLevel) {
@@ -155,9 +255,12 @@ fn items(stream: TokenStream, depth: usize, found: &mut ItemLevel) {
             TokenTree::Group(group) if at > 0 && is_punct(&tokens[at - 1], '$') => {
                 items(group.stream(), depth + 1, found);
             }
-            TokenTree::Ident(word) if word == "use" || word == "extern" || word == "mod" => {
-                found.writes_use = true
+            TokenTree::Ident(_) if visible_at(&tokens, at) => visibility(&tokens, at, found),
+            TokenTree::Ident(word) if word == "mod" => {
+                found.writes_use = true;
+                module(&tokens, at, found);
             }
+            TokenTree::Ident(word) if word == "use" || word == "extern" => found.writes_use = true,
             TokenTree::Ident(word) if word == "struct" || word == "enum" || word == "union" => {
                 found.defines.extend(type_name(&tokens, at + 1));
             }
@@ -168,16 +271,10 @@ fn items(stream: TokenStream, depth: usize, found: &mut ItemLevel) {
             TokenTree::Ident(word)
                 if word == "macro_rules" && next(1).is_some_and(|bang| is_punct(bang, '!')) =>
             {
-                found.defines_macros = true;
-                let body = tokens[at + 1..].iter().find_map(|token| match token {
-                    TokenTree::Group(group) => Some(group),
-                    _ => None,
-                });
-                found.writes_use |= body.is_none_or(|body| writes_use(body.stream(), depth));
+                macro_definition(&tokens, at, depth, found);
             }
             TokenTree::Ident(word) if called(next(1), next(2)) => {
-                found.path_calls |= at > 0 && is_punct(&tokens[at - 1], ':');
-                found.calls.insert(plain(word));
+                item_call(&tokens, at, plain(word), found);
             }
             _ => {}
         }
@@ -186,24 +283,14 @@ fn items(stream: TokenStream, depth: usize, found: &mut ItemLevel) {
 
 /// The path of each macro that the stream calls, and whether it starts with `::` (#1371). A call
 /// in the tokens of another macro is no code that the walk reads, so its path is read here.
-pub(crate) fn macro_paths(
-    stream: TokenStream,
-    depth: usize,
-    found: &mut BTreeSet<(bool, Vec<String>)>,
-) {
-    if depth > MAX_DEPTH {
-        return;
-    }
-    let tokens: Vec<TokenTree> = stream.into_iter().collect();
-    for (at, token) in tokens.iter().enumerate() {
-        match token {
-            TokenTree::Group(group) => macro_paths(group.stream(), depth + 1, found),
-            TokenTree::Ident(_) if called(tokens.get(at + 1), tokens.get(at + 2)) => {
-                found.insert(path_before(&tokens, at));
-            }
-            _ => {}
+pub(crate) fn macro_paths(stream: TokenStream, found: &mut BTreeSet<(bool, Vec<String>)>) {
+    crate::macro_public::each_token(stream, 0, &mut || {}, &mut |tokens, at| {
+        if matches!(&tokens[at], TokenTree::Ident(_))
+            && called(tokens.get(at + 1), tokens.get(at + 2))
+        {
+            found.insert(path_before(tokens, at));
         }
-    }
+    });
 }
 
 /// The path that ends with the name at `at`: the names before it, each with `::`, and whether a

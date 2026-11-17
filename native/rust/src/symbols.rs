@@ -208,6 +208,114 @@ impl Builder {
     }
 }
 
+impl Builder {
+    /// #1450: the items that a module-level call of `def` publishes; another call publishes none. The arms of the macro that
+    /// the call names follow its input; an inner macro gives each of its arms.
+    pub(crate) fn macro_items(
+        &mut self,
+        module: &Module,
+        call: &crate::scan::MacroCall,
+        def: &crate::scan::MacroDef,
+        named: bool,
+    ) {
+        if !call.fills {
+            return;
+        }
+        let level = &def.item_level;
+        let (mut items, opaque) = match named {
+            true => crate::macro_items::published(level, &def.name, &call.public.head),
+            false => (level.public.clone(), level.opaque),
+        };
+        // An arm may write items of the call tokens, which only the call shows.
+        if opaque && call.public.bare_pub {
+            items.extend(call.public.items.iter().cloned());
+        }
+        self.macro_symbols(module, call, &items);
+    }
+
+    /// The public items that a module-level call of a `macro_rules!` of the workspace writes
+    /// (#1450, AD-718). A name that the call gives through a metavariable is not read: the record
+    /// keeps the kind and the place, and its visibility basis is `macro_call`. An inline `mod` of
+    /// the expansion holds items that are not read: an item of no kind.
+    pub(crate) fn macro_symbols(
+        &mut self,
+        module: &Module,
+        call: &crate::scan::MacroCall,
+        items: &std::collections::BTreeSet<(String, String, bool)>,
+    ) {
+        for (kind, name, from_call) in items {
+            // A `vis` metavariable is public only when the call holds a bare `pub`; then the
+            // visibility is not read.
+            if *from_call && !call.public.bare_pub {
+                continue;
+            }
+            let form = match kind.as_str() {
+                "fn" => Some(Form::Function),
+                "const" => Some(Form::Constant),
+                "static" => Some(Form::Static),
+                "struct" | "union" => Some(Form::Struct),
+                "enum" => Some(Form::Enum),
+                "trait" => Some(Form::Trait),
+                "type" => Some(Form::Alias),
+                "macro" => Some(Form::Macro),
+                _ => None,
+            };
+            let named = form.is_some() && !name.is_empty() && !name.starts_with('$') && !from_call;
+            let def = Definition {
+                form: form.unwrap_or(Form::Constant),
+                name: if name.is_empty() {
+                    format!("${kind}")
+                } else {
+                    name.clone()
+                },
+                scope: call.scope.clone(),
+                access: Access::Public,
+                owner: Owner::Module,
+                site: call.site.clone(),
+                variants: Vec::new(),
+                receiver: false,
+                is_async: false,
+            };
+            let qualified = item_name(&module.module, &def);
+            let mut visibility = detail(&def);
+            if !named {
+                visibility.basis = "macro_call".to_owned();
+                visibility.spelling = format!("{}!", call.name);
+            }
+            let header = Declared {
+                module: ModuleName::new(&module.module),
+                package: PackageName::new(module.package()),
+                name: def.name.clone(),
+                qualified_name: qualified.clone(),
+                parent: None,
+                lexical_parent_id: None,
+                unique: false,
+                visibility,
+            };
+            let identity = id(&module.module, &format!("{qualified}!{kind}"), &def);
+            let data = match form {
+                Some(_) => fact(&def, header, &[]),
+                None => SymbolFact::DynamicBinding(ValueData::declared(header, None)),
+            };
+            let evidence = self.cite(&module.rel, &call.site);
+            self.symbols.push(Record {
+                id: FactId::new(identity),
+                evidence_class: EvidenceClass::Fact,
+                area: Area::Source,
+                title: format!("{qualified} declaration by {}!", call.name),
+                subjects: vec![qualified],
+                evidence_ids: vec![EvidenceId::new(evidence)],
+                fact_ids: Vec::new(),
+                data,
+            });
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "symbols_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "public_items_tests.rs"]
+mod public_items;

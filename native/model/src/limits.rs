@@ -235,8 +235,8 @@ fn own_limit(rule: &Rule, observed: &Observed) -> Option<Limit> {
         // AD-550: a profile whose collector writes no shape cannot read the types.
         (Reads::Shapes, _) if !observed.type_shapes => Some(Limit::Certain(id)),
         // AD-670: an absent symbol record may be an item that nobody uses, so a PASS needs every
-        // public symbol; a violation that the model sees stays FAIL.
-        (Reads::Published, _) if !observed.symbol_facts => Some(Limit::Certain(format!(
+        // public symbol; a violation that the model sees stays FAIL (AD-718).
+        (Reads::Published, _) if !observed.public_symbols => Some(Limit::Certain(format!(
             "{id}: the collector does not state every public symbol"
         ))),
         // No store-accepted profile limits these kinds (`profile_failures`); `rule_limit` gives

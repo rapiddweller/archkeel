@@ -8,9 +8,15 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-737 | [Python construct support is one map with downgrade and meet](ad-737-python-construct-support-is-one-map-with-downgrade-and-meet.md) |
+| AD-735 | [The draft step has one outcome and runs after the core is found](ad-735-the-draft-step-has-one-outcome-and-runs-after-the-core-is-found.md) |
 | AD-738 | [One data file owns the source suffixes of both languages](ad-738-one-data-file-owns-the-source-suffixes-of-both-languages.md) |
 | AD-731 | [Under a baseline, only a verdict exits 2](ad-731-under-a-baseline-only-a-verdict-exits-2.md) |
 | AD-730 | [A box of the page shows PASS only when the run decides every rule](ad-730-a-box-of-the-page-shows-pass-only-when-the-run-decides-every-rule.md) |
+<<<<<<< HEAD
+=======
+| AD-718 | [The Rust collector states each public module-level item](ad-718-the-rust-collector-states-each-public-module-level-item.md) |
+| AD-708 | [A use of a name through a Python module object is the import of that name](ad-708-a-use-of-a-name-through-a-python-module-object-is-the-import-of-that-name.md) |
+>>>>>>> origin/main
 | AD-710 | [The fact sheet of a layer or group aggregates its members, and findings read as words](ad-710-the-fact-sheet-of-a-layer-or-group-aggregates-its-members.md) |
 | AD-708 | [A use of a name through a Python module object is the import of that name](ad-708-a-use-of-a-name-through-a-python-module-object-is-the-import-of-that-name.md) |
 | AD-706 | [A direct builtin import call is a construct](ad-706-a-direct-builtin-import-call-is-a-construct.md) |
@@ -21,7 +27,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-694 | [A path that ends at a module may name a value of its name](ad-694-a-path-that-ends-at-a-module-may-name-a-value-of-its-name.md) |
 | AD-692 | [An imported inert attribute keeps its import gap](ad-692-an-imported-inert-attribute-keeps-its-import-gap.md) |
 | AD-690 | [A dill settings read keeps the import gap](ad-690-a-dill-settings-read-keeps-the-import-gap.md) |
-| AD-712 | [A written typing cast call is a partial signal](ad-712-a-written-typing-cast-call-is-a-partial-signal.md) |
+| AD-716 | [Metadata attribute reads retain their import gap](ad-716-metadata-attribute-reads-retain-their-import-gap.md) |
 | AD-688 | [A reply states its validation table, and the store keeps a language-free minimum](ad-688-a-reply-states-its-validation-table-and-the-store-keeps-a-language-free-minimum.md) |
 | AD-686 | [A proven Python getattr call is a construct](ad-686-a-proven-python-getattr-call-is-a-construct.md) |
 | AD-684 | [A written Python string equality is a construct](ad-684-a-written-python-string-equality-is-a-construct.md) |
@@ -30,6 +36,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-668 | [A neutral crate names no language](ad-668-a-neutral-crate-names-no-language.md) |
 | AD-660 | [`init` drafts a system for a mixed repository](ad-660-init-drafts-a-system-for-a-mixed-repository.md) |
 | AD-680 | [A written Python dunder dict is a construct](ad-680-a-written-python-dunder-dict-is-a-construct.md) |
+| AD-712 | [A written typing cast call is a partial signal](ad-712-a-written-typing-cast-call-is-a-partial-signal.md) |
 | AD-662 | [A macro whose expansion the scan does not read gives a gap](ad-662-a-macro-whose-expansion-the-scan-does-not-read-gives-a-gap.md) |
 | AD-736 | [The merge tools share one decision table](ad-736-the-merge-tools-share-one-decision-table.md) |
 | AD-733 | [A growth entry whose finding is gone is stale, and the ratchet says so](ad-733-a-growth-entry-whose-finding-is-gone-is-stale-and-the-ratchet-says-so.md) |

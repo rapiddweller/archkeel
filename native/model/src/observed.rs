@@ -83,6 +83,8 @@ pub(crate) struct Observed {
     pub(crate) namespaces: bool,
     /// The collector of the profile states symbol facts (AD-512).
     pub(crate) symbol_facts: bool,
+    /// The collector of the profile states each public module-level item (AD-718).
+    pub(crate) public_symbols: bool,
     /// The collector of the profile also states the sites of the symbols (AD-518).
     pub(crate) symbol_sites: bool,
     /// A public signature of the language needs public types (AD-670).
@@ -190,6 +192,7 @@ pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
         language: facts.profile.language_name(),
         namespaces: facts.profile.separates_type_namespace(),
         symbol_facts: facts.profile.symbol_facts(),
+        public_symbols: facts.profile.public_symbols(),
         signatures_need_public_types: facts.profile.signatures_need_public_types(),
         symbol_sites: facts.profile.symbol_sites(),
         type_shapes: facts.profile.type_shapes(),

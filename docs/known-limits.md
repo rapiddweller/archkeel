@@ -556,7 +556,11 @@ refuses with `core_binary_not_found`
 ### Rust: what the collector does not prove
 
 - **Definitions** ([AD-351](architecture/decisions/ad-351-the-rust-collector-reports-definitions-and-never-invents-one.md)).
-  An item that a macro call generates is not listed, and nothing is invented for it. A method of an
+  A public module-level item that a module-level call of a `macro_rules!` of the workspace writes
+  is listed, from the transcriber or from the call tokens (AD-718); one whose name or visibility the
+  call gives through a metavariable is listed with its kind and place but an unread name, so
+  `unused_public` is UNKNOWN for it. The items of an `extern` block are listed. An item that syn
+  cannot parse is a gap. An item of a procedural or foreign macro keeps the AD-662 gap. A method of an
   `impl` block is listed only when its type is a definition of the same module, so `impl Builder`
   in another module than `Builder`, an `impl` of a foreign type and an `impl` of a type that a macro
   generates give no method. A gap would make the whole scan incomplete, so the report says

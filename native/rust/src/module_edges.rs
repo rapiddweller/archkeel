@@ -242,6 +242,7 @@ impl Builder {
             let found = visible(defs, module, call, &next);
             if let [(owner, def)] = found[..] {
                 queue.extend(def.calls.iter().cloned());
+                self.macro_items(module, call, def, next == name);
                 self.expand_methods(module, call, def);
                 self.call_edge(index, module, owner, (&next, &call.site));
                 self.unknown_expansion(module, call, (owner, def));
