@@ -150,7 +150,11 @@ pub fn readable(text: &str) -> String {
             let valid = (1..=6).contains(&digits.len())
                 && digits.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f'));
             let character = valid
-                .then(|| u32::from_str_radix(digits, 16).ok().and_then(char::from_u32))
+                .then(|| {
+                    u32::from_str_radix(digits, 16)
+                        .ok()
+                        .and_then(char::from_u32)
+                })
                 .flatten()
                 .filter(|c| !c.is_control() && !c.is_ascii_alphanumeric());
             character.map(|c| (c, end))

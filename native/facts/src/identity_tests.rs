@@ -110,8 +110,14 @@ fn a_path_is_inside_when_it_is_relative_and_has_no_parent_part() {
 #[test]
 fn a_readable_identity_has_its_real_characters() {
     assert_eq!(readable("web.src.index_x2e_ts"), "web.src.index.ts");
-    assert_eq!(readable("web._x2e_dependency_x2d_cruiser_x2e_js"), "web..dependency-cruiser.js");
-    assert_eq!(readable("web.src._x5f__x5f_tests_x5f__x5f_"), "web.src.__tests__");
+    assert_eq!(
+        readable("web._x2e_dependency_x2d_cruiser_x2e_js"),
+        "web..dependency-cruiser.js"
+    );
+    assert_eq!(
+        readable("web.src._x5f__x5f_tests_x5f__x5f_"),
+        "web.src.__tests__"
+    );
 }
 
 #[test]
