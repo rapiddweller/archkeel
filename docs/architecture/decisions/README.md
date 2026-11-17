@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-706 | [A direct builtin import call is a construct](ad-706-a-direct-builtin-import-call-is-a-construct.md) |
 | AD-698 | [Written Any annotations are partial signals](ad-698-written-any-annotations-are-partial-signals.md) |
 | AD-694 | [A path that ends at a module may name a value of its name](ad-694-a-path-that-ends-at-a-module-may-name-a-value-of-its-name.md) |
 | AD-692 | [An imported inert attribute keeps its import gap](ad-692-an-imported-inert-attribute-keeps-its-import-gap.md) |

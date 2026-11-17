@@ -85,7 +85,7 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
                         )
                 })
             };
-            (1..=7).contains(&entries.len())
+            (1..=8).contains(&entries.len())
                 && entries[0].name == "assert"
                 && entries[0].status == ConstructSupport::Supported
                 && (entries.len() < 2 || partial(1, "broad_except"))
@@ -96,6 +96,9 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
                 && (entries.len() < 7
                     || entries[6].name == "any_annotation"
                         && entries[6].status == ConstructSupport::Partial)
+                && (entries.len() < 8
+                    || entries[7].name == "dynamic_import"
+                        && entries[7].status == ConstructSupport::Partial)
         };
     if !with_asserts && (sections != registered || !facts.capabilities.constructs.is_empty()) {
         return Err(format!(

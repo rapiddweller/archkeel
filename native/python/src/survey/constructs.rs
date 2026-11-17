@@ -258,6 +258,18 @@ impl Walk<'_> {
     fn call(&mut self, expr: &Expr, call: &ruff_python_ast::ExprCall) {
         self.dict_complete = false;
         self.compare_complete = false;
+        if matches!(&*call.func, Expr::Name(name)
+            if name.id.as_str() == "__import__" && self.binders.builtin_visible("__import__"))
+        {
+            let mut data = self.signal_data(Signal::DynamicImport, None);
+            data.expression = Some("__import__".to_owned());
+            self.signal(
+                expr,
+                "dynamic_import",
+                "dynamic_import",
+                SignalFact::DynamicImport(data),
+            );
+        }
         let known = matches!(&*call.func, Expr::Name(name)
             if name.id.as_str() == "vars" && self.binders.builtin_visible("vars"));
         if known {

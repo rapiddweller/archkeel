@@ -371,3 +371,23 @@ def test_opaque_annotations_are_reported_or_left_unknown(
         release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
     )
     assert rows(result)["NO-ANY"] == expected, result["frame"]["explained"]
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("value = __import__('os')\n", "FAIL"),
+        ("value = __import__(name)\n", "FAIL"),
+        ("loader = __import__\nvalue = loader(name)\n", "UNKNOWN"),
+        ("__import__ = other\nvalue = __import__(name)\n", "UNKNOWN"),
+        ("value = 1\n", "UNKNOWN"),
+    ],
+)
+def test_dynamic_import_is_reported_or_left_unknown(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-DYNAMIC", "constructs": ["dynamic_import"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-DYNAMIC"] == expected, result["frame"]["explained"]
