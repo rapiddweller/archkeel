@@ -105,7 +105,10 @@ point 7: the standard-library doors, the import state and the builtins that run 
 The Python collector does not follow a value from an unknown object to a loader. For example,
 `code = provider.code; code.interact()` gives no loader gap when `provider` is an unknown value.
 The same limit applies when the local name is `c`. A forbidden dependency reached only through
-such a value can give PASS (#1520). This is an open false-PASS class, not an accepted limit.
+such a value can give PASS (#1520). This is an open false-PASS class, not an accepted limit. A call of a
+value that an import from outside the scan and the standard library gives, with a string that names
+a module of the scan, is a gap of the edges of its module (AD-760); a loader handed in as a
+parameter is the same open class.
 
 **Python module and class bindings (AD-642, #1360).** A module- or class-level binding such as
 `for site in sites: site.id` can retain an `import_system_change` gap. These namespaces resolve
@@ -484,7 +487,7 @@ run-time key (`getOwnPropertyDescriptor(s)`, `Reflect.get`, also stored or passe
 value that is no literal (`location.*`, `location = x`, a pattern or `for…of` target, `open(x, …)` with
 any target); a free `Object`, `Reflect`, `location` or `open` that is passed, stored or returned; and a
 destructuring pattern that takes a window member out of a value.
-AD-758 (#1547, #1525) closes the looked-up value: a member read with a run-time key
+AD-760 (#1547, #1525) closes the looked-up value: a member read with a run-time key
 whose value a call can reach after the read is the same direct form as the key call. The check
 follows the value through a wrapper, a local name (also one that a later assignment writes), an
 array or object literal that holds it, and the members `call`, `apply` and `bind`. A use that
