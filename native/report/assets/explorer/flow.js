@@ -803,29 +803,94 @@
       if (selected && lexicalRoute(selected, S.path[0]?.id, S.path[0]?.origin).length)
         S.selection = { type: "node", id: selected };
     } else {
-      const component = query.get("component");
-      const scope = query.get("scope") || (component === "unassigned" ? null : component) || query.get("module");
-      if (scope && !ATLAS.levels.some((level) => level.parent_id === scope))
-        routeNotice = { field: "scope", requested: scope, message: "Requested component scope is not recorded in this snapshot." };
-      S.path = ATLAS.levels.some((level) => level.parent_id === scope)
-        ? REPORT_SCENE.componentRoute(scope).map((item) => ({ id: item.id, origin: "observed" })) : [];
-      const level = atlasLevel();
-      S.content = atlasHasChoice(level) && ["components", "modules"].includes(query.get("content"))
-        ? query.get("content") : component === "unassigned" || query.has("module") ? "modules" : null;
-      const requestedSelection = selected || query.get("module");
-      if (level.component_ids.includes(requestedSelection) || REPORT_SCENE.atlasModules(level, S.view).some((item) => item.id === requestedSelection)) S.selection = { type: "node", id: requestedSelection };
-      if (S.view !== "target" && level.modules.some((item) => item.id === requestedSelection)) S.module = requestedSelection;
-      const cell = Number(query.get("cell"));
-      if (query.has("cell") && S.view !== "target" && level.cells.includes(cell)) S.cell = cell;
+      const { notice, details, ...next } = fromQuery(query);
+      routeNotice = notice;
+      Object.assign(S, next);
+      setTargetDetails(details);
     }
   }
 
-  function syncRoute(replace = false) {
+  // AD-734: the URL of a view state, and the view state of a URL. toQuery(fromQuery(q)) is q for a
+  // query that toQuery wrote. A default is left out: the language perspective, Details that follow
+  // the selection (open with a selected box or cell, closed without), no drawer.
+  const VIEWS = ["diagram", "target", "diff"], DRAWERS = ["overview", "objects"];
+  const PERSPECTIVES = window.ArchkeelReportScene.perspectives;
+
+  function atlasLevelOf(path) {
+    return ATLAS.levels.find((level) => level.parent_id === (path.at(-1)?.id || null)) || ATLAS.levels[0];
+  }
+
+  function stateSelected(state) {
+    return state.module || (state.selection?.type === "node" ? state.selection.id : null);
+  }
+
+  function toQuery(state) {
+    const query = new URLSearchParams();
+    if (state.path.length) query.set("scope", state.path.at(-1).id);
+    if (atlasHasChoice(atlasLevelOf(state.path), state.view) && state.content) query.set("content", state.content);
+    query.set("view", state.view);
+    if (state.perspective !== "language") query.set("perspective", state.perspective || "none");
+    const selected = stateSelected(state);
+    if (selected) query.set("selected", selected);
+    if (state.cell !== null) query.set("cell", String(state.cell));
+    if (state.details !== (Boolean(selected) || state.cell !== null)) query.set("details", state.details ? "open" : "closed");
+    if (state.drawer) query.set("drawer", state.drawer);
+    return query;
+  }
+
+  function fromQuery(query) {
+    const view = VIEWS.includes(query.get("view")) ? query.get("view") : "diagram";
+    const component = query.get("component");
+    const scope = query.get("scope") || (component === "unassigned" ? null : component) || query.get("module");
+    const known = ATLAS.levels.some((level) => level.parent_id === scope);
+    const notice = scope && !known
+      ? { field: "scope", requested: scope, message: "Requested component scope is not recorded in this snapshot." } : null;
+    const path = known ? REPORT_SCENE.componentRoute(scope).map((item) => ({ id: item.id, origin: "observed" })) : [];
+    const level = atlasLevelOf(path);
+    const content = atlasHasChoice(level, view) && ["components", "modules"].includes(query.get("content"))
+      ? query.get("content") : component === "unassigned" || query.has("module") ? "modules" : null;
+    const requested = query.get("selected") || query.get("module");
+    const selection = level.component_ids.includes(requested)
+      || REPORT_SCENE.atlasModules(level, view).some((item) => item.id === requested) ? { type: "node", id: requested } : null;
+    const module = view !== "target" && level.modules.some((item) => item.id === requested) ? requested : null;
+    const number = Number(query.get("cell"));
+    const cell = query.has("cell") && view !== "target" && level.cells.includes(number) ? number : null;
+    const asked = query.get("perspective");
+    const perspective = asked === "none" ? null : Object.hasOwn(PERSPECTIVES, asked) ? asked : "language";
+    const drawer = DRAWERS.includes(query.get("drawer")) ? query.get("drawer") : null;
+    const details = query.get("details") === "open" || query.get("details") !== "closed"
+      && (Boolean(selection || module) || cell !== null);
+    return { view, path, content, selection, module, cell, perspective, drawer, details, notice };
+  }
+
+  // The state for an agent or a test: `data-state` on the Explorer and ArchkeelFlow.state().
+  function stateView() {
+    const level = ATLAS ? atlasLevel() : null;
+    const content = !level ? null : level.component_ids.length
+      ? S.content === "modules" && REPORT_SCENE.atlasModules(level, S.view).length ? "modules" : "components" : "modules";
+    return { view: S.view, scope: S.path.at(-1)?.id ?? null, path: S.path.map((entry) => entry.id), content,
+      selection: S.selection?.type === "node" ? S.selection.id : null,
+      edge: S.selection?.type === "edge" ? S.selection.id : null,
+      module: S.module, cell: S.cell, hint: S.hint, details: S.details, drawer: S.drawer, overlay: S.overlay,
+      pop: S.pop, perspective: S.perspective, pinnedTag: S.pinnedTag, theme: S.theme, expanded: S.expanded,
+      notice: routeNotice?.message ?? null };
+  }
+
+  function publishState() { root.dataset.state = JSON.stringify(stateView()); }
+
+  // AD-734: a navigation (a level, up, the view, the content) adds a history entry; any other
+  // change (selection, Details, drawer, perspective, theme) replaces the current entry. So Back
+  // goes back one level.
+  let historyMode = "replace";
+  function navigate() { historyMode = "push"; }
+
+  function syncRoute(replace = historyMode !== "push") {
     document.querySelectorAll("[data-atlas-component-route]").forEach((link) => {
       link.href = atlasComponentHref(link.dataset.atlasComponentRoute || null);
     });
+    if (ATLAS) publishState();
     if (!NAV || !routeReady || routeNotice || !["file:", "http:", "https:"].includes(location.protocol)) return;
-    const query = new URLSearchParams();
+    const query = SIDECAR ? new URLSearchParams() : toQuery(S);
     if (SIDECAR) {
       if (S.path[0]) query.set(REPORT_SCENE.componentRoute(S.path[0].id).length ? "component" : "module", S.path[0].id);
       if (S.path[0]?.origin === "declared") query.set("origin", "declared");
@@ -835,16 +900,11 @@
       if (returnSelection) query.set("return_selected", returnSelection);
       if (returnCell !== null) query.set("return_cell", String(returnCell));
       if (returnContent) query.set("return_content", returnContent);
-    } else {
-      if (S.path.length) query.set("scope", S.path.at(-1).id);
-      if (ATLAS && atlasHasChoice(atlasLevel()) && S.content) query.set("content", S.content);
+      query.set("view", S.view);
+      const presentation = new URLSearchParams(location.search);
+      if (presentation.has("perspective")) query.set("perspective", presentation.get("perspective"));
+      if (S.selection?.type === "node") query.set("selected", S.selection.id);
     }
-    query.set("view", S.view);
-    const presentation = new URLSearchParams(location.search);
-    if (presentation.has("perspective")) query.set("perspective", presentation.get("perspective"));
-    const selected = S.module || (S.selection?.type === "node" ? S.selection.id : null);
-    if (selected) query.set("selected", selected);
-    if (ATLAS && S.cell !== null) query.set("cell", String(S.cell));
     query.set("theme", document.documentElement.dataset.theme);
     const permissionHash = [...(DATA.boundary_permissions?.declared || []),
       ...(DATA.boundary_permissions?.applied || [])].some((row) => location.hash === `#${encodeURIComponent(row.id)}`)
@@ -859,7 +919,7 @@
   }
 
   // The header switch (archkeel-theme.js) also sets the theme; S follows it.
-  new MutationObserver(() => { S.theme = document.documentElement.dataset.theme; })
+  new MutationObserver(() => { S.theme = document.documentElement.dataset.theme; if (ATLAS) publishState(); })
     .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   function applyTheme(light) {
@@ -1889,6 +1949,7 @@
       focusLabel = null; relationshipKind = null; elementKind = null; positions = Object.create(null); render(); fit(); return;
     }
     if (ATLAS) {
+      navigate();
       S.view = nextView;
       S.cell = null; S.module = null; S.hint = null;
       render(); return;
@@ -2217,6 +2278,7 @@
     if (!level) return;
     const moved = level !== atlasLevel() || root.dataset.content !== "modules";
     if (!moved) { selectArchitectureSubject("node", id); return; }
+    navigate();
     rememberNavigationState();
     S.path = REPORT_SCENE.componentRoute(level.parent_id).map((item) => ({ id: item.id, origin: "observed" }));
     S.content = "modules";
@@ -2240,6 +2302,7 @@
 
   function openAtlasComponent(id, content = null) {
     if (!ATLAS.levels.some((level) => level.parent_id === id)) return;
+    navigate();
     if (atlasLevel().parent_id !== id) rememberNavigationState();
     S.path = REPORT_SCENE.componentRoute(id).map((item) => ({ id: item.id, origin: "observed" }));
     S.content = content;
@@ -2544,7 +2607,7 @@
     }
   }
 
-  function atlasHasChoice(level) { return Boolean(level.component_ids.length && REPORT_SCENE.atlasModules(level, S.view).length); }
+  function atlasHasChoice(level, view = S.view) { return Boolean(level.component_ids.length && REPORT_SCENE.atlasModules(level, view).length); }
 
   function atlasModuleList(level) {
     const modules = REPORT_SCENE.atlasModules(level, S.view);
@@ -3170,6 +3233,7 @@
   const PRESENTATION = ["perspective", "pinnedTag", "drawer", "overlay", "pop"];
 
   function goToDepth(depth) {
+    navigate();
     S.path = S.path.slice(0, depth); S.selection = null; routeNotice = null;
     S.module = null; S.cell = null; S.hint = null; S.content = null; positions = Object.create(null); render(); fit();
   }
@@ -3181,14 +3245,19 @@
 
   // AD-734: the one door of a user action. Each case is one transition of S and draws its result.
   function dispatch(action) {
+    historyMode = "replace";
+    try { transition(action); } finally { historyMode = "replace"; if (ATLAS) publishState(); }
+  }
+
+  function transition(action) {
     switch (action.type) {
       case "openLevel": openAtlasComponent(action.id ?? null, action.content ?? null); break;
       case "goToDepth": goToDepth(action.depth); break;
       case "open": openArchitectureEntity(action.id); break;
       case "openModule": openAtlasModule(action.id); break;
-      case "up": leaveArchitectureGraph(); break;
+      case "up": navigate(); leaveArchitectureGraph(); break;
       case "setView": switchArchitectureView(action.view); break;
-      case "setContent": S.content = action.content; render(); fit(); break;
+      case "setContent": navigate(); S.content = action.content; render(); fit(); break;
       case "select": selectArchitectureSubject(action.kind || "node", action.id, action.reveal ?? true); break;
       case "clearSelection": S.selection = null; render(); break;
       case "selectMatrix": selectAtlasSheet(atlasLevel(), { cell: action.cell, module: action.module }); break;
@@ -3215,9 +3284,11 @@
         openAtlasFindingHash(id);
         break;
       }
-      case "restoreRoute": routeReady = false; readRoute(); render(); fit(); routeReady = true; syncRoute(true); break;
+      case "restoreRoute": S.pinnedTag = null; routeReady = false; readRoute(); render(); fit(); routeReady = true; syncRoute(true); break;
       case "present":
         for (const key of PRESENTATION) if (Object.hasOwn(action, key)) S[key] = action[key];
+        // The perspective and the drawer are in the URL; an overlay, a popover and a pinned tag are not.
+        if (Object.hasOwn(action, "perspective") || Object.hasOwn(action, "drawer")) syncRoute();
         break;
       default: throw new Error(`Unknown Explorer action: ${action.type}`);
     }
@@ -3240,8 +3311,9 @@
     openModule: (id) => dispatch({ type: "openModule", id }),
     setExploreOpen: (open) => dispatch({ type: "setExplore", open }),
     openRule: (rule) => dispatch({ type: "openRule", rule }),
-    state: () => ({ viewMode: S.view, scope: S.path.at(-1)?.id ?? null, scene: renderedScene, zoom: transform.k,
-      selection: S.selection?.type === "node" ? S.selection.id : null }),
+    state: () => ({ ...(ATLAS ? stateView() : { scope: S.path.at(-1)?.id ?? null,
+      selection: S.selection?.type === "node" ? S.selection.id : null }), viewMode: S.view, scene: renderedScene, zoom: transform.k }),
+    toQuery, fromQuery,
   };
   render();
   if (ATLAS) openAtlasFindingHash();

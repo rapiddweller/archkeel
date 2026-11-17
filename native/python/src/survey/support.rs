@@ -22,11 +22,12 @@ pub(crate) enum Construct {
     Getattr,
     AnyAnnotation,
     DynamicImport,
+    Cast,
 }
 
 impl Construct {
     /// Each construct, in the order of the reply.
-    pub(crate) const ALL: [Construct; 8] = [
+    pub(crate) const ALL: [Construct; 9] = [
         Construct::Assert,
         Construct::BroadExcept,
         Construct::DunderDict,
@@ -35,6 +36,7 @@ impl Construct {
         Construct::Getattr,
         Construct::AnyAnnotation,
         Construct::DynamicImport,
+        Construct::Cast,
     ];
 
     /// The word of the construct in the reply and in the contract.
@@ -48,6 +50,7 @@ impl Construct {
             Construct::Getattr => "getattr",
             Construct::AnyAnnotation => "any_annotation",
             Construct::DynamicImport => "dynamic_import",
+            Construct::Cast => "cast",
         }
     }
 }
@@ -81,7 +84,7 @@ impl Support {
     /// from any text, so these two start partial.
     pub(crate) fn start() -> Support {
         let seen = |c: Construct| match c {
-            Construct::AnyAnnotation | Construct::DynamicImport => Seen::Partial,
+            Construct::AnyAnnotation | Construct::DynamicImport | Construct::Cast => Seen::Partial,
             Construct::Assert
             | Construct::BroadExcept
             | Construct::DunderDict
