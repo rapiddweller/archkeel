@@ -21,6 +21,9 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-660 | [`init` drafts a system for a mixed repository](ad-660-init-drafts-a-system-for-a-mixed-repository.md) |
 | AD-680 | [A written Python dunder dict is a construct](ad-680-a-written-python-dunder-dict-is-a-construct.md) |
 | AD-662 | [A macro whose expansion the scan does not read gives a gap](ad-662-a-macro-whose-expansion-the-scan-does-not-read-gives-a-gap.md) |
+| AD-678 | [No new suppression, and a new production file starts at 400 lines at most](ad-678-no-new-suppression-and-a-new-file-starts-small.md) |
+| AD-676 | [The merge tool merges only on green and never with admin](ad-676-the-merge-tool-merges-only-on-green-and-never-with-admin.md) |
+| AD-674 | [Three gate tiers, and a merge only on green](ad-674-three-gate-tiers-and-merge-only-on-green.md) |
 | AD-672 | [A self-check pin may only shrink, and growth needs a reason](ad-672-a-self-check-pin-may-only-shrink-and-growth-needs-a-reason.md) |
 | AD-666 | [A Python broad exception handler keeps unread types partial](ad-666-a-python-broad-exception-handler-keeps-unread-types-partial.md) |
 | AD-664 | [A contract can declare the reach of a door site](ad-664-a-contract-can-declare-the-reach-of-a-door-site.md) |
