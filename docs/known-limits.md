@@ -171,7 +171,11 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.
   A missing symbol, call or reference is UNKNOWN, never FAIL. A planned member that the matched class lacks is
   UNKNOWN too, where 4.0.1 gives FAIL (AD-512): the collector states no complete member table. A closed scope without an extra
-  element stays UNKNOWN, also where 4.0.1 passes it from a member inventory. A dropped pair gap that
+  element passes only when it is the scope of a class, an interface or an enum over member kinds
+  and the collector states each listed member inventory complete (AD-747). TypeScript states it
+  complete when the body shows every member of the type; Python and Rust inventories are always
+  partial, and the row names the reason of the collector. A closed module scope and a closed
+  scope over relationships stay UNKNOWN: no fact states a complete module or site inventory. A dropped pair gap that
   touches a module of the target holds the UML row. A Rust UML row has no 4.0.1 comparison and
   rests on the scope proof alone.
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
