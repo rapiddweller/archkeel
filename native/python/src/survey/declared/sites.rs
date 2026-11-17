@@ -242,7 +242,22 @@ fn call_record(
     };
     let callee = target.filter(|(_, sym)| sym.class || sym.function);
     let targets: Vec<String> = callee.iter().map(|(name, _)| name.clone()).collect();
-    let status = Status::of_candidates(targets.len(), true);
+    let local_function = match &*call.func {
+        Expr::Name(name) if !dead => {
+            let unhidden = HashSet::new();
+            reading
+                .context
+                .resolve(name.id.as_str(), reading.module, &unhidden)
+                .is_some_and(|(_, symbol)| symbol.class || symbol.function)
+                && scope::direct_local_function(reading.source.node, name.id.as_str())
+        }
+        _ => false,
+    };
+    let status = if local_function {
+        Status::Decided
+    } else {
+        Status::of_candidates(targets.len(), true)
+    };
     let mut data = CallData::new(expression.clone(), reading.scope(), status, targets);
     data.source_definition_id = Nullable::Value(FactId::new(reading.source.id.as_str()));
     data.reason = Some(match &callee {
@@ -250,6 +265,7 @@ fn call_record(
         None if dead => {
             "the call is under a constant-false test or after a statement that leaves".to_owned()
         }
+        None if local_function => "callee is the sole direct local function binding".to_owned(),
         None => "callee is not a plain name of one symbol with a record".to_owned(),
     });
     if let Some((name, sym)) = callee.filter(|(_, sym)| sym.class) {

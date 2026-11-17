@@ -30,6 +30,19 @@ pub(super) fn parameters(node: &StmtFunctionDef) -> HashSet<String> {
     found.names
 }
 
+/// True when the direct, undecorated function definition is the only binder of `name` in `node`.
+pub(super) fn direct_local_function(node: &StmtFunctionDef, name: &str) -> bool {
+    let bound = Bound::of(&node.body);
+    node.body.iter().any(|statement| {
+        let Stmt::FunctionDef(function) = statement else {
+            return false;
+        };
+        function.name.as_str() == name
+            && function.decorator_list.is_empty()
+            && bound.sole(name, statement.range().start())
+    })
+}
+
 /// The names that the type parameters of a def bind (PEP 695): they hide in its annotations too.
 pub(super) fn type_names(node: &StmtFunctionDef) -> HashSet<String> {
     let mut found = Params::default();

@@ -27,6 +27,7 @@ struct Site<'r> {
     names: &'r [String],
     status: Status,
     count: Option<i64>,
+    truncated: Option<bool>,
     evidence: Vec<String>,
 }
 
@@ -68,6 +69,7 @@ fn bases(table: &mut Symbols, record: &Record<SymbolFact>, data: &ClassData) {
             names: &base.targets,
             status: base.status,
             count: Some(base.candidate_count),
+            truncated: base.candidates_truncated,
             evidence: evidence(&base.evidence_ids),
         };
         edge(table, site);
@@ -97,6 +99,7 @@ fn call(table: &mut Symbols, record: &Record<CallFact>) {
         names: &data.targets,
         status: data.status,
         count: Some(data.candidate_count),
+        truncated: Some(data.candidates_truncated),
         evidence: evidence(&record.evidence_ids),
     };
     edge(table, site);
@@ -146,6 +149,7 @@ fn reference(table: &mut Symbols, record: &Record<ReferenceFact>) {
         names,
         status,
         count,
+        truncated: definition.and_then(|data| data.candidates_truncated),
         evidence: evidence(&record.evidence_ids),
     };
     edge(table, site);
@@ -235,8 +239,19 @@ fn edge(table: &mut Symbols, site: Site<'_>) {
             }
         }
     }
-    let Some(status) = resolution(site.status) else {
-        return table.refuse("a site has no resolution status");
+    let status = match (site.kind, site.status) {
+        (RelationshipKind::Calls, Status::Decided)
+            if site.names.is_empty() && site.count == Some(0) && site.truncated == Some(false) =>
+        {
+            ResolutionKind::NotApplicable
+        }
+        (RelationshipKind::Calls, Status::Decided) => {
+            return table.refuse("a decided call does not prove an empty target set");
+        }
+        (_, status) => match resolution(status) {
+            Some(status) => status,
+            None => return table.refuse("a site has no resolution status"),
+        },
     };
     let names = i64::try_from(site.names.len()).unwrap_or(i64::MAX);
     if site.count.is_some_and(|count| count < names) {
@@ -250,7 +265,9 @@ fn edge(table: &mut Symbols, site: Site<'_>) {
         kind: site.kind,
         source: site.source,
         target: resolved.then(|| targets.remove(0)),
-        resolution: if resolved {
+        resolution: if status == ResolutionKind::NotApplicable {
+            ResolutionKind::NotApplicable
+        } else if resolved {
             ResolutionKind::Resolved
         } else if status == ResolutionKind::Unresolved {
             ResolutionKind::Unresolved
@@ -259,4 +276,80 @@ fn edge(table: &mut Symbols, site: Site<'_>) {
         },
         evidence: site.evidence,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{edge, Site};
+    use crate::symbols::Symbols;
+    use archkeel_contract::{RelationshipKind, ResolutionKind};
+    use archkeel_facts::vocab::Status;
+
+    #[test]
+    fn a_decided_call_without_targets_is_not_applicable() {
+        let mut table = Symbols::default();
+        edge(
+            &mut table,
+            Site {
+                kind: RelationshipKind::Calls,
+                source: "run".to_owned(),
+                names: &[],
+                status: Status::Decided,
+                count: Some(0),
+                truncated: Some(false),
+                evidence: vec!["site".to_owned()],
+            },
+        );
+
+        assert_eq!(table.edges[0].resolution, ResolutionKind::NotApplicable);
+        assert!(table.edges[0].target.is_none());
+        assert!(table.broken.is_none());
+    }
+
+    #[test]
+    fn a_decided_call_cannot_carry_targets() {
+        let mut table = Symbols::default();
+        let names = ["helper".to_owned()];
+        edge(
+            &mut table,
+            Site {
+                kind: RelationshipKind::Calls,
+                source: "run".to_owned(),
+                names: &names,
+                status: Status::Decided,
+                count: Some(1),
+                truncated: Some(false),
+                evidence: vec!["site".to_owned()],
+            },
+        );
+
+        assert_eq!(
+            table.broken.as_deref(),
+            Some("a decided call does not prove an empty target set")
+        );
+        assert!(table.edges.is_empty());
+    }
+
+    #[test]
+    fn a_decided_call_with_truncated_candidates_is_not_applicable() {
+        let mut table = Symbols::default();
+        edge(
+            &mut table,
+            Site {
+                kind: RelationshipKind::Calls,
+                source: "run".to_owned(),
+                names: &[],
+                status: Status::Decided,
+                count: Some(0),
+                truncated: Some(true),
+                evidence: vec!["site".to_owned()],
+            },
+        );
+
+        assert_eq!(
+            table.broken.as_deref(),
+            Some("a decided call does not prove an empty target set")
+        );
+        assert!(table.edges.is_empty());
+    }
 }
