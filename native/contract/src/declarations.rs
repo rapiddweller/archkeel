@@ -18,6 +18,7 @@ use crate::model_declarations::{
 use crate::model_uml::{GraphSchemaVersion, Target};
 use crate::names::dotted_name;
 use crate::paths::module_target_path;
+use crate::premises::DeclaredPremise;
 use crate::read::{
     count, fields, listed_strings, nonempty_field, positive, present, record, repeats,
     strings_field, text,
@@ -26,7 +27,7 @@ use crate::uml::target;
 use crate::version::{ContractVersion, Feature};
 use crate::words::value_of;
 
-const KEYS: [&str; 16] = [
+const KEYS: [&str; 17] = [
     "capabilities",
     "review_scopes",
     "public_api",
@@ -43,6 +44,7 @@ const KEYS: [&str; 16] = [
     "modules",
     "uml",
     "door_reach",
+    "premises",
 ];
 
 /// The declarations object with only its known keys.
@@ -99,6 +101,7 @@ pub(crate) struct Records {
     modules: Option<Vec<ModuleTarget>>,
     pub(crate) uml: Option<Target>,
     door_reach: Vec<DoorReach>,
+    premises: Vec<DeclaredPremise>,
 }
 
 /// The ids of step 2 that the contract ID check counts.
@@ -108,8 +111,9 @@ pub(crate) fn record_ids(records: &Records) -> Vec<&ItemId> {
     let paths = records.paths.iter().map(|item| &item.id);
     let owners = records.spot_owners.iter().map(|item| &item.id);
     let doors = records.door_reach.iter().map(|item| &item.id);
+    let premises = records.premises.iter().map(|item| &item.id);
     let all = scopes.chain(commands).chain(paths).chain(owners);
-    all.chain(doors).collect()
+    all.chain(doors).chain(premises).collect()
 }
 
 /// The budgets of step 2, for the interface budget check.
@@ -162,6 +166,7 @@ pub(crate) fn later_records(object: &Object, version: ContractVersion) -> Parsed
     }
     let uml = uml(object, version)?;
     let door_reach = crate::door_reach::door_reach(object, version)?;
+    let premises = crate::premises::premises(object, version)?;
     Ok(Records {
         review_scopes,
         public_commands,
@@ -174,6 +179,7 @@ pub(crate) fn later_records(object: &Object, version: ContractVersion) -> Parsed
         modules,
         uml,
         door_reach,
+        premises,
     })
 }
 
@@ -220,6 +226,7 @@ pub(crate) fn finish(
         modules: records.modules,
         uml: records.uml,
         door_reach: records.door_reach,
+        premises: records.premises,
     })
 }
 

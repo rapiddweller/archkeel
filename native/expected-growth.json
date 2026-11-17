@@ -7808,15 +7808,6 @@
         "gap",
         "collection_gap",
         "native.archkeel_report.assumed",
-        "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_report.assumed",
         "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"

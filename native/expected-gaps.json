@@ -4518,11 +4518,6 @@
     [
       "collection_gap",
       "native.archkeel_report.assumed",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.assumed",
       "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [

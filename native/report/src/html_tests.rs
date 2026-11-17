@@ -492,3 +492,6 @@ mod next_tests;
 
 #[path = "html_floor_tests.rs"]
 mod floor_tests;
+
+#[path = "html_premise_tests.rs"]
+mod premise_tests;

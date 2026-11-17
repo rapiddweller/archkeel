@@ -14,7 +14,7 @@ use crate::head::RuleVerdict;
 fn group(frame: &Frame, verdict: RuleVerdict) -> BTreeMap<String, Vec<String>> {
     let mut kinds: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let rows = frame.rules.iter().filter(|(_, row)| row.1 == verdict);
-    for (id, row) in rows.filter(|(id, _)| !frame.assumed.contains_key(*id)) {
+    for (id, row) in rows.filter(|(id, _)| !frame.premises.contains_key(*id)) {
         kinds
             .entry(row.0.replace('_', " "))
             .or_default()
@@ -45,28 +45,31 @@ fn fold(heading: &str, kinds: &BTreeMap<String, Vec<String>>) -> String {
     html
 }
 
-/// `PASS assuming the declared reach of N doors`, or of one door.
-pub(super) fn qualifier(doors: usize) -> String {
-    match doors {
-        1 => "PASS assuming the declared reach of 1 door".to_owned(),
-        many => format!("PASS assuming the declared reach of {many} doors"),
-    }
+/// `PASS assuming <the premises of the run>`, in the words of the core (#1549), or `None` for a
+/// run with no stated premise.
+pub(super) fn qualifier(frame: &Frame) -> Option<String> {
+    frame
+        .assuming
+        .as_ref()
+        .map(|words| format!("PASS assuming {words}"))
 }
 
-/// The rules that hold only under the declared reach of door sites (AD-664), each with its sites.
+/// The rules that hold only under a premise of the contract (AD-664, #1549), each with its
+/// premises: the door sites and the stated external users.
 fn assumed(frame: &Frame) -> String {
-    if frame.assumed.is_empty() {
+    let Some(heading) = qualifier(frame).filter(|_| !frame.premises.is_empty()) else {
         return String::new();
-    }
-    let heading = qualifier(frame.doors).to_uppercase();
+    };
+    let heading = heading.to_uppercase();
     let lines: String = frame
-        .assumed
+        .premises
         .iter()
-        .map(|(id, sites)| {
+        .map(|(id, premises)| {
+            let subjects: Vec<&str> = premises.iter().map(|p| p.subject.as_str()).collect();
             format!(
                 "<li class=\"body-sm\"><span class=\"rp-code\">{}</span> {}</li>",
                 escape(id),
-                escape(&sites.join(", "))
+                escape(&subjects.join(", "))
             )
         })
         .collect();

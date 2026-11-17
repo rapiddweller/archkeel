@@ -111,7 +111,9 @@ fn a_page_names_each_pass_under_a_declared_door_reach() {
         "rules": {"A": ["no_component_cycles", "PASS"], "L": ["root_layout", "PASS"]},
         "assumed": {"A": [site]},
         "door_reach": [{"id": "D-EVAL", "module": "app.model", "line": 2, "door": "eval",
-                        "loads": [], "changes": []}]});
+                        "loads": [], "changes": []}],
+        "premises": {"A": [{"kind": "door_reach", "subject": site}]},
+        "assuming": "the declared reach of 1 door"});
     let page = document(&frame);
     assert!(
         page.contains("1 hold assuming the declared reach of 1 door"),
@@ -126,6 +128,8 @@ fn a_page_names_each_pass_under_a_declared_door_reach() {
         "A is no plain PASS"
     );
     assert!(!document(&json!({"status": "PASS"})).contains("assuming the declared reach"));
+    // #1549: the badge of a PASS under a premise is no bare PASS.
+    assert!(page.contains("PASS assuming the declared reach of 1 door</span>"));
 }
 
 fn component_frame(components: usize, modules_each: usize) -> Value {
