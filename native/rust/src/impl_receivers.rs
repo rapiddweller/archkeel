@@ -108,6 +108,17 @@ impl<'a> Typed<'a> {
 }
 
 impl<'a> Typed<'a> {
+    /// The one read member `name` of a placed type, or `None` when it has none or two (Rust
+    /// allows one; two read members mean a `cfg` case).
+    pub(super) fn named(&self, (lexical, ty): (&str, &str), name: &str) -> Option<&Candidate<'a>> {
+        let members = self.by_type.get(&(lexical.to_owned(), ty.to_owned()))?;
+        let mut named = members.iter().filter(|c| c.member.name == name);
+        let (candidate, None) = (named.next()?, named.next()) else {
+            return None;
+        };
+        Some(candidate)
+    }
+
     /// Whether a macro call of a silent name of `std` may be another macro (AD-524).
     pub(super) fn shadowed(&self) -> bool {
         self.shadowed_macros
@@ -139,11 +150,7 @@ impl<'a> Typed<'a> {
         {
             return None;
         }
-        let members = self.by_type.get(&(lexical.to_owned(), ty.to_owned()))?;
-        let mut named = members.iter().filter(|c| c.member.name == name);
-        let (candidate, None) = (named.next()?, named.next()) else {
-            return None;
-        };
+        let candidate = self.named((lexical, ty), name)?;
         let place = (candidate.module, candidate.lexical.as_str());
         let certain = candidate.exact
             && (same_gates(caller, candidate.module) || gated_caller && !candidate.module.gated)

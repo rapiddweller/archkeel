@@ -201,3 +201,19 @@ fn an_adapter_outside_the_fixed_set_or_an_unknown_item_keeps_every_gap() {
         assert_eq!(outcome(a, &[]), gaps(&["b", "e"]), "{a}");
     }
 }
+
+#[test]
+fn a_unique_field_behind_a_shared_reference_is_no_edge() {
+    let c = "pub struct S {\n    pub t: crate::d::T,\n    pub r: &'static crate::d::T,\n    \
+             pub u: &'static mut crate::d::T,\n}\n";
+    let e = "impl crate::d::T {\n    pub fn m(&mut self) {}\n}\n";
+    let more = [("crates/app/src/c.rs", c), ("crates/app/src/e.rs", e)];
+    assert_eq!(
+        outcome("pub fn f(x: &crate::c::S) { x.u.m() }", &more),
+        gaps(&["e"])
+    );
+    assert_eq!(
+        outcome("pub fn f(x: &mut crate::c::S) { x.u.m() }", &more),
+        edge("e")
+    );
+}

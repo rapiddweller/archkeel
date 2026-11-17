@@ -103,10 +103,13 @@ impl<'t, 'a> Context<'t, '_, 'a> {
             return Ty::Unknown;
         }
         let mut ty = self.root_type(&chain.root, scope);
+        // A place behind a shared reference: a `&mut` field of it is only readable (AD-383).
+        let mut shared = false;
         for step in &chain.steps {
             if ty == Ty::Unknown {
                 break;
             }
+            let through = shared || behind_shared(&ty);
             ty = match step {
                 Step::Try => match ty {
                     Ty::Std(Std::Result | Std::Option, args) => {
@@ -118,6 +121,10 @@ impl<'t, 'a> Context<'t, '_, 'a> {
                 Step::Call(name, arity) => self.method(ty, name, *arity),
                 Step::Borrow(kind) => Ty::Ref(*kind, Box::new(ty)),
             };
+            shared = through && matches!(step, Step::Field(_));
+            if shared && matches!(ty, Ty::Ref(SelfKind::Unique, _)) {
+                ty = Ty::Ref(SelfKind::Shared, Box::new(ty));
+            }
         }
         ty
     }
@@ -254,11 +261,7 @@ impl<'t, 'a> Context<'t, '_, 'a> {
         {
             return None;
         }
-        let members = typed.by_type.get(&(lexical.to_owned(), ty.to_owned()))?;
-        let mut named = members.iter().filter(|c| c.member.name == name);
-        let (candidate, None) = (named.next()?, named.next()) else {
-            return None;
-        };
+        let candidate = typed.named((lexical, ty), name)?;
         let place = (candidate.module, candidate.lexical.as_str());
         let certain = candidate.exact
             && candidate.member.inert
@@ -388,6 +391,18 @@ impl<'t, 'a> Context<'t, '_, 'a> {
             false => Ty::Unknown,
         }
     }
+}
+
+/// Whether a shared reference is among the references around a type.
+fn behind_shared(ty: &Ty) -> bool {
+    let mut ty = ty;
+    while let Ty::Ref(kind, inner) = ty {
+        if *kind == SelfKind::Shared {
+            return true;
+        }
+        ty = inner;
+    }
+    false
 }
 
 /// The receiver types, and the std types and methods that the resolver knows (#1571, AD-786).

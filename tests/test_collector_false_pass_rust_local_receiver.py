@@ -192,11 +192,6 @@ def test_a_typed_closure_receiver_proves_a_field(
         ),
         "pub struct W(pub &'static crate::c::S);\npub fn f(w: &W) -> u8 { w.0.m(1) }\n",
         (
-            "pub struct W { pub inner: V }\npub struct V { pub inner: X }\n"
-            "pub struct X { pub s: &'static crate::c::S }\n"
-            "pub fn f(w: &W) -> u8 { w.inner.inner.s.m(1) }\n"
-        ),
-        (
             "macro_rules! make { () => { pub struct W { pub s: &'static crate::c::S } }; }\n"
             "make!();\npub fn f(w: &W) -> u8 { w.s.m(1) }\n"
         ),
@@ -213,7 +208,6 @@ def test_a_typed_closure_receiver_proves_a_field(
         "cfg-field",
         "receiver-form",
         "tuple",
-        "chain",
         "macro-struct",
         "deref-base",
     ],
@@ -257,3 +251,16 @@ def test_a_unique_field_behind_a_shared_projection_keeps_the_gap(
     )
     result, verdict = _check(tmp_path, core_binary, capsys, files)
     assert verdict == "UNKNOWN", claims(result)
+
+
+def test_a_chain_of_exact_fields_proves_the_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-786: three exact fields, the last one `&S`: the first step finds `S::m(&self)`."""
+    files = _plant(
+        "pub struct W { pub inner: V }\npub struct V { pub inner: X }\n"
+        "pub struct X { pub s: &'static crate::c::S }\n"
+        "pub fn f(w: &W) -> u8 { w.inner.inner.s.m(1) }\n"
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)

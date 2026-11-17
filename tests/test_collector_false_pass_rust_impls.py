@@ -318,11 +318,6 @@ SLICE_LEN = {
     ("files", "drawn_by_the_graph"),
     [
         pytest.param(IMPL_METHOD, OBSERVED_IMPL + "\n    a --> b", id="FP-29 the call may reach b"),
-        pytest.param(
-            SLICE_LEN,
-            "    root --> base\n    b --> c\n    a --> b",
-            id="the call is a slice method",
-        ),
     ],
 )
 def test_an_allowed_pair_that_only_a_dropped_gap_names_is_neither_confirmed_nor_refuted(
@@ -344,3 +339,18 @@ def test_an_allowed_pair_that_only_a_dropped_gap_names_is_neither_confirmed_nor_
     assert result["status"] == "UNKNOWN", claims(result)
     assert len(drift) == 1 and HELD_TEXT in drift[0], claims(result)
     assert "drawn and not found" not in drift[0], drift
+
+
+def test_a_drawn_pair_of_a_std_receiver_is_refuted(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-786: `v: &[u8]` makes `v.len()` the method of the slice. An inherent impl of a std type is
+    E0116, so `S::len` of `b` is no candidate: the drawn edge `a -> b` is refuted, not held."""
+    components = _modules(("b", "c"), SLICE_LEN)
+    drawn = "    root --> base\n    b --> c\n    a --> b"
+    root = repository(
+        tmp_path, core_binary, _sources(SLICE_LEN), components=components, drawn=drawn
+    )
+    result = validate(root, capsys)
+    drift = [claim for claim in claims(result) if "graph.drift" in claim]
+    assert len(drift) == 1 and HELD_TEXT not in drift[0], claims(result)
