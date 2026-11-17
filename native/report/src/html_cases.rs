@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 use super::frame::{CyclePath, Frame, Module};
 use super::markup::{count, escape, level_icon};
 use super::places::{Kind, Place, Places, Violated};
+use crate::head::RuleVerdict;
 
 /// The names of the modules and the components of the topology.
 pub(super) struct Names<'a> {
@@ -319,7 +320,7 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
     if places.total == 0 {
         return String::new();
     }
-    let rules = frame.rules_with("FAIL");
+    let rules = frame.rules_with(RuleVerdict::Fail);
     let mut page = format!(
         "<section class=\"rp-sec\" aria-labelledby=\"violations\"><h2 class=\"h2\" id=\"violations\">Violations</h2>\
 <p class=\"body-sm rp-lede\">{} in the code, {} broken. One block for each place; a place lists each rule that fails there.</p>",

@@ -24,6 +24,7 @@ use archkeel_wire::protocol::reply_version;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 use archkeel_wire::typed::assemble;
 
+use crate::survey::support::Construct;
 use crate::survey::{routes, Survey};
 use crate::{inputs, requirement};
 
@@ -45,11 +46,11 @@ const ROUTES_FEATURE: &str = "import-routes-v1";
 
 /// The construct kinds of the survey in their order, after `assert` (AD-666, AD-680, AD-682,
 /// AD-684). The last one, `getattr`, comes with the section `typing_signals` (AD-686).
-const LATER_CONSTRUCTS: [&str; 4] = [
-    "broad_except",
-    "dunder_dict",
-    "vars",
-    "string_literal_compare",
+const LATER_CONSTRUCTS: [Construct; 4] = [
+    Construct::BroadExcept,
+    Construct::DunderDict,
+    Construct::Vars,
+    Construct::StringLiteralCompare,
 ];
 
 /// The validation table of the survey (AD-688; AD-450, AD-518, AD-520): exactly the sections
@@ -68,18 +69,19 @@ fn validation(version: &str) -> Validation {
     let mut registered = vec![Registered::of(&survey, &[]).with_optional_features(&routes)];
     let mut constructs = Registered::of(&with_constructs, &[])
         .with_optional_features(&routes)
-        .with_construct("assert", &[ConstructSupport::Supported]);
+        .with_construct(Construct::Assert.word(), &[ConstructSupport::Supported]);
     registered.push(constructs.clone());
-    for name in LATER_CONSTRUCTS {
-        constructs = constructs.with_construct(name, &either);
+    for construct in LATER_CONSTRUCTS {
+        constructs = constructs.with_construct(construct.word(), &either);
         registered.push(constructs.clone());
     }
-    let mut all = constructs.with_construct("getattr", &either);
+    let mut all = constructs.with_construct(Construct::Getattr.word(), &either);
     all.sections.push(TypingSignals);
     registered.push(all.clone());
-    all = all.with_construct("any_annotation", &[ConstructSupport::Partial]);
+    let partial = [ConstructSupport::Partial];
+    all = all.with_construct(Construct::AnyAnnotation.word(), &partial);
     registered.push(all.clone());
-    registered.push(all.with_construct("dynamic_import", &[ConstructSupport::Partial]));
+    registered.push(all.with_construct(Construct::DynamicImport.word(), &partial));
     Validation {
         registered,
         interface: InterfaceNeed::Feature(ROUTES_FEATURE.to_owned()),
@@ -208,51 +210,7 @@ fn parts(
             .collect(),
         sections: SURVEY_SECTIONS.to_vec(),
         features: Vec::new(),
-        constructs: vec![
-            ("assert", "supported"),
-            (
-                "broad_except",
-                if survey.broad_complete {
-                    "supported"
-                } else {
-                    "partial"
-                },
-            ),
-            (
-                "dunder_dict",
-                if survey.dict_complete {
-                    "supported"
-                } else {
-                    "partial"
-                },
-            ),
-            (
-                "vars",
-                if survey.vars_complete {
-                    "supported"
-                } else {
-                    "partial"
-                },
-            ),
-            (
-                "string_literal_compare",
-                if survey.compare_complete {
-                    "supported"
-                } else {
-                    "partial"
-                },
-            ),
-            (
-                "getattr",
-                if survey.getattr_complete {
-                    "supported"
-                } else {
-                    "partial"
-                },
-            ),
-            ("any_annotation", "partial"),
-            ("dynamic_import", "partial"),
-        ],
+        constructs: survey.support.reply(),
         inputs,
         source_digest: Some(source_digest),
         files: survey.files,

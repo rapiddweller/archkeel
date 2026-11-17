@@ -11,7 +11,7 @@ use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::Section;
 use archkeel_model::{claims, Model, ModelTree, Reason, Resolved};
-use archkeel_report::Ruling;
+use archkeel_report::{Ruling, RunScope};
 use archkeel_store::Ingested;
 use serde::Serialize;
 
@@ -117,19 +117,11 @@ pub(crate) fn project(
     links: &BTreeMap<String, BTreeSet<String>>,
 ) -> Topology {
     let mut gaps = BTreeSet::new();
-    // The scope text is the one the frame carries: read it from the ruling, not decide it again.
-    let scope = serde_json::to_value(ruling).ok().and_then(|value| {
-        value
-            .get("scope")
-            .and_then(|s| s.as_str().map(str::to_owned))
-    });
-    match scope.as_deref() {
-        Some("complete") => {}
-        Some(reason) => {
-            gaps.insert(reason.to_owned());
-        }
-        None => {
-            gaps.insert("scope: not readable from the ruling".to_owned());
+    // The scope is the one the frame carries: read it from the ruling, not decide it again.
+    match ruling.scope() {
+        RunScope::Complete => {}
+        RunScope::Open(reason) => {
+            gaps.insert(reason.to_string());
         }
     }
     let mut components = Vec::new();

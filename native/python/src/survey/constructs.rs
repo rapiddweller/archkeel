@@ -16,6 +16,7 @@ use ruff_text_size::Ranged;
 use std::collections::HashSet;
 
 use super::binders::Binders;
+use super::support::{Construct, Support};
 use crate::module::{EvidenceMap, Location, Module};
 
 pub(super) fn collect(
@@ -25,40 +26,25 @@ pub(super) fn collect(
 ) -> Findings {
     let mut records = Vec::new();
     let mut signals = Vec::new();
-    let mut complete = true;
-    let mut dict_complete = true;
-    let mut vars_complete = true;
-    let mut compare_complete = true;
-    let mut getattr_complete = true;
+    let mut support = Support::start();
     for (module, binders) in modules.iter().zip(binders) {
         let found = one(module, binders, evidence);
         records.extend(found.records);
         signals.extend(found.signals);
-        complete &= found.broad_complete;
-        dict_complete &= found.dict_complete;
-        vars_complete &= found.vars_complete;
-        compare_complete &= found.compare_complete;
-        getattr_complete &= found.getattr_complete;
+        support.meet(&found.support);
     }
     Findings {
         records,
         signals,
-        broad_complete: complete,
-        dict_complete,
-        vars_complete,
-        compare_complete,
-        getattr_complete,
+        support,
     }
 }
 
 pub(super) struct Findings {
     pub records: Vec<Record<ConstructFact>>,
     pub signals: Vec<Record<SignalFact>>,
-    pub broad_complete: bool,
-    pub dict_complete: bool,
-    pub vars_complete: bool,
-    pub compare_complete: bool,
-    pub getattr_complete: bool,
+    /// What the survey sees of each construct (AD-737).
+    pub support: Support,
 }
 
 fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findings {
@@ -93,11 +79,7 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
         owner: module.name.clone(),
         records: Vec::new(),
         signals: Vec::new(),
-        complete: true,
-        dict_complete: true,
-        vars_complete: true,
-        compare_complete: true,
-        getattr_complete: true,
+        support: Support::start(),
         loaders,
         importlibs,
     };
@@ -105,11 +87,7 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
     Findings {
         records: walk.records,
         signals: walk.signals,
-        broad_complete: walk.complete,
-        dict_complete: walk.dict_complete,
-        vars_complete: walk.vars_complete,
-        compare_complete: walk.compare_complete,
-        getattr_complete: walk.getattr_complete,
+        support: walk.support,
     }
 }
 
@@ -120,11 +98,7 @@ struct Walk<'a> {
     owner: String,
     records: Vec<Record<ConstructFact>>,
     signals: Vec<Record<SignalFact>>,
-    complete: bool,
-    dict_complete: bool,
-    vars_complete: bool,
-    compare_complete: bool,
-    getattr_complete: bool,
+    support: Support,
     loaders: HashSet<String>,
     importlibs: HashSet<String>,
 }
@@ -132,7 +106,7 @@ struct Walk<'a> {
 impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         if matches!(stmt, Stmt::Match(_)) {
-            self.compare_complete = false;
+            self.support.downgrade(Construct::StringLiteralCompare);
         }
         if matches!(stmt, Stmt::Assert(_)) {
             let place = self.module.location(stmt);
@@ -193,23 +167,23 @@ impl<'a> Visitor<'a> for Walk<'_> {
                 ConstructFact::BroadExcept,
             );
         } else {
-            self.complete = false;
+            self.support.downgrade(Construct::BroadExcept);
         }
         visitor::walk_except_handler(self, handler);
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
         if matches!(expr, Expr::Name(name) if name.id.as_str() == "vars") {
-            self.vars_complete = false;
+            self.support.downgrade(Construct::Vars);
         }
         if matches!(expr, Expr::Name(name) if name.id.as_str() == "getattr") {
-            self.getattr_complete = false;
+            self.support.downgrade(Construct::Getattr);
         }
         if let Expr::Call(call) = expr {
             self.call(expr, call);
         }
         if let Expr::Compare(node) = expr {
-            self.compare_complete = false;
+            self.support.downgrade(Construct::StringLiteralCompare);
             let literal =
                 |value: &Expr| matches!(value, Expr::StringLiteral(_) | Expr::BytesLiteral(_));
             let found = node
@@ -239,7 +213,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
                 node.attr.as_str(),
                 "startswith" | "endswith" | "__eq__" | "__ne__" | "__contains__"
             ) {
-                self.compare_complete = false;
+                self.support.downgrade(Construct::StringLiteralCompare);
             }
             if node.attr.as_str() == "__dict__" {
                 let place = self.module.location(&node.attr);
@@ -285,8 +259,8 @@ impl Walk<'_> {
     }
 
     fn call(&mut self, expr: &Expr, call: &ruff_python_ast::ExprCall) {
-        self.dict_complete = false;
-        self.compare_complete = false;
+        self.support.downgrade(Construct::DunderDict);
+        self.support.downgrade(Construct::StringLiteralCompare);
         let loader = match &*call.func {
             Expr::Name(name) => {
                 name.id.as_str() == "__import__" && self.binders.builtin_visible("__import__")
@@ -316,14 +290,14 @@ impl Walk<'_> {
         if known {
             self.construct(expr, "vars_call", "vars", ConstructFact::VarsCall);
         } else {
-            self.vars_complete = false;
+            self.support.downgrade(Construct::Vars);
         }
         let known_getattr = matches!(&*call.func, Expr::Name(name)
             if name.id.as_str() == "getattr" && self.binders.builtin_visible("getattr"));
         if known_getattr {
             self.getattr(expr);
         } else {
-            self.getattr_complete = false;
+            self.support.downgrade(Construct::Getattr);
         }
     }
 

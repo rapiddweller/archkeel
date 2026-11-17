@@ -1748,7 +1748,8 @@
           "component": "report-ruling",
           "rationale": "Publish the ruling, the one writer of a status and a rule verdict (AD-388).",
           "through": [
-            "native.archkeel_report.ruling"
+            "native.archkeel_report.ruling",
+            "native.archkeel_report.run_scope"
           ]
         }
       ],
@@ -1757,6 +1758,7 @@
         "native.archkeel_report:Named",
         "native.archkeel_report:RuleReasons",
         "native.archkeel_report:Ruling",
+        "native.archkeel_report:RunScope",
         "native.archkeel_report:Status",
         "native.archkeel_report:construct_row",
         "native.archkeel_report:page",
@@ -1948,6 +1950,16 @@
       "public": [
         "native.archkeel_report.engine_frame.html:render"
       ],
+      "requires": [
+        {
+          "component": "report-payload",
+          "rationale": "Read the status of the run and the verdict of each rule row as the typed wire form of the frame, not as words (AD-730).",
+          "through": [
+            "native.archkeel_report.head:RuleVerdict",
+            "native.archkeel_report.head:Status"
+          ]
+        }
+      ],
       "decided_by": "architect"
     },
     {
@@ -1997,6 +2009,7 @@
         "native.archkeel_report.beyond",
         "native.archkeel_report.edge_links",
         "native.archkeel_report.ruling",
+        "native.archkeel_report.run_scope",
         "native.archkeel_report.violation_detail"
       ],
       "responsibilities": [
@@ -2118,7 +2131,8 @@
         "native.archkeel_report.ruling:RuleReasons",
         "native.archkeel_report.ruling:Ruling",
         "native.archkeel_report.ruling:rule",
-        "native.archkeel_report.ruling:rule_with_edge_links"
+        "native.archkeel_report.ruling:rule_with_edge_links",
+        "native.archkeel_report.run_scope:RunScope"
       ],
       "decided_by": "architect"
     },
@@ -2351,6 +2365,7 @@
             "native.archkeel_report:Explain",
             "native.archkeel_report:Named",
             "native.archkeel_report:Ruling",
+            "native.archkeel_report:RunScope",
             "native.archkeel_report:construct_row",
             "native.archkeel_report:rule_with_edge_links"
           ]
@@ -5732,6 +5747,7 @@
       ],
       "public": [
         "native.archkeel_python_collector.survey.routes:resolve",
+        "native.archkeel_python_collector.survey.support:Construct",
         "native.archkeel_python_collector.survey:Modules",
         "native.archkeel_python_collector.survey:Survey",
         "native.archkeel_python_collector.survey:modules",

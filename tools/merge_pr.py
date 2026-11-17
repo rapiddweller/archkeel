@@ -91,7 +91,13 @@ def decide(pr: dict, required: list[str], runs: dict[str, tuple[str, str]]) -> D
         elif conclusion != "success":
             d.add(REFUSE, "check_failed", f"'{name}' concluded {conclusion}: fix it and push")
     if pr["mergeStateStatus"] == "BLOCKED" and d.verdict == MERGE:
-        d.add(REFUSE, "blocked", "GitHub reports the merge state BLOCKED by a rule of the branch")
+        # GitHub updates the state a few seconds after the last required check turned green. If
+        # it stays BLOCKED, a rule of the branch other than a check blocks the merge.
+        d.add(
+            WAIT,
+            "blocked",
+            "GitHub still reports BLOCKED with green checks: retry, then look at the rules",
+        )
     return d
 
 
