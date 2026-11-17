@@ -262,3 +262,37 @@ def test_the_first_view_shows_the_whole_graph_or_starts_at_its_top_left_box(
     assert core["firstIn"], core
     assert "right" in core["overflow"].split(), core
     assert core["hint"] == "Scroll or press Shift 1 to fit", core
+
+
+LONG_TITLE = "Python extension module pydantic_core._pydantic_core (PyO3 binding, maturin)"
+LABEL_OVERLAPS = """(() => {
+  const flow = document.getElementById('flow');
+  const boxes = [...flow.querySelectorAll('svg [data-uml-id] .card')]
+    .map((c) => c.getBoundingClientRect());
+  const canvas = flow.querySelector('.flow-canvas').getBoundingClientRect();
+  return [...flow.querySelectorAll('svg .atlas-edge-label')].map((label) => {
+    const r = label.getBoundingClientRect();
+    return { text: label.textContent,
+      overlaps: boxes.filter((b) => r.left < b.right && r.right > b.left && r.top < b.bottom
+        && r.bottom > b.top).length,
+      inside: r.left >= canvas.left && r.right <= canvas.right }; });
+})()"""
+
+
+@pytest.mark.parametrize(("width", "height"), [(1440, 900), (1440, 1300)])
+def test_an_edge_label_stays_outside_every_box(
+    tmp_path: Path, site: str, width: int, height: int
+) -> None:
+    # Issue 1659: a long interface title started under its source box and was cut off.
+    import urllib.request  # noqa: PLC0415
+
+    page = urllib.request.urlopen(f"{site}/system.html").read().decode()  # noqa: S310
+    assert page.count('"Core frame protocol"') >= 1
+    folder = tmp_path / "site"
+    folder.mkdir()
+    (folder / "long.html").write_text(page.replace('"Core frame protocol"', f'"{LONG_TITLE}"'))
+    with serve(folder) as base, browser(tmp_path / "profile", width=width, height=height) as tall:
+        tall.open(f"{base}/long.html")
+        labels = tall.evaluate(LABEL_OVERLAPS)
+    assert [label["text"] for label in labels] == [LONG_TITLE]
+    assert all(label["overlaps"] == 0 for label in labels), labels
