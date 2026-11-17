@@ -240,6 +240,26 @@ impl Builder {
                 ),
             },
         };
+        self.push_import(
+            from,
+            reference,
+            &identity,
+            evidence,
+            index,
+            (target, target_module, name, other_crate),
+        );
+    }
+
+    /// Adds the import record of a resolved path: its target, its item (AD-604) and its published name.
+    fn push_import(
+        &mut self,
+        from: Origin<'_>,
+        reference: &Reference,
+        identity: &str,
+        evidence: String,
+        index: Option<&Index<'_>>,
+        (target, target_module, name, other_crate): (Target, String, Option<ImportName>, bool),
+    ) {
         let target_package = match &target {
             Target::Local { module, .. } => package_of(module.as_str()).to_owned(),
             _ => target_module.clone(),
@@ -248,7 +268,7 @@ impl Builder {
         let record = record(
             from.module,
             reference,
-            &identity,
+            identity,
             evidence,
             &target_module,
             &target_package,
