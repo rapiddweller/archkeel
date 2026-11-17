@@ -11,31 +11,29 @@ Open scopes require listed intent; they do not certify an exhaustive inventory.
 Python visibility follows naming conventions. Static binding sites are not live objects.
 Dynamic enum generation and complete instance inventories remain partial.
 
-Replay with the existing Make target:
+Check the unchanged Target with the core, from the repository root:
 
-    make demo-architecture VARIANT=uml-match OUTPUT=demo-output/uml-match.json
-    make demo-architecture VARIANT=uml-mismatch OUTPUT=demo-output/uml-mismatch.json
-    make demo-architecture VARIANT=uml-partial OUTPUT=demo-output/uml-partial.json
+    archkeel report --root fixtures/H-uml --output build/h-uml.html
 
-Use fresh output paths. Match is PASS. Mismatch changes run's return type:
-its signature is FAIL. Partial replaces READY with auto(): literal existence is
-UNKNOWN. The Target is unchanged in all three runs.
+The showcase page of the gallery runs this project and shows its verdict next to the verdict it
+was built for, and the issue that blocks a PASS while there is one. The Target is unchanged in
+every run.
 
-These examples prove the Python collector against its independent Target. Dart and TypeScript
-have separate source-only reports and retain their own unsupported facts as UNKNOWN.
+The gallery also runs one planted variant, `H-uml-plant-signature`: it copies this project and
+changes the return type of `Client.run` from `str` to `int`. The Target still says `str`, so the
+signature row is a FAIL, and the card links the violation block of its report. The plant is the
+`plant` entry of that run in `fixtures/matrix.json`.
 
-Use make demo-uml OUTPUT=<fresh-directory> for Python, Dart and TypeScript reports.
-Each language has an independently declared Target; see the catalog for source-fact verdicts.
+These examples check the Python collector against its independent Target. Dart and TypeScript
+have separate source-only reports and retain their own unsupported facts as UNKNOWN. Each
+language has an independently declared Target; the gallery lists them.
 
 Tracked in #339 (demo acceptance) and #340 (inner Target contracts).
 
-Replay uml-complete for a closed static Target. It extends this authored contract,
-not the observation, with the initializer, namespace groups, external references,
-file inventory and all recorded relationship kinds used by this program.
-Its describe function reads State.READY and VERSION inside core.py.
-An extra definition fails the closed inventory. Exhaustive observation remains
-UNKNOWN because the Python profile cannot certify all symbol and binding forms.
-The open uml-match control remains PASS; PASS does not certify completeness.
+Open scopes say what is intended; they never certify that nothing else exists. A closed scope
+needs an inventory that the collector proves complete, and the Python profile cannot prove every
+symbol and binding form, so exhaustive observation stays UNKNOWN. PASS does not certify
+completeness.
 
 A component is a responsibility boundary, not a folder. A Python module here maps
 to one source file. Namespace groups do not prove physical package directories.
