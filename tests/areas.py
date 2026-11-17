@@ -30,6 +30,10 @@ AREAS: dict[str, tuple[str, ...]] = {
     "self-check and CI": (
         "test_repository_hygiene.py",
         "test_ir_owners.py",
+        "test_area_selection.py",
+        "test_merge_pr.py",
+        "test_born_small.py",
+        "test_doc_references_exist.py",
         "test_make_gate.py",
         "test_make_self_check.py",
         "test_ci_budget.py",
@@ -65,3 +69,120 @@ def area_of(file_name: str) -> str | None:
         (area for area, patterns in AREAS.items() for p in patterns if fnmatchcase(file_name, p)),
         None,
     )
+
+
+# AD-674: the nightly tier. These files hold the scaling, memory and large-scan tests: the nine
+# files that made 73 % of the summed test time (PIPELINE-TEST-AUDIT.md). The PR and main tiers run
+# `-m "not slow"`; the nightly Full run (`make full-test`) runs every test.
+SLOW_FILES = frozenset(
+    {
+        "test_collector_native_scaling.py",
+        "test_collector_native_scaling_sites.py",
+        "test_collector_native_scaling_real.py",
+        "test_collector_native_script_scaling.py",
+        "test_collector_native_script_deps_scaling.py",
+        "test_collector_native_rust_scaling.py",
+        "test_collector_native_syntax_scaling.py",
+        "test_cli_native_core_scan_large.py",
+        "test_cli_native_core_scan_rust.py",
+    }
+)
+
+# AD-674: files that a PR gate of 3 minutes cannot afford. Each took 8 s or more of summed
+# test time in the full run of 2026-11-16, or builds a workspace copy. The main tier runs them;
+# the PR tier does not.
+HEAVY_FILES = frozenset(
+    {
+        "test_cli_baseline.py",
+        "test_cli_boundary_types.py",
+        "test_cli_core_contract_hygiene.py",
+        "test_cli_core_inside_trees.py",
+        "test_cli_core_ts_config_dropped.py",
+        "test_cli_core_uml_symbols.py",
+        "test_cli_installed_wheel.py",
+        "test_cli_native_core_scan_work.py",
+        "test_cli_native_dart_imports.py",
+        "test_cli_native_global_code.py",
+        "test_cli_native_global_forms.py",
+        "test_cli_native_global_writes.py",
+        "test_cli_native_python_imports.py",
+        "test_cli_native_python_reexport.py",
+        "test_cli_native_ts_reference_types.py",
+        "test_cli_native_type_publication.py",
+        "test_cli_python_interface.py",
+        "test_cli_python_profile_limits.py",
+        "test_cli_python_review_plants.py",
+        "test_cli_python_sites.py",
+        "test_cli_python_symbols.py",
+        "test_cli_python_syspath.py",
+        "test_cli_report_output.py",
+        "test_cli_report_topology.py",
+        "test_collector_native_digest.py",
+        "test_collector_native_records.py",
+        "test_collector_native_rust_definitions_oracle.py",
+        "test_collector_native_rust_module_oracle.py",
+        "test_collector_native_rust_oracle.py",
+        "test_collector_native_rust_receivers_compiled.py",
+        "test_merge_check.py",
+        "test_native_report.py",
+        "test_native_self_contract.py",
+        "test_native_self_core_rows.py",
+        "test_native_self_rules.py",
+        "test_parallel_execution.py",
+        "test_rust_clones.py",
+    }
+)
+
+# AD-674: the PR tier runs the fast tests of the areas that a change can reach. The first matching
+# pattern wins; a changed path that matches no pattern selects every area, so a new directory can
+# never run no test. A changed test file always selects its own area (`area_of`).
+ALL = "all"
+TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
+    ("tests/test_*.py", ()),
+    ("native/python/*", ("native collectors", "collectors")),
+    ("native/typescript/*", ("native collectors", "collectors")),
+    ("native/dart*/*", ("native collectors", "collectors")),
+    ("native/rust/*", ("native collectors", "collectors")),
+    ("native/report/*", ("reports", "CLI and core")),
+    ("native/*", ("CLI and core", "self-check and CI")),
+    ("src/*", ("CLI and core", "self-check and CI")),
+    ("schema/*", ("CLI and core", "self-check and CI")),
+    ("fixtures/*", ("CLI and core", "collectors")),
+    ("tools/*", ("self-check and CI", "reports")),
+    ("tests/*", ("self-check and CI",)),
+    (".github/*", ("self-check and CI",)),
+    ("docs/*", ("self-check and CI",)),
+    ("skills/*", ("self-check and CI",)),
+    ("*.md", ("self-check and CI",)),
+    ("Makefile", ("self-check and CI",)),
+    ("pyproject.toml", ALL),
+    ("uv.lock", ALL),
+    ("*.toml", ("self-check and CI",)),
+    ("*.json", ("self-check and CI",)),
+)
+
+
+def is_slow(file_name: str) -> bool:
+    return file_name in SLOW_FILES
+
+
+def is_heavy(file_name: str) -> bool:
+    return file_name in HEAVY_FILES
+
+
+def areas_of_change(paths: list[str]) -> list[str]:
+    """The areas that the changed paths select, in the order of AREAS (AD-674)."""
+    chosen: set[str] = set()
+    for path in paths:
+        name = path.rsplit("/", 1)[-1]
+        if path.startswith("tests/test_") and path.endswith(".py"):
+            area = area_of(name)
+            if area is None:
+                return list(AREAS)
+            chosen.add(area)
+            continue
+        rule = next((areas for pattern, areas in TOUCHES if fnmatchcase(path, pattern)), ALL)
+        if rule == ALL:
+            return list(AREAS)
+        chosen.update(rule)
+    return [area for area in AREAS if area in chosen]

@@ -421,6 +421,10 @@ fn the_in_process_trust_refuses_a_reply_of_another_profile_with_the_adapter_of_t
     let foreign = ingested(|value| {
         ours(value);
         value["facts"]["profile"] = json!("archkeel-rust-imports");
+        // The table of the Rust collector registers this set (AD-688).
+        value["facts"]["validation"]["registered"] = json!([{
+            "sections": ["imports", "unknowns", "symbols"], "optional_sections": [],
+            "features": ["rust-crate-edges"], "optional_features": [], "constructs": []}]);
         value["facts"]["capabilities"]["resolution_features"] = json!(["rust-crate-edges"]);
         value["facts"]["capabilities"]["constructs"] = json!([]);
         let kept = ["imports", "symbols", "unknowns"];

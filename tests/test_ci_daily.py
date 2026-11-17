@@ -79,7 +79,7 @@ def test_an_open_red_run_counts_to_now_and_a_day_without_runs_gives_n_a() -> Non
 
 
 def test_ci_runs_on_main_only_and_a_newer_push_cancels_the_older_run() -> None:
-    """Pipelines run on main only (AD-348): no pull_request trigger and no draft guard."""
+    """The main and nightly tiers have no pull_request trigger and no draft guard (AD-674)."""
     workflows = Path(__file__).parents[1] / ".github/workflows"
     group = (
         "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}\n"

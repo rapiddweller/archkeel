@@ -7,13 +7,8 @@
 closed! {
     /// The protocol versions of a compressed reply.
     pub enum ProtocolVersion {
-        /// Protocol 8.
-        V8 = "8.0.0",
-        /// Protocol 9.
-        V9 = "9.0.0",
-        /// Protocol 10.
-        V10 = "10.0.0",
-        /// Protocol 11: the facts carry the validation block (AD-688).
+        /// Protocol 11: the facts carry the validation block (AD-688). The store reads no older
+        /// reply; the 8.0.0, 9.0.0 and 10.0.0 replies had no block.
         V11 = "11.0.0",
     }
 }

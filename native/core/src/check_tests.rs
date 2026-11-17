@@ -162,3 +162,23 @@ fn stage_one_shell_trust_trusts_only_the_collector_of_this_build() {
     let (producer, gap) = trusted(None, "");
     assert_eq!((producer, gap), (Producer::External, None));
 }
+
+/// AD-688: the standard library key of a trusted reply names the list of its adapter. A reply of
+/// the collector of this build that names the list of another collector is not verified.
+#[test]
+fn a_reply_with_the_standard_library_of_another_adapter_is_not_trusted() {
+    let mut text = String::new();
+    let bytes = reply_with(None, CODE_DIGEST);
+    let _ = ZlibDecoder::new(bytes.as_slice()).read_to_string(&mut text);
+    let mut value: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+    value["facts"]["validation"]["standard_library"] = json!("archkeel-rust-imports");
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
+    let _ = encoder.write_all(value.to_string().as_bytes());
+    let reply = archkeel_store::ingest_reply(&encoder.finish().unwrap_or_default(), 1 << 30).ok();
+    assert!(reply.is_some(), "the store makes no producer claim");
+    let trust = stage_one_shell_trust("shop".to_owned(), reply.as_ref());
+    assert_eq!(trust.settings.producer(), Producer::External);
+    assert!(trust
+        .gap
+        .is_some_and(|why| why.starts_with(PRODUCER_NOT_VERIFIED)));
+}

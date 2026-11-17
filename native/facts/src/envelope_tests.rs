@@ -8,10 +8,12 @@ use super::{Dirty, Reply, Target};
 
 fn reply() -> Value {
     json!({
-        "protocol_version": "9.0.0",
+        "protocol_version": "11.0.0",
         "provider_sources": [],
         "facts": {
             "profile": "archkeel-typescript-imports",
+            "validation": {"registered": [], "interface": "nothing",
+                           "standard_library": "archkeel-typescript-imports"},
             "adapter": {"name": "archkeel-typescript-imports", "version": "1", "code_digest": "0"},
             "runtime": {"name": "rust", "version": "1.88.0", "required": null,
                         "requirement_state": "declared"},

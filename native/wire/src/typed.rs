@@ -75,7 +75,7 @@ pub fn assemble(
         provider_sources: NoEntries,
         facts: Facts {
             profile: provenance.profile,
-            validation: Some(validation),
+            validation,
             profile_limits: None,
             scope_premise: None,
             owned_files: Vec::new(),
