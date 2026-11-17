@@ -18,6 +18,8 @@ enters only through the growth file next to the pin (`--growth`): one entry with
 each grown item. `--write` refuses growth that the growth file does not list, and
 `--base-ref <ref>` fails when the pin has growth against its version at `<ref>` that the growth
 file does not list. The lead raises the ratchet and logs the reason in the decision log.
+AD-733: an entry whose finding is gone is stale; check mode fails on it, `--write` drops it, and a
+missing base ref is printed.
 
 Run: `python tools/native_expected.py <result.json> <expected-gaps.json> [--write]`. `--write`
 keeps the issue of each violation that the old file pins; a new violation gets no issue, and the
@@ -185,6 +187,31 @@ def growth(new: dict[str, Any], old: dict[str, Any]) -> list[list[str]]:
     return grown
 
 
+def tokens(pin: dict[str, Any]) -> set[tuple[str, ...]]:
+    """The items that a pin holds, in the form of a growth entry (AD-733)."""
+    items = {("gap", *map(str, gap)) for gap in pin.get("gaps") or ()}
+    items |= {("violation", *item) for item in _pinned_violations(pin)}
+    items |= {
+        ("rule", str(rule), str(status))
+        for rule, status in (pin.get("rules") or {}).items()
+        if status != "PASS"
+    }
+    items |= {
+        ("unknown", str(rule), str(kind)) for rule, kind in (pin.get("unknown") or {}).items()
+    }
+    return items
+
+
+def stale(pin: dict[str, Any], listed: dict[str, Any]) -> list[dict[str, Any]]:
+    """The growth entries whose finding the pin no longer holds (AD-733)."""
+    live = tokens(pin)
+    return [
+        item
+        for item in listed.get("raised") or ()
+        if tuple(map(str, item.get("entry") or ())) not in live
+    ]
+
+
 def unlisted(grown: list[list[str]], listed: dict[str, Any]) -> list[str]:
     """The grown items that the growth file lists without a reason or does not list at all."""
     reasons = {
@@ -229,11 +256,24 @@ def main(argv: list[str]) -> int:
             )
             return 1
         path.write_text(json.dumps(new, indent=2) + "\n", encoding="utf-8")
+        if growth_path.is_file() and (gone := stale(new, listed)):
+            kept = [item for item in listed["raised"] if item not in gone]
+            growth_path.write_text(
+                json.dumps({**listed, "raised": kept}, indent=2) + "\n", encoding="utf-8"
+            )
+            print(f"dropped {len(gone)} stale growth entries from {growth_path}", file=sys.stderr)
         return 0
     found = problems(result, old)
+    found += [
+        f"stale growth entry (its finding is gone; run --write): {i['entry']}"
+        for i in stale(old, listed)
+    ]
     base = _option(argv, "--base-ref")
-    if base and (before := _git_show(base, path)) is not None:
-        found += unlisted(growth(old, before), listed)
+    if base:
+        if (before := _git_show(base, path)) is None:
+            print(f"ratchet: base {base} unavailable, skipped", file=sys.stderr)
+        else:
+            found += unlisted(growth(old, before), listed)
     for line in found:
         print(line, file=sys.stderr)
     print(summary(result, str(old.get("name", "native"))))
