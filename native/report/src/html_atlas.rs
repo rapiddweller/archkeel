@@ -207,7 +207,7 @@ fn components(
                 "responsibilities": node.about, "not_responsible_for": node.forbidden,
                 "planned": (!node.planned.is_empty()).then_some(&node.planned),
                 "provenance": node.provenance.iter().map(|p| refs.id(p)).collect::<Vec<_>>(), "groups": node.members,
-                "directory": node.directory, "decided_by": if node.directory { "report" } else { "architect" },
+                "directory": node.directory, "decided_by": node.decided_by(),
             })
         })
         .collect();
