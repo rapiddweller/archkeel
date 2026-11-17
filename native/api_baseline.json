@@ -1665,6 +1665,7 @@
     "fn envelope::validation::with_optional_sections(mut self,sections:&[SectionName])->Self",
     "fn envelope::with_import_id(&self,id:&str)->Self",
     "fn envelope_build::at(file:&str,line:i64,end_line:i64,column:i64,excerpt:&str)->Self",
+    "fn envelope_build::is_full(gaps:usize,unparsed:usize)->bool",
     "fn envelope_build::of((files_read,files_parsed):(usize,usize),selected_files:Vec<String>,gaps:Vec<Record<GapFact>>,)->Self",
     "fn envelope_build::of((git_head,dirty):(&str,&Value),scope:&[String],inputs:&[Input],)->Result<Self,String>",
     "fn envelope_build::of((rel_path,module):(&str,&str),blank:bool,evidence_id:String)->Self",
