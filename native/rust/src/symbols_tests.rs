@@ -321,3 +321,23 @@ fn module_files_and_edges_use_the_package_of_their_rust_module() {
         }
     }
 }
+
+#[test]
+fn an_excluded_test_child_does_not_make_a_production_package() {
+    let facts = run(
+        &[
+            ("crates/Cargo.toml", "[package]\nname = \"app\"\n"),
+            ("crates/src/lib.rs", "mod flat;"),
+            ("crates/src/flat.rs", "#[cfg(test)] mod tests;"),
+            ("crates/src/flat/tests.rs", ""),
+        ],
+        true,
+    );
+    let file = facts
+        .head
+        .files
+        .iter()
+        .find(|f| f.module.as_str() == "ns.app.flat")
+        .unwrap();
+    assert_eq!(file.package.as_str(), "ns.app");
+}
