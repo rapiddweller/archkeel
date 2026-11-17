@@ -69,6 +69,15 @@ pub(super) fn limit(nodes: &mut Vec<Node>) {
             whole.push(scope);
             continue;
         }
+        // A group of directory boxes is a directory box of the path prefix.
+        let files = children.iter().all(|c| nodes[*c].directory);
+        let label_of = |name: &String| {
+            if files {
+                format!("{name}/")
+            } else {
+                name.clone()
+            }
+        };
         for (child, name) in children.iter().zip(&names) {
             if !shared(name) {
                 continue;
@@ -77,9 +86,7 @@ pub(super) fn limit(nodes: &mut Vec<Node>) {
                 Some((_, at)) => *at,
                 None => {
                     let at = nodes.len();
-                    // A group of directory boxes is a directory box of the path prefix.
-                    let files = children.iter().all(|c| nodes[*c].directory);
-                    let made_group = group(nodes, &owner, name, scope, files);
+                    let made_group = group(nodes, &owner, &label_of(name), scope, files);
                     nodes.push(made_group);
                     made.push((name.clone(), at));
                     at

@@ -92,8 +92,11 @@ fn boxes<'a>(modules: &[(&'a str, &'a str)]) -> Vec<Planned<'a>> {
     }
     let mut out = Vec::new();
     let single = by_directory.len() == 1;
+    let mut boxed: Vec<(String, usize)> = Vec::new();
+    let mut alone: Vec<(String, &'a str)> = Vec::new();
     for (dir, files) in by_directory {
         if files.len() < 2 {
+            alone.extend(files.iter().map(|(_, name)| (dir.clone(), *name)));
             continue;
         }
         let relative = dir.strip_prefix(&common).unwrap_or(&dir).trim_matches('/');
@@ -118,6 +121,17 @@ fn boxes<'a>(modules: &[(&'a str, &'a str)]) -> Vec<Planned<'a>> {
         let loose = prefixes(&mut out, inside, &label, &files, 1);
         if let Some(at) = inside {
             out[at].members = loose;
+            boxed.push((dir, at));
+        }
+    }
+    // A module alone in its directory goes into the box of the nearest directory above it.
+    for (dir, name) in alone {
+        let above = boxed
+            .iter()
+            .filter(|(d, _)| dir.starts_with(&format!("{d}/")))
+            .max_by_key(|(d, _)| d.len());
+        if let Some((_, at)) = above {
+            out[*at].members.push(name);
         }
     }
     out
@@ -266,7 +280,8 @@ mod tests {
         assert_eq!(
             plan(&rows),
             [
-                ("survey/".to_owned(), None, 1),
+                // `mod.rs`, and `x/y.rs`, alone in its directory, in the box above it.
+                ("survey/".to_owned(), None, 2),
                 ("hazards_*".to_owned(), Some(0), 20),
                 ("lazy_*".to_owned(), Some(0), 20),
                 ("declared/".to_owned(), None, 2),
