@@ -126,6 +126,10 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             crate::boundary_positions::receipt(model, rule)?;
             true
         }
+        Rule::SymbolPlacement(rule) => {
+            placement_receipt(model, rule)?;
+            true
+        }
         // AD-670: an item that another component may use without a proven import holds it back.
         Rule::UnusedPublic(rule) => crate::published::receipt(model, rule)?,
         // Each kind that no slice decides: its slice states its receipt here (AD-378). A
@@ -138,7 +142,6 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         | Rule::AllowedDependency(_)
         | Rule::SourceOwnership(_)
         | Rule::NoComponentCycles(_)
-        | Rule::SymbolPlacement(_)
         | Rule::BoundedNumericOperand(_)
         | Rule::ProtocolDeclarations(_)) => {
             // `receipts::cycle` gives the receipt of `no_component_cycles` (slice S7).
@@ -150,6 +153,40 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
     } else {
         Err(Reason::NoSubjects)
     }
+}
+
+fn placement_receipt(
+    model: &Model,
+    rule: &archkeel_contract::SymbolPlacement,
+) -> Result<(), Reason> {
+    let modules = model.source_modules(rule.source().as_text());
+    if modules.is_empty() {
+        return Err(Reason::NoSubjects);
+    }
+    model
+        .graph()
+        .placement()
+        .ok_or(Reason::Unsupported(Unsupported::Rule(
+            archkeel_contract::RuleKind::SymbolPlacement,
+        )))?;
+    if modules.iter().any(|id| {
+        model.graph().modules().get(*id).is_none_or(|module| {
+            let allowed = rule
+                .allowed_sources()
+                .iter()
+                .any(|source| in_scope(module.name(), source.as_text()))
+                || rule
+                    .exact_sources()
+                    .iter()
+                    .any(|source| module.name() == source.as_text());
+            !allowed && !module.class_inventory_empty()
+        })
+    }) {
+        return Err(Reason::NotComplete(Cause::Receipt(
+            "symbol placement: class inventory is incomplete",
+        )));
+    }
+    Ok(())
 }
 
 /// An undecided position is a fact: the reference engine gives UNKNOWN (`_rule_status`).

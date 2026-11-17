@@ -15,7 +15,6 @@ macro_rules! undecided_rule {
             | archkeel_contract::Rule::CatalogUse(_)
             | archkeel_contract::Rule::ForbiddenEffectUnderCondition(_)
             | archkeel_contract::Rule::SourceOwnership(_)
-            | archkeel_contract::Rule::SymbolPlacement(_)
             | archkeel_contract::Rule::BoundedNumericOperand(_)
             | archkeel_contract::Rule::ProtocolDeclarations(_)
     };
