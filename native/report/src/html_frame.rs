@@ -12,6 +12,8 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::head::{RuleVerdict, Status};
+
 /// A row of the frame that the page reads: a struct of public fields that reads as empty.
 macro_rules! row {
     ($vis:vis, $($name:ident { $($field:ident: $kind:ty),* $(,)? })*) => {$(
@@ -41,6 +43,7 @@ row! {
     CollectionGap { kind: String, subjects: Vec<String>, reason: String, evidence: Vec<String>, detail: Option<String> }
     Holds { rules: BTreeMap<String, RuleHolds> }
     Interface { id: String, source: String, target: String, title: String, schema: String }
+    Part { id: String, status: Option<Status>, rules: Vec<String> }
     Explain { rules: BTreeMap<String, Shape>, cycles: BTreeMap<String, Cycles>, holds: Holds }
 }
 
@@ -56,13 +59,17 @@ pub(super) struct Identity {
 /// The parts of the frame that the page shows.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Frame {
-    pub(super) status: String,
-    pub(super) rules: BTreeMap<String, (String, String)>,
+    /// The status of the run, or `None` when the frame states none (`unavailable`).
+    pub(super) status: Option<Status>,
+    /// Each rule row: its kind and its verdict.
+    pub(super) rules: BTreeMap<String, (String, RuleVerdict)>,
     pub(super) details: BTreeMap<String, Vec<Detail>>,
     pub(super) locations: BTreeMap<String, Location>,
     pub(super) topology: Option<Topology>,
     /// What crosses between the parts of a system: a crossing that is no import.
     pub(super) interfaces: Vec<Interface>,
+    /// The parts of a system, each with its own status and rules (AD-616).
+    pub(super) parts: Vec<Part>,
     pub(super) explain: Explain,
     pub(super) head: String,
     pub(super) explained: BTreeMap<String, String>,
@@ -141,13 +148,14 @@ impl Frame {
             calls: serde_json::from_value(frame["measures"].clone()).ok(),
             assumed: field(frame, "assumed"),
             doors: frame["door_reach"].as_array().map_or(0, Vec::len),
-            status: frame["status"].as_str().unwrap_or("unavailable").to_owned(),
+            status: serde_json::from_value(frame["status"].clone()).ok(),
             rules: field(frame, "rules"),
             details: field(frame, "details"),
             locations: field(frame, "locations"),
             topology: serde_json::from_value(frame["topology"].clone()).ok(),
             explain: field(frame, "explain"),
             interfaces: field(&frame["system"], "interfaces"),
+            parts: field(&frame["system"], "parts"),
             accepted: field(&frame["baseline"], "accepted_rules"),
             baseline: frame["baseline"]["state"].as_str().map(|state| {
                 let accepted = frame["baseline"]["accepted_unknowns"].as_u64();
@@ -157,9 +165,9 @@ impl Frame {
         }
     }
 
-    /// The number of rules with this verdict word.
-    pub(super) fn rules_with(&self, word: &str) -> usize {
-        self.rules.values().filter(|row| row.1 == word).count()
+    /// The number of rules with this verdict.
+    pub(super) fn rules_with(&self, verdict: RuleVerdict) -> usize {
+        self.rules.values().filter(|row| row.1 == verdict).count()
     }
 
     /// The file and line of an evidence id, as `path:line`.

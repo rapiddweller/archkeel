@@ -259,3 +259,22 @@ def test_the_page_of_an_unknown_run_names_its_cause_and_at_most_five_held_rules(
     assert named
     if len(held) <= 5:
         assert len(named) == len(held)
+
+
+@pytest.mark.parametrize("name", ["H-typescript", "L-nest-realworld", "I-flutter-shop"])
+def test_no_box_cell_or_edge_of_an_unknown_run_shows_pass(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str
+) -> None:
+    """AD-730 (#1468): a run that does not decide every rule draws no PASS in the Explorer."""
+    folder, config, _ = RUNS[name]
+    _, text, found = write_page(
+        release_core, monkeypatch, ROOT / folder, config, tmp_path / "p.html"
+    )
+    assert found["status"] == "UNKNOWN"
+    data = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', text)
+    assert data
+    atlas = json.loads(data.group(1))["atlas"]
+    shown = [c["status"] for c in atlas["components"]]
+    shown += [cell[3] for cell in atlas["cells"]]
+    shown += [edge["status"] for level in atlas["levels"] for edge in level["edges"]]
+    assert shown and "PASS" not in shown

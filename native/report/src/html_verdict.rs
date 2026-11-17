@@ -10,37 +10,37 @@ use super::causes;
 use super::frame::Frame;
 use super::markup::{count, escape, status_icon};
 use super::places::Places;
-
-/// The class word of a status.
-fn word(status: &str) -> &'static str {
-    match status {
-        "PASS" => "pass",
-        "FAIL" => "fail",
-        _ => "unknown",
-    }
-}
+use super::status::{cause, run_word, Shown};
+use crate::head::{RuleVerdict, Status};
 
 fn title(frame: &Frame, places: &Places) -> String {
-    let (fail, unknown) = (frame.rules_with("FAIL"), frame.rules_with("UNKNOWN"));
-    match frame.status.as_str() {
-        "PASS" if !frame.assumed.is_empty() => format!(
+    let (fail, unknown) = (
+        frame.rules_with(RuleVerdict::Fail),
+        frame.rules_with(RuleVerdict::Unknown),
+    );
+    let pass = frame.rules_with(RuleVerdict::Pass);
+    match frame.status {
+        Some(Status::Pass) if !frame.assumed.is_empty() => format!(
             "All {} hold; {} {}",
-            count(frame.rules_with("PASS"), "rule"),
+            count(pass, "rule"),
             frame.assumed.len(),
             super::rules::qualifier(frame.doors).replacen("PASS", "hold", 1)
         ),
-        "PASS" => format!("All {} hold", count(frame.rules_with("PASS"), "rule")),
-        "FAIL" => format!(
+        Some(Status::Pass) => format!("All {} hold", count(pass, "rule")),
+        Some(Status::Fail) => format!(
             "{} violated in {}, {unknown} unknown",
             count(fail, "rule"),
             count(places.total, "place")
         ),
-        _ if unknown > 0 => format!("{} cannot be decided", count(unknown, "rule")),
-        _ if !frame.named.is_empty() => format!(
+        Some(Status::Unknown) | None if unknown > 0 => {
+            format!("{} cannot be decided", count(unknown, "rule"))
+        }
+        Some(Status::Unknown) | None if !frame.named.is_empty() => format!(
             "The run cannot be decided: {} with no rule of their own hold it open",
             count(frame.named.len(), "gap")
         ),
-        _ => "The run cannot be decided".to_owned(),
+        Some(Status::Unknown) => "The run cannot be decided".to_owned(),
+        None => "The frame states no status: the run cannot be decided".to_owned(),
     }
 }
 
@@ -95,10 +95,12 @@ fn calls(frame: &Frame) -> String {
     )
 }
 
-fn note(status: &str) -> &'static str {
+fn note(status: Option<Status>) -> &'static str {
     match status {
-        "PASS" => "No violation. No unknown.",
-        _ => "A violation is a fact of this run. An unknown rule is not a pass.",
+        Some(Status::Pass) => "No violation. No unknown.",
+        Some(Status::Fail | Status::Unknown) | None => {
+            "A violation is a fact of this run. An unknown rule is not a pass."
+        }
     }
 }
 
@@ -113,7 +115,7 @@ baseline; the status stays {}, and an accepted UNKNOWN is not a pass.</p>",
         escape(state),
         accepted,
         if *accepted == 1 { "entry" } else { "entries" },
-        escape(&frame.status)
+        run_word(frame.status)
     )
 }
 
@@ -194,12 +196,14 @@ fn jobs(frame: &Frame, places: &Places) -> Vec<(usize, String)> {
             ));
         }
     }
-    if jobs.is_empty() && frame.status == "UNKNOWN" {
+    // An open run and a frame without a status name their cause (AD-730).
+    let open = matches!(frame.status, Some(Status::Unknown) | None);
+    if jobs.is_empty() && open {
         jobs.push((
             1,
             format!(
                 "Remove the cause that keeps the run open: {}",
-                escape(&frame.cause)
+                escape(cause(frame))
             ),
         ));
     }
@@ -209,7 +213,7 @@ fn jobs(frame: &Frame, places: &Places) -> Vec<(usize, String)> {
 
 fn next(frame: &Frame, places: &Places) -> String {
     let mut steps = Vec::new();
-    if frame.status == "PASS" {
+    if frame.status == Some(Status::Pass) {
         steps.push("Nothing to do. Keep the contract and this report with the commit.".to_owned());
     } else {
         let all = jobs(frame, places);
@@ -278,8 +282,8 @@ fn top_causes(frame: &Frame) -> String {
 
 /// The verdict card and the next steps: the first block of the page.
 pub(super) fn section(frame: &Frame, places: &Places) -> String {
-    let status = frame.status.as_str();
-    let state = word(status);
+    let status = Shown::of_run(frame.status);
+    let state = status.class();
     let stat = |label: &str, value: usize| {
         format!(
             "<div class=\"ak-verdict__stat\"><dt class=\"caption\">{label}</dt><dd class=\"ak-num h2\">{value}</dd></div>"
@@ -297,19 +301,19 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
 <span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\
 <p class=\"body-sm ak-verdict__note\">{}</p>{}{}{}{}{}<dl class=\"ak-verdict__stats\">{}{}{}{}</dl></section>{}</div>
 ",
-        escape(status),
+        run_word(frame.status),
         status_icon(status),
-        escape(status),
+        run_word(frame.status),
         escape(&title(frame, places)),
-        note(status),
+        note(frame.status),
         baseline(frame),
         premise(frame),
         doors(frame),
         calls(frame),
         top_causes(frame),
-        stat("Rules PASS", frame.rules_with("PASS")),
-        stat("Rules FAIL", frame.rules_with("FAIL")),
-        stat("Rules UNKNOWN", frame.rules_with("UNKNOWN")),
+        stat("Rules PASS", frame.rules_with(RuleVerdict::Pass)),
+        stat("Rules FAIL", frame.rules_with(RuleVerdict::Fail)),
+        stat("Rules UNKNOWN", frame.rules_with(RuleVerdict::Unknown)),
         gaps(frame),
         next(frame, places)
     )

@@ -1948,6 +1948,16 @@
       "public": [
         "native.archkeel_report.engine_frame.html:render"
       ],
+      "requires": [
+        {
+          "component": "report-payload",
+          "rationale": "Read the status of the run and the verdict of each rule row as the typed wire form of the frame, not as words (AD-730).",
+          "through": [
+            "native.archkeel_report.head:RuleVerdict",
+            "native.archkeel_report.head:Status"
+          ]
+        }
+      ],
       "decided_by": "architect"
     },
     {
