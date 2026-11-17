@@ -1,12 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""A path through a re-exported module or crate root names the module at its end (#1517, AD-802).
+"""A path through a re-exported module or crate root names the module at its end (#1517, AD-772).
 
 In `crate::c::other::b::g()`, `other` can be a `use` of `c` that names a module, the crate root
 (`crate`, an alias of `extern crate self`), another crate of the workspace, or a name that a glob
 of `c` brings in. rustc then resolves the path into `b`, so a rule that forbids `a -> b` may never
-PASS. Before AD-802, the module resolver stopped at `c` and each form below gave a false PASS.
+PASS. Before AD-772, the module resolver stopped at `c` and each form below gave a false PASS.
 `cargo check` accepts each plant.
 """
 
@@ -109,6 +109,45 @@ FOLLOWED = {
             **HIDDEN,
             "crates/app/src/lib.rs": "pub mod a;\n",
             "crates/app/src/a.rs": "use base_crate::*;\npub fn f() { hidden::g(); }\n",
+        },
+        IN_BASE,
+    ),
+    # #1711: an `extern crate` item binds a name to a crate of the workspace, as a `use` does.
+    "extern-crate-alias-in-a-module": (
+        _in_base(
+            "pub fn f() { crate::c::other::hidden::g(); }\n",
+            "pub extern crate base_crate as other;\n",
+        ),
+        IN_BASE,
+    ),
+    "extern-crate-plain-in-a-module": (
+        _in_base(
+            "pub fn f() { crate::c::base_crate::hidden::g(); }\n", "pub extern crate base_crate;\n"
+        ),
+        IN_BASE,
+    ),
+    "extern-crate-alias-at-the-root": (
+        {
+            **HIDDEN,
+            "crates/app/src/lib.rs": "pub mod a;\nextern crate base_crate as other;\n",
+            "crates/app/src/a.rs": "pub fn f() { crate::other::hidden::g(); }\n",
+        },
+        IN_BASE,
+    ),
+    # An `extern crate` item of the crate root also adds its name to the extern prelude.
+    "extern-crate-alias-in-the-prelude": (
+        {
+            **HIDDEN,
+            "crates/app/src/lib.rs": "pub mod a;\nextern crate base_crate as other;\n",
+            "crates/app/src/a.rs": "pub fn f() { other::hidden::g(); }\n",
+        },
+        IN_BASE,
+    ),
+    "extern-crate-alias-in-the-prelude-by-a-use": (
+        {
+            **HIDDEN,
+            "crates/app/src/lib.rs": "pub mod a;\nextern crate base_crate as other;\n",
+            "crates/app/src/a.rs": "use other::hidden;\npub fn f() { hidden::g(); }\n",
         },
         IN_BASE,
     ),

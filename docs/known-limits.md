@@ -54,9 +54,10 @@ the last two were fixed after it and are checked on main at `157dc8851`:
   `tests/test_collector_false_pass_rust_redirect.py` holds the four compiling fixtures.
 - A Rust path through a re-exported name of a module gives FAIL: `crate::c::other::b::g()` where
   `c` re-exports a module, the crate root, an alias of `extern crate self`, another crate of the
-  workspace, or brings the name in by a glob (also `use base::*; hidden::g()`). A route that a
-  macro call writes, or one over the hop limit, gives UNKNOWN. The 17 compiling fixtures are in
-  `tests/test_collector_false_pass_rust_root_reexports.py` (AD-802, #1517).
+  workspace, or brings the name in by a glob (also `use base::*; hidden::g()`), and an `extern crate
+  base as other;` in a module, at the crate root, or through the extern prelude (#1711). A route that a
+  macro call writes, or one over the hop limit, gives UNKNOWN. The 22 compiling fixtures are in
+  `tests/test_collector_false_pass_rust_root_reexports.py` (AD-772, #1517).
 - A patch of a platform prototype (`Object.defineProperty(EventTarget.prototype, …)`, a prototype
   that is passed on, `ev.target.__proto__ = …`) gives UNKNOWN with a source-resolution gap
   (AD-768, #1527). `tests/test_cli_native_prototype_patch.py` holds 18 forms.
