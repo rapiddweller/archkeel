@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Python loaders outside the scan: a forbidden import that they make is never PASS (#1519).
+"""Python loaders outside the scan: a forbidden import that they make is never PASS (#1519, #1521).
 
 Consumer: `archkeel validate`. `app.consumer` may not depend on `app.lib`. A module outside the scan
 roots (`vendor/plugin_vendor.py`) loads the module whose name it is given. Python 3.12 runs the
@@ -32,6 +32,14 @@ PLANTS = {
         {
             "vendor/plugin_vendor.py": "from importlib import import_module\n"
             "def load(name):\n    import_module(name)\n"
+        },
+    ),
+    "#1521 a library globals dictionary hides the builtin importer": (
+        "from plugin_vendor import namespace\nkey = ''.join(['__im', 'port__'])\n"
+        "namespace()[key]('app.lib')\n",
+        {
+            "vendor/plugin_vendor.py": "from builtins import __import__\n"
+            "def namespace():\n    return globals()\n"
         },
     ),
 }

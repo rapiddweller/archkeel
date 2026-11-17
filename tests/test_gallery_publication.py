@@ -113,3 +113,20 @@ def test_the_pages_job_keeps_the_gate_cache_of_main_warm() -> None:
     assert body.index("name: Build the core") < body.index("Save the Rust build cache of main")
     assert body.count("if: always() && steps.build.outcome == 'success'") == 2
     assert "key: core-gate-" in body and "key: rust-gate-main-" in body
+
+
+def test_a_failed_build_publishes_nothing_says_so_and_the_fetched_sources_are_cached() -> None:
+    """A pinned source that cannot be fetched fails the build step. The upload and the deploy
+    run only after it, without `always()`, so the last good page stays and no half page appears."""
+    body = _jobs("pages.yml")["publish-gallery"]
+    build = body.index("run: make report-gallery")
+    upload = body.index("actions/upload-pages-artifact@")
+    deploy = body.index("actions/deploy-pages@")
+    for step in (body[upload:deploy], body[deploy:].split("- name:", 1)[0]):
+        assert "if:" not in step
+    notice = body.index("Say that the last good page stays online")
+    assert deploy < notice and "if: failure()" in body[notice:]
+    assert "::error title=The gallery was not published::" in body
+    restore = body.index("path: test-artifacts/source-cache")
+    assert restore < build
+    assert "hashFiles('fixtures/*/SOURCE.json')" in body

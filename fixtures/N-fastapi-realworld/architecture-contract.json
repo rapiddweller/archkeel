@@ -1,0 +1,293 @@
+{
+ "schema_version": "2.2.0",
+ "components": [
+  {
+   "id": "COMP-API",
+   "label": "api",
+   "role": "component",
+   "packages": [
+    "fastapi.__main__",
+    "fastapi.applications",
+    "fastapi.background",
+    "fastapi.cli",
+    "fastapi.concurrency",
+    "fastapi.datastructures",
+    "fastapi.encoders",
+    "fastapi.exception_handlers",
+    "fastapi.exceptions",
+    "fastapi.logger",
+    "fastapi.param_functions",
+    "fastapi.params",
+    "fastapi.requests",
+    "fastapi.responses",
+    "fastapi.routing",
+    "fastapi.sse",
+    "fastapi.staticfiles",
+    "fastapi.templating",
+    "fastapi.testclient",
+    "fastapi.types",
+    "fastapi.utils",
+    "fastapi.websockets"
+   ],
+   "public": [
+    "fastapi.__main__",
+    "fastapi.applications",
+    "fastapi.background",
+    "fastapi.cli",
+    "fastapi.concurrency",
+    "fastapi.datastructures",
+    "fastapi.encoders",
+    "fastapi.exception_handlers",
+    "fastapi.exceptions",
+    "fastapi.logger",
+    "fastapi.param_functions",
+    "fastapi.params",
+    "fastapi.requests",
+    "fastapi.responses",
+    "fastapi.routing",
+    "fastapi.sse",
+    "fastapi.staticfiles",
+    "fastapi.templating",
+    "fastapi.testclient",
+    "fastapi.types",
+    "fastapi.utils",
+    "fastapi.websockets"
+   ],
+   "responsibilities": [
+    "api"
+   ],
+   "forbidden_responsibilities": [],
+   "provenance": [
+    "docs/architecture/fastapi-current.md"
+   ],
+   "requires": [
+    {
+     "component": "compat",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "dependencies",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "middleware",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "openapi",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "telemetry",
+     "rationale": "Observed import direction."
+    }
+   ],
+   "decided_by": "architect",
+   "exact_modules": [
+    "fastapi"
+   ]
+  },
+  {
+   "id": "COMP-COMPAT",
+   "label": "compat",
+   "role": "component",
+   "packages": [
+    "fastapi._compat"
+   ],
+   "public": [
+    "fastapi._compat"
+   ],
+   "responsibilities": [
+    "compat"
+   ],
+   "forbidden_responsibilities": [],
+   "provenance": [
+    "docs/architecture/fastapi-current.md"
+   ],
+   "requires": [
+    {
+     "component": "api",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "openapi",
+     "rationale": "Observed import direction."
+    }
+   ],
+   "decided_by": "architect"
+  },
+  {
+   "id": "COMP-DEPENDENCIES",
+   "label": "dependencies",
+   "role": "component",
+   "packages": [
+    "fastapi.dependencies"
+   ],
+   "public": [
+    "fastapi.dependencies"
+   ],
+   "responsibilities": [
+    "dependencies"
+   ],
+   "forbidden_responsibilities": [],
+   "provenance": [
+    "docs/architecture/fastapi-current.md"
+   ],
+   "requires": [
+    {
+     "component": "api",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "compat",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "security",
+     "rationale": "Observed import direction."
+    }
+   ],
+   "decided_by": "architect"
+  },
+  {
+   "id": "COMP-MIDDLEWARE",
+   "label": "middleware",
+   "role": "component",
+   "packages": [
+    "fastapi.middleware"
+   ],
+   "public": [
+    "fastapi.middleware"
+   ],
+   "responsibilities": [
+    "middleware"
+   ],
+   "forbidden_responsibilities": [],
+   "provenance": [
+    "docs/architecture/fastapi-current.md"
+   ],
+   "requires": [],
+   "decided_by": "architect"
+  },
+  {
+   "id": "COMP-OPENAPI",
+   "label": "openapi",
+   "role": "component",
+   "packages": [
+    "fastapi.openapi"
+   ],
+   "public": [
+    "fastapi.openapi"
+   ],
+   "responsibilities": [
+    "openapi"
+   ],
+   "forbidden_responsibilities": [],
+   "provenance": [
+    "docs/architecture/fastapi-current.md"
+   ],
+   "requires": [
+    {
+     "component": "api",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "compat",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "dependencies",
+     "rationale": "Observed import direction."
+    }
+   ],
+   "decided_by": "architect"
+  },
+  {
+   "id": "COMP-SECURITY",
+   "label": "security",
+   "role": "component",
+   "packages": [
+    "fastapi.security"
+   ],
+   "public": [
+    "fastapi.security"
+   ],
+   "responsibilities": [
+    "security"
+   ],
+   "forbidden_responsibilities": [],
+   "provenance": [
+    "docs/architecture/fastapi-current.md"
+   ],
+   "requires": [
+    {
+     "component": "api",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "openapi",
+     "rationale": "Observed import direction."
+    }
+   ],
+   "decided_by": "architect"
+  },
+  {
+   "id": "COMP-TELEMETRY",
+   "label": "telemetry",
+   "role": "component",
+   "packages": [
+    "fastapi.telemetry"
+   ],
+   "public": [
+    "fastapi.telemetry"
+   ],
+   "responsibilities": [
+    "telemetry"
+   ],
+   "forbidden_responsibilities": [],
+   "provenance": [
+    "docs/architecture/fastapi-current.md"
+   ],
+   "requires": [
+    {
+     "component": "api",
+     "rationale": "Observed import direction."
+    }
+   ],
+   "decided_by": "architect"
+  }
+ ],
+ "rules": [
+  {
+   "id": "ASSIGNMENT",
+   "kind": "complete_assignment",
+   "rationale": "Keep the layering of the project explicit.",
+   "provenance": [
+    "docs/architecture/fastapi-current.md"
+   ],
+   "decided_by": "architect",
+   "source": "fastapi"
+  },
+  {
+   "id": "REQUIRES",
+   "kind": "complete_requires",
+   "rationale": "Keep the layering of the project explicit.",
+   "provenance": [
+    "docs/architecture/fastapi-current.md"
+   ],
+   "decided_by": "architect"
+  },
+  {
+   "id": "SECURITY-NO-DEPENDENCIES",
+   "kind": "forbidden_dependency",
+   "rationale": "Keep the layering of the project explicit.",
+   "provenance": [
+    "docs/architecture/fastapi-current.md"
+   ],
+   "decided_by": "architect",
+   "source": "fastapi.security",
+   "target": "fastapi.dependencies",
+   "include_type_checking": true
+  }
+ ]
+}
