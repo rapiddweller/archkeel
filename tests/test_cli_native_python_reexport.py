@@ -133,5 +133,8 @@ def test_a_python_verdict_states_its_assumption(release_core: Path, tmp_path: Pa
     """The proofs rest on one premise, and the frame says it with the verdict (AD-530)."""
     for name in ("plain-submodule", "init-rebinds-after-the-import"):
         result = verdict(release_core, write(tmp_path / name, PLANTS[name]))
-        premise = "code outside the scan roots hands in no module object of the scan"
+        premise = (
+            "Code outside the scan roots, including test code, hands in no module object of the"
+            " scan and writes no binding of a module or class of the scan."
+        )
         assert result["frame"]["premise"] == premise

@@ -1,0 +1,111 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""#1571: a method in the file of its type, called on a value that the caller does not name.
+
+Consumer: `archkeel validate`. `c` holds `pub struct S` and `impl S { fn m }`. `a` gets a value of
+type `S` without naming `c` (a field of a parameter, a chain of fields, the return value of a
+function of `d`) and calls `m`. rustc compiles each plant, and the program prints `c`: the call is a
+dependency `a -> c`. So `NO-A-TO-C` is FAIL (the edge) or UNKNOWN (a pair gap), never PASS.
+Before #1571 the scan gave no record that names `c`, and the rule was PASS (AD-418,
+`docs/known-limits.md`).
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+from rust_repository import CRATE_RULES, repository, rule, statuses, validate
+from test_cli_native_rust_interface import _rustc_accepts
+
+pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="rustc is the oracle")
+
+SRC = "crates/app/src/"
+STR = "&'static str"
+TYPE = f'pub struct S;\nimpl S {{\n    pub fn m(&self) -> {STR} {{\n        "c"\n    }}\n}}\n'
+HOLDER = (
+    "pub struct W {\n    pub s: crate::c::S,\n}\npub struct V {\n    pub w: W,\n}\n"
+    "pub fn make() -> W {\n    W { s: crate::c::S }\n}\n"
+    "pub fn nest() -> V {\n    V { w: make() }\n}\n"
+    "pub fn value() -> crate::c::S {\n    crate::c::S\n}\n"
+)
+CALLERS = {
+    "a field of a typed parameter": (
+        f"pub fn g(w: &crate::d::W) -> {STR} {{\n    w.s.m()\n}}\n"
+        f"pub fn run() -> {STR} {{\n    g(&crate::d::make())\n}}\n"
+    ),
+    "a chain of two fields": (
+        f"pub fn g(v: &crate::d::V) -> {STR} {{\n    v.w.s.m()\n}}\n"
+        f"pub fn run() -> {STR} {{\n    g(&crate::d::nest())\n}}\n"
+    ),
+    "the field of a return value": f"pub fn run() -> {STR} {{\n    crate::d::make().s.m()\n}}\n",
+    "a return value": f"pub fn run() -> {STR} {{\n    crate::d::value().m()\n}}\n",
+    "a local of a return value": (
+        f"pub fn run() -> {STR} {{\n    let w = crate::d::make();\n    w.s.m()\n}}\n"
+    ),
+}
+
+
+def _plant(root: Path, core: Path, caller: str, ty: str = TYPE) -> Path:
+    files = {
+        SRC + "lib.rs": "pub mod a;\nmod c;\nmod d;\n",
+        SRC + "c.rs": ty,
+        SRC + "d.rs": HOLDER,
+        SRC + "a.rs": caller,
+    }
+    to_c = rule(
+        "NO-A-TO-C",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.c",
+        include_type_checking=True,
+    )
+    return repository(root, core, files, rules=(*CRATE_RULES, to_c))
+
+
+def _real_target(root: Path) -> str:
+    """The module of the member that Rust calls: the output of `app::a::run()`."""
+    out = root / "out"
+    out.mkdir()
+    common = ["rustc", "--edition", "2021", "-A", "warnings", "--out-dir", str(out)]
+    library = [*common, "--crate-type", "lib", "--crate-name", "app", str(root / SRC / "lib.rs")]
+    done = subprocess.run(library, capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr
+    main = root / "main.rs"
+    main.write_text('fn main() {\n    print!("{}", app::a::run());\n}\n')
+    program = [*common, "--extern", f"app={out / 'libapp.rlib'}", str(main)]
+    done = subprocess.run(program, capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr
+    return subprocess.run([str(out / "main")], capture_output=True, text=True, check=True).stdout
+
+
+@pytest.mark.parametrize("name", sorted(CALLERS))
+def test_a_call_into_the_file_of_the_type_is_never_silent(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], name: str
+) -> None:
+    root = _plant(tmp_path, core_binary, CALLERS[name])
+    _rustc_accepts(root)
+    assert _real_target(root) == "c"
+    found = statuses(validate(root, capsys))
+    assert found.get("NO-A-TO-C") in {"FAIL", "UNKNOWN"}, (name, found)
+
+
+def test_an_exact_field_and_an_exact_impl_give_the_edge(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Where the scan resolves the field to an exact type with one exact member of the `self` form
+    of the field (AD-524), the call is the edge `a -> c` (FAIL), not only a gap. A `&self` member
+    through a field of a value is an autoref: a trait method `m(self)` in scope would win, and the
+    scan cannot see each trait in scope (std, a blanket impl of a dependency), so that call keeps
+    the pair gap of the cases above."""
+    copy = TYPE.replace("pub struct S;", "#[derive(Clone, Copy)]\npub struct S;").replace(
+        "m(&self)", "m(self)"
+    )
+    root = _plant(tmp_path, core_binary, CALLERS["a field of a typed parameter"], copy)
+    _rustc_accepts(root)
+    assert _real_target(root) == "c"
+    found = statuses(validate(root, capsys))
+    assert found.get("NO-A-TO-C") == "FAIL", found
