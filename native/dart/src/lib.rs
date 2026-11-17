@@ -48,6 +48,7 @@ mod work;
 #[cfg(feature = "dump")]
 pub mod dump;
 
+pub use import_survey::claims::check;
 pub use import_survey::reply::decode;
 pub use import_survey::reply::typed_reply;
 

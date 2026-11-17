@@ -27,6 +27,16 @@ store read by profile belong to the collectors.
    the adapter and the code digest. The store makes no producer claim (AD-406 review F2).
 4. Transition. Step 1 read the 8, 9 and 10 replies with the old profile checks. Step 2 ends it: the
    decode refuses another protocol and a reply without a block.
+5. The checks of one language (step 3) live in their collector: `archkeel_python_collector::check`
+   (builtin and external targets against the pinned list of the key, import statements) and
+   `archkeel_dart_collector::check` (Dart URI targets, import and export statements, each selected
+   file accounted for); both require the coverage gaps to be the unknowns, each once
+   (`archkeel_facts::surveys`), which another collector need not hold. `archkeel_collect::check` calls the one of the profile of the reply after
+   the store, for the scan and for the byte door of the harness; the core names no profile.
+   The rules `NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE` and `-NO-DART-MODULE` of AD-668 are removed
+   with the two modules that they target (a rule that selects no module holds the whole run).
+   `tests/test_native_neutral_crates.py` still requires a rule for each language module of a
+   neutral crate, and `NATIVE-NEUTRAL-STORE-NO-PROFILE` stays.
 
 **Why it is sound.** A block cannot widen the store: it names only features that the store checks
 and only the key of a pinned list, and it only restricts the minimum. A block that requires fewer
@@ -40,7 +50,9 @@ a linked collector writes; a wire reply of the Dart profile with a part is refus
 
 **Measured.** Visible violations of the four rules of AD-668 in the native self-check:
 - step 1: 27 -> 18 (`store.standard`, `store.bindings`, `store.records` name no `Profile`);
-- step 2: 18 -> 9 (`store.registered` deleted; `store.python` keeps only the survey checks).
+- step 2: 18 -> 9 (`store.registered` deleted; `store.python` keeps only the survey checks);
+- step 3: 9 -> 0 (`store.python` and `store.dart` deleted; `core.scan` names no `Profile`);
+  the native self-check is 91 PASS, 1 FAIL (`NATIVE-PUBLIC-HAS-A-USER`, #1402), 0 UNKNOWN.
 
 **Rejected.**
 - A `part_evidence` or an `effects` flag in the block: a flag that a reply sets relaxes the store.
@@ -51,4 +63,5 @@ a linked collector writes; a wire reply of the Dart profile with a part is refus
 `registered_tests.rs` (the TypeScript table on the golden replies, which carry
 `tests/golden/typescript/validation.json`, checked equal to the table by the collector),
 `standard.rs`, `native/collect/src/{python,dart,rust}_tests.rs` (each table on a real reply),
-`native/core/src/check_tests.rs` (the key in the trust).
+`native/core/src/check_tests.rs` (the key in the trust), `native/python/src/claims.rs`,
+`native/dart/src/import_survey/claims.rs`.

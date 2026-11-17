@@ -94,9 +94,11 @@ fn a_planted_digest_or_a_changed_file_refuses_the_reply() {
         .contains("cannot be read again"));
 }
 
-/// The store refusal of a changed copy of a real survey, or an empty text.
+/// The refusal of a changed copy of a real survey by the store or the check of the collector
+/// (AD-688), or an empty text.
 fn refusal(reply: Reply) -> String {
     archkeel_store::ingest_typed(reply)
+        .and_then(|ingested| crate::check(&ingested.reply().facts))
         .err()
         .unwrap_or_default()
 }
