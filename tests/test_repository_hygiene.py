@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 import tomllib
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
@@ -276,17 +277,12 @@ def test_sdist_ships_library_and_build_inputs_only() -> None:
 
 
 def test_decision_index_matches_decision_files() -> None:
-    """AD-55: the archive index and decision files must name the same set."""
-    decisions_dir = ROOT / "docs/architecture/decisions"
-    index = (decisions_dir / "README.md").read_text(encoding="utf-8")
-    indexed = dict(re.findall(r"^\| AD-(\S+) \| \[.*?\]\((ad-\S+\.md)\) \|$", index, re.MULTILINE))
-    on_disk = {path.name for path in decisions_dir.glob("ad-*.md")}
+    """AD-55, AD-752: the index is generated from the files; no record shares a number."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    import decision_index
 
-    assert indexed, "the archive index parsed no rows"
-    missing_files = sorted(set(indexed.values()) - on_disk)
-    assert missing_files == [], f"the archive index names missing decision files: {missing_files}"
-    unindexed_files = sorted(on_disk - set(indexed.values()))
-    assert unindexed_files == [], f"the archive index omits decision files: {unindexed_files}"
+    assert decision_index.problems() == []
+    assert len(decision_index.records()) >= 539
 
 
 def test_plans_and_evidence_stay_out_of_the_repository() -> None:

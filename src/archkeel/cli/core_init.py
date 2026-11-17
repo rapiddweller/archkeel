@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Final
 
 from .core_arguments import Options
+from .core_binding import ProjectRoot
 from .core_frame import CoreCommand as Command
 from .core_frame import RefusalKind
 from .init_draft import (
@@ -148,11 +149,6 @@ def _interfaces(result: Draft) -> str:
     )
 
 
-def _project_root(path: Path) -> Path | None:
-    """The Git work tree at or above `path`, or `None` outside a repository."""
-    return next((folder for folder in (path, *path.parents) if (folder / ".git").exists()), None)
-
-
 def _opted_out(options: Options) -> str | None:
     """The words for the way the user opted out of writing, or `None`."""
     if options.no_init:
@@ -182,16 +178,16 @@ def _with(options: Options, config: str) -> Options:
     return found
 
 
-def _prepare(options: Options, root: Path) -> tuple[Options, InitOutcome]:
+def _prepare(options: Options, project: ProjectRoot) -> tuple[Options, InitOutcome]:
     """Make the files for a project without a configuration, and find the configuration.
 
     Without `archkeel.toml` a system document of the repository is the configuration. Gives the
     options (with that configuration) and the outcome. When this is not a first run (a
     configuration other than the default, or no Git work tree), the core gives its own refusal.
     """
-    # An explicit `--root` is the project; without it the project is the work tree above.
-    base = root if options.root is not None and (root / ".git").exists() else None
-    base = base or (_project_root(root) if options.root is None else None)
+    # The draft step runs only at the top of a work tree: an explicit `--root` that is one, or the
+    # work tree above the current folder (AD-735). `init` drafts at the same root.
+    base = project.path if (project.path / ".git").exists() else None
     if options.config != CONFIG or base is None or (base / options.config).exists():
         return options, InitOutcome(_InitState.NOT_FIRST_RUN)
     if (base / SYSTEM).is_file():

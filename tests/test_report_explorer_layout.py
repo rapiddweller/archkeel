@@ -96,21 +96,28 @@ def test_a_level_with_too_many_modules_groups_them_by_component(site: str, page:
     assert nodes and set(nodes) == {"module"}
 
 
-def test_two_stacked_boxes_get_a_direct_edge(tmp_path: Path, site: str) -> None:
-    # A tall canvas wraps the two parts of the system into two rows.
-    with browser(tmp_path, width=1440, height=1300) as tall:
-        tall.open(f"{site}/system.html")
-        shell, core, path = tall.evaluate(
-            "(() => { const box = (id) => { const r = document.querySelector("
-            '`#flow [data-uml-id="${id}"] .card`).getBoundingClientRect();'
-            " return [r.left, r.right, r.top, r.bottom]; };"
-            " return [box('PART:shell'), box('PART:core'), document.querySelector("
-            "'#flow [data-uml-id=\"interface:core-frame-protocol\"] .line')"
-            ".getAttribute('d')]; })()"
-        )
+def test_two_stacked_boxes_get_a_direct_edge(site: str, page: Browser) -> None:
+    # A tall canvas makes the layout wrap the two parts of the system into two rows.
+    page.open(f"{site}/system.html")
+    shell, core, points = page.evaluate(
+        """(async () => {
+          document.querySelector('#flow .flow-canvas').style.height = '3000px';
+          const card = { 'PART:shell': 178, 'PART:core': 178 };
+          const result = await ArchkeelReportLayout.layoutAtlas({
+            componentOverview: true, parentId: null,
+            nodes: [{ id: 'PART:shell' }, { id: 'PART:core' }],
+            edges: [{ id: 'e', layoutId: 'interface:x', source: 'PART:shell',
+              target: 'PART:core', label: 'Core frame protocol' }],
+            components: [], cardWidth: 200, cardHeights: card });
+          document.querySelector('#flow .flow-canvas').style.height = '';
+          const box = (id) => { const p = result.positions[`component:${id}`];
+            return [p.x, p.x + 200, p.y, p.y + card[id]]; };
+          return [box('PART:shell'), box('PART:core'),
+            result.routes.get('edge:interface:x').points];
+        })()"""
+    )
     assert shell[3] <= core[2] and shell[0] < core[1] and core[0] < shell[1], "not stacked"
-    bends = path.count("L") - 1
-    assert bends <= 2, path
+    assert len(points) - 2 <= 2, points
 
 
 def test_the_first_view_after_a_drill_is_readable(site: str, page: Browser) -> None:
