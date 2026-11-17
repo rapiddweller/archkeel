@@ -16,6 +16,7 @@ use crate::options::ModuleKind;
 use crate::parse::{parse_for, Parsed};
 use crate::references::{Form, Reference};
 use crate::resolve::format_of;
+use crate::site_charge::{self, MAX_RECORD_TEXT};
 use crate::source_input::{classify_file, classify_specifier, ModuleFormat, SourceKind};
 
 impl Collection<'_> {
@@ -58,6 +59,7 @@ impl Collection<'_> {
         let script = ScriptFile::take(&mut parsed, format_known, global_scope);
         self.script_file_effects(rel, module, &script);
         let kept = Kept::from_parsed(module, &mut parsed, text, script);
+        let kept = self.refuse_long_chain(rel, module, kept);
         self.order.push(rel.to_owned());
         self.kept.insert(rel.to_owned(), kept);
         let cjs = suffix.and_then(|suffix| suffix.format_hint()) == Some(ModuleFormat::Cjs)
@@ -83,6 +85,25 @@ impl Collection<'_> {
         }
         self.check_extracted(&parsed, handled, (rel, module, file_evidence));
         self.type_directives(&parsed, (rel, module), &format);
+    }
+
+    /// AD-751: a file whose site records would copy and hash more than `MAX_RECORD_TEXT` bytes of
+    /// expression text keeps no site. The gap names the longest chain, so every rule of the
+    /// scope is UNKNOWN and the run does not hang.
+    fn refuse_long_chain(&mut self, rel: &str, module: &str, mut kept: Kept) -> Kept {
+        let charged = site_charge::charge(&kept.sites);
+        let Some((length, span)) = charged.longest.filter(|_| charged.bytes > MAX_RECORD_TEXT)
+        else {
+            return kept;
+        };
+        let evidence = self.cite(rel, &span);
+        let reason = format!(
+            "The call chain at line {} is too long to record: {} bytes of receiver text exceed the work limit of {MAX_RECORD_TEXT} (its own text has {length} bytes): {rel}",
+            span.line, charged.bytes
+        );
+        self.gap(&reason, Some(&evidence), module, GapKind::Collection);
+        kept.sites.sites.clear();
+        kept
     }
 
     /// A leading `/// <reference types="name" />` that the compiler honors (#686). The compiler

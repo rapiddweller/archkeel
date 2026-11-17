@@ -334,3 +334,18 @@ def test_six_hundred_brackets_still_refuse_without_a_frame(
     )
     assert done.returncode == 2 and done.stdout == b"", done.stderr
     assert b"parse_work_limit" in done.stderr
+
+
+def test_a_long_call_chain_is_a_named_gap(release_core: Path, tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    request = project(root, 1, 0, "typescript")
+    (root / "src/deep0.ts").write_text("export const v = a" + ".b()" * 200_000 + ";\n")
+    contract = root / "architecture-contract.json"
+    data = json.loads(contract.read_text())
+    data["rules"] = [rule for rule in data["rules"] if rule["id"] == "MODULE-CYCLES"]
+    contract.write_text(json.dumps(data))
+    done, peak = measured_scan(release_core, request)
+    frame = json.loads(done.stdout)
+    assert frame["status"] == "UNKNOWN"
+    assert "is too long to record" in json.dumps(frame["collection_gaps"])
+    assert peak is None or peak < 1 << 30
