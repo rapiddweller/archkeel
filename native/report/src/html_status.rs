@@ -186,7 +186,7 @@ mod tests {
         assert!(Shown::Pass < Shown::Unknown && Shown::Unknown < Shown::Fail);
     }
 
-    use RuleVerdict::{Fail, Pass, Unknown};
+    use crate::head::RuleVerdict::{Fail, Pass, Unknown};
 
     /// A frame that proves each rule of the contract has a row (complete scope, an empty list of
     /// rules without a row), with rules `R0`, `R1`, ... of these verdicts.

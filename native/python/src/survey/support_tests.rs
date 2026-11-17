@@ -24,6 +24,7 @@ fn downgrade_and_meet_keep_the_worse_support_of_each_construct() {
     assert_eq!(start.of(Construct::Assert), Seen::Supported);
     assert_eq!(start.of(Construct::AnyAnnotation), Seen::Partial);
     assert_eq!(start.of(Construct::DynamicImport), Seen::Partial);
+    assert_eq!(start.of(Construct::Cast), Seen::Partial);
     for construct in READ {
         assert_eq!(start.of(construct), Seen::Supported, "{construct:?}");
         let mut one = Support::start();
@@ -54,7 +55,8 @@ fn the_reply_lists_each_construct_once_in_its_order() {
             "string_literal_compare",
             "getattr",
             "any_annotation",
-            "dynamic_import"
+            "dynamic_import",
+            "cast"
         ]
     );
 }
@@ -125,4 +127,5 @@ fn code_without_a_hiding_form_keeps_each_read_construct_supported() {
     }
     assert_eq!(found.of(Construct::AnyAnnotation), Seen::Partial);
     assert_eq!(found.of(Construct::DynamicImport), Seen::Partial);
+    assert_eq!(found.of(Construct::Cast), Seen::Partial);
 }

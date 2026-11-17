@@ -48,7 +48,7 @@ SYSTEM: Final = "docs/architecture/architecture-system.json"
 # A contract must cite a file that exists, and a cited document must hold the marked component
 # graph (release 4.0.1 wrote it too). The draft draws the components and no edge: the core then
 # reports `graph.drift` with the edges that it found, and that list is the first decision to make.
-PAGE: Final = "architecture.md"
+_PAGE: Final = "architecture.md"
 _FOLDER: Final = "docs/architecture"
 _SPEC_DEPTH: Final = 4
 _SCHEMA: Final = "3.14.0"
@@ -129,7 +129,7 @@ def _toml(layout: Layout, contract: str) -> str:
 def _unit(layout: Layout, folder: str, prefix: str) -> tuple[list[File], tuple[str, ...]]:
     """The configuration, the contract and the page of one scan, in `folder` ("" is the root)."""
     at = f"{folder}/" if folder else ""
-    contract, page = f"{at}{CONTRACT}", f"{folder or _FOLDER}/{PAGE}"
+    contract, page = f"{at}{CONTRACT}", f"{folder or _FOLDER}/{_PAGE}"
     parts = [part for part in layout.parts if part.packages or part.modules]
     labels = tuple(part.label for part in parts)
     ids = (f"{prefix}-ASSIGNMENT-COMPLETE", f"{prefix}-COMPONENT-NO-CYCLES")

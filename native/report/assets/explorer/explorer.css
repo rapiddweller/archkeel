@@ -924,8 +924,13 @@
   font:11px var(--font-mono)}
 .rp-explorer .atlas-finding-chip,
 .rp-explorer .atlas-deviation-chip{font:11px var(--font-sans)}
-.rp-explorer .atlas-finding-chip{fill:var(--fail)}
-.rp-explorer .atlas-deviation-chip{fill:var(--accent-text)}
+/* The colour of the two lines follows the status of the box: the fail token only in a FAIL box. */
+.rp-explorer .atlas-finding-chip,
+.rp-explorer .atlas-deviation-chip{fill:var(--ink-muted)}
+.rp-explorer .node[data-assessment-status="UNKNOWN"] .atlas-finding-chip,
+.rp-explorer .node[data-assessment-status="UNKNOWN"] .atlas-deviation-chip{fill:var(--unknown-text)}
+.rp-explorer .node[data-assessment-status="FAIL"] .atlas-finding-chip,
+.rp-explorer .node[data-assessment-status="FAIL"] .atlas-deviation-chip{fill:var(--fail)}
 .rp-explorer .atlas-edge-label{fill:var(--ink-muted);
   font:11px var(--font-sans);
   paint-order:stroke;

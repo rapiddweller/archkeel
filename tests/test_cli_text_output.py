@@ -17,7 +17,7 @@ from test_cli_core_only_boundary import HEAD, frame
 from test_cli_report_output import project
 
 from archkeel.cli import core_exit, core_only
-from archkeel.cli.core_frame import GapKind, Status, UnknownKind
+from archkeel.cli.core_frame import GapKind, Status, _UnknownKind
 
 
 @pytest.fixture(autouse=True)
@@ -201,7 +201,7 @@ def test_no_internal_word_reaches_the_text(capsys: pytest.CaptureFixture[str]) -
     document["unsupported"]["rules"] = {"R2": "rule kind X (#880) AD-522"}
     document["unknown_kinds"] = {"R1": "scope_incomplete"}
     _, text = _run(document, ["validate", "--text", "--all"], capsys)
-    machine = [str(kind) for kind in (*UnknownKind, *GapKind) if "_" in kind or "." in kind]
+    machine = [str(kind) for kind in (*_UnknownKind, *GapKind) if "_" in kind or "." in kind]
     machine += ["import_system_change", "source_resolution_gap", "collect: unsupported"]
     for word in machine:
         assert word not in text, word
