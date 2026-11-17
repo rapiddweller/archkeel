@@ -1,10 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Print the test areas that a change selects (AD-674).
+"""Print the test areas that a change selects (AD-674, AD-736).
 
-`python tools/select_areas.py <base-ref>` reads `git diff --name-only --no-renames <base-ref>...HEAD` (a rename lists both paths), applies
-`tests/areas.py` and prints one `--area '<name>'` option for each selected area, ready for pytest.
+`python tools/select_areas.py <base-ref>` reads `git diff --name-only --no-renames
+<base-ref>...HEAD` (a rename lists the old and the new path), applies `tests/areas.py` and prints
+one `--area '<name>'` option for each selected area, ready for pytest.
 A change without files selects the area `self-check and CI`, so the selection is never empty.
 """
 
