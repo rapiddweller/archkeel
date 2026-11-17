@@ -178,6 +178,17 @@ fn check_getattr_capability(facts: &mut Facts) {
     assert_eq!(registered(facts), Ok(()));
     facts.capabilities.constructs[5].status = ConstructSupport::Supported;
     assert_eq!(registered(facts), Ok(()));
+    facts
+        .capabilities
+        .constructs
+        .push(archkeel_facts::envelope::ConstructCapability {
+            name: "any_annotation".to_owned(),
+            status: ConstructSupport::Partial,
+        });
+    assert_eq!(registered(facts), Ok(()));
+    facts.capabilities.constructs[6].status = ConstructSupport::Supported;
+    assert!(registered(facts).is_err());
+    facts.capabilities.constructs.pop();
     facts.capabilities.constructs[5].name = "hasattr".to_owned();
     assert!(registered(facts).is_err());
     facts.capabilities.constructs.pop();

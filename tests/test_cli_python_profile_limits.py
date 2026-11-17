@@ -350,3 +350,24 @@ def test_getattr_call_is_proven_or_left_unknown(
         frame = result["frame"]
         evidence = frame["details"]["NO-GETATTR"][0]["evidence"]
         assert frame["locations"][evidence[0]] == {"path": "src/app/client/page.py", "line": 1}
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("from typing import Any\nx: Any = None\n", "FAIL"),
+        ("import typing\ndef f(x: typing.Any): pass\n", "FAIL"),
+        ("from typing import Any\ndef f() -> list[Any]: pass\n", "FAIL"),
+        ("from typing import Any\nx = Any\n", "UNKNOWN"),
+        ("from typing import Any as Opaque\nx: Opaque = None\n", "UNKNOWN"),
+        ("x: 'Any' = None\n", "UNKNOWN"),
+    ],
+)
+def test_opaque_annotations_are_reported_or_left_unknown(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-ANY", "constructs": ["any_annotation"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-ANY"] == expected, result["frame"]["explained"]

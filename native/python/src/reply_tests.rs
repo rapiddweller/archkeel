@@ -76,13 +76,19 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
             "dunder_dict",
             "vars",
             "string_literal_compare",
-            "getattr"
+            "getattr",
+            "any_annotation"
         ]
     );
     assert!(capabilities
         .constructs
         .iter()
+        .take(6)
         .all(|item| item.status == archkeel_facts::envelope::ConstructSupport::Supported));
+    assert_eq!(
+        capabilities.constructs[6].status,
+        archkeel_facts::envelope::ConstructSupport::Partial
+    );
     let written: Vec<&str> = reply
         .facts
         .sections

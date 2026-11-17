@@ -50,7 +50,7 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
     };
     let with_asserts = facts.profile == Profile::Python
         && sections
-            == if facts.capabilities.constructs.len() == 6 {
+            == if facts.capabilities.constructs.len() >= 6 {
                 &[
                     "calls",
                     "constructs",
@@ -81,7 +81,7 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
                         )
                 })
             };
-            (1..=6).contains(&entries.len())
+            (1..=7).contains(&entries.len())
                 && entries[0].name == "assert"
                 && entries[0].status == ConstructSupport::Supported
                 && (entries.len() < 2 || partial(1, "broad_except"))
@@ -89,6 +89,9 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
                 && (entries.len() < 4 || partial(3, "vars"))
                 && (entries.len() < 5 || partial(4, "string_literal_compare"))
                 && (entries.len() < 6 || partial(5, "getattr"))
+                && (entries.len() < 7
+                    || entries[6].name == "any_annotation"
+                        && entries[6].status == ConstructSupport::Partial)
         };
     if !with_asserts && (sections != registered || !facts.capabilities.constructs.is_empty()) {
         return Err(format!(

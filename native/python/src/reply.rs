@@ -195,6 +195,7 @@ fn parts(
                     "partial"
                 },
             ),
+            ("any_annotation", "partial"),
         ],
         inputs,
         source_digest: Some(source_digest),
