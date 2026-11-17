@@ -86,3 +86,33 @@ def test_a_workspace_without_a_root_tsconfig_drafts_each_member_with_its_own(
     for path, text in configs.items():
         named = re.search(r'^tsconfig = "([^"]+)"$', text, re.M)
         assert named and (root / named[1]).is_file(), (path, text)
+
+
+def test_a_folder_of_another_part_with_only_a_test_sample_is_no_python_component(
+    tmp_path: Path,
+) -> None:
+    """#1619: `src/` holds Python packages and a TypeScript project `src/web` whose only Python
+    file is a test sample under `tests/data`. The Python draft made a component `web` for it."""
+    member = {"compilerOptions": {"strict": True}, "include": ["src"]}
+    root = _write(
+        tmp_path,
+        {
+            "pyproject.toml": '[project]\nname = "p"\nversion = "0"\nrequires-python = ">=3.11"\n',
+            "src/alpha/__init__.py": "",
+            "src/alpha/a.py": "from beta import b\n",
+            "src/alpha/test_alpha.py": "",
+            "src/beta/__init__.py": "",
+            "src/beta/b.py": "b = 1\n",
+            "src/web/package.json": '{"name": "web"}',
+            "src/web/tsconfig.json": json.dumps(member),
+            "src/web/src/index.ts": "export const a = 1;\n",
+            "src/web/tests/data/test_upload.scr.py": "print(1)\n",
+        },
+    )
+    result = draft(root)
+    assert result.parts == ("Python src", "TypeScript web")
+    # The Python part has a component for each package and none for the folder `web`; the test
+    # file of `alpha` and the sample are no modules of its scan.
+    assert result.components == ("src/alpha", "src/beta", "web/root")
+    python = next(f for f in result.files if f.path.endswith("src/archkeel.toml"))
+    assert "exclude_test_sources = true" in python.text
