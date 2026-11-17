@@ -38,6 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from tools.fixture_tree import fixture_tree, needs_copy
 from tools.report_gallery_page import STATUSES, index
 from tools.report_product import (
     Contract,
@@ -117,18 +118,28 @@ def command(cli: Sequence[str], run: Mapping[str, Any], target: Path, form: str)
     return [*arguments, "--output", str(target), "--format", form]
 
 
-def _redact(path: Path) -> None:
-    """Name the repository `<repo>` in a written report: the path of the runner is not published."""
+def _redact(path: Path, copies: Mapping[str, str] | None = None) -> None:
+    """Name the repository `<repo>` in a written report: the path of the runner is not published.
+
+    `copies` maps the path of a temporary copy of a fixture to the name that the report shows.
+    """
     if not path.is_file():
         return
     data = path.read_bytes()
     for known in {str(ROOT), str(ROOT.resolve())}:
         data = data.replace(known.encode(), b"<repo>")
+    for known, name in (copies or {}).items():
+        data = data.replace(known.encode(), name.encode())
     path.write_bytes(data)
 
 
 def _reports(
-    cli: Sequence[str], run: Mapping[str, Any], folder: Path, stem: str, prefix: str
+    cli: Sequence[str],
+    run: Mapping[str, Any],
+    folder: Path,
+    stem: str,
+    prefix: str,
+    copies: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Write both reports of one run as `<stem>.json` and `<stem>.html`. Return its row."""
     row: dict[str, Any] = {"run": run, "links": []}
@@ -154,7 +165,7 @@ def _reports(
         row["error"] = f"{type(err).__name__}: {err}"[:300]
     # A link exists only for a file that the CLI wrote.
     for label, name in (("HTML", f"{stem}.html"), ("JSON", f"{stem}.json")):
-        _redact(folder / name)
+        _redact(folder / name, copies)
         if (folder / name).is_file():
             row["links"].append((label, f"{prefix}{name}"))
     return row
@@ -164,7 +175,15 @@ def build_run(cli: Sequence[str], run: Mapping[str, Any], out: Path) -> dict[str
     """Write both reports of one matrix run into its folder. Return its row."""
     folder = out / run["name"]
     folder.mkdir(parents=True)
-    return _reports(cli, run, folder, "report", f"{run['name']}/")
+    source = ROOT / "fixtures" / run["root"]
+    if not needs_copy(source):
+        return _reports(cli, run, folder, "report", f"{run['name']}/")
+    # A fixture with resolver inputs runs in a copy, as in the tests (AD-462).
+    with fixture_tree(source) as tree:
+        shown = f"<repo>/fixtures/{run['root']}"
+        copies = {str(tree): shown, str(tree.resolve()): shown}
+        prepared = {**run, "root_path": str(tree)}
+        return _reports(cli, prepared, folder, "report", f"{run['name']}/", copies)
 
 
 def badge(row: Mapping[str, Any], label: str) -> dict[str, Any]:

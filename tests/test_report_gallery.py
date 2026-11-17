@@ -8,12 +8,13 @@ from __future__ import annotations
 import json
 import re
 import shlex
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from tools import report_gallery, report_gallery_page
+from tools import fixture_tree, report_gallery, report_gallery_page
 
 # A stand-in for the CLI. The root names the behavior: `served` writes both files and gives rule
 # rows, `refused` gives a refusal and writes no file, `garbage` prints no envelope.
@@ -348,3 +349,57 @@ def test_every_shown_matrix_run_states_a_section_an_intent_and_a_blocker_when_it
         pinned = run["expect"]["status"]
         # What the matrix pins today may differ from the intent only with a named issue.
         assert run["intent"] == pinned or run.get("blocked_by"), run["name"]
+
+
+# A stand-in that writes what it saw below the root: the folder `node_modules` and the root itself.
+PROBE = """
+import json, os, sys
+args = sys.argv[1:]
+root = args[args.index("--root") + 1]
+seen = {"root": root, "modules": os.path.isdir(os.path.join(root, "node_modules"))}
+with open(args[args.index("--output") + 1], "w") as handle:
+    handle.write(json.dumps(seen))
+print(json.dumps({"status": "UNKNOWN", "exit_code": 2, "gaps": [], "frame": {"rules": {}}}))
+"""
+
+
+def test_a_fixture_with_resolver_inputs_runs_in_a_copy_that_holds_node_modules(
+    tmp_path: Path,
+) -> None:
+    script = tmp_path / "probe.py"
+    script.write_text(PROBE)
+    cli = [sys.executable, str(script)]
+    run = {"name": "L-nest-realworld", "root": "L-nest-realworld", "command": "report"}
+    row = report_gallery.build_run(cli, run, tmp_path)
+    seen = json.loads((tmp_path / "L-nest-realworld" / "report.json").read_text())
+    assert "error" not in row
+    assert seen["modules"] is True
+    # The source stays as it is, and the report names the fixture, not the temporary copy.
+    assert not (report_gallery.ROOT / "fixtures" / "L-nest-realworld" / "node_modules").exists()
+    assert seen["root"] == "<repo>/fixtures/L-nest-realworld"
+
+
+def test_a_fixture_without_resolver_inputs_runs_in_place(tmp_path: Path) -> None:
+    script = tmp_path / "probe.py"
+    script.write_text(PROBE)
+    run = {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report"}
+    report_gallery.build_run([sys.executable, str(script)], run, tmp_path)
+    seen = json.loads((tmp_path / "M-review-workflow" / "report.json").read_text())
+    assert seen["root"] == "fixtures/M-review-workflow" and seen["modules"] is False
+
+
+def test_the_copy_commits_the_resolver_inputs_and_an_overlay_as_tracked_files(
+    tmp_path: Path,
+) -> None:
+    source = report_gallery.ROOT / "fixtures" / "L-nest-realworld"
+    assert fixture_tree.needs_copy(source)
+    assert not fixture_tree.needs_copy(report_gallery.ROOT / "fixtures" / "M-review-workflow")
+    with fixture_tree.fixture_tree(source, {"src/planted.ts": "export const x = 1;\n"}) as tree:
+        done = subprocess.run(
+            ["git", "ls-files"], cwd=tree, capture_output=True, text=True, check=True
+        )
+        tracked = done.stdout.splitlines()
+        assert any(name.startswith("node_modules/@nestjs/") for name in tracked)
+        assert "src/planted.ts" in tracked
+        assert (tree / "node_modules").is_dir()
+    assert not tree.exists()
