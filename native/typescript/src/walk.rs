@@ -36,6 +36,7 @@ use crate::tree::nodes::named_children;
 /// The facts of `Syntax` that this phase produces. The reply does not read them yet; the `dump`
 /// feature does (AD-323).
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
+#[derive(Default)]
 pub(crate) struct Syntax {
     pub definitions: Vec<Definition>,
     /// The parents of the definitions: `parent_name` gives the qualified name of a definition.
@@ -82,21 +83,7 @@ impl Syntax {
 
     /// The facts of a file that could not be parsed: none.
     pub(crate) fn empty() -> Self {
-        Self {
-            definitions: Vec::new(),
-            scopes: Scopes::default(),
-            import_bindings: Vec::new(),
-            module_exports: Vec::new(),
-            rebound_names: Vec::new(),
-            ambient_globals: Vec::new(),
-            ambient_top_level: Vec::new(),
-            mode: FileMode::default(),
-            module_syntax: false,
-            script_bindings: Vec::new(),
-            script: Script::default(),
-            sites: Sites::default(),
-            type_exports: TypeExports::default(),
-        }
+        Self::default()
     }
 }
 
