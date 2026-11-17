@@ -16,8 +16,8 @@
 //! - an import of another component with the name of the item whose route is not proven;
 //! - a type (a class, an alias or a macro) in a language whose public signatures need public
 //!   types: a signature of a used item may need it, and no collector states resolved signature
-//!   types. In Python and Dart the visibility is a name convention, so such a type is judged by
-//!   its name like any other item (owner decision).
+//!   types. Where the visibility is a name convention, such a type is judged by its name like any
+//!   other item (owner decision).
 //!
 //! A PASS needs every public symbol: a profile whose collector does not state its symbol facts
 //! in full gives FAIL or UNKNOWN (`limits.rs`).
@@ -131,20 +131,7 @@ impl Users {
             if !(crossing(import.source_module(), target) || import.other_crate()) {
                 continue;
             }
-            match import.symbol() {
-                Some("*") => drop(users.open.insert(target.to_owned())),
-                None if !namespace_uses => drop(users.open.insert(target.to_owned())),
-                // A module `P.x` and an item `x` of `P` share a name in two namespaces, and a
-                // whole-module import of `P.x` may name the item too (`mod reply; pub fn reply`).
-                None => drop(users.reached.insert(target.to_owned())),
-                Some(name) => {
-                    users.named.insert(format!("{target}.{name}"));
-                    users.named.extend(import.reexport_chain().iter().cloned());
-                    if !import.route_complete() || !import.symbols_known() {
-                        users.unproven.insert(name.to_owned());
-                    }
-                }
-            }
+            users.note(import, namespace_uses);
         }
         for (source, target) in model.graph().macro_bodies() {
             if crossing(source, target) {
@@ -153,6 +140,39 @@ impl Users {
         }
         users.close(imports);
         users
+    }
+
+    /// Record the use that one import makes of its target.
+    fn note(&mut self, import: &crate::imports::Import, namespace_uses: bool) {
+        let target = import.target_module();
+        match import.symbol() {
+            Some("*") => drop(self.open.insert(target.to_owned())),
+            None if !namespace_uses => drop(self.open.insert(target.to_owned())),
+            // A module `P.x` and an item `x` of `P` share a name in two namespaces, and a
+            // whole-module import of `P.x` may name the item too (`mod reply; pub fn reply`).
+            None => drop(self.reached.insert(target.to_owned())),
+            Some(name) => {
+                self.named.insert(format!("{target}.{name}"));
+                self.named.extend(import.reexport_chain().iter().cloned());
+                if !import.route_complete() || !import.symbols_known() {
+                    self.unproven.insert(name.to_owned());
+                }
+            }
+        }
+    }
+
+    /// The module that an import of an open module opens, or none when the import names an item
+    /// (which it reaches instead).
+    fn follow(&mut self, import: &crate::imports::Import) -> Option<String> {
+        let target = import.target_module();
+        match import.symbol() {
+            Some("*") | None => (!self.open.contains(target)).then(|| target.to_owned()),
+            Some(name) => {
+                self.reached.insert(format!("{target}.{name}"));
+                self.reached.extend(import.reexport_chain().iter().cloned());
+                None
+            }
+        }
     }
 
     fn default_sets(signatures: bool) -> Self {
@@ -169,21 +189,12 @@ impl Users {
     fn close(&mut self, imports: &[crate::imports::Import]) {
         loop {
             let mut added = Vec::new();
-            for import in imports
+            let open: Vec<_> = imports
                 .iter()
                 .filter(|i| self.open.contains(i.source_module()))
-            {
-                let target = import.target_module();
-                match import.symbol() {
-                    Some("*") | None if !self.open.contains(target) => {
-                        added.push(target.to_owned())
-                    }
-                    Some("*") | None => {}
-                    Some(name) => {
-                        self.reached.insert(format!("{target}.{name}"));
-                        self.reached.extend(import.reexport_chain().iter().cloned());
-                    }
-                }
+                .collect();
+            for import in open {
+                added.extend(self.follow(import));
             }
             if added.is_empty() {
                 break;

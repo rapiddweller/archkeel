@@ -66,8 +66,6 @@ pub(crate) struct Workspace {
     pub problems: Vec<Problem>,
     /// The primary root of each crate by name; the first crate of a name wins.
     primaries: BTreeMap<String, Option<Root>>,
-    /// A file of the snapshot can redirect a registry name to a path (`redirects`).
-    redirected: bool,
 }
 
 /// Find the crates among `files`, all the files below the scan roots.
@@ -76,12 +74,9 @@ pub(crate) fn discover(source: &mut Snapshot, files: &[String], namespace: &str)
         crates: Vec::new(),
         problems: Vec::new(),
         primaries: BTreeMap::new(),
-        redirected: false,
     };
     let manifests: Vec<String> = files.iter().filter(|f| is_manifest(f)).cloned().collect();
-    let outcome = redirects::scan(source, &manifests);
-    found.redirected = outcome.redirected;
-    for (file, reason) in outcome.unread {
+    for (file, reason) in redirects::unread(source, &manifests) {
         found.problems.push(Problem { reason, file });
     }
     let mut tables: BTreeMap<String, Option<Rc<Parsed>>> = BTreeMap::new();
@@ -184,11 +179,6 @@ impl Workspace {
         let Some(mut read) = manifest::read(&parsed.table, &dependencies) else {
             return;
         };
-        // A registry name is no crate of the workspace, unless a file of the snapshot can
-        // redirect it (`redirects`): then the old rule (a name of the workspace is an edge) stays.
-        if self.redirected {
-            read.remote.clear();
-        }
         if read.edition.is_none() {
             read.edition = above
                 .as_ref()
