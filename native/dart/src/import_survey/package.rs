@@ -9,14 +9,13 @@
 
 use archkeel_facts::envelope::Input;
 use archkeel_snapshot::Snapshot;
-use saphyr::{LoadableYamlNode, Yaml};
 
 use super::index::Index;
 use super::names::{GapName, Gaps, Place};
-use super::package_map::{self, Origin, PackageMap};
+use super::package_map::PackageMap;
+use super::pubspec_keys::{declared, keys, yaml, PubspecWords};
 use super::workspace;
 use crate::discover::{pubspec_path, Discovery, PACKAGE_FILES};
-use crate::module::is_identifier;
 
 const PUBSPEC: &str = "pubspec.yaml";
 
@@ -74,154 +73,6 @@ pub(crate) fn package_gaps(
         }
     }
     (inputs, map)
-}
-
-/// The origin of each dependency of a root `pubspec.yaml`; an override replaces the dependency.
-/// `None` for a document that the survey does not read key by key.
-pub(super) fn declared(document: &Yaml<'_>) -> Option<std::collections::BTreeMap<String, Origin>> {
-    let mut found = std::collections::BTreeMap::new();
-    for section in ["dependencies", "dev_dependencies", "dependency_overrides"] {
-        let Some(deps) = document.as_mapping_get(section) else {
-            continue;
-        };
-        if deps.is_null() {
-            continue;
-        }
-        for (name, dependency) in deps.as_mapping()? {
-            let name = name.as_str().filter(|name| is_identifier(name))?;
-            let origin = origin(dependency)?;
-            found.insert(name.to_owned(), origin);
-        }
-    }
-    Some(found)
-}
-
-/// The package keys and the marker for an unreadable document.
-#[derive(Debug, Default, PartialEq, Eq)]
-pub(super) struct PubspecWords {
-    pub(super) workspace: bool,
-    pub(super) resolution: bool,
-    pub(super) path: bool,
-    pub(super) escape: bool,
-}
-
-/// Parse one bounded YAML document. Other documents retain a conservative gap.
-pub(super) fn yaml(text: &str) -> Option<Yaml<'_>> {
-    if !text.contains('\\')
-        && text.len() <= 65_536
-        && text
-            .lines()
-            .all(|line| line.len() - line.trim_start().len() <= 128)
-        && text
-            .bytes()
-            .filter(|byte| matches!(byte, b'[' | b'{' | b'-' | b':' | b'?'))
-            .count()
-            <= 128
-    {
-        if let Ok(mut documents) = Yaml::load_from_str(text) {
-            if documents.len() == 1 {
-                return documents.pop();
-            }
-        }
-    }
-    None
-}
-
-pub(super) fn keys(text: &str) -> PubspecWords {
-    if let Some(document) = yaml(text) {
-        let mut found = PubspecWords::default();
-        if yaml_keys(&document, &mut found, 0) {
-            return found;
-        }
-    }
-    let mut found = words(text);
-    found.escape = true;
-    found
-}
-
-pub(super) fn yaml_keys(node: &Yaml<'_>, found: &mut PubspecWords, depth: usize) -> bool {
-    if depth > 128 {
-        return false;
-    }
-    match node {
-        Yaml::Mapping(map) => map.iter().all(|(key, value)| {
-            let Some(key) = key.as_str() else {
-                return false;
-            };
-            if depth == 0
-                && matches!(
-                    key,
-                    "dependencies" | "dev_dependencies" | "dependency_overrides"
-                )
-            {
-                let Some(deps) = value.as_mapping() else {
-                    return false;
-                };
-                return deps.iter().all(|(name, dependency)| {
-                    name.as_str().is_some() && yaml_keys(dependency, found, depth + 2)
-                });
-            }
-            match key {
-                "path" => found.path = true,
-                "workspace" => found.workspace = true,
-                "resolution" => {
-                    found.workspace = true;
-                    found.resolution = true;
-                }
-                "<<" => return false,
-                _ => {}
-            }
-            yaml_keys(value, found, depth + 1)
-        }),
-        Yaml::Sequence(items) => items.iter().all(|item| yaml_keys(item, found, depth + 1)),
-        Yaml::Value(_) => true,
-        _ => false,
-    }
-}
-
-fn words(text: &str) -> PubspecWords {
-    let mut found = PubspecWords {
-        escape: text.contains('\\'),
-        ..PubspecWords::default()
-    };
-    for line in text.split(['\n', '\r']) {
-        if line.trim_start_matches([' ', '\t']).starts_with('#') {
-            continue;
-        }
-        for word in line.split(|c: char| !c.is_ascii_alphanumeric()) {
-            match word {
-                "path" => found.path = true,
-                "workspace" => found.workspace = true,
-                "resolution" => {
-                    found.workspace = true;
-                    found.resolution = true;
-                }
-                _ => {}
-            }
-        }
-    }
-    found
-}
-
-/// The origin of one dependency value: a version text or null is hosted; a mapping states it.
-fn origin(dependency: &Yaml<'_>) -> Option<Origin> {
-    match dependency {
-        Yaml::Value(_) => Some(Origin::Hosted),
-        Yaml::Mapping(keys) => {
-            let mut pairs = Vec::new();
-            for (key, value) in keys {
-                let key = key.as_str()?;
-                let text = if key == "git" && value.is_mapping() {
-                    value.as_mapping_get("url").and_then(Yaml::as_str)
-                } else {
-                    value.as_str()
-                };
-                pairs.push((key, text));
-            }
-            Some(package_map::origin(&pairs))
-        }
-        _ => None,
-    }
 }
 
 /// The gaps of the keys of the root `pubspec.yaml` and its package map (AD-800). Bytes that are

@@ -303,7 +303,7 @@ fn excluded_or_link(rel: &str, name: &str, entry: Entry) -> Option<Problem> {
 
 /// The `pubspec.yaml` of the package directory `dir` (empty for the snapshot root).
 pub(crate) fn pubspec_path(dir: &str) -> String {
-    if dir.is_empty() {
+    if str::is_empty(dir) {
         "pubspec.yaml".to_owned()
     } else {
         format!("{dir}/pubspec.yaml")

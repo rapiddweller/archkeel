@@ -14,8 +14,8 @@ use archkeel_snapshot::Snapshot;
 use saphyr::Yaml;
 
 use super::index::Index;
-use super::package::{declared, keys, yaml, yaml_keys, PubspecWords};
 use super::package_map::Origin;
+use super::pubspec_keys::{declared, keys, yaml, yaml_keys, PubspecWords};
 use crate::discover::{pubspec_path, Discovery};
 use crate::module::is_identifier;
 
@@ -49,13 +49,13 @@ pub(super) fn workspace(
     let members = document
         .as_mapping_get("workspace")
         .and_then(Yaml::as_sequence)?;
-    if members.len() > 32 || own.is_empty() {
+    if Vec::len(members) > 32 || str::is_empty(own) {
         return None;
     }
     let mut names = BTreeSet::from([own.to_owned()]);
     let mut read = Vec::new();
     for member in members {
-        let dir = member.as_str().filter(|s| is_identifier(s))?;
+        let dir = Yaml::as_str(member).filter(|s| is_identifier(s))?;
         if roots
             .iter()
             .any(|root| root == "." || root.split('/').next() == Some(dir))
@@ -100,14 +100,14 @@ fn member_safe(doc: &Yaml<'_>) -> bool {
         return false;
     };
     for (key, value) in map {
-        let Some(key) = key.as_str() else {
+        let Some(key) = Yaml::as_str(key) else {
             return false;
         };
         if matches!(key, "workspace" | "dependency_overrides") {
             return false;
         }
         if key == "resolution" {
-            if value.as_str() != Some("workspace") {
+            if Yaml::as_str(value) != Some("workspace") {
                 return false;
             }
             continue;
@@ -117,10 +117,9 @@ fn member_safe(doc: &Yaml<'_>) -> bool {
             let Some(deps) = value.as_mapping() else {
                 return false;
             };
-            if !deps
-                .iter()
-                .all(|(name, value)| name.as_str().is_some() && yaml_keys(value, &mut found, 0))
-            {
+            if !deps.iter().all(|(name, value)| {
+                Yaml::as_str(name).is_some() && yaml_keys(value, &mut found, 0)
+            }) {
                 return false;
             }
         } else if !yaml_keys(value, &mut found, 0) {
@@ -175,9 +174,9 @@ pub(super) fn above(
     roots: &[String],
     inputs: &mut Vec<Input>,
 ) -> Option<Above> {
-    let dir = discovery.package_dir.as_str();
-    let parts: Vec<&str> = dir.split('/').filter(|part| !part.is_empty()).collect();
-    let root = (0..parts.len())
+    let dir = String::as_str(&discovery.package_dir);
+    let parts: Vec<&str> = dir.split('/').filter(|part| !str::is_empty(part)).collect();
+    let root = (0..Vec::len(&parts))
         .rev()
         .map(|end| parts[..end].join("/"))
         .find(|candidate| snapshot.is_file(&pubspec_path(candidate)))?;
@@ -185,23 +184,23 @@ pub(super) fn above(
     let text = readable(snapshot, &pubspec_path(&root), &mut read)?;
     let document = yaml(&text)?;
     let listed = document.as_mapping_get("workspace")?.as_sequence()?;
-    if listed.len() > MEMBERS {
+    if Vec::len(listed) > MEMBERS {
         return None;
     }
-    let prefix = if root.is_empty() {
+    let prefix = if String::is_empty(&root) {
         String::new()
     } else {
         format!("{root}/")
     };
     let mut found = Above {
         root,
-        members: BTreeSet::from([document.as_mapping_get("name")?.as_str()?.to_owned()]),
+        members: BTreeSet::from([Yaml::as_str(document.as_mapping_get("name")?)?.to_owned()]),
         local: BTreeSet::new(),
         overrides: root_overrides(&document)?,
     };
     let mut own = false;
     for entry in listed {
-        let member = normpath(&format!("{prefix}{}", entry.as_str()?));
+        let member = normpath(&format!("{prefix}{}", Yaml::as_str(entry)?));
         if member == dir {
             own = true;
         } else {
@@ -232,10 +231,7 @@ fn member_package(
     }
     let text = readable(snapshot, &pubspec_path(member), read)?;
     let document = yaml(&text)?;
-    let name = document
-        .as_mapping_get("name")?
-        .as_str()
-        .filter(|s| is_identifier(s))?;
+    let name = Yaml::as_str(document.as_mapping_get("name")?).filter(|s| is_identifier(s))?;
     let local = declared(&document)?
         .into_iter()
         .filter(|(_, origin)| matches!(origin, Origin::Local(_)))

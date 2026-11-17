@@ -20,6 +20,7 @@ mod names;
 mod package;
 mod package_map;
 mod parts;
+mod pubspec_keys;
 pub(crate) mod reply;
 pub(crate) mod uri;
 mod workspace;

@@ -70,7 +70,7 @@ impl PackageMap {
             Some(Origin::Local(why)) => local(why),
             Some(_) => Ok(()),
             // A transitive dependency: only a local package can make it local, by its own path.
-            None if !self.local_names.is_empty()
+            None if !BTreeSet::is_empty(&self.local_names)
                 || self.declared.values().any(|origin| matches!(origin, Origin::Local(_))) =>
             {
                 Err((
