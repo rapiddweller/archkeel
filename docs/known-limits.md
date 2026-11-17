@@ -20,14 +20,14 @@ Documentation does not accept these defects. They block the 5.0.0 release.
 
 | Class | Plant | Current result | Active issue |
 |---|---|---|---|
-| Rust value dispatch | `c::make().m()`, with the type and impl in `b`; 13 forms | false PASS | [#1515](https://github.com/rapiddweller/archkeel/issues/1515) |
+| Rust value dispatch | `c::make().m()`, with the type and impl in `b`; 13 forms and a foreign trait glob | false PASS | [#1515](https://github.com/rapiddweller/archkeel/issues/1515) |
 | Rust trait dispatch | a generic bound, supertrait, dyn supertrait or re-export; 4 forms | false PASS | [#1516](https://github.com/rapiddweller/archkeel/issues/1516) |
-| Rust root alias | `pub extern crate self as name`, then `pub use crate::name as other` | false PASS | [#1517](https://github.com/rapiddweller/archkeel/issues/1517) |
+| Rust root re-export | a re-export of an extern self alias or of another crate's root | false PASS | [#1517](https://github.com/rapiddweller/archkeel/issues/1517) |
 | Rust registry identity | outside source replacement changes a modeled derive expansion | false PASS | [#1518](https://github.com/rapiddweller/archkeel/issues/1518) |
 | Python external loader | `load("app.lib")` imports the forbidden module and returns `None` | false PASS | [#1519](https://github.com/rapiddweller/archkeel/issues/1519) |
 | Python unknown provider | a parameter supplies `provider.code.interact()` | false PASS | [#1520](https://github.com/rapiddweller/archkeel/issues/1520) |
 | Python library globals | an outside library returns a dict; a computed key selects its importer | false PASS | [#1521](https://github.com/rapiddweller/archkeel/issues/1521) |
-| Python outside writer | an outside script replaces a package re-export with a private function | false PASS | [#1522](https://github.com/rapiddweller/archkeel/issues/1522) |
+| Python outside writer | an outside script or C extension replaces a re-export with a private function | false PASS | [#1522](https://github.com/rapiddweller/archkeel/issues/1522) |
 | Python lazy annotations | a slot or outside class write changes the allowed `object` annotation | false PASS | [#1523](https://github.com/rapiddweller/archkeel/issues/1523) |
 | TypeScript window flow | callback `this`, event targets, parameters, call results and properties | false PASS | [#1524](https://github.com/rapiddweller/archkeel/issues/1524) |
 | TypeScript function lookup | a run-time-key function is stored, passed or used as an argument | false PASS | [#1525](https://github.com/rapiddweller/archkeel/issues/1525) |
@@ -43,6 +43,9 @@ These tested forms no longer give a false PASS:
   `tests/python_interface_module_plants.py` (AD-708, #1415).
 - A scanned writer that uses `marker.__globals__["f"] = secret` gives UNKNOWN with
   `dynamic_import: __globals__`. A dictionary returned by an outside library remains #1521.
+- For Python lazy annotations, direct `setattr`, a class decorator, a module `globals()` write,
+  a method's `global` write and metaclass `__prepare__` each give a named UNKNOWN.
+  The slot and outside-class-writer plants still give false PASS (#1523).
 - A Rust `macro_rules!` call that adds an unanchored `Display` impl gives UNKNOWN with a pair
   gap. The fixture is `PLANTS["an impl that a macro of b generates"]` in
   `tests/test_collector_false_pass_rust_orphan_impl.py` (AD-662).
@@ -327,7 +330,7 @@ remain UNKNOWN. An uncertain export cannot hide another private-type violation.
 A name that a class-body statement binds at any place makes its class annotations UNKNOWN on
 every Python version, because 3.14 evaluates them lazily (PEP 649). A `locals()`, `vars()`,
 `globals()`, `exec` or `eval` in the class body makes every class annotation UNKNOWN.
-A field `date: date` is one false UNKNOWN. ArchKeel does not see these writes outside the class
+A field `date: date` is one false UNKNOWN. Release 4.0.1 does not see these writes outside the class
 body ([#775](https://github.com/rapiddweller/archkeel/issues/775)):
 - On 3.14: `__slots__`, `setattr`, a class decorator, a write from another module, a module-level
   `globals()['object'] = Hidden`, and `global object; object = Hidden` in a method.
