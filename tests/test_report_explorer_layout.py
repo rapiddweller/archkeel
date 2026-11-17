@@ -187,3 +187,50 @@ def test_the_first_view_after_a_drill_is_readable(site: str, page: Browser) -> N
     zoom = page.evaluate("document.querySelector('#flow .flow-zoom-value').textContent")
     assert int(zoom.rstrip("%")) >= READABLE_ZOOM
     assert page.evaluate(VISIBLE_CARDS) > 0
+
+
+FIRST_VIEW = """(() => {
+  const flow = document.getElementById('flow');
+  const canvas = flow.querySelector('.flow-canvas').getBoundingClientRect();
+  const inside = (r) => r.left >= canvas.left && r.right <= canvas.right
+    && r.top >= canvas.top && r.bottom <= canvas.bottom;
+  const cards = [...flow.querySelectorAll('svg [data-uml-id] .card')];
+  const labels = [...flow.querySelectorAll('svg .atlas-edge-label')];
+  const first = cards.map((c) => c.getBoundingClientRect())
+    .sort((a, b) => a.left + a.top - b.left - b.top)[0];
+  const hint = flow.querySelector('.rp-scroll-hint');
+  return { zoom: parseInt(flow.querySelector('.flow-zoom-value').textContent, 10),
+    cards: cards.length, cardsIn: cards.filter((c) => inside(c.getBoundingClientRect())).length,
+    labels: labels.length, labelsIn: labels.filter((l) => inside(l.getBoundingClientRect())).length,
+    firstIn: Boolean(first && inside(first)), overflow: flow.dataset.overflow,
+    hint: hint && !hint.hidden ? hint.textContent : null };
+})()"""
+
+
+@pytest.mark.parametrize(("width", "height"), [(1500, 1100), (1920, 1300)])
+def test_the_first_view_shows_the_whole_graph_or_starts_at_its_top_left_box(
+    tmp_path: Path, site: str, width: int, height: int
+) -> None:
+    # Issue 1618: the first view cut the graph at the right edge with no sign that it goes on.
+    with browser(tmp_path, width=width, height=height) as sized:
+        views = {}
+        for name, query in [
+            ("system", ""),
+            ("collector", "scope=LAYER%3APART%3Acore%3Acollector"),
+            ("core", f"scope={CORE}"),
+        ]:
+            sized.open(f"{site}/system.html?{query}")
+            sized.evaluate(
+                "new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))"
+            )
+            views[name] = sized.evaluate(FIRST_VIEW)
+    for name in ("system", "collector"):
+        view = views[name]
+        assert view["zoom"] >= READABLE_ZOOM, view
+        assert (view["cardsIn"], view["labelsIn"]) == (view["cards"], view["labels"]), view
+        assert (view["overflow"], view["hint"]) == ("", None), view
+    core = views["core"]
+    assert core["zoom"] == READABLE_ZOOM, core
+    assert core["firstIn"], core
+    assert "right" in core["overflow"].split(), core
+    assert core["hint"] == "Scroll or press Shift 1 to fit", core
