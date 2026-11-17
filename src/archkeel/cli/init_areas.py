@@ -188,7 +188,10 @@ def _rust_layout(repo: Path, root: Path) -> Layout | None:
     patterns = re.findall(r'"([^"]+)"', listed[1]) if listed else []
     parts: list[Part] = []
     crates: list[str] = []
-    for crate in _members(root, patterns, "Cargo.toml"):
+    # The scan reads every crate below the root, also one that `members` does not name (a fuzz
+    # workspace, an excluded test crate): each needs an owner, after the members.
+    named = _members(root, patterns, "Cargo.toml")
+    for crate in [*named, *(path for path in _crates_below(root) if path not in named)]:
         found = re.search(
             r'^\[package\].*?^name\s*=\s*"([^"]+)"',
             (crate / "Cargo.toml").read_text(encoding="utf-8"),
@@ -205,6 +208,16 @@ def _rust_layout(repo: Path, root: Path) -> Layout | None:
     # a dev-dependency back to a sibling crate is no edge of the production graph (#1680).
     namespace = _name(root.name or repo.name)
     return Layout("rust", namespace, (scan,), tuple(parts), _TESTS, crates=tuple(crates))
+
+
+def _crates_below(root: Path) -> list[Path]:
+    """Each folder at or below `root` with a `Cargo.toml`, without hidden or generated folders."""
+    found = []
+    for folder, names, files in os.walk(root):
+        names[:] = sorted(n for n in names if n not in _IGNORED and not n.startswith("."))
+        if "Cargo.toml" in files:
+            found.append(Path(folder))
+    return found
 
 
 def _in_workspace(repo: Path, folder: Path) -> bool:
