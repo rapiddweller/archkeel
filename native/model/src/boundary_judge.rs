@@ -17,7 +17,9 @@ use archkeel_facts::standard::Wrapped;
 use archkeel_facts::type_shape::{Binding, Family, TypeShape, Unproven};
 use archkeel_facts::vocab::ClassKind;
 
-use crate::boundary_facts::{standard_of, wrapped_of, BoundaryFacts, Entry, Origin, Standard};
+use crate::boundary_facts::{
+    positions_of, standard_of, wrapped_of, BoundaryFacts, Entry, Origin, Standard,
+};
 
 /// Why a position or an entry of a facade is not decided by syntax. The causes are closed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -166,6 +168,24 @@ pub(crate) struct Surface<'a> {
     pub(crate) scanned: &'a HashSet<&'a str>,
     /// True when the contract declares the premise `standard_library_unchanged` (AD-782).
     pub(crate) premise: bool,
+}
+
+/// The judge of the shape of one position, keyed `<qualified name>:<position>`. A collection or a
+/// special form that the shape reads by its qualified name (`typing.List`, `typing.Optional`)
+/// counts only under the premise `standard_library_unchanged` and while the repository leaves the
+/// name unchanged (#1718); otherwise the position is a gap that names why.
+pub(crate) fn judge_position(shape: &TypeShape, surface: &Surface<'_>, key: &str) -> Judged {
+    let mut assumed = false;
+    for name in positions_of(surface.facts, key).into_iter().flatten() {
+        let gate = standard(name, name, surface);
+        if !Vec::is_empty(&gate.gaps) {
+            return gate;
+        }
+        assumed |= gate.assumed;
+    }
+    let mut found = judge(shape, surface, 0);
+    found.assumed |= assumed;
+    found
 }
 
 /// The judge of one shape; `depth` counts the collections around it.

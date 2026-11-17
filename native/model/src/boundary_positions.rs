@@ -20,9 +20,9 @@ use archkeel_facts::type_shape::TypeShape;
 use archkeel_facts::vocab::{ClassKind, MethodKind};
 
 use crate::boundary_facts::{
-    standard_of, wrapped_of, Callable, Class, Entry, Origin, Slot, Standard,
+    slots_of, standard_of, wrapped_of, Callable, Class, Entry, Origin, Slot, Standard,
 };
-use crate::boundary_judge::{judge, GapCause, GapRow, Leaf, Surface, NEEDS_PREMISE};
+use crate::boundary_judge::{judge_position, GapCause, GapRow, Leaf, Surface, NEEDS_PREMISE};
 use crate::boundary_surface::{declared, entries, names, PublicEntry};
 use crate::model::Model;
 use crate::reason::{Hygiene, Reason, Unsupported};
@@ -94,6 +94,7 @@ pub fn read(model: &Model, rule: &BoundaryTypes) -> Result<Reading, Reason> {
             ),
         },
         assuming: false,
+        current: String::new(),
         allowances: rule.allowed_positions(),
         used: vec![false; rule.allowed_positions().len()],
         seen: HashSet::new(),
@@ -140,6 +141,8 @@ struct Reader<'a> {
     surface: Surface<'a>,
     /// True while the reader reads a form that a standard decorator gives (AD-782).
     assuming: bool,
+    /// The qualified name of the callable whose positions the reader reads (#1718).
+    current: String,
     allowances: &'a [BoundaryAllowance],
     used: Vec<bool>,
     seen: HashSet<String>,
@@ -376,6 +379,7 @@ impl Reader<'_> {
                 .slots
                 .first()
                 .is_some_and(|slot| matches!(slot.kind.as_str(), "positional" | "positional_only"));
+        self.current = qualified.to_owned();
         for slot in callable.slots.iter().skip(usize::from(receiver)) {
             self.slot(facade, &slot.name, slot.shape.as_ref(), callable);
         }
@@ -400,7 +404,8 @@ impl Reader<'_> {
         self.reading.positions += 1;
         let subject = format!("{facade}:{position}");
         let text = shape.text().to_owned();
-        let judged = judge(shape, &self.surface, 0);
+        let key = format!("{}:{position}", self.current);
+        let judged = judge_position(shape, &self.surface, &key);
         let (mut broad, other): (Vec<Leaf>, Vec<Leaf>) =
             judged.leaves.into_iter().partition(|leaf| leaf.broad);
         let unread = self.exceptions(facade, position, &text, &mut broad);
@@ -486,14 +491,4 @@ fn exact(item: &BoundaryAllowance) -> bool {
         && item.key_alias_body().is_none()
         && item.literal_mapping_arm().is_none()
         && !item.native_mapping()
-}
-
-/// The slots of a wrapped form, as the reader reads the slots of a record.
-fn slots_of(slots: &[archkeel_facts::standard::WrappedSlot]) -> Vec<Slot> {
-    let slot = |item: &archkeel_facts::standard::WrappedSlot| Slot {
-        name: item.name.clone(),
-        kind: item.kind.clone(),
-        shape: item.shape.clone(),
-    };
-    IntoIterator::into_iter(slots).map(slot).collect()
 }

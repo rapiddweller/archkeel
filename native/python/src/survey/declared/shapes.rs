@@ -78,6 +78,26 @@ pub(crate) fn collection_names() -> Vec<&'static str> {
     COLLECTIONS.iter().map(|(name, _)| *name).collect()
 }
 
+/// The special forms of `typing` that the shape reader normalizes (#1718): a union, an optional,
+/// a literal and an annotation. They hold no data of their own; their arguments decide.
+pub(crate) const FORMS: [&str; 8] = [
+    "typing.Optional",
+    "typing.Union",
+    "typing.Literal",
+    "typing.Annotated",
+    "typing_extensions.Optional",
+    "typing_extensions.Union",
+    "typing_extensions.Literal",
+    "typing_extensions.Annotated",
+];
+
+/// True for a collection or a special form that the shape reader reads by its qualified name: the
+/// premise must hold for it (#1718). A builtin of the language has no module and is not one.
+pub(super) fn read_by_name(target: &str) -> bool {
+    FORMS.contains(&target)
+        || (target.contains('.') && COLLECTIONS.iter().any(|(name, _)| *name == target))
+}
+
 /// The special forms of `typing` that the shape normalizes.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Form {
