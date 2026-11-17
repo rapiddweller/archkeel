@@ -80,7 +80,9 @@ A re-export of a package is read through its uses: a name of a package that anot
 uses as a value escapes the package, unless its origin cannot be a module of the scan (AD-530). A
 read of `__globals__` is no gap when the dict only feeds a lookup of a literal key; library code
 that gives the dict back is not seen (AD-530).
-Python rules that read calls or constructs stay UNKNOWN. `interface_boundary` and symbol-level
+Python construct rules stay UNKNOWN when the collector cannot prove that it sees every site.
+For `type_ignore`, only an exact `name.method()` statement with a trailing readable comment is
+recorded; other type comments keep the rule UNKNOWN (AD-780). `interface_boundary` and symbol-level
 `through` ports are decided from the publication route of each named import (AD-504); the hygiene
 checks `interface.*` prove a use of a `public` entry from the imports and name `interface.usage_unknown`
 where only a declared facade signature could reach it (AD-514). A Dart project gets PASS or FAIL
