@@ -72,9 +72,7 @@ fn each_malformed_rule_is_refused() {
         ),
     ];
     for (text, expected) in refused {
-        match read(&text) {
-            Ok(_) => panic!("accepted: {text}"),
-            Err(message) => assert!(message.contains(expected), "{expected}: {message}"),
-        }
+        let message = read(&text).err().unwrap_or_default();
+        assert!(message.contains(expected), "{expected}: {message} ({text})");
     }
 }
