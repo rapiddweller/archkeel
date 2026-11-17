@@ -7,9 +7,12 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-708 | [A use of a name through a Python module object is the import of that name](ad-708-a-use-of-a-name-through-a-python-module-object-is-the-import-of-that-name.md) |
+| AD-710 | [The fact sheet of a layer or group aggregates its members, and findings read as words](ad-710-the-fact-sheet-of-a-layer-or-group-aggregates-its-members.md) |
 | AD-704 | [A registry or git name of a crate of the workspace is a pair gap](ad-704-a-registry-or-git-name-of-a-crate-of-the-workspace-is-a-pair-gap.md) |
 | AD-702 | [Python package shadowing needs the same directory](ad-702-python-package-shadowing-needs-the-same-directory.md) |
 | AD-700 | [Rust module roots own their package](ad-700-rust-module-roots-own-their-package.md) |
+| AD-698 | [Written Any annotations are partial signals](ad-698-written-any-annotations-are-partial-signals.md) |
 | AD-694 | [A path that ends at a module may name a value of its name](ad-694-a-path-that-ends-at-a-module-may-name-a-value-of-its-name.md) |
 | AD-692 | [An imported inert attribute keeps its import gap](ad-692-an-imported-inert-attribute-keeps-its-import-gap.md) |
 | AD-690 | [A dill settings read keeps the import gap](ad-690-a-dill-settings-read-keeps-the-import-gap.md) |

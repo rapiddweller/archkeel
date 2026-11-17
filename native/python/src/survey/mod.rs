@@ -55,6 +55,7 @@ mod lazy_table;
 mod lazy_value;
 mod lazy_writes;
 mod literal;
+mod module_uses;
 mod namespace;
 mod package_body;
 mod parse_files;
@@ -235,7 +236,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let mut unknowns = parsed.gaps;
     if exclude {
         let excluded = Excluded::find(&mut snapshot, roots, namespace, minor);
-        let bindings = imports::package_bindings(modules);
+        let bindings = package_body::package_bindings(modules);
         unknowns.extend(excluded.gaps(&imports, &bindings, scope.selected.is_empty()));
     }
     let stdlib: HashSet<&str> = interpreter
@@ -365,6 +366,24 @@ fn declarations(
     }
 }
 
+/// AD-708: a whole-module import whose module object escapes gives names that the scan does not
+/// read, so it is no proof of its names.
+fn unread_names(records: &mut [Record<ImportFact>], escaped: &HashSet<(String, String)>) {
+    for record in records {
+        let ImportFact::Import(data) = &mut record.data else {
+            continue;
+        };
+        let key = (data.source_module.as_str().to_owned(), data.binding.clone());
+        if data.symbol.is_none() {
+            if let (source, Some(binding)) = key {
+                if escaped.contains(&(source, binding)) {
+                    data.symbols_known = false;
+                }
+            }
+        }
+    }
+}
+
 /// The import records, after a first pass that names the modules that another module may change
 /// (`uses.rs`, AD-504): such a module may bind a name of its own to a package attribute that hides
 /// a submodule, so the second pass reads the written modules.
@@ -381,10 +400,15 @@ fn collect(
     let none = HashSet::new();
     loop {
         let scratch = &mut EvidenceMap::new();
-        let first = imports::collect_all(modules, binders, namespace, scratch, (&none, sources));
+        let first =
+            imports::collect_all(modules, binders, namespace, scratch, (&none, sources), &[]);
         let written = uses::settled(modules, &first.records, sources);
         let set = (&written, &*sources);
-        let collected = imports::collect_all(modules, binders, namespace, evidence, set);
+        // #1415: each use of a name through a module binding is a record of its own.
+        let found = module_uses::find(modules, binders, &first.records);
+        let mut collected =
+            imports::collect_all(modules, binders, namespace, evidence, set, &found.uses);
+        unread_names(&mut collected.records, &found.escaped);
         let before = sources.len();
         uses::settled(modules, &collected.records, sources);
         if sources.len() == before {

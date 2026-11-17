@@ -21,7 +21,7 @@ use ruff_text_size::{Ranged, TextRange};
 use super::binders::{first_part, Binders};
 use super::bound::Bound;
 use super::guard::Guard;
-use super::package_body::{anchor, open_body, own_submodules, shadowing_names};
+use super::package_body::{anchor, open_body, own_submodules, package_bindings};
 use crate::module::{EvidenceMap, Location, Module};
 use crate::names::package_for;
 
@@ -51,6 +51,7 @@ pub(super) fn collect(
         namespace,
         evidence,
         (&HashSet::new(), &none),
+        &[],
     );
     (found.records, found.aliases)
 }
@@ -76,13 +77,9 @@ pub(super) fn collect_all(
     namespace: &str,
     evidence: &mut EvidenceMap,
     (written, sources): (&HashSet<String>, &super::lazy_cover::Sources),
+    uses: &[Vec<super::module_uses::Use>],
 ) -> Collected {
-    let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
-    // AD-450: a dotted prefix of a module is a package directory, also without `__init__.py`.
-    let directories: HashSet<&str> = names
-        .iter()
-        .flat_map(|name| name.match_indices('.').map(move |(at, _)| &name[..at]))
-        .collect();
+    let (names, directories) = super::module_uses::module_names(modules);
     let bindings = package_bindings(modules);
     let open: HashMap<&str, HashSet<String>> = modules
         .iter()
@@ -126,6 +123,9 @@ pub(super) fn collect_all(
             ambiguous: &mut ambiguous,
         };
         collector.body(&module.tree.body, true, false);
+        for found in uses.get(aliases.len()).into_iter().flatten() {
+            attribute(&mut collector, found);
+        }
         aliases.push(found);
     }
     records.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
@@ -179,20 +179,11 @@ pub(super) fn literal_records(
             symbol: None,
             binding: None,
             level: 0,
+            attribute: false,
         };
         collector.record((range, false, false), &found);
     }
     records
-}
-
-/// `collect_package_bindings`: for each package, the names that its body binds ahead of a
-/// submodule. A later module of the same name replaces an earlier one, as in the Python dict.
-pub(super) fn package_bindings(modules: &[Module]) -> HashMap<&str, HashSet<String>> {
-    modules
-        .iter()
-        .filter(|module| module.is_init())
-        .map(|module| (module.name.as_str(), shadowing_names(module)))
-        .collect()
 }
 
 /// `_owning_package`: the package that a relative import of the module starts from.
@@ -242,6 +233,8 @@ struct Binding<'t> {
     symbol: Option<&'t str>,
     binding: Option<&'t str>,
     level: u32,
+    /// A use of a name through a module binding (`module_uses.rs`): an import that binds no name.
+    attribute: bool,
 }
 
 impl Collector<'_, '_> {
@@ -309,6 +302,7 @@ impl Collector<'_, '_> {
                         symbol: None,
                         binding: Some(binding),
                         level: 0,
+                        attribute: false,
                     };
                     self.bind(level, binding, import_target(alias).to_owned(), true);
                     self.record(place, &found);
@@ -335,30 +329,12 @@ impl Collector<'_, '_> {
                     symbol: Some("*"),
                     binding: Some("*"),
                     level: node.level,
+                    attribute: false,
                 };
                 self.record(place, &found);
                 continue;
             }
-            let submodule = if anchor.is_empty() {
-                name.to_owned()
-            } else {
-                format!("{anchor}.{name}")
-            };
-            let shadowed = self
-                .bindings
-                .get(anchor.as_str())
-                .is_some_and(|names| names.contains(name));
-            // A submodule or a package directory: `from app import service` imports it as
-            // `import app.service` does, and a directory without a module file is a gap.
-            let exists = self.names.contains(submodule.as_str())
-                || self.directories.contains(submodule.as_str());
-            let local = !shadowed && exists;
-            let open = self
-                .open
-                .get(anchor.as_str())
-                .is_some_and(|own| !own.contains(&submodule));
-            let written = self.written.contains(anchor.as_str());
-            let ambiguous = exists && (shadowed || open || written);
+            let (submodule, local, ambiguous) = resolve(self, &anchor, name);
             let binding = alias.asname.as_ref().map_or(name, |a| a.as_str());
             let target = if local {
                 submodule.clone()
@@ -371,6 +347,7 @@ impl Collector<'_, '_> {
                 symbol: if local { None } else { Some(name) },
                 binding: Some(binding),
                 level: node.level,
+                attribute: false,
             };
             self.record(place, &found);
             let last = self.records.last().filter(|_| ambiguous);
@@ -409,7 +386,8 @@ impl Collector<'_, '_> {
             symbol,
             b.binding.map_or(Part::Nothing, Part::Text),
         ];
-        // A literal import call binds no name and re-exports nothing (AD-472).
+        // A literal import call and a use through a module binding bind no name and re-export
+        // nothing (AD-472, AD-708).
         let init = module.is_init() && b.binding.is_some();
         let exported = b
             .binding
@@ -465,13 +443,49 @@ impl Collector<'_, '_> {
             evidence_ids: vec![EvidenceId::new(evidence_id)],
             fact_ids: Vec::new(),
             // A literal import call binds no name: it is a call-form import (AD-536).
-            data: if b.binding.is_some() {
+            data: if b.binding.is_some() || b.attribute {
                 ImportFact::Import(data)
             } else {
                 ImportFact::DynamicImport(data)
             },
         });
     }
+}
+
+/// `from anchor import name`: the submodule `anchor.name`, whether the import gives that
+/// submodule, and whether it can give an attribute of the package as well (AD-450).
+fn resolve(c: &Collector<'_, '_>, anchor: &str, name: &str) -> (String, bool, bool) {
+    let submodule = if anchor.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{anchor}.{name}")
+    };
+    let shadowed = (c.bindings.get(anchor)).is_some_and(|names| names.contains(name));
+    // A submodule or a package directory: `from app import service` imports it as
+    // `import app.service` does, and a directory without a module file is a gap.
+    let exists = c.names.contains(submodule.as_str()) || c.directories.contains(submodule.as_str());
+    let local = !shadowed && exists;
+    let open = (c.open.get(anchor)).is_some_and(|own| !own.contains(&submodule));
+    let written = c.written.contains(anchor);
+    let ambiguous = exists && (shadowed || open || written);
+    (submodule, local, ambiguous)
+}
+
+/// A use of `name` through a module binding: the record of `from module import name`, with
+/// no binding (#1415, AD-708).
+fn attribute(c: &mut Collector<'_, '_>, found: &crate::survey::module_uses::Use) {
+    let (submodule, local, ambiguous) = resolve(c, &found.module, &found.name);
+    let binding = Binding {
+        target: if local { &submodule } else { &found.module },
+        symbol: if local { None } else { Some(&found.name) },
+        binding: None,
+        level: 0,
+        attribute: true,
+    };
+    c.record((&found.range, false, found.guarded), &binding);
+    let last = c.records.last().filter(|_| ambiguous);
+    c.ambiguous
+        .extend(last.map(|record| record.id.as_str().to_owned()));
 }
 
 #[cfg(test)]

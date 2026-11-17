@@ -6,7 +6,7 @@
 
 use crate::json::{entries, field, has, Json};
 use crate::model_declarations::BudgetName;
-use crate::policy::amendment::blank;
+use crate::names::has_text;
 use crate::policy::baseline_value::{
     count, exact, object, required, strings, BaselineBudget, BaselineError, BaselineFingerprint,
     BaselineRole, BaselineViolation, NameBudgetKind,
@@ -129,7 +129,7 @@ fn name_budgets(
         if names.windows(2).any(|pair| pair.first() >= pair.get(1)) {
             return Err(BaselineError::UnsortedNames(names_label));
         }
-        if blank(key) {
+        if !has_text(key) {
             return Err(BaselineError::Empty(label.into()));
         }
         budgets.push(BaselineBudget::Names {

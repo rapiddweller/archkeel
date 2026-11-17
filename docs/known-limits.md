@@ -168,11 +168,15 @@ namespace that does not resolve to the scan root are not seen. `insert` and each
 
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 
-The core gives PASS where Python binds something else at import time, for three forms. 4.0.1 gives
-PASS for both. They are open defects, pinned by plants in `tests/python_interface_plants.py`:
+A use of a name through a module object (`import app.lib` then `app.lib._priv.secret()`) is the
+import of that name: each attribute load through a module binding, and through each child module of
+a chain, is a record of its own (AD-708). A module object that escapes (a bare load, an assignment,
+an argument, a namespace attribute, a store) leaves the names of its import unread: the rule is
+UNKNOWN for it. A local name with the spelling of a module binding counts as that binding.
 
-- `import app.lib` then `app.lib._priv.secret()` with public `app.lib`: the rule judges imports,
-  and a use of a private module through a public module object is no import.
+The core gives PASS where Python binds something else at import time, for one form. 4.0.1 gives
+PASS for it too. It is an open defect, pinned by plants in `tests/python_interface_plants.py`:
+
 - A write to a package from a module outside the scan roots (`conftest.py`, `sitecustomize`, an
   installed package, a script), from a C extension, or through `globals()` of another module,
   after its statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey

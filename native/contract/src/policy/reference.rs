@@ -4,6 +4,7 @@
 
 //! The path rules of an inside reference. They read no file.
 
+use crate::json::Json;
 use crate::policy::printable::NOT_PRINTABLE;
 
 /// The parts of a relative POSIX path, as Python `PurePosixPath(value).parts` gives them: no empty
@@ -74,5 +75,19 @@ fn escaped(character: char, quote: char) -> String {
         _ if code < 0x100 => format!("\\x{code:02x}"),
         _ if code < 0x1_0000 => format!("\\u{code:04x}"),
         _ => format!("\\U{code:08x}"),
+    }
+}
+
+/// The Python `repr` of a schema version that is not known; `None` when the key is absent.
+pub(super) fn schema_repr(value: Option<&Json>) -> String {
+    match value {
+        None | Some(Json::Null) => "None".to_owned(),
+        Some(Json::Text(text)) => python_repr(text),
+        Some(Json::Bool(true)) => "True".to_owned(),
+        Some(Json::Bool(false)) => "False".to_owned(),
+        Some(Json::Int(number)) => number.to_string(),
+        Some(Json::Float) => "<float>".to_owned(),
+        Some(Json::Array(_)) => "<list>".to_owned(),
+        Some(Json::Object(_)) => "<dict>".to_owned(),
     }
 }

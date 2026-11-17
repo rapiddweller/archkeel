@@ -76,13 +76,19 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
             "dunder_dict",
             "vars",
             "string_literal_compare",
-            "getattr"
+            "getattr",
+            "any_annotation"
         ]
     );
     assert!(capabilities
         .constructs
         .iter()
+        .take(6)
         .all(|item| item.status == archkeel_facts::envelope::ConstructSupport::Supported));
+    assert_eq!(
+        capabilities.constructs[6].status,
+        archkeel_facts::envelope::ConstructSupport::Partial
+    );
     let written: Vec<&str> = reply
         .facts
         .sections
@@ -109,6 +115,20 @@ fn the_reply_has_protocol_11_and_echoes_the_interpreter() {
         (adapter.version.as_str(), adapter.code_digest.as_str()),
         (BUILD.version, BUILD.code_digest)
     );
+}
+
+#[test]
+fn the_validation_table_only_admits_partial_any_annotations() {
+    use archkeel_facts::envelope::ConstructSupport;
+    let table = validation("3.12");
+    let entries: Vec<_> = table
+        .registered
+        .iter()
+        .flat_map(|set| &set.constructs)
+        .filter(|entry| entry.name == "any_annotation")
+        .collect();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].statuses, [ConstructSupport::Partial]);
 }
 
 #[test]

@@ -14,6 +14,8 @@ mod atlas;
 mod atlas_groups;
 #[path = "html_atlas_levels.rs"]
 mod atlas_levels;
+#[path = "html_atlas_members.rs"]
+mod atlas_members;
 #[path = "html_atlas_node.rs"]
 mod atlas_node;
 #[path = "html_atlas_tree.rs"]

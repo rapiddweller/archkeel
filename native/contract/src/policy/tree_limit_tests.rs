@@ -8,7 +8,8 @@
 use serde_json::{json, Value};
 
 use crate::contract::parse;
-use crate::policy::{assemble_tree, ContractTree, IssueKind, SourceProblem, TreeError, MAX_DEPTH};
+use crate::policy::tree::MAX_DEPTH;
+use crate::policy::{assemble_tree, ContractTree, IssueKind, SourceProblem, TreeError};
 
 const ROOT: &str = "architecture-contract.json";
 

@@ -21,10 +21,10 @@ use crate::sections::{GapFact, Section};
 use crate::vocab::Kind;
 
 /// The path of the committed schema, relative to the crate.
-pub const PATH: &str = "schema/archkeel-facts-11.schema.json";
+pub(crate) const PATH: &str = "schema/archkeel-facts-11.schema.json";
 
 /// The schema bundle of protocol 11.
-pub fn schema() -> Value {
+pub(crate) fn schema() -> Value {
     let mut generator = SchemaSettings::draft2020_12().into_generator();
     generator.subschema_for::<Section>();
     generator.subschema_for::<Record<GapFact>>();
@@ -42,10 +42,10 @@ pub fn schema() -> Value {
 }
 
 /// The path of the committed request schema, relative to the crate.
-pub const REQUEST_PATH: &str = "schema/archkeel-request.schema.json";
+pub(crate) const REQUEST_PATH: &str = "schema/archkeel-request.schema.json";
 
 /// The schema of the collection request of the protocols 3, 8 and 9.
-pub fn request_schema() -> Value {
+pub(crate) fn request_schema() -> Value {
     let mut generator = SchemaSettings::draft2020_12().into_generator();
     let root = generator.subschema_for::<Request>();
     let mut definitions = generator.take_definitions(true);
@@ -94,12 +94,12 @@ fn python_rule() -> Value {
 }
 
 /// The text of the request schema.
-pub fn request_text() -> serde_json::Result<String> {
+pub(crate) fn request_text() -> serde_json::Result<String> {
     serde_json::to_string_pretty(&request_schema()).map(|text| text + "\n")
 }
 
 /// The text of the schema file: pretty JSON and a final newline.
-pub fn text() -> serde_json::Result<String> {
+pub(crate) fn text() -> serde_json::Result<String> {
     serde_json::to_string_pretty(&schema()).map(|text| text + "\n")
 }
 

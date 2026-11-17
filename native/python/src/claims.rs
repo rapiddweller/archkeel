@@ -65,13 +65,17 @@ fn standard_library(key: &str) -> Option<HashSet<&'static str>> {
 }
 
 /// A Python import is an import statement, or a literal import call (AD-536), with known symbols,
-/// no specifier and no type flag.
+/// no specifier and no type flag. A whole-module import statement whose module object escapes has
+/// names that the collector does not read (AD-708).
 fn statement(fact: &ImportFact) -> Result<(), String> {
     let (ImportFact::Import(data) | ImportFact::DynamicImport(data)) = fact else {
         return Err("a Python import must be an import statement".to_owned());
     };
     let bare = data.specifier.is_none() && data.type_only.is_none();
-    if bare && data.symbols_known {
+    let module_object = matches!(fact, ImportFact::Import(_))
+        && data.symbol.is_none()
+        && data.binding.is_some();
+    if bare && (data.symbols_known || module_object) {
         return Ok(());
     }
     Err("a Python import has no specifier and no type flag".to_owned())

@@ -45,7 +45,8 @@ pub mod pyrepr;
 pub mod reason;
 pub mod record;
 pub mod request;
-pub mod schema;
+#[cfg(test)]
+mod schema;
 pub mod sections;
 mod skip;
 pub mod surveys;
