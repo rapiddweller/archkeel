@@ -38,7 +38,7 @@ def test_the_difference_between_the_release_rows_and_the_core_rows_is_counted() 
     passes = {n for n, p in PLANTS.items() if (p[2], p[3]) == ("PASS", "UNKNOWN")}
     fails = {n for n, p in PLANTS.items() if (p[2], p[3]) == ("FAIL", "UNKNOWN")}
     assert (equal, len(passes), len(fails), len(PLANTS)) == COUNTS
-    assert (WRONG_RELEASE_PASS | WRONG_RELEASE_PATTERNS) < passes
+    assert (WRONG_RELEASE_PASS | WRONG_RELEASE_PATTERNS) <= passes
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))

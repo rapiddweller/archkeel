@@ -73,6 +73,7 @@
         "native.archkeel_facts.fields:Fields",
         "native.archkeel_facts.fields:Named",
         "native.archkeel_facts.identity:Part",
+        "native.archkeel_facts.identity:StreamDigest",
         "native.archkeel_facts.identity:evidence_id",
         "native.archkeel_facts.identity:inside",
         "native.archkeel_facts.identity:is_identifier",
@@ -675,6 +676,7 @@
         "native.archkeel_model.observed",
         "native.archkeel_model.ownership",
         "native.archkeel_model.settings",
+        "native.archkeel_model.symbol_inventory",
         "native.archkeel_model.symbol_sites",
         "native.archkeel_model.symbol_table",
         "native.archkeel_model.symbol_values",
@@ -1227,6 +1229,7 @@
         "native.archkeel_model.uml_declared",
         "native.archkeel_model.uml_details",
         "native.archkeel_model.uml_facts",
+        "native.archkeel_model.uml_inventory",
         "native.archkeel_model.uml_scope",
         "native.archkeel_model.uml_scope_symbols",
         "native.archkeel_model.uml_symbols",
@@ -3788,7 +3791,8 @@
         "native.archkeel_typescript_collector.constructors",
         "native.archkeel_typescript_collector.decorators",
         "native.archkeel_typescript_collector.layout",
-        "native.archkeel_typescript_collector.members"
+        "native.archkeel_typescript_collector.members",
+        "native.archkeel_typescript_collector.member_additions"
       ],
       "responsibilities": [
         "Find the declarations of one file: definitions, exports, scopes, import bindings, class members, constructors and the file layout."
@@ -3847,6 +3851,8 @@
         "native.archkeel_typescript_collector.layout:Layout",
         "native.archkeel_typescript_collector.layout:NONE",
         "native.archkeel_typescript_collector.layout:is_function_like",
+        "native.archkeel_typescript_collector.member_additions:Additions",
+        "native.archkeel_typescript_collector.member_additions:PATCHED",
         "native.archkeel_typescript_collector.members:Base",
         "native.archkeel_typescript_collector.members:Cx",
         "native.archkeel_typescript_collector.members:Member",
@@ -3984,6 +3990,7 @@
             "native.archkeel_typescript_collector.exports",
             "native.archkeel_typescript_collector.import_bindings",
             "native.archkeel_typescript_collector.layout",
+            "native.archkeel_typescript_collector.member_additions",
             "native.archkeel_typescript_collector.scope"
           ]
         },
@@ -4402,6 +4409,7 @@
             "native.archkeel_typescript_collector.definitions",
             "native.archkeel_typescript_collector.exports",
             "native.archkeel_typescript_collector.import_bindings",
+            "native.archkeel_typescript_collector.member_additions",
             "native.archkeel_typescript_collector.members"
           ]
         },
@@ -5762,6 +5770,7 @@
           "through": [
             "native.archkeel_snapshot.paths",
             "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Entry",
             "native.archkeel_snapshot:Hidden",
             "native.archkeel_snapshot:Snapshot"
           ]
@@ -6536,6 +6545,7 @@
         "native.archkeel_typescript_collector.scope",
         "native.archkeel_typescript_collector.import_bindings",
         "native.archkeel_typescript_collector.class_members",
+        "native.archkeel_typescript_collector.member_additions",
         "native.archkeel_typescript_collector.constructors",
         "native.archkeel_typescript_collector.decorators",
         "native.archkeel_typescript_collector.layout",
@@ -6810,7 +6820,8 @@
         "native.archkeel_python_collector.survey.uses_typing_guard",
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.module_scopes",
-        "native.archkeel_python_collector.survey.external_loader"
+        "native.archkeel_python_collector.survey.external_loader",
+        "native.archkeel_python_collector.survey.outside.sites"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
@@ -6896,7 +6907,8 @@
         "native.archkeel_python_collector.survey.declared.reader",
         "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.survey.module_uses",
-        "native.archkeel_python_collector.survey.external_loader"
+        "native.archkeel_python_collector.survey.external_loader",
+        "native.archkeel_python_collector.survey.outside.sites"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [
