@@ -15,3 +15,11 @@ Status: accepted (owner order, 2026-11-17, #1428). Part of #880.
    page. Each rule row of the payload carries its words for one finding and for many
    (`plain_one`, `plain_many`); a kind without words is told by its contract word.
 4. The sheet names its box: `Layer fact sheet`, `Group fact sheet` or `Component fact sheet`.
+5. A box that holds one component is that component: the sheet shows the facts of the contract for
+   it (responsibility, boundaries, public names, provenance) and says `Component`; the shell has
+   components that are also layers. A sheet repeats no line of the whole run, asks no question and
+   fills no field with `None`, `unavailable` or `Nothing stated`.
+6. A sheet reads in one screen: the public names group by module with short names and a count and
+   fold when they are many, the way of a declared dependency (`through`) folds behind its count, the
+   declared dependencies fold behind one line, and the body text is the small text of the design
+   system. The owner of a module comes from the global assignments.
