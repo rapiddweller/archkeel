@@ -170,3 +170,33 @@ fn a_part_with_two_owners_is_refused() {
     reply.facts.owned_files.push(second);
     assert!(refused(reply).contains("no unique owner"));
 }
+
+/// The validation table of the survey (AD-688, AD-468): exactly the sections `imports` and
+/// `unknowns`, and no interface statement.
+#[test]
+fn the_table_of_the_survey_registers_only_its_two_sections_and_no_interface() {
+    use archkeel_facts::envelope::{LimitSupport, SectionName};
+    let tree = project();
+    let mut symbols = reply(&tree);
+    symbols
+        .facts
+        .capabilities
+        .sections
+        .push(SectionName::Symbols);
+    symbols
+        .facts
+        .sections
+        .push(archkeel_facts::Section::Symbols(Vec::new()));
+    assert_eq!(
+        refused(symbols),
+        "source sections or resolution features are not registered"
+    );
+    let mut interface = reply(&tree);
+    if let Some(limits) = interface.facts.profile_limits.as_mut() {
+        limits.interface_boundary = LimitSupport::Supported;
+    }
+    assert_eq!(
+        refused(interface),
+        "the collector makes no interface statement"
+    );
+}

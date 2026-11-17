@@ -7,38 +7,15 @@
 //!
 //! The messages are the messages of the Python checks, so a diagnostic does not change. This file
 //! checks the envelope: coverage counts, unique ids, inputs, evidence paths and ranges, file
-//! evidence, sections against capabilities and the features that the store can check.
+//! evidence and sections against capabilities. The validation block of the reply states the
+//! registered sets and the features that the store checks (`validation.rs`, AD-688).
 //! `validate_records` checks the records and `bindings` binds each record to its module.
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::envelope::{Facts, Profile, ProtocolVersion, Role};
+use archkeel_facts::envelope::{Facts, Profile, Role};
 use archkeel_facts::identity::inside;
 use archkeel_facts::Section;
-
-/// The resolution features of the profiles whose records the store checks completely.
-const TYPESCRIPT_FEATURES: [&str; 8] = [
-    "static-imports",
-    "literal-imports",
-    "relative-specifiers",
-    "node-builtins",
-    "local-runtime-closure",
-    "inner-uml-v1",
-    "script-globals-v1",
-    "bundler-mode-v1",
-];
-
-/// The feature of the Rust collector. No Python check reads it, so it asks for no proof.
-/// AD-604: the Rust collector states the item and the route of each import with its own feature.
-const RUST_FEATURES: [&str; 2] = ["rust-crate-edges", crate::features::RUST_ROUTES_FEATURE];
-
-/// A resolution feature whose claims the store checks, for some collector (AD-688): the minimum
-/// that a validation block cannot widen.
-pub(crate) fn known_feature(feature: &str) -> bool {
-    TYPESCRIPT_FEATURES.contains(&feature)
-        || RUST_FEATURES.contains(&feature)
-        || feature == crate::features::ROUTES_FEATURE
-}
 
 /// `_unique` of the Python checks: no duplicate and no empty value.
 pub(crate) fn unique<'a, I: IntoIterator<Item = &'a str>>(
@@ -112,11 +89,6 @@ fn decoder_checks(facts: &Facts) -> Result<(), String> {
     Ok(())
 }
 
-/// The protocol of the reply agrees with its profile (AD-450, `python.rs`).
-pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), String> {
-    crate::python::version(version, profile)
-}
-
 /// The value invariants of each record (`Record::invariants`): the gaps of the coverage and the
 /// records of each section. They were checks of the decode; here both doors run them (AD-406).
 pub(crate) fn invariants(facts: &Facts) -> Result<(), String> {
@@ -127,26 +99,6 @@ pub(crate) fn invariants(facts: &Facts) -> Result<(), String> {
         .try_for_each(archkeel_facts::Record::invariants)
         .and_then(|()| facts.sections.iter().try_for_each(Section::invariants))
         .map_err(str::to_owned)
-}
-
-/// The store checks only the replies whose every claim it can check (AD-346).
-fn checkable(facts: &Facts) -> Result<(), String> {
-    let known: &[&str] = match facts.profile {
-        Profile::TypeScript => &TYPESCRIPT_FEATURES,
-        Profile::Rust => &RUST_FEATURES,
-        // AD-450, AD-468: the import survey has no resolution feature. AD-504: the Python survey
-        // of the linked path states `import-routes-v1`.
-        Profile::Python => &[crate::features::ROUTES_FEATURE],
-        Profile::Dart => &[],
-    };
-    for feature in &facts.capabilities.resolution_features {
-        if !known.contains(&feature.as_str()) {
-            return Err(format!(
-                "the store does not check the resolution feature {feature} yet"
-            ));
-        }
-    }
-    Ok(())
 }
 
 fn coverage_checks(facts: &Facts) -> Result<HashSet<&str>, String> {
@@ -206,7 +158,6 @@ pub(crate) fn index(facts: &Facts) -> Envelope<'_> {
 /// `names` are the section names of the reply, in reply order.
 pub(crate) fn envelope(facts: &Facts, names: &[&str]) -> Result<(), String> {
     decoder_checks(facts)?;
-    checkable(facts)?;
     let selected = coverage_checks(facts)?;
     let inputs = unique(
         facts.inputs.iter().map(|item| item.path.as_str()),
@@ -252,8 +203,6 @@ pub(crate) fn envelope(facts: &Facts, names: &[&str]) -> Result<(), String> {
     )?;
     evidence_checks(facts, &inputs)?;
     capability_checks(facts, names)?;
-    // `evaluate_source` checks the registered sets after the generic checks (L-35a).
-    crate::registered::registered(facts)?;
     match facts.profile {
         Profile::Python => crate::python::survey(facts)?,
         Profile::Dart => crate::dart::survey(facts)?,
