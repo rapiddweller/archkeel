@@ -569,20 +569,26 @@ or returned or taken by a pattern is an amplifier form; a write of `href`, `src`
 literal is an amplifier form; `execCommand('insertHTML', …)` with markup that is no inert literal is a
 direct form. An address that a framework renders from data (`<a href={url}>`) stays open (#1662).
 Plants: `tests/test_cli_native_dom_code.py`.
-Older classes stay open too: a member patch of a platform object that is no
-window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
-`document.defaultView`.
-AD-788 (#1546) states the premise of every TypeScript verdict as "code outside the scan roots hands
-in no global or platform object and replaces no global" (text header, JSON `premise`, report). A
-JavaScript, TypeScript or HTML file of the repository outside the scan roots is read for a write
-that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, an assignment to an undeclared
-name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the other
-reflective writes on a window name). A member patch of another global (`Math.max = f` in such a
-file) stays open, as above. Each hit withholds the native proof of that name: the use gets the gap "Script global X is
-replaced by a file outside the scan roots", which cites the use and the write. A write whose name
-the guard cannot read withholds every global. Not read: test files (the test-source rule),
-declarations, installed packages, hidden directories; more than 4000 such files withhold every
-global. Code outside the repository stays under the premise only.
+Older classes stay open too: a use through `opener` or `document.defaultView`.
+AD-788 (#1546, #1674) states the premise of every TypeScript verdict as "code outside the scan
+roots hands in no global or platform object and replaces no global" (text header, JSON `premise`,
+report). Every JavaScript, TypeScript or HTML file of the repository outside the scan roots is read
+for a write that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, an assignment to an
+undeclared name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the
+other reflective writes on a window name). A member patch of a global (`Math.max = f`,
+`JSON.parse = f`, `console.log = f`, `Object.assign(Math, …)`, `console.__defineGetter__(…)`) with
+a value that is no literal withholds the proof of each use of the patched member (and of the global
+as a whole value), in such a file and in a scanned file ("Script global Math is patched by a member
+write"); a use of another member (`Math.min`) keeps it. Each hit withholds the native proof of its name, and the
+gap cites the use and the write. A write whose name the guard cannot read withholds every global.
+There is no file limit (50 000 small files outside the roots add about 6 s). A file that the guard
+cannot read (over the size limit of a file or the input limit of a scan) withholds every global,
+and the gap names the file and what to do. Not read: test files (the test-source rule),
+declarations, version-control metadata (`.git`, `.hg`, `.svn`), Python environments and tool
+caches (`.venv`, `.tox`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`) and installed packages
+(`node_modules`, `jspm_packages`, `bower_components`). Their code is third-party code outside the
+scan roots, which the premise covers. Every other hidden folder (`.storybook`, `.vitepress`,
+`.config`) is read. Code outside the repository stays under the premise only.
 A source file inside the roots that TSConfig `exclude` drops gives a named coverage gap (AD-488),
 including a file that writes a global. It is no longer a silent false PASS.
 A member `source`, `view`, `currentTarget` or a window name is a window, and a member `eval` or
