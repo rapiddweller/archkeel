@@ -10,13 +10,27 @@ from .core_json import CoreError, as_count, as_object, as_text
 
 
 @dataclass(frozen=True, slots=True)
+class PathStep:
+    """One step of the closed path of a cycle: two members in import order, the number of imports
+    and the evidence key of one of them (AD-786)."""
+
+    source: str
+    target: str
+    imports: int
+    evidence: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class ViolationDetail:
-    """One violation of a rule: source, target, cause and the keys of its evidence."""
+    """One violation of a rule: source, target, cause and the keys of its evidence. A cycle adds
+    its sorted members and its closed path; its source and target are its identity, no path."""
 
     source: str
     target: str | None
     cause: str
     evidence: tuple[str, ...]
+    members: tuple[str, ...] | None = None
+    path: tuple[PathStep, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,16 +70,35 @@ def read_details(value: object) -> dict[str, tuple[ViolationDetail, ...]]:
         details: list[ViolationDetail] = []
         for row in _list(rows, f"details.{rule}"):
             item = as_object(row, "detail")
+            members = item.get("members")
             details.append(
                 ViolationDetail(
                     as_text(item["source"], "detail.source"),
                     None if item["target"] is None else as_text(item["target"], "detail.target"),
                     as_text(item["cause"], "detail.cause"),
                     _strings(item["evidence"], "detail.evidence"),
+                    None if members is None else _strings(members, "detail.members"),
+                    _path(item["path"]) if "path" in item else None,
                 )
             )
         result[rule] = tuple(details)
     return result
+
+
+def _path(value: object) -> tuple[PathStep, ...]:
+    steps = []
+    for row in _list(value, "detail.path"):
+        step = as_object(row, "detail.path")
+        evidence = step["evidence"]
+        steps.append(
+            PathStep(
+                as_text(step["from"], "detail.path.from"),
+                as_text(step["to"], "detail.path.to"),
+                as_count(step["imports"], "detail.path.imports"),
+                None if evidence is None else as_text(evidence, "detail.path.evidence"),
+            )
+        )
+    return tuple(steps)
 
 
 def read_locations(value: object) -> dict[str, Location]:

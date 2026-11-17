@@ -2791,6 +2791,7 @@
         "native.archkeel_core.dual_run:CODE_DIGEST",
         "native.archkeel_core.dual_run:Collect",
         "native.archkeel_core.dual_run:InterfaceRow",
+        "native.archkeel_core.dual_run:PartOf",
         "native.archkeel_core.dual_run:PartRow",
         "native.archkeel_core.dual_run:ReplyInput",
         "native.archkeel_core.dual_run:Run",
