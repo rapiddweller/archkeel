@@ -35,6 +35,30 @@ fn a_module_of_two_files_is_a_gap_for_each_and_no_module() {
 }
 
 #[test]
+fn a_module_and_package_in_different_roots_are_both_gaps() {
+    for (module, package) in [
+        ("src/app/fmt.py", "lib/app/fmt/__init__.py"),
+        ("lib/app/fmt.py", "src/app/fmt/__init__.py"),
+    ] {
+        let found = surveyed_in(
+            &[(module, "x = 1"), (package, "x = 2")],
+            &["src", "lib"],
+            "app",
+        );
+        let gaps = reasons(&found);
+        assert_eq!(gaps.len(), 2, "{gaps:?}");
+        assert!(
+            gaps.iter().all(|gap| gap.starts_with(DUPLICATE)),
+            "{gaps:?}"
+        );
+        assert!(!found
+            .files
+            .iter()
+            .any(|file| file.module.as_str() == "app.fmt"));
+    }
+}
+
+#[test]
 fn a_top_package_above_its_root_is_a_gap_and_a_root_that_is_the_package_is_not() {
     let above = surveyed_in(
         &[("src/app/inner/app/deep.py", "")],
