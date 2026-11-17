@@ -11,43 +11,39 @@
   const REPORT_LAYOUT = window.ArchkeelReportLayout;
   const ATLAS = REPORT_SCENE.atlas;
   const NAV = DATA.navigation || null;
-  const SIDECAR = Boolean(NAV?.module_ids);
   // AD-734: the one view state of the Explorer. A user action is one dispatch(action); the action
   // changes S, and render() draws S. report-canvas.js keeps its presentation choices here too.
   const S = {
     view: DATA.initial_view || "diagram",
-    path: !SIDECAR && DATA.initial_scope ? [{ id: DATA.initial_scope, origin: "observed" }] : [],
+    path: [],
     content: null, selection: null, cell: null, module: null, hint: null, allHints: false,
     details: false, explore: false,
     perspective: "language", pinnedTag: null, drawer: null, overlay: null, pop: null,
     theme: document.documentElement.dataset.theme || "dark", expanded: null,
   };
-  let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null, returnCell = null, returnContent = null, routeNotice = null;
+  let routeReady = false, routeNotice = null;
   let pendingAtlasFindingHash = null;
-  if (!["1.0.0", "1.2.0"].includes(DATA.schema_version)) {
+  // E5 (issue 1451): every payload of the core has an atlas; the Explorer has no other branch.
+  if (!["1.0.0", "1.2.0"].includes(DATA.schema_version) || !ATLAS) {
     root.textContent = "Unsupported architecture report schema.";
     return;
   }
   let positions = Object.create(null), diagramOrigin = null, sizedPositions = positions;
   let layoutPending = false, pendingLayoutFit = false;
-  let pendingLayoutFitOverview = false, layoutGeneration = 0, layoutMode = "automatic";
+  let pendingLayoutFitOverview = false, layoutGeneration = 0;
   const layoutPromises = new Map();
   let scrollRemainderX = 0, scrollRemainderY = 0;
   let renderedScene = null, renderedRoutes = [], focusLabel = null, relationshipKind = null, elementKind = null;
   let showAllModuleElements = false, showExternalSymbols = false;
-  let transform = { k: 1 }, scopeNotice = null;
-  let dragState = null, panState = null, expansionRestore = null;
+  let transform = { k: 1 };
+  let panState = null, expansionRestore = null;
   let panOffset = { x: 0, y: 0 };
-  let lastPointerTap = null, pendingPointerReveal = null, skipSvgClick = false;
-  const viewStates = new Map(), navigationHistory = new Map();
+  let skipSvgClick = false;
   const CARD = { w: 200, h: 92 };
-  const POINTER_DOUBLE_CLICK_MS = 500;
   const cardHeights = new Map();
   const GAP = 34;
   const ROW_GAP = 90;
-  const FRAME_HEADER_HEIGHT = 53;
   const TARGET_RESIDUAL_GAP = 20;
-  let TARGET_FRAME_HEADER_ALLOWANCE = FRAME_HEADER_HEIGHT;
   const LANE_GAP = 11;
   const ROUTING_WARNING = "Renderer layout warning: no clear route around a card or frame header; architectural status is unchanged.";
 
@@ -155,10 +151,6 @@
     memberPreviews = !memberPreviews;
     memberPreviewsButton.setAttribute("aria-pressed", String(memberPreviews));
     positions = Object.create(null);
-    // Saved coordinates belong to the previous card sizes, not to the navigation scope.
-    for (const state of [...viewStates.values(), ...[...navigationHistory.values()].flat()]) {
-      state.positions = Object.create(null);
-    }
     render();
     fit();
   });
@@ -335,26 +327,6 @@
 
   function cardHeight(id) {
     return cardHeights.get(id) ?? CARD.h;
-  }
-
-  function measureUmlCards(nodes) {
-    cardHeights.clear();
-    for (const node of nodes) {
-      if (["method", "function", "attribute", "binding"].includes(node.kind)) {
-        node.meta = compactUmlText(node.meta, `12px ${monoFontFamily}`);
-      }
-      for (const section of node.sections || []) {
-        section.lines = section.lines.map((line) => ({ ...line, text: compactUmlText(line.text) }));
-      }
-      const names = wrapText(node.label, CARD.w - 48, `600 14px ${sansFontFamily}`);
-      const metadata = wrapText(node.meta, CARD.w - 32, `12px ${monoFontFamily}`);
-      let height = Math.max(92, 42 + names.length * 18 + metadata.length * 14 + 10);
-      if (node.sections?.length) height = Math.max(height,
-        umlCompartments(node).at(-1).bottom + 12);
-      cardHeights.set(node.id, height);
-    }
-    CARD.h = Math.max(92, ...cardHeights.values());
-    TARGET_FRAME_HEADER_ALLOWANCE = FRAME_HEADER_HEIGHT;
   }
 
   function umlSymbol(kind) {
@@ -545,19 +517,6 @@
     return routes;
   }
 
-  function renderSelectedEdgeLabels() {
-    edgeLayer.querySelectorAll(".uml-edge-label").forEach((label) => label.remove());
-    if (S.selection?.type !== "node" || renderedScene?.atlas) return;
-    for (const route of renderedRoutes) {
-      if (route.edge.source !== S.selection.id && route.edge.target !== S.selection.id) continue;
-      const label = el("text", { class: "uml-edge-label", x: String(route.mid[0]),
-        y: String(route.mid[1] - 5), "text-anchor": "middle", "aria-hidden": "true",
-        title: route.edge.tooltip });
-      label.textContent = route.edge.relationshipKind;
-      route.group.appendChild(label);
-    }
-  }
-
   function dashFor(state, width) {
     const ratio = DASH_RATIOS[state];
     if (!ratio) return {};
@@ -591,29 +550,8 @@
     });
   }
 
-  function compactUmlText(text, font = `11px ${monoFontFamily}`) {
-    const lines = wrapText(text, CARD.w - 32, font);
-    if (lines.length <= 2) return text;
-    let prefix = lines.slice(0, 2).join(" ").trimEnd();
-    while (wrapText(prefix + "…", CARD.w - 32, font).length > 2) prefix = prefix.slice(0, -1);
-    return prefix + "…";
-  }
-
-  function selectArchitectureSubject(type, id, reveal = true) {
-    if (reveal) cancelPointerTap();
-    if (ATLAS) { S.module = S.view !== "target" && REPORT_SCENE.atlasModuleById(id) ? id : null; S.cell = null; }
-    const node = !ATLAS && type === "node"
-      ? nodeLayer.querySelector(`[data-uml-id="${CSS.escape(id)}"]`) : null;
-    // If Details is already open, read geometry before selection writes can force layout.
-    const measuredBounds = reveal && S.details && node
-      ? {
-        card: node.getBoundingClientRect(),
-        canvas: canvas.getBoundingClientRect(),
-        clientLeft: canvas.clientLeft,
-        clientTop: canvas.clientTop,
-        clientWidth: canvas.clientWidth,
-        clientHeight: canvas.clientHeight,
-      } : null;
+  function selectArchitectureSubject(type, id) {
+    S.module = S.view !== "target" && REPORT_SCENE.atlasModuleById(id) ? id : null; S.cell = null;
     S.selection = { type, id };
     setTargetDetails(true);
     nodeLayer.querySelectorAll("[data-uml-id]").forEach((node) => {
@@ -624,189 +562,28 @@
     edgeLayer.querySelectorAll(".hit").forEach((hit) => hit.setAttribute("aria-pressed",
       String(type === "edge" && hit.parentElement.dataset.umlId === id)));
     emphasizeUmlScene(S.selection);
-    renderSelectedEdgeLabels();
     syncRoute();
-    if (ATLAS) atlasSheet(atlasLevel());
-    else architectureInspector(architectureGraphContext(), renderedScene);
+    atlasSheet(atlasLevel());
     updateOpenSelected();
-    if (ATLAS) return;
-    if (type === "node" && reveal) {
-      if (!node) return;
-      const box = measuredBounds?.card || node.getBoundingClientRect();
-      const bounds = measuredBounds?.canvas || canvas.getBoundingClientRect();
-      const left = bounds.left + (measuredBounds?.clientLeft ?? canvas.clientLeft) + 8;
-      const top = bounds.top + (measuredBounds?.clientTop ?? canvas.clientTop) + 8;
-      const width = (measuredBounds?.clientWidth ?? canvas.clientWidth) - 16;
-      const height = (measuredBounds?.clientHeight ?? canvas.clientHeight) - 16;
-      // Opening Details reduces the canvas; keep the selected card in view without relayout.
-      canvas.scrollLeft += box.width > width || box.left < left
-        ? box.left - left : Math.max(0, box.right - left - width);
-      canvas.scrollTop += box.height > height || box.top < top
-        ? box.top - top : Math.max(0, box.bottom - top - height);
-    }
   }
 
-  function openArchitectureEntity(id, sourceGraph = null) {
-    if (ATLAS) {
-      const module = renderedScene?.nodes.find((node) => node.id === id)?.module;
-      if (module) openAtlasModule(module.id);
-      else openAtlasComponent(id, renderedScene?.grouped ? "modules" : null);
-      return;
-    }
-    const context = architectureGraphContext();
-    const node = sourceGraph ? { entity: REPORT_SCENE.entity(id, sourceGraph), sourceGraph }
-      : renderedScene?.nodes.find((item) => item.id === id);
-    if (!context || !node?.entity) { selectArchitectureSubject("node", id); return; }
-    if (SIDECAR && !lexicalRoute(node.entity.id, null, node.sourceGraph.origin).length) {
-      if (node.entity.kind === "component" && REPORT_SCENE.componentRoute(node.entity.id).length)
-        location.href = mainHref(node.entity.id, null);
-      else selectArchitectureSubject("node", id);
-      return;
-    }
-    if (node.sourceGraph === context.graph && node.entity.id === context.scope
-        || !REPORT_SCENE.hasInterior(node.entity, node.sourceGraph, S.view)
-          && !(sourceGraph && node.entity.kind === "module")) {
-      selectArchitectureSubject("node", id);
-      return;
-    }
-    const card = renderedScene.nodes.find((item) => item.entity?.id === node.entity.id && item.sourceGraph === node.sourceGraph);
-    if (card) S.selection = { type: "node", id: card.id };
-    rememberNavigationState();
-    if (SIDECAR) S.path = lexicalRoute(node.entity.id, null, node.sourceGraph.origin);
-    else S.path.push({ id: node.entity.id, origin: node.sourceGraph.origin });
-    S.selection = null;
-    focusLabel = null;
-    relationshipKind = null;
-    elementKind = null;
-    positions = Object.create(null);
-    render();
-    focusCurrentLevel();
+
+  function openArchitectureEntity(id) {
+    const module = renderedScene?.nodes.find((node) => node.id === id)?.module;
+    if (module) openAtlasModule(module.id);
+    else openAtlasComponent(id, renderedScene?.grouped ? "modules" : null);
   }
 
-  function leaveArchitectureGraph() {
-    if (SIDECAR && S.path.length < 2) { location.href = mainHref(); return; }
-    if (!S.path.length) return;
-    if (!restoreNavigationState()) {
-      const child = S.path.pop();
-      S.selection = child ? { type: "node", id: child.id } : null;
-      positions = Object.create(null);
-      render();
-    }
-    focusCurrentLevel();
-  }
-
-  function lexicalRoute(id, moduleId = null, origin = "observed") {
-    const path = [];
-    const graph = origin === "declared" ? DATA.target : DATA.observed;
-    const modules = origin === "declared" ? NAV.target_module_ids : NAV.module_ids;
-    let entity = graph?.entities.find((item) => item.id === id);
-    while (entity && !["component", "package"].includes(entity.kind)) {
-      if (path.some((entry) => entry.id === entity.id)) return [];
-      path.unshift({ id: entity.id, origin });
-      if (entity.kind === "module") return modules.includes(entity.id)
-        && (!moduleId || moduleId === entity.id) ? path : [];
-      entity = graph.entities.find((item) => item.id === entity.parent_id);
-    }
-    if (entity?.kind === "component" && origin === "declared"
-        && (!moduleId || moduleId === entity.id)) {
-      path.unshift({ id: entity.id, origin });
-      return path;
-    }
-    return [];
-  }
-
-  function targetModuleComponent(moduleId) {
-    const entities = DATA.target?.entities || [];
-    const components = DATA.target?.component_intents || [];
-    let entity = entities.find((item) => item.id === moduleId);
-    while (entity && entity.kind !== "module") entity = entities.find((item) => item.id === entity.parent_id);
-    let parentId = entity?.parent_id;
-    while (parentId) {
-      const component = components.find((item) => item.component_id === parentId);
-      if (component) return component.component_id;
-      parentId = entities.find((item) => item.id === parentId)?.parent_id
-        || components.find((item) => item.component_id === parentId)?.parent_id;
-    }
-    return null;
-  }
-
-  function mainHref(scope = returnScope, selection = returnSelection) {
-    const query = new URLSearchParams();
-    if (scope) query.set("scope", scope);
-    query.set("view", returnView);
-    if (selection) query.set("selected", selection);
-    if (scope === returnScope && returnContent) query.set("content", returnContent);
-    if (scope === returnScope && returnView !== "target" && returnCell !== null) query.set("cell", String(returnCell));
-    query.set("theme", document.documentElement.dataset.theme);
-    return `${NAV.main_href}?${query}`;
-  }
 
   function readRoute() {
     const query = new URLSearchParams(location.search);
-    const views = ["diagram", "target", "diff"];
-    S.view = views.includes(query.get("view")) ? query.get("view") : "diagram";
-    S.selection = null; S.module = null; S.cell = null; scopeNotice = null; routeNotice = null;
-    navigationHistory.clear(); viewStates.clear();
-    focusLabel = null; relationshipKind = null; elementKind = null; positions = Object.create(null);
-    const selected = query.get("selected");
-    if (SIDECAR) {
-      const origin = query.get("origin") === "declared" ? "declared" : "observed";
-      const requestedComponent = query.get("component");
-      const moduleIds = origin === "declared" ? NAV.target_module_ids : NAV.module_ids;
-      const componentModules = origin === "declared"
-        ? moduleIds.filter((id) => requestedComponent === "unassigned"
-          ? targetModuleComponent(id) === null || targetModuleComponent(id) === "unassigned"
-          : !requestedComponent || targetModuleComponent(id) === requestedComponent)
-        : requestedComponent === "unassigned"
-          ? NAV.unassigned_module_ids_by_scope?.[query.get("return_scope") || ""] || []
-          : requestedComponent ? NAV.component_module_ids?.[requestedComponent] || []
-          : moduleIds;
-      const requestedModule = query.get("module");
-      const componentScope = !requestedModule && REPORT_SCENE.componentRoute(requestedComponent).length
-        && (origin === "declared" || S.view === "target");
-      const module = requestedModule || componentModules[0];
-      const requestedScope = query.get("scope");
-      const declaredScope = componentScope && requestedScope
-        ? lexicalRoute(requestedScope, requestedComponent, "declared") : [];
-      if (requestedComponent && !REPORT_SCENE.componentRoute(requestedComponent).length && requestedComponent !== "unassigned") {
-        routeNotice = { field: "component", requested: requestedComponent, message: "Requested component is not recorded in this snapshot." };
-      } else if (componentScope && requestedScope && !declaredScope.length) {
-        routeNotice = { field: "scope", requested: requestedScope, message: "Requested scope is not recorded inside this component." };
-      } else if (!componentScope && requestedComponent && module && !componentModules.includes(module)) {
-        routeNotice = { field: "module", requested: module, message: "Requested module is not recorded inside this component." };
-      }
-      S.path = routeNotice ? [] : componentScope
-        ? declaredScope.length ? declaredScope : [{ id: requestedComponent, origin: "declared" }]
-        : lexicalRoute(requestedScope || module, module, origin);
-      if (!S.path.length) {
-        if (!routeNotice) {
-          const recordedModule = lexicalRoute(module, null, origin);
-          routeNotice = recordedModule.length
-            ? { field: "scope", requested: requestedScope, message: "Requested scope is not recorded inside this module." }
-            : { field: "module", requested: module, message: "Requested module is not recorded in this component snapshot." };
-          S.path = recordedModule;
-        }
-      }
-      const sourceScope = query.has("return_scope") ? query.get("return_scope")
-        : requestedComponent === "unassigned" && !REPORT_SCENE.componentRoute(requestedComponent).length
-          ? null : requestedComponent || NAV.component_id;
-      returnScope = REPORT_SCENE.componentRoute(sourceScope).at(-1)?.id || null;
-      returnView = views.includes(query.get("return_view")) ? query.get("return_view") : "diagram";
-      returnContent = ["components", "modules"].includes(query.get("return_content")) ? query.get("return_content") : null;
-      const cell = Number(query.get("return_cell"));
-      returnCell = query.has("return_cell") && Number.isSafeInteger(cell) && cell >= 0 ? cell : null;
-      const sourceSelection = query.get("return_selected");
-      returnSelection = NAV.component_path.some((item) => item.id === sourceSelection)
-        || NAV.module_ids.includes(sourceSelection) || NAV.target_module_ids.includes(sourceSelection) ? sourceSelection : null;
-      if (selected && lexicalRoute(selected, S.path[0]?.id, S.path[0]?.origin).length)
-        S.selection = { type: "node", id: selected };
-    } else {
-      const { notice, details, ...next } = fromQuery(query);
-      routeNotice = notice;
-      Object.assign(S, next);
-      setTargetDetails(details);
-    }
+    positions = Object.create(null);
+    const { notice, details, ...next } = fromQuery(query);
+    routeNotice = notice;
+    Object.assign(S, next);
+    setTargetDetails(details);
   }
+
 
   // AD-734: the URL of a view state, and the view state of a URL. toQuery(fromQuery(q)) is q for a
   // query that toQuery wrote. A default is left out: the language perspective, Details that follow
@@ -863,8 +640,8 @@
 
   // The state for an agent or a test: `data-state` on the Explorer and ArchkeelFlow.state().
   function stateView() {
-    const level = ATLAS ? atlasLevel() : null;
-    const content = !level ? null : level.component_ids.length
+    const level = atlasLevel();
+    const content = level.component_ids.length
       ? S.content === "modules" && REPORT_SCENE.atlasModules(level, S.view).length ? "modules" : "components" : "modules";
     return { view: S.view, scope: S.path.at(-1)?.id ?? null, path: S.path.map((entry) => entry.id), content,
       selection: S.selection?.type === "node" ? S.selection.id : null,
@@ -886,23 +663,9 @@
     document.querySelectorAll("[data-atlas-component-route]").forEach((link) => {
       link.href = atlasComponentHref(link.dataset.atlasComponentRoute || null);
     });
-    if (ATLAS) publishState();
+    publishState();
     if (!NAV || !routeReady || routeNotice || !["file:", "http:", "https:"].includes(location.protocol)) return;
-    const query = SIDECAR ? new URLSearchParams() : toQuery(S);
-    if (SIDECAR) {
-      if (S.path[0]) query.set(REPORT_SCENE.componentRoute(S.path[0].id).length ? "component" : "module", S.path[0].id);
-      if (S.path[0]?.origin === "declared") query.set("origin", "declared");
-      if (S.path.length > 1) query.set("scope", S.path.at(-1).id);
-      query.set("return_scope", returnScope || "");
-      query.set("return_view", returnView);
-      if (returnSelection) query.set("return_selected", returnSelection);
-      if (returnCell !== null) query.set("return_cell", String(returnCell));
-      if (returnContent) query.set("return_content", returnContent);
-      query.set("view", S.view);
-      const presentation = new URLSearchParams(location.search);
-      if (presentation.has("perspective")) query.set("perspective", presentation.get("perspective"));
-      if (S.selection?.type === "node") query.set("selected", S.selection.id);
-    }
+    const query = toQuery(S);
     const permissionHash = [...(DATA.boundary_permissions?.declared || []),
       ...(DATA.boundary_permissions?.applied || [])].some((row) => location.hash === `#${encodeURIComponent(row.id)}`)
       ? location.hash : "";
@@ -925,7 +688,7 @@
       button.textContent = light ? "☾" : "☀";
       button.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
     }
-    if (ATLAS) publishState();
+    publishState();
   }
   new MutationObserver(followTheme)
     .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -938,28 +701,6 @@
     else document.documentElement.dataset.theme = theme;
   }
 
-  function sidecarNavigation() {
-    const components = REPORT_SCENE.componentRoute(NAV.component_id || returnScope)
-      .filter((item) => item.id !== S.path[0]?.id);
-    const links = [`<a href="${esc(mainHref())}" aria-label="Back to architecture map">${esc(NAV.repository)}</a>`,
-      ...components.map((item) => `<a href="${esc(mainHref(item.id, null))}">${esc(item.label)} [component]</a>`)];
-    const lexical = S.path.map((entry, index) => {
-      const graph = entry.origin === "declared" ? DATA.target : DATA.observed;
-      const entity = graph.entities.find((item) => item.id === entry.id);
-      const label = entity.kind === "module" ? entity.file_path?.split("/").at(-1) || entity.qualified_name
-        : REPORT_SCENE.label(entity, graph);
-      return `<button type="button" data-lexical-depth="${index + 1}"${index === S.path.length - 1 ? " disabled" : ""}>${esc(label)} [${esc(entity.kind)}]</button>`;
-    });
-    breadcrumb.innerHTML = [...links, ...lexical].join(" / ");
-    breadcrumb.querySelectorAll("[data-lexical-depth]").forEach((button) => button.onclick = () => {
-      S.path = S.path.slice(0, Number(button.dataset.lexicalDepth)); S.selection = null; routeNotice = null;
-      focusLabel = null; relationshipKind = null; elementKind = null; positions = Object.create(null); render(); fit();
-    });
-    backButton.hidden = false;
-    backButton.textContent = S.path.length > 1 ? "Back to " + breadcrumb.querySelectorAll("button")[S.path.length - 2].textContent
-      : "Back to architecture map";
-  }
-
   function renderRouteNotice() {
     canvas.hidden = true; alternative.hidden = false; setTargetDetails(true);
     filters.hidden = true; elementKindControl.hidden = true; legend.textContent = "";
@@ -968,116 +709,27 @@
     root.dataset.view = S.view;
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === S.view)));
     flowHeading.textContent = "Requested scope unavailable";
-    alternative.innerHTML = `<div class="flow-scope-notice" role="status"><h3>Requested scope unavailable</h3><p>${esc(routeNotice.message)}</p><p>Requested ID: <code>${esc(routeNotice.requested)}</code></p><p>The requested URL is retained until you choose a recorded location.</p><button type="button">${SIDECAR && S.path.length ? "Open recorded module" : "Open architecture map"}</button></div>`;
-    alternative.querySelector("button").onclick = () => {
-      if (SIDECAR && !S.path.length) { location.href = mainHref(); return; }
-      routeNotice = null; render(); fit();
-    };
-    if (SIDECAR) {
-      sidecarNavigation();
-      const entry = S.path.at(-1);
-      const graph = entry?.origin === "declared" ? DATA.target : DATA.observed;
-      if (entry && S.view !== "target") architectureInspector({ graph, scope: entry.id }, { nodes: [], edges: [] });
-      else inspectorContent.innerHTML = '<div class="kicker">Fact sheet</div><p>No content is inferred for the rejected scope.</p>';
-    } else {
-      architectureNavigation({ base: null });
-      inspectorContent.innerHTML = '<div class="kicker">Fact sheet</div><p>Choose a recorded architecture scope.</p>';
-    }
+    alternative.innerHTML = `<div class="flow-scope-notice" role="status"><h3>Requested scope unavailable</h3><p>${esc(routeNotice.message)}</p><p>Requested ID: <code>${esc(routeNotice.requested)}</code></p><p>The requested URL is retained until you choose a recorded location.</p><button type="button">Open architecture map</button></div>`;
+    alternative.querySelector("button").onclick = () => { routeNotice = null; render(); fit(); };
+    architectureNavigation();
+    inspectorContent.innerHTML = '<div class="kicker">Fact sheet</div><p>Choose a recorded architecture scope.</p>';
     root.dataset.layoutState = "ready";
-    if (ATLAS) publishState();
+    publishState();
   }
 
-  async function renderSidecar() {
-    const generation = layoutGeneration;
-    root.dataset.umlGraph = "true";
-    root.querySelector(".flow-explore").hidden = true;
-    const entry = S.path.at(-1);
-    const source = entry?.origin === "declared" ? DATA.target : DATA.observed;
-    const entity = source?.entities.find((item) => item.id === entry?.id);
-    const destination = S.view === "target" ? DATA.target : S.view === "diagram" ? DATA.observed : source;
-    const counterpart = entity && destination !== source ? scopeCounterpart(entry, destination) : null;
-    const missingTarget = entity && destination !== source && !counterpart?.entity;
-    filters.hidden = missingTarget || !entity;
-    elementKindControl.hidden = missingTarget || !entity;
-    focusInput.closest("label").hidden = missingTarget || !entity;
-    violationFocus.hidden = missingTarget || !entity;
-    fitButton.hidden = missingTarget || !entity;
-    root.dataset.view = S.view;
-    viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === S.view)));
-    if (entity && !missingTarget) {
-      const graph = counterpart?.entity ? destination : source;
-      await renderArchitectureGraph({ graph, scope: counterpart?.entity?.id || entity.id, base: null,
-        comparison: S.view === "diff" ? DATA.comparison : null });
-      if (generation !== layoutGeneration || root.dataset.layoutState !== "ready") return;
-      const scene = renderedScene;
-      if (!scene.nodes.length) {
-        canvas.hidden = true; alternative.hidden = false;
-        alternative.innerHTML = `<div class="flow-scope-notice"><h3>${esc(entity.file_path?.split("/").at(-1) || entity.qualified_name)}</h3><p><code>${esc(entity.file_path || entity.qualified_name)}</code></p><p>No direct declarations</p><p>Source details and recorded evidence are available in the fact sheet.</p></div>`;
-      }
-    } else {
-      canvas.hidden = true; alternative.hidden = false; inspector.hidden = false;
-      legend.textContent = ""; openSelectedButton.disabled = true;
-      flowHeading.textContent = entity ? entity.file_path || entity.qualified_name : "Source details";
-      alternative.innerHTML = `<div class="flow-scope-notice"><h3>${esc(entity?.file_path || "Source scope")}</h3><p>${entity ? `No recorded ${S.view === "target" ? "Target" : "observed"} counterpart for this scope. The location is retained.` : "Choose a recorded module from the architecture map."}</p></div>`;
-      const component = DATA.target?.entities.find((item) => item.id === NAV.component_id);
-      if (component) architectureInspector({ graph: DATA.target, scope: component.id, base: null }, { nodes: [], edges: [] });
-      else inspectorContent.innerHTML = '<div class="kicker">Declared intent</div><p>No component declaration is recorded for this source assignment.</p>';
-    }
-    root.querySelector(".atlas-summary").textContent = entity?.file_path || "Recorded source scope";
-    sidecarNavigation();
+  function architectureNavigation() {
+    // E3: each crumb names itself in full (a title for a shortened one); the current crumb says so.
+    // E4: the page of a part names its system after its root crumb, as a link to the system page.
+    const crumbs = [NAV?.part_title || ATLAS.repository, ...S.path.map((entry) => REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)];
+    const system = !NAV?.part_title ? "" : NAV.system_href
+      ? `<span> of </span><a href="${esc(NAV.system_href)}" title="${esc(NAV.system_title)}">${esc(NAV.system_title)}</a>`
+      : `<span> of ${esc(NAV.system_title)}</span>`;
+    breadcrumb.innerHTML = crumbs.map((label, depth) => `${depth ? "<span> / </span>" : ""}<button type="button" data-atlas-depth="${depth}" title="${esc(label)}"${depth === crumbs.length - 1 ? ' aria-current="page"' : ""}><span>${esc(label)}</span></button>${depth ? "" : system}`).join("");
+    breadcrumb.querySelectorAll("button").forEach((button) => button.onclick = () =>
+      dispatch({ type: "goToDepth", depth: Number(button.dataset.atlasDepth) }));
+    backButton.hidden = !S.path.length; backButton.textContent = "Back to components";
   }
 
-  function architectureNavigation(context) {
-    if (SIDECAR) { sidecarNavigation(); return; }
-    if (ATLAS) {
-      // E3: each crumb names itself in full (a title for a shortened one); the current crumb says so.
-      // E4: the page of a part names its system after its root crumb, as a link to the system page.
-      const crumbs = [NAV?.part_title || ATLAS.repository, ...S.path.map((entry) => REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)];
-      const system = !NAV?.part_title ? "" : NAV.system_href
-        ? `<span> of </span><a href="${esc(NAV.system_href)}" title="${esc(NAV.system_title)}">${esc(NAV.system_title)}</a>`
-        : `<span> of ${esc(NAV.system_title)}</span>`;
-      breadcrumb.innerHTML = crumbs.map((label, depth) => `${depth ? "<span> / </span>" : ""}<button type="button" data-atlas-depth="${depth}" title="${esc(label)}"${depth === crumbs.length - 1 ? ' aria-current="page"' : ""}><span>${esc(label)}</span></button>${depth ? "" : system}`).join("");
-      breadcrumb.querySelectorAll("button").forEach((button) => button.onclick = () =>
-        dispatch({ type: "goToDepth", depth: Number(button.dataset.atlasDepth) }));
-      backButton.hidden = !S.path.length; backButton.textContent = "Back to components"; return;
-    }
-    const path = [...(context.base ? [{ id: context.base, origin: context.graph.origin }] : []), ...umlPath];
-    const entries = [{ label: S.view === "target" ? "Target architecture" : S.view === "diff" ? "Architecture diff" : "As-Is architecture", depth: -1 },
-      ...path.map((entry, depth) => {
-        const graph = entry.origin === "observed" ? DATA.observed : DATA.target;
-        return { label: (S.view === "diff" && entry.origin === "observed" ? "Observed: " : "")
-          + REPORT_SCENE.label(REPORT_SCENE.entity(entry.id, graph), graph)
-          + ` [${REPORT_SCENE.entity(entry.id, graph).kind}]`, depth };
-      })];
-    breadcrumb.hidden = false;
-    breadcrumb.textContent = "";
-    entries.forEach((entry, index) => {
-      if (index) breadcrumb.append(" / ");
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = entry.label;
-      button.disabled = index === entries.length - 1;
-      button.addEventListener("click", () => {
-        navigationHistory.delete(S.view);
-        if (context.base && entry.depth < 0) {
-          S.path = [];
-          S.selection = null;
-          render();
-          return;
-        }
-        S.path = S.path.slice(0, entry.depth + (context.base ? 0 : 1));
-        S.selection = null;
-        focusLabel = null;
-        relationshipKind = null;
-        elementKind = null;
-        positions = Object.create(null);
-        render();
-      });
-      breadcrumb.appendChild(button);
-    });
-    backButton.hidden = !context.base && !S.path.length;
-    backButton.textContent = "Back to " + entries.at(-2)?.label;
-  }
 
   const boundaryPermissionGroups = new Map();
   let boundaryAuditMarkup = "";
@@ -1135,11 +787,9 @@
       if (route.module_id) query.set("module", route.module_id);
       if (route.scope_id) query.set("scope", route.scope_id);
       query.set("selected", route.entity_id);
-      if (ATLAS) {
-        query.set("return_view", S.view);
-        if (atlasLevel().parent_id) query.set("return_scope", atlasLevel().parent_id);
-      }
-      return `<a href="${esc(`${ATLAS?.detail_page || location.pathname}?${query}`)}">${esc(route.label)}</a>`;
+      query.set("return_view", S.view);
+      if (atlasLevel().parent_id) query.set("return_scope", atlasLevel().parent_id);
+      return `<a href="${esc(`${ATLAS.detail_page || location.pathname}?${query}`)}">${esc(route.label)}</a>`;
     };
     const selector = applied ? row.data || {} : row;
     const declaration = applied && (permissions.declared || []).find((item) => item.id === row.declaration_id);
@@ -1149,7 +799,7 @@
     if (declarationRoute?.module_id) declarationQuery.set("module", declarationRoute.module_id);
     if (declarationRoute?.scope_id) declarationQuery.set("scope", declarationRoute.scope_id);
     if (declarationRoute?.entity_id) declarationQuery.set("selected", declarationRoute.entity_id);
-    const declarationHref = `${ATLAS?.detail_page || location.pathname}?${declarationQuery}#${encodeURIComponent(row.declaration_id || "")}`;
+    const declarationHref = `${ATLAS.detail_page || location.pathname}?${declarationQuery}#${encodeURIComponent(row.declaration_id || "")}`;
     const keys = ["qualified_name", "position", "field_path", "annotation", "container_depth", "mapping_depth", "literal_mapping_arm", "native_mapping", ...(applied ? ["observed_container_depth"] : [])];
     const bindingRows = ["alias_body", "key_alias_body"].flatMap((name) => {
       const binding = selector[name];
@@ -1161,7 +811,7 @@
     const selectorRows = [...keys.filter((key) => Object.hasOwn(selector, key)).map((key) => [key, selector[key]]), ...bindingRows];
     const ownerLinks = !row.routes?.length ? (row.component_ids || []).map((id) => {
       const query = new URLSearchParams({component: id, origin: "declared", view: "target"});
-      return `<a href="${esc(`${ATLAS?.detail_page || location.pathname}?${query}`)}">Declared owning component</a>`;
+      return `<a href="${esc(`${ATLAS.detail_page || location.pathname}?${query}`)}">Declared owning component</a>`;
     }).join(" · ") : "";
     return `<dl class="kv">${selectorRows.map(([key, value]) => `<dt>${esc(key === "observed_container_depth" ? "Observed container depth" : key)}</dt><dd><code>${esc(typeof value === "string" ? value : JSON.stringify(value))}</code></dd>`).join("")}</dl>
       <p>${esc(row.rationale || "Rationale unavailable")} · Decided by ${esc(row.decided_by || "Unavailable")}</p>
@@ -1172,7 +822,7 @@
       <p>${(row.locations || []).map((item) => esc(`${item.file || "Location unavailable"}${item.line != null ? `:${item.line}` : ""} · ${item.id}`)).join("<br>") || "Source evidence location unavailable"}</p>
       <p>${(row.routes || []).map(routeLink).join(" · ")}${ownerLinks || ""}</p>
       ${!row.routes?.length && !row.component_ids?.length ? "<p>Navigation unavailable or ambiguous; retained in root audit.</p>" : ""}
-      <p><a href="${esc(ATLAS?.architecture_href || NAV?.architecture_href || "architecture.json")}">Complete audit JSON</a></p>
+      <p><a href="${esc(ATLAS.architecture_href || NAV?.architecture_href || "architecture.json")}">Complete audit JSON</a></p>
     `;
   }
 
@@ -1254,484 +904,6 @@
     fillBoundaryPermissionGroup(group, Number(group.dataset.boundaryLimit) + 20);
   });
 
-  function architectureInspector(context, scene) {
-    const { graph } = context;
-    const node = S.selection?.type === "node"
-      ? scene.nodes.find((item) => item.id === S.selection.id) : null;
-    const entity = node?.entity || (!S.selection
-      ? REPORT_SCENE.entity(context.scope, graph) : null) || null;
-    const edge = S.selection?.type === "edge"
-      ? scene.edges.find((item) => item.id === S.selection.id) : null;
-    const entityGraph = node?.sourceGraph || edge?.sourceGraph || graph;
-    const related = new Set([entity?.id || context.scope]);
-    REPORT_SCENE.entities(entityGraph).forEach((item) => {
-      let parent = REPORT_SCENE.parent(item, entityGraph);
-      while (parent) {
-        if (related.has(parent)) { related.add(item.id); break; }
-        const owner = REPORT_SCENE.entity(parent, entityGraph);
-        parent = owner ? REPORT_SCENE.parent(owner, entityGraph) : null;
-      }
-    });
-    const siteEntries = (edge?.sites || entityGraph.relationships.filter((item) =>
-      related.has(item.source_id) || entity && (related.has(item.target_id)
-        || item.candidate_ids.some((id) => related.has(id)))))
-      .map((site) => ({ site, sourceGraph: entityGraph }));
-    for (const site of edge?.observedSites || []) siteEntries.push({ site, sourceGraph: DATA.observed });
-    if (node) for (const connection of scene.edges) {
-      if (connection.sourceGraph === entityGraph || ![connection.source, connection.target].includes(node.id)) continue;
-      for (const site of connection.sites) if (!siteEntries.some((entry) => entry.site.id === site.id
-          && entry.sourceGraph === connection.sourceGraph)) siteEntries.push({ site, sourceGraph: connection.sourceGraph });
-    }
-    const sites = siteEntries.map((entry) => entry.site);
-    const siteNames = new Map([...new Set(siteEntries.map((entry) => entry.sourceGraph))].map((sourceGraph) =>
-      [sourceGraph, new Map(sourceGraph.entities.map((item) => [item.id, item.qualified_name]))]));
-    const assessments = edge?.assessments || node?.assessments || REPORT_SCENE.assessments(context, context.scope);
-    const problems = assessments.filter((item) => item.status !== "PASS");
-    const matches = assessments.filter((item) => item.status === "PASS");
-    const assessmentDetails = (items) => items.map((item) => {
-      const wanted = (context.comparison ? DATA.target : graph).entities.find((entry) => entry.id === item.subject_id);
-      const actual = (DATA.observed?.entities || []).filter((entry) => item.observed_ids.includes(entry.id));
-      return `<li><strong>${esc(item.status)}</strong> · ${esc(item.aspect)} · ${esc(item.change)}<p>${esc(item.reason)}</p>${wanted?.signature && item.aspect === "signature" ? `<p>Target: <code>${esc(REPORT_SCENE.member(wanted))}</code></p>${actual.map((entry) => `<p>As-Is: <code>${esc(REPORT_SCENE.member(entry))}</code></p>`).join("")}` : ""}</li>`;
-    }).join("");
-    const evidenceGraphs = new Set([graph, entityGraph, ...siteEntries.map((entry) => entry.sourceGraph),
-      ...(context.comparison && DATA.observed ? [DATA.observed] : [])]);
-    const evidence = new Map([...evidenceGraphs].flatMap((item) => item.evidence)
-      .map((item) => [item.id, item]));
-    const proofIds = [...new Set([...(entity?.evidence_ids || []), ...sites.flatMap((item) => item.evidence_ids),
-      ...(entity?.definition_contexts || []).flatMap((item) => item.evidence_ids),
-      ...assessments.flatMap((item) => item.evidence_ids)])];
-    const proof = proofIds.map((id) => evidence.get(id)).filter(Boolean);
-    const decisionGaps = (S.view === "target" ? [] : DATA.decision_gaps || []).filter((gap) => sites.some((site) => gap.relationship_ids.includes(site.id)));
-    const scope = entity?.id || context.scope;
-    const coverage = entityGraph.coverage.filter((item) => item.scope_id === scope || item.scope_id === null);
-    const children = entityGraph.entities.filter((item) => REPORT_SCENE.parent(item, entityGraph) === entity?.id);
-    const boundary = !edge && (entityGraph.origin === "observed" ? DATA.target?.component_intents || [] : entityGraph.component_intents)
-      .find((item) => item.component_id === scope);
-    const entries = (items) => (items || []).map(esc).join("<br>");
-    // A row of the intent list is drawn only when it has a value.
-    const kvRow = (label, items) => items && items.length ? `<dt>${label}</dt><dd>${entries(items)}</dd>` : "";
-    const physicalScope = !edge && graph.origin === "declared" && (!entity || entity.kind === "component");
-    const inventories = physicalScope ? graph.module_inventories.filter((item) => item.component_id === scope) : [];
-    const assignedLayouts = new Set(graph.component_intents.flatMap((item) => item.layout_rule_ids));
-    const layouts = physicalScope ? graph.layout_rules.filter((rule) => scope === null
-      ? !assignedLayouts.has(rule.id) : boundary?.layout_rule_ids.includes(rule.id)) : [];
-    const globalApi = !edge && graph.origin === "declared" && scope === null ? graph.public_api : [];
-    const unassigned = !entity && !edge && context.scope === null && S.view !== "target"
-      ? REPORT_SCENE.unassignedModules() : [];
-
-    const unassignedNamespaces = unassigned.length ? REPORT_SCENE.entities(DATA.observed)
-      .filter((item) => item.kind === "package" && REPORT_SCENE.parent(item, DATA.observed) === null) : [];
-    const permissionGraph = DATA.target;
-    const externalScopes = (permissionGraph?.external_scopes || []).filter((rule) => scope === null
-      || entity?.qualified_name === rule.dependency || siteEntries.some(({site, sourceGraph}) => {
-        const target = REPORT_SCENE.entity(site.target_id, sourceGraph)?.qualified_name || site.expression || "";
-        return target === rule.dependency || target.startsWith(`${rule.dependency}.`);
-      }));
-
-    const viewParent = entity ? REPORT_SCENE.entity(REPORT_SCENE.parent(entity, entityGraph), entityGraph) : null;
-    const codeParent = entity ? entityGraph.entities.find((item) => item.id === entity.parent_id) : null;
-    let sourceModule = entity;
-    while (sourceModule && !sourceModule.file_path) {
-      sourceModule = entityGraph.entities.find((item) => item.id === sourceModule.parent_id);
-    }
-    const assignedModules = boundary && entityGraph.origin === "observed"
-      ? (DATA.memberships || []).filter((item) => item.component_id === scope)
-        .flatMap((item) => item.module_ids).map((id) => REPORT_SCENE.entity(id, entityGraph)).filter(Boolean) : [];
-    const kindDescription = entity?.kind === "component" ? "Architecture boundary"
-      : entity?.kind === "package" ? "Namespace group"
-      : entity?.kind === "module" ? `${entity.language === "python" ? "Python" : entity.language} module`
-      : entity?.kind === "interface" && entity.language === "python" ? "Interface / Protocol" : entity?.kind;
-
-    inspectorContent.innerHTML = `<div class="kicker">${context.comparison ? "Core comparison" : entityGraph.origin === "observed" ? entity?.kind === "component" ? "Declared navigation boundary · observed source" : "Observed" : "Independent Target"} UML</div>
-      <h2>${esc(entity ? REPORT_SCENE.label(entity, entityGraph) : (edge?.relationshipKind === "requires" ? "Allowed component import" : edge?.relationshipKind) || "Architecture scope")}</h2>
-      ${entity ? `<p class="flow-qualified-name"><code>${entity.qualified_name.split(".").map(esc).join(".<wbr>")}</code></p>` : ""}
-      ${edge?.routingWarning ? `<p role="status">${esc(ROUTING_WARNING)}</p>` : ""}
-      ${entity ? `<dl class="kv"><dt>Kind</dt><dd>${esc(kindDescription)}</dd>
-        ${viewParent ? `<dt>View group</dt><dd>${esc(REPORT_SCENE.label(viewParent, entityGraph))} [${esc(viewParent.kind)}]</dd>` : ""}
-        ${codeParent && codeParent.kind !== "component" ? `<dt>${codeParent.kind === "package" ? "Code namespace" : "Code container"}</dt><dd>${esc(codeParent.qualified_name)} [${esc(codeParent.kind === "package" ? "namespace group" : codeParent.kind)}]</dd>` : ""}
-        ${entity.kind !== "component" && entity.kind !== "package" ? `<dt>Source file</dt><dd><code>${esc(sourceModule?.file_path || (entityGraph.origin === "declared" ? "Not declared" : "Not recorded"))}</code></dd>` : ""}
-        ${entity.kind !== "component" ? `<dt>Language visibility</dt><dd>${esc(entity.visibility.kind)} · ${esc(entity.visibility.basis)}</dd>` : ""}${entity.signature || entity.annotation ? `<dt>Signature or annotation</dt><dd><code>${esc(REPORT_SCENE.member(entity))}</code></dd>` : ""}</dl>
-      ${entity.responsibilities.map((text) => `<p>${esc(text)}</p>`).join("")}${entityGraph.origin === "declared" && !entity.responsibilities.length ? "<p>No declared responsibility.</p>" : ""}` : ""}
-      ${entity?.kind === "component" ? "<p>A declared responsibility and ownership boundary. It may group several packages or modules; it is not a Python class or file.</p>" : ""}
-      ${entity?.kind === "package" ? "<p>A namespace group. This does not prove a package directory or an __init__.py file.</p>" : ""}
-      ${assignedModules.length ? `<h3>Assigned code · ${assignedModules.length} module${assignedModules.length === 1 ? "" : "s"}</h3><ul class="plain">${assignedModules.map((item) => `<li><code>${esc(item.file_path || item.qualified_name)}</code></li>`).join("")}</ul>` : ""}
-      ${entity?.definition_contexts?.length ? `<h3>Definition context</h3><p>Recorded under control flow. Runtime name binding is not proven.</p><ol>${entity.definition_contexts.map((item) => `<li><code>${esc(item.kind)} · ${esc(item.branch)}</code></li>`).join("")}</ol>` : ""}
-      ${entity?.initializer != null ? `<h3>Static assignment site</h3><p><code>${esc(REPORT_SCENE.member(entity))}</code></p><p>Source value assigned at this site. This does not identify a live object or its current value.</p>` : ""}
-      ${node?.observedCounterpart?.kind === "binding" ? `<h3>As-Is binding</h3><p><code>${esc(REPORT_SCENE.member(node.observedCounterpart))}</code></p><p>Observed source fact linked by a unique Core correspondence. It does not identify a live object or its current value.</p>` : ""}
-      ${decisionGaps.length ? `<h3>Open dependency decisions</h3><p>These observed component imports have no declared dependency decision. This is not a Core UNKNOWN verdict.</p><ul>${decisionGaps.map((gap) => `<li>${esc(REPORT_SCENE.label(REPORT_SCENE.entity(gap.source_id, DATA.target), DATA.target))} → ${esc(REPORT_SCENE.label(REPORT_SCENE.entity(gap.target_id, DATA.target), DATA.target))}</li>`).join("")}</ul>` : ""}
-      ${boundaryPermissionMarkup(scope, related, Boolean(edge))}
-      ${externalScopes.length ? `<h3>External dependency permissions</h3><ul>${externalScopes.map((rule) => `<li><strong>${esc(rule.dependency)}</strong> · <code>${esc(rule.id)}</code><p>Allowed prefixes: ${entries(rule.allowed_sources)}<br>Exact modules: ${entries(rule.exact_sources)}</p><p>${esc(rule.rationale)}</p><p>Decided by ${esc(rule.decided_by)} · ${rule.provenance.map(esc).join(" · ")}</p></li>`).join("")}</ul>` : ""}
-      ${boundary ? `<h3>Component intent</h3><dl class="kv">
-        <dt>Component role</dt><dd>${esc(boundary.role)}</dd>
-        ${boundary.layer != null ? `<dt>Layer (declared)</dt><dd>${esc(boundary.layer)}</dd>` : ""}
-        ${kvRow("Package ownership", boundary.packages)}
-        ${kvRow("Exact module ownership", boundary.exact_modules)}
-        ${boundary.namespace ? `<dt>Target namespace</dt><dd>${esc(boundary.namespace)}</dd>` : ""}
-        ${kvRow("Published API", boundary.public)}
-        ${kvRow("Planned interface (proposed)", boundary.planned)}
-        ${boundary.decided_by ? `<dt>Decided by</dt><dd>${esc(boundary.decided_by)}</dd>` : ""}
-        ${boundary.inside ? `<dt>Inner contract</dt><dd>${esc(boundary.inside)}</dd>` : ""}
-        </dl>${boundary.forbidden_responsibilities.length ? `<h3>Excluded responsibilities</h3><ul class="plain">${boundary.forbidden_responsibilities.map((text) => `<li>${esc(text)}</li>`).join("")}</ul>` : ""}` : ""}
-      ${unassigned.length ? `<h3>Observed code without a component assignment · ${unassigned.length} modules</h3>
-        <p>These modules have no recorded component membership. They remain source facts; the renderer assigns no owner.</p>
-        <ul class="plain">${unassigned.map((item) => `<li><code>${esc(item.file_path || item.qualified_name)}</code> <button type="button" data-uml-unassigned="${esc(item.id)}">Open</button></li>`).join("")}</ul>` : ""}
-      ${unassignedNamespaces.length ? `<details><summary>Recorded namespace groups · ${unassignedNamespaces.length}</summary>
-        <p>Namespace grouping does not prove a directory or a declared component owner.</p>
-        <ul class="plain">${unassignedNamespaces.map((item) => `<li><code>${esc(item.qualified_name)}</code> <button type="button" data-uml-unassigned="${esc(item.id)}">Open</button></li>`).join("")}</ul></details>` : ""}
-      ${globalApi.length ? `<h3>Global published API</h3><p>API selectors. Symbol details come from explicit UML intent.</p><ul class="plain">${globalApi.map((entry) => `<li><code>${esc(entry.selector)}</code><p>${entry.provenance.map(esc).join(" · ")}</p></li>`).join("")}</ul>` : ""}
-      ${physicalScope ? `${moduleInventoryMarkup(inventories)}
-        ${layouts.length ? `<details><summary>Permitted package layout · ${layouts.length} ${layouts.length === 1 ? "rule" : "rules"}</summary>
-          <p>Permission does not require existence.</p><ul class="plain">${layouts.map((rule) => `<li><strong>${esc(rule.root)}</strong><p>${esc(rule.rationale)}</p><p>Allowed immediate children: ${rule.allowed_children.length ? rule.allowed_children.map(esc).join(", ") : "Explicitly empty"}</p><p>${esc(rule.decided_by)} · ${rule.provenance.map(esc).join(" · ")}</p></li>`).join("")}</ul></details>`
-          : context.scope === null ? "<h3>Permitted package layout</h3><p>Not declared</p>" : ""}` : ""}
-      ${children.length ? `<h3>Inner elements</h3><ul class="plain">${children.map((child) =>
-        `<li><span>${esc(child.kind)}</span> · <code>${esc(REPORT_SCENE.member(child))}</code>${REPORT_SCENE.hasInterior(child, entityGraph, S.view) ? ` <button type="button" data-uml-detail="${esc(child.id)}">Open</button>` : ""}</li>`).join("")}</ul>` : ""}
-      ${assessments.length ? `<h3>Target checks</h3>${problems.length ? `<ul class="plain">${assessmentDetails(problems)}</ul>` : ""}${matches.length ? `<details><summary>${matches.length} matched assessments</summary><ul class="plain">${assessmentDetails(matches)}</ul></details>` : ""}`
-        : context.comparison && entityGraph.origin === "observed" ? "<h3>Target checks</h3><p>No recorded check for this observed scope.</p>" : ""}
-      ${sites.length ? `<h3>Relationship sites</h3><ul class="plain">${siteEntries.map(({ site, sourceGraph }) =>
-        `<li><code>${esc(site.kind)}</code> · ${esc(site.resolution === "not_applicable" ? "declared" : site.resolution)}<p><code>${esc(siteNames.get(sourceGraph).get(site.source_id))} → ${esc(siteNames.get(sourceGraph).get(site.target_id) || (site.candidate_ids.length ? "candidates" : "unresolved"))}</code></p>${site.kind === "requires" ? `<p>Allowed component import. This does not require an import or call.</p><p>${site.through.length ? `Through: <code>${site.through.map(esc).join(", ")}</code>` : "Published interface not narrowed"}${site.decided_by ? ` · Decided by: ${esc(site.decided_by)}` : ""}</p>` : ""}${site.expression ? `<code>${esc(site.expression)}</code>` : ""}${site.reason ? `<p>${esc(site.reason)}</p>` : ""}</li>`).join("")}</ul>` : ""}
-      ${coverage.length ? `<h3>Coverage</h3><ul class="plain">${coverage.map((item) =>
-        `<li>${esc([...item.entity_kinds, ...item.relationship_kinds].join(", "))}: ${esc(item.status)}${item.reason ? ` · ${esc(item.reason)}` : ""}</li>`).join("")}</ul>` : ""}
-      ${proof.length ? `<h3>Source sites</h3><ul class="plain">${proof.map((item) =>
-        `<li><code>${esc(item.file)}:${item.line}:${item.column}</code><pre>${esc(item.excerpt)}</pre></li>`).join("")}</ul>` : ""}
-      ${[...(entity?.provenance || []), ...sites.flatMap((item) => item.provenance)].length ? `<h3>Provenance</h3><ul class="plain">${[...new Set([...(entity?.provenance || []), ...sites.flatMap((item) => item.provenance)])].map((item) => `<li>${esc(item)}</li>`).join("")}</ul>` : ""}
-      ${!entity && !edge ? "<p>Select a visible element or connection for its recorded details.</p>" : ""}`;
-    if (S.view !== "target" && (S.view === "diff" || S.selection)) {
-      const ids = new Set(edge ? edge.sites.map((site) => site.id) : related);
-      if (!edge) for (const sourceGraph of new Set([entityGraph, DATA.observed].filter(Boolean))) {
-        for (const item of REPORT_SCENE.entities(sourceGraph)) {
-          let current = item.id;
-          while (current) {
-            if (ids.has(current)) { ids.add(item.id); break; }
-            const owner = REPORT_SCENE.entity(current, sourceGraph);
-            current = owner ? REPORT_SCENE.parent(owner, sourceGraph) : null;
-          }
-        }
-        for (const site of sourceGraph.relationships) if (ids.has(site.source_id)
-            || ids.has(site.target_id) || site.candidate_ids.some((id) => ids.has(id))) ids.add(site.id);
-      }
-      const known = new Set([DATA.observed, DATA.target].filter(Boolean)
-        .flatMap((sourceGraph) => [...sourceGraph.entities, ...sourceGraph.relationships].map((item) => item.id)));
-      const globalFindings = (DATA.findings || []).filter((item) => !item.graph_subject_ids.some((id) => known.has(id)));
-      const findings = (DATA.findings || []).filter((item) => !globalFindings.includes(item)
-        && (edge ? edge.findings.includes(item) : context.scope === null && !S.selection
-          || item.graph_subject_ids.some((id) => ids.has(id))));
-      inspectorContent.insertAdjacentHTML("beforeend", `<h3>Recorded findings</h3>${findingMarkup(findings)}${globalFindings.length ? `<details><summary>Global or unmapped findings · ${globalFindings.length}</summary>${findingMarkup(globalFindings)}</details>` : ""}`);
-    }
-    inspectorContent.querySelectorAll("[data-uml-unassigned]").forEach((button) =>
-      button.addEventListener("click", () => openArchitectureEntity(button.dataset.umlUnassigned, DATA.observed)));
-    inspectorContent.querySelectorAll("[data-uml-detail]").forEach((button) =>
-      button.addEventListener("click", () => openArchitectureEntity(button.dataset.umlDetail, entityGraph)));
-  }
-
-  async function renderArchitectureGraph(context) {
-    root.dataset.layoutState = "pending";
-    const focus = document.activeElement.closest("[data-uml-id]")?.dataset.umlId;
-    const legendFocus = document.activeElement.closest(".flow-legend button")?.dataset.relationshipKind;
-    root.dataset.view = S.view;
-    flowHeading.textContent = "ArchQ Explorer";
-    viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === S.view)));
-    canvas.hidden = false;
-    alternative.hidden = true;
-    emptyLayer.textContent = "";
-    architectureNavigation(context);
-    const complete = REPORT_SCENE.projectArchitectureScene(context, { viewMode: S.view });
-    root.dataset.componentOverview = String(complete.componentOverview);
-    const unassigned = context.scope === null && S.view !== "target"
-      && complete.nodes.some((node) => node.kind === "component") ? REPORT_SCENE.unassignedModules() : [];
-    unassignedCodeButton.hidden = !unassigned.length;
-    unassignedCodeButton.textContent = `Unassigned code · ${unassigned.length} modules`;
-
-    const kinds = [...new Set(complete.edges.map((edge) => edge.relationshipKind))].sort();
-    if (!kinds.includes(relationshipKind)) relationshipKind = null;
-    const directScope = ["module", "class", "interface", "enum", "mixin"].includes(
-      REPORT_SCENE.entity(context.scope, context.graph)?.kind);
-    const directOverview = directScope && !focusLabel && !relationshipKind
-      && !violationsOnly.checked && !showExternalSymbols;
-    const scopeElements = complete.nodes.filter((node) => (!directOverview
-      || !node.outside && node.entity?.id !== context.scope)
-      && (showExternalSymbols || !directOverview || !node.outside));
-    const elementKinds = [...new Set(scopeElements.map((node) => node.kind))].sort();
-    if (!elementKinds.includes(elementKind)) elementKind = null;
-    elementKindInput.innerHTML = '<option value="">All kinds</option>' + elementKinds.map((kind) =>
-      `<option value="${esc(kind)}">${esc(kind)} · ${scopeElements.filter((node) => node.kind === kind).length}</option>`).join("");
-    elementKindInput.value = elementKind || "";
-    const allElements = scopeElements.filter((node) => !elementKind || node.kind === elementKind);
-    const innerElements = allElements.filter((node) => !node.outside && node.entity?.id !== context.scope);
-    const largeModuleScope = REPORT_SCENE.entity(context.scope, context.graph)?.kind === "module"
-      && innerElements.length > 30;
-    const degree = new Map(allElements.map((node) => [node.id, 0]));
-    complete.edges.forEach((edge) => {
-      if (degree.has(edge.source)) degree.set(edge.source, degree.get(edge.source) + 1);
-      if (degree.has(edge.target)) degree.set(edge.target, degree.get(edge.target) + 1);
-    });
-    const topThirty = largeModuleScope && !showAllModuleElements && !focusLabel;
-    const elements = topThirty
-      ? allElements.slice().sort((left, right) => degree.get(right.id) - degree.get(left.id)
-        || left.label.localeCompare(right.label) || left.id.localeCompare(right.id)).slice(0, 30)
-      : allElements;
-    const elementIds = new Set(elements.map((node) => node.id));
-    if (!elementIds.has(focusLabel)) focusLabel = null;
-    focusInput.innerHTML = '<option value="">All elements</option>' + [...complete.nodes.filter((node) => !elementKind || node.kind === elementKind)]
-      .sort((left, right) => left.label.localeCompare(right.label) || left.id.localeCompare(right.id)).map((node) =>
-      `<option value="${esc(node.id)}">${esc(node.label)} · ${esc(node.kind)}${node.outside ? " · outside" : ""}</option>`).join("");
-    focusInput.value = focusLabel || "";
-    focusInput.disabled = !elements.length;
-    const localConnections = directScope ? REPORT_SCENE.projectArchitectureScene(context, { viewMode: S.view, directChildren: true }).edges : complete.edges;
-    const connections = directOverview ? localConnections : complete.edges;
-    const edges = connections.filter((edge) => (!violationsOnly.checked || edge.state === "violation")
-      && (!relationshipKind || edge.relationshipKind === relationshipKind)
-      && elementIds.has(edge.source) && elementIds.has(edge.target)
-      && (!focusLabel || edge.source === focusLabel || edge.target === focusLabel));
-    const outsideNodes = complete.nodes.filter((node) => node.outside);
-    useSummary.hidden = !directScope || !outsideNodes.length;
-    if (outsideNodes.length) {
-      const byKind = new Map();
-      outsideNodes.forEach((node) => byKind.set(node.kind, (byKind.get(node.kind) || 0) + 1));
-      const uses = [...byKind].sort(([left], [right]) => left.localeCompare(right))
-        .map(([kind, count]) => REPORT_SCENE.countLabel(count, kind,
-          ({ class: "classes", enum: "enums", interface: "interfaces", module: "modules" })[kind] || `${kind}s`)).join(" · ");
-      useSummary.textContent = `${showExternalSymbols ? "Hide" : "Uses"}: ${REPORT_SCENE.countLabel(outsideNodes.length, "element")}`;
-      useSummary.title = `Outside uses: ${uses}`;
-      useSummary.setAttribute("aria-label", `${showExternalSymbols ? "Hide" : "Show"} outside uses: ${uses}`);
-      useSummary.setAttribute("aria-expanded", String(showExternalSymbols));
-    }
-    elementIndex.hidden = !largeModuleScope;
-    if (largeModuleScope) {
-      const groups = new Map();
-      innerElements.forEach((node) => {
-        if (!groups.has(node.kind)) groups.set(node.kind, []);
-        groups.get(node.kind).push(node);
-      });
-      elementIndex.innerHTML = `<h3>${esc(REPORT_SCENE.label(REPORT_SCENE.entity(context.scope, context.graph), context.graph))}: ${innerElements.length} inner elements</h3>
-        <p>Grouped by kind.${topThirty ? " The diagram shows the 30 most connected elements." : ""}</p>
-        ${[...groups].sort(([left], [right]) => left.localeCompare(right)).map(([kind, nodes]) =>
-          `<details><summary>${esc(kind)} · ${nodes.length}</summary><ul>${nodes.map((node) =>
-            `<li><button type="button" data-index-element="${esc(node.id)}">${esc(node.label)}</button></li>`).join("")}</ul></details>`).join("")}
-        <button type="button" class="flow-fit" data-show-all-elements>${showAllModuleElements ? "Show top 30" : `Show all ${allElements.length}`}</button>`;
-      elementIndex.querySelectorAll("[data-index-element]").forEach((button) => button.addEventListener("click", () => {
-        const id = button.dataset.indexElement;
-        if (!elementIds.has(id)) showAllModuleElements = true;
-        S.selection = { type: "node", id }; setTargetDetails(true); render(); fit();
-      }));
-      elementIndex.querySelector("[data-show-all-elements]").addEventListener("click", () => {
-        showAllModuleElements = !showAllModuleElements; S.selection = null; render(); fit();
-      });
-    }
-    const neighbors = new Set([focusLabel, ...edges.flatMap((edge) => [edge.source, edge.target])]);
-    const scene = { ...complete, edges, edgeSpacing: directScope ? 16 : 10,
-      nodes: elements.filter((node) => focusLabel ? neighbors.has(node.id)
-        : !node.outside || edges.some((edge) => edge.source === node.id || edge.target === node.id)) };
-    if (S.selection && !(S.selection.type === "node" ? scene.nodes : edges)
-      .some((item) => item.id === S.selection.id)) S.selection = null;
-    if (["actual", "structure", "review"].includes(S.view)) {
-      renderedScene = scene;
-      legend.textContent = "";
-      renderGraphTable(context, scene);
-      architectureInspector(context, scene);
-      inspector.hidden = !S.details;
-      updateOpenSelected();
-      root.dataset.layoutState = "ready";
-      return;
-    }
-    filterStatus.textContent = focusLabel || relationshipKind || elementKind
-      ? `${[focusLabel ? "Direct neighbors" : null, elementKind ? `Elements: ${elementKind}` : null, relationshipKind ? `Relationships: ${relationshipKind}` : null].filter(Boolean).join(" · ")} · ${scene.nodes.length} of ${complete.nodes.length} elements · ${edges.length} of ${complete.edges.length} connections`
-      : directOverview ? "Direct children and local connections. Relationship filters and Focus include deeper sites, outside and referenced symbols."
-        : "All elements and connections at this level";
-    memberPreviewsButton.hidden = !scene.nodes.some((node) => node.sections.length);
-    if (!memberPreviews) for (const node of scene.nodes) {
-      if (node.sections.length) {
-        const counts = `${node.kind === "enum" ? `${node.memberCounts.literals} literals · ` : ""}${node.memberCounts.fields} fields · ${node.memberCounts.methods} methods`;
-        node.meta = node.sourceGraph === context.graph ? counts : `${node.meta} · ${counts}`;
-        node.sections = [];
-      }
-    }
-    if (!scene.nodes.length) {
-      const text = el("text", { x: "32", y: "32", fill: "var(--ink-muted)" });
-      text.textContent = "No elements or resolved connections in this scope. See Details for recorded sites.";
-      emptyLayer.appendChild(text);
-    }
-    measureUmlCards(scene.nodes);
-    let preparedRoutes = null;
-    const completeManualLayout = layoutMode === "manual"
-      && REPORT_LAYOUT.hasCompleteManualPositions(scene.nodes.map((node) => node.id), positions);
-    if (completeManualLayout) {
-      // shortcut: Keep user coordinates until ELK can route fixed nodes.
-      layoutPending = false;
-      const activeIds = new Set(scene.nodes.map((node) => node.id));
-      for (const id of Object.keys(positions)) if (!activeIds.has(id)) delete positions[id];
-    } else if (scene.nodes.length) {
-      layoutMode = "automatic";
-      const generation = layoutGeneration;
-      const key = umlLayoutKey(scene);
-      layoutPending = true;
-      frameLayer.textContent = "";
-      nodeLayer.textContent = "";
-      edgeLayer.textContent = "";
-      chipLayer.textContent = "";
-      canvas.hidden = true;
-      alternative.hidden = false;
-      alternative.innerHTML = '<div class="flow-scope-notice" role="status"><h2>Arranging UML relationships</h2><p>Preserving the active graph while its automatic layout is computed.</p></div>';
-      try {
-        const result = await requestLayout(key, generation, () => layoutUmlSceneWithElk(scene));
-        if (!result || layoutMode !== "automatic") return;
-        positions = Object.assign(Object.create(null), Object.fromEntries(Object.entries(result.positions).map(([id, point]) => [id, { ...point }])));
-        preparedRoutes = scene.edges.map((edge) => {
-          const route = result.routesById.get(edge.id);
-          if (!route) throw new Error(`ELK did not route active relationship ${edge.id}.`);
-          return { ...route, edge };
-        });
-        canvas.hidden = false;
-        alternative.hidden = true;
-      } catch (error) {
-        if (generation !== layoutGeneration) return;
-        finishLayout();
-        root.dataset.layoutState = "error";
-        canvas.hidden = true;
-        alternative.hidden = false;
-        alternative.innerHTML = `<div class="flow-scope-notice" role="alert"><h2>Architecture layout unavailable</h2><p>${esc(error.message || "The active UML relationships could not be arranged.")}</p></div>`;
-        return;
-      }
-    } else {
-      layoutMode = "automatic";
-      layoutPending = false;
-      positions = Object.create(null);
-    }
-    const emphasize = (preview = null) => emphasizeUmlScene(preview || S.selection, Boolean(preview));
-    renderUmlScene(scene, {
-      frame() {},
-      edge(drawn, route) {
-        drawn.hit.setAttribute("aria-pressed", String(S.selection?.type === "edge" && S.selection.id === route.edge.id));
-        drawn.hit.addEventListener("click", (event) => {
-          event.stopPropagation();
-          selectArchitectureSubject("edge", route.edge.id);
-        });
-        drawn.hit.addEventListener("keydown", (event) => {
-          if (["Enter", " "].includes(event.key)) {
-            event.preventDefault();
-            selectArchitectureSubject("edge", route.edge.id);
-          }
-        });
-        drawn.group.addEventListener("pointerenter", () => emphasize({ type: "edge", id: route.edge.id }));
-        drawn.group.addEventListener("pointerleave", () => emphasize());
-        drawn.hit.addEventListener("focus", () => emphasize({ type: "edge", id: route.edge.id }));
-        drawn.hit.addEventListener("blur", () => emphasize());
-      },
-      node(group, node) {
-        if (node.outside) group.dataset.outside = "true";
-        group.classList.toggle("target-node", node.sourceGraph.origin === "declared");
-        group.classList.toggle("selected", S.selection?.type === "node" && S.selection.id === node.id);
-        group.setAttribute("aria-pressed", String(S.selection?.type === "node" && S.selection.id === node.id));
-        const meta = group.querySelector(".meta");
-        const lines = [...meta.children];
-        const allowed = Math.max(1, Math.floor((112 - Number(meta.getAttribute("y"))) / 14) + 1);
-        if (lines.length > allowed) {
-          lines.slice(allowed).forEach((line) => line.remove());
-          const last = lines[allowed - 1];
-          last.textContent = last.textContent.trimEnd().slice(0, -1) + "…";
-        }
-        group.addEventListener("click", (event) => {
-          event.stopPropagation();
-          skipSvgClick = false;
-          if (event.detail === 0) selectArchitectureSubject("node", node.id);
-        });
-        group.addEventListener("dblclick", (event) => { event.preventDefault(); openArchitectureEntity(node.id); });
-        group.addEventListener("keydown", (event) => {
-          if (event.key === "Enter") { event.preventDefault(); openArchitectureEntity(node.id); }
-          if (event.key === " ") { event.preventDefault(); selectArchitectureSubject("node", node.id); }
-        });
-        group.addEventListener("pointerenter", (event) => {
-          if (event.pointerType === "mouse") emphasize({ type: "node", id: node.id });
-        });
-        group.addEventListener("pointerleave", () => emphasize());
-        group.addEventListener("pointerdown", (event) => {
-          if (spaceHeld || event.button === 1) return;
-          if (!event.isPrimary || event.button !== 0) return;
-          event.stopPropagation();
-          capturePointer(svg, event);
-          dragState = { label: node.id, pointerType: event.pointerType, x: event.clientX, y: event.clientY,
-            start: { ...positions[node.id] }, moved: 0 };
-        });
-      },
-    }, preparedRoutes);
-    renderSelectedEdgeLabels();
-    emphasize();
-    for (const item of S.view === "target" ? [] : [...scene.nodes, ...scene.edges]) {
-      const findings = item.entity ? (DATA.findings || []).filter((finding) => finding.graph_subject_ids.includes(item.entity.id)) : item.findings || [];
-      const statuses = [...(item.assessments || []), ...findings].map((receipt) => receipt.status);
-      const status = statuses.includes("FAIL") ? "FAIL" : statuses.includes("UNKNOWN") ? "UNKNOWN"
-        : statuses.includes("PASS") ? "PASS" : null;
-      const element = svg.querySelector(`[data-uml-id="${CSS.escape(item.id)}"]`);
-      if (status) {
-        element.dataset.assessmentStatus = status;
-        if (item.entity) {
-          const label = el("text", { class: "uml-assessment", x: String(CARD.w - 12),
-            y: String(cardHeight(item.id) - 8), "text-anchor": "end" });
-          label.textContent = status;
-          const receipts = [...(item.assessments || []), ...findings].filter((receipt) => receipt.status === status);
-          const explanation = receipts.slice(0, 3).map((receipt) => receipt.reason
-            || `${receipt.rule_ids.join(", ")}: ${receipt.title}`).join(" · ");
-          const message = `${status} · ${explanation}. Select the card for recorded checks. PASS does not certify complete observation.`;
-          label.setAttribute("aria-label", message);
-          element.querySelector("title").textContent += `\n${message}`;
-          element.appendChild(label);
-        }
-      }
-    }
-    legend.textContent = "";
-    for (const kind of [null, ...kinds]) {
-      const item = document.createElement("button");
-      item.type = "button";
-      item.className = "flow-legend-item flow-fit";
-      item.dataset.relationshipKind = kind || "";
-      item.setAttribute("aria-pressed", String(relationshipKind === kind));
-      const localReset = directScope && !focusLabel && !violationsOnly.checked;
-      const count = kind ? complete.edges.filter((edge) => edge.relationshipKind === kind).length
-        : localReset ? localConnections.length : complete.edges.length;
-      item.textContent = kind
-        ? `${kind === "inherits" ? "△" : kind === "realizes" ? "┄△" : "⇢"} ${kind === "requires" ? "Allowed component import" : kind} in context · ${count}`
-        : `${localReset ? "Local relationships" : "All relationships in context"} · ${count}`;
-      const scopeLabel = kind || !localReset ? "in context" : "at this level";
-      item.title = `Show ${kind || (localReset ? "local" : "all")} relationships ${scopeLabel} · ${count} connections`;
-      legend.appendChild(item);
-    }
-    if (complete.edges.some((edge) => edge.assessments.some((item) => item.change === "unexpected"))) {
-      const item = document.createElement("span");
-      item.className = "flow-legend-item";
-      item.textContent = `Core ${[...new Set(complete.edges.filter((edge) => edge.assessments.some((item) => item.change === "unexpected"))
-        .flatMap((edge) => edge.assessments.map((item) => item.status)))].join("/")} · unlisted observed relationships`;
-      legend.appendChild(item);
-    }
-    const routeWarnings = scene.edges.filter((edge) => edge.routingWarning).length;
-    if (routeWarnings) {
-      const warning = document.createElement("span");
-      warning.className = "flow-legend-hint";
-      warning.setAttribute("role", "status");
-      warning.textContent = `${routeWarnings} routing warnings · ${ROUTING_WARNING}`;
-      legend.appendChild(warning);
-    }
-    const unresolved = context.graph.relationships.filter((edge) => edge.target_id === null).length;
-    const hint = document.createElement("span");
-    hint.className = "flow-legend-hint";
-    hint.textContent = `${scene.nodes.length} visible elements · ${scene.edges.length} connections · ${unresolved} uncertain sites in graph`;
-    if ((context.scope === null || REPORT_SCENE.entity(scene.owner, context.graph)?.kind === "component") && context.graph.origin === "observed")
-      hint.textContent += " · Internal import overview; other source sites remain in Details and module drill-down";
-    if (context.comparison) hint.textContent += ` · Core: ${context.comparison.status}`;
-    legend.appendChild(hint);
-    architectureInspector(context, scene);
-    inspector.hidden = !S.details;
-    updateOpenSelected();
-    sizeDiagram();
-    renderGraphTable(context, scene);
-    if (document.activeElement === flowHeading) focusCurrentLevel();
-    else if (focus && document.activeElement === document.body)
-      svg.querySelector(`[data-uml-id="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
-    if (legendFocus !== undefined && document.activeElement === document.body)
-      legend.querySelector(`button[data-relationship-kind="${CSS.escape(legendFocus)}"]`)
-        ?.focus({ preventScroll: true });
-    root.dataset.layoutState = "ready";
-    finishLayout();
-  }
-
   function sizeDiagram() {
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height) return;
@@ -1750,17 +922,8 @@
       scrollRemainderX = 0;
       scrollRemainderY = 0;
     }
-    let scrollX = 0;
-    let scrollY = 0;
-    // Keep the SVG origin fixed during drag; grow left/up with native-scroll compensation.
-    if (dragState && nextX < diagramOrigin.x) {
-      scrollX = (diagramOrigin.x - nextX) * transform.k;
-      diagramOrigin.x = nextX;
-    }
-    if (dragState && nextY < diagramOrigin.y) {
-      scrollY = (diagramOrigin.y - nextY) * transform.k;
-      diagramOrigin.y = nextY;
-    }
+    const scrollX = 0;
+    const scrollY = 0;
     const viewWidth = Math.max(
       bounds.x + bounds.width + padding - diagramOrigin.x,
       (canvas.clientWidth + canvas.scrollLeft + scrollX) / transform.k,
@@ -1797,7 +960,6 @@
   const READABLE_SCALE = 0.85;
   let pendingLayoutFitWhole = false;
   function fit(overview = false, { whole = false } = {}) {
-    cancelPointerTap();
     if (layoutPending) {
       pendingLayoutFit = true;
       pendingLayoutFitOverview ||= overview;
@@ -1807,8 +969,7 @@
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
     // Member compartments need readable text; oversized content stays pannable.
-    const minimumScale = ATLAS && overview ? whole ? 0 : READABLE_SCALE
-      : ATLAS ? 1 : focusLabel || memberPreviews || S.selection?.type === "node" ? 1 : overview ? 0 : READABLE_SCALE;
+    const minimumScale = overview ? whole ? 0 : READABLE_SCALE : 1;
     const widthScale = canvas.clientWidth / (bounds.width + 48);
     transform.k = renderedScene?.moduleOverview && !overview
       ? Math.max(READABLE_SCALE, Math.min(maxFitScale, widthScale, canvas.clientHeight / (bounds.height + 48)))
@@ -1819,14 +980,7 @@
     sizeDiagram();
     canvas.scrollLeft = 0;
     canvas.scrollTop = 0;
-    const selectedPosition = architectureGraphContext() && S.selection?.type === "node"
-      ? positions[S.selection.id] : null;
-    if (selectedPosition) {
-      canvas.scrollLeft = (selectedPosition.x - diagramOrigin.x + CARD.w / 2) * transform.k
-        - canvas.clientWidth / 2;
-      canvas.scrollTop = (selectedPosition.y - diagramOrigin.y + cardHeight(S.selection.id) / 2) * transform.k
-        - canvas.clientHeight / 2;
-    } else if (ATLAS && !whole && (renderedScene?.componentOverview || renderedScene?.moduleOverview)
+    if (!whole && (renderedScene?.componentOverview || renderedScene?.moduleOverview)
         && (canvas.scrollWidth > canvas.clientWidth + 1 || canvas.scrollHeight > canvas.clientHeight + 1)) {
       // Issue 1618: a diagram larger than the view at the readable zoom opens at its top-left box;
       // the faded edges and the hint say that it goes on.
@@ -1855,8 +1009,7 @@
   canvas.addEventListener("scroll", markOverflow, { passive: true });
 
   function zoomBy(factor) {
-    cancelPointerTap();
-    const minimumScale = ATLAS && renderedScene?.moduleOverview ? 0 : 0.1;
+    const minimumScale = renderedScene?.moduleOverview ? 0 : 0.1;
     transform.k = Math.min(2.4, Math.max(minimumScale, transform.k * factor));
     sizeDiagram();
   }
@@ -1880,41 +1033,6 @@
     }
   }
 
-  function architectureGraphContext() {
-    const entry = S.path.at(-1);
-    const declared = ["target", "diff"].includes(S.view);
-    const graph = entry?.origin === "observed" || !declared ? DATA.observed : DATA.target;
-    return graph ? { graph, base: null, scope: entry?.id || null,
-      comparison: S.view === "diff" ? DATA.comparison : null } : null;
-  }
-
-  function currentState() {
-    return { path: [...S.path], selection: S.selection, focusLabel, relationshipKind, elementKind,
-      content: S.content, positions: Object.fromEntries(Object.entries(positions).map(([id, point]) => [id, { ...point }])),
-      layoutMode, zoom: transform.k, details: S.details, scopeNotice };
-  }
-
-  function restoreState(state) {
-    ({ path: S.path, selection: S.selection, focusLabel, relationshipKind, elementKind, scopeNotice, content: S.content } = state);
-    positions = Object.assign(Object.create(null), state.positions);
-    layoutMode = state.layoutMode || "automatic";
-    transform.k = state.zoom;
-    setTargetDetails(state.details);
-  }
-
-  function rememberNavigationState() {
-    if (!navigationHistory.has(S.view)) navigationHistory.set(S.view, []);
-    navigationHistory.get(S.view).push(currentState());
-  }
-
-  function restoreNavigationState() {
-    const previous = navigationHistory.get(S.view)?.pop();
-    if (!previous) return false;
-    restoreState(previous);
-    render();
-    return true;
-  }
-
   function focusCurrentLevel() {
     const subject = S.selection && svg.querySelector(`[data-uml-id="${CSS.escape(S.selection.id)}"]`);
     (subject?.querySelector(".hit") || subject || nodeLayer.querySelector(".node") || flowHeading)
@@ -1922,117 +1040,29 @@
   }
 
   function updateOpenSelected() {
-    if (ATLAS) {
-      // A module is the last level: selecting it shows all of its facts, so it has nothing to open.
-      const component = S.selection && REPORT_SCENE.atlasComponent(S.selection.id);
-      openSelectedButton.disabled = !component || !ATLAS.levels.some((level) => level.parent_id === S.selection.id);
-      openSelectedButton.textContent = component ? `Open ${component.label}` : "Open selected";
-      return;
-    }
-    const node = S.selection?.type === "node" && renderedScene?.nodes.find((item) => item.id === S.selection.id);
-    openSelectedButton.disabled = !node?.entity || !REPORT_SCENE.hasInterior(node.entity, node.sourceGraph, S.view);
-    openSelectedButton.textContent = node ? `Open selected ${node.label}` : "Open selected";
+    // A module is the last level: selecting it shows all of its facts, so it has nothing to open.
+    const component = S.selection && REPORT_SCENE.atlasComponent(S.selection.id);
+    openSelectedButton.disabled = !component || !ATLAS.levels.some((level) => level.parent_id === S.selection.id);
+    openSelectedButton.textContent = component ? `Open ${component.label}` : "Open selected";
   }
 
   function findingMarkup(findings) {
     return findings.length ? `<ul class="plain">${findings.map((item) => `<li class="${item.status === "FAIL" ? "violation-card" : "unknown-card"}"><strong>${esc(item.status)} · ${esc(item.title)}</strong><p><code>${item.rule_ids.map(esc).join(", ")}</code></p><p>${item.subjects.map(esc).join(", ")}</p></li>`).join("")}</ul>` : "<p>No recorded failures or UNKNOWN findings. This is not a completeness claim.</p>";
   }
 
-  function scopeCounterpart(entry, graph) {
-    if (!graph) return { entity: null, ambiguous: false };
-    const source = entry.origin === "observed" ? DATA.observed : DATA.target;
-    const original = REPORT_SCENE.entity(entry.id, source);
-    if (source === graph || original?.kind === "component") {
-      return { entity: REPORT_SCENE.entity(entry.id, graph), ambiguous: false };
-    }
-    const matches = (DATA.comparison?.correspondences || []).filter((match) =>
-      graph.origin === "declared" ? match.observed_ids.includes(entry.id) : match.target_id === entry.id);
-    const ids = [...new Set(matches.flatMap((match) =>
-      graph.origin === "declared" ? [match.target_id] : match.observed_ids))];
-    const ambiguous = ids.length > 1 || matches.some((match) => match.observed_ids.length > 1);
-    return { entity: !ambiguous && ids.length === 1 ? REPORT_SCENE.entity(ids[0], graph) : null, ambiguous };
-  }
-
-  function architecturePath(entity, graph) {
-    const path = [];
-    while (entity) {
-      path.unshift({ id: entity.id, origin: graph.origin });
-      entity = REPORT_SCENE.entity(REPORT_SCENE.parent(entity, graph), graph);
-    }
-    return path;
-  }
-
   function switchArchitectureView(nextView) {
-    if (SIDECAR) {
-      const graph = ["target", "diff"].includes(nextView) ? DATA.target
-        : nextView === "diagram" ? DATA.observed : null;
-      const counterpart = graph && S.path.length ? scopeCounterpart(S.path.at(-1), graph).entity : null;
-      if (counterpart && counterpart.kind !== "component") S.path = lexicalRoute(counterpart.id, null, graph.origin);
-      S.view = nextView; S.selection = null; scopeNotice = null;
-      focusLabel = null; relationshipKind = null; elementKind = null; positions = Object.create(null); render(); fit(); return;
-    }
-    if (ATLAS) {
-      // E3: the view of the page is not a new view: fullscreen and the key of the current view lay
-      // the diagram out again and keep the selection.
-      if (nextView === S.view) { relayout(); return; }
-      navigate();
-      S.view = nextView;
-      if (nextView === "target") { S.cell = null; S.module = null; S.hint = null; }
-      const level = atlasLevel();
-      if (S.selection && !level.component_ids.includes(S.selection.id)
-          && !REPORT_SCENE.atlasModules(level, nextView).some((item) => item.id === S.selection.id)) S.selection = null;
-      render(); return;
-    }
-    if (nextView === S.view) return;
-    viewStates.set(S.view, currentState());
-    const entry = S.path.at(-1);
-    let graph = ["target", "diff"].includes(nextView) ? DATA.target : DATA.observed;
-    // Diff can retain a recorded observed interior without assigning it a Target identity.
-    if (nextView === "diff" && entry?.origin === "observed"
-        && !scopeCounterpart(entry, graph).entity) graph = DATA.observed;
-    const counterpart = entry ? scopeCounterpart(entry, graph) : null;
+    // E3: the view of the page is not a new view: fullscreen and the key of the current view lay
+    // the diagram out again and keep the selection.
+    if (nextView === S.view) { relayout(); return; }
+    navigate();
     S.view = nextView;
-    scopeNotice = null;
-    let path = counterpart?.entity ? architecturePath(counterpart.entity, graph) : [];
-    if (entry && !counterpart.entity) {
-      for (const ancestor of [...umlPath].reverse().slice(1)) {
-        const nearest = scopeCounterpart(ancestor, graph).entity;
-        if (nearest) { path = architecturePath(nearest, graph); break; }
-      }
-      const source = entry.origin === "observed" ? DATA.observed : DATA.target;
-      scopeNotice = { label: REPORT_SCENE.entity(entry.id, source).qualified_name,
-        ambiguous: counterpart.ambiguous, nearestPath: path };
-    }
-    const saved = viewStates.get(S.view);
-    const restore = !scopeNotice && saved && !saved.scopeNotice
-      && JSON.stringify(saved.path.at(-1) || null) === JSON.stringify(path.at(-1) || null);
-    if (restore) restoreState(saved);
-    else {
-      if (!scopeNotice) S.path = path;
-      S.selection = null; focusLabel = null; relationshipKind = null; elementKind = null;
-      positions = Object.create(null); transform.k = 1;
-      navigationHistory.delete(S.view);
-    }
+    if (nextView === "target") { S.cell = null; S.module = null; S.hint = null; }
+    const level = atlasLevel();
+    if (S.selection && !level.component_ids.includes(S.selection.id)
+        && !REPORT_SCENE.atlasModules(level, nextView).some((item) => item.id === S.selection.id)) S.selection = null;
     render();
-    if (!restore && !scopeNotice) fit();
   }
 
-  function renderGraphTable(context, scene) {
-    const tableView = ["actual", "structure", "review"].includes(S.view);
-    canvas.hidden = tableView;
-    alternative.hidden = !tableView;
-    if (!tableView) return;
-    const rows = S.view === "actual" ? context.graph.entities.filter((item) => item.kind === "module" && item.presence === "defined")
-      : scene.nodes.map((node) => node.entity).filter(Boolean);
-    alternative.innerHTML = S.view === "review" ? `<h2>Recorded findings</h2>${findingMarkup(DATA.findings || [])}`
-      : `<h2>${S.view === "actual" ? "Observed modules" : "Architecture structure"}</h2><table><thead><tr><th>Kind</th><th>Name</th><th>Visibility</th><th>Source</th></tr></thead><tbody>${rows.map((entity) => `<tr><td>${esc(entity.kind)}</td><td><button type="button" data-uml-table="${esc(entity.id)}">${esc(entity.qualified_name)}</button></td><td>${esc(entity.visibility.kind)}</td><td>${esc(entity.file_path || "")}</td></tr>`).join("")}</tbody></table>`;
-    alternative.querySelectorAll("[data-uml-table]").forEach((button) => button.addEventListener("click", () => {
-      openArchitectureEntity(button.dataset.umlTable, context.graph);
-      S.view = "diagram";
-      render();
-      fit();
-    }));
-  }
 
 
   // The Atlas consumes Core assignments and receipts; geometry and selection are presentation.
@@ -2043,7 +1073,7 @@
 
 
   const atlasOwnerPalette = ["var(--line-strong)", "var(--ink-subtle)", "var(--ink-muted)", "var(--line-strong)", "var(--ink-subtle)", "var(--ink-muted)"];
-  const atlasComponentIds = ATLAS ? ATLAS.components.map((item) => item.id).sort() : [];
+  const atlasComponentIds = ATLAS.components.map((item) => item.id).sort();
   function atlasOwnerColor(componentId) {
     const index = atlasComponentIds.indexOf(componentId);
     return index < 0 ? null : { index, color: atlasOwnerPalette[index % atlasOwnerPalette.length] };
@@ -2179,7 +1209,7 @@
   function followAtlasComponentRoute(event) {
     if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     const link = event.target.closest("[data-atlas-component-route]");
-    if (!link || !ATLAS) return;
+    if (!link) return;
     const id = link.dataset.atlasComponentRoute || null;
     if (id && !REPORT_SCENE.atlasComponent(id)) return;
     event.preventDefault();
@@ -2324,7 +1354,7 @@
     dispatch(module ? { type: "openModule", id: module.dataset.atlasModuleRoute }
       : { type: "openLevel", id: level.dataset.atlasLevelRoute });
   }
-  if (ATLAS) (root.closest("main") || root).addEventListener("click", followAtlasModuleRoute);
+  (root.closest("main") || root).addEventListener("click", followAtlasModuleRoute);
 
   function openAtlasComponent(id, content = null) {
     if (!ATLAS.levels.some((level) => level.parent_id === id)) return;
@@ -2346,31 +1376,6 @@
       ]),
       layoutEdges.map((edge) => [edge.layoutId || edge.id, edge.source, edge.target, edge.label]),
     ])}`;
-  }
-
-  function umlLayoutKey(scene) {
-    return `uml:${JSON.stringify([
-      S.view, scene.edgeSpacing,
-      scene.nodes.map((node) => [node.id, node.sourceGraph?.origin, CARD.w, cardHeight(node.id)]),
-      scene.edges.map((edge) => [edge.id, edge.source, edge.target]),
-    ])}`;
-  }
-
-  async function layoutUmlSceneWithElk(scene) {
-    const decoded = await REPORT_LAYOUT.layoutUml({
-      edgeSpacing: scene.edgeSpacing,
-      nodes: scene.nodes.map((node) => ({ id: node.id })),
-      edges: scene.edges.map((edge) => ({
-        id: edge.id, source: edge.source, target: edge.target,
-      })),
-      cardWidth: CARD.w,
-      cardHeights: Object.fromEntries(scene.nodes.map((node) => [node.id, cardHeight(node.id)])),
-    });
-    const positionsById = Object.fromEntries(scene.nodes.map((node) =>
-      [node.id, decoded.positions[`node:${node.id}`]]));
-    const routesById = new Map(scene.edges.map((edge) =>
-      [edge.id, decoded.routes.get(`edge:${edge.id}`)]));
-    return { positions: positionsById, routesById };
   }
 
   async function requestLayout(key, generation, create) {
@@ -2397,12 +1402,6 @@
     pendingLayoutFitOverview = false;
     pendingLayoutFitWhole = false;
     fit(overview, { whole });
-  }
-
-  function cancelPointerTap() {
-    if (pendingPointerReveal !== null) window.clearTimeout(pendingPointerReveal);
-    pendingPointerReveal = null;
-    lastPointerTap = null;
   }
 
   async function layoutAtlasScene(scene, level) {
@@ -2606,7 +1605,7 @@
       ${list("Not responsible for", component.not_responsible_for)}${atlasProvidesMarkup(component.public)}
       ${list("Planned interface", component.planned)}${atlasRequiresMarkup(component)}
       ${S.view === "target" ? "" : atlasRuleAssessmentMarkup(level, component)}${S.view !== "target" ? `<h3>In this run</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")}${component.observed_symbols == null ? "" : ` · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}`} · ${esc(component.status)} · ${esc(component.reason)}</p>${usedBy ? `<h3>Used by</h3><p>${usedBy}</p>` : ""}` : ""}
-      <p class="muted">${component.directory ? `The report made this box from the module paths; ${esc(REPORT_SCENE.atlasComponent(component.parent_id)?.label || component.parent_id)} owns the modules in the contract.` : `Decided by ${esc(component.decided_by || "the contract")}`}</p>${S.view === "target" || !component.path || component.directory ? "" : atlasOwnsMarkup(component.path)}
+      <p class="muted">${component.directory ? `The report made this box from the module paths; ${esc(REPORT_SCENE.atlasComponent(component.parent_id)?.label || component.parent_id)} owns the modules in the contract.` : component.decided_by === "report" ? "Grouped by the report (structure): the report made this box to keep the level readable. Each component inside keeps its own decisions in the contract." : `Decided by ${esc(component.decided_by || "the contract")}`}</p>${S.view === "target" || !component.path || component.directory ? "" : atlasOwnsMarkup(component.path)}
       ${component.provenance.length ? `<details><summary>Reasons · ${REPORT_SCENE.countLabel(component.provenance.length, "document")}</summary><ul class="plain">${component.provenance.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></details>` : ""}${inventory}
       ${S.view === "target" && componentLevel ? `<p><a href="${esc(atlasLevelHref(component.id))}" data-atlas-level-route="${esc(component.id)}">Open declared component details</a></p>` : ""}`;
     inspectorContent.querySelector("[data-browse-component]").onclick = () =>
@@ -2823,7 +1822,7 @@
     elementKindControl.hidden = true; focusInput.closest("label").hidden = true; violationFocus.hidden = true;
     fitButton.hidden = true; memberPreviewsButton.hidden = true; unassignedCodeButton.hidden = true;
     filters.hidden = true;
-    architectureNavigation({ base: null });
+    architectureNavigation();
     const agentComponents = scene.nodes.filter((node) => node.component?.decided_by === "agent").length;
     const agentEdges = scene.declared.filter((edge) => edge.decided_by === "agent").length;
     const observed = scene.edges.filter((edge) => !edge.declaration);
@@ -2861,7 +1860,7 @@
       const result = await requestLayout(key, generation, () => layoutAtlasScene(scene, level));
       if (!result) return;
       const expectedContent = scene.moduleOverview ? "modules" : "components";
-      if (!ATLAS || root.dataset.content !== expectedContent) return;
+      if (root.dataset.content !== expectedContent) return;
       renderAtlasScene(level, content, scene, result);
       root.dataset.layoutState = "ready";
       finishLayout();
@@ -3013,53 +2012,16 @@
   }
 
   function render() {
-    cancelPointerTap();
     layoutGeneration += 1;
     layoutPending = false;
     pendingLayoutFit = false;
     pendingLayoutFitOverview = false;
     pendingLayoutFitWhole = false;
     syncRoute();
-    if (routeNotice) { renderRouteNotice(); return; }
-    if (SIDECAR) { renderSidecar(); return; }
-    if (ATLAS) { renderAtlas(); return; }
-    const context = architectureGraphContext();
-    root.dataset.umlGraph = "true";
-    root.dataset.view = S.view;
-    elementKindControl.hidden = !context;
-    if (scopeNotice) {
-      viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === S.view)));
-      architectureNavigation({ base: null });
-      breadcrumb.querySelectorAll("button").forEach((button) => { button.disabled = true; });
-      canvas.hidden = true;
-      alternative.hidden = false;
-      inspector.hidden = true;
-      backButton.hidden = true;
-      legend.textContent = "";
-      alternative.innerHTML = `<div class="flow-scope-notice" role="status"><h2>${esc(scopeNotice.label)}</h2>
-        <p>${scopeNotice.ambiguous ? "The counterpart is ambiguous" : "No counterpart is recorded"} in this view. Your original location is retained.</p>
-        <button type="button">Open nearest scope</button></div>`;
-      alternative.querySelector("button").addEventListener("click", () => {
-        rememberNavigationState();
-        S.path = scopeNotice.nearestPath;
-        scopeNotice = null;
-        render(); fit(); focusCurrentLevel();
-      });
-      return;
-    }
-    if (context) {
-      renderArchitectureGraph(context);
-      return;
-    }
-    viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === S.view)));
-    canvas.hidden = true;
-    alternative.hidden = false;
-    inspector.hidden = true;
-    backButton.hidden = true;
-    breadcrumb.textContent = "";
-    legend.textContent = "";
-    alternative.innerHTML = `<h2>${S.view === "diagram" ? "Observed architecture unavailable" : "Independent Target unavailable"}</h2><p>${esc(DATA.unavailable || "No authenticated Target graph is recorded. Rendering does not reconstruct Target intent from unchecked records.")}</p>`;
+    if (routeNotice) renderRouteNotice();
+    else renderAtlas();
   }
+
 
   toolbar.hidden = false;
   root.querySelector(".flow-views").hidden = false;
@@ -3121,7 +2083,6 @@
   svg.addEventListener("pointerdown", (event) => {
     const panButton = event.button === 0 || event.button === 1;
     if (!event.isPrimary || !panButton || (!spaceHeld && event.button === 0 && event.target.closest(".node, .hit"))) return;
-    cancelPointerTap();
     capturePointer(svg, event);
     panState = { x: event.clientX, y: event.clientY, offset: { ...panOffset } };
     svg.classList.add("panning");
@@ -3135,46 +2096,8 @@
       };
       viewport.setAttribute("transform", `translate(${panOffset.x} ${panOffset.y})`);
     }
-    if (dragState) {
-      dragState.moved = Math.max(dragState.moved, Math.hypot(event.clientX - dragState.x, event.clientY - dragState.y));
-      const slack = { mouse: 3, pen: 6, touch: 12 }[dragState.pointerType] ?? 12;
-      if (dragState.moved > slack) {
-        layoutMode = "manual";
-        positions[dragState.label] = { x: dragState.start.x + (event.clientX - dragState.x) / transform.k,
-          y: dragState.start.y + (event.clientY - dragState.y) / transform.k };
-        render();
-      }
-    }
   });
   svg.addEventListener("pointerup", (event) => {
-    if (dragState) {
-      const slack = { mouse: 3, pen: 6, touch: 12 }[dragState.pointerType] ?? 12;
-      const id = dragState.moved <= slack ? dragState.label : null;
-      dragState = null;
-      skipSvgClick = true;
-      if (id) {
-        const doubled = lastPointerTap?.id === id
-          && event.timeStamp - lastPointerTap.timeStamp <= POINTER_DOUBLE_CLICK_MS;
-        if (doubled) {
-          cancelPointerTap();
-          openArchitectureEntity(id);
-          fit();
-        } else {
-          cancelPointerTap();
-          lastPointerTap = { id, timeStamp: event.timeStamp };
-          // Keep the first tap from moving the card before a second tap can open it.
-          selectArchitectureSubject("node", id, false);
-          const generation = layoutGeneration;
-          pendingPointerReveal = window.setTimeout(() => {
-            pendingPointerReveal = null;
-            if (generation === layoutGeneration && lastPointerTap?.id === id
-                && S.selection?.type === "node" && S.selection.id === id) {
-              selectArchitectureSubject("node", id);
-            }
-          }, POINTER_DOUBLE_CLICK_MS + 1);
-        }
-      }
-    }
     if (panState) {
       skipSvgClick = Math.hypot(event.clientX - panState.x, event.clientY - panState.y) > 3;
       panState = null;
@@ -3182,7 +2105,7 @@
     }
   });
   svg.addEventListener("pointercancel", () => {
-    dragState = null; panState = null; cancelPointerTap();
+    panState = null;
     svg.classList.remove("panning");
   });
   svg.addEventListener("click", (event) => {
@@ -3280,7 +2203,7 @@
   // AD-734: the one door of a user action. Each case is one transition of S and draws its result.
   function dispatch(action) {
     historyMode = "replace";
-    try { transition(action); } finally { historyMode = "replace"; if (ATLAS) publishState(); }
+    try { transition(action); } finally { historyMode = "replace"; publishState(); }
   }
 
   function transition(action) {
@@ -3289,12 +2212,12 @@
       case "goToDepth": goToDepth(action.depth); break;
       case "open": openArchitectureEntity(action.id); break;
       case "openModule": openAtlasModule(action.id); break;
-      case "up": if (ATLAS) atlasUp(); else { navigate(); leaveArchitectureGraph(); } break;
+      case "up": atlasUp(); break;
       case "relayout": relayout(); break;
       case "collapse": restoreExpansion(); break;
       case "setView": switchArchitectureView(action.view); break;
       case "setContent": navigate(); S.content = action.content; render(); fit(); break;
-      case "select": selectArchitectureSubject(action.kind || "node", action.id, action.reveal ?? true); break;
+      case "select": selectArchitectureSubject(action.kind || "node", action.id); break;
       case "clearSelection": S.selection = null; S.module = null; S.cell = null; S.hint = null; render(); break;
       case "selectMatrix": selectAtlasSheet(atlasLevel(), { cell: action.cell, module: action.module }); break;
       case "selectEdgeCell": selectAtlasSheet(atlasLevel(), { cell: action.cell, module: null, selection: null }); break;
@@ -3347,21 +2270,15 @@
     openModule: (id) => dispatch({ type: "openModule", id }),
     setExploreOpen: (open) => dispatch({ type: "setExplore", open }),
     openRule: (rule) => dispatch({ type: "openRule", rule }),
-    state: () => ({ ...(ATLAS ? stateView() : { scope: S.path.at(-1)?.id ?? null,
-      selection: S.selection?.type === "node" ? S.selection.id : null }), viewMode: S.view, scene: renderedScene, zoom: transform.k }),
+    state: () => ({ ...stateView(), viewMode: S.view, scene: renderedScene, zoom: transform.k }),
     toQuery, fromQuery,
   };
   render();
-  if (ATLAS) openAtlasFindingHash();
-  if (!NAV) {
-    const moduleId = new URLSearchParams(location.search).get("module");
-    const module = DATA.observed?.entities.find((entity) => entity.id === moduleId && entity.kind === "module");
-    if (!ATLAS && module) openArchitectureEntity(module.id, DATA.observed);
-  }
+  openAtlasFindingHash();
   routeReady = true; syncRoute(true);
   fit();
   window.addEventListener("resize", () => {
-    if (ATLAS && root.dataset.content === "modules") { render(); fit(); }
+    if (root.dataset.content === "modules") { render(); fit(); }
     else sizeDiagram();
   });
 

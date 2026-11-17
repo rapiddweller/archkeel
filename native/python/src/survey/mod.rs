@@ -31,6 +31,7 @@ pub(crate) mod binders;
 pub(crate) mod bound;
 pub(crate) mod bound_kind;
 mod call_count;
+mod class_writes;
 mod constructs;
 mod copy_local;
 mod declared;
@@ -159,12 +160,19 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     found.extend(layout::foreign(&scope.foreign));
     found.extend(layout::linked(&scope.linked));
     // #1522: the modules that code of the repository outside the scan writes escape (AD-770).
+    let mut writes = class_writes::ClassWrites::default();
     let outside = outside::written(
         &mut snapshot,
-        &mut parsed.modules,
-        &scope.selected,
+        (&mut parsed.modules, &scope.selected),
         namespace,
+        &mut writes,
     );
+    // #1523: on Python 3.14 a method annotation reads a class namespace that a store can change.
+    let settings = &request.resolver;
+    let lazy_314 = crate::requirement::lazy_annotations(&mut snapshot, settings, minor.number());
+    for module in &parsed.modules {
+        writes.add(&module.tree);
+    }
     let modules = &parsed.modules;
     let binders: Vec<Binders> = modules
         .iter()
@@ -206,10 +214,10 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     // AD-654: the symbol facts and the call count read a proven lazy key as its source.
     let viewed = lazy_cover::viewed(&imports, &sources);
     let symbols = declarations(
-        modules,
-        &binders,
+        (modules, &binders),
         &viewed,
         (&sole_binders, &ambiguous),
+        lazy_314.then_some(&writes),
         &mut evidence,
         |index, module| {
             !hazards.iter().any(|(site, _)| *site == index)
@@ -346,10 +354,10 @@ struct Symbols {
 /// module with a hazard site or a route that another module can write has none, and each name of
 /// it is absent for the model.
 fn declarations(
-    modules: &[Module],
-    binders: &[Binders],
+    (modules, binders): (&[Module], &[Binders]),
     imports: &[Record<ImportFact>],
     sets: (&HashSet<String>, &HashSet<String>),
+    lazy: Option<&class_writes::ClassWrites>,
     evidence: &mut EvidenceMap,
     admitted: impl Fn(usize, &Module) -> bool,
 ) -> Symbols {
@@ -364,7 +372,7 @@ fn declarations(
         }
     }
     let context = declared::Context::collect(&found, imports, sets);
-    declared::attach_shapes(&mut found, (modules, binders), imports, sets);
+    declared::attach_shapes(&mut found, (modules, binders), imports, sets, lazy);
     let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
     for item in &found {
         let (more, other, dead) = declared::site_records(

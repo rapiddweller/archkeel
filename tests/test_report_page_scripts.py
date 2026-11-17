@@ -11,6 +11,7 @@ policy, and a headless Chrome must show the marker that the Explorer writes when
 
 import base64
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -71,6 +72,17 @@ def test_the_policy_of_each_page_admits_each_of_its_scripts(
     pages: dict[str, Path], name: str
 ) -> None:
     assert unadmitted(pages[name].read_text(encoding="utf-8")) == []
+
+
+@pytest.mark.parametrize("name", sorted(PAGES))
+def test_each_explorer_payload_has_an_atlas(pages: dict[str, Path], name: str) -> None:
+    """E5 (#1451): the Explorer has one branch, the atlas; no page gives the old sidecar data."""
+    data = re.search(
+        r'id="flow-data" type="application/json">(.*?)</script>', pages[name].read_text()
+    )
+    assert data, "the page has no Explorer"
+    payload = json.loads(data.group(1))
+    assert payload["atlas"]["levels"] and "module_ids" not in payload["navigation"]
 
 
 def test_the_script_check_fails_on_a_script_that_changed_after_its_hash() -> None:

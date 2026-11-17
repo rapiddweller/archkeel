@@ -16,6 +16,9 @@ pub(crate) struct Source<'m> {
     pub id: String,
     /// The names that the class body of a method binds: its annotations read them first.
     pub class_names: Option<HashSet<String>>,
+    /// The `__slots__` entries of the class of a method; `None` when the body computes them, and
+    /// empty for a function (#1523).
+    pub slots: Option<HashSet<String>>,
 }
 
 /// What one module declares: its records, the sources of its sites and the top-level classes

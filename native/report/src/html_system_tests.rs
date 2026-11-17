@@ -145,3 +145,25 @@ fn the_page_of_a_part_names_its_system_and_links_up() {
             "system_title": "ArchKeel", "system_href": "index.html"})
     );
 }
+
+// E5 (#1451): every Explorer payload has an atlas, so the Explorer has no other branch. The one
+// maker of the payload is `atlas::payload`; a frame without a topology has no Explorer at all.
+#[test]
+fn every_explorer_payload_has_an_atlas() {
+    let part_of = json!({"system": "S", "part": "P", "href": "s.html"});
+    let frames = [
+        json!({"status": "PASS", "topology": components(3, &[(0, 1)])}),
+        json!({"status": "FAIL", "topology": components(13, &[(0, 1), (1, 2)])}),
+        json!({"status": "PASS", "topology": components(2, &[]), "system": {"title": "S", "parts": []}}),
+        json!({"status": "UNKNOWN", "topology": components(2, &[]), "part_of": part_of}),
+    ];
+    for frame in &frames {
+        let data = payload(&document(frame));
+        assert!(data["atlas"]["levels"]
+            .as_array()
+            .is_some_and(|l| !l.is_empty()));
+        assert!(data["navigation"].get("module_ids").is_none());
+    }
+    let page = document(&json!({"status": "PASS"}));
+    assert!(!page.contains("id=\"flow-data\""));
+}

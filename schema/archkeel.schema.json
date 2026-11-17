@@ -27,6 +27,11 @@
           },
           "description": "Repository-relative source roots, not globs. A dot selects the repository root. Python and Dart roots are directories; TypeScript roots may be files or directories. Runtime validation checks each path."
         },
+        "root": {
+          "type": "string",
+          "pattern": "^(\\.|\\.\\.(/\\.\\.)*)$",
+          "description": "The folder of the scan root, seen from the folder of this file: a dot or a path of '..' parts. Without --root, the root of a run is this folder, so a configuration below the repository root can name it (AD-776). The paths of [scan] are relative to the root."
+        },
         "namespace": {
           "type": "string",
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])",

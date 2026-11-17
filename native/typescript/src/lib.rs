@@ -67,6 +67,7 @@ mod script_declarations;
 mod script_declare;
 mod script_depend;
 mod script_deps;
+mod script_dom;
 mod script_effects;
 mod script_environment;
 mod script_factory;

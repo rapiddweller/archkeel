@@ -83,6 +83,23 @@
       },
       "description": "Each applied declaration of a door reach of the run (AD-664)."
     },
+    "premises": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/Premise"
+        }
+      },
+      "description": "Each PASS rule that rests on a premise of the contract, with each premise (AD-764): never\na plain PASS."
+    },
+    "assuming": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The premises of the run in words: a PASS that rests on them reads \"PASS assuming\" and\nthese words (AD-764)."
+    },
     "scope": {
       "type": "string",
       "description": "Why the scope of the run is not complete, or `complete`."
@@ -447,6 +464,25 @@
         "changes"
       ],
       "description": "One applied declaration as the frame writes it.",
+      "additionalProperties": false
+    },
+    "Premise": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "`door_reach`, `external_user`, or the name of a declared premise (AD-764)."
+        },
+        "subject": {
+          "type": "string",
+          "description": "The site, the item or the scope that the premise covers."
+        }
+      },
+      "required": [
+        "kind",
+        "subject"
+      ],
+      "description": "One premise of a PASS rule as the frame writes it: its kind word and its subject.",
       "additionalProperties": false
     },
     "InterfaceRow": {
