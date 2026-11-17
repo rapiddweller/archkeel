@@ -200,3 +200,56 @@ fn a_file_that_the_guard_cannot_read_withholds_every_global_and_names_the_cause(
         "{causes:?}"
     );
 }
+
+/// The plants of audit 2 (#1712): each one replaces `window.open` when `boot.ts` runs (tsc 5.9.3
+/// accepts each form). The guard reads the file with the write detector of the scan.
+const AUDIT: [(&str, &str); 12] = [
+    ("alias", "const w: any = window;\nw.open = hidden;"),
+    (
+        "parameter-alias",
+        "function install(w: any) { w.open = hidden; }\ninstall(window);",
+    ),
+    (
+        "object-destructuring",
+        "({ open: (window as any).open } = { open: hidden });",
+    ),
+    ("array-destructuring", "[(window as any).open] = [hidden];"),
+    ("for-of-target", "for ((window as any).open of [hidden]) {}"),
+    (
+        "reflect-apply",
+        "Reflect.apply(Reflect.set, null, [window, 'open', hidden]);",
+    ),
+    (
+        "assign-on-alias",
+        "const g: any = globalThis;\nObject.assign(g, { open: hidden });",
+    ),
+    (
+        "eval-text",
+        "eval(\"window.open = (globalThis as any).h\");",
+    ),
+    ("function-text", "new Function('h', 'window.open = h');"),
+    (
+        "default-view",
+        "(document.defaultView as any).open = hidden;",
+    ),
+    ("hidden-folder", "window.open = hidden as any;"),
+    ("control", "window.open = hidden as any;"),
+];
+
+#[test]
+fn each_write_form_of_audit_2_withholds_open() {
+    let open: Vec<&str> = AUDIT
+        .iter()
+        .filter(|(name, code)| {
+            let rel = if *name == "hidden-folder" {
+                ".vitepress/theme/index.ts"
+            } else {
+                "boot.ts"
+            };
+            let text = format!("import {{ hidden }} from './src/b';\n{code}\n");
+            !holds(&[(rel, text.as_str())], "open")
+        })
+        .map(|(name, _)| *name)
+        .collect();
+    assert!(open.is_empty(), "no gap for: {open:?}");
+}

@@ -573,9 +573,12 @@ Older classes stay open too: a use through `opener` or `document.defaultView`.
 AD-788 (#1546, #1674) states the premise of every TypeScript verdict as "code outside the scan
 roots hands in no global or platform object and replaces no global" (text header, JSON `premise`,
 report). Every JavaScript, TypeScript or HTML file of the repository outside the scan roots is read
-for a write that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, an assignment to an
-undeclared name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the
-other reflective writes on a window name). A member patch of a global (`Math.max = f`,
+with the write detector of the scan (#1712): an alias of a window name, a window name passed to a
+function, a destructuring or `for` target, `Reflect.apply(Reflect.set, …)`, `eval` and `Function`
+texts withhold the proof as they do inside the scan (a form whose name the detector cannot read
+withholds every global). A second reader names `window.x =`, `globalThis.x =`, `self.x =`, an
+assignment to an undeclared name, a top-level binding of a classic script and the reflective writes
+on a window name. A member patch of a global (`Math.max = f`,
 `JSON.parse = f`, `console.log = f`, `Object.assign(Math, …)`, `console.__defineGetter__(…)`) with
 a value that is no literal withholds the proof of each use of the patched member (and of the global
 as a whole value), in such a file and in a scanned file ("Script global Math is patched by a member

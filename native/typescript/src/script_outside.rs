@@ -104,7 +104,17 @@ pub(crate) fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, roots: &[Stri
             found.incomplete.get_or_insert_with(|| unread(&rel, count));
             continue;
         };
+        let page = classify_file(&rel).is_none();
         for (typescript, module, program) in programs(&rel, &data) {
+            // The write detector of the scan (#1712); a page program is read as JavaScript.
+            let named = if page {
+                format!("{rel}.js")
+            } else {
+                rel.clone()
+            };
+            for write in crate::script_outside_detector::detected(parsers, &named, &program) {
+                found.add(&rel, write);
+            }
             let Some((tree, _)) = parsers.parse(typescript, &program) else {
                 found.any.get_or_insert((rel.clone(), whole_file()));
                 continue;

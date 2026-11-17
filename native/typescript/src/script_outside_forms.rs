@@ -23,7 +23,7 @@ pub(crate) struct Found {
 }
 
 impl Found {
-    fn global(name: Option<String>, span: Span) -> Self {
+    pub(crate) fn global(name: Option<String>, span: Span) -> Self {
         Found {
             name,
             span,
