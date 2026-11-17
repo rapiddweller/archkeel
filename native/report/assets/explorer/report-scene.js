@@ -27,8 +27,9 @@
         evidence_ids: evidence, finding_ids: findings,
         reasons: reasons.map((index) => ATLAS.reference_ids[index]),
       }));
-      ATLAS.assignments = ATLAS.assignments.map(([module, owner, candidates, status, reason]) => ({
+      ATLAS.assignments = ATLAS.assignments.map(([module, owner, candidates, status, reason, place]) => ({
         id: ATLAS.modules[module].id, component_id: owner === null ? null : ATLAS.reference_ids[owner],
+        place_id: place === null || place === undefined ? null : ATLAS.reference_ids[place],
         candidate_ids: candidates.map((index) => ATLAS.reference_ids[index]),
         ownership_status: status, ownership_reason: ATLAS.reference_ids[reason],
       }));
@@ -72,13 +73,19 @@
       return modules.slice().sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.name.localeCompare(b.name));
     }
 
-    // One screen shows about this many module boxes (issue 1488); the layout of more takes seconds
-    // and spreads the boxes over a sheet far larger than the view.
-    const MODULE_BOX_LIMIT = 150;
+    // One screen shows about this many module boxes (issue 1488); the report states the number.
+    const MODULE_BOX_LIMIT = ATLAS?.module_box_limit;
+    // The box of a module on the map: a directory box inside its owner, or the owner.
+    const placeOf = (module) => module.place_id || module.component_id;
+    // A deep path keeps its first directory and its last two parts: the file name stays readable.
+    const shortPath = (path) => {
+      const parts = path.split("/");
+      return parts.length > 4 ? [parts[0], "…", ...parts.slice(-2)].join("/") : path;
+    };
 
     // The child of the level that holds the module, or null when the level itself owns it.
     function childOwner(level, module) {
-      const route = componentRoute(module.component_id);
+      const route = componentRoute(placeOf(module));
       const at = level.parent_id ? route.findIndex((item) => item.id === level.parent_id) + 1 : 0;
       return at > 0 || !level.parent_id ? route[at] || null : null;
     }
@@ -95,14 +102,14 @@
         members.get(owner.id).modules.push(module);
       }
       const nodes = [...members.values()].map(({ component, modules: inside }) => ({
-        id: component.id, label: component.label, kind: "component", component, group: inside.length,
+        id: component.id, label: component.label, kind: component.directory ? "package" : "component", component, group: inside.length,
         entity: null, sourceGraph: null, sections: [], outside: false,
         meta: "Open the box to see its modules.",
         tooltip: `${component.label}: ${countLabel(inside.length, "module")}`,
       })).concat(loose.map((module) => ({
         id: module.id, label: module.path?.split("/").at(-1) || module.name, kind: "module", module,
         entity: null, sourceGraph: null, sections: [], outside: false,
-        meta: module.path || "File path not declared", tooltip: module.name,
+        meta: module.path ? shortPath(module.path) : "File path not declared", tooltip: module.path || module.name,
       })));
       const boxOf = (id) => groupOf.get(id) || id, shown = new Set(nodes.map((node) => node.id));
       const pairs = new Map();
@@ -142,7 +149,7 @@
       const nodes = modules.map((module) => ({
         id: module.id, label: module.path?.split("/").at(-1) || module.name, kind: "module", module,
         entity: null, sourceGraph: null, sections: [], outside: false,
-        meta: module.path || "File path not declared", tooltip: module.name,
+        meta: module.path ? shortPath(module.path) : "File path not declared", tooltip: module.path || module.name,
       }));
       const allDeclared = ATLAS.declared_modules.flatMap((module) =>
         (module.relationships || []).map((edge) => ({ ...edge, source_id: module.id })));
@@ -170,7 +177,7 @@
       const declared = children.flatMap((component) => component.requires
         .filter((edge) => ids.has(edge.target_id)).map((edge) => ({ ...edge, source_id: component.id })));
       const nodes = children.map((component) => ({
-        id: component.id, label: component.label, kind: "component",
+        id: component.id, label: component.label, kind: component.directory ? "package" : "component",
         entity: null, sourceGraph: null,
         meta: component.responsibilities.join(" ").slice(0, 126) || "Not declared",
         sections: [], outside: false, component,

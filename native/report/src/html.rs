@@ -10,6 +10,8 @@ use serde_json::{json, Map, Value};
 mod arch;
 #[path = "html_atlas.rs"]
 mod atlas;
+#[path = "html_atlas_dirs.rs"]
+mod atlas_dirs;
 #[path = "html_atlas_groups.rs"]
 mod atlas_groups;
 #[path = "html_atlas_levels.rs"]
