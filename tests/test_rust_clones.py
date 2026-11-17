@@ -168,6 +168,37 @@ def test_declarations_of_words_and_names_are_not_clones(tmp_path: Path) -> None:
     assert run(scratch(tmp_path / "c", kinds("a", fields))).returncode == 0
 
 
+def test_a_struct_declaration_with_restricted_visibility_is_not_a_clone(tmp_path: Path) -> None:
+    """AD-584: `pub(crate)` on the struct and on its fields is no logic (two crates, same shape)."""
+    fields = (
+        "#[derive(Clone, Debug)]\npub(crate) struct S {\n"
+        + "".join(f"    pub(crate) f{i}: Option<String>,\n" for i in range(12))
+        + "    pub(super) last: usize,\n}\n"
+    )
+    assert run(scratch(tmp_path, kinds("a", fields))).returncode == 0
+    call = fields.replace("Option<String>,", "Option<String>,\n    pub(crate) g: f(1),", 1)
+    assert run(scratch(tmp_path / "b", kinds("a", call))).returncode == 1
+
+
+def test_two_identical_function_bodies_stay_clones_beside_struct_declarations() -> None:
+    declaration = (
+        "pub(crate) struct S {\n"
+        + "".join(f"    pub(crate) f{i}: Option<String>,\n" for i in range(12))
+        + "}\n"
+    )
+
+    def body(name: str) -> str:
+        lines = "".join(f'    out.put("k{i}", &item.k{i})?;\n' for i in range(14))
+        return f"fn {name}(out: &mut W, item: &Item) -> R {{\n{lines}    Ok(())\n}}\n"
+
+    assert clones.find_blocks({"a.rs": declaration, "b.rs": declaration}) == []
+    both = {"a.rs": declaration + body("one"), "b.rs": declaration + body("two")}
+    found = clones.find_blocks(both)
+    assert found, "the two function bodies are still reported"
+    declaration_lines = declaration.count("\n")
+    assert all(block.first_lines[0] > declaration_lines for block in found)
+
+
 def test_a_macro_call_with_a_call_in_its_body_is_logic(tmp_path: Path) -> None:
     body = "closed! {\n" + "".join(f"    V{i} = make({i}),\n" for i in range(40)) + "}\n"
     assert run(scratch(tmp_path, kinds("a", body))).returncode == 1

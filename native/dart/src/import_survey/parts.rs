@@ -12,7 +12,7 @@ use archkeel_snapshot::Snapshot;
 
 use super::index::{Index, Kind, Located, Owners};
 use super::names::{GapName, Gaps, Place};
-use super::uri::{classify, generated, Uri};
+use super::uri::{generated, Uri};
 use crate::syntax::{Directive, DirectiveKind};
 
 /// The owner of each part that has one. The claims of the libraries are read first.
@@ -91,7 +91,7 @@ fn claimed(
     let at = Place::Span(source, &directive.span);
     // A URI that is not a plain string already has its gap from the parse.
     let uri = directive.target.as_deref()?;
-    let rel = match classify(&source.rel_path, uri, index.package) {
+    let rel = match index.classify(&source.rel_path, uri) {
         Uri::Local(rel) => rel,
         Uri::Outside => {
             gaps.named(
@@ -148,7 +148,7 @@ fn names(snapshot: &mut Snapshot, index: &Index<'_>, part: usize, library: usize
         return false;
     };
     let source = &index.sources[part];
-    if let Uri::Local(rel) = classify(&source.rel_path, text, index.package) {
+    if let Uri::Local(rel) = index.classify(&source.rel_path, text) {
         if matches!(index.locate(snapshot, &rel), Located::Source(at) if at == library) {
             return true;
         }

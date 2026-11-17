@@ -112,6 +112,17 @@
     if (!canvas || !canvas.clientWidth || !canvas.clientHeight) return 2.4;
     return Math.round(Math.min(3, Math.max(1.2, (canvas.clientWidth / canvas.clientHeight) * 1.45)) * 10) / 10;
   }
+  // The width of an edge label in its font (`.atlas-edge-label`: 11px of the sans font).
+  let labelContext = null;
+  function labelWidth(text) {
+    if (typeof document === "undefined") return text.length * 6.2;
+    if (!labelContext) {
+      labelContext = document.createElement("canvas").getContext("2d");
+      const sans = getComputedStyle(document.documentElement).getPropertyValue("--font-sans").trim();
+      labelContext.font = `11px ${sans || "sans-serif"}`;
+    }
+    return Math.ceil(labelContext.measureText(text).width);
+  }
   function buildAtlasGraph({ componentOverview, parentId, nodes, edges, components, cardWidth, cardHeights }) {
     const rootId = "__archkeel_atlas_layout_root__";
     const componentsById = new Map(components.map((component) => [component.id, component]));
@@ -150,8 +161,10 @@
       const graphEdge = { id,
         sources: [nodeLayoutId(edge.source)], targets: [nodeLayoutId(edge.target)] };
       if (componentOverview) {
+        // The label gets the width of its text, so the layout keeps room for all of it between
+        // the boxes and draws it on the middle of the edge (issue 1659).
         const label = { id: `label:${edge.layoutId}`, text: edge.label,
-          width: Math.min(208, Math.max(24, edge.label.length * 6.2)), height: 16 };
+          width: Math.max(24, labelWidth(edge.label) + 8), height: 16 };
         graphEdge.labels = [label];
         labels.push(label.id);
       }
@@ -248,6 +261,8 @@
     return decodeLayout(await layout(graph), expected);
   }
   async function layoutAtlas(input) {
+    // The label widths are measured in the font of the page, so the font must be loaded first.
+    if (typeof document !== "undefined" && document.fonts) await document.fonts.ready;
     const { graph, expected } = buildAtlasGraph(input);
     const result = await layout(graph);
     const decoded = decodeLayout(result, expected);

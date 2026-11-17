@@ -25,6 +25,7 @@ fn discovery(sources: Vec<Source>, problems: Vec<Problem>) -> Discovery {
     Discovery {
         sources,
         package_name: "shop".to_owned(),
+        package_dir: String::new(),
         sdk: None,
         sdk_state: SdkState::Missing,
         pubspec_digest: Some("d".repeat(64)),

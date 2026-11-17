@@ -32,7 +32,7 @@ use std::collections::BTreeMap;
 
 use crate::collection::types::BindingKind;
 use crate::import_survey::index::{Index, Kind, Owners};
-use crate::import_survey::uri::{classify, Uri};
+use crate::import_survey::uri::Uri;
 use crate::syntax::{
     Definition, DefinitionKind, Directive, DirectiveKind, MemberKind, Span, Syntax,
 };
@@ -60,13 +60,13 @@ pub(crate) struct Target {
 /// A declaration that a name binds (`ResolvedBinding`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Bound {
-    pub(crate) at: usize,
-    pub(crate) span: Span,
     pub(crate) module: String,
     pub(crate) name: String,
     pub(crate) kind: BindingKind,
     pub(crate) via_prefix: Option<String>,
     pub(crate) id: String,
+    pub(crate) at: usize,
+    pub(crate) span: Span,
 }
 
 impl Bound {
@@ -293,7 +293,7 @@ impl<'a> Resolver<'a> {
 
     /// The target of one URI of a directive in the file `importer`.
     pub(crate) fn target(&self, importer: &str, uri: &str) -> Option<Target> {
-        let (module, package, at, builtin) = match classify(importer, uri, self.index.package) {
+        let (module, package, at, builtin) = match self.index.classify(importer, uri) {
             Uri::Builtin(module) => (module, "dart".to_owned(), None, true),
             Uri::External { package, module } => (module, package, None, false),
             Uri::Local(rel) => {

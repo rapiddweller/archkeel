@@ -138,6 +138,7 @@ pub(crate) fn site_records(
         module,
         evidence_map: evidence,
         shadowed: Reader::shadowed(binders),
+        writes: None,
     };
     let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
     for source in &found.sources {
