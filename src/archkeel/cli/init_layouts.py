@@ -90,7 +90,7 @@ def _members(root: Path, patterns: list[str], marker: str) -> list[Path]:
     return sorted(found)
 
 
-def python_layouts(root: Path, folder: Path | None = None) -> list[Layout]:
+def _python_layouts(root: Path, folder: Path | None = None) -> list[Layout]:
     """The Python scans of a project folder: one component for each subpackage of a top-level
     package. A module name is the namespace and the path below the scan root, and the namespace
     must be the name of that root, so a scan has one root folder.
@@ -156,7 +156,7 @@ def _python_note(root: Path) -> str:
     )
 
 
-def rust_layout(repo: Path, root: Path) -> Layout | None:
+def _rust_layout(repo: Path, root: Path) -> Layout | None:
     """One component for each crate of the Cargo workspace in `root` (a folder of the repository
     `repo`); `None` without a workspace."""
     manifest = root / "Cargo.toml"
@@ -183,7 +183,7 @@ def rust_layout(repo: Path, root: Path) -> Layout | None:
     return Layout("rust", _name(root.name or repo.name), (scan,), tuple(parts))
 
 
-def typescript_layout(repo: Path, root: Path) -> Layout | None:
+def _typescript_layout(repo: Path, root: Path) -> Layout | None:
     """One component for each member of the `workspaces` of the package.json in `root` (a folder
     of the repository `repo`); `None` without them."""
     manifest = root / "package.json"

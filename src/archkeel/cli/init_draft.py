@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from .init_areas import Area, detect, title_of, unique_ids
+from .init_areas import Area, _detect, _title_of, _unique_ids
 from .init_layouts import _IGNORED, DOCUMENT, Layout, NothingToDraft, Part
 
 __all__ = [
@@ -173,14 +173,14 @@ def _specs(repo: Path, areas: list[Area]) -> list[tuple[str, int]]:
 
 
 def _system(repo: Path, areas: list[Area]) -> Draft:
-    ids = unique_ids(areas)
+    ids = _unique_ids(areas)
     files: list[File] = []
     parts, names = [], []
     for area, identifier in zip(areas, ids, strict=True):
         unit, labels = _unit(area.layout, f"{_FOLDER}/{identifier}", _slug(identifier))
         files += unit
         names += [f"{identifier}/{label}" for label in labels]
-        title = title_of(area, identifier)
+        title = _title_of(area, identifier)
         parts.append(
             {
                 "id": identifier,
@@ -221,7 +221,7 @@ def _system(repo: Path, areas: list[Area]) -> Draft:
         repo.name,
         tuple(names),
         note,
-        tuple(title_of(a, i) for a, i in zip(areas, ids, strict=True)),
+        tuple(_title_of(a, i) for a, i in zip(areas, ids, strict=True)),
         tuple(str(i["id"]) for i in interfaces),
         SYSTEM,
     )
@@ -229,7 +229,7 @@ def _system(repo: Path, areas: list[Area]) -> Draft:
 
 def draft(root: Path) -> Draft:
     """Draft the files for the layout of `root`, or raise `NothingToDraft`."""
-    areas = detect(root)
+    areas = _detect(root)
     if len(areas) > 1:
         return _system(root, areas)
     layout = areas[0].layout

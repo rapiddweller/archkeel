@@ -5,13 +5,13 @@
 //! Read the four Python baseline schemas without applying debt to a verdict (AD-386).
 
 use crate::json::{self, field, Json};
-use crate::policy::amendment::schema_repr;
 use crate::policy::baseline_entries::{budgets, violation};
 use crate::policy::baseline_unknowns::unknowns;
 use crate::policy::baseline_value::{
     exact, object, required, BaselineError, BaselineViolation, ValidationBaseline,
     MAX_BASELINE_BYTES,
 };
+use crate::policy::reference::schema_repr;
 
 /// Read a baseline with the validation order of the deleted Python `parse_validation_baseline`.
 ///

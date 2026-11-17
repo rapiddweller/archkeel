@@ -100,7 +100,7 @@ pub fn read_system(identity: &Identity<'_>) -> Result<Option<System>, Refusal> {
 }
 
 /// The test features of the linked collectors. A build with one cannot give an accepted reply.
-pub fn test_features() -> &'static [&'static str] {
+pub(crate) fn test_features() -> &'static [&'static str] {
     [
         archkeel_rust_collector::TEST_FEATURES,
         archkeel_python_collector::TEST_FEATURES,

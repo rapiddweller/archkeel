@@ -103,7 +103,7 @@ class Parser(argparse.ArgumentParser):
         raise ValueError(message)
 
 
-def active_checks() -> tuple[CheckKind, ...]:
+def _active_checks() -> tuple[CheckKind, ...]:
     """Every existing check authenticates a lock and evaluates an expectation (AD-399, #1103).
 
     Ratchets and selected changes are inside authenticated bytes, not command-line choices.
@@ -119,7 +119,7 @@ def command_of(argv: Sequence[str]) -> Command:
     except ValueError as error:
         raise ValueError(f"unknown command {argv[0]!r}; run archkeel --help") from error
     if command is Command.CHECK:
-        names = "; ".join(active_checks())
+        names = "; ".join(_active_checks())
         raise NotOnThisLine(f"check is {_LINE}; {_remedy(True)}; not ported: {names}")
     if command not in SERVED and command is not Command.SKILL:
         raise NotOnThisLine(f"{command} is {_LINE}; {_remedy(command in RELEASED)}")

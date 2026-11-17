@@ -1143,6 +1143,38 @@ html.ak-canvas .rp-explorer .edge.ak-dim{ opacity: .16; }
 html.ak-canvas .rp-explorer .flow[data-ak-perspective] .node[data-ak-tag] .card{ stroke: var(--ex-tag); stroke-width: 2px; }
 html.ak-canvas .rp-explorer .ak-tag rect{ fill: var(--surface-1); }
 html.ak-canvas .rp-explorer .ak-tag text{ fill: var(--ink); font: 600 11px var(--font-sans); }
+.rp-explorer .ak-language-badge{
+  --language-color: var(--lang-other);
+  --language-subtle: var(--lang-other-subtle);
+  --language-text: var(--lang-other-text);
+}
+.rp-explorer .ak-language-badge[data-language="python"]{
+  --language-color: var(--lang-python); --language-subtle: var(--lang-python-subtle); --language-text: var(--lang-python-text);
+}
+.rp-explorer .ak-language-badge[data-language="rust"]{
+  --language-color: var(--lang-rust); --language-subtle: var(--lang-rust-subtle); --language-text: var(--lang-rust-text);
+}
+.rp-explorer .ak-language-badge[data-language="typescript"]{
+  --language-color: var(--lang-typescript); --language-subtle: var(--lang-typescript-subtle); --language-text: var(--lang-typescript-text);
+}
+.rp-explorer .ak-language-badge[data-language="dart"]{
+  --language-color: var(--lang-dart); --language-subtle: var(--lang-dart-subtle); --language-text: var(--lang-dart-text);
+}
+html.ak-canvas .rp-explorer .ak-tag.ak-language-badge rect{
+  fill: var(--language-subtle); stroke: var(--language-color); stroke-width: 1px;
+}
+html.ak-canvas .rp-explorer .ak-tag.ak-language-badge text{ fill: var(--language-text); }
+.rp-explorer .ak-chip.ak-language-badge{
+  border: 1px solid var(--language-color) !important;
+  background: var(--language-subtle) !important;
+  color: var(--language-text) !important;
+}
+.rp-explorer .ak-language-legend{ display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-1) 0 var(--space-2); }
+.rp-explorer .ak-language-legend .ak-language-badge{
+  display: inline-flex; align-items: center; padding: 2px var(--space-2);
+  border: 1px solid var(--language-color); border-radius: 999px;
+  background: var(--language-subtle); color: var(--language-text); font-size: 11px; font-weight: 600;
+}
 .rp-explorer .ak-bar{
   position: absolute; z-index: 70; display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; padding: 5px;
   background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-lg);

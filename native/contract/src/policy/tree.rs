@@ -75,7 +75,7 @@ struct Walk<'a> {
 
 /// The deepest mount: the bound of the Dart collector (lead decision L-24). Python stops near
 /// depth 984 with a `RecursionError` and gives no verdict.
-pub const MAX_DEPTH: usize = 900;
+pub(crate) const MAX_DEPTH: usize = 900;
 
 /// One level of the walk: the mount whose components it visits (the root when `None`), its scope
 /// key, pointer, depth and identity, and the next component to visit.
