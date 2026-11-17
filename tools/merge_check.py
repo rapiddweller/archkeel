@@ -16,6 +16,7 @@ PR gate and adds its local file checks as further reasons.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import subprocess
 import sys
@@ -23,10 +24,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-try:
-    from tools import merge_pr
-except ImportError:  # run as a script from tools/
-    import merge_pr
+# One module, whether this file runs as `tools.merge_check` or from the tools directory.
+merge_pr = importlib.import_module("tools.merge_pr" if __package__ else "merge_pr")
 
 BASE = "origin/main"
 RECENT_MERGES = 10
@@ -250,7 +249,8 @@ def aggregate_errors(rollup: str) -> list[str]:
 def table_reasons(number: int) -> tuple[list[str], list[str]]:
     """The reasons of the merge decision table (AD-736) as errors (REFUSE) and warnings (WAIT)."""
     decision, _pr, _required = merge_pr.assess(_run_gh, str(number))
-    errors, warnings = [], []
+    errors: list[str] = []
+    warnings: list[str] = []
     for reason in decision.reasons:
         text = f"[{reason.code}] {reason.detail}"
         (errors if reason.verdict == merge_pr.REFUSE else warnings).append(text)
