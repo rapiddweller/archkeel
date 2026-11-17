@@ -11,7 +11,7 @@ use proc_macro2::Span;
 
 use super::extracted::Tally;
 use super::receivers::Selves;
-use crate::definitions::{Definition, Field, Holder, ImplBlock, MethodCall, OnSelf};
+use crate::definitions::{Definition, Field, Holder, ImplBlock, MethodCall, OnSelf, ReceiverChain};
 use crate::plant;
 use crate::site::Site;
 use crate::tokens::Chain;
@@ -106,6 +106,9 @@ pub(crate) struct Scan {
     pub extern_crates: Vec<(String, Site)>,
     /// Each `extern crate self as name;` outside a function body: its inline modules and `name`.
     pub self_aliases: Vec<(Vec<String>, String)>,
+    /// Each `extern crate foo as bar;` (or `extern crate foo;`) at the top level of the file, outside
+    /// a function body: `bar` and `foo` (#1711).
+    pub extern_aliases: Vec<(String, String)>,
     /// The inherent `impl` blocks at any depth, and the method calls (#953).
     pub impls: Vec<ImplBlock>,
     pub method_calls: Vec<MethodCall>,
@@ -251,7 +254,7 @@ impl Walker<'_> {
         span: Span,
         (path, arity): (bool, Option<usize>),
     ) {
-        self.method_call_on(name, span, (path, arity), None);
+        self.method_call_on(name, span, (path, arity), (None, None));
     }
 
     pub(super) fn method_call_on(
@@ -259,7 +262,7 @@ impl Walker<'_> {
         name: String,
         span: Span,
         (path, arity): (bool, Option<usize>),
-        on_self: Option<OnSelf>,
+        (on_self, chain): (Option<OnSelf>, Option<ReceiverChain>),
     ) {
         let (site, scope) = (self.site(span), self.inline.clone());
         if plant::lose("method") {
@@ -273,6 +276,7 @@ impl Walker<'_> {
             arity,
             on_self,
             owner: None,
+            chain: chain.map(Box::new),
         });
     }
 

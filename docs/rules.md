@@ -168,9 +168,11 @@ contract states by name, each with an `id`, a `name`, a `rationale` and a
 `provenance`. A premise is a claim about what the scan cannot see, never a proof.
 A rule that rests on a premise reads "PASS assuming <premise>" in the text, the
 frame (`premises`, `assuming`) and the report. The names that the core knows:
-`standard_library_unchanged` ("an unchanged standard library"; no rule rests on
-it yet). An unknown name refuses the contract. A declared door reach (AD-664) and
-a stated external user are premises of the same kind, with their own keys.
+`standard_library_unchanged` ("outside code leaves the standard library unchanged"). A
+`boundary_types` rule rests on it: a type of the standard library that the collector names, and a
+definition with a standard decorator that it models, count only under it (AD-782). An unknown name refuses
+the contract. A declared door reach (AD-664) and a stated external user are premises of the same
+kind, with their own keys.
 
 Core and reports share immutable typed selections, including all packages and exact
 modules of a uniquely selected legacy component pair. Component display labels do

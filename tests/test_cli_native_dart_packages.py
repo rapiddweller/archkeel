@@ -160,3 +160,145 @@ def test_a_complete_package_map_gives_the_cycle_rule_its_receipt(
     found = rows(verdict(release_core, root, "report"))
     assert found["CYCLES"] == ("FAIL" if cycle else "PASS"), found
     assert found["ASSIGN"] == "PASS"
+
+
+# #1539: an app inside a pub workspace. Truth (Dart 3.12, `dart pub get` and `dart analyze`): the
+# app resolves `package:other` to the member `other/` (`rootUri` `../other`) and its own URIs to
+# `app/lib`; `dart analyze` finds no issue.
+WORKSPACE = "name: ws\nenvironment:\n  sdk: ^3.6.0\nworkspace:\n  - app\n  - other\n"
+APP = "name: app\nenvironment:\n  sdk: ^3.6.0\nresolution: workspace\n"
+OTHER = "name: other\nenvironment:\n  sdk: ^3.6.0\nresolution: workspace\n"
+
+
+def workspace_project(root: Path, files: dict[str, str]) -> Path:
+    for name, text in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    (root / "archkeel.toml").write_text(
+        '[scan]\nlanguage = "dart"\nroots = ["app/lib"]\n'
+        'namespace = "shop"\ncontract = "architecture-contract.json"\n'
+    )
+    contract = {
+        "schema_version": "2.2.0",
+        "components": [
+            component("a", ["shop.a"], ["b"], exact=True),
+            component("b", ["shop.b"], [], exact=True),
+        ],
+        "rules": rules(),
+    }
+    (root / "architecture-contract.json").write_text(json.dumps(contract))
+    (root / "p").write_text(GRAPH)
+    _commit(root)
+    return root
+
+
+@pytest.mark.parametrize(
+    ("form", "expected", "gap"),
+    [
+        ("acyclic", "PASS", None),
+        ("cycle", "FAIL", None),
+        ("member-import", "UNKNOWN", "DartLocalPackage"),
+        ("nested-without-workspace", "UNKNOWN", "DartNestedPackage"),
+    ],
+)
+def test_an_app_inside_a_workspace_is_the_package_of_its_scan(
+    release_core: Path, tmp_path: Path, form: str, expected: str, gap: str | None
+) -> None:
+    files = {
+        "pubspec.yaml": WORKSPACE,
+        "app/pubspec.yaml": APP,
+        "other/pubspec.yaml": OTHER,
+        "other/lib/o.dart": "class O {}\n",
+        "app/lib/a.dart": "import 'package:app/b.dart';\nB? b;\n",
+        "app/lib/b.dart": "class B {}\n",
+    }
+    if form == "cycle":
+        files["app/lib/b.dart"] = "import 'a.dart';\nclass B {}\n"
+    if form == "member-import":
+        files["app/lib/b.dart"] = "import 'package:other/o.dart';\nclass B { O? o; }\n"
+    if form == "nested-without-workspace":
+        files["pubspec.yaml"] = "name: shop\nenvironment:\n  sdk: ^3.6.0\n"
+        files["app/pubspec.yaml"] = "name: app\nenvironment:\n  sdk: ^3.6.0\n"
+    result = verdict(release_core, workspace_project(tmp_path, files), "report")
+    found = rows(result)
+    assert found["CYCLES"] == expected, result["frame"]["explained"]
+    gaps = json.dumps(result["frame"]["collection_gaps"])
+    if gap is None:
+        assert result["frame"]["scope"] == "complete", gaps
+    else:
+        assert gap in gaps, gaps
+
+
+@pytest.mark.parametrize(
+    ("namespace", "files"),
+    [
+        # dart-lang/tools `pkgs/sse` before AD-808: no own package, and the namespace is the
+        # package name, so `package:shop/b.dart` names the module of `lib/b.dart`.
+        ("shop", {"lib/a.dart": "import 'package:shop/b.dart';\n", "lib/b.dart": "class B {}\n"}),
+        (
+            "shop",
+            {
+                "pubspec.yaml": "name: other\n",
+                "lib/a.dart": "import 'package:shop/b.dart';\n",
+                "lib/b.dart": "",
+            },
+        ),
+        # The namespace `dart` makes `lib/async.dart` the module `dart.async`.
+        ("dart", {"lib/a.dart": "import 'dart:async';\n", "lib/async.dart": "class A {}\n"}),
+    ],
+)
+def test_a_module_name_of_another_package_is_a_gap_and_never_a_refusal(
+    release_core: Path, tmp_path: Path, namespace: str, files: dict[str, str]
+) -> None:
+    # #1706: the store refused the whole reply ("observed local module cannot be an external
+    # target"). A valid project is never refused: the import is a gap that names the module.
+    for name, text in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    (tmp_path / "archkeel.toml").write_text(
+        f'[scan]\nlanguage = "dart"\nroots = ["lib"]\nnamespace = "{namespace}"\n'
+        'contract = "architecture-contract.json"\n'
+    )
+    contract = {
+        "schema_version": "2.2.0",
+        "components": [component("a", [namespace], [])],
+        "rules": [{**RULE, "id": "ASSIGN", "kind": "complete_assignment", "source": namespace}],
+    }
+    (tmp_path / "architecture-contract.json").write_text(json.dumps(contract))
+    (tmp_path / "p").write_text(GRAPH)
+    _commit(tmp_path)
+    result = verdict(release_core, tmp_path, "report")
+    assert "refusal" not in result, result.get("refusal")
+    assert "DartUnsupportedUri" in json.dumps(result["frame"]["collection_gaps"])
+
+
+def test_a_class_under_an_unsupported_sdk_constraint_is_never_a_refusal(
+    release_core: Path, tmp_path: Path
+) -> None:
+    # #1706, dart-lang/tools `pkgs/boring` (`sdk: ^3.13.3`): the collector dropped the member
+    # inventories of each class under an SDK that it does not support, and the store refused the
+    # reply ("missing field `member_inventories`"). They stay, as partial.
+    files = {
+        "pubspec.yaml": "name: shop\nenvironment:\n  sdk: ^3.13.3\n",
+        "lib/a.dart": "class A {\n  int x = 1;\n  void run() {}\n}\n",
+    }
+    for name, text in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    (tmp_path / "archkeel.toml").write_text(
+        '[scan]\nlanguage = "dart"\nroots = ["lib"]\nnamespace = "shop"\n'
+        'contract = "architecture-contract.json"\n'
+    )
+    contract = {
+        "schema_version": "2.2.0",
+        "components": [component("a", ["shop"], [])],
+        "rules": [{**RULE, "id": "ASSIGN", "kind": "complete_assignment", "source": "shop"}],
+    }
+    (tmp_path / "architecture-contract.json").write_text(json.dumps(contract))
+    (tmp_path / "p").write_text(GRAPH)
+    _commit(tmp_path)
+    result = verdict(release_core, tmp_path, "report")
+    assert "refusal" not in result, result.get("refusal")

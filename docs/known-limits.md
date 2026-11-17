@@ -54,9 +54,10 @@ the last two were fixed after it and are checked on main at `157dc8851`:
   `tests/test_collector_false_pass_rust_redirect.py` holds the four compiling fixtures.
 - A Rust path through a re-exported name of a module gives FAIL: `crate::c::other::b::g()` where
   `c` re-exports a module, the crate root, an alias of `extern crate self`, another crate of the
-  workspace, or brings the name in by a glob (also `use base::*; hidden::g()`). A route that a
-  macro call writes, or one over the hop limit, gives UNKNOWN. The 17 compiling fixtures are in
-  `tests/test_collector_false_pass_rust_root_reexports.py` (AD-802, #1517).
+  workspace, or brings the name in by a glob (also `use base::*; hidden::g()`), and an `extern crate
+  base as other;` in a module, at the crate root, or through the extern prelude (#1711). A route that a
+  macro call writes, or one over the hop limit, gives UNKNOWN. The 22 compiling fixtures are in
+  `tests/test_collector_false_pass_rust_root_reexports.py` (AD-772, #1517).
 - A patch of a platform prototype (`Object.defineProperty(EventTarget.prototype, …)`, a prototype
   that is passed on, `ev.target.__proto__ = …`) gives UNKNOWN with a source-resolution gap
   (AD-768, #1527). `tests/test_cli_native_prototype_patch.py` holds 18 forms.
@@ -102,9 +103,9 @@ receipt when the package map is complete (AD-800; 4.0.1 gives no Dart cycle rece
 reads the dependencies, overrides, `workspace` and `resolution` of the root `pubspec.yaml`: an
 import of a package that the map does not prove hosted, SDK or remote git is a gap of its library
 (`DartLocalPackage`, `DartUndeclaredPackage`), and a local package that no library imports adds no
-gap. A member of a workspace above the snapshot root gets that gap at each `package:` import: the
-survey takes the root `pubspec.yaml` as the package, so a workspace root inside the snapshot makes
-the member a nested package (J-compass). The Dart collector reads bounded YAML. It keeps a
+gap. The package of the scan is the nearest `pubspec.yaml` at or above its roots (AD-808): a member
+reads the workspace root above it for its members. A member whose workspace root is outside the
+snapshot, or not readable, gets that gap at each `package:` import (J-compass as pinned). The Dart collector reads bounded YAML. It keeps a
 whole-scope gap for a pubspec that it reads only word by word, an unsupported YAML form, and a
 workspace that it cannot prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
 package roots also give gaps (AD-562).
@@ -129,6 +130,21 @@ give PASS. This is an open false-PASS class, not an accepted limit. A call of a
 value that an import from outside the scan and the standard library gives, with a string that names
 a module of the scan, is a gap of the edges of its module (AD-760); a loader handed in as a
 parameter is the same open class.
+
+**Python `symbol_placement` (AD-726, AD-728, #1713).** A PASS needs the receipt "no written
+class" for each selected module outside the allowed sources. A call that can create a class at run
+time withholds the receipt, and the rule is UNKNOWN with the site: "a call can create a class at
+`path:line (callee)`". Such a call is:
+- a factory of the standard library, by the import that binds its name: `Enum` and the other
+  `enum` classes, `namedtuple`, `NamedTuple`, `TypedDict`, `make_dataclass`, `types.new_class`,
+  `ABCMeta`, `__build_class__`, `type` with three arguments;
+- a call in the shape of a metaclass call (`M("Name", (...), {...})`);
+- a call whose result the module calls or passes as the class of `isinstance` or `issubclass`.
+
+The plants are in `tests/test_collector_false_pass_python_placement.py`. Open: a call of another
+library function that creates a class and sets its `__module__` to the caller (`attrs.make_class`,
+`pydantic.create_model`) and whose result the module only returns gives no such site. The rule then
+reads the module as holding no class. This is an open false-PASS class, not an accepted limit.
 
 **Python module and class bindings (AD-642, #1360).** A module- or class-level binding such as
 `for site in sites: site.id` can retain an `import_system_change` gap. These namespaces resolve
@@ -569,20 +585,29 @@ or returned or taken by a pattern is an amplifier form; a write of `href`, `src`
 literal is an amplifier form; `execCommand('insertHTML', …)` with markup that is no inert literal is a
 direct form. An address that a framework renders from data (`<a href={url}>`) stays open (#1662).
 Plants: `tests/test_cli_native_dom_code.py`.
-Older classes stay open too: a member patch of a platform object that is no
-window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
-`document.defaultView`.
-AD-788 (#1546) states the premise of every TypeScript verdict as "code outside the scan roots hands
-in no global or platform object and replaces no global" (text header, JSON `premise`, report). A
-JavaScript, TypeScript or HTML file of the repository outside the scan roots is read for a write
-that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, an assignment to an undeclared
-name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the other
-reflective writes on a window name). A member patch of another global (`Math.max = f` in such a
-file) stays open, as above. Each hit withholds the native proof of that name: the use gets the gap "Script global X is
-replaced by a file outside the scan roots", which cites the use and the write. A write whose name
-the guard cannot read withholds every global. Not read: test files (the test-source rule),
-declarations, installed packages, hidden directories; more than 4000 such files withhold every
-global. Code outside the repository stays under the premise only.
+Older classes stay open too: a use through `opener` or `document.defaultView`.
+AD-788 (#1546, #1674) states the premise of every TypeScript verdict as "code outside the scan
+roots hands in no global or platform object and replaces no global" (text header, JSON `premise`,
+report). Every JavaScript, TypeScript or HTML file of the repository outside the scan roots is read
+with the write detector of the scan (#1712): an alias of a window name, a window name passed to a
+function, a destructuring or `for` target, `Reflect.apply(Reflect.set, …)`, `eval` and `Function`
+texts withhold the proof as they do inside the scan (a form whose name the detector cannot read
+withholds every global). A second reader names `window.x =`, `globalThis.x =`, `self.x =`, an
+assignment to an undeclared name, a top-level binding of a classic script and the reflective writes
+on a window name. A member patch of a global (`Math.max = f`,
+`JSON.parse = f`, `console.log = f`, `Object.assign(Math, …)`, `console.__defineGetter__(…)`) with
+a value that is no literal withholds the proof of each use of the patched member (and of the global
+as a whole value), in such a file and in a scanned file ("Script global Math is patched by a member
+write"); a use of another member (`Math.min`) keeps it. Each hit withholds the native proof of its name, and the
+gap cites the use and the write. A write whose name the guard cannot read withholds every global.
+There is no file limit (50 000 small files outside the roots add about 6 s). A file that the guard
+cannot read (over the size limit of a file or the input limit of a scan) withholds every global,
+and the gap names the file and what to do. Not read: test files (the test-source rule),
+declarations, version-control metadata (`.git`, `.hg`, `.svn`), Python environments and tool
+caches (`.venv`, `.tox`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`) and installed packages
+(`node_modules`, `jspm_packages`, `bower_components`). Their code is third-party code outside the
+scan roots, which the premise covers. Every other hidden folder (`.storybook`, `.vitepress`,
+`.config`) is read. Code outside the repository stays under the premise only.
 A source file inside the roots that TSConfig `exclude` drops gives a named coverage gap (AD-488),
 including a file that writes a global. It is no longer a silent false PASS.
 A member `source`, `view`, `currentTarget` or a window name is a window, and a member `eval` or
@@ -829,7 +854,7 @@ The core decides one rule kind set where Python does not ([AD-384](architecture/
 
 - The Rust collector does not mark an external `pub use` as a re-export. So a gap into a module with any external import holds `external_dependency_scope` and `complete_external_scope`.
 - The gap scope reads the edge model of the collector, as Python does. A glob that brings in a trait through a `pub use` chain `b -> d` gives the gap `a -> b`, not `a -> d`, so a rule on `a -> d` passes (review N2 of #1084). With the explicit call both engines record only `a -> b`.
-- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. A method in the file of its type, called on a value that the caller does not name (a field, a chain of fields, the return value of a function), is a candidate too: it gives a pair gap when the module of the type is reachable from the caller over the edges and the pair gaps, or when the caller reaches a module with a gap that names no target (#1571); a path `T::m` reaches it only when `T` is the name of the type, an alias or a renamed `use`, or a macro of the caller can give any name. One form gives no candidate, also inside one crate: a trait method whose impl is in the module of its trait or of its type (`impl Trait`, `Box<dyn Trait>`, the class #1004; an impl in a third module gives a pair gap, AD-516). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. The trait form is an open false PASS class of the edge model ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
+- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. A method in the file of its type, called on a value that the caller does not name (a field, a chain of fields, the return value of a function), is a candidate too: it gives a pair gap when the module of the type is reachable from the caller over the edges and the pair gaps, or when the caller reaches a module with a gap that names no target (#1571); a path `T::m` reaches it only when `T` is the name of the type, an alias or a renamed `use`, or a macro of the caller can give any name. When the written types prove the receiver type ([AD-804](architecture/decisions/ad-804-a-written-receiver-type-narrows-a-rust-method-call.md)), a std type gives no candidate and an exact own type gives only its own members; a std method of a later lookup step counts only in a file where no trait of another crate can be in scope. One form gives no candidate, also inside one crate: a trait method whose impl is in the module of its trait or of its type (`impl Trait`, `Box<dyn Trait>`, the class #1004; an impl in a third module gives a pair gap, AD-516). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. The trait form is an open false PASS class of the edge model ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 - A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS class #1004 (a value of a type that an anchored impl serves, when the caller does not name its module) gives no edge and no gap; an item that a macro makes gives a gap since AD-662. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 
 The dual-run request is a test protocol that only test builds and the cargo feature `harness` have (#1095); a release binary refuses it. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.

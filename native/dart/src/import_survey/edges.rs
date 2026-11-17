@@ -22,7 +22,7 @@ use super::index::{Index, Kind, Located, Owners};
 use super::names::{GapName, Gaps, Place};
 use super::package_map::PackageMap;
 use super::parts::{directives, missing};
-use super::uri::{classify, Uri};
+use super::uri::Uri;
 use crate::discover::Source;
 use crate::records::cite;
 use crate::syntax::{Directive, DirectiveKind};
@@ -164,7 +164,14 @@ fn resolve(
     if let Some((name, message)) = unproven {
         gaps.named(name, at, &message);
     }
-    let (name, message) = match classify(&source.rel_path, uri, index.package) {
+    let (name, message) = match index.classify(&source.rel_path, uri) {
+        // #1706: a module name of another package or of the SDK can also be a module of this
+        // scan (a namespace equal to the package name of the URI, and no own package). The store
+        // cannot take both, so the import is a gap that names its module.
+        Uri::Builtin(module) | Uri::External { module, .. } if index.is_module(&module) => (
+            GapName::UnsupportedUri,
+            format!("{uri} names the module {module}, which is also a module of this scan"),
+        ),
         Uri::Builtin(module) => {
             if module == "dart.mirrors" {
                 let message = "dart:mirrors can reach code without an import; the edge stays";

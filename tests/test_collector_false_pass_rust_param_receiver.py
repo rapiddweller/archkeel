@@ -65,6 +65,11 @@ PROVEN: dict[str, dict[str, str]] = {
     "a mut value": _plant("pub fn f(mut s: crate::c::S) -> u8 {\n    s.m(1)\n}\n", b=VALUE),
     "a type from a use": _plant(USE + "pub fn f(s: &S) -> u8 {\n    s.m(1)\n}\n"),
     "a lifetime argument": _plant("pub fn f<'a>(s: &'a crate::c::S) -> u8 {\n    s.m(1)\n}\n"),
+    # AD-804: the item of `Vec<&S>` is `&S`, also for a variable that shadows the parameter.
+    "a for loop over a written element type": _plant(
+        "pub fn f(s: &crate::c::S, v: Vec<&crate::c::S>) -> u8 {\n    let mut n = s.m(0);\n"
+        "    for s in v {\n        n += s.m(1);\n    }\n    n\n}\n"
+    ),
     "a method of a type": _plant(
         "pub struct W;\nimpl W {\n"
         "    pub fn f(&self, s: &crate::c::S) -> u8 {\n        s.m(1)\n    }\n"
@@ -107,8 +112,9 @@ REFUSED: dict[str, dict[str, str]] = {
     ),
     "a match arm": _shadow("    match o {\n        Some(s) => s.m(1),\n        None => 0,\n    }"),
     "an if let": _shadow("    if let Some(s) = o {\n        return s.m(1);\n    }\n    0"),
+    # The loop variable shadows the parameter; its item type `X` is generic (AD-804).
     "a for loop": _plant(
-        "pub fn f(s: &crate::c::S, v: Vec<&crate::c::S>) -> u8 {\n    let mut n = 0;\n"
+        "pub fn f<X: crate::c::Tr>(s: &crate::c::S, v: Vec<X>) -> u8 {\n    let mut n = 0;\n"
         "    for s in v {\n        n += s.m(1);\n    }\n    n\n}\n"
     ),
     "a generic parameter of the name": _plant(

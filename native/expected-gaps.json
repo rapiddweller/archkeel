@@ -152,16 +152,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_core",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core",
-      "A method call may reach the method len of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_core.base",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
@@ -227,36 +217,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_core.baseline",
-      "A method call may reach the method word of a type in its own file native.archkeel_contract.policy.issue"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline",
-      "A method call may reach the method word of a type in its own file native.archkeel_facts.data.door"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline",
-      "A method call may reach the method word of a type in its own file native.archkeel_model.gap_class"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline",
-      "A method call may reach the method word of a type in its own file native.archkeel_model.sides"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline_frame",
-      "A method call may reach the method count of a type in its own file native.archkeel_model.causes"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline_frame",
-      "A method call may reach the method internal_edges of a type in its own file native.archkeel_model.cycles"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_core.baseline_frame",
       "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
@@ -264,11 +224,6 @@
       "collection_gap",
       "native.archkeel_core.baseline_frame",
       "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline_frame",
-      "A method call may reach the method status of a type in its own file native.archkeel_report.report"
     ],
     [
       "collection_gap",
@@ -303,16 +258,6 @@
     [
       "collection_gap",
       "native.archkeel_core.contract",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.contract",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_model.boundary_judge"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.contract",
       "A method call may reach the method contract of a type in its own file native.archkeel_model.model"
     ],
     [
@@ -338,12 +283,12 @@
     [
       "collection_gap",
       "native.archkeel_core.contract",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
       "native.archkeel_core.contract",
-      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
+      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -359,11 +304,6 @@
       "collection_gap",
       "native.archkeel_core.contract",
       "A method call may reach the method mounts of a type in its own file native.archkeel_model.tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.contract",
-      "A method call may reach the method with_doors of a type in its own file native.archkeel_model.needs"
     ],
     [
       "collection_gap",
@@ -463,11 +403,6 @@
     [
       "collection_gap",
       "native.archkeel_core.engine",
-      "A method call may reach the method graph of a type in its own file native.archkeel_model.model"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.engine",
       "A method call may reach the method model of a type in its own file native.archkeel_model.scope"
     ],
     [
@@ -538,7 +473,7 @@
     [
       "collection_gap",
       "native.archkeel_core.hygiene",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_model.ids"
+      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
@@ -573,7 +508,7 @@
     [
       "collection_gap",
       "native.archkeel_core.hygiene_boundary",
-      "A method call may reach the method get of a type in its own file native.archkeel_model.ids"
+      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
@@ -588,12 +523,7 @@
     [
       "collection_gap",
       "native.archkeel_core.hygiene_interface",
-      "A method call may reach the method get of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.hygiene_interface",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.graph"
+      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
@@ -652,11 +582,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_core.hygiene_pairs",
-      "A method call may reach the method source_module of a type in its own file native.archkeel_model.imports"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_core.hygiene_refs",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
@@ -708,12 +633,12 @@
     [
       "collection_gap",
       "native.archkeel_core.provenance",
-      "A method call may reach the method get of a type in its own file native.archkeel_model.ids"
+      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
       "native.archkeel_core.provenance",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method len of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
@@ -848,12 +773,12 @@
     [
       "collection_gap",
       "native.archkeel_core.sections",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
       "native.archkeel_core.sections",
-      "A method call may reach the method len of a type in its own file native.archkeel_model.ids"
+      "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -1028,11 +953,6 @@
     [
       "collection_gap",
       "native.archkeel_core.topology_projection",
-      "A method call may reach the method graph of a type in its own file native.archkeel_model.model"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.topology_projection",
       "A method call may reach the method id of a type in its own file native.archkeel_eval.violation"
     ],
     [
@@ -1048,27 +968,17 @@
     [
       "collection_gap",
       "native.archkeel_core.topology_projection",
-      "A method call may reach the method id of a type in its own file native.archkeel_model.imports"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.topology_projection",
       "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
       "native.archkeel_core.topology_projection",
-      "A method call may reach the method language of a type in its own file native.archkeel_model.graph"
+      "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
       "native.archkeel_core.topology_projection",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.topology_projection",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
+      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
@@ -1124,11 +1034,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.collection",
       "A method call may reach the method gap_cite of a type in its own file native.archkeel_dart_collector.declarations.assembly"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -1288,11 +1193,6 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.discover",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.discover",
       "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
@@ -1348,7 +1248,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method data of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -1363,11 +1263,6 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.claims",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
@@ -1433,22 +1328,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.reply",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_dart_collector.pubspec"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.reply",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_dart_collector.syntax"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.reply",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.reply",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
     ],
     [
       "collection_gap",
@@ -1498,6 +1378,11 @@
     [
       "collection_gap",
       "native.archkeel_eval.assignment",
+      "A method call may reach the method blank of a type in its own file native.archkeel_model.modules"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_eval.assignment",
       "A method call may reach the method id of a type in its own file native.archkeel_model.cycles"
     ],
     [
@@ -1509,16 +1394,6 @@
       "collection_gap",
       "native.archkeel_eval.assignment",
       "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.assignment",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.assignment",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
@@ -1588,17 +1463,7 @@
     [
       "collection_gap",
       "native.archkeel_eval.cycles",
-      "A method call may reach the method imports of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.cycles",
       "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.cycles",
-      "A method call may reach the method level of a type in its own file native.archkeel_model.cycles"
     ],
     [
       "collection_gap",
@@ -1617,16 +1482,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_eval.decide",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.decide",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_eval.direction",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
@@ -1634,11 +1489,6 @@
       "collection_gap",
       "native.archkeel_eval.direction",
       "A method call may reach the method as_str of a type in its own file native.archkeel_model.boundary_judge"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.direction",
-      "A method call may reach the method contract_evidence of a type in its own file native.archkeel_model.settings"
     ],
     [
       "collection_gap",
@@ -1662,11 +1512,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_eval.direction",
-      "A method call may reach the method settings of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_eval.external",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
@@ -1683,12 +1528,7 @@
     [
       "collection_gap",
       "native.archkeel_eval.external",
-      "A method call may reach the method imports of a type in its own file native.archkeel_model.edges"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.external",
-      "A method call may reach the method imports of a type in its own file native.archkeel_model.graph"
+      "A method call may reach the method id of a type in its own file native.archkeel_model.edges"
     ],
     [
       "collection_gap",
@@ -1698,22 +1538,17 @@
     [
       "collection_gap",
       "native.archkeel_eval.external",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.external",
       "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
       "native.archkeel_eval.external",
-      "A method call may reach the method name of a type in its own file native.archkeel_model.section"
+      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
       "native.archkeel_eval.external",
-      "A method call may reach the method standard of a type in its own file native.archkeel_model.settings"
+      "A method call may reach the method name of a type in its own file native.archkeel_model.section"
     ],
     [
       "collection_gap",
@@ -1753,22 +1588,17 @@
     [
       "collection_gap",
       "native.archkeel_eval.layout",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.layout",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.layout",
       "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
       "native.archkeel_eval.layout",
       "A method call may reach the method name of a type in its own file native.archkeel_model.edges"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_eval.layout",
+      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
@@ -1832,11 +1662,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_facts.record",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_facts.request",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
@@ -1878,27 +1703,7 @@
     [
       "collection_gap",
       "native.archkeel_model.boundary_positions",
-      "A method call may reach the method boundary of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.boundary_positions",
-      "A method call may reach the method boundary of a type in its own file native.archkeel_model.needs"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.boundary_positions",
-      "A method call may reach the method count of a type in its own file native.archkeel_model.causes"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.boundary_positions",
       "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.boundary_positions",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
@@ -1909,6 +1714,11 @@
       "collection_gap",
       "native.archkeel_model.boundary_positions",
       "A method call may reach the method name of a type in its own file native.archkeel_model.edges"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_model.boundary_positions",
+      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
@@ -1933,17 +1743,12 @@
     [
       "collection_gap",
       "native.archkeel_model.boundary_surface",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.boundary_surface",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.boundary_surface",
       "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_model.boundary_surface",
+      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
@@ -1954,26 +1759,6 @@
       "collection_gap",
       "native.archkeel_model.boundary_surface",
       "A method call may reach the method source of a type in its own file native.archkeel_model.edges"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.causes",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.component_cycles",
-      "A method call may reach the method get of a type in its own file native.archkeel_model.symbols"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.component_cycles",
-      "A method call may reach the method imports of a type in its own file native.archkeel_model.edges"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.component_cycles",
-      "A method call may reach the method imports of a type in its own file native.archkeel_model.graph"
     ],
     [
       "collection_gap",
@@ -1988,11 +1773,6 @@
     [
       "collection_gap",
       "native.archkeel_model.construct_match",
-      "A method call may reach the method constructs of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.construct_match",
       "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
@@ -2003,17 +1783,12 @@
     [
       "collection_gap",
       "native.archkeel_model.construct_match",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
+      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
       "native.archkeel_model.construct_match",
       "A method call may reach the method name of a type in its own file native.archkeel_model.section"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.construct_match",
-      "A method call may reach the method push of a type in its own file native.archkeel_model.symbols"
     ],
     [
       "collection_gap",
@@ -2043,11 +1818,6 @@
     [
       "collection_gap",
       "native.archkeel_model.cycles",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.cycles",
       "A method call may reach the method components of a type in its own file native.archkeel_model.condensation"
     ],
     [
@@ -2074,26 +1844,6 @@
       "collection_gap",
       "native.archkeel_model.direction",
       "A method call may reach the method count of a type in its own file native.archkeel_model.causes"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.direction",
-      "A method call may reach the method entry of a type in its own file native.archkeel_model.boundary_facts"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.direction",
-      "A method call may reach the method get of a type in its own file native.archkeel_model.symbols"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.direction",
-      "A method call may reach the method imports of a type in its own file native.archkeel_model.edges"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.direction",
-      "A method call may reach the method imports of a type in its own file native.archkeel_model.graph"
     ],
     [
       "collection_gap",
@@ -2128,32 +1878,7 @@
     [
       "collection_gap",
       "native.archkeel_model.edges",
-      "A method call may reach the method len of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.edges",
-      "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.edges",
-      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.edges",
-      "A method call may reach the method name of a type in its own file native.archkeel_model.section"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.facade_reach",
-      "A method call may reach the method boundary of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.facade_reach",
-      "A method call may reach the method boundary of a type in its own file native.archkeel_model.needs"
+      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
@@ -2183,32 +1908,17 @@
     [
       "collection_gap",
       "native.archkeel_model.gap_effects",
-      "A method call may reach the method doors of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.gap_effects",
-      "A method call may reach the method doors of a type in its own file native.archkeel_model.needs"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.gap_effects",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
       "native.archkeel_model.gap_effects",
-      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
       "native.archkeel_model.gap_effects",
       "A method call may reach the method members of a type in its own file native.archkeel_model.cycles"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.gap_effects",
-      "A method call may reach the method push of a type in its own file native.archkeel_model.symbols"
     ],
     [
       "collection_gap",
@@ -2233,11 +1943,6 @@
     [
       "collection_gap",
       "native.archkeel_model.graph",
-      "A method call may reach the method count of a type in its own file native.archkeel_model.causes"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.graph",
       "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
     ],
     [
@@ -2253,7 +1958,7 @@
     [
       "collection_gap",
       "native.archkeel_model.imports",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method data of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -2278,22 +1983,17 @@
     [
       "collection_gap",
       "native.archkeel_model.interface",
-      "A method call may reach the method imports of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.interface",
       "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
       "native.archkeel_model.interface",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
       "native.archkeel_model.interface",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
+      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
@@ -2334,11 +2034,6 @@
       "collection_gap",
       "native.archkeel_model.measures",
       "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.model",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
     [
       "collection_gap",
@@ -2357,11 +2052,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_model.model",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_model.modules",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
@@ -2378,7 +2068,7 @@
     [
       "collection_gap",
       "native.archkeel_model.observed",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -2398,22 +2088,12 @@
     [
       "collection_gap",
       "native.archkeel_model.pair_gaps",
-      "A method call may reach the method entry of a type in its own file native.archkeel_model.boundary_facts"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.pair_gaps",
-      "A method call may reach the method get of a type in its own file native.archkeel_model.symbols"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.pair_gaps",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.pair_gaps",
       "A method call may reach the method members of a type in its own file native.archkeel_model.cycles"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_model.pair_gaps",
+      "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -2429,6 +2109,11 @@
       "collection_gap",
       "native.archkeel_model.pair_gaps",
       "A method call may reach the method name of a type in its own file native.archkeel_model.section"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_model.pair_gaps",
+      "A method call may reach the method push of a type in its own file native.archkeel_model.symbols"
     ],
     [
       "collection_gap",
@@ -2477,23 +2162,8 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_model.proof",
-      "A method call may reach the method symbols of a type in its own file native.archkeel_model.constructs"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.proof",
-      "A method call may reach the method symbols of a type in its own file native.archkeel_model.needs"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_model.published",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.published",
-      "A method call may reach the method entry of a type in its own file native.archkeel_model.boundary_facts"
     ],
     [
       "collection_gap",
@@ -2504,16 +2174,6 @@
       "collection_gap",
       "native.archkeel_model.published",
       "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.published",
-      "A method call may reach the method published of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.published",
-      "A method call may reach the method published of a type in its own file native.archkeel_model.needs"
     ],
     [
       "collection_gap",
@@ -2563,11 +2223,6 @@
     [
       "collection_gap",
       "native.archkeel_model.receipts",
-      "A method call may reach the method get of a type in its own file native.archkeel_model.symbols"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.receipts",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
@@ -2588,22 +2243,12 @@
     [
       "collection_gap",
       "native.archkeel_model.receipts",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
+      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
       "native.archkeel_model.receipts",
       "A method call may reach the method name of a type in its own file native.archkeel_model.section"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.receipts",
-      "A method call may reach the method namespace of a type in its own file native.archkeel_model.settings"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.receipts",
-      "A method call may reach the method observed of a type in its own file native.archkeel_model.graph"
     ],
     [
       "collection_gap",
@@ -2653,16 +2298,6 @@
     [
       "collection_gap",
       "native.archkeel_model.scope",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.scope",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_model.boundary_judge"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.scope",
       "A method call may reach the method id of a type in its own file native.archkeel_model.cycles"
     ],
     [
@@ -2677,11 +2312,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_model.scope",
-      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_model.scope_order",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
@@ -2703,32 +2333,12 @@
     [
       "collection_gap",
       "native.archkeel_model.scope_receipt",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.scope_receipt",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_model.boundary_judge"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.scope_receipt",
       "A method call may reach the method components of a type in its own file native.archkeel_model.condensation"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.scope_receipt",
-      "A method call may reach the method holds of a type in its own file native.archkeel_model.domain"
     ],
     [
       "collection_gap",
       "native.archkeel_model.scope_receipt",
       "A method call may reach the method members of a type in its own file native.archkeel_model.cycles"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.scope_receipt",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
@@ -2743,12 +2353,12 @@
     [
       "collection_gap",
       "native.archkeel_model.scope_receipt",
-      "A method call may reach the method name of a type in its own file native.archkeel_model.section"
+      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
       "native.archkeel_model.scope_receipt",
-      "A method call may reach the method roots of a type in its own file native.archkeel_model.settings"
+      "A method call may reach the method name of a type in its own file native.archkeel_model.section"
     ],
     [
       "collection_gap",
@@ -2918,11 +2528,6 @@
     [
       "collection_gap",
       "native.archkeel_model.uml",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.uml",
       "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
@@ -2934,6 +2539,11 @@
       "collection_gap",
       "native.archkeel_model.uml",
       "A method call may reach the method language of a type in its own file native.archkeel_model.graph"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_model.uml",
+      "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -3037,21 +2647,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_model.uml_facts",
-      "A method call may reach the method observed of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.uml_facts",
-      "A method call may reach the method symbols of a type in its own file native.archkeel_model.constructs"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.uml_facts",
-      "A method call may reach the method symbols of a type in its own file native.archkeel_model.needs"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_model.uml_inventory",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
@@ -3083,11 +2678,6 @@
     [
       "collection_gap",
       "native.archkeel_model.uml_scope",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.uml_scope",
       "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
@@ -3098,17 +2688,17 @@
     [
       "collection_gap",
       "native.archkeel_model.uml_scope",
+      "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_model.uml_scope",
       "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
       "native.archkeel_model.uml_scope",
       "A method call may reach the method name of a type in its own file native.archkeel_model.section"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.uml_scope",
-      "A method call may reach the method packages of a type in its own file native.archkeel_model.graph"
     ],
     [
       "collection_gap",
@@ -3173,16 +2763,6 @@
     [
       "collection_gap",
       "native.archkeel_model.uml_tree",
-      "A method call may reach the method get of a type in its own file native.archkeel_model.symbols"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.uml_tree",
-      "A method call may reach the method graph of a type in its own file native.archkeel_model.model"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.uml_tree",
       "A method call may reach the method id of a type in its own file native.archkeel_model.cycles"
     ],
     [
@@ -3208,17 +2788,12 @@
     [
       "collection_gap",
       "native.archkeel_model.uml_tree",
-      "A method call may reach the method language of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.uml_tree",
-      "A method call may reach the method modules of a type in its own file native.archkeel_model.modules"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.uml_tree",
       "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_model.uml_tree",
+      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
     ],
     [
       "collection_gap",
@@ -3542,11 +3117,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_python_collector.claims",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_python_collector.discover",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
@@ -3594,11 +3164,6 @@
       "collection_gap",
       "native.archkeel_python_collector.module",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -3718,7 +3283,7 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.survey.copy_local",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -3734,11 +3299,6 @@
       "collection_gap",
       "native.archkeel_python_collector.survey.declared",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.declared",
-      "A method call may reach the method text of a type in its own file native.archkeel_facts.type_shape"
     ],
     [
       "collection_gap",
@@ -4023,7 +3583,7 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.survey.imports",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -4043,7 +3603,7 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.survey.lazy",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -4142,11 +3702,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_python_collector.survey.lazy_table",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_python_collector.survey.lazy_writes",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
@@ -4214,16 +3769,6 @@
       "collection_gap",
       "native.archkeel_python_collector.survey.package_body",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.package_body",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.parse_files",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
     [
       "collection_gap",
@@ -4349,11 +3894,6 @@
       "collection_gap",
       "native.archkeel_python_collector.survey.walks",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.walks",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -4497,11 +4037,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_report.report",
-      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_report.ruling",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
@@ -4524,11 +4059,6 @@
       "collection_gap",
       "native.archkeel_report.ruling",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.ruling",
-      "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
     ],
     [
       "collection_gap",
@@ -4588,12 +4118,12 @@
     [
       "collection_gap",
       "native.archkeel_report.ruling.explain",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
       "native.archkeel_report.ruling.explain",
-      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
+      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -4619,11 +4149,6 @@
       "collection_gap",
       "native.archkeel_report.ruling.explain",
       "A method call may reach the method word of a type in its own file native.archkeel_model.sides"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector",
-      "A method call may reach the method encode of a type in its own file native.archkeel_rust_collector.reply"
     ],
     [
       "collection_gap",
@@ -4707,11 +4232,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_rust_collector.edges",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_rust_collector.impl_edges",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
@@ -4734,11 +4254,6 @@
       "collection_gap",
       "native.archkeel_rust_collector.impl_edges.orphans",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.impl_edges.orphans",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -4757,23 +4272,8 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_rust_collector.impl_globs",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.impl_globs",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_rust_collector.macro_identity",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.macro_identity",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -4793,17 +4293,12 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.module_edges",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
       "native.archkeel_rust_collector.module_edges",
       "A method call may reach the method sees of a type in its own file native.archkeel_rust_collector.scan.state"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.modules",
-      "A method call may reach the method contains of a type in its own file native.archkeel_rust_collector.crates"
     ],
     [
       "collection_gap",
@@ -4847,16 +4342,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_rust_collector.modules.walk",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.names",
-      "A method call may reach the method contains of a type in its own file native.archkeel_rust_collector.crates"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_rust_collector.names",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
@@ -4883,27 +4368,7 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.reply",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.reply",
       "A method call may reach the method inputs of a type in its own file native.archkeel_snapshot.snapshot"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.reply",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.resolve",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.routes",
-      "A method call may reach the method contains of a type in its own file native.archkeel_rust_collector.crates"
     ],
     [
       "collection_gap",
@@ -4933,22 +4398,7 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.tree",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.tree",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_snapshot.snapshot",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_snapshot.snapshot.listing",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -4994,11 +4444,6 @@
       "collection_gap",
       "native.archkeel_store.records",
       "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_store.standard",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -5102,36 +4547,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.class_data",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.class_data",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.references"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.class_data",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.site_types"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.class_data",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.class_data",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect",
-      "A method call may reach the method file of a type in its own file native.archkeel_typescript_collector.script_state"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.collect",
       "A method call may reach the method is_dir of a type in its own file native.archkeel_snapshot.snapshot"
     ],
@@ -5182,16 +4597,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.collect.import_record",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect.import_target",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.collect.import_target",
       "A method call may reach the method readable of a type in its own file native.archkeel_snapshot.snapshot"
     ],
@@ -5224,16 +4629,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.collect.imports",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect.imports",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect.script_run",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
     ],
     [
       "collection_gap",
@@ -5283,6 +4678,11 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.concerns",
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.concerns",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
     ],
     [
@@ -5292,23 +4692,13 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.concerns",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.concerns",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.config",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
     [
       "collection_gap",
       "native.archkeel_typescript_collector.config",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -5322,18 +4712,8 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.construct_records",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.definitions",
       "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.discover",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -5478,26 +4858,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.records",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.members"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.records",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.references"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.records",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.site_types"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.records",
-      "A method call may reach the method cite of a type in its own file native.archkeel_typescript_collector.script_records"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.records",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
@@ -5523,16 +4883,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.references",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.references",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.references",
       "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
     ],
     [
@@ -5554,11 +4904,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.resolution",
       "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.site_types"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.resolution",
-      "A method call may reach the method decode of a type in its own file native.archkeel_typescript_collector.site_paths"
     ],
     [
       "collection_gap",
@@ -5592,18 +4937,8 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.resolver",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.scan",
       "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_alias",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -5627,13 +4962,13 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.script_bind",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
+      "native.archkeel_typescript_collector.script_code",
+      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.members"
     ],
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_code",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.members"
+      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.references"
     ],
     [
       "collection_gap",
@@ -5643,27 +4978,12 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_code",
-      "A method call may reach the method field of a type in its own file native.archkeel_typescript_collector.tree.cx"
+      "A method call may reach the method bytes of a type in its own file native.archkeel_typescript_collector.tree.cx"
     ],
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_code",
       "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_code",
-      "A method call may reach the method kind of a type in its own file native.archkeel_typescript_collector.references"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_code",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_code",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
     ],
     [
       "collection_gap",
@@ -5679,21 +4999,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_declarations",
       "A method call may reach the method k of a type in its own file native.archkeel_typescript_collector.tree.cx"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declarations",
-      "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declarations",
-      "A method call may reach the method kind of a type in its own file native.archkeel_typescript_collector.references"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declarations",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
     ],
     [
       "collection_gap",
@@ -5724,16 +5029,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_declare",
       "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declare",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.script_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declare",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
     ],
     [
       "collection_gap",
@@ -5818,26 +5113,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_factory",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_factory",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_factory",
-      "A method call may reach the method k of a type in its own file native.archkeel_typescript_collector.script_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_factory",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_factory",
       "A method call may reach the method text of a type in its own file native.archkeel_facts.type_shape"
     ],
     [
@@ -5852,11 +5127,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.script_flags",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.script_forms",
       "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.members"
     ],
@@ -5869,16 +5139,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_forms",
       "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_forms",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_forms",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
     ],
     [
       "collection_gap",
@@ -5908,22 +5168,7 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_global",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_global",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_global",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_host",
-      "A method call may reach the method in_type of a type in its own file native.archkeel_typescript_collector.script_tree"
+      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -5934,16 +5179,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_host",
       "A method call may reach the method kind of a type in its own file native.archkeel_typescript_collector.references"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_host",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_host",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.tree.cx"
     ],
     [
       "collection_gap",
@@ -5953,27 +5188,7 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_keys",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.members"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_keys",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.site_types"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_keys",
-      "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_keys",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_keys",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.tree.cx"
+      "A method call may reach the method unwrapped of a type in its own file native.archkeel_typescript_collector.tree.cx"
     ],
     [
       "collection_gap",
@@ -5983,11 +5198,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_lookup",
-      "A method call may reach the method field of a type in its own file native.archkeel_typescript_collector.tree.cx"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_lookup",
       "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
     ],
     [
@@ -5998,12 +5208,7 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_lookup",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_lookup",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
+      "A method call may reach the method unwrapped of a type in its own file native.archkeel_typescript_collector.tree.cx"
     ],
     [
       "collection_gap",
@@ -6013,27 +5218,7 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_namespace",
-      "A method call may reach the method k of a type in its own file native.archkeel_typescript_collector.script_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_namespace",
-      "A method call may reach the method k of a type in its own file native.archkeel_typescript_collector.tree.cx"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_namespace",
       "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_namespace",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_numeric",
-      "A method call may reach the method field of a type in its own file native.archkeel_typescript_collector.script_tree"
     ],
     [
       "collection_gap",
@@ -6049,11 +5234,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_numeric",
       "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_numeric",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
     ],
     [
       "collection_gap",
@@ -6083,12 +5263,7 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_project",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_project",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
+      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -6143,17 +5318,12 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_records",
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.script_records",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_records",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_records",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
     ],
     [
       "collection_gap",
@@ -6179,16 +5349,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_state",
       "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.site_types"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_syntax",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_syntax",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
     ],
     [
       "collection_gap",
@@ -6253,17 +5413,7 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_window",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_window",
       "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_window",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
     ],
     [
       "collection_gap",
@@ -6277,11 +5427,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.script_wrapper",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.script_writes",
       "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.members"
     ],
@@ -6289,21 +5434,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_writes",
       "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.site_types"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_writes",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_writes",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_writes",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
     ],
     [
       "collection_gap",
@@ -6348,31 +5478,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.symbol_table",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.symbol_table",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.members"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.symbol_table",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.references"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.symbol_table",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.site_types"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.symbol_table",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.symbol_table",
       "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
     ],
     [
@@ -6409,21 +5514,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.umd",
       "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.site_types"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.umd",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.umd",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.umd",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
     ],
     [
       "collection_gap",
@@ -6438,7 +5528,7 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.unselected",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
       "collection_gap",
@@ -6452,27 +5542,12 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.walk",
-      "A method call may reach the method is_empty of a type in its own file native.archkeel_typescript_collector.site_paths"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.walk",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_wire.stream",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
     [
       "collection_gap",
       "native.archkeel_wire.stream",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_wire.typed",
       "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ]
   ],

@@ -41,9 +41,13 @@ pub(crate) struct PackageMap {
     pub(crate) declared: BTreeMap<String, Origin>,
     /// The members of a workspace that the root `pubspec.yaml` declares.
     pub(crate) members: BTreeSet<String>,
-    /// The root package is a member of a workspace above the snapshot root, which can resolve
+    /// The root package is a member of a workspace that the survey cannot read, which can resolve
     /// any package name to another member or override it.
     pub(crate) unseen_workspace: bool,
+    /// The names that a member of the workspace above the package declares with a local origin.
+    pub(crate) local_names: BTreeSet<String>,
+    /// The directory of the workspace root above the package, when the survey read it (#1539).
+    pub(crate) workspace_root: Option<String>,
 }
 
 impl PackageMap {
@@ -59,14 +63,21 @@ impl PackageMap {
         if self.members.contains(package) {
             return local("a member of the workspace; its URIs are not resolved");
         }
+        if self.local_names.contains(package) {
+            return local("a member of the workspace declares it with a local origin");
+        }
         match self.declared.get(package) {
             Some(Origin::Local(why)) => local(why),
             Some(_) => Ok(()),
             // A transitive dependency: only a local package can make it local, by its own path.
-            None if self.declared.values().any(|origin| matches!(origin, Origin::Local(_))) => Err((
-                GapName::UndeclaredPackage,
-                format!("{package}: no dependency of the root pubspec.yaml declares it, and a local dependency can make it local"),
-            )),
+            None if !BTreeSet::is_empty(&self.local_names)
+                || self.declared.values().any(|origin| matches!(origin, Origin::Local(_))) =>
+            {
+                Err((
+                    GapName::UndeclaredPackage,
+                    format!("{package}: no dependency of the package pubspec.yaml declares it, and a local dependency can make it local"),
+                ))
+            }
             None => Ok(()),
         }
     }

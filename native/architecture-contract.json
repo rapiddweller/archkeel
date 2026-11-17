@@ -113,6 +113,9 @@
         "native.archkeel_facts.request:RustRequest",
         "native.archkeel_facts.request:TypeScriptRequest",
         "native.archkeel_facts.sections:SignalFact",
+        "native.archkeel_facts.standard:StandardFacts",
+        "native.archkeel_facts.standard:Wrapped",
+        "native.archkeel_facts.standard:WrappedSlot",
         "native.archkeel_facts.surveys:gaps_are_unknowns",
         "native.archkeel_facts.type_shape:Binding",
         "native.archkeel_facts.type_shape:Family",
@@ -744,6 +747,7 @@
             "native.archkeel_facts.nested",
             "native.archkeel_facts.nullable",
             "native.archkeel_facts.profile_traits",
+            "native.archkeel_facts.standard",
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
@@ -776,6 +780,10 @@
         "native.archkeel_model.boundary_facts:Class",
         "native.archkeel_model.boundary_facts:Entry",
         "native.archkeel_model.boundary_facts:Origin",
+        "native.archkeel_model.boundary_facts:Slot",
+        "native.archkeel_model.boundary_facts:Standard",
+        "native.archkeel_model.boundary_facts:standard_of",
+        "native.archkeel_model.boundary_facts:wrapped_of",
         "native.archkeel_model.condensation:condense",
         "native.archkeel_model.constructs:ConstructMatch",
         "native.archkeel_model.constructs:ConstructSite",
@@ -964,8 +972,9 @@
         },
         {
           "component": "model-graph",
-          "rationale": "Read the modules, owners, imports, edges and symbols of the reply.",
+          "rationale": "Read the modules, owners, imports, edges, settings and construct symbols of the reply.",
           "through": [
+            "native.archkeel_model.constructs",
             "native.archkeel_model.graph",
             "native.archkeel_model.observed",
             "native.archkeel_model.ownership",
@@ -1033,13 +1042,15 @@
             "native.archkeel_contract:ForbiddenConstruct",
             "native.archkeel_contract:ForbiddenDependency",
             "native.archkeel_contract:InterfaceBoundary",
+            "native.archkeel_contract:PremiseName",
             "native.archkeel_contract:PublicItemKind",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
             "native.archkeel_contract:SiblingIsolation",
             "native.archkeel_contract:SymbolClassKind",
             "native.archkeel_contract:SymbolPlacement",
-            "native.archkeel_contract:UnusedPublic"
+            "native.archkeel_contract:UnusedPublic",
+            "native.archkeel_contract:declared_premises"
           ]
         },
         {
@@ -1048,6 +1059,7 @@
           "through": [
             "native.archkeel_facts.data",
             "native.archkeel_facts.envelope",
+            "native.archkeel_facts.standard",
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab"
           ]
@@ -1185,12 +1197,13 @@
         },
         {
           "component": "model-graph",
-          "rationale": "Read the modules, owners, imports, edges and symbols of the reply.",
+          "rationale": "Read the modules, owners, imports, edges and symbols of the reply, and the namespace, roots and contract evidence of its settings.",
           "through": [
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph",
             "native.archkeel_model.ownership",
-            "native.archkeel_model.published_items"
+            "native.archkeel_model.published_items",
+            "native.archkeel_model.settings"
           ]
         },
         {
@@ -1303,8 +1316,9 @@
         },
         {
           "component": "model-graph",
-          "rationale": "Read the modules, owners, imports, edges and symbols of the reply.",
+          "rationale": "Read the modules, packages, imports, symbols and observed facts of the model graph that a UML target is compared with (AD-804).",
           "through": [
+            "native.archkeel_model.graph",
             "native.archkeel_model.imports",
             "native.archkeel_model.modules",
             "native.archkeel_model.symbols"
@@ -1597,9 +1611,12 @@
         },
         {
           "component": "model-graph",
-          "rationale": "Call the methods of the modules, the imports and the graph of the model (#953: a method of another module is a use of that module).",
+          "rationale": "Read the modules, packages, imports, cycles and settings of the model graph that the rules decide on (#953, AD-804).",
           "through": [
-            "native.archkeel_model.imports"
+            "native.archkeel_model.cycles",
+            "native.archkeel_model.graph",
+            "native.archkeel_model.imports",
+            "native.archkeel_model.settings"
           ]
         },
         {
@@ -2350,6 +2367,13 @@
             "native.archkeel_contract:parse",
             "native.archkeel_contract:uml_target_id"
           ]
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Add the declared reach of the door sites of the root contract to the needs of the run (AD-664, AD-804).",
+          "through": [
+            "native.archkeel_model.needs"
+          ]
         }
       ],
       "public": [
@@ -2471,8 +2495,9 @@
         },
         {
           "component": "model-run",
-          "rationale": "Call the methods of the model and of its contract tree (#953: a method of another module is a use of that module).",
+          "rationale": "Call the methods of the model and of its contract tree: the root model gives the graph of the run (#953, AD-804).",
           "through": [
+            "native.archkeel_model.model",
             "native.archkeel_model.tree"
           ]
         },
@@ -2495,6 +2520,14 @@
           "rationale": "Run the checks of the collector of a reply after the store, also for the byte door of the harness (AD-688).",
           "through": [
             "native.archkeel_collect:check"
+          ]
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Read the modules and the imports of the model graph, with their resolution and evidence, for the topology projection (AD-804).",
+          "through": [
+            "native.archkeel_model.graph",
+            "native.archkeel_model.imports"
           ]
         }
       ],
@@ -2576,8 +2609,9 @@
         },
         {
           "component": "model-graph",
-          "rationale": "Call the methods of the modules, the imports and the graph of the model (#953: a method of another module is a use of that module).",
+          "rationale": "Read the modules, the imports, the graph and the cycles of the model: the baseline counts the internal edges of each cycle (#953, AD-804).",
           "through": [
+            "native.archkeel_model.cycles",
             "native.archkeel_model.graph"
           ]
         },
@@ -2586,6 +2620,13 @@
           "rationale": "Call the methods of the ruling (#953: a method of another module is a use of that module).",
           "through": [
             "native.archkeel_report.ruling"
+          ]
+        },
+        {
+          "component": "report-check",
+          "rationale": "Read the decided status of the ruling to mark a baseline part of an UNKNOWN run (AD-546, AD-804).",
+          "through": [
+            "native.archkeel_report.report"
           ]
         }
       ],
@@ -3277,6 +3318,7 @@
         "native.archkeel_dart_collector.discover:PACKAGE_FILES",
         "native.archkeel_dart_collector.discover:Source",
         "native.archkeel_dart_collector.discover:discover",
+        "native.archkeel_dart_collector.discover:pubspec_path",
         "native.archkeel_dart_collector.discover:scan_roots"
       ],
       "decided_by": "architect"
@@ -4084,7 +4126,9 @@
         "native.archkeel_typescript_collector.scan:scan",
         "native.archkeel_typescript_collector.script_types:Blocker",
         "native.archkeel_typescript_collector.script_types:FactoryMember",
+        "native.archkeel_typescript_collector.script_types:LITERAL_KINDS",
         "native.archkeel_typescript_collector.script_types:Member",
+        "native.archkeel_typescript_collector.script_types:Patch",
         "native.archkeel_typescript_collector.script_types:Script",
         "native.archkeel_typescript_collector.script_types:ScriptAlias",
         "native.archkeel_typescript_collector.script_types:ScriptDestructure",
@@ -4122,6 +4166,7 @@
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
+        "native.archkeel_typescript_collector.script_patch",
         "native.archkeel_typescript_collector.script_prototype",
         "native.archkeel_typescript_collector.script_publish",
         "native.archkeel_typescript_collector.script_refs",
@@ -4548,6 +4593,7 @@
         "native.archkeel_typescript_collector.script_deps",
         "native.archkeel_typescript_collector.script_global",
         "native.archkeel_typescript_collector.script_outside",
+        "native.archkeel_typescript_collector.script_outside_detector",
         "native.archkeel_typescript_collector.script_outside_forms",
         "native.archkeel_typescript_collector.script_outside_names",
         "native.archkeel_typescript_collector.script_outside_page",
@@ -4610,8 +4656,9 @@
         },
         {
           "component": "ts-parse",
-          "rationale": "Read a vendored library as a closed UMD envelope.",
+          "rationale": "Read a vendored library as a closed UMD envelope, and read a file outside the scan roots with the write detector of the scan (AD-788).",
           "through": [
+            "native.archkeel_typescript_collector.parse",
             "native.archkeel_typescript_collector.syntax",
             "native.archkeel_typescript_collector.umd_publication"
           ]
@@ -5012,13 +5059,18 @@
         "native.archkeel_rust_collector.attrs.model:Usage",
         "native.archkeel_rust_collector.definitions:Access",
         "native.archkeel_rust_collector.definitions:Definition",
+        "native.archkeel_rust_collector.definitions:Field",
         "native.archkeel_rust_collector.definitions:Form",
         "native.archkeel_rust_collector.definitions:ImplBlock",
         "native.archkeel_rust_collector.definitions:Member",
         "native.archkeel_rust_collector.definitions:MethodCall",
         "native.archkeel_rust_collector.definitions:Owner",
+        "native.archkeel_rust_collector.definitions:ReceiverChain",
+        "native.archkeel_rust_collector.definitions:Root",
         "native.archkeel_rust_collector.definitions:SelfKind",
+        "native.archkeel_rust_collector.definitions:Step",
         "native.archkeel_rust_collector.definitions:TraitImpl",
+        "native.archkeel_rust_collector.definitions:Written",
         "native.archkeel_rust_collector.macro_items:published",
         "native.archkeel_rust_collector.nesting:MAX_NESTING",
         "native.archkeel_rust_collector.nesting:too_deep",
@@ -5554,6 +5606,13 @@
           "through": [
             "native.archkeel_rust_collector.collect"
           ]
+        },
+        {
+          "component": "rs-reply",
+          "rationale": "Encode the reply that one collection builds (AD-345, AD-804).",
+          "through": [
+            "native.archkeel_rust_collector.reply"
+          ]
         }
       ],
       "public": [
@@ -5841,6 +5900,7 @@
             "native.archkeel_facts.pyminor",
             "native.archkeel_facts.request",
             "native.archkeel_facts.sections:SignalFact",
+            "native.archkeel_facts.standard",
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
@@ -6674,6 +6734,7 @@
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
+        "native.archkeel_typescript_collector.script_patch",
         "native.archkeel_typescript_collector.script_outside",
         "native.archkeel_typescript_collector.script_outside_forms",
         "native.archkeel_typescript_collector.script_publish",
@@ -6762,6 +6823,7 @@
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
+        "native.archkeel_typescript_collector.script_patch",
         "native.archkeel_typescript_collector.script_outside",
         "native.archkeel_typescript_collector.script_outside_forms",
         "native.archkeel_typescript_collector.script_publish",
@@ -7013,7 +7075,8 @@
         "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.external_loader",
-        "native.archkeel_python_collector.survey.outside.sites"
+        "native.archkeel_python_collector.survey.outside.sites",
+        "native.archkeel_python_collector.survey.stable.class_inventory"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [
@@ -7148,6 +7211,8 @@
       "dependency": "saphyr",
       "allowed_sources": [
         "native.archkeel_dart_collector.import_survey.package",
+        "native.archkeel_dart_collector.import_survey.workspace",
+        "native.archkeel_dart_collector.import_survey.pubspec_keys",
         "native.archkeel_dart_collector.cargo_toml"
       ],
       "rationale": "Only the Dart package survey reads YAML package metadata.",

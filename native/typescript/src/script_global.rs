@@ -37,6 +37,7 @@ impl<'a, 'p> Run<'a, 'p> {
             && !self.project.any_error
             && !paths.singles.contains_key(name)
             && crate::script_outside::Outside::withholds(&self.outside, name).is_none()
+            && Option::is_none(&self.outside.incomplete)
     }
 
     /// A standard global that only the named direct forms of the project keep from a proof: its

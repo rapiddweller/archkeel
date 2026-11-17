@@ -13,10 +13,11 @@
 
 use std::collections::HashSet;
 
+use archkeel_facts::standard::Wrapped;
 use archkeel_facts::type_shape::{Binding, Family, TypeShape, Unproven};
 use archkeel_facts::vocab::ClassKind;
 
-use crate::boundary_facts::{BoundaryFacts, Entry, Origin};
+use crate::boundary_facts::{standard_of, wrapped_of, BoundaryFacts, Entry, Origin, Standard};
 
 /// Why a position or an entry of a facade is not decided by syntax. The causes are closed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -132,21 +133,29 @@ pub struct Leaf {
 pub(crate) struct Judged {
     pub(crate) leaves: Vec<Leaf>,
     pub(crate) gaps: Vec<(GapCause, String)>,
+    /// True when a leaf is allowed only under the premise `standard_library_unchanged` (AD-782).
+    pub(crate) assumed: bool,
 }
 
 impl Judged {
     fn merge(&mut self, other: Judged) {
         self.leaves.extend(other.leaves);
         self.gaps.extend(other.gaps);
+        self.assumed |= other.assumed;
     }
 
     fn gap(cause: GapCause, text: &str) -> Judged {
         Judged {
             leaves: Vec::new(),
             gaps: vec![(cause, text.to_owned())],
+            assumed: false,
         }
     }
 }
+
+/// The words of a gap that the premise `standard_library_unchanged` would close (AD-782).
+pub(crate) const NEEDS_PREMISE: &str =
+    "it counts only under the contract premise standard_library_unchanged";
 
 /// What a name can reach: the records, the names that a `public` list declares and the modules of
 /// the scan.
@@ -155,6 +164,8 @@ pub(crate) struct Surface<'a> {
     /// The qualified names of the definitions that some component declares.
     pub(crate) declared: &'a HashSet<String>,
     pub(crate) scanned: &'a HashSet<&'a str>,
+    /// True when the contract declares the premise `standard_library_unchanged` (AD-782).
+    pub(crate) premise: bool,
 }
 
 /// The judge of one shape; `depth` counts the collections around it.
@@ -211,6 +222,7 @@ fn broad(text: &str, why: &str, depth: u32) -> Judged {
             broad: true,
         }],
         gaps: Vec::new(),
+        assumed: false,
     }
 }
 
@@ -253,6 +265,7 @@ fn reached(text: &str, target: &str, surface: &Surface<'_>) -> Judged {
                         broad: false,
                     }],
                     gaps: Vec::new(),
+                    assumed: false,
                 }
             }
         }
@@ -260,10 +273,56 @@ fn reached(text: &str, target: &str, surface: &Surface<'_>) -> Judged {
         Origin::Defined(_, Entry::Callable(_)) | Origin::Module => {
             Judged::gap(GapCause::Other, text)
         }
-        Origin::Missing(module) if surface.scanned.contains(module.as_str()) => {
-            Judged::gap(GapCause::UnresolvedName, text)
+        Origin::Missing { module, qualified } => {
+            if !surface.scanned.contains(module.as_str()) {
+                return standard(text, &qualified, surface);
+            }
+            // A class whose standard decorator keeps it a class (AD-782).
+            let class = matches!(
+                wrapped_of(surface.facts, &qualified),
+                Some(Wrapped::Class { .. })
+            );
+            match (
+                class && surface.premise,
+                surface.declared.contains(&qualified),
+            ) {
+                (true, true) => Judged {
+                    assumed: true,
+                    ..Judged::gap(GapCause::FieldWalk, text)
+                },
+                (true, false) => Judged {
+                    leaves: vec![Leaf {
+                        text: text.to_owned(),
+                        why: "a class that no component declares".to_owned(),
+                        depth: 0,
+                        broad: false,
+                    }],
+                    gaps: Vec::new(),
+                    assumed: true,
+                },
+                (false, _) => Judged::gap(GapCause::UnresolvedName, text),
+            }
         }
-        Origin::Missing(_) => Judged::gap(GapCause::ExternalType, text),
+    }
+}
+
+/// A name outside the scan: a type of the standard library that the collector names counts under
+/// the premise `standard_library_unchanged` (AD-782); every other name is a type outside the scan.
+pub(crate) fn standard(text: &str, qualified: &str, surface: &Surface<'_>) -> Judged {
+    match standard_of(surface.facts, qualified) {
+        None => Judged::gap(GapCause::ExternalType, text),
+        Some(Standard::Changed(reason)) => Judged::gap(
+            GapCause::ExternalType,
+            &format!("{text}: the repository may change the standard library name {qualified} ({reason})"),
+        ),
+        Some(Standard::Type) if surface.premise => Judged {
+            assumed: true,
+            ..Judged::default()
+        },
+        Some(Standard::Type) => Judged::gap(
+            GapCause::ExternalType,
+            &format!("{text}: a type of the standard library; {NEEDS_PREMISE}"),
+        ),
     }
 }
 

@@ -22,13 +22,34 @@ use super::names::{GapName, Gaps, Place};
 
 pub(crate) const CONFIG: &str = ".dart_tool/package_config.json";
 
-/// Check the configuration of `snapshot` for the own package `own`. Give its input when it is read.
+/// Check the configuration of `snapshot` for the own package `own` in the package directory
+/// `dir`. Give its input when it is read. A package below the snapshot root (#1539) has its
+/// configuration in its directory or at a workspace root: the survey does not read it there, so
+/// each such file is a gap.
 pub(crate) fn config_gaps(
     snapshot: &mut Snapshot,
     root: &str,
-    own: &str,
+    (own, dir): (&str, &str),
     gaps: &mut Gaps,
 ) -> Option<Input> {
+    if !str::is_empty(dir) {
+        let mut path = dir.to_owned();
+        let mut places = vec![CONFIG.to_owned()];
+        while !String::is_empty(&path) {
+            places.push(format!("{path}/{CONFIG}"));
+            path = path
+                .rsplit_once('/')
+                .map_or(String::new(), |(head, _)| head.to_owned());
+        }
+        for place in places {
+            if snapshot.is_file(&place) || Snapshot::is_link(snapshot, &place) {
+                let message =
+                    "the package is below the snapshot root; this configuration is not read";
+                gaps.named(GapName::PackageConfig, Place::File(&place), message);
+            }
+        }
+        return None;
+    }
     if !Snapshot::is_link(snapshot, CONFIG)
         && !snapshot.is_file(CONFIG)
         && !Snapshot::is_link(snapshot, ".dart_tool")
@@ -87,7 +108,7 @@ fn check(raw: &[u8], root: &str, own: &str) -> Result<(), String> {
             ));
         }
     }
-    if own_found || own.is_empty() {
+    if own_found || str::is_empty(own) {
         Ok(())
     } else {
         Err(format!(

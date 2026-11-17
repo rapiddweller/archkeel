@@ -13,6 +13,7 @@ pub use crate::envelope_vocab::{
     ConstructSupport, Profile, ProtocolVersion, RequirementState, Role, SectionName,
 };
 
+use crate::standard::StandardFacts;
 use std::fmt;
 
 use serde::de::{self, SeqAccess, Visitor};
@@ -97,6 +98,11 @@ object! {
         /// carry none.
         #[serde(skip)]
         pub owned_files: Vec<OwnedFile>,
+        /// The linked collector's statements about the standard library of its language, read
+        /// only under the contract premise `standard_library_unchanged` (AD-782). Wire replies
+        /// carry none.
+        #[serde(skip)]
+        pub standard: Option<StandardFacts>,
         /// The adapter that wrote the reply.
         pub adapter: Adapter,
         /// The runtime that ran the adapter.
@@ -290,6 +296,10 @@ pub struct FileFact {
     /// A proof that the file has no class declarations; absence is not such a proof.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub class_inventory_empty: Option<bool>,
+    /// A call of the file that can create a class at run time, as `path:line (callee)`; the file
+    /// then has no class inventory receipt (#1713).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_inventory_site: Option<String>,
     /// The evidence record of the file.
     pub evidence_id: EvidenceId,
 }
