@@ -35,7 +35,9 @@ as rules of the self-contract, and their current FAIL rows stay visible). Part o
    any other item (owner decision). The fix of a finding is a leading underscore or deletion
    (PEP 8), the same meaning as Rust `pub(crate)`.
 5. A PASS needs a collector that states every public symbol (`symbol_facts`). The Rust collector
-   does not state every one (AD-351), so on Rust the rule gives FAIL or UNKNOWN, never PASS. A
+   does not state every one (AD-351), so on Rust the rule gives FAIL or UNKNOWN, never PASS.
+   AD-718 replaces this: the flag is `public_symbols`, and the Rust collector states each public
+   module-level item or names the one that it cannot read. A
    collector that states no dependency symbols holds the rule (a missing name would look unused).
 6. The rule reads every import of every module: each coverage gap and each pair gap can hold it.
 

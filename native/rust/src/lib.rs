@@ -25,6 +25,7 @@ mod impl_globs;
 mod known_derive_tests;
 mod macro_identity;
 mod macro_items;
+mod macro_public;
 mod manifest;
 mod manifest_lines;
 mod module_edges;
