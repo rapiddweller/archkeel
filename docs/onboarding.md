@@ -54,7 +54,10 @@ has one owner, and no component cycle. A Python project must declare `requires-p
 
 ## 2. Read the first verdict
 
-The first verdict is `UNKNOWN`. That is correct: the draft decided nothing. The list is your work:
+The first verdict is `UNKNOWN`. That is correct: the draft decided nothing. If your code has a
+component cycle, the first verdict is `FAIL` instead, and the run says so once: "This is a real cycle
+in your code that the drafted rule 'no component cycles' catches; keep it as a finding, or change the
+rule in the contract." The list is your work:
 
 ```text
 validate: UNKNOWN -> exit 2 (0 of 2 rules cannot be decided)

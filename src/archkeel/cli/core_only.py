@@ -237,11 +237,11 @@ def _print_text(
     options: Options,
     frame: CoreFrame,
     document: Mapping[str, object],
-    ending: tuple[int, Outcome, Gap | None, list[Refusal]],
+    ending: tuple[int, Outcome, Gap | None, list[Refusal], bool],
     where: tuple[Path, ProjectRoot],
 ) -> None:
     """Print one run as text: the problems first, then the summary, or one line for a report."""
-    code, outcome, collected, failures = ending
+    code, outcome, collected, failures, drafted = ending
     binary, project = where
     root, scanned = project.path, _scanned(project)
     typed = (options.root, root)
@@ -279,6 +279,7 @@ def _print_text(
             code,
             outcome=outcome,
             scanned=scanned,
+            drafted=drafted,
             problems=problems,
             show_all=options.all,
             system=system if isinstance(system, dict) else None,
@@ -384,7 +385,8 @@ def _scan(
         return code
     if created is not None:
         print("\n".join(created.lines()), end="\n\n")
-    _print_text(options, frame, document, (code, outcome, collected, failures), (binary, project))
+    ending = (code, outcome, collected, failures, created is not None)
+    _print_text(options, frame, document, ending, (binary, project))
     return code
 
 
