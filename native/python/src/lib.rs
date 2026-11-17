@@ -63,9 +63,11 @@ pub const BUILD: Build<'static> = Build {
     code_digest: env!("ARCHKEEL_CODE_DIGEST"),
 };
 
-/// The assumption that the proofs of the survey rest on (AD-530, AD-540). The report states it
-/// with the verdict. The collector cannot see code outside the scan roots.
-const PREMISE: &str = "code outside the scan roots hands in no module object of the scan";
+/// The assumption that the proofs of the survey rest on (AD-530, AD-540, AD-770). The report
+/// states it with the verdict. The survey reads the code of the repository outside the scan roots
+/// for a visible write (`survey/outside.rs`); a test file, a name built at run time and code outside
+/// the repository are this premise.
+const PREMISE: &str = "Code outside the scan roots, including test code, hands in no module object of the scan and writes no binding of a module or class of the scan.";
 
 /// The compressed reply of the subprocess path.
 pub fn compressed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Vec<u8>, String> {
