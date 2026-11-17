@@ -76,7 +76,8 @@ def test_the_pinned_toolchain_installs_once_before_any_parallel_step(
 _MAKE_ENV = {
     k: v
     for k, v in os.environ.items()
-    if k not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "ARCHKEEL_PREBUILT_CORE"}
+    if k
+    not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "ARCHKEEL_PREBUILT_CORE", "ARCHKEEL_NATIVE_TREE"}
 }
 
 
