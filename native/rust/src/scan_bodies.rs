@@ -77,6 +77,15 @@ impl Bodies<'_> {
         }
     }
 
+    /// The names of the pattern of an `if let` or `while let` condition, in its block.
+    fn condition(&mut self, (cond, attrs): (&Expr, &[syn::Attribute]), block: &syn::Block) {
+        if let (Expr::Let(found), true) = (cond, attrs.is_empty()) {
+            let body = |sites: &mut ClosureSites| sites.visit_block(block);
+            let of = self.value(&found.expr).filter(|_| found.attrs.is_empty());
+            self.pattern(&found.pat, of, &body);
+        }
+    }
+
     /// The chain of a matched value.
     fn value(&self, expr: &Expr) -> Option<ReceiverChain> {
         let names: &dyn Names = &*self.binder;
@@ -122,20 +131,12 @@ impl<'ast> Visit<'ast> for Bodies<'_> {
     }
 
     fn visit_expr_if(&mut self, node: &'ast syn::ExprIf) {
-        if let (Expr::Let(found), true) = (&*node.cond, node.attrs.is_empty()) {
-            let body = |sites: &mut ClosureSites| sites.visit_block(&node.then_branch);
-            let of = self.value(&found.expr).filter(|_| found.attrs.is_empty());
-            self.pattern(&found.pat, of, &body);
-        }
+        self.condition((&node.cond, &node.attrs), &node.then_branch);
         visit::visit_expr_if(self, node);
     }
 
     fn visit_expr_while(&mut self, node: &'ast syn::ExprWhile) {
-        if let (Expr::Let(found), true) = (&*node.cond, node.attrs.is_empty()) {
-            let body = |sites: &mut ClosureSites| sites.visit_block(&node.body);
-            let of = self.value(&found.expr).filter(|_| found.attrs.is_empty());
-            self.pattern(&found.pat, of, &body);
-        }
+        self.condition((&node.cond, &node.attrs), &node.body);
         visit::visit_expr_while(self, node);
     }
 
