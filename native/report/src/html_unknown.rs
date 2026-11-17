@@ -210,7 +210,9 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
             ));
         }
     }
-    if ["other", "named", "scoped_gaps"].contains(&found.kind) {
+    // The fold is offered only when it adds something: a reason that the title already says whole
+    // is not repeated.
+    if ["other", "named", "scoped_gaps"].contains(&found.kind) && found.reason != title(found) {
         html.push_str(&format!(
             "<details class=\"rp-fold\"><summary class=\"caption\">What the core says</summary><p class=\"rp-fold__body\">{}</p></details>",
             escape(found.reason)

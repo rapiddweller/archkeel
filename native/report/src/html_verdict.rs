@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The verdict and the next steps (AD-496). The heading `<h1>Verdict: STATUS</h1>` is fixed text
-//! that the shell checks; the card shows the same status and the counts of the frame.
+//! that the shell checks; one card shows the status, the counts and the next steps of the frame.
 
 use super::atlas_tree::DRAFT_WORD;
 use super::causes;
@@ -238,48 +238,6 @@ fn next(frame: &Frame, places: &Places) -> String {
     )
 }
 
-/// One line for each of the three largest causes of the UNKNOWN rules, without rule ids: the ids
-/// are in the card of the cause. A cause is one short sentence and the number of the rules.
-fn top_causes(frame: &Frame) -> String {
-    let all = causes::grouped(frame);
-    if all.is_empty() {
-        return String::new();
-    }
-    // Every number below is a count of the list of causes that the Unknown section shows.
-    let (rules, named): (usize, usize) = all.iter().fold((0, 0), |(r, n), cause| {
-        (r + cause.rules.len(), n + cause.named)
-    });
-    let keeping = if all.len() == 1 {
-        "1 cause keeps".to_owned()
-    } else {
-        format!("{} keep", count(all.len(), "cause"))
-    };
-    let no_rule = format!("{} with no rule", count(named, "gap"));
-    let mut lines = format!(
-        "<p class=\"body-sm ak-verdict__note\">{keeping} the run open: {} and {no_rule}.</p>",
-        count(rules, "unknown rule")
-    );
-    for cause in all.iter().take(3) {
-        let held = if cause.rules.is_empty() {
-            format!("{} with no rule", count(cause.named, "gap"))
-        } else {
-            count(cause.rules.len(), "unknown rule")
-        };
-        lines.push_str(&format!(
-            "<p class=\"body-sm ak-verdict__note\">{held}: {}</p>",
-            escape(&causes::title(cause))
-        ));
-    }
-    let more = all.len().saturating_sub(3);
-    if more > 0 {
-        lines.push_str(&format!(
-            "<p class=\"body-sm ak-verdict__note\"><a href=\"#unknown\">{} more</a></p>",
-            count(more, "cause")
-        ));
-    }
-    lines
-}
-
 /// The verdict card and the next steps: the first block of the page.
 pub(super) fn section(frame: &Frame, places: &Places) -> String {
     let status = Shown::of_run(frame.status);
@@ -296,25 +254,26 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
             stat("Gaps with no rule", frame.named.len())
         }
     };
+    // One block: the status, one plain sentence, the counts and the next steps. A cause is named
+    // once, in the first step that closes it; the Unknown section holds its detail.
     format!(
         "<div class=\"rp-head\"><h1>Verdict: {}</h1><section class=\"ak-verdict ak-verdict--{state}\" aria-label=\"Verdict\">\
-<span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\
-<p class=\"body-sm ak-verdict__note\">{}</p>{}{}{}{}{}<dl class=\"ak-verdict__stats\">{}{}{}{}</dl></section>{}</div>
+<div class=\"ak-verdict__main\"><span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\
+<p class=\"body-sm ak-verdict__note\">{}</p><dl class=\"ak-verdict__stats\">{}{}{}{}</dl>{}{}{}{}</div>{}</section></div>
 ",
         run_word(frame.status),
         status_icon(status),
         run_word(frame.status),
         escape(&title(frame, places)),
         note(frame.status),
-        baseline(frame),
-        premise(frame),
-        doors(frame),
-        calls(frame),
-        top_causes(frame),
         stat("Rules PASS", frame.rules_with(RuleVerdict::Pass)),
         stat("Rules FAIL", frame.rules_with(RuleVerdict::Fail)),
         stat("Rules UNKNOWN", frame.rules_with(RuleVerdict::Unknown)),
         gaps(frame),
+        baseline(frame),
+        premise(frame),
+        doors(frame),
+        calls(frame),
         next(frame, places)
     )
 }

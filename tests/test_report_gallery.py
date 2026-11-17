@@ -168,6 +168,8 @@ def test_the_entry_is_the_system_report_with_the_explorer_and_the_self_reports_k
     assert json.dumps({"root": "<repo>"}) in page
     assert "Fixture reports" in page
     assert 'href="showcase/index.html"' in page
+    # The open page is marked in the navigation.
+    assert 'href="self/index.html" aria-current="page">System</a>' in page
     assert "served-a" not in page
     for name in ("core", "shell"):
         assert f'href="self/{name}.html"' in page
@@ -175,10 +177,8 @@ def test_the_entry_is_the_system_report_with_the_explorer_and_the_self_reports_k
             assert (out / "self" / f"{name}.{ext}").is_file()
         assert (out / "self" / f"{name}-badge.json").is_file()
         # The page of a part links back to the system page.
-        assert (
-            'href="index.html">Back to the system report'
-            in (out / "self" / f"{name}.html").read_text()
-        )
+        part = (out / "self" / f"{name}.html").read_text()
+        assert '<a href="index.html">System</a>' in part and 'aria-current="page"' in part
 
 
 def test_a_self_badge_shows_the_counts_and_the_colour_of_the_status(tmp_path: Path) -> None:
