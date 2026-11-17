@@ -16,6 +16,12 @@ use crate::collect::tests::{provenance, request};
 
 const A: &str = "window.open();\n";
 
+#[test]
+fn a_wrapped_platform_prototype_that_escapes_keeps_the_global_unproven() {
+    assert!(gap("consume((((EventTarget.prototype as any))));"));
+    assert!(gap("consume(((Object.getPrototypeOf(window) as any)));"));
+}
+
 /// The project has a gap that holds the global `open`.
 fn gap(b: &str) -> bool {
     let b = format!("export {{}};\nconst k = ['op', 'en'].join('');\n{b}\n");

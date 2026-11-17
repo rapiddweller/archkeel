@@ -187,12 +187,19 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     pub(crate) fn declarations(&self) -> Declarations {
         let tree: &Tree<'_, '_> = self.tree;
         let mut found = Gathered::default();
+        let mut values = HashMap::new();
+        for node in tree.nodes.iter().rev().copied() {
+            if let Some(inner) = tree.cx.unwrap_one(node) {
+                values.insert(node.id(), values.get(&inner.id()).copied().unwrap_or(inner));
+            }
+        }
         let mut targets = self.targets.iter().peekable();
         for node in tree.nodes.iter().copied() {
             found.writes.extend(tree.declaration_write(node));
             found.check(self.node_write(node), tree.span(node), form_of(node));
             found.check(
-                self.prototype_escape(node).then_some(Written::Unknown),
+                self.prototype_escape(node, values.get(&node.id()).copied().unwrap_or(node))
+                    .then_some(Written::Unknown),
                 tree.span(node),
                 "a prototype of the global object that is passed on",
             );
