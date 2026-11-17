@@ -57,9 +57,8 @@ fn the_dart_fixtures_give_the_pinned_survey() {
     assert_eq!(surveyed("G-dart", "shop"), (9, 1, 24, none.clone()));
     assert_eq!(surveyed("H-uml-dart", "commerce"), (8, 0, 12, none.clone()));
     assert_eq!(surveyed("I-flutter-shop", "shop"), (21, 0, 73, none));
-    let workspace = BTreeMap::from([
-        ("DartPathDependency".to_owned(), 1),
-        ("DartWorkspace".to_owned(), 1),
-    ]);
+    // AD-800: J-compass is a member of a workspace above its root: each import of a package is a
+    // gap at the import (105 sites), and its unused path dev dependency adds none (#1539).
+    let workspace = BTreeMap::from([("DartLocalPackage".to_owned(), 105)]);
     assert_eq!(surveyed("J-compass", "compass"), (89, 22, 433, workspace));
 }

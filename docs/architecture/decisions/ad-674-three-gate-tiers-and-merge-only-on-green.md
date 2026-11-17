@@ -13,6 +13,8 @@
 3. A change selects areas by path. A path that no rule names selects every area. `tests/area_floors.json` gives each area a floor of fast tests; a selection below its floor fails (pytest exit 5 can no longer pass unseen).
 4. The check `PR gate` is a required status check of the branch `main`, with no bypass. `tools/merge_pr.py` merges only when it is green.
 
+5. Main runs queue (owner decision of 2026-11-17, after 38 of 40 runs on main were cancelled). `ci.yml` has the concurrency group `ci-main` with `cancel-in-progress: false`: the running run finishes, only the newest waiting run is kept, older waiting runs drop. Pull requests keep being cancelled (`pr-gate.yml`). `ci.yml` also runs on a schedule every two hours (`23 */2 * * *`), so a quiet or a busy main shows its breakage within two hours. The nightly Full run is unchanged.
+
 **Rejected.** A matrix of area jobs on each PR (20-job limit, queue wait); keeping `PR_TEST_FILES` by hand (it named deleted files).
 
 **Limit.** The 3-minute budget holds with a warm Rust cache. A PR that changes `native/` core code rebuilds the core. Wall times are in the PR text that introduced the tiers. Scaling tests still assert time and memory; asserting work counters instead is open.

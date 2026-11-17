@@ -407,3 +407,14 @@ def test_the_root_of_a_part_names_its_system_and_links_up(site: str, page: Brows
     assert (
         page.evaluate("document.querySelector('#flow .flow-breadcrumb').textContent") == "ArchKeel"
     )
+
+
+def test_the_explorer_names_the_result_and_no_observation(site: str, page: Browser) -> None:
+    # "Observation" was a 4.0.1 word: next to PASS it read like a contradiction.
+    page.open(f"{site}/part.html")
+    status = page.evaluate("document.querySelector('#flow .ak-run-status').textContent")
+    assert status == "Result: PASS assuming 1 stated external user"
+    click(page, '#flow .ak-rail [data-drawer="overview"]')
+    drawer = page.evaluate("document.querySelector('#flow .ak-drawer').textContent")
+    assert "Result: PASS assuming 1 stated external user" in drawer
+    assert "bservation" not in page.evaluate("document.getElementById('flow').innerText")

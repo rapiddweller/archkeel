@@ -11,6 +11,7 @@ file `native/expected-gaps.json`, which `make self-validate-native` checks with 
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import zlib
@@ -57,7 +58,14 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     )
     assert (code, result["status"], frame["status"]) == (expected_exit(expected), status, status)
     assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
-    assert frame["scope"] == "complete"
+    # The scope follows the pin (the ratchet): a pin without gaps gives a complete scope; a pin with
+    # gaps gives an incomplete one that counts at most the pinned gaps (the contract allows some).
+    if not expected["gaps"]:
+        assert frame["scope"] == "complete"
+    else:
+        found = re.fullmatch(r"incomplete scope: (\d+) gaps? .*", frame["scope"], re.DOTALL)
+        assert found, frame["scope"]
+        assert 0 < int(found.group(1)) <= len(expected["gaps"])
 
 
 # Review B2 and B3 of #1121: `core` reaches the collector crates only through `archkeel_collect`.
