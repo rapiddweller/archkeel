@@ -54,7 +54,7 @@ impl Binding {
             }
         }
         match shown {
-            Some(kept) if !kept.is_empty() => {
+            Some(kept) if !BTreeSet::is_empty(&kept) => {
                 Binding::Names(kept.into_iter().map(str::to_owned).collect())
             }
             _ => Binding::Namespace,
@@ -64,7 +64,7 @@ impl Binding {
     /// The name of each record: one for each bound name, or one record without a name.
     pub(crate) fn names(&self) -> Vec<Option<&str>> {
         match self {
-            Binding::Names(names) => names.iter().map(|name| Some(name.as_str())).collect(),
+            Binding::Names(names) => names.iter().map(String::as_str).map(Some).collect(),
             Binding::Namespace => vec![None],
         }
     }
