@@ -140,7 +140,8 @@ def door_lines(
     if premises.assuming is None:
         return []
     count = len(premises.rules)
-    lines = [f"{qualifier(premises.assuming)} ({count} rules); a premise is not a proof:"]
+    noun = "rule" if count == 1 else "rules"
+    lines = [f"{qualifier(premises.assuming)} ({count} {noun}); a premise is not a proof:"]
     for row in doors:
         loads = ", ".join(row.loads) or "nothing"
         changes = ", ".join(row.changes) or "nothing"

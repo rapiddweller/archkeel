@@ -15,7 +15,7 @@ from corpus_support import commit_tree
 from rust_repository import component, repository
 from test_cli_core_only_scan import command
 
-from archkeel.cli.core_binding import ProjectRoot, RootMode, resolve_root
+from archkeel.cli.core_binding import resolve_root
 
 
 def test_windows_redirected_output_uses_utf8(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -30,20 +30,6 @@ def test_windows_redirected_output_uses_utf8(monkeypatch: pytest.MonkeyPatch) ->
         patch.setattr("archkeel.cli.core_only.run", lambda _: print(" · 漢") or 0)
         assert main([]) == 0
     assert output.getvalue().decode("utf-8").splitlines() == [" · 漢"]
-
-
-def test_text_header_uses_absolute_paths_when_the_root_is_on_another_drive(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def cross_drive(*_args: object) -> str:
-        raise ValueError("path is on a different drive")
-
-    project = ProjectRoot(tmp_path, RootMode.EXPLICIT)
-    with monkeypatch.context() as patch:
-        patch.setattr("archkeel.cli.core_binding.os.path.relpath", cross_drive)
-        root, config = project.named(tmp_path)
-    assert root == str(tmp_path)
-    assert config == str(tmp_path / "archkeel.toml")
 
 
 def test_the_release_core_proves_a_disk_pass_and_failure(

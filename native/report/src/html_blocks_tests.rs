@@ -119,7 +119,7 @@ fn a_page_names_each_pass_under_a_declared_door_reach() {
         page.contains("1 hold assuming the declared reach of 1 door"),
         "{page}"
     );
-    assert!(page.contains("PASS assuming the declared reach of 1 door: 1 rule hold only"));
+    assert!(page.contains("PASS assuming the declared reach of 1 door: 1 rule holds only"));
     assert!(page.contains("PASS ASSUMING THE DECLARED REACH OF 1 DOOR"));
     assert!(page.contains(&escape(site)));
     let plain = page.split("PASS ASSUMING").next().unwrap_or_default();

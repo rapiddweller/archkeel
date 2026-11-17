@@ -72,11 +72,13 @@ fn doors(frame: &Frame) -> String {
     let Some(qualifier) = super::rules::qualifier(frame) else {
         return String::new();
     };
+    let rules = frame.premises.len();
+    let verb = if rules == 1 { "holds" } else { "hold" };
     format!(
-        "<p class=\"body-sm ak-verdict__note\">{}: {} hold only under these premises of the \
+        "<p class=\"body-sm ak-verdict__note\">{}: {} {verb} only under these premises of the \
 contract; a premise is not a proof.</p>",
         escape(&qualifier),
-        count(frame.premises.len(), "rule")
+        count(rules, "rule")
     )
 }
 

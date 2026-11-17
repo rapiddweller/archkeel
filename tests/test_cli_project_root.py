@@ -10,6 +10,7 @@ run writes is the file that the same run reads back, and `init` drafts where `va
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from core_support import HONEST, SUFFIX, case_root
 from test_cli_core_only_scan import command
 
 from archkeel.cli import core_only
+from archkeel.cli.core_binding import ProjectRoot, RootMode
 from tests.test_cli_init import plant
 
 GIT = ["git", "-c", "user.email=a@b", "-c", "user.name=a"]
@@ -78,3 +80,23 @@ def test_the_configuration_reason_looks_where_the_core_looked(
     assert done.returncode == 2
     assert "the file does not exist" in message, message
     assert "exists but cannot be read" not in message
+
+
+def test_text_header_uses_absolute_paths_outside_the_current_directory(tmp_path: Path) -> None:
+    project = ProjectRoot(tmp_path / "project", RootMode.EXPLICIT)
+    assert project.named(tmp_path / "other") == (
+        str(project.path),
+        str(project.path / "archkeel.toml"),
+    )
+    assert project.named(tmp_path) == ("project", str(Path("project", "archkeel.toml")))
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="requires symbolic link privileges")
+def test_absolute_text_header_keeps_the_spelling_of_an_explicit_root(tmp_path: Path) -> None:
+    target = tmp_path / "project"
+    target.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+    project = ProjectRoot.of(alias, "custom.toml")
+    assert project.path == target.resolve()
+    assert project.named(tmp_path / "other") == (str(alias), str(alias / "custom.toml"))

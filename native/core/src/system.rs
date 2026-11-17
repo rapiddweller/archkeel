@@ -224,7 +224,11 @@ fn premise(frames: &[Map<String, Value>]) -> Option<String> {
             found.push(text);
         }
     }
-    (!found.is_empty()).then(|| found.join("; "))
+    let (_, prefixes) = found.split_last_mut()?;
+    for text in prefixes {
+        *text = text.trim_end_matches('.');
+    }
+    Some(found.join("; "))
 }
 
 /// The scope of one part: complete, or open with the value that the frame of the part carries.
