@@ -63,10 +63,10 @@ fn named<'a>(list: &'a [Plain], name: &str) -> &'a Plain {
 fn a_class_has_its_id_its_inventories_its_bases_and_its_methods() {
     let list = symbols(
         "interface I { a: number }\nclass B {}\n\
-         class C extends B implements I, Missing { f: number = 1; static m(x: number, ...r: string[]) {} }\n",
+         export class C extends B implements I, Missing { f: number = 1; static m(x: number, ...r: string[]) {} }\n",
     );
     let class = named(&list, "C");
-    let line_column = (3, 1);
+    let line_column = (3, 8);
     let id = stable_id(
         "TSDEF",
         &[
@@ -129,7 +129,7 @@ fn an_interface_is_a_protocol_and_an_enum_lists_its_members() {
 #[test]
 fn a_name_with_two_definitions_is_not_unique_and_its_inventory_is_partial() {
     let list = symbols(
-        "class K {}\nclass K { a = 1 }\nfunction f(a: number): void;\nfunction f(a: any) {}\n",
+        "class K {}\nclass K { a = 1 }\nfunction f(a: number): void;\nfunction f(a: any) {}\nexport {};\n",
     );
     for record in list.iter().filter(|record| record.data["name"] == "K") {
         assert_eq!(record.data["source_binding_unique"], false);
@@ -137,7 +137,7 @@ fn a_name_with_two_definitions_is_not_unique_and_its_inventory_is_partial() {
         assert_eq!(inventories[0]["status"], "partial");
         assert_eq!(
             inventories[0]["reason"],
-            "computed or unsupported member syntax"
+            "several declarations share the name"
         );
     }
     assert!(list

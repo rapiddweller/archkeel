@@ -239,7 +239,9 @@ def _named_lines(frame: CoreFrame, show_all: bool) -> tuple[list[str], list[tupl
             groups.setdefault(gap.kind, []).append((gap.subject, plain(gap.reason)))
     ranked = sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
     lines = (
-        [f"Parts that are not decided ({sum(len(rows) for _, rows in ranked)}):"] if ranked else []
+        [f"Gaps with no rule of their own ({sum(len(rows) for _, rows in ranked)}):"]
+        if ranked
+        else []
     )
     for kind, rows in ranked:
         lines.append(f"  {len(rows)} x {kind_label(kind)}")

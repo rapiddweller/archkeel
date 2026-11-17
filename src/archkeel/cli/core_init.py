@@ -73,7 +73,9 @@ class Created:
         if self.result.note:
             out.append(f"Note: {self.result.note}")
         out.append(
-            "Review the open decisions listed below, then run archkeel validate again. "
+            "Review the open decisions, then run archkeel validate again. They are the TODO "
+            "entries of the contract files above, one for each component without a written "
+            "responsibility; `archkeel validate --text` lists them. "
             f"Guide: {DOCUMENT}"
         )
         return out

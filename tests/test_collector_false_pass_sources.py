@@ -6,12 +6,12 @@
 Consumer: `archkeel validate` on a TypeScript project: the default path through the core. The
 contract lets `a` use nothing, so any edge from `a` to `b` fails it. Each probe is a source that
 reaches `b` from `a` by a construct that a collector once read as no dependency: a `/// <reference
-types>` line, a `declare module` augmentation (by a relative name, or by a bare name that `paths`
-or `baseUrl` maps to a project file), and a use of `self.x` or `frames.x` for a global that a
-script of `b` publishes through `window.x` (also through `this`, which is the global object in a
-classic script). The honest cases (no such line, and a bare name that no alias maps) must still
-give PASS, so that the probes test the contract and not a broken fixture. Each probe must give an
-edge (FAIL) or a gap (UNKNOWN), never PASS.
+types>` line, a `declare module` augmentation (by a relative name, by a bare name that `paths` or
+`baseUrl` maps to a project file, or by the own package name, #1632), and a use of `self.x` or
+`frames.x` for a global that a script of `b` publishes through `window.x` (also through `this`,
+which is the global object in a classic script). The honest cases (no such line, and a bare name
+that no alias maps) must still give PASS, so that the probes test the contract and not a broken
+fixture. Each probe must give an edge (FAIL) or a gap (UNKNOWN), never PASS.
 """
 
 from __future__ import annotations
@@ -73,6 +73,10 @@ BASE = {
 }
 ALIASES = '{"compilerOptions":{"allowJs":true,"baseUrl":".","paths":{"@b/*":["src/b/*"]}}}'
 TYPE_ROOTS = '{"compilerOptions":{"allowJs":true,"typeRoots":["./src"]},"include":["src"]}'
+SELF_NAME = (
+    '{"compilerOptions":{"allowJs":true,"module":"nodenext","moduleResolution":"nodenext",'
+    '"allowImportingTsExtensions":true,"noEmit":true},"include":["src"]}'
+)
 BASE_URL = '{"compilerOptions":{"allowJs":true,"baseUrl":"."},"include":["src"]}'
 AUGMENT = 'export {};\ndeclare module "NAME" { interface Q {} }\n'
 CASES = {
@@ -141,6 +145,24 @@ CASES = {
         "tsconfig.json": BASE_URL,
         "src/a/a.ts": AUGMENT.replace("NAME", "src/b/t"),
     },
+    # A package that declares `exports` can name itself: tsc resolves the augmentation of its own
+    # name to a file of the project, as it resolves an import of that name.
+    "augmentation-by-own-package-name": {
+        "tsconfig.json": SELF_NAME,
+        "package.json": '{"name":"app-self","type":"module","exports":{".":"./src/b/t.ts"}}',
+        "src/a/a.ts": AUGMENT.replace("NAME", "app-self"),
+    },
+    # The own name makes only that name a concern: another bare name stays silent.
+    "bare-augmentation-beside-an-own-name": {
+        "tsconfig.json": SELF_NAME,
+        "package.json": '{"name":"app-self","type":"module","exports":{".":"./src/b/t.ts"}}',
+        "src/a/a.ts": AUGMENT.replace("NAME", "express"),
+    },
+    "augmentation-by-own-package-subpath": {
+        "tsconfig.json": SELF_NAME,
+        "package.json": '{"name":"app-self","type":"module","exports":{"./t":"./src/b/t.ts"}}',
+        "src/a/a.ts": AUGMENT.replace("NAME", "app-self/t"),
+    },
     "augmentation-in-a-declaration-file": {
         "tsconfig.json": ALIASES,
         "src/a/a.d.ts": AUGMENT.replace("NAME", "@b/t"),
@@ -180,7 +202,7 @@ CASES.update(
         for name, text in CHAIN_USES.items()
     }
 )
-HONEST = ("honest", "bare-augmentation-without-aliases")
+HONEST = ("honest", "bare-augmentation-without-aliases", "bare-augmentation-beside-an-own-name")
 
 
 def _project(tmp_path: Path, name: str) -> Path:

@@ -175,4 +175,7 @@ pub(crate) struct MethodCall {
     pub arity: Option<usize>,
     /// The receiver is the plain `self` of a method of an `impl` block with an exact type.
     pub on_self: Option<OnSelf>,
+    /// The last name of the written type of a path `T::m` (`T`), or `None` when the scan does not
+    /// know it (a method call, `Self::m`, a call in a macro body).
+    pub owner: Option<String>,
 }

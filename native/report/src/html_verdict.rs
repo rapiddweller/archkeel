@@ -33,10 +33,10 @@ fn title(frame: &Frame, places: &Places) -> String {
         // An unported rule or a named gap has no row: it is no UNKNOWN row, and it is not
         // decided either, so the title counts it (#1507).
         Some(Status::Fail) if !frame.named.is_empty() => format!(
-            "{} violated in {}, {unknown} unknown, {} not decided",
+            "{} violated in {}, {unknown} unknown, {} with no rule",
             count(fail, "rule"),
             count(places.total, "place"),
-            count(frame.named.len(), "part")
+            count(frame.named.len(), "gap")
         ),
         Some(Status::Fail) => format!(
             "{} violated in {}, {unknown} unknown",
