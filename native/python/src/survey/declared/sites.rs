@@ -240,10 +240,8 @@ fn call_record(
         _ => None,
     };
     let callee = target.filter(|(_, sym)| sym.class || sym.function);
-    let (status, targets) = match &callee {
-        Some((name, _)) => (Status::Resolved, vec![name.clone()]),
-        None => (Status::Unresolved, Vec::new()),
-    };
+    let targets: Vec<String> = callee.iter().map(|(name, _)| name.clone()).collect();
+    let status = Status::of_candidates(targets.len(), true);
     let mut data = CallData::new(expression.clone(), reading.scope(), status, targets);
     data.source_definition_id = Nullable::Value(FactId::new(reading.source.id.as_str()));
     data.reason = Some(match &callee {
@@ -257,11 +255,7 @@ fn call_record(
         data.construction = Nullable::Value(Construction {
             candidates_truncated: false,
             reason: "call of a class with a stable direct binding".to_owned(),
-            status: if sym.constructible {
-                Status::Resolved
-            } else {
-                Status::PartiallyResolved
-            },
+            status: Status::of_candidates(1, sym.constructible),
             targets: vec![name],
         });
         data.result_bindings = stored
