@@ -227,26 +227,90 @@ def _group_lines(
         groups.setdefault(key, []).append(index)
     ranked = sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
     lines: list[str] = []
+    jobs: list[tuple[str, int]] = []
     for label, members in ranked:
+        causes = _causes(frame, members) if label not in _PLAIN_LABELS else {label: members}
+        if len(causes) > 1:
+            lines.extend(_cause_lines(frame, label, members, causes, show_all))
+            if label != kind_label(DECLARED):
+                jobs.extend((cause, len(rows)) for cause, rows in causes.items())
+            continue
         first = frame.collection_gaps[members[0]]
         lead = "" if label == _NOT_FOUND_LABEL else f": {plain(first.reason)}"
         lines.append(f"  {len(members)} x {label}{lead}")
-        for index in members if show_all else members[:_SHOWN]:
-            gap = frame.collection_gaps[index]
-            where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
-            name = _missing(gap)
-            note = _generated(name, ignored or {}) if name is not None else ""
-            tail = f" ({plain(gap.detail)})" if gap.detail else ""
-            lines.append(f"      {where}{': ' + name if name else ''}{note}{tail}")
-        if more := _more(len(members), _SHOWN, show_all):
-            lines.append(f"      {more.strip()}")
+        lines.extend(_member_lines(frame, members, show_all, ignored))
         if label == _NOT_FOUND_LABEL:
             lines.append(
                 "      Fix: generate or build the module before the scan, or leave out the files "
                 "that import it."
             )
-    jobs = [(label, len(rows)) for label, rows in ranked if label != kind_label(DECLARED)]
+        if label != kind_label(DECLARED):
+            jobs.append((label, len(members)))
     return lines, jobs
+
+
+_PLAIN_LABELS = frozenset({_NOT_FOUND_LABEL})
+
+
+def _cause(gap: CollectionGap) -> str:
+    """The cause of a gap: its reason up to the first colon (the part that names the variable
+    thing, such as the module or the alias, follows the colon)."""
+    return plain(gap.reason).split(": ", 1)[0]
+
+
+def _causes(frame: CoreFrame, members: Sequence[int]) -> dict[str, list[int]]:
+    """The members of one kind of gap by cause, the largest cause first."""
+    found: dict[str, list[int]] = {}
+    for index in members:
+        found.setdefault(_cause(frame.collection_gaps[index]), []).append(index)
+    return dict(sorted(found.items(), key=lambda item: (-len(item[1]), item[0])))
+
+
+def _member_lines(
+    frame: CoreFrame, members: Sequence[int], show_all: bool, ignored: Mapping[str, str] | None
+) -> list[str]:
+    """The places of the members of one group: three, or all with `--all`."""
+    lines = []
+    for index in members if show_all else members[:_SHOWN]:
+        gap = frame.collection_gaps[index]
+        where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
+        name = _missing(gap)
+        note = _generated(name, ignored or {}) if name is not None else ""
+        tail = f" ({plain(gap.detail)})" if gap.detail else ""
+        lines.append(f"      {where}{': ' + name if name else ''}{note}{tail}")
+    if more := _more(len(members), _SHOWN, show_all):
+        lines.append(f"      {more.strip()}")
+    return lines
+
+
+def _cause_lines(
+    frame: CoreFrame,
+    label: str,
+    members: Sequence[int],
+    causes: Mapping[str, Sequence[int]],
+    show_all: bool,
+) -> list[str]:
+    """One kind of gap with several causes: the count of each cause and one example each.
+
+    The three largest causes come first, then `and N more causes`; `--all` lists every cause with
+    every place.
+    """
+    lines = [f"  {len(members)} x {label}, in {len(causes)} causes:"]
+    shown = list(causes.items()) if show_all else list(causes.items())[:_SHOWN]
+    for cause, rows in shown:
+        gap = frame.collection_gaps[rows[0]]
+        where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
+        lines.append(f"      {len(rows)} x {cause}")
+        if show_all:
+            lines.extend(f"      {line}" for line in _member_lines(frame, rows, True, None))
+        else:
+            example = plain(gap.reason)
+            lines.append(f"          e.g. {example} ({where})")
+    if hidden := len(causes) - len(shown):
+        lines.append(
+            f"      and {hidden} more {'cause' if hidden == 1 else 'causes'} (--all lists them)"
+        )
+    return lines
 
 
 def _generated(name: str, ignored: Mapping[str, str]) -> str:
