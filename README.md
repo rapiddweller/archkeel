@@ -44,7 +44,8 @@ Python and Dart projects: the rules that read the import graph are decided, and 
 
 See the [known limits](docs/known-limits.md).
 
-**Start.** ArchKeel needs Python 3.11+, `cargo` and a Git repository with a commit.
+**Start.** A source install needs Python 3.11+, `cargo` and a Git repository with a commit.
+For an install without Rust, use the [latest main build](#install-the-latest-main-build-without-rust).
 
 ```bash
 ARCHKEEL_BUNDLE_NATIVE=1 uv tool install git+https://github.com/rapiddweller/archkeel
@@ -118,7 +119,7 @@ is the only engine. The Python engine is deleted.
 - The [reports of the current `main`](https://rapiddweller.github.io/archkeel/) show what the core says
   for ArchKeel itself and for each project of `fixtures/`, refusals included.
 - No release carries the core binary yet. The release workflow builds the platform wheels with the
-  core (AD-476), but the last release is 4.0.1. Run `main` from a source checkout after `make core`.
+  core (AD-476), but the last release is 4.0.1. Use the latest main build or run a source checkout.
   A package without the core refuses each run with `core_binary_not_found`. There is no Python fallback.
 - Release 4.0.1 has `check`, a larger `init` and full reports for Python, Dart and TypeScript projects.
   No release has Studio or `explore`. See the [state of `main`](docs/reference.md#state-of-main).
@@ -126,6 +127,15 @@ is the only engine. The Python engine is deleted.
 ## Install
 
 ArchKeel needs Python 3.11+ and a Git repository with at least one commit.
+
+### Install the latest main build (without Rust)
+
+This is a development build, not a release. It includes the Rust core for each supported platform.
+
+```bash
+pip install --pre --find-links https://github.com/rapiddweller/archkeel/releases/expanded_assets/main-build archkeel
+uv tool install --prerelease allow --find-links https://github.com/rapiddweller/archkeel/releases/expanded_assets/main-build archkeel
+```
 
 ```bash
 ARCHKEEL_BUNDLE_NATIVE=1 uv tool install git+https://github.com/rapiddweller/archkeel

@@ -1,0 +1,56 @@
+name: Latest main build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "native/**"
+      - "src/**"
+      - "pyproject.toml"
+      - "Cargo.lock"
+      - "schema/**"
+      - ".github/workflows/main-build.yml"
+      - ".github/workflows/native-wheels.yml"
+      - "tools/publish_main_build.py"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the build
+        type: boolean
+        default: false
+
+concurrency:
+  group: main-build
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  wheels:
+    uses: ./.github/workflows/native-wheels.yml
+
+  publish:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
+    needs: wheels
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the built commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the tested wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: native-wheel-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Publish the tested wheels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/publish_main_build.py

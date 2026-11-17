@@ -101,7 +101,11 @@ def _dry_run(*arguments: str) -> str:
 
 
 def test_full_builds_each_platform_wheel_on_its_own_target() -> None:
-    jobs = _jobs("full-verification.yml")
+    assert (
+        "uses: ./.github/workflows/native-wheels.yml"
+        in _jobs("full-verification.yml")["native-wheels"]
+    )
+    jobs = _jobs("native-wheels.yml")
     wheel_jobs = {job: body for job, body in jobs.items() if job.startswith("native-wheel-")}
     assert set(wheel_jobs) == {"native-wheel-linux", "native-wheel-macos", "native-wheel-windows"}
     text = "".join(wheel_jobs.values())
@@ -170,10 +174,14 @@ def test_release_requires_exactly_six_platform_wheels_and_one_sdist(
 
 def _unbuilt(tags: tuple[str, ...]) -> set[str]:
     """The platforms of a release that no job of Full builds, installs and runs."""
-    jobs = _jobs("full-verification.yml")
+    assert (
+        "uses: ./.github/workflows/native-wheels.yml"
+        in _jobs("full-verification.yml")["native-wheels"]
+    )
+    jobs = _jobs("native-wheels.yml")
     wheel_jobs = {job: body for job, body in jobs.items() if job.startswith("native-wheel-")}
     assert all("make native-wheel NATIVE_TAG=" in body for body in wheel_jobs.values())
-    assert all(f"      - {job}\n" in jobs["verified"] for job in wheel_jobs)
+    assert "      - native-wheels\n" in _jobs("full-verification.yml")["verified"]
     text = "".join(wheel_jobs.values())
     built = {a or b for a, b in re.findall(r"tag: (py3-none-\w+)|NATIVE_TAG=(py3-none-\w+)", text)}
     return set(tags) - built
