@@ -242,5 +242,24 @@
         }),
     ].join("\n");
   }
-  global.ArchkeelReportScene = { create, search, sceneToMermaid, decider, perspectives };
+  /**
+   * The chip text of a box for the deviations inside it: the words follow the status of the box. An
+   * undeclared dependency is a violation only in a FAIL box; in an UNKNOWN box the run has not decided
+   * it; an allowed but unused dependency is no violation in any box.
+   * @param {string} status @param {readonly {kind: string}[]} rows @returns {string}
+   */
+  function deviationChipText(status, rows) {
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const unused = rows.filter((row) => row.kind === "allowed_unused").length;
+    const undeclared = rows.length - unused;
+    const parts = [];
+    if (undeclared) {
+      parts.push(status === "FAIL" ? plural(undeclared, "violation", "violations")
+        : status === "UNKNOWN" ? plural(undeclared, "open gap", "open gaps")
+          : plural(undeclared, "undeclared dependency", "undeclared dependencies"));
+    }
+    if (unused) parts.push(plural(unused, "unused permission", "unused permissions"));
+    return parts.length ? `${parts.join(" · ")} inside` : "";
+  }
+  global.ArchkeelReportScene = { create, search, sceneToMermaid, decider, perspectives, deviationChipText };
 })(window);

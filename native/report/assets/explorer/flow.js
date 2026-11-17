@@ -2053,14 +2053,14 @@
         return `<li><a href="${esc(atlasDeviationHref(item))}">${esc(kind)} · ${esc(source)} → ${esc(target)}</a></li>`;
       }).join("")}</ul>` : ""}</section>`;
   }
-  function atlasInsideDeviationCount(componentId) {
+  function atlasInsideDeviations(componentId) {
     const ids = new Set();
     for (const level of ATLAS.levels) {
       if (level.parent_id === componentId || REPORT_SCENE.componentRoute(level.parent_id).some((item) => item.id === componentId)) {
         (level.deviation_ids || []).forEach((id) => ids.add(id));
       }
     }
-    return ids.size;
+    return (ATLAS.deviations || []).filter((row) => ids.has(row.id));
   }
   function atlasComponentFindingCount(componentId) {
     const level = ATLAS.levels.find((item) => item.parent_id === componentId);
@@ -2932,10 +2932,10 @@
             group.appendChild(findings);
             chipY += 14;
           }
-          const count = atlasInsideDeviationCount(node.id);
-          if (count) {
+          const chipText = window.ArchkeelReportScene.deviationChipText(node.component.status, atlasInsideDeviations(node.id));
+          if (chipText) {
             const deviations = el("text", { class: "atlas-deviation-chip", x: "16", y: String(chipY) });
-            deviations.textContent = `${REPORT_SCENE.countLabel(count, "deviation")} inside`;
+            deviations.textContent = chipText;
             group.appendChild(deviations);
           }
         }
