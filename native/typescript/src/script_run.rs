@@ -28,6 +28,8 @@ impl Collection<'_> {
             partial,
         };
         let vendors = script_vendor::read(&mut self.snapshot, &mut self.parsers, &setting);
+        let outside =
+            crate::script_outside::read(&mut self.snapshot, &mut self.parsers, &self.roots);
         let project = Project::new(&order, &kept, options.scripts_are_global());
         let dependency_scope = project
             .files
@@ -44,6 +46,7 @@ impl Collection<'_> {
             partial,
             standard: standard_globals(&options),
             vendors,
+            outside,
             writes: WriteIndex::new(all.iter().copied()),
             source_writes,
             source_set: seen,
