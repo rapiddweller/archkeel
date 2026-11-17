@@ -127,7 +127,8 @@ def test_each_script_global_decision_reads_the_one_write_check() -> None:
 AMPLIFIER_HOMES = {
     # AD-766: the reflective writes give an amplifier form on a value that the file does not make.
     "Reach::Amplified": {"script_window.rs", "script_forms.rs", "script_reflective.rs"},
-    "Written::Amplified": {"script_window.rs", "script_declarations.rs"},
+    # AD-768: a new `__proto__` of a value that the file does not make is an amplifier form.
+    "Written::Amplified": {"script_window.rs", "script_declarations.rs", "script_prototype.rs"},
 }
 
 

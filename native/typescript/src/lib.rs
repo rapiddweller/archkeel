@@ -81,6 +81,7 @@ mod script_namespace;
 mod script_numeric;
 mod script_project;
 mod script_proof;
+mod script_prototype;
 mod script_publish;
 mod script_records;
 mod script_reflective;
