@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.14.schema.json",
-  "schema_version": "3.14.0",
+  "schema_version": "3.16.0",
   "components": [
     {
       "id": "SHELL-ENTRY",
@@ -1002,6 +1002,23 @@
       "rationale": "Nothing imports upward into the entry point.",
       "provenance": [
         "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-PUBLIC-HAS-A-USER",
+      "kind": "unused_public",
+      "source": "archkeel",
+      "external_users": [
+        {
+          "symbol": "archkeel.cli:main",
+          "consumer": "the console script archkeel ([project.scripts] in pyproject.toml)",
+          "rationale": "The installed command calls main; no module of the scan imports it."
+        }
+      ],
+      "rationale": "A module-level name without a leading underscore that no other component imports is a public surface without a need: give it a leading underscore or delete it (PEP 8, AD-670, owner decision).",
+      "provenance": [
+        "docs/architecture/decisions/ad-670-a-public-name-that-no-other-component-uses-is-a-violation.md"
       ],
       "decided_by": "architect"
     }

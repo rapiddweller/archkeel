@@ -67,6 +67,7 @@ pub fn assemble(
         inputs,
         files,
         imports,
+        validation,
         ..
     } = head;
     Ok(Reply {
@@ -74,6 +75,7 @@ pub fn assemble(
         provider_sources: NoEntries,
         facts: Facts {
             profile: provenance.profile,
+            validation: Some(validation),
             profile_limits: None,
             scope_premise: None,
             owned_files: Vec::new(),

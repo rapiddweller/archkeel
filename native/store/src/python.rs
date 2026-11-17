@@ -14,17 +14,21 @@ use archkeel_facts::envelope::{
 };
 use archkeel_facts::{ImportFact, Section};
 
+use archkeel_facts::envelope::validation::library_key;
+
 use crate::standard::standard_library_at;
 
-/// The protocol of a profile: 10.0.0 is the Python survey, and Python has no other protocol.
+/// The protocol of a profile: 10.0.0 is the Python survey, and 11.0.0 is the reply of each
+/// collector with its validation block (AD-688).
 pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), String> {
     match (version, profile) {
-        (ProtocolVersion::V10, Profile::Python) => Ok(()),
+        // AD-688: each collector writes the 11.0.0 reply with its validation block.
+        (ProtocolVersion::V11, _) | (ProtocolVersion::V10, Profile::Python) => Ok(()),
         (ProtocolVersion::V10, _) => {
             Err("protocol 10.0.0 is only the Python import survey (AD-450)".to_owned())
         }
         (_, Profile::Python) => {
-            Err("a Python reply must be the 10.0.0 import survey (AD-450)".to_owned())
+            Err("a Python reply must be the 10.0.0 or 11.0.0 import survey (AD-450)".to_owned())
         }
         _ => Ok(()),
     }
@@ -125,8 +129,12 @@ pub(crate) fn survey(facts: &Facts) -> Result<(), String> {
         .iter()
         .map(|file| first_part(file.module.as_str()))
         .collect();
-    let standard = standard_library_at(Profile::Python, &facts.runtime.version)
-        .ok_or("the Python target has no standard library table")?;
+    let standard = standard_library_at(&library_key(
+        facts.validation.as_ref(),
+        facts.profile,
+        &facts.runtime.version,
+    ))
+    .ok_or("the Python target has no standard library table")?;
     for target in &facts.imports {
         match target {
             Target::Builtin { name, .. } => {

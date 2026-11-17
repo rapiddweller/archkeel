@@ -32,6 +32,30 @@ impl<'a> Index<'a> {
     pub(crate) fn reach(&self, start: &str, rest: &[String]) -> Outcome {
         self.follow(start, 0, rest)
     }
+    /// The reason why a path of a value or a `use` leaf that ends at the child module of `edge`
+    /// may name an item of the parent module with the same name too (#1405). A module shares the
+    /// type namespace with each type, so that item is a value (`mod reply; pub fn reply() {}`):
+    /// the file declares the name more than once, or a glob or a macro at module level of the
+    /// parent can add it. A glob path names a module or an enum only and never asks this.
+    pub(crate) fn module_or_item(&self, edge: &Edge) -> Option<String> {
+        if edge.symbol.is_some() || edge.member_of.is_some() {
+            return None;
+        }
+        let (parent, name) = edge.lexical.rsplit_once('.')?;
+        let frame = self
+            .file_of(parent)
+            .and_then(|file| self.frames.get(file))?;
+        let scan = &frame.module.scan;
+        let may = scan.counts.get(name).is_some_and(|count| *count > 1)
+            || scan.module_macros
+            || frame.globs().next().is_some();
+        may.then(|| {
+            format!(
+                "A path that ends at the module {} may name the item {name} of {parent}",
+                edge.lexical
+            )
+        })
+    }
     /// The type that `ty` names at `scope` of the file of `frame`. It is `Known` only when the
     /// module defines a struct, enum, union or trait of that name. A type alias, a re-export, a
     /// type that a macro or a function body defines, and a name that a glob may bring in are

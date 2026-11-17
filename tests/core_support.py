@@ -31,8 +31,8 @@ NATIVE = ROOT / "native"
 SUFFIX = ".exe" if os.name == "nt" else ""
 
 
-def pinned_self_status() -> tuple[int, str]:
-    """The exit code and status of the native self-check as `native/expected-gaps.json` pins it.
+def pinned_self_status(pin: Path | None = None) -> tuple[int, str]:
+    """The exit code and status of a self-check as its pin states it (default: the native one).
 
     AD-668: a known violation of the self-contract stays FAIL until the code is fixed, so a test of
     the self run compares with the pin and does not expect PASS.
@@ -41,7 +41,7 @@ def pinned_self_status() -> tuple[int, str]:
     # has no `tools` package beside it.
     from tools.native_expected import expected_exit
 
-    expected = json.loads((NATIVE / "expected-gaps.json").read_text("utf-8"))
+    expected = json.loads((pin or NATIVE / "expected-gaps.json").read_text("utf-8"))
     code = expected_exit(expected)
     return code, {0: "PASS", 1: "FAIL"}.get(code, "UNKNOWN")
 

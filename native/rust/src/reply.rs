@@ -4,7 +4,10 @@
 
 //! The reply: the typed records of one request and their encoding into the compressed stream.
 
-use archkeel_facts::envelope::{Evidence, LimitSupport, ProfileLimits, Provenance, Reply};
+use archkeel_facts::envelope::validation::{InterfaceNeed, Registered};
+use archkeel_facts::envelope::{
+    Evidence, LimitSupport, Profile, ProfileLimits, Provenance, Reply, SectionName, Validation,
+};
 use archkeel_facts::request::RustRequest;
 use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 use archkeel_wire::protocol::Version;
@@ -19,6 +22,22 @@ const SECTIONS: [&str; 3] = ["imports", "symbols", "unknowns"];
 const FEATURES: [&str; 1] = ["rust-crate-edges"];
 /// The feature of the linked reply: each import names its item and its route (AD-604).
 const ROUTES_FEATURE: &str = "rust-item-routes-v1";
+
+/// The validation table of the collector (AD-688; `evaluate.py:1055-1056`, `ir/profiles.py:227-252`):
+/// the sections `imports` and `unknowns` and optionally `symbols`, the crate edges and the routes
+/// as optional features, no construct capability. An interface statement holds exactly when the
+/// reply states the routes (AD-604). The standard library is `std`, `core` and `alloc`.
+fn validation() -> Validation {
+    use SectionName::{Imports, Symbols, Unknowns};
+    let features = [FEATURES[0], ROUTES_FEATURE];
+    Validation {
+        registered: vec![Registered::of(&[Imports, Unknowns], &[])
+            .with_optional_sections(&[Symbols])
+            .with_optional_features(&features)],
+        interface: InterfaceNeed::Feature(ROUTES_FEATURE.to_owned()),
+        standard_library: Profile::Rust.as_str().to_owned(),
+    }
+}
 
 /// The facts of one request, as the typed records of `archkeel-facts` (AD-345) and the small lists.
 /// `encode` writes the gaps once: they are the section `unknowns` and the gaps of the coverage.
@@ -132,6 +151,7 @@ impl Builder {
             source_digest: None,
             files,
             imports: self.targets,
+            validation: validation(),
         };
         Collected {
             head,

@@ -264,7 +264,7 @@ fn selector_source(rule: &Rule) -> bool {
 }
 
 /// The kinds of the modules, symbols and imports whose rules add no receipt scope.
-const MODULE_KINDS: [RuleKind; 8] = [
+const MODULE_KINDS: [RuleKind; 9] = [
     RuleKind::BoundaryTypes,
     RuleKind::BoundedNumericOperand,
     RuleKind::CallOwner,
@@ -273,6 +273,7 @@ const MODULE_KINDS: [RuleKind; 8] = [
     RuleKind::ExternalDependencyScope,
     RuleKind::RootLayout,
     RuleKind::SymbolPlacement,
+    RuleKind::UnusedPublic,
 ];
 
 #[cfg(test)]

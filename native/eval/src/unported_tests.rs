@@ -39,7 +39,8 @@ fn ported(kind: K) -> bool {
         | K::CompleteExternalScope
         | K::ForbiddenDependency
         | K::SiblingIsolation
-        | K::CompleteRequires => true,
+        | K::CompleteRequires
+        | K::UnusedPublic => true,
     }
 }
 

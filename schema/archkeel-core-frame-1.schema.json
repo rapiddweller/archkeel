@@ -2560,6 +2560,74 @@
             },
             "kind": {
               "type": "string",
+              "const": "unused_public"
+            },
+            "data": {
+              "$ref": "#/$defs/UnusedPublic"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
               "const": "forbidden_construct"
             },
             "data": {
@@ -3080,6 +3148,27 @@
         "annotation",
         "reasons"
       ]
+    },
+    "UnusedPublic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "module": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "item_kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "module",
+        "name",
+        "item_kind"
+      ],
+      "description": "A public item that no other component uses (AD-670)."
     },
     "ConstructData": {
       "anyOf": [

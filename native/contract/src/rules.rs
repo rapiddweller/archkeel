@@ -33,7 +33,7 @@ pub(crate) fn rule_kind(raw: &Json, label: &str) -> Parsed<RuleKind> {
 }
 
 /// A rule kind that needs a feature, and the message when the version lacks it.
-const KIND_GATES: [(RuleKind, Feature, &str); 9] = [
+const KIND_GATES: [(RuleKind, Feature, &str); 10] = [
     (
         RuleKind::BoundedNumericOperand,
         Feature::BoundedNumericOperand,
@@ -78,6 +78,11 @@ const KIND_GATES: [(RuleKind, Feature, &str); 9] = [
         RuleKind::SourceOwnership,
         Feature::SourceOwnership,
         "source_ownership requires contract schema_version 3.12.0",
+    ),
+    (
+        RuleKind::UnusedPublic,
+        Feature::UnusedPublic,
+        "unused_public requires contract schema_version 3.16.0",
     ),
 ];
 
@@ -137,7 +142,7 @@ pub(crate) fn check_rule_features(
 type Parser = fn(&Json, &str) -> Parsed<Rule>;
 
 /// The parser of each kind (`_RULE_PARSERS`).
-const PARSERS: [(RuleKind, Parser); 22] = [
+const PARSERS: [(RuleKind, Parser); 23] = [
     (RuleKind::ForbiddenDependency, |raw, label| {
         forbidden_dependency(raw, label).map(Rule::ForbiddenDependency)
     }),
@@ -203,6 +208,9 @@ const PARSERS: [(RuleKind, Parser); 22] = [
     }),
     (RuleKind::ForbiddenEffectUnderCondition, |raw, label| {
         forbidden_effect_under_condition(raw, label).map(Rule::ForbiddenEffectUnderCondition)
+    }),
+    (RuleKind::UnusedPublic, |raw, label| {
+        crate::unused_public::unused_public(raw, label).map(Rule::UnusedPublic)
     }),
 ];
 

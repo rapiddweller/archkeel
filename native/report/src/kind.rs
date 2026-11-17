@@ -37,5 +37,6 @@ pub(crate) fn word(kind: RuleKind) -> &'static str {
         RuleKind::BoundaryTypes => "boundary_types",
         RuleKind::BoundedNumericOperand => "bounded_numeric_operand",
         RuleKind::ProtocolDeclarations => "protocol_declarations",
+        RuleKind::UnusedPublic => "unused_public",
     }
 }
