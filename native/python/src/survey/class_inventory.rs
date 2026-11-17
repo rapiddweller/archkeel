@@ -121,11 +121,18 @@ impl<'a> Visitor<'a> for Walk {
     }
 }
 
-/// The qualified names whose call can create a class (#1713): the builder of the class statement,
-/// the factories of the standard library and their metaclasses. `type` creates one with three
-/// arguments.
-const FACTORIES: [&str; 17] = [
+/// The qualified names whose call creates a class, in any use of the result, also a plain return
+/// (#1713). The name is the import origin of the callee (`Factories::origin`): `module.name`, and
+/// `module.name().method` for a method of a call result (`registry().generate_base`).
+///
+/// To extend it, add the qualified name as the import binds it (`from attrs import make_class`
+/// gives `attrs.make_class`) and a plant in `tests/test_collector_false_pass_python_placement.py`
+/// whose Python truth is a class. A name enters only when its call returns a class: a call of an
+/// unknown callable counts only when the module uses its result as a class (`creates`).
+const FACTORIES: [&str; 25] = [
+    // The builder of the class statement; `type` with three arguments is checked apart.
     "builtins.__build_class__",
+    // The standard library: the functional forms and the metaclasses.
     "enum.Enum",
     "enum.IntEnum",
     "enum.Flag",
@@ -142,6 +149,15 @@ const FACTORIES: [&str; 17] = [
     "dataclasses.make_dataclass",
     "types.new_class",
     "abc.ABCMeta",
+    // Well-known libraries.
+    "attr.make_class",
+    "attrs.make_class",
+    "pydantic.create_model",
+    "marshmallow.Schema.from_dict",
+    "msgspec.defstruct",
+    "sqlalchemy.orm.declarative_base",
+    "sqlalchemy.ext.declarative.declarative_base",
+    "sqlalchemy.orm.registry().generate_base",
 ];
 
 /// The first call of the module that can create a class, with the callee that it names (#1713):
@@ -181,6 +197,8 @@ impl Factories {
                 })
             }
             Expr::Attribute(node) => Some(format!("{}.{}", self.origin(&node.value)?, node.attr)),
+            // The result of a call: `registry().generate_base`.
+            Expr::Call(node) => Some(format!("{}()", self.origin(&node.func)?)),
             _ => None,
         }
     }
@@ -235,10 +253,17 @@ impl Factories {
                 }
             }
             Stmt::Assign(node) if matches!(&*node.value, Expr::Call(_)) => {
-                let names = node.targets.iter().filter_map(|target| match target {
-                    Expr::Name(name) => Some(name.id.to_string()),
-                    _ => None,
-                });
+                let names: Vec<String> = (node.targets.iter())
+                    .filter_map(|target| match target {
+                        Expr::Name(name) => Some(name.id.to_string()),
+                        _ => None,
+                    })
+                    .collect();
+                // `reg = registry()`: the name reads as the call result (`registry()`).
+                if let Some(origin) = self.origin(&node.value) {
+                    let bound = names.iter().map(|name| (name.clone(), origin.clone()));
+                    self.origins.extend(bound);
+                }
                 self.made.extend(names);
             }
             _ => {}

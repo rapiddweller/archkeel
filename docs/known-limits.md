@@ -139,12 +139,16 @@ time withholds the receipt, and the rule is UNKNOWN with the site: "a call can c
   `enum` classes, `namedtuple`, `NamedTuple`, `TypedDict`, `make_dataclass`, `types.new_class`,
   `ABCMeta`, `__build_class__`, `type` with three arguments;
 - a call in the shape of a metaclass call (`M("Name", (...), {...})`);
+- a well-known library factory, in any use of its result, also a plain return: `attrs.make_class`
+  and `attr.make_class`, `pydantic.create_model`, `marshmallow.Schema.from_dict`,
+  `msgspec.defstruct`, `sqlalchemy.orm.declarative_base` and `registry().generate_base`. The table
+  `FACTORIES` in `survey/stable/class_inventory.rs` holds the list and says how to extend it;
 - a call whose result the module calls or passes as the class of `isinstance` or `issubclass`.
 
-The plants are in `tests/test_collector_false_pass_python_placement.py`. Open: a call of another
-library function that creates a class and sets its `__module__` to the caller (`attrs.make_class`,
-`pydantic.create_model`) and whose result the module only returns gives no such site. The rule then
-reads the module as holding no class. This is an open false-PASS class, not an accepted limit.
+The plants are in `tests/test_collector_false_pass_python_placement.py`. Open: the factory of
+another library, whose result the module only returns, gives no such site. The rule then reads the
+module as holding no class. This is an open false-PASS class, not an accepted limit: a factory
+joins the table with a plant whose Python truth is a class.
 
 **Python module and class bindings (AD-642, #1360).** A module- or class-level binding such as
 `for site in sites: site.id` can retain an `import_system_change` gap. These namespaces resolve
