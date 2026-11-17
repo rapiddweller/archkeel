@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-747 | [A closed class scope passes from a complete member inventory](ad-747-a-closed-class-scope-passes-from-a-complete-member-inventory.md) |
 | AD-737 | [Python construct support is one map with downgrade and meet](ad-737-python-construct-support-is-one-map-with-downgrade-and-meet.md) |
 | AD-735 | [The draft step has one outcome and runs after the core is found](ad-735-the-draft-step-has-one-outcome-and-runs-after-the-core-is-found.md) |
 | AD-740 | [The gallery is published by its own workflow](ad-740-the-gallery-is-published-by-its-own-workflow.md) |

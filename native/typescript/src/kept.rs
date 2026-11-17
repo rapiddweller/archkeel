@@ -42,6 +42,8 @@ pub(crate) struct Kept {
     pub shadow: NameIndex,
     /// The script facts and the flags that the script analysis reads.
     pub script: ScriptFile,
+    /// The names of the classes whose members a form of the file can change (AD-747).
+    pub patched: std::collections::BTreeSet<String>,
 }
 
 impl Kept {
@@ -72,6 +74,7 @@ impl Kept {
             &syntax.module_exports,
         );
         kept.rebound = syntax.rebound_names.iter().cloned().collect();
+        kept.patched = std::mem::take(&mut syntax.patched);
         kept.type_exports = std::mem::take(&mut syntax.type_exports);
         kept.sites = std::mem::take(&mut syntax.sites);
         kept.scopes = std::mem::take(&mut syntax.scopes);
@@ -132,6 +135,7 @@ impl Kept {
             text: Vec::new(),
             shadow: NameIndex::default(),
             script: ScriptFile::default(),
+            patched: std::collections::BTreeSet::new(),
         }
     }
 }

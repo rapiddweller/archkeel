@@ -248,11 +248,12 @@ pub(crate) fn classifier(
         .get(&key)
         .map(|ids| ids.iter().map(FactId::new).collect())
         .unwrap_or_default();
-    let complete = definition.members_complete && table.count(&entry.qualified) == 1;
+    let reason = partial(table, entry);
+    let complete = reason.is_none();
     let inventory = |kind: MemberKind, definition_ids: Vec<FactId>| MemberInventory {
         definition_ids,
         kind,
-        reason: (!complete).then(|| "computed or unsupported member syntax".to_owned()),
+        reason: reason.map(str::to_owned),
         schema_version: "1.0.0".to_owned(),
         status: if complete {
             InventoryStatus::Complete
@@ -276,6 +277,24 @@ pub(crate) fn classifier(
         base_declarations,
         attribute_declarations: attributes,
     }
+}
+
+/// Why the members of a classifier can differ from the members of its body, or `None` when the
+/// body shows every member that `tsc` gives its type (AD-747).
+fn partial(table: &SymbolTable, entry: &Entry) -> Option<&'static str> {
+    let definition = entry.definition;
+    if !definition.members_complete {
+        return Some("computed or unsupported member syntax");
+    }
+    if let Some(reason) = definition.open_scope {
+        return Some(reason);
+    }
+    if table.count(&entry.qualified) != 1 {
+        return Some("several declarations share the name");
+    }
+    table
+        .patched(&definition.name)
+        .then_some(crate::member_additions::PATCHED)
 }
 
 /// `_attribute_declaration`.

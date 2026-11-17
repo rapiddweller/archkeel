@@ -42,6 +42,7 @@ mod kinds;
 mod layer;
 mod layout;
 mod manifest;
+mod member_additions;
 mod members;
 mod options;
 mod options_target;
