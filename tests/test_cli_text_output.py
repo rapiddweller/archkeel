@@ -465,3 +465,18 @@ def test_another_named_part_is_not_called_a_draft(capsys: pytest.CaptureFixture[
     first = text.splitlines()[0]
     assert done == 2 and "contract draft" not in first
     assert "all 1 rules pass; the run stays UNKNOWN because 2 gaps are open" in first
+
+
+def test_a_rule_without_a_row_is_not_counted_as_a_pass(capsys: pytest.CaptureFixture[str]) -> None:
+    """#1507: an unported rule has no row and no UNKNOWN row; the line does not say "all pass"."""
+    document = json.loads(frame(Status.PASS))
+    document["status"] = "UNKNOWN"
+    reason = "unsupported: rule kind SymbolPlacement: the slice of its family ports it"
+    document["unsupported"]["rules"] = {"PROTOCOLS-IN-SERVICE": reason}
+    document["gaps"] = [
+        {"kind": "rule_kind_not_ported", "subject": "PROTOCOLS-IN-SERVICE", "reason": reason}
+    ]
+    done, text = _run(document, ["validate", "--text"], capsys)
+    first = text.splitlines()[0]
+    assert done == 2 and "all 1 rules pass" not in first
+    assert "1 of 2 rules pass; 1 rules have no decision: PROTOCOLS-IN-SERVICE" in first
