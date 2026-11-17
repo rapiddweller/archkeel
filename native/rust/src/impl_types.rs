@@ -19,9 +19,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::flow::Foreign;
 use super::receivers::{certainly_visible, exact_type, field_of, same_gates, Candidate, Typed};
-use crate::definitions::{Form, MethodCall, Owner, ReceiverChain, Root, SelfKind, Step, Written};
-use crate::modules::{Frame, Index, Outcome, TypeOf};
-use crate::scan::{Reference, Via};
+use crate::definitions::{MethodCall, ReceiverChain, Root, SelfKind, Step, Written};
+use crate::modules::{Frame, Index, TypeOf};
 use crate::tree::Module;
 use ty::{element, std_function, std_method, std_path, Std, Ty};
 
@@ -307,28 +306,13 @@ impl<'t, 'a> Context<'t, '_, 'a> {
         let Ty::Own(lexical, name) = self.own(self.frame, scope, ty) else {
             return Ty::Unknown;
         };
-        let Some(frame) = self
-            .index
-            .file_of(&lexical)
-            .and_then(|f| self.index.frame(f))
-        else {
-            return Ty::Unknown;
-        };
-        let defs = frame.module.scan.definitions.iter();
-        let mut enums = defs.filter(|d| {
-            d.form == Form::Enum && d.name == name && frame.lexical_at(&d.scope) == lexical
-        });
-        let has = |def: &crate::definitions::Definition| def.variants.contains(last);
-        let member = (self
-            .typed
-            .by_type
-            .get(&(lexical.clone(), name.clone()))
-            .into_iter())
-        .flatten()
-        .any(|c| c.member.name == *last);
-        match (enums.next(), enums.next()) {
-            (Some(found), None) if has(found) && !member => Ty::Own(lexical, name),
-            _ => Ty::Unknown,
+        // A member of the same name would win over the variant of a path.
+        let members = self.typed.by_type.get(&(lexical.clone(), name.clone()));
+        let member = (members.into_iter().flatten()).any(|c| c.member.name == *last)
+            || self.typed.unplaced.contains(last.as_str());
+        match !member && defs::enum_with(self.index, (&lexical, &name), last) {
+            true => Ty::Own(lexical, name),
+            false => Ty::Unknown,
         }
     }
 
@@ -362,53 +346,13 @@ impl<'t, 'a> Context<'t, '_, 'a> {
 
     /// The written return type of the one free function that a path names.
     fn function(&self, path: &[String], scope: &[String]) -> Ty {
-        let Some(name) = path.last() else {
-            return Ty::Unknown;
-        };
-        let scan = &self.frame.module.scan;
-        let local = path.len() == 1
-            && self.frame.bound(name).is_empty()
-            && scan.counts.get(&**name) == Some(&1);
-        let lexical = if local {
-            self.frame.lexical_at(scope)
-        } else {
-            let reference = Reference {
-                root: path[0].clone(),
-                path: path.join("::"),
-                names: path.to_vec(),
-                scope: scope.to_vec(),
-                via: Via::Path,
-                ..Reference::default()
-            };
-            match self.index.resolve(self.frame, &reference) {
-                Outcome::Edge(edge) if edge.symbol.as_ref() == Some(name) => edge.lexical,
-                _ => return Ty::Unknown,
+        match defs::function(self.index, self.frame, (path, scope)) {
+            Some((frame, found))
+                if same_gates(self.module, frame.module) && !frame.module.gated =>
+            {
+                self.written((frame, &found.scope), &found.ret, None)
             }
-        };
-        let Some(frame) = self
-            .index
-            .file_of(&lexical)
-            .and_then(|f| self.index.frame(f))
-        else {
-            return Ty::Unknown;
-        };
-        let target = &frame.module.scan;
-        let defs = target.definitions.iter().filter(|d| {
-            d.form == Form::Function
-                && d.owner == Owner::Module
-                && d.name == *name
-                && frame.lexical_at(&d.scope) == lexical
-        });
-        let defs: Vec<_> = defs.collect();
-        let [found] = defs.as_slice() else {
-            return Ty::Unknown;
-        };
-        let certain = target.counts.get(&**name) == Some(&1)
-            && same_gates(self.module, frame.module)
-            && !frame.module.gated;
-        match certain {
-            true => self.written((frame, &found.scope), &found.ret, None),
-            false => Ty::Unknown,
+            _ => Ty::Unknown,
         }
     }
 }
@@ -424,6 +368,10 @@ fn behind_shared(ty: &Ty) -> bool {
     }
     false
 }
+
+/// The definitions that a chain names by a path (AD-804).
+#[path = "impl_defs.rs"]
+mod defs;
 
 /// The receiver types, and the std types and methods that the resolver knows (#1571, AD-804).
 #[path = "impl_ty.rs"]
