@@ -54,8 +54,9 @@ it writes nothing, says what the layout would give, and exits 2.
 exit codes:
 {table}
   With --baseline, the core decides the code: a difference exits 1 and an accepted UNKNOWN
-  exits 2. A scan that could not run exits 1 with --baseline and 2 without it, because exit 2
-  with a baseline means that every UNKNOWN is accepted.
+  exits 2. A scan or command that could not run, and a file that was not written, exit 1
+  with --baseline and 2 without it, because exit 2 with a baseline means that every UNKNOWN is
+  accepted.
 
 examples:
   archkeel validate

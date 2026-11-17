@@ -111,7 +111,8 @@ is the only engine. The Python engine is deleted.
   [known limits](docs/known-limits.md#supported-projects-on-main).
 - `init` drafts `archkeel.toml` and a contract for a Python project ([guide](docs/onboarding.md)). `check`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
   Interactive reports, `architecture.json` and focused reports are not available.
-  `validate --baseline FILE` accepts each listed UNKNOWN and keeps exit code 2; see the [reference](docs/reference.md#baselines).
+  `validate --baseline FILE` accepts each listed UNKNOWN and keeps exit code 2. Under a baseline, only that
+  verdict exits 2: a refusal or a file that was not written exits 1. See the [reference](docs/reference.md#baselines).
 - `report --output PATH` writes one static HTML page; `--format json` writes the core frame instead.
   `report --topology` adds a bounded topology section to the frame.
 - The [reports of the current `main`](https://rapiddweller.github.io/archkeel/) show what the core says

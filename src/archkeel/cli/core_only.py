@@ -7,7 +7,8 @@ The shell parses the arguments, finds the core binary, sends the scan identity, 
 with `read_frame`, prints it as text or JSON, and maps the status to the exit code. It holds no
 rule, fact or contract logic. `init` drafts the files of a new project (`init_draft`, AD-626) and
 starts no core. A command that the core does not serve stays registered and gives a typed refusal
-with exit 2; it never falls back and never reports success.
+with exit 2; it never falls back and never reports success. Each exit code comes from `exit_for`
+(AD-731): with `--baseline`, only a verdict can exit 2.
 """
 
 from __future__ import annotations
@@ -22,10 +23,11 @@ from time import time_ns
 from typing import Final
 
 from .core_arguments import NotOnThisLine, Options, command_of, parse
+from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import as_json as baseline_json
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
 from .core_binding import resolve_root
-from .core_exit import exit_code
+from .core_exit import Outcome, exit_for, outcome_of, require_baseline_part
 from .core_frame import CoreCommand as Command
 from .core_frame import (
     CoreError,
@@ -55,6 +57,7 @@ def run(argv: Sequence[str]) -> int:
     """Run one command line and return its exit code. The core decides; the shell only maps."""
 
     as_json = _wants_json(argv)
+    baseline = any(arg == "--baseline" or arg.startswith("--baseline=") for arg in argv)
     try:
         if not argv or argv[0] in {"-h", "--help"}:
             print(help_for(None), end="")
@@ -76,7 +79,8 @@ def run(argv: Sequence[str]) -> int:
         message = str(error)
         if any(arg == "--output" or arg.startswith("--output=") for arg in argv):
             message += "; no report file was written"
-        return _refused(_command_or_none(argv), _refusal_kind(error), message, as_json)
+        kind = _refusal_kind(error)
+        return _refused(_command_or_none(argv), kind, message, as_json, baseline=baseline)
     except Exception as error:
         traceback.print_exc()
         return _refused(
@@ -84,6 +88,7 @@ def run(argv: Sequence[str]) -> int:
             RefusalKind.INTERNAL_ERROR,
             f"{type(error).__name__}: {error}",
             as_json,
+            baseline=baseline,
         )
 
 
@@ -154,18 +159,33 @@ def _request(options: Options, root: Path) -> dict[str, object]:
     return request
 
 
-def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> str | None:
-    """Write each requested file. The message of the last failure, or `None`."""
-    failure: str | None = None
+Refusal = tuple[RefusalKind, str]
+_NOT_WRITTEN: Final = (
+    "the run cannot be written as a baseline: a part of it is refused, and no baseline accepts a "
+    "refused part; no baseline file was written"
+)
+
+
+def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> list[Refusal]:
+    """Write each requested file. Each file that was not written, in the order of the request."""
+    failures: list[Refusal] = []
     try:
         _write_report(options, frame, stdout)
     except OSError as error:
-        failure = f"cannot write report file {options.output}: {error}; no report file was written"
+        message = f"cannot write report file {options.output}: {error}; no report file was written"
+        failures.append((RefusalKind.IO_ERROR, message))
+    if options.write_baseline is None:
+        return failures
+    # No part (a refused scan) or `not_written`: the core gave no bytes, and the frame stays.
+    if frame.baseline is None or frame.baseline.state is BaselineState.NOT_WRITTEN:
+        failures.append((RefusalKind.BASELINE_NOT_WRITTEN, _NOT_WRITTEN))
+        return failures
     try:
-        _write_baseline(options, frame, root)
+        _write_baseline(options.write_baseline, frame.baseline, root)
     except OSError as error:
-        failure = f"cannot write the baseline file {error}; no baseline file was written"
-    return failure
+        message = f"cannot write the baseline file {error}; no baseline file was written"
+        failures.append((RefusalKind.IO_ERROR, message))
+    return failures
 
 
 def _located(options: Options) -> Options:
@@ -228,38 +248,43 @@ def _print_text(
     options: Options,
     frame: CoreFrame,
     document: Mapping[str, object],
-    outcome: tuple[int, Gap | None, str | None],
+    ending: tuple[int, Outcome, Gap | None, list[Refusal]],
     where: tuple[Path, Path],
 ) -> None:
     """Print one run as text: the problems first, then the summary, or one line for a report."""
-    code, collected, file_error = outcome
+    code, outcome, collected, failures = ending
     binary, root = where
     typed = (options.root, root)
     problems = [
         f"Problem: {plain(message, *typed)}"
-        for message in (collected.reason if collected else None, file_error)
-        if message is not None
+        for message in (
+            *([collected.reason] if collected else []),
+            *(message for _, message in failures),
+        )
     ]
     test = document.get("self_test")
     collect = test.get("collect") if isinstance(test, dict) else None
     target = collect.get("target") if isinstance(collect, dict) else None
-    if options.output is not None and not options.text and file_error is None and not problems:
+    if options.output is not None and not options.text and not problems:
         detail = f"; {target}" if isinstance(target, str) else ""
-        print(f"{header(options.command, frame, code)}; report written to {options.output}{detail}")
+        line = header(options.command, frame, code, outcome)
+        print(f"{line}; report written to {options.output}{detail}")
     elif collected is not None:
         message = plain(collected.reason, *typed)
         fix = fix_for(RefusalKind.COLLECTION_REFUSED, message)
-        print("\n".join(refusal(options.command, code, message, fix)))
+        print("\n".join([*refusal(options.command, code, message, fix), *problems[1:]]))
     elif options.summary:
         files = _contract_files(document)
         ignored = _ignored_modules(frame, document, root)
-        print("\n".join(summary(options.command, frame, code, files, problems, ignored)))
+        lines = summary(options.command, frame, code, files, problems, ignored, outcome=outcome)
+        print("\n".join(lines))
     else:
         system = document.get("system")
         lines = render(
             options.command,
             frame,
             code,
+            outcome=outcome,
             problems=problems,
             show_all=options.all,
             system=system if isinstance(system, dict) else None,
@@ -269,7 +294,7 @@ def _print_text(
         print("\n".join(lines))
         if isinstance(target, str):
             print(target)
-        if options.output is not None and file_error is None:
+        if options.output is not None and not failures:
             print(f"Report written to {options.output}")
         if options.verbose:
             print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
@@ -280,8 +305,10 @@ def _decide(options: Options, as_json: bool) -> int:
     options = _located(options)
     root = resolve_root(options.root or Path.cwd())
     options, first = _prepare(options, root)  # AD-638, AD-660: a project without a config gets one
+    baseline = options.baseline is not None
     if isinstance(first, str):
-        return _refused(options.command, RefusalKind.INVALID_INPUT, first, as_json)
+        kind = RefusalKind.INVALID_INPUT
+        return _refused(options.command, kind, first, as_json, baseline=baseline)
     request = _request(options, root)
     binary = locate_core()
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
@@ -302,11 +329,14 @@ def _decide(options: Options, as_json: bool) -> int:
     if "topology" in request and not options.topology:
         document.pop("topology", None)
         frame = replace(frame, topology=None)
-    code = exit_code(
-        frame,
-        baseline=options.baseline is not None,
-        write_baseline=options.write_baseline is not None,
-    )
+    require_baseline_part(frame, asked=baseline or options.write_baseline is not None)
+    collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
+    if collected is not None and _NO_CONFIG in collected.reason:
+        # The core names the cause; the way forward is the shell's to name (#1314).
+        collected = replace(collected, reason=_config_reason(options, root, collected.reason))
+    failures = _deliver(options, frame, stdout, root)
+    outcome = outcome_of(frame, delivered=not failures)
+    code = exit_for(outcome, frame, baseline=baseline)
     result: dict[str, object] = {
         "command": options.command,
         "status": frame.status,
@@ -319,26 +349,25 @@ def _decide(options: Options, as_json: bool) -> int:
     }
     if frame.baseline is not None:
         result["baseline"] = baseline_json(frame.baseline)
-    collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
-    if collected is not None and _NO_CONFIG in collected.reason:
-        # The core names the cause; the way forward is the shell's to name (#1314).
-        collected = replace(collected, reason=_config_reason(options, root, collected.reason))
-    if collected is not None:
-        result["refusal"] = {"kind": RefusalKind.COLLECTION_REFUSED, "message": collected.reason}
+    refusals = [(RefusalKind.COLLECTION_REFUSED, collected.reason)] if collected else []
+    result |= _refusal_fields([*refusals, *failures])
     if isinstance(first, Created):
         result["init"] = first.as_json()
-    file_error = _deliver(options, frame, stdout, root)
-    if file_error is not None:
-        code = 2
-        result["exit_code"] = code
-        result["refusal"] = {"kind": RefusalKind.IO_ERROR, "message": file_error}
     if as_json and (options.json or options.output is None):
         print(json.dumps(result))
         return code
     if isinstance(first, Created):
         print("\n".join(first.lines()), end="\n\n")
-    _print_text(options, frame, document, (code, collected, file_error), (binary, root))
+    _print_text(options, frame, document, (code, outcome, collected, failures), (binary, root))
     return code
+
+
+def _refusal_fields(refusals: Sequence[Refusal]) -> dict[str, object]:
+    """`refusal` is the first refusal, and `refusals` lists each one in order; none is lost."""
+    if not refusals:
+        return {}
+    rows = [{"kind": kind, "message": message} for kind, message in refusals]
+    return {"refusal": rows[0], "refusals": rows}
 
 
 _IGNORE_CHECKS: Final = 50
@@ -363,21 +392,15 @@ def _config_reason(options: Options, root: Path, reason: str) -> str:
     return f"{reason}: the file exists but cannot be read; check its permissions and encoding."
 
 
-def _write_baseline(options: Options, frame: CoreFrame, root: Path) -> None:
+def _write_baseline(path: str, part: BaselineResult, root: Path) -> None:
     """Write the bytes that the core gave for `--write-baseline`. The shell adds nothing."""
-    if options.write_baseline is None:
-        return
-    if frame.baseline is None or frame.baseline.file is None:
-        raise CoreError(
-            "the run cannot be written as a baseline: a part of it is refused, and no baseline "
-            "accepts a refused part; no baseline file was written"
-        )
-    base = next((path for path in (root, *root.parents) if (path / ".git").exists()), root)
-    target = base / options.write_baseline
+    if part.file is None:
+        raise CoreError(f"the core frame baseline is {part.state} and holds no bytes to write")
+    base = next((folder for folder in (root, *root.parents) if (folder / ".git").exists()), root)
     try:
-        write_output(target, frame.baseline.file.encode("utf-8"))
+        write_output(base / path, part.file.encode("utf-8"))
     except OSError as error:
-        raise OSError(f"{options.write_baseline}: {error}") from error
+        raise OSError(f"{path}: {error}") from error
 
 
 def _write_report(options: Options, frame: CoreFrame, stdout: bytes) -> None:
@@ -392,18 +415,14 @@ def _write_report(options: Options, frame: CoreFrame, stdout: bytes) -> None:
     write_output(options.output, payload)
 
 
-def _refused(command: Command | None, kind: RefusalKind, message: str, as_json: bool) -> int:
+def _refused(
+    command: Command | None, kind: RefusalKind, message: str, as_json: bool, *, baseline: bool
+) -> int:
     """The refusal of a command that could not run: JSON, or the problem and the fix as text."""
+    code = exit_for(Outcome.COMMAND_REFUSED, None, baseline=baseline)
     if as_json:
-        print(
-            json.dumps(
-                {
-                    "status": Status.UNKNOWN,
-                    "exit_code": 2,
-                    "refusal": {"kind": kind, "message": message},
-                }
-            )
-        )
+        refused = {"kind": kind, "message": message}
+        print(json.dumps({"status": Status.UNKNOWN, "exit_code": code, "refusal": refused}))
     else:
-        print("\n".join(refusal(command, 2, plain(message), fix_for(kind, plain(message)))))
-    return 2
+        print("\n".join(refusal(command, code, plain(message), fix_for(kind, plain(message)))))
+    return code

@@ -408,7 +408,9 @@ def test_each_refusal_kind_has_plain_words_and_its_own_fix(
     from archkeel.cli.core_frame import RefusalKind
 
     message = "cannot open x [Errno 2] No such file or directory: 'x' (os error 2)"
-    core_only._refused(core_only.Command.VALIDATE, RefusalKind(kind), message, False)
+    core_only._refused(
+        core_only.Command.VALIDATE, RefusalKind(kind), message, False, baseline=False
+    )
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == "validate: REFUSED -> exit 2"
     assert not re.search(r"Errno|os error|development line|No such file", "\n".join(lines))
