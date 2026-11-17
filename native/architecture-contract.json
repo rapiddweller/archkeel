@@ -3846,7 +3846,7 @@
         "native.archkeel_typescript_collector.site_types"
       ],
       "responsibilities": [
-        "Read the use sites of a file: the names, the paths and the syntax of each site. The site_text module keeps only the referenced source bytes and releases per-file parse state (AD-420). The site_charge module counts the expression bytes that the records of a file copy and hash (AD-751)."
+        "Read the use sites of a file: the names, the paths and the syntax of each site. The site_text module keeps only the referenced source bytes and releases per-file parse state (AD-420). The site_charge module counts the expression bytes that the records of a file copy and hash (AD-778)."
       ],
       "forbidden_responsibilities": [
         "Resolving a site to a target and building facts."

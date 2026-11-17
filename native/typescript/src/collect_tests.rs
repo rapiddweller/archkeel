@@ -144,7 +144,7 @@ fn retained_sites_keep_their_paths_and_initializer_after_large_comments() {
     );
 }
 
-// AD-751: the records of a call chain copy and hash the square of the chain. A file over the
+// AD-778: the records of a call chain copy and hash the square of the chain. A file over the
 // limit keeps no site records and names the chain; the other files are still collected.
 #[test]
 fn a_call_chain_over_the_record_work_limit_is_a_gap_and_the_others_are_collected() {

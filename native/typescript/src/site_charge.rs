@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The bytes that the records of a file copy and hash, charged before any record is made (AD-751).
+//! The bytes that the records of a file copy and hash, charged before any record is made (AD-778).
 //!
 //! The record of a site holds the text of its expression, and its id is a SHA-256 over that text.
 //! A call chain `a.b().b()...` of n links gives n sites whose texts grow by one link each, so the
@@ -13,7 +13,7 @@ use crate::site_types::{Expression, Site};
 use crate::source::Span;
 
 /// The most bytes of expression text that the records of one file may copy and hash. The highest
-/// value that a real project reaches is 181 KB (AD-751); the `sites-chained-calls` shape of
+/// value that a real project reaches is 181 KB (AD-778); the `sites-chained-calls` shape of
 /// 20,000 calls costs 800 MB and stays below the limit.
 const MAX_RECORD_TEXT: u64 = 1 << 30;
 

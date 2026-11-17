@@ -1,4 +1,4 @@
-# AD-751 A call chain is charged by the bytes its records copy
+# AD-778 A call chain is charged by the bytes its records copy
 
 **Status.** Accepted. Part of #880 (lead decision of 2026-11-17, closes #1347). Visible change: a TypeScript file whose site records would copy more than 1 GiB of expression text keeps no site record and gets a named gap.
 

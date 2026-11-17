@@ -86,7 +86,7 @@ impl Collection<'_> {
         self.type_directives(&parsed, (rel, module), &format);
     }
 
-    /// AD-751: a file whose site records would copy and hash more than `MAX_RECORD_TEXT` bytes of
+    /// AD-778: a file whose site records would copy and hash more than `MAX_RECORD_TEXT` bytes of
     /// expression text keeps no site. The gap names the longest chain, so every rule of the
     /// scope is UNKNOWN and the run does not hang.
     fn refuse_long_chain(&mut self, rel: &str, module: &str, mut kept: Kept) -> Kept {
