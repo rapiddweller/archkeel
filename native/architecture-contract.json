@@ -73,6 +73,7 @@
         "native.archkeel_facts.fields:Fields",
         "native.archkeel_facts.fields:Named",
         "native.archkeel_facts.identity:Part",
+        "native.archkeel_facts.identity:StreamDigest",
         "native.archkeel_facts.identity:evidence_id",
         "native.archkeel_facts.identity:inside",
         "native.archkeel_facts.identity:is_identifier",
@@ -5762,6 +5763,7 @@
           "through": [
             "native.archkeel_snapshot.paths",
             "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Entry",
             "native.archkeel_snapshot:Hidden",
             "native.archkeel_snapshot:Snapshot"
           ]
@@ -6810,7 +6812,8 @@
         "native.archkeel_python_collector.survey.uses_typing_guard",
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.module_scopes",
-        "native.archkeel_python_collector.survey.external_loader"
+        "native.archkeel_python_collector.survey.external_loader",
+        "native.archkeel_python_collector.survey.outside.sites"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
@@ -6896,7 +6899,8 @@
         "native.archkeel_python_collector.survey.declared.reader",
         "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.survey.module_uses",
-        "native.archkeel_python_collector.survey.external_loader"
+        "native.archkeel_python_collector.survey.external_loader",
+        "native.archkeel_python_collector.survey.outside.sites"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [
