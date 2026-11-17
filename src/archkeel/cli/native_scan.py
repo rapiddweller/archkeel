@@ -23,12 +23,10 @@ from pathlib import Path
 from typing import Final
 
 from .core_frame import read_refusal
-from .core_json import CoreError
+from .core_json import CoreError, CoreExit
 
 SCAN_PROTOCOL: Final = "archkeel-core-scan-1"
 _TIMEOUT_SECONDS: Final = 600
-# The exit code of a request that the core cannot read: it writes no frame.
-_REFUSED_EXIT: Final = 2
 # The fixed executable and the environment names of `native/collect/src/git.rs`, never `PATH`.
 _GIT: Final = "C:/Program Files/Git/cmd/git.exe" if sys.platform == "win32" else "/usr/bin/git"
 _GIT_ENVIRONMENT: Final = ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "SystemRoot", "SYSTEMROOT")
@@ -113,7 +111,7 @@ def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
         raise CoreError(f"the core did not answer in {_TIMEOUT_SECONDS} s") from error
     except OSError as error:
         raise CoreError(f"the core could not execute: {error}") from error
-    if done.returncode == _REFUSED_EXIT:
+    if done.returncode == CoreExit.REFUSED:
         if done.stdout:
             raise CoreError("the core wrote frame bytes with exit 2")
         gap = read_refusal(done.stderr)

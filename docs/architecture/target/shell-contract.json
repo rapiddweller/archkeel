@@ -605,6 +605,7 @@
       "decided_by": "architect",
       "public": [
         "archkeel.cli.core_json:CoreError",
+        "archkeel.cli.core_json:CoreExit",
         "archkeel.cli.core_json:Gap",
         "archkeel.cli.core_json:GapKind",
         "archkeel.cli.core_json:RequestMismatch",

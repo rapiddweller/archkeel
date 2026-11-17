@@ -33,14 +33,21 @@ three places, and the JSON results had different heads.
    `command_refused`, `delivery_failed` or `completed` (`init`, `skill`; exit 0 by `exit_for`).
    `status` is `null` without a verdict, and `command` is `null` when no command is named. Each
    field that a result had before keeps its value.
+7. The parts that the collector refuses by name are one `_RefusedPart` (`core_words.py`), read
+   from the refusal message in one place. A test reads `native/collect/src` and pins the set. The
+   exit codes of the core are one `CoreExit` (`core_json.py`). The typed core refusal
+   `parse_work_limit` is its own refusal kind (was `core_error`) with the fix "the file is larger or
+   deeper than the scan reads; split it, or leave it out of the scan roots."
 
 Visible change: the fix lines and the kind `io_error` above; no files when the core is missing; the
 written files before a later refusal; `ARCHKEEL_NO_INIT=false` writes the draft; `init` below the
 top of a work tree drafts at the top; a baseline written with `--root sub` is read back; the
 configuration reason names the top of the work tree when the core looked there; the head fields
 `outcome`, `command` (refusals) and `status` (`init`, `skill`); a refusal of `init` or of
-`report --output` in a pipe without a flag prints text, as its result does.
+`report --output` in a pipe without a flag prints text, as its result does; the kind
+`parse_work_limit` and its fix.
 
-Proof: `tests/test_cli_init_outcome.py`, `test_cli_project_root.py`, `test_cli_output_envelope.py`.
+Proof: `tests/test_cli_init_outcome.py`, `test_cli_project_root.py`, `test_cli_output_envelope.py`,
+`test_cli_refused_part.py`.
 For item 6 the text of 22 command lines is byte-identical before and after, and their JSON is equal
 without the new head fields.
