@@ -1930,10 +1930,11 @@
       "role": "component",
       "layer": "report",
       "packages": [
+        "native.archkeel_report.build_script",
         "native.archkeel_report.engine_frame.html"
       ],
       "responsibilities": [
-        "Render the static HTML page of one engine frame (AD-440, AD-496, AD-498)."
+        "Render the static HTML page of one engine frame and derive its script hashes at build time (AD-440, AD-496, AD-498)."
       ],
       "forbidden_responsibilities": [
         "Reading the model, the evaluator or the contract, and inferring a verdict."
@@ -6864,9 +6865,11 @@
         "native.archkeel_contract",
         "native.archkeel_facts",
         "native.archkeel_python_collector",
+        "native.archkeel_report.build_script",
+        "native.archkeel_report.cargo_toml",
         "native.archkeel_store"
       ],
-      "rationale": "Only these crates compute a digest; the model, the evaluator, the report and the core copy digests and compute none.",
+      "rationale": "These crates compute source digests, or the report's build-time script hashes; the model, evaluator and core copy digests and compute none.",
       "provenance": [
         "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
       ],
