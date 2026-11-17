@@ -19,9 +19,9 @@ const B: &str = "impl crate::c::S {\n    pub fn m(&self) {}\n    pub fn len(&sel
 const E: &str = "impl crate::d::T {\n    pub fn m(&self) {}\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n";
 
 /// The edges of `a` to `b` and `e`, and the pair gaps of `a`.
-type Outcome = (Vec<String>, Vec<String>);
+pub(super) type Outcome = (Vec<String>, Vec<String>);
 
-fn outcome(a: &str, more: &[(&str, &str)]) -> Outcome {
+pub(super) fn outcome(a: &str, more: &[(&str, &str)]) -> Outcome {
     let mut files: Vec<(&str, &str)> = vec![
         (
             "crates/app/Cargo.toml",
@@ -64,11 +64,11 @@ fn names(items: &[&str]) -> Vec<String> {
     items.iter().map(|item| (*item).to_owned()).collect()
 }
 
-fn gaps(items: &[&str]) -> Outcome {
+pub(super) fn gaps(items: &[&str]) -> Outcome {
     (Vec::new(), names(items))
 }
 
-fn edge(item: &str) -> Outcome {
+pub(super) fn edge(item: &str) -> Outcome {
     (names(&[item]), Vec::new())
 }
 

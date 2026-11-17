@@ -22,7 +22,7 @@ use super::receivers::{certainly_visible, exact_type, field_of, same_gates, Cand
 use crate::definitions::{MethodCall, ReceiverChain, Root, SelfKind, Step, Written};
 use crate::modules::{Frame, Index, TypeOf};
 use crate::tree::Module;
-use ty::{element, std_function, std_method, std_path, Std, Ty};
+use ty::{element, outside_path, std_function, std_method, std_path, Std, Ty};
 
 /// What a method call can reach, from the type of its receiver.
 pub(super) enum Verdict<'t, 'a> {
@@ -182,11 +182,19 @@ impl<'t, 'a> Context<'t, '_, 'a> {
                 }
             }
             Written::Path(names, args) => {
+                let args = args
+                    .iter()
+                    .map(|arg| self.written((frame, scope), arg, this));
                 if let Some(std) = std_path(frame, scope, names) {
-                    let args = args
-                        .iter()
-                        .map(|arg| self.written((frame, scope), arg, this));
                     return Ty::Std(std, args.collect());
+                }
+                if outside_path(frame, scope, names) {
+                    // An outside type may deref to a type argument (`Wrapper<T>`).
+                    let args: Vec<Ty> = args.collect();
+                    return match args.iter().all(no_workspace) {
+                        true => Ty::Std(Std::Outside, Vec::new()),
+                        false => Ty::Unknown,
+                    };
                 }
                 self.own(frame, scope, names)
             }
@@ -357,6 +365,15 @@ impl<'t, 'a> Context<'t, '_, 'a> {
     }
 }
 
+/// Whether a type holds no type of the workspace and no unknown type.
+fn no_workspace(ty: &Ty) -> bool {
+    match ty {
+        Ty::Std(_, args) => args.iter().all(no_workspace),
+        Ty::Ref(_, inner) => no_workspace(inner),
+        Ty::Own(..) | Ty::Unknown => false,
+    }
+}
+
 /// Whether a shared reference is among the references around a type.
 fn behind_shared(ty: &Ty) -> bool {
     let mut ty = ty;
@@ -380,3 +397,7 @@ mod ty;
 #[cfg(test)]
 #[path = "impl_types_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "impl_types_outside_tests.rs"]
+mod outside_tests;

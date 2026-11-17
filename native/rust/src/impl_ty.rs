@@ -46,6 +46,8 @@ pub(in crate::impl_edges) enum Std {
     OsString,
     /// A std iterator with its item, from the fixed adapters of AD-804.
     Iter,
+    /// A type of a crate from a registry or git, with no type of the workspace in its arguments.
+    Outside,
 }
 
 /// A receiver type as far as the written types prove it.
@@ -82,44 +84,84 @@ const PRELUDE: [&str; 14] = [
     "borrow",
 ];
 
-/// The std type that a written path names for certain.
-pub(in crate::impl_edges) fn std_path(
-    frame: &Frame<'_>,
-    scope: &[String],
-    names: &[String],
-) -> Option<Std> {
+/// A written path from the root of its crate: the path itself when nothing of the file binds its
+/// first name, or the path of the one unconditional `use` leaf in its scope that binds it.
+/// `None` when an item, a glob or a module-level macro of the file can give the first name.
+fn rooted(frame: &Frame<'_>, scope: &[String], names: &[String]) -> Option<Rooted> {
     let module = frame.module;
     let scan = &module.scan;
     if module.gated && module.gates.is_none() {
         return None;
     }
     let first = names.first()?;
-    let full: Vec<&str> = match frame.bound(first) {
+    match frame.bound(first) {
         [] => {
-            if scan.counts.contains_key(first.as_str())
+            let unbound = scan.counts.contains_key(&**first)
                 || scan.module_macros
-                || frame.globs().next().is_some()
-            {
-                return None;
-            }
-            if let [one] = names {
-                return prelude(one);
-            }
-            names.iter().map(String::as_str).collect()
+                || frame.globs().next().is_some();
+            (!unbound).then(|| Rooted::Written(names.to_vec()))
         }
         [leaf] => {
-            if scan.counts.get(first.as_str()) != Some(&1)
-                || scan.conditional_bindings.contains(first.as_str())
+            let unsure = scan.counts.get(&**first) != Some(&1)
+                || scan.conditional_bindings.contains(&**first)
                 || !matches!(leaf.via, Via::Use { block: false, .. })
-                || frame.lexical_at(scope) != frame.lexical_at(&leaf.scope)
-            {
-                return None;
-            }
-            let rest = names[1..].iter();
-            leaf.names.iter().chain(rest).map(String::as_str).collect()
+                || frame.lexical_at(scope) != frame.lexical_at(&leaf.scope);
+            let full = leaf.names.iter().chain(&names[1..]).cloned();
+            (!unsure).then(|| Rooted::Leaf(full.collect(), leaf.absolute))
         }
-        _ => return None,
+        _ => None,
+    }
+}
+
+/// A rooted path: as written, or through a `use` leaf (with its leading `::`).
+enum Rooted {
+    Written(Vec<String>),
+    Leaf(Vec<String>, bool),
+}
+
+/// Whether a written path names a type of a crate that the manifest takes from a registry or git
+/// for certain. Such a crate cannot depend on a crate of this workspace: no member and no `Deref`
+/// of its types leads to an inherent member of the workspace (#1571, AD-804).
+pub(in crate::impl_edges) fn outside_path(
+    frame: &Frame<'_>,
+    scope: &[String],
+    names: &[String],
+) -> bool {
+    let scan = &frame.module.scan;
+    let (full, root_free) = match rooted(frame, scope, names) {
+        Some(Rooted::Written(full)) => (full, true),
+        Some(Rooted::Leaf(full, absolute)) => {
+            let root = full.first().map_or("", String::as_str);
+            let free =
+                absolute || (frame.bound(root).is_empty() && !scan.counts.contains_key(root));
+            (full, free)
+        }
+        None => return false,
     };
+    let manifest = &frame.krate().manifest;
+    match full.as_slice() {
+        [root, _, ..] if root_free && scan.extern_crates.is_empty() => {
+            let ours = matches!(
+                &**root,
+                "std" | "core" | "alloc" | "crate" | "self" | "super"
+            );
+            !ours && (manifest.dependencies.get(root)).is_some_and(|p| manifest.remote.contains(p))
+        }
+        _ => false,
+    }
+}
+
+/// The std type that a written path names for certain.
+pub(in crate::impl_edges) fn std_path(
+    frame: &Frame<'_>,
+    scope: &[String],
+    names: &[String],
+) -> Option<Std> {
+    let full = match rooted(frame, scope, names)? {
+        Rooted::Written(full) if full.len() == 1 => return prelude(&full[0]),
+        Rooted::Written(full) | Rooted::Leaf(full, _) => full,
+    };
+    let full: Vec<&str> = full.iter().map(String::as_str).collect();
     let [root, rest @ ..] = full.as_slice() else {
         return None;
     };
