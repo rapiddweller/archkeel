@@ -38,6 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from tools.report_gallery_page import STATUSES, index
 from tools.report_product import (
     Contract,
     Part,
@@ -45,12 +46,10 @@ from tools.report_product import (
     part_of,
     system,
 )
-from tools.report_product_page import shell
 from tools.system_parts import DOCUMENT, System, load
 
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "fixtures" / "matrix.json"
-STATUSES = ("PASS", "FAIL", "UNKNOWN")
 RUN_TIMEOUT = 900
 
 
@@ -320,61 +319,6 @@ def build_self(cli: Sequence[str], entry: Mapping[str, str], out: Path) -> dict[
     return row
 
 
-def _cell(text: object) -> str:
-    return f"<td>{html.escape(str(text))}</td>"
-
-
-def _verdict(row: Mapping[str, Any]) -> str:
-    summary = row.get("summary")
-    if summary is None:
-        return f'<td colspan="5">no result: {html.escape(row["error"])}</td>'
-    if summary["refusal"]:
-        reason = summary["refusal"]["message"]
-        cause = html.escape(f"refused: {reason}")
-        return _cell(summary["status"]) + f'<td colspan="4">{cause}</td>'
-    counts = summary["counts"]
-    gaps = ", ".join(f"{kind}: {number}" for kind, number in summary["gaps"].items()) or "none"
-    return (
-        _cell(summary["status"]) + "".join(_cell(counts[name]) for name in STATUSES) + _cell(gaps)
-    )
-
-
-def _links(row: Mapping[str, Any]) -> str:
-    # The table is one folder below the root of the site.
-    anchors = [
-        f'<a href="../{html.escape(path, quote=True)}">{label}</a>' for label, path in row["links"]
-    ]
-    return f"<td>{' '.join(anchors) or 'none'}</td>"
-
-
-def index(rows: Sequence[Mapping[str, Any]], sha: str, built_at: str) -> str:
-    """The fixture tables, one for each language, at `showcase/index.html`."""
-    head = "<th>Verdict</th><th>PASS</th><th>FAIL</th><th>UNKNOWN</th><th>Gaps</th><th>Reports</th>"
-    groups = ""
-    for language in sorted({row["run"]["language"] for row in rows}):
-        chosen = [row for row in rows if row["run"]["language"] == language]
-        body = "".join(
-            f"<tr>{_cell(row['run']['name'])}{_verdict(row)}{_links(row)}</tr>\n" for row in chosen
-        )
-        groups += (
-            f'<h2 class="h3">{html.escape(language)}</h2>\n'
-            f'<p class="caption">{len(chosen)} {"run" if len(chosen) == 1 else "runs"}</p>\n'
-            '<table class="rp-mini"><thead><tr><th>Fixture</th>'
-            f"{head}</tr></thead>\n<tbody>\n{body}</tbody></table>\n"
-        )
-    body = (
-        '<h1 class="h2">ArchKeel fixture reports</h1>\n'
-        '<p class="body-sm"><a href="../index.html">ArchKeel as a product</a></p>\n'
-        f'<p class="body-sm">Commit <code>{html.escape(sha)}</code>. '
-        f"Built {html.escape(built_at)}.</p>\n"
-        '<p class="body-sm">Each row is one run of the core on a project of '
-        "<code>fixtures/</code>. "
-        "A refused row shows the exact reason of the core. UNKNOWN is not a pass.</p>\n"
-        f"{groups}"
-    )
-    return shell("ArchKeel fixture reports", "Report \u00b7 fixture reports", body)
-
-
 def _head_sha() -> str:
     done = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=False
@@ -410,7 +354,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         json.dumps(system_badge(parts), ensure_ascii=False) + "\n", encoding="utf-8"
     )
     (args.out / "showcase").mkdir()
-    (args.out / "showcase" / "index.html").write_text(index(rows, sha, built_at))
+    (args.out / "showcase" / "index.html").write_text(index(rows, sha, built_at, parts))
     failed = [row["run"]["name"] for row in [*self_rows, *rows] if "error" in row]
     failed += [part.key for part in parts if part.error and part.key not in failed]
     failed += [item.title for item in others if item.error]
