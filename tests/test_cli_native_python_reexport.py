@@ -46,7 +46,11 @@ MOVED = {
     "setattr-on-a-deepcopy-of-the-copy-module",
 }
 # The plants where the core is stricter than main was: a frame namespace is a door now.
-STRICTER = {"frame-globals-write-at-import"}
+STRICTER = {
+    "frame-globals-write-at-import",
+    # AD-762 (#1520): a runner of `code` on the name `code` is a gap whatever binds the name.
+    "comprehension-variable-does-not-bind-outside",
+}
 # How CPython runs an inert read: the call, and the modules that it imports (none).
 CALLS = {
     "globals-read-with-a-literal-key": "c.f(c.f)",
