@@ -3,7 +3,7 @@
     "E-runtime": {
       "language": "python",
       "runs": [
-      {"name": "E-runtime", "root": "E-runtime", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}}
+      {"name": "E-runtime", "showcase": false, "root": "E-runtime", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}}
       ]
     },
     "F-architecture": {
@@ -16,7 +16,7 @@
     "F-typescript-story": {
       "language": "typescript",
       "runs": [
-      {"name": "F-typescript-story", "root": "F-typescript-story", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 1 coverage gap", "gaps": {"no_decided_rule": 1}, "refusal": null}}
+      {"name": "F-typescript-story", "showcase": false, "root": "F-typescript-story", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 1 coverage gap", "gaps": {"no_decided_rule": 1}, "refusal": null}}
       ]
     },
     "G-dart": {
@@ -82,12 +82,12 @@
     "golden-python": {
       "language": "python",
       "runs": [
-      {"name": "golden-python-fastapi-encoders", "root": "golden-python/fastapi-encoders", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 3 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-fastapi-security", "root": "golden-python/fastapi-security", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 10 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-constructs", "root": "golden-python/synthetic-constructs", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 2 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-excluded-tests", "root": "golden-python/synthetic-excluded-tests", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-gaps", "root": "golden-python/synthetic-gaps", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 4 coverage gaps; 3 of them leave the whole scope unknown", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-tests-only", "root": "golden-python/synthetic-tests-only", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}}
+      {"name": "golden-python-fastapi-encoders", "showcase": false, "root": "golden-python/fastapi-encoders", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 3 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-fastapi-security", "showcase": false, "root": "golden-python/fastapi-security", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 10 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-constructs", "showcase": false, "root": "golden-python/synthetic-constructs", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 2 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-excluded-tests", "showcase": false, "root": "golden-python/synthetic-excluded-tests", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-gaps", "showcase": false, "root": "golden-python/synthetic-gaps", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 4 coverage gaps; 3 of them leave the whole scope unknown", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-tests-only", "showcase": false, "root": "golden-python/synthetic-tests-only", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}}
       ]
     },
     "python-newer-syntax-demo": {

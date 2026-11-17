@@ -26,7 +26,7 @@ from .core_arguments import NotOnThisLine, Options, command_of, parse
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import as_json as baseline_json
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
-from .core_binding import resolve_root
+from .core_binding import ProjectRoot, RootMode, resolve_root, work_tree_top
 from .core_exit import Outcome, exit_for, outcome_of, require_baseline_part
 from .core_frame import CoreCommand as Command
 from .core_frame import (
@@ -73,7 +73,7 @@ def run(argv: Sequence[str]) -> int:
         if options.command is Command.SKILL:
             return _install_skill(options, as_json)
         if options.command is Command.INIT:
-            return _run_init("--json" in argv, resolve_root(options.root or Path.cwd()))
+            return _run_init("--json" in argv, ProjectRoot.of(options.root).path)
         return _decide(options, as_json)
     except (CoreError, OSError, ValueError) as error:
         output = any(arg == "--output" or arg.startswith("--output=") for arg in argv)
@@ -139,15 +139,15 @@ def _install_skill(options: Options, as_json: bool) -> int:
     return 0
 
 
-def _request(options: Options, root: Path) -> dict[str, object]:
+def _request(options: Options, project: ProjectRoot) -> dict[str, object]:
     """The scan identity that the core answers, with the parts of the page and the baseline."""
     request: dict[str, object] = {
         "protocol": SCAN_PROTOCOL,
-        "root": str(root),
+        "root": str(project.path),
         "config": options.config,
-        "discover_root": options.root is None,
+        "discover_root": project.discover,
     }
-    if (claim := identity(root)) is not None:
+    if (claim := identity(project.path)) is not None:
         request["git_head"], request["dirty"] = claim
     # AD-496: the page draws the architecture, so the core also builds the topology for it. The
     # section is transport for the page: stdout shows it only when the user asked for it.
@@ -201,7 +201,7 @@ def _located(options: Options) -> Options:
     path = (config if config.is_absolute() else Path.cwd() / config).resolve()
     if not path.is_file():
         return options
-    top = next((folder for folder in path.parents if (folder / ".git").exists()), None)
+    top = work_tree_top(path.parent)
     if top is None or (not config.is_absolute() and Path.cwd().resolve().is_relative_to(top)):
         return options
     located = Options(**vars(options))
@@ -307,17 +307,17 @@ def _print_text(
 def _decide(options: Options, as_json: bool) -> int:
     """Draft the files of a first run, then scan. A failure after a write still names the files."""
     options = _located(options)
-    root = resolve_root(options.root or Path.cwd())
+    project = ProjectRoot.of(options.root)  # AD-735: one root for the draft, the scan and the files
     baseline = options.baseline is not None
     binary = locate_core()  # AD-735: the core is found and checked before the draft writes a file
-    options, init = _prepare(options, root)  # AD-638, AD-660: a project without a config gets one
+    options, init = _prepare(options, project)  # AD-638, AD-660: a first run gets its files
     if (stop := init.refusal()) is not None:
         kind, fix = stop
         return _refused(
             options.command, kind, init.message, as_json, baseline=baseline, fix=fix, init=init
         )
     try:
-        return _scan(options, root, binary, init.created, as_json)
+        return _scan(options, project, binary, init.created, as_json)
     except (CoreError, OSError, ValueError) as error:
         if init.created is None:
             raise
@@ -327,11 +327,12 @@ def _decide(options: Options, as_json: bool) -> int:
 
 
 def _scan(
-    options: Options, root: Path, binary: Path, created: Created | None, as_json: bool
+    options: Options, project: ProjectRoot, binary: Path, created: Created | None, as_json: bool
 ) -> int:
     """Send the scan identity to the core and print the one frame that it gives."""
     baseline = options.baseline is not None
-    request = _request(options, root)
+    root = project.path
+    request = _request(options, project)
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
     started_ns = time_ns()
     stdout, status_code = exchange(str(binary), "scan", json.dumps(request).encode())
@@ -354,7 +355,7 @@ def _scan(
     collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
     if collected is not None and _NO_CONFIG in collected.reason:
         # The core names the cause; the way forward is the shell's to name (#1314).
-        collected = replace(collected, reason=_config_reason(options, root, collected.reason))
+        collected = replace(collected, reason=_config_reason(options, project, collected.reason))
     failures = _deliver(options, frame, stdout, root)
     outcome = outcome_of(frame, delivered=not failures)
     code = exit_for(outcome, frame, baseline=baseline)
@@ -398,10 +399,13 @@ _MISSING_FIX: Final = (
 )
 
 
-def _config_reason(options: Options, root: Path, reason: str) -> str:
-    """Say whether the configuration file is missing, a folder or unreadable, and what to do."""
-    path = root / options.config
-    where = options.root or "the current folder"
+def _config_reason(options: Options, project: ProjectRoot, reason: str) -> str:
+    """Say whether the configuration file is missing, a folder or unreadable, and what to do.
+
+    The file is where the core looked for it: below the project root.
+    """
+    path = project.path / options.config
+    where = _where(options, project)
     if not path.exists():
         return (
             f"{reason}: the file does not exist in {where}. A new project: run `archkeel init` to "
@@ -413,13 +417,24 @@ def _config_reason(options: Options, root: Path, reason: str) -> str:
     return f"{reason}: the file exists but cannot be read; check its permissions and encoding."
 
 
+def _where(options: Options, project: ProjectRoot) -> str:
+    """The project root in the words of the user: the typed `--root`, or the folder found."""
+    match project.mode:
+        case RootMode.EXPLICIT:
+            return str(options.root)
+        case RootMode.WORK_TREE if project.path != resolve_root(Path.cwd()):
+            return f"the top of the Git work tree ({project.path})"
+        case RootMode.WORK_TREE | RootMode.CURRENT:
+            return "the current folder"
+
+
 def _write_baseline(path: str, part: BaselineResult, root: Path) -> None:
-    """Write the bytes that the core gave for `--write-baseline`. The shell adds nothing."""
+    """Write the bytes that the core gave for `--write-baseline` below the project root, where
+    `--baseline` reads them (AD-735). The shell adds nothing."""
     if part.file is None:
         raise CoreError(f"the core frame baseline is {part.state} and holds no bytes to write")
-    base = next((folder for folder in (root, *root.parents) if (folder / ".git").exists()), root)
     try:
-        write_output(base / path, part.file.encode("utf-8"))
+        write_output(root / path, part.file.encode("utf-8"))
     except OSError as error:
         raise OSError(f"{path}: {error}") from error
 

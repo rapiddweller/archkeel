@@ -526,7 +526,8 @@
         "archkeel.cli.core_binding"
       ],
       "responsibilities": [
-        "Bind a frame to its request identity and to the bytes of the contract files. It reads no rules."
+        "Bind a frame to its request identity and to the bytes of the contract files. It reads no rules.",
+        "Name the one project root of a command: an explicit root, else the top of the Git work tree."
       ],
       "forbidden_responsibilities": [
         "Read a rule row or interpret a status."
@@ -542,8 +543,11 @@
       ],
       "decided_by": "architect",
       "public": [
+        "archkeel.cli.core_binding:ProjectRoot",
+        "archkeel.cli.core_binding:RootMode",
         "archkeel.cli.core_binding:bind_request",
-        "archkeel.cli.core_binding:resolve_root"
+        "archkeel.cli.core_binding:resolve_root",
+        "archkeel.cli.core_binding:work_tree_top"
       ]
     },
     {

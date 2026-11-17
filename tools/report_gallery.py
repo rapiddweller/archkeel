@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Build the static fixture gallery: one report pair for each run of the matrix (AD-462).
 
-The runs come from `fixtures/matrix.json`.
+The runs come from `fixtures/matrix.json`. A run with `"showcase": false` has no scenario to show
+(an empty contract, a collector golden); the tests keep it and the gallery skips it.
 The tool decides nothing. It runs `archkeel report --output` for each run, reads the envelope that
 the CLI prints, and shows the verdict, the counts and the refusal of the core as they are.
 A run that gives no envelope gets a row without links and makes the exit code 1.
@@ -84,6 +85,11 @@ def load_runs(matrix: Path = MATRIX) -> list[dict[str, Any]]:
         for name, entry in sorted(table.items())
         for run in entry["runs"]
     ]
+
+
+def showcase_runs(matrix: Path = MATRIX) -> list[dict[str, Any]]:
+    """The runs that the gallery shows. A run with `"showcase": false` is a test fixture only."""
+    return [run for run in load_runs(matrix) if run.get("showcase", True)]
 
 
 def summarize(envelope: Mapping[str, Any]) -> dict[str, Any]:
@@ -395,7 +401,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     sha = args.sha or _head_sha()
     system = load(args.system)
     self_rows = [build_self(cli, entry, args.out) for entry in self_runs(system)]
-    rows = [build_run(cli, run, args.out) for run in load_runs(args.matrix)]
+    rows = [build_run(cli, run, args.out) for run in showcase_runs(args.matrix)]
     built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     others = [build_other(cli, entry) for entry in OTHER_RUNS]
     parts: list[Part] = [row["part"] for row in self_rows]
