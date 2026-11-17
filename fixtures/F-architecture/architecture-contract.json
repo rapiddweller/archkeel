@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.14.schema.json",
-  "schema_version": "3.14.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.17.schema.json",
+  "schema_version": "3.17.0",
   "components": [
     {
       "id": "COMP-MODEL",
@@ -125,6 +125,16 @@
     }
   ],
   "declarations": {
+    "premises": [
+      {
+        "id": "P-STD",
+        "name": "standard_library_unchanged",
+        "rationale": "The tour publishes the standard library type Path in a boundary_types rule; no code outside the repository patches the standard library.",
+        "provenance": [
+          "docs/architecture/shop.md"
+        ]
+      }
+    ],
     "capabilities": [
       {
         "id": "CAP-SHOP",
