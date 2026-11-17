@@ -96,6 +96,8 @@ pub(crate) struct SymbolTable<'a> {
     named: HashMap<String, HashMap<String, Vec<usize>>>,
     members: HashMap<usize, HashSet<&'a str>>,
     scope_ids: HashMap<Rc<str>, HashMap<(i64, i64), usize>>,
+    /// The names of the classes whose members a form of some file can change (AD-747).
+    patched: HashSet<&'a str>,
 }
 
 impl<'a> SymbolTable<'a> {
@@ -111,11 +113,15 @@ impl<'a> SymbolTable<'a> {
             named: HashMap::new(),
             members: HashMap::new(),
             scope_ids: HashMap::new(),
+            patched: HashSet::new(),
         };
         for rel in &pending.order {
             let Some(kept) = pending.kept.get(rel) else {
                 continue;
             };
+            table
+                .patched
+                .extend(kept.patched.iter().map(String::as_str));
             for definition in &kept.definitions {
                 let parent = definition.parent.map(|at| kept.scopes.qualified(at));
                 table.add(rel, &kept.module, definition, parent.as_deref());
@@ -196,6 +202,11 @@ impl<'a> SymbolTable<'a> {
     pub(crate) fn with_qualified(&self, qualified: &str) -> impl Iterator<Item = &Entry<'a>> {
         let found: &[usize] = self.by_qualified.get(qualified).map_or(&[], Vec::as_slice);
         found.iter().map(|&at| &self.entries[at])
+    }
+
+    /// True when a form of some file can change the members of a class of this name (AD-747).
+    pub(crate) fn patched(&self, name: &str) -> bool {
+        self.patched.contains(name)
     }
 
     /// `len(by_qualified[qualified])`, in constant time: a name with k definitions costs k, not k

@@ -16,12 +16,13 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cache
 from pathlib import Path
 from typing import Final
 
 from .core_schema import schema_file
+from .init_binding import _table, _value
 
 DOCUMENT: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md"
 _IGNORED: Final = frozenset({".git", ".venv", "venv", "node_modules", "target", "build", "dist"})
@@ -42,7 +43,10 @@ class Part:
 
 @dataclass(frozen=True)
 class Layout:
-    """The scan that a layout names: language, namespace, roots, components and an extra line."""
+    """The scan that a layout names: language, namespace, roots, components and an extra line.
+
+    `project` is the folder of the `pyproject.toml` of a Python scan; `crates` are the folders of
+    the crates of a Rust scan (AD-784 reads their manifests for a binding)."""
 
     language: str
     namespace: str
@@ -50,6 +54,8 @@ class Layout:
     parts: tuple[Part, ...]
     extra: str = ""
     note: str = ""
+    project: str = ""
+    crates: tuple[str, ...] = ()
 
 
 def _refuse(why: str) -> NothingToDraft:
@@ -115,8 +121,11 @@ def _python_layouts(root: Path, folder: Path | None = None) -> list[Layout]:
         raise _refuse(f"no top-level Python package (a folder with __init__.py) in {where}")
     note = _python_note(folder)
     if src and len(found) > 1:
-        return [_python_scan(root, base, [p.name for p in found], note)]
-    return [_python_single(root, package, note) for package in found]
+        layouts = [_python_scan(root, base, [p.name for p in found], note)]
+    else:
+        layouts = [_python_single(root, package, note) for package in found]
+    project = folder.relative_to(root).as_posix() or "."
+    return [replace(layout, project=project) for layout in layouts]
 
 
 def _python_single(root: Path, package: Path, note: str) -> Layout:
@@ -164,16 +173,17 @@ def _python_note(root: Path) -> str:
 
 def _rust_layout(repo: Path, root: Path) -> Layout | None:
     """One component for each crate of the Cargo workspace in `root` (a folder of the repository
-    `repo`); `None` without a workspace."""
+    `repo`), or the layout of the one crate there (`_rust_crate`); `None` for neither."""
     manifest = root / "Cargo.toml"
     if not manifest.is_file():
         return None
     text = manifest.read_text(encoding="utf-8")
     if not re.search(r"^\[workspace\]", text, re.M):
-        return None
+        return _rust_crate(repo, root, text)
     listed = re.search(r"^members\s*=\s*\[(.*?)\]", text, re.M | re.S)
     patterns = re.findall(r'"([^"]+)"', listed[1]) if listed else []
     parts: list[Part] = []
+    crates: list[str] = []
     for crate in _members(root, patterns, "Cargo.toml"):
         found = re.search(
             r'^\[package\].*?^name\s*=\s*"([^"]+)"',
@@ -183,10 +193,64 @@ def _rust_layout(repo: Path, root: Path) -> Layout | None:
         if found:
             name = found[1].replace("-", "_")
             parts.append(Part(_name(found[1]), (f"{_name(root.name or repo.name)}.{name}",)))
+            crates.append(crate.relative_to(repo).as_posix())
     if len(parts) < 2:
         raise _refuse("the Cargo workspace names fewer than two crates with a [package] name")
     scan = root.relative_to(repo).as_posix()
-    return Layout("rust", _name(root.name or repo.name), (scan,), tuple(parts))
+    return Layout(
+        "rust", _name(root.name or repo.name), (scan,), tuple(parts), crates=tuple(crates)
+    )
+
+
+def _in_workspace(repo: Path, folder: Path) -> bool:
+    """Whether a `Cargo.toml` with `[workspace]` lies in a folder above `folder`, in `repo`."""
+    for above in folder.parents:
+        if not above.is_relative_to(repo):
+            return False
+        manifest = above / "Cargo.toml"
+        if manifest.is_file() and re.search(
+            r"^\[workspace\]", manifest.read_text(encoding="utf-8"), re.M
+        ):
+            return True
+    return False
+
+
+def _rust_crate(repo: Path, root: Path, text: str) -> Layout | None:
+    """The scan of one crate that no workspace holds (#1612): a component for each top module
+    beside the crate root file (a `.rs` file or a folder that holds Rust), and `root` for the crate
+    root and its build script. The collector names the crate `<namespace>.<package>` with `_` for
+    `-`. Test, bench and example targets stay out of the scan, as for a TypeScript draft."""
+    package = _table(text, "package")
+    name = _value(package, "name")
+    if name is None or _in_workspace(repo, root):
+        return None
+    stated = _value(_table(text, "lib"), "path")
+    files = [stated] if stated else ["src/lib.rs", "src/main.rs"]
+    top = next((root / file for file in files if (root / file).is_file()), None)
+    if top is None:
+        raise _refuse(f"the crate {name} has no src/lib.rs or src/main.rs")
+    namespace = _name(root.name or repo.name)
+    module = f"{namespace}.{name.replace('-', '_')}"
+    names = sorted(
+        {p.stem for p in top.parent.glob("*.rs") if p != top and p.name != "main.rs"}
+        | {
+            p.name
+            for p in top.parent.iterdir()
+            if p.is_dir() and p.name != "bin" and any(p.rglob("*.rs"))
+        }
+    )
+    parts = [Part(_name(n), (f"{module}.{n}",)) for n in names if re.fullmatch(r"[A-Za-z_]\w*", n)]
+    # Cargo builds `build.rs` unless `build = false`, and a stated `build = "path"` instead.
+    off = re.search(r"^build\s*=\s*false", package or "", re.M)
+    build = _value(package, "build") or (not off and (root / "build.rs").is_file())
+    script = (f"{module}.build_script",) if build else ()
+    # The collector reads the manifest as a module `cargo_toml`, with `_` until the name is free.
+    manifest = "cargo_toml"
+    while manifest in names:
+        manifest += "_"
+    parts.append(Part("root", modules=(module, *script, f"{module}.{manifest}")))
+    scan = root.relative_to(repo).as_posix()
+    return Layout("rust", namespace, (scan,), tuple(parts), _TESTS, crates=(scan,))
 
 
 def _typescript_layout(repo: Path, root: Path) -> Layout | None:
