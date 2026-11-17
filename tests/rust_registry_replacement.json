@@ -1,0 +1,12 @@
+{
+  "manifest": "[package]\nname=\"app\"\nversion=\"0.0.0\"\nedition=\"2021\"\n[dependencies]\nserde={version=\"=1.0.229\",features=[\"derive\"]}\n",
+  "lock": "version = 4\n[[package]]\nname = \"app\"\nversion = \"0.0.0\"\ndependencies = [\"serde\"]\n[[package]]\nname = \"base-crate\"\nversion = \"0.0.0\"\n[[package]]\nname = \"serde\"\nversion = \"1.0.229\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba\"\ndependencies = [\"serde_derive\"]\n[[package]]\nname = \"serde_derive\"\nversion = \"1.0.229\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348\"\n",
+  "vendor": {
+    "serde/.cargo-checksum.json": "{\"files\": {\"Cargo.toml\": \"5ab86c06260a1cfdf924b5085c9b5edc1bd1d2aa2b19eeb4955836343a2fe102\", \"src/lib.rs\": \"3853975273bef5e3c22af6b1c4b0bf2c13c496ddb14b652657127720d2237c16\"}, \"package\": \"4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba\"}",
+    "serde/Cargo.toml": "[package]\nname=\"serde\"\nversion=\"1.0.229\"\nedition=\"2021\"\n[features]\nderive=[\"dep:serde_derive\"]\n[dependencies]\nserde_derive={version=\"=1.0.229\",optional=true}\n",
+    "serde/src/lib.rs": "#[cfg(feature=\"derive\")]\npub use serde_derive::Serialize;\n",
+    "serde_derive/.cargo-checksum.json": "{\"files\": {\"Cargo.toml\": \"e22646c2771ba6932c6d5ef8c946a3264c32d83fb39692b45ee052c8b269fc0e\", \"src/lib.rs\": \"dde00f79ebe009f53e3d5fb6dcf7c66f93d7ff4e01958a9b8697ee8807f1e603\"}, \"package\": \"e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348\"}",
+    "serde_derive/Cargo.toml": "[package]\nname=\"serde_derive\"\nversion=\"1.0.229\"\nedition=\"2021\"\n[lib]\nproc-macro=true\n",
+    "serde_derive/src/lib.rs": "extern crate proc_macro;\n#[proc_macro_derive(Serialize)]\npub fn derive(_: proc_macro::TokenStream) -> proc_macro::TokenStream {\n    \"const _: () = crate::b::secret();\".parse().unwrap()\n}\n"
+  }
+}
