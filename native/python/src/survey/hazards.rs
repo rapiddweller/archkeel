@@ -81,6 +81,7 @@ pub(super) fn sites(
         locals: Vec::new(),
         getattr_bound: !Bound::of(&tree.body).unbound("getattr"),
         scope: Vec::new(),
+        code_aliases: reflect::code_aliases(tree),
     };
     for stmt in &tree.body {
         // AD-538: an expression statement of the module body that appends a directory of the
@@ -115,6 +116,8 @@ struct Walk<'r> {
     getattr_bound: bool,
     /// The names of the classes and functions that hold the walk, outermost first.
     scope: Vec<String>,
+    /// The names that the file assigns from `code` or from an attribute `code` (#1520).
+    code_aliases: HashSet<String>,
 }
 
 impl Walk<'_> {
@@ -317,6 +320,9 @@ impl Walk<'_> {
             }
         }
         if attributes.contains(&"code") && reflect::module(base, &self.bound) {
+            return self.push(DYNAMIC, "code", expr);
+        }
+        if reflect::runner(base, &attributes, &self.code_aliases) {
             return self.push(DYNAMIC, "code", expr);
         }
         let Expr::Name(root) = base else {

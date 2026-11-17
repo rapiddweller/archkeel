@@ -4,8 +4,7 @@
 
 //! The envelope of a protocol 11 reply: every part of `facts` outside the sections (AD-346).
 //!
-//! Each object is closed: an unknown key is a decode error, as in the Python decoder
-//! (`facts_codec._source_facts`). The parts that only the Python collector fills (`state`,
+//! Each object is closed: an unknown key is a decode error. Parts only the Python collector fills (`state`,
 //! `type_shapes`, `uncertain_reexports`, `candidate_evidence`, `provider_bindings` and
 //! `provider_sources`) are `NoEntries`: a reply with an entry in one of them is a decode error,
 //! because no reader of these types exists yet. A value is never dropped without a check.
@@ -19,7 +18,6 @@ use std::fmt;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
 use serde_json::Value;
 
 use crate::identity::sha256_hex;
@@ -289,6 +287,9 @@ pub struct FileFact {
     pub stable_bindings: Vec<String>,
     /// True when the file has no code.
     pub blank: bool,
+    /// A proof that the file has no class declarations; absence is not such a proof.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_inventory_empty: Option<bool>,
     /// The evidence record of the file.
     pub evidence_id: EvidenceId,
 }
@@ -471,8 +472,7 @@ mod build;
 #[path = "envelope_tests.rs"]
 mod tests;
 
-/// The test features of a linked collector: `dump` when its crate is built with it. A build with
-/// a test feature is refused by `archkeel-collect` (AD-406).
+/// The test features of a linked collector, refused by `archkeel-collect` (AD-406).
 pub const fn test_features(dump: bool) -> &'static [&'static str] {
     if dump {
         &["dump"]

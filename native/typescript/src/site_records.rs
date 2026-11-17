@@ -317,13 +317,7 @@ fn construction(table: &SymbolTable, resolved: &Resolved) -> Construction {
         .filter(|target| table.class_count(target) > 0)
         .cloned()
         .collect();
-    let status = if targets.len() == 1 && resolved.status == Status::Resolved {
-        Status::Resolved
-    } else if targets.is_empty() {
-        Status::Unresolved
-    } else {
-        Status::PartiallyResolved
-    };
+    let status = Status::of_candidates(targets.len(), resolved.status == Status::Resolved);
     let reason = if status == Status::Resolved {
         "Unique local classifier construction"
     } else {

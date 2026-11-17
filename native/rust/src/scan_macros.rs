@@ -11,7 +11,7 @@ use proc_macro2::Span;
 use syn::{ItemMacro, Macro};
 
 use super::attributes::concern;
-use super::state::{Local, MacroCall, MacroDef, Walker};
+use super::state::{Local, MacroCall, MacroDef, Via, Walker};
 use crate::definitions::{Holder, MethodCall};
 use crate::macro_items::{holds_impl, item_level, macro_paths};
 use crate::net;
@@ -67,7 +67,7 @@ pub(super) fn macro_rules(walker: &mut Walker<'_>, node: &ItemMacro) {
             found.extend(more);
             let from_crate = |chain: &Chain| chain.names.first().is_some_and(|n| n == "crate");
             portable &= found.iter().all(from_crate);
-            walker.refer_chains(found);
+            walker.refer_chains(found, &Via::Path);
         }
         None => concern(
             walker,
@@ -130,7 +130,7 @@ fn call_of(
             found
         },
         scope: walker.inline.clone(),
-        block: walker.blocks > 0,
+        block: walker.blocks() > 0,
         prelude: walker.tools,
         absolute: node.path.leading_colon.is_some(),
         writes_impl: holds_impl(node.tokens.clone()),
@@ -152,7 +152,7 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
             ["crate", "self", "super"].contains(&first.ident.to_string().as_str())
         });
     let site = walker.site(span);
-    let module_level = walker.blocks == 0 && matches!(walker.holder, Holder::Module);
+    let module_level = walker.blocks() == 0 && matches!(walker.holder, Holder::Module);
     let call = call_of(walker, node, (name.clone(), site, local, module_level));
     // The tokens of a macro are not code that the scan reads: a call in them is not placed.
     let mut inner = BTreeSet::new();
@@ -221,7 +221,7 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         return;
     };
     if std_macros::has(name.as_str(), std_macros::EXPRESSION_BODY) {
-        walker.refer_chains(found);
+        walker.refer_chains(found, &Via::Path);
     } else if !found.is_empty() {
         let reason = format!("The macro {name}! holds a path that the scan cannot read");
         concern(walker, reason, span);
