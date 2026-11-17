@@ -288,7 +288,7 @@ mod tests {
         );
     }
 
-    /// #1707: the split of a system of 43 Dart parts did not end in 600 s, because each round read
+    /// #1707: the split of a system of 43 parts did not end in 600 s, because each round read
     /// every box once for each box. The work grows with the boxes now: twice the boxes is about
     /// twice the work, also when every level splits again.
     #[test]
