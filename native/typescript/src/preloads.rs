@@ -19,6 +19,8 @@ use serde_json::Value;
 
 use crate::source_input::{classify_file, ModuleFormat, SourceKind};
 
+#[path = "preloads_conditions.rs"]
+mod conditions;
 #[path = "preloads_dynamic.rs"]
 mod dynamic;
 
@@ -50,6 +52,29 @@ pub(super) struct Named {
     pub(super) file: String,
     pub(super) line: usize,
     pub(super) mode: Option<ModuleFormat>,
+    pub(super) conditions_unknown: bool,
+}
+
+/// Whether a preload command enables custom Node conditions that the scan does not model.
+pub(super) fn has_custom_conditions(base: &str, text: &str, name: &str) -> bool {
+    let commands: Vec<String> = if base == "package.json" {
+        serde_json::from_str::<Value>(text)
+            .ok()
+            .and_then(|json| json.get("scripts")?.as_object().cloned())
+            .into_iter()
+            .flat_map(serde_json::Map::into_values)
+            .filter_map(|value| value.as_str().map(str::to_owned))
+            .filter(|command| option_names(command).iter().any(|target| target == name))
+            .collect()
+    } else if base == ".npmrc" || base == ".env" || base.starts_with(".env.") {
+        text.lines()
+            .filter_map(node_options)
+            .filter(|command| option_names(command).iter().any(|target| target == name))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    conditions::has_conditions_flag(&commands)
 }
 
 /// Whether a resolved file can be executable runtime source.

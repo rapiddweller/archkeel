@@ -13,6 +13,88 @@ from test_collector_false_pass_ts_preload import PATCH, _node, _scripts, _valida
 
 
 @pytest.mark.parametrize(
+    ("command", "node_args", "node_options"),
+    [
+        ("node -C types --require hook src/a/a.js", ["-C", "types"], None),
+        (
+            "node --conditions types --require hook src/a/a.js",
+            ["--conditions", "types"],
+            None,
+        ),
+        (
+            "node --conditions=types --require hook src/a/a.js",
+            ["--conditions=types"],
+            None,
+        ),
+        (
+            "NODE_OPTIONS='--conditions=types --require hook' node src/a/a.js",
+            [],
+            "--conditions=types --require hook",
+        ),
+    ],
+    ids=("short-condition", "separate-condition", "joined-condition", "node-options"),
+)
+def test_custom_node_conditions_do_not_leave_preload_entry_as_pass(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    node_args: list[str],
+    node_options: str | None,
+) -> None:
+    extra = {
+        **_scripts(command),
+        "node_modules/hook/package.json": (
+            '{"name":"hook","exports":{".":{"types":"./custom.cjs","require":"./ordinary.cjs"}}}'
+        ),
+        "node_modules/hook/custom.cjs": PATCH + "console.log('CUSTOM_TYPES');\n",
+        "node_modules/hook/ordinary.cjs": "module.exports = {};\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    if node_options:
+        monkeypatch.setenv("NODE_OPTIONS", node_options)
+    result = _node(
+        tmp_path / "repo",
+        *node_args,
+        *(["--require", "hook"] if not node_options else []),
+        "-e",
+        "console.log('NODE_MAIN')",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "CUSTOM_TYPES" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
+    assert any("conditions" in gap["reason"].lower() for gap in frame["collection_gaps"])
+
+
+def test_custom_node_conditions_apply_to_transitive_exports_too(
+    tmp_path: Path, release_core: Path
+) -> None:
+    extra = {
+        **_scripts("node --conditions=types --require hook src/a/a.js"),
+        "node_modules/hook/package.json": '{"name":"hook","main":"index.js"}',
+        "node_modules/hook/index.js": "require('dep');\n",
+        "node_modules/dep/package.json": (
+            '{"name":"dep","exports":{".":{"types":"./custom.cjs","require":"./ordinary.cjs"}}}'
+        ),
+        "node_modules/dep/custom.cjs": PATCH + "console.log('TRANSITIVE_CUSTOM');\n",
+        "node_modules/dep/ordinary.cjs": "module.exports = {};\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    result = _node(
+        tmp_path / "repo",
+        "--conditions=types",
+        "--require",
+        "hook",
+        "-e",
+        "console.log('NODE_MAIN')",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "TRANSITIVE_CUSTOM" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
+    assert any("custom conditions" in gap["reason"] for gap in frame["collection_gaps"])
+
+
+@pytest.mark.parametrize(
     ("mode", "conditions", "runtime_path", "runtime_code"),
     [
         (

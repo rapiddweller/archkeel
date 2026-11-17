@@ -53,11 +53,18 @@ impl Collection<'_> {
         }
         self.tool_preloads();
     }
-
     fn tool_preloads(&mut self) {
         let named = self.named_preloads();
         let mut files = Vec::new();
         for preload in named {
+            if preload.conditions_unknown {
+                let reason = format!(
+                    "Preload {} named in {}:{} uses unobserved Node custom conditions",
+                    preload.name, preload.file, preload.line
+                );
+                self.gap(&reason, None, "", GapKind::Resolution);
+                continue;
+            }
             let Some(entries) = self.preload_entries(&preload.file, &preload.name, preload.mode)
             else {
                 let reason = format!(
@@ -99,7 +106,6 @@ impl Collection<'_> {
         files.dedup();
         self.preload_files = files;
     }
-
     fn named_preloads(&mut self) -> Vec<preloads::Named> {
         let mut found = Vec::new();
         let mut pending = vec![".".to_owned()];
@@ -120,7 +126,6 @@ impl Collection<'_> {
         }
         found
     }
-
     fn read_named_preload(&mut self, directory: &str, name: &str) -> Option<Vec<preloads::Named>> {
         if !preloads::preload_file(name) {
             return None;
@@ -152,13 +157,13 @@ impl Collection<'_> {
                 .map(|name| preloads::Named {
                     line: preloads::line_of(&text, &name),
                     mode: preloads::mode_of(base, &text, &name),
+                    conditions_unknown: preloads::has_custom_conditions(base, &text, &name),
                     name,
                     file: file.clone(),
                 })
                 .collect(),
         )
     }
-
     fn reaches_module(&mut self, file: &str) -> bool {
         self.snapshot
             .read(file)
@@ -219,7 +224,6 @@ impl Collection<'_> {
         graph.files = queue;
         Some(graph)
     }
-
     fn closure_gaps(
         &mut self,
         entries: &[(String, String, String)],
@@ -239,7 +243,6 @@ impl Collection<'_> {
             self.gap(&reason, Some(evidence), module, GapKind::Resolution);
         }
     }
-
     fn package_step(&mut self, file: &str, node_runtime: bool) -> Step {
         let mut step = Step {
             node_runtime,
@@ -296,7 +299,6 @@ impl Collection<'_> {
         }
         step
     }
-
     fn package_import(
         &mut self,
         file: &str,
@@ -317,7 +319,6 @@ impl Collection<'_> {
         };
         self.specifier_step(file, (specifier, reference.type_only), mode, step);
     }
-
     fn path_step(&mut self, file: &str, path: &str, step: &mut Step) {
         let target = join(dirname(file), path);
         let snapshot: &mut Snapshot = &mut self.snapshot;
@@ -357,7 +358,6 @@ impl Collection<'_> {
             directory = dirname(&directory).to_owned();
         }
     }
-
     fn first_directory(&mut self, directory: &str, names: &[String]) -> Option<String> {
         let snapshot: &mut Snapshot = &mut self.snapshot;
         names
@@ -387,7 +387,6 @@ impl Collection<'_> {
         }
         found
     }
-
     pub(super) fn preload_entries(
         &mut self,
         file: &str,
@@ -424,7 +423,6 @@ impl Collection<'_> {
         entries.dedup();
         Some(entries)
     }
-
     fn specifier_step(
         &mut self,
         file: &str,

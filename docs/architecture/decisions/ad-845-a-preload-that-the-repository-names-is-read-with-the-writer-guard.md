@@ -35,10 +35,11 @@ A preload can also patch the module loader and redirect any import.
    resolver. Ignore `types` in runtime conditions; use Node's `node` and active `require` or
    `import` conditions in manifest order, then `default`. Keep type-only reach on the compiler
    resolver. If runtime resolution misses but TypeScript selects a file, report UNKNOWN. An explicit
-   TypeScript runtime target is UNKNOWN because the Node version is not observed. An unobserved
-   condition stays UNKNOWN. Check the AD-798 closure for project-source reach and pass it to the
-   AD-788 writer guard (`script_outside::read`). Node loads an installed preload as a module, so its
-   top-level bindings are no globals. Each global write withholds its proof as in AD-788.
+   TypeScript runtime target is UNKNOWN because the Node version is not observed. A preload command
+   with `-C` or `--conditions` is UNKNOWN because the active condition set is not modeled. An
+   unobserved condition stays UNKNOWN. Check the AD-798 closure for project-source reach and pass it
+   to the AD-788 writer guard (`script_outside::read`). Node loads an installed preload as a module,
+   so its top-level bindings are no globals. Each global write withholds its proof as in AD-788.
 4. **Loader patch.** A closure file with `require.cache` or `.prototype.require` patches the module
    loader. So does `._load`, `._resolveFilename` or `._cache` when a file reaches the module object
    (`require('module')`, an import of `module`, `module.constructor`, `mainModule`, `require.main`).
@@ -61,8 +62,8 @@ No PASS turns UNKNOWN on graphql-js v16.15.0 and the TypeScript fixtures F, H, H
 ## Tests
 `tests/test_collector_false_pass_ts_preload.py` and
 `tests/test_collector_false_pass_ts_preload_runtime.py`: the plant of #1750, Node `exports`
-conditions, entry and transitive runtime resolution, local and installed loader patches, dynamic
-setup and unknown names hold the rule. A preload with no write, a class with its own `_cache` and a
-builtin keep PASS.
+conditions, custom Node conditions, entry and transitive runtime resolution, local and installed
+loader patches, dynamic setup and unknown names hold the rule. A preload with no write, a class with
+its own `_cache` and a builtin keep PASS.
 `native/typescript/src/preloads_tests.rs`: the readers and fail-closed handling of malformed configs,
 dynamic targets, runtime modes and whitespace around the module loader.
