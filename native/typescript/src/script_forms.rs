@@ -71,7 +71,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// pattern is an amplifier, each other form is direct.
     pub(crate) fn open_form(&self, node: Node<'t>) -> Option<Reach> {
         let direct = match node.kind() {
-            "subscript_expression" => self.runtime_key_call(node) || self.member_use(node),
+            "subscript_expression" => {
+                self.runtime_key_call(node) || self.member_use(node) || self.looked_up_call(node)
+            }
             "member_expression" => self.member_use(node) || self.location_value(node),
             "identifier" | "shorthand_property_identifier" => self.alias_escape(node),
             "call_expression" => {

@@ -413,9 +413,7 @@ A write `o.x = …` blocks the global `x` unless `o` is a local new value or the
 constructor, a field or a static block. An unknown key on a window value, a window value that
 escapes, and code from a text block every global proof of the project.
 Open false PASS, not accepted (AD-460, AD-508): any alias of `this`, `super`, `Object`, `Reflect`,
-`location`, `open` or of a looked-up function, except a name that is bound once to `this`; a looked-up
-function that is stored, passed or an argument (`const f = o[k]`, `Function.prototype.call.call(o[k])`);
-a window value that reaches a computed write through a parameter, a call result or a property
+`location` or `open`, except a name that is bound once to `this`; a window value that reaches a computed write through a parameter, a call result or a property
 (`function f(w) { w[k] = v; }` with `f(document.defaultView)`); `g(this)` in a class method that a
 callback receives; `ev.target[k] = 1` or `ev.srcElement[k]` (an event member that is a window); a computed key
 in a pattern (`const { [k]: v } = e`); any global that navigates or opens (`open('', '_self')`,
@@ -430,6 +428,16 @@ run-time key (`getOwnPropertyDescriptor(s)`, `Reflect.get`, also stored or passe
 value that is no literal (`location.*`, `location = x`, a pattern or `for…of` target, `open(x, …)` with
 any target); a free `Object`, `Reflect`, `location` or `open` that is passed, stored or returned; and a
 destructuring pattern that takes a window member out of a value.
+The amendment of AD-508 (#1547, #1525) closes the looked-up value: a member read with a run-time key
+whose value a call can reach after the read is the same direct form as the key call. The check
+follows the value through a wrapper, a local name (also one that a later assignment writes), an
+array or object literal that holds it, and the members `call`, `apply` and `bind`. A use that
+leaves this walk (an argument, `Reflect.apply`, `Function.prototype.call.call`, a `return`, a write
+to a member, an export, a class field, a default value, a top-level name of a script) is the direct
+form too, so `return map[key]` keeps every free standard name from a proof. A use that cannot call
+the value keeps the proof: `typeof`, a comparison, a condition, arithmetic, a text, a loop over its
+elements, a member with another plain name, and a pattern of plain names. Plants:
+`native/typescript/src/script_lookup_tests.rs`, `tests/test_collector_false_pass_ts_lookup.py`.
 Older classes stay open too: a prototype change through a call
 (`Object.defineProperty(EventTarget.prototype, …)`), a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
