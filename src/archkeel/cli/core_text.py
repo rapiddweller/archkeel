@@ -23,7 +23,7 @@ from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
 from .core_gaps import SHOWN, group_lines, not_installed_lines, places, rest
 from .core_json import Gap
-from .core_words import CAUSE_FIXES, contract_fix, kind_label, plain
+from .core_words import CAUSE_FIXES, contract_fix, kind_label, plain, readable
 
 #: The named parts that an `init` draft leaves: decisions that the person has not made yet.
 DRAFT_KINDS = frozenset(
@@ -151,7 +151,9 @@ def header(
     words = frame.premises.assuming
     if word == "PASS" and frame.status is Status.PASS and frame.premises.rules and words:
         word = premise_qualifier(words)
-    return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)}){scanned}"
+    return readable(
+        f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)}){scanned}"
+    )
 
 
 def _new_violations(frame: CoreFrame, total: int) -> int:
@@ -347,7 +349,7 @@ def render(
             f"complete: {topology.complete}; truncated: {topology.truncated}"
         )
     out.extend(call_lines(frame.measures))
-    return out
+    return [readable(line) for line in out]
 
 
 def _system(system: Mapping[str, object]) -> list[str]:
@@ -368,7 +370,7 @@ def refusal(
     out = [f"{head}REFUSED -> exit {code}{scanned}", f"Problem: {message}"]
     if fix:
         out.append(f"Fix: {fix}")
-    return out
+    return [readable(line) for line in out]
 
 
 def summary(
@@ -401,4 +403,4 @@ def summary(
     if len(rows) > _SUMMARY_VIOLATIONS:
         out.append(f"  and {len(rows) - _SUMMARY_VIOLATIONS} more violations")
     out.append("Details: archkeel validate --text (all: --all); machine output: --json")
-    return out[:_SUMMARY_LINES]
+    return [readable(line) for line in out[:_SUMMARY_LINES]]

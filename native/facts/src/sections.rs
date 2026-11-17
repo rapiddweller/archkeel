@@ -132,6 +132,8 @@ section_facts! {
         StaticConstant(ValueData),
         /// A macro symbol.
         Macro(ValueData),
+        /// A module-level variable that is not constant (Dart, AD-796).
+        Attribute(ValueData),
     }
 }
 

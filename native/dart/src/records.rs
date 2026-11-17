@@ -14,7 +14,9 @@
 use std::collections::BTreeMap;
 
 use archkeel_facts::data::GapData;
-use archkeel_facts::envelope::{Evidence, FileFact, Input, Role};
+#[cfg(any(test, feature = "dump"))]
+use archkeel_facts::envelope::FileFact;
+use archkeel_facts::envelope::{Evidence, Input, Role};
 use archkeel_facts::identity::{sha256_hex, stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::vocab::{Area, EvidenceClass, ExceptionName};
@@ -27,13 +29,20 @@ use crate::pubspec::SdkState;
 use crate::syntax::{ConcernKind, Span, Syntax};
 use archkeel_pytext::splitlines;
 
-use crate::pytext::{is_blank, rstrip};
+#[cfg(any(test, feature = "dump"))]
+use crate::pytext::is_blank;
+use crate::pytext::rstrip;
 
 /// The reply sections of a discovery.
+#[cfg(any(test, feature = "dump"))]
 pub(crate) struct Sections {
     /// Sorted by path.
     pub(crate) inputs: Vec<Input>,
     /// The SHA-256 of the input listing (`SourceInfo.source_digest`).
+    #[cfg_attr(
+        not(feature = "dump"),
+        expect(dead_code, reason = "the dump writes it")
+    )]
     pub(crate) source_digest: String,
     /// The glob of each scan root.
     pub(crate) scope: Vec<String>,
@@ -42,11 +51,16 @@ pub(crate) struct Sections {
     pub(crate) gaps: Vec<Record<GapFact>>,
     /// Sorted by id.
     pub(crate) evidence: Vec<Evidence>,
+    #[cfg_attr(
+        not(feature = "dump"),
+        expect(dead_code, reason = "the dump writes it")
+    )]
     pub(crate) selected_files: Vec<String>,
 }
 
 /// Build the sections of `discovery` for the scan roots `roots`. `syntax` holds the parse of
 /// each source, in the order of `discovery.sources`.
+#[cfg(any(test, feature = "dump"))]
 pub(crate) fn sections(discovery: &Discovery, roots: &[String], syntax: &[Syntax]) -> Sections {
     let mut evidence = BTreeMap::new();
     let inputs = inputs(discovery);
@@ -128,7 +142,7 @@ pub(crate) fn inputs(discovery: &Discovery) -> Vec<Input> {
     if let Some(digest) = &discovery.pubspec_digest {
         inputs.push(Input {
             digest: digest.clone(),
-            path: "pubspec.yaml".to_owned(),
+            path: crate::discover::pubspec_path(&discovery.package_dir),
             role: Role::Resolution,
         });
     }

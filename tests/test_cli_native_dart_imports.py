@@ -81,8 +81,9 @@ def _commit(root: Path) -> None:
 
 
 def decided() -> dict[str, str]:
-    """Each rule PASS but the cycle rule, which has no receipt for a Dart reply (AD-500)."""
-    return {**dict.fromkeys(RULES, "PASS"), "CYCLES": "UNKNOWN"}
+    """Each rule PASS: the package map of a package without a local dependency is complete, so
+    the cycle rule has its receipt (AD-800; before, AD-500 kept it UNKNOWN)."""
+    return dict.fromkeys(RULES, "PASS")
 
 
 def all_unknown(result: dict[str, Any]) -> None:
@@ -96,10 +97,8 @@ def test_a_clean_dart_project_passes_each_import_rule(
 ) -> None:
     result = verdict(release_core, project(tmp_path, BASE), verb)
     assert rows(result) == decided(), result["frame"]["explained"]
-    # AD-500: the survey does not prove that it sees each local package, so a cycle rule and the
-    # run stay UNKNOWN.
-    assert "sees each local package" in result["frame"]["explained"]["CYCLES"]
-    assert result["status"] == "UNKNOWN" and result["exit_code"] == 2
+    # AD-800: the survey proves its package map, so the cycle rule and the run pass.
+    assert result["status"] == "PASS" and result["exit_code"] == 0
 
 
 def test_an_isolate_import_without_a_uri_loader_does_not_hold_import_rules(
@@ -118,6 +117,25 @@ def test_a_forbidden_dart_import_fails_with_its_file(release_core: Path, tmp_pat
     assert "lib/domain/model.dart" in json.dumps(result["frame"]["violations"]) + json.dumps(
         result["frame"]["locations"]
     )
+
+
+@pytest.mark.parametrize(("cycle", "expected"), [(False, "PASS"), (True, "FAIL")])
+def test_component_cycles_have_a_receipt_for_a_single_dart_package(
+    release_core: Path, tmp_path: Path, cycle: bool, expected: str
+) -> None:
+    # AD-800: the package map of a package with no local dependency is complete, so the cycle
+    # rule has its receipt. Truth: `dart analyze` accepts both trees.
+    files = {
+        **BASE,
+        "lib/domain/model.dart": (
+            "import '../data/repo.dart';\nclass Model { Repo? repo; }\n"
+            if cycle
+            else "class Model {}\n"
+        ),
+        "lib/data/repo.dart": "import '../domain/model.dart';\nclass Repo { Model? model; }\n",
+    }
+    result = verdict(release_core, project(tmp_path, files))
+    assert rows(result)["CYCLES"] == expected, result["frame"]["explained"]
 
 
 def test_a_part_in_the_component_of_its_library_passes(release_core: Path, tmp_path: Path) -> None:
@@ -173,8 +191,20 @@ GAPS: dict[str, dict[str, str]] = {
         "lib/data/y.dart": "part 'p.dart';\n",
         "lib/data/p.dart": "part of 'x.dart';\n",
     },
-    "DartWorkspace": {"pubspec.yaml": PUBSPEC + "resolution: workspace\n"},
-    "DartPathDependency": {"pubspec.yaml": PUBSPEC + "dependencies:\n  core:\n    path: ../core\n"},
+    # AD-800: a workspace that the survey cannot read, and a pubspec that it reads only word by
+    # word, keep a whole-scope gap.
+    "DartWorkspace": {"pubspec.yaml": PUBSPEC + "workspace:\n  - pkgs/a\n"},
+    "DartPathDependency": {
+        "pubspec.yaml": PUBSPEC + 'dependencies:\n  core:\n    "pa\\x74h": ../core\n'
+    },
+    "DartLocalPackage": {
+        "pubspec.yaml": PUBSPEC + "dependencies:\n  core:\n    path: ../core\n",
+        "lib/data/x.dart": "import 'package:core/c.dart';\n",
+    },
+    "DartUndeclaredPackage": {
+        "pubspec.yaml": PUBSPEC + "dependencies:\n  core:\n    path: ../core\n",
+        "lib/data/x.dart": "import 'package:meta/meta.dart';\n",
+    },
     "DartNestedPackage": {"lib/data/inner/pubspec.yaml": "name: inner\n"},
     "DartPackageConfig": {"package_config.json": "{}"},
     "DartParseBudget": {"lib/data/x.dart": DENSE},
@@ -195,6 +225,8 @@ OWN_LIBRARY = {
     "DartUriNotLiteral",
     "DartMirrors",
     "DartIsolate",
+    "DartLocalPackage",
+    "DartUndeclaredPackage",
 }
 
 

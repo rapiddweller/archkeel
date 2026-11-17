@@ -13,11 +13,15 @@
 
 use syn::{Ident, Item, ItemImpl, ItemTrait, Signature, Type};
 
-use super::receivers::{exact_path, inert, item_name, kind_of, type_inert, written_type};
+use super::receivers::{
+    exact_path, generic_names, inert, item_name, kind_of, returned, type_inert, written,
+    written_type,
+};
 use super::state::Walker;
 use crate::attrs::{impl_item_attributes, is_test_attributes};
 use crate::definitions::{
-    Access, BlockItem, Definition, Field, Form, Holder, ImplBlock, Member, Owner, TraitImpl,
+    Access, BlockItem, Definition, Field, Form, Holder, ImplBlock, Member, Owner, SelfKind,
+    TraitImpl, Written,
 };
 use crate::tokens::plain;
 
@@ -86,7 +90,13 @@ pub(super) fn define_item(walker: &mut Walker<'_>, item: &Item) {
     let mut found = definition(walker, form, ident, access(vis));
     match item {
         Item::Enum(e) => found.variants = e.variants.iter().map(|v| plain(&v.ident)).collect(),
-        Item::Fn(f) => found.is_async = f.sig.asyncness.is_some(),
+        Item::Fn(f) => {
+            found.is_async = f.sig.asyncness.is_some();
+            // An attribute that is not inert can rewrite the signature (#1571).
+            if inert(&f.attrs) {
+                found.ret = returned(&f.sig, &std::collections::BTreeSet::new());
+            }
+        }
         _ => {}
     }
     walker.out.definitions.push(found);
@@ -108,6 +118,7 @@ pub(super) fn definition(
         variants: Vec::new(),
         receiver: false,
         is_async: false,
+        ret: Written::Unknown,
     }
 }
 
@@ -164,6 +175,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
     let tests = |member: &&syn::ImplItem| {
         walker.exclude_tests && is_test_attributes(impl_item_attributes(member))
     };
+    let outer = generic_names(&item.generics);
     let members = (item.items.iter().filter(|member| !tests(member)))
         .filter_map(|member| match member {
             syn::ImplItem::Fn(f) => Some(Member {
@@ -173,6 +185,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
                 kind: kind_of(&f.sig).filter(|_| inert(&f.attrs)),
                 arity: (f.sig.inputs.len()).saturating_sub(usize::from(f.sig.receiver().is_some())),
                 inert: inert(&f.attrs),
+                ret: returned(&f.sig, &outer),
             }),
             syn::ImplItem::Const(c) => Some(Member {
                 name: plain(&c.ident),
@@ -181,6 +194,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
                 kind: None,
                 arity: 0,
                 inert: inert(&c.attrs),
+                ret: Written::Unknown,
             }),
             _ => None,
         })
@@ -299,9 +313,11 @@ fn fields(walker: &mut Walker<'_>, item: &syn::ItemStruct) {
         return;
     }
     for field in &fields.named {
-        let (Some(name), Some((path, kind))) = (&field.ident, written_type(&field.ty)) else {
+        let Some(name) = &field.ident else {
             continue;
         };
+        // A field of another form keeps no plain path, only its written type (#1571).
+        let (path, kind) = written_type(&field.ty).unwrap_or((Vec::new(), SelfKind::Value));
         let owner = plain(&item.ident);
         let name = plain(name);
         walker
@@ -314,6 +330,7 @@ fn fields(walker: &mut Walker<'_>, item: &syn::ItemStruct) {
                 path,
                 kind,
                 access: access(&field.vis),
+                written: written(&field.ty, &std::collections::BTreeSet::new()),
             });
     }
 }

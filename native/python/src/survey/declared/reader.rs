@@ -22,6 +22,7 @@ use archkeel_facts::nested::VisibilityDetail;
 use crate::declare::visibility;
 use crate::module::{EvidenceMap, Module};
 use crate::survey::binders::Binders;
+use crate::survey::class_writes::ClassWrites;
 
 /// An expression whose text this reader does not write.
 #[derive(Debug, PartialEq, Eq)]
@@ -32,6 +33,9 @@ pub(super) struct Reader<'m, 'e> {
     pub evidence_map: &'e mut EvidenceMap,
     /// The builtin type names that the module binds somewhere: their text names something else.
     pub shadowed: Vec<&'static str>,
+    /// When a class annotation reads the class namespace late: the stores that can give a class
+    /// a name after its statement (#1714, AD-802).
+    pub writes: Option<&'m ClassWrites>,
 }
 
 impl Reader<'_, '_> {

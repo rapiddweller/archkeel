@@ -262,3 +262,59 @@ def test_the_first_view_shows_the_whole_graph_or_starts_at_its_top_left_box(
     assert core["firstIn"], core
     assert "right" in core["overflow"].split(), core
     assert core["hint"] == "Scroll or press Shift 1 to fit", core
+
+
+def test_a_language_badge_is_never_cut(site: str, page: Browser) -> None:
+    # The badge of the Python shell read "pyth…": its width was a guess of the text length.
+    for query in ("", f"scope={CORE}", "scope=PART%3Ashell"):
+        page.open(f"{site}/system.html?{query}")
+        badges = page.evaluate(
+            "[...document.querySelectorAll('#flow svg [data-uml-id]')].filter((g) =>"
+            " g.querySelector('.ak-tag')).map((g) => { const tag = g.querySelector('.ak-tag');"
+            " const text = tag.querySelector('text'), rect = tag.querySelector('rect');"
+            " const kind = g.querySelector('.stereotype');"
+            " const visible = kind && kind.getAttribute('visibility') !== 'hidden';"
+            " return { text: text.textContent, room: rect.getBBox().width - 12,"
+            " length: text.getComputedTextLength(), left: tag.getBBox().x + tag.transform.baseVal"
+            ".consolidate().matrix.e, kindRight: visible ? 16 + kind.getComputedTextLength() : 0,"
+            " title: g.dataset.akTag }; })"
+        )
+        assert badges, query
+        for badge in badges:
+            assert badge["text"] == badge["title"], badge
+            assert badge["length"] <= badge["room"] + 0.5, badge
+            assert badge["kindRight"] < badge["left"], badge
+
+
+LONG_TITLE = "Python extension module pydantic_core._pydantic_core (PyO3 binding, maturin)"
+LABEL_OVERLAPS = """(() => {
+  const flow = document.getElementById('flow');
+  const boxes = [...flow.querySelectorAll('svg [data-uml-id] .card')]
+    .map((c) => c.getBoundingClientRect());
+  const canvas = flow.querySelector('.flow-canvas').getBoundingClientRect();
+  return [...flow.querySelectorAll('svg .atlas-edge-label')].map((label) => {
+    const r = label.getBoundingClientRect();
+    return { text: label.textContent,
+      overlaps: boxes.filter((b) => r.left < b.right && r.right > b.left && r.top < b.bottom
+        && r.bottom > b.top).length,
+      inside: r.left >= canvas.left && r.right <= canvas.right }; });
+})()"""
+
+
+@pytest.mark.parametrize(("width", "height"), [(1440, 900), (1440, 1300)])
+def test_an_edge_label_stays_outside_every_box(
+    tmp_path: Path, site: str, width: int, height: int
+) -> None:
+    # Issue 1659: a long interface title started under its source box and was cut off.
+    import urllib.request  # noqa: PLC0415
+
+    page = urllib.request.urlopen(f"{site}/system.html").read().decode()  # noqa: S310
+    assert page.count('"Core frame protocol"') >= 1
+    folder = tmp_path / "site"
+    folder.mkdir()
+    (folder / "long.html").write_text(page.replace('"Core frame protocol"', f'"{LONG_TITLE}"'))
+    with serve(folder) as base, browser(tmp_path / "profile", width=width, height=height) as tall:
+        tall.open(f"{base}/long.html")
+        labels = tall.evaluate(LABEL_OVERLAPS)
+    assert [label["text"] for label in labels] == [LONG_TITLE]
+    assert all(label["overlaps"] == 0 for label in labels), labels

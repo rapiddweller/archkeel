@@ -56,6 +56,8 @@ class Changes:
 
     files: list[dict] = field(default_factory=list)
     labels: set[str] = field(default_factory=set)
+    # Removed files whose lines went to an added file (a rename that GitHub did not detect).
+    moved: set[str] = field(default_factory=set)
     entries: dict[str, tuple[int, int]] = field(default_factory=dict)
 
 
@@ -129,18 +131,31 @@ def decide(
 
 
 def deletions(changes: Changes) -> list[tuple[str, str]]:
-    """The refusals of the deletion guard: a removed file, a net removal, a ratchet removal."""
+    """The refusals of the deletion guard: a removed file, a net removal, a ratchet removal.
+
+    A renamed file (status `renamed`, with or without edits) is counted by its line delta, not as a
+    deletion. A file that GitHub lists as removed plus added, but whose lines went to the added
+    file, is in `moved` and counts the same way (#1699).
+    """
     found: list[tuple[str, str]] = []
-    removed = [item["filename"] for item in changes.files if item.get("status") == "removed"]
+    removed = [
+        item["filename"]
+        for item in changes.files
+        if item.get("status") == "removed" and item["filename"] not in changes.moved
+    ]
     net = sum(int(item["deletions"]) - int(item["additions"]) for item in changes.files)
     if (removed or net > NET_REMOVAL_LIMIT) and DELETION_LABEL not in changes.labels:
-        names = ", ".join(removed[:3]) + (" and more" if len(removed) > 3 else "")
-        what = f"deletes {len(removed)} file(s) ({names}) and " if removed else ""
+        parts = []
+        if removed:
+            names = ", ".join(removed[:3]) + (" and more" if len(removed) > 3 else "")
+            parts.append(f"deletes {len(removed)} file(s) ({names})")
+        if net > NET_REMOVAL_LIMIT:
+            parts.append(f"removes {net} lines net (limit {NET_REMOVAL_LIMIT})")
         found.append(
             (
                 "deletion_unapproved",
-                f"the pull request {what}removes {net} lines net (limit {NET_REMOVAL_LIMIT}): "
-                f"ask the lead; only the lead sets '{DELETION_LABEL}' after owner approval",
+                f"the pull request {' and '.join(parts)}: ask the lead; "
+                f"only the lead sets '{DELETION_LABEL}' after owner approval",
             )
         )
     for path, (before, after) in sorted(changes.entries.items()):
@@ -153,6 +168,31 @@ def deletions(changes: Changes) -> list[tuple[str, str]]:
                 )
             )
     return found
+
+
+MOVED_SHARE = 0.5
+MOVED_CANDIDATES = 30
+
+
+def moved_files(
+    removed: list[str],
+    added: list[str],
+    old: Callable[[str], str],
+    new: Callable[[str], str],
+) -> set[str]:
+    """The removed files whose lines went to an added file: half of them or more (a rename)."""
+    moved: set[str] = set()
+    fresh = {path: set(new(path).splitlines()) for path in added[:MOVED_CANDIDATES]}
+    for path in removed[:MOVED_CANDIDATES]:
+        lines = [line for line in old(path).splitlines() if line.strip()]
+        if not lines:
+            continue
+        for lines_after in fresh.values():
+            kept = sum(1 for line in lines if line in lines_after)
+            if kept / len(lines) >= MOVED_SHARE:
+                moved.add(path)
+                break
+    return moved
 
 
 def entry_count(text: str) -> int:
@@ -174,7 +214,9 @@ def read_changes(run: Gh, number: str, pr: dict) -> Changes:
     labels = json.loads(run("pr", "view", number, "--json", "labels"))["labels"]
     changes = Changes(files=files, labels={item["name"] for item in labels})
     touched = [item["filename"] for item in files if item["filename"] in RATCHET_FILES]
-    if not touched:
+    removed = [item["filename"] for item in files if item.get("status") == "removed"]
+    added = [item["filename"] for item in files if item.get("status") == "added"]
+    if not touched and not (removed and added):
         return changes
     compare = f"repos/{{owner}}/{{repo}}/compare/{pr['baseRefName']}...{pr['headRefOid']}"
     base = json.loads(run("api", compare, "--jq", "{sha: .merge_base_commit.sha}"))["sha"]
@@ -182,6 +224,13 @@ def read_changes(run: Gh, number: str, pr: dict) -> Changes:
     def content(path: str, ref: str) -> str:
         url = f"repos/{{owner}}/{{repo}}/contents/{path}?ref={ref}"
         return run("api", "-H", "Accept: application/vnd.github.raw", url)
+
+    changes.moved = moved_files(
+        removed,
+        added,
+        lambda path: content(path, base),
+        lambda path: content(path, pr["headRefOid"]),
+    )
 
     for path in touched:
         changes.entries[path] = (

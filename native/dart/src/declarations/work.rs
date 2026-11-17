@@ -16,6 +16,7 @@ pub(crate) enum Stop {
 }
 
 impl Stop {
+    #[cfg(feature = "dump")]
     pub(super) fn message(self) -> &'static str {
         match self {
             Self::Work => "DeclarationWorkLimit: Dart declaration assembly passes the work limit",

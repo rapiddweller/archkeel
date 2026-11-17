@@ -53,6 +53,8 @@ pub(crate) struct Definition {
     /// A function with a `self` parameter.
     pub receiver: bool,
     pub is_async: bool,
+    /// The written return type of a function (#1571); `Unknown` for any other form.
+    pub ret: Written,
 }
 
 /// What the walk is inside: it decides which members are definitions.
@@ -145,9 +147,13 @@ pub(crate) struct OnSelf {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Field {
     pub scope: Vec<String>,
+    /// The plain path and the reference kind of the type (AD-383), or an empty path when the
+    /// type is no plain path.
     pub path: Vec<String>,
     pub kind: SelfKind,
     pub access: Access,
+    /// The type as written (#1571).
+    pub written: Written,
 }
 
 /// A member of an inherent `impl` block. Only a `fn` with a `self` parameter can be called as
@@ -164,6 +170,9 @@ pub(crate) struct Member {
     pub arity: usize,
     /// Only inert attributes are on the member: every configuration has it as written.
     pub inert: bool,
+    /// The written return type (#1571): `Self` stays a path `Self`; a type parameter of the
+    /// block or of the `fn`, `impl Trait` and an `async fn` are `Unknown`.
+    pub ret: Written,
 }
 
 /// A method call `x.m(..)` or `x.m::<..>(..)`, or a path `T::m` into another crate: the name, the
@@ -181,4 +190,59 @@ pub(crate) struct MethodCall {
     /// The last name of the written type of a path `T::m` (`T`), or `None` when the scan does not
     /// know it (a method call, `Self::m`, a call in a macro body).
     pub owner: Option<String>,
+    /// The receiver of a method call as the scan reads it (#1571), or `None`.
+    pub chain: Option<Box<ReceiverChain>>,
+}
+
+/// A type as written (#1571): a relative path with the type arguments of its last segment
+/// (lifetimes left out), a reference, or a slice or an array. Any other form is `Unknown`: a type
+/// parameter, `impl Trait`, `dyn Trait`, a tuple, a qualified or absolute path, a macro.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Written {
+    Path(Vec<String>, Vec<Written>),
+    /// `&T` (`Shared`) or `&mut T` (`Unique`).
+    Ref(SelfKind, Box<Written>),
+    Slice(Box<Written>),
+    Unknown,
+}
+
+/// Where the receiver of a method call starts (#1571).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Root {
+    /// A written type: `self` of an exact block, a typed parameter, local or closure parameter.
+    Typed(Written),
+    /// A literal: `str` (behind a reference), `char`, `bool`, `int` or `float`. No name hides it.
+    Literal(&'static str),
+    /// A call `f(..)`, `m::f(..)` or `T::f(..)` with its arguments: no name of the `fn` hides
+    /// the first segment, and no macro call of the `fn` can add an item.
+    Call(Vec<String>, usize),
+    /// A struct literal `T { .. }` or a path `T::V` / a call `T::V(..)` (a variant), with the
+    /// same proof as `Call`.
+    Value(Vec<String>),
+    /// The parameter of a closure that is the one argument of a std adapter (`map`, `filter`, ..)
+    /// on the chain, or the variable of `for x in chain` (the adapter `for`).
+    Element(Box<ReceiverChain>, String),
+}
+
+/// One step of a receiver chain.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Step {
+    Field(String),
+    /// A method call with its arguments.
+    Call(String, usize),
+    /// The `?` operator.
+    Try,
+    /// `&x` or `&mut x`.
+    Borrow(SelfKind),
+}
+
+/// The receiver of a method call: a root and the steps that the scan reads (#1571).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ReceiverChain {
+    /// The root as written, for the evidence.
+    pub name: String,
+    pub root: Root,
+    pub steps: Vec<Step>,
+    /// The macros of the `fn` that are no silent macro of `std` (AD-524).
+    pub macros: Vec<String>,
 }
