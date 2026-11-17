@@ -12,48 +12,47 @@ const SECTION: &str = include_str!("../assets/explorer/explorer.html");
 const RULES: &str = include_str!("../assets/explorer/explorer.css");
 const THEME: &str = include_str!("../assets/explorer/explorer-theme.css");
 
-/// The scripts of the Explorer in load order: the source, the attributes of the tag and the
-/// `script-src` hash (SHA-256, base64). A test compares each hash with its file.
+/// The embedded scripts and the hashes computed from their bytes at build time.
 pub(super) const SCRIPTS: [(&str, &str, &str); 8] = [
     (
         include_str!("../assets/explorer/elkjs-0.12.0.bundled.js"),
         " data-elkjs-version=\"0.12.0\"",
-        "EiLkT5U853Rq8jgB5yNwj45vQ2uLN3pqX8dVLzSjB7M=",
+        env!("REPORT_ELK_HASH"),
     ),
     (
         include_str!("../assets/explorer/report-graph-protocol.js"),
         " data-report-asset=\"graph-protocol\"",
-        "0mbKdgpJXx3vHuvytbhN9Dm0to/wVtXxAeABjzy8+sw=",
+        env!("REPORT_PROTOCOL_HASH"),
     ),
     (
         include_str!("../assets/explorer/report-graph-scene.js"),
         " data-report-asset=\"graph-scene\"",
-        "d8GBv87ONHFHtGM4xwsCXIw+8qpYSH/fnXa1rKJnis8=",
+        env!("REPORT_GRAPH_HASH"),
     ),
     (
         include_str!("../assets/explorer/report-atlas-deviations.js"),
         " data-report-asset=\"atlas-deviations\"",
-        "t9i713t+C3uT5BNqUhiqutYe+WUOG7J8sDiQY4fHtQk=",
+        env!("REPORT_ATLAS_HASH"),
     ),
     (
         include_str!("../assets/explorer/report-scene.js"),
         " data-report-asset=\"scene\"",
-        "i1HdKRdTKI9deir80/QaZKwvlOrd7yjfT/7L+mULqW8=",
+        env!("REPORT_SCENE_HASH"),
     ),
     (
         include_str!("../assets/explorer/report-layout.js"),
         " data-report-asset=\"layout\"",
-        "78brj+8BnVEHQEXUZgf6q/rPRFWGqPHv5QWqFqT9cPI=",
+        env!("REPORT_LAYOUT_HASH"),
     ),
     (
         include_str!("../assets/explorer/flow.runtime.js"),
         " data-report-asset=\"flow\"",
-        "Azk5KqDIkuSW6ian3fvzCEbdU1a2VbUWksc8ImnEpO8=",
+        env!("REPORT_FLOW_HASH"),
     ),
     (
         include_str!("../assets/explorer/report-canvas.js"),
         " data-report-asset=\"canvas\"",
-        "FSFPN/L55CI2uw4kxFol9ISZP70AgfJn8TyGlIZ6zFA=",
+        env!("REPORT_CANVAS_HASH"),
     ),
 ];
 

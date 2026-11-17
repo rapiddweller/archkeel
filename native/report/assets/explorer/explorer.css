@@ -1141,8 +1141,8 @@ html.ak-canvas .rp-explorer .edge{ transition: opacity .14s; }
 html.ak-canvas .rp-explorer .node.ak-dim,
 html.ak-canvas .rp-explorer .edge.ak-dim{ opacity: .16; }
 html.ak-canvas .rp-explorer .flow[data-ak-perspective] .node[data-ak-tag] .card{ stroke: var(--ex-tag); stroke-width: 2px; }
-html.ak-canvas .rp-explorer .ak-tag rect{ fill: var(--ex-tag); }
-html.ak-canvas .rp-explorer .ak-tag text{ fill: var(--on-accent); font: 600 11px var(--font-sans); }
+html.ak-canvas .rp-explorer .ak-tag rect{ fill: var(--surface-1); }
+html.ak-canvas .rp-explorer .ak-tag text{ fill: var(--ink); font: 600 11px var(--font-sans); }
 .rp-explorer .ak-bar{
   position: absolute; z-index: 70; display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; padding: 5px;
   background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-lg);
@@ -1220,7 +1220,7 @@ html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel[open] .flow-legend
 .rp-explorer .ak-chip{
   --chip: var(--ink-muted);
   display: inline-flex; align-items: center; gap: 6px; height: 28px !important; padding: 0 10px !important;
-  border-radius: 999px !important; background: color-mix(in srgb, var(--chip) 12%, transparent) !important;
+  border-radius: 999px !important; background: var(--surface-1) !important;
 }
 .rp-explorer .ak-chip i{ width: 9px; height: 9px; border-radius: 50%; background: var(--chip); }
 .rp-explorer .ak-chip b{ font-weight: 500; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
@@ -1263,10 +1263,10 @@ html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel[open] .flow-legend
 .rp-explorer .ak-table tr.ak-here td:first-child{ box-shadow: inset 3px 0 0 var(--accent-text); }
 .rp-explorer .ak-status{
   display: inline-block; padding: 1px var(--space-2); border-radius: 999px; font-size: 11px; font-weight: 600;
-  color: var(--on-accent); background: var(--unknown);
+  color: var(--unknown-text); background: var(--unknown-subtle);
 }
-.rp-explorer .ak-status[data-s="PASS"]{ background: var(--pass); }
-.rp-explorer .ak-status[data-s="FAIL"]{ background: var(--fail); }
+.rp-explorer .ak-status[data-s="PASS"]{ color: var(--pass-text); background: var(--pass-subtle); }
+.rp-explorer .ak-status[data-s="FAIL"]{ color: var(--fail-text); background: var(--fail-subtle); }
 .rp-explorer .ak-dot{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--c); }
 .rp-explorer .ak-backdrop{
   position: fixed; inset: 0; z-index: 200; display: flex; justify-content: center; align-items: flex-start;
@@ -1305,7 +1305,7 @@ html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel[open] .flow-legend
 .rp-explorer .ak-result .ak-sub{ color: var(--ink-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rp-explorer .ak-kind{
   width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center;
-  font-size: 11px; font-weight: 700; color: var(--on-accent); background: var(--k);
+  font-size: 11px; font-weight: 700; color: var(--ink); background: var(--surface-1);
 }
 .rp-explorer .ak-empty{ padding: 18px; color: var(--ink-muted); }
 .rp-explorer .ak-palette footer{

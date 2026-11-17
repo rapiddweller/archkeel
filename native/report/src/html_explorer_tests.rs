@@ -7,6 +7,16 @@
 
 const TOKENS: &str = include_str!("../assets/tokens.css");
 
+#[test]
+fn every_script_hash_is_the_hash_of_its_embedded_bytes() {
+    use sha2::{Digest, Sha256};
+    let hash = |script: &str| super::markup::base64(&Sha256::digest(script.as_bytes()));
+    assert_eq!(super::shell::THEME_HASH, hash(super::shell::THEME_SCRIPT));
+    for (script, _, expected) in super::explorer::SCRIPTS {
+        assert_eq!(expected, hash(script));
+    }
+}
+
 /// The files that draw: the local style of the report and each Explorer asset except the vendored
 /// ELK layout, which draws nothing.
 const FILES: [(&str, &str); 10] = [
