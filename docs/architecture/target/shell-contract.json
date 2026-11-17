@@ -629,9 +629,10 @@
         }
       ],
       "public": [
+        "archkeel.cli.core_schema:budget",
         "archkeel.cli.core_schema:check_frame",
         "archkeel.cli.core_schema:check_refusal",
-        "archkeel.cli.core_schema:budget"
+        "archkeel.cli.core_schema:schema_file"
       ],
       "decided_by": "architect"
     },
@@ -679,7 +680,12 @@
       "provenance": [
         "docs/architecture/shell.md"
       ],
-      "requires": [],
+      "requires": [
+        {
+          "component": "schema",
+          "rationale": "Read the source suffix table of the schema directory: the one owner of the table."
+        }
+      ],
       "decided_by": "architect",
       "public": [
         "archkeel.cli.init_draft:CONFIG",

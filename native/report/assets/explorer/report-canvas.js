@@ -284,15 +284,15 @@
       if (!value) return;
       group.dataset.akTag = value;
       group.style.setProperty("--ex-tag", perspectiveColor(perspective, value));
-      const height = Number(group.querySelector(".card")?.getAttribute("height") || 120);
-      const width = Math.min(170, 20 + value.length * 6.8);
+      // The badge sits in the header row of the box, left of its kind icon (icon at CARD.w - 29).
+      const width = Math.min(100, 12 + value.length * 5.7);
       const tag = s("g", {
         class: perspective === "language" ? "ak-tag ak-language-badge" : "ak-tag",
         ...(perspective === "language" ? { "data-language": languageKey(value) } : {}),
-        transform: `translate(14 ${height + 4})`,
+        transform: `translate(${171 - 5 - width} 7)`,
       });
-      tag.append(s("rect", { width: String(width), height: "22", rx: "11" }));
-      const text = s("text", { x: "10", y: "15" });
+      tag.append(s("rect", { width: String(width), height: "18", rx: "9" }));
+      const text = s("text", { x: "6", y: "13" });
       text.textContent = value;
       tag.append(text);
       group.append(tag);
