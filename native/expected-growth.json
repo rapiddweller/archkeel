@@ -8401,7 +8401,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_rust_collector.modules",
+        "native.archkeel_rust_collector.modules.walk",
         "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
@@ -8428,7 +8428,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_rust_collector.modules",
+        "native.archkeel_rust_collector.modules.walk",
         "A method call may reach the method legacy of a type in its own file native.archkeel_rust_collector.manifest"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
@@ -11949,6 +11949,15 @@
         "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
       ],
       "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.modules.walk",
+        "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      ],
+      "reason": "#1571 sound field-receiver gap: the walk of a path moved from modules.rs to modules/walk.rs (AD-772, #1517; file limits 500/400), and its len calls with it"
     }
   ]
 }

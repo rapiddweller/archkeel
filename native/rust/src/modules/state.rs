@@ -12,7 +12,7 @@ use crate::definitions::{Access, Form, Owner};
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Via};
 use crate::tree::Module;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// One file of the walk, with the names that it binds.
 pub(crate) struct Frame<'a> {
@@ -117,6 +117,24 @@ impl Frame<'_> {
         self.bindings.get(name).map_or(&[], Vec::as_slice)
     }
 
+    /// The inline modules of the lexical module `at` below the file module, as the scan keys them.
+    pub(super) fn scope_of(&self, at: &str) -> Vec<String> {
+        (at.strip_prefix(self.module.module.as_str())
+            .unwrap_or("")
+            .split('.'))
+        .filter(|part| !part.is_empty())
+        .map(str::to_owned)
+        .collect()
+    }
+
+    /// The `use` leaves at module level of the lexical module `at` that bind `name`.
+    pub(super) fn module_leaves(&self, name: &str, at: &str) -> Vec<&Reference> {
+        (self.bound(name).iter().copied())
+            .filter(|leaf| matches!(leaf.via, Via::Use { block: false, .. }))
+            .filter(|leaf| self.lexical_at(&leaf.scope) == at)
+            .collect()
+    }
+
     /// The `use` leaves of the file that bind a name, also `_`.
     pub(crate) fn leaves(&self) -> impl Iterator<Item = &Reference> {
         self.bindings.values().flatten().copied()
@@ -131,6 +149,19 @@ impl<'a> Index<'a> {
 
     pub(crate) fn file_of(&self, lexical: &str) -> Option<&str> {
         self.lexical.get(lexical).copied()
+    }
+
+    /// Whether the path of `glob` starts at a crate that the manifest or the sysroot names, and
+    /// the file declares no name that hides it.
+    pub(super) fn external(&self, frame: &Frame<'_>, glob: &Reference) -> bool {
+        let Some(first) = glob.names.first() else {
+            return false;
+        };
+        let none = BTreeSet::new();
+        let declared = frame.module.scan.counts.contains_key(first);
+        !declared
+            && !self.aliases.in_prelude(frame.root, first)
+            && classify(first, frame.krate, &none, glob.absolute).is_some()
     }
 
     pub(super) fn defines_type(&self, lexical: &str, name: &str) -> bool {
