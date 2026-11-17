@@ -6,7 +6,31 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ruff_python_ast::{ModModule, Stmt};
+use ruff_python_ast::{Expr, ExprCall, ModModule, Stmt};
+
+pub(super) fn code_type_check(call: &ExprCall, types: &HashSet<String>, visible: bool) -> bool {
+    visible
+        && matches!(&*call.func, Expr::Name(name) if name.id.as_str() == "isinstance")
+        && call.arguments.args.len() == 2
+        && call.arguments.keywords.is_empty()
+        && matches!(&call.arguments.args[1], Expr::Name(name) if types.contains(name.id.as_str()))
+}
+
+pub(super) fn code_types(
+    bound: &HashMap<String, Vec<String>>,
+    unique: &HashSet<String>,
+) -> HashSet<String> {
+    ["FunctionType", "CodeType"]
+        .into_iter()
+        .filter(|name| {
+            unique.contains(*name)
+                && bound
+                    .get(*name)
+                    .is_some_and(|origins| origins.as_slice() == [format!("types.{name}")])
+        })
+        .map(str::to_owned)
+        .collect()
+}
 
 pub(super) fn modules(
     bound: &HashMap<String, Vec<String>>,

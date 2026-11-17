@@ -11,13 +11,14 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.cli import core_arguments, core_binary, core_only, core_text, native_scan
+from archkeel.cli import core_binary, core_only, core_text, native_scan
 from archkeel.cli.core_exit import Outcome
 from archkeel.cli.core_frame import CoreError, RefusalKind, Status
 
 HEAD = "a" * 40
 EXIT = {Status.PASS: 0, Status.FAIL: 1, Status.UNKNOWN: 2}
 OLD_STAGE_ONE_VARIABLE = "ARCHKEEL_NATIVE_CORE"
+CORE_ONLY_VARIABLE = "ARCHKEEL_CORE_ONLY"
 
 
 @pytest.mark.parametrize(
@@ -231,7 +232,7 @@ def test_call_measure_is_checked_before_the_frame_is_accepted() -> None:
 
 @pytest.fixture(autouse=True)
 def no_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.delenv(core_arguments.VARIABLE, raising=False)
+    monkeypatch.delenv(CORE_ONLY_VARIABLE, raising=False)
     monkeypatch.delenv(OLD_STAGE_ONE_VARIABLE, raising=False)
     monkeypatch.setattr(core_only, "identity", lambda _: (HEAD, False))
     monkeypatch.chdir(tmp_path)
@@ -239,7 +240,7 @@ def no_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     (tmp_path / "contract.json").write_bytes(b"contract")
 
 
-@pytest.mark.parametrize("variable", [core_arguments.VARIABLE, OLD_STAGE_ONE_VARIABLE])
+@pytest.mark.parametrize("variable", [CORE_ONLY_VARIABLE, OLD_STAGE_ONE_VARIABLE])
 @pytest.mark.parametrize("value", ["1", "0", "wrong"])
 def test_an_old_engine_variable_selects_nothing(
     variable: str,
@@ -395,7 +396,7 @@ def test_real_process_faults_are_typed_refusals(
     binary.chmod(0o755)
     monkeypatch.setattr(core_only, "locate_core", lambda: binary)
     if action == "timeout":
-        monkeypatch.setattr(native_scan, "TIMEOUT_SECONDS", 0.05)
+        monkeypatch.setattr(native_scan, "_TIMEOUT_SECONDS", 0.05)
     assert core_only.run(["validate", "--json"]) == 2
     assert json.loads(capsys.readouterr().out)["status"] == Status.UNKNOWN
 

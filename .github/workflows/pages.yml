@@ -22,6 +22,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     continue-on-error: true
+    env:
+      # AD-754: this job keeps the Rust cache of main warm for the PR gate, so it builds the gate profile.
+      ARCHKEEL_CORE_PROFILE: gate
     concurrency:
       group: github-pages
       cancel-in-progress: false
@@ -38,6 +41,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Hash the native tree
+        id: native
+        run: echo "hash=${{ hashFiles('native/**', '!native/target/**', '!**/__pycache__/**') }}" >> "$GITHUB_OUTPUT"
 
       - name: Install Node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
@@ -65,9 +72,36 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             native/target
-          key: rust-pages-${{ runner.os }}-${{ github.sha }}
+          key: rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
-            rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+            rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+
+      - name: Build the core
+        id: build
+        env:
+          ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
+        run: make core
+
+      # AD-754: a push to main cancels the CI run of the older push, so CI cannot keep the cache of
+      # main warm. This workflow never cancels a run: it saves the Rust cache and the core of main.
+      - name: Save the Rust build cache of main
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/target
+          key: rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+
+      - name: Save the core for this native tree
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            native/target/release/archkeel-core
+            native/target/release/archkeel-core.tree
+          key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
       - name: Build the report of each fixture with the core
         run: make report-gallery

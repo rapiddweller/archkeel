@@ -26,7 +26,7 @@ def pl(source: str, wants: list[Want], truth: str, **files: str) -> Plant:
     return Plant(source, tuple(wants), truth, files=files)
 
 
-# truth PASS: Python binds what the target plans. DIFF: it does not.
+# truth PASS: the declaration matches the target. DIFF: it does not.
 SHAPES: dict[str, Plant] = {
     "class": pl("class A:\n    pass\n", [C], "PASS"),
     "function": pl("def f(a: int) -> str:\n    return ''\n", [fn()], "PASS"),
@@ -67,10 +67,11 @@ SHAPES: dict[str, Plant] = {
         [C, Want("method", "A.k", {"modifiers": ["class"]})],
         "PASS",
     ),
+    # AD-748: an annotation declares an instance attribute, not a runtime binding.
     "annotated-attribute": pl(
         "class A:\n    x: int\n",
         [C, Want("attribute", "A.x", {"annotation": "int"})],
-        "DIFF",
+        "PASS",
     ),
     "annotated-attribute-value": pl(
         "class A:\n    x: int = 1\n",
@@ -417,8 +418,9 @@ REVIEW: dict[str, Plant] = {
     "mangled-method": pl(
         "class A:\n    def __x(self):\n        return 1\n", [C, Want("method", "A.__x")], "DIFF"
     ),
+    # AD-748: the UML attribute describes a declaration, not a runtime binding.
     "ann-only-attribute": pl(
-        "class A:\n    x: int\n", [C, Want("attribute", "A.x", {"annotation": "int"})], "DIFF"
+        "class A:\n    x: int\n", [C, Want("attribute", "A.x", {"annotation": "int"})], "PASS"
     ),
     "ann-rebound-builtin": pl(
         "int = str\n\n\nclass A:\n    x: int = 1\n",

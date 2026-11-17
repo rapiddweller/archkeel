@@ -69,12 +69,6 @@
   // Issue 1471: a module opens at its level on this page; no run writes a page for each module.
   const showModule = (item) => F.openModule(item.id);
   const showRule = (rule) => F.openRule(rule);
-  function setParam(key, value) {
-    if (!["file:", "http:", "https:"].includes(location.protocol)) return;
-    const next = query();
-    if (value) next.set(key, value); else next.delete(key);
-    history.replaceState(null, "", `${location.pathname}?${next}${location.hash}`);
-  }
 
   // ---------- search (pure index + deterministic ranking) ----------
   const KIND = {
@@ -255,15 +249,11 @@
   const languageBadge = (value) => h("span", {
     class: "ak-language-badge", "data-language": languageKey(value),
   }, value);
-  // AD-606: the report opens with the language of each component on its box; "none" is a choice.
-  const readPerspective = () => {
-    const value = query().get("perspective");
-    return value === "none" ? null : Object.hasOwn(PERSPECTIVES, value) ? value : "language";
-  };
-  // AD-734: the presentation choices live in the one view state S of flow.js; a change is a dispatch.
+  // AD-734: the presentation choices live in the one view state S of flow.js; a change is a dispatch,
+  // and flow.js writes the URL. AD-606: the report opens with the language of each component on its
+  // box ("language" is the default of S.perspective); "none" is a choice.
   const S = F.S;
   const present = (changes) => F.dispatch({ type: "present", ...changes });
-  present({ perspective: readPerspective(), pinnedTag: null });
 
   function sceneNode(id) { return (F.state().scene?.nodes || []).find((node) => node.id === id); }
   function applyPerspective() {
@@ -291,6 +281,19 @@
       text.textContent = value;
       tag.append(text);
       group.append(tag);
+      // A mixed value (`python + typescript`) can be longer than the badge: it is cut at the badge
+      // with an ellipsis, and the whole value stays as the title of the badge.
+      const room = width - 12;
+      if (text.getComputedTextLength() > room) {
+        let cut = value;
+        while (cut.length > 1 && text.getComputedTextLength() > room) {
+          cut = cut.slice(0, -1);
+          text.textContent = `${cut.trimEnd()}…`;
+        }
+        const title = s("title");
+        title.textContent = value;
+        tag.append(title);
+      }
     });
     if (S.pinnedTag && (!active || !(F.state().scene?.nodes || []).some((node) => active.value(node) === S.pinnedTag))) present({ pinnedTag: null });
     highlightTag(S.pinnedTag);
@@ -319,7 +322,7 @@
     tagBar.replaceChildren(...[
       h("span", { class: "ak-tagbar-label" }, "Perspective"),
       ...choices.map(([key, label]) => h("button", { "data-focus-key": `perspective:${key}`, "aria-pressed": String((S.perspective || "") === key),
-        onclick: () => { present({ perspective: key || null, pinnedTag: null }); setParam("perspective", S.perspective || "none"); applyPerspective(); } }, label)),
+        onclick: () => { present({ perspective: key || null, pinnedTag: null }); applyPerspective(); } }, label)),
       active ? h("span", { class: "ak-sep" }) : null,
       ...(active ? [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([value, count]) =>
         h("button", {
@@ -340,40 +343,47 @@
   function cyclePerspective() {
     const keys = [null, ...Object.keys(PERSPECTIVES)];
     present({ perspective: keys[(keys.indexOf(S.perspective) + 1) % keys.length], pinnedTag: null });
-    setParam("perspective", S.perspective || "none");
     applyPerspective();
   }
 
   // ---------- drawers: overview (health check) and objects list ----------
-  let drawer = null;
+  let drawer = null, drawerShown = null;
   let overviewEvidence = [];
   const explore = root.querySelector(".flow-explore");
   const exploreHome = explore?.parentElement;
   function closeDrawer() {
     const restoreFocus = drawer?.contains(document.activeElement);
-    const trigger = S.drawer && rail.querySelector(`[data-drawer="${S.drawer}"]`);
-    if (S.drawer === "overview") F.setExploreOpen(false);
-    if (S.drawer === "overview" && explore && exploreHome) exploreHome.append(explore);
-    if (S.drawer === "overview") {
+    const trigger = drawerShown && rail.querySelector(`[data-drawer="${drawerShown}"]`);
+    if (drawerShown === "overview") F.setExploreOpen(false);
+    if (drawerShown === "overview" && explore && exploreHome) exploreHome.append(explore);
+    if (drawerShown === "overview") {
       root.prepend(summary);
       document.querySelector(".report-shell").append(...overviewEvidence);
       overviewEvidence = [];
     }
-    drawer?.remove(); drawer = null; present({ drawer: null });
+    drawer?.remove(); drawer = null; drawerShown = null;
+    if (S.drawer) present({ drawer: null });
     F.syncExpansionInert();
     rail.querySelectorAll("button").forEach((button) => button.setAttribute("aria-expanded", "false"));
     if (restoreFocus) trigger?.focus();
   }
   function toggleDrawer(name, build) {
-    const same = S.drawer === name;
+    const same = drawerShown === name;
     closeDrawer();
     if (same) return;
+    drawerShown = name;
     present({ drawer: name });
     drawer = h("aside", { class: "ak-drawer", "aria-label": name }, build());
     root.append(drawer);
     if (name === "overview") F.setExploreOpen(true);
     F.syncExpansionInert();
     rail.querySelector(`[data-drawer="${name}"]`)?.setAttribute("aria-expanded", "true");
+  }
+  // The drawer that S names is the drawer on the page: at the start, and after Back.
+  function showDrawer(name) {
+    if (drawerShown === name) return;
+    if (name) toggleDrawer(name, name === "overview" ? overviewDrawer : objectsDrawer);
+    else closeDrawer();
   }
   function overviewDrawer() {
     const body = [h("h2", {}, "Health check"),
@@ -563,13 +573,13 @@
   if (A) F.setMaxFitScale(1);
   // AD-606: in the report the diagram starts with the whole width; a click on a box opens the
   // panel of its facts, and "Details" opens and closes it.
-  if (A && root.dataset.detailsOpen === "true" && !root.hasAttribute("data-expanded")) detailsToggle?.click();
+  // AD-734: the state of the URL decides Details (closed unless the link selects a box or cell).
   if (A) F.nodeLayer.addEventListener("click", () => {
     if (root.dataset.detailsOpen !== "true") detailsToggle?.click();
   });
   // The sheet of a box is set in the small body text of the design system.
   root.querySelector(".flow-inspector")?.classList.add("body-sm");
-  const fitDiagram = () => F.fit(true);
+  const fitDiagram = () => F.fit(true, { whole: true });
   // The rows of a wrapped layout follow the shape of the view: lay the diagram out again when the
   // Explorer goes to the full window and back.
   if (A) new MutationObserver(() => requestAnimationFrame(() => {
@@ -579,10 +589,8 @@
   root.addEventListener("archkeel:rendered", () => {
     back?.setAttribute("aria-label", back.textContent);
     if (!A) return;
-    if (["file:", "http:", "https:"].includes(location.protocol))
-      present({ perspective: readPerspective() });
     applyPerspective();
-    if (S.drawer === "objects") { const same = S.drawer; closeDrawer(); toggleDrawer(same, objectsDrawer); }
+    if (drawerShown === "objects") { closeDrawer(); toggleDrawer("objects", objectsDrawer); }
     const { scope, viewMode } = F.state();
     // Target and Diff of a contract that declares no dependency say so, in one line.
     topLeft.querySelector(".rp-empty-note")?.remove();
@@ -597,12 +605,11 @@
       requestAnimationFrame(() => F.fit(!F.state().scene?.moduleOverview));
     }
   });
-  addEventListener("popstate", () => {
-    closePop();
-    present({ perspective: readPerspective(), pinnedTag: null });
-  }, { capture: true });
+  addEventListener("popstate", closePop, { capture: true });
+  // After flow.js restored S from the URL of the entry.
+  addEventListener("popstate", () => { showDrawer(S.drawer); applyPerspective(); });
   const revealFindings = () => {
-    if (S.drawer !== "overview") toggleDrawer("overview", overviewDrawer);
+    if (drawerShown !== "overview") toggleDrawer("overview", overviewDrawer);
   };
   root.addEventListener("archkeel:findings", revealFindings);
   root.addEventListener("archkeel:inspect", () => {
@@ -610,6 +617,7 @@
   });
   addEventListener("beforeprint", closeDrawer);
   if (/^#atlas-(rule|finding)-/.test(location.hash)) revealFindings();
+  else if (A) showDrawer(S.drawer);
   if (A) {
     renderTagBar();
     if (F.state().scene) applyPerspective();

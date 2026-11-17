@@ -10,7 +10,9 @@
 3. A module object escapes on any other use of the binding: a bare load, a chain that ends at a module, a namespace attribute (`__dict__`, `__all__`, `__setattr__`, `__delattr__`), a store or a delete. Then the import of that binding gets `symbols_known = false`, so the rule is UNKNOWN (`UnreadBinding`). `import a.a` and `from a import a` give the same record, so such a binding counts as escaped.
 4. The Python claim check (`native/python/src/claims.rs`) accepts `symbols_known = false` for a whole-module import statement. This is the documented meaning of the field.
 
-**Why it is sound.** A name that Python reads through a module object is read either by a load that item 1 records, or after an escape, which item 3 makes UNKNOWN. A local name with the spelling of a binding counts as the binding: it can add a record or withhold a proof, never remove one.
+5. A name is read in its scope (#1506, `survey/module_scopes.rs`): the innermost function scope that binds it, then the enclosing ones, then the module; a class body only for a load directly in it; `global` and `nonlocal` as Python reads them. Only a name that import statements alone bind in that scope is the module binding. A name that only other bindings bind there (a parameter, a store, a comprehension target, a walrus) is another value, so its loads are no use of the module. A name that both bind, or that imports of two modules bind, may be the module: an escape.
+
+**Why it is sound.** A name that Python reads through a module object is read either by a load that item 1 records, or after an escape, which item 3 makes UNKNOWN. A value that another binding gives can be the module object only when a load of the module binding hands it on, and that load is an escape.
 
 **Measured.** Native, shell and system self-checks are as pinned on main (no growth, AD-672).
 

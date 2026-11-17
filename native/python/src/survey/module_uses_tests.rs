@@ -87,3 +87,24 @@ fn a_module_object_that_escapes_leaves_the_names_of_its_import_unread() {
     let found = records("import app.lib as lib\nlib.f()\n");
     assert!(found.iter().all(|r| r.3), "{found:?}");
 }
+
+#[test]
+fn a_name_that_its_own_scope_binds_otherwise_is_no_module_object() {
+    // #1506: a parameter, a `nonlocal` of an outer local and a walrus in a comprehension bind
+    // another value; `global` names the module binding again.
+    let attribute = |user: &str| records(user).iter().any(|r| r.1.as_deref() == Some("f"));
+    for user in [
+        "import app.lib as lib\ndef use(lib):\n    return lib.f\n",
+        "import app.lib as lib\ndef outer():\n    lib = 1\n    def inner():\n        nonlocal lib\n        return lib.f\n",
+        "import app.lib as lib\ndef use():\n    [(lib := 1) for _ in []]\n    return lib.f\n",
+    ] {
+        assert!(!attribute(user), "{user}");
+    }
+    assert!(attribute(
+        "import app.lib as lib\ndef use():\n    global lib\n    return lib.f\n"
+    ));
+    // An import and another binding in one scope: the name may be the module, its uses unread.
+    let found = records("import app.lib as lib\nlib = 1\nlib.f\n");
+    let import = found.iter().find(|r| r.2.is_some()).unwrap();
+    assert!(!import.3, "{found:?}");
+}

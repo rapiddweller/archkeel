@@ -32,6 +32,58 @@ const INSTALLED: [(&str, &str); 3] = [
     ("bower_components", "bower.json"),
 ];
 
+/// A file form that holds code but that the TypeScript profile does not read, by suffix. The
+/// reason names the form (AD-488, #1528). A page (`.html`, `.htm`) is code only when it holds a
+/// script element; `page_with_script` decides that from its text.
+const UNREAD_FORMS: [(&str, &str); 7] = [
+    (
+        ".vue",
+        "the TypeScript profile does not read Vue single-file components",
+    ),
+    (
+        ".svelte",
+        "the TypeScript profile does not read Svelte components",
+    ),
+    (
+        ".astro",
+        "the TypeScript profile does not read Astro components",
+    ),
+    (".mdx", "the TypeScript profile does not read MDX documents"),
+    (
+        ".es6",
+        "the TypeScript profile does not read the .es6 script suffix",
+    ),
+    (
+        ".html",
+        "the TypeScript profile does not read the inline scripts of HTML pages",
+    ),
+    (
+        ".htm",
+        "the TypeScript profile does not read the inline scripts of HTML pages",
+    ),
+];
+
+/// Why the TypeScript profile does not read `name`, when it is a code form of the list.
+pub(crate) fn unread_form(name: &str) -> Option<&'static str> {
+    let lower = name.to_ascii_lowercase();
+    UNREAD_FORMS
+        .iter()
+        .find(|(suffix, _)| lower.ends_with(suffix))
+        .map(|(_, reason)| *reason)
+}
+
+/// True when the text of a page holds a script element, in any letter case.
+pub(crate) fn page_with_script(text: &[u8]) -> bool {
+    text.windows(7)
+        .any(|window| window.eq_ignore_ascii_case(b"<script"))
+}
+
+/// True for a page: its text decides whether it is code.
+pub(crate) fn is_page(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.ends_with(".html") || lower.ends_with(".htm")
+}
+
 /// Each project source file under `roots`, sorted, and each package that `reach` makes source.
 pub(crate) fn project_sources(
     snapshot: &mut Snapshot,
@@ -123,11 +175,13 @@ fn object(snapshot: &mut Snapshot, manifest: &str) -> bool {
         .is_some_and(|bytes| serde_json::from_slice::<Map<String, Value>>(&bytes).is_ok())
 }
 
-/// True for a TypeScript, declaration or JavaScript file name, in any letter case.
+/// True for a TypeScript, declaration or JavaScript file name, in any letter case, or for a code
+/// form that the profile does not read.
 fn source(name: &str) -> bool {
-    classify_file(&name.to_ascii_lowercase())
-        .and_then(Suffix::source_kind)
-        .is_some_and(|kind| !matches!(kind, SourceKind::Json))
+    unread_form(name).is_some()
+        || classify_file(&name.to_ascii_lowercase())
+            .and_then(Suffix::source_kind)
+            .is_some_and(|kind| !matches!(kind, SourceKind::Json))
 }
 
 /// The paths where the compiler looks for the type package `name` from `directory`: each

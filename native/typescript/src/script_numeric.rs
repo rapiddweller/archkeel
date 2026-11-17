@@ -56,6 +56,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             }
             ("binary_expression", Some(operator)) => listed(ARITHMETIC, operator),
             ("identifier", _) => depth > 0 && self.numeric_name(node, depth - 1),
+            // `E[E["A"] = 0] = "A"` of a compiled enum: an assignment gives its right side.
+            ("assignment_expression", _) => tree
+                .field(node, F::Right)
+                .is_some_and(|right| self.numeric_at(right, depth)),
             ("member_expression", _) => self.well_known_symbol(node),
             _ => false,
         }

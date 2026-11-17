@@ -15,13 +15,13 @@ from core_support import HONEST, SUFFIX, case_root
 from test_cli_core_only import GUARD, ROOT
 from test_cli_core_only_boundary import HEAD, frame
 
-from archkeel.cli import core_arguments, core_only
+from archkeel.cli import core_only
 from archkeel.cli.native_scan import exchange
 
 
 @pytest.fixture(autouse=True)
 def environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.delenv(core_arguments.VARIABLE, raising=False)
+    monkeypatch.delenv("ARCHKEEL_CORE_ONLY", raising=False)
     monkeypatch.chdir(tmp_path)
     (tmp_path / "archkeel.toml").write_text('[scan]\ncontract = "contract.json"\n')
     (tmp_path / "contract.json").write_text('{"rules": [{"id": "R1"}]}')

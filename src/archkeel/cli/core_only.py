@@ -14,7 +14,6 @@ with exit 2; it never falls back and never reports success. Each exit code comes
 from __future__ import annotations
 
 import json
-import sys
 import traceback
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
@@ -22,12 +21,12 @@ from pathlib import Path
 from time import time_ns
 from typing import Final
 
-from .core_arguments import NotOnThisLine, Options, command_of, parse
+from .core_arguments import NotOnThisLine, Options, OutputMode, command_of, output_mode, parse
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import as_json as baseline_json
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
-from .core_binding import resolve_root
-from .core_exit import Outcome, exit_for, outcome_of, require_baseline_part
+from .core_binding import ProjectRoot, RootMode, resolve_root, work_tree_top
+from .core_exit import Outcome, envelope, exit_for, outcome_of, require_baseline_part
 from .core_frame import CoreCommand as Command
 from .core_frame import (
     CoreError,
@@ -47,16 +46,10 @@ from .init_draft import DOCUMENT
 from .native_scan import SCAN_PROTOCOL, exchange, identity, ignored_by
 
 
-def _wants_json(argv: Sequence[str]) -> bool:
-    if "--summary" in argv:
-        return False
-    return "--json" in argv or (not sys.stdout.isatty() and "--text" not in argv)
-
-
 def run(argv: Sequence[str]) -> int:
     """Run one command line and return its exit code. The core decides; the shell only maps."""
 
-    as_json = _wants_json(argv)
+    mode = output_mode(argv)  # AD-735: one output mode for the result and each refusal
     baseline = any(arg == "--baseline" or arg.startswith("--baseline=") for arg in argv)
     try:
         if not argv or argv[0] in {"-h", "--help"}:
@@ -71,22 +64,22 @@ def run(argv: Sequence[str]) -> int:
         command_of(argv)
         options = parse(argv)
         if options.command is Command.SKILL:
-            return _install_skill(options, as_json)
+            return _install_skill(options, mode)
         if options.command is Command.INIT:
-            return _run_init("--json" in argv, resolve_root(options.root or Path.cwd()))
-        return _decide(options, as_json)
+            return _run_init(mode is OutputMode.JSON, ProjectRoot.of(options.root).path)
+        return _decide(options, mode)
     except (CoreError, OSError, ValueError) as error:
         output = any(arg == "--output" or arg.startswith("--output=") for arg in argv)
         message = _message(error, output=output)
         kind = _refusal_kind(error)
-        return _refused(_command_or_none(argv), kind, message, as_json, baseline=baseline)
+        return _refused(_command_or_none(argv), kind, message, mode, baseline=baseline)
     except Exception as error:
         traceback.print_exc()
         return _refused(
             _command_or_none(argv),
             RefusalKind.INTERNAL_ERROR,
             f"{type(error).__name__}: {error}",
-            as_json,
+            mode,
             baseline=baseline,
         )
 
@@ -105,6 +98,9 @@ def _message(error: Exception, *, output: bool) -> str:
 
 
 def _refusal_kind(error: Exception) -> RefusalKind:
+    if isinstance(error, CoreError) and error.gap is not None:
+        if error.gap.kind is GapKind.PARSE_WORK_LIMIT:
+            return RefusalKind.PARSE_WORK_LIMIT
     kinds: tuple[tuple[type[Exception], RefusalKind], ...] = (
         (RequestMismatch, RefusalKind.REQUEST_MISMATCH),
         (NotOnThisLine, RefusalKind.NOT_ON_THIS_LINE),
@@ -126,28 +122,30 @@ def _version() -> str:
         return "unknown"
 
 
-def _install_skill(options: Options, as_json: bool) -> int:
+def _install_skill(options: Options, mode: OutputMode) -> int:
     from .skill import InstallationAgent, install_skill
 
     path = install_skill((options.root or Path.cwd()).resolve(), options.agent)
-    if as_json:
-        print(json.dumps({"command": Command.SKILL, "exit_code": 0, "path": str(path)}))
+    code = exit_for(Outcome.COMPLETED, None, baseline=False)
+    if mode is OutputMode.JSON:
+        result = envelope(Command.SKILL, Outcome.COMPLETED, None, code) | {"path": str(path)}
+        print(json.dumps(result))
     else:
         name = "$archkeel" if options.agent == InstallationAgent.CODEX else "/archkeel"
         print(f"Installed Archkeel instructions: {path}")
         print(f"Use {name} in your agent session; start a new session if needed.")
-    return 0
+    return code
 
 
-def _request(options: Options, root: Path) -> dict[str, object]:
+def _request(options: Options, project: ProjectRoot) -> dict[str, object]:
     """The scan identity that the core answers, with the parts of the page and the baseline."""
     request: dict[str, object] = {
         "protocol": SCAN_PROTOCOL,
-        "root": str(root),
+        "root": str(project.path),
         "config": options.config,
-        "discover_root": options.root is None,
+        "discover_root": project.discover,
     }
-    if (claim := identity(root)) is not None:
+    if (claim := identity(project.path)) is not None:
         request["git_head"], request["dirty"] = claim
     # AD-496: the page draws the architecture, so the core also builds the topology for it. The
     # section is transport for the page: stdout shows it only when the user asked for it.
@@ -201,7 +199,7 @@ def _located(options: Options) -> Options:
     path = (config if config.is_absolute() else Path.cwd() / config).resolve()
     if not path.is_file():
         return options
-    top = next((folder for folder in path.parents if (folder / ".git").exists()), None)
+    top = work_tree_top(path.parent)
     if top is None or (not config.is_absolute() and Path.cwd().resolve().is_relative_to(top)):
         return options
     located = Options(**vars(options))
@@ -304,34 +302,35 @@ def _print_text(
             print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
 
 
-def _decide(options: Options, as_json: bool) -> int:
+def _decide(options: Options, mode: OutputMode) -> int:
     """Draft the files of a first run, then scan. A failure after a write still names the files."""
     options = _located(options)
-    root = resolve_root(options.root or Path.cwd())
+    project = ProjectRoot.of(options.root)  # AD-735: one root for the draft, the scan and the files
     baseline = options.baseline is not None
     binary = locate_core()  # AD-735: the core is found and checked before the draft writes a file
-    options, init = _prepare(options, root)  # AD-638, AD-660: a project without a config gets one
+    options, init = _prepare(options, project)  # AD-638, AD-660: a first run gets its files
     if (stop := init.refusal()) is not None:
         kind, fix = stop
         return _refused(
-            options.command, kind, init.message, as_json, baseline=baseline, fix=fix, init=init
+            options.command, kind, init.message, mode, baseline=baseline, fix=fix, init=init
         )
     try:
-        return _scan(options, root, binary, init.created, as_json)
+        return _scan(options, project, binary, init.created, mode)
     except (CoreError, OSError, ValueError) as error:
         if init.created is None:
             raise
         message = _message(error, output=options.output is not None)
         kind = _refusal_kind(error)
-        return _refused(options.command, kind, message, as_json, baseline=baseline, init=init)
+        return _refused(options.command, kind, message, mode, baseline=baseline, init=init)
 
 
 def _scan(
-    options: Options, root: Path, binary: Path, created: Created | None, as_json: bool
+    options: Options, project: ProjectRoot, binary: Path, created: Created | None, mode: OutputMode
 ) -> int:
     """Send the scan identity to the core and print the one frame that it gives."""
     baseline = options.baseline is not None
-    request = _request(options, root)
+    root = project.path
+    request = _request(options, project)
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
     started_ns = time_ns()
     stdout, status_code = exchange(str(binary), "scan", json.dumps(request).encode())
@@ -354,14 +353,11 @@ def _scan(
     collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
     if collected is not None and _NO_CONFIG in collected.reason:
         # The core names the cause; the way forward is the shell's to name (#1314).
-        collected = replace(collected, reason=_config_reason(options, root, collected.reason))
+        collected = replace(collected, reason=_config_reason(options, project, collected.reason))
     failures = _deliver(options, frame, stdout, root)
     outcome = outcome_of(frame, delivered=not failures)
     code = exit_for(outcome, frame, baseline=baseline)
-    result: dict[str, object] = {
-        "command": options.command,
-        "status": frame.status,
-        "exit_code": code,
+    result = envelope(options.command, outcome, frame.status, code) | {
         "frame": document,
         "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
         "gaps": [
@@ -374,7 +370,7 @@ def _scan(
     result |= _refusal_fields([*refusals, *failures])
     if created is not None:
         result["init"] = created.as_json()
-    if as_json and (options.json or options.output is None):
+    if mode is OutputMode.JSON:
         print(json.dumps(result))
         return code
     if created is not None:
@@ -398,10 +394,13 @@ _MISSING_FIX: Final = (
 )
 
 
-def _config_reason(options: Options, root: Path, reason: str) -> str:
-    """Say whether the configuration file is missing, a folder or unreadable, and what to do."""
-    path = root / options.config
-    where = options.root or "the current folder"
+def _config_reason(options: Options, project: ProjectRoot, reason: str) -> str:
+    """Say whether the configuration file is missing, a folder or unreadable, and what to do.
+
+    The file is where the core looked for it: below the project root.
+    """
+    path = project.path / options.config
+    where = _where(options, project)
     if not path.exists():
         return (
             f"{reason}: the file does not exist in {where}. A new project: run `archkeel init` to "
@@ -413,13 +412,24 @@ def _config_reason(options: Options, root: Path, reason: str) -> str:
     return f"{reason}: the file exists but cannot be read; check its permissions and encoding."
 
 
+def _where(options: Options, project: ProjectRoot) -> str:
+    """The project root in the words of the user: the typed `--root`, or the folder found."""
+    match project.mode:
+        case RootMode.EXPLICIT:
+            return str(options.root)
+        case RootMode.WORK_TREE if project.path != resolve_root(Path.cwd()):
+            return f"the top of the Git work tree ({project.path})"
+        case RootMode.WORK_TREE | RootMode.CURRENT:
+            return "the current folder"
+
+
 def _write_baseline(path: str, part: BaselineResult, root: Path) -> None:
-    """Write the bytes that the core gave for `--write-baseline`. The shell adds nothing."""
+    """Write the bytes that the core gave for `--write-baseline` below the project root, where
+    `--baseline` reads them (AD-735). The shell adds nothing."""
     if part.file is None:
         raise CoreError(f"the core frame baseline is {part.state} and holds no bytes to write")
-    base = next((folder for folder in (root, *root.parents) if (folder / ".git").exists()), root)
     try:
-        write_output(base / path, part.file.encode("utf-8"))
+        write_output(root / path, part.file.encode("utf-8"))
     except OSError as error:
         raise OSError(f"{path}: {error}") from error
 
@@ -440,7 +450,7 @@ def _refused(
     command: Command | None,
     kind: RefusalKind,
     message: str,
-    as_json: bool,
+    mode: OutputMode,
     *,
     baseline: bool,
     fix: str | None = None,
@@ -453,8 +463,8 @@ def _refused(
     """
     code = exit_for(Outcome.COMMAND_REFUSED, None, baseline=baseline)
     created = init.created if init is not None else None
-    if as_json:
-        document: dict[str, object] = {"status": Status.UNKNOWN, "exit_code": code}
+    if mode is OutputMode.JSON:
+        document = envelope(command, Outcome.COMMAND_REFUSED, Status.UNKNOWN, code)
         document["refusal"] = {"kind": kind, "message": message}
         if init is not None:
             document["init"] = created.as_json() if created else {"state": init.state}

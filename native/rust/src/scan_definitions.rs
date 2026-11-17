@@ -55,7 +55,7 @@ fn type_name(item: &ItemImpl) -> Option<String> {
 /// Read the definition that `item` is. A block of a function holds no definition of the
 /// module, so the walk reads nothing inside it.
 pub(super) fn define_item(walker: &mut Walker<'_>, item: &Item) {
-    if walker.blocks > 0 {
+    if walker.blocks() > 0 {
         return;
     }
     let (form, ident, vis): (Form, &Ident, &syn::Visibility) = match item {
@@ -190,11 +190,14 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
         path,
         scope,
         members,
-        exact: exact_path(item).is_some() && walker.blocks == 0 && !walker.selves.gated(),
+        exact: exact_path(item).is_some() && walker.blocks() == 0 && !walker.selves.gated(),
     });
 }
 
-/// Keep a struct or an enum at module level that every configuration has (AD-383).
+/// Keep a struct or an enum at module level that every configuration has (AD-383). A derive and
+/// a helper attribute of a derive keep the type as written only when the derive is the macro of
+/// the prelude (#1276): `use m::rewrite as derive;` makes `#[derive(..)]` an attribute macro that
+/// can rewrite the type. Such a type waits for the proof of `collect.rs` (`helper_types`).
 pub(super) fn exact_type(walker: &mut Walker<'_>, item: &Item) {
     block_type(walker, item);
     let (ident, attrs, is_type) = match item {
@@ -203,47 +206,81 @@ pub(super) fn exact_type(walker: &mut Walker<'_>, item: &Item) {
         Item::Trait(found) => (&found.ident, &found.attrs, false),
         _ => return,
     };
-    if walker.blocks == 0 && !walker.selves.gated() && type_inert(attrs) {
+    if walker.blocks() != 0 || walker.selves.gated() {
+        return;
+    }
+    let helper =
+        |attr: &&syn::Attribute| attr.path().is_ident("serde") || attr.path().is_ident("schemars");
+    let helpers: Vec<_> = attrs.iter().filter(helper).collect();
+    let rest: Vec<_> = attrs.iter().filter(|a| !helper(a)).cloned().collect();
+    if !type_inert(&rest) {
+        return;
+    }
+    if helpers.is_empty() {
         let scope = walker.inline.clone();
         walker.out.exact_items.insert((scope, plain(ident)));
-        if !is_type {
-            return;
-        }
-        walker.out.exact_types.insert(plain(ident));
-        if let Item::Struct(found) = item {
-            fields(walker, found);
-        }
-    } else if walker.blocks == 0 && !walker.selves.gated() {
-        let helpers: Vec<_> = attrs
-            .iter()
-            .filter(|attr| attr.path().is_ident("serde") || attr.path().is_ident("schemars"))
-            .collect();
-        let rest: Vec<_> = attrs
-            .iter()
-            .filter(|attr| !attr.path().is_ident("serde") && !attr.path().is_ident("schemars"))
-            .cloned()
-            .collect();
-        if !helpers.is_empty() && type_inert(&rest) {
-            let tools = walker.tools && !crate::attrs::kinds::no_tools(attrs);
-            let candidates = crate::attrs::model::Context::of(item, false, tools).candidates;
-            let concerns = helpers
-                .into_iter()
-                .map(|attr| {
-                    let mut concern = super::attributes::expansion_concern(
-                        walker,
-                        String::new(),
-                        attr.path().segments[0].ident.span(),
-                    );
-                    concern.proof = Some(crate::attrs::model::Proof::Helper {
-                        namespace: plain(&attr.path().segments[0].ident),
-                        candidates: candidates.clone(),
-                    });
-                    concern
-                })
-                .collect();
-            walker.out.helper_types.push((plain(ident), concerns));
-        }
     }
+    if !is_type {
+        return;
+    }
+    let mut concerns = helper_concerns(walker, item, attrs, &helpers);
+    if let Some(derive) = attrs.iter().find(|attr| attr.path().is_ident("derive")) {
+        concerns.push(derive_concern(walker, derive));
+    }
+    if concerns.is_empty() {
+        walker.out.exact_types.insert(plain(ident));
+    } else {
+        walker.out.helper_types.push((plain(ident), concerns));
+    }
+    // The fields count only for a type that is exact or that the proof makes exact.
+    if let Item::Struct(found) = item {
+        fields(walker, found);
+    }
+}
+
+/// The proof that each helper attribute belongs to a derive of the type (#1250).
+fn helper_concerns(
+    walker: &Walker<'_>,
+    item: &Item,
+    attrs: &[syn::Attribute],
+    helpers: &[&syn::Attribute],
+) -> Vec<super::state::Concern> {
+    if helpers.is_empty() {
+        return Vec::new();
+    }
+    let tools = walker.tools && !crate::attrs::kinds::no_tools(attrs);
+    let candidates = crate::attrs::model::Context::of(item, false, tools).candidates;
+    helpers
+        .iter()
+        .map(|attr| {
+            let mut concern = super::attributes::expansion_concern(
+                walker,
+                String::new(),
+                attr.path().segments[0].ident.span(),
+            );
+            concern.proof = Some(crate::attrs::model::Proof::Helper {
+                namespace: plain(&attr.path().segments[0].ident),
+                candidates: candidates.clone(),
+            });
+            concern
+        })
+        .collect()
+}
+
+/// The proof that the name `derive` of an attribute is the macro of the prelude (#1276).
+fn derive_concern(walker: &Walker<'_>, attr: &syn::Attribute) -> super::state::Concern {
+    let span = attr.path().segments[0].ident.span();
+    let mut concern = super::attributes::expansion_concern(walker, String::new(), span);
+    concern.proof = Some(crate::attrs::model::Proof::Attribute(
+        crate::attrs::model::Usage {
+            path: vec!["derive".to_owned()],
+            absolute: false,
+            complete: true,
+            block: false,
+            prelude: walker.tools,
+        },
+    ));
+    concern
 }
 
 fn fields(walker: &mut Walker<'_>, item: &syn::ItemStruct) {
@@ -290,7 +327,7 @@ pub(super) fn define_impl_item(walker: &mut Walker<'_>, item: &syn::ImplItem) {
     let Holder::Impl(ty) = walker.holder.clone() else {
         return;
     };
-    if walker.blocks > 0 {
+    if walker.blocks() > 0 {
         return;
     }
     let owner = Owner::Impl(ty);
@@ -309,7 +346,7 @@ pub(super) fn define_trait_item(walker: &mut Walker<'_>, item: &syn::TraitItem) 
     let Holder::Trait(name, access) = walker.holder.clone() else {
         return;
     };
-    if walker.blocks > 0 {
+    if walker.blocks() > 0 {
         return;
     }
     let owner = Owner::Trait(name);

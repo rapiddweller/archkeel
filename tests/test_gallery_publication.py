@@ -104,3 +104,12 @@ def test_no_push_cancels_a_publication_and_the_nightly_run_publishes_too() -> No
     assert "    cancel-in-progress: false\n" in text and "group: github-pages" in text
     assert "push:\n    branches: [main]" in head and "schedule:" in head
     assert "publish-gallery" not in (WORKFLOWS / "ci.yml").read_text()
+
+
+def test_the_pages_job_keeps_the_gate_cache_of_main_warm() -> None:
+    """AD-754: CI runs of main are cancelled by the next push; this job is not."""
+    body = _jobs("pages.yml")["publish-gallery"]
+    assert "ARCHKEEL_CORE_PROFILE: gate" in body
+    assert body.index("name: Build the core") < body.index("Save the Rust build cache of main")
+    assert body.count("if: always() && steps.build.outcome == 'success'") == 2
+    assert "key: core-gate-" in body and "key: rust-gate-main-" in body

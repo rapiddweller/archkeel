@@ -7,6 +7,47 @@
 use super::*;
 
 #[test]
+fn imported_code_types_in_isinstance_keep_the_import_gap() {
+    for name in ["FunctionType", "CodeType"] {
+        let source = format!("from types import {name}\nx = isinstance(value, {name})\n");
+        let tree = crate::test_tree(&source, 12).expect("valid probe");
+        let found = sites(
+            &tree,
+            Proof::default(),
+            &Binders::of(&tree),
+            &HashSet::new(),
+        );
+        let matching: Vec<_> = found
+            .iter()
+            .filter(|site| site.detail == format!("types.{name}"))
+            .collect();
+        assert_eq!(matching.len(), 1, "{source}");
+        assert!(matching[0].door.is_none(), "{source}");
+    }
+    for source in [
+        "from types import FunctionType\nx = FunctionType(code, globals())\n",
+        "from types import FunctionType\nFunctionType = other\nx = isinstance(value, FunctionType)\n",
+        "from types import FunctionType\nx = FunctionType\n",
+        "from types import FunctionType\nisinstance = other\nx = isinstance(value, FunctionType)\n",
+        "from types import FunctionType\nfrom elsewhere import *\nx = isinstance(value, FunctionType)\n",
+        "from types import FunctionType as F\nx = isinstance(value, F)\n",
+    ] {
+        let tree = crate::test_tree(source, 12).expect("valid probe");
+        let found = sites(&tree, Proof::default(), &Binders::of(&tree), &HashSet::new());
+        assert!(found.iter().filter(|site| site.detail == "types.FunctionType").count() >= 2, "{source}");
+    }
+    let source = "from types import FunctionType\nx = isinstance(eval(text), FunctionType)\n";
+    let tree = crate::test_tree(source, 12).expect("valid probe");
+    let found = sites(
+        &tree,
+        Proof::default(),
+        &Binders::of(&tree),
+        &HashSet::new(),
+    );
+    assert!(found.iter().any(|site| site.detail == "eval"));
+}
+
+#[test]
 fn direct_metadata_version_reads_keep_the_import_gap() {
     for source in [
         "import importlib.metadata\nx = importlib.metadata.version('pip')\n",

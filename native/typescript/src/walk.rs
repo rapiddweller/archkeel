@@ -22,6 +22,7 @@ use crate::definitions::{Definition, Defs, Scopes};
 use crate::exports::{
     ambient, export_bindings, module_exports, type_exports, ExportBinding, Named, TypeExports,
 };
+use crate::file_mode::FileMode;
 use crate::import_bindings::{of_statement, ImportBinding};
 use crate::kinds::{F, K};
 use crate::layout::Layout;
@@ -46,9 +47,8 @@ pub(crate) struct Syntax {
     pub rebound_names: Vec<String>,
     pub ambient_globals: Named,
     pub ambient_top_level: Named,
-    pub module_file: bool,
-    pub declaration_file: bool,
-    pub script_mode: bool,
+    /// What kind of file this is for the script analysis (`file_mode.rs`).
+    pub mode: FileMode,
     /// The file has `import` or `export` syntax (`exports.module_syntax`).
     pub module_syntax: bool,
     pub script_bindings: Vec<String>,
@@ -61,6 +61,22 @@ pub(crate) struct Syntax {
 }
 
 impl Syntax {
+    /// The file is a module for the resolver (`FileMode::is_module`).
+    pub(crate) fn module_file(&self) -> bool {
+        self.mode.is_module(self.module_syntax)
+    }
+
+    /// The file is a declaration file (the dump and the tests state it as a boolean).
+    #[cfg(any(test, feature = "dump"))]
+    pub(crate) fn declaration_file(&self) -> bool {
+        self.mode.is_declaration()
+    }
+
+    /// The file is a JavaScript global script with collected script facts.
+    pub(crate) fn script_mode(&self) -> bool {
+        self.mode.is_script()
+    }
+
     /// The qualified name of the parent of a definition (`Definition.parent` in Python).
     #[cfg(any(test, feature = "dump"))]
     pub(crate) fn parent_name(&self, definition: &Definition) -> Option<String> {
@@ -77,9 +93,7 @@ impl Syntax {
             rebound_names: Vec::new(),
             ambient_globals: Vec::new(),
             ambient_top_level: Vec::new(),
-            module_file: false,
-            declaration_file: false,
-            script_mode: false,
+            mode: FileMode::default(),
             module_syntax: false,
             script_bindings: Vec::new(),
             script: Script::default(),
@@ -396,10 +410,8 @@ impl<'a, 't> Walk<'a, 't> {
         let cx = self.cx;
         let top = named_children(root);
         let exports = module_exports(&cx, &top);
-        let declaration_file =
-            suffix.is_some_and(|s| s.source_kind() == Some(SourceKind::Declaration));
-        let hinted = suffix.is_some_and(|s| s.format_hint().is_some());
-        let module_file = exports.module_syntax || (hinted && !declaration_file);
+        let mode = FileMode::of(suffix, exports.module_syntax);
+        let module_file = mode.is_module(exports.module_syntax);
         // In a script file an enum or a namespace is global and merges across files: no binding.
         if module_file {
             for (frame, name) in std::mem::take(&mut self.pending) {
@@ -443,10 +455,8 @@ impl<'a, 't> Walk<'a, 't> {
             .map(|item| item.local.clone())
             .collect();
         let (ambient_globals, ambient_top_level) = ambient(&cx, &top, exports.module_syntax);
-        let script_mode = suffix.is_some_and(|s| {
-            s.source_kind() == Some(SourceKind::JavaScript) && s.format_hint().is_none()
-        }) && !exports.module_syntax;
-        self.sites.finish(&self.frames, cx.source.data, script_mode);
+        self.sites
+            .finish(&self.frames, cx.source.data, mode.is_script());
         let (mut definitions, scopes) = self.defs.finish(&imported, &exports);
         let typed = suffix.is_some_and(|s| {
             matches!(
@@ -456,7 +466,6 @@ impl<'a, 't> Walk<'a, 't> {
         });
         self.additions.close(&mut definitions, module_file && typed);
         Syntax {
-            module_file,
             module_exports: export_bindings(&cx, (root, &top), &self.frames),
             type_exports: type_exports(&cx, root, &top, &self.frames),
             definitions,
@@ -465,8 +474,7 @@ impl<'a, 't> Walk<'a, 't> {
             rebound_names: self.rebound.into_iter().collect(),
             ambient_globals,
             ambient_top_level,
-            declaration_file,
-            script_mode,
+            mode,
             module_syntax: exports.module_syntax,
             script_bindings: self.frames.sorted_names(ROOT),
             script: Script::default(),

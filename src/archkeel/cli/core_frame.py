@@ -28,9 +28,9 @@ from .core_evidence import (
 )
 from .core_explain import Explain, read_explain
 from .core_json import CoreError as CoreError
+from .core_json import CoreExit, as_count, as_object, as_text, as_texts, check_measures
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
-from .core_json import as_count, as_object, as_text, as_texts, check_measures
 from .core_output import read_html
 from .core_schema import check_frame, check_refusal
 from .core_topology import Topology, frame_topology, require_topology
@@ -58,6 +58,8 @@ class RefusalKind(StrEnum):
     INTERNAL_ERROR = "internal_error"
     # AD-731: `--write-baseline` on a run with a refused part; the frame is kept.
     BASELINE_NOT_WRITTEN = "baseline_not_written"
+    # AD-735: the typed refusal of the core for an input over its parse work limit.
+    PARSE_WORK_LIMIT = "parse_work_limit"
 
 
 class CoreCommand(StrEnum):
@@ -95,7 +97,7 @@ class RuleStatus(StrEnum):
     DECLARATION = "DECLARATION"
 
 
-class UnknownKind(StrEnum):
+class _UnknownKind(StrEnum):
     """The closed set of causes of an UNKNOWN rule."""
 
     SCOPE_INCOMPLETE = "scope_incomplete"
@@ -134,9 +136,8 @@ class _CollectRead(StrEnum):
 
 
 _Word = TypeVar("_Word", bound=StrEnum)
-# The exit codes of the core: a frame without a named part, and a frame that names one.
-_DECIDED_EXIT: Final = 0
-NAMES_A_GAP_EXIT: Final = 3
+
+
 FRAME_PROTOCOL: Final = _FrameProtocol.FRAME
 
 
@@ -199,7 +200,7 @@ class CoreFrame:
     derived: str | None = None
     details: Mapping[str, tuple[ViolationDetail, ...]] = field(default_factory=dict)
     locations: Mapping[str, Location] = field(default_factory=dict)
-    unknown_kinds: Mapping[str, UnknownKind] = field(default_factory=dict)
+    unknown_kinds: Mapping[str, _UnknownKind] = field(default_factory=dict)
     collection_gaps: tuple[CollectionGap, ...] = ()
     topology: Topology | None = None
     explain: Explain | None = None
@@ -423,7 +424,7 @@ def read_frame(
     started_ns: int | None = None,
 ) -> CoreFrame:
     """Read one bound frame; scan frames also carry the collection self-test (AD-406)."""
-    if exit_code not in (_DECIDED_EXIT, NAMES_A_GAP_EXIT):
+    if exit_code not in (CoreExit.DECIDED, CoreExit.NAMES_A_GAP):
         signal = f" (signal {-exit_code})" if exit_code < 0 else ""
         raise CoreError(f"the core exits with {exit_code}{signal}")
     frame = _document(stdout)
@@ -442,7 +443,7 @@ def read_frame(
     details = read_details(frame.get("details", {}))
     locations = read_locations(frame.get("locations", {}))
     unknown_kinds = {
-        rule: _word(UnknownKind, kind, "unknown_kinds")
+        rule: _word(_UnknownKind, kind, "unknown_kinds")
         for rule, kind in as_object(frame.get("unknown_kinds", {}), "unknown_kinds").items()
     }
     _check_rows(require_protocol, unknown_kinds, explained, violations, details)
@@ -467,7 +468,7 @@ def read_frame(
     named = bool(gaps or missing)
     if status is Status.PASS and named:
         raise CoreError("the core frame is PASS and names a part that it does not decide")
-    if named != (exit_code == NAMES_A_GAP_EXIT):
+    if named != (exit_code == CoreExit.NAMES_A_GAP):
         raise CoreError(f"the core exits with {exit_code} for a frame that names {len(gaps)} parts")
     return CoreFrame(
         engine=engine,

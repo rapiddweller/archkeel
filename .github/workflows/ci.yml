@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+# AD-754: the main tier builds its core with the fast profile of the Makefile.
+env:
+  ARCHKEEL_CORE_PROFILE: gate
+
 # Pipelines run on main only (AD-348): a newer push to main cancels the older run.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -61,9 +65,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             native/target
-          key: rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+          key: rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
-            rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+            rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
 
       # AD-732: the core is built in its own step and saved only after it succeeded.
       - name: Build the core
@@ -91,7 +95,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             native/target
-          key: rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+          key: rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
 
       # AD-674: a PR gate whose native/ tree is the same downloads this core and builds nothing.
       - name: Save the core for this native tree
@@ -101,7 +105,7 @@ jobs:
           path: |
             native/target/release/archkeel-core
             native/target/release/archkeel-core.tree
-          key: core-${{ runner.os }}-${{ steps.native.outputs.hash }}
+          key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
   tests:
     name: "Tests: ${{ matrix.area }}"
