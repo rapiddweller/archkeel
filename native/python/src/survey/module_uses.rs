@@ -26,6 +26,7 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::{first_part, Binders};
 use super::guard::Guard;
+use super::module_scopes::{resolve, Kind, Resolved, Scope};
 use crate::module::Module;
 
 /// The attributes of a module that are its namespace.
@@ -57,7 +58,7 @@ pub(super) fn find(
     imports: &[Record<ImportFact>],
 ) -> ModuleUses {
     let (names, directories) = module_names(modules);
-    let mut bindings: HashMap<&str, HashMap<&str, String>> = HashMap::new();
+    let mut bindings: HashMap<&str, HashMap<&str, HashSet<String>>> = HashMap::new();
     let mut unread = HashSet::new();
     for record in imports {
         let ImportFact::Import(data) = &record.data else {
@@ -79,7 +80,7 @@ pub(super) fn find(
         // Only a module of the scan can be a component; another one crosses none.
         if names.contains(module) || directories.contains(module) {
             let source = bindings.entry(source).or_default();
-            source.insert(binding, module.to_owned());
+            source.entry(binding).or_default().insert(module.to_owned());
         }
     }
     let mut found = ModuleUses {
@@ -93,6 +94,7 @@ pub(super) fn find(
             bindings: bindings.get(module.name.as_str()),
             guard: Guard::of(&module.tree, binders),
             guarded: false,
+            scopes: vec![Scope::of(Kind::Module, &module.tree.body, None)],
             uses: Vec::new(),
             escaped: HashSet::new(),
         };
@@ -120,9 +122,11 @@ pub(super) fn module_names(modules: &[Module]) -> (HashSet<&str>, HashSet<&str>)
 struct Walk<'s, 'm> {
     names: &'s HashSet<&'m str>,
     directories: &'s HashSet<&'m str>,
-    bindings: Option<&'s HashMap<&'m str, String>>,
+    bindings: Option<&'s HashMap<&'m str, HashSet<String>>>,
     guard: Guard,
     guarded: bool,
+    /// The scopes that enclose the walk, the module first (#1506).
+    scopes: Vec<Scope>,
     uses: Vec<Use>,
     escaped: HashSet<&'m str>,
 }
@@ -132,13 +136,27 @@ impl<'m> Walk<'_, 'm> {
         self.names.contains(name) || self.directories.contains(name)
     }
 
-    /// The binding and its module when `expr` is a name that binds a whole module.
-    fn bound(&self, expr: &Expr) -> Option<(&'m str, String)> {
+    /// What a name of a module binding reads at its place (#1506): the module, when only imports
+    /// of one module bind it in its scope; maybe the module, when other bindings or other imports
+    /// bind it too; nothing, when only other bindings bind it there.
+    fn bound(&self, expr: &Expr) -> Option<Bound<'m>> {
         let Expr::Name(node) = expr else {
             return None;
         };
-        let (binding, module) = self.bindings?.get_key_value(node.id.as_str())?;
-        Some((*binding, module.clone()))
+        let (binding, modules) = self.bindings?.get_key_value(node.id.as_str())?;
+        match resolve(&self.scopes, node.id.as_str()) {
+            Resolved::Imported if modules.len() == 1 => {
+                Some(Bound::Module(binding, modules.iter().next()?.clone()))
+            }
+            Resolved::Imported | Resolved::Either => Some(Bound::Either(binding)),
+            Resolved::Value | Resolved::Unbound => None,
+        }
+    }
+
+    fn scoped(&mut self, scope: Scope, walk: impl FnOnce(&mut Self)) {
+        self.scopes.push(scope);
+        walk(self);
+        self.scopes.pop();
     }
 
     /// A chain `binding.a.b...`: a use of each name up to the first one that is no module. True
@@ -150,8 +168,14 @@ impl<'m> Walk<'_, 'm> {
             links.push(node);
             at = &node.value;
         }
-        let Some((binding, mut module)) = self.bound(at) else {
-            return false;
+        let (binding, mut module) = match self.bound(at) {
+            None => return false,
+            Some(Bound::Module(binding, module)) => (binding, module),
+            // The name may be the module: its uses are not read.
+            Some(Bound::Either(binding)) => {
+                self.escaped.insert(binding);
+                return true;
+            }
         };
         links.reverse();
         let last = links.len() - 1;
@@ -180,8 +204,38 @@ impl<'m> Walk<'_, 'm> {
     }
 }
 
+/// What a name of a module binding reads.
+enum Bound<'m> {
+    Module(&'m str, String),
+    Either(&'m str),
+}
+
 impl<'a> Visitor<'a> for Walk<'_, '_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        match stmt {
+            Stmt::FunctionDef(node) => {
+                for decorator in &node.decorator_list {
+                    self.visit_decorator(decorator);
+                }
+                self.visit_parameters(&node.parameters);
+                if let Some(returns) = &node.returns {
+                    self.visit_annotation(returns);
+                }
+                let scope = Scope::of(Kind::Function, &node.body, Some(&node.parameters));
+                return self.scoped(scope, |walk| walk.visit_body(&node.body));
+            }
+            Stmt::ClassDef(node) => {
+                for decorator in &node.decorator_list {
+                    self.visit_decorator(decorator);
+                }
+                if let Some(arguments) = &node.arguments {
+                    self.visit_arguments(arguments);
+                }
+                let scope = Scope::of(Kind::Class, &node.body, None);
+                return self.scoped(scope, |walk| walk.visit_body(&node.body));
+            }
+            _ => {}
+        }
         let Stmt::If(node) = stmt else {
             return visitor::walk_stmt(self, stmt);
         };
@@ -206,11 +260,25 @@ impl<'a> Visitor<'a> for Walk<'_, '_> {
             return;
         }
         if matches!(expr, Expr::Name(node) if node.ctx == ExprContext::Load) {
-            if let Some((binding, _)) = self.bound(expr) {
+            if let Some(Bound::Module(binding, _) | Bound::Either(binding)) = self.bound(expr) {
                 self.escaped.insert(binding);
             }
         }
-        visitor::walk_expr(self, expr);
+        let scope = match expr {
+            Expr::Lambda(node) => {
+                if let Some(parameters) = &node.parameters {
+                    self.visit_parameters(parameters);
+                }
+                let scope = Scope::lambda(node.parameters.as_deref());
+                return self.scoped(scope, |walk| walk.visit_expr(&node.body));
+            }
+            Expr::ListComp(node) => Scope::comprehension(&node.generators),
+            Expr::SetComp(node) => Scope::comprehension(&node.generators),
+            Expr::DictComp(node) => Scope::comprehension(&node.generators),
+            Expr::Generator(node) => Scope::comprehension(&node.generators),
+            _ => return visitor::walk_expr(self, expr),
+        };
+        self.scoped(scope, |walk| visitor::walk_expr(walk, expr));
     }
 }
 

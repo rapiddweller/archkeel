@@ -12,7 +12,7 @@ from corpus_support import commit_tree
 from rust_repository import GRAPH_PAGE, component, rule
 from test_cli_core_only_scan import command
 
-from archkeel.cli.core_frame import NAMES_A_GAP_EXIT, CoreError, read_frame
+from archkeel.cli.core_frame import _NAMES_A_GAP_EXIT, CoreError, read_frame
 
 FILES = {
     "src/pkg/__init__.py": "",
@@ -76,7 +76,7 @@ def test_the_topology_states_the_declared_structure(release_core: Path, tmp_path
     assert used["COMP-APP", "COMP-BASE"] > 0
     assert topology["layers"] == [{"rule": "LAYERS", "layers": ["core", "edge"]}]
     assert topology["total"]["requires"] == 2 and topology["budgets"]["requires"] == 20_000
-    decoded = read_frame(json.dumps(frame).encode(), NAMES_A_GAP_EXIT, scan=True).topology
+    decoded = read_frame(json.dumps(frame).encode(), _NAMES_A_GAP_EXIT, scan=True).topology
     assert decoded is not None and [r.imports for r in decoded.requires] == [
         used["COMP-APP", "COMP-BASE"],
         0,
@@ -98,4 +98,4 @@ def test_a_forged_declared_row_is_refused(release_core: Path, tmp_path: Path, fa
     else:
         topology["total"]["requires"] += 1
     with pytest.raises(CoreError, match="topology"):
-        read_frame(json.dumps(frame).encode(), NAMES_A_GAP_EXIT, scan=True)
+        read_frame(json.dumps(frame).encode(), _NAMES_A_GAP_EXIT, scan=True)

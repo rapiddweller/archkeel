@@ -31,7 +31,22 @@ Status: accepted (lead plan #1451, Wave 1 S1, 2026-11-17). Fixes #1468. Part of 
    UNKNOWN, and the reason sentence of rule 4 is added. PASS runs and runs that already show
    UNKNOWN everywhere are byte-identical except the core digest.
 
+7. Amendment (#1507). Point 2 inferred "decided" from the absence of an UNKNOWN row. An unported
+   rule has no row at all (it is an entry of `unsupported.rules`), and an open scope is no row
+   either, so a FAIL run beside one showed PASS boxes. The floor of a FAIL run is now PASS only
+   when the frame proves that every rule of the contract has a decided row: the scope is
+   `complete`, `unsupported.rules` is present and an empty list, each rule that `explain` names
+   has a row, and no row of the rules in question is UNKNOWN. A FAIL part of a system reads the
+   same predicate over its own rules; a rule of the system without a row names no part, so it
+   holds each FAIL part. The same pattern had two more places: the title of a FAIL page said
+   `0 unknown` beside an unported rule (it now adds `N parts not decided`), and the text line of
+   the shell said `all N rules pass` for an UNKNOWN run with an unported rule (it now says
+   `N of M rules pass; K rules have no decision: ...`).
+
 Proof: [html_floor_tests.rs](../../../native/report/src/html_floor_tests.rs),
 [html_status.rs](../../../native/report/src/html_status.rs) (one test per transition),
 [test_cli_report_page.py](../../../tests/test_cli_report_page.py)
-(`test_no_box_cell_or_edge_of_an_unknown_run_shows_pass`).
+(`test_no_box_cell_or_edge_of_an_unknown_run_shows_pass`,
+`test_a_fail_beside_an_unported_rule_draws_no_pass_box`),
+[test_cli_text_output.py](../../../tests/test_cli_text_output.py)
+(`test_a_rule_without_a_row_is_not_counted_as_a_pass`).

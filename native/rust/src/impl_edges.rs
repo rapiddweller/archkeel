@@ -24,7 +24,7 @@ use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::scan::Via;
 use crate::tree::Module;
 use orphans::orphan_impl_gaps;
-use receivers::{certainly_visible, Typed};
+use receivers::{certainly_visible, exact_type, Typed};
 
 /// A member of an inherent `impl` block that is not in the file of its type.
 struct Foreign<'a> {
@@ -33,6 +33,8 @@ struct Foreign<'a> {
     lexical: String,
     ty: TypeOf,
     member: &'a Member,
+    /// The block has only inert attributes and no type parameter (`ImplBlock::exact`).
+    exact: bool,
 }
 
 /// The members of the inherent `impl` blocks of the walk.
@@ -91,6 +93,7 @@ impl<'a> Members<'a> {
                 lexical: frame.lexical_at(&block.scope),
                 ty: ty.clone(),
                 member,
+                exact: block.exact,
             });
         }
     }
@@ -253,7 +256,8 @@ impl Builder {
                 continue;
             }
             let unknown_block = blocks.iter().any(|block| block.ty == TypeOf::Unknown);
-            if known == TypeOf::Unknown || (!own && unknown_block) {
+            let open_call = known == TypeOf::Unknown || (!own && unknown_block);
+            if open_call {
                 out.unresolved.push(path_call(reference));
             }
             if own || known == TypeOf::Unknown {
@@ -270,6 +274,17 @@ impl Builder {
             let TypeOf::Known(type_at, type_name) = &known else {
                 continue;
             };
+            // #1276: the path reaches the members of the blocks only when its type is exact and
+            // each member is in every configuration. An attribute macro on the type can add a
+            // variant of the name, and a `cfg` on a member can remove it: the call stays open.
+            let certain = exact_type(index, module, type_at, type_name)
+                && open.iter().all(|block| block.exact && block.member.inert);
+            if !certain && !open_call {
+                out.unresolved.push(path_call(reference));
+            }
+            if !certain {
+                continue;
+            }
             for block in open {
                 let edge = Edge {
                     module: block.module.module.clone(),

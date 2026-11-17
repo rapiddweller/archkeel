@@ -243,7 +243,9 @@ fn the_layout_wraps_rows_only_for_boxes_without_a_layer_order() {
 }
 
 // #1442, #1444: no sheet asks an unanswered question, repeats the 4.0.1 whole-run or observation
-// lines, or fills a field with `None`, `unavailable` or `Nothing stated`. The shipped script is the
+// lines, or fills a field with `None`, `unavailable` or `Nothing stated`. An honest limit is no
+// filler: the sheet of a module states that its symbols are not counted, and a browser test
+// (`tests/test_report_sheet_rendered.py`) checks both that line and the count. The shipped script is the
 // one source of the sheets, so the lines cannot come back without this test failing.
 #[test]
 fn no_sheet_has_a_question_a_contradiction_or_a_filler_line() {
@@ -253,8 +255,6 @@ fn no_sheet_has_a_question_a_contradiction_or_a_filler_line() {
         "Source observation:",
         "Core projection:",
         "no scoped PASS",
-        "no symbol count",
-        "Symbol coverage",
         "Path unavailable",
         "Nothing stated in the contract",
         "no component-level verdict",

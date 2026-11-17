@@ -28,18 +28,11 @@ pub(crate) fn over(bytes: &[u8], limit: usize) -> bool {
             }
             continue;
         }
-        if let Some(end) = raw_end(bytes, at) {
+        if let Some(end) = noncode_end(bytes, at) {
             at = end;
             continue;
         }
         match (byte, bytes.get(at + 1)) {
-            (b'/', Some(b'/')) => {
-                at += bytes[at..]
-                    .iter()
-                    .position(|b| *b == b'\n')
-                    .unwrap_or(bytes.len() - at)
-            }
-            (b'/', Some(b'*')) => at = comment_end(bytes, at),
             (b'"' | b'\'', _) => at = quote_end(bytes, at, byte),
             (b'`', _) => {
                 template = true;
@@ -64,6 +57,101 @@ pub(crate) fn over(bytes: &[u8], limit: usize) -> bool {
         }
     }
     false
+}
+
+/// Maximum active operator work, including enclosing expressions but not sibling entries.
+pub(crate) fn rust_operator_work(bytes: &[u8]) -> usize {
+    let (mut at, mut active, mut peak) = (0, 0, 0);
+    let mut groups = vec![0];
+    while let Some(&byte) = bytes.get(at) {
+        if let Some(end) = noncode_end(bytes, at) {
+            at = end;
+            continue;
+        }
+        match (byte, bytes.get(at + 1)) {
+            (b'\'', _) if char_end(bytes, at).is_some() => {
+                at = char_end(bytes, at).unwrap_or(at + 1);
+            }
+            (b'"', _) => at = rust_string_end(bytes, at),
+            _ => {
+                match byte {
+                    b'(' | b'[' | b'{' => groups.push(0),
+                    b')' | b']' | b'}' if groups.len() > 1 => {
+                        active -= groups.pop().unwrap_or(0);
+                    }
+                    b',' | b';' => {
+                        let last = groups.len() - 1;
+                        active -= groups[last];
+                        groups[last] = 0;
+                    }
+                    byte if b"+-*/%&|^=!<>?.".contains(&byte) || cast_operator(bytes, at) => {
+                        active += 1;
+                        let last = groups.len() - 1;
+                        groups[last] += 1;
+                        peak = peak.max(active);
+                    }
+                    _ => {}
+                }
+                at += 1;
+            }
+        }
+    }
+    peak
+}
+
+fn cast_operator(bytes: &[u8], at: usize) -> bool {
+    fn word(byte: u8) -> bool {
+        byte.is_ascii_alphanumeric() || byte == b'_' || !byte.is_ascii()
+    }
+    bytes.get(at..at + 2) == Some(b"as")
+        && (at == 0 || !word(bytes[at - 1]))
+        && bytes.get(at + 2).is_none_or(|byte| !word(*byte))
+}
+
+fn noncode_end(bytes: &[u8], at: usize) -> Option<usize> {
+    if let Some(end) = raw_end(bytes, at) {
+        return Some(end);
+    }
+    match bytes.get(at..at + 2) {
+        Some(b"//") => Some(
+            at + bytes[at..]
+                .iter()
+                .position(|byte| *byte == b'\n')
+                .unwrap_or(bytes.len() - at),
+        ),
+        Some(b"/*") => Some(comment_end(bytes, at)),
+        _ => None,
+    }
+}
+
+fn rust_string_end(bytes: &[u8], from: usize) -> usize {
+    let mut at = from + 1;
+    while let Some(&byte) = bytes.get(at) {
+        match byte {
+            b'\\' => at += 2,
+            b'"' => return at + 1,
+            _ => at += 1,
+        }
+    }
+    bytes.len()
+}
+
+fn char_end(bytes: &[u8], from: usize) -> Option<usize> {
+    let rest = bytes.get(from + 1..)?;
+    if rest.first() == Some(&b'\\') {
+        let end = quote_end(bytes, from, b'\'');
+        return (end > from + 2 && bytes.get(end - 1) == Some(&b'\'')).then_some(end);
+    }
+    let width = match *rest.first()? {
+        0..=127 => 1,
+        0xc2..=0xdf => 2,
+        0xe0..=0xef => 3,
+        0xf0..=0xf4 => 4,
+        _ => return None,
+    };
+    std::str::from_utf8(rest.get(..width)?).ok()?;
+    let end = from + 1 + width;
+    (bytes.get(end) == Some(&b'\'')).then_some(end + 1)
 }
 
 fn quote_end(bytes: &[u8], from: usize, quote: u8) -> usize {
