@@ -4,8 +4,7 @@
 
 //! The envelope of a protocol 11 reply: every part of `facts` outside the sections (AD-346).
 //!
-//! Each object is closed: an unknown key is a decode error, as in the Python decoder
-//! (`facts_codec._source_facts`). The parts that only the Python collector fills (`state`,
+//! Each object is closed: an unknown key is a decode error. Parts only the Python collector fills (`state`,
 //! `type_shapes`, `uncertain_reexports`, `candidate_evidence`, `provider_bindings` and
 //! `provider_sources`) are `NoEntries`: a reply with an entry in one of them is a decode error,
 //! because no reader of these types exists yet. A value is never dropped without a check.
@@ -490,6 +489,11 @@ mod build;
 #[path = "envelope_tests.rs"]
 mod tests;
 
-#[path = "envelope_features.rs"]
-mod features;
-pub use features::test_features;
+/// The test features of a linked collector, refused by `archkeel-collect` (AD-406).
+pub const fn test_features(dump: bool) -> &'static [&'static str] {
+    if dump {
+        &["dump"]
+    } else {
+        &[]
+    }
+}
