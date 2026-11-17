@@ -16,10 +16,9 @@ use std::collections::{HashMap, HashSet};
 use archkeel_facts::data::{CallableData, ClassData, Declared};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
-use archkeel_facts::nested::{BaseDeclaration, MemberInventory, Parameter};
+use archkeel_facts::nested::{BaseDeclaration, Parameter};
 use archkeel_facts::vocab::{
-    Area, ClassKind, EvidenceClass, InventoryStatus, MemberKind, MethodKind, RelationshipKind,
-    Status,
+    Area, ClassKind, EvidenceClass, MemberKind, MethodKind, RelationshipKind, Status,
 };
 use archkeel_facts::{Record, SymbolFact};
 use ruff_python_ast::{Expr, Stmt, StmtClassDef, StmtFunctionDef};
@@ -32,8 +31,10 @@ use crate::declare::{definition_id, signature};
 use crate::module::definition::Def;
 use crate::module::{EvidenceMap, Module};
 use kind::{BaseSite, Kind, Local, Reading};
+use members::inventory;
 use reader::{header, Reader, Unwritable};
 
+mod decorated;
 mod escapes;
 mod found;
 mod kind;
@@ -46,17 +47,14 @@ mod shape_text;
 mod shapes;
 mod sites;
 mod values;
+mod wrapped;
 
-pub(crate) use found::{Found, Source};
-pub(crate) use shapes::attach as attach_shapes;
+pub(crate) use found::{Decorated, Found, Source};
+pub(crate) use shapes::{attach as attach_shapes, collection_names};
 pub(crate) use sites::{site_records, Context};
+pub(crate) use wrapped::forms as wrapped_forms;
 
 pub(in crate::survey) use escapes::{all as scan_escapes, Escapes};
-
-/// Why a member list is never complete: a base, a metaclass, a decorator and a write after the
-/// class body can add a member that the body does not show.
-const PARTIAL: &str =
-    "a base, a metaclass, a decorator or a write after the class body can add a member";
 
 /// The declarations of one module. A module that native cannot read completely has none.
 pub(crate) fn records<'m>(
@@ -78,12 +76,14 @@ pub(crate) fn records<'m>(
         out: Vec::new(),
         sources: Vec::new(),
         constructible: HashSet::new(),
+        decorated: Vec::new(),
     };
     let done = writer.run();
     let Writer {
         mut out,
         sources,
         constructible,
+        decorated,
         ..
     } = writer;
     if done.is_err() {
@@ -96,6 +96,7 @@ pub(crate) fn records<'m>(
         records: out,
         sources,
         constructible,
+        decorated,
     }
 }
 
@@ -149,6 +150,7 @@ struct Writer<'m, 'b> {
     out: Vec<Record<SymbolFact>>,
     sources: Vec<Source<'m>>,
     constructible: HashSet<String>,
+    decorated: Vec<Decorated<'m>>,
 }
 
 impl<'m> Writer<'m, '_> {
@@ -197,6 +199,8 @@ impl<'m> Writer<'m, '_> {
     /// A function of the module body that no decorator can replace.
     fn function(&mut self, node: &'m StmtFunctionDef) -> Result<(), Unwritable> {
         if !node.decorator_list.is_empty() {
+            let holder = self.scan.module.name.clone();
+            self.note_decorated(Def::Function(node), &holder, None);
             return Ok(());
         }
         let holder = &self.scan.module.name;
@@ -269,6 +273,8 @@ impl<'m> Writer<'m, '_> {
         owner: Option<&Frame<'_>>,
     ) -> Result<Option<(Frame<'m>, Local)>, Unwritable> {
         if !node.decorator_list.is_empty() {
+            let holder = owner.map_or(self.scan.module.name.clone(), |f| f.qualname.clone());
+            self.note_decorated(Def::Class(node), &holder, None);
             return Ok(None);
         }
         let Some(found) = kind::of(node, reading) else {
@@ -413,6 +419,7 @@ impl<'m> Writer<'m, '_> {
                 continue;
             }
             let Some(method) = members::method_kind(function, self.binders) else {
+                self.note_decorated(Def::Function(function), qualname, Some((bound, &node.body)));
                 continue;
             };
             // The constructor is its own kind: its signature has no return position (AD-550).
@@ -474,16 +481,6 @@ impl<'m> Writer<'m, '_> {
             fact_ids: Vec::new(),
             data: fact,
         })
-    }
-}
-
-fn inventory(kind: MemberKind, definition_ids: Vec<FactId>) -> MemberInventory {
-    MemberInventory {
-        definition_ids,
-        kind,
-        reason: Some(PARTIAL.to_owned()),
-        schema_version: "1.0.0".to_owned(),
-        status: InventoryStatus::Partial,
     }
 }
 

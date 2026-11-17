@@ -97,6 +97,11 @@ object! {
         /// carry none.
         #[serde(skip)]
         pub owned_files: Vec<OwnedFile>,
+        /// The linked collector's statements about the standard library of its language, read
+        /// only under the contract premise `standard_library_unchanged` (AD-782). Wire replies
+        /// carry none.
+        #[serde(skip)]
+        pub standard: Option<crate::standard::StandardFacts>,
         /// The adapter that wrote the reply.
         pub adapter: Adapter,
         /// The runtime that ran the adapter.

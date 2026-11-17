@@ -110,8 +110,15 @@ pub(crate) fn declared(model: &Model, facts: &BoundaryFacts) -> HashSet<String> 
         };
         let origins = covered.iter().map(|name| facts.origin(&entry.module, name));
         for origin in origins {
-            if let Origin::Defined(qualified, _) = origin {
-                found.insert(qualified.to_owned());
+            match origin {
+                Origin::Defined(qualified, _) => {
+                    found.insert(qualified.to_owned());
+                }
+                // A class that a standard decorator keeps a class (AD-782).
+                Origin::Missing { qualified, .. } if facts.wrapped(&qualified).is_some() => {
+                    found.insert(qualified);
+                }
+                _ => {}
             }
         }
     }

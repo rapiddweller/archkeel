@@ -288,3 +288,22 @@ fn slot_names(value: &Expr) -> Option<Vec<String>> {
         })
         .collect()
 }
+
+/// Why a member list is never complete: a base, a metaclass, a decorator and a write after the
+/// class body can add a member that the body does not show.
+const PARTIAL: &str =
+    "a base, a metaclass, a decorator or a write after the class body can add a member";
+
+/// The partial member inventory of one kind of a class.
+pub(super) fn inventory(
+    kind: archkeel_facts::vocab::MemberKind,
+    definition_ids: Vec<FactId>,
+) -> archkeel_facts::nested::MemberInventory {
+    archkeel_facts::nested::MemberInventory {
+        definition_ids,
+        kind,
+        reason: Some(PARTIAL.to_owned()),
+        schema_version: "1.0.0".to_owned(),
+        status: archkeel_facts::vocab::InventoryStatus::Partial,
+    }
+}

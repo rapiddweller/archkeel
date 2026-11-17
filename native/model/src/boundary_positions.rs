@@ -12,14 +12,15 @@
 //! with a base of the repository, a member that has no record and a signature with no shape are
 //! each a gap row, so a PASS needs a complete surface.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
-use archkeel_contract::{BoundaryAllowance, BoundaryTypes, RuleKind};
+use archkeel_contract::{BoundaryAllowance, BoundaryTypes, PremiseName, RuleKind};
+use archkeel_facts::standard::Wrapped;
 use archkeel_facts::type_shape::TypeShape;
-use archkeel_facts::vocab::MethodKind;
+use archkeel_facts::vocab::{ClassKind, MethodKind};
 
-use crate::boundary_facts::{Callable, Class, Entry, Origin};
-use crate::boundary_judge::{judge, GapCause, GapRow, Leaf, Surface};
+use crate::boundary_facts::{Callable, Class, Entry, Origin, Slot, Standard};
+use crate::boundary_judge::{judge, GapCause, GapRow, Leaf, Surface, NEEDS_PREMISE};
 use crate::boundary_surface::{declared, entries, names, PublicEntry};
 use crate::model::Model;
 use crate::reason::{Hygiene, Reason, Unsupported};
@@ -61,6 +62,9 @@ pub struct Reading {
     pub gaps: Vec<GapRow>,
     /// The exceptions that match no position.
     pub stale: Vec<Stale>,
+    /// The positions and entries that are allowed only under the premise
+    /// `standard_library_unchanged` (AD-782).
+    pub assumed: BTreeSet<String>,
 }
 
 /// True for the name of a method that is part of an interface (`is_public_method_name`).
@@ -82,7 +86,9 @@ pub fn read(model: &Model, rule: &BoundaryTypes) -> Result<Reading, Reason> {
             facts,
             declared: &declared,
             scanned: &scanned,
+            premise: model.declares_premise(PremiseName::StandardLibraryUnchanged),
         },
+        assuming: false,
         allowances: rule.allowed_positions(),
         used: vec![false; rule.allowed_positions().len()],
         seen: HashSet::new(),
@@ -127,6 +133,8 @@ pub(crate) fn receipt(model: &Model, rule: &BoundaryTypes) -> Result<(), Reason>
 
 struct Reader<'a> {
     surface: Surface<'a>,
+    /// True while the reader reads a form that a standard decorator gives (AD-782).
+    assuming: bool,
     allowances: &'a [BoundaryAllowance],
     used: Vec<bool>,
     seen: HashSet<String>,
@@ -165,16 +173,20 @@ impl Reader<'_> {
                 self.class(qualified, &facade, class)
             }
             Origin::Defined(_, Entry::Value) | Origin::Module => {}
-            Origin::Missing(last) => self.missing(entry, name, &last),
+            Origin::Missing { module, qualified } => self.missing(entry, name, &module, &qualified),
         }
     }
 
-    /// A covered name whose definition has no record.
-    fn missing(&mut self, entry: &PublicEntry, name: &str, last: &str) {
+    /// A covered name whose definition has no record: a name outside the scan, or a definition of
+    /// the scan that a decorator replaces.
+    fn missing(&mut self, entry: &PublicEntry, name: &str, module: &str, qualified: &str) {
         let subject = format!("{}:{name}", entry.module);
-        if !self.surface.scanned.contains(last) {
-            let text = "a name of a module outside the scan";
-            return self.gap(subject, GapCause::ExternalType, text);
+        if !self.surface.scanned.contains(module) {
+            return self.outside(subject, qualified);
+        }
+        let facade = format!("{}.{name}", entry.module);
+        if self.wrapped(qualified, (&facade, &subject), GapCause::NoRecord) {
+            return;
         }
         if entry.name.is_some() {
             return self.gap(
@@ -185,6 +197,109 @@ impl Reader<'_> {
         }
         let text = "no record: a decorated, conditional or unread definition";
         self.gap(subject, GapCause::NoRecord, text);
+    }
+
+    /// A covered name of a module outside the scan: a type of the standard library that the
+    /// collector names counts under the premise (AD-782).
+    fn outside(&mut self, subject: String, qualified: &str) {
+        match self.surface.facts.standard(qualified) {
+            None => {
+                let text = "a name of a module outside the scan";
+                self.gap(subject, GapCause::ExternalType, text);
+            }
+            Some(Standard::Changed(reason)) => {
+                let text = format!("the repository may change {qualified} ({reason})");
+                self.gap(subject, GapCause::ExternalType, &text);
+            }
+            Some(Standard::Type) if self.surface.premise => {
+                BTreeSet::insert(&mut self.reading.assumed, subject);
+            }
+            Some(Standard::Type) => {
+                let text = format!("{qualified}: a type of the standard library; {NEEDS_PREMISE}");
+                self.gap(subject, GapCause::ExternalType, &text);
+            }
+        }
+    }
+
+    /// The form of a decorated definition that the collector models (AD-782); false when it models
+    /// none. Without the premise the form is a gap that names it.
+    fn wrapped(
+        &mut self,
+        qualified: &str,
+        (facade, subject): (&str, &str),
+        cause: GapCause,
+    ) -> bool {
+        let facts = self.surface.facts;
+        let Some(found) = facts.wrapped(qualified) else {
+            return false;
+        };
+        if let Wrapped::Unread(reason) = found {
+            self.gap(subject.to_owned(), cause, reason);
+            return true;
+        }
+        if !self.surface.premise {
+            let text = format!("a definition with a standard decorator; {NEEDS_PREMISE}");
+            self.gap(subject.to_owned(), cause, &text);
+            return true;
+        }
+        let was = std::mem::replace(&mut self.assuming, true);
+        match found {
+            Wrapped::Callable {
+                method,
+                slots,
+                returns,
+                evidence,
+                ..
+            } => {
+                let callable = Callable {
+                    name: qualified.rsplit('.').next().unwrap_or(qualified).to_owned(),
+                    method: *method,
+                    slots: slots_of(slots),
+                    returns: Some(returns.clone()),
+                    evidence: evidence.clone(),
+                };
+                self.callable(qualified, facade, &callable);
+            }
+            Wrapped::Class {
+                init,
+                members,
+                attributes,
+                bases,
+                evidence,
+            } => {
+                let class = Class {
+                    kind: Some(ClassKind::Class),
+                    bases: bases.clone(),
+                    members: Some(members.clone()),
+                    attributes: attributes.iter().cloned().collect(),
+                    methods: Vec::new(),
+                    evidence: evidence.clone(),
+                };
+                self.class(qualified, facade, &class);
+                let Some(init) = init else {
+                    self.assuming = was;
+                    return true;
+                };
+                // The generated constructor: the receiver, then the parameters of the fields.
+                let receiver = Slot {
+                    name: "self".to_owned(),
+                    kind: "positional".to_owned(),
+                    shape: None,
+                };
+                let constructor = Callable {
+                    name: "__init__".to_owned(),
+                    method: Some(MethodKind::Constructor),
+                    slots: std::iter::once(receiver).chain(slots_of(init)).collect(),
+                    returns: Some(TypeShape::Nothing {}),
+                    evidence: evidence.clone(),
+                };
+                let own = format!("{qualified}.__init__");
+                self.callable(&own, &format!("{facade}.__init__"), &constructor);
+            }
+            Wrapped::Unread(_) => {}
+        }
+        self.assuming = was;
+        true
     }
 
     fn class(&mut self, qualified: &str, facade: &str, class: &Class) {
@@ -211,6 +326,14 @@ impl Reader<'_> {
             let named = format!("{facade}.{}", callable.name);
             self.callable(method, &named, callable);
         }
+        // A member that a standard decorator replaces has no record; its form is read (AD-782).
+        for member in class.members.iter().flatten().filter(|m| method_name(m)) {
+            let own = format!("{qualified}.{member}");
+            if facts.entry(&own).is_none() {
+                let named = format!("{facade}.{member}");
+                self.wrapped(&own, (&named, &named), GapCause::MemberNoRecord);
+            }
+        }
     }
 
     /// Each member that the class body binds has a record, an attribute declaration or a nested
@@ -224,7 +347,8 @@ impl Reader<'_> {
             let own = format!("{qualified}.{member}");
             let known = class.methods.contains(&own)
                 || class.attributes.contains(member)
-                || self.surface.facts.entry(&own).is_some();
+                || self.surface.facts.entry(&own).is_some()
+                || self.surface.facts.wrapped(&own).is_some();
             if !known {
                 let named = format!("{facade}.{member}");
                 self.gap(named, GapCause::MemberNoRecord, "a member with no record");
@@ -282,6 +406,10 @@ impl Reader<'_> {
             broad.clear();
         }
         let leaves: Vec<Leaf> = broad.into_iter().chain(other).collect();
+        let assumed = self.assuming || judged.assumed;
+        if leaves.is_empty() && gaps.is_empty() && assumed {
+            BTreeSet::insert(&mut self.reading.assumed, subject.clone());
+        }
         if !leaves.is_empty() {
             self.reading.violations.push(Position {
                 subject,
@@ -353,4 +481,14 @@ fn exact(item: &BoundaryAllowance) -> bool {
         && item.key_alias_body().is_none()
         && item.literal_mapping_arm().is_none()
         && !item.native_mapping()
+}
+
+/// The slots of a wrapped form, as the reader reads the slots of a record.
+fn slots_of(slots: &[archkeel_facts::standard::WrappedSlot]) -> Vec<Slot> {
+    let slot = |item: &archkeel_facts::standard::WrappedSlot| Slot {
+        name: item.name.clone(),
+        kind: item.kind.clone(),
+        shape: item.shape.clone(),
+    };
+    IntoIterator::into_iter(slots).map(slot).collect()
 }

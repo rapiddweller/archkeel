@@ -120,7 +120,7 @@
     "python-stdlib-demo": {
       "language": "python",
       "runs": [
-      {"name": "python-stdlib-demo", "section": "clean", "intent": "PASS", "blocked_by": [1538], "about": "A facade that publishes declared standard-library types only.", "root": "python-stdlib-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {"boundary_type_position": 5}, "refusal": null}}
+      {"name": "python-stdlib-demo", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "A facade that publishes declared standard-library types only, under the premise standard_library_unchanged.", "root": "python-stdlib-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     }
   }

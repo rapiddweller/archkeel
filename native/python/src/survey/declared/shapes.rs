@@ -72,6 +72,11 @@ const COLLECTIONS: &[(&str, Family)] = &[
     ("typing_extensions.Iterable", Family::Sequence),
 ];
 
+/// The qualified names of the collections, for the names of the standard library (AD-782).
+pub(crate) fn collection_names() -> Vec<&'static str> {
+    COLLECTIONS.iter().map(|(name, _)| *name).collect()
+}
+
 /// The special forms of `typing` that the shape normalizes.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Form {
@@ -146,7 +151,7 @@ impl Shaper<'_> {
         (found, returns)
     }
 
-    fn position(&self, annotation: Option<&Expr>, hidden: &Hidden<'_>) -> TypeShape {
+    pub(super) fn position(&self, annotation: Option<&Expr>, hidden: &Hidden<'_>) -> TypeShape {
         annotation.map_or(TypeShape::Unannotated {}, |expr| {
             self.shape(expr, hidden, 0)
         })

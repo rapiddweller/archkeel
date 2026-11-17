@@ -40,7 +40,9 @@ pub fn premise_word(name: PremiseName) -> &'static str {
 /// A premise in words, as "PASS assuming <words>" reads it.
 pub fn assumption_words(name: PremiseName) -> &'static str {
     match name {
-        PremiseName::StandardLibraryUnchanged => "an unchanged standard library",
+        PremiseName::StandardLibraryUnchanged => {
+            "outside code leaves the standard library unchanged"
+        }
     }
 }
 

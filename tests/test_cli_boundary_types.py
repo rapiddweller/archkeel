@@ -98,16 +98,21 @@ def test_a_changed_standard_library_type_does_not_pass(
     assert result["frame"]["rules"][RULE] == ["boundary_types", "UNKNOWN"], result
 
 
-def test_an_outside_writer_without_a_premise_stays_unknown(
-    release_core: Path, tmp_path: Path
+@pytest.mark.parametrize("premise", [False, True])
+def test_a_repository_writer_outside_the_scan_roots_keeps_the_type_unknown(
+    release_core: Path, tmp_path: Path, premise: bool
 ) -> None:
+    """The premise covers code outside the repository only: a file of the repository outside the
+    scan roots that writes `pathlib.Path` keeps the type UNKNOWN, with or without the premise."""
     imports = "import startup_plugin\nfrom pathlib import Path\n"
     plant = Plant(facade("def f(a: Path) -> int:\n    return 1\n", "'f'", imports), "FAIL")
     root = project(tmp_path / "p", plant)
     (root / "startup_plugin.py").write_text("import pathlib\npathlib.Path = dict\n")
+    if premise:
+        use_standard_library_premise(root)
     result = json.loads(command(release_core, root, "--json").stdout)
     assert result["frame"]["rules"][RULE] == ["boundary_types", "UNKNOWN"], result
-    assert "standard_library_unchanged" in json.dumps(result["frame"])
+    assert "may change the standard library name pathlib.Path" in json.dumps(result["frame"])
 
 
 @pytest.mark.parametrize(("premise", "expected"), [(False, "UNKNOWN"), (True, "PASS")])
