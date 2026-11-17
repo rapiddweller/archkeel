@@ -309,7 +309,7 @@ impl<'t, 'a> Context<'t, '_, 'a> {
         // A member of the same name would win over the variant of a path.
         let members = self.typed.by_type.get(&(lexical.clone(), name.clone()));
         let member = (members.into_iter().flatten()).any(|c| c.member.name == *last)
-            || self.typed.unplaced.contains(last.as_str());
+            || self.typed.unplaced.contains(&**last);
         match !member && defs::enum_with(self.index, (&lexical, &name), last) {
             true => Ty::Own(lexical, name),
             false => Ty::Unknown,
@@ -346,7 +346,7 @@ impl<'t, 'a> Context<'t, '_, 'a> {
 
     /// The written return type of the one free function that a path names.
     fn function(&self, path: &[String], scope: &[String]) -> Ty {
-        match defs::function(self.index, self.frame, (path, scope)) {
+        match defs::function(self.index, self.frame, path, scope) {
             Some((frame, found))
                 if same_gates(self.module, frame.module) && !frame.module.gated =>
             {

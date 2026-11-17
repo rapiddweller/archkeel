@@ -35,7 +35,8 @@ fn one<'f>(
 pub(super) fn function<'f>(
     index: &'f Index<'_>,
     frame: &Frame<'_>,
-    (path, scope): (&[String], &[String]),
+    path: &[String],
+    scope: &[String],
 ) -> Option<(&'f Frame<'f>, &'f Definition)> {
     let name = path.last()?;
     let local = path.len() == 1
