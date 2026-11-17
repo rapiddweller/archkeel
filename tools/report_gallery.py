@@ -198,7 +198,7 @@ def build_run(
     spec = fixture_source.load(source)
     if spec is not None:
         row["source"] = fixture_source.pin_facts(spec)
-    if plant:
+    if plant.get("rule"):
         row["violation"] = violation_block(folder / "report.html", plant)
     return row
 

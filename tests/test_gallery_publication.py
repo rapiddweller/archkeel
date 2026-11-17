@@ -19,11 +19,12 @@ def _jobs(workflow: str) -> dict[str, str]:
     return dict(zip(parts[1::2], parts[2::2], strict=True))
 
 
-def test_the_publication_job_is_outside_the_verdict_and_cannot_fail_the_run() -> None:
+def test_the_publication_job_is_alone_and_a_failed_publish_turns_the_run_red() -> None:
     body = _jobs("pages.yml")["publish-gallery"]
     assert "publish-gallery" not in _jobs("ci.yml")
     assert "publish-gallery" not in _jobs("full-verification.yml")
-    assert "    continue-on-error: true\n" in body
+    # AD-740: no `continue-on-error`; a failed publish makes the run red.
+    assert "continue-on-error" not in body
     assert "needs:" not in body
 
 

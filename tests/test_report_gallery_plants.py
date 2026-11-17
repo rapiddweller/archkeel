@@ -19,8 +19,13 @@ def _plant_runs() -> list[dict]:
     return [run for run in report_gallery.showcase_runs() if run.get("plant")]
 
 
+def _failing_plants() -> list[dict]:
+    """A plant that breaks a rule names the rule, the source and the target of its finding."""
+    return [run for run in _plant_runs() if run["intent"] == "FAIL"]
+
+
 def test_the_matrix_plants_one_violation_for_each_kind_the_reviewer_named() -> None:
-    plants = {run["name"]: run["plant"]["rule"] for run in _plant_runs()}
+    plants = {run["name"]: run["plant"]["rule"] for run in _failing_plants()}
     # The three that the review verified, then forbidden dependency, layer direction, cycle,
     # interface boundary and a complete requires.
     assert plants["M-plant-cycle"] == "COMPONENT-NO-CYCLES"
@@ -31,11 +36,15 @@ def test_the_matrix_plants_one_violation_for_each_kind_the_reviewer_named() -> N
     assert plants["F-architecture-plant-layer"] == "DEP-MODEL-NO-APP"
     assert plants["M-plant-interface"] == "INTERFACE-BOUNDARY"
     assert plants["M-plant-requires"] == "REQUIRES-COMPLETE"
-    for run in _plant_runs():
-        assert run["section"] == "violation" and run["intent"] == "FAIL", run["name"]
+    for run in _failing_plants():
+        assert run["section"] == "violation", run["name"]
+    # A plant that makes a rule UNKNOWN names no finding and sits under what UNKNOWN means.
+    partial = next(run for run in _plant_runs() if run["name"] == "H-uml-plant-partial")
+    assert partial["section"] == "unknown" and partial["intent"] == "UNKNOWN"
+    assert "rule" not in partial["plant"]
 
 
-@pytest.mark.parametrize("run", _plant_runs(), ids=lambda run: run["name"])
+@pytest.mark.parametrize("run", _failing_plants(), ids=lambda run: run["name"])
 def test_each_plant_names_a_rule_of_its_contract_and_its_line_is_in_the_planted_text(
     run: dict,
 ) -> None:
@@ -220,3 +229,14 @@ FAIL_SUMMARY = {
     "gaps": {},
     "refusal": None,
 }
+
+
+def test_a_plant_that_makes_a_rule_unknown_shows_the_planted_line_and_no_link() -> None:
+    plant = {"where": "demo/core.py", "line": "READY = auto()", "edits": []}
+    run = {"name": "p", "section": "unknown", "intent": "UNKNOWN", "about": "a", "plant": plant}
+    summary = {**FAIL_SUMMARY, "status": "UNKNOWN"}
+    row = {"run": run, "links": [("HTML", "p/report.html")], "summary": summary}
+    card = _section(report_gallery_page.index([row], "sha", "now"), "unknown")
+    assert "Planted in <code>demo/core.py</code>: <code>READY = auto()</code>." in card
+    assert "Caught by" not in card and "No violation block" not in card and "#x" not in card
+    assert "UNKNOWN on purpose</span> · UNKNOWN" in card
