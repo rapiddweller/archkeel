@@ -16,6 +16,7 @@ use crate::script_project::{source_origin, stable_publication, Publisher};
 use crate::script_records::{binding, global_id, import_record, GapRecord, Use};
 use crate::script_state::{Probe, Run};
 use crate::script_types::{key_form, ScriptAlias, ScriptGlobal};
+use crate::source::Span;
 
 /// ` has no unique unconditional publication` (`GapTitle.UNPUBLISHED_GLOBAL`).
 const UNPUBLISHED: &str = " has no unique unconditional publication";
@@ -191,6 +192,9 @@ impl<'a, 'p> Run<'a, 'p> {
             }
             return target;
         }
+        if let Some((outside_rel, span)) = self.outside.withholds(first).cloned() {
+            return self.outside_target(&module, identity, first, evidence, (&outside_rel, &span));
+        }
         let reason = format!("Script global {first}{UNPUBLISHED}");
         self.sink.targets.push(Target::Unresolved {
             import_id: FactId::new(identity),
@@ -307,6 +311,35 @@ impl<'a, 'p> Run<'a, 'p> {
         let record = binding(identity.clone(), title, &module, evidence, data);
         self.sink.facts.publish(record);
         identity
+    }
+}
+
+impl<'a, 'p> Run<'a, 'p> {
+    /// A use of a global that a file of the repository outside the scan roots replaces (#1546): an
+    /// unresolved target and a gap that cites the use and the write.
+    fn outside_target(
+        &mut self,
+        module: &str,
+        identity: String,
+        name: &str,
+        evidence: String,
+        (rel, span): (&str, &Span),
+    ) -> String {
+        let named = self.outside.names.contains_key(name);
+        let verb = if named { "is" } else { "can be" };
+        let reason =
+            format!("Script global {name} {verb} replaced by a file outside the scan roots");
+        self.sink.targets.push(Target::Unresolved {
+            import_id: FactId::new(identity),
+            specifier: name.to_owned(),
+            reason: reason.clone(),
+        });
+        let write = self.sink.cite(rel, span);
+        let fact = GapFact::resolution(&reason, module);
+        let (id, mut record) = GapRecord::unknown_gap(&reason, Some(&evidence), module, fact);
+        record.evidence_ids.push(EvidenceId::new(&write));
+        self.sink.gaps.push((id, record));
+        name.to_owned()
     }
 }
 
