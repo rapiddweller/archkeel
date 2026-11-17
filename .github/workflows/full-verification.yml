@@ -168,6 +168,19 @@ jobs:
         shell: bash
         run: make sdist smoke SHELL=bash
 
+      # #1756, #1757: the classifiers name 3.13 and 3.14, so the installed CLI runs on them too.
+      - name: Verify the installed CLI on Python 3.13
+        shell: bash
+        env:
+          UV_PYTHON: "3.13.15"
+        run: uv python install 3.13.15 && make smoke SHELL=bash
+
+      - name: Verify the installed CLI on Python 3.14
+        shell: bash
+        env:
+          UV_PYTHON: "3.14.7"
+        run: uv python install 3.14.7 && make smoke SHELL=bash
+
   # AD-317, AD-436: build each platform wheel on its own target, then install it alone and read
   # the verdicts of its core.
   native-wheel-linux:

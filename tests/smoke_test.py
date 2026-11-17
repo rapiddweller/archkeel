@@ -118,7 +118,9 @@ def decided(run: subprocess.CompletedProcess[str], native: Path) -> None:
     result = json.loads(run.stdout)
     assert result["status"] == "PASS" and result["exit_code"] == 0, result
     assert "refusal" not in result, result
-    assert Path(result["core"]["path"]).parent == native, result["core"]
+    assert Path(result["core"]["path"]).resolve().parent == native.resolve(), result[
+        "core"
+    ]  # #1757
     assert result["frame"]["engine"].startswith("archkeel-core "), result["frame"]["engine"]
     assert result["frame"]["rules"] == {"NO-CYCLES": ["no_component_cycles", "PASS"]}, result
 
