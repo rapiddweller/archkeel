@@ -32,6 +32,7 @@ mod discover;
 #[cfg(feature = "dump")]
 pub mod dump;
 mod exports;
+mod file_mode;
 mod glob;
 mod import_bindings;
 mod installed;
