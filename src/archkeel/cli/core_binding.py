@@ -129,6 +129,10 @@ class ProjectRoot:
         configuration file named."""
         return self.mode in {RootMode.WORK_TREE, RootMode.CURRENT}
 
+    def as_json(self) -> dict[str, object]:
+        """The root and the configuration for a JSON result, as absolute paths."""
+        return {"root": str(self.path), "config": str(self.path / self.config)}
+
     def named(self, here: Path) -> tuple[str, str]:
         """The root and the configuration as paths from the folder `here`, for the header."""
         return os.path.relpath(self.path, here), os.path.relpath(self.path / self.config, here)

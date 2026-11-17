@@ -363,7 +363,7 @@ def _scan(
     code = exit_for(outcome, frame, baseline=baseline)
     result = (
         envelope(options.command, outcome, frame.status, code)
-        | _named(project)
+        | project.as_json()
         | {
             "frame": document,
             "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
@@ -392,11 +392,6 @@ def _scanned(project: ProjectRoot) -> str:
     """The root and the configuration of a run for its header, from the current folder."""
     root, config = project.named(Path.cwd())
     return f" · root {root} · config {config}"
-
-
-def _named(project: ProjectRoot) -> dict[str, object]:
-    """The root and the configuration of a run for its JSON result, as absolute paths."""
-    return {"root": str(project.path), "config": str(project.path / project.config)}
 
 
 def _refusal_fields(refusals: Sequence[Refusal]) -> dict[str, object]:
@@ -488,7 +483,7 @@ def _refused(
     created = init.created if init is not None else None
     if mode is OutputMode.JSON:
         document = envelope(command, Outcome.COMMAND_REFUSED, Status.UNKNOWN, code)
-        document |= _named(project) if project is not None else {}
+        document |= project.as_json() if project is not None else {}
         document["refusal"] = {"kind": kind, "message": message}
         if init is not None:
             document["init"] = created.as_json() if created else {"state": init.state}
