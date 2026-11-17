@@ -6,6 +6,8 @@
 
 use std::collections::HashMap;
 
+use std::collections::HashSet;
+
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
 
@@ -99,6 +101,53 @@ fn call<'a>(expr: &'a Expr, name: &str) -> Option<&'a [Expr]> {
         return None;
     }
     Some(&node.arguments.args)
+}
+
+/// The functions and classes of the `code` module that run text (#1520).
+const RUNNERS: [&str; 3] = ["interact", "InteractiveConsole", "InteractiveInterpreter"];
+
+/// A runner of the `code` module on a name `code`, on a name that a file assigns from `code` or
+/// from an attribute `code` (`c = provider.code`), or on an attribute `code` of any value: the scan
+/// cannot prove that the value is not the module, so the call can import any module (#1520).
+pub(super) fn runner(base: &Expr, attributes: &[&str], aliases: &HashSet<String>) -> bool {
+    attributes.iter().enumerate().any(|(at, name)| {
+        let before = match at {
+            0 => matches!(base, Expr::Name(root)
+                if root.id.as_str() == "code" || aliases.contains(root.id.as_str())),
+            _ => attributes[at - 1] == "code",
+        };
+        before && RUNNERS.contains(name)
+    })
+}
+
+/// The names that the file assigns from the name `code` or from an attribute `code`, in any scope.
+pub(super) fn code_aliases(tree: &ModModule) -> HashSet<String> {
+    struct Aliases(HashSet<String>);
+    impl<'a> Visitor<'a> for Aliases {
+        fn visit_stmt(&mut self, stmt: &'a Stmt) {
+            let (targets, value): (Vec<&Expr>, Option<&Expr>) = match stmt {
+                Stmt::Assign(node) => (node.targets.iter().collect(), Some(&node.value)),
+                Stmt::AnnAssign(node) => (vec![&node.target], node.value.as_deref()),
+                _ => (Vec::new(), None),
+            };
+            let code = value.is_some_and(|value| match value {
+                Expr::Name(name) => name.id.as_str() == "code",
+                Expr::Attribute(node) => node.attr.as_str() == "code",
+                _ => false,
+            });
+            if code {
+                let names = targets.into_iter().filter_map(|target| match target {
+                    Expr::Name(name) => Some(name.id.to_string()),
+                    _ => None,
+                });
+                self.0.extend(names);
+            }
+            visitor::walk_stmt(self, stmt);
+        }
+    }
+    let mut found = Aliases(HashSet::new());
+    found.visit_body(&tree.body);
+    found.0
 }
 
 /// `getattr(m, "code")`, `vars(m)["code"]`, or `m.__dict__["code"]`.
