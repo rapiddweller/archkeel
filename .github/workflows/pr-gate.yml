@@ -91,11 +91,11 @@ jobs:
           ARCHKEEL_CORE_SOURCE: ${{ steps.core.outputs.cache-hit == 'true' && 'cache' || 'build' }}
         run: |
           # AD-754: the static checks run beside the core build; their result is checked next.
-          make ci-pr-static > static.log 2>&1 &
+          make ci-pr-static > "$RUNNER_TEMP/static.log" 2>&1 &
           static=$!
           make core
           if wait "$static"; then echo "static=0"; else echo "static=1"; fi >> "$GITHUB_OUTPUT"
-          cat static.log
+          cat "$RUNNER_TEMP/static.log"
 
       - name: Require the static checks
         if: steps.build.outcome == 'success'
