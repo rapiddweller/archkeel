@@ -35,6 +35,9 @@ pub enum GapCause {
     ExternalType,
     /// A name that no binding of the module resolves.
     UnresolvedName,
+    /// A method annotation that is evaluated late, in a class namespace that can hold the name
+    /// (#1523).
+    LazyClassNamespace,
     /// An `Any` type, which proves nothing about its content.
     AnyType,
     /// A class whose fields the rule would walk.
@@ -68,6 +71,7 @@ impl GapCause {
             GapCause::DottedName => "dotted_name",
             GapCause::ExternalType => "external_type",
             GapCause::UnresolvedName => "unresolved_name",
+            GapCause::LazyClassNamespace => "lazy_class_namespace",
             GapCause::AnyType => "any_type",
             GapCause::FieldWalk => "field_walk",
             GapCause::AllowanceNotRead => "allowance_not_read",
@@ -81,6 +85,12 @@ impl GapCause {
         }
     }
 }
+
+/// What the user can do about a late class annotation (#1523). The shell says it in the words of
+/// the language of the scan.
+const LATE_REMEDY: &str = "the class namespace can hold the name when the annotation is \
+    evaluated: narrow the version range of the project, make the annotations strings, or remove \
+    the namespace write";
 
 /// One named gap: a position or an entry that syntax does not decide.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -96,7 +106,11 @@ pub struct GapRow {
 impl GapRow {
     /// The reason of the row: the cause and the written text.
     pub fn reason(&self) -> String {
-        format!("{}: {}", self.cause.as_str(), self.text)
+        let reason = format!("{}: {}", self.cause.as_str(), self.text);
+        match self.cause {
+            GapCause::LazyClassNamespace => format!("{reason} ({LATE_REMEDY})"),
+            _ => reason,
+        }
     }
 }
 
@@ -210,6 +224,7 @@ fn named(text: &str, binding: &Binding, surface: &Surface<'_>) -> Judged {
                 | Unproven::NotSole
                 | Unproven::UnreadImport
                 | Unproven::Unbound => GapCause::UnresolvedName,
+                Unproven::LazyClassNamespace => GapCause::LazyClassNamespace,
             },
             text,
         ),
@@ -251,3 +266,7 @@ fn reached(text: &str, target: &str, surface: &Surface<'_>) -> Judged {
         Origin::Missing(_) => Judged::gap(GapCause::ExternalType, text),
     }
 }
+
+#[cfg(test)]
+#[path = "boundary_judge_tests.rs"]
+mod tests;

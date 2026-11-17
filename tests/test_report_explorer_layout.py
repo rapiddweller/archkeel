@@ -96,17 +96,26 @@ def test_a_level_with_too_many_modules_groups_them_by_component(site: str, page:
     assert nodes and set(nodes) == {"module"}
 
 
-def test_no_modules_view_of_the_self_report_shows_more_boxes_than_one_screen(
+def test_a_modules_view_over_one_screen_shows_only_modules_that_share_no_prefix(
     site: str, page: Browser
 ) -> None:
+    # AD-794: above the limit a level is grouped by its structure, never by ranges of names; what
+    # stays over the limit are modules that share no directory and no file prefix.
     page.open(f"{site}/system.html")
     assert page.evaluate("ArchkeelFlow.reportScene.atlas.module_box_limit") == 30
     over = page.evaluate(
         "(() => { const R = ArchkeelFlow.reportScene, A = R.atlas;"
-        " return A.levels.map((l) => [l.parent_id, R.atlasModuleScene(l, 'diagram').nodes.length])"
-        ".filter(([, n]) => n > A.module_box_limit); })()"
+        " const prefix = (n) => n.module.path.split('/').at(-1).split('.')[0].split('_')[0];"
+        " return A.levels.map((l) => [l.parent_id, R.atlasModuleScene(l, 'diagram').nodes])"
+        ".filter(([, nodes]) => nodes.length > A.module_box_limit)"
+        ".map(([id, nodes]) => {"
+        " const loose = nodes.filter((n) => n.kind === 'module').map(prefix);"
+        " return [id, loose.length, new Set(loose).size]; }); })()"
     )
-    assert over == []
+    assert all(loose == distinct for _, loose, distinct in over), over
+    assert not page.evaluate(
+        "ArchkeelFlow.reportScene.atlas.components.filter((c) => / to /.test(c.label)).length"
+    )
 
 
 def test_a_large_leaf_component_groups_its_modules_by_directory(site: str, page: Browser) -> None:

@@ -201,9 +201,10 @@ def _rust_layout(repo: Path, root: Path) -> Layout | None:
     if len(parts) < 2:
         raise _refuse("the Cargo workspace names fewer than two crates with a [package] name")
     scan = root.relative_to(repo).as_posix()
-    return Layout(
-        "rust", _name(root.name or repo.name), (scan,), tuple(parts), crates=tuple(crates)
-    )
+    # Test, bench and example code stays out of the scan, as for one crate (#1612) and TypeScript:
+    # a dev-dependency back to a sibling crate is no edge of the production graph (#1680).
+    namespace = _name(root.name or repo.name)
+    return Layout("rust", namespace, (scan,), tuple(parts), _TESTS, crates=tuple(crates))
 
 
 def _in_workspace(repo: Path, folder: Path) -> bool:
@@ -430,7 +431,9 @@ def _layout_of(repo: Path, folder: Path) -> Layout | None:
     if (folder / "Cargo.toml").is_file() and (layout := _rust_layout(repo, folder)):
         return layout
     if (folder / "package.json").is_file():
-        if _workspaces(folder):
+        # One scan of all workspace members needs one tsconfig that covers them. Without a root
+        # tsconfig.json each member with its own is a project of its own, found below.
+        if _workspaces(folder) and (folder / "tsconfig.json").is_file():
             return _typescript_layout(repo, folder)
         if (folder / "tsconfig.json").is_file():
             return _typescript_project(repo, folder)

@@ -19,10 +19,11 @@ use ruff_python_ast::{Expr, Number, Operator, UnaryOp};
 
 use super::found::{Found, Source};
 use super::scope::type_names;
-use super::shape_names::Names;
+use super::shape_names::{Hidden, Lazy, Names};
 use super::shape_text::render;
 use crate::module::Module;
 use crate::survey::binders::Binders;
+use crate::survey::class_writes::{future_annotations, ClassWrites};
 
 /// The deepest type expression that the reader follows.
 const MAX_DEPTH: u32 = 24;
@@ -99,14 +100,25 @@ fn form(target: &str) -> Option<Form> {
 /// The reader of the written types of one module.
 pub(super) struct Shaper<'a> {
     pub(super) names: &'a Names<'a>,
+    /// On Python 3.14 without `from __future__ import annotations`: the stores that can give a
+    /// class namespace a name after its statement (#1523).
+    pub(super) lazy: Option<&'a ClassWrites>,
 }
 
 impl Shaper<'_> {
     /// The shapes of the positions of `source`: one for each parameter in the order of the
     /// signature, and the return.
     pub(super) fn signature(&self, source: &Source<'_>) -> (Vec<TypeShape>, TypeShape) {
-        let mut hidden: HashSet<String> = source.class_names.clone().unwrap_or_default();
-        hidden.extend(type_names(source.node));
+        let mut names: HashSet<String> = source.class_names.clone().unwrap_or_default();
+        names.extend(type_names(source.node));
+        // A method annotation reads the namespace of its class when it is evaluated (PEP 649).
+        let lazy = (self.lazy)
+            .filter(|_| source.class_names.is_some())
+            .map(|writes| Lazy {
+                slots: source.slots.as_ref(),
+                writes,
+            });
+        let hidden = Hidden { names, lazy };
         let params = &source.node.parameters;
         let positional = params.posonlyargs.iter().chain(&params.args);
         let mut found: Vec<TypeShape> = positional
@@ -134,13 +146,13 @@ impl Shaper<'_> {
         (found, returns)
     }
 
-    fn position(&self, annotation: Option<&Expr>, hidden: &HashSet<String>) -> TypeShape {
+    fn position(&self, annotation: Option<&Expr>, hidden: &Hidden<'_>) -> TypeShape {
         annotation.map_or(TypeShape::Unannotated {}, |expr| {
             self.shape(expr, hidden, 0)
         })
     }
 
-    fn shape(&self, expr: &Expr, hidden: &HashSet<String>, depth: u32) -> TypeShape {
+    fn shape(&self, expr: &Expr, hidden: &Hidden<'_>, depth: u32) -> TypeShape {
         if depth > MAX_DEPTH {
             return unreadable(String::new(), Unreadable::TooDeep);
         }
@@ -162,7 +174,7 @@ impl Shaper<'_> {
     }
 
     /// The arms of a chain `A | B | C`, flattened.
-    fn arms(&self, expr: &Expr, hidden: &HashSet<String>, depth: u32, out: &mut Vec<TypeShape>) {
+    fn arms(&self, expr: &Expr, hidden: &Hidden<'_>, depth: u32, out: &mut Vec<TypeShape>) {
         match expr {
             Expr::BinOp(node) if node.op == Operator::BitOr => {
                 self.arms(&node.left, hidden, depth + 1, out);
@@ -174,7 +186,7 @@ impl Shaper<'_> {
 
     /// A string annotation. Only a builtin that no statement hides reads as itself, as in
     /// release 4.0.1; any other string is a forward reference that nothing here resolves.
-    fn quoted(&self, value: &str, text: String, hidden: &HashSet<String>) -> TypeShape {
+    fn quoted(&self, value: &str, text: String, hidden: &Hidden<'_>) -> TypeShape {
         let word = value.trim();
         if (word == "str" || word == "object")
             && matches!(self.names.name(word, hidden), Binding::Builtin { .. })
@@ -184,7 +196,7 @@ impl Shaper<'_> {
         TypeShape::Forward { text }
     }
 
-    fn named(&self, expr: &Expr, text: String, hidden: &HashSet<String>) -> TypeShape {
+    fn named(&self, expr: &Expr, text: String, hidden: &Hidden<'_>) -> TypeShape {
         let binding = self.names.binding(expr, hidden);
         match &binding {
             Binding::Builtin { target } if builtin_roles::has(target.as_str(), Role::PRIMITIVE) => {
@@ -224,7 +236,7 @@ impl Shaper<'_> {
         head: &Expr,
         slice: &Expr,
         text: String,
-        hidden: &HashSet<String>,
+        hidden: &Hidden<'_>,
         depth: u32,
     ) -> TypeShape {
         let args: Vec<&Expr> = match slice {
@@ -357,6 +369,7 @@ pub(crate) fn attach(
     (modules, binders): (&[Module], &[Binders]),
     imports: &[Record<ImportFact>],
     sets: (&HashSet<String>, &HashSet<String>),
+    lazy: Option<&ClassWrites>,
 ) {
     let mut by_module: HashMap<&str, Vec<&Record<ImportFact>>> = HashMap::new();
     for record in imports {
@@ -374,7 +387,10 @@ pub(crate) fn attach(
             own.map_or(&[][..], Vec::as_slice),
             sets,
         );
-        let shaper = Shaper { names: &names };
+        let shaper = Shaper {
+            names: &names,
+            lazy: lazy.filter(|_| !future_annotations(&module.tree)),
+        };
         let at: HashMap<&str, usize> = item
             .records
             .iter()

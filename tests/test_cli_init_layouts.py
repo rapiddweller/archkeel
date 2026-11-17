@@ -6,6 +6,8 @@
 Each plant is the smallest form of a shape that a public project has (the project is named).
 """
 
+import json
+import re
 from pathlib import Path
 
 from archkeel.cli.init_draft import draft
@@ -37,3 +39,50 @@ def test_a_member_workspace_of_its_own_folder_is_no_fault(tmp_path: Path) -> Non
     result = draft(root)
     assert result.language == "rust"
     assert result.components == ("core_a", "util")
+
+
+def test_a_workspace_draft_leaves_test_sources_out_as_a_crate_draft_does(tmp_path: Path) -> None:
+    """tokio 1.48.0, serde 1.0.228: a proc-macro crate tests itself through the main crate (a
+    `[dev-dependencies]` edge back). A draft that scans test sources fails its first run with a
+    cycle that only tests close (#1680)."""
+    root = _write(
+        tmp_path,
+        {
+            "Cargo.toml": '[workspace]\nmembers = ["main", "derive"]\n',
+            "main/Cargo.toml": CRATE.format("main")
+            + '[dependencies]\nderive = { path = "../derive" }\n',
+            "main/src/lib.rs": "pub use derive::*;\n",
+            "derive/Cargo.toml": CRATE.format("derive")
+            + '[dev-dependencies]\nmain = { path = "../main" }\n',
+            "derive/src/lib.rs": "pub fn one() -> i32 { 1 }\n",
+        },
+    )
+    config = next(file for file in draft(root).files if file.path == "archkeel.toml")
+    assert "exclude_test_sources = true" in config.text
+
+
+def test_a_workspace_without_a_root_tsconfig_drafts_each_member_with_its_own(
+    tmp_path: Path,
+) -> None:
+    """fastapi/full-stack-fastapi-template 0.12.0: the root package.json names the workspaces and
+    has no tsconfig.json; each member has its own. One scan of both members named a root
+    tsconfig.json that does not exist, so the first run was refused."""
+    member = {"compilerOptions": {"strict": True}, "include": ["src"]}
+    root = _write(
+        tmp_path,
+        {
+            "package.json": json.dumps({"name": "mono", "workspaces": ["web", "packages/*"]}),
+            "web/package.json": '{"name": "web"}',
+            "web/tsconfig.json": json.dumps(member),
+            "web/src/index.ts": "export const a = 1;\n",
+            "packages/mail/package.json": '{"name": "mail"}',
+            "packages/mail/tsconfig.json": json.dumps(member),
+            "packages/mail/src/index.ts": "export const b = 2;\n",
+        },
+    )
+    result = draft(root)
+    configs = {file.path: file.text for file in result.files if file.path.endswith(".toml")}
+    assert result.parts == ("TypeScript web", "TypeScript mail"), result.parts
+    for path, text in configs.items():
+        named = re.search(r'^tsconfig = "([^"]+)"$', text, re.M)
+        assert named and (root / named[1]).is_file(), (path, text)

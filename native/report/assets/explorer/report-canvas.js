@@ -2,6 +2,7 @@
 // ArchQ Explorer presents recorded evidence; it never computes verdicts.
 (function () {
   const F = window.ArchkeelFlow;
+  // E5 (issue 1451): every payload has an atlas; flow.js refuses a page without one.
   if (!F || !F.root.hasAttribute("data-atlas")) return;
   const query = () => new URLSearchParams(location.search);
 
@@ -12,7 +13,6 @@
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
   const MOD = isMac ? "⌘" : "Ctrl";
   html.classList.add("ak-canvas");
-  root.classList.toggle("ak-detail", !A);
 
   // ---------- small DOM helpers ----------
   function h(tag, attrs = {}, ...kids) {
@@ -58,7 +58,7 @@
   }
 
   // ---------- Atlas indexes (facts come from the payload, never from labels) ----------
-  const components = A?.components || [];
+  const components = A.components;
   const componentById = new Map(components.map((item) => [item.id, item]));
   const depthOf = (item) => { let depth = 0; for (let p = item.parent_id; p; p = componentById.get(p)?.parent_id) depth += 1; return depth; };
   const pathOf = (item) => { const names = []; for (let c = item; c; c = componentById.get(c.parent_id)) names.unshift(c.label); return names.join(" / "); };
@@ -75,25 +75,16 @@
     component: { order: 0, letter: "C", color: "var(--accent)", group: "Components" },
     module: { order: 1, letter: "M", color: "var(--ink-muted)", group: "Modules" },
     rule: { order: 2, letter: "R", color: "var(--line-strong)", group: "Rules" },
-    element: { order: 3, letter: "E", color: "var(--accent-text)", group: "On this diagram" },
   };
   const indexes = new Map();
   function search(text) {
-    if (!A) {
-      const nodes = F.state().scene?.nodes || [];
-      return window.ArchkeelReportScene.search(nodes.map((node) => ({
-        kind: "element", id: node.id, label: node.label, sub: node.kind,
-        text: `${node.label} ${node.id} ${node.kind}`.toLowerCase(),
-      })), text, nodes.map((node) => node.id));
-    }
     const view = F.state().viewMode;
     if (!indexes.has(view)) indexes.set(view, F.reportScene.searchIndex(view));
     return window.ArchkeelReportScene.search(indexes.get(view), text,
       (F.state().scene?.nodes || []).map((node) => node.id));
   }
   function openResult(row) {
-    if (row.kind === "element") F.selectElement(row.id);
-    else if (row.kind === "component") showComponent(componentById.get(row.id));
+    if (row.kind === "component") showComponent(componentById.get(row.id));
     else if (row.kind === "module") showModule(row.module);
     else showRule(row.rule);
   }
@@ -122,7 +113,7 @@
 
   function openPalette() {
     closePop();
-    const input = h("input", { type: "text", placeholder: A ? "Search components, modules and rules" : "Search this diagram", "aria-label": "Search",
+    const input = h("input", { type: "text", placeholder: "Search components, modules and rules", "aria-label": "Search",
       role: "combobox", "aria-expanded": "true", "aria-controls": "ak-results", autocomplete: "off" });
     const list = h("ul", { class: "ak-results", id: "ak-results", role: "listbox" });
     const footer = h("footer", {}, h("span", {}, h("kbd", {}, "↑"), " ", h("kbd", {}, "↓"), " move"),
@@ -135,7 +126,7 @@
       list.replaceChildren();
       if (!rows.length) {
         input.removeAttribute("aria-activedescendant");
-        list.append(h("li", { class: "ak-empty", role: "presentation" }, A ? "No matching component, module or rule." : "No matching element on this diagram."));
+        list.append(h("li", { class: "ak-empty", role: "presentation" }, "No matching component, module or rule."));
         return;
       }
       if (!input.value.trim()) list.append(h("li", { class: "ak-group", role: "presentation" }, "On this diagram"));
@@ -337,7 +328,7 @@
           h("i"), value, h("b", {}, String(count)))) : []),
       active && !counts.size ? h("span", { class: "ak-tagbar-label" }, "No tagged objects on this diagram") : null,
       // AD-606: a run of one part says so next to its language.
-      S.perspective === "language" && A?.language_note
+      S.perspective === "language" && A.language_note
         ? h("span", { class: "ak-tagbar-label", title: A.language_note }, "one part of the system: see the legend") : null,
     ].filter(Boolean));
     if (focusKey) [...tagBar.querySelectorAll("button")].find((button) => button.dataset.focusKey === focusKey)?.focus({ preventScroll: true });
@@ -461,7 +452,7 @@
     clone.setAttribute("height", String(F.svg.clientHeight));
     clone.style.background = getComputedStyle(html).getPropertyValue("--surface-0");
     const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml" });
-    const link = h("a", { href: URL.createObjectURL(blob), download: `${A?.repository || "architecture"}-${F.state().viewMode}-${F.state().scope || "system"}.svg` });
+    const link = h("a", { href: URL.createObjectURL(blob), download: `${A.repository}-${F.state().viewMode}-${F.state().scope || "system"}.svg` });
     document.body.append(link);
     link.click();
     link.remove();
@@ -486,10 +477,8 @@
     { keys: ["1", "2", "3"], label: "As-Is · Target · Diff", match: (e) => !e.shiftKey && !e.metaKey && !e.ctrlKey && ["1", "2", "3"].includes(e.key),
       run: (e) => view({ 1: "diagram", 2: "target", 3: "diff" }[e.key]) },
     { keys: ["Alt ↑"], label: "Up one level", match: (e) => e.altKey && e.key === "ArrowUp", run: () => F.dispatch({ type: "up" }) },
-    ...(A ? [
-      { keys: ["P"], label: "Next perspective", match: (e) => !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "p", run: cyclePerspective },
-      { keys: ["O"], label: "Objects list", match: (e) => !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "o", run: () => toggleDrawer("objects", objectsDrawer) },
-    ] : []),
+    { keys: ["P"], label: "Next perspective", match: (e) => !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "p", run: cyclePerspective },
+    { keys: ["O"], label: "Objects list", match: (e) => !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "o", run: () => toggleDrawer("objects", objectsDrawer) },
     { keys: ["?"], label: "Keyboard shortcuts", match: (e) => e.key === "?", run: () => help() },
     { keys: [`${MOD} wheel`, "pinch"], label: "Zoom at pointer" },
     { keys: ["Space drag", "middle drag"], label: "Pan over cards" },
@@ -530,14 +519,12 @@
   const topLeft = h("div", { class: "ak-bar ak-top-left" },
     markSrc ? h("img", { class: "ak-logo", src: markSrc, alt: "" }) : null,
     h("strong", { class: "ak-brand" }, "ArchQ Explorer"),
-    move(".flow-breadcrumb"), A ? belongs : null, h("span", { class: "ak-sep" }), move(".atlas-content-choice"));
+    move(".flow-breadcrumb"), belongs, h("span", { class: "ak-sep" }), move(".atlas-content-choice"));
   const topCenter = h("div", { class: "ak-bar ak-top-center" }, move(".flow-views"));
   const openSelected = move(".flow-open-selected");
   openSelected?.replaceChildren(icon("open"), "Open");
   const detailsToggle = move(".flow-details-toggle");
   detailsToggle?.replaceChildren(icon("details"), "Details");
-  const back = !A ? move(".flow-back") : null;
-  back?.setAttribute("aria-label", back.textContent);
   const topRight = h("div", { class: "ak-bar ak-top-right" },
     h("button", { class: "ak-search-btn", onclick: openPalette, "aria-label": "Search" },
       h("span", { style: "display:inline-flex;gap:8px;align-items:center" }, icon("search"), "Search"), h("kbd", {}, `${MOD} K`)),
@@ -545,11 +532,10 @@
     h("button", { class: "ak-icon-only", title: "Share", "aria-label": "Share", "data-ak-pop": "", onclick: (event) => shareMenu(event.currentTarget) }, icon("share")),
     document.querySelector(".theme-toggle"), move(".flow-fullscreen"));
   const rail = h("div", { class: "ak-bar ak-rail", role: "toolbar", "aria-label": "Panels" },
-    back,
-    A ? h("button", { "data-drawer": "overview", title: "Health check", "aria-label": "Health check", "aria-expanded": "false",
-      onclick: () => toggleDrawer("overview", overviewDrawer) }, icon("overview")) : null,
-    A ? h("button", { "data-drawer": "objects", title: "Objects (O)", "aria-label": "Objects", "aria-expanded": "false",
-      onclick: () => toggleDrawer("objects", objectsDrawer) }, icon("list")) : null,
+    h("button", { "data-drawer": "overview", title: "Health check", "aria-label": "Health check", "aria-expanded": "false",
+      onclick: () => toggleDrawer("overview", overviewDrawer) }, icon("overview")),
+    h("button", { "data-drawer": "objects", title: "Objects (O)", "aria-label": "Objects", "aria-expanded": "false",
+      onclick: () => toggleDrawer("objects", objectsDrawer) }, icon("list")),
     h("button", { title: "Keyboard shortcuts (?)", "aria-label": "Keyboard shortcuts", onclick: help }, icon("keys")));
   const legendPanel = move(".flow-legend-panel");
   const legendContent = move(".flow-legend");
@@ -559,16 +545,10 @@
       h("h4", {}, "Languages"),
       h("div", { class: "ak-language-legend" }, languageNames.map(languageBadge)),
       h("h4", {}, "Relationships"), legendContent,
-      A?.language_note ? h("p", { class: "ak-sub" }, A.language_note) : null], "left", "legend") }, "Legend");
+      A.language_note ? h("p", { class: "ak-sub" }, A.language_note) : null], "left", "legend") }, "Legend");
   root.append(h("div", { hidden: true }, legendPanel));
   const bottomLeft = h("div", { class: "ak-bar ak-bottom-left" }, legendButton, move(".flow-filters"),
-    A ? h("span", { class: "ak-run-status" }, `Rules: ${A.declared_rules} · Observation: ${A.observation_complete}`) : null);
-  if (!A) {
-    bottomLeft.append(h("div", { class: "ak-detail-actions" },
-      move(".flow-member-previews"), move(".flow-use-summary"), move(".flow-arrange")));
-    bottomLeft.querySelector(".flow-filter-controls").append(move(".flow-unassigned-code"), move(".flow-zoom-100"));
-    move(".flow-element-index").classList.add("ak-element-index");
-  }
+    h("span", { class: "ak-run-status" }, `Rules: ${A.declared_rules} · Observation: ${A.observation_complete}`));
   const summary = move(".atlas-summary");
   if (summary) summary.classList.add("ak-scene-summary");
   const tagBar = h("div", { class: "ak-bar ak-bottom-center", role: "toolbar", "aria-label": "Perspectives" });
@@ -584,18 +564,18 @@
   const scrollHint = h("p", { class: "rp-scroll-hint", role: "status", hidden: true },
     "Scroll or press Shift 1 to fit");
   root.querySelector(".flow-map-column")?.append(scrollHint);
-  const showScrollHint = () => { scrollHint.hidden = !A || !root.dataset.overflow; };
+  const showScrollHint = () => { scrollHint.hidden = !root.dataset.overflow; };
   new MutationObserver(showScrollHint).observe(root, { attributes: true, attributeFilter: ["data-overflow"] });
   showScrollHint();
 
   // ---------- keep the chrome in sync with every rendered scene ----------
   // Open each diagram fitted without magnifying small graphs.
   let fittedKey = null;
-  if (A) F.setMaxFitScale(1);
+  F.setMaxFitScale(1);
   // AD-606: in the report the diagram starts with the whole width; a click on a box opens the
   // panel of its facts, and "Details" opens and closes it.
   // AD-734: the state of the URL decides Details (closed unless the link selects a box or cell).
-  if (A) F.nodeLayer.addEventListener("click", () => {
+  F.nodeLayer.addEventListener("click", () => {
     if (root.dataset.detailsOpen !== "true") detailsToggle?.click();
   });
   // The sheet of a box is set in the small body text of the design system.
@@ -603,13 +583,11 @@
   const fitDiagram = () => F.fit(true, { whole: true });
   // The rows of a wrapped layout follow the shape of the view: lay the diagram out again when the
   // Explorer goes to the full window and back.
-  if (A) new MutationObserver(() => requestAnimationFrame(() => {
+  new MutationObserver(() => requestAnimationFrame(() => {
     fittedKey = null;
     F.dispatch({ type: "relayout" });
   })).observe(root, { attributes: true, attributeFilter: ["data-expanded"] });
   root.addEventListener("archkeel:rendered", () => {
-    back?.setAttribute("aria-label", back.textContent);
-    if (!A) return;
     applyPerspective();
     if (drawerShown === "objects") { closeDrawer(); toggleDrawer("objects", objectsDrawer); }
     const { scope, viewMode } = F.state();
@@ -638,9 +616,7 @@
   });
   addEventListener("beforeprint", closeDrawer);
   if (/^#atlas-(rule|finding)-/.test(location.hash)) revealFindings();
-  else if (A) showDrawer(S.drawer);
-  if (A) {
-    renderTagBar();
-    if (F.state().scene) applyPerspective();
-  } else tagBar.remove();
+  else showDrawer(S.drawer);
+  renderTagBar();
+  if (F.state().scene) applyPerspective();
 })();

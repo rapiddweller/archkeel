@@ -5,6 +5,11 @@
 //! The box of the Explorer tree (AD-606, AD-630): one type for the tree builder and for the
 //! grouping of a level, so that neither module needs the other.
 
+/// The most boxes of one level (AD-794): a 1440 x 900 screen in full view holds 6 x 5 module boxes
+/// at the readable zoom of 85 percent (a box of 200 x 144 with the spacing of the layout). A larger
+/// level is grouped by its structure: a name prefix, a directory, a file prefix.
+pub(super) const ON_SCREEN: usize = 30;
+
 /// One box of the Explorer: a component of the contract, or a layer of its layer order.
 pub(super) struct Node {
     pub(super) id: String,

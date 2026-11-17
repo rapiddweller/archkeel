@@ -21,8 +21,8 @@ use std::collections::HashSet;
 use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    Expr, ExprCall, FStringPartRef, InterpolatedStringElement, InterpolatedStringElements,
-    Operator, Stmt,
+    Expr, ExprCall, FStringPartRef, Identifier, InterpolatedStringElement,
+    InterpolatedStringElements, Operator, Stmt,
 };
 use ruff_text_size::{Ranged, TextRange};
 
@@ -39,14 +39,11 @@ pub(super) fn harmless(site: &Site, module: &Module, names: &HashSet<String>) ->
     let last = site.detail.rsplit('.').next().unwrap_or_default();
     match last {
         "import_module" | "__import__" => {
+            let args: &[Expr] = &call.arguments.args;
             let relative = last == "__import__"
-                && (call.arguments.args.len() > 4
-                    || call.arguments.find_keyword("level").is_some());
-            let name = call
-                .arguments
-                .args
-                .first()
-                .or_else(|| call.arguments.find_keyword("name").map(|k| &k.value));
+                && (args.get(4).is_some() || call.arguments.find_keyword("level").is_some());
+            let name =
+                (args.first()).or_else(|| call.arguments.find_keyword("name").map(|k| &k.value));
             !relative && name.is_some_and(|name| foreign(name, names))
         }
         "exec" | "eval" | "compile" => match call.arguments.args.first() {
@@ -96,7 +93,9 @@ fn call_at(module: &Module, range: TextRange) -> Option<&ExprCall> {
 fn foreign(expr: &Expr, names: &HashSet<String>) -> bool {
     heads(expr).is_some_and(|heads| {
         heads.iter().all(|(head, exact)| {
-            !head.starts_with('.') && (*exact || !head.is_empty()) && !meets(head, *exact, names)
+            !head.starts_with('.')
+                && (*exact || !String::is_empty(head))
+                && !meets(head, *exact, names)
         })
     })
 }
@@ -138,7 +137,7 @@ fn heads(expr: &Expr) -> Option<Vec<(String, bool)>> {
             )
         }
         Expr::Call(node) => match &*node.func {
-            Expr::Attribute(attribute) if attribute.attr.as_str() == "format" => {
+            Expr::Attribute(attribute) if Identifier::as_str(&attribute.attr) == "format" => {
                 let Expr::StringLiteral(text) = &*attribute.value else {
                     return None;
                 };
