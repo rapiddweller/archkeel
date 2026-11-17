@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The registered capability sets (AD-378, L-35a), each dimension one at a time.
+//! The registered capability sets (AD-378, L-35a) of the table of the TypeScript collector, each
+//! dimension one at a time. The frozen replies carry that table (`validation.json`, AD-688), so
+//! these cases check the matching of the store against the real table.
 
 use serde_json::{json, Value};
 
@@ -62,33 +64,11 @@ fn each_typescript_dimension_outside_the_registry_is_refused() {
     assert_ne!(without, NOT_REGISTERED);
 }
 
+/// The legacy set needs the four native import features. The table of the native collector does
+/// not register the set `static-imports` of the Python collector of 4.0.1, which it never writes
+/// (AD-688: stricter than the store before).
 #[test]
-fn a_rust_section_set_outside_the_registry_is_refused() {
-    let rust = |v: &mut Value| {
-        v["facts"]["profile"] = json!("archkeel-rust-imports");
-        v["facts"]["capabilities"]["resolution_features"] = json!(["rust-crate-edges"]);
-        v["facts"]["capabilities"]["constructs"] = json!([]);
-    };
-    let wrong = "source sections do not match the registered profile";
-    assert_eq!(error_after(rust), wrong);
-    let registered = error_after(|v| {
-        rust(v);
-        for name in ["calls", "references", "bindings", "constructs"] {
-            drop_section(v, name);
-        }
-    });
-    assert_ne!(registered, wrong);
-    let without_unknowns = error_after(|v| {
-        rust(v);
-        for name in ["calls", "references", "bindings", "constructs", "unknowns"] {
-            drop_section(v, name);
-        }
-    });
-    assert_eq!(without_unknowns, wrong);
-}
-
-#[test]
-fn the_legacy_typescript_set_needs_a_legacy_feature_set() {
+fn the_legacy_typescript_set_needs_the_native_import_features() {
     let legacy = |features: Value| {
         move |v: &mut Value| {
             for name in ["symbols", "calls", "references", "bindings", "constructs"] {
@@ -99,52 +79,39 @@ fn the_legacy_typescript_set_needs_a_legacy_feature_set() {
         }
     };
     assert_eq!(error_after(legacy(json!(["inner-uml-v1"]))), NOT_REGISTERED);
-    assert_ne!(
+    assert_eq!(
         error_after(legacy(json!(["static-imports"]))),
         NOT_REGISTERED
     );
-}
-
-/// A reply of the Rust profile made from the frozen TypeScript reply: the registered Rust set
-/// (`imports`, `symbols`, `unknowns`, feature `rust-crate-edges`) and no fact ids.
-fn rust_profile(v: &mut Value) {
-    v["facts"]["profile"] = json!("archkeel-rust-imports");
-    v["facts"]["capabilities"]["resolution_features"] = json!(["rust-crate-edges"]);
-    v["facts"]["capabilities"]["constructs"] = json!([]);
-    for name in ["calls", "references", "bindings", "constructs"] {
-        drop_section(v, name);
-    }
-    if let Some(sections) = v["facts"]["sections"].as_array_mut() {
-        for section in sections {
-            if let Some(records) = section["records"].as_array_mut() {
-                records
-                    .iter_mut()
-                    .for_each(|record| record["fact_ids"] = json!([]));
-            }
-        }
-    }
+    let native = json!([
+        "literal-imports",
+        "relative-specifiers",
+        "node-builtins",
+        "local-runtime-closure"
+    ]);
+    assert_ne!(error_after(legacy(native)), NOT_REGISTERED);
 }
 
 /// AD-406 review F2: the store makes no producer claim. A reply may name another adapter than
 /// its profile, as in the Python codec (`facts_codec.py` reads `adapter.name` as text), because a
 /// configured collector writes its own name. The trust of each request kind owns the claim
-/// (`scan::in_process`, `check::stage_one_shell_trust`).
+/// (`scan::in_process`, `check::stage_one_shell_trust`), also for the standard library key.
 #[test]
 fn the_store_accepts_a_reply_whose_adapter_is_not_its_profile() {
-    let mut value = golden("h-typescript");
-    rust_profile(&mut value);
     assert_eq!(
-        value["facts"]["adapter"]["name"],
-        "archkeel-typescript-imports"
+        error_after(|v| v["facts"]["adapter"]["name"] = json!("archkeel-rust-imports")),
+        ""
     );
-    assert_eq!(value["facts"]["profile"], "archkeel-rust-imports");
-    assert_eq!(ingest(&compressed(&value), 1 << 30).err(), None);
+    assert_eq!(
+        error_after(|v| v["facts"]["profile"] = json!("archkeel-rust-imports")),
+        ""
+    );
 }
 
 #[test]
 fn a_wire_reply_cannot_supply_live_profile_statements() {
-    let error = error_after(|value| {
-        value["facts"]["profile_limits"] = json!({
+    let error = error_after(|v| {
+        v["facts"]["profile_limits"] = json!({
             "dependency_symbols": "supported",
             "interface_boundary": "supported"
         });
@@ -175,37 +142,5 @@ fn typed_profile_statements_must_match_the_symbol_capability() {
     assert_eq!(
         error,
         "profile symbol statement does not match its capability"
-    );
-}
-
-/// AD-604: a Rust statement of symbols and of the interface binds to the feature of its routes.
-#[test]
-fn a_rust_interface_statement_needs_the_feature_of_its_routes() {
-    // Full paths: a second `use` of these names in this file would make each path of them a gap.
-    let stated = |features: Value, interface: bool| {
-        let mut value = golden("h-typescript");
-        rust_profile(&mut value);
-        value["facts"]["capabilities"]["resolution_features"] = features;
-        let mut reply: archkeel_facts::envelope::Reply = serde_json::from_value(value).unwrap();
-        reply.facts.profile_limits = Some(archkeel_facts::envelope::ProfileLimits {
-            dependency_symbols: archkeel_facts::envelope::LimitSupport::Supported,
-            interface_boundary: if interface {
-                archkeel_facts::envelope::LimitSupport::Supported
-            } else {
-                archkeel_facts::envelope::LimitSupport::Unsupported
-            },
-        });
-        crate::ingest_typed(reply).err().unwrap_or_default()
-    };
-    let routes = json!(["rust-crate-edges", "rust-item-routes-v1"]);
-    let edges = json!(["rust-crate-edges"]);
-    assert_eq!(stated(routes.clone(), true), "");
-    assert_eq!(
-        stated(edges, true),
-        "profile symbol statement does not match its capability"
-    );
-    assert_eq!(
-        stated(routes, false),
-        "a Rust interface statement needs the feature rust-item-routes-v1"
     );
 }

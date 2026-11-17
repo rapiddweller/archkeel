@@ -20,7 +20,6 @@ fn eleven() -> Value {
         .flatten()
         .map(|entry| json!({"name": entry["name"], "statuses": [entry["status"]]}))
         .collect();
-    value["protocol_version"] = json!("11.0.0");
     value["facts"]["validation"] = json!({
         "registered": [{
             "sections": capabilities["sections"],
@@ -53,24 +52,11 @@ fn a_reply_of_protocol_11_with_its_block_is_accepted() {
     assert_eq!(refusal(&eleven()), "");
 }
 
+/// The golden replies carry the table of the TypeScript collector (`validation.json`).
 #[test]
-fn the_block_and_the_protocol_go_together() {
-    let mut without = eleven();
-    without["facts"]
-        .as_object_mut()
-        .map(|facts| facts.remove("validation"));
-    assert_eq!(
-        refusal(&without),
-        "a protocol 11.0.0 reply needs its validation block (AD-688)"
-    );
-    let mut old = eleven();
-    old["protocol_version"] = json!("9.0.0");
-    assert_eq!(
-        refusal(&old),
-        "only a protocol 11.0.0 reply carries a validation block (AD-688)"
-    );
-    // The reader of the transition: a 9.0.0 reply without a block keeps its profile checks.
+fn the_frozen_reply_with_the_table_of_its_collector_is_accepted() {
     assert_eq!(refusal(&golden("h-typescript")), "");
+    assert_eq!(refusal(&golden("f-typescript-story")), "");
 }
 
 #[test]
@@ -141,15 +127,10 @@ fn a_block_with_fewer_required_features_cannot_lower_the_symbol_rule() {
     );
 }
 
+/// A versioned key names the minor version of the runtime. Whether the key names the list of
+/// the adapter is a part of the trust of the core: such a reply is never trusted.
 #[test]
-fn the_standard_library_key_names_the_family_of_the_adapter_and_the_runtime() {
-    let mut other = eleven();
-    other["facts"]["validation"]["standard_library"] = json!("archkeel-rust-imports");
-    assert_eq!(
-        refusal(&other),
-        "the standard library archkeel-rust-imports is not a list of the adapter \
-         archkeel-typescript-imports"
-    );
+fn a_versioned_standard_library_key_names_the_runtime() {
     let mut minor = eleven();
     minor["facts"]["validation"]["standard_library"] = json!("archkeel-typescript-imports@3.11");
     assert_eq!(

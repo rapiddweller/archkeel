@@ -103,7 +103,7 @@ fn refusal(reply: Reply) -> String {
 
 #[test]
 fn the_store_accepts_a_complete_survey_and_refuses_each_planted_claim() {
-    use archkeel_facts::envelope::{LimitSupport, ProtocolVersion, Target};
+    use archkeel_facts::envelope::{LimitSupport, Target};
     use archkeel_facts::ids::PackageName;
 
     let tree = project();
@@ -126,14 +126,19 @@ fn the_store_accepts_a_complete_survey_and_refuses_each_planted_claim() {
 
     type Change = fn(&mut Reply);
     let cases: [(&str, Change); 9] = [
-        // AD-688: a TypeScript profile does not register the routes feature of the survey.
-        ("the resolution feature import-routes-v1", |r| {
-            r.facts.profile = Profile::TypeScript
+        // AD-688: the validation table of the survey registers its sets; a block cannot widen
+        // the features that the store checks.
+        ("not registered", |r| {
+            r.facts.validation.registered.pop();
         }),
-        ("10.0.0 or 11.0.0 import survey", |r| {
-            r.protocol_version = ProtocolVersion::V9
-        }),
-        ("resolution feature", |r| {
+        (
+            "the store does not check the resolution feature eval-v1",
+            |r| {
+                let set = &mut r.facts.validation.registered[0];
+                set.optional_features.push("eval-v1".to_owned());
+            },
+        ),
+        ("not registered", |r| {
             r.facts
                 .capabilities
                 .resolution_features
@@ -200,6 +205,66 @@ fn the_store_accepts_a_complete_survey_and_refuses_each_planted_claim() {
         let refused = refusal(changed);
         assert!(refused.contains(reason), "{reason}: {refused}");
     }
+    registered_sets(&original);
+}
+
+/// The registered sets of the validation table of the survey (AD-688; AD-450, AD-518, AD-520,
+/// AD-658, AD-666, AD-680, AD-682, AD-684, AD-686): the five survey sections without a construct,
+/// or with the `constructs` section and `assert` `supported`, followed by the later construct kinds
+/// in their order, each `supported` or `partial`; `getattr` comes with `typing_signals`.
+fn registered_sets(original: &Reply) {
+    use archkeel_facts::envelope::{ConstructSupport, SectionName};
+    let caps = |change: &dyn Fn(&mut Reply)| {
+        let mut changed = original.clone();
+        change(&mut changed);
+        refusal(changed)
+    };
+    let drop_section = |reply: &mut Reply, name: SectionName| {
+        reply
+            .facts
+            .capabilities
+            .sections
+            .retain(|each| *each != name);
+        reply
+            .facts
+            .sections
+            .retain(|each| each.name() != name.as_str());
+    };
+    let not_registered = "source sections or resolution features are not registered";
+    let constructs = &original.facts.capabilities.constructs;
+    assert_eq!(constructs.len(), 6, "{constructs:?}");
+    // `getattr` without `typing_signals`, and the five first kinds with it, are no set.
+    assert_eq!(
+        caps(&|r| drop_section(r, SectionName::TypingSignals)),
+        not_registered
+    );
+    let renamed = |index: usize, name: &'static str| {
+        move |r: &mut Reply| r.facts.capabilities.constructs[index].name = name.to_owned()
+    };
+    assert_eq!(caps(&renamed(3, "setattr")), not_registered);
+    assert_eq!(caps(&renamed(5, "hasattr")), not_registered);
+    assert_eq!(
+        caps(&|r| r.facts.capabilities.constructs[0].status = ConstructSupport::Partial),
+        not_registered
+    );
+    assert_eq!(
+        caps(&|r| r.facts.capabilities.constructs[1].status = ConstructSupport::Decided),
+        not_registered
+    );
+    assert_eq!(
+        caps(&|r| r.facts.capabilities.sections.push(SectionName::Bindings)),
+        "source sections disagree with declared capabilities"
+    );
+    // The routes feature is optional, and an interface statement holds exactly with it.
+    let unsupported = |r: &mut Reply| {
+        if let Some(limits) = r.facts.profile_limits.as_mut() {
+            limits.interface_boundary = archkeel_facts::envelope::LimitSupport::Unsupported;
+        }
+    };
+    assert_eq!(
+        caps(&unsupported),
+        "an interface statement holds exactly with the feature import-routes-v1"
+    );
 }
 
 #[test]

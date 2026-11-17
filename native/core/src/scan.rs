@@ -23,7 +23,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use archkeel_collect::{Identity, Over, Profile, Refusal, RefusalKind, Scanned};
-use archkeel_facts::envelope::validation::library_key;
+use archkeel_facts::envelope::validation::library_family;
 use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 
@@ -182,11 +182,7 @@ fn decide(
     } = scanned;
     let target = reply.reply().facts.runtime.target_description.clone();
     let facts = &reply.reply().facts;
-    let library_key = library_key(
-        facts.validation.as_ref(),
-        facts.profile,
-        &facts.runtime.version,
-    );
+    let library_key = facts.validation.standard_library.clone();
     dual_run::run(Run {
         case: "scan".to_owned(),
         path,
@@ -259,11 +255,7 @@ fn in_process(profile: Profile) -> TrustOf {
             };
         };
         let facts = &reply.reply().facts;
-        let key = library_key(
-            facts.validation.as_ref(),
-            facts.profile,
-            &facts.runtime.version,
-        );
+        let key = facts.validation.standard_library.clone();
         let Some(standard_library) = archkeel_store::standard_library_at(&key) else {
             let names = archkeel_store::standard_library_everywhere(&key)
                 .into_iter()
@@ -279,6 +271,7 @@ fn in_process(profile: Profile) -> TrustOf {
         let adapter = &facts.adapter;
         if facts.profile == profile
             && adapter.name == profile.as_str()
+            && library_family(&key) == adapter.name
             && adapter.code_digest == CODE_DIGEST
         {
             return Trust {
