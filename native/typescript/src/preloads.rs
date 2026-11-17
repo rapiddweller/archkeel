@@ -95,17 +95,7 @@ pub(super) fn names_of(base: &str, text: &str) -> Vec<String> {
             let Ok(json) = serde_json::from_str::<Value>(text) else {
                 return Vec::new();
             };
-            let mut names = Vec::new();
-            if let Some(scripts) = Value::get(&json, "scripts").and_then(Value::as_object) {
-                for script in scripts.values().filter_map(Value::as_str) {
-                    let found = option_names(script);
-                    if found.is_empty() && has_preload_flag(script) {
-                        Vec::push(&mut names, "<dynamic preload target>".to_owned());
-                    } else {
-                        Vec::extend(&mut names, found);
-                    }
-                }
-            }
+            let mut names = script_names(Value::get(&json, "scripts"));
             if let Some(jest) = Value::get(&json, "jest") {
                 Vec::extend(&mut names, jest_names(jest));
             }
@@ -135,6 +125,24 @@ pub(super) fn names_of(base: &str, text: &str) -> Vec<String> {
             }
         }
     }
+}
+
+/// Preload names and unresolved preload flags from package scripts.
+fn script_names(scripts: Option<&Value>) -> Vec<String> {
+    scripts
+        .and_then(Value::as_object)
+        .into_iter()
+        .flat_map(serde_json::Map::values)
+        .filter_map(Value::as_str)
+        .flat_map(|script| {
+            let found = option_names(script);
+            if found.is_empty() && has_preload_flag(script) {
+                vec!["<dynamic preload target>".to_owned()]
+            } else {
+                found
+            }
+        })
+        .collect()
 }
 
 /// A Node preload flag whose target the plain command reader cannot find.

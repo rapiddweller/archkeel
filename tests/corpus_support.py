@@ -103,7 +103,7 @@ def materialized(case: Case) -> Iterator[Path]:
             root.mkdir()
         modules = (root / "resolver-inputs").is_dir()
         if modules:
-            shutil.copytree(root / "resolver-inputs", root / "node_modules")
+            shutil.move(root / "resolver-inputs", root / "node_modules")
         _apply(root, case.base_files)
         commit_tree(root, *(["node_modules"] if modules else []))
         _apply(root, case.files)

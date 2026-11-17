@@ -90,7 +90,7 @@ HELD: dict[str, tuple[dict[str, str], str]] = {
     ),
     "malformed-config": (
         {"package.json": '{"scripts":'},
-        "Preload configuration package.json is not valid JSON",
+        "Preload configuration package.json is malformed",
     ),
 }
 

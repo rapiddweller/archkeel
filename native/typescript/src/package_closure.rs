@@ -113,37 +113,10 @@ impl Collection<'_> {
         while let Some(directory) = Vec::pop(&mut pending) {
             let (files, children) = self.snapshot.entries(&directory);
             for name in files {
-                if preloads::preload_file(&name) {
-                    let file = join(&directory, &name);
-                    let Some(data) = self.snapshot.read(&file) else {
-                        self.gap(
-                            &format!("Preload configuration {file} cannot be read"),
-                            None,
-                            "",
-                            GapKind::Collection,
-                        );
-                        continue;
-                    };
-                    let text = String::from_utf8_lossy(&data);
-                    let base = file.rsplit('/').next().unwrap_or_default();
-                    if preloads::malformed_config(base, &text) {
-                        self.gap(
-                            &format!("Preload configuration {file} is malformed"),
-                            None,
-                            "",
-                            GapKind::Collection,
-                        );
-                        continue;
-                    }
-                    let names = preloads::names_of(base, &text);
-                    for name in names {
-                        found.push(preloads::Named {
-                            line: preloads::line_of(&text, &name),
-                            name,
-                            file: file.clone(),
-                        });
-                    }
-                }
+                found.extend(
+                    self.read_named_preload(&directory, &name)
+                        .unwrap_or_default(),
+                );
             }
             pending.extend(
                 children
@@ -153,6 +126,44 @@ impl Collection<'_> {
             );
         }
         found
+    }
+
+    /// Read one repository data file that names preload entries.
+    fn read_named_preload(&mut self, directory: &str, name: &str) -> Option<Vec<preloads::Named>> {
+        if !preloads::preload_file(name) {
+            return None;
+        }
+        let file = join(directory, name);
+        let Some(data) = self.snapshot.read(&file) else {
+            self.gap(
+                &format!("Preload configuration {file} cannot be read"),
+                None,
+                "",
+                GapKind::Collection,
+            );
+            return Some(Vec::new());
+        };
+        let text = String::from_utf8_lossy(&data);
+        let base = file.rsplit('/').next().unwrap_or_default();
+        if preloads::malformed_config(base, &text) {
+            self.gap(
+                &format!("Preload configuration {file} is malformed"),
+                None,
+                "",
+                GapKind::Collection,
+            );
+            return Some(Vec::new());
+        }
+        Some(
+            preloads::names_of(base, &text)
+                .into_iter()
+                .map(|name| preloads::Named {
+                    line: preloads::line_of(&text, &name),
+                    name,
+                    file: file.clone(),
+                })
+                .collect(),
+        )
     }
 
     /// Does code in this closure reach Node's module object?
