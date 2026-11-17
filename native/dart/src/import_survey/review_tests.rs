@@ -283,7 +283,7 @@ fn an_imported_workspace_member_can_link_into_the_scan() {
     });
     let decoded = super::reply::decode(request.to_string().as_bytes()).unwrap();
     let found = super::survey(&decoded).unwrap();
-    only(&found, "DartWorkspace");
+    only(&found, "DartLocalPackage");
 }
 
 #[test]

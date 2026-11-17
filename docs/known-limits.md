@@ -8,7 +8,7 @@ What each language decides on main. The README quotes this block, and `tests/tes
 
 <!-- tiers:start -->
 Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule has its receipt from the package map of the survey (AD-800), and every other rule of both is UNKNOWN.
 <!-- tiers:end -->
 
 The details follow.
@@ -88,13 +88,16 @@ checks `interface.*` prove a use of a `public` entry from the imports and name `
 where only a declared facade signature could reach it (AD-514). A Dart project gets PASS or FAIL
 only for rules that read the import graph; each gap of AD-454 and a part in another component than
 its library give UNKNOWN for each rule of the run. A symbol selector or an `interface_boundary`
-rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) is
-always UNKNOWN: the survey does not prove that it sees each local package, and 4.0.1 gives no Dart
-cycle receipt either. A proof that releases it: the survey resolves each `package:` URI from a
-complete package map that it reads (each `pubspec.yaml` of the project and its path and workspace
-members), and a test plants each YAML form of a local package. The Dart collector reads bounded
-YAML. It keeps a gap for a path key, an unsupported YAML form, and a workspace that it cannot
-prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
+rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) has its
+receipt when the package map is complete (AD-800; 4.0.1 gives no Dart cycle receipt). The survey
+reads the dependencies, overrides, `workspace` and `resolution` of the root `pubspec.yaml`: an
+import of a package that the map does not prove hosted, SDK or remote git is a gap of its library
+(`DartLocalPackage`, `DartUndeclaredPackage`), and a local package that no library imports adds no
+gap. A member of a workspace above the snapshot root gets that gap at each `package:` import: the
+survey takes the root `pubspec.yaml` as the package, so a workspace root inside the snapshot makes
+the member a nested package (J-compass). The Dart collector reads bounded YAML. It keeps a
+whole-scope gap for a pubspec that it reads only word by word, an unsupported YAML form, and a
+workspace that it cannot prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
 package roots also give gaps (AD-562).
 
 **Dart import premise (AD-542).** Code outside the scan roots does not load or run scanned code

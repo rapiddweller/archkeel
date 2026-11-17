@@ -42,8 +42,10 @@
 | `DartPartUnowned` | A `part of` file that no library claims, or that names another library. |
 | `DartPartNotPart` | A `part` URI gives a library. |
 | `DartPartConflict` | Two libraries claim one part. |
-| `DartWorkspace` | `workspace:` or `resolution:` in the root `pubspec.yaml`. |
-| `DartPathDependency` | A `path:` key in the root `pubspec.yaml`: a local package outside the survey. |
+| `DartWorkspace` | A `workspace:` that the survey cannot read, or a `resolution:` other than `workspace` (AD-800). |
+| `DartPathDependency` | A `path:` key in a root `pubspec.yaml` that the survey reads only word by word (AD-800). |
+| `DartLocalPackage` | An import of a package that the package map does not prove external: a local dependency, a workspace member, or any package below a workspace above the root (AD-800). |
+| `DartUndeclaredPackage` | An import of a package that no root dependency declares while a local dependency can declare it (AD-800). |
 | `DartNestedPackage` | A `pubspec.yaml` inside a scan root. |
 | `DartPackageConfig` | `pubspec_overrides.yaml`, `package_config.json` or `.packages` outside `.dart_tool`; a link, unreadable or malformed `.dart_tool` file, or one that breaks rule 3. |
 | `DartParseBudget` | A source over a parse bound of rule 2 is not parsed. |
