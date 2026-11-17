@@ -81,6 +81,30 @@ pub(crate) fn key_form() -> &'static str {
     "a key that is no literal and can name constructor"
 }
 
+/// The kinds of a literal value: it is no function, so a write of it patches no call (#1674).
+pub(crate) const LITERAL_KINDS: [&str; 7] = [
+    "string",
+    "number",
+    "true",
+    "false",
+    "null",
+    "undefined",
+    "template_string",
+];
+
+/// A member patch of a free global (#1674): `Math.max = f` patches the path `max` of `Math`,
+/// `document.body.style.x = v` the path `body.style.x`. A key that is no literal ends the path, so
+/// the patch covers every member below the known part. `target` holds the line and column of each name of the
+/// written target (`Math`, `max`): a use there is the write, no read of the patched value. `span`
+/// is the place of the write.
+#[derive(Clone)]
+pub(crate) struct Patch {
+    pub global: String,
+    pub path: Vec<String>,
+    pub target: Vec<(i64, i64)>,
+    pub span: Span,
+}
+
 /// A direct form that can write any global: its place and the kind of the form (AD-540).
 pub(crate) type Blocker = (Span, &'static str);
 
@@ -110,4 +134,6 @@ pub(crate) struct Script {
     pub contained_reads: Vec<(i64, i64)>,
     /// The places of the amplifier forms (a window member, `this`) with the kind of the form.
     pub amp_blockers: Vec<Blocker>,
+    /// The member patches of a free global (`Math.max = f`, #1674).
+    pub patches: Vec<Patch>,
 }

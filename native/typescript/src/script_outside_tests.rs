@@ -68,6 +68,16 @@ fn each_form_that_replaces_a_global_withholds_it() {
     for (code, name) in forms {
         assert!(holds(&[("boot.js", code)], name), "{code}");
     }
+    for rel in [
+        ".storybook/preview.js",
+        ".vitepress/theme/index.ts",
+        ".config/boot.js",
+    ] {
+        assert!(
+            holds(&[(rel, "window.open = () => 1;\n")], "open"),
+            "a hidden folder: {rel}"
+        );
+    }
     let page = "<html><body>\n<script>\nwindow.open = () => 1;\n</script></body></html>\n";
     assert!(holds(&[("index.html", page)], "open"), "an inline script");
 }
@@ -92,7 +102,7 @@ fn a_file_that_replaces_no_global_keeps_the_proof() {
         ),
         (
             "tools/env.js",
-            "process.env.NODE_ENV = 'production';\ndocument.title = t;\n",
+            "process.env.NODE_ENV = 'production';\ndocument.title = 'x';\n",
         ),
         (
             "tools/local.js",
@@ -124,7 +134,8 @@ fn a_test_file_a_declaration_and_an_installed_package_are_not_read() {
         "boot.test.ts",
         "types/global.d.ts",
         "node_modules/lib/index.js",
-        ".storybook/preview.js",
+        ".git/hooks/pre-commit.js",
+        ".venv/lib/site/static/app.js",
     ] {
         assert!(withheld(&[(rel, write)]).is_empty(), "{rel}");
     }
@@ -157,5 +168,35 @@ fn the_gap_cites_the_use_and_the_write() {
     assert!(
         cited.iter().any(|at| at.starts_with("src/a.ts:")),
         "{cited:?}"
+    );
+}
+
+#[test]
+fn a_file_that_the_guard_cannot_read_withholds_every_global_and_names_the_cause() {
+    let big = format!("// {}\n", "x".repeat(4 * 1024 * 1024 + 16));
+    let tree = Tree::new(&[
+        ("tsconfig.json", "{}"),
+        ("src/a.ts", A),
+        ("src/b.ts", B),
+        ("tools/big.js", big.as_str()),
+    ]);
+    let facts = collect(&request(&tree, true), provenance());
+    let causes: Vec<&str> = facts
+        .gaps
+        .iter()
+        .map(|gap| gap.title.as_str())
+        .filter(|title| title.contains("the global-writer guard cannot read tools/big.js"))
+        .collect();
+    assert!(
+        causes
+            .iter()
+            .any(|t| t.starts_with("Script global open has no native proof")),
+        "{causes:?}"
+    );
+    assert!(
+        causes
+            .iter()
+            .any(|t| t.starts_with("Script global Math has no native proof")),
+        "{causes:?}"
     );
 }

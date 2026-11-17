@@ -108,9 +108,11 @@ pub(super) fn own_candidates(
     (module, at): (&Module, &str),
     call: &MethodCall,
     (owned, aliases): (&[Foreign<'_>], &BTreeSet<&str>),
+    keep: Keep<'_>,
 ) -> Vec<Pending> {
     owned
         .iter()
+        .filter(|block| keep(block))
         .filter(|block| names_type(module, call, &block.ty, aliases))
         .filter(|block| visible(workspace, (module, at), call, block))
         .map(|block| {
@@ -129,6 +131,9 @@ pub(super) fn own_candidates(
         })
         .collect()
 }
+
+/// Whether the type of a receiver lets a call reach the members of a block of this type (#1571).
+pub(super) type Keep<'k> = &'k dyn Fn(&Foreign<'_>) -> bool;
 
 /// Whether the written type of a path `T::m` can name the type of a member of the file of its type:
 /// `T` is its name, an alias or a renamed `use`, or a macro of the caller can give any name. A
