@@ -5,9 +5,9 @@
 // Consumer: the script globals of a project (AD-508, #1547). File A reads `Math.min`. File B
 // reads a member with a run-time key and calls the value later. Truth: node v26 runs each plant
 // of `COVERED` with `o = () => 1`, `k = 'constructor'` and a text that overwrites `Math`, and
-// `Math.min(1, 2)` is then 777 (`/tmp/ak1547/truth.mjs` in the PR text). So each one must keep
-// the read of `Math` in A from a proof. `DATA` holds uses that cannot call the value: they keep
-// their proof.
+// `Math.min(1, 2)` is then 777 (the truth script is in the text of PR #1574). So each one must
+// keep the read of `Math` in A from a proof. `DATA` holds uses that cannot call the value: they
+// keep their proof.
 
 use archkeel_snapshot::test_tree::Tree;
 

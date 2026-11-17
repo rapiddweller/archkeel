@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A value read with a run-time key that a later call can reach (AD-508 amendment, #1547).
+//! A value read with a run-time key that a later call can reach (AD-758, #1547).
 //!
 //! `o[k]` with a key that can name `constructor` is `Function` when `o` is a function. A direct
 //! call of it is a key call (AD-508 rule 2). This check follows the value after the read: through

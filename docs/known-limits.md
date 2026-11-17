@@ -428,7 +428,7 @@ run-time key (`getOwnPropertyDescriptor(s)`, `Reflect.get`, also stored or passe
 value that is no literal (`location.*`, `location = x`, a pattern or `for…of` target, `open(x, …)` with
 any target); a free `Object`, `Reflect`, `location` or `open` that is passed, stored or returned; and a
 destructuring pattern that takes a window member out of a value.
-The amendment of AD-508 (#1547, #1525) closes the looked-up value: a member read with a run-time key
+AD-758 (#1547, #1525) closes the looked-up value: a member read with a run-time key
 whose value a call can reach after the read is the same direct form as the key call. The check
 follows the value through a wrapper, a local name (also one that a later assignment writes), an
 array or object literal that holds it, and the members `call`, `apply` and `bind`. A use that
