@@ -69,15 +69,14 @@ pub(super) enum Unsupported {
     Whole,
 }
 
-impl Unsupported {
-    fn of(rules: &Value) -> Unsupported {
-        match rules {
-            Value::Object(_) => {
-                serde_json::from_value(rules.clone()).map_or(Unsupported::Absent, Unsupported::Each)
-            }
-            Value::String(_) => Unsupported::Whole,
-            _ => Unsupported::Absent,
+/// The typed form of `unsupported.rules`.
+fn rules_without_row(rules: &Value) -> Unsupported {
+    match rules {
+        Value::Object(_) => {
+            serde_json::from_value(rules.clone()).map_or(Unsupported::Absent, Unsupported::Each)
         }
+        Value::String(_) => Unsupported::Whole,
+        _ => Unsupported::Absent,
     }
 }
 
@@ -172,7 +171,7 @@ impl Frame {
             collection_gaps: field(frame, "collection_gaps"),
             named: serde_json::from_value(frame["unsupported"]["rules"].clone())
                 .unwrap_or_default(),
-            unsupported: Unsupported::of(&frame["unsupported"]["rules"]),
+            unsupported: rules_without_row(&frame["unsupported"]["rules"]),
             scope_complete: frame["scope"].as_str() == Some("complete"),
             cause,
             premise: text(&frame["premise"]).unwrap_or_default(),
