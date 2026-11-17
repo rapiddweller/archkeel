@@ -102,7 +102,9 @@ pub(crate) fn page_with_code(text: &[u8]) -> bool {
         .copied()
         .filter(|byte| !byte.is_ascii_whitespace())
         .collect();
-    let has = |haystack: &[u8], needle: &[u8]| haystack.windows(needle.len()).any(|w| w == needle);
+    let has = |haystack: &[u8], needle: &[u8]| {
+        (0..haystack.len()).any(|at| haystack[at..].starts_with(needle))
+    };
     CODE_MARKS.iter().any(|mark| has(&squeezed, mark))
         || (has(&squeezed, b"script") && ENTITIES.iter().any(|entity| has(&squeezed, entity)))
         || has_event_attribute(&lower)
