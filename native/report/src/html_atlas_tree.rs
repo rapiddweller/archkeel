@@ -187,6 +187,7 @@ impl Tree {
             nodes.push(component_node(component, parent));
         }
         super::atlas_groups::limit(&mut nodes);
+        super::atlas_members::aggregate(&mut nodes);
         let owner: BTreeMap<String, usize> = topology
             .modules
             .iter()
