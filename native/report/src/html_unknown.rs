@@ -181,14 +181,17 @@ fn kinds_table(frame: &Frame) -> String {
     )
 }
 
-/// A rule id. A row that the baseline accepts says so: it stays UNKNOWN and is not a pass (AD-546).
+/// A rule id and its kind. A row that the baseline accepts says so (AD-546).
 fn rule_id(frame: &Frame, id: &str) -> String {
     let mark = if frame.accepted.contains(id) {
         " <span class=\"caption rp-acc\">(accepted by the baseline, still UNKNOWN)</span>"
     } else {
         ""
     };
-    format!("<span class=\"rp-code\">{}</span>{mark}", escape(id))
+    let kind = frame.rules.get(id).map_or_else(String::new, |(kind, _)| {
+        format!(" ({})", escape(&kind.replace('_', " ")))
+    });
+    format!("<span class=\"rp-code\">{}</span>{kind}{mark}", escape(id))
 }
 
 /// The members of a family of hygiene gaps: what each points at, and the one message they share.
@@ -379,6 +382,18 @@ mod tests {
             .as_str()
             .unwrap()
             .to_owned()
+    }
+
+    #[test]
+    fn a_cause_names_the_kind_of_each_rule_it_holds() {
+        let frame = json!({
+            "status": "UNKNOWN",
+            "rules": {"RULE-A": ["external_dependency_scope", "UNKNOWN"]},
+            "explained": {"RULE-A": "proof is open"}
+        });
+        let rendered = page(&frame);
+        assert!(rendered
+            .contains("Holds <span class=\"rp-code\">RULE-A</span> (external dependency scope)"));
     }
 
     #[test]
