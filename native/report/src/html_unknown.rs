@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use super::cases::Names;
-use super::causes::{grouped, hygiene, title, Cause};
+use super::causes::{anchor, grouped, hygiene, title, Cause};
 use super::frame::Frame;
 use super::markup::{count, escape, status_icon};
 use super::status::{cause, Shown};
@@ -232,8 +232,9 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
         count(found.named, "named gap")
     };
     let mut html = format!(
-        "<article class=\"rp-cause\"><div class=\"rp-cause__head\"><h3 class=\"h3\">{}</h3>\
+        "<article class=\"rp-cause\" id=\"{}\"><div class=\"rp-cause__head\"><h3 class=\"h3\">{}</h3>\
 <span class=\"ak-badge ak-badge--unknown tag\">{}{}</span></div>",
+        anchor(found),
         escape(&title(found)),
         status_icon(Shown::Unknown),
         badge
@@ -295,7 +296,8 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
         ),
         "pair_gaps" | "allowed_pair_gaps" if !found.pairs.is_empty() => {
             format!(
-                "<details class=\"rp-fold\"><summary class=\"caption\">Which pairs</summary><div class=\"rp-cols\"><div>{}</div></div></details>",
+                "<details class=\"rp-fold\"><summary class=\"caption\">Which pairs: {}</summary><div class=\"rp-cols\"><div>{}</div></div></details>",
+                escape(&title(found)),
                 pairs_table(names, found)
             )
         }

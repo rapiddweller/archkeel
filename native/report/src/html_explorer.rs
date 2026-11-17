@@ -83,8 +83,10 @@ pub(super) fn section(payload: &Value) -> String {
         .map(|(source, attributes, _)| format!("<script{attributes}>{source}</script>\n"))
         .collect();
     format!(
-        "<div class=\"rp-explorer\"><button class=\"theme-toggle\" type=\"button\" hidden \
+        "<a class=\"ak-skip\" href=\"#after-explorer\">Skip the Explorer</a>\
+<div class=\"rp-explorer\"><button class=\"theme-toggle\" type=\"button\" hidden \
 aria-label=\"Switch to light theme\">&#9728;</button>\n{SECTION}<script id=\"flow-data\" \
-type=\"application/json\">{data}</script>\n{scripts}</section></div>\n"
+type=\"application/json\">{data}</script>\n{scripts}</section></div>\n\
+<span id=\"after-explorer\" tabindex=\"-1\"></span>\n"
     )
 }
