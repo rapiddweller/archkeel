@@ -53,7 +53,7 @@ pub fn violations(model: &Model, rule: &SymbolPlacement) -> Result<Vec<Class>, R
         }
         for kind in rule.class_kinds() {
             if kind_matches(class.kind, *kind) {
-                found.push(class.clone());
+                Vec::push(&mut found, class.clone());
                 break;
             }
         }
