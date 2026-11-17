@@ -254,6 +254,31 @@ impl Walk<'_> {
         }
     }
 
+    fn call<'a>(&mut self, expr: &'a Expr, call: &'a ruff_python_ast::ExprCall) {
+        match self.proof.target(call) {
+            Some(target) => {
+                self.push(LITERAL, &target, expr);
+                if let Some(kind) = hazard(&target) {
+                    self.push(kind, &target, expr);
+                }
+            }
+            None if inert::code_type_check(call, &self.code_types, self.isinstance_visible) => {
+                self.visit_expr(&call.arguments.args[0]);
+            }
+            None if !reflect::code(expr, &self.bound) && self.literal_getattr(call) => {}
+            None => {
+                if reflect::code(expr, &self.bound) {
+                    self.push(DYNAMIC, "code", expr);
+                }
+                let bare = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "vars");
+                if bare && call.arguments.is_empty() {
+                    self.push(DYNAMIC, "vars", expr);
+                }
+                visitor::walk_expr(self, expr);
+            }
+        }
+    }
+
     /// An attribute chain `base.a.b`: the first hazard on it, or a module above a hazard as
     /// the value of the whole chain.
     fn chain(&mut self, expr: &Expr) {
@@ -395,33 +420,9 @@ impl<'a> Visitor<'a> for Walk<'_> {
         }
         match expr {
             Expr::Lambda(node) => self.lambda(node),
-            Expr::Call(call)
-                if inert::code_type_check(call, &self.code_types, self.isinstance_visible) =>
-            {
-                self.visit_expr(&call.arguments.args[0]);
-            }
             // AD-472: only the callee of a proven literal call is exempt; its one argument is a
             // string literal, so nothing below the call is left to read.
-            Expr::Call(call) => match self.proof.target(call) {
-                Some(target) => {
-                    self.push(LITERAL, &target, expr);
-                    if let Some(kind) = hazard(&target) {
-                        self.push(kind, &target, expr);
-                    }
-                }
-                None if !reflect::code(expr, &self.bound) && self.literal_getattr(call) => {}
-                None => {
-                    if reflect::code(expr, &self.bound) {
-                        self.push(DYNAMIC, "code", expr);
-                    }
-                    // `vars()` without an argument is the namespace of the caller.
-                    let bare = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "vars");
-                    if bare && call.arguments.is_empty() {
-                        self.push(DYNAMIC, "vars", expr);
-                    }
-                    visitor::walk_expr(self, expr);
-                }
-            },
+            Expr::Call(call) => self.call(expr, call),
             Expr::Subscript(_) if reflect::code(expr, &self.bound) => {
                 self.push(DYNAMIC, "code", expr);
                 visitor::walk_expr(self, expr);
