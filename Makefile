@@ -21,10 +21,10 @@ ci-pr-static: lint typecheck
 # AD-674: the fast tests (everything but tests/areas.py SLOW_FILES). The main tier runs one area in each
 # job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). A floor in
 # tests/area_floors.json makes an empty or shrunken selection fail.
-FAST_TEST = $(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
+FAST_TEST = ARCHKEEL_PREBUILT_CORE=1 $(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
 	-q --durations=10 --junitxml=test-artifacts/pytest/fast.xml
 
-fast-test: browser-runtime-install
+fast-test: core browser-runtime-install
 	$(FAST_TEST) -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)
 
 # AD-674: the PR gate, at most 3 minutes: static checks, the core build, the self and system check,
@@ -32,7 +32,7 @@ fast-test: browser-runtime-install
 PR_BASE ?= origin/main
 pr-gate: ci-pr-static self-validate pr-selected-test
 
-pr-selected-test: browser-runtime-install
+pr-selected-test: core browser-runtime-install
 	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") && echo "areas: $$areas" && \
 		eval "$(FAST_TEST) -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"
 

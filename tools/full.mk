@@ -14,10 +14,10 @@ ci-core-check: gate typescript-compiler-check typescript-libs-check
 
 # One area of the full suite (tests/areas.py); Full verification runs every area in parallel.
 full-test: TEST_WORKERS = 4
-full-test: browser-runtime-install test
+full-test: core browser-runtime-install test
 
-test:
-	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n $(TEST_WORKERS) --dist=loadgroup --max-worker-restart=0 \
+test: core
+	ARCHKEEL_PREBUILT_CORE=1 $(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n $(TEST_WORKERS) --dist=loadgroup --max-worker-restart=0 \
 		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml \
 		$(if $(AREA),--area="$(AREA)",)
 

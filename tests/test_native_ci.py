@@ -73,7 +73,11 @@ def test_the_pinned_toolchain_installs_once_before_any_parallel_step(
 
 # A parent make (`make pr-test`) passes MAKELEVEL on, and GNU make 4 then prints "Leaving directory"
 # after the commands of the child. The child must not know that it runs inside a make.
-_MAKE_ENV = {k: v for k, v in os.environ.items() if k not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL"}}
+_MAKE_ENV = {
+    k: v
+    for k, v in os.environ.items()
+    if k not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "ARCHKEEL_PREBUILT_CORE"}
+}
 
 
 def _dry_run(*arguments: str) -> str:

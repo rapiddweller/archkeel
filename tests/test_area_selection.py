@@ -71,3 +71,22 @@ def test_the_floor_of_an_area_fails_a_selection_that_falls_short(area: str) -> N
         check=False,
     )
     assert done.returncode != 0 and "fast tests" in done.stdout + done.stderr
+
+
+def test_a_test_session_under_make_never_builds_the_shared_core(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#1205: with `ARCHKEEL_PREBUILT_CORE` a missing core fails the test; it is never rebuilt."""
+    from core_support import prebuilt_core
+
+    binary = tmp_path / "archkeel-core"
+    monkeypatch.delenv("ARCHKEEL_PREBUILT_CORE", raising=False)
+    assert prebuilt_core(binary) is None
+    monkeypatch.setenv("ARCHKEEL_PREBUILT_CORE", "1")
+    with pytest.raises(pytest.fail.Exception, match="make core"):
+        prebuilt_core(binary)
+    binary.write_text("x")
+    assert prebuilt_core(binary) == binary
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "ARCHKEEL_PREBUILT_CORE=1 $(UV) run" in makefile
+    assert "fast-test: core" in makefile and "pr-selected-test: core" in makefile
