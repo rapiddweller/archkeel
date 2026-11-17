@@ -13,6 +13,7 @@ use crate::crates::{Crate, Workspace};
 use crate::definitions::Form;
 use crate::derive_imports::Local;
 use crate::modules::{Index, Outcome};
+use crate::registry_overrides::Cited;
 use crate::scan::{Concern, Reference, Via};
 use crate::tree::Module;
 use std::collections::BTreeSet;
@@ -92,13 +93,15 @@ pub(crate) fn binding(
     }
 }
 
-fn known(
+/// The modeled derive that `usage` names through a registry dependency of the crate, and its
+/// package, before the lock facts prove the artifacts.
+fn modeled<'k>(
     workspace: &Workspace,
-    krate: &Crate,
+    krate: &'k Crate,
     local: &Local<'_>,
     scope: &[String],
     usage: &Usage,
-) -> Option<&'static Known> {
+) -> Option<(&'k str, &'static Known)> {
     let module = local.module;
     if !usage.complete || krate.manifest.legacy() || !module.scan.extern_crates.is_empty() {
         return None;
@@ -127,12 +130,46 @@ fn known(
     let model = KNOWN
         .iter()
         .find(|m| m.package == package && m.name == name)?;
+    Some((package.as_str(), model))
+}
+
+fn known(
+    workspace: &Workspace,
+    krate: &Crate,
+    local: &Local<'_>,
+    scope: &[String],
+    usage: &Usage,
+) -> Option<&'static Known> {
+    let (package, model) = modeled(workspace, krate, local, scope, usage)?;
     let library = krate.registry.packages.get(package)?;
     let implementation = krate.registry.packages.get(model.implementation)?;
     (library.version == model.version
         && implementation.version == model.version
         && library.dependencies.contains(model.implementation))
     .then_some(model)
+}
+
+/// The package and the setting of the repository that withhold the proof of the modeled derive
+/// of `concern` (AD-774): the derive would have a model, but its library or implementation crate
+/// may be built from other code.
+pub(crate) fn withheld<'w>(
+    workspace: &'w Workspace,
+    local: &Local<'_>,
+    concern: &Concern,
+) -> Option<(&'static str, &'w Cited)> {
+    let krate = workspace.crates.get(local.module.crate_index)?;
+    let scope = concern.source.as_ref()?;
+    let usages: Vec<&Usage> = match concern.proof.as_ref()? {
+        Proof::Derive(usage) => vec![usage],
+        Proof::Helper { candidates, .. } => candidates.iter().collect(),
+        Proof::Attribute(_) => Vec::new(),
+    };
+    usages.into_iter().find_map(|usage| {
+        let (_, model) = modeled(workspace, krate, local, scope, usage)?;
+        [model.package, model.implementation]
+            .into_iter()
+            .find_map(|name| Some((name, krate.registry.withheld.get(name)?)))
+    })
 }
 
 fn builtin(

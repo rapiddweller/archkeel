@@ -32,6 +32,7 @@
         "native.archkeel_facts.data:DoorSite",
         "native.archkeel_facts.data:GapEffect",
         "native.archkeel_facts.data:ImportData",
+        "native.archkeel_facts.data:PlaceholderData",
         "native.archkeel_facts.data:PlainConstructData",
         "native.archkeel_facts.data:ReferenceData",
         "native.archkeel_facts.data:SelectorData",
@@ -128,6 +129,7 @@
         "native.archkeel_facts.vocab:MemberKind",
         "native.archkeel_facts.vocab:MethodKind",
         "native.archkeel_facts.vocab:Operation",
+        "native.archkeel_facts.vocab:PlaceholderForm",
         "native.archkeel_facts.vocab:ReferenceContext",
         "native.archkeel_facts.vocab:RelationshipKind",
         "native.archkeel_facts.vocab:ResolutionDimension",
@@ -5012,7 +5014,8 @@
         "native.archkeel_rust_collector.manifest",
         "native.archkeel_rust_collector.manifest_lines",
         "native.archkeel_rust_collector.crates",
-        "native.archkeel_rust_collector.registry"
+        "native.archkeel_rust_collector.registry",
+        "native.archkeel_rust_collector.registry_overrides"
       ],
       "responsibilities": [
         "Read the Cargo workspace: TOML, manifests, crates, paths, sources and the test scope."
@@ -5044,7 +5047,8 @@
         "native.archkeel_rust_collector.manifest:Kind",
         "native.archkeel_rust_collector.paths:normalize",
         "native.archkeel_rust_collector.registry:Registry",
-        "native.archkeel_rust_collector.registry:overrides",
+        "native.archkeel_rust_collector.registry_overrides:Cited",
+        "native.archkeel_rust_collector.registry_overrides:configs",
         "native.archkeel_rust_collector.source:read_text",
         "native.archkeel_rust_collector.source:walk",
         "native.archkeel_rust_collector.test_scope:NO_PRODUCTION_SOURCE",
@@ -5103,6 +5107,7 @@
           "through": [
             "native.archkeel_rust_collector.crates",
             "native.archkeel_rust_collector.paths",
+            "native.archkeel_rust_collector.registry_overrides",
             "native.archkeel_rust_collector.source",
             "native.archkeel_rust_collector.test_scope"
           ]
@@ -5112,6 +5117,7 @@
         "native.archkeel_rust_collector.derive_identity:binding",
         "native.archkeel_rust_collector.derive_identity:namespace",
         "native.archkeel_rust_collector.derive_identity:proven",
+        "native.archkeel_rust_collector.derive_identity:withheld",
         "native.archkeel_rust_collector.derive_imports:Local",
         "native.archkeel_rust_collector.modules.state:Frame",
         "native.archkeel_rust_collector.modules.state:Index",
@@ -5269,7 +5275,8 @@
           "rationale": "Read the crates and the manifests of the workspace.",
           "through": [
             "native.archkeel_rust_collector.crates",
-            "native.archkeel_rust_collector.manifest"
+            "native.archkeel_rust_collector.manifest",
+            "native.archkeel_rust_collector.registry_overrides"
           ]
         },
         {
@@ -5408,6 +5415,7 @@
           "through": [
             "native.archkeel_rust_collector.crates",
             "native.archkeel_rust_collector.registry",
+            "native.archkeel_rust_collector.registry_overrides",
             "native.archkeel_rust_collector.source",
             "native.archkeel_rust_collector.test_scope"
           ]

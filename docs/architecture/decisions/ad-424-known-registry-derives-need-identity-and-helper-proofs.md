@@ -65,5 +65,6 @@ Review B2: search every directory below scan roots and their ancestors inside th
 Reject source configs, directory links, read failures, depth over 128, or more than one million entries.
 Tests cover member and non-crate configs, patches, replacements, inherited path sources and absent locks.
 Outside configuration can still replace modeled code: an open silent false PASS in #1020, not an accepted proof.
+Amended by AD-774 (#1518): the Cargo settings of the repository withhold the crates that they can change, with a named gap, and the scan states the premise for settings outside the repository.
 After the review, native has 114 gaps and unchanged core rows: one new `registry -> snapshot.listing` method gap.
 Rename the engine's value function `derive` to `derive_model`; do not relax the namespace proof for it.

@@ -356,10 +356,9 @@ fn a_config_search_past_the_depth_bound_withholds_the_model() {
     let path = format!("crates/{}file", "d/".repeat(130));
     let tree = archkeel_snapshot::test_tree::Tree::new(&[(&path, "")]);
     let mut snapshot = archkeel_snapshot::Snapshot::new(&tree.path());
-    assert!(crate::registry::overrides(
-        &mut snapshot,
-        &["crates".to_owned()]
-    ));
+    assert!(crate::registry_overrides::configs(&mut snapshot)
+        .all
+        .is_some());
 }
 
 #[cfg(unix)]
@@ -368,9 +367,8 @@ fn a_config_symlink_withholds_the_model_without_following_it() {
     let tree = archkeel_snapshot::test_tree::Tree::new(&[("crates/file", "")]);
     std::os::unix::fs::symlink("/does-not-exist", tree.root.join("crates/.cargo")).unwrap();
     let mut snapshot = archkeel_snapshot::Snapshot::new(&tree.path());
-    assert!(crate::registry::overrides(
-        &mut snapshot,
-        &["crates".to_owned()]
-    ));
+    assert!(crate::registry_overrides::configs(&mut snapshot)
+        .all
+        .is_some());
     assert!(snapshot.problems.is_empty());
 }

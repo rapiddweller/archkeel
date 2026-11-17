@@ -78,18 +78,21 @@ def test_an_open_red_run_counts_to_now_and_a_day_without_runs_gives_n_a() -> Non
     )
 
 
-def test_ci_runs_on_main_only_and_a_newer_push_cancels_the_older_run() -> None:
-    """The main and nightly tiers have no pull_request trigger and no draft guard (AD-674)."""
+def test_the_main_tier_queues_and_the_nightly_run_cancels() -> None:
+    """AD-674: a run on main finishes (one newest run waits); the nightly Full run cancels."""
     workflows = Path(__file__).parents[1] / ".github/workflows"
-    group = (
+    queued = "  group: ci-main\n  cancel-in-progress: false\n"
+    cancelled = (
         "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}\n"
         "  cancel-in-progress: true\n"
     )
-    for name in ("ci.yml", "full-verification.yml"):
+    for name, group in (("ci.yml", queued), ("full-verification.yml", cancelled)):
         text = (workflows / name).read_text()
         assert "pull_request:" not in text.split("\nconcurrency:\n", 1)[0], name
         assert "draft" not in text, name
         assert group in text, name
+    head = (workflows / "ci.yml").read_text().split("\nconcurrency:\n", 1)[0]
+    assert 'cron: "23 */2 * * *"' in head, "a full main run every two hours"
 
 
 def test_a_red_that_began_the_day_before_carries_into_the_day() -> None:

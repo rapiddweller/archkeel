@@ -22,6 +22,10 @@ const SECTIONS: [&str; 3] = ["imports", "symbols", "unknowns"];
 const FEATURES: [&str; 1] = ["rust-crate-edges"];
 /// The feature of the linked reply: each import names its item and its route (AD-604).
 const ROUTES_FEATURE: &str = "rust-item-routes-v1";
+/// The assumption that the identity proofs of registry crates rest on (AD-774). The collector reads
+/// the Cargo settings of the repository; it cannot see the settings of the machine that builds.
+const LOCK_PREMISE: &str =
+    "registry crates are built from the identity that Cargo.lock records; no outside source replacement";
 
 /// The validation table of the collector (AD-688; `evaluate.py:1055-1056`, `ir/profiles.py:227-252`):
 /// the sections `imports` and `unknowns` and optionally `symbols`, the crate edges and the routes
@@ -49,6 +53,8 @@ pub(crate) struct Collected {
     pub selected_files: Vec<String>,
     pub files_read: usize,
     pub evidence: Vec<Evidence>,
+    /// The scan states `LOCK_PREMISE` with its verdict.
+    pub lock_premise: bool,
 }
 
 impl Collected {
@@ -65,6 +71,7 @@ impl Collected {
     /// decide the symbol selectors and the interface rule (AD-500, AD-604). The compressed
     /// stream keeps its frozen statement set, as the Python survey does (AD-504).
     pub(crate) fn typed(self, version: Version) -> Result<Reply, String> {
+        let premise = self.lock_premise;
         let (head, records) = self.parts();
         let mut reply = assemble(version, head, |writer| records.produce(writer))?;
         reply.facts.profile_limits = Some(ProfileLimits {
@@ -74,6 +81,9 @@ impl Collected {
         });
         let features = &mut reply.facts.capabilities.resolution_features;
         features.push(ROUTES_FEATURE.to_owned());
+        if premise {
+            reply.facts.scope_premise = Some(LOCK_PREMISE);
+        }
         Ok(reply)
     }
 
@@ -86,6 +96,7 @@ impl Collected {
             selected_files,
             files_read,
             evidence,
+            lock_premise: _,
         } = self;
         (
             head,
@@ -162,6 +173,7 @@ impl Builder {
             selected_files: selected,
             files_read: walked.modules.len() + self.manifests.len(),
             evidence: self.evidence.into_values().collect(),
+            lock_premise: self.lock_premise,
         }
     }
 }

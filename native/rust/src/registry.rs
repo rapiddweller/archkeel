@@ -3,19 +3,36 @@
 // SPDX-License-Identifier: MIT
 
 //! Lock facts for bounded library models, not a Cargo resolver. Missing, stale or ambiguous
-//! facts give no proof. Source overrides and non-registry dependencies give no proof either.
+//! facts give no proof. A non-registry dependency gives no proof either, and a setting of the
+//! repository that can change a registry crate withholds its proof (`registry_overrides`, AD-774).
 
 use crate::manifest::{self, Manifest};
+use crate::registry_overrides::{self as overrides, Cited, Lines, Overrides};
 use crate::source::read_text;
 use crate::toml::{self, Table, Value};
-use archkeel_snapshot::paths::{dirname, join};
-use archkeel_snapshot::{Entry, Snapshot};
+use archkeel_snapshot::paths::join;
+use archkeel_snapshot::Snapshot;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Registry {
     pub direct: BTreeSet<String>,
     pub packages: BTreeMap<String, Locked>,
+    /// The locked packages whose proof a setting of the repository withholds, with the setting.
+    pub withheld: BTreeMap<String, Cited>,
+}
+
+impl Registry {
+    /// Withhold the proof of each locked package that a setting of `overrides` can change.
+    pub(crate) fn withhold(&mut self, overrides: &Overrides) {
+        let names: Vec<String> = self.packages.keys().cloned().collect();
+        for name in names {
+            if let Some(cited) = overrides.of(&name) {
+                self.packages.remove(&name);
+                self.withheld.entry(name).or_insert_with(|| cited.clone());
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -129,95 +146,6 @@ fn entry<'a>(value: &'a Value, inherited: Option<&'a Value>) -> Option<&'a Value
     }
 }
 
-/// Cargo starts its config lookup at the invocation directory, not the workspace manifest.
-pub(crate) fn overrides(snapshot: &mut Snapshot, roots: &[String]) -> bool {
-    let mut pending = Vec::new();
-    for root in roots {
-        let root = archkeel_snapshot::paths::normpath(root);
-        let root = if root == "." { "" } else { &root };
-        if ancestors(snapshot, root) {
-            return true;
-        }
-        pending.push((root.to_owned(), 0_usize));
-    }
-    let mut remaining = 1_000_000_usize;
-    while let Some((dir, depth)) = pending.pop() {
-        if depth > 128 {
-            return true;
-        }
-        let Some(entries) = Snapshot::listing(snapshot, &dir) else {
-            return true;
-        };
-        let Some(left) = remaining.checked_sub(entries.len()) else {
-            return true;
-        };
-        remaining = left;
-        if config_at(snapshot, &dir, &entries) {
-            return true;
-        }
-        // Build output is not source (the walk of the collector skips it too), and a parallel
-        // build adds and removes files there while the scan runs: its content decides nothing.
-        if entries.iter().any(|(name, kind)| {
-            *kind == Entry::File && crate::source::BUILD_MARKERS.contains(&name.as_str())
-        }) {
-            continue;
-        }
-        for (name, kind) in entries {
-            match kind {
-                Entry::Directory => pending.push((join(&dir, &name), depth + 1)),
-                Entry::Link { to_directory: true } => return true,
-                _ => (),
-            }
-        }
-    }
-    false
-}
-
-fn config_at(snapshot: &mut Snapshot, dir: &str, entries: &[(String, Entry)]) -> bool {
-    let Some((_, kind)) = entries.iter().find(|(name, _)| name == ".cargo") else {
-        return false;
-    };
-    if *kind != Entry::Directory {
-        return true;
-    }
-    Snapshot::listing(snapshot, &join(dir, ".cargo")).is_none_or(|entries| {
-        entries
-            .iter()
-            .any(|(name, _)| name == "config" || name == "config.toml")
-    })
-}
-
-fn ancestors(snapshot: &mut Snapshot, root: &str) -> bool {
-    let mut parents = vec![root];
-    let mut at = root;
-    while !at.is_empty() {
-        at = dirname(at);
-        parents.push(at);
-    }
-    if parents.len() > 129 {
-        return true;
-    }
-    parents.reverse();
-    for (index, dir) in parents.iter().enumerate() {
-        let Some(entries) = Snapshot::listing(snapshot, dir) else {
-            return true;
-        };
-        if config_at(snapshot, dir, &entries) {
-            return true;
-        }
-        if let Some(child) = parents.get(index + 1) {
-            let name = child.rsplit('/').next().unwrap_or(child);
-            if !entries
-                .iter()
-                .any(|(n, kind)| n == name && *kind == Entry::Directory)
-            {
-                return true;
-            }
-        }
-    }
-    false
-}
-
 pub(crate) fn read(
     snapshot: &mut Snapshot,
     member: (&str, &Table),
@@ -225,9 +153,11 @@ pub(crate) fn read(
     manifest: &Manifest,
 ) -> Registry {
     let (root, table) = workspace.unwrap_or(member);
-    let rejected = |t: &Table| t.contains_key("patch") || t.contains_key("replace");
-    if rejected(table) || rejected(member.1) {
-        return Registry::default();
+    let mut local = Overrides::default();
+    for (dir, manifest_table) in [workspace, Some(member)].into_iter().flatten() {
+        let rel = join(dir, "Cargo.toml");
+        let text = read_text(snapshot, &rel).unwrap_or_default();
+        overrides::manifest(manifest_table, &Lines::new(&rel, &text), &mut local);
     }
     let lock_path = join(root, "Cargo.lock");
     if !snapshot.is_file(&lock_path) {
@@ -288,9 +218,11 @@ pub(crate) fn read(
         }
     }
     direct.retain(|key| !rejected_keys.contains(key));
-    Registry { direct, packages }
+    let mut registry = Registry {
+        direct,
+        packages,
+        withheld: BTreeMap::new(),
+    };
+    registry.withhold(&local);
+    registry
 }
-
-#[cfg(test)]
-#[path = "registry_tests.rs"]
-mod tests;
