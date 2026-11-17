@@ -21,19 +21,22 @@ def test_the_packages_that_are_not_installed_are_named_once(
     )
     _, text = _run(document, ["validate", "--text"], capsys)
     assert (
-        "9 imports point to packages that are not installed: react, @tanstack/react-query" in text
+        "9 imports point to packages that could not be found (most likely not installed): "
+        "react, @tanstack/react-query" in text
     )
-    assert "Fix: install the dependencies" in text
+    assert "Fix: if they are not installed, install them" in text
 
 
 def test_many_packages_are_cut_after_five(capsys: pytest.CaptureFixture[str]) -> None:
     document = _by_causes({f"Unresolved module: pkg{n}": 2 for n in range(8)})
     _, text = _run(document, ["validate", "--text"], capsys)
-    assert "16 imports point to packages that are not installed: " in text
+    assert (
+        "16 imports point to packages that could not be found (most likely not installed): " in text
+    )
     assert "and 3 more" in text
 
 
 def test_a_relative_import_is_not_called_a_package(capsys: pytest.CaptureFixture[str]) -> None:
     document = _by_causes({"Unresolved module: ../up": 4})
     _, text = _run(document, ["validate", "--text"], capsys)
-    assert "not installed" not in text
+    assert "could not be found" not in text
