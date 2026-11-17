@@ -337,10 +337,11 @@ def test_six_hundred_brackets_still_refuse_without_a_frame(
     assert b"parse_work_limit" in done.stderr
 
 
-def test_a_long_call_chain_is_a_named_gap(release_core: Path, tmp_path: Path) -> None:
+@pytest.mark.parametrize("links", [20_000, 200_000])
+def test_a_long_call_chain_is_a_named_gap(release_core: Path, tmp_path: Path, links: int) -> None:
     root = tmp_path / "project"
     request = project(root, 1, 0, "typescript")
-    (root / "src/deep0.ts").write_text("export const v = a" + ".b()" * 200_000 + ";\n")
+    (root / "src/deep0.ts").write_text("export const v = a" + ".b()" * links + ";\n")
     contract = root / "architecture-contract.json"
     data = json.loads(contract.read_text())
     data["rules"] = [rule for rule in data["rules"] if rule["id"] == "MODULE-CYCLES"]

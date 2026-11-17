@@ -13,9 +13,9 @@ use crate::site_types::{Expression, Site};
 use crate::source::Span;
 
 /// The most bytes of expression text that the records of one file may copy and hash. The highest
-/// value that a real project reaches is 181 KB (AD-778); the `sites-chained-calls` shape of
-/// 20,000 calls costs 800 MB and stays below the limit.
-const MAX_RECORD_TEXT: u64 = 1 << 30;
+/// value that a real project reaches is 181 KB (AD-778), so the limit of 64 MiB is about 370
+/// times that. A chain of 5,000 calls costs 50 MB and stays below it; 20,000 calls cost 800 MB.
+const MAX_RECORD_TEXT: u64 = 64 << 20;
 
 /// The sum of the expression lengths of the sites of a file, and the site with the longest one.
 struct Charge {
@@ -85,12 +85,12 @@ mod tests {
     }
 
     #[test]
-    fn the_scaling_shape_of_20000_calls_stays_below_the_limit_and_200000_calls_do_not() {
+    fn a_chain_of_5000_calls_stays_below_the_limit_and_20000_calls_do_not() {
         let at = |links: usize| charged(&format!("a{};", ".b()".repeat(links)));
-        assert!(at(20_000).bytes < MAX_RECORD_TEXT);
-        let refused = at(200_000);
+        assert!(at(5_000).bytes < MAX_RECORD_TEXT);
+        let refused = at(20_000);
         assert!(refused.bytes > MAX_RECORD_TEXT);
-        assert_eq!(refused.longest.map(|(length, _)| length), Some(799_999));
+        assert_eq!(refused.longest.map(|(length, _)| length), Some(79_999));
     }
 
     #[test]
