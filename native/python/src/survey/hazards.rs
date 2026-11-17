@@ -396,12 +396,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
         match expr {
             Expr::Lambda(node) => self.lambda(node),
             Expr::Call(call)
-                if self.isinstance_visible
-                    && matches!(&*call.func, Expr::Name(name) if name.id.as_str() == "isinstance")
-                    && call.arguments.args.len() == 2
-                    && call.arguments.keywords.is_empty()
-                    && matches!(&call.arguments.args[1], Expr::Name(name)
-                        if self.code_types.contains(name.id.as_str())) =>
+                if inert::code_type_check(call, &self.code_types, self.isinstance_visible) =>
             {
                 self.visit_expr(&call.arguments.args[0]);
             }
