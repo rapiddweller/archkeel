@@ -30,10 +30,11 @@ def test_a_required_check_that_is_not_a_success_blocks_the_merge(state: str) -> 
     assert refusals(PR, ["PR gate"], {"PR gate": "success"}) == []
 
 
-def test_a_draft_a_conflict_a_stale_head_or_a_closed_request_blocks_the_merge() -> None:
+def test_a_draft_a_conflict_a_blocked_state_or_a_closed_request_blocks_the_merge() -> None:
     assert refusals({**PR, "isDraft": True}, [], {})
     assert refusals({**PR, "mergeable": "CONFLICTING"}, [], {})
-    assert refusals({**PR, "mergeStateStatus": "BEHIND"}, [], {})
+    assert refusals({**PR, "mergeStateStatus": "DIRTY"}, [], {})
+    assert refusals({**PR, "mergeStateStatus": "BLOCKED"}, [], {})
     assert refusals({**PR, "state": "MERGED"}, [], {})
 
 
@@ -84,3 +85,10 @@ def test_the_tool_never_names_admin_or_no_verify() -> None:
     source = (Path(__file__).parents[1] / "tools/merge_pr.py").read_text(encoding="utf-8")
     code = source.split('"""', 2)[2]
     assert "--admin" not in code and "--no-verify" not in code
+
+
+def test_a_head_behind_its_base_may_merge_when_the_gate_is_green() -> None:
+    """Non-strict protection (owner decision 2026-11-17): BEHIND alone is no reason to refuse."""
+    behind = {**PR, "mergeStateStatus": "BEHIND"}
+    assert refusals(behind, ["PR gate"], {"PR gate": "success"}) == []
+    assert refusals(behind, ["PR gate"], {"PR gate": "failure"}) != []
