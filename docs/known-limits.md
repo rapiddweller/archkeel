@@ -43,7 +43,9 @@ the last two were fixed after it and are checked on main at `157dc8851`:
   `requires-python` range allows 3.14, a `__slots__` entry and an attribute store of the same name
   in a file of the scan or a non-test file of the repository give `lazy_class_namespace`; a
   `setattr` with a computed name gives it for each name (AD-802, #1523). The fixtures are in
-  `tests/test_collector_false_pass_python_lazy_annotations.py`.
+  `tests/test_collector_false_pass_python_lazy_annotations.py`. A bare class annotation that declares a UML attribute
+  (AD-748) follows the same rule, and a `__slots__` entry of its name holds it on every version
+  (#1714).
 - A Rust `macro_rules!` call that adds an unanchored `Display` impl gives UNKNOWN with a pair
   gap. The fixture is `PLANTS["an impl that a macro of b generates"]` in
   `tests/test_collector_false_pass_rust_orphan_impl.py` (AD-662).

@@ -24,6 +24,7 @@ use crate::declare::visibility;
 use crate::module::builtin_roles::{self, Role};
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
+use crate::survey::class_writes::ClassWrites;
 use crate::survey::value::assignment_parts;
 
 /// The attributes of a class and, for an enum, the names of its literals.
@@ -55,7 +56,8 @@ pub(super) fn attributes(
                 (Expr::Name(name), None)
                     if matches!(&*assign.annotation, Expr::Name(annotation)
                         if builtin_roles::named(Role::ANNOTATION).any(|builtin| builtin == annotation.id.as_str())
-                        && !bound.names().contains(annotation.id.as_str())) =>
+                        && !bound.names().contains(annotation.id.as_str())
+                        && !namespace_holds(scan, &node.body, annotation.id.as_str())) =>
                 {
                     (vec![name.id.as_str()], scan.text(Some(&assign.annotation))?)
                 }
@@ -244,6 +246,16 @@ pub(super) fn method_kind(node: &StmtFunctionDef, binders: &Binders) -> Option<M
         },
         _ => None,
     }
+}
+
+/// True when the namespace of the class can hold `name` when its annotation is read (#1714): a
+/// `__slots__` entry (a member of the class), or, when the annotation is read late, a store of
+/// the name in a file of the scan or a non-test file of the repository (AD-802).
+fn namespace_holds(scan: &Reader<'_, '_>, body: &[Stmt], name: &str) -> bool {
+    let slot = slots(body).is_none_or(|names| names.contains(name));
+    slot || scan
+        .writes
+        .is_some_and(|writes| ClassWrites::can_write(writes, name))
 }
 
 /// The `__slots__` entries of a class body (#1523): each string of a literal string, tuple, list,
