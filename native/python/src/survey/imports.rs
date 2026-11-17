@@ -449,11 +449,13 @@ impl Collector<'_, '_> {
                 ImportFact::DynamicImport(data)
             },
         };
-        // `from m import A, A as A` binds one name twice to one target in one statement: both
-        // aliases state the same fact at the same place, so the record is made once. A record of
-        // the statement with the same id but other data is kept, and the store refuses it.
-        let statement = self.records.iter().rev();
-        let mut statement = statement.take_while(|made| made.evidence_ids == record.evidence_ids);
+        // `from m import A, A as A`: both aliases state one fact at one place, so one record. A
+        // record of the statement with the same id and other data is kept; the store refuses it.
+        let mut statement = self
+            .records
+            .iter()
+            .rev()
+            .take_while(|made| made.evidence_ids == record.evidence_ids);
         if !statement.any(|made| *made == record) {
             self.records.push(record);
         }
