@@ -6,41 +6,18 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
-from core_support import build_environment, ensure_target_dir
-from filelock import FileLock
+from core_support import built as built
 
 from tests.test_native_interface_boundary import run_core, scan
 
 
 @pytest.fixture(scope="module")
-def release() -> Path:
-    native = Path(__file__).parents[1] / "native"
-    ensure_target_dir(native)
-    # The build lock of all workers: cargo must not build in the shared target at the same time.
-    with FileLock(str(native / "target" / ".pytest-native-build.lock")):
-        subprocess.run(
-            [
-                "cargo",
-                "build",
-                "--locked",
-                "--release",
-                "-q",
-                "-p",
-                "archkeel-core",
-                "-p",
-                "archkeel-typescript-collector",
-                "-p",
-                "archkeel-rust-collector",
-            ],
-            cwd=native,
-            env=build_environment(),
-            check=True,
-        )
-    return native / "target/release"
+def release(built: Path) -> Path:
+    """The shared build of the core and the collectors (#1205): this file builds nothing itself."""
+    return built
 
 
 @pytest.mark.parametrize(
