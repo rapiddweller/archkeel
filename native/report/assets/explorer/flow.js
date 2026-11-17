@@ -640,7 +640,7 @@
   function openArchitectureEntity(id, sourceGraph = null) {
     if (ATLAS) {
       const module = renderedScene?.nodes.find((node) => node.id === id)?.module;
-      if (module) location.href = atlasDetailsHref(module, atlasLevel());
+      if (module) openAtlasModule(module.id);
       else openAtlasComponent(id);
       return;
     }
@@ -1829,9 +1829,10 @@
 
   function updateOpenSelected() {
     if (ATLAS) {
-      const module = renderedScene?.nodes.find((node) => node.id === umlSelection?.id)?.module;
-      openSelectedButton.disabled = !module && (!umlSelection || !ATLAS.levels.some((level) => level.parent_id === umlSelection.id));
-      openSelectedButton.textContent = module ? `Open ${module.path?.split("/").at(-1) || module.name}` : umlSelection ? `Open ${REPORT_SCENE.atlasComponent(umlSelection.id)?.label || "component"}` : "Open selected";
+      // A module is the last level: selecting it shows all of its facts, so it has nothing to open.
+      const component = umlSelection && REPORT_SCENE.atlasComponent(umlSelection.id);
+      openSelectedButton.disabled = !component || !ATLAS.levels.some((level) => level.parent_id === umlSelection.id);
+      openSelectedButton.textContent = component ? `Open ${component.label}` : "Open selected";
       return;
     }
     const node = umlSelection?.type === "node" && renderedScene?.nodes.find((item) => item.id === umlSelection.id);
@@ -2018,18 +2019,12 @@
       const module = modules.find((item) => item.path === finding.path)
         || (recorded ? { ...recorded, ...assignment } : null);
       const source = finding.path ? `${finding.path}${finding.line ? `:${finding.line}` : ""}` : "Source not recorded";
-        let href = null;
-        if (module) {
-          const [path, search = ""] = atlasDetailsHref(module, level).split("?");
-          const query = new URLSearchParams(search);
-          query.set("view", "diagram"); query.set("content", "modules");
-          href = `${path}?${query}`;
-        }
+        const href = module ? atlasModuleHref(module.id) : null;
         const remedy = finding.remedy && finding.remedy !== sharedRemedy
           ? `<p class="atlas-finding-remedy">${esc(finding.remedy)}</p>` : "";
         const nested = finding.nested_annotation
           ? `<p class="atlas-nested-annotation">Nested type: <code>${esc(finding.nested_annotation)}</code></p>` : "";
-        return `<li id="atlas-finding-${esc(finding.id)}-${esc(encodeURIComponent(rule))}"><strong>${esc(finding.title)}</strong>${nested}<p>${href ? `<a href="${esc(href)}">${esc(source)}</a>` : `<code>${esc(source)}</code>`}</p>${remedy}</li>`;
+        return `<li id="atlas-finding-${esc(finding.id)}-${esc(encodeURIComponent(rule))}"><strong>${esc(finding.title)}</strong>${nested}<p>${href ? `<a href="${esc(href)}" data-atlas-module-route="${esc(module.id)}">${esc(source)}</a>` : `<code>${esc(source)}</code>`}</p>${remedy}</li>`;
       }).join("")}</ul></details>`;
       }).join("") || "<p>No recorded findings at this level.</p>"}</details>`;
   }
@@ -2163,40 +2158,74 @@
     return `<section class="atlas-evidence"><h3>Analysis limits</h3>
       <ul class="plain">${ATLAS.unknowns.map((item) => `<li>${REPORT_SCENE.countLabel(item.count, "analysis limit")} · ${esc(item.reason)}</li>`).join("")}</ul></section>`;
   }
-  function atlasEntryQuery(level) {
-    const query = new URLSearchParams({ return_scope: level.parent_id || "",
-      return_view: viewMode, view: viewMode, theme: document.documentElement.dataset.theme });
-    const selected = atlasModule || (umlSelection?.type === "node" ? umlSelection.id : null);
-    if (selected) query.set("return_selected", selected);
-    if (atlasCell !== null && viewMode !== "target") query.set("return_cell", String(atlasCell));
-    if (atlasHasChoice(level)) query.set("return_content", atlasContent || "components");
+  // Issue 1471: a module has no page of its own. A module route is a URL of this page: the level that
+  // shows the module in its module view, with the module selected.
+  function atlasModuleLevel(id) {
+    const current = atlasLevel();
+    if (root.dataset.content === "modules" && REPORT_SCENE.atlasModules(current, viewMode).some((item) => item.id === id))
+      return current;
+    let found = null, depth = -1;
+    for (const level of ATLAS.levels) {
+      const levelDepth = REPORT_SCENE.componentRoute(level.parent_id).length;
+      if (levelDepth > depth && REPORT_SCENE.atlasModules(level, viewMode).some((item) => item.id === id)) {
+        found = level; depth = levelDepth;
+      }
+    }
+    return found;
+  }
+
+  function atlasLevelQuery(parentId) {
+    const query = new URLSearchParams(location.search);
+    for (const key of ["component", "scope", "module", "selected", "cell", "content"]) query.delete(key);
+    if (parentId) query.set("scope", parentId);
+    query.set("view", viewMode);
+    query.set("theme", document.documentElement.dataset.theme);
     return query;
   }
 
-  function atlasDetailsHref(module, level) {
-    const assignment = viewMode === "target" ? module : level.modules.find((item) => item.id === module.id);
-    const targetCounterparts = viewMode === "diff"
-      ? (ATLAS.module_correspondences || [])
-        .filter((item) => item.observed_ids.length === 1 && item.observed_ids[0] === module.id)
-        .map((item) => ATLAS.declared_modules.find((target) => target.id === item.target_id))
-        .filter(Boolean)
-      : [];
-    const targetCounterpart = targetCounterparts.length === 1 ? targetCounterparts[0] : null;
-    const componentId = targetCounterpart
-      ? targetCounterpart.component_id || assignment?.component_id
-      : assignment?.component_id;
-    const route = componentId && ATLAS.detail_page
-      ? `${ATLAS.detail_page}?component=${encodeURIComponent(componentId)}`
-      : `${ATLAS.detail_page || "architecture.detail.html"}?component=unassigned`;
-    const href = route.startsWith("?") ? `${ATLAS.detail_page || "architecture.detail.html"}${route}` : route;
-    const query = atlasEntryQuery(level); query.set("module", module.id);
-    if (viewMode === "target") query.set("origin", "declared");
-    if (targetCounterpart) {
-      query.set("module", targetCounterpart.id);
-      query.set("origin", "declared");
-    }
-    return `${href}${href.includes("?") ? "&" : "?"}${query}`;
+  function atlasLevelHref(parentId) { return `${location.pathname}?${atlasLevelQuery(parentId)}`; }
+
+  function atlasModuleHref(id) {
+    const level = atlasModuleLevel(id) || atlasLevel();
+    const query = atlasLevelQuery(level.parent_id);
+    if (atlasHasChoice(level)) query.set("content", "modules");
+    query.set("selected", id);
+    return `${location.pathname}?${query}`;
   }
+
+  function atlasModuleShown(id) {
+    return root.dataset.content === "modules" && atlasModuleLevel(id) === atlasLevel();
+  }
+
+  function atlasModuleLink(module, label) {
+    return `<a href="${esc(atlasModuleHref(module.id))}" data-atlas-module-route="${esc(module.id)}">${esc(label)}</a>`;
+  }
+
+  function openAtlasModule(id) {
+    const level = atlasModuleLevel(id);
+    if (!level) return;
+    const moved = level !== atlasLevel() || root.dataset.content !== "modules";
+    if (!moved) { selectArchitectureSubject("node", id); return; }
+    rememberNavigationState();
+    umlPath = REPORT_SCENE.componentRoute(level.parent_id).map((item) => ({ id: item.id, origin: "observed" }));
+    atlasContent = "modules";
+    umlSelection = { type: "node", id };
+    atlasModule = viewMode !== "target" && REPORT_SCENE.atlasModuleById(id) ? id : null;
+    atlasCell = null; atlasHint = null; atlasAllHints = false;
+    setTargetDetails(true);
+    positions = Object.create(null); render(); fit();
+  }
+
+  function followAtlasModuleRoute(event) {
+    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const module = event.target.closest("[data-atlas-module-route]");
+    const level = event.target.closest("[data-atlas-level-route]");
+    if (!module && !level) return;
+    event.preventDefault();
+    if (module) openAtlasModule(module.dataset.atlasModuleRoute);
+    else openAtlasComponent(level.dataset.atlasLevelRoute);
+  }
+  if (ATLAS) (root.closest("main") || root).addEventListener("click", followAtlasModuleRoute);
 
   function openAtlasComponent(id, content = null) {
     if (!ATLAS.levels.some((level) => level.parent_id === id)) return;
@@ -2394,7 +2423,7 @@
       const cell = ATLAS.cells[atlasCell];
       const source = REPORT_SCENE.atlasModuleById(cell.source_id), target = REPORT_SCENE.atlasModuleById(cell.target_id);
       inspectorContent.innerHTML = `<div class="kicker">Observed import cell</div><h2>${esc(source.name)} → ${esc(target.name)}</h2>
-        <p>${link(atlasDetailsHref(source, level), "Open UML and source evidence")}</p>
+        <p>${atlasModuleLink(source, `Show ${source.name}`)}</p>
         <p>${cell.import_sites ?? "UNKNOWN"} import sites · Core finding status: <strong>${esc(cell.status)}</strong></p>
         <p>Permission: <strong>${esc(cell.permission)}</strong></p><p>${esc(cell.permission_reason)}</p>
         ${list("Recorded reasons", cell.reasons)}${list("Finding IDs", atlasReferences(cell, "finding_ids"))}
@@ -2423,7 +2452,7 @@
         return rows.length > 4 ? `<details class="atlas-imports"><summary>${title}</summary>${body}</details>` : `<h3>${title}</h3>${body}`;
       };
       inspectorContent.innerHTML = `<div class="kicker">Observed module · counts over the observed source scope</div>
-        <h2>${esc(module.name)}</h2><p>${link(atlasDetailsHref(module, level), "Open UML and source evidence")}</p>${module.path ? `<p><code>${esc(module.path)}</code></p>` : ""}
+        <h2>${esc(module.name)}</h2>${atlasModuleShown(module.id) ? "" : `<p>${atlasModuleLink(module, "Show in the module view")}</p>`}${module.path ? `<p><code>${esc(module.path)}</code></p>` : ""}
         <p>${module.symbols == null ? "" : `${REPORT_SCENE.countLabel(module.symbols, "observed symbol")} · `}fan-in ${module.fan_in ?? "UNKNOWN"} · fan-out ${module.fan_out ?? "UNKNOWN"}</p>
         <h3>Owner</h3><p>${esc(owner?.label || "UNKNOWN")} · ${esc(assignment?.ownership_reason || "No assignment receipt")}</p>
         ${owner ? list("Responsibility", owner.responsibilities) + list("Not responsible for", owner.not_responsible_for) : list("Candidate owners", assignment?.candidate_ids || [])}
@@ -2435,7 +2464,7 @@
       const module = REPORT_SCENE.atlasModules(level, viewMode).find((item) => item.id === umlSelection?.id);
       if (module) {
         inspectorContent.innerHTML = `<div class="kicker">Declared module</div><h2>${esc(module.name)}</h2>
-          <p>${link(atlasDetailsHref(module, level), "Open UML and source evidence")}</p><p><code>${esc(module.path || "File path not declared")}</code></p>
+          ${atlasModuleShown(module.id) ? "" : `<p>${atlasModuleLink(module, "Show in the module view")}</p>`}<p><code>${esc(module.path || "File path not declared")}</code></p>
           <p>${REPORT_SCENE.countLabel(module.declarations, "direct declared definition")}</p>${list("Responsibility", module.responsibilities)}${list("Provenance", module.provenance)}
           ${boundaryPermissionMarkup(module.id, new Set([module.id]))}
           ${list("Authored module relationships", scene.edges.filter((edge) => edge.source === module.id || edge.target === module.id)
@@ -2461,7 +2490,7 @@
       ${viewMode === "target" ? "" : atlasRuleAssessmentMarkup(level, component)}${viewMode !== "target" ? `<h3>In this run</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")}${component.observed_symbols == null ? "" : ` · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}`} · ${esc(component.status)} · ${esc(component.reason)}</p>${usedBy ? `<h3>Used by</h3><p>${usedBy}</p>` : ""}` : ""}
       <p class="muted">Decided by ${esc(component.decided_by || "the contract")}</p>${viewMode === "target" || !component.path ? "" : atlasOwnsMarkup(component.path)}
       ${component.provenance.length ? `<details><summary>Reasons · ${REPORT_SCENE.countLabel(component.provenance.length, "document")}</summary><ul class="plain">${component.provenance.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></details>` : ""}${inventory}
-      ${viewMode === "target" ? `<p>${link(`${ATLAS.detail_page}?component=${encodeURIComponent(component.id)}&origin=declared&${atlasEntryQuery(level)}`, "Open declared component details")}</p>` : ""}`;
+      ${viewMode === "target" && componentLevel ? `<p><a href="${esc(atlasLevelHref(component.id))}" data-atlas-level-route="${esc(component.id)}">Open declared component details</a></p>` : ""}`;
     inspectorContent.querySelector("[data-browse-component]").onclick = () => openAtlasComponent(component.id, "modules");
   }
 
@@ -2491,7 +2520,7 @@
   function atlasModuleList(level) {
     const modules = REPORT_SCENE.atlasModules(level, viewMode);
     return `<section class="atlas-module-list"><h3>${viewMode === "target" ? "Declared" : "Observed"} ${REPORT_SCENE.countLabel(modules.length, "module")}</h3><ul class="plain">
-      ${modules.map((module) => `<li><a href="${esc(atlasDetailsHref(module, level))}">${esc(module.path?.split("/").at(-1) || module.name)}</a>
+      ${modules.map((module) => `<li>${atlasModuleLink(module, module.path?.split("/").at(-1) || module.name)}
         · ${viewMode === "target" ? REPORT_SCENE.countLabel(module.declarations, "direct declared definition") : REPORT_SCENE.countLabel(module.symbols, "observed symbol")}
         <p><code>${esc(module.path || module.name)}</code>${module.path ? "" : " · File path not declared"}</p></li>`).join("")}</ul></section>`;
   }
@@ -2861,8 +2890,8 @@
     }, scene.layoutRoutes);
     atlasEmphasize();
     legend.textContent = scene.moduleOverview ? viewMode === "target"
-      ? "Target modules · authored relationships · Enter opens direct definitions"
-      : "Observed modules · local directed relationships · Enter opens direct definitions"
+      ? "Target modules · authored relationships · Enter or a click selects a module and shows its facts"
+      : "Observed modules · local directed relationships · Enter or a click selects a module and shows its facts"
       : viewMode === "target" ? "Target edges · requires = declared permission · full rationale in tooltip and Details"
         : viewMode === "diff" ? "Diff edges · red: undeclared · solid: permitted and used · dashed: allowed but unused"
           : "Directed dependencies · shared positions across views · counts are observed import sites";
@@ -3133,7 +3162,8 @@
       openAtlasComponent(REPORT_SCENE.atlasComponent(id).parent_id);
       selectArchitectureSubject("node", id);
     },
-    moduleHref: atlasDetailsHref,
+    moduleHref: (module) => atlasModuleHref(module.id),
+    openModule: openAtlasModule,
     setExploreOpen: setAtlasExploreOpen,
     openRule: (rule) => {
       openAtlasComponent(rule.scope_id || null);

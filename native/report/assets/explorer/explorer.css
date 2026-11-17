@@ -1188,7 +1188,11 @@ html.ak-canvas .rp-explorer .ak-tag.ak-language-badge text{ fill: var(--language
 .rp-explorer .ak-detail-actions{ display: flex; min-width: 0; overflow-x: auto; }
 .rp-explorer .ak-bottom-left .flow-filters{ position: static; }
 .rp-explorer .ak-bottom-left .flow-filter-controls{ max-width: 100%; }
-.rp-explorer .ak-bottom-center{ bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: 360px; right: 265px; overflow-x: auto; }
+.rp-explorer .ak-bottom-center{
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: 360px; right: 265px;
+  /* The chips wrap to a further row inside the bar (it grows upward): none is hidden or cut off. */
+  flex-wrap: wrap; row-gap: var(--space-1); max-height: 45%; overflow-y: auto;
+}
 .rp-explorer .ak-bottom-right{ bottom: calc(12px + env(safe-area-inset-bottom, 0px)); right: var(--space-3); }
 .rp-explorer .ak-rail{ top: 68px; left: var(--space-3); flex-direction: column; }
 .rp-explorer .ak-sep{ width: 1px; align-self: stretch; margin: var(--space-1) var(--space-1); background: var(--line); }
