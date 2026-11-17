@@ -55,6 +55,7 @@ mod lazy_table;
 mod lazy_value;
 mod lazy_writes;
 mod literal;
+mod module_scopes;
 mod module_uses;
 mod namespace;
 mod package_body;

@@ -98,7 +98,7 @@ def test_an_unknown_run_names_the_gaps_of_each_rule_and_the_rules_of_each_gap(
         assert all(rule in by_gap[gap]["rules"] for gap in held["gaps"])
     assert all(sorted(gap["rules"]) == gapped for gap in by_gap.values())
     assert all(gap["rules_total"] == 5 and not gap["truncated"] for gap in by_gap.values())
-    assert frame["scope"].endswith("71 coverage gaps")
+    assert frame["scope"].endswith(f"{total} coverage gaps")
 
 
 LIB = "mod a;\nmod b;\nmod c;\n"

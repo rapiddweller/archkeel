@@ -112,6 +112,20 @@ def rows(result: dict[str, Any]) -> dict[str, str]:
     return {rule: row[1] for rule, row in result["frame"]["rules"].items()}
 
 
+@pytest.mark.parametrize("kind", ["class", "function", "alias"])
+def test_reserved_type_parameter_leaves_a_named_gap(
+    release_core: Path, tmp_path: Path, kind: str
+) -> None:
+    fixture = Path(__file__).resolve().parents[1] / "native/python/tests/fixtures"
+    source = (fixture / f"reserved-{kind}.txt").read_text()
+    root = project(tmp_path, {**BASE, "src/app/client.py": source})
+    config = root / "archkeel.toml"
+    config.write_text(config.read_text() + 'python = "3.12"\n')
+    result = verdict(release_core, root)
+    assert rows(result)["FORBID"] == "UNKNOWN"
+    assert "src/app/client.py:2" in json.dumps(result)
+
+
 @pytest.mark.parametrize(
     ("source", "expected", "why"),
     [

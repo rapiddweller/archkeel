@@ -89,3 +89,50 @@ def test_a_core_is_saved_only_after_its_own_build_step_succeeded() -> None:
         assert condition is not None and "steps.build.outcome == 'success'" in condition[1]
         assert "archkeel-core.tree" in save.split("key:", 1)[0], workflow
         assert body.index("id: build") < body.index("Save the core for this native tree")
+
+
+def test_the_gate_profile_builds_without_lto_and_with_16_codegen_units(tmp_path: Path) -> None:
+    """AD-754: ARCHKEEL_CORE_PROFILE=gate passes the fast profile; no variable keeps release."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    cargo = bin_dir / "cargo"
+    cargo.write_text(
+        "#!/bin/sh\n"
+        f'env | grep -E "^CARGO_PROFILE_RELEASE" | sort >> "{tmp_path}/profile.log"\n'
+        'echo "--" >> ' + f'"{tmp_path}/profile.log"\n'
+        "mkdir -p target/release\necho built > target/release/archkeel-core\n"
+        "chmod +x target/release/archkeel-core\n"
+    )
+    cargo.chmod(0o755)
+    (tmp_path / "native").mkdir()
+    base = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "MAKEFLAGS": ""}
+    base.pop("ARCHKEEL_CORE_PROFILE", None)
+    for profile in ("gate", ""):
+        env = {**base, "ARCHKEEL_CORE_PROFILE": profile} if profile else base
+        done = subprocess.run(
+            ["make", "-s", "-f", str(ROOT / "Makefile"), "core"],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert done.returncode == 0, done.stderr
+    first, second = (tmp_path / "profile.log").read_text().split("--\n")[:2]
+    assert "CARGO_PROFILE_RELEASE_LTO=false" in first
+    assert "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" in first
+    assert "CARGO_PROFILE_RELEASE" not in second
+
+
+def test_the_pr_gate_runs_the_static_checks_beside_the_core_build_and_checks_their_result() -> None:
+    """AD-754: the static checks need no core; they run while cargo builds."""
+    body = _jobs("pr-gate.yml")["pr-gate"]
+    build = body.split("      - name: Build the core\n", 1)[1].split("\n      - name:", 1)[0]
+    assert "make ci-pr-static" in build and "make core" in build and "wait " in build
+    assert "make pr-native-lint" in build
+    required = body.split("      - name: Require the static and the Rust checks\n", 1)[1]
+    assert "steps.build.outputs.static" in required.split("\n      - name:", 1)[0]
+    assert "SKIP_STATIC=1" in body
+    text = (ROOT / ".github/workflows/pr-gate.yml").read_text()
+    assert "ARCHKEEL_CORE_PROFILE: gate" in text.split("\njobs:\n", 1)[0]
+    assert "ARCHKEEL_CORE_PROFILE: gate" in (ROOT / ".github/workflows/ci.yml").read_text()

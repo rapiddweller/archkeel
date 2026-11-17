@@ -262,3 +262,46 @@ def test_back_restores_the_drawer_of_the_entry(site: str, page: Browser) -> None
     state = page.state()
     assert (state["scope"], state["drawer"]) == (None, "objects")
     assert page.evaluate("!!document.querySelector('#flow .ak-drawer[aria-label=\"objects\"]')")
+
+
+def theme(page: Browser) -> list[object]:
+    """The theme of the page, the pressed header button, and the URL."""
+    return page.evaluate(
+        "[document.documentElement.dataset.theme,"
+        " document.querySelector('[data-ak-theme][aria-pressed=\"true\"]')?.dataset.akTheme,"
+        " location.search.includes('theme=')]"
+    )
+
+
+def test_back_keeps_the_theme_that_the_user_chose(site: str, page: Browser) -> None:
+    # E2: the header owns the theme; Back set the theme of the old URL again.
+    page.color_scheme("dark")
+    page.open(f"{site}/system.html")
+    page.evaluate("localStorage.removeItem('archkeel-theme')")
+    page.open(f"{site}/system.html")
+    click(page, '[data-ak-theme="light"]')
+    page.evaluate("ArchkeelFlow.dispatch({ type: 'openLevel', id: 'PART:shell' })")
+    page.settle()
+    page.evaluate("history.back()")
+    page.settle()
+    assert theme(page) == ["light", "light", False]
+
+
+def test_a_chosen_theme_stays_after_a_reload_and_adds_no_entry(site: str, page: Browser) -> None:
+    page.color_scheme("dark")
+    page.open(f"{site}/system.html")
+    page.evaluate("localStorage.removeItem('archkeel-theme')")
+    page.open(f"{site}/system.html")
+    entries = page.evaluate("history.length")
+    click(page, '[data-ak-theme="light"]')
+    assert page.evaluate("history.length") == entries
+    page.open(page.evaluate("location.href"))
+    assert theme(page) == ["light", "light", False]
+    assert page.state()["theme"] == "light"
+
+
+def test_a_theme_action_goes_through_the_owner_of_the_theme(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html")
+    page.evaluate("ArchkeelFlow.dispatch({ type: 'setTheme', theme: 'dark' })")
+    assert theme(page) == ["dark", "dark", False]
+    assert page.evaluate("localStorage.getItem('archkeel-theme')") == "dark"

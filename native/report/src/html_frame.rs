@@ -56,6 +56,30 @@ pub(super) struct Identity {
     pub(super) engine: String,
 }
 
+/// The rules of the run without a row, as `unsupported.rules` states them (AD-730, #1507).
+#[derive(Clone, Debug, Default)]
+pub(super) enum Unsupported {
+    /// The frame states no list: it proves nothing about the rules without a row.
+    #[default]
+    Absent,
+    /// Each rule or named gap without a row, with its reason. An empty list proves that each rule
+    /// of the contract has a row.
+    Each(BTreeMap<String, String>),
+    /// One reason holds the whole contract.
+    Whole,
+}
+
+/// The typed form of `unsupported.rules`.
+fn rules_without_row(rules: &Value) -> Unsupported {
+    match rules {
+        Value::Object(_) => {
+            serde_json::from_value(rules.clone()).map_or(Unsupported::Absent, Unsupported::Each)
+        }
+        Value::String(_) => Unsupported::Whole,
+        _ => Unsupported::Absent,
+    }
+}
+
 /// The parts of the frame that the page shows.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Frame {
@@ -75,6 +99,10 @@ pub(super) struct Frame {
     pub(super) explained: BTreeMap<String, String>,
     /// The named gaps of the run that are no rule of the contract: an id and its reason.
     pub(super) named: BTreeMap<String, String>,
+    /// The rules without a row, typed: the run-level floor reads it (AD-730, #1507).
+    pub(super) unsupported: Unsupported,
+    /// Whether the frame states its scope `complete`.
+    pub(super) scope_complete: bool,
     pub(super) collection_gaps: Vec<CollectionGap>,
     /// The identity of the run: the digests of the contract, its files and the core.
     pub(super) identity: Identity,
@@ -143,6 +171,8 @@ impl Frame {
             collection_gaps: field(frame, "collection_gaps"),
             named: serde_json::from_value(frame["unsupported"]["rules"].clone())
                 .unwrap_or_default(),
+            unsupported: rules_without_row(&frame["unsupported"]["rules"]),
+            scope_complete: frame["scope"].as_str() == Some("complete"),
             cause,
             premise: text(&frame["premise"]).unwrap_or_default(),
             calls: serde_json::from_value(frame["measures"].clone()).ok(),

@@ -102,6 +102,12 @@ impl Check<'_> {
             if param.name().as_str() == "__debug__" {
                 self.fail(param, "cannot bind __debug__");
             }
+            if param.name().as_str() == "__classdict__" {
+                self.fail(
+                    param,
+                    "reserved name '__classdict__' cannot be used for type parameter",
+                );
+            }
             if !names.insert(param.name().as_str()) {
                 self.fail(param, "duplicate type parameter");
             }

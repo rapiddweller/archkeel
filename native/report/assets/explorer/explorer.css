@@ -924,8 +924,13 @@
   font:11px var(--font-mono)}
 .rp-explorer .atlas-finding-chip,
 .rp-explorer .atlas-deviation-chip{font:11px var(--font-sans)}
-.rp-explorer .atlas-finding-chip{fill:var(--fail)}
-.rp-explorer .atlas-deviation-chip{fill:var(--accent-text)}
+/* The colour of the two lines follows the status of the box: the fail token only in a FAIL box. */
+.rp-explorer .atlas-finding-chip,
+.rp-explorer .atlas-deviation-chip{fill:var(--ink-muted)}
+.rp-explorer .node[data-assessment-status="UNKNOWN"] .atlas-finding-chip,
+.rp-explorer .node[data-assessment-status="UNKNOWN"] .atlas-deviation-chip{fill:var(--unknown-text)}
+.rp-explorer .node[data-assessment-status="FAIL"] .atlas-finding-chip,
+.rp-explorer .node[data-assessment-status="FAIL"] .atlas-deviation-chip{fill:var(--fail)}
 .rp-explorer .atlas-edge-label{fill:var(--ink-muted);
   font:11px var(--font-sans);
   paint-order:stroke;
@@ -1413,3 +1418,18 @@ html.ak-canvas .rp-explorer .flow[data-atlas] .flow-inspector{
   }
 html.ak-canvas .rp-explorer .ak-detail .ak-bottom-left{ bottom: var(--space-3); max-width: calc(100% - 180px); }
 }
+/* Issue 1488: while the layout runs, the canvas says so; it is never silently empty. */
+html:not(.ak-canvas) .rp-explorer .flow-map-column{position: relative;}
+.rp-explorer .flow[data-layout-state="pending"] .flow-map-column::after{content: "Arranging the diagram…";
+  position: absolute;
+  top: var(--space-8);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-0);
+  color: var(--ink-muted);
+  font: 13px var(--font-sans);
+  box-shadow: var(--shadow-pop);
+  pointer-events: none;}
