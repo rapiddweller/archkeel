@@ -191,10 +191,12 @@ def test_a_history_word_or_a_commit_in_history_excuses_only_what_it_names(tmp_pa
 
 
 def test_the_flow_runtime_names_the_hash_of_its_source() -> None:
-    """The generator of `flow.runtime.js` is gone, so its stated source hash is the only check."""
+    """`flow.runtime.js` names the hash of its source: the parts of `flow/` that it joins."""
     import hashlib
+
+    from tools import browser_runtime
 
     assets = ROOT / "native/report/assets/explorer"
     stated = re.search(r"source-sha256=([0-9a-f]{64})", (assets / "flow.runtime.js").read_text())
     assert stated, "flow.runtime.js names no source hash"
-    assert stated.group(1) == hashlib.sha256((assets / "flow.js").read_bytes()).hexdigest()
+    assert stated.group(1) == hashlib.sha256(browser_runtime.source()).hexdigest()
