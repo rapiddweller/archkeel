@@ -60,6 +60,21 @@ fn a_package_wins_over_a_module_of_the_same_name() {
 }
 
 #[test]
+fn a_package_shadows_only_the_module_in_its_own_directory() {
+    let selected: Vec<String> = [
+        "src/app/fmt.py",
+        "src/app/fmt/__init__.py",
+        "lib/app/fmt.py",
+    ]
+    .iter()
+    .map(|rel| (*rel).to_owned())
+    .collect();
+    let found = shadowed(&selected, "app", crate::test_minor(12));
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].file, "src/app/fmt.py");
+}
+
+#[test]
 fn the_repr_quotes_as_python_does() {
     assert_eq!(repr("a'b"), "\"a'b\"");
     assert_eq!(repr("a'b\""), "'a\\'b\"'");

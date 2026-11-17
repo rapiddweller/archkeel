@@ -276,6 +276,7 @@ GAPS = {
     },
     "stub_or_compiled_module ": {"src/app/fast.cpython-311-darwin.so": "\0"},
     "duplicate_module": {"lib/app/service.py": "VALUE = 2\n"},
+    "duplicate_module#package": {"lib/app/service/__init__.py": "VALUE = 2\n"},
     "module_outside_layout": {"src/app/inner/app/deep.py": ""},
     # Proof review of #1141: each plant must stay UNKNOWN.
     "dynamic_import#alias": {
