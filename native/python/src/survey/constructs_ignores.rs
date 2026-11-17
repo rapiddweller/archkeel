@@ -6,6 +6,23 @@
 
 use std::{collections::BTreeMap, ops::Range};
 
+use archkeel_facts::data::SignalData;
+use archkeel_facts::vocab::Signal;
+
+pub(super) fn data(owner: &str, line: i64, tag: String, statement: String) -> SignalData {
+    SignalData {
+        annotation: None,
+        expression: None,
+        line: Some(line),
+        owner: owner.to_owned(),
+        positions: None,
+        qualified_name: Some(owner.to_owned()),
+        signal: Signal::TypeIgnore,
+        statement: Some(statement),
+        tag: Some(tag),
+    }
+}
+
 pub(super) struct Comments {
     pending: BTreeMap<usize, Option<String>>,
 }
@@ -26,10 +43,10 @@ impl Comments {
                     .map(str::trim_start)
                     .and_then(|s| s.strip_prefix("ignore"))
                     .filter(|s| {
-                        s.is_empty()
+                        str::is_empty(s)
                             || (s.starts_with('[')
                                 && s.ends_with(']')
-                                && s[1..s.len() - 1]
+                                && s[1..str::len(s) - 1]
                                     .bytes()
                                     .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b','))
                     })
@@ -52,18 +69,18 @@ impl Comments {
         if !identifier(base) || !identifier(member) {
             return None;
         }
-        if !text[line..start].trim().is_empty() {
+        if !str::is_empty(text[line..start].trim()) {
             return None;
         }
         let (&at, tag) = self.pending.range(end..).next()?;
-        if tag.is_none() || !text[end..at].trim().is_empty() || text[end..at].contains('\n') {
+        if tag.is_none() || !str::is_empty(text[end..at].trim()) || text[end..at].contains('\n') {
             return None;
         }
         Some((self.pending.remove(&at).flatten()?, statement.to_owned()))
     }
 
     pub(super) fn complete(&self) -> bool {
-        self.pending.is_empty()
+        BTreeMap::is_empty(&self.pending)
     }
 }
 

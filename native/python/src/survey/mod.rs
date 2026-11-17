@@ -163,7 +163,6 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
-    let constructs = constructs::collect(modules, &binders, &mut evidence);
     let lazy = lazy::find(modules, &binders, namespace);
     // AD-472: a proven literal import call is an import record; each other site is a gap.
     let (literals, hazards) = hazards::split(modules, &binders, Some(&lazy));
@@ -179,6 +178,13 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+    let constructs = constructs::collect(
+        modules,
+        &binders,
+        &imports,
+        (&sole_binders, &ambiguous),
+        &mut evidence,
+    );
     let scan = pathscope::Scan::new(modules, &imports, roots, namespace);
     let (hazards, listings) = pathscope::settle(hazards, &scan, &mut snapshot);
     let mut opaque_surface: HashSet<String> = modules

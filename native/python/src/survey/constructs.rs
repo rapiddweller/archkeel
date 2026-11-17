@@ -9,7 +9,7 @@ use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::sections::SignalFact;
 use archkeel_facts::vocab::{Area, ConstructForm, EvidenceClass, Signal};
-use archkeel_facts::{ConstructFact, Record};
+use archkeel_facts::{ConstructFact, ImportFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{CmpOp, ExceptHandler, Expr, Parameter, Stmt};
 use ruff_text_size::Ranged;
@@ -27,13 +27,24 @@ mod placeholder;
 pub(super) fn collect(
     modules: &[Module],
     binders: &[Binders],
+    imports: &[Record<ImportFact>],
+    sets: (&HashSet<String>, &HashSet<String>),
     evidence: &mut EvidenceMap,
 ) -> Findings {
     let mut records = Vec::new();
     let mut signals = Vec::new();
     let mut support = Support::start();
+    let by_module = super::declared::placeholder::by_module(imports);
     for (module, binders) in modules.iter().zip(binders) {
-        let found = one(module, binders, evidence);
+        let source_imports = by_module
+            .get(module.name.as_str())
+            .map_or(&[][..], Vec::as_slice);
+        let withheld =
+            super::declared::placeholder::withheld(module, binders, source_imports, sets);
+        let mut found = one(module, binders, evidence);
+        found
+            .records
+            .extend(placeholder::collect(module, evidence, &withheld));
         records.extend(found.records);
         signals.extend(found.signals);
         support.meet(&found.support);
@@ -170,14 +181,6 @@ impl<'a> Visitor<'a> for Walk<'_> {
         match stmt {
             Stmt::Expr(_) => self.type_ignore(stmt),
             Stmt::FunctionDef(node) => {
-                let empty = matches!(node.body.as_slice(), [Stmt::Pass(_)])
-                    || matches!(node.body.as_slice(), [Stmt::Expr(expr)]
-                        if matches!(&*expr.value, Expr::EllipsisLiteral(_)));
-                if empty && node.decorator_list.is_empty() {
-                    let place = self.module.location(stmt);
-                    let evidence = self.module.evidence(self.evidence, stmt);
-                    placeholder::empty(self, place, evidence);
-                }
                 if let Some(annotation) = &node.returns {
                     self.annotation(annotation);
                 }
@@ -303,11 +306,7 @@ impl Walk<'_> {
         else {
             return;
         };
-        let mut data = self.signal_data(Signal::TypeIgnore, None);
-        data.line = Some(location.line);
-        data.qualified_name = Some(self.owner.clone());
-        data.statement = Some(text);
-        data.tag = Some(tag);
+        let data = ignores::data(&self.owner, location.line, tag, text);
         self.signal(
             stmt,
             "type_ignore",
