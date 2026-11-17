@@ -35,12 +35,13 @@ A preload can also patch the module loader and redirect any import.
    resolver. Ignore `types` in runtime conditions; use Node's `node` and active `require` or
    `import` conditions in manifest order, then `default`. An unresolved or explicit TypeScript runtime
    target is UNKNOWN; the Node version is not observed. Aggregate declared options across repository
-   scripts, `.env*` and `.npmrc` before resolving any preload. A custom condition or `--env-file`
-   makes every named preload UNKNOWN because source association or active conditions can be unclear.
-   Opaque shell expansions or escapes also withhold the proof. The caller's inherited environment and
-   env files outside the repository are not scanned. Check the AD-798 closure for project-source reach and
-   pass it to the AD-788 writer guard (`script_outside::read`). Node loads an installed preload as a
-   module, so its top-level bindings are no globals. Each global write withholds its proof as in AD-788.
+   scripts, `.env*` and `.npmrc` before resolving any preload. Custom conditions, required env files,
+   existing optional env files and unknown `--env-file*` options make every named preload UNKNOWN.
+   A missing literal `--env-file-if-exists` in a package script is safe. Opaque shell expansions or
+   escapes also withhold the proof. The caller's environment and external env files are not scanned.
+   Check the AD-798 closure for project-source reach. Pass it to the AD-788 writer guard
+   (`script_outside::read`). Node loads an installed preload as a module, so its top-level bindings
+   are no globals. Each global write withholds its proof as in AD-788.
 4. **Loader patch.** A closure file with `require.cache` or `.prototype.require` patches the module
    loader. So does `._load`, `._resolveFilename` or `._cache` when a file reaches the module object
    (`require('module')`, an import of `module`, `module.constructor`, `mainModule`, `require.main`).
@@ -60,11 +61,10 @@ No PASS turns UNKNOWN on graphql-js v16.15.0 and the TypeScript fixtures F, H, H
 `Module._resolveFilename`) loses every route, which is true: they redirect imports.
 
 ## Tests
-`tests/test_collector_false_pass_ts_preload.py` and
-`tests/test_collector_false_pass_ts_preload_runtime.py`: the plant of #1750, Node `exports`
-conditions, custom Node conditions, entry and transitive runtime resolution, local and installed
-loader patches, shell assignments, `.env` and `.npmrc` options, repeated flags, escaped and dynamic
-settings, dynamic setup and unknown names hold the rule. A preload with no write, a class with its
-own `_cache` and a builtin keep PASS.
+`tests/test_collector_false_pass_ts_preload.py`,
+`tests/test_collector_false_pass_ts_preload_runtime.py` and
+`tests/test_collector_false_pass_ts_preload_env_files.py`: Node `exports` conditions, preloads,
+loader patches, `.env` and `.npmrc` options, documented env-file flags, repeated flags, a missing
+optional file, unknown options and snapshot refusal. Safe preloads keep PASS.
 `native/typescript/src/preloads_tests.rs`: the readers and fail-closed handling of malformed configs,
 dynamic targets, runtime modes and whitespace around the module loader.

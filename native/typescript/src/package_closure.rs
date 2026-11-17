@@ -4,12 +4,10 @@
 
 //! Installed-package closure and computed-import reachability (AD-798, #1529, #1749, AD-812).
 
-use std::collections::{HashMap, HashSet};
-
-use archkeel_snapshot::paths::{dirname, join};
-use archkeel_snapshot::Snapshot;
-
 use super::preloads;
+use archkeel_snapshot::paths::{dirname, is_outside, join};
+use archkeel_snapshot::Snapshot;
+use std::collections::{HashMap, HashSet};
 #[path = "package_closure_names.rs"]
 mod names;
 use crate::collection::{Collection, GapKind};
@@ -23,9 +21,7 @@ use crate::source_input::{
 };
 use crate::{resolve::format_of, resolver::Resolver};
 use names::{package_names, quoted_after, unknown_loader};
-
 const BUDGET: usize = 20_000;
-
 #[derive(Default)]
 struct Step {
     node_runtime: bool,
@@ -143,7 +139,13 @@ impl Collection<'_> {
         };
         let text = String::from_utf8_lossy(&data);
         let base = file.rsplit('/').next().unwrap_or_default();
-        let conditions_unknown = preloads::has_custom_conditions(base, &text);
+        let env_file_unknown = preloads::env_file_context(base, &text, |path| {
+            let p = join(dirname(&file), path);
+            p.starts_with('/')
+                || is_outside(&p)
+                || self.snapshot.is_file(&p)
+                || self.snapshot.is_dir(&p)
+        });
         if preloads::malformed_config(base, &text) {
             self.gap(
                 &format!("Preload configuration {file} is malformed"),
@@ -164,7 +166,7 @@ impl Collection<'_> {
                     file: file.clone(),
                 })
                 .collect(),
-            conditions_unknown,
+            preloads::has_custom_conditions(base, &text) || env_file_unknown,
         )
     }
     fn reaches_module(&mut self, file: &str) -> bool {
@@ -477,7 +479,6 @@ impl Collection<'_> {
         }
     }
 }
-
 fn reach_back(mut graph: Graph) -> HashMap<String, (String, String)> {
     let mut pending: Vec<String> = graph.reached.keys().cloned().collect();
     while let Some(file) = Vec::pop(&mut pending) {
@@ -494,7 +495,6 @@ fn reach_back(mut graph: Graph) -> HashMap<String, (String, String)> {
     }
     graph.reached
 }
-
 #[cfg(test)]
 #[path = "package_closure_tests.rs"]
 mod tests;

@@ -63,9 +63,54 @@ pub(super) fn has_custom_conditions(base: &str, text: &str) -> bool {
     {
         return false;
     }
-    text.split_whitespace()
-        .any(|token| token == "--env-file" || token.starts_with("--env-file="))
-        || conditions::has_conditions_flag(text)
+    conditions::has_conditions_flag(text)
+}
+
+/// Unknown env-file options and the literal files named by the optional form.
+pub(super) fn env_file_context(
+    base: &str,
+    text: &str,
+    mut source_exists: impl FnMut(&str) -> bool,
+) -> bool {
+    if base != "package.json" {
+        return text
+            .split_whitespace()
+            .any(|token| token.starts_with("--env-file"));
+    }
+    let mut unknown = false;
+    let mut found = false;
+    let mut tokens = text
+        .split_whitespace()
+        .map(|token| token.trim_matches(['\'', '"']));
+    while let Some(token) = tokens.next() {
+        if token == "--env-file-if-exists" {
+            found = true;
+            match tokens
+                .next()
+                .map(|path| path.trim_matches(['\'', '"', '\\']))
+            {
+                Some(path) if !path.is_empty() && !path.starts_with('-') => {
+                    unknown |= source_exists(path);
+                }
+                _ => unknown = true,
+            }
+        } else if let Some(path) = token.strip_prefix("--env-file-if-exists=") {
+            found = true;
+            let path = path.trim_matches(['\'', '"', '\\']);
+            if path.is_empty() {
+                unknown = true;
+            } else {
+                unknown |= source_exists(path);
+            }
+        } else if token.starts_with("--env-file") {
+            found = true;
+            unknown = true;
+        }
+    }
+    if found && (text.contains('$') || text.contains('`') || text.contains('\\')) {
+        unknown = true;
+    }
+    unknown
 }
 
 /// Whether a resolved file can be executable runtime source.
