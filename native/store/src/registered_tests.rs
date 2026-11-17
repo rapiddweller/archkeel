@@ -137,6 +137,7 @@ fn typed_profile_statements_must_match_the_symbol_capability() {
             LimitSupport::Supported
         },
         interface_boundary: LimitSupport::Supported,
+        publication_surface: LimitSupport::Unsupported,
     });
     let error = crate::ingest_typed(reply).err().unwrap_or_default();
     assert_eq!(

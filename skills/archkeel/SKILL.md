@@ -36,7 +36,7 @@ and never run a refused command in a loop. Tell the owner and use release 4.0.1 
 ## Which projects get a verdict
 
 Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and Python also decides `interface_boundary` (AD-504); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
 
 Do not report PASS for a supported subset of a project. Per-language limits are in
 [known limits](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).

@@ -5,7 +5,8 @@
 // Consumer: the wiring of Dart into `archkeel-collect` (#880). The survey of each Dart fixture
 // of the repository is pinned: the files, the parts, the edge set and the gaps by name (AD-454).
 // The edge sets in `fixture_edges/` equal the import edges of release 4.0.1 on these fixtures.
-// A change of a count is a change of the survey and needs its reason.
+// A change of a count is a change of the survey and needs its reason. AD-749: a `show` list gives
+// one record for each name, so G-dart has 24 records (22 before) on the same 22 edges.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -53,7 +54,7 @@ fn surveyed(fixture: &str, namespace: &str) -> (usize, usize, usize, BTreeMap<St
 #[test]
 fn the_dart_fixtures_give_the_pinned_survey() {
     let none = BTreeMap::new();
-    assert_eq!(surveyed("G-dart", "shop"), (9, 1, 22, none.clone()));
+    assert_eq!(surveyed("G-dart", "shop"), (9, 1, 24, none.clone()));
     assert_eq!(surveyed("H-uml-dart", "commerce"), (8, 0, 12, none.clone()));
     assert_eq!(surveyed("I-flutter-shop", "shop"), (21, 0, 73, none));
     let workspace = BTreeMap::from([

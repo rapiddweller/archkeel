@@ -8,8 +8,9 @@
 //!
 //! The survey is not the whole collection. It parses the directives only, so it gives no
 //! symbol, call, reference or binding, and the reply declares the sections `imports` and
-//! `unknowns` only.
+//! `unknowns` only. Each import record states the names that its directive binds (AD-749).
 
+mod binding;
 mod budget;
 pub(crate) mod claims;
 mod config;
@@ -265,6 +266,8 @@ pub(crate) fn edge_rows(found: &Survey) -> Vec<String> {
         })
         .collect();
     rows.sort();
+    // AD-749: a `show` list gives one record for each name, and they share one edge.
+    rows.dedup();
     rows
 }
 

@@ -170,9 +170,6 @@ fn assess(
     {
         return Err(InterfaceGap::TypePublication);
     }
-    if !import.symbols_known() || import.symbol() == Some("*") {
-        return Err(InterfaceGap::UnreadBinding);
-    }
     let public: Vec<&str> = target
         .public()
         .iter()
@@ -180,6 +177,12 @@ fn assess(
         .map(|p| p.as_text())
         .collect();
     let module = import.target_module();
+    if !import.symbols_known() && import.symbol().is_none() && surface_stated(model) {
+        return whole_namespace(&public, module, import);
+    }
+    if !import.symbols_known() || import.symbol() == Some("*") {
+        return Err(InterfaceGap::UnreadBinding);
+    }
     let Some(name) = import.symbol() else {
         let granted = rule.module_object_grants().iter().flatten().any(|g| {
             g.source_module().as_text() == import.source_module()
@@ -218,6 +221,33 @@ fn assess(
         // AD-604: a later hop of a route that the collector proves only in part may be public.
         None if !import.route_complete() => Err(InterfaceGap::PublicationRoute),
         None => Ok(false),
+    }
+}
+
+/// True when the linked collector states the publication surface of each import (AD-749).
+fn surface_stated(model: &Model) -> bool {
+    model
+        .graph()
+        .observed()
+        .profile_limits
+        .is_some_and(|p| p.publication_surface == LimitSupport::Supported)
+}
+
+/// AD-749 (4.0.1 AD-97): with a stated publication surface, a record without a name binds each
+/// name of its target module, and the collector reads no use of them. It passes when `public`
+/// lists the module. It fails only when no name of the module can be public: no `module:name`
+/// entry, and a complete route, so no re-export of the module can pass on a name of another
+/// module. Any other case is a gap.
+fn whole_namespace(public: &[&str], module: &str, import: &Import) -> Result<bool, InterfaceGap> {
+    let prefix = format!("{module}:");
+    if public.contains(&module) {
+        Ok(true)
+    } else if public.iter().any(|entry| entry.starts_with(&prefix)) {
+        Err(InterfaceGap::UnreadBinding)
+    } else if !import.route_complete() {
+        Err(InterfaceGap::PublicationRoute)
+    } else {
+        Ok(false)
     }
 }
 
