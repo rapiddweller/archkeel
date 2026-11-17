@@ -22,10 +22,10 @@ from time import time_ns
 from typing import Final
 
 from .core_arguments import NotOnThisLine, Options, OutputMode, command_of, output_mode, parse
-from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import as_json as baseline_json
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
 from .core_binding import ProjectRoot, RootMode, resolve_root
+from .core_delivery import _deliver, _Refusal
 from .core_exit import Outcome, envelope, exit_for, outcome_of, require_baseline_part
 from .core_frame import CoreCommand as Command
 from .core_frame import (
@@ -39,7 +39,6 @@ from .core_frame import (
 from .core_help import help_for
 from .core_init import Created, InitOutcome, _prepare, _run_init
 from .core_json import Gap, RequestMismatch
-from .core_output import write_output
 from .core_text import header, refusal, render, summary
 from .core_words import NOT_FOUND_PREFIX, fix_for, plain
 from .init_draft import DOCUMENT
@@ -166,35 +165,6 @@ def _request(options: Options, project: ProjectRoot) -> dict[str, object]:
     return request
 
 
-Refusal = tuple[RefusalKind, str]
-_NOT_WRITTEN: Final = (
-    "the run cannot be written as a baseline: a part of it is refused, and no baseline accepts a "
-    "refused part; no baseline file was written"
-)
-
-
-def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> list[Refusal]:
-    """Write each requested file. Each file that was not written, in the order of the request."""
-    failures: list[Refusal] = []
-    try:
-        _write_report(options, frame, stdout)
-    except OSError as error:
-        message = f"cannot write report file {options.output}: {error}; no report file was written"
-        failures.append((RefusalKind.IO_ERROR, message))
-    if options.write_baseline is None:
-        return failures
-    # No part (a refused scan) or `not_written`: the core gave no bytes, and the frame stays.
-    if frame.baseline is None or frame.baseline.state is BaselineState.NOT_WRITTEN:
-        failures.append((RefusalKind.BASELINE_NOT_WRITTEN, _NOT_WRITTEN))
-        return failures
-    try:
-        _write_baseline(options.write_baseline, frame.baseline, root)
-    except OSError as error:
-        message = f"cannot write the baseline file {error}; no baseline file was written"
-        failures.append((RefusalKind.IO_ERROR, message))
-    return failures
-
-
 def _contract_files(document: Mapping[str, object]) -> list[str]:
     """The contract files that the scan read, as the core named them."""
     collect = (document.get("self_test") or {}).get("collect")  # type: ignore[attr-defined]
@@ -237,7 +207,7 @@ def _print_text(
     options: Options,
     frame: CoreFrame,
     document: Mapping[str, object],
-    ending: tuple[int, Outcome, Gap | None, list[Refusal], bool],
+    ending: tuple[int, Outcome, Gap | None, list[_Refusal], bool],
     where: tuple[Path, ProjectRoot],
 ) -> None:
     """Print one run as text: the problems first, then the summary, or one line for a report."""
@@ -396,7 +366,7 @@ def _scanned(project: ProjectRoot) -> str:
     return f" · root {root} · config {config}"
 
 
-def _refusal_fields(refusals: Sequence[Refusal]) -> dict[str, object]:
+def _refusal_fields(refusals: Sequence[_Refusal]) -> dict[str, object]:
     """`refusal` is the first refusal, and `refusals` lists each one in order; none is lost."""
     if not refusals:
         return {}
@@ -440,29 +410,6 @@ def _where(options: Options, project: ProjectRoot) -> str:
             return f"the top of the Git work tree ({project.path})"
         case RootMode.WORK_TREE | RootMode.CURRENT:
             return "the current folder"
-
-
-def _write_baseline(path: str, part: BaselineResult, root: Path) -> None:
-    """Write the bytes that the core gave for `--write-baseline` below the project root, where
-    `--baseline` reads them (AD-735). The shell adds nothing."""
-    if part.file is None:
-        raise CoreError(f"the core frame baseline is {part.state} and holds no bytes to write")
-    try:
-        write_output(root / path, part.file.encode("utf-8"))
-    except OSError as error:
-        raise OSError(f"{path}: {error}") from error
-
-
-def _write_report(options: Options, frame: CoreFrame, stdout: bytes) -> None:
-    if options.output is None:
-        return
-    if options.format == "html":
-        if frame.html is None:
-            raise CoreError("the core frame lacks the requested HTML")
-        payload = frame.html.encode("utf-8")
-    else:
-        payload = stdout
-    write_output(options.output, payload)
 
 
 def _refused(
