@@ -9,7 +9,7 @@ not use `b`. Cargo fails in `a` when `mod b;` is deleted, so `a -> b` is real in
 
 - A parameter `s: &S`, `s: &mut S` or `s: S` that is bound once, with the `self` form of the
   member, is proven: the edge `a -> b` is a fact and the rule gives FAIL (UNKNOWN before AD-524).
-- Every other form keeps the pair gap: UNKNOWN. Each is a refusal of the rule, in its own plant.
+- Unproved forms keep the pair gap: UNKNOWN. AD-804 also proves some pattern bindings.
 """
 
 from __future__ import annotations
@@ -254,12 +254,15 @@ def test_a_conditional_non_lint_keeps_the_gap(
 
 
 @pytest.mark.parametrize("files", REFUSED.values(), ids=REFUSED.keys())
-def test_a_call_that_the_scan_cannot_prove_keeps_its_gap(
+def test_a_pattern_or_unproved_call_has_the_correct_verdict(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], files: dict[str, str]
 ) -> None:
     result, verdict = _check(tmp_path, core_binary, capsys, files)
 
-    assert verdict == "UNKNOWN", claims(result)
+    # AD-804 follows the written type through variant and tuple patterns.
+    proven = ("an if let", "a match arm", "a tuple pattern")
+    expected = "FAIL" if any(files == REFUSED[name] for name in proven) else "UNKNOWN"
+    assert verdict == expected, claims(result)
 
 
 def _modules(requires_of_a: tuple[str, ...]) -> tuple[dict[str, Any], ...]:
