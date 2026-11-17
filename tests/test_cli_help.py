@@ -58,6 +58,10 @@ def test_the_help_documents_only_flags_that_work() -> None:
             args = [command.value, flag, *([values[flag]] if flag in values else [])]
             if flag == "--format":
                 args += ["--output", "o.json"]
+            if flag == "--part-of":
+                args += ["s.json", "--output", "o.html"]
+            if flag == "--system-href":
+                args += ["index.html", "--part-of", "s.json", "--output", "o.html"]
             core_arguments.parse(args)
 
 

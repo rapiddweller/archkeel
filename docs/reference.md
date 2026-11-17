@@ -180,6 +180,10 @@ and does not mean that the run has no gap: an UNKNOWN run can show `complete: tr
 
 `report --output PATH` writes one static HTML page. `--format json` writes the core frame instead.
 `--format html` is the default and needs `--output`. Without an output path, no file is written.
+`report --part-of DOCUMENT --system-href URL` writes the page of one part of a system (#1451). The core
+reads the titles of the system and of the part from the system document, so the root of the Explorer reads
+"<part> of <system>" and links to `URL`, the page of the system. A document that is no system document, or
+that names no part with this configuration, is a refusal. Both options need an HTML `--output`.
 The HTML comes from the same ruling in the Rust core. It loads no external resource; each script is admitted by its hash (AD-496).
 Its architecture section is the Explorer: As-Is, Target and Diff for the system and for each component, with a drill-down (AD-606).
 It includes verdicts, counts, rule rows, violations, evidence locations, gaps, unsupported parts and request identity.

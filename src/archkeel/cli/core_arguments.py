@@ -95,6 +95,8 @@ class Options(argparse.Namespace):
     baseline: str | None = None
     write_baseline: str | None = None
     no_init: bool = False
+    part_of: str | None = None
+    system_href: str | None = None
 
 
 class Parser(argparse.ArgumentParser):
@@ -173,6 +175,16 @@ def _baseline_path(value: str) -> str:
     return path.as_posix()
 
 
+def _document_path(value: str) -> str:
+    """A system document below the root, in the form that the core reads (E4)."""
+    path = PurePosixPath(value.replace("\\", "/"))
+    if not value or path.is_absolute() or ".." in path.parts or path.name in {"", "."}:
+        raise argparse.ArgumentTypeError(
+            "--part-of must name a system document below the root, not an absolute or parent path"
+        )
+    return path.as_posix()
+
+
 def parse(argv: Sequence[str]) -> Options:
     """The options of a served command. Each other argument is refused by name."""
     command = command_of(argv)
@@ -200,6 +212,8 @@ def parse(argv: Sequence[str]) -> Options:
             parser.add_argument("--topology", action="store_true")
             parser.add_argument("--output", type=_output_path)
             parser.add_argument("--format", choices=["html", "json"], default="html")
+            parser.add_argument("--part-of", type=_document_path)
+            parser.add_argument("--system-href")
     try:
         options, extra = parser.parse_known_args(argv[1:], Options(command=command))
     except ValueError as error:
@@ -221,5 +235,9 @@ def parse(argv: Sequence[str]) -> Options:
         )
     if any(arg == "--format" or arg.startswith("--format=") for arg in argv) and not options.output:
         raise ValueError("--format needs --output; no report file was written")
+    if options.system_href is not None and options.part_of is None:
+        raise ValueError("--system-href needs --part-of: name the system document of this part")
+    if options.part_of is not None and (options.output is None or options.format != "html"):
+        raise ValueError("--part-of needs an HTML --output: only the page names its system")
     options.config_given = any(arg == "--config" or arg.startswith("--config=") for arg in argv)
     return options

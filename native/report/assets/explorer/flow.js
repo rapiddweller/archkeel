@@ -1031,8 +1031,12 @@
     if (SIDECAR) { sidecarNavigation(); return; }
     if (ATLAS) {
       // E3: each crumb names itself in full (a title for a shortened one); the current crumb says so.
-      const crumbs = [ATLAS.repository, ...S.path.map((entry) => REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)];
-      breadcrumb.innerHTML = crumbs.map((label, depth) => `${depth ? "<span> / </span>" : ""}<button type="button" data-atlas-depth="${depth}" title="${esc(label)}"${depth === crumbs.length - 1 ? ' aria-current="page"' : ""}><span>${esc(label)}</span></button>`).join("");
+      // E4: the page of a part names its system after its root crumb, as a link to the system page.
+      const crumbs = [NAV?.part_title || ATLAS.repository, ...S.path.map((entry) => REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)];
+      const system = !NAV?.part_title ? "" : NAV.system_href
+        ? `<span> of </span><a href="${esc(NAV.system_href)}" title="${esc(NAV.system_title)}">${esc(NAV.system_title)}</a>`
+        : `<span> of ${esc(NAV.system_title)}</span>`;
+      breadcrumb.innerHTML = crumbs.map((label, depth) => `${depth ? "<span> / </span>" : ""}<button type="button" data-atlas-depth="${depth}" title="${esc(label)}"${depth === crumbs.length - 1 ? ' aria-current="page"' : ""}><span>${esc(label)}</span></button>${depth ? "" : system}`).join("");
       breadcrumb.querySelectorAll("button").forEach((button) => button.onclick = () =>
         dispatch({ type: "goToDepth", depth: Number(button.dataset.atlasDepth) }));
       backButton.hidden = !S.path.length; backButton.textContent = "Back to components"; return;

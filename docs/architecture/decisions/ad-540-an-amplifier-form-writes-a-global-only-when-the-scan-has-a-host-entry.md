@@ -1,6 +1,6 @@
 # AD-540: An amplifier form writes a global only when the scan has a host entry
 
-Status: accepted. Part of #880. It amends AD-460, AD-492 and AD-508.
+Status: accepted. Part of #880. It amends AD-460, AD-492 and AD-508. AD-788 amends premise 4.
 
 ## Context
 One unknown write of a global blocks the proof of every script global. On graphql-js v16.15.0 (134
@@ -28,8 +28,8 @@ The scan has no host entry when 1 to 3 hold (the collector proves them). 4 is a 
    `eval`, `Function`) or its use is contained: head of a chain of literal members that is the
    operand of `typeof`, `!` or a comparison, the left of `&&`, or a condition. A call, argument,
    stored or returned value, left of `||`/`??` and a run-time key are not contained.
-4. PREMISE, not a proof: **code outside the scan roots hands in no global object and no platform
-   object**. A caller can give `set(window, 'Math', x)` to `export function set(o, k, v) { o[k] = v }`.
+4. PREMISE, not a proof: **code outside the scan roots hands in no global or platform object and
+   replaces no global** (AD-788). A caller can give `set(window, 'Math', x)` to `set(o, k, v)`.
    Main relied on it already for a parameter. A written type is no proof, and the rule reads none.
 
 Where the premise does not cover a read the gap stays (a named write `o.Math = v`, a script file,

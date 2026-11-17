@@ -28,12 +28,10 @@ Documentation does not accept these defects. They block the 5.0.0 release.
 | Rust registry identity | outside source replacement changes a modeled derive expansion | false PASS | [#1518](https://github.com/rapiddweller/archkeel/issues/1518) |
 | Rust field receiver | `p.f.m()`: an inherent method in the file of its type, called through a public field of a typed parameter; no edge and no gap (AD-418) | false PASS | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
 | Python lazy annotations | a slot or outside class write changes the allowed `object` annotation | false PASS | [#1523](https://github.com/rapiddweller/archkeel/issues/1523) |
-| TypeScript window flow | callback `this`, event targets, parameters, call results and properties | false PASS | [#1524](https://github.com/rapiddweller/archkeel/issues/1524) |
 | TypeScript DOM code | an `open` result, `document.open`, or a dynamic link and click | false PASS | [#1526](https://github.com/rapiddweller/archkeel/issues/1526) |
 | TypeScript prototype patch | replace `EventTarget.prototype.dispatchEvent`, then use it on `window` | false PASS | [#1527](https://github.com/rapiddweller/archkeel/issues/1527) |
 | TypeScript unread source | imports in Vue, Svelte, Astro, MDX, inline HTML and `.es6` | false PASS | [#1528](https://github.com/rapiddweller/archkeel/issues/1528) |
 | TypeScript installed source | a package in `node_modules` imports project source | false PASS | [#1529](https://github.com/rapiddweller/archkeel/issues/1529) |
-| TypeScript outside writer | an outside script assigns a scanned function to `window.open` | false PASS | [#1546](https://github.com/rapiddweller/archkeel/issues/1546) |
 
 These tested forms no longer give a false PASS. The first ones were measured at the audit base;
 the last two were fixed after it and are checked on main at `157dc8851`:
@@ -539,7 +537,18 @@ A reflective write on the prototype of a class of the file stays a false UNKNOWN
 host entry. Plants: `tests/test_cli_native_prototype_patch.py`.
 Older classes stay open too: a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
-`document.defaultView`, and a write in a file outside the scan roots (#1546).
+`document.defaultView`.
+AD-788 (#1546) states the premise of every TypeScript verdict as "code outside the scan roots hands
+in no global or platform object and replaces no global" (text header, JSON `premise`, report). A
+JavaScript, TypeScript or HTML file of the repository outside the scan roots is read for a write
+that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, an assignment to an undeclared
+name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the other
+reflective writes on a window name). A member patch of another global (`Math.max = f` in such a
+file) stays open, as above. Each hit withholds the native proof of that name: the use gets the gap "Script global X is
+replaced by a file outside the scan roots", which cites the use and the write. A write whose name
+the guard cannot read withholds every global. Not read: test files (the test-source rule),
+declarations, installed packages, hidden directories; more than 4000 such files withhold every
+global. Code outside the repository stays under the premise only.
 A source file inside the roots that TSConfig `exclude` drops gives a named coverage gap (AD-488),
 including a file that writes a global. It is no longer a silent false PASS.
 A member `source`, `view`, `currentTarget` or a window name is a window, and a member `eval` or
