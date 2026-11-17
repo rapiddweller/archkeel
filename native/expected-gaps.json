@@ -4968,6 +4968,11 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_code",
+      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.references"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.script_code",
       "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.site_types"
     ],
     [
@@ -4979,11 +4984,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_code",
       "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_code",
-      "A method call may reach the method kind of a type in its own file native.archkeel_typescript_collector.references"
     ],
     [
       "collection_gap",
@@ -4999,16 +4999,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_declarations",
       "A method call may reach the method k of a type in its own file native.archkeel_typescript_collector.tree.cx"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declarations",
-      "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declarations",
-      "A method call may reach the method kind of a type in its own file native.archkeel_typescript_collector.references"
     ],
     [
       "collection_gap",
@@ -5194,11 +5184,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_index",
       "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_keys",
-      "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
     ],
     [
       "collection_gap",
