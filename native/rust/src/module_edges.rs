@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::data::ImportData;
 use archkeel_facts::envelope::Target;
-use archkeel_facts::identity::{package_of, stable_id, Part};
+use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 use archkeel_facts::{ImportFact, Record};
 
@@ -407,7 +407,7 @@ impl Builder {
         });
         let named = names::named(index, &mut self.publications, edge, &reference.via);
         let mut record = with_name(
-            module_record(module, reference, edge, &identity, evidence),
+            module_record(index, module, reference, edge, &identity, evidence),
             named,
         );
         record.data.data_mut().published_as = published(index, &module.module, reference);
@@ -422,6 +422,7 @@ impl Builder {
 }
 
 fn module_record(
+    index: &Index<'_>,
     module: &Module,
     reference: &Reference,
     edge: &Edge,
@@ -439,9 +440,13 @@ fn module_record(
     };
     let data = ImportData {
         source_module: ModuleName::new(&module.module),
-        source_package: PackageName::new(package_of(&module.module)),
+        source_package: PackageName::new(module.package()),
         target_module: ModuleName::new(&edge.module),
-        target_package: PackageName::new(package_of(&edge.module)),
+        target_package: PackageName::new(
+            index
+                .frame(&edge.module)
+                .map_or("", |frame| frame.module.package()),
+        ),
         symbol: if glob { None } else { edge.symbol.clone() },
         binding,
         specifier: Some(reference.path.clone()),
