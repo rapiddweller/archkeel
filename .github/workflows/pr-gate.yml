@@ -87,6 +87,13 @@ jobs:
           ARCHKEEL_CORE_SOURCE: ${{ steps.core.outputs.cache-hit == 'true' && 'cache' || 'build' }}
         run: make core
 
+      # AD-756: the Rust format and the clippy of the touched crates, when the change touches native/.
+      - name: Check the Rust format and lint of the touched crates
+        if: steps.build.outcome == 'success'
+        env:
+          PR_BASE: origin/${{ github.base_ref }}
+        run: make pr-native-lint PR_BASE="$PR_BASE"
+
       - name: Run the PR gate
         env:
           PR_BASE: origin/${{ github.base_ref }}
