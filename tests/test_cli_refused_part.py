@@ -124,3 +124,20 @@ def test_a_repository_without_a_commit_has_a_fix_that_says_what_to_do() -> None:
         "commit made); commit once, or run with --root on a folder"
     )
     assert _refused_part(message) is _RefusedPart.GIT_HEAD
+
+
+@pytest.mark.parametrize(
+    ("message", "start"),
+    [
+        ("config: cannot read archkeel.toml", "create archkeel.toml"),
+        ("config: scan TypeScript config is not a file: tsconfig.json", "create that file"),
+        ("config: scan contract is not a file: c.json", "create that file"),
+        ("config: scan root is not a directory or file: lib", "create that folder"),
+        ("config: scan.roots must be a non-empty list", "correct that key"),
+    ],
+)
+def test_a_config_refusal_names_the_fix_of_its_cause(message: str, start: str) -> None:
+    """#1708: an existing configuration that names a missing tsconfig was told to create
+    archkeel.toml."""
+    fix = fix_for("collection_refused", message)
+    assert fix is not None and fix.startswith(start), fix
