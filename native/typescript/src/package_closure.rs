@@ -10,7 +10,8 @@
 //! static imports of each installed file that an import of the scan reaches, and of each installed
 //! file that those reach. An import that resolves to a file outside `node_modules`, and an
 //! installed file that the collector cannot read, is a gap of each module whose import reaches it.
-//! A computed import inside a package is not read: it is the open class of a string loader.
+//! A computed import inside a package is a loader whose target is unknown: it withholds the
+//! routes from that package (#1749, AD-812).
 
 use std::collections::{HashMap, HashSet};
 
@@ -130,10 +131,18 @@ impl Collection<'_> {
         let reach = Options::reach(&self.resolver.options);
         let parsed = parse_for(&mut self.parsers, file, &content, reach, None);
         let text = String::from_utf8_lossy(&content);
+        // A loader whose target is unknown can load project source (#1749, AD-812).
+        let declaration = classify_file(file).and_then(|suffix| suffix.source_kind())
+            == Some(SourceKind::Declaration);
+        let loader = (!declaration)
+            .then(|| unknown_loader(&parsed.references, &text, parsed.first_error))
+            .flatten();
+        if let Some(loader) = loader {
+            step.project = Some(format!("a loader with an unknown target ({loader})"));
+            return step;
+        }
         if parsed.first_error.is_some() {
             // A repaired part can hide an import: read each quoted specifier of the text too.
-            let declaration = classify_file(file).and_then(|suffix| suffix.source_kind())
-                == Some(SourceKind::Declaration);
             for specifier in quoted_after(&text, &["from", "import", "require"]) {
                 self.specifier_step(file, (&specifier, declaration), None, &mut step);
             }
@@ -307,6 +316,31 @@ fn reach_back(mut graph: Graph) -> HashMap<String, (String, String)> {
         }
     }
     graph.reached
+}
+
+/// A loader of a runtime file whose target is no literal (a declaration file loads nothing): a
+/// computed `require` or `import()` that the parser reads, a call of `createRequire`, and in a
+/// repaired file each `require(` or `import(` whose
+/// argument is no quoted text. `None` when the file has none.
+fn unknown_loader(references: &[Reference], text: &str, repaired: Option<i64>) -> Option<String> {
+    if let Some(reference) = references.iter().find(|r| Option::is_none(&r.specifier)) {
+        let form = Form::as_str(reference.form);
+        return Some(format!("computed {form} at line {}", reference.span.line));
+    }
+    if text.contains("createRequire(") {
+        return Some("createRequire".to_owned());
+    }
+    let line = repaired?;
+    let bare = ["require(", "import("].iter().any(|call| {
+        text.match_indices(call).any(|(at, _)| {
+            let rest = text
+                .get(at + str::len(call)..)
+                .unwrap_or_default()
+                .trim_start();
+            !rest.starts_with(['"', '\'', '`'])
+        })
+    });
+    bare.then(|| format!("a call of require or import() in the repaired file (line {line})"))
 }
 
 /// The names that a `node_modules` search tries for a package: the name, and `@types/<name>` for a

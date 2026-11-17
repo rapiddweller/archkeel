@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""An installed package that imports project source gives no PASS (#1529, AD-798).
+"""An installed package that imports project source gives no PASS (#1529 AD-798, #1749 AD-812).
 
 Consumer: `archkeel validate` on a TypeScript project, through the release core. Module `a`
 imports an installed package, and the code of that package imports `src/b/t.ts`. So `a` depends on
@@ -76,9 +76,37 @@ FORMS: dict[str, dict[str, str]] = {
             'import type { T } from "../../../src/b/t";\nexport type I = T;\n'
         ),
     },
+    # A loader whose target is unknown can load project source (#1749, AD-812).
+    "computed-require": {
+        "node_modules/local/package.json": MANIFEST,
+        "node_modules/local/index.js": (
+            'const name = "../../src/b/" + "t";\nrequire(name);\nexports.hidden = 1;\n'
+        ),
+    },
+    "computed-import": {
+        "node_modules/local/package.json": MANIFEST,
+        "node_modules/local/index.js": (
+            "export const hidden = 1;\nexport const load = (n) => import(n);\n"
+        ),
+    },
+    "create-require": {
+        "node_modules/local/package.json": MANIFEST,
+        "node_modules/local/index.js": (
+            'import { createRequire } from "node:module";\n'
+            "const load = createRequire(import.meta.url);\nexport const hidden = load;\n"
+        ),
+    },
 }
 
 PRECISION: dict[str, dict[str, str]] = {
+    # A declaration file declares a loader; it loads nothing.
+    "declared-loader": {
+        "node_modules/local/package.json": '{"name":"local","types":"index.d.ts"}',
+        "node_modules/local/index.d.ts": (
+            "export declare function createRequire(path: string): (id: string) => unknown;\n"
+            "export declare const hidden: number;\n"
+        ),
+    },
     # `@types/react` and `next` name their own files with a path directive.
     "own-path-directive": {
         "node_modules/local/package.json": '{"name":"local","types":"index.d.ts"}',

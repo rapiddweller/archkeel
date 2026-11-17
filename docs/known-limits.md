@@ -159,9 +159,10 @@ resolver cannot decide (`typesVersions`). An import that resolves to a file outs
 another name that the resolver cannot decide, and an installed file that the collector cannot read
 are a gap of each module whose import reaches that file. So the plant
 `src/b/node_modules/local/index.ts` with `import { a } from '../../../a/a'`, imported as `local`
-from `src/b/t.ts`, gives UNKNOWN. Release 4.0.1 gives PASS. Open: a computed import inside a
-package (`require(name)`) is not read. That is the string-loader class (Python: #1519). A closure of
-more than 20 000 installed files is a gap of each importer.
+from `src/b/t.ts`, gives UNKNOWN. Release 4.0.1 gives PASS. A loader with an unknown target in a
+runtime file of the closure (a computed `require` or `import()`, a call of `createRequire`) is a
+reach too (AD-812, #1749). Open: a package that a tool loads without an import of the scan (#1750,
+P0). A closure of more than 20 000 installed files is a gap of each importer.
 The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
