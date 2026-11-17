@@ -107,9 +107,11 @@ same hole. This is an open defect, not an accepted limit. The survey covers the 
 point 7: the standard-library doors, the import state and the builtins that run text.
 
 The Python collector does not follow a value from an unknown object to a loader. For example,
-`code = provider.code; code.interact()` gives no loader gap when `provider` is an unknown value.
-The same limit applies when the local name is `c`. A forbidden dependency reached only through
-such a value can give PASS (#1520). This is an open false-PASS class, not an accepted limit. A call of a
+a call of a method on an unknown value can load any module. A runner of the `code` module
+(`interact`, `InteractiveConsole`, `InteractiveInterpreter`) on a name `code`, on a name assigned
+from an attribute `code`, or on an attribute `code` of any value is a dynamic-import gap (AD-762).
+Any other method of an unknown value is not read; a forbidden dependency reached only through it can
+give PASS. This is an open false-PASS class, not an accepted limit. A call of a
 value that an import from outside the scan and the standard library gives, with a string that names
 a module of the scan, is a gap of the edges of its module (AD-760); a loader handed in as a
 parameter is the same open class.
