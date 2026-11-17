@@ -229,6 +229,55 @@ pub(crate) fn endpoint(table: &mut Symbols, name: &str) -> Vec<String> {
     vec![id]
 }
 
+/// `_site_relationship`: one edge of a site. The targets are the entities of each name, once.
+fn edge(table: &mut Symbols, site: Site<'_>) {
+    let mut targets: Vec<String> = Vec::new();
+    for name in site.names {
+        for id in endpoint(table, name) {
+            if !targets.contains(&id) {
+                targets.push(id);
+            }
+        }
+    }
+    let status = match (site.kind, site.status) {
+        (RelationshipKind::Calls, Status::Decided)
+            if site.names.is_empty() && site.count == Some(0) && site.truncated == Some(false) =>
+        {
+            ResolutionKind::NotApplicable
+        }
+        (RelationshipKind::Calls, Status::Decided) => {
+            return table.refuse("a decided call does not prove an empty target set");
+        }
+        (_, status) => match resolution(status) {
+            Some(status) => status,
+            None => return table.refuse("a site has no resolution status"),
+        },
+    };
+    let names = i64::try_from(site.names.len()).unwrap_or(i64::MAX);
+    if site.count.is_some_and(|count| count < names) {
+        return table.refuse("a candidate count is smaller than its targets");
+    }
+    if status == ResolutionKind::Unresolved && !targets.is_empty() {
+        return table.refuse("an unresolved site has candidates");
+    }
+    let resolved = status == ResolutionKind::Resolved && targets.len() == 1;
+    table.edges.push(Edge {
+        kind: site.kind,
+        source: site.source,
+        target: resolved.then(|| targets.remove(0)),
+        resolution: if status == ResolutionKind::NotApplicable {
+            ResolutionKind::NotApplicable
+        } else if resolved {
+            ResolutionKind::Resolved
+        } else if status == ResolutionKind::Unresolved {
+            ResolutionKind::Unresolved
+        } else {
+            ResolutionKind::Partial
+        },
+        evidence: site.evidence,
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::{edge, Site};
@@ -303,53 +352,4 @@ mod tests {
         );
         assert!(table.edges.is_empty());
     }
-}
-
-/// `_site_relationship`: one edge of a site. The targets are the entities of each name, once.
-fn edge(table: &mut Symbols, site: Site<'_>) {
-    let mut targets: Vec<String> = Vec::new();
-    for name in site.names {
-        for id in endpoint(table, name) {
-            if !targets.contains(&id) {
-                targets.push(id);
-            }
-        }
-    }
-    let status = match (site.kind, site.status) {
-        (RelationshipKind::Calls, Status::Decided)
-            if site.names.is_empty() && site.count == Some(0) && site.truncated == Some(false) =>
-        {
-            ResolutionKind::NotApplicable
-        }
-        (RelationshipKind::Calls, Status::Decided) => {
-            return table.refuse("a decided call does not prove an empty target set");
-        }
-        (_, status) => match resolution(status) {
-            Some(status) => status,
-            None => return table.refuse("a site has no resolution status"),
-        },
-    };
-    let names = i64::try_from(site.names.len()).unwrap_or(i64::MAX);
-    if site.count.is_some_and(|count| count < names) {
-        return table.refuse("a candidate count is smaller than its targets");
-    }
-    if status == ResolutionKind::Unresolved && !targets.is_empty() {
-        return table.refuse("an unresolved site has candidates");
-    }
-    let resolved = status == ResolutionKind::Resolved && targets.len() == 1;
-    table.edges.push(Edge {
-        kind: site.kind,
-        source: site.source,
-        target: resolved.then(|| targets.remove(0)),
-        resolution: if status == ResolutionKind::NotApplicable {
-            ResolutionKind::NotApplicable
-        } else if resolved {
-            ResolutionKind::Resolved
-        } else if status == ResolutionKind::Unresolved {
-            ResolutionKind::Unresolved
-        } else {
-            ResolutionKind::Partial
-        },
-        evidence: site.evidence,
-    });
 }
