@@ -88,7 +88,7 @@ impl Premises {
             }
         }
         // Each kind word comes from `PremiseKind::kind_word` in `of`, so it reads back.
-        let assuming = words(door_reach.len(), pairs.into_iter()).unwrap_or_default();
+        let assuming = words(Vec::len(&door_reach), pairs.into_iter()).unwrap_or_default();
         Premises {
             assumed,
             door_reach,

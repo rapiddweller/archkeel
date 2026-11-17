@@ -48,7 +48,7 @@ pub fn kind_word(kind: PremiseKind) -> &'static str {
 /// The premise kind of a word of the frame, or `None` for a word that names no kind.
 pub fn of_kind_word(word: &str) -> Option<PremiseKind> {
     let fixed = [PremiseKind::DoorReach, PremiseKind::ExternalUser];
-    let declared = PremiseName::ALL.into_iter().map(PremiseKind::Declared);
+    let declared = archkeel_contract::PREMISE_NAMES.map(PremiseKind::Declared);
     fixed
         .into_iter()
         .chain(declared)
@@ -104,19 +104,20 @@ impl Model {
 /// place of these words.
 pub fn premise_words(doors: usize, used: &[(PremiseKind, &str)]) -> Option<String> {
     let plural = |n: usize| if n == 1 { "" } else { "s" };
-    let users: BTreeSet<&str> = used
-        .iter()
-        .filter(|(kind, _)| *kind == PremiseKind::ExternalUser)
-        .map(|(_, subject)| *subject)
-        .collect();
+    let mut users: BTreeSet<&str> = BTreeSet::new();
+    let mut declared: BTreeSet<PremiseName> = BTreeSet::new();
+    for (kind, subject) in used {
+        match kind {
+            PremiseKind::ExternalUser => {
+                users.insert(subject);
+            }
+            PremiseKind::Declared(name) => {
+                declared.insert(*name);
+            }
+            PremiseKind::DoorReach => {}
+        }
+    }
     let count = BTreeSet::len(&users);
-    let declared: BTreeSet<PremiseName> = used
-        .iter()
-        .filter_map(|(kind, _)| match kind {
-            PremiseKind::Declared(name) => Some(*name),
-            PremiseKind::DoorReach | PremiseKind::ExternalUser => None,
-        })
-        .collect();
     let door_words =
         (doors > 0).then(|| format!("the declared reach of {doors} door{}", plural(doors)));
     let user_words = (count > 0).then(|| format!("{count} stated external user{}", plural(count)));
