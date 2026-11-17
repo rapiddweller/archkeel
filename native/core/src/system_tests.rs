@@ -55,3 +55,29 @@ fn the_system_frame_keeps_the_premise_of_each_part_once() {
     );
     assert_eq!(joined(&[part("PASS", None)]).get("premise"), None);
 }
+
+fn part_with_scope(status: &str, scope: &Value) -> Vec<u8> {
+    let frame = json!({"engine": "e", "protocol": "p", "status": status, "scope": scope});
+    serde_json::to_vec(&frame).unwrap()
+}
+
+#[test]
+fn the_scope_of_the_system_is_complete_or_the_reason_of_the_first_open_part() {
+    let all = joined(&[part("PASS", None), part("PASS", None)]);
+    assert_eq!(all["scope"], json!("complete"));
+    let open = |text: &str| part_with_scope("UNKNOWN", &json!(text));
+    let first = joined(&[part("PASS", None), open("one"), open("two")]);
+    assert_eq!(first["scope"], json!("one"));
+    // A frame without a scope is complete; a scope that is no text is open and kept as it is.
+    let bare = serde_json::to_vec(&json!({"engine": "e", "protocol": "p", "status": "PASS"}));
+    assert_eq!(joined(&[bare.unwrap()])["scope"], json!("complete"));
+    let odd = joined(&[part_with_scope("UNKNOWN", &json!(7))]);
+    assert_eq!(odd["scope"], json!(7));
+}
+
+#[test]
+fn an_unreadable_status_of_a_part_is_unknown_in_the_system() {
+    let frame = serde_json::to_vec(&json!({"engine": "e", "protocol": "p", "status": "BOGUS"}));
+    let joined = joined(&[frame.unwrap()]);
+    assert_eq!(joined["status"], json!("UNKNOWN"));
+}

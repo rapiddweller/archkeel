@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-674: the PR tier selects test areas from the changed paths, and no area may run empty."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -90,3 +91,42 @@ def test_a_test_session_under_make_never_builds_the_shared_core(
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     assert "ARCHKEEL_PREBUILT_CORE=1 $(UV) run" in makefile
     assert "fast-test: core" in makefile and "pr-selected-test: core" in makefile
+
+
+def test_a_shared_test_helper_the_area_table_and_its_floors_select_every_area() -> None:
+    """AD-736: they can change any area, so no area may be left out."""
+    for path in (
+        "tests/conftest.py",
+        "tests/areas.py",
+        "tests/area_floors.json",
+        "tests/core_support.py",
+        "tests/python_site_plants.py",
+        "tests/rust_param_review_plants.py",
+    ):
+        assert areas_of_change([path]) == list(AREAS), path
+    assert areas_of_change(["tests/test_cli_help.py"]) == ["CLI and core"]
+
+
+def test_select_areas_reads_the_diff_without_rename_detection(tmp_path: Path) -> None:
+    """AD-736: a rename of a helper lists the old and the new path, so each one selects."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    from select_areas import changed
+
+    def run(*arguments: str) -> None:
+        git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run([*git, *arguments], cwd=tmp_path, check=True, capture_output=True)
+
+    run("init", "-q", "-b", "main")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/core_support.py").write_text("x = 1\n" * 30)
+    run("add", "-A")
+    run("commit", "-q", "-m", "base")
+    run("checkout", "-q", "-b", "topic")
+    run("mv", "tests/core_support.py", "tests/core_help.py")
+    run("commit", "-q", "-am", "rename")
+    previous = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        assert sorted(changed("main")) == ["tests/core_help.py", "tests/core_support.py"]
+    finally:
+        os.chdir(previous)

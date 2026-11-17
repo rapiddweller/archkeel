@@ -109,6 +109,7 @@ mod head;
 mod kind;
 mod report;
 mod ruling;
+mod run_scope;
 mod status;
 mod violation_detail;
 mod why;
@@ -122,6 +123,7 @@ pub(crate) use engine_frame::FrameError;
 pub(crate) use head::RuleVerdict;
 pub use head::Status;
 pub use ruling::{rule, rule_with_edge_links, Explain, Named, RuleReasons, Ruling};
+pub use run_scope::RunScope;
 pub use status::system_status;
 #[cfg(test)]
 pub(crate) use status::Unexplained;

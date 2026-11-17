@@ -7,9 +7,10 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-737 | [Python construct support is one map with downgrade and meet](ad-737-python-construct-support-is-one-map-with-downgrade-and-meet.md) |
 | AD-738 | [One data file owns the source suffixes of both languages](ad-738-one-data-file-owns-the-source-suffixes-of-both-languages.md) |
 | AD-731 | [Under a baseline, only a verdict exits 2](ad-731-under-a-baseline-only-a-verdict-exits-2.md) |
-| AD-712 | [A written typing cast call is a partial signal](ad-712-a-written-typing-cast-call-is-a-partial-signal.md) |
+| AD-730 | [A box of the page shows PASS only when the run decides every rule](ad-730-a-box-of-the-page-shows-pass-only-when-the-run-decides-every-rule.md) |
 | AD-710 | [The fact sheet of a layer or group aggregates its members, and findings read as words](ad-710-the-fact-sheet-of-a-layer-or-group-aggregates-its-members.md) |
 | AD-708 | [A use of a name through a Python module object is the import of that name](ad-708-a-use-of-a-name-through-a-python-module-object-is-the-import-of-that-name.md) |
 | AD-706 | [A direct builtin import call is a construct](ad-706-a-direct-builtin-import-call-is-a-construct.md) |
@@ -20,6 +21,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-694 | [A path that ends at a module may name a value of its name](ad-694-a-path-that-ends-at-a-module-may-name-a-value-of-its-name.md) |
 | AD-692 | [An imported inert attribute keeps its import gap](ad-692-an-imported-inert-attribute-keeps-its-import-gap.md) |
 | AD-690 | [A dill settings read keeps the import gap](ad-690-a-dill-settings-read-keeps-the-import-gap.md) |
+| AD-712 | [A written typing cast call is a partial signal](ad-712-a-written-typing-cast-call-is-a-partial-signal.md) |
 | AD-688 | [A reply states its validation table, and the store keeps a language-free minimum](ad-688-a-reply-states-its-validation-table-and-the-store-keeps-a-language-free-minimum.md) |
 | AD-686 | [A proven Python getattr call is a construct](ad-686-a-proven-python-getattr-call-is-a-construct.md) |
 | AD-684 | [A written Python string equality is a construct](ad-684-a-written-python-string-equality-is-a-construct.md) |

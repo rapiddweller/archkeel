@@ -5,7 +5,7 @@
 //! The data of the Explorer (AD-606): the frame in the payload shape that the 4.0.1 Explorer
 //! reads. Each value is a row of the frame or a count of rows; the page decides no verdict. A
 //! component is FAIL when a violated place lies inside it, UNKNOWN when a gap names a module
-//! inside it, else PASS.
+//! inside it, else the floor of the run: PASS only when the run decides every rule (AD-730).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -16,6 +16,8 @@ use super::atlas_tree::{held, Finding, Refs, Tree};
 use super::cases::{one_line, Names};
 use super::frame::{Frame, Topology};
 use super::places::{Kind, Places};
+use super::status::{node_status, run_word, Floors, Shown};
+use crate::head::RuleVerdict;
 
 fn findings(frame: &Frame, places: &Places, names: &Names<'_>, refs: &mut Refs) -> Vec<Finding> {
     let mut found = Vec::new();
@@ -126,17 +128,6 @@ fn declared_note(frame: &Frame, topology: &Topology) -> Option<String> {
     })
 }
 
-fn status(fail: usize, unknown: usize) -> (&'static str, String) {
-    match (fail, unknown) {
-        (0, 0) => ("PASS", "No violated place and no gap inside.".to_owned()),
-        (0, gaps) => (
-            "UNKNOWN",
-            format!("{gaps} gaps name a module inside: a rule cannot decide here."),
-        ),
-        (places, _) => ("FAIL", format!("{places} violated places inside.")),
-    }
-}
-
 /// The `requires` entries of a node: a component lists its own entries, with their rationale and
 /// ports; a layer lists the pairs of its components, rolled up to the layers.
 fn requires(
@@ -173,14 +164,22 @@ fn requires(
         .collect()
 }
 
+/// The status of each box and whether a gap of its own holds it, in the order of the boxes.
+pub(super) type Marks = Vec<(Shown, bool)>;
+
 fn components(
     tree: &Tree,
     levels: &Levels,
     frame: &Frame,
     found: &[Finding],
     refs: &mut Refs,
-) -> Vec<Value> {
+) -> (Vec<Value>, Marks) {
     let (fail, unknown) = exceptions(frame, tree, found);
+    let floors = Floors::of(frame);
+    let floor = |i: usize| floors.at(tree, Some(i));
+    let marks: Marks = (0..tree.nodes.len())
+        .map(|i| (node_status(floor(i), fail[i], unknown[i]).0, unknown[i] > 0))
+        .collect();
     let mut modules = vec![0usize; tree.nodes.len()];
     for owner in tree.owner.values() {
         for node in tree.chain(*owner) {
@@ -189,10 +188,10 @@ fn components(
     }
     let empty = Topology::default();
     let topology = frame.topology.as_ref().unwrap_or(&empty);
-    (0..tree.nodes.len())
+    let rows = (0..tree.nodes.len())
         .map(|i| {
             let node = &tree.nodes[i];
-            let (state, reason) = status(fail[i], unknown[i]);
+            let (state, reason) = node_status(floor(i), fail[i], unknown[i]);
             // A layer is no component of the contract: it states no surface.
             let public = (node.rank.is_none() || !node.public.is_empty())
                 .then(|| node.public.iter().map(|p| refs.id(p)).collect::<Vec<_>>());
@@ -210,7 +209,8 @@ fn components(
                 "provenance": node.provenance.iter().map(|p| refs.id(p)).collect::<Vec<_>>(), "groups": node.members, "decided_by": "architect",
             })
         })
-        .collect()
+        .collect();
+    (rows, marks)
 }
 
 /// The ports of each `requires` entry as declared boundary permissions: an import of the pair
@@ -296,7 +296,7 @@ fn rule_assessments(frame: &Frame, found: &[Finding], refs: &mut Refs) -> Vec<Va
                 "plain_one": plain_one, "plain_many": plain_many,
                 "id": refs.id(rule), "kind": refs.id(kind), "reason": refs.id(reason), "scope": whole,
                 "status": verdict, "count": count, "components": [], "component_ids": [],
-                "evaluation_proven": verdict != "UNKNOWN", "evidence": [], "evidence_count": 0,
+                "evaluation_proven": *verdict != RuleVerdict::Unknown, "evidence": [], "evidence_count": 0,
                 "scope_id": null, "uncertainty_actions": [], "undecided": 0,
             })
         })
@@ -315,18 +315,23 @@ fn unknowns(frame: &Frame) -> Vec<Value> {
         .collect()
 }
 
-/// The payload of the Explorer, or `None` when the frame holds no topology.
-pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Option<Value> {
+/// The payload of the Explorer and the marks of its boxes, or `None` when the frame holds no
+/// topology.
+pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Option<(Value, Marks)> {
     let topology = frame.topology.as_ref()?;
     let tree = Tree::of(topology);
     let mut refs = Refs::default();
     let found = findings(frame, places, names, &mut refs);
     let levels = levels(frame, topology, &tree, &found, &mut refs);
-    let components = components(&tree, &levels, frame, &found, &mut refs);
+    let (components, marks) = components(&tree, &levels, frame, &found, &mut refs);
     let rule_assessments = rule_assessments(frame, &found, &mut refs);
     let coverage = json!([[{"entity_kinds": ["module"], "relationship_kinds": [], "scope_id": "",
         "status": "unavailable", "reason": "The 5.0 frame names no symbol inventory."}]]);
-    let complete = if topology.complete { "PASS" } else { "UNKNOWN" };
+    let complete = if topology.complete {
+        Shown::Pass
+    } else {
+        Shown::Unknown
+    };
     let languages: BTreeSet<&str> = topology
         .modules
         .iter()
@@ -340,7 +345,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
         )
     });
     let atlas = json!({
-        "repository": "System", "status": frame.status, "declared_rules": frame.status,
+        "repository": "System", "status": run_word(frame.status), "declared_rules": run_word(frame.status),
         "observation_complete": complete, "reason": frame.cause,
         "source": {"git_head": frame.identity.git_head, "source_digest": frame.identity.contract_digest},
         "components": components, "modules": levels.modules, "assignments": levels.assignments,
@@ -356,9 +361,10 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
         "language_note": note,
         "reference_ids": refs.list,
     });
-    Some(json!({
+    let value = json!({
         "schema_version": "1.0.0", "atlas": atlas,
         "boundary_permissions": {"applied": [], "declared": permissions(topology)},
         "navigation": {"repository": "System", "main_href": ""},
-    }))
+    });
+    Some((value, marks))
 }
