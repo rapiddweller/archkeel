@@ -83,7 +83,7 @@ def test_a_real_failure_names_its_edge_and_source_location(built: Path) -> None:
         )
         done = command(built / f"archkeel-core{SUFFIX}", root, "--text")
     assert done.returncode == 1, done.stdout + done.stderr
-    for text in ("REQUIRES", "app.src.a.a_x2e_ts -> app.src.b.t_x2e_ts", "src/a/a.ts:1", "Next:"):
+    for text in ("REQUIRES", "app.src.a.a.ts -> app.src.b.t.ts", "src/a/a.ts:1", "Next:"):
         assert text in done.stdout
 
 

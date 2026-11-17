@@ -184,26 +184,32 @@ fn a_part_with_two_owners_is_refused() {
     assert!(refused(reply).contains("no unique owner"));
 }
 
-/// The validation table of the survey (AD-688, AD-468, AD-749): exactly the sections `imports` and
-/// `unknowns`; the interface statement needs no feature (the stated publication surface).
+/// The survey registers each published section once; the interface statement needs no feature.
 #[test]
-fn the_table_of_the_survey_registers_only_its_two_sections_and_the_interface_needs_no_feature() {
+fn the_survey_registers_its_sections_and_the_interface_needs_no_feature() {
     use archkeel_facts::envelope::{LimitSupport, SectionName};
     let tree = project();
-    let mut symbols = reply(&tree);
-    symbols
-        .facts
-        .capabilities
-        .sections
-        .push(SectionName::Symbols);
-    symbols
-        .facts
-        .sections
-        .push(archkeel_facts::Section::Symbols(Vec::new()));
+    let symbols = reply(&tree);
     assert_eq!(
-        refused(symbols),
-        "source sections or resolution features are not registered"
+        symbols
+            .facts
+            .capabilities
+            .sections
+            .iter()
+            .filter(|section| **section == SectionName::Symbols)
+            .count(),
+        1
     );
+    assert_eq!(
+        symbols
+            .facts
+            .sections
+            .iter()
+            .filter(|section| matches!(section, archkeel_facts::Section::Symbols(_)))
+            .count(),
+        1
+    );
+    archkeel_store::ingest_typed(symbols).expect("the published sections are registered");
     let mut interface = reply(&tree);
     if let Some(limits) = interface.facts.profile_limits.as_mut() {
         limits.interface_boundary = LimitSupport::Supported;
