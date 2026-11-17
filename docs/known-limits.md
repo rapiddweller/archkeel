@@ -8,7 +8,7 @@ What each language decides on main. The README quotes this block, and `tests/tes
 
 <!-- tiers:start -->
 Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule has its receipt from the package map of the survey (AD-800), and every other rule of both is UNKNOWN.
 <!-- tiers:end -->
 
 The details follow.
@@ -24,8 +24,6 @@ Documentation does not accept these defects. They block the 5.0.0 release.
 |---|---|---|---|
 | Rust value dispatch | `c::make().m()`, with the type and impl in `b`; 13 forms and a foreign trait glob | false PASS | [#1515](https://github.com/rapiddweller/archkeel/issues/1515) |
 | Rust trait dispatch | a generic bound, supertrait, dyn supertrait or re-export; 4 forms | false PASS | [#1516](https://github.com/rapiddweller/archkeel/issues/1516) |
-| Rust root re-export | a re-export of an extern self alias or of another crate's root | false PASS | [#1517](https://github.com/rapiddweller/archkeel/issues/1517) |
-| Rust registry identity | outside source replacement changes a modeled derive expansion | false PASS | [#1518](https://github.com/rapiddweller/archkeel/issues/1518) |
 | Rust field receiver | `p.f.m()`: an inherent method in the file of its type, called through a public field of a typed parameter; no edge and no gap (AD-418) | false PASS | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
 | TypeScript DOM code | an `open` result, `document.open`, or a dynamic link and click | false PASS | [#1526](https://github.com/rapiddweller/archkeel/issues/1526) |
 | TypeScript prototype patch | replace `EventTarget.prototype.dispatchEvent`, then use it on `window` | false PASS | [#1527](https://github.com/rapiddweller/archkeel/issues/1527) |
@@ -95,13 +93,16 @@ checks `interface.*` prove a use of a `public` entry from the imports and name `
 where only a declared facade signature could reach it (AD-514). A Dart project gets PASS or FAIL
 only for rules that read the import graph; each gap of AD-454 and a part in another component than
 its library give UNKNOWN for each rule of the run. A symbol selector or an `interface_boundary`
-rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) is
-always UNKNOWN: the survey does not prove that it sees each local package, and 4.0.1 gives no Dart
-cycle receipt either. A proof that releases it: the survey resolves each `package:` URI from a
-complete package map that it reads (each `pubspec.yaml` of the project and its path and workspace
-members), and a test plants each YAML form of a local package. The Dart collector reads bounded
-YAML. It keeps a gap for a path key, an unsupported YAML form, and a workspace that it cannot
-prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
+rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) has its
+receipt when the package map is complete (AD-800; 4.0.1 gives no Dart cycle receipt). The survey
+reads the dependencies, overrides, `workspace` and `resolution` of the root `pubspec.yaml`: an
+import of a package that the map does not prove hosted, SDK or remote git is a gap of its library
+(`DartLocalPackage`, `DartUndeclaredPackage`), and a local package that no library imports adds no
+gap. A member of a workspace above the snapshot root gets that gap at each `package:` import: the
+survey takes the root `pubspec.yaml` as the package, so a workspace root inside the snapshot makes
+the member a nested package (J-compass). The Dart collector reads bounded YAML. It keeps a
+whole-scope gap for a pubspec that it reads only word by word, an unsupported YAML form, and a
+workspace that it cannot prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
 package roots also give gaps (AD-562).
 
 **Dart import premise (AD-542).** Code outside the scan roots does not load or run scanned code
@@ -160,10 +161,12 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - The core compares the module and import part of `declarations.uml` (AD-494) and the symbol part
-  for TypeScript (AD-512) and, for the declarations only, for Python (AD-518). Dart and Rust give
-  no symbol facts, and Python gives no site (base, call, reference, `creates`, `instance_of`), so a
-  relationship of a Python target is UNKNOWN with the cause "the python collector states no symbol
-  sites" (H-uml stays UNKNOWN). A Python declaration is written only for a class, function, method
+  for TypeScript (AD-512) and, for the declarations only, for Python (AD-518) and Dart (AD-796).
+  Rust gives no symbol facts, and Python and Dart give no site (base, call, reference, `creates`,
+  `instance_of`), so a relationship of a Python or Dart target is UNKNOWN with the cause "the python
+  collector states no symbol sites" (H-uml and H-uml-dart stay UNKNOWN). A Dart class inventory is
+  `partial` when a mixin application, a part of the library or a project extension can add a
+  member that the class body does not show. A Python declaration is written only for a class, function, method
   or class attribute that one plain statement binds once; a second binder (`if`, `try`, `for`,
   `with`, `del`, `global`, walrus, `match`, star import), a decorator other than the builtin
   `staticmethod` or `classmethod`, a keyword or an unproven base, a hazard site or a write from
@@ -659,14 +662,21 @@ A glob that can reach macro output withholds built-in derive identity; use expli
 One typed table models `serde::Serialize`, `serde::Deserialize` (1.0.229), and
 `schemars::JsonSchema` (1.2.3). File use records must prove the identity without a glob or shadow.
 The library and its derive implementation need unique crates.io registry identities in `Cargo.lock`.
-Path/git sources, workspace members, patches, replacements, stale locks and source configuration
-files withhold this proof. Renamed registry dependencies are followed through the manifest.
-Any `.cargo/config` or `.cargo/config.toml` below a scan root or on its repository ancestor path
-withholds the model, including files in nested non-crate directories. The search follows no symlink.
-It withholds the model beyond directory depth 128 or one million entries, and at unreadable directories or directory links.
-Open false PASS, not accepted (#1518; #1020 is closed): build settings outside the repository can replace registry code.
-The snapshot cannot see `$CARGO_HOME` configuration, `CARGO_*` source settings or the build invocation environment.
-Such an override can make an unseen expansion pass silently. This is a release-blocking defect, not a proof of that build.
+Path/git sources, workspace members and stale locks withhold this proof. Renamed registry
+dependencies are followed through the manifest. AD-774 (#1518): each `.cargo/config.toml` and
+`.cargo/config` at any level of the repository (not below build output, `.git` or `node_modules`) is
+read. A replacement of the crates.io source or a `paths` override withholds the proof of every
+registry crate; a `[patch]` entry of a configuration or a manifest, and a `[replace]` entry of a
+manifest, withhold the crate that they name. A configuration that does not parse, a `.cargo` link,
+an unreadable directory, a directory link, and a walk beyond depth 128 or one million entries
+withhold every crate. A derive that loses its proof this way is UNKNOWN, and a gap names the file and
+line of the setting. A configuration without such a setting (`[build]`, `[alias]`) keeps the proof.
+Settings outside the repository (`$CARGO_HOME`, `CARGO_*` variables, `--config`) are not read, so a
+result does not depend on the machine. A Rust scan whose proof rests on a locked registry crate
+states the premise "registry crates are built from the identity that Cargo.lock records; no outside
+source replacement" with its verdict; a build that breaks it is outside the PASS.
+`tests/test_collector_false_pass_rust_registry_replacement.py` holds the plants: the replacement in
+the repository gives UNKNOWN, the same replacement in `$CARGO_HOME` gives PASS under the premise.
 These derives generate impl code using their own crate, written types, and documented helper paths.
 Every helper path, type and bound is read as a path use of the item's module, including bare names.
 Unknown helper keys, unsupported conditional metadata, macro values and invalid syntax keep a gap.

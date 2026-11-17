@@ -18,8 +18,10 @@ use crate::crates::{Crate, Root, Workspace};
 use crate::derive_imports::Local;
 use crate::modules::{Index, Outcome};
 use crate::names::{self, glob_of, published, with_name, ImportName};
+use crate::registry_overrides::Cited;
 use crate::resolve::{classify, linked, Found, Named};
 use crate::scan::{Reference, Via};
+use crate::site::Site;
 use crate::tree::Module;
 
 impl Builder {
@@ -45,6 +47,9 @@ impl Builder {
             if crate::derive_identity::proven(workspace, index, &local, concern, modules) {
                 continue;
             }
+            if let Some(found) = crate::derive_identity::withheld(workspace, &local, concern) {
+                self.withheld(module, found);
+            }
             let evidence = self.cite(&module.rel, &concern.site);
             if let Some(scope) = &concern.source {
                 let source = std::iter::once(module.module.as_str())
@@ -56,6 +61,27 @@ impl Builder {
                 self.gap(&concern.reason, Some(&evidence), &module.module);
             }
         }
+    }
+
+    /// A modeled registry derive whose crate a setting of the repository may build from other
+    /// code (AD-774): a gap of the module that names the setting, its file and its line.
+    fn withheld(&mut self, module: &Module, (package, cited): (&str, &Cited)) {
+        let at = match cited.line {
+            0 => cited.rel.clone(),
+            line => format!("{}:{line}", cited.rel),
+        };
+        let reason = format!(
+            "{} in {at} may build the registry crate {package} from other code than Cargo.lock records: its derive has no identity proof",
+            cited.what
+        );
+        let site = Site {
+            line: cited.line,
+            end_line: cited.line,
+            column: 0,
+            excerpt: cited.excerpt.clone(),
+        };
+        let evidence = (cited.line > 0).then(|| self.cite(&cited.rel, &site));
+        self.gap(&reason, evidence.as_deref(), &module.module);
     }
 
     fn edges(&mut self, workspace: &Workspace, index: &Index<'_>, module: &Module) {

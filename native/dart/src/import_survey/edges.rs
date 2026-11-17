@@ -20,6 +20,7 @@ use archkeel_snapshot::Snapshot;
 use super::binding::{published, Binding, Surface};
 use super::index::{Index, Kind, Located, Owners};
 use super::names::{GapName, Gaps, Place};
+use super::package_map::PackageMap;
 use super::parts::{directives, missing};
 use super::uri::{classify, Uri};
 use crate::discover::Source;
@@ -149,6 +150,20 @@ fn resolve(
     gaps: &mut Gaps,
 ) -> Option<Resolved> {
     let at = Place::Span(source, &directive.span);
+    // AD-800: an import of a package that the package map does not prove external keeps its
+    // record, whose module has the same name in either case, and a gap that holds its library.
+    let package = uri
+        .strip_prefix("package:")
+        .and_then(|rest| rest.split_once('/'))
+        .map(|(name, _)| name);
+    let unproven = match package {
+        Some(name) if name == index.package => PackageMap::own(&index.packages, name).err(),
+        Some(name) => PackageMap::external(&index.packages, name).err(),
+        None => None,
+    };
+    if let Some((name, message)) = unproven {
+        gaps.named(name, at, &message);
+    }
     let (name, message) = match classify(&source.rel_path, uri, index.package) {
         Uri::Builtin(module) => {
             if module == "dart.mirrors" {

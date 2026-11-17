@@ -17,6 +17,7 @@ use archkeel_snapshot::Snapshot;
 use crate::builder::Builder;
 use crate::crates::discover;
 use crate::modules::index;
+use crate::registry::Registry;
 use crate::reply::Collected;
 use crate::source::walk as list_files;
 use crate::test_scope::NO_PRODUCTION_SOURCE;
@@ -30,13 +31,16 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
         ..Builder::default()
     };
     let (scope, files) = list(&mut source, &request.scope.roots, &mut builder);
-    let blocked = crate::registry::overrides(&mut source, &request.scope.roots);
+    let overrides = crate::registry_overrides::configs(&mut source);
     let mut workspace = discover(&mut source, &files, &request.scope.namespace);
-    if blocked {
-        for krate in &mut workspace.crates {
-            krate.registry = crate::registry::Registry::default();
-        }
+    for krate in &mut workspace.crates {
+        Registry::withhold(&mut krate.registry, &overrides);
     }
+    // AD-774: a proof that rests on the identity in `Cargo.lock` is stated with the verdict.
+    builder.lock_premise = workspace
+        .crates
+        .iter()
+        .any(|krate| !krate.registry.packages.is_empty());
     let mut walked = walk(&mut source, &workspace, request.excludes_test_sources());
     let proven: Vec<Vec<String>> = {
         let index = index(&workspace, &walked.modules);

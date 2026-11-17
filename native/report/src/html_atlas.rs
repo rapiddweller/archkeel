@@ -328,11 +328,6 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
     let rule_assessments = rule_assessments(frame, &found, &mut refs);
     let coverage = json!([[{"entity_kinds": ["module"], "relationship_kinds": [], "scope_id": "",
         "status": "unavailable", "reason": "This version does not list symbols."}]]);
-    let complete = if topology.complete {
-        Shown::Pass
-    } else {
-        Shown::Unknown
-    };
     let languages: BTreeSet<&str> = topology
         .modules
         .iter()
@@ -348,7 +343,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
     let home = home(frame);
     let atlas = json!({
         "repository": home["repository"], "status": run_word(frame.status), "declared_rules": run_word(frame.status),
-        "observation_complete": complete, "reason": frame.cause,
+        "result": result(frame), "reason": frame.cause,
         "source": {"git_head": frame.identity.git_head, "source_digest": frame.identity.contract_digest},
         "components": components, "modules": levels.modules, "assignments": levels.assignments,
         "cells": levels.cells, "levels": levels.rows, "deviations": levels.deviations,
@@ -370,6 +365,18 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
         "navigation": home,
     });
     Some((value, marks))
+}
+
+/// The result of the run in the words of its verdict: `PASS assuming <premises>` for a PASS that
+/// rests on a premise of the contract (AD-764), else the run word. It replaces the 4.0.1 word
+/// "observation": `topology.complete` only says that a list of the topology was cut by its budget,
+/// which tells a visitor nothing about the result.
+fn result(frame: &Frame) -> String {
+    let premised = super::rules::qualifier(frame).filter(|_| !frame.premises.is_empty());
+    match (frame.status, premised) {
+        (Some(crate::head::Status::Pass), Some(words)) => words,
+        (status, _) => run_word(status).to_string(),
+    }
 }
 
 /// The root of the Explorer (E4, #1451): the page of a part names "<part> of <system>" and the

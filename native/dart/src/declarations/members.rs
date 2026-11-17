@@ -186,9 +186,12 @@ impl Assembly {
         };
         self.work.charge(parameters.len())?;
         let complete = parameters.iter().all(|parameter| parameter.default_known);
+        // AD-796: the name is the last segment of the qualified name, as the store checks: a
+        // named constructor drops its class, an accessor keeps its `::getter` or `::setter`.
+        let name = format!("{spelling}{suffix}");
         let mut data = self.meta(
             file,
-            &member.name,
+            &name,
             &qualified,
             Some((parent, parent_id)),
             Category::Method,

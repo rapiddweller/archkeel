@@ -3,6 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # AD-674: a full run of the main tier every two hours, so that a main whose pushes keep coming
+  # still shows its breakage; the nightly Full run stays.
+  schedule:
+    - cron: "23 */2 * * *"
   workflow_dispatch:
 
 permissions:
@@ -12,10 +16,11 @@ permissions:
 env:
   ARCHKEEL_CORE_PROFILE: gate
 
-# Pipelines run on main only (AD-348): a newer push to main cancels the older run.
+# AD-674: a run on main finishes. The running run is not cancelled; GitHub keeps only the newest waiting
+# run behind it and drops older waiting ones. Pull requests are cancelled by `pr-gate.yml`.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ci-main
+  cancel-in-progress: false
 
 jobs:
   lint:

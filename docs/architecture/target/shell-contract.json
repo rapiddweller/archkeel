@@ -53,6 +53,7 @@
       "public": [
         "archkeel.cli.core_words:kind_label",
         "archkeel.cli.core_words:plain",
+        "archkeel.cli.core_words:readable",
         "archkeel.cli.core_words:contract_fix",
         "archkeel.cli.core_words:fix_for",
         "archkeel.cli.core_words:CAUSE_FIXES",

@@ -23,8 +23,8 @@
     "G-dart": {
       "language": "dart",
       "runs": [
-      {"name": "G-dart", "section": "clean", "intent": "PASS", "blocked_by": [1535], "about": "Dart import rules: a facade with show, a conditional import, part and deferred.", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 9, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}},
-      {"name": "G-dart-plant-dart-io", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "A forbidden dependency on an SDK library: The domain layer imports dart:io, which the contract forbids there.", "plant": {"where": "lib/domain/repository.dart", "line": "import 'dart:io';", "rule": "DEP-DOMAIN-NO-DART-IO", "source": "shop.domain.repository", "target": "dart.io", "edits": [{"path": "lib/domain/repository.dart", "old": "import 'dart:async';\n", "new": "import 'dart:async';\nimport 'dart:io';\n"}]}, "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 8, "FAIL": 1, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "G-dart", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "Dart import rules: a facade with show, a conditional import, part and deferred.", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 10, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}},
+      {"name": "G-dart-plant-dart-io", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "A forbidden dependency on an SDK library: The domain layer imports dart:io, which the contract forbids there.", "plant": {"where": "lib/domain/repository.dart", "line": "import 'dart:io';", "rule": "DEP-DOMAIN-NO-DART-IO", "source": "shop.domain.repository", "target": "dart.io", "edits": [{"path": "lib/domain/repository.dart", "old": "import 'dart:async';\n", "new": "import 'dart:async';\nimport 'dart:io';\n"}]}, "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 9, "FAIL": 1, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-typescript": {
@@ -64,7 +64,7 @@
     "J-compass": {
       "language": "dart",
       "runs": [
-      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1539, 1533], "about": "Real project: the Flutter samples compass_app, pinned.", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: 2 gaps leave unknown what the rule reads: the code of every module", "gaps": {}, "refusal": null}}
+      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1539, 1533], "about": "Real project: the Flutter samples compass_app, pinned.", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: 105 gaps leave unknown what the rule reads: the code of compass.config.dependencies, the code of compass.data.repositories.auth.auth_repository, the code of compass.data.repositories.auth.auth_repository_remote, the code of compass.data.services.api.model.booking.booking_api_model, the code of compass.data.services.api.model.login_request.login_request and 58 more", "gaps": {}, "refusal": null}}
       ]
     },
     "K-python-realworld": {

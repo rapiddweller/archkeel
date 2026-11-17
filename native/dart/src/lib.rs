@@ -11,19 +11,8 @@
 
 #![forbid(unsafe_code)]
 #![deny(unreachable_pub)]
-// The survey parses directives only. The full parse of definitions and sites serves the dump until a later slice of #880 surveys symbols; the expectation fails once it is used.
-#![cfg_attr(
-    not(feature = "dump"),
-    expect(
-        dead_code,
-        reason = "the full parse serves the dump until a slice of #880 surveys symbols (AD-454)"
-    )
-)]
-
-#[cfg(feature = "dump")]
 mod collection;
 mod dartstr;
-#[cfg(feature = "dump")]
 mod declarations;
 mod definitions;
 mod directives;
@@ -37,8 +26,10 @@ mod parse;
 mod pubspec;
 mod pytext;
 mod records;
+mod resolve;
 mod sdk;
 mod sites;
+mod symbol_survey;
 mod syntax;
 mod tree;
 mod unicode_tables;

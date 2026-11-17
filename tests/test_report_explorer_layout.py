@@ -262,3 +262,25 @@ def test_the_first_view_shows_the_whole_graph_or_starts_at_its_top_left_box(
     assert core["firstIn"], core
     assert "right" in core["overflow"].split(), core
     assert core["hint"] == "Scroll or press Shift 1 to fit", core
+
+
+def test_a_language_badge_is_never_cut(site: str, page: Browser) -> None:
+    # The badge of the Python shell read "pyth…": its width was a guess of the text length.
+    for query in ("", f"scope={CORE}", "scope=PART%3Ashell"):
+        page.open(f"{site}/system.html?{query}")
+        badges = page.evaluate(
+            "[...document.querySelectorAll('#flow svg [data-uml-id]')].filter((g) =>"
+            " g.querySelector('.ak-tag')).map((g) => { const tag = g.querySelector('.ak-tag');"
+            " const text = tag.querySelector('text'), rect = tag.querySelector('rect');"
+            " const kind = g.querySelector('.stereotype');"
+            " const visible = kind && kind.getAttribute('visibility') !== 'hidden';"
+            " return { text: text.textContent, room: rect.getBBox().width - 12,"
+            " length: text.getComputedTextLength(), left: tag.getBBox().x + tag.transform.baseVal"
+            ".consolidate().matrix.e, kindRight: visible ? 16 + kind.getComputedTextLength() : 0,"
+            " title: g.dataset.akTag }; })"
+        )
+        assert badges, query
+        for badge in badges:
+            assert badge["text"] == badge["title"], badge
+            assert badge["length"] <= badge["room"] + 0.5, badge
+            assert badge["kindRight"] < badge["left"], badge
