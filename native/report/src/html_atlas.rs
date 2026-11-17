@@ -73,7 +73,7 @@ fn exceptions(frame: &Frame, tree: &Tree, found: &[Finding]) -> (Vec<usize>, Vec
         let mut nodes = BTreeSet::new();
         for subject in subjects {
             let module = paths.get(subject).copied().unwrap_or(subject);
-            nodes.extend(tree.chain(*tree.owner.get(module)?));
+            nodes.extend(tree.chain(*tree.place.get(module)?));
         }
         (!nodes.is_empty()).then_some(nodes)
     };
@@ -181,7 +181,7 @@ fn components(
         .map(|i| (node_status(floor(i), fail[i], unknown[i]).0, unknown[i] > 0))
         .collect();
     let mut modules = vec![0usize; tree.nodes.len()];
-    for owner in tree.owner.values() {
+    for owner in tree.place.values() {
         for node in tree.chain(*owner) {
             modules[node] += 1;
         }
@@ -206,7 +206,8 @@ fn components(
                 "public": public, "requires": requires, "used_by": levels.used_by(i),
                 "responsibilities": node.about, "not_responsible_for": node.forbidden,
                 "planned": (!node.planned.is_empty()).then_some(&node.planned),
-                "provenance": node.provenance.iter().map(|p| refs.id(p)).collect::<Vec<_>>(), "groups": node.members, "decided_by": "architect",
+                "provenance": node.provenance.iter().map(|p| refs.id(p)).collect::<Vec<_>>(), "groups": node.members,
+                "directory": node.directory, "decided_by": if node.directory { "report" } else { "architect" },
             })
         })
         .collect();
@@ -357,6 +358,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
         "module_correspondences": [], "module_inventories": [], "symbols_complete": false,
         "symbol_coverages": coverage, "architecture_href": "#next", "detail_page": null,
         "unassigned_detail_href": null,
+        "module_box_limit": super::atlas_dirs::ON_SCREEN,
         "cell_permission_reason_ref": refs.id("The page names no permission for one pair of modules."),
         "language_note": note,
         "reference_ids": refs.list,

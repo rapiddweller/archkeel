@@ -4,7 +4,8 @@ name: Pages
 # each push to main, and a newer push cancelled that run: 38 of the last 40 runs on main were cancelled
 # and the site stayed on an old commit. Here no push cancels a run; GitHub keeps one pending run (the
 # newest) behind the running one. The nightly run publishes as well, so a failed publish does not leave the
-# site behind for a day.
+# site behind for a day. A failed publish makes the run red (the job has no continue-on-error): the
+# last good page stays online, and the failure shows in every overview. Pages is no required check.
 on:
   push:
     branches: [main]
@@ -21,7 +22,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    continue-on-error: true
     env:
       # AD-754: this job keeps the Rust cache of main warm for the PR gate, so it builds the gate profile.
       ARCHKEEL_CORE_PROFILE: gate

@@ -120,6 +120,7 @@ fn a_block_with_fewer_required_features_cannot_lower_the_symbol_rule() {
     reply.facts.profile_limits = Some(archkeel_facts::envelope::ProfileLimits {
         dependency_symbols: archkeel_facts::envelope::LimitSupport::Supported,
         interface_boundary: archkeel_facts::envelope::LimitSupport::Supported,
+        publication_surface: archkeel_facts::envelope::LimitSupport::Unsupported,
     });
     assert_eq!(
         crate::ingest_typed(reply).err().unwrap_or_default(),
@@ -154,6 +155,7 @@ fn an_interface_statement_agrees_with_the_need_of_the_block() {
             } else {
                 archkeel_facts::envelope::LimitSupport::Unsupported
             },
+            publication_surface: archkeel_facts::envelope::LimitSupport::Unsupported,
         });
         crate::ingest_typed(reply).err().unwrap_or_default()
     };
@@ -168,5 +170,26 @@ fn an_interface_statement_agrees_with_the_need_of_the_block() {
     assert_eq!(
         stated(routes, false),
         "an interface statement holds exactly with the feature script-globals-v1"
+    );
+}
+
+#[test]
+fn a_publication_surface_needs_an_interface_statement() {
+    use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
+    let stated = |interface: LimitSupport| {
+        let mut value = eleven();
+        value["facts"]["validation"]["interface"] = json!("nothing");
+        let mut reply: archkeel_facts::envelope::Reply = serde_json::from_value(value).unwrap();
+        reply.facts.profile_limits = Some(ProfileLimits {
+            dependency_symbols: LimitSupport::Supported,
+            interface_boundary: interface,
+            publication_surface: LimitSupport::Supported,
+        });
+        crate::ingest_typed(reply).err().unwrap_or_default()
+    };
+    assert_eq!(stated(LimitSupport::Supported), "");
+    assert_eq!(
+        stated(LimitSupport::Unsupported),
+        "a publication surface statement needs an interface statement"
     );
 }

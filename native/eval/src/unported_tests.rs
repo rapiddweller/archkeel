@@ -18,8 +18,7 @@ use crate::tests::{reply, shop_settings};
 /// Whether a slice of the evaluator decides the kind (an arm of `outcome` in `lib.rs`).
 fn ported(kind: K) -> bool {
     match kind {
-        K::SymbolPlacement
-        | K::SourceOwnership
+        K::SourceOwnership
         | K::BoundedNumericOperand
         | K::CallOwner
         | K::ForbiddenCallArgument
@@ -28,7 +27,8 @@ fn ported(kind: K) -> bool {
         | K::ForbiddenEffectUnderCondition
         | K::ProtocolDeclarations
         | K::BoundaryTypes => false,
-        K::LayerOrder
+        K::SymbolPlacement
+        | K::LayerOrder
         | K::NoComponentCycles
         | K::ForbiddenConstruct
         | K::AllowedDependency
@@ -83,5 +83,5 @@ fn each_kind_that_no_slice_decides_is_unknown_by_name() {
         assert!(outcome.violations().is_empty(), "{kind:?}");
     }
     // The contract holds the 10 kinds, so a kind that moves to `ported` or leaves it shows here.
-    assert_eq!(seen, 10);
+    assert_eq!(seen, 9);
 }

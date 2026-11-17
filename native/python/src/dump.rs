@@ -165,7 +165,7 @@ pub fn printable(minor: &str) -> Result<(), String> {
 
 /// `--dump-survey`: the survey sections of one request (slices 1c-2a and 1c-2b).
 pub fn survey(request: &archkeel_facts::request::PythonRequest) -> Result<Value, String> {
-    let prepared = prepared(request)?;
+    let prepared = crate::requirement::Prepared::of(request)?;
     let found = crate::survey::survey(&prepared)?;
     let value = |error: serde_json::Error| error.to_string();
     Ok(json!({
@@ -184,7 +184,7 @@ pub fn symbols(
     request: &archkeel_facts::request::PythonRequest,
     witnesses: bool,
 ) -> Result<Value, String> {
-    let prepared = prepared(request)?;
+    let prepared = crate::requirement::Prepared::of(request)?;
     let crate::survey::Modules {
         minor,
         modules,
@@ -218,22 +218,13 @@ pub fn symbols(
     }))
 }
 
-/// Select a target for a dump that reads the parsed survey.
-fn prepared(
-    request: &archkeel_facts::request::PythonRequest,
-) -> Result<archkeel_facts::request::PythonRequest, String> {
-    let mut snapshot = Snapshot::new(&request.snapshot.root);
-    let (interpreter, _) = crate::requirement::target(&mut snapshot, &request.resolver)?;
-    let mut result = request.clone();
-    result.resolver.interpreter = Some(interpreter);
-    Ok(result)
-}
-
 /// `--dump-scope`: the scope of one 10.0.0 request as one JSON object (slice 1c-1).
 pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Result<Value, String> {
     let mut snapshot = Snapshot::new(&request.snapshot.root);
-    let (interpreter, _) = crate::requirement::target(&mut snapshot, &request.resolver)?;
-    let minor = interpreter.version.minor();
+    let minor = crate::requirement::Prepared::of(request)?
+        .interpreter
+        .version
+        .minor();
     let roots = &request.scope.roots;
     let found = discover::scope(&mut snapshot, roots, request.excludes_test_sources());
     let selected = found.selected;

@@ -151,16 +151,9 @@ def test_the_page_stays_below_the_budget_and_keeps_its_verdict(
     assert size < BUDGET
 
 
-# #1571 (owner decision, L-273): the self page shows each component with a gap; each one with
-# all its tables adds them to the budget, and no more than this. A page with no exception keeps
-# the budget above.
-TABLE_BYTES = 16_000
-
-
 def test_the_core_self_page_stays_below_the_budget(self_page: str) -> None:
-    tables = self_page.count('class="rp-comp"')
-    print(f"page core self run: {len(self_page.encode())} bytes with {tables} component tables")
-    assert len(self_page.encode()) < BUDGET + TABLE_BYTES * tables
+    print(f"page core self run: {len(self_page.encode())} bytes")
+    assert len(self_page.encode()) < BUDGET
 
 
 def test_a_page_request_adds_no_topology_to_the_output_of_the_run(
@@ -208,8 +201,6 @@ WORD_BUDGET = 6_000
 # AD-668: the self page shows each violated place of the self-contract (honesty rule); each block
 # adds its own text to the budget, and no more than this.
 PLACE_BUDGET = 400
-# #1571 (L-273): each component with a violation or a gap adds its one summary line.
-ROW_BUDGET = 100
 
 
 def test_the_word_budget_of_the_core_self_page_and_no_json_block(self_page: str) -> None:
@@ -217,9 +208,8 @@ def test_the_word_budget_of_the_core_self_page_and_no_json_block(self_page: str)
     Before (main at e65cbe009): 83,356 characters and 46,862 px."""
     words = visible_text(self_page)
     places = self_page.count('class="rp-dos"')
-    rows = self_page.count('class="rp-kind"')
-    print(f"visible characters of the core self page: {len(words)}, {places} places, {rows} rows")
-    assert len(words) < WORD_BUDGET + PLACE_BUDGET * places + ROW_BUDGET * rows
+    print(f"visible characters of the core self page: {len(words)} with {places} places")
+    assert len(words) < WORD_BUDGET + PLACE_BUDGET * places
     page = markup(self_page)
     assert "<pre" not in page and '"kind":' not in page and "&quot;kind&quot;" not in page
 
@@ -290,27 +280,40 @@ def test_no_box_cell_or_edge_of_an_unknown_run_shows_pass(
     assert shown and "PASS" not in shown
 
 
-@pytest.mark.parametrize(("placement", "expected"), [(True, "UNKNOWN"), (False, "PASS")])
+@pytest.mark.parametrize(("unported", "expected"), [(True, "UNKNOWN"), (False, "PASS")])
 def test_a_fail_beside_an_unported_rule_draws_no_pass_box(
     release_core: Path,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    placement: bool,
+    unported: bool,
     expected: str,
 ) -> None:
     """#1507: the client imports the forbidden secret (FAIL) and the contract has a
-    `symbol_placement` rule that the core does not port. That rule has no row and may break in
+    `source_ownership` rule that the core does not port. That rule has no row and may break in
     any box, so the boxes without a violated place show UNKNOWN. Without it the run decides every
     rule and those boxes keep PASS."""
-    from test_cli_native_python_imports import project
+    from test_cli_native_python_imports import RULE, project
     from test_cli_python_gap_effects import FILES, RULES
-    from test_cli_python_profile_limits import PLACEMENT
 
+    ownership = {
+        **RULE,
+        "id": "UNPORTED-OWNER",
+        "kind": "source_ownership",
+        "source": "app",
+        "mode": "confined",
+        "symbols": ["app.client.page.helper"],
+        "owner": "app.client.page",
+        "roles": ["definition", "read"],
+    }
     files = {**FILES, "src/app/client/page.py": "import app.service.secret\n"}
-    root = project(tmp_path / "p", files, contract_rules=[*RULES, *([PLACEMENT] * placement)])
+    root = project(tmp_path / "p", files, contract_rules=[*RULES, *([ownership] * unported)])
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    contract["schema_version"] = "3.12.0"
+    contract_path.write_text(json.dumps(contract))
     _, text, found = write_page(release_core, monkeypatch, root, "archkeel.toml", tmp_path / "r")
     assert found["status"] == "FAIL"
-    assert ("PROTOCOLS-IN-SERVICE" in found["frame"]["unsupported"]["rules"]) is placement
+    assert ("UNPORTED-OWNER" in found["frame"]["unsupported"]["rules"]) is unported
     data = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', text)
     assert data
     boxes = {c["id"]: c["status"] for c in json.loads(data.group(1))["atlas"]["components"]}

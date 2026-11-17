@@ -4,7 +4,7 @@
 """AD-644: a profile limit holds only what reads the part that it limits, through the release core.
 
 Consumer: a CI job that reads the row of each rule. The Python collector decides no
-`symbol_placement` rule and measures no `private_crossings` budget. Each such limit
+unread constructs and measures no `private_crossings` budget. Each such limit
 keeps its own rule (or, for a budget, the run) UNKNOWN; the rules on the import edges and the
 files decide. A violation that the scan sees stays FAIL, and a hidden construct never passes:
 Python runs the truth of each plant.
@@ -83,7 +83,7 @@ PLANTS = {
         {"NO-SETATTR": "the collector examines no setattr"},
         truth=LOADS_SECRET,
     ),
-    # An unported rule kind is an unsupported row; it holds no rule on the edges.
+    # A proven empty class inventory lets placement and the edge rules pass.
     "symbol placement": Plant({}, [PLACEMENT], [], {}, {}),
     # A budget that no profile measures holds the run, and no rule.
     "budget": Plant({}, [], [BUDGET], {}, {}),
@@ -107,13 +107,18 @@ def test_a_profile_limit_holds_only_what_reads_it(
     plant = PLANTS[name]
     result = scanned(release_core, tmp_path, plant)
     frame = result["frame"]
-    decided = [rule["id"] for rule in [*RULES, *plant.extra] if rule["kind"] != "symbol_placement"]
+    decided = [rule["id"] for rule in [*RULES, *plant.extra]]
     expected = {rule: plant.open.get(rule, "PASS") for rule in decided}
     assert rows(result) == expected, frame["explained"]
     for rule, text in plant.why.items():
         assert text in frame["explained"][rule], frame["explained"][rule]
     # A limited part never lets the run pass.
-    assert result["status"] == ("FAIL" if "FAIL" in plant.open.values() else "UNKNOWN"), result
+    expected_status = (
+        "PASS"
+        if name == "symbol placement"
+        else ("FAIL" if "FAIL" in plant.open.values() else "UNKNOWN")
+    )
+    assert result["status"] == expected_status, result
     if plant.truth:
         done = subprocess.run(
             [sys.executable, "-I", "-c", f"import sys; sys.path.insert(0, 'src'); {plant.truth}"],
@@ -125,12 +130,11 @@ def test_a_profile_limit_holds_only_what_reads_it(
         assert done.stdout.strip() == "True", done
 
 
-def test_an_unported_kind_and_an_unmeasured_budget_name_their_own_rows(
+def test_placement_decides_and_an_unmeasured_budget_names_its_own_row(
     release_core: Path, tmp_path: Path
 ) -> None:
     placement = scanned(release_core, tmp_path / "placement", PLANTS["symbol placement"])
-    unsupported = placement["frame"]["unsupported"]["rules"]
-    assert "rule kind SymbolPlacement" in unsupported["PROTOCOLS-IN-SERVICE"], unsupported
+    assert rows(placement)["PROTOCOLS-IN-SERVICE"] == "PASS"
     budget = scanned(release_core, tmp_path / "budget", PLANTS["budget"])["frame"]
     assert "declarations.measurement_budgets.private_crossings" in budget["scope"], budget["scope"]
 

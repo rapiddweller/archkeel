@@ -44,13 +44,20 @@ UNKNOWN. graphql-js v16.15.0: 67 gaps, unchanged. TypeScript fixtures F, H, H-um
 unchanged. Explorer scripts (`browser.toml`): 586 to 592 gaps (5 places) (`positions[label] = …` in
 `flow.js` 1554, 3116, `report-layout.js` 49, 59; `Object.assign(route, drawn)` in `flow.js` 534).
 
+## Amendment: indirect reflective writes
+5. `__defineGetter__` and `__defineSetter__` of any object are reflective writes on their receiver.
+   `Object` and `Reflect` read through a window name (`globalThis.Object`, `window['Reflect']`) are
+   the free ones. A reflective or accessor member that is no direct callee (stored, passed, called
+   through `call` or `apply`, `Reflect.apply(Reflect.set, …)`) is direct: the check cannot read the
+   target of the later call (`script_reflective.rs`). A stored free `Object` or `Reflect` was direct
+   already (AD-508 rule 5). Measured: graphql-js, the 4 TypeScript fixtures and the Explorer scripts
+   keep their gaps and rules (613 Explorer gaps before and after).
+
 ## Open
-- An alias of `Object` or `Reflect` that writes by reflection (`const O = Object; O.assign(w, s)`),
-  as listed in AD-508.
-- A reflective write through another global (`Object.prototype.__defineSetter__`).
+- A global write by code outside the scan roots (#1546).
 
 ## Tests
 `native/typescript/src/script_window_value_tests.rs`: the 8 plants of #1524, 5 reflective writes,
-6 local writes that keep the proof, a named write. `tests/test_collector_false_pass_ts_window_values.py`:
+7 local writes that keep the proof, a named write, 11 indirect reflective writes. `tests/test_collector_false_pass_ts_window_values.py`:
 the 8 plants of #1524 and 3 reflective writes through the release core, and one local write that
 keeps PASS.

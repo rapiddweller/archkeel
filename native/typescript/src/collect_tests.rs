@@ -143,3 +143,25 @@ fn retained_sites_keep_their_paths_and_initializer_after_large_comments() {
         ["B"]
     );
 }
+
+// AD-778: the records of a call chain copy and hash the square of the chain. A file over the
+// limit keeps no site records and names the chain; the other files are still collected.
+#[test]
+fn a_call_chain_over_the_record_work_limit_is_a_gap_and_the_others_are_collected() {
+    let chain = format!("export const v = a{};", ".b()".repeat(200_000));
+    let tree = Tree::new(&[
+        ("tsconfig.json", "{}"),
+        ("src/a.ts", "export const a = 1;"),
+        ("src/chain.ts", &chain),
+    ]);
+    let facts = collect(&request(&tree, false), provenance());
+    assert_eq!(facts.files_read, 2);
+    let titles = titles(&facts);
+    assert_eq!(titles.len(), 1, "{titles:?}");
+    assert!(
+        titles[0].starts_with("The call chain at line 1 is too long to record: "),
+        "{}",
+        titles[0]
+    );
+    assert!(titles[0].ends_with("src/chain.ts"));
+}

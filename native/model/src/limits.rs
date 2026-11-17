@@ -31,13 +31,12 @@
 use std::collections::HashSet;
 
 use archkeel_contract::{BudgetName, Component, Contract, LayerOrder, Rule, RuleKind};
-use archkeel_facts::envelope::LimitSupport;
+use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
 
 use crate::observed::Observed;
 
 /// The rule kinds that no store-accepted profile decides (`unsupported_rules`).
 const UNDECIDED_KINDS: &[RuleKind] = &[
-    RuleKind::SymbolPlacement,
     RuleKind::CallOwner,
     RuleKind::BoundedNumericOperand,
     RuleKind::ProtocolDeclarations,
@@ -169,6 +168,8 @@ enum Reads {
     Shapes,
     /// The public symbols of the modules and every import (`unused_public`, AD-670).
     Published,
+    /// The class inventory and class symbols.
+    Placement,
     /// Only the module-level import edges.
     Edges,
 }
@@ -184,6 +185,7 @@ fn reads(rule: &Rule) -> Reads {
         undecided_rule!() => Reads::Undecided,
         Rule::BoundaryTypes(_) => Reads::Shapes,
         Rule::UnusedPublic(_) => Reads::Published,
+        Rule::SymbolPlacement(_) => Reads::Placement,
         Rule::ForbiddenDependency(_)
         | Rule::AllowedDependency(_)
         | Rule::ExternalDependencyScope(_)
@@ -247,7 +249,8 @@ fn own_limit(rule: &Rule, observed: &Observed) -> Option<Limit> {
             | Reads::Ports
             | Reads::Edges
             | Reads::Shapes
-            | Reads::Published,
+            | Reads::Published
+            | Reads::Placement,
             _,
         ) => None,
     }
@@ -257,10 +260,23 @@ fn own_limit(rule: &Rule, observed: &Observed) -> Option<Limit> {
 /// dependency symbol (AD-500), or `None` when the rule reads none. The interface statement has
 /// one reader only, and `interface::receipt` reads it on the evaluation path of that rule.
 pub(crate) fn stated_hold(contract: &Contract, rule: &Rule, observed: &Observed) -> Option<String> {
-    let stated = observed.profile_limits?.dependency_symbols;
-    (stated == LimitSupport::Unsupported)
-        .then(|| symbol_reader(contract, rule))
-        .flatten()
+    observed
+        .profile_limits
+        .and_then(|stated| stated_reader(contract, rule, stated))
+}
+
+/// `stated_hold` for the statements of one linked collector.
+fn stated_reader(contract: &Contract, rule: &Rule, stated: ProfileLimits) -> Option<String> {
+    if stated.dependency_symbols != LimitSupport::Unsupported {
+        return None;
+    }
+    // AD-749: a stated publication surface gives the interface rule each `public` symbol entry.
+    // `interface_crossings` still drops each import that a `target_symbol` rule rejects, and that
+    // verdict reads the names of every dependency, so such a rule still holds it.
+    if reads(rule) == Reads::Interface && stated.publication_surface == LimitSupport::Supported {
+        return selectors(contract).next();
+    }
+    symbol_reader(contract, rule)
 }
 
 /// The first symbol selector of the contract that the evaluation of `rule` reads (`reads`), by
@@ -287,21 +303,25 @@ fn symbol_reader(contract: &Contract, rule: &Rule) -> Option<String> {
             .filter(|c| c.public().iter().flatten().any(|e| symbolic(e.as_text())))
             .map(|c| c.id().as_text().to_owned())
     };
-    let selectors = || {
-        contract
-            .rules()
-            .iter()
-            .filter(|other| reads(other) == Reads::OwnSymbol)
-            .map(|other| archkeel_contract::head_of(other).id().as_text().to_owned())
-    };
     match reads(rule) {
         Reads::OwnSymbol => Some(archkeel_contract::head_of(rule).id().as_text().to_owned()),
         Reads::Ports => ports().next(),
-        Reads::Interface => publics().chain(selectors()).next(),
+        Reads::Interface => publics().chain(selectors(contract)).next(),
         // AD-670: without the names of the imports, every item would look unused.
         Reads::Published => Some(archkeel_contract::head_of(rule).id().as_text().to_owned()),
-        Reads::Undecided | Reads::Constructs | Reads::Edges | Reads::Shapes => None,
+        Reads::Undecided | Reads::Constructs | Reads::Edges | Reads::Shapes | Reads::Placement => {
+            None
+        }
     }
+}
+
+/// The id of each `target_symbol` rule of the contract, in contract order.
+fn selectors(contract: &Contract) -> impl Iterator<Item = String> + '_ {
+    contract
+        .rules()
+        .iter()
+        .filter(|other| reads(other) == Reads::OwnSymbol)
+        .map(|other| archkeel_contract::head_of(other).id().as_text().to_owned())
 }
 
 /// The components of a `layer_order` rule whose layer is absent or outside its order.

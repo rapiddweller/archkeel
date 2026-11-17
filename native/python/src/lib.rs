@@ -48,6 +48,7 @@ use archkeel_facts::envelope::{LimitSupport, ProfileLimits, Reply};
 use archkeel_facts::request::PythonRequest;
 
 pub(crate) use crate::reply::Build;
+pub(crate) use crate::requirement::Prepared;
 
 /// Test features read planted inputs. The composition refuses a build with one.
 pub const TEST_FEATURES: &[&str] = if cfg!(feature = "dump") {
@@ -68,9 +69,9 @@ const PREMISE: &str = "code outside the scan roots hands in no module object of 
 
 /// The compressed reply of the subprocess path.
 pub fn compressed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Vec<u8>, String> {
-    let (prepared, source) = prepare(request)?;
-    let result = reply::reply(&prepared, survey::survey(&prepared)?, build, source)?;
-    verify(request, &prepared, source)?;
+    let prepared = Prepared::of(request)?;
+    let result = reply::reply(&prepared, survey::survey(&prepared)?, build)?;
+    verify(&prepared)?;
     Ok(result)
 }
 
@@ -78,36 +79,22 @@ pub fn compressed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Ve
 /// states that the survey reads the symbol of each named import and writes its publication route
 /// (AD-426, AD-450, AD-504).
 pub fn typed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Reply, String> {
-    let (prepared, source) = prepare(request)?;
-    let mut reply = reply::typed(&prepared, survey::survey(&prepared)?, build, source)?;
-    verify(request, &prepared, source)?;
+    let prepared = Prepared::of(request)?;
+    let mut reply = reply::typed(&prepared, survey::survey(&prepared)?, build)?;
+    verify(&prepared)?;
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: LimitSupport::Supported,
         interface_boundary: LimitSupport::Supported,
+        publication_surface: LimitSupport::Unsupported,
     });
     reply.facts.scope_premise = Some(PREMISE);
     Ok(reply)
 }
 
-/// Resolve a request's target inside the collector, without running Python.
-fn prepare(
-    request: &PythonRequest,
-) -> Result<(PythonRequest, archkeel_facts::envelope::TargetSource), String> {
-    let mut snapshot = archkeel_snapshot::Snapshot::new(&request.snapshot.root);
-    let (interpreter, source) = requirement::target(&mut snapshot, &request.resolver)?;
-    let mut prepared = request.clone();
-    prepared.resolver.interpreter = Some(interpreter);
-    Ok((prepared, source))
-}
-
 /// Refuse a scan when its selected target changes while the collector reads the snapshot.
-fn verify(
-    request: &PythonRequest,
-    prepared: &PythonRequest,
-    source: archkeel_facts::envelope::TargetSource,
-) -> Result<(), String> {
-    let (again, again_source) = prepare(request)?;
-    if again.resolver.interpreter != prepared.resolver.interpreter || again_source != source {
+fn verify(prepared: &Prepared) -> Result<(), String> {
+    let again = Prepared::of(&prepared.request)?;
+    if again.interpreter != prepared.interpreter || again.source != prepared.source {
         return Err("the Python target changed during the scan".to_owned());
     }
     Ok(())

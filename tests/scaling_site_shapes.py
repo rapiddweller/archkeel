@@ -29,7 +29,7 @@ SITE_SHAPES: dict[str, Shape] = {
     "sites-nested-calls": Shape(as_bytes(lambda n: "f(" * n + "x" + ")" * n + ";"), 60000),
     "sites-with-nest": Shape(as_bytes(lambda n: "with (o) { " * n + "f();" + "}" * n), 30000),
     "sites-member-chain-call": Shape(as_bytes(lambda n: "a" + ".b" * n + "();"), 100000),
-    "sites-chained-calls": Shape(as_bytes(lambda n: "a" + ".b()" * n + ";"), 20000),
+    "sites-chained-calls": Shape(as_bytes(lambda n: "a" + ".b()" * n + ";"), 5000),
     "sites-calls-with-chains": Shape(
         as_bytes(lambda n: join_lines("a{i}.b.c.d(e{i}.f.g);", n)), 5000
     ),

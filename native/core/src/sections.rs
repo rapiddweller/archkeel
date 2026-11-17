@@ -173,23 +173,33 @@ fn row(violation: &Violation) -> Value {
             json!({"qualified_name": found.qualified_name, "position": found.position,
                    "annotation": found.text, "reasons": found.reasons}),
         ),
-        // AD-670: a public item that no other component uses.
+        Violation::SymbolPlacement(found) => placement_record(found),
         Violation::UnusedPublic(found) => {
             let item = format!("{}:{}", found.module, found.name);
             let data = json!({"module": found.module, "name": found.name, "item_kind": found.kind});
-            let names = ["source", "unused_public"];
             let title = format!("{item} is public and no other component uses it");
             let subjects = [&found.module, &found.name];
             record(
                 [&found.id, &found.rule, &found.id],
                 &found.evidence,
-                names,
+                ["source", "unused_public"],
                 &subjects,
                 title,
                 data,
             )
         }
     }
+}
+
+fn placement_record(found: &archkeel_eval::PlacedClass) -> Value {
+    record(
+        [&found.id, &found.rule, &found.fact_id],
+        &found.evidence,
+        ["source", "symbol_placement"],
+        &[&found.name, &found.module],
+        format!("{} is outside the allowed modules", found.name),
+        json!({"qualified_name": found.name, "module": found.module, "class_kind": found.kind}),
+    )
 }
 
 /// A `no_component_cycles` record (slice S7, AD-384): a component cycle has the kind of its rule
@@ -331,6 +341,7 @@ fn direction_record(violation: &Violation) -> Value {
         | Violation::OuterLayer(_)
         | Violation::Construct(_)
         | Violation::BoundaryType(_)
+        | Violation::SymbolPlacement(_)
         | Violation::UnusedPublic(_)
         | Violation::Cycle(_) => row(violation),
     }

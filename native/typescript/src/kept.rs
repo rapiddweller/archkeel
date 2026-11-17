@@ -42,8 +42,9 @@ pub(crate) struct Kept {
     pub shadow: NameIndex,
     /// The script facts and the flags that the script analysis reads.
     pub script: ScriptFile,
-    /// The names of the classes whose members a form of the file can change (AD-747).
-    pub patched: std::collections::BTreeSet<String>,
+    /// AD-778: the gap reason and the longest site, when the records of the file would copy too
+    /// many bytes. The file keeps no site then.
+    pub record_refusal: Option<(String, Span)>,
 }
 
 impl Kept {
@@ -74,9 +75,12 @@ impl Kept {
             &syntax.module_exports,
         );
         kept.rebound = syntax.rebound_names.iter().cloned().collect();
-        kept.patched = std::mem::take(&mut syntax.patched);
         kept.type_exports = std::mem::take(&mut syntax.type_exports);
         kept.sites = std::mem::take(&mut syntax.sites);
+        kept.record_refusal = crate::site_charge::over(&kept.sites.sites);
+        if kept.record_refusal.is_some() {
+            kept.sites.sites.clear();
+        }
         kept.scopes = std::mem::take(&mut syntax.scopes);
         kept.shadow = kept.sites.names.index(text.as_bytes());
         for site in &mut kept.sites.sites {
@@ -135,7 +139,7 @@ impl Kept {
             text: Vec::new(),
             shadow: NameIndex::default(),
             script: ScriptFile::default(),
-            patched: std::collections::BTreeSet::new(),
+            record_refusal: None,
         }
     }
 }

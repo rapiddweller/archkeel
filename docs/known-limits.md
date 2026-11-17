@@ -8,7 +8,7 @@ What each language decides on main. The README quotes this block, and `tests/tes
 
 <!-- tiers:start -->
 Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and Python also decides `interface_boundary` (AD-504); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
 <!-- tiers:end -->
 
 The details follow.
@@ -171,11 +171,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.
   A missing symbol, call or reference is UNKNOWN, never FAIL. A planned member that the matched class lacks is
   UNKNOWN too, where 4.0.1 gives FAIL (AD-512): the collector states no complete member table. A closed scope without an extra
-  element passes only when it is the scope of a class, an interface or an enum over member kinds
-  and the collector states each listed member inventory complete (AD-747). TypeScript states it
-  complete when the body shows every member of the type; Python and Rust inventories are always
-  partial, and the row names the reason of the collector. A closed module scope and a closed
-  scope over relationships stay UNKNOWN: no fact states a complete module or site inventory. A dropped pair gap that
+  element stays UNKNOWN, also where 4.0.1 passes it from a member inventory. A dropped pair gap that
   touches a module of the target holds the UML row. A Rust UML row has no 4.0.1 comparison and
   rests on the scope proof alone.
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
@@ -413,10 +409,12 @@ removes are not gaps. The gap holds every rule of the run.
 Narrow the scan roots to the source, or select the file in the TSConfig
 ([AD-488](architecture/decisions/ad-488-a-source-file-that-the-tsconfig-drops-is-a-coverage-gap.md)).
 
-A `.vue`, `.svelte`, `.astro`, `.mdx` or `.es6` file and an `.html` or `.htm` page with a script
-element under the scan roots is a gap too: the collector does not read these forms, and the gap
-names the file and the form (#1528). A page without a script element and a file outside the scan
-roots are not gaps.
+A `.vue`, `.svelte`, `.astro`, `.mdx` or `.es6` file is a gap too: the collector does not read
+these forms, and the gap names the file and the form (#1528). So is an `.html`, `.htm` or `.svg`
+file that can hold code (#1607): a `<script` element (also in a `<template>` or an SVG), an `on*`
+event handler attribute, a `javascript:` URL, `srcdoc`, or a `data:` URL of a page or an SVG. The
+check is lexical and over-matches on purpose: a page that only looks like code is a gap, and a
+page with plain markup is not. A file outside the scan roots is not a gap.
 
 These files give no gap in the core and in 4.0.1 (follow-up work):
 - `exclude_test_sources = true` removes `test`/`tests`/`__tests__` directories and `*.test.*` and
@@ -485,8 +483,8 @@ A write through them (`top.x = 1`) publishes nothing, but it blocks each proof o
 A write `o.x = …` blocks the global `x` unless `o` is a local new value or the `this` of a
 constructor, a field or a static block. An unknown key on a window value, a window value that
 escapes, and code from a text block every global proof of the project.
-Open false PASS, not accepted (AD-460, AD-508): any alias of `Object`, `Reflect`, `location` or
-`open` (an alias of `Object` or `Reflect` that writes by reflection, a navigation through an alias); a computed key
+Open false PASS, not accepted (AD-460, AD-508): any alias of `location` or `open` (a navigation
+through an alias); a computed key
 in a pattern (`const { [k]: v } = e`); any global that navigates or opens (`open('', '_self')`,
 `document.open`); a destructured or aliased `setTimeout`; and DOM code from text outside the named
 triggers (a `src` or `href` that is no literal, and a click on the element).
@@ -496,8 +494,11 @@ a parameter, a call result or a member) is an amplifier form, and so is `Object.
 `Object.defineProperty(ies)`, `Object.setPrototypeOf`, `Reflect.set`, `Reflect.defineProperty` or
 `Reflect.setPrototypeOf` on such a value (direct on a window value). With a host entry they block
 every global proof. A new value, `Object.create(…)`, a local name bound once to a new value and the
-`this` of a constructor keep the proof. Plants: `native/typescript/src/script_window_value_tests.rs`,
-`tests/test_collector_false_pass_ts_window_values.py`.
+`this` of a constructor keep the proof. The same holds for a reflective member that is read through
+a window name (`globalThis.Object.assign`) and for `__defineGetter__` or `__defineSetter__` of any
+object. A reflective member or an accessor member used as a value (stored, passed, called through
+`call` or `apply`, `Reflect.apply(Reflect.set, …)`) is direct. Plants:
+`native/typescript/src/script_window_value_tests.rs`, `tests/test_collector_false_pass_ts_window_values.py`.
 AD-508 closed these forms: a write with a run-time key through `this` of a class method, through
 `super` or through a name bound once to such a `this`; a call, `new`, tagged template, `call`,
 `apply` or `bind` of a member with a run-time key (also through a comma, a condition, a logical
@@ -760,7 +761,7 @@ The core decides one rule kind set where Python does not ([AD-384](architecture/
 
 - The Rust collector does not mark an external `pub use` as a re-export. So a gap into a module with any external import holds `external_dependency_scope` and `complete_external_scope`.
 - The gap scope reads the edge model of the collector, as Python does. A glob that brings in a trait through a `pub use` chain `b -> d` gives the gap `a -> b`, not `a -> d`, so a rule on `a -> d` passes (review N2 of #1084). With the explicit call both engines record only `a -> b`.
-- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. A method in the file of its type, called on a value that the caller does not name (a field, a chain of fields, the return value of a function), is a candidate too: it gives a pair gap when the module of the type is reachable from the caller over the edges and the pair gaps, or when the caller reaches a module with a gap that names no target (#1571); a path `T::m` reaches it only when `T` is the name of the type, an alias or a renamed `use`, or a macro of the caller can give any name. One form gives no candidate, also inside one crate: a trait method whose impl is in the module of its trait or of its type (`impl Trait`, `Box<dyn Trait>`, the class #1004; an impl in a third module gives a pair gap, AD-516). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. The trait form is an open false PASS class of the edge model ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
+- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. Two forms give no candidate, also inside one crate: a trait method whose impl is in the module of its trait or of its type (`impl Trait`, `Box<dyn Trait>`, the class #1004; an impl in a third module gives a pair gap, AD-516) and a method in the file of its type, called on a value that the caller does not name (for example the return value of a function of another crate). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. Both are open false PASS classes of the edge model (the second is #1571; [AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 - A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS class #1004 (a value of a type that an anchored impl serves, when the caller does not name its module) gives no edge and no gap; an item that a macro makes gives a gap since AD-662. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 
 The dual-run request is a test protocol that only test builds and the cargo feature `harness` have (#1095); a release binary refuses it. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.

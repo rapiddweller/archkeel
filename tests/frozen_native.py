@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -45,7 +46,32 @@ def live_files(root: Path = ROOT) -> list[str]:
             if path.is_file()
         ]
     files = {name for name in names if not SKIPPED.intersection(Path(name).parts[1:2])}
-    return sorted(files | cited(root))
+    return sorted(files | cited(root) | included(root, files))
+
+
+INCLUDE = re.compile(r'include_(?:str|bytes)!\(\s*"(\.\./[^"]+)"')
+
+
+def included(root: Path, files: set[str]) -> set[str]:
+    """The files outside `native/` that a Rust source includes (`include_str!`).
+
+    A copy that lacks one cannot compile: `contract/src/paths.rs` includes the source suffixes of
+    `schema/` (AD-738), so a `cargo check` of the copy failed before any resolution error and the
+    oracle of the module edges compared the edges with an empty set of errors.
+    """
+    found: set[str] = set()
+    for name in files:
+        if not name.endswith(".rs"):
+            continue
+        try:
+            text = (root / name).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for relative in INCLUDE.findall(text):
+            target = os.path.normpath(os.path.join(os.path.dirname(name), relative))
+            if not target.startswith("..") and (root / target).is_file():
+                found.add(target)
+    return found
 
 
 def cited(root: Path = ROOT) -> set[str]:

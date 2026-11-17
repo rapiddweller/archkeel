@@ -58,8 +58,8 @@ Each row removes one rule; the closed and precision plants run through the relea
 | 6 | pattern | 9 `pattern-*` |
 | 9 | namespace exemption | none; `namespace-key` turns UNKNOWN |
 ## Limits
-Open false PASS, not accepted: any alias of `Object`, `Reflect`, `location` or `open` (AD-758
-closed the looked-up function, AD-766 the writes through an alias of `this` and the window values of
-a host); any global that navigates or opens (`open('', '_self')`, `document.open`); a destructured
+Open false PASS, not accepted: any alias of `location` or `open` (AD-758 closed the looked-up
+function, AD-766 the writes through an alias of `this`, `Object` or `Reflect` and the window values
+of a host); any global that navigates or opens (`open('', '_self')`, `document.open`); a destructured
 or aliased `setTimeout`; a computed key in a pattern; a non-literal `href` or `src` of an element
 and its click. Tests: `test_cli_native_global_forms.py`.

@@ -256,6 +256,7 @@ pub(crate) fn typed_reply(
             LimitSupport::Unsupported
         },
         interface_boundary: LimitSupport::Supported,
+        publication_surface: LimitSupport::Unsupported,
     });
     Ok(reply)
 }
