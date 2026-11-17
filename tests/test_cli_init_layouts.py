@@ -37,3 +37,23 @@ def test_a_member_workspace_of_its_own_folder_is_no_fault(tmp_path: Path) -> Non
     result = draft(root)
     assert result.language == "rust"
     assert result.components == ("core_a", "util")
+
+
+def test_a_workspace_draft_leaves_test_sources_out_as_a_crate_draft_does(tmp_path: Path) -> None:
+    """tokio 1.48.0, serde 1.0.228: a proc-macro crate tests itself through the main crate (a
+    `[dev-dependencies]` edge back). A draft that scans test sources fails its first run with a
+    cycle that only tests close (#1680)."""
+    root = _write(
+        tmp_path,
+        {
+            "Cargo.toml": '[workspace]\nmembers = ["main", "derive"]\n',
+            "main/Cargo.toml": CRATE.format("main")
+            + '[dependencies]\nderive = { path = "../derive" }\n',
+            "main/src/lib.rs": "pub use derive::*;\n",
+            "derive/Cargo.toml": CRATE.format("derive")
+            + '[dev-dependencies]\nmain = { path = "../main" }\n',
+            "derive/src/lib.rs": "pub fn one() -> i32 { 1 }\n",
+        },
+    )
+    config = next(file for file in draft(root).files if file.path == "archkeel.toml")
+    assert "exclude_test_sources = true" in config.text
