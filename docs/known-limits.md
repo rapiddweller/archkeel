@@ -479,13 +479,19 @@ A write through them (`top.x = 1`) publishes nothing, but it blocks each proof o
 A write `o.x = …` blocks the global `x` unless `o` is a local new value or the `this` of a
 constructor, a field or a static block. An unknown key on a window value, a window value that
 escapes, and code from a text block every global proof of the project.
-Open false PASS, not accepted (AD-460, AD-508): any alias of `this`, `super`, `Object`, `Reflect`,
-`location` or `open`, except a name that is bound once to `this`; a window value that reaches a computed write through a parameter, a call result or a property
-(`function f(w) { w[k] = v; }` with `f(document.defaultView)`); `g(this)` in a class method that a
-callback receives; `ev.target[k] = 1` or `ev.srcElement[k]` (an event member that is a window); a computed key
+Open false PASS, not accepted (AD-460, AD-508): any alias of `Object`, `Reflect`, `location` or
+`open` (an alias of `Object` or `Reflect` that writes by reflection, a navigation through an alias); a computed key
 in a pattern (`const { [k]: v } = e`); any global that navigates or opens (`open('', '_self')`,
 `document.open`); a destructured or aliased `setTimeout`; and DOM code from text outside the named
 triggers (a `src` or `href` that is no literal, and a click on the element).
+AD-766 (#1524) closes the window values of a host: a write with a run-time key into a value that
+the file does not make (an event target, the `this` of a listener, an alias of `this`, `super.valueOf()`,
+a parameter, a call result or a member) is an amplifier form, and so is `Object.assign`,
+`Object.defineProperty(ies)`, `Object.setPrototypeOf`, `Reflect.set`, `Reflect.defineProperty` or
+`Reflect.setPrototypeOf` on such a value (direct on a window value). With a host entry they block
+every global proof. A new value, `Object.create(…)`, a local name bound once to a new value and the
+`this` of a constructor keep the proof. Plants: `native/typescript/src/script_window_value_tests.rs`,
+`tests/test_collector_false_pass_ts_window_values.py`.
 AD-508 closed these forms: a write with a run-time key through `this` of a class method, through
 `super` or through a name bound once to such a `this`; a call, `new`, tagged template, `call`,
 `apply` or `bind` of a member with a run-time key (also through a comma, a condition, a logical
