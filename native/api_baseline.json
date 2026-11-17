@@ -1775,6 +1775,7 @@
     "fn vocab::as_str(self)->&'static str",
     "fn vocab::construct(self)->Option<&'static str>",
     "fn vocab::construct(self)->Option<&'static str>",
+    "fn vocab::of_candidates(candidates:usize,unique:bool)->Self",
     "fn vocab::parse(text:&str)->Option<Self>",
     "fn vocab::parse(text:&str)->Option<Self>",
     "fn vocab::parse(text:&str)->Option<Self>",

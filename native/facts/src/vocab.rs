@@ -266,6 +266,22 @@ closed! {
     }
 }
 
+impl Status {
+    /// How far a site is resolved from the targets that it names (AD-741): one target that is
+    /// proven unique resolves it, no target leaves it unresolved, and every other case (several
+    /// targets, or one that is not proven unique) resolves it in part. Each collector takes the
+    /// status of a site, a base and a construction from here; the reason text stays its own.
+    pub fn of_candidates(candidates: usize, unique: bool) -> Self {
+        if candidates == 0 {
+            Self::Unresolved
+        } else if candidates == 1 && unique {
+            Self::Resolved
+        } else {
+            Self::PartiallyResolved
+        }
+    }
+}
+
 closed! {
     /// The kind of a class.
     pub enum ClassKind {
