@@ -34,7 +34,9 @@ def test_the_publication_runs_only_for_a_push_or_a_dispatch_on_main() -> None:
     assert condition is not None
     assert condition[1] == "github.ref == 'refs/heads/main'"
     for workflow in WORKFLOWS.glob("*.yml"):
-        assert "pull_request:" not in workflow.read_text().split("\nconcurrency:\n", 1)[0], workflow.name
+        assert "pull_request:" not in workflow.read_text().split("\nconcurrency:\n", 1)[0], (
+            workflow.name
+        )
 
 
 def test_only_the_publication_job_can_write_pages_and_each_other_job_keeps_read_only() -> None:
