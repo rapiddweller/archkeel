@@ -149,3 +149,31 @@ fn the_clamp_is_named_for_the_description() {
     assert_eq!(clamped_from(">=3.12"), None);
     assert_eq!(clamped_from(">=3.9,<3.11"), None);
 }
+
+#[test]
+fn annotations_are_lazy_when_the_requirement_allows_python_3_14() {
+    let lazy = |pyproject: Option<&str>, python: Option<&str>, minor: u8| {
+        let files: Vec<(&str, &str)> = pyproject
+            .map(|text| ("pyproject.toml", text))
+            .into_iter()
+            .collect();
+        let tree = Tree::new(&files);
+        let settings = PythonSettings {
+            phase: PythonPhase::Imports,
+            interpreter: None,
+            python: python.map(ToOwned::to_owned),
+        };
+        lazy_annotations(&mut Snapshot::new(&tree.path()), &settings, minor)
+    };
+    let project = |range: &str| format!("[project]\nrequires-python = \"{range}\"\n");
+    // #1523: a range without an upper bound, or one that ends above 3.14, allows 3.14.
+    assert!(lazy(Some(&project(">=3.11")), None, 11));
+    assert!(lazy(Some(&project(">=3.11,<4")), None, 11));
+    assert!(lazy(Some(&project(">=3.11,<3.14.1")), None, 11));
+    assert!(lazy(Some(&project("~=3.11")), None, 11));
+    assert!(lazy(None, None, 14));
+    assert!(!lazy(Some(&project(">=3.11,<3.14")), None, 11));
+    assert!(!lazy(Some(&project(">=3.11,<3.13")), Some("3.12"), 12));
+    // Without a range, a `python` setting below 3.14 is the statement of the project.
+    assert!(!lazy(None, Some("3.12"), 12));
+}

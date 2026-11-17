@@ -5718,6 +5718,7 @@
         "native.archkeel_python_collector.inputs:with_listings",
         "native.archkeel_python_collector.requirement:Prepared",
         "native.archkeel_python_collector.requirement:clamped_from",
+        "native.archkeel_python_collector.requirement:lazy_annotations",
         "native.archkeel_python_collector.requirement:requirement"
       ],
       "decided_by": "architect"
@@ -5819,6 +5820,13 @@
           "rationale": "Read the request with its selected target (AD-753).",
           "through": [
             "native.archkeel_python_collector.requirement:Prepared"
+          ]
+        },
+        {
+          "component": "py-inputs",
+          "rationale": "Read whether the requirement allows Python 3.14, where method annotations are lazy (#1523).",
+          "through": [
+            "native.archkeel_python_collector.requirement:lazy_annotations"
           ]
         }
       ],
@@ -6839,7 +6847,8 @@
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.module_scopes",
         "native.archkeel_python_collector.survey.external_loader",
-        "native.archkeel_python_collector.survey.outside.sites"
+        "native.archkeel_python_collector.survey.outside.sites",
+        "native.archkeel_python_collector.survey.class_writes"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [

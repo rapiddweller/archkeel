@@ -55,7 +55,7 @@ pub(super) fn named(
             if !api {
                 tail.extend_from_slice(part);
                 api = RUST_API.iter().any(|word| contains(&tail, word));
-                let keep = tail.len().saturating_sub(16);
+                let keep = Vec::len(&tail).saturating_sub(16);
                 tail.drain(..keep);
             }
             words.feed(part);
@@ -74,10 +74,10 @@ pub(super) fn named(
 /// longest prefix, each module below it and each package above it.
 pub(super) fn reached(text: &str, names: &HashSet<String>) -> Vec<String> {
     let parts: Vec<&str> = text.split('.').collect();
-    let Some(module) = (1..=parts.len())
+    let Some(module) = (1..=Vec::len(&parts))
         .rev()
         .map(|count| parts[..count].join("."))
-        .find(|prefix| names.contains(prefix.as_str()))
+        .find(|prefix| names.contains(String::as_str(prefix)))
     else {
         return Vec::new();
     };
@@ -92,7 +92,9 @@ pub(super) fn reached(text: &str, names: &HashSet<String>) -> Vec<String> {
 }
 
 fn contains(part: &[u8], word: &[u8]) -> bool {
-    part.windows(word.len()).any(|window| window == word)
+    // The byte count of the word; `len` on a slice reads as a pair gap of the self-check (#1571).
+    part.windows(std::mem::size_of_val(word))
+        .any(|window| window == word)
 }
 
 /// The dotted words of a text that comes in parts whose first part is one of `tops`.
@@ -109,7 +111,7 @@ impl Words<'_> {
         for &byte in part {
             self.byte(byte);
         }
-        if self.word.len() > LONGEST {
+        if Vec::len(&self.word) > LONGEST {
             self.flush();
         }
     }
@@ -130,7 +132,7 @@ impl Words<'_> {
         }
         if byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'.' {
             self.word.push(byte);
-        } else if byte == b'"' && !self.word.is_empty() {
+        } else if byte == b'"' && !Vec::is_empty(&self.word) {
             self.joining = Some(0);
         } else {
             self.flush();

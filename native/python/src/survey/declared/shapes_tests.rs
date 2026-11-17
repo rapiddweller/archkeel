@@ -327,3 +327,48 @@ fn an_import_of_a_module_that_another_module_writes_is_not_the_one_binder() {
     assert_eq!(unique("app.api"), [Some(false)]);
     assert_eq!(unique("app.other"), [Some(true)]);
 }
+
+/// #1523: on Python 3.14 (the target of these trees) a method annotation reads the namespace of its
+/// class when it is evaluated. A slot or an attribute store can put the name there.
+#[test]
+fn a_lazy_method_annotation_is_unproven_when_the_class_namespace_can_hold_the_name() {
+    let method = |head: &str, more: &[(&str, &str)]| {
+        let source = format!("class Box:\n{head}    def f(self, x: object) -> int: return 1\n");
+        positions_with(&source, "Box.f", more)
+    };
+    let lazy = "unproven:lazy_class_namespace";
+    assert_eq!(method("    __slots__ = ('object',)\n", &[])[1], lazy);
+    assert_eq!(method("    __slots__ = names()\n", &[])[1], lazy);
+    // A store in a file outside the scan roots, and a store with a computed name.
+    let outside = ("tools/patch.py", "import app.m\napp.m.Box.object = int\n");
+    assert_eq!(method("", &[outside])[1], lazy);
+    let computed = ("src/app/w.py", "def put(o, n, v):\n    setattr(o, n, v)\n");
+    assert_eq!(method("", &[computed])[1], lazy);
+    // `int` is no stored name and no slot: still proven.
+    assert_eq!(method("    __slots__ = ('object',)\n", &[])[2], "prim:int");
+}
+
+#[test]
+fn a_method_annotation_without_a_namespace_write_or_with_future_annotations_is_proven() {
+    let source = "class Box:\n    def f(self, x: object) -> int: return 1\n";
+    assert_eq!(positions(source, "Box.f")[1], "dyn:object");
+    // A store from a test file is under the stated premise (AD-770).
+    let test = (
+        "tests/test_patch.py",
+        "import app.m\napp.m.Box.object = int\n",
+    );
+    assert_eq!(positions_with(source, "Box.f", &[test])[1], "dyn:object");
+    // A store of another name.
+    let other = ("tools/p.py", "import app.m\napp.m.Box.other = 1\n");
+    assert_eq!(positions_with(source, "Box.f", &[other])[1], "dyn:object");
+    // A module function reads no class namespace.
+    let write = ("src/app/w.py", "import app.m\napp.m.Box.object = int\n");
+    let function = "class Box: ...\ndef g(x: object) -> int: return 1\n";
+    assert_eq!(positions_with(function, "g", &[write])[0], "dyn:object");
+    let future =
+        format!("from __future__ import annotations\n{source}    __slots__ = ('object',)\n");
+    assert_ne!(
+        positions(&future, "Box.f")[1],
+        "unproven:lazy_class_namespace"
+    );
+}
