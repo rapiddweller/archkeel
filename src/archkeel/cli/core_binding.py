@@ -135,7 +135,10 @@ class ProjectRoot:
 
     def named(self, here: Path) -> tuple[str, str]:
         """The root and the configuration as paths from the folder `here`, for the header."""
-        return os.path.relpath(self.path, here), os.path.relpath(self.path / self.config, here)
+        try:
+            return os.path.relpath(self.path, here), os.path.relpath(self.path / self.config, here)
+        except ValueError:
+            return str(self.path), str(self.path / self.config)
 
 
 def _stated_root(file: Path) -> str:
