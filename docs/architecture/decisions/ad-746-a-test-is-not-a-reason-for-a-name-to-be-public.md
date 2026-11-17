@@ -30,5 +30,5 @@ Known gap, filed as #1549: a rule that passes because of a stated external user 
 "PASS assuming stated external users" as a declared door reach does.
 
 Consequence: `reads` is no longer in the `SCAN_INPUT` line of the measurement test, and `charged` is
-the sum of the input files. No test read `reads`. `_VARIABLE` is only a name for the ignored switch
-`ARCHKEEL_CORE_ONLY`; no code reads it. The lead decides if it is deleted.
+the sum of the input files. No test read `reads`. `_VARIABLE` was only a name for the ignored switch
+`ARCHKEEL_CORE_ONLY`; no code read it. The owner approved its deletion; the switch stays accepted and ignored.
