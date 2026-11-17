@@ -50,45 +50,49 @@ def main() -> None:
     release = next(
         (item for page in pages for item in page if item["tag_name"] == "main-build"), None
     )
-    if release is None:
-        command(
-            "gh",
-            "release",
-            "create",
-            "main-build",
-            "--target",
-            sha,
-            "--prerelease",
-            "--latest=false",
-            "--title",
-            "Latest main build (not a release)",
-            "--notes-file",
-            str(notes),
-            *map(str, wheels),
-            str(sums),
-        )
-        return
-    command("gh", "release", "upload", "main-build", "--clobber", *map(str, wheels), str(sums))
-    keep = {w.name for w in wheels} | {sums.name}
-    for asset in release["assets"]:
-        if asset["name"] not in keep:
-            command("gh", "release", "delete-asset", "main-build", asset["name"], "--yes")
+    if release is not None:
+        raise ValueError("The main-build release already exists; do not replace its assets")
+    if command("git", "ls-remote", "--tags", "origin", "refs/tags/main-build").strip():
+        raise ValueError("The main-build tag already exists; do not replace it")
     command(
         "gh",
-        "api",
-        "--method",
-        "PATCH",
-        f"repos/{repo}/git/refs/tags/main-build",
-        "-f",
-        f"sha={sha}",
-        "-F",
-        "force=true",
+        "release",
+        "create",
+        "main-build",
+        "--target",
+        sha,
+        "--draft",
+        "--prerelease",
+        "--latest=false",
+        "--title",
+        "Latest main build (not a release)",
+        "--notes-file",
+        str(notes),
+        *map(str, wheels),
+        str(sums),
     )
+    pages = json.loads(command("gh", "api", "--paginate", "--slurp", f"repos/{repo}/releases"))
+    release = next(
+        (item for page in pages for item in page if item["tag_name"] == "main-build"), None
+    )
+    expected = {
+        item.name: "sha256:" + hashlib.sha256(item.read_bytes()).hexdigest()
+        for item in [*wheels, sums]
+    }
+    if (
+        release is None
+        or not release["draft"]
+        or release["target_commitish"] != sha
+        or len(release["assets"]) != len(expected)
+        or {asset["name"]: asset["digest"] for asset in release["assets"]} != expected
+    ):
+        raise ValueError("The draft assets do not match the tested wheels")
     command(
         "gh",
         "release",
         "edit",
         "main-build",
+        "--draft=false",
         "--prerelease",
         "--latest=false",
         "--title",
