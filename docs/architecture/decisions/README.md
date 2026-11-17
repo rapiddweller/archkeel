@@ -33,6 +33,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-680 | [A written Python dunder dict is a construct](ad-680-a-written-python-dunder-dict-is-a-construct.md) |
 | AD-662 | [A macro whose expansion the scan does not read gives a gap](ad-662-a-macro-whose-expansion-the-scan-does-not-read-gives-a-gap.md) |
 | AD-736 | [The merge tools share one decision table](ad-736-the-merge-tools-share-one-decision-table.md) |
+| AD-734 | [The Explorer has one view state](ad-734-the-explorer-has-one-view-state.md) |
 | AD-733 | [A growth entry whose finding is gone is stale, and the ratchet says so](ad-733-a-growth-entry-whose-finding-is-gone-is-stale-and-the-ratchet-says-so.md) |
 | AD-732 | [The core cache is saved only after its build and carries a tree stamp](ad-732-the-core-cache-is-saved-only-after-its-build-and-carries-a-tree-stamp.md) |
 | AD-678 | [No new suppression, and a new production file starts at 400 lines at most](ad-678-no-new-suppression-and-a-new-file-starts-small.md) |
