@@ -192,18 +192,12 @@ impl Builder {
                 None,
             ),
             Named::Registry(package) => {
-                // #946: Cargo may build the crate of the workspace of this name instead: a Cargo
-                // config outside the repository, a patch, or a git URL of this repository. The
-                // pair to the module that the path reaches there is a gap, neither edge nor none.
-                if let Some(root) = workspace.primary_of(package) {
-                    let id = FactId::new(identity.as_str());
-                    let local = local_target(index, root, reference, id)
-                        .map_or_else(|_| root.module.clone(), |(_, module, _)| module);
-                    let reason = format!(
-                        "The dependency {package} has a registry or git entry, and a crate of the workspace has its name: a redirect that the scan does not read can make it that crate"
-                    );
-                    self.pair_gap(&reason, &evidence, (from.module, &local));
-                }
+                self.registry_gap(
+                    workspace,
+                    index,
+                    reference,
+                    (package, &identity, &evidence, from.module),
+                );
                 (
                     Target::External {
                         import_id,
@@ -244,22 +238,12 @@ impl Builder {
                 ),
             },
         };
-        let target_package = match &target {
-            Target::Local { module, .. } => index
-                .and_then(|index| index.frame(module.as_str()))
-                .map_or(module.as_str(), |frame| frame.module.package()),
-            _ => &target_module,
-        };
         let record = record(
-            index
-                .and_then(|index| index.frame(from.module))
-                .map_or_else(|| package_of(from.module), |frame| frame.module.package()),
+            index,
             from.module,
             reference,
-            &identity,
-            evidence,
-            &target_module,
-            target_package,
+            (&identity, evidence),
+            (&target_module, &target),
         );
         self.targets.push(target);
         // AD-604: an import into the workspace names its item; an external one is not read.
@@ -272,6 +256,24 @@ impl Builder {
         record.data.data_mut().other_crate = other_crate.then_some(true);
         self.imports.push(record);
         self.ended += 1;
+    }
+
+    /// A registry dependency can redirect to a same-named workspace crate (#946).
+    fn registry_gap(
+        &mut self,
+        workspace: &Workspace,
+        index: Option<&Index<'_>>,
+        reference: &Reference,
+        (package, identity, evidence, from): (&str, &str, &str, &str),
+    ) {
+        if let Some(root) = workspace.primary_of(package) {
+            let local = local_target(index, root, reference, FactId::new(identity))
+                .map_or_else(|_| root.module.clone(), |(_, module, _)| module);
+            let reason = format!(
+                "The dependency {package} has a registry or git entry, and a crate of the workspace has its name: a redirect that the scan does not read can make it that crate"
+            );
+            self.pair_gap(&reason, evidence, (from, &local));
+        }
     }
 }
 
@@ -308,14 +310,21 @@ fn bound_crate_path(
 
 /// The import record of one path that names another crate.
 fn record(
-    source_package: &str,
+    index: Option<&Index<'_>>,
     module: &str,
     reference: &Reference,
-    identity: &str,
-    evidence: String,
-    target_module: &str,
-    target_package: &str,
+    (identity, evidence): (&str, String),
+    (target_module, target): (&str, &Target),
 ) -> Record<ImportFact> {
+    let source_package = index
+        .and_then(|index| index.frame(module))
+        .map_or_else(|| package_of(module), |frame| frame.module.package());
+    let target_package = match target {
+        Target::Local { module, .. } => index
+            .and_then(|index| index.frame(module.as_str()))
+            .map_or(module.as_str(), |frame| frame.module.package()),
+        _ => target_module,
+    };
     let data = ImportData {
         source_module: ModuleName::new(module),
         source_package: PackageName::new(source_package),
