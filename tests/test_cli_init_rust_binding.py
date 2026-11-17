@@ -162,7 +162,8 @@ def test_a_crate_below_a_workspace_is_no_part_of_its_own_and_its_binding_targets
         "tool/Cargo.toml": '[package]\nname = "tool"\nversion = "0.1.0"\nedition = "2021"\n',
         "tool/src/lib.rs": "pub fn t() {}\n",
     }
-    _, system = init(commit(write(tmp_path, files)), capsys)
-    assert [part["id"] for part in system["parts"]] == ["rust", "app"]
-    edge = {**EDGE, "id": "app-to-rust-1", "target": "rust"}
+    # #1709: the part at the repository root is named after the project, not its language.
+    _, system = init(commit(write(tmp_path / "mono", files)), capsys)
+    assert [part["id"] for part in system["parts"]] == ["mono", "app"]
+    edge = {**EDGE, "id": "app-to-mono-1", "target": "mono"}
     assert system["interfaces"] == [edge]

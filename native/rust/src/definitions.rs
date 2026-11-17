@@ -203,6 +203,8 @@ pub(crate) enum Written {
     /// `&T` (`Shared`) or `&mut T` (`Unique`).
     Ref(SelfKind, Box<Written>),
     Slice(Box<Written>),
+    /// A tuple, with the unit type `()` as the empty one.
+    Tuple(Vec<Written>),
     Unknown,
 }
 
@@ -234,6 +236,10 @@ pub(crate) enum Step {
     Try,
     /// `&x` or `&mut x`.
     Borrow(SelfKind),
+    /// The payload of the prelude variant `Some` or `Ok` that a pattern matches.
+    Variant(String),
+    /// The element of a tuple that a pattern matches.
+    Elem(usize),
 }
 
 /// The receiver of a method call: a root and the steps that the scan reads (#1571).

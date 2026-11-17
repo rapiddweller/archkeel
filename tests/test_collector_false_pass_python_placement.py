@@ -6,11 +6,13 @@
 Consumer: `archkeel validate`. Rule `PLACEMENT` allows classes in `app.service` only. In each plant
 `app.client` holds no class statement, but `make()` creates a class when it runs: Python 3.12
 returns a class from `make()`. Its place is not proven, so the rule is UNKNOWN, and the reason
-names the file, the line and the callee.
+names the file, the line and the callee. A well-known third-party factory counts in any use of its
+result, also a plain return.
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -51,6 +53,19 @@ PLANTS = {
         "enum.IntEnum",
     ),
     "type-three": ("def make():\n    return type('Hidden', (), {})\n", "builtins.type"),
+}
+# Well-known third-party factories: a plain return is enough. The truth runs with the Python of
+# `ARCHKEEL_FACTORY_PYTHON` (or `python3.12`) when it can import the library.
+THIRD_PARTY = {
+    "attrs": (
+        "from attrs import make_class\ndef make():\n    return make_class('H', ['x'])\n",
+        "attrs.make_class",
+    ),
+    "pydantic": (
+        "from pydantic import create_model\n"
+        "def make():\n    return create_model('H', x=(int, ...))\n",
+        "pydantic.create_model",
+    ),
 }
 # A call result that the module uses as a class (the callee is unknown): no truth of its own.
 USED = {
@@ -97,6 +112,24 @@ def test_a_class_factory_in_a_function_names_its_site(
     reason = result["frame"]["explained"]["PLACEMENT"]
     line = next(n for n, text in enumerate(client.splitlines(), 1) if "return" in text)
     assert f"a call can create a class at src/app/client.py:{line} ({callee})" in reason, reason
+
+
+@pytest.mark.parametrize("name", sorted(THIRD_PARTY))
+def test_a_third_party_class_factory_in_a_plain_return_names_its_site(
+    release_core: Path, tmp_path: Path, name: str
+) -> None:
+    client, callee = THIRD_PARTY[name]
+    python = os.environ.get("ARCHKEEL_FACTORY_PYTHON", "python3.12")
+    probe = subprocess.run([python, "-I", "-c", f"import {name}"], capture_output=True, check=False)
+    if shutil.which(python) and probe.returncode == 0:
+        code = f"{client}print(isinstance(make(), type), make().__module__)"
+        done = subprocess.run([python, "-I", "-c", code], capture_output=True, text=True)
+        assert done.stdout.strip() == "True __main__", done.stderr
+    result = _verdict(release_core, tmp_path, client)
+
+    assert rows(result)["PLACEMENT"] == "UNKNOWN", result["frame"]
+    reason = result["frame"]["explained"]["PLACEMENT"]
+    assert f"a call can create a class at src/app/client.py:3 ({callee})" in reason, reason
 
 
 @pytest.mark.parametrize("name", sorted(USED))

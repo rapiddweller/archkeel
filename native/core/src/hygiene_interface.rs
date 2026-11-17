@@ -33,7 +33,8 @@ use archkeel_model::{facade_types, publishes, ComponentId, Import, Model, ModelT
 use crate::hygiene_refs::Finding;
 
 const UNKNOWN: &str = "No proven import reaches this entry, and the core reads no declared \
-                       facade signature that could reach it.";
+                       facade signature that could reach it. Remove the entry from `public`, or \
+                       name the component that imports it.";
 
 /// The findings of the contract of `index` (the root when `None`) in the order of its components.
 pub(crate) fn findings(

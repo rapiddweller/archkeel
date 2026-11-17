@@ -206,3 +206,38 @@ fn an_augmentation_is_a_syntax_gap_and_gives_no_symbol() {
     assert!(found.symbols.is_empty());
     assert!(!found.coverage.full_scope);
 }
+
+/// Each declaration and member kind of the syntax has a binding kind of the same word.
+#[test]
+fn each_kind_of_the_syntax_is_a_binding_kind() {
+    use crate::collection::types::BindingKind as B;
+    use crate::resolve::binding_kind;
+    use crate::syntax::{DefinitionKind as D, MemberKind as M};
+    let definitions = [
+        (D::Class, B::Class),
+        (D::Interface, B::Interface),
+        (D::Mixin, B::Mixin),
+        (D::Enum, B::Enum),
+        (D::Extension, B::Extension),
+        (D::ExtensionType, B::ExtensionType),
+        (D::Typedef, B::Typedef),
+        (D::Function, B::Function),
+        (D::Getter, B::Getter),
+        (D::Setter, B::Setter),
+        (D::Variable, B::Variable),
+    ];
+    for (kind, expected) in definitions {
+        assert_eq!(binding_kind(&kind), expected);
+    }
+    let members = [
+        (M::Field, B::Field),
+        (M::Method, B::Method),
+        (M::Constructor, B::Constructor),
+        (M::Getter, B::Getter),
+        (M::Setter, B::Setter),
+        (M::Operator, B::Operator),
+    ];
+    for (kind, expected) in members {
+        assert_eq!(binding_kind(&kind), expected);
+    }
+}

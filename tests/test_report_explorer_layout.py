@@ -318,3 +318,19 @@ def test_an_edge_label_stays_outside_every_box(
         labels = tall.evaluate(LABEL_OVERLAPS)
     assert [label["text"] for label in labels] == [LONG_TITLE]
     assert all(label["overlaps"] == 0 for label in labels), labels
+
+
+def test_every_chip_line_stays_inside_its_box(site: str, page: Browser) -> None:
+    # Issue 1694: "12 open gaps · 1 unused permission inside" ran past the right edge of its box.
+    for query in ("", f"scope={CORE}", "scope=PART%3Ashell"):
+        page.open(f"{site}/system.html?{query}")
+        chips = page.evaluate(
+            "[...document.querySelectorAll('#flow svg [data-uml-id]')].flatMap((g) => {"
+            " const card = g.querySelector('.card')?.getBoundingClientRect();"
+            " return [...g.querySelectorAll('.atlas-finding-chip, .atlas-deviation-chip')]"
+            ".map((c) => { const r = c.getBoundingClientRect();"
+            " return { text: c.textContent, inside: r.left >= card.left && r.right <= card.right"
+            " && r.bottom <= card.bottom, box: g.dataset.umlId }; }); })"
+        )
+        assert all(chip["inside"] for chip in chips), [c for c in chips if not c["inside"]]
+        assert not any(" · " in chip["text"] for chip in chips), chips

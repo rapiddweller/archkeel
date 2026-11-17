@@ -1953,19 +1953,18 @@
         }
         if (S.view !== "target" && !scene.moduleOverview && node.component) {
           const findingCount = atlasComponentFindingCount(node.id);
-          let chipY = 151;
-          if (findingCount) {
-            const findings = el("text", { class: "atlas-finding-chip", x: "16", y: String(chipY) });
-            findings.textContent = `${REPORT_SCENE.countLabel(findingCount, "finding")} inside`;
-            group.appendChild(findings);
-            chipY += 14;
-          }
           const chipText = window.ArchkeelReportScene.deviationChipText(node.component.status, atlasInsideDeviations(node.id));
-          if (chipText) {
-            const deviations = el("text", { class: "atlas-deviation-chip", x: "16", y: String(chipY) });
-            deviations.textContent = chipText;
-            group.appendChild(deviations);
-          }
+          // Each chip, and each part of the deviation chip, has its own line inside the box (issue 1694).
+          const lines = [
+            ...(findingCount ? [["atlas-finding-chip", `${REPORT_SCENE.countLabel(findingCount, "finding")} inside`]] : []),
+            ...(chipText ? chipText.split(" · ") : []).flatMap((part) => wrapText(part, CARD.w - 32, `11px ${sansFontFamily}`))
+              .map((line) => ["atlas-deviation-chip", line])];
+          const top = Math.max(143, Math.min(151, 179 - lines.length * 14));
+          lines.forEach(([kind, line], index) => {
+            const chip = el("text", { class: kind, x: "16", y: String(top + index * 14) });
+            chip.textContent = line;
+            group.appendChild(chip);
+          });
         }
         group.addEventListener("click", (event) => { event.stopPropagation(); dispatch({ type: "select", id: node.id }); });
         group.addEventListener("dblclick", (event) => { event.preventDefault(); dispatch({ type: "open", id: node.id }); });

@@ -29,12 +29,13 @@ from .init_areas import (
     Layout,
     NothingToDraft,
     Part,
+    _dart_layout,
     _folders,
-    _layout_of,
     _python_layouts,
-    _workspaces,
+    _rust_layout,
 )
 from .init_binding import _binding, _uses
+from .init_typescript import _typescript_layout, _typescript_project
 
 __all__ = [
     "CONFIG",
@@ -49,6 +50,30 @@ __all__ = [
 
 
 # Which language areas a repository has; `init_areas` drafts the layout of one folder.
+def _workspaces(folder: Path) -> bool:
+    try:
+        data = json.loads((folder / "package.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and bool(data.get("workspaces"))
+
+
+def _layout_of(repo: Path, folder: Path) -> Layout | None:
+    """The layout of a Cargo, package.json or pubspec manifest in `folder`, or `None`."""
+    if (folder / "Cargo.toml").is_file() and (layout := _rust_layout(repo, folder)):
+        return layout
+    if (folder / "package.json").is_file():
+        # One scan of all workspace members needs one tsconfig that covers them. Without a root
+        # tsconfig.json each member with its own is a project of its own, found below.
+        if _workspaces(folder) and (folder / "tsconfig.json").is_file():
+            return _typescript_layout(repo, folder)
+        if (folder / "tsconfig.json").is_file():
+            return _typescript_project(repo, folder)
+    if (folder / "pubspec.yaml").is_file():
+        return _dart_layout(repo, folder)
+    return None
+
+
 def _discover(repo: Path) -> tuple[list[Area], str]:
     """The areas of `repo`, and the first reason that a folder gave none (for a refusal)."""
     areas: list[Area] = []
@@ -215,7 +240,8 @@ _NAMES: Final = {"python": "Python", "rust": "Rust", "typescript": "TypeScript",
 
 
 def _unique_ids(areas: list[Area]) -> list[str]:
-    """One part id for each area: the folder name, or the language for the root, made unique."""
+    """One part id for each area: the folder name, or the project name for the root, made
+    unique."""
     labels = [area.label for area in areas]
     return [
         label if labels.count(label) == 1 else f"{area.layout.language}-{label}"

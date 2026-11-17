@@ -84,6 +84,7 @@ mod script_numeric;
 mod script_outside;
 mod script_outside_detector;
 mod script_outside_forms;
+mod script_outside_generated;
 mod script_outside_names;
 mod script_outside_page;
 mod script_patch;

@@ -31,11 +31,18 @@ use crate::site_records::{self, Pass};
 use crate::symbol_table::SymbolTable;
 use crate::symbols;
 
-/// The assumption that the proofs of a script global rest on (AD-540, amended by #1546). The report
+/// The assumption that the proofs of a script global rest on (AD-540, amended by #1546 and #1662). The report
 /// states it with the verdict. The collector cannot see code outside the repository; a file of the
 /// repository outside the scan roots that replaces a global is read (`script_outside.rs`).
-const SCRIPT_PREMISE: &str =
-    "code outside the scan roots hands in no global or platform object and replaces no global";
+const SCRIPT_PREMISE: &str = "code outside the scan roots hands in no global or platform object \
+     and replaces no global, and addresses that a framework renders from data hold no javascript: \
+     code";
+
+/// The premise of a run whose repository guard applied a stated generated copy (AD-788).
+const SCRIPT_PREMISE_GENERATED: &str =
+    "code outside the scan roots hands in no global or platform \
+     object and replaces no global, and addresses that a framework renders from data hold no \
+     javascript: code, and a stated generated copy is the code of its sources";
 
 /// The import features that each registered set of the collector states (`native` set).
 const NATIVE_IMPORTS: [&str; 4] = [
@@ -243,8 +250,11 @@ pub(crate) fn typed_reply(
         plan.write(sink).map(|(tail, _)| tail)
     })?;
     use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
-    reply.facts.scope_premise = Some(SCRIPT_PREMISE);
-    reply.facts.scope_premise = Some(SCRIPT_PREMISE);
+    reply.facts.scope_premise = Some(if pending.script.generated_copies {
+        SCRIPT_PREMISE_GENERATED
+    } else {
+        SCRIPT_PREMISE
+    });
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: if reply
             .facts

@@ -43,6 +43,8 @@ pub(in crate::impl_edges) enum Std {
     Iter,
     /// A type of a crate from a registry or git, with no type of the workspace in its arguments.
     Outside,
+    /// A tuple with its elements.
+    Tuple,
 }
 
 /// A receiver type as far as the written types prove it.
@@ -93,7 +95,13 @@ fn items(ty: &Ty) -> Ty {
     match ty {
         Ty::Std(Std::Iter, args) => item(args),
         Ty::Std(Std::Vec | Std::Set | Std::Deque | Std::Option, args) => item(args),
+        Ty::Std(Std::Map, args) => Ty::Std(Std::Tuple, args.clone()),
         Ty::Ref(kind, inner) => match (kind, &**inner) {
+            (_, Ty::Std(Std::Map, args)) => {
+                let key = shared(item(args));
+                let value = Ty::Ref(*kind, Box::new(args.get(1).cloned().unwrap_or(Ty::Unknown)));
+                Ty::Std(Std::Tuple, vec![key, value])
+            }
             (SelfKind::Unique, Ty::Std(Std::Iter, args)) => item(args),
             (_, Ty::Std(Std::Vec | Std::Slice | Std::Deque | Std::Option, args)) => {
                 Ty::Ref(*kind, Box::new(item(args)))
@@ -271,6 +279,14 @@ fn inherent(kind: Std, args: &[Ty], name: &str, arity: usize) -> Option<Ty> {
         (Slice | Set | Deque | Std::Option, "iter", 0) => of(Iter, vec![shared(arg(0))]),
         (Slice | Deque | Std::Option, "iter_mut", 0) => of(Iter, vec![unique(arg(0))]),
         (Map, "keys", 0) => of(Iter, vec![shared(arg(0))]),
+        (Map, "iter", 0) => of(
+            Iter,
+            vec![of(Std::Tuple, vec![shared(arg(0)), shared(arg(1))])],
+        ),
+        (Map, "iter_mut", 0) => of(
+            Iter,
+            vec![of(Std::Tuple, vec![shared(arg(0)), unique(arg(1))])],
+        ),
         (Map, "values", 0) => of(Iter, vec![shared(arg(1))]),
         (Map, "values_mut", 0) => of(Iter, vec![unique(arg(1))]),
         (Std::Option, "filter", 1) => some(arg(0)),
@@ -281,6 +297,28 @@ fn inherent(kind: Std, args: &[Ty], name: &str, arity: usize) -> Option<Ty> {
         (Iter, "position", 1) => some(prim()),
         _ => return None,
     })
+}
+
+/// A part of a value that a pattern matches: through references, the default binding mode of
+/// Rust binds the part by reference, `&` when one of them is shared, else `&mut`.
+pub(in crate::impl_edges) fn project(ty: Ty, part: impl Fn(Std, &[Ty]) -> Option<Ty>) -> Ty {
+    let mut ty = ty;
+    let mut mode = None;
+    while let Ty::Ref(kind, inner) = ty {
+        mode = match (mode, kind) {
+            (Some(SelfKind::Shared), _) | (_, SelfKind::Shared) => Some(SelfKind::Shared),
+            _ => Some(SelfKind::Unique),
+        };
+        ty = *inner;
+    }
+    let Ty::Std(kind, args) = ty else {
+        return Ty::Unknown;
+    };
+    match (part(kind, &args), mode) {
+        (None | Some(Ty::Unknown), _) => Ty::Unknown,
+        (Some(found), Some(mode)) => Ty::Ref(mode, Box::new(found)),
+        (Some(found), None) => found,
+    }
 }
 
 /// Whether a type holds no type of the workspace and no unknown type.

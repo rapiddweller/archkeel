@@ -99,7 +99,7 @@ def test_each_script_of_the_page_is_admitted_by_its_hash(self_page: str) -> None
     policy = re.search(r'Content-Security-Policy" content="([^"]+)"', self_page)
     assert policy
     bodies = re.findall(r"<script(?![^>]*application/json)[^>]*>(.*?)</script>", self_page, re.S)
-    assert len(bodies) == 9, "the theme switch and the eight scripts of the Explorer"
+    assert len(bodies) == 10, "the theme switch and the nine scripts of the Explorer"
     for body in bodies:
         digest = base64.b64encode(hashlib.sha256(body.encode()).digest()).decode()
         assert f"'sha256-{digest}'" in policy.group(1)

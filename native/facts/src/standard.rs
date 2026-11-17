@@ -26,6 +26,11 @@ pub struct StandardFacts {
     pub changed: BTreeMap<String, String>,
     /// Each definition of the scan whose decorators the collector models, by qualified name.
     pub wrapped: BTreeMap<String, Wrapped>,
+    /// Each position of a written signature whose type reads a collection or a special form of
+    /// the standard library by name (`typing.List`, `typing.Optional`), keyed
+    /// `<qualified name>:<parameter or return>`, with those names (#1718). The shape of such a
+    /// position is a collection or a union, so the model asks the premise for these names.
+    pub positions: BTreeMap<String, BTreeSet<String>>,
 }
 
 /// One parameter of the form that a decorated definition exposes.

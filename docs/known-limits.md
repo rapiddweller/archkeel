@@ -103,7 +103,7 @@ import of a package that the map does not prove hosted, SDK or remote git is a g
 (`DartLocalPackage`, `DartUndeclaredPackage`), and a local package that no library imports adds no
 gap. The package of the scan is the nearest `pubspec.yaml` at or above its roots (AD-808): a member
 reads the workspace root above it for its members. A member whose workspace root is outside the
-snapshot, or not readable, gets that gap at each `package:` import (J-compass as pinned). The Dart collector reads bounded YAML. It keeps a
+snapshot, or not readable, gets that gap at each `package:` import (a snapshot that omits the workspace root). The Dart collector reads bounded YAML. It keeps a
 whole-scope gap for a pubspec that it reads only word by word, an unsupported YAML form, and a
 workspace that it cannot prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
 package roots also give gaps (AD-562).
@@ -137,12 +137,16 @@ time withholds the receipt, and the rule is UNKNOWN with the site: "a call can c
   `enum` classes, `namedtuple`, `NamedTuple`, `TypedDict`, `make_dataclass`, `types.new_class`,
   `ABCMeta`, `__build_class__`, `type` with three arguments;
 - a call in the shape of a metaclass call (`M("Name", (...), {...})`);
+- a well-known library factory, in any use of its result, also a plain return: `attrs.make_class`
+  and `attr.make_class`, `pydantic.create_model`, `marshmallow.Schema.from_dict`,
+  `msgspec.defstruct`, `sqlalchemy.orm.declarative_base` and `registry().generate_base`. The table
+  `FACTORIES` in `survey/stable/class_inventory.rs` holds the list and says how to extend it;
 - a call whose result the module calls or passes as the class of `isinstance` or `issubclass`.
 
-The plants are in `tests/test_collector_false_pass_python_placement.py`. Open: a call of another
-library function that creates a class and sets its `__module__` to the caller (`attrs.make_class`,
-`pydantic.create_model`) and whose result the module only returns gives no such site. The rule then
-reads the module as holding no class. This is an open false-PASS class, not an accepted limit.
+The plants are in `tests/test_collector_false_pass_python_placement.py`. Open: the factory of
+another library, whose result the module only returns, gives no such site. The rule then reads the
+module as holding no class. This is an open false-PASS class, not an accepted limit: a factory
+joins the table with a plant whose Python truth is a class.
 
 **Python module and class bindings (AD-642, #1360).** A module- or class-level binding such as
 `for site in sites: site.id` can retain an `import_system_change` gap. These namespaces resolve
@@ -157,9 +161,10 @@ resolver cannot decide (`typesVersions`). An import that resolves to a file outs
 another name that the resolver cannot decide, and an installed file that the collector cannot read
 are a gap of each module whose import reaches that file. So the plant
 `src/b/node_modules/local/index.ts` with `import { a } from '../../../a/a'`, imported as `local`
-from `src/b/t.ts`, gives UNKNOWN. Release 4.0.1 gives PASS. Open: a computed import inside a
-package (`require(name)`) is not read. That is the string-loader class (Python: #1519). A closure of
-more than 20 000 installed files is a gap of each importer.
+from `src/b/t.ts`, gives UNKNOWN. Release 4.0.1 gives PASS. A loader with an unknown target in a
+runtime file of the closure (a computed `require` or `import()`, a call of `createRequire`) is a
+reach too (AD-812, #1749). Open: a package that a tool loads without an import of the scan (#1750,
+P0). A closure of more than 20 000 installed files is a gap of each importer.
 The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
@@ -182,12 +187,13 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - The core compares the module and import part of `declarations.uml` (AD-494) and the symbol part
-  for TypeScript (AD-512) and, for the declarations only, for Python (AD-518) and Dart (AD-796).
-  Rust gives no symbol facts, and Python and Dart give no site (base, call, reference, `creates`,
-  `instance_of`), so a relationship of a Python or Dart target is UNKNOWN with the cause "the python
-  collector states no symbol sites" (H-uml and H-uml-dart stay UNKNOWN). A Dart class inventory is
-  `partial` when a mixin application, a part of the library or a project extension can add a
-  member that the class body does not show. A Python declaration is written only for a class, function, method
+  for TypeScript (AD-512) and Dart (AD-796) and, for the declarations only, for Python (AD-518).
+  Rust gives no symbol facts, and Python gives no site (base, call, reference, `creates`,
+  `instance_of`), so a relationship of a Python target is UNKNOWN with the cause "the python
+  collector states no symbol sites" (H-uml stays UNKNOWN). A Dart class inventory is `partial` when
+  a mixin application, a part of the library or a project extension can add a member that the class
+  body does not show. A Dart site binds only a declaration of the snapshot: a member that only a
+  base outside it can declare stays unresolved. A Python declaration is written only for a class, function, method
   or class attribute that one plain statement binds once; a second binder (`if`, `try`, `for`,
   `with`, `del`, `global`, walrus, `match`, star import), a decorator other than the builtin
   `staticmethod` or `classmethod`, a keyword or an unproven base, a hazard site or a write from
@@ -201,7 +207,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   (AD-770). Open: a write through `globals()` of another module.
   Every Python member list is `partial`. A target
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
-  passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an
+  passes with symbol facts (H-uml) exits 2. A FAIL for a conflict, a missing base or an
   extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.
   A missing symbol, call or reference is UNKNOWN, never FAIL. A planned member that the matched class lacks is
   UNKNOWN too, where 4.0.1 gives FAIL (AD-512): the collector states no complete member table. A closed scope without an extra
@@ -408,6 +414,21 @@ body ([#775](https://github.com/rapiddweller/archkeel/issues/775)):
   of the run (AD-770).
 - On every version: a metaclass `__prepare__` that puts the name in the class namespace.
 
+A name of the standard library is an identity that the scan cannot prove: code outside the
+repository can replace it before the module runs. So `boundary_types` counts such a name only under
+the opt-in contract premise `standard_library_unchanged`, and the PASS reads "PASS assuming outside
+code leaves the standard library unchanged" (AD-782). This covers the closed table of value types
+and markers (`pathlib.Path`, `datetime`, `typing.Final`, ...), the decorators that the collector
+models, and, since #1718, the collections and special forms that the shape reader reads by name
+(`typing.List`, `collections.abc.Sequence`, `typing.Optional`, `typing.Union`, `typing.Literal`,
+`typing.Annotated`). Without the premise each of these positions is UNKNOWN and the cause names the
+premise. A builtin of the language (`list[int]`, `dict`, `int | None`) needs no premise. A name that a
+file of the repository may change (an attribute store of that name, a computed store, a store through
+`vars`, `__dict__`, `sys.modules` or `globals`, or code run from a text) stays UNKNOWN even under the
+premise. Before #1718 the shape reader counted `typing.List` and the other named collections with no
+premise, so a scanned `typing.List = Secret` gave a false PASS
+(`tests/test_cli_boundary_stdlib_collections.py`).
+
 See [AD-283](architecture/decisions/ad-283-a-later-class-binding-blocks-every-annotation.md).
 
 Inherited boundary methods follow a uniquely resolved local single-base chain.
@@ -581,11 +602,16 @@ is a direct form; a document (`document`, `ownerDocument`, `contentDocument`) th
 or returned or taken by a pattern is an amplifier form; a write of `href`, `src`, `action`,
 `formAction`, `data` or `baseVal`, or `setAttribute` of such an attribute, with a value that is no
 literal is an amplifier form; `execCommand('insertHTML', …)` with markup that is no inert literal is a
-direct form. An address that a framework renders from data (`<a href={url}>`) stays open (#1662).
+direct form. An address that a framework renders from data (`<a href={url}>`) is covered by the
+printed assumption of AD-810 (#1662): such addresses hold no `javascript:` code. A string or template
+of the scanned sources, or a JSON or YAML file below a scan root, whose text holds `javascript:`,
+`vbscript:` or `data:text/html` (any letter case, also with a tab or line end inside) withholds
+every global proof, and the gap names the place.
 Plants: `tests/test_cli_native_dom_code.py`.
 Older classes stay open too: a use through `opener` or `document.defaultView`.
 AD-788 (#1546, #1674) states the premise of every TypeScript verdict as "code outside the scan
-roots hands in no global or platform object and replaces no global" (text header, JSON `premise`,
+roots hands in no global or platform object and replaces no global"; AD-810 (#1662) adds "and
+addresses that a framework renders from data hold no javascript: code" (text header, JSON `premise`,
 report). Every JavaScript, TypeScript or HTML file of the repository outside the scan roots is read
 with the write detector of the scan (#1712): an alias of a window name, a window name passed to a
 function, a destructuring or `for` target, `Reflect.apply(Reflect.set, …)`, `eval` and `Function`
@@ -605,7 +631,11 @@ declarations, version-control metadata (`.git`, `.hg`, `.svn`), Python environme
 caches (`.venv`, `.tox`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`) and installed packages
 (`node_modules`, `jspm_packages`, `bower_components`). Their code is third-party code outside the
 scan roots, which the premise covers. Every other hidden folder (`.storybook`, `.vitepress`,
-`.config`) is read. Code outside the repository stays under the premise only.
+`.config`) is read. A stated generated copy of scanned sources (`// Generated from S;
+source-sha256=H`, `// Owner: G`, `// Check: C`, with S a scanned file of digest H) is not read; the
+premise then says that such a copy is the code of its sources. Test data in a folder `fixtures` is
+read: the test-file rule names only `test`, `tests`, `__tests__`, `*.test.*` and `*.spec.*`. Code
+outside the repository stays under the premise only.
 A source file inside the roots that TSConfig `exclude` drops gives a named coverage gap (AD-488),
 including a file that writes a global. It is no longer a silent false PASS.
 A member `source`, `view`, `currentTarget` or a window name is a window, and a member `eval` or

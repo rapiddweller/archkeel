@@ -18,13 +18,19 @@
 //! A name of a library outside the snapshot has no binding here, so it stays unresolved.
 
 mod answers;
+mod construct;
 mod formals;
+mod lexical;
+mod members;
 mod namespace;
 mod params;
+mod receivers;
+mod sites;
 pub(crate) mod types;
 
 use std::collections::BTreeMap;
 
+use crate::collection::types::BindingKind;
 use crate::import_survey::index::{Index, Kind, Owners};
 use crate::import_survey::uri::Uri;
 use crate::syntax::{Definition, DefinitionKind, Directive, DirectiveKind, Span, Syntax};
@@ -54,11 +60,27 @@ pub(crate) struct Target {
 pub(crate) struct Bound {
     pub(crate) module: String,
     pub(crate) name: String,
-    pub(crate) kind: DefinitionKind,
+    pub(crate) kind: BindingKind,
     pub(crate) via_prefix: Option<String>,
     pub(crate) id: String,
     pub(crate) at: usize,
     pub(crate) span: Span,
+}
+
+impl Bound {
+    /// True for a binding of a class-like declaration.
+    pub(crate) fn class_like(&self) -> bool {
+        matches!(
+            self.kind,
+            BindingKind::Class | BindingKind::Interface | BindingKind::Enum | BindingKind::Mixin
+        )
+    }
+}
+
+/// The binding kind of a declaration or a member kind: the syntax and the collection write the
+/// same word for each kind (`resolve_tests.rs` pins each one).
+pub(crate) fn binding_kind<T: serde::Serialize>(kind: &T) -> BindingKind {
+    serde_json::from_value(serde_json::Value::String(word(kind))).unwrap_or(BindingKind::Binding)
 }
 
 /// The type arguments of a class for its type parameters, in the order of the parameters.
@@ -92,6 +114,8 @@ pub(crate) struct Resolver<'a> {
     definitions: BTreeMap<&'a str, Vec<Decl<'a>>>,
     imports: BTreeMap<&'a str, Vec<(usize, &'a Directive)>>,
     exports: BTreeMap<&'a str, Vec<(usize, &'a Directive)>>,
+    /// The parts of each library, by source index.
+    parts: BTreeMap<usize, Vec<usize>>,
 }
 
 impl<'a> Resolver<'a> {
@@ -138,6 +162,10 @@ impl<'a> Resolver<'a> {
                 .or_default()
                 .extend(of(DirectiveKind::Export).map(|item| (at, item)));
         }
+        let mut parts: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+        for (part, library) in owners {
+            parts.entry(*library).or_default().push(*part);
+        }
         Self {
             index,
             syntax,
@@ -145,6 +173,7 @@ impl<'a> Resolver<'a> {
             definitions,
             imports,
             exports,
+            parts,
         }
     }
 
@@ -203,7 +232,7 @@ impl<'a> Resolver<'a> {
         Bound {
             module: decl.module.to_owned(),
             name: decl.definition.name.clone(),
-            kind: decl.definition.kind,
+            kind: binding_kind(&decl.definition.kind),
             via_prefix: prefix.map(str::to_owned),
             id: self.identity(decl),
             at: decl.at,
@@ -238,7 +267,7 @@ impl<'a> Resolver<'a> {
     }
 
     /// The target of one URI of a directive in the file `importer`.
-    fn target(&self, importer: &str, uri: &str) -> Option<Target> {
+    pub(crate) fn target(&self, importer: &str, uri: &str) -> Option<Target> {
         let (module, package, at, builtin) = match self.index.classify(importer, uri) {
             Uri::Builtin(module) => (module, "dart".to_owned(), None, true),
             Uri::External { package, module } => (module, package, None, false),

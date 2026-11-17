@@ -17,7 +17,7 @@ use archkeel_facts::envelope::{Evidence, Input as Digest};
 use archkeel_facts::ids::ModuleName;
 use archkeel_facts::request::DartRequest;
 use archkeel_facts::vocab::InventoryStatus;
-use archkeel_facts::{Record, SymbolFact};
+use archkeel_facts::{CallFact, Record, ReferenceFact, SymbolFact};
 
 use crate::collection::types::{Input, Output, Source};
 use crate::declarations::types::{Detail, File, Symbol};
@@ -27,10 +27,12 @@ use crate::parse::DartParser;
 use crate::resolve::{class_like, Resolver};
 use crate::syntax::{DefinitionKind, MemberKind, Syntax};
 
-/// The symbol records of a survey and the evidence that they cite.
+/// The symbol, call and reference records of a survey and the evidence that they cite.
 #[derive(Debug, Default)]
 pub(crate) struct Collected {
     pub(crate) symbols: Vec<Record<SymbolFact>>,
+    pub(crate) calls: Vec<Record<CallFact>>,
+    pub(crate) references: Vec<Record<ReferenceFact>>,
     pub(crate) evidence: Vec<Evidence>,
 }
 
@@ -184,15 +186,36 @@ fn open_reason(
     None
 }
 
-/// The symbol records as typed facts: the collection writes the record form of release 4.0.1,
-/// which the facts decode as a wire reply does. The facts parameter has no `super_formal` and no
-/// `evidence_ids`, and no rule reads them, so the form drops both keys.
+/// The records as typed facts: the collection writes the record form of release 4.0.1, which
+/// the facts decode as a wire reply does. The facts parameter has no `super_formal` and no
+/// `evidence_ids`, and no rule reads them, so the form drops both keys. A top-level function
+/// has no method kind.
 fn typed(output: Output) -> Result<Collected, String> {
-    let symbols = output
-        .symbols
+    Ok(Collected {
+        symbols: decode(&output.symbols, "symbol")?,
+        calls: decode(&output.calls, "call")?,
+        references: decode(&output.references, "reference")?,
+        evidence: output.evidence,
+    })
+}
+
+/// Each record of `records` as a typed record of the section `what`.
+fn decode<R: serde::Serialize, T: serde::de::DeserializeOwned>(
+    records: &[R],
+    what: &str,
+) -> Result<Vec<T>, String> {
+    records
         .iter()
-        .map(|symbol| {
-            let mut value = serde_json::to_value(symbol).map_err(|error| error.to_string())?;
+        .map(|record| {
+            let mut value = serde_json::to_value(record).map_err(|error| error.to_string())?;
+            // A top-level function is no method: it has no method kind, as TypeScript writes it.
+            // 4.0.1 wrote `static`, which the model reads as a static method (AD-518).
+            if value.get("kind").and_then(serde_json::Value::as_str) == Some("function") {
+                let data = value
+                    .get_mut("data")
+                    .and_then(serde_json::Value::as_object_mut);
+                data.map(|data| data.remove("method_kind"));
+            }
             let parameters = value
                 .get_mut("data")
                 .and_then(|data| data.get_mut("parameters"))
@@ -206,12 +229,8 @@ fn typed(output: Output) -> Result<Collected, String> {
                     parameter.remove("evidence_ids");
                 }
             }
-            serde_json::from_value::<Record<SymbolFact>>(value)
-                .map_err(|error| format!("a Dart symbol record does not decode: {error}"))
+            serde_json::from_value::<T>(value)
+                .map_err(|error| format!("a Dart {what} record does not decode: {error}"))
         })
-        .collect::<Result<_, _>>()?;
-    Ok(Collected {
-        symbols,
-        evidence: output.evidence,
-    })
+        .collect()
 }

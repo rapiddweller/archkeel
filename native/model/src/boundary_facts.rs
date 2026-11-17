@@ -252,3 +252,21 @@ pub(crate) fn standard_of<'a>(facts: &'a BoundaryFacts, qualified: &str) -> Opti
 pub(crate) fn wrapped_of<'a>(facts: &'a BoundaryFacts, qualified: &str) -> Option<&'a Wrapped> {
     BTreeMap::get(&facts.standard.wrapped, qualified)
 }
+
+/// The slots of a wrapped form, as the reader reads the slots of a record.
+pub(crate) fn slots_of(slots: &[archkeel_facts::standard::WrappedSlot]) -> Vec<Slot> {
+    let slot = |item: &archkeel_facts::standard::WrappedSlot| Slot {
+        name: item.name.clone(),
+        kind: item.kind.clone(),
+        shape: item.shape.clone(),
+    };
+    IntoIterator::into_iter(slots).map(slot).collect()
+}
+
+/// The standard library names that a written position reads by name, if any (#1718).
+pub(crate) fn positions_of<'a>(
+    facts: &'a BoundaryFacts,
+    key: &str,
+) -> Option<&'a BTreeSet<String>> {
+    BTreeMap::get(&facts.standard.positions, key)
+}

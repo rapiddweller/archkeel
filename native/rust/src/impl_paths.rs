@@ -130,3 +130,13 @@ fn prelude(name: &str) -> Option<Std> {
         _ => return None,
     })
 }
+
+/// Whether a name of a pattern is the variant of the prelude (`Some`, `Ok`): nothing of the file
+/// can bind it.
+pub(super) fn prelude_variant(frame: &Frame<'_>, name: &str) -> bool {
+    let scan = &frame.module.scan;
+    frame.bound(name).is_empty()
+        && !scan.counts.contains_key(name)
+        && !scan.module_macros
+        && frame.globs().next().is_none()
+}

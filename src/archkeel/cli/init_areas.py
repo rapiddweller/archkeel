@@ -14,15 +14,12 @@ this module cannot name soundly raises `NothingToDraft`.
 
 from __future__ import annotations
 
-import json
 import os
 import re
 from dataclasses import dataclass, replace
-from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import Final
 
-from .core_schema import schema_file
 from .init_binding import _table, _value
 
 DOCUMENT: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md"
@@ -66,12 +63,6 @@ def _refuse(why: str) -> NothingToDraft:
 def _name(text: str) -> str:
     """A label or namespace: letters, digits and underscore only."""
     return re.sub(r"\W+", "_", text).strip("_").lower() or "app"
-
-
-def _escape(segment: str) -> str:
-    """The module identity of a TypeScript path segment: a character other than an ASCII letter
-    or digit is `_x<hex>_`, as the collector writes it (`.` is `_x2e_`, `_` is `_x5f_`)."""
-    return "".join(c if c.isascii() and c.isalnum() else f"_x{ord(c):x}_" for c in segment)
 
 
 def _packages(folder: Path, repo: Path) -> list[Path]:
@@ -282,40 +273,6 @@ def _rust_crate(repo: Path, root: Path, text: str) -> Layout | None:
     return Layout("rust", namespace, (scan,), tuple(parts), _TESTS, crates=(scan,))
 
 
-def _typescript_layout(repo: Path, root: Path) -> Layout | None:
-    """One component for each member of the `workspaces` of the package.json in `root` (a folder
-    of the repository `repo`); `None` without them."""
-    manifest = root / "package.json"
-    if not manifest.is_file():
-        return None
-    try:
-        data = json.loads(manifest.read_text(encoding="utf-8"))
-    except ValueError as error:
-        raise _refuse(f"package.json is not valid JSON ({error})") from None
-    spaces = data.get("workspaces") if isinstance(data, dict) else None
-    if isinstance(spaces, dict):
-        spaces = spaces.get("packages")
-    if not isinstance(spaces, list) or not spaces:
-        return None
-    members = _members(root, [s for s in spaces if isinstance(s, str)], "package.json")
-    if len(members) < 2:
-        raise _refuse("package.json workspaces name fewer than two packages")
-    namespace = _name(repo.name)  # the module identity holds the path already (#1617)
-    parts, roots = [], []
-    for member in members:
-        relative = member.relative_to(repo)
-        selector = ".".join([namespace, *(_escape(part) for part in relative.parts)])
-        parts.append(Part(_name(member.name), (selector,)))
-        roots.append(relative.as_posix())
-    extra = _tsconfig(repo, root)
-    return Layout("typescript", namespace, tuple(roots), tuple(parts), extra)
-
-
-def _tsconfig(repo: Path, folder: Path) -> str:
-    config = folder / "tsconfig.json"
-    return f'tsconfig = "{config.relative_to(repo).as_posix()}"\n' if config.is_file() else ""
-
-
 _DEPTH: Final = 3
 # The tsconfig of a project leaves its test files out; the scan then reports each as a gap that
 # leaves the whole scope unknown. A draft leaves them out of the scan too (the result says so).
@@ -331,8 +288,9 @@ class Area:
 
     @property
     def label(self) -> str:
-        """The part id before the names of several areas are made unique."""
-        return _name(Path(self.folder).name) if self.folder != "." else self.layout.language
+        """The part id before the names of several areas are made unique: the folder name, or for
+        the root the name of the project (its namespace), not its language (#1709)."""
+        return _name(Path(self.folder).name) if self.folder != "." else self.layout.namespace
 
 
 def _folders(repo: Path) -> list[Path]:
@@ -348,77 +306,6 @@ def _folders(repo: Path) -> list[Path]:
         ]
         found += level
     return found
-
-
-@cache
-def _code_suffixes() -> frozenset[str]:
-    """The TypeScript and JavaScript source suffixes, read from the one owner of the table.
-
-    `schema/archkeel-source-suffixes.txt` holds one `language suffix` row for each suffix; the
-    contract crate embeds the same file."""
-    lines = schema_file("archkeel-source-suffixes.txt").read_text(encoding="utf-8").splitlines()
-    rows = [line.split(" ", 1) for line in lines if " " in line]
-    return frozenset(suffix for language, suffix in rows if language == "typescript")
-
-
-def _has_code(folder: Path) -> bool:
-    for _, names, files in os.walk(folder):
-        names[:] = [name for name in names if name not in _IGNORED]
-        if any(Path(file).suffix in _code_suffixes() for file in files):
-            return True
-    return False
-
-
-def _typescript_project(repo: Path, folder: Path) -> Layout:
-    """One component for each folder of the project that holds code; the folders inside `src`
-    count instead of `src` itself. The files beside them are the component `root`.
-
-    The scan root is the project folder, not `src`: an import of a file beside `src` (a config or a
-    host list) then resolves to a module of the scan. The identity of a module is the namespace
-    and the repository-relative path, each segment escaped as the collector writes it."""
-    # A module identity is the namespace and the repository path (#1617): the namespace of the
-    # repository keeps a project below the root from naming its folder twice (`web.src.web`).
-    namespace = _name(repo.name)
-
-    def code_dirs(parent: Path) -> list[Path]:
-        return [
-            path
-            for path in sorted(parent.iterdir())
-            if path.is_dir() and path.name not in _IGNORED and _has_code(path)
-        ]
-
-    def code_files(parent: Path) -> list[Path]:
-        return [
-            path
-            for path in sorted(parent.iterdir())
-            if path.is_file() and path.suffix in _code_suffixes()
-        ]
-
-    units, own = [], code_files(folder)
-    for path in code_dirs(folder):
-        if path.name == "src":
-            units += code_dirs(path)
-            own += code_files(path)
-        else:
-            units.append(path)
-
-    def selector(path: Path) -> str:
-        return ".".join([namespace, *(_escape(p) for p in path.relative_to(repo).parts)])
-
-    labels = [_name(path.name) for path in units]
-    parts = [
-        Part(
-            label if labels.count(label) == 1 else _name(path.relative_to(folder).as_posix()),
-            (selector(path),),
-        )
-        for label, path in zip(labels, units, strict=True)
-    ]
-    if own:
-        parts.append(Part("root", modules=tuple(selector(path) for path in own)))
-    if not parts:
-        raise _refuse(f"no TypeScript or JavaScript code in {folder.relative_to(repo).as_posix()}")
-    scan = folder.relative_to(repo).as_posix()
-    return Layout("typescript", namespace, (scan,), tuple(parts), _tsconfig(repo, folder) + _TESTS)
 
 
 def _dart_layout(repo: Path, folder: Path) -> Layout:
@@ -442,27 +329,3 @@ def _dart_layout(repo: Path, folder: Path) -> Layout:
     if not parts:
         raise _refuse(f"no Dart code in {lib.relative_to(repo).as_posix()}")
     return Layout("dart", namespace, (lib.relative_to(repo).as_posix(),), tuple(parts))
-
-
-def _workspaces(folder: Path) -> bool:
-    try:
-        data = json.loads((folder / "package.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return False
-    return isinstance(data, dict) and bool(data.get("workspaces"))
-
-
-def _layout_of(repo: Path, folder: Path) -> Layout | None:
-    """The layout of a Cargo, package.json or pubspec manifest in `folder`, or `None`."""
-    if (folder / "Cargo.toml").is_file() and (layout := _rust_layout(repo, folder)):
-        return layout
-    if (folder / "package.json").is_file():
-        # One scan of all workspace members needs one tsconfig that covers them. Without a root
-        # tsconfig.json each member with its own is a project of its own, found below.
-        if _workspaces(folder) and (folder / "tsconfig.json").is_file():
-            return _typescript_layout(repo, folder)
-        if (folder / "tsconfig.json").is_file():
-            return _typescript_project(repo, folder)
-    if (folder / "pubspec.yaml").is_file():
-        return _dart_layout(repo, folder)
-    return None

@@ -428,3 +428,24 @@ pub(crate) struct Reach {
     /// The name by which the file can import its own package (#1632), if it has one.
     pub own_package: Option<String>,
 }
+
+/// The schemes whose address runs as code in a page (AD-810).
+const CODE_SCHEMES: [&str; 3] = ["javascript:", "vbscript:", "data:text/html"];
+
+/// The escapes of a tab or a line end, which an address parser drops after the data is decoded.
+const ADDRESS_ESCAPES: [&str; 6] = ["\\t", "\\n", "\\r", "\\u0009", "\\u000a", "\\u000d"];
+
+/// The text holds a code address (AD-810): `javascript:`, `vbscript:` or `data:text/html`, in any
+/// letter case, also with a tab or a line end (or an escape of one) inside it, as an address
+/// parser reads it.
+pub(crate) fn code_address(text: &str) -> bool {
+    let mut lower: String = text.to_ascii_lowercase();
+    for escape in ADDRESS_ESCAPES {
+        lower = lower.replace(escape, "");
+    }
+    let kept: String = lower
+        .chars()
+        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+        .collect();
+    CODE_SCHEMES.iter().any(|scheme| kept.contains(scheme))
+}

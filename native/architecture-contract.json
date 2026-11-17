@@ -80,6 +80,7 @@
         "native.archkeel_facts.identity:is_identifier",
         "native.archkeel_facts.identity:module_identity",
         "native.archkeel_facts.identity:package_of",
+        "native.archkeel_facts.identity:readable",
         "native.archkeel_facts.identity:sha256_hex",
         "native.archkeel_facts.identity:stable_id",
         "native.archkeel_facts.ids:EvidenceId",
@@ -782,6 +783,8 @@
         "native.archkeel_model.boundary_facts:Origin",
         "native.archkeel_model.boundary_facts:Slot",
         "native.archkeel_model.boundary_facts:Standard",
+        "native.archkeel_model.boundary_facts:positions_of",
+        "native.archkeel_model.boundary_facts:slots_of",
         "native.archkeel_model.boundary_facts:standard_of",
         "native.archkeel_model.boundary_facts:wrapped_of",
         "native.archkeel_model.condensation:condense",
@@ -1827,6 +1830,13 @@
             "native.archkeel_report.ruling",
             "native.archkeel_report.run_scope"
           ]
+        },
+        {
+          "component": "facts",
+          "rationale": "The manifest declares the typed facts that the page reads back (#1617).",
+          "through": [
+            "native.archkeel_facts"
+          ]
         }
       ],
       "public": [
@@ -2036,6 +2046,13 @@
             "native.archkeel_report.head:RuleVerdict",
             "native.archkeel_report.head:Status"
           ]
+        },
+        {
+          "component": "facts",
+          "rationale": "Read a module identity back to the characters of its path for the page (#1617).",
+          "through": [
+            "native.archkeel_facts.identity"
+          ]
         }
       ],
       "decided_by": "architect"
@@ -2156,18 +2173,20 @@
         },
         {
           "component": "model-run",
-          "rationale": "Call the methods of the model and of its contract tree (#953: a method of another module is a use of that module).",
+          "rationale": "Call the methods of the model and of its contract tree: the UML decision asks the root model of the tree (#953, AD-804).",
           "through": [
-            "native.archkeel_model.model"
+            "native.archkeel_model.model",
+            "native.archkeel_model.tree"
           ]
         },
         {
           "component": "model-proof",
-          "rationale": "Call the methods of the scope, the verdict and the run proof (#953: a method of another module is a use of that module).",
+          "rationale": "Call the methods of the scope, the verdict and the run proof: read the verdict and the reason of each decision (#953, AD-804).",
           "through": [
             "native.archkeel_model.gap_effects",
             "native.archkeel_model.run",
-            "native.archkeel_model.scope"
+            "native.archkeel_model.scope",
+            "native.archkeel_model.verdict"
           ]
         },
         {
@@ -3470,6 +3489,8 @@
       ],
       "public": [
         "native.archkeel_dart_collector.collection.types:Answers",
+        "native.archkeel_dart_collector.collection.types:Binding",
+        "native.archkeel_dart_collector.collection.types:BindingKind",
         "native.archkeel_dart_collector.collection.types:Construction",
         "native.archkeel_dart_collector.collection.types:ConstructionAnswer",
         "native.archkeel_dart_collector.collection.types:DirectiveAnswer",
@@ -3526,7 +3547,12 @@
         "native.archkeel_dart_collector.resolve.namespace",
         "native.archkeel_dart_collector.resolve.params",
         "native.archkeel_dart_collector.resolve.types",
-        "native.archkeel_dart_collector.symbol_survey"
+        "native.archkeel_dart_collector.symbol_survey",
+        "native.archkeel_dart_collector.resolve.construct",
+        "native.archkeel_dart_collector.resolve.members",
+        "native.archkeel_dart_collector.resolve.receivers",
+        "native.archkeel_dart_collector.resolve.sites",
+        "native.archkeel_dart_collector.resolve.lexical"
       ],
       "responsibilities": [
         "The survey of one Dart package (AD-454, AD-796): resolve each directive URI, find the owner of each part, write the import records with their targets, resolve the names of each library and write its symbol records, name each case that it does not prove as a gap, and assemble the typed reply with the sections imports, unknowns and symbols."
@@ -3549,9 +3575,11 @@
             "native.archkeel_facts.request",
             "native.archkeel_facts.surveys",
             "native.archkeel_facts.vocab",
+            "native.archkeel_facts:CallFact",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
+            "native.archkeel_facts:ReferenceFact",
             "native.archkeel_facts:Section",
             "native.archkeel_facts:SymbolFact"
           ]
@@ -3831,6 +3859,7 @@
         "native.archkeel_typescript_collector.source_input:classify_asset",
         "native.archkeel_typescript_collector.source_input:classify_file",
         "native.archkeel_typescript_collector.source_input:classify_specifier",
+        "native.archkeel_typescript_collector.source_input:code_address",
         "native.archkeel_typescript_collector.source_input:is_script_root",
         "native.archkeel_typescript_collector.source_input:is_window_name",
         "native.archkeel_typescript_collector.source_input:shadowed",
@@ -4595,6 +4624,7 @@
         "native.archkeel_typescript_collector.script_outside",
         "native.archkeel_typescript_collector.script_outside_detector",
         "native.archkeel_typescript_collector.script_outside_forms",
+        "native.archkeel_typescript_collector.script_outside_generated",
         "native.archkeel_typescript_collector.script_outside_names",
         "native.archkeel_typescript_collector.script_outside_page",
         "native.archkeel_typescript_collector.script_project",
