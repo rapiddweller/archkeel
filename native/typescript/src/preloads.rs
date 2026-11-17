@@ -57,34 +57,15 @@ pub(super) struct Named {
     pub(super) conditions_unknown: bool,
 }
 
-/// Whether a preload command enables custom Node conditions that the scan does not model.
-pub(super) fn has_custom_conditions(base: &str, text: &str, name: &str) -> bool {
-    let commands: Vec<String> = if base == "package.json" {
-        serde_json::from_str::<Value>(text)
-            .ok()
-            .and_then(|json| json.get("scripts")?.as_object().cloned())
-            .into_iter()
-            .flat_map(serde_json::Map::into_values)
-            .filter_map(|value| value.as_str().map(str::to_owned))
-            .filter(|command| {
-                options_reader::option_names(command)
-                    .iter()
-                    .any(|target| target == name)
-            })
-            .collect()
-    } else if base == ".npmrc" || base == ".env" || base.starts_with(".env.") {
-        text.lines()
-            .filter_map(node_options)
-            .filter(|command| {
-                options_reader::option_names(command)
-                    .iter()
-                    .any(|target| target == name)
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
-    conditions::has_conditions_flag(&commands)
+/// Whether this repository config can add an unmodeled Node condition.
+pub(super) fn has_custom_conditions(base: &str, text: &str) -> bool {
+    if !(base == "package.json" || base == ".npmrc" || base == ".env" || base.starts_with(".env."))
+    {
+        return false;
+    }
+    text.split_whitespace()
+        .any(|token| token == "--env-file" || token.starts_with("--env-file="))
+        || conditions::has_conditions_flag(text)
 }
 
 /// Whether a resolved file can be executable runtime source.

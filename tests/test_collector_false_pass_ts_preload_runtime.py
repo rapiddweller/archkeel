@@ -5,11 +5,126 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 from test_collector_false_pass_ts_preload import PATCH, _node, _scripts, _validate
+
+
+def test_npmrc_conditions_apply_to_package_script_preload(
+    tmp_path: Path, release_core: Path
+) -> None:
+    command = "node --require hook -e \"console.log('SCRIPT')\""
+    extra = {
+        "package.json": json.dumps({"name": "app", "scripts": {"start": command}}),
+        ".npmrc": "node-options=--conditions=types\n",
+        "node_modules/hook/package.json": (
+            '{"name":"hook","exports":{".":{"types":"./custom.cjs","require":"./ordinary.cjs"}}}'
+        ),
+        "node_modules/hook/custom.cjs": PATCH + "console.log('NPM_CUSTOM_TYPES');\n",
+        "node_modules/hook/ordinary.cjs": "module.exports = {};\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    result = subprocess.run(
+        ["npm", "run", "start"],
+        cwd=tmp_path / "repo",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "NPM_CUSTOM_TYPES" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
+    assert any(
+        "unobserved Node custom conditions" in gap["reason"] for gap in frame["collection_gaps"]
+    )
+
+
+def test_env_file_conditions_apply_to_transitive_preload_import(
+    tmp_path: Path, release_core: Path
+) -> None:
+    extra = {
+        **_scripts("node --env-file=.env --require hook src/a/a.js"),
+        ".env": "NODE_OPTIONS=--conditions=types\n",
+        "node_modules/hook/package.json": '{"name":"hook","main":"index.js"}',
+        "node_modules/hook/index.js": "require('dep');\n",
+        "node_modules/dep/package.json": (
+            '{"name":"dep","exports":{".":{"types":"./custom.cjs","require":"./ordinary.cjs"}}}'
+        ),
+        "node_modules/dep/custom.cjs": PATCH + "console.log('ENV_CUSTOM_TYPES');\n",
+        "node_modules/dep/ordinary.cjs": "module.exports = {};\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    result = _node(
+        tmp_path / "repo",
+        "--env-file=.env",
+        "--require",
+        "hook",
+        "-e",
+        "console.log('MAIN')",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "ENV_CUSTOM_TYPES" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
+    assert any(
+        "unobserved Node custom conditions" in gap["reason"] for gap in frame["collection_gaps"]
+    )
+
+
+def test_env_file_reference_with_unreadable_source_fails_closed(
+    tmp_path: Path, release_core: Path
+) -> None:
+    extra = {
+        **_scripts("node --env-file=config/runtime.env --require hook src/a/a.js"),
+        "config/runtime.env": "NODE_OPTIONS=--conditions=types\n",
+        "node_modules/hook/package.json": (
+            '{"name":"hook","exports":{".":{"types":"./custom.cjs","require":"./ordinary.cjs"}}}'
+        ),
+        "node_modules/hook/custom.cjs": "console.log('UNKNOWN_ENV_SOURCE');\n",
+        "node_modules/hook/ordinary.cjs": "module.exports = {};\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    result = _node(
+        tmp_path / "repo",
+        "--env-file=config/runtime.env",
+        "--require",
+        "hook",
+        "-e",
+        "console.log('MAIN')",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "UNKNOWN_ENV_SOURCE" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
+    assert any(
+        "unobserved Node custom conditions" in gap["reason"] for gap in frame["collection_gaps"]
+    )
+
+
+def test_separate_npm_options_without_custom_conditions_keep_safe_preload_pass(
+    tmp_path: Path, release_core: Path
+) -> None:
+    extra = {
+        "package.json": json.dumps(
+            {"name": "app", "scripts": {"start": "node -e \"console.log('SAFE_SCRIPT')\""}}
+        ),
+        ".npmrc": "node-options=--require hook\n",
+        "node_modules/hook/package.json": '{"name":"hook","main":"index.js"}',
+        "node_modules/hook/index.js": "exports.ready = true;\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    result = subprocess.run(
+        ["npm", "run", "start"],
+        cwd=tmp_path / "repo",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "SAFE_SCRIPT" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "PASS", frame["rules"]
 
 
 @pytest.mark.parametrize(

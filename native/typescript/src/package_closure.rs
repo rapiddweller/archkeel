@@ -32,14 +32,12 @@ struct Step {
     installed: Vec<String>,
     project: Option<String>,
 }
-
 #[derive(Default)]
 pub(super) struct Graph {
     importers: HashMap<String, Vec<String>>,
     pub(super) reached: HashMap<String, (String, String)>,
     pub(super) files: Vec<String>,
 }
-
 impl Collection<'_> {
     /// The gap of each module whose import of an installed package reaches project source.
     pub(crate) fn package_closure(&mut self) {
@@ -108,14 +106,14 @@ impl Collection<'_> {
     }
     fn named_preloads(&mut self) -> Vec<preloads::Named> {
         let mut found = Vec::new();
+        let mut source_unknown = false;
         let mut pending = vec![".".to_owned()];
         while let Some(directory) = Vec::pop(&mut pending) {
             let (files, children) = self.snapshot.entries(&directory);
             for name in files {
-                found.extend(
-                    self.read_named_preload(&directory, &name)
-                        .unwrap_or_default(),
-                );
+                let (named, unknown) = self.read_named_preload(&directory, &name);
+                Vec::extend(&mut found, named);
+                source_unknown |= unknown;
             }
             pending.extend(
                 children
@@ -124,11 +122,14 @@ impl Collection<'_> {
                     .map(|name| join(&directory, &name)),
             );
         }
+        for preload in &mut found {
+            preload.conditions_unknown |= source_unknown;
+        }
         found
     }
-    fn read_named_preload(&mut self, directory: &str, name: &str) -> Option<Vec<preloads::Named>> {
+    fn read_named_preload(&mut self, directory: &str, name: &str) -> (Vec<preloads::Named>, bool) {
         if !preloads::preload_file(name) {
-            return None;
+            return (Vec::new(), false);
         }
         let file = join(directory, name);
         let Some(data) = self.snapshot.read(&file) else {
@@ -138,10 +139,11 @@ impl Collection<'_> {
                 "",
                 GapKind::Collection,
             );
-            return Some(Vec::new());
+            return (Vec::new(), true);
         };
         let text = String::from_utf8_lossy(&data);
         let base = file.rsplit('/').next().unwrap_or_default();
+        let conditions_unknown = preloads::has_custom_conditions(base, &text);
         if preloads::malformed_config(base, &text) {
             self.gap(
                 &format!("Preload configuration {file} is malformed"),
@@ -149,19 +151,20 @@ impl Collection<'_> {
                 "",
                 GapKind::Collection,
             );
-            return Some(Vec::new());
+            return (Vec::new(), true);
         }
-        Some(
+        (
             preloads::names_of(base, &text)
                 .into_iter()
                 .map(|name| preloads::Named {
                     line: preloads::line_of(&text, &name),
                     mode: preloads::mode_of(base, &text, &name),
-                    conditions_unknown: preloads::has_custom_conditions(base, &text, &name),
+                    conditions_unknown: false,
                     name,
                     file: file.clone(),
                 })
                 .collect(),
+            conditions_unknown,
         )
     }
     fn reaches_module(&mut self, file: &str) -> bool {
@@ -335,7 +338,6 @@ impl Collection<'_> {
             Vec::push(&mut step.installed, target);
         }
     }
-
     /// The installed directory that a `node_modules` search finds for a package name, or `None`.
     pub(super) fn package_directory(
         &mut self,
@@ -365,7 +367,6 @@ impl Collection<'_> {
             .map(|name| join(directory, &format!("node_modules/{name}")))
             .find(|candidate| snapshot.is_dir(candidate))
     }
-
     /// The source files of an installed package directory, without its nested packages.
     pub(super) fn package_files(&mut self, directory: &str) -> Vec<String> {
         let mut found = Vec::new();
@@ -476,6 +477,7 @@ impl Collection<'_> {
         }
     }
 }
+
 fn reach_back(mut graph: Graph) -> HashMap<String, (String, String)> {
     let mut pending: Vec<String> = graph.reached.keys().cloned().collect();
     while let Some(file) = Vec::pop(&mut pending) {

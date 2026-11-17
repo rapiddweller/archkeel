@@ -34,10 +34,11 @@ A preload can also patch the module loader and redirect any import.
    JavaScript or JSON, not as a TypeScript source substitution. Keep type-only reach on the compiler
    resolver. Ignore `types` in runtime conditions; use Node's `node` and active `require` or
    `import` conditions in manifest order, then `default`. An unresolved or explicit TypeScript runtime
-   target is UNKNOWN; the Node version is not observed. A preload command with `-C` or `--conditions`
-   is UNKNOWN because the active condition set is not modeled. Opaque shell expansions or escapes
-   also withhold the proof. Read declared options in scripts, `.env` and `.npmrc`; the caller's
-   inherited environment is outside this scan. Check the AD-798 closure for project-source reach and
+   target is UNKNOWN; the Node version is not observed. Aggregate declared options across repository
+   scripts, `.env*` and `.npmrc` before resolving any preload. A custom condition or `--env-file`
+   makes every named preload UNKNOWN because source association or active conditions can be unclear.
+   Opaque shell expansions or escapes also withhold the proof. The caller's inherited environment and
+   env files outside the repository are not scanned. Check the AD-798 closure for project-source reach and
    pass it to the AD-788 writer guard (`script_outside::read`). Node loads an installed preload as a
    module, so its top-level bindings are no globals. Each global write withholds its proof as in AD-788.
 4. **Loader patch.** A closure file with `require.cache` or `.prototype.require` patches the module
