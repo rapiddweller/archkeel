@@ -27,7 +27,8 @@ use syn::{
     Attribute, FnArg, GenericArgument, GenericParam, Item, Pat, PathArguments, Signature, Type,
 };
 
-use super::chains::{chain_of, Names};
+use super::bodies::{Binder, Bodies};
+use super::chains::{chain_of, destructure, Names};
 use super::sites::ClosureSites;
 use super::written_types::{with_self, written};
 use crate::definitions::{OnSelf, ReceiverChain, Root, SelfKind, Written};
@@ -171,6 +172,7 @@ impl Params {
                         || args.iter().any(|arg| hidden(arg, params))
                 }
                 Written::Ref(_, inner) | Written::Slice(inner) => hidden(inner, params),
+                Written::Tuple(elems) => elems.iter().any(|elem| hidden(elem, params)),
                 Written::Unknown => false,
             }
         }
@@ -185,6 +187,18 @@ impl Params {
             steps: Vec::new(),
             macros: self.macros.clone(),
         }
+    }
+}
+
+impl Binder for Params {
+    fn bind_at(&mut self, name: String, origin: ReceiverChain, sites: BTreeSet<(usize, usize)>) {
+        let binding = Binding {
+            receiver: None,
+            origin: Some(origin),
+            after: None,
+            sites: Some(sites),
+        };
+        self.bind(name, binding);
     }
 }
 
@@ -268,6 +282,10 @@ pub(super) fn read(
             continue;
         };
         let Pat::Ident(pattern) = &*param.pat else {
+            let ty = with_self(written(&param.ty, &hidden), params.self_type.as_deref());
+            let origin = params.typed_root("", ty);
+            let place = (None, None);
+            parts(&param.pat, &origin, (&bound, scope, place), &mut params);
             continue;
         };
         let name = plain(&pattern.ident);
@@ -290,7 +308,35 @@ pub(super) fn read(
         params: &mut params,
     }
     .visit_block(block);
+    Bodies {
+        binder: &mut params,
+        tainted: &bound.tainted,
+    }
+    .visit_block(block);
     params
+}
+
+/// Bind each name of a pattern, bound once in the `fn`, to its part of the value `of` (AD-804).
+fn parts(
+    pattern: &Pat,
+    of: &ReceiverChain,
+    (bound, scope, place): (&Bound, &[String], Place),
+    params: &mut Params,
+) {
+    if !params.proved {
+        return;
+    }
+    for (name, steps) in destructure(pattern) {
+        if !once(bound, &name) {
+            continue;
+        }
+        let mut origin = of.clone();
+        origin.name.clone_from(&name);
+        origin.steps.extend(steps);
+        origin.macros.clone_from(&params.macros);
+        let binding = Binding::new(&name, None, Some(origin), (scope, bound), place.clone());
+        params.bind(name, binding);
+    }
 }
 
 fn plain_ident(ident: &syn::PatIdent) -> bool {
@@ -320,11 +366,20 @@ fn read_locals(
         let syn::Stmt::Local(local) = statement else {
             continue;
         };
-        let Some(init) = local.init.as_ref().filter(|init| init.diverge.is_none()) else {
+        let Some(init) = local.init.as_ref() else {
             continue;
         };
         let end = local.semi_token.spans[0].end();
         let place = (Some((end.line, end.column)), None);
+        // A let-else and a tuple pattern bind the parts of the value (AD-804).
+        let plain_let =
+            matches!(&local.pat, Pat::Ident(_) | Pat::Type(_)) && init.diverge.is_none();
+        if !plain_let {
+            if let Some(of) = chain_of(&init.expr, params) {
+                parts(&local.pat, &of, (bound, scope, place), params);
+            }
+            continue;
+        }
         let (name, typed, origin) = match &local.pat {
             Pat::Type(pattern) => {
                 let Pat::Ident(ident) = &*pattern.pat else {
@@ -357,23 +412,6 @@ fn macro_hides_type(path: &[String], bound: &Bound) -> bool {
             .is_some_and(|first| !matches!(first.as_str(), "crate" | "self" | "super"))
 }
 
-/// The std adapters whose closure parameter has the item of the iterator (#1571, AD-804).
-const ADAPTERS: [&str; 13] = [
-    "map",
-    "filter",
-    "filter_map",
-    "find",
-    "any",
-    "all",
-    "for_each",
-    "flat_map",
-    "take_while",
-    "skip_while",
-    "position",
-    "max_by_key",
-    "min_by_key",
-];
-
 struct Closures<'a> {
     bound: &'a Bound,
     hidden: &'a BTreeSet<String>,
@@ -381,73 +419,8 @@ struct Closures<'a> {
     params: &'a mut Params,
 }
 
-impl Closures<'_> {
-    /// Bind an untyped parameter or loop variable to the element of `of` for `adapter`, at its
-    /// receiver sites in `body`.
-    fn element(
-        &mut self,
-        pattern: &Pat,
-        (of, adapter): (&syn::Expr, &str),
-        body: &dyn Fn(&mut ClosureSites),
-    ) {
-        let Pat::Ident(ident) = pattern else {
-            return;
-        };
-        let name = plain(&ident.ident);
-        if !plain_ident(ident) || self.bound.tainted.contains(&name) {
-            return;
-        }
-        // The body binds the name nowhere else: each site in it is the parameter (#1571).
-        let mut sites = ClosureSites::default();
-        body(&mut sites);
-        if sites.bound.contains(&name) {
-            return;
-        }
-        let (Some(places), Some(of)) = (sites.found.remove(&name), chain_of(of, self.params))
-        else {
-            return;
-        };
-        let origin = ReceiverChain {
-            name: name.clone(),
-            root: Root::Element(Box::new(of), adapter.to_owned()),
-            steps: Vec::new(),
-            macros: self.params.macros.clone(),
-        };
-        let binding = Binding::new(
-            &name,
-            None,
-            Some(origin),
-            (self.scope, self.bound),
-            (None, Some(places)),
-        );
-        self.params.bind(name, binding);
-    }
-}
-
 impl<'ast> Visit<'ast> for Closures<'_> {
     fn visit_item(&mut self, _: &'ast Item) {}
-
-    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
-        let adapter = plain(&node.method);
-        if let (true, Some(syn::Expr::Closure(closure))) = (
-            ADAPTERS.contains(&adapter.as_str()) && node.args.len() == 1,
-            node.args.first(),
-        ) {
-            if let [input] = closure.inputs.iter().collect::<Vec<_>>().as_slice() {
-                let body = |sites: &mut ClosureSites| sites.visit_expr(&closure.body);
-                self.element(input, (&node.receiver, &adapter), &body);
-            }
-        }
-        visit::visit_expr_method_call(self, node);
-    }
-
-    fn visit_expr_for_loop(&mut self, node: &'ast syn::ExprForLoop) {
-        if node.attrs.is_empty() {
-            let body = |sites: &mut ClosureSites| sites.visit_block(&node.body);
-            self.element(&node.pat, (&node.expr, "for"), &body);
-        }
-        visit::visit_expr_for_loop(self, node);
-    }
 
     fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
         let mut sites = ClosureSites::default();

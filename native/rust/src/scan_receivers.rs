@@ -205,6 +205,10 @@ mod chains;
 #[path = "scan_sites.rs"]
 mod sites;
 
+/// The names that a pattern of a body binds (#1571, AD-804).
+#[path = "scan_bodies.rs"]
+mod bodies;
+
 /// The stack of frames of the walk, and the depth of the inline modules that a `cfg` or another
 /// attribute may remove.
 #[derive(Debug, Default)]

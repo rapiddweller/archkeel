@@ -4,8 +4,8 @@
 
 //! The types as written in a signature, a field or a `let` (#1571, AD-804). Rust writes the type
 //! of each parameter, field and return value, so the scan reads it as a path with its type
-//! arguments, a reference or a slice. A name of a type parameter in scope, `impl Trait`, `dyn
-//! Trait`, a tuple, a qualified or absolute path and a macro stay `Unknown`: the collector keeps
+//! arguments, a reference, a slice or a tuple. A name of a type parameter in scope, `impl Trait`,
+//! `dyn Trait`, a qualified or absolute path and a macro stay `Unknown`: the collector keeps
 //! the gaps of a receiver of such a type. `Self` stays a path `Self`; the resolver
 //! (`impl_types.rs`) gives it the type of the block.
 
@@ -39,6 +39,9 @@ pub(in crate::scan) fn written(ty: &Type, hidden: &BTreeSet<String>) -> Written 
         Type::Slice(found) => Written::Slice(Box::new(written(&found.elem, hidden))),
         Type::Array(found) => Written::Slice(Box::new(written(&found.elem, hidden))),
         Type::Paren(found) => written(&found.elem, hidden),
+        Type::Tuple(found) => {
+            Written::Tuple(found.elems.iter().map(|ty| written(ty, hidden)).collect())
+        }
         Type::Group(found) => written(&found.elem, hidden),
         Type::Path(found) if found.qself.is_none() && found.path.leading_colon.is_none() => {
             path_type(&found.path, hidden).unwrap_or(Written::Unknown)
@@ -98,7 +101,7 @@ pub(in crate::scan) fn returned(sig: &Signature, outer: &BTreeSet<String>) -> Wr
 }
 
 /// A type that the body or the signature of a `fn` writes, with `Self` replaced by the exact path
-/// of the block, or `Unknown` when the block has none.
+/// of the block, or `Unknown` when the block has none. A tuple keeps its elements.
 pub(in crate::scan) fn with_self(ty: Written, self_type: Option<&[String]>) -> Written {
     match ty {
         Written::Path(names, args) if names.first().is_some_and(|first| first == "Self") => {
@@ -115,6 +118,12 @@ pub(in crate::scan) fn with_self(ty: Written, self_type: Option<&[String]>) -> W
         }
         Written::Ref(kind, inner) => Written::Ref(kind, Box::new(with_self(*inner, self_type))),
         Written::Slice(inner) => Written::Slice(Box::new(with_self(*inner, self_type))),
+        Written::Tuple(elems) => Written::Tuple(
+            elems
+                .into_iter()
+                .map(|ty| with_self(ty, self_type))
+                .collect(),
+        ),
         Written::Unknown => Written::Unknown,
     }
 }
