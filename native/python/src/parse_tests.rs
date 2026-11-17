@@ -21,6 +21,41 @@ fn failure(text: &str, minor: u32) -> (ExceptionName, usize, String) {
     (found.exception, found.line, found.message)
 }
 
+fn reserved_type_parameter(source: &str) {
+    for minor in 12..=14 {
+        assert_eq!(
+            failure(source, minor),
+            (
+                ExceptionName::SyntaxError,
+                2,
+                "reserved name '__classdict__' cannot be used for type parameter".to_owned()
+            )
+        );
+    }
+}
+
+#[test]
+fn a_generic_class_cannot_bind_the_reserved_type_parameter() {
+    reserved_type_parameter(include_str!("../tests/fixtures/reserved-class.txt"));
+}
+
+#[test]
+fn a_generic_function_cannot_bind_the_reserved_type_parameter() {
+    reserved_type_parameter(include_str!("../tests/fixtures/reserved-function.txt"));
+}
+
+#[test]
+fn a_generic_alias_cannot_bind_the_reserved_type_parameter() {
+    reserved_type_parameter(include_str!("../tests/fixtures/reserved-alias.txt"));
+}
+
+#[test]
+fn a_different_type_parameter_name_is_valid() {
+    for minor in 12..=14 {
+        assert!(outcome("class Example[classdict]: pass", minor).is_ok());
+    }
+}
+
 #[test]
 fn a_construct_of_a_newer_version_is_a_syntax_error() {
     assert_eq!(failure("type X = int\n", 11).0, ExceptionName::SyntaxError);

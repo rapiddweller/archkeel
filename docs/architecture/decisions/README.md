@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-740 | [Reserved Python type parameters leave a gap](ad-740-reserved-python-type-parameters-leave-a-gap.md) |
 | AD-737 | [Python construct support is one map with downgrade and meet](ad-737-python-construct-support-is-one-map-with-downgrade-and-meet.md) |
 | AD-738 | [One data file owns the source suffixes of both languages](ad-738-one-data-file-owns-the-source-suffixes-of-both-languages.md) |
 | AD-731 | [Under a baseline, only a verdict exits 2](ad-731-under-a-baseline-only-a-verdict-exits-2.md) |
