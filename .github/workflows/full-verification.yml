@@ -119,6 +119,9 @@ jobs:
       - name: Run every test of this area
         env:
           AREA: ${{ matrix.area }}
+          # The nightly run fetches the pinned sources of the real-project fixtures (the PR gate
+          # does not touch the network); the fixture matrix pins their result.
+          ARCHKEEL_FETCH_SOURCES: "1"
         run: make full-test AREA="$AREA"
 
       - name: Upload full suite JUnit results

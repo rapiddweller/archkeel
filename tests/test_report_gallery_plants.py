@@ -25,7 +25,8 @@ def test_the_matrix_plants_one_violation_for_each_kind_the_reviewer_named() -> N
     # interface boundary and a complete requires.
     assert plants["M-plant-cycle"] == "COMPONENT-NO-CYCLES"
     assert plants["G-dart-plant-dart-io"] == "DEP-DOMAIN-NO-DART-IO"
-    assert plants["H-uml-plant-signature"] == "UML-TARGET"
+    assert plants["H-uml-plant-signature"].startswith("UML-TARGET-")
+    assert plants["H-uml-plant-closed-scope"].startswith("UML-TARGET-")
     assert plants["H-typescript-plant-domain-data"] == "DOMAIN-NO-DATA"
     assert plants["F-architecture-plant-layer"] == "DEP-MODEL-NO-APP"
     assert plants["M-plant-interface"] == "INTERFACE-BOUNDARY"
@@ -41,7 +42,8 @@ def test_each_plant_names_a_rule_of_its_contract_and_its_line_is_in_the_planted_
     source = report_gallery.ROOT / "fixtures" / run["root"]
     contract = json.loads((source / run["contract"][0]).read_text())
     rules = {rule["id"] for rule in contract["rules"]}
-    assert run["plant"]["rule"] in rules or run["plant"]["rule"] == "UML-TARGET"
+    assert run["plant"]["rule"] in rules or run["plant"]["rule"].startswith("UML-TARGET-")
+    assert run["plant"]["source"] and run["plant"]["target"]
     with fixture_tree.fixture_tree(source, run["plant"]["edits"]) as tree:
         text = (tree / run["plant"]["where"]).read_text()
     assert run["plant"]["line"] in text
@@ -84,29 +86,100 @@ with open(args[args.index("--output") + 1], "w") as handle:
 print(json.dumps({"status": "FAIL", "exit_code": 1, "gaps": [], "frame": {"rules": {}}}))
 """
 
-BLOCKS = (
-    '<article class="rp-dos" id="x1"><h3 class="h3">a.b imports c.d</h3>'
-    "<p>REQUIRES-COMPLETE</p></article>"
-    '<article class="rp-dos" id="x2"><h3 class="h3">Cycle of <b>2</b> members</h3>'
-    "<p>COMPONENT-NO-CYCLES</p></article></section>"
-)
+
+def _block(number: int, title: str, rules: list[str], *names: str) -> str:
+    """A block like the core writes it: a title, the places it names and each rule it violates."""
+    said = "".join(f"<li>{name}</li>" for name in names)
+    broken = "".join(f"<p>Violates {rule} \u00b7 cause</p>" for rule in rules)
+    return (
+        f'<article class="rp-dos" id="x{number}"><h3 class="h3">{title}</h3>'
+        f"<ul>{said}</ul>{broken}</article>"
+    )
 
 
-def test_the_violation_block_is_found_by_the_rule_it_lists(tmp_path: Path) -> None:
+def _plant(rule: str, source: str, target: str) -> dict:
+    return {"rule": rule, "source": source, "target": target}
+
+
+def _page(tmp_path: Path, *blocks: str) -> Path:
     page = tmp_path / "report.html"
-    page.write_text(BLOCKS)
-    assert report_gallery.violation_block(page, "REQUIRES-COMPLETE") == {
-        "id": "x1",
-        "title": "a.b imports c.d",
-    }
-    found = report_gallery.violation_block(page, "COMPONENT-NO-CYCLES")
-    assert found == {"id": "x2", "title": "Cycle of 2 members"}
-    assert report_gallery.violation_block(page, "OTHER") is None
-    assert report_gallery.violation_block(tmp_path / "missing.html", "X") is None
+    page.write_text("".join(blocks) + "</section>")
+    return page
+
+
+def test_the_violation_block_is_found_by_its_rule_its_source_and_its_target(
+    tmp_path: Path,
+) -> None:
+    page = _page(
+        tmp_path,
+        _block(1, "a.b imports c.d", ["REQUIRES-COMPLETE"], "a.b", "c.d"),
+        _block(2, "Cycle of <b>2</b> members", ["COMPONENT-NO-CYCLES"], "pricing", "checkout"),
+    )
+    found = report_gallery.violation_block(page, _plant("REQUIRES-COMPLETE", "a.b", "c.d"))
+    assert found == {"id": "x1", "title": "a.b imports c.d"}
+    cycle = report_gallery.violation_block(
+        page, _plant("COMPONENT-NO-CYCLES", "pricing", "checkout")
+    )
+    assert cycle == {"id": "x2", "title": "Cycle of 2 members"}
+    assert report_gallery.violation_block(page, _plant("OTHER", "a.b", "c.d")) is None
+    assert report_gallery.violation_block(tmp_path / "none.html", _plant("X", "a", "b")) is None
+
+
+def test_two_plants_that_break_the_same_rule_each_link_their_own_block(tmp_path: Path) -> None:
+    """The three findings of one rule share a rule id: only the source and the target tell them."""
+    page = _page(
+        tmp_path,
+        _block(1, "core imports calls a", ["UML-TARGET-1"], "core", "calls a"),
+        _block(2, "core imports inherits b", ["UML-TARGET-1"], "core", "ref:typing.Protocol"),
+        _block(3, "core imports inherits c", ["UML-TARGET-1"], "core", "ref:enum.Enum"),
+    )
+    for number, target in ((2, "ref:typing.Protocol"), (3, "ref:enum.Enum"), (1, "calls a")):
+        found = report_gallery.violation_block(page, _plant("UML-TARGET-1", "core", target))
+        assert found is not None and found["id"] == f"x{number}", target
+
+
+def test_overlapping_rules_on_one_import_do_not_swap_the_blocks_of_two_plants(
+    tmp_path: Path,
+) -> None:
+    """One import can break two rules; the core writes two blocks for it. This is the shape of
+    M-plant-interface: x1 holds REQUIRES-COMPLETE, x2 holds INTERFACE-BOUNDARY, both from api."""
+    page = _page(
+        tmp_path,
+        _block(
+            1,
+            "orders.api imports orders.pricing.tax",
+            ["REQUIRES-COMPLETE"],
+            "orders.api",
+            "orders.pricing.tax",
+        ),
+        _block(
+            2,
+            "orders.api imports orders.pricing.tax:Vat",
+            ["INTERFACE-BOUNDARY"],
+            "orders.api",
+            "orders.pricing.tax:Vat",
+        ),
+    )
+    requires = _plant("REQUIRES-COMPLETE", "orders.api", "orders.pricing.tax")
+    boundary = _plant("INTERFACE-BOUNDARY", "orders.api", "orders.pricing.tax:Vat")
+    assert report_gallery.violation_block(page, requires)["id"] == "x1"  # type: ignore[index]
+    assert report_gallery.violation_block(page, boundary)["id"] == "x2"  # type: ignore[index]
+    # A block that holds the right rule but another edge is not the finding.
+    other = _plant("REQUIRES-COMPLETE", "orders.api", "orders.storage")
+    assert report_gallery.violation_block(page, other) is None
+
+
+def test_a_rule_id_that_only_starts_like_another_is_not_that_rule(tmp_path: Path) -> None:
+    page = _page(tmp_path, _block(1, "a imports b", ["R-10", "R-1-X"], "a", "b"))
+    assert report_gallery.violation_block(page, _plant("R-1", "a", "b")) is None
+    assert report_gallery.violation_block(page, _plant("R-10", "a", "b")) is not None
+    # A name inside a longer name is not the name: `a` is not `a.b`.
+    longer = _page(tmp_path, _block(1, "a.b imports c.d", ["R-1"], "a.b", "c.d"))
+    assert report_gallery.violation_block(longer, _plant("R-1", "a", "c.d")) is None
 
 
 def _planted_row(block: dict | None) -> dict:
-    plant = {"where": "a/b.py", "line": "import <x>", "rule": "R-1", "edits": []}
+    plant = {"where": "a/b.py", "line": "import <x>", "rule": "R-1", "source": "a", "target": "b"}
     row = {"run": _run_of("p", plant), "links": [("HTML", "p/report.html")]}
     return {**row, "violation": block} if block is not None else row
 

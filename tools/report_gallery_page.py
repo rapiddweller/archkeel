@@ -128,11 +128,27 @@ def _planted(row: Mapping[str, Any]) -> str:
     return text + f'Caught by <code>{rule}</code>: <a href="{target}">{title}</a></span>'
 
 
+def _source(row: Mapping[str, Any]) -> str:
+    """The pin of a real project: name, release, licence and commit. Only our contract is ours."""
+    pin = row.get("source")
+    if not pin:
+        return ""
+    release = f" {html.escape(pin['ref'])}" if pin["ref"] else ""
+    repo = html.escape(pin["repo"], quote=True)
+    name = f'<a href="{repo}">{html.escape(pin["name"])}</a>'
+    return (
+        f'<br><span class="caption">Source: {name}{release} ({html.escape(pin["license"])}), '
+        f"pinned commit <code>{html.escape(pin['commit'][:12])}</code>, fetched when the page is "
+        "built. The contract is ours.</span>"
+    )
+
+
 def _scenario(row: Mapping[str, Any]) -> str:
     run = row["run"]
     about = html.escape(str(run.get("about", "")))
     line = intent_line(run, _status_of(row))
-    return f'<td class="body-sm">{about}<br><span class="caption">{line}</span>{_planted(row)}</td>'
+    extra = _planted(row) + _source(row)
+    return f'<td class="body-sm">{about}<br><span class="caption">{line}</span>{extra}</td>'
 
 
 def _section(key: str, title: str, lede: str, body: str, count: int) -> str:
@@ -162,8 +178,17 @@ def _anchor(parts: Sequence[Part]) -> str:
     cells = "".join(_cell(verdict.counts[status]) for status in STATUSES)
     return (
         f"<tr>{name}{about.format(line=line)}{_cell(verdict.status)}{cells}"
-        f"{_cell('none')}{link}</tr>\n"
+        f"{_cell(_part_gaps(parts))}{link}</tr>\n"
     )
+
+
+def _part_gaps(parts: Sequence[Part]) -> str:
+    """The collection gaps of all parts: the total and the count of each part that has some."""
+    total = sum(part.gaps for part in parts)
+    if not total:
+        return "none"
+    each = ", ".join(f"{part.title} {part.gaps}" for part in parts if part.gaps)
+    return f"{total} collection {'gap' if total == 1 else 'gaps'} ({each})"
 
 
 def index(
