@@ -3884,6 +3884,7 @@
         }
       ],
       "public": [
+        "native.archkeel_typescript_collector.site_charge:over",
         "native.archkeel_typescript_collector.site_names:NameIndex",
         "native.archkeel_typescript_collector.site_paths:Text",
         "native.archkeel_typescript_collector.site_syntax:ReceiverKind",
@@ -4376,6 +4377,7 @@
           "component": "ts-sites",
           "rationale": "Read the use sites of a file.",
           "through": [
+            "native.archkeel_typescript_collector.site_charge",
             "native.archkeel_typescript_collector.site_names",
             "native.archkeel_typescript_collector.site_paths",
             "native.archkeel_typescript_collector.site_syntax",

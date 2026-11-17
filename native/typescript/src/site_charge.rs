@@ -24,13 +24,13 @@ struct Charge {
 }
 
 /// The gap reason and the span of the longest site, when the file is over `MAX_RECORD_TEXT`.
-pub(crate) fn over(sites: &[Site], rel: &str) -> Option<(String, Span)> {
+pub(crate) fn over(sites: &[Site]) -> Option<(String, Span)> {
     let charged = charge(sites);
     let (length, span) = charged
         .longest
         .filter(|_| charged.bytes > MAX_RECORD_TEXT)?;
     let reason = format!(
-            "The call chain at line {} is too long to record: {} bytes of receiver text exceed the work limit of {MAX_RECORD_TEXT} (its own text has {length} bytes): {rel}",
+            "The call chain at line {} is too long to record: {} bytes of receiver text exceed the work limit of {MAX_RECORD_TEXT} (its own text has {length} bytes)",
             span.line, charged.bytes
         );
     Some((reason, span))

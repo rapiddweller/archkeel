@@ -58,7 +58,11 @@ impl Collection<'_> {
         let script = ScriptFile::take(&mut parsed, format_known, global_scope);
         self.script_file_effects(rel, module, &script);
         let kept = Kept::from_parsed(module, &mut parsed, text, script);
-        let kept = self.refuse_long_chain(rel, module, kept);
+        if let Some((reason, span)) = &kept.record_refusal {
+            let evidence = self.cite(rel, span);
+            let reason = format!("{reason}: {rel}");
+            self.gap(&reason, Some(&evidence), module, GapKind::Collection);
+        }
         self.order.push(rel.to_owned());
         self.kept.insert(rel.to_owned(), kept);
         let cjs = suffix.and_then(|suffix| suffix.format_hint()) == Some(ModuleFormat::Cjs)
@@ -84,19 +88,6 @@ impl Collection<'_> {
         }
         self.check_extracted(&parsed, handled, (rel, module, file_evidence));
         self.type_directives(&parsed, (rel, module), &format);
-    }
-
-    /// AD-778: a file whose site records would copy and hash more than `MAX_RECORD_TEXT` bytes of
-    /// expression text keeps no site. The gap names the longest chain, so every rule of the
-    /// scope is UNKNOWN and the run does not hang.
-    fn refuse_long_chain(&mut self, rel: &str, module: &str, mut kept: Kept) -> Kept {
-        let Some((reason, span)) = kept.sites.over_record_work(rel) else {
-            return kept;
-        };
-        let evidence = self.cite(rel, &span);
-        self.gap(&reason, Some(&evidence), module, GapKind::Collection);
-        kept.sites.sites.clear();
-        kept
     }
 
     /// A leading `/// <reference types="name" />` that the compiler honors (#686). The compiler
