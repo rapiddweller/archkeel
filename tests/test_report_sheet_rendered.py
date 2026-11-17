@@ -99,18 +99,25 @@ def test_every_public_name_of_a_component_is_in_the_fold_that_lists_them(
 def test_an_unknown_owner_is_counted_apart_from_the_components(site: str, page: Browser) -> None:
     _open_module(page, site, "commands")
     module = _module_id(page, "core_only")
-    # Two of the modules that core_only imports have no owner; the others have one each.
+    # Plant six imports: two without an owner and four in three components.
     page.evaluate(
         "(() => { const atlas = ArchkeelFlow.reportScene.atlas;"
-        " const imported = atlas.cells.filter((c) => c.source_id === " + json.dumps(module) + ")"
-        ".slice(0, 2).map((c) => c.target_id);"
-        " atlas.assignments.filter((a) => imported.includes(a.id))"
-        ".forEach((a) => { a.component_id = null; }); })()"
+        " const rows = atlas.cells.filter((c) => c.source_id === " + json.dumps(module) + ");"
+        " const owners = [...new Map(atlas.components.filter((c) => c.label)"
+        ".map((c) => [c.label, c.id])).values()].slice(0, 3);"
+        " if (rows.length < 6 || owners.length < 3) throw Error('plant needs six imports');"
+        " atlas.cells = atlas.cells.filter((c) => c.source_id !== " + json.dumps(module) + ")"
+        ".concat(rows.slice(0, 6));"
+        " rows.slice(0, 6).forEach((c, i) => {"
+        " const assignment = atlas.assignments.find((a) => a.id === c.target_id);"
+        " if (!assignment) throw Error('import has no assignment');"
+        " assignment.component_id = [null, null, owners[0], owners[0], owners[1], owners[2]][i];"
+        " }); })()"
     )
     sheet = _module_sheet(page, module)
     imports = next(line for line in sheet.splitlines() if line.startswith("Imports ·"))
     assert "2 modules outside the contract" in imports
-    assert "13 modules in 13 components" in imports, imports
+    assert "4 modules in 3 components" in imports, imports
     assert "UNKNOWN owner" not in sheet
     # The fold holds the group that no component owns; it is drawn under its own name.
     assert "Outside the contract" in page.evaluate(
