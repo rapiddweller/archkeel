@@ -284,9 +284,9 @@
   overflow: auto;
   border: 1px solid var(--line);
   background: var(--surface-1);}
-.rp-explorer .flow-canvas:focus-visible{outline: 2px solid var(--accent);
+.rp-explorer .flow-canvas:focus-visible{outline: 2px solid var(--focus);
   outline-offset: 2px;}
-.rp-explorer .flow :focus-visible{outline: 2px solid var(--accent);
+.rp-explorer .flow :focus-visible{outline: 2px solid var(--focus);
   outline-offset: 2px;}
 .rp-explorer .flow[data-expanded="fallback"]{display: grid;
   grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
@@ -1281,8 +1281,8 @@ html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel[open] .flow-legend
   display: flex; width: 100%; align-items: center; gap: var(--space-2); text-align: left;
   padding: 7px 10px; border: 0; border-radius: var(--radius-md); background: transparent; color: inherit; font: inherit; cursor: pointer;
 }
-.rp-explorer .ak-pop button:hover,
-.rp-explorer .ak-pop button:focus-visible{ background: var(--surface-2); outline: none; }
+.rp-explorer .ak-pop button:hover{ background: var(--surface-2); }
+.rp-explorer .ak-pop button:focus-visible, .rp-explorer .ak-palette input:focus-visible{ background: var(--surface-2); outline: 2px solid var(--focus); outline-offset: -2px; }
 .rp-explorer .ak-pop button small{ margin-left: auto; color: var(--ink-muted); }
 .rp-explorer .ak-pop .ak-current{ font-weight: 600; color: var(--accent-text); }
 .rp-explorer .ak-pop .flow-legend{ display: flex; max-width: min(460px, 80vw); padding: 10px; }
