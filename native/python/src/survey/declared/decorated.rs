@@ -18,22 +18,21 @@ use crate::module::definition::Def;
 use crate::module::Module;
 use crate::survey::bound::Bound;
 
-/// The note of a definition of `holder` that a decorator may replace, or `None` when its members
-/// are withheld (`open`) or a class escapes. A method gets the names and the `__slots__` of its
-/// class body.
+/// Note a definition of `holder` that a decorator may replace into `out`, unless its members are
+/// withheld (`open`) or a class escapes. A method gets the names and the `__slots__` of its class
+/// body.
 pub(super) fn note<'m>(
     scan: &mut Reader<'m, '_>,
     (open, escaped): (bool, &HashSet<String>),
-    def: Def<'m>,
-    holder: &str,
-    class: Option<(&Bound, &'m [Stmt])>,
-) -> Option<Decorated<'m>> {
+    (def, holder, class): (Def<'m>, &str, Option<(&Bound, &'m [Stmt])>),
+    out: &mut Vec<Decorated<'m>>,
+) {
     let name = match def {
         Def::Function(node) => Identifier::as_str(&node.name),
         Def::Class(node) => Identifier::as_str(&node.name),
     };
     if open || (class.is_none() && HashSet::contains(escaped, name)) {
-        return None;
+        return;
     }
     let range = def.range(Module::text(scan.module));
     let evidence = Reader::evidence(scan, &range);
@@ -41,11 +40,11 @@ pub(super) fn note<'m>(
         Some((bound, body)) => (Some(Bound::names(bound)), members::slots(body)),
         None => (None, Some(HashSet::new())),
     };
-    Some(Decorated {
+    out.push(Decorated {
         def,
         qualname: format!("{holder}.{name}"),
         class_names,
         slots,
         evidence,
-    })
+    });
 }

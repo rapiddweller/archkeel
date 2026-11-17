@@ -454,14 +454,8 @@ impl<'m> Writer<'m, '_> {
 
     /// Note a definition that a decorator may replace (AD-782).
     fn note_decorated(&mut self, def: Def<'m>, holder: &str, class: Option<(&Bound, &'m [Stmt])>) {
-        let found = decorated::note(
-            &mut self.scan,
-            (self.open, &self.escaped),
-            def,
-            holder,
-            class,
-        );
-        self.decorated.extend(found);
+        let (flags, out) = ((self.open, &self.escaped), &mut self.decorated);
+        decorated::note(&mut self.scan, flags, (def, holder, class), out);
     }
 
     fn push(
