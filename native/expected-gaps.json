@@ -2723,11 +2723,6 @@
     [
       "collection_gap",
       "native.archkeel_model.scope_receipt",
-      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.scope_receipt",
       "A method call may reach the method members of a type in its own file native.archkeel_model.cycles"
     ],
     [
@@ -2754,11 +2749,6 @@
       "collection_gap",
       "native.archkeel_model.scope_receipt",
       "A method call may reach the method roots of a type in its own file native.archkeel_model.settings"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.scope_receipt",
-      "A method call may reach the method settings of a type in its own file native.archkeel_model.graph"
     ],
     [
       "collection_gap",

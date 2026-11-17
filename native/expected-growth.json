@@ -4676,15 +4676,6 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.scope_receipt",
-        "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_model.scope_receipt",
         "A method call may reach the method members of a type in its own file native.archkeel_model.cycles"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
@@ -4731,15 +4722,6 @@
         "collection_gap",
         "native.archkeel_model.scope_receipt",
         "A method call may reach the method roots of a type in its own file native.archkeel_model.settings"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_model.scope_receipt",
-        "A method call may reach the method settings of a type in its own file native.archkeel_model.graph"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
     },
