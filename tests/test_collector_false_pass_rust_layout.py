@@ -141,7 +141,9 @@ def test_an_extern_crate_that_no_manifest_declares_gives_no_pass(
 
 
 # #946: Cargo takes a name from the registry or from git unless the entry has a `path` (or inherits
-# one with `workspace = true`). A crate of the workspace with the same name is then no target.
+# one with `workspace = true`). A crate of the workspace with the same name may still be the target:
+# a redirect in or outside the repository, or a git URL of this repository. The pair is a gap
+# (UNKNOWN), never an edge (a false FAIL) and never none (a false PASS).
 REGISTRY_APP = APP.replace('base-crate = { path = "../base" }', 'base-crate = "1.0"')
 WORKSPACE_WITH = '[workspace]\nmembers = ["base", "app"]\n[workspace.dependencies]\n{entry}\n'
 INHERITING_APP = APP.replace('base-crate = { path = "../base" }', "base-crate.workspace = true")
@@ -178,7 +180,7 @@ TOP = (
 HARMLESS = {".cargo/config.toml": "[build]\njobs = 2\n"}
 
 DEPENDENCY_PROBES = {
-    "a registry version": (REGISTRY_APP, None, {}, "PASS"),
+    "a registry version": (REGISTRY_APP, None, {}, "UNKNOWN"),
     "a git entry": (
         APP.replace(
             'base-crate = { path = "../base" }',
@@ -186,13 +188,13 @@ DEPENDENCY_PROBES = {
         ),
         None,
         {},
-        "PASS",
+        "UNKNOWN",
     ),
     "a workspace entry that is a registry version": (
         INHERITING_APP,
         WORKSPACE_WITH.format(entry='base-crate = "1.0"'),
         {},
-        "PASS",
+        "UNKNOWN",
     ),
     "a path entry": (APP, None, {}, "FAIL"),
     "a workspace entry with a path": (
@@ -201,26 +203,26 @@ DEPENDENCY_PROBES = {
         {},
         "FAIL",
     ),
-    "a config without a redirect": (REGISTRY_APP, None, HARMLESS, "PASS"),
+    "a config without a redirect": (REGISTRY_APP, None, HARMLESS, "UNKNOWN"),
     "a root named by package.workspace without a patch": (
         POINTING_APP,
         None,
         {"crates/ws/Cargo.toml": ROOT_OF_APP},
-        "PASS",
+        "UNKNOWN",
     ),
     "a root named by package.workspace with a patch": (
         POINTING_APP,
         None,
         {"crates/ws/Cargo.toml": ROOT_OF_APP + PATCH.replace('"base"', '"../base"')},
-        "FAIL",
+        "UNKNOWN",
     ),
     "a root package of another workspace with a patch": (
         REGISTRY_APP,
         None,
         {"crates/ws/Cargo.toml": TOP, "crates/ws/src/lib.rs": "pub fn top() {}\n"},
-        "FAIL",
+        "UNKNOWN",
     ),
-    **{name: (REGISTRY_APP, None, files, "FAIL") for name, files in CONFIGS.items()},
+    **{name: (REGISTRY_APP, None, files, "UNKNOWN") for name, files in CONFIGS.items()},
 }
 
 
@@ -279,10 +281,10 @@ def test_a_file_that_can_redirect_a_dependency_and_is_not_read_gives_a_gap(
     assert any(reason in claim for claim in claims(result)), claims(result)
 
 
-def test_a_patch_table_keeps_the_name_of_the_workspace_as_an_edge(
+def test_a_patch_table_keeps_the_name_of_the_workspace_as_a_gap(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # `[patch.crates-io]` can point the registry name at the path of the crate.
+    # `[patch.crates-io]` can point the registry name at the path of the crate (#946: a gap).
     patch = (
         '[workspace]\nmembers = ["base", "app"]\n'
         '[patch.crates-io]\nbase-crate = { path = "base" }\n'
@@ -290,7 +292,7 @@ def test_a_patch_table_keeps_the_name_of_the_workspace_as_an_edge(
     files = {"crates/app/Cargo.toml": REGISTRY_APP, "crates/Cargo.toml": patch, **UNUSED}
     result = validate(repository(tmp_path, core_binary, files, components=NO_REQUIRES), capsys)
 
-    assert statuses(result).get("REQUIRES") == "FAIL", claims(result)
+    assert statuses(result).get("REQUIRES") == "UNKNOWN", claims(result)
 
 
 def test_a_workspace_dependency_that_the_workspace_does_not_list_gives_a_gap(

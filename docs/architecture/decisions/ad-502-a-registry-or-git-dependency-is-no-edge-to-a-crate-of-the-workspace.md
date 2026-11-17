@@ -1,6 +1,6 @@
 # AD-502 A registry or git dependency is no edge to a crate of the workspace
 
-**Status.** Accepted. Part of #880, issue #946. It narrows the amendment of 2026-11-10 in AD-335.
+**Status.** Accepted. Part of #880, issue #946. It narrows the amendment of 2026-11-10 in AD-335. Points 2 and 5 and the open false PASS are replaced by AD-704: such a name is a pair gap.
 
 **Problem.** AD-335 says that each dependency a manifest declares is a crate edge. The collector
 matched the package name against the crates of the workspace. A crate that depends on
