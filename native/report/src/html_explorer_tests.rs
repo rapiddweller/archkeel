@@ -300,3 +300,15 @@ fn the_sheet_groups_provided_names_and_folds_long_lists() {
     // The raw list of the through-paths is no longer printed in one line.
     assert!(!script.contains("`<p>Through: ${edge.through.map(esc).join(\", \")}</p>`"));
 }
+
+// The sheet prints no separator with nothing after it, and the lists of imports fold behind a count.
+#[test]
+fn the_sheet_has_no_dangling_separator_and_folds_the_import_lists() {
+    let script = include_str!("../assets/explorer/flow.runtime.js");
+    // `Decided by X` stands alone; what a component owns is a block of its own.
+    assert!(!script.contains("${esc(component.decided_by||\"the contract\")}${viewMode===\"target\"||!component.path?\"\":` · "));
+    assert!(script.contains("Owns <code>"));
+    // Imported by and Imports show a count and fold when there are many cells.
+    assert!(script.contains("rows.length>4"));
+    assert!(script.contains("class=\"atlas-imports\""));
+}
