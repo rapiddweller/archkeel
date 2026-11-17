@@ -27,10 +27,6 @@ Documentation does not accept these defects. They block the 5.0.0 release.
 | Rust root re-export | a re-export of an extern self alias or of another crate's root | false PASS | [#1517](https://github.com/rapiddweller/archkeel/issues/1517) |
 | Rust registry identity | outside source replacement changes a modeled derive expansion | false PASS | [#1518](https://github.com/rapiddweller/archkeel/issues/1518) |
 | Rust field receiver | `p.f.m()`: an inherent method in the file of its type, called through a public field of a typed parameter; no edge and no gap (AD-418) | false PASS | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
-| Python external loader | `load("app.lib")` imports the forbidden module and returns `None` | false PASS | [#1519](https://github.com/rapiddweller/archkeel/issues/1519) |
-| Python unknown provider | a parameter supplies `provider.code.interact()` | false PASS | [#1520](https://github.com/rapiddweller/archkeel/issues/1520) |
-| Python library globals | an outside library returns a dict; a computed key selects its importer | false PASS | [#1521](https://github.com/rapiddweller/archkeel/issues/1521) |
-| Python outside writer | an outside script or C extension replaces a re-export with a private function | false PASS | [#1522](https://github.com/rapiddweller/archkeel/issues/1522) |
 | Python lazy annotations | a slot or outside class write changes the allowed `object` annotation | false PASS | [#1523](https://github.com/rapiddweller/archkeel/issues/1523) |
 | TypeScript window flow | callback `this`, event targets, parameters, call results and properties | false PASS | [#1524](https://github.com/rapiddweller/archkeel/issues/1524) |
 | TypeScript DOM code | an `open` result, `document.open`, or a dynamic link and click | false PASS | [#1526](https://github.com/rapiddweller/archkeel/issues/1526) |
@@ -169,7 +165,8 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   when its type is an unshadowed builtin (AD-748). A value that is no literal and a mangled `__x`
   are no attribute. A module-level value, a function inside a function and a
   text other than a name, a dotted name, `None`, `True` or `False` in an annotation or a default
-  give none. Open: a write from a C extension or through `globals()` of another module.
+  give none. A write from an extension source of the repository that names the module escapes it
+  (AD-770). Open: a write through `globals()` of another module.
   Every Python member list is `partial`. A target
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
   passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an
@@ -248,14 +245,20 @@ an argument, a namespace attribute, a store) leaves the names of its import unre
 UNKNOWN for it. A name is read in its scope: a parameter or another local binding of the spelling is
 another value (#1506), and a name that an import and another binding share may be the module.
 
-The core gives PASS where Python binds something else at import time, for one form. 4.0.1 gives
-PASS for it too. It is an open defect, pinned by plants in `tests/python_interface_plants.py`:
+The core gives PASS where Python binds something else at import time only under the stated
+premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_plants.py`,
+`tests/test_collector_false_pass_python_writers.py`.
 
-- A write to a package from a module outside the scan roots (`conftest.py`, `sitecustomize`, an
-  installed package, a script), or from a C extension (#1522),
-  after its statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey
-  gap, so the rule is UNKNOWN. A direct scanned read of another function's `__globals__` also
-  keeps its named gap; the outside-library dictionary defect is #1521.
+- A write to a package that the repository does not show, after its statements ran. The survey
+  reads the code of the repository outside the scan roots (AD-770): a script or an extension source
+  that writes a module of the scan, or names it beside a door, withholds its routes (UNKNOWN). A test
+  file (`test_*.py`, `*_test.py`, a file below `test/` or `tests/`), a name built at run time from
+  data, and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
+  the stated premise of the run: "Code outside the scan roots, including test code, hands in no
+  module object of the scan and writes no binding of a module or class of the scan." In the scan, a
+  write through `sys.modules` or a computed `importlib.import_module` is a survey gap, so the rule is
+  UNKNOWN. A direct scanned read of another function's `__globals__` also keeps its named gap, and an
+  outside library dictionary that hides an importer gives the gap of AD-760 (#1521).
 
 ## Before claiming PASS
 

@@ -57,6 +57,26 @@ pub fn evidence_id(rel_path: &str, line: i64, end_line: i64, column: i64) -> Str
     )
 }
 
+/// The SHA-256 digest of data that comes in parts, for a file that is not held in memory.
+#[derive(Default)]
+pub struct StreamDigest(Sha256);
+
+impl StreamDigest {
+    /// Add the next part of the data.
+    pub fn update(&mut self, data: &[u8]) {
+        self.0.update(data);
+    }
+
+    /// The lowercase hex digest of all parts, the same as `sha256_hex` of the joined data.
+    pub fn hex(self) -> String {
+        self.0
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect()
+    }
+}
+
 /// The lowercase hex SHA-256 digest of `data`.
 pub fn sha256_hex(data: &[u8]) -> String {
     Sha256::digest(data)
