@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-442: a release core uses one disk root and refuses network and device roots."""
 
+import io
 import json
 import shutil
 import subprocess
@@ -15,6 +16,20 @@ from rust_repository import component, repository
 from test_cli_core_only_scan import command
 
 from archkeel.cli.core_binding import ProjectRoot, RootMode, resolve_root
+
+
+def test_windows_redirected_output_uses_utf8(monkeypatch: pytest.MonkeyPatch) -> None:
+    from archkeel.cli import main
+
+    output = io.BytesIO()
+    stream = io.TextIOWrapper(output, encoding="cp1252", write_through=True)
+    with monkeypatch.context() as patch:
+        patch.setattr(sys, "platform", "win32")
+        patch.setattr(sys, "stdout", stream)
+        patch.delenv("PYTHONIOENCODING", raising=False)
+        patch.setattr("archkeel.cli.core_only.run", lambda _: print(" · 漢") or 0)
+        assert main([]) == 0
+    assert output.getvalue().decode("utf-8") == " · 漢\n"
 
 
 def test_text_header_uses_absolute_paths_when_the_root_is_on_another_drive(
