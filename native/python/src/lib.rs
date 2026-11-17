@@ -83,11 +83,6 @@ pub fn typed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Reply, 
         interface_boundary: LimitSupport::Supported,
     });
     reply.facts.scope_premise = Some(PREMISE);
-    reply
-        .facts
-        .capabilities
-        .resolution_features
-        .push("import-routes-v1".to_owned());
     Ok(reply)
 }
 

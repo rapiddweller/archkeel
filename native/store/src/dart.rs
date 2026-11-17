@@ -77,31 +77,13 @@ fn statement(fact: &ImportFact) -> Result<(), String> {
 }
 
 /// Each selected input is the file of a module, a part with a named owner, or the file of a gap.
-/// An owned file is not a module file, its owner is a module, and its own module is no module.
+/// The owned files themselves are checked by the generic validation (`validate::owned_files`).
 fn accounted(facts: &Facts) -> Result<(), String> {
-    let modules: HashSet<&str> = facts
-        .files
-        .iter()
-        .map(|file| file.module.as_str())
-        .collect();
-    let module_files: HashSet<&str> = facts
-        .files
+    let owned: HashSet<&str> = facts
+        .owned_files
         .iter()
         .map(|file| file.rel_path.as_str())
         .collect();
-    let mut owned: HashSet<&str> = HashSet::new();
-    for file in &facts.owned_files {
-        if module_files.contains(file.rel_path.as_str())
-            || !modules.contains(file.owner.as_str())
-            || modules.contains(file.module.as_str())
-            || !owned.insert(file.rel_path.as_str())
-        {
-            return Err(format!(
-                "the owned file {} has no unique owner",
-                file.rel_path
-            ));
-        }
-    }
     let gap_files: HashSet<&str> = facts
         .coverage
         .gaps
@@ -111,16 +93,10 @@ fn accounted(facts: &Facts) -> Result<(), String> {
             _ => None,
         })
         .collect();
-    let selected = &facts.coverage.selected_files;
-    if !owned
-        .iter()
-        .all(|path| selected.iter().any(|item| item == path))
-    {
-        return Err("an owned file needs a selected input".to_owned());
-    }
-    match selected.iter().find(|path| {
+    match facts.coverage.selected_files.iter().find(|path| {
         let path = path.as_str();
-        !module_files.contains(path) && !owned.contains(path) && !gap_files.contains(path)
+        let module = facts.files.iter().any(|file| file.rel_path == path);
+        !module && !owned.contains(path) && !gap_files.contains(path)
     }) {
         Some(path) => Err(format!(
             "the selected file {path} has no module, owner or gap"

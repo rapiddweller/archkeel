@@ -37,6 +37,11 @@ fn head() -> Head {
         source_digest: None,
         files: vec![],
         imports: vec![],
+        validation: archkeel_facts::envelope::Validation {
+            registered: Vec::new(),
+            interface: archkeel_facts::envelope::validation::InterfaceNeed::Nothing,
+            standard_library: Profile::TypeScript.as_str().to_owned(),
+        },
     }
 }
 

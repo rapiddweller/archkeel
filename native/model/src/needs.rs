@@ -21,6 +21,8 @@ pub enum Need {
     /// The contract has an `interface_boundary` rule: a type that a declared signature names
     /// reaches a `public` entry (AD-580).
     InterfaceBoundary,
+    /// The contract has an `unused_public` rule: the core reads the public items (AD-670).
+    UnusedPublic,
 }
 
 impl Need {
@@ -28,7 +30,7 @@ impl Need {
     fn symbols(self) -> bool {
         match self {
             Need::UmlTarget => true,
-            Need::BoundaryTypes | Need::InterfaceBoundary => false,
+            Need::BoundaryTypes | Need::InterfaceBoundary | Need::UnusedPublic => false,
         }
     }
 }
@@ -57,6 +59,11 @@ impl Needs {
     /// True when a need of the run reads the symbol facts.
     pub fn symbols(&self) -> bool {
         self.0.iter().any(|need| need.symbols())
+    }
+
+    /// True when the run reads the public module-level items (AD-670).
+    pub fn published(&self) -> bool {
+        self.0.contains(&Need::UnusedPublic)
     }
 
     /// True when the run reads the shapes of the written signature types (AD-550, AD-580).

@@ -27,6 +27,7 @@
 
 use serde::Deserialize;
 
+use archkeel_facts::envelope::validation::library_key;
 use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 
@@ -128,10 +129,14 @@ pub(crate) fn stage_one_shell_trust(namespace: String, reply: Option<&Ingested>)
     };
     let facts = &reply.reply().facts;
     let profile = facts.profile;
-    let standard_library = archkeel_store::standard_library(profile)
-        .into_iter()
-        .map(str::to_owned)
-        .collect();
+    let standard_library = archkeel_store::standard_library(&library_key(
+        facts.validation.as_ref(),
+        profile,
+        &facts.runtime.version,
+    ))
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
     let settings = Settings::new(namespace, profile.as_str().to_owned(), standard_library);
     let adapter = &facts.adapter;
     if adapter.name == profile.as_str() && adapter.code_digest == CODE_DIGEST {

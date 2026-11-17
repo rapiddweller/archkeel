@@ -24,16 +24,6 @@
       "entry": [
         "violation",
         "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-        "native.archkeel_store.bindings",
-        "native.archkeel_facts.envelope",
-        "forbidden dependency"
-      ],
-      "reason": "AD-668: store or core names the language vocabulary or a language module (#1384); visible until the code is fixed."
-    },
-    {
-      "entry": [
-        "violation",
-        "NATIVE-NEUTRAL-STORE-NO-PROFILE",
         "native.archkeel_store.python",
         "native.archkeel_facts.envelope",
         "forbidden dependency"
@@ -44,27 +34,7 @@
       "entry": [
         "violation",
         "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-        "native.archkeel_store.records",
-        "native.archkeel_facts.envelope",
-        "forbidden dependency"
-      ],
-      "reason": "AD-668: store or core names the language vocabulary or a language module (#1384); visible until the code is fixed."
-    },
-    {
-      "entry": [
-        "violation",
-        "NATIVE-NEUTRAL-STORE-NO-PROFILE",
         "native.archkeel_store.registered",
-        "native.archkeel_facts.envelope",
-        "forbidden dependency"
-      ],
-      "reason": "AD-668: store or core names the language vocabulary or a language module (#1384); visible until the code is fixed."
-    },
-    {
-      "entry": [
-        "violation",
-        "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-        "native.archkeel_store.standard",
         "native.archkeel_facts.envelope",
         "forbidden dependency"
       ],
@@ -141,6 +111,224 @@
         "FAIL"
       ],
       "reason": "AD-668: a new self-contract rule shows a real Cut A violation (#1384); it stays FAIL until the code names no language."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_collect",
+        "native.archkeel_collect:test_features",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_contract.policy.amendment",
+        "native.archkeel_contract.policy.amendment:amendment_bytes",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_contract.policy.amendment",
+        "native.archkeel_contract.policy.amendment:parse_amendment",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_contract.policy.binding",
+        "native.archkeel_contract.policy.binding:bind",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_contract.policy.compare",
+        "native.archkeel_contract.policy.compare:compare_trees",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_contract.policy.tree",
+        "native.archkeel_contract.policy.tree:MAX_DEPTH",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_facts.nullable",
+        "native.archkeel_facts.nullable:required",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_facts.pyrepr",
+        "native.archkeel_facts.pyrepr:escapes",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_facts.schema",
+        "native.archkeel_facts.schema:PATH",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_facts.schema",
+        "native.archkeel_facts.schema:REQUEST_PATH",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_facts.schema",
+        "native.archkeel_facts.schema:request_schema",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_facts.schema",
+        "native.archkeel_facts.schema:request_text",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_facts.schema",
+        "native.archkeel_facts.schema:schema",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_facts.schema",
+        "native.archkeel_facts.schema:text",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_python_collector.pyast.node",
+        "native.archkeel_python_collector.pyast.node:context",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_python_collector.pyast.node",
+        "native.archkeel_python_collector.pyast.node:type_params",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_snapshot.test_tree",
+        "native.archkeel_snapshot.test_tree:charged_bytes",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_snapshot.test_tree",
+        "native.archkeel_snapshot.test_tree:read_bytes",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_snapshot.work",
+        "native.archkeel_snapshot.work:MAX_NESTING",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_snapshot.work",
+        "native.archkeel_snapshot.work:MAX_PARSE_WORK",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "violation",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "native.archkeel_snapshot.work",
+        "native.archkeel_snapshot.work:MAX_SCAN_BYTES",
+        "public name that no other component uses"
+      ],
+      "reason": "AD-670: a public function, constant or static with no user in another component (#1402); visible until the code is fixed."
+    },
+    {
+      "entry": [
+        "rule",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "FAIL"
+      ],
+      "reason": "AD-670: the new rule unused_public shows public functions and constants that no other component uses (#1402); FAIL until narrowed or deleted."
     }
   ]
 }
