@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The names that `extern crate self as name;` binds to the root of the own crate.
+//! The names that `extern crate self as name;` binds to the root of the own crate, and the names
+//! that an `extern crate krate as name;` of the crate root adds to the extern prelude (#1711).
 //!
 //! An alias in the crate root joins the extern prelude: any module of the crate, and a path that
 //! starts with `::`, names the root with it. An alias in another module (or inline module) is a
@@ -21,6 +22,9 @@ pub(crate) struct Aliases {
     prelude: BTreeMap<String, BTreeSet<String>>,
     /// The aliases that a lexical module binds, to the crate root that each names.
     members: BTreeMap<(String, String), String>,
+    /// The names that an `extern crate krate as name;` of each crate root adds to the extern
+    /// prelude, by the module id of the root, to the crate that each names (#1711).
+    crates: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl Aliases {
@@ -39,6 +43,18 @@ impl Aliases {
                     .insert(name.clone());
             }
         }
+        if module.module == root {
+            for (name, krate) in &module.scan.extern_aliases {
+                let names = self.crates.entry(root.to_owned()).or_default();
+                names.insert(name.clone(), krate.clone());
+            }
+        }
+    }
+
+    /// The crate that `name` names in the extern prelude of the target with the root `root`, when
+    /// an `extern crate` of the root adds it.
+    pub(crate) fn crate_of(&self, root: &str, name: &str) -> Option<&str> {
+        self.crates.get(root)?.get(name).map(String::as_str)
     }
 
     /// The crate root that the lexical module `at` names with `name`, when it is an alias.

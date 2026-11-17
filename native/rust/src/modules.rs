@@ -12,7 +12,7 @@
 //! module (a type, a function, a crate) gives no edge.
 //!
 //! A name after a module that is no child module of it, with more names after it, is read as a
-//! member of that module by the same rules (AD-802, #1517): in `crate::c::other::b::g`, a `use`
+//! member of that module by the same rules (AD-772, #1517): in `crate::c::other::b::g`, a `use`
 //! of `c` that names a module or a crate root (`crate`, an alias of `extern crate self`, a crate
 //! of the workspace), or a glob of `c` that brings in `other`, takes the path on to that module.
 //! An item of the module (a type, a trait) ends the walk there, with its route (AD-604).
