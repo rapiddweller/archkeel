@@ -59,6 +59,8 @@ pub(crate) struct Outside {
     /// The member patches of each global (#1674): the written path (see `Found::patch`) and the
     /// write.
     pub patches: BTreeMap<String, Vec<(Vec<String>, Site)>>,
+    /// The stated generated copies of scanned sources that the guard does not read.
+    pub generated: Vec<String>,
     /// The first code address of a data file below a scan root (#1662, AD-810).
     pub address: Option<Site>,
 }
@@ -115,6 +117,11 @@ pub(crate) fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, roots: &[Stri
             found.incomplete.get_or_insert_with(|| unread(&rel, count));
             continue;
         };
+        // A stated generated copy of scanned sources is the code of its sources (AD-788).
+        if crate::script_outside_generated::stated_copy(snapshot, &rel, &data, roots) {
+            Vec::push(&mut found.generated, rel);
+            continue;
+        }
         let page = classify_file(&rel).is_none();
         for (typescript, module, program) in programs(&rel, &data) {
             // The write detector of the scan (#1712); a page program is read as JavaScript.

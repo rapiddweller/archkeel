@@ -29,6 +29,13 @@ proof is sound but makes every TypeScript rule UNKNOWN.
      classic script, `Object.assign/defineProperty(ies)/setPrototypeOf`, `Reflect.set/
      defineProperty/setPrototypeOf` and `__defineGetter__/__defineSetter__` on a window name, and
      a member patch of an undeclared global (`Math.max = f`) unless the value is a literal.
+   A stated generated copy is not read (`script_outside_generated.rs`): its last lines state
+   `// Generated from S; source-sha256=H`, `// Owner: G`, `// Check: C`, each S (relative to the
+   copy) is a scanned file with SHA-256 H, and G and C are files. Its writes are those of S; the
+   premise adds "and a stated generated copy is the code of its sources"; a later edit of the copy
+   is what C checks. A statement that does not hold leaves the copy read. The test-file rule is the
+   one of the test exclusion (`is_test_source`); it does not name `fixtures`, and a wider rule
+   would drop production folders of that name from a scan, weaker than 4.0.1.
 3. **Member patches (#1674).** `script_patch.rs` reads member patches in each scanned file too. A
    patch writes a path below the global (`max`, `body.style.overflow`; a key that is no literal
    ends it). It withholds a use below or above that path (`Math.max(…)`, `Math` as a value); a use
@@ -52,7 +59,9 @@ scripts (root = this repository): 617 before and after the guard; 451 to 540 wit
 writes `location.hash`, `document.body.style.overflow`); 540 to 1096 with #1712: three vendored or
 built files outside the roots hold direct forms, so every global "can be replaced"
 (`fixtures/L-nest-realworld/resolver-inputs/slug/slug.js:75`, `elkjs-0.12.0.bundled.js:4690`,
-`flow.runtime.js:1`).
+`flow.runtime.js:1`). With the stated copy, `flow.runtime.js` is not read: 1096 to 1096, because
+the vendored `elkjs-0.12.0.bundled.js` (which runs in the page) and the fixture package still
+withhold every global.
 
 ## Tests
 `script_outside_tests.rs` (the plant, 11 forms, the 12 plants of audit 2, quiet files, files that
