@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use syn::visit::{self, Visit};
 use syn::{ExprPath, GenericParam};
 
-use crate::std_macros::{self, Role};
+use crate::std_macros;
 use crate::tokens::plain;
 
 pub(super) struct Safety {
@@ -77,7 +77,7 @@ impl Names {
             return false;
         }
         self.placed_macros = true;
-        let silent = |name: &syn::Ident| std_macros::has(plain(name).as_str(), Role::NO_BIND);
+        let silent = |name: &syn::Ident| std_macros::has(plain(name).as_str(), std_macros::NO_BIND);
         !mac.path.get_ident().is_some_and(silent)
     }
 

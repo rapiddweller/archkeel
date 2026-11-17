@@ -21,7 +21,7 @@ use crate::derive_identity::{binding, namespace};
 use crate::derive_imports::Local;
 use crate::modules::Index;
 use crate::scan::{MacroCall, Via};
-use crate::std_macros::{self, Role};
+use crate::std_macros;
 use crate::tree::Module;
 
 /// A reviewed `macro_rules!` of a registry crate: package, macro, locked version.
@@ -107,7 +107,7 @@ pub(crate) fn proven(
             && !krate.manifest.dependencies.contains_key(root)
     };
     match call.path.as_slice() {
-        [name] if std_macros::has(name.as_str(), Role::PATHS_ONLY) && !call.absolute => {
+        [name] if std_macros::has(name.as_str(), std_macros::PATHS_ONLY) && !call.absolute => {
             // A function or a type of the name is in another namespace: only a `use`, a
             // `macro_rules!` of the crate, an `extern crate` or a glob can bind the macro.
             let bound = (module.scan.references.iter()).any(|reference| {
@@ -121,7 +121,9 @@ pub(crate) fn proven(
                 && !defined
                 && namespace(workspace, index, local, &call.scope, &usage, name, modules)
         }
-        [root, name] if std_macros::has(name.as_str(), Role::PATHS_ONLY) && sysroot(root) => true,
+        [root, name] if std_macros::has(name.as_str(), std_macros::PATHS_ONLY) && sysroot(root) => {
+            true
+        }
         _ => registry(workspace, local, call, &usage),
     }
 }

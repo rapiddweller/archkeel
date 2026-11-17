@@ -24,7 +24,7 @@ use crate::builder::Builder;
 use crate::definitions::{Access, ImplBlock, Member, MethodCall, Owner, SelfKind};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::scan::{Reference, Via};
-use crate::std_macros::{self, Role};
+use crate::std_macros;
 use crate::tree::Module;
 
 /// A member of an inherent `impl` block of a placed type.
@@ -74,7 +74,7 @@ impl<'a> Typed<'a> {
             Via::Use { binding, .. } => binding.as_deref(),
             _ => None,
         });
-        let silent = |name: &str| std_macros::has(name, Role::NO_BIND);
+        let silent = |name: &str| std_macros::has(name, std_macros::NO_BIND);
         let hidden = scan.macro_defs.iter().any(|d| silent(&d.name))
             || bound.into_iter().any(silent)
             || !scan.extern_crates.is_empty();

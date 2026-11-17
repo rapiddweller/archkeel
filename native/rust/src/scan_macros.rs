@@ -16,7 +16,7 @@ use crate::definitions::{Holder, MethodCall};
 use crate::macro_items::{holds_impl, item_level, macro_paths};
 use crate::net;
 use crate::plant;
-use crate::std_macros::{self, Role};
+use crate::std_macros;
 use crate::tokens::{
     chains, fn_names, idents, macro_names, method_names, names_relative, only_dollar_crate, plain,
     string_paths, writes_use, Chain,
@@ -59,8 +59,8 @@ pub(super) fn macro_rules(walker: &mut Walker<'_>, node: &ItemMacro) {
         && only_dollar_crate(node.mac.tokens.clone(), 0)
         && calls.iter().all(|call| {
             *call == name
-                || std_macros::has(call.as_str(), Role::NO_BIND)
-                || std_macros::has(call.as_str(), Role::PLACE_EXPRESSION)
+                || std_macros::has(call.as_str(), std_macros::NO_BIND)
+                || std_macros::has(call.as_str(), std_macros::PLACE_EXPRESSION)
         });
     match chains(node.mac.tokens.clone()).filter(|_| strings.is_some()) {
         Some(more) => {
@@ -150,7 +150,8 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
     // AD-614: a silent or expression macro of `std`, by its plain name, with only such macros in
     // its tokens, reads no string as a path. A macro of the file of that name is not `std`.
     let std_only = |name: &str| {
-        std_macros::has(name, Role::NO_BIND) || std_macros::has(name, Role::PLACE_EXPRESSION)
+        std_macros::has(name, std_macros::NO_BIND)
+            || std_macros::has(name, std_macros::PLACE_EXPRESSION)
     };
     let local = |name: &str| walker.out.macro_defs.iter().any(|def| def.name == name);
     let plain_strings = node.path.segments.len() == 1
@@ -209,7 +210,7 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         );
         return;
     };
-    if std_macros::has(name.as_str(), Role::EXPRESSION_BODY) {
+    if std_macros::has(name.as_str(), std_macros::EXPRESSION_BODY) {
         walker.refer_chains(found);
     } else if !found.is_empty() {
         let reason = format!("The macro {name}! holds a path that the scan cannot read");

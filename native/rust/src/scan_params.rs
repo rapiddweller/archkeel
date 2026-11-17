@@ -24,7 +24,7 @@ use syn::{
 };
 
 use crate::definitions::{OnSelf, SelfKind};
-use crate::std_macros::{self, Role};
+use crate::std_macros;
 use crate::tokens::plain;
 
 /// Whether a generic argument binds a type or a const: a lifetime does not change which
@@ -199,7 +199,7 @@ impl<'ast> Visit<'ast> for Bound {
         let name = node.path.get_ident().map(plain);
         let silent = name
             .as_deref()
-            .is_some_and(|name| std_macros::has(name, Role::NO_BIND));
+            .is_some_and(|name| std_macros::has(name, std_macros::NO_BIND));
         // A `macro_rules!` item defines a macro; it is no call.
         if !silent && name.as_deref() != Some("macro_rules") {
             self.nested_macro |= Self::has_macro(node.tokens.clone());
