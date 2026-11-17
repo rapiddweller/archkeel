@@ -1,0 +1,5 @@
+[scan]
+language = "dart"
+roots = ["lib"]
+namespace = "bazel_worker"
+contract = "architecture-contract.json"

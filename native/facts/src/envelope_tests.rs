@@ -4,7 +4,16 @@
 
 use serde_json::{json, Value};
 
-use super::{Dirty, Reply, Target};
+use super::{Dirty, FileFact, Reply, Target};
+
+#[test]
+fn an_older_file_without_a_class_receipt_remains_unread() {
+    let file = FileFact::of(("src/a.py", "app.a"), false, "E-1".to_owned());
+    let value = serde_json::to_value(file).unwrap();
+    assert!(value.get("class_inventory_empty").is_none());
+    let read: FileFact = serde_json::from_value(value).unwrap();
+    assert_eq!(read.class_inventory_empty, None);
+}
 
 fn reply() -> Value {
     json!({

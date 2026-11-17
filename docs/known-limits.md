@@ -107,9 +107,11 @@ same hole. This is an open defect, not an accepted limit. The survey covers the 
 point 7: the standard-library doors, the import state and the builtins that run text.
 
 The Python collector does not follow a value from an unknown object to a loader. For example,
-`code = provider.code; code.interact()` gives no loader gap when `provider` is an unknown value.
-The same limit applies when the local name is `c`. A forbidden dependency reached only through
-such a value can give PASS (#1520). This is an open false-PASS class, not an accepted limit. A call of a
+a call of a method on an unknown value can load any module. A runner of the `code` module
+(`interact`, `InteractiveConsole`, `InteractiveInterpreter`) on a name `code`, on a name assigned
+from an attribute `code`, or on an attribute `code` of any value is a dynamic-import gap (AD-762).
+Any other method of an unknown value is not read; a forbidden dependency reached only through it can
+give PASS. This is an open false-PASS class, not an accepted limit. A call of a
 value that an import from outside the scan and the standard library gives, with a string that names
 a module of the scan, is a gap of the edges of its module (AD-760); a loader handed in as a
 parameter is the same open class.
@@ -479,13 +481,19 @@ A write through them (`top.x = 1`) publishes nothing, but it blocks each proof o
 A write `o.x = …` blocks the global `x` unless `o` is a local new value or the `this` of a
 constructor, a field or a static block. An unknown key on a window value, a window value that
 escapes, and code from a text block every global proof of the project.
-Open false PASS, not accepted (AD-460, AD-508): any alias of `this`, `super`, `Object`, `Reflect`,
-`location` or `open`, except a name that is bound once to `this`; a window value that reaches a computed write through a parameter, a call result or a property
-(`function f(w) { w[k] = v; }` with `f(document.defaultView)`); `g(this)` in a class method that a
-callback receives; `ev.target[k] = 1` or `ev.srcElement[k]` (an event member that is a window); a computed key
+Open false PASS, not accepted (AD-460, AD-508): any alias of `Object`, `Reflect`, `location` or
+`open` (an alias of `Object` or `Reflect` that writes by reflection, a navigation through an alias); a computed key
 in a pattern (`const { [k]: v } = e`); any global that navigates or opens (`open('', '_self')`,
 `document.open`); a destructured or aliased `setTimeout`; and DOM code from text outside the named
 triggers (a `src` or `href` that is no literal, and a click on the element).
+AD-766 (#1524) closes the window values of a host: a write with a run-time key into a value that
+the file does not make (an event target, the `this` of a listener, an alias of `this`, `super.valueOf()`,
+a parameter, a call result or a member) is an amplifier form, and so is `Object.assign`,
+`Object.defineProperty(ies)`, `Object.setPrototypeOf`, `Reflect.set`, `Reflect.defineProperty` or
+`Reflect.setPrototypeOf` on such a value (direct on a window value). With a host entry they block
+every global proof. A new value, `Object.create(…)`, a local name bound once to a new value and the
+`this` of a constructor keep the proof. Plants: `native/typescript/src/script_window_value_tests.rs`,
+`tests/test_collector_false_pass_ts_window_values.py`.
 AD-508 closed these forms: a write with a run-time key through `this` of a class method, through
 `super` or through a name bound once to such a `this`; a call, `new`, tagged template, `call`,
 `apply` or `bind` of a member with a run-time key (also through a comma, a condition, a logical

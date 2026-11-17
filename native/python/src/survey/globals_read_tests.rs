@@ -158,8 +158,9 @@ fn a_local_name_with_the_name_of_a_door_is_no_door_but_the_module_is() {
     ] {
         let found = gaps(source, "");
         // Only an import binds the door module `code` (AD-539): a name that no import binds is no
-        // loader, in a function or at module scope.
-        let expected = source.contains("import code");
+        // loader, in a function or at module scope. A runner of the `code` module on such a name
+        // keeps the gap: the name proves nothing about its value (#1520).
+        let expected = source.contains("import code") || source.contains("code.interact");
         assert_eq!(!found.is_empty(), expected, "{source}");
     }
 }

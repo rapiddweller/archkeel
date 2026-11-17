@@ -217,14 +217,10 @@ pub(super) struct Walker<'a> {
     pub(super) absolute_use: bool,
     /// The `use` item that the walk is in is `pub`: it re-exports.
     pub(super) public_use: bool,
-    /// The depth of the blocks (function bodies) that enclose the walk.
-    pub(super) blocks: usize,
     /// The name of the `macro_rules!` definition that the walk is in.
     pub(super) in_macro: Option<String>,
     /// The end of each block that encloses the walk, the inner block last.
     pub(super) block_ends: Vec<(i64, i64)>,
-    /// What the next reference is: set by the `use` handling, `Path` otherwise.
-    pub(super) via: Via,
     /// What the walk is inside: it decides which members are definitions.
     pub(super) holder: Holder,
     /// What a plain `self` is at the walk (AD-383).
@@ -279,11 +275,18 @@ impl Walker<'_> {
         });
     }
 
-    pub(super) fn refer(&mut self, names: &[String], span: Span) {
-        self.refer_as(names, span, false);
+    /// The depth of the blocks (function bodies) that enclose the walk.
+    pub(super) fn blocks(&self) -> usize {
+        self.block_ends.len()
     }
 
-    pub(super) fn refer_as(&mut self, names: &[String], span: Span, absolute: bool) {
+    /// A reference by a plain path.
+    pub(super) fn refer(&mut self, names: &[String], span: Span) {
+        self.refer_as(names, span, (false, &Via::Path));
+    }
+
+    /// A reference that says how it was written: `absolute` (`::a::b`) and its `via`.
+    pub(super) fn refer_as(&mut self, names: &[String], span: Span, (absolute, via): (bool, &Via)) {
         if let Some(first) = names.first() {
             if plant::lose("reference") {
                 return;
@@ -296,17 +299,18 @@ impl Walker<'_> {
                 absolute,
                 names: names.to_vec(),
                 scope: self.inline.clone(),
-                via: self.via.clone(),
+                via: via.clone(),
                 in_macro: self.in_macro.clone(),
                 macro_id: self.out.macro_defs.len(),
             });
         }
     }
 
-    pub(super) fn refer_chains(&mut self, found: Vec<Chain>) {
+    /// The references of the chains that a scan of tokens found, each written as `via`.
+    pub(super) fn refer_chains(&mut self, found: Vec<Chain>, via: &Via) {
         let before = self.out.references.len();
         for chain in found {
-            self.refer_as(&chain.names, chain.span, chain.absolute);
+            self.refer_as(&chain.names, chain.span, (chain.absolute, via));
         }
         self.out.tally.unseen += self.out.references.len() - before;
     }

@@ -1,0 +1,137 @@
+{
+ "schema_version": "2.2.0",
+ "components": [
+  {
+   "id": "COMP-DRIVER",
+   "label": "driver",
+   "role": "component",
+   "packages": [
+    "bazel_worker.src.driver"
+   ],
+   "public": [
+    "bazel_worker.src.driver"
+   ],
+   "responsibilities": [
+    "driver"
+   ],
+   "forbidden_responsibilities": [],
+   "provenance": [
+    "docs/architecture/bazel_worker.md"
+   ],
+   "requires": [
+    {
+     "component": "core",
+     "rationale": "Observed import direction."
+    }
+   ],
+   "decided_by": "architect"
+  },
+  {
+   "id": "COMP-WORKER",
+   "label": "worker",
+   "role": "component",
+   "packages": [
+    "bazel_worker.src.worker"
+   ],
+   "public": [
+    "bazel_worker.src.worker"
+   ],
+   "responsibilities": [
+    "worker"
+   ],
+   "forbidden_responsibilities": [],
+   "provenance": [
+    "docs/architecture/bazel_worker.md"
+   ],
+   "requires": [
+    {
+     "component": "core",
+     "rationale": "Observed import direction."
+    }
+   ],
+   "decided_by": "architect"
+  },
+  {
+   "id": "COMP-CORE",
+   "label": "core",
+   "role": "component",
+   "packages": [],
+   "public": [],
+   "responsibilities": [
+    "core"
+   ],
+   "forbidden_responsibilities": [],
+   "provenance": [
+    "docs/architecture/bazel_worker.md"
+   ],
+   "exact_modules": [
+    "bazel_worker.bazel_worker",
+    "bazel_worker.driver",
+    "bazel_worker.src.async_message_grouper",
+    "bazel_worker.src.constants",
+    "bazel_worker.src.message_grouper",
+    "bazel_worker.src.message_grouper_state",
+    "bazel_worker.src.sync_message_grouper",
+    "bazel_worker.src.utils",
+    "bazel_worker.src.worker_protocol_pb",
+    "bazel_worker.testing"
+   ],
+   "requires": [
+    {
+     "component": "driver",
+     "rationale": "Observed import direction."
+    },
+    {
+     "component": "worker",
+     "rationale": "Observed import direction."
+    }
+   ],
+   "decided_by": "architect"
+  }
+ ],
+ "rules": [
+  {
+   "id": "ASSIGNMENT",
+   "kind": "complete_assignment",
+   "rationale": "Keep the layering of the project explicit.",
+   "provenance": [
+    "docs/architecture/bazel_worker.md"
+   ],
+   "decided_by": "architect",
+   "source": "bazel_worker"
+  },
+  {
+   "id": "REQUIRES",
+   "kind": "complete_requires",
+   "rationale": "Keep the layering of the project explicit.",
+   "provenance": [
+    "docs/architecture/bazel_worker.md"
+   ],
+   "decided_by": "architect"
+  },
+  {
+   "id": "DRIVER-NO-WORKER",
+   "kind": "forbidden_dependency",
+   "rationale": "Keep the layering of the project explicit.",
+   "provenance": [
+    "docs/architecture/bazel_worker.md"
+   ],
+   "decided_by": "architect",
+   "source": "bazel_worker.src.driver",
+   "target": "bazel_worker.src.worker",
+   "include_type_checking": true
+  },
+  {
+   "id": "WORKER-NO-DRIVER",
+   "kind": "forbidden_dependency",
+   "rationale": "Keep the layering of the project explicit.",
+   "provenance": [
+    "docs/architecture/bazel_worker.md"
+   ],
+   "decided_by": "architect",
+   "source": "bazel_worker.src.worker",
+   "target": "bazel_worker.src.driver",
+   "include_type_checking": true
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+[scan]
+language = "python"
+roots = ["fastapi"]
+namespace = "fastapi"
+contract = "architecture-contract.json"

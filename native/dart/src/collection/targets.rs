@@ -197,13 +197,10 @@ fn construction_record(resolution: &Construction) -> ConstructionData {
             .filter(|name| !name.is_empty())?;
         Some(format!("{}.{name}", binding.module))
     });
-    let status = match (&target, resolution.status) {
-        (Some(_), Resolution::Resolved) => Status::Resolved,
-        (Some(_), Resolution::Unknown | Resolution::Unresolved) => Status::PartiallyResolved,
-        (None, Resolution::Resolved | Resolution::Unknown | Resolution::Unresolved) => {
-            Status::Unresolved
-        }
-    };
+    let status = Status::of_candidates(
+        usize::from(target.is_some()),
+        resolution.status == Resolution::Resolved,
+    );
     let reason = match status {
         Status::Resolved => "Analyzer resolved a local generative constructor".to_owned(),
         Status::PartiallyResolved => {
