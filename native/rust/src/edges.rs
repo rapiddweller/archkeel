@@ -233,13 +233,9 @@ impl Builder {
         let target_package = match &target {
             Target::Local { module, .. } => index
                 .and_then(|index| index.frame(module.as_str()))
-                .map_or_else(
-                    || module.as_str().to_owned(),
-                    |frame| frame.module.package().to_owned(),
-                ),
-            _ => target_module.clone(),
+                .map_or(module.as_str(), |frame| frame.module.package()),
+            _ => &target_module,
         };
-        self.targets.push(target);
         let record = record(
             index
                 .and_then(|index| index.frame(from.module))
@@ -249,8 +245,9 @@ impl Builder {
             &identity,
             evidence,
             &target_module,
-            &target_package,
+            target_package,
         );
+        self.targets.push(target);
         // AD-604: an import into the workspace names its item; an external one is not read.
         let mut record = match name {
             Some(name) => with_name(record, name),
