@@ -48,7 +48,7 @@ pub(super) const SCRIPTS: [(&str, &str, &str); 8] = [
     (
         include_str!("../assets/explorer/flow.runtime.js"),
         " data-report-asset=\"flow\"",
-        "QAZYbwXAdWrBAlIcBWDNHzNkP3ZfZJRKRAi+XfHB/DY=",
+        "Azk5KqDIkuSW6ian3fvzCEbdU1a2VbUWksc8ImnEpO8=",
     ),
     (
         include_str!("../assets/explorer/report-canvas.js"),
