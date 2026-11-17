@@ -57,7 +57,10 @@ pub fn unused<'m>(model: &'m Model, rule: &UnusedPublic) -> Vec<(&'m PublicItem,
         .filter(|item| {
             model.selects(&item.module)
                 && in_scope(&item.module, rule.source().as_text())
-                && (kinds.is_empty() || kinds.contains(&item.kind))
+                // AD-718: an item of no kind whose name is not read may be of any kind.
+                && (kinds.is_empty()
+                    || kinds.contains(&item.kind)
+                    || (!item.named && item.kind == PublicItemKind::DynamicBinding))
                 && !exempt.contains(format!("{}:{}", item.module, item.name).as_str())
         })
         .filter_map(|item| users.judge(item).map(|judged| (item, judged)))
@@ -204,6 +207,11 @@ impl Users {
     }
 
     fn judge(&self, item: &PublicItem) -> Option<Unused> {
+        if !item.named {
+            return Some(Unused::Undecided(
+                "a macro call gives its name, which the collector does not read",
+            ));
+        }
         let key = format!("{}.{}", item.module, item.name);
         if self.named.contains(&key) {
             return None;

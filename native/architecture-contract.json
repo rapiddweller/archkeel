@@ -4839,23 +4839,24 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_rust_collector.tokens",
         "native.archkeel_rust_collector.attrs",
         "native.archkeel_rust_collector.attrs.kinds",
         "native.archkeel_rust_collector.attrs.model",
-        "native.archkeel_rust_collector.net",
+        "native.archkeel_rust_collector.definitions",
+        "native.archkeel_rust_collector.macro_items",
+        "native.archkeel_rust_collector.macro_public",
         "native.archkeel_rust_collector.nesting",
+        "native.archkeel_rust_collector.net",
+        "native.archkeel_rust_collector.plant",
         "native.archkeel_rust_collector.scan",
         "native.archkeel_rust_collector.scan.attributes",
+        "native.archkeel_rust_collector.scan.define",
         "native.archkeel_rust_collector.scan.macros",
         "native.archkeel_rust_collector.scan.state",
         "native.archkeel_rust_collector.scan.use_items",
-        "native.archkeel_rust_collector.definitions",
         "native.archkeel_rust_collector.site",
-        "native.archkeel_rust_collector.scan.define",
-        "native.archkeel_rust_collector.plant",
-        "native.archkeel_rust_collector.macro_items",
-        "native.archkeel_rust_collector.std_macros"
+        "native.archkeel_rust_collector.std_macros",
+        "native.archkeel_rust_collector.tokens"
       ],
       "responsibilities": [
         "Lexical reading of Rust source: tokens, attributes, nesting, nets and the scan of items, definitions, use paths and macros."
@@ -4881,6 +4882,7 @@
         "native.archkeel_rust_collector.definitions:Owner",
         "native.archkeel_rust_collector.definitions:SelfKind",
         "native.archkeel_rust_collector.definitions:TraitImpl",
+        "native.archkeel_rust_collector.macro_items:published",
         "native.archkeel_rust_collector.nesting:MAX_NESTING",
         "native.archkeel_rust_collector.nesting:too_deep",
         "native.archkeel_rust_collector.scan:Child",
@@ -5156,6 +5158,7 @@
           "through": [
             "native.archkeel_rust_collector.attrs.model",
             "native.archkeel_rust_collector.definitions",
+            "native.archkeel_rust_collector.macro_items:published",
             "native.archkeel_rust_collector.plant",
             "native.archkeel_rust_collector.scan",
             "native.archkeel_rust_collector.site",
@@ -6781,7 +6784,8 @@
         "native.archkeel_rust_collector.scan",
         "native.archkeel_rust_collector.scan.attributes",
         "native.archkeel_rust_collector.scan.macros",
-        "native.archkeel_rust_collector.cargo_toml"
+        "native.archkeel_rust_collector.cargo_toml",
+        "native.archkeel_rust_collector.macro_public"
       ],
       "rationale": "Only the lexical modules of the Rust collector read token spans, next to syn.",
       "provenance": [
