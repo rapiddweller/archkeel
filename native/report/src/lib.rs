@@ -55,7 +55,7 @@
 //! use archkeel_report::Status;
 //! fn decided() -> archkeel_report::report::Decided {
 //!     archkeel_report::report::Decided {
-//!         status: Status::Pass, pass: None, observation: Status::Pass, rules: Vec::new()
+//!         run: archkeel_report::report::RunStatus::Unknown, observation: Status::Pass, rules: Vec::new()
 //!     }
 //! }
 //! ```

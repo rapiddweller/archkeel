@@ -67,10 +67,13 @@ pub(super) fn sites(
 ) -> Vec<Site> {
     let bound = bindings(tree);
     let inert_modules = inert::modules(&bound, &binders.unique(), tree);
+    let code_types = inert::code_types(&bound, &binders.unique());
     let mut walk = Walk {
         found: Vec::new(),
         bound,
         inert_modules,
+        code_types,
+        isinstance_visible: binders.builtin_visible("isinstance"),
         uncertain_code: Bound::of(&tree.body).opaque || reflect::deleted_code(tree),
         class_body: false,
         proof,
@@ -101,6 +104,8 @@ struct Walk<'r> {
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
     inert_modules: HashMap<String, String>,
+    code_types: HashSet<String>,
+    isinstance_visible: bool,
     uncertain_code: bool,
     class_body: bool,
     proof: Proof,
@@ -249,6 +254,31 @@ impl Walk<'_> {
         }
     }
 
+    fn call<'a>(&mut self, expr: &'a Expr, call: &'a ruff_python_ast::ExprCall) {
+        match self.proof.target(call) {
+            Some(target) => {
+                self.push(LITERAL, &target, expr);
+                if let Some(kind) = hazard(&target) {
+                    self.push(kind, &target, expr);
+                }
+            }
+            None if inert::code_type_check(call, &self.code_types, self.isinstance_visible) => {
+                self.visit_expr(&call.arguments.args[0]);
+            }
+            None if !reflect::code(expr, &self.bound) && self.literal_getattr(call) => {}
+            None => {
+                if reflect::code(expr, &self.bound) {
+                    self.push(DYNAMIC, "code", expr);
+                }
+                let bare = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "vars");
+                if bare && call.arguments.is_empty() {
+                    self.push(DYNAMIC, "vars", expr);
+                }
+                visitor::walk_expr(self, expr);
+            }
+        }
+    }
+
     /// An attribute chain `base.a.b`: the first hazard on it, or a module above a hazard as
     /// the value of the whole chain.
     fn chain(&mut self, expr: &Expr) {
@@ -392,26 +422,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
             Expr::Lambda(node) => self.lambda(node),
             // AD-472: only the callee of a proven literal call is exempt; its one argument is a
             // string literal, so nothing below the call is left to read.
-            Expr::Call(call) => match self.proof.target(call) {
-                Some(target) => {
-                    self.push(LITERAL, &target, expr);
-                    if let Some(kind) = hazard(&target) {
-                        self.push(kind, &target, expr);
-                    }
-                }
-                None if !reflect::code(expr, &self.bound) && self.literal_getattr(call) => {}
-                None => {
-                    if reflect::code(expr, &self.bound) {
-                        self.push(DYNAMIC, "code", expr);
-                    }
-                    // `vars()` without an argument is the namespace of the caller.
-                    let bare = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "vars");
-                    if bare && call.arguments.is_empty() {
-                        self.push(DYNAMIC, "vars", expr);
-                    }
-                    visitor::walk_expr(self, expr);
-                }
-            },
+            Expr::Call(call) => self.call(expr, call),
             Expr::Subscript(_) if reflect::code(expr, &self.bound) => {
                 self.push(DYNAMIC, "code", expr);
                 visitor::walk_expr(self, expr);

@@ -10,7 +10,7 @@ the linked collector. `read_frame` then binds the frame to the same identity (AD
 
 A dead core (an abort, a stack overflow, an allocation failure) has an exit code that
 `read_frame` refuses, so the run has no verdict (exit 2), never a PASS. The shell stops the core
-after `TIMEOUT_SECONDS`.
+after `_TIMEOUT_SECONDS`.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from .core_frame import read_refusal
 from .core_json import CoreError
 
 SCAN_PROTOCOL: Final = "archkeel-core-scan-1"
-TIMEOUT_SECONDS: Final = 600
+_TIMEOUT_SECONDS: Final = 600
 # The exit code of a request that the core cannot read: it writes no frame.
 _REFUSED_EXIT: Final = 2
 # The fixed executable and the environment names of `native/collect/src/git.rs`, never `PATH`.
@@ -58,7 +58,7 @@ def identity(root: Path) -> tuple[str, bool] | None:
     environment = {key: os.environ[key] for key in _GIT_ENVIRONMENT if key in os.environ}
     try:
         done = subprocess.run(
-            command, env=environment, capture_output=True, check=False, timeout=TIMEOUT_SECONDS
+            command, env=environment, capture_output=True, check=False, timeout=_TIMEOUT_SECONDS
         )
         lines = done.stdout.decode("utf-8").splitlines()
     except (OSError, subprocess.TimeoutExpired, UnicodeDecodeError):
@@ -86,7 +86,7 @@ def ignored_by(root: Path, paths: Sequence[str]) -> dict[str, str]:
             input="\0".join(paths).encode("utf-8"),
             capture_output=True,
             check=False,
-            timeout=TIMEOUT_SECONDS,
+            timeout=_TIMEOUT_SECONDS,
         )
     except (OSError, subprocess.TimeoutExpired):
         return {}
@@ -107,10 +107,10 @@ def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
             input=request,
             capture_output=True,
             check=False,
-            timeout=TIMEOUT_SECONDS,
+            timeout=_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired as error:
-        raise CoreError(f"the core did not answer in {TIMEOUT_SECONDS} s") from error
+        raise CoreError(f"the core did not answer in {_TIMEOUT_SECONDS} s") from error
     except OSError as error:
         raise CoreError(f"the core could not execute: {error}") from error
     if done.returncode == _REFUSED_EXIT:
