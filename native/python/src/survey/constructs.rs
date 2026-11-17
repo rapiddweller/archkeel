@@ -19,6 +19,9 @@ use super::binders::Binders;
 use super::support::{Construct, Support};
 use crate::module::{EvidenceMap, Location, Module};
 
+#[path = "constructs_ignores.rs"]
+mod ignores;
+
 pub(super) fn collect(
     modules: &[Module],
     binders: &[Binders],
@@ -105,8 +108,12 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
         importlibs,
         casts,
         typing_modules,
+        comments: ignores::Comments::new(module.text(), crate::parse::comments(module.text())),
     };
     walk.visit_body(&module.tree.body);
+    if !walk.comments.complete() {
+        walk.support.downgrade(Construct::TypeIgnore);
+    }
     Findings {
         records: walk.records,
         signals: walk.signals,
@@ -126,6 +133,7 @@ struct Walk<'a> {
     importlibs: HashSet<String>,
     casts: HashSet<String>,
     typing_modules: HashSet<String>,
+    comments: ignores::Comments,
 }
 
 impl<'a> Visitor<'a> for Walk<'_> {
@@ -158,6 +166,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
             self.owner.push_str(name);
         }
         match stmt {
+            Stmt::Expr(_) => self.type_ignore(stmt),
             Stmt::FunctionDef(node) => {
                 if let Some(annotation) = &node.returns {
                     self.annotation(annotation);
@@ -271,6 +280,32 @@ fn named_call(func: &Expr, names: &HashSet<String>, modules: &HashSet<String>, a
 }
 
 impl Walk<'_> {
+    fn type_ignore(&mut self, stmt: &Stmt) {
+        let start = stmt.start().to_usize();
+        let end = stmt.end().to_usize();
+        let location = self.module.location(stmt);
+        let Ok(column) = usize::try_from(location.column) else {
+            return;
+        };
+        let Some((tag, text)) = self
+            .comments
+            .take(self.module.text(), start - column, start, end)
+        else {
+            return;
+        };
+        let mut data = self.signal_data(Signal::TypeIgnore, None);
+        data.line = Some(location.line);
+        data.qualified_name = Some(self.owner.clone());
+        data.statement = Some(text);
+        data.tag = Some(tag);
+        self.signal(
+            stmt,
+            "type_ignore",
+            "type_ignore",
+            SignalFact::TypeIgnore(data),
+        );
+    }
+
     fn annotation(&mut self, annotation: &Expr) {
         struct Any(bool);
         impl<'a> Visitor<'a> for Any {

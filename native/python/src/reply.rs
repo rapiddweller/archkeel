@@ -83,7 +83,9 @@ fn validation(version: &str) -> Validation {
     registered.push(all.clone());
     all = all.with_construct(Construct::DynamicImport.word(), &partial);
     registered.push(all.clone());
-    registered.push(all.with_construct(Construct::Cast.word(), &partial));
+    all = all.with_construct(Construct::Cast.word(), &partial);
+    registered.push(all.clone());
+    registered.push(all.with_construct(Construct::TypeIgnore.word(), &either));
     Validation {
         registered,
         interface: InterfaceNeed::Feature(ROUTES_FEATURE.to_owned()),
