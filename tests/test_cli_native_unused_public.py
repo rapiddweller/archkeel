@@ -6,8 +6,9 @@
 Rust (rustc accepts each plant): `base` publishes items, `app` uses some of them. A function or a
 constant with no user in `app` is FAIL. A use through a re-export, a use by the binary of the
 package (AD-622) and an item listed in `external_users` are no violation. A type with no user and
-an item of a module that `app` takes by a glob are undecided. The Rust collector does not state
-every public symbol, so a run without a violation is UNKNOWN and never PASS.
+an item of a module that `app` takes by a glob are undecided, so this run without a violation
+is UNKNOWN. The Rust collector states each public item since AD-718 (#1450), so a run without an
+undecided item can PASS (`test_cli_native_unused_public_constructs.py`).
 
 Python (python3.12 runs each plant): its collector states every public symbol, so a run where
 each public name has a user is PASS. Python is judged by name (owner decision): an unused function

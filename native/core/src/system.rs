@@ -44,10 +44,8 @@ pub(crate) fn join(
             first.get(key).cloned().unwrap_or(Value::Null),
         );
     }
-    let statuses: Vec<Option<Status>> = frames
-        .iter()
-        .map(|part| serde_json::from_value(part.get("status")?.clone()).ok())
-        .collect();
+    let typed: Vec<PartFrame> = frames.iter().map(PartFrame::of).collect();
+    let statuses: Vec<Option<Status>> = typed.iter().map(|part| part.status).collect();
     frame.insert("status".to_owned(), json!(system_status(&statuses)));
     for key in RULE_MAPS {
         frame.insert(key.to_owned(), Value::Object(disjoint(&frames, key)?));
@@ -70,7 +68,7 @@ pub(crate) fn join(
     if !doors.is_empty() {
         frame.insert("door_reach".to_owned(), Value::Array(doors));
     }
-    frame.insert("scope".to_owned(), scope(&frames));
+    frame.insert("scope".to_owned(), scope(&typed));
     if let Some(premise) = premise(&frames) {
         frame.insert("premise".to_owned(), json!(premise));
     }
@@ -188,13 +186,43 @@ fn premise(frames: &[Map<String, Value>]) -> Option<String> {
     (!found.is_empty()).then(|| found.join("; "))
 }
 
+/// The scope of one part: complete, or open with the value that the frame of the part carries.
+#[derive(Clone, Debug, PartialEq)]
+enum PartScope {
+    Complete,
+    Open(Value),
+}
+
+/// What the join reads of the frame of one part, typed once: its status (none when unreadable)
+/// and its scope (a frame without a scope is complete).
+struct PartFrame {
+    status: Option<Status>,
+    scope: PartScope,
+}
+
+impl PartFrame {
+    fn of(part: &Map<String, Value>) -> Self {
+        let status = part
+            .get("status")
+            .and_then(|status| serde_json::from_value(status.clone()).ok());
+        let scope = match part.get("scope") {
+            None => PartScope::Complete,
+            Some(scope) if scope.as_str() == Some("complete") => PartScope::Complete,
+            Some(open) => PartScope::Open(open.clone()),
+        };
+        PartFrame { status, scope }
+    }
+}
+
 /// `complete` when each part is complete, else the reason of the first part that is not.
-fn scope(frames: &[Map<String, Value>]) -> Value {
-    let open = frames
+fn scope(parts: &[PartFrame]) -> Value {
+    parts
         .iter()
-        .filter_map(|part| part.get("scope"))
-        .find(|scope| scope.as_str() != Some("complete"));
-    open.cloned().unwrap_or_else(|| json!("complete"))
+        .find_map(|part| match &part.scope {
+            PartScope::Complete => None,
+            PartScope::Open(reason) => Some(reason.clone()),
+        })
+        .unwrap_or_else(|| json!("complete"))
 }
 
 /// The self-test of the system: the rule kinds of all parts, the files of all replies, and the

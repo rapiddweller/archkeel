@@ -490,3 +490,6 @@ mod groups_tests;
 
 #[path = "html_next_tests.rs"]
 mod next_tests;
+
+#[path = "html_floor_tests.rs"]
+mod floor_tests;

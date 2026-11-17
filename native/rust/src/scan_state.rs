@@ -204,6 +204,8 @@ pub(crate) struct MacroCall {
     pub absolute: bool,
     /// The call tokens hold an `impl`, which the expansion may write as an item (#1371).
     pub writes_impl: bool,
+    /// What the call tokens tell of the public items of the expansion (#1450).
+    pub public: crate::macro_public::CallTokens,
 }
 
 pub(super) struct Walker<'a> {

@@ -21,6 +21,8 @@ pub struct PublicItem {
     pub kind: PublicItemKind,
     /// The evidence of its definition.
     pub evidence: Vec<String>,
+    /// False when the collector does not read the name: a macro call gives it (AD-718).
+    pub named: bool,
 }
 
 /// The kind of a symbol record; a method is a member, not an item.
@@ -67,7 +69,9 @@ fn item(record: &Record<SymbolFact>) -> Option<PublicItem> {
         | SymbolFact::StaticConstant(d)
         | SymbolFact::Macro(d) => (&d.module, &d.name, &d.parent, &d.visibility_detail),
     };
+    let named = visibility.basis != "macro_call";
     (parent.is_none() && visibility.kind == "public").then(|| PublicItem {
+        named,
         module: module.as_str().to_owned(),
         name: name.clone(),
         kind,
