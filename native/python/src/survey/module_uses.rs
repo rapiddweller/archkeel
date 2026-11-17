@@ -205,11 +205,9 @@ impl<'a> Visitor<'a> for Walk<'_, '_> {
         if matches!(expr, Expr::Attribute(_)) && self.chain(expr) {
             return;
         }
-        if let Expr::Name(node) = expr {
-            if node.ctx == ExprContext::Load {
-                if let Some((binding, _)) = self.bound(expr) {
-                    self.escaped.insert(binding);
-                }
+        if matches!(expr, Expr::Name(node) if node.ctx == ExprContext::Load) {
+            if let Some((binding, _)) = self.bound(expr) {
+                self.escaped.insert(binding);
             }
         }
         visitor::walk_expr(self, expr);
