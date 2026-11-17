@@ -345,7 +345,10 @@ def attacks() -> list[Plant]:
             why="a guarded module import is a named type-publication gap (UNKNOWN, never PASS)",
         )
     )
-    return found + names() + opens()
+    # The uses through a module object (AD-708) have their own file for the size limit.
+    from python_interface_module_plants import module_objects
+
+    return found + names() + module_objects() + opens()
 
 
 def names() -> list[Plant]:
@@ -390,17 +393,7 @@ def names() -> list[Plant]:
 def opens() -> list[Plant]:
     """The open false PASS forms: truth is FAIL, 4.0.1 says PASS, the core still says PASS."""
     p = Plant
-    private = {LIB: "from app.lib import _priv\n", "src/app/lib/_priv.py": "def secret(): pass\n"}
     return [
-        p(
-            "open: private submodule used through the public module object",
-            "import app.lib\napp.lib._priv.secret()\n",
-            ("app.lib",),
-            private,
-            truth="FAIL",
-            open_pass=True,
-            why="the rule judges imports, and a use through a public module object is no import",
-        ),
         p(
             "open: write through sys.modules",
             "import sys\nsys.modules['app.lib'].f = 1\n",
