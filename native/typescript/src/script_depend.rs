@@ -6,6 +6,8 @@
 //! (`collect._script_dependency`, `_script_source_target`, `_script_alias_evidence`,
 //! `_script_publication_evidence`).
 
+use std::collections::HashMap;
+
 use archkeel_facts::data::{BindingData, DoorForm, DoorSite, GapEffect};
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
@@ -192,10 +194,8 @@ impl<'a, 'p> Run<'a, 'p> {
             }
             return target;
         }
-        if let Some((outside_rel, span)) =
-            crate::script_outside::Outside::withholds(&self.outside, first).cloned()
-        {
-            return self.outside_target(&module, identity, first, evidence, (&outside_rel, &span));
+        if let Some((reason, site)) = self.withheld(first) {
+            return self.withheld_target(&module, identity, first, evidence, &reason, site);
         }
         let reason = format!("Script global {first}{UNPUBLISHED}");
         self.sink.targets.push(Target::Unresolved {
@@ -317,30 +317,52 @@ impl<'a, 'p> Run<'a, 'p> {
 }
 
 impl<'a, 'p> Run<'a, 'p> {
-    /// A use of a global that a file of the repository outside the scan roots replaces (#1546): an
-    /// unresolved target and a gap that cites the use and the write.
-    fn outside_target(
+    /// Why the native proof of `name` is withheld, and the write that withholds it: a file of
+    /// the repository outside the scan roots that replaces the global (#1546), or a member patch of
+    /// the global in a scanned file (#1674).
+    fn withheld(&self, name: &str) -> Option<(String, Option<(String, Span)>)> {
+        if let Some(cause) = Option::as_ref(&self.outside.incomplete) {
+            return Some((
+                format!("Script global {name} has no native proof: {cause}"),
+                None,
+            ));
+        }
+        if let Some((rel, span)) = crate::script_outside::Outside::withholds(&self.outside, name) {
+            let named = crate::script_outside::Outside::named(&self.outside, name);
+            let verb = if named { "is" } else { "can be" };
+            let reason =
+                format!("Script global {name} {verb} replaced by a file outside the scan roots");
+            return Some((reason, Some((rel.clone(), span.clone()))));
+        }
+        let (at, span) = HashMap::get(&self.project.paths.patched, name)?;
+        let (rel, _) = self.project.files.get(*at)?;
+        let reason = format!("Script global {name} is patched by a member write");
+        Some((reason, Some(((*rel).to_owned(), (*span).clone()))))
+    }
+
+    /// A use whose native proof is withheld: an unresolved target and a gap that cites the use
+    /// and the write.
+    fn withheld_target(
         &mut self,
         module: &str,
         identity: String,
         name: &str,
         evidence: String,
-        (rel, span): (&str, &Span),
+        reason: &str,
+        site: Option<(String, Span)>,
     ) -> String {
-        let named = crate::script_outside::Outside::named(&self.outside, name);
-        let verb = if named { "is" } else { "can be" };
-        let reason =
-            format!("Script global {name} {verb} replaced by a file outside the scan roots");
         self.sink.targets.push(Target::Unresolved {
             import_id: FactId::new(identity),
             specifier: name.to_owned(),
-            reason: reason.clone(),
+            reason: reason.to_owned(),
         });
-        let write = self.sink.cite(rel, span);
-        let fact = GapFact::resolution(&reason, module);
-        let (id, mut record) = GapRecord::unknown_gap(&reason, Some(&evidence), module, fact);
-        record.evidence_ids.push(EvidenceId::new(&write));
-        self.sink.gaps.push((id, record));
+        let fact = GapFact::resolution(reason, module);
+        let (id, mut record) = GapRecord::unknown_gap(reason, Some(&evidence), module, fact);
+        if let Some((rel, span)) = site {
+            let write = self.sink.cite(&rel, &span);
+            Vec::push(&mut record.evidence_ids, EvidenceId::new(&write));
+        }
+        Vec::push(&mut self.sink.gaps, (id, record));
         name.to_owned()
     }
 }

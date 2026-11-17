@@ -110,4 +110,6 @@ pub(crate) struct Script {
     pub contained_reads: Vec<(i64, i64)>,
     /// The places of the amplifier forms (a window member, `this`) with the kind of the form.
     pub amp_blockers: Vec<Blocker>,
+    /// The member patches of a free global (`Math.max = f`): the global and the place (#1674).
+    pub patches: Vec<Write>,
 }

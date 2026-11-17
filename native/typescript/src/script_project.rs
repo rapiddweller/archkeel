@@ -96,6 +96,8 @@ pub(crate) struct WritePaths<'a> {
     pub singles: HashMap<&'a str, Owners>,
     /// Some path starts with the name of a loader (`exports`, `module`, `define`).
     pub loader_first: bool,
+    /// The first member patch of each free global (#1674): the file and the place.
+    pub patched: HashMap<&'a str, (usize, &'a Span)>,
     /// Every path, to find the prefixes of them when a factory asks (`has_prefix`).
     all: Vec<&'a [String]>,
     prefixes: OnceCell<HashSet<&'a [String]>>,
@@ -316,6 +318,14 @@ impl<'a> Project<'a> {
                 .entry(&item.name)
                 .or_default()
                 .push((at, item));
+        }
+        for (name, span) in &script.script.patches {
+            if let Some(name) = name {
+                self.paths
+                    .patched
+                    .entry(name.as_str())
+                    .or_insert((at, span));
+            }
         }
         let top = global.then_some(&script.script.top_level_write_paths);
         let listed = script

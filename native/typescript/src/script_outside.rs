@@ -26,11 +26,23 @@ use crate::source_input::classify_file;
 use crate::syntax::Parsers;
 use crate::test_sources::is_test_source;
 
-/// The directories that hold installed packages: their code is outside the model.
+/// The directories that hold installed third-party packages. Their code is code outside the scan
+/// roots, so the premise covers it; the guard reads the code of the repository itself.
 const INSTALLED: [&str; 3] = ["node_modules", "jspm_packages", "bower_components"];
 
-/// The most files that the guard reads; a larger repository withholds every global.
-const MAX_FILES: usize = 4000;
+/// The hidden directories that hold no code of the repository: version-control metadata, and
+/// Python environments and tool caches (third-party packages and caches, as `INSTALLED`). Every
+/// other hidden directory is read: `.storybook`, `.vitepress` or `.config` can run in the page.
+const NOT_CODE: [&str; 8] = [
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+];
 
 /// A write of a file outside the scan roots: the file and the place.
 pub(crate) type Site = (String, Span);
@@ -40,8 +52,10 @@ pub(crate) type Site = (String, Span);
 pub(crate) struct Outside {
     /// The first write of each named global.
     pub names: BTreeMap<String, Site>,
-    /// The first write whose name the guard cannot read, or a file that it cannot read.
+    /// The first write whose name the guard cannot read, or a file that it cannot parse.
     pub any: Option<Site>,
+    /// Why the guard did not read every candidate file: then no global has a native proof.
+    pub incomplete: Option<String>,
 }
 
 impl Outside {
@@ -72,14 +86,12 @@ impl Outside {
 pub(crate) fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, roots: &[String]) -> Outside {
     let mut found = Outside::default();
     let files = outside_files(snapshot, roots);
-    if Vec::len(&files) > MAX_FILES {
-        found.any = Some((".".to_owned(), whole_file()));
-        return found;
-    }
+    let count = Vec::len(&files);
     for rel in files {
         let Some(data) = snapshot.read(&rel) else {
-            // A file that the guard cannot read can replace any global.
-            found.any.get_or_insert((rel, whole_file()));
+            // A file that the guard cannot read can replace any global. It is no digested input,
+            // so the cause names it and no evidence cites it.
+            found.incomplete.get_or_insert_with(|| unread(&rel, count));
             continue;
         };
         for (typescript, module, program) in programs(&rel, &data) {
@@ -94,6 +106,15 @@ pub(crate) fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, roots: &[Stri
         }
     }
     found
+}
+
+/// The cause of a run whose guard cannot read a file: the file, the count, and what to do.
+fn unread(rel: &str, count: usize) -> String {
+    format!(
+        "the global-writer guard cannot read {rel}, one of the {count} files outside the scan \
+         roots (over the size limit of a file or the input limit of a scan); move --root to the \
+         part of the repository that runs, or make the file smaller"
+    )
 }
 
 /// The place of a whole file.
@@ -121,15 +142,13 @@ fn outside_files(snapshot: &mut Snapshot, roots: &[String]) -> Vec<String> {
         }
         for child in children {
             let path = join(&directory, &child);
-            let skipped = child.starts_with('.') || INSTALLED.contains(&String::as_str(&child));
+            let name = String::as_str(&child);
+            let skipped = NOT_CODE.contains(&name) || INSTALLED.contains(&name);
             // A directory below a scan root is scanned; a directory above one is walked for its
             // other entries.
             if !skipped && !inside(&path) {
                 Vec::push(&mut pending, path);
             }
-        }
-        if Vec::len(&found) > MAX_FILES {
-            break;
         }
     }
     found.sort();
@@ -172,3 +191,7 @@ fn programs(rel: &str, data: &[u8]) -> Vec<(bool, bool, Vec<u8>)> {
 #[cfg(test)]
 #[path = "script_outside_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "script_member_patch_tests.rs"]
+mod member_patch_tests;

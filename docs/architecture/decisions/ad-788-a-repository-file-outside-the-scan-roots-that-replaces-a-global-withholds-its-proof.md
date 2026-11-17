@@ -1,6 +1,7 @@
 # AD-788: A repository file outside the scan roots that replaces a global withholds its proof
 
-Status: accepted (owner decision 2026-11-17, options A and B of #1546). Part of #880. Closes #1546.
+Status: accepted (owner decision 2026-11-17, options A and B of #1546). Part of #880. Closes #1546
+and #1674 (amendment of the lead review of #1668).
 It amends premise 4 of AD-540.
 
 ## Context
@@ -17,7 +18,9 @@ A rule that withholds every global proof is sound but makes every TypeScript rul
    the JSON key `premise` and the report show it wherever they show the assumption now.
 2. **Repository guard (B).** `script_outside.rs` reads each JavaScript, TypeScript and HTML file
    (inline scripts) of the repository outside the scan roots. It does not read test files (the
-   test-source rule of AD-313), declarations, installed-package directories and hidden directories.
+   test-source rule of AD-313), declarations, version-control metadata (`.git`, `.hg`, `.svn`),
+   Python environments and tool caches, and installed packages: third-party code under the
+   premise. Every other hidden folder is read.
    `script_outside_forms.rs` finds each write that replaces a global:
    - `window.x =` and the other window names (`globalThis`, `self`, `frames`, `top`, `parent`,
      `global`, `opener`), also with a literal key, `+=` and `++`;
@@ -27,12 +30,17 @@ A rule that withholds every global proof is sound but makes every TypeScript rul
    - `Object.assign`, `Object.defineProperty(ies)`, `Object.setPrototypeOf`, `Reflect.set`,
      `Reflect.defineProperty`, `Reflect.setPrototypeOf` on a window name, and
      `window.__defineGetter__` or `__defineSetter__`.
-   A member write of another global (`document.title = t`, `Math.max = f`) patches a member of a
-   platform object, not the global: it stays an open limit with the other member patches.
+   - a member patch of a global that the file does not declare (`Math.max = f`,
+     `Object.assign(Math, …)`, `console.__defineGetter__(…)`), unless the value is a literal.
+   `script_patch.rs` reads the same member patches in each scanned file (#1674): the gap reads
+   "Script global Math is patched by a member write" and cites the use and the write.
 3. **Effect.** A hit withholds the native proof of its name (`script_global.rs`). The use gets the
    gap "Script global X is replaced by a file outside the scan roots", which cites the use and the
-   write (file and line). A write whose name the guard cannot read (`window[k] =`), a file that it
-   cannot read or parse, and more than 4000 files withhold every global ("can be replaced").
+   write (file and line). A write whose name the guard cannot read (`window[k] =`) or a file that it
+   cannot parse withholds every global ("can be replaced"). A file that it cannot read (size or
+   input limit) withholds every global with the cause "the global-writer guard cannot read F …"
+   and no citation of F. There is no file limit: 50 000 small files outside the roots took 6.9 s
+   and 121 MB in all (graphql-js alone 0.6 s).
 
 ## Soundness
 The guard reads only what the repository holds; code outside the repository stays under the
@@ -43,12 +51,14 @@ it in another scope is missed. That is a gap of the guard, not of the premise: t
 covers it, and the report names the premise.
 
 ## Price
-Measured before and after (graphql-js v16.15.0, the TypeScript fixtures F, H, H-uml, L-nest and
-the Explorer scripts): see the PR. A repository with build scripts that write globals loses the
-proof of those names only.
+graphql-js (67 gaps) and the fixtures F, H, H-uml, L-nest are unchanged. Explorer scripts: 617
+gaps before and after the guard; 618 to 813 with the amendment (`flow.runtime.js:1`, a built copy in
+the repository, writes members of `document` and `location`). No rule changes.
 
 ## Tests
 `native/typescript/src/script_outside_tests.rs` (the plant, 11 forms, an unknown name, 6 quiet
 files, 5 files that are not read, the cited places); `tests/test_collector_false_pass_ts_outside_writer.py`
 (the plant through the release core: UNKNOWN with the file in the repository, PASS under the printed
-assumption without it).
+assumption without it); `script_member_patch_tests.rs` and
+`tests/test_collector_false_pass_ts_member_patch.py` (#1674: the patch in a scanned file and outside
+the roots, a literal and a local object keep the proof).
