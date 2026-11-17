@@ -7653,7 +7653,29 @@
       "provenance": [
         "docs/architecture/decisions/ad-670-a-public-name-that-no-other-component-uses-is-a-violation.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "external_users": [
+        {
+          "symbol": "native.archkeel_snapshot.work:MAX_SCAN_BYTES",
+          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
+          "rationale": "the byte cap of a scan: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
+        },
+        {
+          "symbol": "native.archkeel_snapshot.work:MAX_NESTING",
+          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
+          "rationale": "the nesting cap of a parse: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
+        },
+        {
+          "symbol": "native.archkeel_snapshot.test_tree:read_bytes",
+          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
+          "rationale": "the bytes checked at the read boundary: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
+        },
+        {
+          "symbol": "native.archkeel_snapshot.test_tree:charged_bytes",
+          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
+          "rationale": "the input charge of the active scan: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
+        }
+      ]
     }
   ]
 }

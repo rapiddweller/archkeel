@@ -299,6 +299,14 @@
         "FAIL"
       ],
       "reason": "AD-670: the new rule unused_public shows public functions and constants that no other component uses (#1402); FAIL until narrowed or deleted."
+    },
+    {
+      "entry": [
+        "unknown",
+        "NATIVE-PUBLIC-HAS-A-USER",
+        "scope_incomplete"
+      ],
+      "reason": "AD-670: the 21 violations of the rule are fixed in code (narrowed, deleted or stated as external users), so the rule leaves FAIL (worse to better). It cannot PASS yet: the Rust collector does not state every public symbol (AD-598), so the proof of the scope is missing and the rule stays UNKNOWN, as AD-670 requires."
     }
   ]
 }
