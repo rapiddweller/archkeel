@@ -30,6 +30,7 @@ pub struct Module {
     exports_literal: bool,
     compatibility_logic_free: bool,
     class_inventory_empty: bool,
+    class_inventory_site: Option<String>,
 }
 
 impl Module {
@@ -80,6 +81,11 @@ impl Module {
 
     pub(crate) fn class_inventory_empty(&self) -> bool {
         self.class_inventory_empty
+    }
+
+    /// A call of the file that can create a class at run time (#1713), as `path:line (callee)`.
+    pub(crate) fn class_inventory_site(&self) -> Option<&str> {
+        self.class_inventory_site.as_deref()
     }
 }
 
@@ -159,6 +165,7 @@ pub(crate) fn tables(files: &[FileFact]) -> Result<Tables, Reason> {
                 exports_literal: file.all_literal,
                 compatibility_logic_free: file.compatibility_logic_free,
                 class_inventory_empty: file.class_inventory_empty == Some(true),
+                class_inventory_site: file.class_inventory_site.clone(),
             })
             .collect(),
     )

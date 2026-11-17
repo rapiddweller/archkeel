@@ -130,6 +130,21 @@ value that an import from outside the scan and the standard library gives, with 
 a module of the scan, is a gap of the edges of its module (AD-760); a loader handed in as a
 parameter is the same open class.
 
+**Python `symbol_placement` (AD-726, AD-728, #1713).** A PASS needs the receipt "no written
+class" for each selected module outside the allowed sources. A call that can create a class at run
+time withholds the receipt, and the rule is UNKNOWN with the site: "a call can create a class at
+`path:line (callee)`". Such a call is:
+- a factory of the standard library, by the import that binds its name: `Enum` and the other
+  `enum` classes, `namedtuple`, `NamedTuple`, `TypedDict`, `make_dataclass`, `types.new_class`,
+  `ABCMeta`, `__build_class__`, `type` with three arguments;
+- a call in the shape of a metaclass call (`M("Name", (...), {...})`);
+- a call whose result the module calls or passes as the class of `isinstance` or `issubclass`.
+
+The plants are in `tests/test_collector_false_pass_python_placement.py`. Open: a call of another
+library function that creates a class and sets its `__module__` to the caller (`attrs.make_class`,
+`pydantic.create_model`) and whose result the module only returns gives no such site. The rule then
+reads the module as holding no class. This is an open false-PASS class, not an accepted limit.
+
 **Python module and class bindings (AD-642, #1360).** A module- or class-level binding such as
 `for site in sites: site.id` can retain an `import_system_change` gap. These namespaces resolve
 names in execution order. The survey does not yet prove the binding at each read.
