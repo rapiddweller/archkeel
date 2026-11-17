@@ -333,8 +333,12 @@ impl<'a, 'p> Run<'a, 'p> {
         if let Some((rel, span)) = crate::script_outside::Outside::withholds(&self.outside, name) {
             let named = crate::script_outside::Outside::named(&self.outside, name);
             let verb = if named { "is" } else { "can be" };
-            let reason =
-                format!("Script global {name} {verb} replaced by a file outside the scan roots");
+            let address = crate::script_outside::Outside::is_address(&self.outside, (rel, span));
+            let reason = if address {
+                format!("Script global {name} can be replaced by a code address in a data file")
+            } else {
+                format!("Script global {name} {verb} replaced by a file outside the scan roots")
+            };
             return Some((reason, Some((rel.clone(), span.clone()))));
         }
         None

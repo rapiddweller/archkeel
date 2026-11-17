@@ -31,11 +31,12 @@ use crate::site_records::{self, Pass};
 use crate::symbol_table::SymbolTable;
 use crate::symbols;
 
-/// The assumption that the proofs of a script global rest on (AD-540, amended by #1546). The report
+/// The assumption that the proofs of a script global rest on (AD-540, amended by #1546 and #1662). The report
 /// states it with the verdict. The collector cannot see code outside the repository; a file of the
 /// repository outside the scan roots that replaces a global is read (`script_outside.rs`).
-const SCRIPT_PREMISE: &str =
-    "code outside the scan roots hands in no global or platform object and replaces no global";
+const SCRIPT_PREMISE: &str = "code outside the scan roots hands in no global or platform object \
+     and replaces no global, and addresses that a framework renders from data hold no javascript: \
+     code";
 
 /// The import features that each registered set of the collector states (`native` set).
 const NATIVE_IMPORTS: [&str; 4] = [

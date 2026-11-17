@@ -3820,6 +3820,7 @@
         "native.archkeel_typescript_collector.source_input:classify_asset",
         "native.archkeel_typescript_collector.source_input:classify_file",
         "native.archkeel_typescript_collector.source_input:classify_specifier",
+        "native.archkeel_typescript_collector.source_input:code_address",
         "native.archkeel_typescript_collector.source_input:is_script_root",
         "native.archkeel_typescript_collector.source_input:is_window_name",
         "native.archkeel_typescript_collector.source_input:shadowed",

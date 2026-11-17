@@ -59,12 +59,21 @@ pub(crate) struct Outside {
     /// The member patches of each global (#1674): the written path (see `Found::patch`) and the
     /// write.
     pub patches: BTreeMap<String, Vec<(Vec<String>, Site)>>,
+    /// The first code address of a data file below a scan root (#1662, AD-810).
+    pub address: Option<Site>,
 }
 
 impl Outside {
     /// The write that withholds the proof of `name`, if any.
     pub(crate) fn withholds(&self, name: &str) -> Option<&Site> {
-        BTreeMap::get(&self.names, name).or(Option::as_ref(&self.any))
+        BTreeMap::get(&self.names, name)
+            .or(Option::as_ref(&self.any))
+            .or(Option::as_ref(&self.address))
+    }
+
+    /// The site is the code address of a data file, not a write of a file outside the roots.
+    pub(crate) fn is_address(&self, site: (&str, &Span)) -> bool {
+        Option::as_ref(&self.address).is_some_and(|(rel, span)| (String::as_str(rel), span) == site)
     }
 
     /// A write names `name` (and not only a write whose name the guard cannot read).
@@ -97,6 +106,8 @@ pub(crate) fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, roots: &[Stri
     let mut found = Outside::default();
     let files = outside_files(snapshot, roots);
     let count = Vec::len(&files);
+    // The code address of a data file below a scan root (#1662, AD-810).
+    found.address = addresses(snapshot, roots);
     for rel in files {
         let Some(data) = snapshot.read(&rel) else {
             // A file that the guard cannot read can replace any global. It is no digested input,
@@ -116,6 +127,73 @@ pub(crate) fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, roots: &[Stri
         }
     }
     found
+}
+
+/// The first JSON or YAML file below a scan root whose text holds a code address, with its line.
+/// A file that the guard cannot read counts as such a file.
+fn addresses(snapshot: &mut Snapshot, roots: &[String]) -> Option<Site> {
+    for rel in data_files(snapshot, roots) {
+        let Some(data) = snapshot.read(&rel) else {
+            return Some((rel, at_line(1)));
+        };
+        let text = String::from_utf8_lossy(&data);
+        if !crate::source_input::code_address(&text) {
+            continue;
+        }
+        let line = text
+            .lines()
+            .position(crate::source_input::code_address)
+            .map_or(1, |index| index + 1);
+        return Some((rel, at_line(line)));
+    }
+    None
+}
+
+/// The JSON and YAML files below the scan roots, without installed and hidden directories, sorted.
+fn data_files(snapshot: &mut Snapshot, roots: &[String]) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut pending: Vec<String> = roots.to_vec();
+    while let Some(directory) = Vec::pop(&mut pending) {
+        if snapshot.is_file(&directory) {
+            if data_file(&directory) {
+                Vec::push(&mut found, directory);
+            }
+            continue;
+        }
+        let (files, children) = snapshot.entries(&directory);
+        let data = files
+            .iter()
+            .map(|name| join(&directory, name))
+            .filter(|rel| data_file(rel) && roots.iter().any(|root| within(root, rel)));
+        Vec::extend(&mut found, data);
+        let walked = children
+            .iter()
+            .filter(|name| !name.starts_with('.') && !INSTALLED.contains(&String::as_str(name)))
+            .map(|name| join(&directory, name));
+        Vec::extend(&mut pending, walked);
+    }
+    found.sort();
+    found.dedup();
+    found
+}
+
+/// A file with a JSON or YAML suffix, in any letter case.
+fn data_file(rel: &str) -> bool {
+    let lower = str::to_ascii_lowercase(rel);
+    [".json", ".yaml", ".yml"]
+        .iter()
+        .any(|suffix| lower.ends_with(suffix))
+}
+
+/// The place of one line of a file.
+fn at_line(line: usize) -> Span {
+    let line = i64::try_from(line).unwrap_or(i64::MAX);
+    Span {
+        line,
+        end_line: line,
+        column: 0,
+        excerpt: String::new(),
+    }
 }
 
 /// The cause of a run whose guard cannot read a file: the file, the count, and what to do.

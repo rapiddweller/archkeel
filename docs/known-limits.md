@@ -567,11 +567,16 @@ is a direct form; a document (`document`, `ownerDocument`, `contentDocument`) th
 or returned or taken by a pattern is an amplifier form; a write of `href`, `src`, `action`,
 `formAction`, `data` or `baseVal`, or `setAttribute` of such an attribute, with a value that is no
 literal is an amplifier form; `execCommand('insertHTML', …)` with markup that is no inert literal is a
-direct form. An address that a framework renders from data (`<a href={url}>`) stays open (#1662).
+direct form. An address that a framework renders from data (`<a href={url}>`) is covered by the
+printed assumption of AD-810 (#1662): such addresses hold no `javascript:` code. A string or template
+of the scanned sources, or a JSON or YAML file below a scan root, whose text holds `javascript:`,
+`vbscript:` or `data:text/html` (any letter case, also with a tab or line end inside) withholds
+every global proof, and the gap names the place.
 Plants: `tests/test_cli_native_dom_code.py`.
 Older classes stay open too: a use through `opener` or `document.defaultView`.
 AD-788 (#1546, #1674) states the premise of every TypeScript verdict as "code outside the scan
-roots hands in no global or platform object and replaces no global" (text header, JSON `premise`,
+roots hands in no global or platform object and replaces no global"; AD-810 (#1662) adds "and
+addresses that a framework renders from data hold no javascript: code" (text header, JSON `premise`,
 report). Every JavaScript, TypeScript or HTML file of the repository outside the scan roots is read
 for a write that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, an assignment to an
 undeclared name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the
