@@ -263,14 +263,17 @@
       countLabel,
     };
   }
+  // #1644: a box that the report makes (a group or a directory) is no decision of the contract.
   const decider = (value) => value === "agent" ? "Agent" : value === "architect" ? "Architect"
+    : value === "report" ? "Report (structure)"
     : value && value !== "UNKNOWN" ? String(value) : "Not recorded";
   const perspectives = {
     decision: { label: "Decided by", value: (node) => node.component ? decider(node.component.decided_by) : null,
-      colors: { Agent: "var(--accent)", Architect: "var(--ink-muted)", "Not recorded": "var(--ink-subtle)" } },
+      colors: { Agent: "var(--accent)", Architect: "var(--ink-muted)", "Report (structure)": "var(--ink-subtle)", "Not recorded": "var(--ink-subtle)" } },
     layer: { label: "Layer", value: (node) => node.component?.layer || null },
     // AD-606: the language of the collector of the modules inside the component, from the frame.
-    language: { label: "Language", value: (node) => node.component?.language || null },
+    // A module box carries the language of its own collector, or of its part (issue 1488 review).
+    language: { label: "Language", value: (node) => node.component?.language || node.module?.language || null },
     evidence: { label: "Evidence", value: (node) => node.component?.status || null,
       colors: { PASS: "var(--pass)", FAIL: "var(--fail)", UNKNOWN: "var(--unknown)" } },
   };

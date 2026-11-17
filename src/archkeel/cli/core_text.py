@@ -145,11 +145,14 @@ def _reason_of(frame: CoreFrame, code: int, outcome: Outcome) -> str:
     return f"{counts[RuleStatus.UNKNOWN]} of {total} rules cannot be decided"
 
 
-def header(command: Command, frame: CoreFrame, code: int, outcome: Outcome) -> str:
-    """The first line: the word of the exit code, the code and the reason."""
+def header(
+    command: Command, frame: CoreFrame, code: int, outcome: Outcome, scanned: str = ""
+) -> str:
+    """The first line: the word of the exit code, the code, the reason and (AD-776) the root
+    and the configuration that the run scanned."""
     invalid = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
     word = "REFUSED" if invalid else word_of(code)
-    return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)})"
+    return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)}){scanned}"
 
 
 def _new_violations(frame: CoreFrame, total: int) -> int:
@@ -303,6 +306,7 @@ def render(
     code: int,
     *,
     outcome: Outcome,
+    scanned: str = "",
     problems: Sequence[str] = (),
     show_all: bool = False,
     system: Mapping[str, object] | None = None,
@@ -318,7 +322,7 @@ def render(
     ranking = sorted([*ranking, *named_ranking], key=lambda item: -item[1])
     errors = _errors(frame, contract_files)
     refused_file = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
-    out = [header(command, frame, code, outcome), *errors, *problems]
+    out = [header(command, frame, code, outcome, scanned), *errors, *problems]
     if errors:
         ranking = [("the problem above", len(errors)), *ranking]
     if (action := _next_action(frame, ranking)) is not None:
@@ -357,10 +361,12 @@ def _system(system: Mapping[str, object]) -> list[str]:
     return out
 
 
-def refusal(command: Command | None, code: int, message: str, fix: str | None) -> list[str]:
+def refusal(
+    command: Command | None, code: int, message: str, fix: str | None, scanned: str = ""
+) -> list[str]:
     """The text of a command that could not run: the problem, then the fix."""
     head = f"{command}: " if command is not None else ""
-    out = [f"{head}REFUSED -> exit {code}", f"Problem: {message}"]
+    out = [f"{head}REFUSED -> exit {code}{scanned}", f"Problem: {message}"]
     if fix:
         out.append(f"Fix: {fix}")
     return out
@@ -375,6 +381,7 @@ def summary(
     ignored: Mapping[str, str] | None = None,
     *,
     outcome: Outcome,
+    scanned: str = "",
 ) -> list[str]:
     """The text for a CI log: the header, the errors, the top jobs and a few violations.
 
@@ -386,7 +393,7 @@ def summary(
     ranking = sorted([*ranking, *named], key=lambda item: -item[1])
     if errors:
         ranking = [("the problem above", len(errors)), *ranking]
-    out = [header(command, frame, code, outcome), *errors, *problems]
+    out = [header(command, frame, code, outcome, scanned), *errors, *problems]
     if (action := _next_action(frame, ranking)) is not None:
         out.append(f"Next: {action}")
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]

@@ -130,8 +130,17 @@ fn modules(
     let mut rows = Vec::new();
     let mut assignments = Vec::new();
     for (i, module) in topology.modules.iter().enumerate() {
+        // The language of the collector that read the module; else the language of its part.
+        let language = Some(module.language.clone())
+            .filter(|l| !l.is_empty())
+            .or_else(|| {
+                let owner = *tree.owner.get(&module.name)?;
+                let languages = &tree.languages[owner];
+                (!languages.is_empty())
+                    .then(|| languages.iter().cloned().collect::<Vec<_>>().join(" + "))
+            });
         rows.push(json!({
-            "id": module.name, "name": module.name, "path": module.path, "rank": null,
+            "id": module.name, "name": module.name, "path": module.path, "rank": null, "language": language,
             "fan_in": fan[i].0.len(), "fan_out": fan[i].1.len(), "evidence_ids": [],
             "symbol_coverage": 0, "symbols": null,
         }));

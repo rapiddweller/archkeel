@@ -46,6 +46,23 @@ impl PathStep {
     }
 }
 
+/// One detail without a cycle: the shared shape of the arms of `ViolationDetail::of`.
+fn detail(
+    source: String,
+    target: Option<String>,
+    cause: &'static str,
+    evidence: &[String],
+) -> ViolationDetail {
+    ViolationDetail {
+        source,
+        target,
+        cause,
+        evidence: evidence.to_vec(),
+        members: None,
+        path: None,
+    }
+}
+
 impl ViolationDetail {
     pub(crate) fn source(&self) -> &str {
         &self.source
@@ -56,24 +73,22 @@ impl ViolationDetail {
     }
 
     fn cited(cause: &'static str, cited: &Cited) -> Self {
-        Self {
-            source: cited.source_module.clone(),
-            target: Some(cited.target_module.clone()),
+        detail(
+            cited.source_module.clone(),
+            Some(cited.target_module.clone()),
             cause,
-            evidence: cited.evidence.clone(),
-            ..Self::default()
-        }
+            &cited.evidence,
+        )
     }
 
     /// The evidence of one differing assessment of a UML target row (AD-494).
     pub(crate) fn uml(diff: &archkeel_model::UmlDiff) -> Self {
-        Self {
-            source: diff.subject.clone(),
-            target: Some(diff.fact.clone()),
-            cause: diff.cause,
-            evidence: diff.evidence.clone(),
-            ..Self::default()
-        }
+        detail(
+            diff.subject.clone(),
+            Some(diff.fact.clone()),
+            diff.cause,
+            &diff.evidence,
+        )
     }
 
     pub(crate) fn of(violation: &Violation) -> Self {
@@ -87,32 +102,29 @@ impl ViolationDetail {
             Violation::Unrequired { cited, .. } => {
                 Self::cited("undeclared component dependency", cited)
             }
-            Violation::Unassigned { name, evidence, .. } => Self {
-                source: name.clone(),
-                target: None,
-                cause: "module has no unique owner",
-                evidence: vec![evidence.clone()],
-                ..Self::default()
-            },
+            Violation::Unassigned { name, evidence, .. } => detail(
+                name.clone(),
+                None,
+                "module has no unique owner",
+                std::slice::from_ref(evidence),
+            ),
             Violation::NotAllowedChild {
                 root,
                 child,
                 evidence,
                 ..
-            } => Self {
-                source: root.clone(),
-                target: Some(child.clone()),
-                cause: "child outside root layout",
-                evidence: vec![evidence.clone()],
-                ..Self::default()
-            },
-            Violation::OuterLayer(layer) => Self {
-                source: layer.source_component.clone(),
-                target: Some(layer.target_component.clone()),
-                cause: "dependency violates layer order",
-                evidence: vec![layer.evidence.clone()],
-                ..Self::default()
-            },
+            } => detail(
+                root.clone(),
+                Some(child.clone()),
+                "child outside root layout",
+                std::slice::from_ref(evidence),
+            ),
+            Violation::OuterLayer(layer) => detail(
+                layer.source_component.clone(),
+                Some(layer.target_component.clone()),
+                "dependency violates layer order",
+                std::slice::from_ref(&layer.evidence),
+            ),
             Violation::Cycle(cycle) => Self {
                 source: cycle.members.join(" -> "),
                 target: cycle.members.first().cloned(),
@@ -125,54 +137,48 @@ impl ViolationDetail {
                         .collect(),
                 ),
             },
-            Violation::Construct(row) => Self {
-                source: format!("{} ({})", row.owner, row.construct),
-                target: None,
-                cause: "forbidden construct",
-                evidence: row.evidence.clone(),
-                ..Self::default()
-            },
-            Violation::BoundaryType(row) => Self {
-                source: row.subject.clone(),
-                target: Some(row.text.clone()),
-                cause: "written type outside the boundary types",
-                evidence: row.evidence.clone(),
-                ..Self::default()
-            },
+            Violation::Construct(row) => detail(
+                format!("{} ({})", row.owner, row.construct),
+                None,
+                "forbidden construct",
+                &row.evidence,
+            ),
+            Violation::BoundaryType(row) => detail(
+                row.subject.clone(),
+                Some(row.text.clone()),
+                "written type outside the boundary types",
+                &row.evidence,
+            ),
             // AD-670: the source is the module, the target the item in the form `module:name`.
-            Violation::UnusedPublic(row) => Self {
-                source: row.module.clone(),
-                target: Some(format!("{}:{}", row.module, row.name)),
-                cause: "public name that no other component uses",
-                evidence: row.evidence.clone(),
-                ..Self::default()
-            },
-            Violation::SymbolPlacement(row) => Self {
-                source: row.name.clone(),
-                target: Some(row.module.clone()),
-                cause: "class outside allowed modules",
-                evidence: row.evidence.clone(),
-                ..Self::default()
-            },
+            Violation::UnusedPublic(row) => detail(
+                row.module.clone(),
+                Some(format!("{}:{}", row.module, row.name)),
+                "public name that no other component uses",
+                &row.evidence,
+            ),
+            Violation::SymbolPlacement(row) => detail(
+                row.name.clone(),
+                Some(row.module.clone()),
+                "class outside allowed modules",
+                &row.evidence,
+            ),
             // AD-428: the target names the imported symbol in the selector form `module:name`.
-            Violation::PrivateImport { cited, symbol, .. } => Self {
-                source: cited.source_module.clone(),
-                target: Some(match symbol {
+            Violation::PrivateImport { cited, symbol, .. } => detail(
+                cited.source_module.clone(),
+                Some(match symbol {
                     Some(name) => format!("{}:{name}", cited.target_module),
                     None => cited.target_module.clone(),
                 }),
-                cause: "import outside the public interface",
-                evidence: cited.evidence.clone(),
-                ..Self::default()
-            },
+                "import outside the public interface",
+                &cited.evidence,
+            ),
             // AD-608: the target is the published name in the selector form `module:name`.
-            Violation::Publication(found) => Self {
-                source: found.cited.source_module.clone(),
-                target: Some(format!("{}:{}", found.cited.source_module, found.name)),
-                cause: "publication outside the public interface",
-                evidence: found.cited.evidence.clone(),
-                ..Self::default()
-            },
+            Violation::Publication(found) => detail(
+                found.cited.source_module.clone(),
+                Some(format!("{}:{}", found.cited.source_module, found.name)),
+                "publication outside the public interface",
+                &found.cited.evidence,
+            ),
         }
     }
 }

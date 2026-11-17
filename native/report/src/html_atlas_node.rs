@@ -27,4 +27,19 @@ pub(super) struct Node {
     /// A box that the report makes for one directory of the modules of a large component: no
     /// contract text is its own.
     pub(super) directory: bool,
+    /// A box that the report makes to split a level with more boxes than stay readable (AD-630):
+    /// the report decided it, not the contract (#1644).
+    pub(super) grouped: bool,
+}
+
+impl Node {
+    /// Who decided that the box exists: the report for a directory or a group box that it makes,
+    /// else the architect, whose contract declares the component or the layer.
+    pub(super) fn decided_by(&self) -> &'static str {
+        if self.directory || self.grouped {
+            "report"
+        } else {
+            "architect"
+        }
+    }
 }

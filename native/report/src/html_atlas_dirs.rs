@@ -139,6 +139,7 @@ fn directory(nodes: &[Node], owner: usize, label: &str, count: usize, all: usize
         members: None,
         rank: None,
         directory: true,
+        grouped: false,
     }
 }
 
