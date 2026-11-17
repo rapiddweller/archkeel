@@ -479,8 +479,8 @@ A write through them (`top.x = 1`) publishes nothing, but it blocks each proof o
 A write `o.x = …` blocks the global `x` unless `o` is a local new value or the `this` of a
 constructor, a field or a static block. An unknown key on a window value, a window value that
 escapes, and code from a text block every global proof of the project.
-Open false PASS, not accepted (AD-460, AD-508): any alias of `Object`, `Reflect`, `location` or
-`open` (an alias of `Object` or `Reflect` that writes by reflection, a navigation through an alias); a computed key
+Open false PASS, not accepted (AD-460, AD-508): any alias of `location` or `open` (a navigation
+through an alias); a computed key
 in a pattern (`const { [k]: v } = e`); any global that navigates or opens (`open('', '_self')`,
 `document.open`); a destructured or aliased `setTimeout`; and DOM code from text outside the named
 triggers (a `src` or `href` that is no literal, and a click on the element).
@@ -490,8 +490,11 @@ a parameter, a call result or a member) is an amplifier form, and so is `Object.
 `Object.defineProperty(ies)`, `Object.setPrototypeOf`, `Reflect.set`, `Reflect.defineProperty` or
 `Reflect.setPrototypeOf` on such a value (direct on a window value). With a host entry they block
 every global proof. A new value, `Object.create(…)`, a local name bound once to a new value and the
-`this` of a constructor keep the proof. Plants: `native/typescript/src/script_window_value_tests.rs`,
-`tests/test_collector_false_pass_ts_window_values.py`.
+`this` of a constructor keep the proof. The same holds for a reflective member that is read through
+a window name (`globalThis.Object.assign`) and for `__defineGetter__` or `__defineSetter__` of any
+object. A reflective member or an accessor member used as a value (stored, passed, called through
+`call` or `apply`, `Reflect.apply(Reflect.set, …)`) is direct. Plants:
+`native/typescript/src/script_window_value_tests.rs`, `tests/test_collector_false_pass_ts_window_values.py`.
 AD-508 closed these forms: a write with a run-time key through `this` of a class method, through
 `super` or through a name bound once to such a `this`; a call, `new`, tagged template, `call`,
 `apply` or `bind` of a member with a run-time key (also through a comma, a condition, a logical
