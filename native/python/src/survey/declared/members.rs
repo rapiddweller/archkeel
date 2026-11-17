@@ -21,6 +21,7 @@ use ruff_text_size::Ranged;
 use super::kind::Kind;
 use super::reader::{Reader, Unwritable};
 use crate::declare::visibility;
+use crate::module::builtin_roles::{self, Role};
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
 
@@ -44,11 +45,17 @@ pub(super) fn attributes(
     for statement in &node.body {
         let start = statement.range().start();
         let (names, annotation) = match statement {
-            // A bare annotation binds nothing at run time, and a value of no proven kind may be a
-            // function or a class: only `name: T = literal` is an attribute.
+            // A bare annotation declares an instance attribute without binding a value (AD-748).
             Stmt::AnnAssign(assign) => match (&*assign.target, assign.value.as_deref()) {
                 (_, _) if enumeration => return Ok(open()),
                 (Expr::Name(name), Some(value)) if constant(value) => {
+                    (vec![name.id.as_str()], scan.text(Some(&assign.annotation))?)
+                }
+                (Expr::Name(name), None)
+                    if matches!(&*assign.annotation, Expr::Name(annotation)
+                        if builtin_roles::named(Role::ANNOTATION).any(|builtin| builtin == annotation.id.as_str())
+                        && !bound.names().contains(annotation.id.as_str())) =>
+                {
                     (vec![name.id.as_str()], scan.text(Some(&assign.annotation))?)
                 }
                 _ => continue,

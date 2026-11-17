@@ -32,6 +32,7 @@ mod discover;
 #[cfg(feature = "dump")]
 pub mod dump;
 mod exports;
+mod file_mode;
 mod glob;
 mod import_bindings;
 mod installed;
@@ -74,6 +75,7 @@ mod script_global;
 mod script_host;
 mod script_index;
 mod script_keys;
+mod script_lookup;
 mod script_names;
 mod script_namespace;
 mod script_numeric;
