@@ -11,14 +11,20 @@ Python and Dart projects: the rules that read the import graph are decided, and 
 
 The details follow.
 
-### Release-blocking soundness audit
+### Open report false PASS
+
+**Explorer status:** When a run has a failed rule and an unported rule, the report can show PASS
+for boxes whose status is not proven. The run itself is FAIL and exits 1.
+See [#1507](https://github.com/rapiddweller/archkeel/issues/1507).
+
+### Release-blocking collector audit
 
 The 2026-11-17 audit uses the core built from `323f09881`. Each plant is synthetic.
 Run `make core`, then `uv run --locked archkeel validate --config <plant>/archkeel.toml --json`.
 The issues below contain the fixture files and exact output. Each reported false PASS exits 0.
 Documentation does not accept these defects. They block the 5.0.0 release.
 
-| Class | Plant | Current result | Active issue |
+| Class | Plant | Result at `323f09881` | Active issue |
 |---|---|---|---|
 | Rust value dispatch | `c::make().m()`, with the type and impl in `b`; 13 forms and a foreign trait glob | false PASS | [#1515](https://github.com/rapiddweller/archkeel/issues/1515) |
 | Rust trait dispatch | a generic bound, supertrait, dyn supertrait or re-export; 4 forms | false PASS | [#1516](https://github.com/rapiddweller/archkeel/issues/1516) |
@@ -37,7 +43,7 @@ Documentation does not accept these defects. They block the 5.0.0 release.
 | TypeScript installed source | a package in `node_modules` imports project source | false PASS | [#1529](https://github.com/rapiddweller/archkeel/issues/1529) |
 | TypeScript outside writer | an outside script assigns a scanned function to `window.open` | false PASS | [#1546](https://github.com/rapiddweller/archkeel/issues/1546) |
 
-These tested forms no longer give a false PASS:
+At the same audit base, these tested forms no longer give a false PASS:
 
 - Python `import app.lib; app.lib._priv.secret()` gives FAIL. An escaped module binding gives
   UNKNOWN with an unproven publication route. The fixtures are in
