@@ -9,7 +9,7 @@ use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::sections::SignalFact;
 use archkeel_facts::vocab::{Area, ConstructForm, EvidenceClass, Signal};
-use archkeel_facts::{ConstructFact, Record};
+use archkeel_facts::{ConstructFact, ImportFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{CmpOp, ExceptHandler, Expr, Parameter, Stmt};
 use ruff_text_size::Ranged;
@@ -21,17 +21,30 @@ use crate::module::{EvidenceMap, Location, Module};
 
 #[path = "constructs_ignores.rs"]
 mod ignores;
+#[path = "constructs_placeholder.rs"]
+mod placeholder;
 
 pub(super) fn collect(
     modules: &[Module],
     binders: &[Binders],
+    imports: &[Record<ImportFact>],
+    sets: (&HashSet<String>, &HashSet<String>),
     evidence: &mut EvidenceMap,
 ) -> Findings {
     let mut records = Vec::new();
     let mut signals = Vec::new();
     let mut support = Support::start();
+    let by_module = super::declared::placeholder::by_module(imports);
     for (module, binders) in modules.iter().zip(binders) {
-        let found = one(module, binders, evidence);
+        let source_imports = by_module
+            .get(module.name.as_str())
+            .map_or(&[][..], Vec::as_slice);
+        let withheld =
+            super::declared::placeholder::withheld(module, binders, source_imports, sets);
+        let mut found = one(module, binders, evidence);
+        found
+            .records
+            .extend(placeholder::collect(module, evidence, &withheld));
         records.extend(found.records);
         signals.extend(found.signals);
         support.meet(&found.support);
@@ -293,11 +306,7 @@ impl Walk<'_> {
         else {
             return;
         };
-        let mut data = self.signal_data(Signal::TypeIgnore, None);
-        data.line = Some(location.line);
-        data.qualified_name = Some(self.owner.clone());
-        data.statement = Some(text);
-        data.tag = Some(tag);
+        let data = ignores::data(&self.owner, location.line, tag, text);
         self.signal(
             stmt,
             "type_ignore",

@@ -141,7 +141,9 @@ fn an_import_with_known_symbols_or_a_specifier_is_refused() {
     let tree = project();
     let mut reply = reply(&tree);
     imports(&mut reply)[0].data.data_mut().symbols_known = true;
-    assert!(refused(reply).contains("no known symbols"));
+    // AD-749: a named record has a known binding; a namespace import with known symbols is not
+    // a named record, so the claim is inconsistent.
+    assert!(refused(reply).contains("a named Dart import has a known binding"));
 }
 
 #[test]
@@ -182,10 +184,10 @@ fn a_part_with_two_owners_is_refused() {
     assert!(refused(reply).contains("no unique owner"));
 }
 
-/// The validation table of the survey (AD-688, AD-468): exactly the sections `imports` and
-/// `unknowns`, and no interface statement.
+/// The validation table of the survey (AD-688, AD-468, AD-749): exactly the sections `imports` and
+/// `unknowns`; the interface statement needs no feature (the stated publication surface).
 #[test]
-fn the_table_of_the_survey_registers_only_its_two_sections_and_no_interface() {
+fn the_table_of_the_survey_registers_only_its_two_sections_and_the_interface_needs_no_feature() {
     use archkeel_facts::envelope::{LimitSupport, SectionName};
     let tree = project();
     let mut symbols = reply(&tree);
@@ -206,8 +208,5 @@ fn the_table_of_the_survey_registers_only_its_two_sections_and_no_interface() {
     if let Some(limits) = interface.facts.profile_limits.as_mut() {
         limits.interface_boundary = LimitSupport::Supported;
     }
-    assert_eq!(
-        refused(interface),
-        "the collector makes no interface statement"
-    );
+    archkeel_store::ingest_typed(interface).expect("the interface statement needs no feature");
 }

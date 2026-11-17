@@ -38,6 +38,7 @@ mod escapes;
 mod found;
 mod kind;
 mod members;
+pub(in crate::survey) mod placeholder;
 mod reader;
 mod scope;
 mod shape_names;

@@ -85,7 +85,9 @@ fn validation(version: &str) -> Validation {
     registered.push(all.clone());
     all = all.with_construct(Construct::Cast.word(), &partial);
     registered.push(all.clone());
-    registered.push(all.with_construct(Construct::TypeIgnore.word(), &either));
+    all = all.with_construct(Construct::TypeIgnore.word(), &either);
+    registered.push(all.clone());
+    registered.push(all.with_construct(Construct::Placeholder.word(), &partial));
     Validation {
         registered,
         interface: InterfaceNeed::Feature(ROUTES_FEATURE.to_owned()),

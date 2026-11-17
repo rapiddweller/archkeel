@@ -82,7 +82,8 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
             "any_annotation",
             "dynamic_import",
             "cast",
-            "type_ignore"
+            "type_ignore",
+            "placeholder_body"
         ]
     );
     assert!(capabilities
@@ -105,6 +106,10 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
     assert_eq!(
         capabilities.constructs[9].status,
         archkeel_facts::envelope::ConstructSupport::Supported
+    );
+    assert_eq!(
+        capabilities.constructs[10].status,
+        archkeel_facts::envelope::ConstructSupport::Partial
     );
     let written: Vec<&str> = reply
         .facts
@@ -144,7 +149,7 @@ fn the_validation_table_only_admits_partial_any_annotations() {
         .flat_map(|set| &set.constructs)
         .filter(|entry| entry.name == "any_annotation")
         .collect();
-    assert_eq!(entries.len(), 4);
+    assert_eq!(entries.len(), 5);
     assert!(entries
         .iter()
         .all(|entry| entry.statuses == [ConstructSupport::Partial]));
