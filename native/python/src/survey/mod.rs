@@ -35,6 +35,7 @@ mod copy_local;
 mod declared;
 mod effects;
 mod excluded;
+mod external_loader;
 mod failures;
 mod globals_locals;
 mod globals_project;
@@ -249,6 +250,14 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         let module = &modules[index];
         let id = module.evidence(&mut evidence, &site.range);
         let (key, gap) = targets::hazard_gap(site, module, &id);
+        sites.insert(key, gap);
+    }
+    // #1519: a call of a value from outside the scan with a string that names a module of it.
+    for (index, range, target) in external_loader::find(modules, &stdlib, namespace) {
+        let module = &modules[index];
+        let id = module.evidence(&mut evidence, &range);
+        let kind = external_loader::EXTERNAL_LOADER;
+        let (key, gap) = targets::site_gap(kind, &target, &module.name, &id);
         sites.insert(key, gap);
     }
     unknowns.extend(found);
