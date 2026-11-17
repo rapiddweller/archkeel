@@ -8,6 +8,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-738 | [One data file owns the source suffixes of both languages](ad-738-one-data-file-owns-the-source-suffixes-of-both-languages.md) |
+| AD-731 | [Under a baseline, only a verdict exits 2](ad-731-under-a-baseline-only-a-verdict-exits-2.md) |
 | AD-716 | [Metadata attribute reads retain their import gap](ad-716-metadata-attribute-reads-retain-their-import-gap.md) |
 | AD-708 | [A use of a name through a Python module object is the import of that name](ad-708-a-use-of-a-name-through-a-python-module-object-is-the-import-of-that-name.md) |
 | AD-710 | [The fact sheet of a layer or group aggregates its members, and findings read as words](ad-710-the-fact-sheet-of-a-layer-or-group-aggregates-its-members.md) |
@@ -30,6 +31,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-662 | [A macro whose expansion the scan does not read gives a gap](ad-662-a-macro-whose-expansion-the-scan-does-not-read-gives-a-gap.md) |
 | AD-736 | [The merge tools share one decision table](ad-736-the-merge-tools-share-one-decision-table.md) |
 | AD-733 | [A growth entry whose finding is gone is stale, and the ratchet says so](ad-733-a-growth-entry-whose-finding-is-gone-is-stale-and-the-ratchet-says-so.md) |
+| AD-732 | [The core cache is saved only after its build and carries a tree stamp](ad-732-the-core-cache-is-saved-only-after-its-build-and-carries-a-tree-stamp.md) |
 | AD-678 | [No new suppression, and a new production file starts at 400 lines at most](ad-678-no-new-suppression-and-a-new-file-starts-small.md) |
 | AD-676 | [The merge tool merges only on green and never with admin](ad-676-the-merge-tool-merges-only-on-green-and-never-with-admin.md) |
 | AD-674 | [Three gate tiers, and a merge only on green](ad-674-three-gate-tiers-and-merge-only-on-green.md) |

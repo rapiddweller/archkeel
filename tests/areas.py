@@ -34,6 +34,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_merge_pr.py",
         "test_born_small.py",
         "test_ratchet_stale.py",
+        "test_core_cache.py",
         "test_doc_references_exist.py",
         "test_make_gate.py",
         "test_make_self_check.py",

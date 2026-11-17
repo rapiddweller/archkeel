@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from archkeel.cli import core_arguments, core_binary, core_only, core_text, native_scan
+from archkeel.cli.core_exit import Outcome
 from archkeel.cli.core_frame import CoreError, RefusalKind, Status
 
 HEAD = "a" * 40
@@ -98,7 +99,8 @@ def test_the_text_verdict_prints_the_assumption(
 ) -> None:
     document = json.loads(frame(status))
     document["premise"] = "code outside the scan roots hands in no global object"
-    print("\n".join(core_text.render("validate", _read(document), EXIT[status])))
+    lines = core_text.render("validate", _read(document), EXIT[status], outcome=Outcome.VERDICT)
+    print("\n".join(lines))
     lines = capsys.readouterr().out.splitlines()
     assert lines[0].startswith(f"validate: {status} -> exit {EXIT[status]} (")
     assert "Assumption: code outside the scan roots hands in no global object" in lines
@@ -123,7 +125,8 @@ def _stated_once_frame() -> dict:
 def test_a_collection_gap_may_carry_a_detail_and_the_text_names_it_once(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    print("\n".join(core_text.render("validate", _read(_stated_once_frame()), 2)))
+    lines = core_text.render("validate", _read(_stated_once_frame()), 2, outcome=Outcome.VERDICT)
+    print("\n".join(lines))
     text = capsys.readouterr().out
     assert text.count("7 uses of 2 free standard names depend on it") == 1
     assert "src/u1.ts:1" in text and "source_resolution_gap" not in text

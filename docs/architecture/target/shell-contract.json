@@ -70,7 +70,7 @@
         "archkeel.cli.core_exit"
       ],
       "responsibilities": [
-        "State the one exit table and the exit code of one run."
+        "State the one exit table and the exit code of each outcome of a command."
       ],
       "forbidden_responsibilities": [
         "Print or read the command line."
@@ -85,8 +85,12 @@
         }
       ],
       "public": [
-        "archkeel.cli.core_exit:exit_code",
+        "archkeel.cli.core_exit:Outcome",
+        "archkeel.cli.core_exit:exit_for",
+        "archkeel.cli.core_exit:outcome_of",
+        "archkeel.cli.core_exit:require_baseline_part",
         "archkeel.cli.core_exit:table_lines",
+        "archkeel.cli.core_exit:verdict_code",
         "archkeel.cli.core_exit:word_of"
       ],
       "decided_by": "architect"

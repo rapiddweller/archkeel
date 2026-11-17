@@ -18,7 +18,7 @@ from .core_baseline import lines as baseline_lines
 from .core_doors import DECLARED, declared, door_lines
 from .core_doors import qualifier as door_qualifier
 from .core_evidence import CollectionGap, call_lines
-from .core_exit import word_of
+from .core_exit import Outcome, verdict_code, word_of
 from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
 from .core_json import Gap
@@ -74,35 +74,48 @@ def _assuming(doors: int) -> str:
     return door_qualifier(doors).replace("PASS", "pass", 1)
 
 
-def _reason_of(frame: CoreFrame, code: int) -> str:
-    """Why the run exits with `code`: one sentence for the header."""
-    counts = Counter(verdict.status for verdict in frame.rules.values())
-    total = len(frame.rules)
-    refused = any(gap.kind is GapKind.COLLECT for gap in frame.gaps)
-    if (baseline := frame.baseline) is not None:
-        if baseline.new or baseline.gone:
+def _baseline_reason(frame: CoreFrame, baseline: BaselineResult, code: int) -> str:
+    """Why a verdict with a baseline part exits with `code`: by the state that the core gave."""
+    match baseline.state:
+        case BaselineState.DRIFT:
             return (
                 f"the run differs from the baseline: {len(baseline.new)} new, "
                 f"{len(baseline.gone)} no longer present"
             )
-        if baseline.state == "invalid":
+        case BaselineState.INVALID:
             return f"baseline {_invalid(baseline)}"
-        if baseline.state == "not_compared":
+        case BaselineState.NOT_COMPARED:
             return "the baseline cannot be compared: a part of the run is refused"
-        if code == 0 and frame.status is Status.FAIL:
-            return f"{sum(frame.violations.values())} violations are accepted by the baseline"
-        if code == 2:
+        case BaselineState.NOT_WRITTEN:
+            return "the baseline cannot be written: a part of the run is refused"
+        case BaselineState.CURRENT | BaselineState.WRITTEN:
+            if code == 0 and frame.status is Status.FAIL:
+                return f"{sum(frame.violations.values())} violations are accepted by the baseline"
+            if code == 2:
+                return (
+                    f"{baseline.accepted_unknowns} accepted items stay UNKNOWN: "
+                    "a baseline records them and does not decide them"
+                )
+            return "nothing differs from the baseline"
+
+
+def _reason_of(frame: CoreFrame, code: int, outcome: Outcome) -> str:
+    """Why the run exits with `code`: one sentence for the header."""
+    match outcome:
+        case Outcome.COLLECT_REFUSED | Outcome.COMMAND_REFUSED:
+            return "the scan did not run"
+        case Outcome.DELIVERY_FAILED if code != verdict_code(frame):
             return (
-                f"{baseline.accepted_unknowns} accepted items stay UNKNOWN: "
-                "a baseline records them and does not decide them"
+                f"the run is {frame.status}; the exit is {code} because a file could not be written"
             )
-        return "nothing differs from the baseline"
-    if refused:
-        return "the scan did not run"
+        case Outcome.DELIVERY_FAILED | Outcome.VERDICT:
+            pass
+    if (baseline := frame.baseline) is not None:
+        return _baseline_reason(frame, baseline, code)
+    counts = Counter(verdict.status for verdict in frame.rules.values())
+    total = len(frame.rules)
     if not frame.rules and any(gap.kind in PROBLEM_KINDS for gap in frame.gaps):
         return "no rule could be read: see the problem below"
-    if word_of(code) != frame.status:
-        return f"the run is {frame.status}; the exit is {code} because a file could not be written"
     if frame.status is Status.PASS and frame.doors:
         return f"all {total} rules pass; {len(frame.assumed)} {_assuming(len(frame.doors))}"
     if frame.status is Status.PASS:
@@ -122,11 +135,11 @@ def _reason_of(frame: CoreFrame, code: int) -> str:
     return f"{counts[RuleStatus.UNKNOWN]} of {total} rules cannot be decided"
 
 
-def header(command: Command, frame: CoreFrame, code: int) -> str:
+def header(command: Command, frame: CoreFrame, code: int, outcome: Outcome) -> str:
     """The first line: the word of the exit code, the code and the reason."""
     invalid = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
     word = "REFUSED" if invalid else word_of(code)
-    return f"{command}: {word} -> exit {code} ({_reason_of(frame, code)})"
+    return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)})"
 
 
 def _next_action(frame: CoreFrame, groups: Sequence[tuple[str, int]]) -> str | None:
@@ -298,6 +311,7 @@ def render(
     frame: CoreFrame,
     code: int,
     *,
+    outcome: Outcome,
     problems: Sequence[str] = (),
     show_all: bool = False,
     system: Mapping[str, object] | None = None,
@@ -313,7 +327,7 @@ def render(
     ranking = sorted([*ranking, *named_ranking], key=lambda item: -item[1])
     errors = _errors(frame, contract_files)
     refused_file = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
-    out = [header(command, frame, code), *errors, *problems]
+    out = [header(command, frame, code, outcome), *errors, *problems]
     if errors:
         ranking = [("the problem above", len(errors)), *ranking]
     if (action := _next_action(frame, ranking)) is not None:
@@ -367,6 +381,8 @@ def summary(
     contract_files: Sequence[str] = (),
     problems: Sequence[str] = (),
     ignored: Mapping[str, str] | None = None,
+    *,
+    outcome: Outcome,
 ) -> list[str]:
     """The text for a CI log: the header, the errors, the top jobs and a few violations.
 
@@ -378,7 +394,7 @@ def summary(
     ranking = sorted([*ranking, *named], key=lambda item: -item[1])
     if errors:
         ranking = [("the problem above", len(errors)), *ranking]
-    out = [header(command, frame, code), *errors, *problems]
+    out = [header(command, frame, code, outcome), *errors, *problems]
     if (action := _next_action(frame, ranking)) is not None:
         out.append(f"Next: {action}")
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]
