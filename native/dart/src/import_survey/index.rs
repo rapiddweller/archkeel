@@ -31,6 +31,8 @@ pub(crate) struct Index<'a> {
     pub(crate) syntax: Vec<Option<Syntax>>,
     pub(crate) kinds: Vec<Kind>,
     pub(crate) by_rel: HashMap<&'a str, usize>,
+    /// The module of each selected source.
+    pub(crate) modules: std::collections::HashSet<&'a str>,
     pub(crate) isolate_loader: bool,
     /// The package map of the root package (AD-800).
     pub(crate) packages: super::package_map::PackageMap,
@@ -44,6 +46,11 @@ pub(crate) enum Located {
 }
 
 impl Index<'_> {
+    /// True when a selected source has the module `name`.
+    pub(crate) fn is_module(&self, name: &str) -> bool {
+        self.modules.contains(name)
+    }
+
     /// Classify `uri` of a directive in the source `importer` of this package.
     pub(crate) fn classify(&self, importer: &str, uri: &str) -> super::uri::Uri {
         super::uri::classify_in(importer, uri, self.package, self.package_dir)

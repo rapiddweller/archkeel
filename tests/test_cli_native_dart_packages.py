@@ -228,3 +228,77 @@ def test_an_app_inside_a_workspace_is_the_package_of_its_scan(
         assert result["frame"]["scope"] == "complete", gaps
     else:
         assert gap in gaps, gaps
+
+
+@pytest.mark.parametrize(
+    ("namespace", "files"),
+    [
+        # dart-lang/tools `pkgs/sse` before AD-808: no own package, and the namespace is the
+        # package name, so `package:shop/b.dart` names the module of `lib/b.dart`.
+        ("shop", {"lib/a.dart": "import 'package:shop/b.dart';\n", "lib/b.dart": "class B {}\n"}),
+        (
+            "shop",
+            {
+                "pubspec.yaml": "name: other\n",
+                "lib/a.dart": "import 'package:shop/b.dart';\n",
+                "lib/b.dart": "",
+            },
+        ),
+        # The namespace `dart` makes `lib/async.dart` the module `dart.async`.
+        ("dart", {"lib/a.dart": "import 'dart:async';\n", "lib/async.dart": "class A {}\n"}),
+    ],
+)
+def test_a_module_name_of_another_package_is_a_gap_and_never_a_refusal(
+    release_core: Path, tmp_path: Path, namespace: str, files: dict[str, str]
+) -> None:
+    # #1706: the store refused the whole reply ("observed local module cannot be an external
+    # target"). A valid project is never refused: the import is a gap that names the module.
+    for name, text in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    (tmp_path / "archkeel.toml").write_text(
+        f'[scan]\nlanguage = "dart"\nroots = ["lib"]\nnamespace = "{namespace}"\n'
+        'contract = "architecture-contract.json"\n'
+    )
+    contract = {
+        "schema_version": "2.2.0",
+        "components": [component("a", [namespace], [])],
+        "rules": [{**RULE, "id": "ASSIGN", "kind": "complete_assignment", "source": namespace}],
+    }
+    (tmp_path / "architecture-contract.json").write_text(json.dumps(contract))
+    (tmp_path / "p").write_text(GRAPH)
+    _commit(tmp_path)
+    result = verdict(release_core, tmp_path, "report")
+    assert "refusal" not in result, result.get("refusal")
+    assert "DartUnsupportedUri" in json.dumps(result["frame"]["collection_gaps"])
+
+
+def test_a_class_under_an_unsupported_sdk_constraint_is_never_a_refusal(
+    release_core: Path, tmp_path: Path
+) -> None:
+    # #1706, dart-lang/tools `pkgs/boring` (`sdk: ^3.13.3`): the collector dropped the member
+    # inventories of each class under an SDK that it does not support, and the store refused the
+    # reply ("missing field `member_inventories`"). They stay, as partial.
+    files = {
+        "pubspec.yaml": "name: shop\nenvironment:\n  sdk: ^3.13.3\n",
+        "lib/a.dart": "class A {\n  int x = 1;\n  void run() {}\n}\n",
+    }
+    for name, text in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    (tmp_path / "archkeel.toml").write_text(
+        '[scan]\nlanguage = "dart"\nroots = ["lib"]\nnamespace = "shop"\n'
+        'contract = "architecture-contract.json"\n'
+    )
+    contract = {
+        "schema_version": "2.2.0",
+        "components": [component("a", ["shop"], [])],
+        "rules": [{**RULE, "id": "ASSIGN", "kind": "complete_assignment", "source": "shop"}],
+    }
+    (tmp_path / "architecture-contract.json").write_text(json.dumps(contract))
+    (tmp_path / "p").write_text(GRAPH)
+    _commit(tmp_path)
+    result = verdict(release_core, tmp_path, "report")
+    assert "refusal" not in result, result.get("refusal")
