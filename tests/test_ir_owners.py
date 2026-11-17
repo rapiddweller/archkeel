@@ -33,6 +33,7 @@ SHELL = frozenset(
         "cli/core_exit.py",
         "cli/core_frame.py",
         "cli/core_help.py",
+        "cli/core_gaps.py",
         "cli/core_text.py",
         "cli/core_words.py",
         "cli/core_arguments.py",

@@ -15,16 +15,16 @@ from collections.abc import Mapping, Sequence
 
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
-from .core_doors import DECLARED, declared, door_lines
+from .core_doors import door_lines
 from .core_doors import qualifier as premise_qualifier
-from .core_evidence import CollectionGap, call_lines
+from .core_evidence import call_lines
 from .core_exit import Outcome, verdict_code, word_of
 from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
+from .core_gaps import SHOWN, group_lines, not_installed_lines, places, rest
 from .core_json import Gap
-from .core_words import CAUSE_FIXES, NOT_FOUND_PREFIX, contract_fix, kind_label, plain
+from .core_words import CAUSE_FIXES, contract_fix, kind_label, plain
 
-_SHOWN = 3
 #: The named parts that an `init` draft leaves: decisions that the person has not made yet.
 DRAFT_KINDS = frozenset(
     {
@@ -48,18 +48,6 @@ _VIOLATIONS_SHOWN = 10
 _MAX_JOBS = 3
 _SUMMARY_LINES = 15
 _SUMMARY_VIOLATIONS = 5
-
-
-def _more(total: int, shown: int, show_all: bool) -> str:
-    return "" if show_all or total <= shown else f" and {total - shown} more (--all lists them)"
-
-
-def _places(frame: CoreFrame, evidence: Sequence[str], limit: int) -> list[str]:
-    return [
-        f"{location.path}:{location.line}" if location.line else location.path
-        for key in evidence
-        if (location := frame.locations.get(key))
-    ][:limit]
 
 
 def _invalid(baseline: BaselineResult) -> str:
@@ -214,141 +202,17 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     texts: dict[str, int] = {}
     for rule, row in rows if show_all else rows[:_VIOLATIONS_SHOWN]:
         edge = row.source if row.target is None else f"{row.source} -> {row.target}"
-        where = ", ".join(_places(frame, row.evidence, _SHOWN))
+        where = ", ".join(places(frame, row.evidence, SHOWN))
         text = f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else "")
         texts[text] = texts.get(text, 0) + 1  # one line per place; a repeat is counted
     lines.extend(f"{text} (x{n})" if n > 1 else text for text, n in texts.items())
-    if more := _more(len(rows), _VIOLATIONS_SHOWN, show_all):
+    if more := rest(len(rows), _VIOLATIONS_SHOWN, show_all):
         lines.append(f"  {more.strip()}")
     causes = dict.fromkeys(row.cause for _, row in rows)
     lines.extend(
         f"  Fix for '{cause}': {CAUSE_FIXES[cause]}" for cause in causes if cause in CAUSE_FIXES
     )
     return lines
-
-
-_NOT_FOUND_LABEL = "an imported module that has no file in the scan"
-
-
-def _missing(gap: CollectionGap) -> str | None:
-    """The module name of a gap `project_module_not_found: NAME`, or `None`."""
-    return (
-        gap.reason.removeprefix(NOT_FOUND_PREFIX)
-        if gap.reason.startswith(NOT_FOUND_PREFIX)
-        else None
-    )
-
-
-def _group_lines(
-    frame: CoreFrame, show_all: bool, ignored: Mapping[str, str] | None = None
-) -> tuple[list[str], list[tuple[str, int]]]:
-    """The source gaps grouped by cause, the largest group first, and the ranking.
-
-    A module that is imported and has no file is its own group: the line says whether a Git ignore
-    rule covers the file (the usual case of a generated module) and what to do.
-    """
-    groups: dict[str, list[int]] = {}
-    for index, gap in enumerate(frame.collection_gaps):
-        lines_of = [place.line for e in gap.evidence if (place := frame.locations.get(e))]
-        if declared(gap.subjects, lines_of, frame.doors):
-            key = kind_label(DECLARED)
-        else:
-            key = _NOT_FOUND_LABEL if _missing(gap) is not None else kind_label(gap.kind)
-        groups.setdefault(key, []).append(index)
-    ranked = sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
-    lines: list[str] = []
-    jobs: list[tuple[str, int]] = []
-    for label, members in ranked:
-        causes = _causes(frame, members) if label not in _PLAIN_LABELS else {label: members}
-        if len(causes) > 1:
-            lines.extend(_cause_lines(frame, label, members, causes, show_all))
-            if label != kind_label(DECLARED):
-                jobs.extend((cause, len(rows)) for cause, rows in causes.items())
-            continue
-        first = frame.collection_gaps[members[0]]
-        lead = "" if label == _NOT_FOUND_LABEL else f": {plain(first.reason)}"
-        lines.append(f"  {len(members)} x {label}{lead}")
-        lines.extend(_member_lines(frame, members, show_all, ignored))
-        if label == _NOT_FOUND_LABEL:
-            lines.append(
-                "      Fix: generate or build the module before the scan, or leave out the files "
-                "that import it."
-            )
-        if label != kind_label(DECLARED):
-            jobs.append((label, len(members)))
-    return lines, jobs
-
-
-_PLAIN_LABELS = frozenset({_NOT_FOUND_LABEL})
-
-
-def _cause(gap: CollectionGap) -> str:
-    """The cause of a gap: its reason up to the first colon (the part that names the variable
-    thing, such as the module or the alias, follows the colon)."""
-    return plain(gap.reason).split(": ", 1)[0]
-
-
-def _causes(frame: CoreFrame, members: Sequence[int]) -> dict[str, list[int]]:
-    """The members of one kind of gap by cause, the largest cause first."""
-    found: dict[str, list[int]] = {}
-    for index in members:
-        found.setdefault(_cause(frame.collection_gaps[index]), []).append(index)
-    return dict(sorted(found.items(), key=lambda item: (-len(item[1]), item[0])))
-
-
-def _member_lines(
-    frame: CoreFrame, members: Sequence[int], show_all: bool, ignored: Mapping[str, str] | None
-) -> list[str]:
-    """The places of the members of one group: three, or all with `--all`."""
-    lines = []
-    for index in members if show_all else members[:_SHOWN]:
-        gap = frame.collection_gaps[index]
-        where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
-        name = _missing(gap)
-        note = _generated(name, ignored or {}) if name is not None else ""
-        tail = f" ({plain(gap.detail)})" if gap.detail else ""
-        lines.append(f"      {where}{': ' + name if name else ''}{note}{tail}")
-    if more := _more(len(members), _SHOWN, show_all):
-        lines.append(f"      {more.strip()}")
-    return lines
-
-
-def _cause_lines(
-    frame: CoreFrame,
-    label: str,
-    members: Sequence[int],
-    causes: Mapping[str, Sequence[int]],
-    show_all: bool,
-) -> list[str]:
-    """One kind of gap with several causes: the count of each cause and one example each.
-
-    The three largest causes come first, then `and N more causes`; `--all` lists every cause with
-    every place.
-    """
-    lines = [f"  {len(members)} x {label}, in {len(causes)} causes:"]
-    shown = list(causes.items()) if show_all else list(causes.items())[:_SHOWN]
-    for cause, rows in shown:
-        gap = frame.collection_gaps[rows[0]]
-        where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
-        lines.append(f"      {len(rows)} x {cause}")
-        if show_all:
-            lines.extend(f"      {line}" for line in _member_lines(frame, rows, True, None))
-        else:
-            example = plain(gap.reason)
-            lines.append(f"          e.g. {example} ({where})")
-    if hidden := len(causes) - len(shown):
-        lines.append(
-            f"      and {hidden} more {'cause' if hidden == 1 else 'causes'} (--all lists them)"
-        )
-    return lines
-
-
-def _generated(name: str, ignored: Mapping[str, str]) -> str:
-    """What a Git ignore rule says about the missing module, or what to check without one."""
-    rule = ignored.get(name)
-    if rule is None:
-        return " (no file; it may be generated, or the import is wrong)"
-    return f" (no file; the ignore rule {rule} covers it, so it is probably generated)"
 
 
 def _waiting_lines(frame: CoreFrame, show_all: bool) -> list[str]:
@@ -360,8 +224,8 @@ def _waiting_lines(frame: CoreFrame, show_all: bool) -> list[str]:
         return []
     lines = [f"Rules that wait ({len(frame.explained)}):"]
     for reason, rules in sorted(groups.items(), key=lambda item: (-len(item[1]), item[0])):
-        shown = rules if show_all else rules[:_SHOWN]
-        more = _more(len(rules), _SHOWN, show_all)
+        shown = rules if show_all else rules[:SHOWN]
+        more = rest(len(rules), SHOWN, show_all)
         lines.append(f"  {len(rules)} rules: {reason}")
         lines.append(f"      {', '.join(shown)}{more}")
     return lines
@@ -379,11 +243,11 @@ def _named_lines(frame: CoreFrame, show_all: bool) -> tuple[list[str], list[tupl
     )
     for kind, rows in ranked:
         lines.append(f"  {len(rows)} x {kind_label(kind)}")
-        for subject, reason in rows if show_all else rows[:_SHOWN]:
+        for subject, reason in rows if show_all else rows[:SHOWN]:
             lines.append(
                 f"      {reason if subject.startswith('hygiene:') else f'{subject}: {reason}'}"
             )
-        if more := _more(len(rows), _SHOWN, show_all):
+        if more := rest(len(rows), SHOWN, show_all):
             lines.append(f"      {more.strip()}")
     return lines, [(kind_label(kind), len(rows)) for kind, rows in ranked]
 
@@ -433,7 +297,7 @@ def render(
 
     `ignored` maps a missing module to the Git ignore rule that covers its file.
     """
-    gap_lines, ranking = _group_lines(frame, show_all, ignored)
+    gap_lines, ranking = group_lines(frame, show_all, ignored)
     named_lines, named_ranking = _named_lines(frame, show_all)
     ranking = sorted([*ranking, *named_ranking], key=lambda item: -item[1])
     errors = _errors(frame, contract_files)
@@ -445,13 +309,14 @@ def render(
         out.append(f"Next: {action}")
     if frame.premise is not None:
         out.append(f"Assumption: {frame.premise}")
-    out.extend(door_lines(frame.premises, frame.doors, _SHOWN, show_all))
+    out.extend(door_lines(frame.premises, frame.doors, SHOWN, show_all))
     if system:
         out.extend(_system(system))
     out.extend(_violation_lines(frame, show_all))
     out.extend(_waiting_lines(frame, show_all))
     if gap_lines:
         out.append(f"Gaps in the scan ({len(frame.collection_gaps)}):")
+        out.extend(not_installed_lines(frame))
         out.extend(gap_lines)
     out.extend(named_lines)
     if frame.baseline is not None and not refused_file:
@@ -499,7 +364,7 @@ def summary(
 
     It prints about fifteen lines at most, whatever the size of the run.
     """
-    _, ranking = _group_lines(frame, False, ignored)
+    _, ranking = group_lines(frame, False, ignored)
     _, named = _named_lines(frame, False)
     errors = _errors(frame, contract_files)
     ranking = sorted([*ranking, *named], key=lambda item: -item[1])

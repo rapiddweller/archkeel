@@ -26,6 +26,7 @@ Archkeel checks the shell with its own core and the contract in
 | `words` | `core_words` | Say in plain words what a machine word means; strip internal numbers from a message (AD-632). |
 | `exit` | `core_exit` | The one exit table and the exit code of one run. |
 | `text` | `core_text` | The text of a run for a person: header with exit code and reason, then problems, violations, grouped causes. |
+| `gaps` | `core_gaps` | The lines of the gaps of a scan: grouped by cause with a count and one example each, and the packages that were not found. |
 | `help` | `core_help` | The help of the tool and of each command. |
 | `skill` | `skill` | Install the coding-agent skill. |
 | `init` | `init_draft`, `init_areas`, `init_binding` | Draft `archkeel.toml`, a first contract and its document from the folder layout and manifests: one configuration, or a system with one part for each language area and the interface of a stated PyO3 binding (AD-626, AD-638, AD-660, AD-784). It reads no source and writes only missing files. |
@@ -61,57 +62,62 @@ flowchart LR
     n_5["entry"]
     n_6["exit"]
     n_7["frame"]
-    n_8["help"]
-    n_9["init"]
-    n_10["json"]
-    n_11["launch"]
-    n_12["locate"]
-    n_13["output"]
-    n_14["schema"]
-    n_15["skill"]
-    n_16["text"]
-    n_17["words"]
+    n_8["gaps"]
+    n_9["help"]
+    n_10["init"]
+    n_11["json"]
+    n_12["launch"]
+    n_13["locate"]
+    n_14["output"]
+    n_15["schema"]
+    n_16["skill"]
+    n_17["text"]
+    n_18["words"]
     n_0 --> n_7
-    n_1 --> n_10
-    n_1 --> n_17
-    n_2 --> n_10
+    n_1 --> n_11
+    n_1 --> n_18
+    n_2 --> n_11
     n_3 --> n_0
     n_3 --> n_1
     n_3 --> n_2
     n_3 --> n_6
     n_3 --> n_7
-    n_3 --> n_8
     n_3 --> n_9
     n_3 --> n_10
     n_3 --> n_11
     n_3 --> n_12
     n_3 --> n_13
-    n_3 --> n_15
+    n_3 --> n_14
     n_3 --> n_16
     n_3 --> n_17
-    n_4 --> n_10
-    n_4 --> n_14
+    n_3 --> n_18
+    n_4 --> n_11
+    n_4 --> n_15
     n_5 --> n_3
     n_6 --> n_7
     n_7 --> n_1
     n_7 --> n_2
     n_7 --> n_4
-    n_7 --> n_10
-    n_7 --> n_13
+    n_7 --> n_11
     n_7 --> n_14
-    n_8 --> n_0
-    n_8 --> n_6
+    n_7 --> n_15
+    n_8 --> n_4
     n_8 --> n_7
-    n_9 --> n_14
-    n_11 --> n_7
-    n_11 --> n_10
-    n_12 --> n_10
-    n_13 --> n_10
-    n_14 --> n_10
-    n_16 --> n_1
-    n_16 --> n_4
-    n_16 --> n_6
-    n_16 --> n_7
-    n_16 --> n_10
-    n_16 --> n_17
+    n_8 --> n_18
+    n_9 --> n_0
+    n_9 --> n_6
+    n_9 --> n_7
+    n_10 --> n_15
+    n_12 --> n_7
+    n_12 --> n_11
+    n_13 --> n_11
+    n_14 --> n_11
+    n_15 --> n_11
+    n_17 --> n_1
+    n_17 --> n_4
+    n_17 --> n_6
+    n_17 --> n_7
+    n_17 --> n_8
+    n_17 --> n_11
+    n_17 --> n_18
 ```

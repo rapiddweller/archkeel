@@ -191,6 +191,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         for node in tree.nodes.iter().copied() {
             found.writes.extend(tree.declaration_write(node));
             found.check(self.node_write(node), tree.span(node), form_of(node));
+            found.check(
+                self.prototype_escape(node).then_some(Written::Unknown),
+                tree.span(node),
+                "a prototype of the global object that is passed on",
+            );
             while let Some((_, target)) = targets.next_if(|(owner, _)| owner.id() == node.id()) {
                 self.declared_target(node, *target, &mut found);
                 found.check(
@@ -207,6 +212,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                     self.location_target(node, *target),
                     tree.span(node),
                     "a navigation to a text that is no literal",
+                );
+                found.check(
+                    self.prototype_write(*target),
+                    tree.span(node),
+                    "a write that changes a prototype of the global object",
                 );
                 found.check(
                     self.changed_global(*target),
