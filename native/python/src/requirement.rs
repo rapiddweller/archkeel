@@ -36,7 +36,7 @@ impl Prepared {
 }
 
 /// Select the grammar and standard library from the snapshot and the configured target.
-pub(crate) fn target(
+fn target(
     snapshot: &mut Snapshot,
     settings: &PythonSettings,
 ) -> Result<(Interpreter, TargetSource), String> {
