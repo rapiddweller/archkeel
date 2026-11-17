@@ -30,7 +30,10 @@ from test_cli_python_profile_limits import CONSTRUCT, Plant, scanned
         ),
         ("from typing import Protocol as P\nclass C(P):\n    def check(self): ...\n", "UNKNOWN"),
         ("import typing as t\nclass C(t.Protocol):\n    def check(self): pass\n", "UNKNOWN"),
-        ("from typing import Protocol\nclass C(Protocol):\n    def check(self): 'doc'\n", "UNKNOWN"),
+        (
+            "from typing import Protocol\nclass C(Protocol):\n    def check(self): 'doc'\n",
+            "UNKNOWN",
+        ),
         ("from other import Base\nclass C(Base):\n    def check(self): ...\n", "UNKNOWN"),
         ("from abc import abstractmethod\n@abstractmethod\ndef check(): ...\n", "UNKNOWN"),
         ("from typing import overload\n@overload\ndef check(): ...\n", "UNKNOWN"),
@@ -54,5 +57,7 @@ def test_a_protocol_body_is_a_declaration() -> None:
         "from typing import Protocol\nclass P(Protocol):\n    def check(self): ...\n"
         "class C(P):\n    pass\nprint(P._is_protocol)\n"
     )
-    done = subprocess.run([sys.executable, "-c", source], capture_output=True, text=True, check=True)
+    done = subprocess.run(
+        [sys.executable, "-c", source], capture_output=True, text=True, check=True
+    )
     assert done.stdout.strip() == "True"
