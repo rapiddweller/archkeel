@@ -11,7 +11,8 @@ gave PASS for the rule `a` must not use `b`. Now each gives UNKNOWN: the pair ga
 
 - Control: an impl in the module of its type or of its trait keeps its verdict (PASS).
 - Control: the contract allows `a -> b`: the core drops the gap (PASS).
-- Open false PASS, not accepted: a value of a type of `b` that `a` gets from another module.
+- A value of a type of `b` that `a` gets from another module, and a trait of `b` that `a` reaches
+  through a bound, a supertrait or a re-export: `a` reaches `b`, so it gets the pair gap (AD-806).
 """
 
 from __future__ import annotations
@@ -346,9 +347,10 @@ def test_a_trait_impl_in_a_module_of_a_crate_gives_a_pair_gap_to_a_crate_that_de
     assert _verdict(result, "NO-A-TO-B") == "UNKNOWN", claims(result)
 
 
-# Open false PASS, not accepted (AD-516): `a` gets a value of a type of `b` from `c`. The impl is
-# in the module of that type, so no module is an orphan, and `a` never names `b`. The scan reads
-# no types of values (the class of a method on a value of a type that the caller does not name).
+# #1515, #1516 (AD-806): `a` gets a value of a type of `b` from `c`, or reaches a trait of `b`
+# through `c`. The impl is in the module of its type or trait, so no module is an orphan, and `a`
+# never names `b`. Before AD-806 each form gave a false PASS. `a` reaches `b` over `c`, and `b`
+# holds a trait impl that runs code: the pair gap `a -> b`.
 OPEN: dict[str, dict[str, str]] = {
     **{f"a value of a type of b: {name}": files for name, files in OPEN_VALUE_FORMS.items()},
     **{f"the trait is defined in b: {name}": files for name, files in OPEN_TRAIT_FORMS.items()},
@@ -356,9 +358,9 @@ OPEN: dict[str, dict[str, str]] = {
 
 
 @pytest.mark.parametrize("files", OPEN.values(), ids=OPEN.keys())
-def test_an_open_form_stays_a_named_false_pass(
+def test_a_dispatch_through_another_module_never_passes(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], files: dict[str, str]
 ) -> None:
     result, verdict = _check(tmp_path, core_binary, capsys, files)
 
-    assert verdict == "PASS", claims(result)
+    assert verdict in {"FAIL", "UNKNOWN"}, claims(result)

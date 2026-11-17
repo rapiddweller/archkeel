@@ -22,8 +22,6 @@ Documentation does not accept these defects. They block the 5.0.0 release.
 
 | Class | Plant | Result at `323f09881` | Active issue |
 |---|---|---|---|
-| Rust value dispatch | `c::make().m()`, with the type and impl in `b`; 13 forms and a foreign trait glob | false PASS | [#1515](https://github.com/rapiddweller/archkeel/issues/1515) |
-| Rust trait dispatch | a generic bound, supertrait, dyn supertrait or re-export; 4 forms | false PASS | [#1516](https://github.com/rapiddweller/archkeel/issues/1516) |
 | Rust field receiver | `p.f.m()`: an inherent method in the file of its type, called through a public field of a typed parameter; no edge and no gap (AD-418) | false PASS | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
 | TypeScript DOM code | an `open` result, `document.open`, or a dynamic link and click | false PASS | [#1526](https://github.com/rapiddweller/archkeel/issues/1526) |
 | TypeScript prototype patch | replace `EventTarget.prototype.dispatchEvent`, then use it on `window` | false PASS | [#1527](https://github.com/rapiddweller/archkeel/issues/1527) |
@@ -694,12 +692,17 @@ is defined there; a trait argument never anchors; a block name anchors only with
 that depends on it (AD-516). The price: one orphan in a crate of N modules gives N-1 gaps, and
 `REQUIRES`, `NO-CYCLES` and the pair rule are UNKNOWN until the contract allows each pair; with one
 component for each module the gap `c -> b` stays when `c` holds the type, because `b -> c` closes a
-cycle. Open false PASS, not accepted (#1515 and #1516; #1004 is closed), each a true edge, each pinned: (1) a value of a type
-that `b` defines, which the caller gets from another module, with the impl in `b` (13 forms: a method
-call, `Display`, `Drop`, `==`, `for`, `+`, `?`, `impl Trait`, `dyn`, a field, an alias with
-`Default`, a closure, `into()` into a sink of another module); (2) an impl of a trait of `b` for a
-type of another module, reached through a generic bound, a supertrait, a `dyn` supertrait or a
-re-export of the trait; (3) a trait of a crate outside the workspace that a glob brings in.
+cycle. AD-806 (#1515, #1516): a module whose file holds a trait impl that runs code (a written block
+with an item other than an associated type, or a derive other than `Copy`) gets a pair gap from each
+module of its crate and of each dependent crate that reaches it over the edges and the pair gaps. This
+covers a value of a type of `b` that the caller gets from another module (a method call, `Display`,
+`Debug` through a format macro, `Drop`, `==`, `+`, `[]`, `*` through `Deref`, `for`, `?`, `into()`,
+`impl Trait`, `dyn`, a field, an alias with `Default`, a closure), a trait of `b` reached through a
+generic bound, a supertrait, a `dyn` supertrait or a re-export, and a foreign trait that a glob brings
+in. A generic or `dyn` callee that runs an impl which its caller hands in gets no gap: the dependency
+is the caller's, which reaches `b`. On `native/`, `NATIVE-NO-CORE-TO-RUST` and
+`NATIVE-NO-CORE-TO-TYPESCRIPT` are UNKNOWN for this reason, because `core` reaches both collectors
+through `collect`.
 A member that a `macro_rules!` impl adds outside the file of its type gives a pair gap (AD-656); only
 a type of the same arm, or an item of the module that every configuration has, anchors it (AD-662). A
 call of a macro whose expansion the scan does not read (a procedural macro, a `macro_rules!` of a
@@ -884,7 +887,7 @@ The core decides one rule kind set where Python does not ([AD-384](architecture/
 
 - The Rust collector does not mark an external `pub use` as a re-export. So a gap into a module with any external import holds `external_dependency_scope` and `complete_external_scope`.
 - The gap scope reads the edge model of the collector, as Python does. A glob that brings in a trait through a `pub use` chain `b -> d` gives the gap `a -> b`, not `a -> d`, so a rule on `a -> d` passes (review N2 of #1084). With the explicit call both engines record only `a -> b`.
-- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. A method in the file of its type, called on a value that the caller does not name (a field, a chain of fields, the return value of a function), is a candidate too: it gives a pair gap when the module of the type is reachable from the caller over the edges and the pair gaps, or when the caller reaches a module with a gap that names no target (#1571); a path `T::m` reaches it only when `T` is the name of the type, an alias or a renamed `use`, or a macro of the caller can give any name. When the written types prove the receiver type ([AD-804](architecture/decisions/ad-804-a-written-receiver-type-narrows-a-rust-method-call.md)), a std type gives no candidate and an exact own type gives only its own members; a std method of a later lookup step counts only in a file where no trait of another crate can be in scope. One form gives no candidate, also inside one crate: a trait method whose impl is in the module of its trait or of its type (`impl Trait`, `Box<dyn Trait>`, the class #1004; an impl in a third module gives a pair gap, AD-516). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. The trait form is an open false PASS class of the edge model ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
+- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. A method in the file of its type, called on a value that the caller does not name (a field, a chain of fields, the return value of a function), is a candidate too: it gives a pair gap when the module of the type is reachable from the caller over the edges and the pair gaps, or when the caller reaches a module with a gap that names no target (#1571); a path `T::m` reaches it only when `T` is the name of the type, an alias or a renamed `use`, or a macro of the caller can give any name. When the written types prove the receiver type ([AD-804](architecture/decisions/ad-804-a-written-receiver-type-narrows-a-rust-method-call.md)), a std type gives no candidate and an exact own type gives only its own members; a std method of a later lookup step counts only in a file where no trait of another crate can be in scope. A trait method whose impl is in the module of its trait or of its type gives the pair gap of AD-806 to each module that reaches that module (an impl in a third module gives a pair gap, AD-516).
 - A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS class #1004 (a value of a type that an anchored impl serves, when the caller does not name its module) gives no edge and no gap; an item that a macro makes gives a gap since AD-662. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 
 The dual-run request is a test protocol that only test builds and the cargo feature `harness` have (#1095); a release binary refuses it. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.

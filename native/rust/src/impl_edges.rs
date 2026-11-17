@@ -192,6 +192,7 @@ impl Builder {
             }
             self.glob_trait_gaps(workspace, &reached);
         }
+        pending.extend(orphans::trait_impl_candidates(workspace, modules));
         flow::settle(self, pending);
     }
 

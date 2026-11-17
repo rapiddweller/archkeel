@@ -12,15 +12,28 @@
 //! its crate, and of each crate that depends on that crate. A trait or a type that the scan cannot
 //! resolve to a definition counts as not defined here, so the impl is an orphan. The host drops a
 //! pair gap when the contract lets the caller use the module (AD-357).
+//!
+//! An anchored impl runs in code that never names its module either (#1515, #1516, AD-806): a
+//! method call on a value that another module gives, an operator, `?`, `for`, a format macro, a
+//! drop, a `dyn` value, a generic function of another module with a bound on its trait, a
+//! supertrait or a re-export. A caller can hold such a value or reach such a function only over a
+//! chain of dependencies that ends in the module of the impl. So each module that reaches it over
+//! the edges and the pair gaps gets the pair gap (`impl_flow::settle`), when the module holds a
+//! trait impl that runs code: a block with an item other than an associated type, or a derive
+//! other than `Copy`.
 
 use std::collections::BTreeSet;
 
+use crate::attrs::model::Proof;
 use crate::builder::Builder;
 use crate::crates::Workspace;
 use crate::definitions::{Form, Owner, TraitImpl};
 use crate::impl_globs::{depends, once_gap};
 use crate::modules::{Index, TypeOf};
+use crate::site::Site;
 use crate::tree::Module;
+
+use super::flow::Pending;
 
 /// What the blocks around an impl say of its self type: `Some(anchored)` when they decide it,
 /// `None` when no block item or `use` can bind its first name and the module decides.
@@ -133,4 +146,47 @@ pub(super) fn orphan_impl_gaps(
             once_gap(builder, edges, pair, (&home.rel, &found.site), &why);
         }
     }
+}
+
+/// The pending gap from each module that may run a trait impl of another module to that module:
+/// the modules of its crate and of each crate that depends on it, before the value flow.
+pub(super) fn trait_impl_candidates(workspace: &Workspace, modules: &[Module]) -> Vec<Pending> {
+    let mut pending = Vec::new();
+    for home in modules {
+        let Some(site) = runs_code(home) else {
+            continue;
+        };
+        let target = home.module.as_str();
+        let reason = format!(
+            "A trait impl in {target} may run in code that reaches {target} without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        );
+        let callers = modules.iter().filter(|caller| {
+            caller.module != home.module
+                && (caller.crate_index == home.crate_index || depends(workspace, caller, home))
+        });
+        for caller in callers {
+            pending.push(Pending {
+                source: caller.module.clone(),
+                rel: home.rel.clone(),
+                site: site.clone(),
+                target: target.to_owned(),
+                reason: reason.clone(),
+            });
+        }
+    }
+    pending
+}
+
+/// The place of a trait impl of the file that runs code: a written impl block with an item other
+/// than an associated type, or a derive other than `Copy`, which writes an impl in the module of its
+/// item. `None` when the file has neither.
+fn runs_code(home: &Module) -> Option<&Site> {
+    let written = home.scan.orphans.impls.iter().find(|found| found.runs);
+    let derived = home.scan.concerns.iter().find(|concern| {
+        matches!(&concern.proof, Some(Proof::Derive(usage))
+            if usage.path.last().map(String::as_str) != Some("Copy"))
+    });
+    written
+        .map(|found| &found.site)
+        .or(derived.map(|concern| &concern.site))
 }
