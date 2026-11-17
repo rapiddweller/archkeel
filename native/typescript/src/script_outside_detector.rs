@@ -23,7 +23,8 @@ pub(crate) fn detected(parsers: &mut Parsers, rel: &str, program: &[u8]) -> Vec<
     let parsed = parse_for(parsers, rel, program, Reach::default(), None);
     let script: &Script = &parsed.syntax.script;
     // A top-level binding is a global only in a classic script.
-    let top: &[Vec<String>] = if FileMode::is_script(parsed.syntax.mode) {
+    let classic = FileMode::is_script(parsed.syntax.mode);
+    let top: &[Vec<String>] = if classic {
         &script.top_level_write_paths
     } else {
         &[]
@@ -35,17 +36,9 @@ pub(crate) fn detected(parsers: &mut Parsers, rel: &str, program: &[u8]) -> Vec<
         excerpt: String::new(),
     };
     let mut found = Vec::new();
-    let unknown_path = script.write_paths.iter().chain(top).any(Vec::is_empty);
-    let direct = script.blockers.first().map(|(span, _)| span.clone());
-    let amplified = script
-        .amp_blockers
-        .first()
-        .filter(|_| script.amplified && script.host_entry)
-        .map(|(span, _)| span.clone());
-    if let Some(span) = direct.or(amplified) {
+    if let Some(place) = crate::script_project::writes_any(script, classic) {
+        let span = place.cloned().unwrap_or_else(first_line);
         Vec::push(&mut found, Found::global(None, span));
-    } else if unknown_path || script.unlabelled_empty {
-        Vec::push(&mut found, Found::global(None, first_line()));
     }
     let named = script
         .write_paths
