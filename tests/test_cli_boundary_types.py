@@ -110,6 +110,36 @@ def test_an_outside_writer_without_a_premise_stays_unknown(
     assert "standard_library_unchanged" in json.dumps(result["frame"])
 
 
+@pytest.mark.parametrize(("premise", "expected"), [(False, "UNKNOWN"), (True, "PASS")])
+def test_contextmanager_needs_the_standard_library_premise(
+    release_core: Path, tmp_path: Path, premise: bool, expected: str
+) -> None:
+    imports = "from contextlib import contextmanager\nfrom typing import Iterator\n"
+    plant = Plant(
+        facade("@contextmanager\ndef f(a: int) -> Iterator[int]:\n    yield a\n", "'f'", imports),
+        "PASS",
+    )
+    root = project(tmp_path / "p", plant)
+    if premise:
+        use_standard_library_premise(root)
+    result = json.loads(command(release_core, root, "--json").stdout)
+    assert result["frame"]["rules"][RULE] == ["boundary_types", expected], result
+
+
+def test_wraps_with_different_signatures_stays_unknown(release_core: Path, tmp_path: Path) -> None:
+    body = (
+        "def original(a: dict) -> dict:\n    return a\n"
+        "@wraps(original)\ndef f(a: int) -> int:\n    return a\n"
+    )
+    root = project(
+        tmp_path / "p", Plant(facade(body, "'f'", "from functools import wraps\n"), "OPEN")
+    )
+    use_standard_library_premise(root)
+    result = json.loads(command(release_core, root, "--json").stdout)
+    assert result["frame"]["rules"][RULE] == ["boundary_types", "UNKNOWN"], result
+    assert "wrapper and the wrapped function expose different signatures" in json.dumps(result)
+
+
 @pytest.mark.parametrize("name", sorted(PLANTS))
 def test_the_core_row_is_sound_and_never_weaker_than_the_release(name: str) -> None:
     four, core, _ = ROWS[name]
