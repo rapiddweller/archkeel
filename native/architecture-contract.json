@@ -344,6 +344,7 @@
         "native.archkeel_contract:Package",
         "native.archkeel_contract:ParameterKind",
         "native.archkeel_contract:ParsedContract",
+        "native.archkeel_contract:PremiseName",
         "native.archkeel_contract:PresenceKind",
         "native.archkeel_contract:PublicItemKind",
         "native.archkeel_contract:Relationship",
@@ -485,6 +486,7 @@
           "rationale": "Take the scope proof, a receipt or the verdict that only the proof gives (AD-363).",
           "through": [
             "native.archkeel_model.gap_effects",
+            "native.archkeel_model.premises",
             "native.archkeel_model.receipts",
             "native.archkeel_model.run",
             "native.archkeel_model.scope",
@@ -528,6 +530,7 @@
         "native.archkeel_model:Needs",
         "native.archkeel_model:Part",
         "native.archkeel_model:Position",
+        "native.archkeel_model:PremiseKind",
         "native.archkeel_model:Producer",
         "native.archkeel_model:PublicItem",
         "native.archkeel_model:Reason",
@@ -546,7 +549,6 @@
         "native.archkeel_model:Unsupported",
         "native.archkeel_model:Unused",
         "native.archkeel_model:Verdict",
-        "native.archkeel_model:assumed",
         "native.archkeel_model:boundary_reading",
         "native.archkeel_model:claims",
         "native.archkeel_model:compare_uml_tree",
@@ -562,10 +564,11 @@
         "native.archkeel_model:interface_publications",
         "native.archkeel_model:measure_facts",
         "native.archkeel_model:peers",
+        "native.archkeel_model:premise_words",
         "native.archkeel_model:publishes",
+        "native.archkeel_model:rule_premises",
         "native.archkeel_model:shape",
         "native.archkeel_model:stable",
-        "native.archkeel_model:stated_users",
         "native.archkeel_model:unused_public"
       ],
       "decided_by": "architect"
@@ -1097,13 +1100,14 @@
       "role": "component",
       "layer": "model",
       "packages": [
+        "native.archkeel_model.gap_effects",
+        "native.archkeel_model.receipts",
+        "native.archkeel_model.run",
         "native.archkeel_model.scope",
         "native.archkeel_model.scope_order",
         "native.archkeel_model.scope_receipt",
         "native.archkeel_model.verdict",
-        "native.archkeel_model.receipts",
-        "native.archkeel_model.run",
-        "native.archkeel_model.gap_effects"
+        "native.archkeel_model.premises"
       ],
       "responsibilities": [
         "Prove that a rule and a run saw their whole scope, and make the only PASS: the scope, the receipts, the verdict and the run proof (AD-363, AD-378, AD-384)."
@@ -1123,6 +1127,7 @@
             "native.archkeel_contract:CycleLevel",
             "native.archkeel_contract:Lifecycle",
             "native.archkeel_contract:NoComponentCycles",
+            "native.archkeel_contract:PremiseName",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
             "native.archkeel_contract:head_of",
@@ -1190,7 +1195,9 @@
         }
       ],
       "public": [
-        "native.archkeel_model.gap_effects:assumed",
+        "native.archkeel_model.premises:PremiseKind",
+        "native.archkeel_model.premises:premise_words",
+        "native.archkeel_model.premises:rule_premises",
         "native.archkeel_model.run:Model",
         "native.archkeel_model.run:ModelTree",
         "native.archkeel_model.run:RunGap",
@@ -2043,6 +2050,7 @@
             "native.archkeel_model:Incomplete",
             "native.archkeel_model:Model",
             "native.archkeel_model:ModelTree",
+            "native.archkeel_model:PremiseKind",
             "native.archkeel_model:Reason",
             "native.archkeel_model:RunPass",
             "native.archkeel_model:Shape",
@@ -2052,10 +2060,10 @@
             "native.archkeel_model:UmlTarget",
             "native.archkeel_model:Unsupported",
             "native.archkeel_model:Verdict",
-            "native.archkeel_model:assumed",
             "native.archkeel_model:compare_uml_tree",
-            "native.archkeel_model:shape",
-            "native.archkeel_model:stated_users"
+            "native.archkeel_model:premise_words",
+            "native.archkeel_model:rule_premises",
+            "native.archkeel_model:shape"
           ]
         },
         {

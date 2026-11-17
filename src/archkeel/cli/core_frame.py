@@ -209,10 +209,9 @@ class CoreFrame:
     measures: Mapping[str, int] | None = None
     # AD-540: the one assumption that the collector states for its proofs, when it states one.
     premise: str | None = None
-    # AD-664: the door sites of each PASS under a declared reach, and the applied declarations.
-    assumed: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    # AD-664, AD-764: the applied door declarations; each PASS under a premise, and its words.
     doors: tuple[DoorRow, ...] = ()
-    premises: Premises = Premises({}, None)  # #1549: each PASS under a premise, and its words
+    premises: Premises = Premises({}, None)
 
     @property
     def complete_scope(self) -> bool:
@@ -453,7 +452,7 @@ def read_frame(
     if request is not None and derived is not None:
         bind_request(frame, request, derived, started_ns)
     passing = {rule for rule, verdict in rules.items() if verdict.status is RuleStatus.PASS}
-    beyond, assumed = pass_qualifiers(frame, passing)
+    beyond, _ = pass_qualifiers(frame, passing)
     engine = as_text(frame["engine"], "engine")
     if status is Status.PASS and not rules:
         raise CoreError("the core frame is PASS with zero rules")
@@ -491,7 +490,6 @@ def read_frame(
         baseline=read_baseline(frame["baseline"], status) if "baseline" in frame else None,
         measures=measures,
         premise=_premise(frame, scan, status),
-        assumed=assumed,
         doors=read_doors(frame),
         premises=read_premises(frame, passing),
     )

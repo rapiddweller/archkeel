@@ -7,6 +7,7 @@
 use crate::door_reach::DoorReach;
 use crate::model::{ComponentLabel, ItemId, Package, Selector, SourcePath};
 use crate::model_uml::Target;
+use crate::premises::DeclaredPremise;
 
 record!(
     pub(crate),
@@ -201,6 +202,9 @@ record!(
         /// The declared reach of each door site (AD-664); an empty list is not written.
         #[serde(skip_serializing_if = "Vec::is_empty")]
         door_reach: Vec<DoorReach>,
+        /// The premises that the contract declares (AD-764); an empty list is not written.
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        premises: Vec<DeclaredPremise>,
         /// The scopes of the review.
         review_scopes: Vec<ReviewScope>,
         /// The names of the public API.

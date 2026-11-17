@@ -72,7 +72,7 @@ pub(crate) fn held(model: &Model, rule: &Rule) -> Option<Scoped> {
 
 /// The applied door declarations whose stated effect meets what `rule` reads (AD-664): a PASS of
 /// the rule holds only under their premise.
-pub fn assumed<'m>(model: &'m Model, rule: &Rule) -> Vec<&'m Applied> {
+pub(crate) fn assumed<'m>(model: &'m Model, rule: &Rule) -> Vec<&'m Applied> {
     let reads = |module: Option<&str>| reads(model, rule, module);
     let applied = model.graph().doors().applied().iter();
     applied

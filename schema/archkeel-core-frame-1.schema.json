@@ -91,14 +91,14 @@
           "$ref": "#/$defs/Premise"
         }
       },
-      "description": "Each PASS rule that rests on a premise of the contract, with each premise (#1549): never a\nplain PASS."
+      "description": "Each PASS rule that rests on a premise of the contract, with each premise (AD-764): never\na plain PASS."
     },
     "assuming": {
       "type": [
         "string",
         "null"
       ],
-      "description": "The premises of the run in words: a PASS that rests on them reads \"PASS assuming\" and\nthese words (#1549)."
+      "description": "The premises of the run in words: a PASS that rests on them reads \"PASS assuming\" and\nthese words (AD-764)."
     },
     "scope": {
       "type": "string",
@@ -419,33 +419,20 @@
       "type": "object",
       "properties": {
         "kind": {
-          "$ref": "#/$defs/PremiseKind"
+          "type": "string",
+          "description": "`door_reach`, `external_user`, or the name of a declared premise (AD-764)."
         },
         "subject": {
-          "type": "string"
+          "type": "string",
+          "description": "The site, the item or the scope that the premise covers."
         }
       },
       "required": [
         "kind",
         "subject"
       ],
-      "description": "One premise of a PASS rule.",
+      "description": "One premise of a PASS rule as the frame writes it: its kind word and its subject.",
       "additionalProperties": false
-    },
-    "PremiseKind": {
-      "oneOf": [
-        {
-          "type": "string",
-          "const": "door_reach",
-          "description": "The declared reach of a door site (AD-664); the subject is the site."
-        },
-        {
-          "type": "string",
-          "const": "external_user",
-          "description": "A stated user outside the scan of a public item (#1549); the subject is `module:name`."
-        }
-      ],
-      "description": "What one premise is."
     },
     "InterfaceRow": {
       "type": "object",

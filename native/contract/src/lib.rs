@@ -40,6 +40,7 @@ mod model_uml;
 mod names;
 mod paths;
 pub mod policy;
+mod premises;
 mod python_rules;
 mod read;
 mod rule;
@@ -73,6 +74,7 @@ pub use model_uml::{
     RelationshipKind, ResolutionKind, Signature, Target, TargetScope, VisibilityBasis,
     VisibilityKind,
 };
+pub use premises::PremiseName;
 pub use rule::{head_of, kind_of, Rule};
 pub use uml_merge::merge_targets;
 pub use unused_public::{PublicItemKind, UnusedPublic};

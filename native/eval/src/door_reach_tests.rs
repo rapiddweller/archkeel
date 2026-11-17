@@ -106,8 +106,15 @@ fn run_with(declarations: Vec<Value>, reply_change: impl FnOnce(&mut Value)) -> 
             .iter()
             .find(|rule| archkeel_contract::head_of(rule).id().as_text() == outcome.rule())
             .expect("the rule");
-        let sites: Vec<String> = archkeel_model::assumed(&model, rule)
-            .iter()
+        // The door premises of the rule (AD-764), as the ids of their applied declarations.
+        let premised: Vec<String> = archkeel_model::rule_premises(&model, rule)
+            .into_iter()
+            .filter(|p| p.kind == archkeel_model::PremiseKind::DoorReach)
+            .map(|p| p.subject)
+            .collect();
+        let applied = model.graph().doors().applied().iter();
+        let sites: Vec<String> = applied
+            .filter(|d| premised.contains(&d.site()))
             .map(|d| d.id.clone())
             .collect();
         if word == "PASS" && !sites.is_empty() {

@@ -2,63 +2,44 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The premises of a PASS: what the contract states and the facts do not prove (AD-664, #1549).
+//! The premises of a PASS: what the contract states and the facts do not prove (AD-664, AD-764).
 //!
-//! A declared reach of a door (AD-664) and a stated external user of a public item (#1549) are
-//! premises of the contract, not proofs. A PASS of a rule that rests on one is never a plain PASS:
-//! the frame names each premise of the rule in `premises`, the door sites also in `assumed`, each
-//! applied door declaration in `door_reach`, and the premises of the run in words in `assuming`.
-//! The text and the page print "PASS assuming <assuming>" from that one field.
+//! A premise (a declared door reach, a stated external user, a premise that the contract declares
+//! by name) is a claim of the contract, not a proof. A PASS of a rule that rests on one is never a
+//! plain PASS: the frame names each premise of the rule in `premises`, the door sites also in
+//! `assumed` (AD-664), each applied door declaration in `door_reach`, and the premises of the run
+//! in words in `assuming`. The text and the page print "PASS assuming <assuming>". The model
+//! decides which premises a rule rests on (`archkeel_model::rule_premises`).
 
 use std::collections::BTreeMap;
 
-use archkeel_contract::{head_of, Rule};
-use archkeel_model::{Applied, Model, ModelTree};
+use archkeel_contract::head_of;
+use archkeel_model::{Applied, Model, ModelTree, PremiseKind};
 use serde::Serialize;
 
-/// What one premise is.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum PremiseKind {
-    /// The declared reach of a door site (AD-664); the subject is the site.
-    DoorReach,
-    /// A stated user outside the scan of a public item (#1549); the subject is `module:name`.
-    ExternalUser,
-}
-
-/// One premise of a PASS rule.
+/// One premise of a PASS rule as the frame writes it: its kind word and its subject.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub(crate) struct Premise {
-    kind: PremiseKind,
+    /// `door_reach`, `external_user`, or the name of a declared premise (AD-764).
+    kind: String,
+    /// The site, the item or the scope that the premise covers.
     subject: String,
 }
 
-/// The premises on which the PASS of the rule `id` of `model` rests, in a fixed order: the door
-/// sites, then the stated external users.
+/// The premises on which the PASS of the rule `id` of `model` rests.
 pub(crate) fn of(model: &Model, id: &str) -> Vec<Premise> {
-    let Some(rule) = model
+    let rule = model
         .contract()
         .rules()
         .iter()
-        .find(|rule| head_of(rule).id().as_text() == id)
-    else {
-        return Vec::new();
-    };
-    let doors = archkeel_model::assumed(model, rule)
-        .into_iter()
-        .map(|door| Premise {
-            kind: PremiseKind::DoorReach,
-            subject: door.site(),
-        });
-    let users = match rule {
-        Rule::UnusedPublic(rule) => archkeel_model::stated_users(model, rule),
-        _ => Vec::new(),
-    };
-    let users = users.into_iter().map(|item| Premise {
-        kind: PremiseKind::ExternalUser,
-        subject: format!("{}:{}", item.module, item.name),
-    });
-    doors.chain(users).collect()
+        .find(|rule| head_of(rule).id().as_text() == id);
+    rule.into_iter()
+        .flat_map(|rule| archkeel_model::rule_premises(model, rule))
+        .map(|used| Premise {
+            kind: used.kind.word().to_owned(),
+            subject: used.subject,
+        })
+        .collect()
 }
 
 /// The premises of a run as the frame writes them. The first two keys are the keys of AD-664.
@@ -71,12 +52,12 @@ pub(crate) struct Premises {
     /// Each applied declaration of a door reach of the run (AD-664).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     door_reach: Vec<DoorRow>,
-    /// Each PASS rule that rests on a premise of the contract, with each premise (#1549): never a
-    /// plain PASS.
+    /// Each PASS rule that rests on a premise of the contract, with each premise (AD-764): never
+    /// a plain PASS.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     premises: BTreeMap<String, Vec<Premise>>,
     /// The premises of the run in words: a PASS that rests on them reads "PASS assuming" and
-    /// these words (#1549).
+    /// these words (AD-764).
     #[serde(skip_serializing_if = "Option::is_none")]
     assuming: Option<String>,
 }
@@ -85,24 +66,22 @@ impl Premises {
     /// The premises of the PASS rules and the applied door declarations of the run.
     pub(crate) fn of(premises: BTreeMap<String, Vec<Premise>>, models: Option<&ModelTree>) -> Self {
         let door_reach = rows(models);
+        let door = PremiseKind::DoorReach.word();
         let assumed: BTreeMap<String, Vec<String>> = premises
             .iter()
             .map(|(rule, found)| {
-                let sites = found.iter().filter(|p| p.kind == PremiseKind::DoorReach);
-                (
-                    rule.clone(),
-                    sites.map(|p| p.subject.clone()).collect::<Vec<_>>(),
-                )
+                let sites = found.iter().filter(|p| p.kind == door);
+                let sites: Vec<String> = sites.map(|p| p.subject.clone()).collect();
+                (rule.clone(), sites)
             })
             .filter(|(_, sites)| !sites.is_empty())
             .collect();
-        let users: std::collections::BTreeSet<&str> = premises
+        let pairs = premises
             .values()
             .flatten()
-            .filter(|p| p.kind == PremiseKind::ExternalUser)
-            .map(|p| p.subject.as_str())
-            .collect();
-        let assuming = words(door_reach.len(), users.len());
+            .map(|p| (p.kind.as_str(), p.subject.as_str()));
+        // Each kind word comes from `PremiseKind::word` in `of`, so it reads back.
+        let assuming = words(door_reach.len(), pairs).unwrap_or_default();
         Premises {
             assumed,
             door_reach,
@@ -112,18 +91,20 @@ impl Premises {
     }
 }
 
-/// The premises of a run in words, or `None` without one: `the declared reach of N doors`,
-/// `N stated external users`, or both joined by `and`. The one place of these words.
-pub fn words(doors: usize, users: usize) -> Option<String> {
-    let plural = |n: usize| if n == 1 { "" } else { "s" };
-    let parts: Vec<String> = [
-        (doors > 0).then(|| format!("the declared reach of {doors} door{}", plural(doors))),
-        (users > 0).then(|| format!("{users} stated external user{}", plural(users))),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
-    (!parts.is_empty()).then(|| parts.join(" and "))
+/// The premises of a run in words (`archkeel_model::premise_words`) from the kind words and the
+/// subjects of a frame, or an error for a kind word that names no premise.
+pub fn words<'a>(
+    doors: usize,
+    pairs: impl Iterator<Item = (&'a str, &'a str)>,
+) -> Result<Option<String>, String> {
+    let used: Vec<(PremiseKind, &str)> = pairs
+        .map(|(word, subject)| {
+            PremiseKind::of_word(word)
+                .map(|kind| (kind, subject))
+                .ok_or_else(|| format!("the frame names a premise of the kind {word}"))
+        })
+        .collect::<Result<_, _>>()?;
+    Ok(archkeel_model::premise_words(doors, &used))
 }
 
 /// One applied declaration as the frame writes it.

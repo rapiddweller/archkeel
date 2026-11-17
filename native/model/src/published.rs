@@ -48,7 +48,7 @@ pub fn unused<'m>(model: &'m Model, rule: &UnusedPublic) -> Vec<(&'m PublicItem,
 /// The items of one rule that an `external_users` entry names and that no other component is
 /// proven to use (#1549). The entry states a user outside the scan: a premise of the contract,
 /// not a proof. A PASS of the rule rests on each of these items.
-pub fn stated_users<'m>(model: &'m Model, rule: &UnusedPublic) -> Vec<&'m PublicItem> {
+pub(crate) fn stated_users<'m>(model: &'m Model, rule: &UnusedPublic) -> Vec<&'m PublicItem> {
     judged(model, rule, true)
         .into_iter()
         .map(|(item, _)| item)

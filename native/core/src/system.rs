@@ -149,18 +149,22 @@ fn join_premises(
     }
     // #1549: each premise of a part stays with its rule, and the run names them in words.
     let premises = disjoint(frames, "premises")?;
-    let users = premises
+    let pairs = premises
         .values()
         .filter_map(Value::as_array)
         .flatten()
-        .filter(|p| p["kind"] == "external_user")
-        .filter_map(|p| p["subject"].as_str())
-        .collect::<std::collections::BTreeSet<_>>()
-        .len();
+        .map(|p| {
+            (
+                p["kind"].as_str().unwrap_or(""),
+                p["subject"].as_str().unwrap_or(""),
+            )
+        });
+    let words = archkeel_report::premise_words(door_count, pairs)
+        .map_err(|why| format!("system: {why}"))?;
     if !premises.is_empty() {
         frame.insert("premises".to_owned(), Value::Object(premises));
     }
-    if let Some(words) = archkeel_report::premise_words(door_count, users) {
+    if let Some(words) = words {
         frame.insert("assuming".to_owned(), json!(words));
     }
     Ok(())

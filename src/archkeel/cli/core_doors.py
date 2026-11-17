@@ -11,6 +11,7 @@ This module reads these keys and writes the text lines; it decides nothing.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
@@ -30,8 +31,8 @@ class DoorRow:
     changes: tuple[str, ...]
 
 
-#: The kinds of a premise that the core writes.
-PREMISE_KINDS: Final = ("door_reach", "external_user")
+#: The word of a premise kind: `door_reach`, `external_user` or the name of a declared premise.
+_KIND: Final = re.compile(r"[a-z][a-z_]*")
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,8 +53,8 @@ def read_premises(frame: Mapping[str, object], passing: set[str]) -> Premises:
         for row in rows:
             fields = as_object(row, f"premises.{rule}[]")
             kind = as_text(fields["kind"], "premises.kind")
-            if kind not in PREMISE_KINDS:
-                raise CoreError(f"the core frame names a premise of the kind {kind}")
+            if not _KIND.fullmatch(kind):
+                raise CoreError(f"the core frame names a premise of the kind {kind!r}")
             pairs.append((kind, as_text(fields["subject"], "premises.subject")))
         rules[rule] = tuple(pairs)
     if not passing.issuperset(rules):
@@ -146,10 +147,14 @@ def door_lines(
         lines.append(
             f"  {row.id}: {row.module}:{row.line} ({row.door}) loads {loads}; changes {changes}"
         )
-    pairs = [pair for found in premises.rules.values() for pair in found]
-    users = sorted({subject for kind, subject in pairs if kind == "external_user"})
-    if users:
-        lines.append(f"  stated external users: {', '.join(users)}")
+    by_kind: dict[str, set[str]] = {}
+    for found in premises.rules.values():
+        for kind, subject in found:
+            by_kind.setdefault(kind, set()).add(subject)
+    by_kind.pop("door_reach", None)
+    for kind, subjects in sorted(by_kind.items()):
+        label = "stated external users" if kind == "external_user" else kind
+        lines.append(f"  {label}: {', '.join(sorted(subjects))}")
     rules = sorted(premises.rules)
     if rules:
         listed = rules if show_all else rules[:shown]
