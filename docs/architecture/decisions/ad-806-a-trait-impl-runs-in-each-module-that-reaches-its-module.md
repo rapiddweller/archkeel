@@ -16,12 +16,14 @@ AD-516 gives a gap only for an impl that neither its type nor its trait anchors.
 
 **Why it is sound.** A caller can hold a value of a type of `b` only from code that names that type. The same holds for a function whose bound or signature names a trait of `b`, and for a re-export or supertrait of that trait. That code is `b` or has a path to `b`, so the caller reaches `b` over the dependency graph. A module that does not reach `b` cannot run its impls. An impl block with only associated types runs no code of `b`. The code of a generic or `dyn` callee that runs an impl which its caller hands in is attributed to that caller, the module that reaches `b` and selects the impl. This is the inversion that the trait makes; the callee names only the trait.
 
-**Price (measured on main `aa280f686`).**
-- Native self-check: 64 PASS, 28 UNKNOWN, 1271 gaps -> 62 PASS, 30 UNKNOWN, 20501 gaps; no FAIL.
+**Price (measured on main `d2b873a94`).**
+- Native self-check: 64 PASS, 28 UNKNOWN, 1090 gaps -> 62 PASS, 30 UNKNOWN, 21608 gaps; no FAIL, no violation.
   - `NATIVE-NO-CORE-TO-RUST` and `NATIVE-NO-CORE-TO-TYPESCRIPT` turn UNKNOWN: `core` reaches both collector crates through `collect`, and their modules hold trait impls and derives.
-  - The explicit impls alone give 6316 gaps; the derives add the rest.
+  - 20488 new gaps are trait-dispatch gaps. 30 are #1571 field-receiver gaps that the value flow now reaches over them.
+  - On `aa280f686` the explicit impls alone gave 5045 new gaps; the derives give the rest.
 - Frozen Serde: 4525 -> 4946 gaps, rows unchanged (0/1/3).
 - tokio 1.48: 66155 -> 82672 gaps, rows unchanged (0/4/2), the same wall time.
+- Three `target_symbol` plants of AD-668 go PASS -> UNKNOWN: the use of a type alias, a call of `make` alone, and the same beside an opaque root. They reach `base.vocab`, where the derived `PartialEq` of `Profile` runs.
 
 **Not done here (follow-ups).**
 - A receiver whose type is exact (the receiver-type facts of #1571 in progress, AD-383, AD-524, AD-543) with one exact trait impl of the method could be an edge to the module of that impl, which can turn an UNKNOWN into a FAIL. An edge does not remove the gap of rule 2, because the implicit forms remain.
