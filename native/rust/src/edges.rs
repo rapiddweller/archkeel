@@ -192,12 +192,16 @@ impl Builder {
                 None,
             ),
             Named::Registry(package) => {
-                self.registry_gap(
-                    workspace,
-                    index,
-                    reference,
-                    (package, &identity, &evidence, from.module),
-                );
+                // #946: a registry dependency can redirect to a same-named workspace crate.
+                if let Some(root) = workspace.primary_of(package) {
+                    let id = FactId::new(identity.as_str());
+                    let local = local_target(index, root, reference, id)
+                        .map_or_else(|_| root.module.clone(), |(_, module, _)| module);
+                    let reason = format!(
+                        "The dependency {package} has a registry or git entry, and a crate of the workspace has its name: a redirect that the scan does not read can make it that crate"
+                    );
+                    self.pair_gap(&reason, &evidence, (from.module, &local));
+                }
                 (
                     Target::External {
                         import_id,
@@ -238,11 +242,31 @@ impl Builder {
                 ),
             },
         };
+        self.push_import(
+            from,
+            reference,
+            &identity,
+            evidence,
+            index,
+            (target, target_module, name, other_crate),
+        );
+    }
+
+    /// Adds the import record of a resolved path: its target, its item (AD-604) and its published name.
+    fn push_import(
+        &mut self,
+        from: Origin<'_>,
+        reference: &Reference,
+        identity: &str,
+        evidence: String,
+        index: Option<&Index<'_>>,
+        (target, target_module, name, other_crate): (Target, String, Option<ImportName>, bool),
+    ) {
         let record = record(
             index,
             from.module,
             reference,
-            (&identity, evidence),
+            (identity, evidence),
             (&target_module, &target),
         );
         self.targets.push(target);
@@ -256,24 +280,6 @@ impl Builder {
         record.data.data_mut().other_crate = other_crate.then_some(true);
         self.imports.push(record);
         self.ended += 1;
-    }
-
-    /// A registry dependency can redirect to a same-named workspace crate (#946).
-    fn registry_gap(
-        &mut self,
-        workspace: &Workspace,
-        index: Option<&Index<'_>>,
-        reference: &Reference,
-        (package, identity, evidence, from): (&str, &str, &str, &str),
-    ) {
-        if let Some(root) = workspace.primary_of(package) {
-            let local = local_target(index, root, reference, FactId::new(identity))
-                .map_or_else(|_| root.module.clone(), |(_, module, _)| module);
-            let reason = format!(
-                "The dependency {package} has a registry or git entry, and a crate of the workspace has its name: a redirect that the scan does not read can make it that crate"
-            );
-            self.pair_gap(&reason, evidence, (from, &local));
-        }
     }
 }
 
