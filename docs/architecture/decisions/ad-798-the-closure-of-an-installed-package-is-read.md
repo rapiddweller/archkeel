@@ -53,7 +53,7 @@ three repaired declaration files); points 2 to 4 remove them.
 
 ## Open
 - A computed import inside a package (`require(name)`) is a reach since AD-812 (#1749).
-- A package that a tool loads without an import of the scan: read when a repository data file names it (AD-830, #1750).
+- A package that a tool loads without an import of the scan: read when a repository data file names it (AD-845, #1750).
 - A bare `declare module "x"` without `paths` or `baseUrl` is an ambient module, as in the scan.
 
 ## Tests

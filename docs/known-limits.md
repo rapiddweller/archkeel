@@ -164,7 +164,7 @@ are a gap of each module whose import reaches that file. So the plant
 from `src/b/t.ts`, gives UNKNOWN. Release 4.0.1 gives PASS. A loader with an unknown target in a
 runtime file of the closure (a computed `require` or `import()`, a call of `createRequire`) is a
 reach too (AD-812, #1749). A preload that a repository data file names is read with the AD-788
-writer guard. A preload that patches the module loader withholds every route (AD-830, #1750).
+writer guard. A preload that patches the module loader withholds every route (AD-845, #1750).
 A closure of more than 20 000 installed files is a gap of each importer.
 The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.

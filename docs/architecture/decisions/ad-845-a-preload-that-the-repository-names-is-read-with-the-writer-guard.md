@@ -1,4 +1,4 @@
-# AD-830: A preload that the repository names is read with the writer guard
+# AD-845: A preload that the repository names is read with the writer guard
 
 Status: accepted (lead decision 2026-11-17 on #1750, option 1 with the loader patch). Part of #880.
 Closes #1750. It amends AD-788 and AD-798.

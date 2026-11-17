@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""A preload that the repository names in a data file holds the rule (#1750, AD-830).
+"""A preload that the repository names in a data file holds the rule (#1750, AD-845).
 
 A tool loads an installed package before the code of the scan, with no import of the scan:
 `node --require preload`, `NODE_OPTIONS`, a test setup. The plant of #1750: `preload` installs the
