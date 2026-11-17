@@ -3,9 +3,8 @@
 Status: accepted. Part of #880 and #1571. It extends AD-383 and AD-524.
 
 ## Context
-#1571 gives a pair gap for each method call that may reach an inherent member in the file of its
-type: 1,278 gaps on `native/`, each one holding the rules that it can change (AD-418). Rust writes
-the type of each parameter, field and return value, so many receivers have a proven type.
+#1571 gives a pair gap per call that may reach an inherent member in the file of its type (1,278 on
+`native/`, AD-418). Rust writes each parameter, field and return type: many receivers are proven.
 
 ## Decision
 The scan reads each receiver as a chain (`scan_chains.rs`); `impl_types.rs` follows the written
@@ -42,7 +41,9 @@ types along it.
 
 At the call, `&`, `&mut`, `Box`, `Rc` and `Arc` are peeled one level at a time:
 - A std type reaches no inherent member of the workspace (E0116); only the gaps of a member that a
-  macro may define stay (#1196).
+  macro may define stay (#1196). So does an outside type: a type of a dependency that the manifest
+  takes from a registry or git (such a crate cannot depend on the workspace), with no type
+  argument that is own or unknown (it may deref to it). Its trait methods stay #1515 and #1516.
 - An exact own type without a `Deref` impl reaches only its own blocks and the unplaced blocks of
   its crate. Its one member is the edge when the receiver is the type or one reference to it and
   AD-383 holds. A `&mut` field read through a shared reference is no edge.
@@ -65,6 +66,5 @@ The edges show 22 real module pairs that the contract did not declare (e.g. `mod
 order and meets no forbidden dependency; the contract states them as `requires`, and
 `docs/architecture/native.md` draws the four new component edges.
 
-## Tests
-`impl_types_tests.rs`, `scan_chains_tests.rs` and `scan_written.rs`; the plants of
-`tests/test_collector_false_pass_rust_own_file_method.py` compare with the target that rustc prints.
+Tests: `impl_types_tests.rs`, `impl_types_outside_tests.rs`, `scan_chains_tests.rs`; the rustc plants
+of `tests/test_collector_false_pass_rust_own_file_method.py`.
