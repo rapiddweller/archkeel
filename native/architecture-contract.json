@@ -153,7 +153,8 @@
         "native.archkeel_facts:STANDARD_LIBRARY",
         "native.archkeel_facts:Section",
         "native.archkeel_facts:SymbolFact",
-        "native.archkeel_facts:native_provenance"
+        "native.archkeel_facts:native_provenance",
+        "native.archkeel_facts.identity:readable"
       ],
       "decided_by": "architect"
     },
@@ -1810,6 +1811,13 @@
             "native.archkeel_report.ruling",
             "native.archkeel_report.run_scope"
           ]
+        },
+        {
+          "component": "facts",
+          "rationale": "The manifest declares the typed facts that the page reads back (#1617).",
+          "through": [
+            "native.archkeel_facts"
+          ]
         }
       ],
       "public": [
@@ -2018,6 +2026,13 @@
           "through": [
             "native.archkeel_report.head:RuleVerdict",
             "native.archkeel_report.head:Status"
+          ]
+        },
+        {
+          "component": "facts",
+          "rationale": "Read a module identity back to the characters of its path for the page (#1617).",
+          "through": [
+            "native.archkeel_facts.identity"
           ]
         }
       ],
