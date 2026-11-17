@@ -136,7 +136,7 @@ catalog check reads.
 ## Inspect the native self-check
 
 ArchKeel checks the Rust source of `native/` with its own core (AD-432).
-The pinned result is in `native/expected-gaps.json`: 86 rules PASS, 0 FAIL and 0 UNKNOWN, with no gaps or violations.
+The pin in `native/expected-gaps.json` records each rule status, gap and violation.
 
 ```bash
 make self-validate-native

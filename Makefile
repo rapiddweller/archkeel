@@ -145,8 +145,7 @@ core:
 RATCHET_BASE := $(if $(shell git rev-parse --verify -q origin/main),--base-ref origin/main,)
 
 # AD-335: Archkeel checks the Rust of native/ with its own core and its own contract (AD-432).
-# The result must equal the pinned gaps, violations and rule statuses of native/expected-gaps.json
-# (AD-357). The pinned result has a FAIL, so the exit code of `archkeel` is not the gate.
+# Compare the reported rule statuses, gaps and violations with native/expected-gaps.json (AD-357).
 self-validate-native: core
 	@mkdir -p test-artifacts/validation-native
 	@$(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || true
