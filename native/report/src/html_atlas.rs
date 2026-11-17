@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::{json, Value};
 
 use super::atlas_levels::{levels, Levels};
-use super::atlas_tree::{held, Finding, Refs, Tree};
+use super::atlas_tree::{held, Finding, Node, Refs, Tree};
 use super::cases::{one_line, Names};
 use super::frame::{Frame, Topology};
 use super::places::{Kind, Places};
@@ -207,7 +207,7 @@ fn components(
                 "responsibilities": node.about, "not_responsible_for": node.forbidden,
                 "planned": (!node.planned.is_empty()).then_some(&node.planned),
                 "provenance": node.provenance.iter().map(|p| refs.id(p)).collect::<Vec<_>>(), "groups": node.members,
-                "directory": node.directory, "decided_by": if node.directory { "report" } else { "architect" },
+                "directory": node.directory, "decided_by": Node::decided_by(node),
             })
         })
         .collect();

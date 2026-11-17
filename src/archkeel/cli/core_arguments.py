@@ -79,6 +79,8 @@ class Options(argparse.Namespace):
     command: Command
     root: Path | None = None
     config: str = "archkeel.toml"
+    # AD-776: the command line names `--config`; a relative path is read from the current folder.
+    config_given: bool = False
     json: bool = False
     text: bool = False
     core_only: bool = False
@@ -237,4 +239,5 @@ def parse(argv: Sequence[str]) -> Options:
         raise ValueError("--system-href needs --part-of: name the system document of this part")
     if options.part_of is not None and (options.output is None or options.format != "html"):
         raise ValueError("--part-of needs an HTML --output: only the page names its system")
+    options.config_given = any(arg == "--config" or arg.startswith("--config=") for arg in argv)
     return options

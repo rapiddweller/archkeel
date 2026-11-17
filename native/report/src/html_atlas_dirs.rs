@@ -247,6 +247,7 @@ fn directory(
         members: None,
         rank: None,
         directory: true,
+        grouped: false,
     }
 }
 

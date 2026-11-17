@@ -149,6 +149,8 @@ fn group(nodes: &[Node], owner: &str, name: &str, parent: Option<usize>, files: 
         provenance: Vec::new(),
         members: None,
         rank: None,
+        // A group of directory boxes is a directory box; both are made by the report.
         directory: files,
+        grouped: true,
     }
 }

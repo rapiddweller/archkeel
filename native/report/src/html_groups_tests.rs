@@ -237,3 +237,36 @@ fn a_layer_that_holds_one_component_shows_the_facts_of_that_component() {
     assert!(layer["provenance"][0].is_u64());
     assert_eq!(layer["groups"], json!(1));
 }
+
+// #1644: a group box that the report makes to split a large level says that the report decided
+// it; a component and a layer that the contract declares keep the architect.
+#[test]
+fn a_group_box_is_decided_by_the_report_and_a_declared_box_by_the_architect() {
+    // 35 components a layer: more than one screen (AD-794), so each layer is split into groups.
+    let mut topology = components(70, &[(0, 1)]);
+    for (i, c) in topology["components"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        c["name"] = json!(format!("svc{:02}_part{}", i / 10, i % 10));
+        c["layer"] = json!(if i < 35 { "L1" } else { "L2" });
+    }
+    topology["layers"] = json!([{"rule": "R", "layers": ["L1", "L2"]}]);
+    let data = payload(&document(&json!({"status": "PASS", "topology": topology})));
+    let boxes = data["atlas"]["components"].as_array().unwrap();
+    let decided = |prefix: &str| -> std::collections::BTreeSet<&str> {
+        let found = boxes
+            .iter()
+            .filter(|c| c["id"].as_str().unwrap().starts_with(prefix));
+        found.map(|c| c["decided_by"].as_str().unwrap()).collect()
+    };
+    assert_eq!(decided("GROUP:"), ["report"].into());
+    assert_eq!(decided("LAYER:"), ["architect"].into());
+    let mut declared = boxes.iter().filter(|c| {
+        let id = c["id"].as_str().unwrap();
+        !id.starts_with("GROUP:") && !id.starts_with("LAYER:")
+    });
+    assert!(declared.clone().count() == 70 && declared.all(|c| c["decided_by"] == "architect"));
+}
