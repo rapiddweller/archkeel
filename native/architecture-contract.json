@@ -5663,9 +5663,9 @@
       "public": [
         "native.archkeel_python_collector.inputs:inputs",
         "native.archkeel_python_collector.inputs:with_listings",
+        "native.archkeel_python_collector.requirement:Prepared",
         "native.archkeel_python_collector.requirement:clamped_from",
-        "native.archkeel_python_collector.requirement:requirement",
-        "native.archkeel_python_collector.requirement:target"
+        "native.archkeel_python_collector.requirement:requirement"
       ],
       "decided_by": "architect"
     },
@@ -5758,6 +5758,13 @@
           "rationale": "Read the text of a signature and the id of a definition for the symbol declarations (AD-518).",
           "through": [
             "native.archkeel_python_collector.declare"
+          ]
+        },
+        {
+          "component": "py-inputs",
+          "rationale": "Read the request with its selected target (AD-753).",
+          "through": [
+            "native.archkeel_python_collector.requirement:Prepared"
           ]
         }
       ],
@@ -6206,7 +6213,7 @@
           "component": "py-inputs",
           "rationale": "Read the declared Python requirement before deriving the target version.",
           "through": [
-            "native.archkeel_python_collector.requirement:target"
+            "native.archkeel_python_collector.requirement:Prepared"
           ]
         }
       ],

@@ -9,12 +9,12 @@
 //! import survey and written constructs (AD-658, AD-666, AD-680, AD-682, AD-684). The linked path gives the same
 //! survey as a typed reply (AD-450).
 
+use crate::requirement::Prepared;
 use archkeel_facts::envelope::validation::{versioned_owner, InterfaceNeed, Registered};
 use archkeel_facts::envelope::{
     Adapter, ConstructSupport, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime,
     SectionName, TargetSource, Validation,
 };
-use archkeel_facts::request::PythonRequest;
 use archkeel_facts::sections::SignalFact;
 use archkeel_facts::{
     CallFact, ConstructFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact,
@@ -101,12 +101,12 @@ pub struct Build<'a> {
 
 /// The compressed 10.0.0 reply of one survey.
 pub(crate) fn reply(
-    request: &PythonRequest,
+    prepared: &Prepared,
     survey: Survey,
     build: &Build<'_>,
-    source: TargetSource,
 ) -> Result<Vec<u8>, String> {
-    let (head, records) = parts(request, survey, build, source)?;
+    let request = &prepared.request;
+    let (head, records) = parts(prepared, survey, build)?;
     let mut bytes = Vec::new();
     let version = reply_version(request.protocol_version);
     encode_stream(version, head, &mut bytes, |writer| records.produce(writer))?;
@@ -115,11 +115,11 @@ pub(crate) fn reply(
 
 /// The same survey as the typed reply of the linked path: one head and one record producer.
 pub(crate) fn typed(
-    request: &PythonRequest,
+    prepared: &Prepared,
     mut survey: Survey,
     build: &Build<'_>,
-    source: TargetSource,
 ) -> Result<Reply, String> {
+    let request = &prepared.request;
     // AD-504: the linked path also writes the publication routes that `interface_boundary` reads.
     // The subprocess reply stays the frozen survey of the phase `imports`.
     routes::resolve(
@@ -129,7 +129,7 @@ pub(crate) fn typed(
         (&survey.sole_binders, &survey.ambiguous),
         &survey.sources,
     );
-    let (head, records) = parts(request, survey, build, source)?;
+    let (head, records) = parts(prepared, survey, build)?;
     let mut reply = assemble(reply_version(request.protocol_version), head, |writer| {
         records.produce(writer)
     })?;
@@ -183,11 +183,11 @@ impl Records {
 /// input must have the digest of the bytes that the survey parsed, else the source changed
 /// during the scan and there is no reply.
 fn parts(
-    request: &PythonRequest,
+    prepared: &Prepared,
     survey: Survey,
     build: &Build<'_>,
-    source: TargetSource,
 ) -> Result<(Head, Records), String> {
+    let request = &prepared.request;
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let selected = survey.coverage.selected_files.clone();
     let listings: Vec<(String, String)> = survey
@@ -197,7 +197,7 @@ fn parts(
         .collect();
     let (inputs, source_digest) = inputs::with_listings(&mut snapshot, &selected, &listings);
     same_inputs(&inputs, &survey.parsed)?;
-    let provenance = provenance(request, &mut snapshot, build, source)?;
+    let provenance = provenance(prepared, &mut snapshot, build)?;
     let validation = validation(&provenance.runtime.version);
     let head = Head {
         provenance,
@@ -260,17 +260,13 @@ fn unsupported_below(major: u32, minor: u32) -> String {
 }
 
 fn provenance(
-    request: &PythonRequest,
+    prepared: &Prepared,
     snapshot: &mut Snapshot,
     build: &Build<'_>,
-    source: TargetSource,
 ) -> Result<Provenance, String> {
     let (required, requirement_state) = requirement::requirement(snapshot);
-    let interpreter = request
-        .resolver
-        .interpreter
-        .as_ref()
-        .ok_or("no Python target")?;
+    let interpreter = &prepared.interpreter;
+    let source = prepared.source;
     let source_text = match source {
         TargetSource::Config => match &required {
             Some(text) => {

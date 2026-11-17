@@ -6,15 +6,37 @@
 //! `project.requires-python`, else the `python` dependency of Poetry with its caret written out.
 
 use archkeel_facts::envelope::{RequirementState, TargetSource};
-use archkeel_facts::request::{Interpreter, PythonSettings};
+use archkeel_facts::request::{Interpreter, PythonRequest, PythonSettings};
 use archkeel_snapshot::Snapshot;
 use toml::value::{Datetime, Offset};
 use toml::{Table, Value};
 
 use crate::inputs::PYPROJECT;
 
+/// A request whose target is selected (AD-753): the interpreter is not an `Option` that a reader
+/// must unwrap, and the source of the target travels with it. `Prepared::of` is the one place
+/// that selects the target for a collection, a dump and the check that it did not change.
+pub(crate) struct Prepared {
+    pub request: PythonRequest,
+    pub interpreter: Interpreter,
+    pub source: TargetSource,
+}
+
+impl Prepared {
+    /// Resolve the target of a request inside the collector, without running Python.
+    pub(crate) fn of(request: &PythonRequest) -> Result<Self, String> {
+        let mut snapshot = Snapshot::new(&request.snapshot.root);
+        let (interpreter, source) = target(&mut snapshot, &request.resolver)?;
+        Ok(Self {
+            request: request.clone(),
+            interpreter,
+            source,
+        })
+    }
+}
+
 /// Select the grammar and standard library from the snapshot and the configured target.
-pub(crate) fn target(
+fn target(
     snapshot: &mut Snapshot,
     settings: &PythonSettings,
 ) -> Result<(Interpreter, TargetSource), String> {
