@@ -178,7 +178,6 @@
     S.details = open;
     root.dataset.detailsOpen = String(open);
     detailsToggle.setAttribute("aria-expanded", String(open));
-    detailsToggle.setAttribute("aria-label", "Details " + (open ? "open" : "closed"));
     inspector.hidden = !open;
     if (open) root.dispatchEvent(new CustomEvent("archkeel:inspect"));
   }

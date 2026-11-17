@@ -328,6 +328,21 @@ FIRST_VIEW = """(() => {
 })()"""
 
 
+def test_a_double_click_fits_the_opened_level(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html")
+    page.evaluate("""(() => {
+      const shell = document.querySelector('#flow svg [data-uml-id="PART:shell"]');
+      shell.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+      shell.dispatchEvent(new MouseEvent('dblclick', {bubbles: true}));
+    })()""")
+    page.settle()
+    assert page.state()["scope"] == "PART:shell"
+    view = page.evaluate(FIRST_VIEW)
+    assert view["cards"] and view["labels"], view
+    assert (view["cardsIn"], view["labelsIn"]) == (view["cards"], view["labels"]), view
+    assert view["overflow"] == "", view
+
+
 @pytest.mark.parametrize(("width", "height"), [(1500, 1100), (1920, 1300)])
 def test_the_first_view_shows_the_whole_graph_or_starts_at_its_top_left_box(
     tmp_path: Path, site: str, width: int, height: int

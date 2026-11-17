@@ -131,8 +131,10 @@
     const content = level.component_ids.length ? S.content === "modules" && modules.length ? "modules" : "components" : "modules";
     root.dataset.content = content;
     choice.hidden = !atlasHasChoice(level);
-    choice.innerHTML = [["components", level.component_ids.length], ["modules", modules.length]].map(([kind, count]) =>
-      `<button type="button" class="flow-fit" data-content="${kind}" aria-pressed="${content === kind}">${kind === "components" ? "Components" : "Modules"} (${count})</button>`).join("");
+    const componentLabel = !level.parent_id && level.component_ids.every((id) => id.startsWith("PART:"))
+      ? "Parts" : "Components";
+    choice.innerHTML = [["components", level.component_ids.length, componentLabel], ["modules", modules.length, "Modules"]].map(([kind, count, label]) =>
+      `<button type="button" class="flow-fit" data-content="${kind}" aria-pressed="${content === kind}">${label} (${count})</button>`).join("");
     choice.querySelectorAll("button").forEach((button) => button.onclick = () =>
       dispatch({ type: "setContent", content: button.dataset.content }));
     return content;
@@ -340,6 +342,8 @@
     atlasExplore(level); atlasSheet(level);
     if (pendingAtlasFindingHash || location.hash) openAtlasFindingHash(pendingAtlasFindingHash);
     updateOpenSelected(); sizeDiagram();
+    const whole = pendingLayoutFitWhole;
+    queueMicrotask(() => root.dispatchEvent(new CustomEvent("archkeel:rendered", { detail: { whole } })));
   }
 
   function render() {

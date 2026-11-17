@@ -23,7 +23,7 @@
   function openArchitectureEntity(id) {
     const module = renderedScene?.nodes.find((node) => node.id === id)?.module;
     if (module) openAtlasModule(module.id);
-    else openAtlasComponent(id, renderedScene?.grouped ? "modules" : null);
+    else openAtlasComponent(id, renderedScene?.grouped ? "modules" : null, { whole: true });
   }
 
   function focusCurrentLevel() {
@@ -158,12 +158,12 @@
   }
   (root.closest("main") || root).addEventListener("click", followAtlasModuleRoute);
 
-  function openAtlasComponent(id, content = null) {
+  function openAtlasComponent(id, content = null, { whole = false } = {}) {
     if (!ATLAS.levels.some((level) => level.parent_id === id)) return;
     navigate();
     S.path = REPORT_SCENE.componentRoute(id).map((item) => ({ id: item.id, origin: "observed" }));
     S.content = content;
     S.selection = null;
     S.module = null; S.cell = null; S.hint = null; S.allHints = false;
-    positions = Object.create(null); render(); fit(); focusCurrentLevel();
+    positions = Object.create(null); render(); fit(whole, { whole }); focusCurrentLevel();
   }

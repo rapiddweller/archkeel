@@ -559,7 +559,8 @@
   const bottomRight = h("div", { class: "ak-bar ak-bottom-right" },
     h("button", { class: "ak-icon-only", title: "Zoom to selection (Shift C)", "aria-label": "Zoom to selection", onclick: () => F.fit() }, icon("focus")),
     zoom);
-  root.append(topLeft, topCenter, topRight, rail, bottomLeft, tagBar, bottomRight);
+  move(".flow-layout").before(topLeft, topCenter, topRight, rail);
+  root.append(bottomLeft, tagBar, bottomRight);
   // Issue 1618: a diagram larger than the view at the readable zoom says how to see the rest.
   const scrollHint = h("p", { class: "rp-scroll-hint", role: "status", hidden: true },
     "Scroll or press Shift 1 to fit");
@@ -587,7 +588,7 @@
     fittedKey = null;
     F.dispatch({ type: "relayout" });
   })).observe(root, { attributes: true, attributeFilter: ["data-expanded"] });
-  root.addEventListener("archkeel:rendered", () => {
+  root.addEventListener("archkeel:rendered", (event) => {
     applyPerspective();
     if (drawerShown === "objects") { closeDrawer(); toggleDrawer("objects", objectsDrawer); }
     const { scope, viewMode } = F.state();
@@ -600,8 +601,10 @@
     const key = `${viewMode}|${scope}|${query().get("content") || ""}`;
     if (key !== fittedKey) {
       fittedKey = key;
-      // Every diagram opens fitted to the view: nothing is clipped, nothing is off-centre.
-      requestAnimationFrame(() => F.fit(!F.state().scene?.moduleOverview));
+      // A drill already fitted the whole diagram when its layout finished.
+      if (!event.detail.whole) requestAnimationFrame(() => {
+        if (key === fittedKey) F.fit(!F.state().scene?.moduleOverview);
+      });
     }
   });
   addEventListener("popstate", closePop, { capture: true });
