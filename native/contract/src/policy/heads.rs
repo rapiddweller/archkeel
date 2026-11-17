@@ -42,5 +42,6 @@ pub(crate) fn head_mut(rule: &mut Rule) -> &mut RuleHead {
         BoundaryTypes,
         BoundedNumericOperand,
         ProtocolDeclarations,
+        UnusedPublic,
     )
 }

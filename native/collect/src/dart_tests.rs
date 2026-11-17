@@ -93,7 +93,8 @@ fn a_part_without_an_owner_or_a_wrong_owner_is_refused() {
     let tree = project();
     let mut unowned = reply(&tree);
     unowned.facts.owned_files.clear();
-    assert!(refused(unowned).contains("has no module, owner or gap"));
+    // AD-688: a parsed part without an owner is a parsed file without a module.
+    assert!(refused(unowned).contains("each parsed source file needs an observed module"));
     let mut foreign = reply(&tree);
     foreign.facts.owned_files[0].owner = ModuleName::new("shop.nothing");
     assert!(refused(foreign).contains("no unique owner"));

@@ -26,9 +26,291 @@
     "SHELL-ONLY-LAUNCH-STARTS-A-PROCESS": "PASS",
     "SHELL-ONLY-LOCATE-READS-THE-INSTALL": "PASS",
     "SHELL-ONLY-OUTPUT-MAKES-FILES": "PASS",
+    "SHELL-PUBLIC-HAS-A-USER": "FAIL",
     "SHELL-REQUIRES-COMPLETE": "PASS"
   },
   "unknown": {},
   "gaps": [],
-  "violations": []
+  "violations": [
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_arguments",
+      "target": "archkeel.cli.core_arguments:VARIABLE",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_arguments",
+      "target": "archkeel.cli.core_arguments:active_checks",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_baseline",
+      "target": "archkeel.cli.core_baseline:Difference",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_baseline",
+      "target": "archkeel.cli.core_baseline:vars_of",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_doors",
+      "target": "archkeel.cli.core_doors:read_assumed",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_explain",
+      "target": "archkeel.cli.core_explain:Direction",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_explain",
+      "target": "archkeel.cli.core_explain:HoldKind",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_frame",
+      "target": "archkeel.cli.core_frame:DECIDED_EXIT",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_frame",
+      "target": "archkeel.cli.core_frame:FrameProtocol",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_frame",
+      "target": "archkeel.cli.core_frame:NAMES_A_GAP_EXIT",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_frame",
+      "target": "archkeel.cli.core_frame:UnknownKind",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_init",
+      "target": "archkeel.cli.core_init:OPT_OUT",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_init",
+      "target": "archkeel.cli.core_init:declined",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_init",
+      "target": "archkeel.cli.core_init:opted_out",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_init",
+      "target": "archkeel.cli.core_init:prepare",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_init",
+      "target": "archkeel.cli.core_init:project_root",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_init",
+      "target": "archkeel.cli.core_init:run_init",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_schema",
+      "target": "archkeel.cli.core_schema:REFUSAL_NAME",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_schema",
+      "target": "archkeel.cli.core_schema:SCHEMA_NAME",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_text",
+      "target": "archkeel.cli.core_text:MAX_JOBS",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_text",
+      "target": "archkeel.cli.core_text:NOT_FOUND_LABEL",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_text",
+      "target": "archkeel.cli.core_text:SHOWN",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_text",
+      "target": "archkeel.cli.core_text:SUMMARY_LINES",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_text",
+      "target": "archkeel.cli.core_text:SUMMARY_VIOLATIONS",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_text",
+      "target": "archkeel.cli.core_text:VIOLATIONS_SHOWN",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_text",
+      "target": "archkeel.cli.core_text:reason_of",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_topology",
+      "target": "archkeel.cli.core_topology:Ownership",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_topology",
+      "target": "archkeel.cli.core_topology:Resolution",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.core_topology",
+      "target": "archkeel.cli.core_topology:read_topology",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.init_areas",
+      "target": "archkeel.cli.init_areas:dart_layout",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.init_areas",
+      "target": "archkeel.cli.init_areas:detect",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.init_areas",
+      "target": "archkeel.cli.init_areas:discover",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.init_areas",
+      "target": "archkeel.cli.init_areas:title_of",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.init_areas",
+      "target": "archkeel.cli.init_areas:typescript_project",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.init_areas",
+      "target": "archkeel.cli.init_areas:unique_ids",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.init_draft",
+      "target": "archkeel.cli.init_draft:PAGE",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.init_layouts",
+      "target": "archkeel.cli.init_layouts:python_layouts",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.init_layouts",
+      "target": "archkeel.cli.init_layouts:rust_layout",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.init_layouts",
+      "target": "archkeel.cli.init_layouts:typescript_layout",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    },
+    {
+      "rule": "SHELL-PUBLIC-HAS-A-USER",
+      "source": "archkeel.cli.native_scan",
+      "target": "archkeel.cli.native_scan:TIMEOUT_SECONDS",
+      "cause": "public name that no other component uses",
+      "issue": 1412
+    }
+  ]
 }

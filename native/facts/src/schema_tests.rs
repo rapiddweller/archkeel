@@ -90,13 +90,14 @@ fn the_request_schema_lists_the_versions_of_the_one_list() {
 }
 
 #[test]
-fn every_version_with_a_compressed_reply_names_a_reply_version_of_the_envelope() {
+fn every_request_version_gets_the_reply_of_protocol_11() {
     use crate::envelope::ProtocolVersion;
-    use crate::protocol::{reply_version, Version};
+    use crate::protocol::reply_version;
+    use crate::protocol::Version;
+    // AD-688: each native collector writes the 11.0.0 reply with its validation block.
     for version in Version::ALL {
-        let reply = reply_version(*version);
-        let compressed = reply.compressed().map(ProtocolVersion::as_str);
-        assert_eq!(compressed, Some(reply.as_str()), "{version:?}");
+        let reply = reply_version(*version).compressed();
+        assert_eq!(reply, Some(ProtocolVersion::V11), "{version:?}");
     }
     assert_eq!(Version::V3.compressed(), None);
 }

@@ -60,7 +60,7 @@ pub fn provenance() -> Provenance {
 }
 
 /// The compressed reply of the subprocess path.
-pub fn reply(
+pub fn encoded_reply(
     request: &RustRequest,
     provenance: Provenance,
     version: Version,

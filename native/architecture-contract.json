@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
-  "schema_version": "3.14.0",
+  "schema_version": "3.16.0",
   "components": [
     {
       "id": "COMP-NATIVE-FACTS",
@@ -38,6 +38,11 @@
         "native.archkeel_facts.data:SignalData",
         "native.archkeel_facts.data:ValueData",
         "native.archkeel_facts.envelope.cycle:proves_cycle_scope",
+        "native.archkeel_facts.envelope.validation:InterfaceNeed",
+        "native.archkeel_facts.envelope.validation:Registered",
+        "native.archkeel_facts.envelope.validation:library_family",
+        "native.archkeel_facts.envelope.validation:library_key",
+        "native.archkeel_facts.envelope.validation:versioned_owner",
         "native.archkeel_facts.envelope:Adapter",
         "native.archkeel_facts.envelope:Capabilities",
         "native.archkeel_facts.envelope:ConstructSupport",
@@ -63,6 +68,7 @@
         "native.archkeel_facts.envelope:State",
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:TargetSource",
+        "native.archkeel_facts.envelope:Validation",
         "native.archkeel_facts.envelope:source_digest",
         "native.archkeel_facts.envelope:test_features",
         "native.archkeel_facts.fields:Fields",
@@ -140,6 +146,7 @@
         "native.archkeel_facts:IntoSection",
         "native.archkeel_facts:Record",
         "native.archkeel_facts:ReferenceFact",
+        "native.archkeel_facts:SDK_LIBRARIES",
         "native.archkeel_facts:STANDARD_LIBRARY",
         "native.archkeel_facts:Section",
         "native.archkeel_facts:SymbolFact",
@@ -338,6 +345,7 @@
         "native.archkeel_contract:ParameterKind",
         "native.archkeel_contract:ParsedContract",
         "native.archkeel_contract:PresenceKind",
+        "native.archkeel_contract:PublicItemKind",
         "native.archkeel_contract:Relationship",
         "native.archkeel_contract:RelationshipKind",
         "native.archkeel_contract:ResolutionKind",
@@ -352,6 +360,7 @@
         "native.archkeel_contract:Target",
         "native.archkeel_contract:TargetKind",
         "native.archkeel_contract:TargetScope",
+        "native.archkeel_contract:UnusedPublic",
         "native.archkeel_contract:VisibilityBasis",
         "native.archkeel_contract:VisibilityKind",
         "native.archkeel_contract:bare_reference",
@@ -433,6 +442,7 @@
             "native.archkeel_model.measures",
             "native.archkeel_model.modules",
             "native.archkeel_model.ownership",
+            "native.archkeel_model.published_items",
             "native.archkeel_model.settings",
             "native.archkeel_model.symbols",
             "native.archkeel_model.topology"
@@ -466,7 +476,8 @@
             "native.archkeel_model.construct_match",
             "native.archkeel_model.direction",
             "native.archkeel_model.facade_reach",
-            "native.archkeel_model.interface"
+            "native.archkeel_model.interface",
+            "native.archkeel_model.published"
           ]
         },
         {
@@ -518,6 +529,7 @@
         "native.archkeel_model:Part",
         "native.archkeel_model:Position",
         "native.archkeel_model:Producer",
+        "native.archkeel_model:PublicItem",
         "native.archkeel_model:Reason",
         "native.archkeel_model:Resolved",
         "native.archkeel_model:RunGap",
@@ -532,6 +544,7 @@
         "native.archkeel_model:UmlPart",
         "native.archkeel_model:UmlTarget",
         "native.archkeel_model:Unsupported",
+        "native.archkeel_model:Unused",
         "native.archkeel_model:Verdict",
         "native.archkeel_model:assumed",
         "native.archkeel_model:boundary_reading",
@@ -551,7 +564,8 @@
         "native.archkeel_model:peers",
         "native.archkeel_model:publishes",
         "native.archkeel_model:shape",
-        "native.archkeel_model:stable"
+        "native.archkeel_model:stable",
+        "native.archkeel_model:unused_public"
       ],
       "decided_by": "architect"
     },
@@ -659,7 +673,8 @@
         "native.archkeel_model.symbol_table",
         "native.archkeel_model.symbol_values",
         "native.archkeel_model.symbols",
-        "native.archkeel_model.topology"
+        "native.archkeel_model.topology",
+        "native.archkeel_model.published_items"
       ],
       "responsibilities": [
         "Derive what the reply and the settings give without a rule: the modules, owners, imports, edges, ranks, cycles, measures, constructs and symbols (slices S1 to S3).",
@@ -682,6 +697,7 @@
             "native.archkeel_contract:EntityKind",
             "native.archkeel_contract:ModifierKind",
             "native.archkeel_contract:ParameterKind",
+            "native.archkeel_contract:PublicItemKind",
             "native.archkeel_contract:RelationshipKind",
             "native.archkeel_contract:ResolutionKind",
             "native.archkeel_contract:VisibilityBasis",
@@ -764,6 +780,7 @@
         "native.archkeel_model.ownership:owner_of",
         "native.archkeel_model.ownership:owners",
         "native.archkeel_model.ownership:source_modules",
+        "native.archkeel_model.published_items:PublicItem",
         "native.archkeel_model.settings:Producer",
         "native.archkeel_model.settings:Settings",
         "native.archkeel_model.symbols:Entity",
@@ -967,7 +984,8 @@
         "native.archkeel_model.boundary_judge",
         "native.archkeel_model.boundary_positions",
         "native.archkeel_model.boundary_surface",
-        "native.archkeel_model.facade_reach"
+        "native.archkeel_model.facade_reach",
+        "native.archkeel_model.published"
       ],
       "responsibilities": [
         "Match the facts of the model with one rule: the direction kinds, the interface, the constructs, the boundary types and the component cycles (AD-380, AD-408, AD-428, AD-550)."
@@ -992,9 +1010,11 @@
             "native.archkeel_contract:ForbiddenConstruct",
             "native.archkeel_contract:ForbiddenDependency",
             "native.archkeel_contract:InterfaceBoundary",
+            "native.archkeel_contract:PublicItemKind",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
-            "native.archkeel_contract:SiblingIsolation"
+            "native.archkeel_contract:SiblingIsolation",
+            "native.archkeel_contract:UnusedPublic"
           ]
         },
         {
@@ -1024,7 +1044,8 @@
             "native.archkeel_model.condensation",
             "native.archkeel_model.constructs",
             "native.archkeel_model.imports",
-            "native.archkeel_model.ownership"
+            "native.archkeel_model.ownership",
+            "native.archkeel_model.published_items"
           ]
         },
         {
@@ -1061,7 +1082,10 @@
         "native.archkeel_model.interface:interface_crossings",
         "native.archkeel_model.interface:interface_publications",
         "native.archkeel_model.interface:publishes",
-        "native.archkeel_model.interface:receipt"
+        "native.archkeel_model.interface:receipt",
+        "native.archkeel_model.published:Unused",
+        "native.archkeel_model.published:receipt",
+        "native.archkeel_model.published:unused"
       ],
       "decided_by": "architect"
     },
@@ -1156,7 +1180,8 @@
             "native.archkeel_model.boundary_positions",
             "native.archkeel_model.construct_match",
             "native.archkeel_model.direction",
-            "native.archkeel_model.interface"
+            "native.archkeel_model.interface",
+            "native.archkeel_model.published"
           ]
         }
       ],
@@ -1340,7 +1365,8 @@
             "native.archkeel_eval.direction",
             "native.archkeel_eval.external",
             "native.archkeel_eval.interface",
-            "native.archkeel_eval.layout"
+            "native.archkeel_eval.layout",
+            "native.archkeel_eval.unused_public"
           ]
         },
         {
@@ -1424,6 +1450,7 @@
         "native.archkeel_eval.violation:Cyclic",
         "native.archkeel_eval.violation:Layered",
         "native.archkeel_eval.violation:Published",
+        "native.archkeel_eval.violation:UnusedItem",
         "native.archkeel_eval.violation:Violation"
       ],
       "decided_by": "architect"
@@ -1441,7 +1468,8 @@
         "native.archkeel_eval.direction",
         "native.archkeel_eval.external",
         "native.archkeel_eval.interface",
-        "native.archkeel_eval.layout"
+        "native.archkeel_eval.layout",
+        "native.archkeel_eval.unused_public"
       ],
       "responsibilities": [
         "Turn what the model matched into the violations of each rule kind: assignment, layout, external scope, direction, cycles, interface, boundary types and constructs (AD-370, AD-372, AD-380, AD-384)."
@@ -1465,8 +1493,10 @@
             "native.archkeel_model:Link",
             "native.archkeel_model:Model",
             "native.archkeel_model:Part",
+            "native.archkeel_model:PublicItem",
             "native.archkeel_model:Reason",
             "native.archkeel_model:Resolved",
+            "native.archkeel_model:Unused",
             "native.archkeel_model:boundary_reading",
             "native.archkeel_model:claims",
             "native.archkeel_model:construct_matches",
@@ -1477,7 +1507,8 @@
             "native.archkeel_model:in_scope",
             "native.archkeel_model:interface_crossings",
             "native.archkeel_model:interface_publications",
-            "native.archkeel_model:peers"
+            "native.archkeel_model:peers",
+            "native.archkeel_model:unused_public"
           ]
         },
         {
@@ -1497,7 +1528,8 @@
             "native.archkeel_contract:RootLayout",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:SiblingIsolation",
-            "native.archkeel_contract:SourceRule"
+            "native.archkeel_contract:SourceRule",
+            "native.archkeel_contract:UnusedPublic"
           ]
         },
         {
@@ -1541,7 +1573,8 @@
         "native.archkeel_eval.external:complete_scope",
         "native.archkeel_eval.external:dependency_scope",
         "native.archkeel_eval.interface:check",
-        "native.archkeel_eval.layout:check"
+        "native.archkeel_eval.layout:check",
+        "native.archkeel_eval.unused_public:check"
       ],
       "decided_by": "architect"
     },
@@ -2811,8 +2844,9 @@
         },
         {
           "component": "facts",
-          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422).",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422); read the standard library key that the reply names (AD-688).",
           "through": [
+            "native.archkeel_facts.envelope.validation",
             "native.archkeel_facts.identity"
           ]
         },
@@ -5338,13 +5372,6 @@
           ]
         },
         {
-          "component": "rs-reply",
-          "rationale": "Encode the reply.",
-          "through": [
-            "native.archkeel_rust_collector.reply"
-          ]
-        },
-        {
           "component": "rs-flow",
           "rationale": "Run one collection.",
           "through": [
@@ -7609,6 +7636,21 @@
       "rationale": "Cut A: `store` names no language. The module `store.dart` holds rules of one language; they belong to its collector, which states them in its reply (AD-668).",
       "provenance": [
         "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PUBLIC-HAS-A-USER",
+      "kind": "unused_public",
+      "source": "native",
+      "item_kinds": [
+        "function",
+        "constant",
+        "static_constant"
+      ],
+      "rationale": "A public function, constant or static of a crate that no other component uses is a public surface without a need: make it private to its crate or delete it (AD-670). A type waits for the signature facts of the Rust collector, because a used signature may need it.",
+      "provenance": [
+        "docs/architecture/decisions/ad-670-a-public-name-that-no-other-component-uses-is-a-violation.md"
       ],
       "decided_by": "architect"
     }

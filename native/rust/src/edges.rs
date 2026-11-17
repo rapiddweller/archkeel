@@ -14,13 +14,12 @@ use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 use archkeel_facts::{ImportFact, Record};
 
 use crate::builder::{import_record, Builder, Origin};
-use crate::crates::{Crate, Workspace};
+use crate::crates::{Crate, Root, Workspace};
 use crate::derive_imports::Local;
-use crate::module_edges::local_target;
-use crate::modules::Index;
-use crate::names::{glob_of, published, with_name};
+use crate::modules::{Index, Outcome};
+use crate::names::{self, glob_of, published, with_name, ImportName};
 use crate::resolve::{classify, linked, Found, Named};
-use crate::scan::Reference;
+use crate::scan::{Reference, Via};
 use crate::tree::Module;
 
 impl Builder {
@@ -199,7 +198,17 @@ impl Builder {
             Named::Package(package) => match workspace.primary_of(package) {
                 Some(root) => {
                     other_crate = true;
-                    let (target, module, name) = local_target(index, root, reference, import_id);
+                    let found = local_target(index, root, reference, import_id);
+                    // #1405: a path into the workspace that the index cannot read is UNKNOWN,
+                    // as the same path inside one crate is (`module_edges::unreadable`).
+                    let (target, module, name) = match found {
+                        Ok(found) => found,
+                        Err(reason) => {
+                            self.gap(&reason, Some(&evidence), from.module);
+                            self.ended += 1;
+                            return;
+                        }
+                    };
                     let glob = matches!(reference.via, crate::scan::Via::Glob { .. });
                     (
                         target,
@@ -292,4 +301,49 @@ fn record(
     let subjects = vec![module.to_owned(), target_module.to_owned()];
     let at = (module, reference.path.as_str());
     import_record((identity, evidence), at, subjects, ImportFact::Import(data))
+}
+
+/// The target of a path into another crate of the workspace: the deepest module that the path
+/// names below the root of that crate. Without an index (a declared dependency) it is the root.
+/// The name is the item after that module and its route (AD-604); a declared dependency names the
+/// whole crate. A path that the index cannot read is an error with its reason (#1405): a whole
+/// crate with no name would let a rule on one of its items pass.
+pub(crate) fn local_target(
+    index: Option<&Index<'_>>,
+    root: &Root,
+    reference: &Reference,
+    import_id: FactId,
+) -> Result<(Target, String, ImportName), String> {
+    let rest = reference.names.get(1..).unwrap_or(&[]);
+    let deepest = match index {
+        None => None,
+        Some(index) => match index.reach(&root.module, rest) {
+            Outcome::Edge(edge) if !matches!(reference.via, Via::Glob { .. }) => {
+                if let Some(reason) = index.module_or_item(&edge) {
+                    return Err(reason);
+                }
+                index.rel(&edge.module).map(|rel| {
+                    let named = names::item(index, &edge.lexical, edge.symbol.as_deref());
+                    (edge.module.clone(), rel.to_owned(), named)
+                })
+            }
+            Outcome::Edge(edge) => index.rel(&edge.module).map(|rel| {
+                let named = names::item(index, &edge.lexical, edge.symbol.as_deref());
+                (edge.module.clone(), rel.to_owned(), named)
+            }),
+            Outcome::Unknown(reason) => return Err(reason),
+            Outcome::None => None,
+        },
+    };
+    let whole = ImportName::whole();
+    let (module, file, named) =
+        deepest.unwrap_or_else(|| (root.module.clone(), root.rel.clone(), whole));
+    let target = Target::Local {
+        import_id,
+        module: ModuleName::new(module.as_str()),
+        file: file.clone(),
+        runtime_file: Some(file),
+        declaration_file: None,
+    };
+    Ok((target, module, named))
 }

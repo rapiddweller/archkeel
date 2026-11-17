@@ -47,6 +47,7 @@ mod rules;
 mod structure;
 mod uml;
 mod uml_merge;
+mod unused_public;
 mod version;
 mod words;
 
@@ -74,3 +75,4 @@ pub use model_uml::{
 };
 pub use rule::{head_of, kind_of, Rule};
 pub use uml_merge::merge_targets;
+pub use unused_public::{PublicItemKind, UnusedPublic};

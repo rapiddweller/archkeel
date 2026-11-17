@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The envelope of a protocol 8 or 9 reply: every part of `facts` outside the sections (AD-346).
+//! The envelope of a protocol 8 to 11 reply: every part of `facts` outside the sections (AD-346).
 //!
 //! Each object is closed: an unknown key is a decode error, as in the Python decoder
 //! (`facts_codec._source_facts`). The parts that only the Python collector fills (`state`,
@@ -86,6 +86,9 @@ object! {
     pub struct Facts {
         /// The profile of the analyzer.
         pub profile: Profile,
+        /// The checks beyond the store's minimum (AD-688): in protocol 11, not in 8, 9 or 10.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub validation: Option<Validation>,
         /// The linked collector's scope statements. Wire replies carry no live authority.
         #[serde(skip)]
         pub profile_limits: Option<ProfileLimits>,
@@ -200,6 +203,8 @@ pub struct Runtime {
 
 mod target_source;
 pub use target_source::TargetSource;
+pub mod validation;
+pub use validation::Validation;
 
 /// The one runtime whose reply the host accepts a dependency scope proof from
 /// (`ir/decisions.py` `_native_scope_runtime_valid`).
