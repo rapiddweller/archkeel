@@ -154,8 +154,9 @@ The full result is in ignored `test-artifacts/validation-native/result.json`.
 - **Test first.** Add the test that shows the issue, see it fail, then make it pass.
 - **Record the decision.** A change in behaviour gets an `AD-<n>` file under
   [docs/architecture/decisions/](docs/architecture/decisions/) with its reason, the rejected
-  alternatives, its limit and the tests that check it, an index row in
-  [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md). Update documents that describe
+  alternatives, its limit and the tests that check it. The index is generated from the files
+  (`python tools/decision_index.py`, [README](docs/architecture/decisions/README.md)): add the one file and edit no
+  shared list. Update documents that describe
   the old behaviour. Keep the decision under the tested 70-line limit. The
   [roadmap](docs/roadmap.md) lists open work only.
 - **Keep the contract true.** A new crate or module in `native/` needs a component in
