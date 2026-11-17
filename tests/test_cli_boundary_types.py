@@ -30,8 +30,17 @@ CAUSE = re.compile(r"boundary_type_position: \S+ \S+: (\w+): ")
 def use_standard_library_premise(root: Path) -> None:
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
-    contract["schema_version"] = "3.16.0"
-    contract["declarations"] = {"standard_library_unchanged": True}
+    contract["schema_version"] = "3.17.0"
+    contract["declarations"] = {
+        "premises": [
+            {
+                "id": "P-STD",
+                "name": "standard_library_unchanged",
+                "rationale": "The standard library is unchanged.",
+                "provenance": ["project policy"],
+            }
+        ]
+    }
     path.write_text(json.dumps(contract))
 
 
@@ -65,7 +74,7 @@ def test_a_standard_library_type_with_a_premise_passes_assuming(
     assert "refusal" not in result, result
     assert RULE in result["frame"]["rules"], result
     assert result["frame"]["rules"][RULE] == ["boundary_types", "PASS"], result
-    assert "standard_library_unchanged" in json.dumps(result["frame"]["assumed"])
+    assert "standard_library_unchanged" in json.dumps(result["frame"]["premises"])
 
 
 @pytest.mark.parametrize(
