@@ -73,22 +73,31 @@ def _escape(segment: str) -> str:
     return "".join(c if c.isascii() and c.isalnum() else f"_x{ord(c):x}_" for c in segment)
 
 
-def _packages(folder: Path) -> list[Path]:
-    """The subfolders of `folder` that hold Python code at any depth (a folder without
-    `__init__.py` is a namespace package, and the scan reads its modules too)."""
+def _packages(folder: Path, repo: Path) -> list[Path]:
+    """The subfolders of `folder` that hold Python code that is no test source, at any depth (a
+    folder without `__init__.py` is a namespace package, and the scan reads its modules too)."""
     return sorted(
         path
         for path in folder.iterdir()
-        if path.is_dir() and path.name not in _IGNORED and _has_python(path)
+        if path.is_dir() and path.name not in _IGNORED and _has_python(path, repo)
     )
 
 
-def _has_python(folder: Path) -> bool:
-    for _, names, files in os.walk(folder):
+def _has_python(folder: Path, repo: Path) -> bool:
+    for here, names, files in os.walk(folder):
         names[:] = [name for name in names if name not in _IGNORED]
-        if any(file.endswith(".py") for file in files):
+        if any(f.endswith(".py") and not _is_test(Path(here, f).relative_to(repo)) for f in files):
             return True
     return False
+
+
+def _is_test(relative: Path) -> bool:
+    """`is_test_source` of the Python collector (`native/python/src/discover.rs`): a folder `test`,
+    `tests` or `__tests__` above the file, or a name `test_*.py` or `*_test.py`. A Python draft
+    leaves these out of the scan (#1619), as the Rust and TypeScript drafts do."""
+    name = relative.name
+    named = (name.startswith("test_") and name.endswith(".py")) or name.endswith("_test.py")
+    return named or any(part in {"test", "tests", "__tests__"} for part in relative.parts[:-1])
 
 
 def _members(root: Path, patterns: list[str], marker: str) -> list[Path]:
@@ -118,7 +127,9 @@ def _python_layouts(root: Path, folder: Path | None = None) -> list[Layout]:
     src = (folder / "src").is_dir()
     base = folder / "src" if src else folder
     found = (
-        _packages(base) if src else [p for p in _packages(base) if (p / "__init__.py").is_file()]
+        _packages(base, root)
+        if src
+        else [p for p in _packages(base, root) if (p / "__init__.py").is_file()]
     )
     if not found:
         where = base.relative_to(root).as_posix()
@@ -135,11 +146,10 @@ def _python_layouts(root: Path, folder: Path | None = None) -> list[Layout]:
 def _python_single(root: Path, package: Path, note: str) -> Layout:
     """The scan of one package: a component for each folder in it that holds Python."""
     namespace = package.name
-    parts = [Part(p.name, (f"{namespace}.{p.name}",)) for p in _packages(package)]
+    parts = [Part(p.name, (f"{namespace}.{p.name}",)) for p in _packages(package, root)]
     parts.append(Part("root", modules=_beside(namespace, package, {p.label for p in parts}, True)))
-    return Layout(
-        "python", namespace, (package.relative_to(root).as_posix(),), tuple(parts), note=note
-    )
+    scan = package.relative_to(root).as_posix()
+    return Layout("python", namespace, (scan,), tuple(parts), _TESTS, note=note)
 
 
 def _python_scan(root: Path, base: Path, names: list[str], note: str) -> Layout:
@@ -148,19 +158,19 @@ def _python_scan(root: Path, base: Path, names: list[str], note: str) -> Layout:
     parts = [Part(name, (f"{namespace}.{name}",)) for name in names]
     own = (base / "__init__.py").is_file()  # a package `src/__init__.py` is a module of the scan
     parts.append(Part("root", modules=_beside(namespace, base, set(names), own)))
-    return Layout(
-        "python", namespace, (base.relative_to(root).as_posix(),), tuple(parts), note=note
-    )
+    scan = base.relative_to(root).as_posix()
+    return Layout("python", namespace, (scan,), tuple(parts), _TESTS, note=note)
 
 
 def _beside(namespace: str, folder: Path, taken: set[str], itself: bool) -> tuple[str, ...]:
-    """The modules directly in `folder`: the package itself and each `.py` file beside the parts."""
+    """The modules directly in `folder`: the package itself and each `.py` file beside the parts
+    that is no test source."""
     return tuple(
         ([namespace] if itself and (folder / "__init__.py").is_file() else [])
         + [
             f"{namespace}.{path.stem}"
             for path in sorted(folder.glob("*.py"))
-            if path.stem != "__init__" and path.stem not in taken
+            if path.stem != "__init__" and path.stem not in taken and not _is_test(Path(path.name))
         ]
     )
 
