@@ -17,9 +17,9 @@ use crate::source_input::is_window_name;
 pub(crate) struct Found {
     pub name: Option<String>,
     pub span: Span,
-    /// `Some(member)` for a member patch of the global `name` (#1674): `Math.max = f` patches
-    /// `max` (`None` for a key that is no literal). `None` for a write of the global itself.
-    pub patch: Option<Option<String>>,
+    /// `Some(path)` for a member patch of the global `name` (#1674): `Math.max = f` patches the
+    /// path `max`; a key that is no literal ends the path. `None` for a write of the global itself.
+    pub patch: Option<Vec<String>>,
 }
 
 impl Found {
@@ -35,13 +35,13 @@ impl Found {
         Found {
             name: Some(global),
             span,
-            patch: Some(member),
+            patch: Some(member.into_iter().collect()),
         }
     }
 }
 
 /// The member that a write patches: see `Found::patch`.
-type Patched = Option<Option<String>>;
+type Patched = Option<Vec<String>>;
 
 /// The kinds of a literal value: it is no function.
 const LITERALS: [&str; 7] = [
@@ -202,8 +202,14 @@ impl Reader<'_> {
         let name = Reader::text(self, root);
         let global = Node::kind(&root) == "identifier" && !self.declared.contains(&name);
         let literal = value.is_some_and(|value| LITERALS.contains(&Node::kind(&unwrapped(value))));
-        let member = accessors.last().and_then(|at| self.member(*at));
-        (global && !literal).then_some((Some(name), Some(member)))
+        let path = accessors
+            .iter()
+            .rev()
+            .map(|at| self.member(*at))
+            .take_while(Option::is_some)
+            .flatten()
+            .collect();
+        (global && !literal).then_some((Some(name), Some(path)))
     }
 
     /// `Some(Some(name))` for an undeclared name, `None` for any other node.

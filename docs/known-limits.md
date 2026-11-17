@@ -568,8 +568,9 @@ for a write that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, 
 undeclared name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the
 other reflective writes on a window name). A member patch of a global (`Math.max = f`,
 `JSON.parse = f`, `console.log = f`, `Object.assign(Math, …)`, `console.__defineGetter__(…)`) with
-a value that is no literal withholds that global too, in such a file and in a scanned file ("Script
-global Math is patched by a member write"). Each hit withholds the native proof of its name, and the
+a value that is no literal withholds the proof of each use of the patched member (and of the global
+as a whole value), in such a file and in a scanned file ("Script global Math is patched by a member
+write"); a use of another member (`Math.min`) keeps it. Each hit withholds the native proof of its name, and the
 gap cites the use and the write. A write whose name the guard cannot read withholds every global.
 There is no file limit (50 000 small files outside the roots add about 6 s). A file that the guard
 cannot read (over the size limit of a file or the input limit of a scan) withholds every global,

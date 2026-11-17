@@ -51,13 +51,13 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             if value.is_some_and(|v| LITERALS.contains(&Node::kind(&v))) {
                 continue;
             }
-            if let Some((global, member)) = self.patched_member(*target) {
+            if let Some((global, path)) = self.patched_member(*target) {
                 let names = self.target_names(*target);
                 Vec::push(
                     &mut found,
                     Patch {
                         global,
-                        member,
+                        path,
                         target: names,
                         span: Tree::span(tree, *owner),
                     },
@@ -75,7 +75,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                     &mut found,
                     Patch {
                         global,
-                        member,
+                        path: member.into_iter().collect(),
                         target: Vec::new(),
                         span: Tree::span(tree, node),
                     },
@@ -100,8 +100,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `G.m = v`, `G['m'] = v` or deeper, with `G` a free name that is no window name: `G` and
-    /// the member after it (`None` for a key that is no literal).
-    fn patched_member(&self, target: Node<'t>) -> Option<(String, Option<String>)> {
+    /// the written path after it, up to the first key that is no literal.
+    fn patched_member(&self, target: Node<'t>) -> Option<(String, Vec<String>)> {
         let tree = self.tree;
         let mut chain = vec![Cx::unwrapped(&tree.cx, target)];
         loop {
@@ -116,9 +116,15 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             Vec::push(&mut chain, Cx::unwrapped(&tree.cx, object));
         }
         let root = Vec::pop(&mut chain)?;
-        let first = *chain.last()?;
         let global = self.free_global(root)?;
-        Some((global, self.patched_key(first)))
+        let path = chain
+            .iter()
+            .rev()
+            .map(|access| self.patched_key(*access))
+            .take_while(Option::is_some)
+            .flatten()
+            .collect();
+        Some((global, path))
     }
 
     /// The name of a member access: its property, or a literal key.

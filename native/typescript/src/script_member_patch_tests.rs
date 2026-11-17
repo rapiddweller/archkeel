@@ -116,6 +116,24 @@ fn a_patch_withholds_the_uses_of_its_member_and_of_the_whole_global_only() {
             .any(|t| t.starts_with("Script global document ")),
         "{read:?}"
     );
+    let deep = "declare const v: string;\ndocument.body.style.overflow = v;\nexport {};\n";
+    let sibling = titles("document.body.append('x');\n", &[("src/b.ts", deep)]);
+    assert!(
+        !sibling
+            .iter()
+            .any(|t| t.starts_with("Script global document ")),
+        "{sibling:?}"
+    );
+    let below = titles(
+        "export const o = document.body.style.overflow;\n",
+        &[("src/b.ts", deep)],
+    );
+    assert!(
+        below
+            .iter()
+            .any(|t| t.starts_with("Script global document is patched")),
+        "{below:?}"
+    );
     let title = titles("export const s = document.title;\n", &[("src/b.ts", b)]);
     assert!(
         title

@@ -56,9 +56,9 @@ pub(crate) struct Outside {
     pub any: Option<Site>,
     /// Why the guard did not read every candidate file: then no global has a native proof.
     pub incomplete: Option<String>,
-    /// The member patches of each global (#1674): the member (`None` for one that the guard
-    /// cannot read) and the write.
-    pub patches: BTreeMap<String, Vec<(Option<String>, Site)>>,
+    /// The member patches of each global (#1674): the written path (see `Found::patch`) and the
+    /// write.
+    pub patches: BTreeMap<String, Vec<(Vec<String>, Site)>>,
 }
 
 impl Outside {

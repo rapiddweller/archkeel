@@ -32,8 +32,12 @@ A rule that withholds every global proof is sound but makes every TypeScript rul
      `window.__defineGetter__` or `__defineSetter__`.
    - a member patch of a global that the file does not declare (`Math.max = f`,
      `Object.assign(Math, …)`, `console.__defineGetter__(…)`), unless the value is a literal.
-   `script_patch.rs` reads the same member patches in each scanned file (#1674): the gap reads
-   "Script global Math is patched by a member write" and cites the use and the write.
+   `script_patch.rs` reads the same member patches in each scanned file (#1674). A patch writes a
+   path below the global (`max`; `body.style.overflow`; a key that is no literal ends the path).
+   It withholds the proof of a use whose path is below it or above it (`Math.max(…)`, `Math` as a
+   value); a use of another member keeps it (`Math.min`), and so does the written target itself.
+   The gap reads "Script global Math is patched by a member write" (or "by a file outside the scan
+   roots") and cites the use and the write.
 3. **Effect.** A hit withholds the native proof of its name (`script_global.rs`). The use gets the
    gap "Script global X is replaced by a file outside the scan roots", which cites the use and the
    write (file and line). A write whose name the guard cannot read (`window[k] =`) or a file that it
@@ -52,8 +56,10 @@ covers it, and the report names the premise.
 
 ## Price
 graphql-js (67 gaps) and the fixtures F, H, H-uml, L-nest are unchanged. Explorer scripts: 617
-gaps before and after the guard; 451 to 616 with the amendment on main `cccb6aeaa` (`flow.runtime.js:1`, a built copy in
-the repository, writes members of `document` and `location`). No rule changes.
+gaps before and after the guard; 451 to 540 with the amendment on main `cccb6aeaa` (`flow.runtime.js:1`, a built copy in
+the repository, and `flow.js` itself write members of `document` and `location`, for example
+`location.hash = encodeURIComponent(id)` at `flow.js:2242`; a use that the collector records only
+as `document` counts as a use of the whole global). No rule changes.
 
 ## Tests
 `native/typescript/src/script_outside_tests.rs` (the plant, 11 forms, an unknown name, 6 quiet

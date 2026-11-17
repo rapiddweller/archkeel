@@ -81,14 +81,15 @@ pub(crate) fn key_form() -> &'static str {
     "a key that is no literal and can name constructor"
 }
 
-/// A member patch of a free global (#1674): `Math.max = f` patches the member `max` of `Math`
-/// (`None` for a key that is no literal). `target` holds the line and column of each name of the
+/// A member patch of a free global (#1674): `Math.max = f` patches the path `max` of `Math`,
+/// `document.body.style.x = v` the path `body.style.x`. A key that is no literal ends the path, so
+/// the patch covers every member below the known part. `target` holds the line and column of each name of the
 /// written target (`Math`, `max`): a use there is the write, no read of the patched value. `span`
 /// is the place of the write.
 #[derive(Clone)]
 pub(crate) struct Patch {
     pub global: String,
-    pub member: Option<String>,
+    pub path: Vec<String>,
     pub target: Vec<(i64, i64)>,
     pub span: Span,
 }
