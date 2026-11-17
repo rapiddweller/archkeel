@@ -4,7 +4,7 @@
 """Squash-merge a pull request only when its required checks are green (AD-676).
 
 `python tools/merge_pr.py <number>`. It refuses unless the pull request is open, not a draft,
-mergeable and up to date with its base, and each required check of the base branch has the
+mergeable (no conflict), and each required check of the base branch has the
 conclusion `success` on the head commit (not `skipped`, not missing, not pending). It never uses
 `--admin` and never bypasses a hook. It merges with `--match-head-commit`, so a push after the
 check cannot land. After the merge it reads the landing: a squash commit that changes no file
@@ -50,8 +50,10 @@ def refusals(pr: dict, required: list[str], runs: dict[str, str]) -> list[str]:
         found.append("the pull request is a draft")
     if pr["mergeable"] != "MERGEABLE":
         found.append(f"the pull request is {pr['mergeable']}: resolve the conflict")
-    if pr["mergeStateStatus"] == "BEHIND":
-        found.append("the head is behind its base: rebase it on main and let the checks run again")
+    # The branch protection is non-strict (owner decision 2026-11-17): a head behind its base may
+    # merge. The main and nightly tiers catch the combination of two green pull requests.
+    if pr["mergeStateStatus"] in {"DIRTY", "BLOCKED"}:
+        found.append(f"GitHub reports the merge state {pr['mergeStateStatus']}")
     found += [
         f"required check '{name}' is {runs.get(name, 'missing')}, not success"
         for name in required

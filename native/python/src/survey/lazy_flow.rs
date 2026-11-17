@@ -21,24 +21,16 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::lazy_binds::{Abs, Binds};
 use super::lazy_shape::plain_parameter;
+use super::lazy_shape::DUNDERS;
 use super::lazy_table::Table;
 use super::lazy_writes::Writes;
 
 /// The most strings that one argument or one product may have.
 pub(super) const LIMIT: usize = 4096;
 
-/// The names that a written key must not equal: the rule depends on them.
-const DEPENDENT: [&str; 9] = [
-    "import_module",
-    "importlib",
-    "globals",
-    "getattr",
-    "__getattr__",
-    "__spec__",
-    "__package__",
-    "__name__",
-    "__path__",
-];
+/// The names, besides the module dunders (`DUNDERS`), that a written key must not equal: the rule
+/// depends on them. A dunder is written by a `globals()` store as well, so both lists name it.
+const DEPENDENT_BESIDES_DUNDERS: [&str; 4] = ["import_module", "importlib", "globals", "getattr"];
 
 /// How the module proves the import function: a `from importlib import import_module` that is
 /// its only binder, or plain `import importlib` statements that are the only binders.
@@ -115,7 +107,7 @@ pub(super) fn analyze(function: &StmtFunctionDef, table: &Table, callee: Callee)
 }
 
 fn collides(key: &str, table: &str) -> bool {
-    key == table || DEPENDENT.contains(&key)
+    key == table || DEPENDENT_BESIDES_DUNDERS.contains(&key) || DUNDERS.contains(&key)
 }
 
 pub(super) struct Scope<'a> {

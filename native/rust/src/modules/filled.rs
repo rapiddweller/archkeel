@@ -8,7 +8,7 @@
 use std::collections::BTreeSet;
 
 use super::state::{Frame, Index};
-use crate::tokens::NO_BIND_MACROS;
+use crate::std_macros;
 use crate::tree::Module;
 
 /// Whether the file of `target` has a macro call at module level. Any such call may expand to a
@@ -80,7 +80,7 @@ fn expands_to_no_binding(
         .collect();
     // A macro of the crate shadows the `std` macro of its name (`vec`, `write`).
     let def = match definitions.as_slice() {
-        [] => return NO_BIND_MACROS.contains(&name),
+        [] => return std_macros::has(name, std_macros::NO_BIND),
         [def] => def,
         _ => return false,
     };
