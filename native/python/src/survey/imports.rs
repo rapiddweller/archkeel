@@ -428,13 +428,19 @@ impl Collector<'_, '_> {
             _ => format!("Import {}", b.target),
         };
         let id = stable_id("IMP", &parts);
+        // `from m import A, A as A`: both aliases give this record of the statement once.
+        let here = |made: &&Record<ImportFact>| made.evidence_ids[0].as_str() == evidence_id;
+        let mut statement = self.records.iter().rev().take_while(here);
+        if statement.any(|made| made.id.as_str() == id) {
+            return;
+        }
         let one = module_level
             && b.binding
                 .is_some_and(|name| self.bound.sole(name, node.range().start()));
         if one {
             self.sole.insert(id.clone());
         }
-        let record = Record {
+        self.records.push(Record {
             id: FactId::new(id),
             evidence_class: EvidenceClass::Fact,
             area: Area::Dependencies,
@@ -448,17 +454,7 @@ impl Collector<'_, '_> {
             } else {
                 ImportFact::DynamicImport(data)
             },
-        };
-        // `from m import A, A as A`: both aliases state one fact at one place, so one record. A
-        // record of the statement with the same id and other data is kept; the store refuses it.
-        let mut statement = self
-            .records
-            .iter()
-            .rev()
-            .take_while(|made| made.evidence_ids == record.evidence_ids);
-        if !statement.any(|made| *made == record) {
-            self.records.push(record);
-        }
+        });
     }
 }
 
