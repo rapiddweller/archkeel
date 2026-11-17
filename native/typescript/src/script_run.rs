@@ -85,7 +85,7 @@ impl Collection<'_> {
         module: &str,
         file: &crate::kept_script::ScriptFile,
     ) {
-        if !file.script_mode {
+        if !file.mode.is_script() {
             return;
         }
         // The unnamed source writes, once: a search of the list for each write is quadratic.

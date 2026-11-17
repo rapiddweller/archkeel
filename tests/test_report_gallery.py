@@ -394,7 +394,9 @@ def test_the_copy_commits_the_resolver_inputs_and_an_overlay_as_tracked_files(
     source = report_gallery.ROOT / "fixtures" / "L-nest-realworld"
     assert fixture_tree.needs_copy(source)
     assert not fixture_tree.needs_copy(report_gallery.ROOT / "fixtures" / "M-review-workflow")
-    with fixture_tree.fixture_tree(source, {"src/planted.ts": "export const x = 1;\n"}) as tree:
+    with fixture_tree.fixture_tree(
+        source, [{"path": "src/planted.ts", "append": "export const x = 1;\n"}]
+    ) as tree:
         done = subprocess.run(
             ["git", "ls-files"], cwd=tree, capture_output=True, text=True, check=True
         )

@@ -131,6 +131,10 @@ On `main`:
 | Each other command | — | — | Typed refusal `not_on_this_development_line` |
 
 Exit 0 needs a frame of the core. No path of the shell gives exit 0 for `validate` or `report` without it.
+Each JSON result starts with `command`, `outcome`, `status` and `exit_code`
+([AD-735](architecture/decisions/ad-735-the-draft-step-has-one-outcome-and-runs-after-the-core-is-found.md)).
+`outcome` is `verdict`, `collect_refused`, `command_refused`, `delivery_failed` or `completed`
+(`init`, `skill`; their `status` is `null`).
 In JSON, a refusal has the field `refusal` with `kind` and `message`, and no frame. In text, it starts with `REFUSED:`.
 The result of a run that gave a frame also has `refusals`, which lists each refusal in order;
 `refusal` is the first. A run that could not write a file keeps its frame.

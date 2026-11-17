@@ -16,12 +16,13 @@ from test_cli_native_core_scan_work import input_measurement, measured_scan, pro
 from archkeel.cli import native_scan
 
 
-@pytest.mark.parametrize("expression", ["1+" * 2_000_000 + "1", "1" + " as u8" * 600_000])
+@pytest.mark.parametrize("shape", ["addition", "casts"])
 def test_a_flat_rust_expression_refuses_without_aborting(
-    release_core: Path, tmp_path: Path, expression: str
+    release_core: Path, tmp_path: Path, shape: str
 ) -> None:
     root = tmp_path / "project"
     request = project(root, 1, 0, "rust")
+    expression = "1+" * 2_000_000 + "1" if shape == "addition" else "1" + " as u8" * 600_000
     (root / "src/deep0.rs").write_text(f"pub fn value() -> u8 {{ {expression} }}")
     done, peak = measured_scan(release_core, request)
     assert done.returncode == 2, done.stderr

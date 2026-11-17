@@ -3902,10 +3902,11 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_typescript_collector.walk",
-        "native.archkeel_typescript_collector.scan",
+        "native.archkeel_typescript_collector.file_mode",
         "native.archkeel_typescript_collector.references",
-        "native.archkeel_typescript_collector.script_types"
+        "native.archkeel_typescript_collector.scan",
+        "native.archkeel_typescript_collector.script_types",
+        "native.archkeel_typescript_collector.walk"
       ],
       "responsibilities": [
         "The one traversal of a file: visit the nodes, scan the literals and references, and hold the script types of the result."
@@ -3963,6 +3964,7 @@
         }
       ],
       "public": [
+        "native.archkeel_typescript_collector.file_mode:FileMode",
         "native.archkeel_typescript_collector.references:Form",
         "native.archkeel_typescript_collector.references:Reference",
         "native.archkeel_typescript_collector.references:literal",
@@ -4004,6 +4006,7 @@
         "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
+        "native.archkeel_typescript_collector.script_lookup",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
@@ -4386,6 +4389,7 @@
           "component": "ts-walk",
           "rationale": "Read the script facts and the form of a reference that the walk holds.",
           "through": [
+            "native.archkeel_typescript_collector.file_mode",
             "native.archkeel_typescript_collector.references",
             "native.archkeel_typescript_collector.script_types"
           ]
@@ -4477,6 +4481,7 @@
           "component": "ts-walk",
           "rationale": "Read the script facts that the walk holds.",
           "through": [
+            "native.archkeel_typescript_collector.file_mode",
             "native.archkeel_typescript_collector.script_types"
           ]
         },
@@ -4594,6 +4599,7 @@
           "component": "ts-walk",
           "rationale": "Run the one traversal of a file.",
           "through": [
+            "native.archkeel_typescript_collector.file_mode",
             "native.archkeel_typescript_collector.references"
           ]
         },
@@ -6510,6 +6516,7 @@
         "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
+        "native.archkeel_typescript_collector.script_lookup",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
@@ -6590,6 +6597,7 @@
         "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
+        "native.archkeel_typescript_collector.script_lookup",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
