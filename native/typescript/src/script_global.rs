@@ -6,8 +6,6 @@
 //! (`collect._script_external_dependency`, `_script_standard_global`, `_script_declared_global`,
 //! `_script_vendor_package`, `_script_namespace_dependency`, `_script_global_stable`).
 
-use std::collections::HashMap;
-
 use archkeel_facts::data::BindingData;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
@@ -39,7 +37,6 @@ impl<'a, 'p> Run<'a, 'p> {
             && !self.project.any_error
             && !paths.singles.contains_key(name)
             && crate::script_outside::Outside::withholds(&self.outside, name).is_none()
-            && !HashMap::contains_key(&paths.patched, name)
             && Option::is_none(&self.outside.incomplete)
     }
 

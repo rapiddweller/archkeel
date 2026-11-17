@@ -52,7 +52,7 @@ covers it, and the report names the premise.
 
 ## Price
 graphql-js (67 gaps) and the fixtures F, H, H-uml, L-nest are unchanged. Explorer scripts: 617
-gaps before and after the guard; 618 to 813 with the amendment (`flow.runtime.js:1`, a built copy in
+gaps before and after the guard; 451 to 616 with the amendment on main `cccb6aeaa` (`flow.runtime.js:1`, a built copy in
 the repository, writes members of `document` and `location`). No rule changes.
 
 ## Tests

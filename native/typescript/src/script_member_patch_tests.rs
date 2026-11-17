@@ -76,3 +76,51 @@ fn a_literal_or_a_local_object_keeps_the_proof() {
         assert!(!holds(&[("src/b.ts", b)], "Math"), "{b}");
     }
 }
+
+/// The gaps of a project whose `src/a.ts` is `a`, with the files `more`.
+fn titles(a: &str, more: &[(&str, &str)]) -> Vec<String> {
+    let mut all = vec![("tsconfig.json", "{}"), ("src/a.ts", a)];
+    all.extend_from_slice(more);
+    let tree = Tree::new(&all);
+    let facts = collect(&request(&tree, true), provenance());
+    facts.gaps.iter().map(|gap| gap.title.clone()).collect()
+}
+
+#[test]
+fn a_patch_withholds_the_uses_of_its_member_and_of_the_whole_global_only() {
+    let b =
+        "export function hidden(): any { return 1; }\nMath.max = hidden;\ndocument.title = t;\n\
+             declare const t: string;\n";
+    let other = titles("export const m = Math.min(1, 2);\n", &[("src/b.ts", b)]);
+    assert!(
+        !other.iter().any(|t| t.starts_with("Script global Math ")),
+        "{other:?}"
+    );
+    let whole = titles(
+        "declare function keep(x: any): void;\nkeep(Math);\n",
+        &[("src/b.ts", b)],
+    );
+    assert!(
+        whole
+            .iter()
+            .any(|t| t == "Script global Math is patched by a member write"),
+        "{whole:?}"
+    );
+    let read = titles(
+        "export const n = document.getElementById('x');\n",
+        &[("src/b.ts", b)],
+    );
+    assert!(
+        !read
+            .iter()
+            .any(|t| t.starts_with("Script global document ")),
+        "{read:?}"
+    );
+    let title = titles("export const s = document.title;\n", &[("src/b.ts", b)]);
+    assert!(
+        title
+            .iter()
+            .any(|t| t.starts_with("Script global document is patched")),
+        "{title:?}"
+    );
+}

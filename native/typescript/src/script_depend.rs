@@ -6,7 +6,7 @@
 //! (`collect._script_dependency`, `_script_source_target`, `_script_alias_evidence`,
 //! `_script_publication_evidence`).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use archkeel_facts::data::{BindingData, DoorForm, DoorSite, GapEffect};
 use archkeel_facts::envelope::Target;
@@ -41,6 +41,12 @@ impl<'a, 'p> Run<'a, 'p> {
         let evidence = self.sink.cite(rel, &probe.span);
         let first = path.first().map_or("", String::as_str);
         let stable = stable_publication(first, publishers, &self.writes);
+        if let Some((reason, site)) = self.patched_use(rel, probe, path) {
+            let identity = global_id(&module, probe.kind, &probe.span);
+            let first = path.first().map_or("", String::as_str);
+            self.withheld_target(&module, identity, first, evidence, &reason, site);
+            return;
+        }
         if self.external_dependency(rel, probe, path, alias_call, publishers) {
             return;
         }
@@ -334,10 +340,42 @@ impl<'a, 'p> Run<'a, 'p> {
                 format!("Script global {name} {verb} replaced by a file outside the scan roots");
             return Some((reason, Some((rel.clone(), span.clone()))));
         }
-        let (at, span) = HashMap::get(&self.project.paths.patched, name)?;
-        let (rel, _) = self.project.files.get(*at)?;
-        let reason = format!("Script global {name} is patched by a member write");
-        Some((reason, Some(((*rel).to_owned(), (*span).clone()))))
+        None
+    }
+
+    /// A member patch that a use can read (#1674): a patch of the member that the use names, a
+    /// patch whose key is no literal, or any patch for a use of the global as a whole. The written
+    /// member itself is no read of the patched value.
+    fn patched_use(
+        &self,
+        rel: &str,
+        probe: &Probe,
+        path: &[String],
+    ) -> Option<(String, Option<(String, Span)>)> {
+        let first = path.first()?;
+        let touches = |member: &Option<String>| match (member, path.get(1)) {
+            (Some(member), Some(used)) => member == used,
+            _ => true,
+        };
+        let scanned = HashMap::get(&self.project.paths.patched, first.as_str());
+        for (at, patch) in scanned.into_iter().flatten() {
+            let (patch_rel, _) = self.project.files.get(*at)?;
+            let at = (probe.span.line, probe.span.column);
+            let own = *patch_rel == rel && patch.target.contains(&at);
+            if !own && touches(&patch.member) {
+                let reason = format!("Script global {first} is patched by a member write");
+                return Some((reason, Some(((*patch_rel).to_owned(), patch.span.clone()))));
+            }
+        }
+        let outside = BTreeMap::get(&self.outside.patches, first.as_str());
+        for (member, site) in outside.into_iter().flatten() {
+            if touches(member) {
+                let reason =
+                    format!("Script global {first} is patched by a file outside the scan roots");
+                return Some((reason, Some(site.clone())));
+            }
+        }
+        None
     }
 
     /// A use whose native proof is withheld: an unresolved target and a gap that cites the use

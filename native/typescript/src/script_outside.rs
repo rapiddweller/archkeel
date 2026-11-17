@@ -56,6 +56,9 @@ pub(crate) struct Outside {
     pub any: Option<Site>,
     /// Why the guard did not read every candidate file: then no global has a native proof.
     pub incomplete: Option<String>,
+    /// The member patches of each global (#1674): the member (`None` for one that the guard
+    /// cannot read) and the write.
+    pub patches: BTreeMap<String, Vec<(Option<String>, Site)>>,
 }
 
 impl Outside {
@@ -71,6 +74,13 @@ impl Outside {
 
     fn add(&mut self, rel: &str, found: Found) {
         let site = (rel.to_owned(), found.span);
+        if let (Some(member), Some(global)) = (found.patch, found.name.clone()) {
+            Vec::push(
+                BTreeMap::entry(&mut self.patches, global).or_default(),
+                (member, site),
+            );
+            return;
+        }
         match found.name {
             Some(name) => {
                 self.names.entry(name).or_insert(site);
