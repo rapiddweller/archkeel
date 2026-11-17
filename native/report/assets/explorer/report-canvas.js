@@ -548,7 +548,8 @@
   root.append(h("div", { hidden: true }, legendPanel));
   const bottomLeft = h("div", { class: "ak-bar ak-bottom-left" }, legendButton, move(".flow-filters"),
     h("span", { class: "ak-run-status" }, `Result: ${A.result}`));
-  move(".atlas-summary")?.classList.add("ak-scene-summary");
+  const summary = move(".atlas-summary");
+  summary?.classList.add("ak-scene-summary");
   const tagBar = h("div", { class: "ak-bar ak-bottom-center", role: "toolbar", "aria-label": "Perspectives" });
   const zoom = move(".flow-zoom-controls");
   zoom?.querySelector(".flow-fit-overview")?.replaceChildren(icon("fit"));
@@ -559,7 +560,6 @@
     zoom);
   move(".flow-layout").before(topLeft, topCenter, topRight, rail);
   root.append(bottomLeft, tagBar, bottomRight);
-  // Issue 1618: a diagram larger than the view at the readable zoom says how to see the rest.
   const scrollHint = h("p", { class: "rp-scroll-hint", role: "status", hidden: true },
     "Scroll or press Shift 1 to fit");
   root.querySelector(".flow-map-column")?.append(scrollHint);
