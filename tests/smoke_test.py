@@ -187,13 +187,13 @@ def commands() -> None:
                 decided(cli(command, "--root", str(root), "--json", *extra), native)
             text = cli(command, "--root", str(root), "--text")
             assert text.returncode == 0, (text.stdout, text.stderr)
-            assert text.stdout.startswith(f"{command}: PASS\n"), text.stdout
+            assert text.stdout.startswith(f"{command}: PASS -> exit 0"), text.stdout
         for command in REFUSED:
             message = refusal(
                 cli(command, "--root", str(root), "--json"), "not_on_this_development_line"
             )
             remedy = "use release 4.0.1" if command == "check" else "no release has it"
-            assert remedy in message and "#880" in message, message
+            assert remedy in message and "not available in ArchKeel 5.0 yet" in message, message
         removed = cli("validate", "--root", str(root), "--native-core", "--json")
         message = refusal(removed, "not_on_this_development_line")
         assert "--native-core" in message and "no release has it" in message, message
