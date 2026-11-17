@@ -37,6 +37,20 @@ pub(crate) struct Module {
     pub gates: Option<Vec<String>>,
 }
 
+impl Module {
+    /// The file of a crate or an enclosing module belongs to its own module package.
+    pub(crate) fn package(&self) -> &str {
+        if self.module == self.target
+            || self.rel.rsplit('/').next() == Some("mod.rs")
+            || !self.scan.children.is_empty()
+        {
+            &self.module
+        } else {
+            archkeel_facts::identity::package_of(&self.module)
+        }
+    }
+}
+
 pub(crate) struct Walked {
     pub modules: Vec<Module>,
     pub problems: Vec<Problem>,

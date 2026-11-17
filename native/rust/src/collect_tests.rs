@@ -109,6 +109,13 @@ fn a_path_to_another_crate_of_the_workspace_is_a_local_edge_to_its_root_module()
     let facts = workspace("use base::f;\nfn g() { base::f(); }");
     assert_eq!(reasons(&facts), Vec::<&str>::new());
     assert_eq!(source_targets(&facts).len(), 1);
+    for import in &facts.imports {
+        let data = import.data.data();
+        if data.target_module.as_str() == "ns.base_crate" {
+            assert_eq!(data.target_package.as_str(), "ns.base_crate");
+            assert_eq!(data.source_package.as_str(), "ns.app");
+        }
+    }
     for target in source_targets(&facts) {
         assert!(matches!(
             target,
@@ -160,7 +167,72 @@ fn a_module_is_named_below_the_namespace_and_the_crate() {
         .filter(|f| !f.module.as_str().ends_with(".cargo_toml"))
         .map(|f| (f.module.as_str(), f.package.as_str()))
         .collect();
-    assert_eq!(modules, [("ns.app", "ns"), ("ns.base_crate", "ns")]);
+    assert_eq!(
+        modules,
+        [("ns.app", "ns.app"), ("ns.base_crate", "ns.base_crate")]
+    );
+}
+
+#[test]
+fn module_files_and_edges_use_the_package_of_their_rust_module() {
+    let facts = facts(&[
+        ("crates/Cargo.toml", "[package]\nname = \"app\"\n"),
+        ("crates/src/lib.rs", "mod folder; mod flat; fn root() {}"),
+        (
+            "crates/src/folder/mod.rs",
+            "mod leaf; pub fn f() { leaf::f(); }",
+        ),
+        ("crates/src/folder/leaf.rs", "pub fn f() { crate::root(); }"),
+        (
+            "crates/src/flat.rs",
+            "mod child; pub fn f() { child::f(); }",
+        ),
+        ("crates/src/flat/child.rs", "pub fn f() {}"),
+    ]);
+    let files: Vec<_> = facts
+        .head
+        .files
+        .iter()
+        .filter(|f| !f.rel_path.ends_with("Cargo.toml"))
+        .map(|f| (f.module.as_str(), f.package.as_str()))
+        .collect();
+    assert_eq!(
+        files,
+        [
+            ("ns.app.flat", "ns.app.flat"),
+            ("ns.app.flat.child", "ns.app.flat"),
+            ("ns.app.folder.leaf", "ns.app.folder"),
+            ("ns.app.folder", "ns.app.folder"),
+            ("ns.app", "ns.app"),
+        ]
+    );
+    for import in &facts.imports {
+        let data = import.data.data();
+        for (module, package) in [
+            (data.source_module.as_str(), data.source_package.as_str()),
+            (data.target_module.as_str(), data.target_package.as_str()),
+        ] {
+            if let Some(file) = facts
+                .head
+                .files
+                .iter()
+                .find(|f| f.module.as_str() == module)
+            {
+                assert_eq!(package, file.package.as_str(), "{module}");
+            }
+        }
+    }
+    for symbol in &facts.symbols {
+        if let archkeel_facts::SymbolFact::Function(data) = &symbol.data {
+            let file = facts
+                .head
+                .files
+                .iter()
+                .find(|f| f.module == data.module)
+                .unwrap();
+            assert_eq!(data.package, file.package);
+        }
+    }
 }
 
 #[test]

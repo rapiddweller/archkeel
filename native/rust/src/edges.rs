@@ -33,7 +33,11 @@ impl Builder {
         let first = module.first_line.as_str();
         let (line, column) = if first.is_empty() { (0, 0) } else { (1, 0) };
         let cited = Evidence::at(&module.rel, line, line, column, first);
-        self.file((&module.rel, &module.module), module.blank, cited);
+        self.file(
+            (&module.rel, &module.module, module.package()),
+            module.blank,
+            cited,
+        );
         self.edges(workspace, index, module);
         self.symbols(module);
         let local = Local::of(module);
@@ -227,11 +231,19 @@ impl Builder {
             },
         };
         let target_package = match &target {
-            Target::Local { module, .. } => package_of(module.as_str()).to_owned(),
+            Target::Local { module, .. } => index
+                .and_then(|index| index.frame(module.as_str()))
+                .map_or_else(
+                    || module.as_str().to_owned(),
+                    |frame| frame.module.package().to_owned(),
+                ),
             _ => target_module.clone(),
         };
         self.targets.push(target);
         let record = record(
+            index
+                .and_then(|index| index.frame(from.module))
+                .map_or_else(|| package_of(from.module), |frame| frame.module.package()),
             from.module,
             reference,
             &identity,
@@ -282,6 +294,7 @@ fn bound_crate_path(
 
 /// The import record of one path that names another crate.
 fn record(
+    source_package: &str,
     module: &str,
     reference: &Reference,
     identity: &str,
@@ -291,7 +304,7 @@ fn record(
 ) -> Record<ImportFact> {
     let data = ImportData {
         source_module: ModuleName::new(module),
-        source_package: PackageName::new(package_of(module)),
+        source_package: PackageName::new(source_package),
         target_module: ModuleName::new(target_module),
         target_package: PackageName::new(target_package),
         specifier: Some(reference.path.clone()),
