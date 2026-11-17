@@ -64,7 +64,7 @@ impl<T: JsonSchema> JsonSchema for Nullable<T> {
 
 /// Read a field that the wire always writes and that can be `null`. With `deserialize_with`, a
 /// missing key is a decode error: serde gives `None` for a missing `Option` key otherwise.
-pub fn required<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+pub(crate) fn required<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
     deserializer: D,
 ) -> Result<Option<T>, D::Error> {
     Option::<T>::deserialize(deserializer)
