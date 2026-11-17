@@ -105,6 +105,8 @@ fn by_kind(kind: RuleKind) -> Reads<'static> {
         | K::ForbiddenEffectUnderCondition
         | K::ProtocolDeclarations
         | K::BoundaryTypes => Reads::Every,
+        // AD-670: a use of a public name can come from any import.
+        K::UnusedPublic => Reads::Every,
     }
 }
 

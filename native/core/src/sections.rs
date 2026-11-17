@@ -173,6 +173,22 @@ fn row(violation: &Violation) -> Value {
             json!({"qualified_name": found.qualified_name, "position": found.position,
                    "annotation": found.text, "reasons": found.reasons}),
         ),
+        // AD-670: a public item that no other component uses.
+        Violation::UnusedPublic(found) => {
+            let item = format!("{}:{}", found.module, found.name);
+            let data = json!({"module": found.module, "name": found.name, "item_kind": found.kind});
+            let names = ["source", "unused_public"];
+            let title = format!("{item} is public and no other component uses it");
+            let subjects = [&found.module, &found.name];
+            record(
+                [&found.id, &found.rule, &found.id],
+                &found.evidence,
+                names,
+                &subjects,
+                title,
+                data,
+            )
+        }
     }
 }
 
@@ -315,6 +331,7 @@ fn direction_record(violation: &Violation) -> Value {
         | Violation::OuterLayer(_)
         | Violation::Construct(_)
         | Violation::BoundaryType(_)
+        | Violation::UnusedPublic(_)
         | Violation::Cycle(_) => row(violation),
     }
 }

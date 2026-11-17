@@ -167,6 +167,8 @@ enum Reads {
     Interface,
     /// The shapes of the written signature types (`boundary_types`, AD-550).
     Shapes,
+    /// The public symbols of the modules and every import (`unused_public`, AD-670).
+    Published,
     /// Only the module-level import edges.
     Edges,
 }
@@ -181,6 +183,7 @@ fn reads(rule: &Rule) -> Reads {
         Rule::CompleteRequires(_) => Reads::Ports,
         undecided_rule!() => Reads::Undecided,
         Rule::BoundaryTypes(_) => Reads::Shapes,
+        Rule::UnusedPublic(_) => Reads::Published,
         Rule::ForbiddenDependency(_)
         | Rule::AllowedDependency(_)
         | Rule::ExternalDependencyScope(_)
@@ -231,11 +234,22 @@ fn own_limit(rule: &Rule, observed: &Observed) -> Option<Limit> {
         (Reads::Undecided, _) => Some(Limit::Certain(id)),
         // AD-550: a profile whose collector writes no shape cannot read the types.
         (Reads::Shapes, _) if !observed.type_shapes => Some(Limit::Certain(id)),
+        // AD-670: an absent symbol record may be an item that nobody uses, so a PASS needs every
+        // public symbol; a violation that the model sees stays FAIL.
+        (Reads::Published, _) if !observed.symbol_facts => Some(Limit::Certain(format!(
+            "{id}: the collector does not state every public symbol"
+        ))),
         // No store-accepted profile limits these kinds (`profile_failures`); `rule_limit` gives
         // the limit of the own symbol of a `target_symbol` rule.
-        (Reads::Constructs | Reads::OwnSymbol | Reads::Ports | Reads::Edges | Reads::Shapes, _) => {
-            None
-        }
+        (
+            Reads::Constructs
+            | Reads::OwnSymbol
+            | Reads::Ports
+            | Reads::Edges
+            | Reads::Shapes
+            | Reads::Published,
+            _,
+        ) => None,
     }
 }
 
@@ -284,6 +298,8 @@ fn symbol_reader(contract: &Contract, rule: &Rule) -> Option<String> {
         Reads::OwnSymbol => Some(archkeel_contract::head_of(rule).id().as_text().to_owned()),
         Reads::Ports => ports().next(),
         Reads::Interface => publics().chain(selectors()).next(),
+        // AD-670: without the names of the imports, every item would look unused.
+        Reads::Published => Some(archkeel_contract::head_of(rule).id().as_text().to_owned()),
         Reads::Undecided | Reads::Constructs | Reads::Edges | Reads::Shapes => None,
     }
 }

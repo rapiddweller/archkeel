@@ -95,6 +95,13 @@ impl ViolationDetail {
                 cause: "written type outside the boundary types",
                 evidence: row.evidence.clone(),
             },
+            // AD-670: the source is the module, the target the item in the form `module:name`.
+            Violation::UnusedPublic(row) => Self {
+                source: row.module.clone(),
+                target: Some(format!("{}:{}", row.module, row.name)),
+                cause: "public name that no other component uses",
+                evidence: row.evidence.clone(),
+            },
             // AD-428: the target names the imported symbol in the selector form `module:name`.
             Violation::PrivateImport { cited, symbol, .. } => Self {
                 source: cited.source_module.clone(),

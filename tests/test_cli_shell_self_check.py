@@ -16,13 +16,12 @@ import json
 import re
 import shutil
 import sys
-from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import ROOT, SUFFIX, copy_cited, run
+from core_support import ROOT, SUFFIX, copy_cited, pinned_self_status, run
 from corpus_support import commit_tree
 
 from archkeel.cli import core_only
@@ -42,6 +41,7 @@ DECIDED_KINDS = {
     "interface_boundary",
     "layer_order",
     "no_component_cycles",
+    "unused_public",
 }
 
 
@@ -73,9 +73,11 @@ def test_the_core_decides_each_rule_of_the_shell_contract(shell_tree: Path, buil
     frame = result["frame"]
     expected = json.loads(EXPECTED.read_text())
     assert problems(result, expected) == []
-    statuses = Counter(row[1] for row in frame["rules"].values())
-    assert statuses == {"PASS": len(expected["rules"])}
-    assert (code, result["status"], frame["scope"]) == (0, "PASS", "complete")
+    # AD-670: a known violation stays FAIL, as pinned (honesty rule); no rule is UNKNOWN.
+    core = {rule: row[1] for rule, row in frame["rules"].items()}
+    assert core == expected["rules"] and "UNKNOWN" not in core.values()
+    status = pinned_self_status(EXPECTED)
+    assert (code, result["status"], frame["scope"]) == (*status, "complete")
     assert result["gaps"] == [] and frame["collection_gaps"] == []
 
 
@@ -129,9 +131,14 @@ def test_a_contract_of_native_mounted_in_the_python_scan_decides_nothing(
     code, result = decide(shell_tree, built)
     rows = result["frame"]["rules"]
     assert any(rule.startswith("native:") for rule in rows)
-    assert {row[1] for row in rows.values()} == {"UNKNOWN"}
+    assert {row[1] for rule, row in rows.items() if rule.startswith("native:")} == {"UNKNOWN"}
+    # A violation of the shell is a fact also in an incomplete scope; no row passes.
+    pinned = json.loads(EXPECTED.read_text())["rules"]
+    failing = {rule for rule, row in rows.items() if row[1] == "FAIL"}
+    assert failing == {rule for rule, status in pinned.items() if status == "FAIL"}
+    assert "PASS" not in {row[1] for row in rows.values()}
     assert "outside the namespace" in result["frame"]["scope"]
-    assert (code, result["status"]) == (2, "UNKNOWN")
+    assert (code, result["status"]) == ((1, "FAIL") if failing else (2, "UNKNOWN"))
 
 
 def test_the_contract_states_every_rule_with_a_decided_kind_and_real_provenance() -> None:
