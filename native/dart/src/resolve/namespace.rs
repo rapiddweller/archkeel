@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::{class_like, types, Bound, Decl, Resolver, Substitutions};
 use crate::import_survey::binding::visible;
+use crate::syntax::{Directive, Visibility};
 
 impl<'a> Resolver<'a> {
     /// Each declaration that the imports of `module` with `prefix` bind to `name`, by identity
@@ -135,10 +136,7 @@ impl<'a> Resolver<'a> {
             Some(prefix) => self.imported(module, name, Some(prefix)),
             None => self.in_library(module, name),
         };
-        let classes: Vec<&Bound> = bindings
-            .iter()
-            .filter(|bound| class_like(bound.kind))
-            .collect();
+        let classes: Vec<&Bound> = bindings.iter().filter(|bound| bound.class_like()).collect();
         let ids: BTreeSet<&str> = classes
             .iter()
             .map(|bound| String::as_str(&bound.id))
@@ -165,5 +163,116 @@ impl<'a> Resolver<'a> {
             .zip(actuals)
             .collect();
         Some((decl, substitutions, constructor))
+    }
+
+    /// Each import directive of `module` with the source index of its file.
+    pub(crate) fn imports_of(
+        &self,
+        module: &str,
+    ) -> impl Iterator<Item = (usize, &'a Directive)> + '_ {
+        self.imports.get(module).into_iter().flatten().copied()
+    }
+
+    /// The declarations that the library at `at` exports as `name`.
+    pub(crate) fn exported_from(&self, at: usize, name: &str) -> Vec<Bound> {
+        self.exported(at, name, &mut BTreeSet::new(), None)
+    }
+
+    /// True when each import of `module` with `prefix` that lets `name` through has a closed
+    /// export namespace for it (`_constructor_namespace_closed`).
+    pub(crate) fn constructor_namespace_closed(
+        &self,
+        module: &str,
+        name: &str,
+        prefix: &str,
+    ) -> bool {
+        self.imports_of(module)
+            .filter(|(_, directive)| {
+                directive.prefix.as_deref() == Some(prefix) && visible(directive, name)
+            })
+            .all(|(at, directive)| self.directive_closed(at, directive, name, &BTreeSet::new()))
+    }
+
+    /// True when the library at `at` and its parts are read in full and each export that lets
+    /// `name` through is closed (`_export_namespace_closed`).
+    fn export_closed(&self, at: usize, name: &str, seen: &BTreeSet<String>) -> bool {
+        let complete = |file: usize| {
+            self.syntax
+                .get(file)
+                .and_then(Option::as_ref)
+                .is_some_and(|parsed| parsed.complete)
+        };
+        let Some(module) = self.module_for(at) else {
+            return false;
+        };
+        if !complete(at)
+            || self
+                .parts
+                .get(&at)
+                .into_iter()
+                .flatten()
+                .any(|part| !complete(*part))
+        {
+            return false;
+        }
+        if seen.contains(module) {
+            return true;
+        }
+        let declared = self.local(module, name);
+        if declared
+            .iter()
+            .any(|decl| decl.definition.visibility == Visibility::Public)
+        {
+            return true;
+        }
+        let mut inner = seen.clone();
+        inner.insert(module.to_owned());
+        self.exports
+            .get(module)
+            .into_iter()
+            .flatten()
+            .filter(|(_, directive)| visible(directive, name))
+            .all(|(from, directive)| self.directive_closed(*from, directive, name, &inner))
+    }
+
+    /// True when each URI of `directive` gives a closed library, and each alternative gives the
+    /// same declarations (`_directive_namespace_closed`).
+    fn directive_closed(
+        &self,
+        at: usize,
+        directive: &Directive,
+        name: &str,
+        seen: &BTreeSet<String>,
+    ) -> bool {
+        let importer = self.rel(at);
+        let alternatives = directive
+            .alternatives
+            .iter()
+            .map(|(_, uri)| Some(String::as_str(uri)));
+        let mut previous: Option<BTreeSet<String>> = None;
+        for uri in std::iter::once(directive.target.as_deref()).chain(alternatives) {
+            let Some(library) = uri
+                .and_then(|uri| self.target(importer, uri))
+                .and_then(|target| target.at)
+            else {
+                return false;
+            };
+            if !self.export_closed(library, name, seen) {
+                return false;
+            }
+            if Vec::is_empty(&directive.alternatives) {
+                continue;
+            }
+            let ids: BTreeSet<String> = self
+                .exported(library, name, &mut seen.clone(), None)
+                .into_iter()
+                .map(|bound| bound.id)
+                .collect();
+            if previous.as_ref().is_some_and(|before| *before != ids) {
+                return false;
+            }
+            previous = Some(ids);
+        }
+        true
     }
 }

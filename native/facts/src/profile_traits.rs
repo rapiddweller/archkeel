@@ -82,8 +82,7 @@ impl Profile {
 
     /// True when the collector of this profile states the symbol facts of the modules that it
     /// reads. For any other profile the symbol part of a UML target is a named gap: the core
-    /// never reads a missing section as an empty one (AD-512). The Dart collector states its
-    /// symbols and no sites yet (AD-796), so `symbol_sites` keeps its relationships open.
+    /// never reads a missing section as an empty one (AD-512).
     pub fn symbol_facts(self) -> bool {
         match self {
             Profile::TypeScript | Profile::Python | Profile::Dart => true,
@@ -114,8 +113,8 @@ impl Profile {
     /// and no class has a base receipt (AD-518).
     pub fn symbol_sites(self) -> bool {
         match self {
-            Profile::TypeScript | Profile::Python => true,
-            Profile::Dart | Profile::Rust => false,
+            Profile::TypeScript | Profile::Python | Profile::Dart => true,
+            Profile::Rust => false,
         }
     }
 

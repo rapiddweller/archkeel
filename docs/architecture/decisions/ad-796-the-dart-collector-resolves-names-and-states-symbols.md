@@ -24,9 +24,11 @@ same basis (AD-608). It uses that basis in two places only:
 A name of a library outside the snapshot has no binding, so it stays unresolved and never becomes
 a project declaration.
 
-**Not ported from 4.0.1.** In `resolve.py`, an unqualified name inside a class looks up the library
-before the members. Dart does the reverse, and an unknown superclass can declare any member. S2
-gives such a name a gap.
+**Not ported from 4.0.1 (S2).** In `resolve.py`, an unqualified name inside a class looks up the
+library before the members. Dart reads a local binding, then a member that the enclosing class
+declares, then the library and its imports, and only then an inherited member (implicit `this`).
+`resolve/sites.rs` follows Dart. An inherited member binds only through a mixin or a superclass of
+the same module, so a member that only a base outside the snapshot can declare stays unresolved.
 
 **S1 (this change).**
 - Namespace and constructor formals are ported: field formals, super formals and redirecting
@@ -49,9 +51,17 @@ gives such a name a gap.
 289 -> 107, J-compass 421 -> 74. Rule counts and G-dart (9/0/1) do not change. No assessment is
 FAIL.
 
-**Kept gaps (S1).** Every relationship stays UNKNOWN until S3 states sites. A local binding has
-no record until S3. A collection that stops on its work limit gives no symbol, so each symbol
-stays UNKNOWN.
+**S2 and S3.** Each site and each construction is resolved (`resolve/sites.rs`, `members.rs`,
+`receivers.rs`, `construct.rs`), and the reply writes the `calls` and `references` sections.
+`symbol_sites` is true for Dart. Both slices land together, because S2 alone changes no reply. Two
+changes go beyond 4.0.1. A static member or a constructor of an imported class binds through the
+library scope (4.0.1 read only the declarations of the library). A top-level function has no
+method kind, as in TypeScript (4.0.1 wrote `static`, which the model reads as a static method).
+UML undecided after S3: H-uml-dart 23 -> 0 (PASS 5/0/0, as in 4.0.1), I-flutter-shop 107 -> 35
+(the 35 causes of its README), J-compass 74 -> 35. No assessment is FAIL.
+
+**Kept gaps.** An extension member, an interface member and an inherited member of another module
+stay unresolved. A collection that stops on its work limit gives no symbol and no site.
 
 **Undo.** Make `Profile::symbol_facts` false for Dart and drop the `symbols` section in
 `import_survey/reply.rs`.

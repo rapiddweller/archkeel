@@ -46,7 +46,7 @@
     "H-uml-dart": {
       "language": "dart",
       "runs": [
-      {"name": "H-uml-dart", "section": "clean", "intent": "PASS", "blocked_by": [1533, 1532], "about": "A Dart UML target with four inside contracts.", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 4, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "H-uml-dart", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "A Dart UML target with four inside contracts.", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 5, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-typescript": {
@@ -64,7 +64,7 @@
     "J-compass": {
       "language": "dart",
       "runs": [
-      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1533], "about": "Real project: the Flutter samples compass_app at 5541c59 (BSD-3-Clause). The pub workspace layout of flutter/samples: the app under compass_app/app, 37 pubspec files. All six requires rules PASS; only the UML row waits for Dart symbol facts.", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1762], "about": "Real project: the Flutter samples compass_app at 5541c59 (BSD-3-Clause). The pub workspace layout of flutter/samples: the app under compass_app/app, 37 pubspec files. All six requires rules PASS; the UML row stays UNKNOWN on 35 assessments: freezed part files make class inventories partial, the target draws static methods without static, and some calls are unresolved (#1762).", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "K-python-realworld": {
