@@ -31,6 +31,7 @@ from .init_areas import (
     Part,
     _detect,
 )
+from .init_binding import _binding, _uses
 
 __all__ = [
     "CONFIG",
@@ -77,6 +78,8 @@ class Draft:
     parts: tuple[str, ...] = ()
     interfaces: tuple[str, ...] = ()
     entry: str = CONFIG
+    # The first `stated` interfaces are stated by the manifests (AD-784); the others are open.
+    stated: int = 0
 
 
 def _page(components: tuple[str, ...]) -> str:
@@ -196,6 +199,33 @@ def _specs(repo: Path, areas: list[Area]) -> list[tuple[str, int]]:
     return found
 
 
+def _bindings(repo: Path, areas: list[Area], ids: list[str]) -> list[dict[str, str]]:
+    """The interface from each Python part to each Rust part whose PyO3 binding it uses, as the
+    manifests state both ends (AD-784). The title names the module: the binding is stated."""
+    found: list[dict[str, str]] = []
+    for target, area in enumerate(areas):
+        for crate in area.layout.crates:
+            stated = _binding(repo, repo / crate)
+            if stated is None:
+                continue
+            for source, user in enumerate(areas):
+                project = user.layout.project
+                if user.layout.language != "python" or not project:
+                    continue
+                if _uses(repo / project, repo / crate, stated):
+                    found.append(
+                        {
+                            "id": f"{ids[source]}-to-{ids[target]}-{len(found) + 1}",
+                            "source": ids[source],
+                            "target": ids[target],
+                            "title": f"Python extension module {stated.module} "
+                            "(PyO3 binding, maturin)",
+                            "schema": stated.schema,
+                        }
+                    )
+    return found
+
+
 def _system(repo: Path, areas: list[Area]) -> Draft:
     ids = _unique_ids(areas)
     files: list[File] = []
@@ -215,7 +245,8 @@ def _system(repo: Path, areas: list[Area]) -> Draft:
                 "provides": [f"TODO: state what {title} gives to the other parts."],
             }
         )
-    interfaces: list[dict[str, str]] = []
+    interfaces = _bindings(repo, areas, ids)
+    stated = len(interfaces)
     for spec, holder in _specs(repo, areas):
         for index, source in enumerate(ids):
             if index != holder:
@@ -248,6 +279,7 @@ def _system(repo: Path, areas: list[Area]) -> Draft:
         tuple(_title_of(a, i) for a, i in zip(areas, ids, strict=True)),
         tuple(str(i["id"]) for i in interfaces),
         SYSTEM,
+        stated,
     )
 
 
