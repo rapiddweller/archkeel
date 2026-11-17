@@ -89,24 +89,20 @@ jobs:
         env:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
           ARCHKEEL_CORE_SOURCE: ${{ steps.core.outputs.cache-hit == 'true' && 'cache' || 'build' }}
+          PR_BASE: origin/${{ github.base_ref }}
         run: |
-          # AD-754: the static checks run beside the core build; their result is checked next.
-          make ci-pr-static > "$RUNNER_TEMP/static.log" 2>&1 &
+          # AD-754: the static checks and, AD-756, the Rust format and lint of the touched crates
+          # run beside the core build (they need no release core); their result is checked next.
+          { make ci-pr-static && make pr-native-lint PR_BASE="$PR_BASE"; } \
+            > "$RUNNER_TEMP/static.log" 2>&1 &
           static=$!
           make core
           if wait "$static"; then echo "static=0"; else echo "static=1"; fi >> "$GITHUB_OUTPUT"
           cat "$RUNNER_TEMP/static.log"
 
-      - name: Require the static checks
+      - name: Require the static and the Rust checks
         if: steps.build.outcome == 'success'
         run: test "${{ steps.build.outputs.static }}" = 0
-
-      # AD-756: the Rust format and the clippy of the touched crates, when the change touches native/.
-      - name: Check the Rust format and lint of the touched crates
-        if: steps.build.outcome == 'success'
-        env:
-          PR_BASE: origin/${{ github.base_ref }}
-        run: make pr-native-lint PR_BASE="$PR_BASE"
 
       - name: Run the PR gate
         env:

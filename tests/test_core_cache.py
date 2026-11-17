@@ -129,7 +129,8 @@ def test_the_pr_gate_runs_the_static_checks_beside_the_core_build_and_checks_the
     body = _jobs("pr-gate.yml")["pr-gate"]
     build = body.split("      - name: Build the core\n", 1)[1].split("\n      - name:", 1)[0]
     assert "make ci-pr-static" in build and "make core" in build and "wait " in build
-    required = body.split("      - name: Require the static checks\n", 1)[1]
+    assert "make pr-native-lint" in build
+    required = body.split("      - name: Require the static and the Rust checks\n", 1)[1]
     assert "steps.build.outputs.static" in required.split("\n      - name:", 1)[0]
     assert "SKIP_STATIC=1" in body
     text = (ROOT / ".github/workflows/pr-gate.yml").read_text()
