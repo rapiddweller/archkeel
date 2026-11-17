@@ -17,6 +17,8 @@ and an unused class without a leading underscore are FAIL; a name with one is pr
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import shutil
 import subprocess
@@ -144,7 +146,7 @@ PY_APP_ALL = "from pkg.base import Shape, unused, used\n\nX = (used() + unused()
 PY_APP_ONE = "from pkg.base import used\n\nX = used()\n"
 
 
-def _python(root: Path, binary: Path, app: str) -> dict[str, Any]:
+def _python(root: Path, binary: Path, app: str, users: tuple[str, ...] = ()) -> dict[str, Any]:
     files = {
         "pkg/__init__.py": "",
         "pkg/base/__init__.py": PY_BASE,
@@ -162,6 +164,8 @@ def _python(root: Path, binary: Path, app: str) -> dict[str, Any]:
     ]
     unused = rule("UNUSED", "unused_public", source="pkg.base")
     unused["provenance"] = ["docs/target.md"]
+    if users:
+        unused["external_users"] = [{**USER, "symbol": symbol} for symbol in users]
     for part in parts:
         part["provenance"] = ["docs/target.md"]
     contract = {"schema_version": "3.16.0", "components": parts, "rules": [unused]}
@@ -192,3 +196,33 @@ def test_python_states_every_public_symbol_so_a_run_can_pass(
     result = _python(tmp_path, core_binary, app)
     assert result["frame"]["rules"]["UNUSED"][1] == status, result["frame"].get("explained")
     assert _targets(result) == targets
+
+
+@pytest.mark.skipif(shutil.which("python3.12") is None, reason="python3.12 is the oracle")
+def test_a_pass_that_rests_on_stated_external_users_is_never_a_bare_pass(
+    core_binary: Path, tmp_path: Path
+) -> None:
+    """#1549: the two items without a user pass only because the contract states an external
+    user of each. The rule reads "PASS assuming 2 stated external users" in the frame and the
+    text. The entry of a used item is no premise: a proven user holds that item. (The run of this
+    plant stays UNKNOWN for its contract hygiene; the header of a PASS run is in
+    `test_cli_text_output.py`.)"""
+    users = ("pkg.base:Shape", "pkg.base:unused", "pkg.base:used")
+    result = _python(tmp_path, core_binary, PY_APP_ONE, users)
+    frame = result["frame"]
+    assert frame["rules"]["UNUSED"][1] == "PASS", frame.get("explained")
+    assert {p["subject"] for p in frame["premises"]["UNUSED"]} == {
+        "pkg.base:Shape",
+        "pkg.base:unused",
+    }
+    assert {p["kind"] for p in frame["premises"]["UNUSED"]} == {"external_user"}
+    assert frame["assuming"] == "2 stated external users"
+    assert "assumed" not in frame and "door_reach" not in frame
+    output = io.StringIO()
+    with pytest.MonkeyPatch.context() as patch, contextlib.redirect_stdout(output):
+        patch.setattr(core_only, "locate_core", lambda: core_binary)
+        core_only.run(["validate", "--text", "--root", str(tmp_path)])
+    text = output.getvalue()
+    assert "PASS assuming 2 stated external users (1 rules); a premise is not a proof:" in text
+    assert "stated external users: pkg.base:Shape, pkg.base:unused" in text
+    assert "rules: UNUSED" in text

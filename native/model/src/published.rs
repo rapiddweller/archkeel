@@ -42,6 +42,26 @@ pub enum Unused {
 
 /// The items of one rule that no other component is proven to use, in reply order.
 pub fn unused<'m>(model: &'m Model, rule: &UnusedPublic) -> Vec<(&'m PublicItem, Unused)> {
+    judged(model, rule, false)
+}
+
+/// The items of one rule that an `external_users` entry names and that no other component is
+/// proven to use (#1549). The entry states a user outside the scan: a premise of the contract,
+/// not a proof. A PASS of the rule rests on each of these items.
+pub(crate) fn stated_users<'m>(model: &'m Model, rule: &UnusedPublic) -> Vec<&'m PublicItem> {
+    judged(model, rule, true)
+        .into_iter()
+        .map(|(item, _)| item)
+        .collect()
+}
+
+/// The items of the rule without a proven user: those that no `external_users` entry names, or
+/// with `stated` those that one names.
+fn judged<'m>(
+    model: &'m Model,
+    rule: &UnusedPublic,
+    stated: bool,
+) -> Vec<(&'m PublicItem, Unused)> {
     let Some(items) = model.graph().published() else {
         return Vec::new();
     };
@@ -61,7 +81,7 @@ pub fn unused<'m>(model: &'m Model, rule: &UnusedPublic) -> Vec<(&'m PublicItem,
                 && (kinds.is_empty()
                     || kinds.contains(&item.kind)
                     || (!item.named && item.kind == PublicItemKind::DynamicBinding))
-                && !exempt.contains(format!("{}:{}", item.module, item.name).as_str())
+                && exempt.contains(format!("{}:{}", item.module, item.name).as_str()) == stated
         })
         .filter_map(|item| users.judge(item).map(|judged| (item, judged)))
         .collect()

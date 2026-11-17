@@ -244,3 +244,47 @@ pub(super) fn method_kind(node: &StmtFunctionDef, binders: &Binders) -> Option<M
         _ => None,
     }
 }
+
+/// The `__slots__` entries of a class body (#1523): each string of a literal string, tuple, list,
+/// set or dict key. `None` when the body binds `__slots__` in any other form: a slot gets a member
+/// in the class namespace, so a computed list can hold any name.
+pub(super) fn slots(body: &[Stmt]) -> Option<HashSet<String>> {
+    let mut found = HashSet::new();
+    for stmt in body {
+        let (targets, value): (Vec<&Expr>, Option<&Expr>) = match stmt {
+            Stmt::Assign(node) => (node.targets.iter().collect(), Some(&node.value)),
+            Stmt::AnnAssign(node) => (vec![&*node.target], node.value.as_deref()),
+            Stmt::AugAssign(node) => (vec![&*node.target], None),
+            _ => continue,
+        };
+        let named =
+            |target: &&Expr| matches!(target, Expr::Name(name) if name.id.as_str() == "__slots__");
+        if !targets.iter().any(named) {
+            continue;
+        }
+        found.extend(slot_names(value?)?);
+    }
+    Some(found)
+}
+
+fn slot_names(value: &Expr) -> Option<Vec<String>> {
+    let items: Vec<&Expr> = match value {
+        Expr::StringLiteral(_) => vec![value],
+        Expr::Tuple(node) => node.elts.iter().collect(),
+        Expr::List(node) => node.elts.iter().collect(),
+        Expr::Set(node) => node.elts.iter().collect(),
+        Expr::Dict(node) => node
+            .items
+            .iter()
+            .map(|item| item.key.as_ref())
+            .collect::<Option<_>>()?,
+        _ => return None,
+    };
+    items
+        .into_iter()
+        .map(|item| match item {
+            Expr::StringLiteral(text) => Some(text.value.to_str().to_owned()),
+            _ => None,
+        })
+        .collect()
+}

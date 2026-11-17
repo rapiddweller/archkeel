@@ -32,6 +32,7 @@
         "native.archkeel_facts.data:DoorSite",
         "native.archkeel_facts.data:GapEffect",
         "native.archkeel_facts.data:ImportData",
+        "native.archkeel_facts.data:PlaceholderData",
         "native.archkeel_facts.data:PlainConstructData",
         "native.archkeel_facts.data:ReferenceData",
         "native.archkeel_facts.data:SelectorData",
@@ -128,6 +129,7 @@
         "native.archkeel_facts.vocab:MemberKind",
         "native.archkeel_facts.vocab:MethodKind",
         "native.archkeel_facts.vocab:Operation",
+        "native.archkeel_facts.vocab:PlaceholderForm",
         "native.archkeel_facts.vocab:ReferenceContext",
         "native.archkeel_facts.vocab:RelationshipKind",
         "native.archkeel_facts.vocab:ResolutionDimension",
@@ -342,9 +344,11 @@
         "native.archkeel_contract:Lifecycle",
         "native.archkeel_contract:ModifierKind",
         "native.archkeel_contract:NoComponentCycles",
+        "native.archkeel_contract:PREMISE_NAMES",
         "native.archkeel_contract:Package",
         "native.archkeel_contract:ParameterKind",
         "native.archkeel_contract:ParsedContract",
+        "native.archkeel_contract:PremiseName",
         "native.archkeel_contract:PresenceKind",
         "native.archkeel_contract:PublicItemKind",
         "native.archkeel_contract:Relationship",
@@ -366,12 +370,15 @@
         "native.archkeel_contract:UnusedPublic",
         "native.archkeel_contract:VisibilityBasis",
         "native.archkeel_contract:VisibilityKind",
+        "native.archkeel_contract:assumption_words",
         "native.archkeel_contract:bare_reference",
         "native.archkeel_contract:canonical_bytes",
+        "native.archkeel_contract:declared_premises",
         "native.archkeel_contract:head_of",
         "native.archkeel_contract:kind_of",
         "native.archkeel_contract:merge_targets",
         "native.archkeel_contract:parse",
+        "native.archkeel_contract:premise_word",
         "native.archkeel_contract:uml_target_id"
       ],
       "decided_by": "architect"
@@ -490,6 +497,7 @@
           "rationale": "Take the scope proof, a receipt or the verdict that only the proof gives (AD-363).",
           "through": [
             "native.archkeel_model.gap_effects",
+            "native.archkeel_model.premises",
             "native.archkeel_model.receipts",
             "native.archkeel_model.run",
             "native.archkeel_model.scope",
@@ -533,6 +541,7 @@
         "native.archkeel_model:Needs",
         "native.archkeel_model:Part",
         "native.archkeel_model:Position",
+        "native.archkeel_model:PremiseKind",
         "native.archkeel_model:Producer",
         "native.archkeel_model:PublicItem",
         "native.archkeel_model:Reason",
@@ -550,8 +559,8 @@
         "native.archkeel_model:UmlTarget",
         "native.archkeel_model:Unsupported",
         "native.archkeel_model:Unused",
+        "native.archkeel_model:UsedPremise",
         "native.archkeel_model:Verdict",
-        "native.archkeel_model:assumed",
         "native.archkeel_model:boundary_reading",
         "native.archkeel_model:claims",
         "native.archkeel_model:compare_uml_tree",
@@ -565,10 +574,14 @@
         "native.archkeel_model:in_scope",
         "native.archkeel_model:interface_crossings",
         "native.archkeel_model:interface_publications",
+        "native.archkeel_model:kind_word",
         "native.archkeel_model:measure_facts",
+        "native.archkeel_model:of_kind_word",
         "native.archkeel_model:peers",
         "native.archkeel_model:placement_violations",
+        "native.archkeel_model:premise_words",
         "native.archkeel_model:publishes",
+        "native.archkeel_model:rule_premises",
         "native.archkeel_model:shape",
         "native.archkeel_model:stable",
         "native.archkeel_model:unused_public"
@@ -1100,6 +1113,7 @@
         "native.archkeel_model.placement:violations",
         "native.archkeel_model.published:Unused",
         "native.archkeel_model.published:receipt",
+        "native.archkeel_model.published:stated_users",
         "native.archkeel_model.published:unused"
       ],
       "decided_by": "architect"
@@ -1110,13 +1124,14 @@
       "role": "component",
       "layer": "model",
       "packages": [
+        "native.archkeel_model.gap_effects",
+        "native.archkeel_model.receipts",
+        "native.archkeel_model.run",
         "native.archkeel_model.scope",
         "native.archkeel_model.scope_order",
         "native.archkeel_model.scope_receipt",
         "native.archkeel_model.verdict",
-        "native.archkeel_model.receipts",
-        "native.archkeel_model.run",
-        "native.archkeel_model.gap_effects"
+        "native.archkeel_model.premises"
       ],
       "responsibilities": [
         "Prove that a rule and a run saw their whole scope, and make the only PASS: the scope, the receipts, the verdict and the run proof (AD-363, AD-378, AD-384)."
@@ -1136,11 +1151,16 @@
             "native.archkeel_contract:CycleLevel",
             "native.archkeel_contract:Lifecycle",
             "native.archkeel_contract:NoComponentCycles",
+            "native.archkeel_contract:PREMISE_NAMES",
+            "native.archkeel_contract:PremiseName",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
             "native.archkeel_contract:SymbolPlacement",
+            "native.archkeel_contract:assumption_words",
+            "native.archkeel_contract:declared_premises",
             "native.archkeel_contract:head_of",
-            "native.archkeel_contract:kind_of"
+            "native.archkeel_contract:kind_of",
+            "native.archkeel_contract:premise_word"
           ]
         },
         {
@@ -1169,7 +1189,8 @@
           "through": [
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph",
-            "native.archkeel_model.ownership"
+            "native.archkeel_model.ownership",
+            "native.archkeel_model.published_items"
           ]
         },
         {
@@ -1206,7 +1227,12 @@
         }
       ],
       "public": [
-        "native.archkeel_model.gap_effects:assumed",
+        "native.archkeel_model.premises:PremiseKind",
+        "native.archkeel_model.premises:UsedPremise",
+        "native.archkeel_model.premises:kind_word",
+        "native.archkeel_model.premises:of_kind_word",
+        "native.archkeel_model.premises:premise_words",
+        "native.archkeel_model.premises:rule_premises",
         "native.archkeel_model.run:Model",
         "native.archkeel_model.run:ModelTree",
         "native.archkeel_model.run:RunGap",
@@ -1780,6 +1806,7 @@
           "component": "report-ruling",
           "rationale": "Publish the ruling, the one writer of a status and a rule verdict (AD-388).",
           "through": [
+            "native.archkeel_report.assumed:words",
             "native.archkeel_report.ruling",
             "native.archkeel_report.run_scope"
           ]
@@ -1794,6 +1821,7 @@
         "native.archkeel_report:Status",
         "native.archkeel_report:construct_row",
         "native.archkeel_report:page",
+        "native.archkeel_report:premise_words",
         "native.archkeel_report:rule",
         "native.archkeel_report:rule_with_edge_links",
         "native.archkeel_report:system_status"
@@ -2069,6 +2097,7 @@
             "native.archkeel_model:Incomplete",
             "native.archkeel_model:Model",
             "native.archkeel_model:ModelTree",
+            "native.archkeel_model:PremiseKind",
             "native.archkeel_model:Reason",
             "native.archkeel_model:RunPass",
             "native.archkeel_model:Shape",
@@ -2077,9 +2106,13 @@
             "native.archkeel_model:UmlOutcome",
             "native.archkeel_model:UmlTarget",
             "native.archkeel_model:Unsupported",
+            "native.archkeel_model:UsedPremise",
             "native.archkeel_model:Verdict",
-            "native.archkeel_model:assumed",
             "native.archkeel_model:compare_uml_tree",
+            "native.archkeel_model:kind_word",
+            "native.archkeel_model:of_kind_word",
+            "native.archkeel_model:premise_words",
+            "native.archkeel_model:rule_premises",
             "native.archkeel_model:shape"
           ]
         },
@@ -2160,6 +2193,7 @@
         }
       ],
       "public": [
+        "native.archkeel_report.assumed:words",
         "native.archkeel_report.ruling:Explain",
         "native.archkeel_report.ruling:Named",
         "native.archkeel_report.ruling:RuleReasons",
@@ -2966,6 +3000,7 @@
           "through": [
             "native.archkeel_report:Status",
             "native.archkeel_report:page",
+            "native.archkeel_report:premise_words",
             "native.archkeel_report:system_status"
           ]
         }
@@ -5724,6 +5759,7 @@
         "native.archkeel_python_collector.inputs:with_listings",
         "native.archkeel_python_collector.requirement:Prepared",
         "native.archkeel_python_collector.requirement:clamped_from",
+        "native.archkeel_python_collector.requirement:lazy_annotations",
         "native.archkeel_python_collector.requirement:requirement"
       ],
       "decided_by": "architect"
@@ -5825,6 +5861,13 @@
           "rationale": "Read the request with its selected target (AD-753).",
           "through": [
             "native.archkeel_python_collector.requirement:Prepared"
+          ]
+        },
+        {
+          "component": "py-inputs",
+          "rationale": "Read whether the requirement allows Python 3.14, where method annotations are lazy (#1523).",
+          "through": [
+            "native.archkeel_python_collector.requirement:lazy_annotations"
           ]
         }
       ],
@@ -6845,7 +6888,8 @@
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.module_scopes",
         "native.archkeel_python_collector.survey.external_loader",
-        "native.archkeel_python_collector.survey.outside.sites"
+        "native.archkeel_python_collector.survey.outside.sites",
+        "native.archkeel_python_collector.survey.class_writes"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [

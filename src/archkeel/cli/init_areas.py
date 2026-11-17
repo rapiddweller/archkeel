@@ -18,7 +18,7 @@ import os
 import re
 from dataclasses import dataclass, replace
 from functools import cache
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Final
 
 from .core_schema import schema_file
@@ -96,7 +96,11 @@ def _members(root: Path, patterns: list[str], marker: str) -> list[Path]:
     the marker file."""
     found: set[Path] = set()
     for pattern in patterns:
-        for path in root.glob(pattern):
+        # `.` names the folder itself (tokio: `fuzz` is its own workspace); `glob` refuses it.
+        relative = PurePosixPath(pattern)
+        if relative.is_absolute() or ".." in relative.parts:
+            continue
+        for path in root.glob(relative.as_posix()) if relative.parts else [root]:
             if path.is_dir() and (path / marker).is_file() and path.name not in _IGNORED:
                 found.add(path)
     return sorted(found)
@@ -197,9 +201,10 @@ def _rust_layout(repo: Path, root: Path) -> Layout | None:
     if len(parts) < 2:
         raise _refuse("the Cargo workspace names fewer than two crates with a [package] name")
     scan = root.relative_to(repo).as_posix()
-    return Layout(
-        "rust", _name(root.name or repo.name), (scan,), tuple(parts), crates=tuple(crates)
-    )
+    # Test, bench and example code stays out of the scan, as for one crate (#1612) and TypeScript:
+    # a dev-dependency back to a sibling crate is no edge of the production graph (#1680).
+    namespace = _name(root.name or repo.name)
+    return Layout("rust", namespace, (scan,), tuple(parts), _TESTS, crates=tuple(crates))
 
 
 def _in_workspace(repo: Path, folder: Path) -> bool:
@@ -426,7 +431,9 @@ def _layout_of(repo: Path, folder: Path) -> Layout | None:
     if (folder / "Cargo.toml").is_file() and (layout := _rust_layout(repo, folder)):
         return layout
     if (folder / "package.json").is_file():
-        if _workspaces(folder):
+        # One scan of all workspace members needs one tsconfig that covers them. Without a root
+        # tsconfig.json each member with its own is a project of its own, found below.
+        if _workspaces(folder) and (folder / "tsconfig.json").is_file():
             return _typescript_layout(repo, folder)
         if (folder / "tsconfig.json").is_file():
             return _typescript_project(repo, folder)

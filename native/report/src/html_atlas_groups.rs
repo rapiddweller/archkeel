@@ -2,27 +2,18 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Groups of the Explorer tree (AD-630): a level never draws more boxes than stay readable. A scope
-//! with more children than `READABLE` is split into groups named by the part of the names that the
-//! children share (a package prefix), or, when no prefix splits them, by ranges of the sorted names.
-//! A group is one more box of the tree: a violated place or a gap inside it shows on the group, and
-//! the user opens it to see its children, as for a component.
+//! Groups of the Explorer tree (AD-630, AD-794): a level never draws more boxes than one screen
+//! shows. A scope with more children than `ON_SCREEN` is split by its structure: the part of the
+//! names that the children share (a package prefix). A scope that no prefix splits is shown whole:
+//! a cut of sorted names into ranges tells the reader nothing. A group is one more box of the tree:
+//! a violated place or a gap inside it shows on the group, and the user opens it to see its
+//! children, as for a component.
 
-use super::atlas_node::Node;
+use super::atlas_node::{Node, ON_SCREEN};
 
-/// The most boxes of one level of the Explorer: a level up to this size is drawn as it is, and a
-/// larger one is split into groups (lead decision of the second UX test: about twelve).
-pub(super) const READABLE: usize = 12;
-
-/// The most boxes of one range group: a group is opened to be read, so it stays small.
-const RANGE: usize = 6;
-
-/// The name of the group of each span `(first, last)` of leaf names: the first `depth` segments of
-/// the first name when that gives between two and `READABLE` groups, else ranges of `RANGE`
-/// sorted spans (a set of more than `READABLE` ranges is grouped again). A range names the first
-/// and the last leaf, so a group of groups has a short name too.
-pub(super) fn group_names(spans: &[(String, String)]) -> (Vec<String>, bool) {
-    let labels: Vec<&str> = spans.iter().map(|(first, _)| first.as_str()).collect();
+/// The group name of each leaf name: the first `depth` segments of the name at the first separator
+/// and depth that give between two and `ON_SCREEN` groups; `None` when no prefix splits the names.
+pub(super) fn group_names(labels: &[String]) -> Option<Vec<String>> {
     for separator in ['.', '/', ':', '_', '-'] {
         for depth in 1..=4 {
             let keys: Vec<String> = labels
@@ -33,38 +24,18 @@ pub(super) fn group_names(spans: &[(String, String)]) -> (Vec<String>, bool) {
                 })
                 .collect();
             let distinct: std::collections::BTreeSet<&String> = keys.iter().collect();
-            if (2..=READABLE).contains(&distinct.len()) {
-                return (keys, true);
+            if (2..=ON_SCREEN).contains(&distinct.len()) && distinct.len() < labels.len() {
+                return Some(keys);
             }
         }
     }
-    // Balanced ranges: `ceil(n / RANGE)` groups whose sizes differ by at most one, so no range
-    // holds a single box (a range of one box would carry the name of that box).
-    let mut order: Vec<usize> = (0..labels.len()).collect();
-    order.sort_by_key(|i| labels[*i]);
-    let groups = labels.len().div_ceil(RANGE);
-    let (base, extra) = (labels.len() / groups, labels.len() % groups);
-    let mut names = vec![String::new(); labels.len()];
-    let mut start = 0;
-    for group in 0..groups {
-        let end = start + base + usize::from(group < extra);
-        let chunk = &order[start..end];
-        let last = chunk
-            .iter()
-            .map(|i| spans[*i].1.as_str())
-            .max()
-            .unwrap_or_default();
-        let name = format!("{} to {last}", labels[chunk[0]]);
-        for i in chunk {
-            names[*i].clone_from(&name);
-        }
-        start = end;
-    }
-    (names, false)
+    None
 }
 
-/// Split each scope that has more than `READABLE` children into groups, until none has.
+/// Split each scope that has more than `ON_SCREEN` children into groups by a shared prefix, until
+/// none has or no prefix splits the rest.
 pub(super) fn limit(nodes: &mut Vec<Node>) {
+    let mut whole: Vec<Option<usize>> = Vec::new();
     loop {
         // The boxes of a layer order stay together: the order is the picture that the contract
         // draws, and a layer holds its components.
@@ -73,7 +44,9 @@ pub(super) fn limit(nodes: &mut Vec<Node>) {
             .collect();
         scopes.retain(|scope| {
             let kids: Vec<&Node> = nodes.iter().filter(|n| n.parent == *scope).collect();
-            kids.len() > READABLE && kids.iter().all(|n| n.rank.is_none())
+            kids.len() > ON_SCREEN
+                && kids.iter().all(|n| n.rank.is_none())
+                && !whole.contains(scope)
         });
         let Some(scope) = scopes.first().copied() else {
             return;
@@ -81,17 +54,39 @@ pub(super) fn limit(nodes: &mut Vec<Node>) {
         let children: Vec<usize> = (0..nodes.len())
             .filter(|i| nodes[*i].parent == scope)
             .collect();
-        let spans: Vec<(String, String)> = children.iter().map(|i| span(nodes, *i)).collect();
+        let firsts: Vec<String> = children.iter().map(|i| first_leaf(nodes, *i)).collect();
         let labels: Vec<String> = children.iter().map(|i| nodes[*i].label.clone()).collect();
-        let (names, by_prefix) = group_names(&spans);
+        let Some(names) = group_names(&firsts) else {
+            whole.push(scope);
+            continue;
+        };
         let owner = scope.map_or("ROOT".to_owned(), |s| nodes[s].id.clone());
         let mut made: Vec<(String, usize)> = Vec::new();
+        // A child whose prefix no other child shares stays a box of the level: a group of one box
+        // tells the reader nothing.
+        let shared = |name: &String| names.iter().filter(|n| *n == name).count() >= 2;
+        if !names.iter().any(shared) {
+            whole.push(scope);
+            continue;
+        }
+        // A group of directory boxes is a directory box of the path prefix.
+        let files = children.iter().all(|c| nodes[*c].directory);
+        let label_of = |name: &String| {
+            if files {
+                format!("{name}/")
+            } else {
+                name.clone()
+            }
+        };
         for (child, name) in children.iter().zip(&names) {
+            if !shared(name) {
+                continue;
+            }
             let at = match made.iter().find(|(n, _)| n == name) {
                 Some((_, at)) => *at,
                 None => {
                     let at = nodes.len();
-                    let made_group = group(nodes, &owner, name, scope);
+                    let made_group = group(nodes, &owner, &label_of(name), scope, files);
                     nodes.push(made_group);
                     made.push((name.clone(), at));
                     at
@@ -114,39 +109,30 @@ pub(super) fn limit(nodes: &mut Vec<Node>) {
                 .join(", ");
             let more = if members.len() > 3 { ", ..." } else { "" };
             // A group says why it is a group (a level of this size is split), and what is in it.
-            let why = if by_prefix {
-                format!(
-                    "Grouped by the name prefix `{name}`: this level has {} boxes, more than {READABLE}.",
-                    children.len()
-                )
-            } else {
-                format!(
-                    "Grouped by size: this level has {} boxes, more than {READABLE}; the names are sorted and cut into ranges.",
-                    children.len()
-                )
-            };
+            let why = format!(
+                "Grouped by the name prefix `{name}`: this level has {} boxes, more than one screen shows ({ON_SCREEN}).",
+                children.len()
+            );
             nodes[*at].about = vec![why, format!("{} boxes: {shown}{more}.", members.len())];
         }
     }
 }
 
-/// The first and the last leaf name inside a box: its own name for a component.
-fn span(nodes: &[Node], at: usize) -> (String, String) {
-    let kids: Vec<(String, String)> = (0..nodes.len())
-        .filter(|i| nodes[*i].parent == Some(at))
-        .map(|i| span(nodes, i))
-        .collect();
-    let first = kids.iter().map(|(f, _)| f.clone()).min();
-    let last = kids.iter().map(|(_, l)| l.clone()).max();
-    match (first, last) {
-        (Some(first), Some(last)) => (first, last),
-        _ => (nodes[at].label.clone(), nodes[at].label.clone()),
-    }
+/// The first leaf name inside a box: its own name for a component or a directory box, the first
+/// name of its members for a layer or a group.
+fn first_leaf(nodes: &[Node], at: usize) -> String {
+    let groups = nodes[at].rank.is_some() || nodes[at].id.starts_with("GROUP:");
+    (0..nodes.len())
+        .filter(|i| groups && nodes[*i].parent == Some(at))
+        .map(|i| first_leaf(nodes, i))
+        .min()
+        .unwrap_or_else(|| nodes[at].label.clone())
 }
 
-fn group(nodes: &[Node], owner: &str, name: &str, parent: Option<usize>) -> Node {
+fn group(nodes: &[Node], owner: &str, name: &str, parent: Option<usize>, files: bool) -> Node {
     // An id names one box: a name that an earlier group of the owner has gets a mark.
-    let mut id = format!("GROUP:{owner}:{name}");
+    let kind = if files { "FILES" } else { "GROUP" };
+    let mut id = format!("{kind}:{owner}:{name}");
     while nodes.iter().any(|n| n.id == id) {
         id.push('\'');
     }
@@ -163,7 +149,8 @@ fn group(nodes: &[Node], owner: &str, name: &str, parent: Option<usize>) -> Node
         provenance: Vec::new(),
         members: None,
         rank: None,
-        directory: false,
+        // A group of directory boxes is a directory box; both are made by the report.
+        directory: files,
         grouped: true,
     }
 }

@@ -95,6 +95,7 @@
 #![deny(unreachable_pub)]
 
 mod construct;
+pub use assumed::words as premise_words;
 pub use construct::construct_row;
 
 #[cfg(test)]

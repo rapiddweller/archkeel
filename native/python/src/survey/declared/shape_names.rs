@@ -20,6 +20,37 @@ use crate::module::first_part;
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
 use crate::survey::bound_kind::Kind;
+use crate::survey::class_writes::ClassWrites;
+
+/// The names that a written type of a function cannot read from the module.
+#[derive(Default)]
+pub(in crate::survey) struct Hidden<'w> {
+    /// The names that the enclosing class body and the type parameters bind.
+    pub(super) names: HashSet<String>,
+    /// For a method on Python 3.14 (#1523): the class namespace when the annotation is evaluated.
+    pub(super) lazy: Option<Lazy<'w>>,
+}
+
+/// The names that the namespace of a class can hold after its statement (#1523).
+pub(super) struct Lazy<'w> {
+    /// The `__slots__` entries of the class; `None` when the body computes them.
+    pub(super) slots: Option<&'w HashSet<String>>,
+    /// The attribute names that the files store.
+    pub(super) writes: &'w ClassWrites,
+}
+
+impl Hidden<'_> {
+    /// Why the type cannot read `name` from the module, if it cannot.
+    pub(super) fn cause(&self, name: &str) -> Option<Unproven> {
+        if self.names.contains(name) {
+            return Some(Unproven::Hidden);
+        }
+        let lazy = self.lazy.as_ref()?;
+        let held =
+            lazy.slots.is_none_or(|slots| slots.contains(name)) || lazy.writes.can_write(name);
+        held.then_some(Unproven::LazyClassNamespace)
+    }
+}
 
 /// What a plain import of the module brings.
 enum Import {
@@ -30,7 +61,7 @@ enum Import {
 }
 
 /// The bindings of one module body.
-pub(super) struct Names<'a> {
+pub(in crate::survey) struct Names<'a> {
     module: &'a str,
     bound: Bound,
     names: HashSet<String>,
@@ -40,7 +71,7 @@ pub(super) struct Names<'a> {
 
 impl<'a> Names<'a> {
     /// The bindings of `tree`, with the plain imports of `records` that the survey calls sole.
-    pub(super) fn of(
+    pub(in crate::survey) fn of(
         (module, tree): (&'a str, &ModModule),
         binders: &'a Binders,
         records: &[&Record<ImportFact>],
@@ -85,7 +116,7 @@ impl<'a> Names<'a> {
 
     /// The binding of the expression `root` or `root.attribute`, where `hidden` are the names that
     /// the enclosing class body and the type parameters bind.
-    pub(super) fn binding(&self, expr: &Expr, hidden: &HashSet<String>) -> Binding {
+    pub(in crate::survey) fn binding(&self, expr: &Expr, hidden: &Hidden<'_>) -> Binding {
         match expr {
             Expr::Name(node) => self.name(node.id.as_str(), hidden),
             Expr::Attribute(node) => match &*node.value {
@@ -96,7 +127,7 @@ impl<'a> Names<'a> {
         }
     }
 
-    fn attribute(&self, root: &str, attribute: &str, hidden: &HashSet<String>) -> Binding {
+    fn attribute(&self, root: &str, attribute: &str, hidden: &Hidden<'_>) -> Binding {
         match self.name_import(root, hidden) {
             Ok(Import::Module(module)) => Binding::Imported {
                 target: format!("{module}.{attribute}"),
@@ -106,9 +137,9 @@ impl<'a> Names<'a> {
         }
     }
 
-    pub(super) fn name(&self, name: &str, hidden: &HashSet<String>) -> Binding {
-        if hidden.contains(name) {
-            return unproven(Unproven::Hidden);
+    pub(super) fn name(&self, name: &str, hidden: &Hidden<'_>) -> Binding {
+        if let Some(cause) = hidden.cause(name) {
+            return unproven(cause);
         }
         if self.bound.opaque {
             return unproven(Unproven::StarImport);
@@ -143,9 +174,9 @@ impl<'a> Names<'a> {
     }
 
     /// The one plain import that `name` reads, or the cause that there is none.
-    fn name_import(&self, name: &str, hidden: &HashSet<String>) -> Result<&Import, Unproven> {
-        if hidden.contains(name) {
-            return Err(Unproven::Hidden);
+    fn name_import(&self, name: &str, hidden: &Hidden<'_>) -> Result<&Import, Unproven> {
+        if let Some(cause) = hidden.cause(name) {
+            return Err(cause);
         }
         if self.bound.opaque {
             return Err(Unproven::StarImport);
@@ -185,7 +216,7 @@ mod tests {
             .expect("an expression")
             .into_syntax()
             .body;
-        names.binding(&expr, &HashSet::new())
+        names.binding(&expr, &super::Hidden::default())
     }
 
     #[test]

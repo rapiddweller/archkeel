@@ -234,7 +234,7 @@ fn registered_sets(original: &Reply) {
     };
     let not_registered = "source sections or resolution features are not registered";
     let constructs = &original.facts.capabilities.constructs;
-    assert_eq!(constructs.len(), 10, "{constructs:?}");
+    assert_eq!(constructs.len(), 11, "{constructs:?}");
     // `getattr` without `typing_signals`, and the five first kinds with it, are no set.
     assert_eq!(
         caps(&|r| drop_section(r, SectionName::TypingSignals)),
