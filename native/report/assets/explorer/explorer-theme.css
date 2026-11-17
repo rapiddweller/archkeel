@@ -24,3 +24,8 @@ html.ak-canvas .rp-explorer g.node[data-assessment-status="UNKNOWN"] .card { str
 .rp-explorer .rp-empty-note { margin: 0; padding: 0 var(--space-3); align-self: center; color: var(--ink); font-family: var(--font-sans); }
 /* Embedded, the bars at the bottom stand over the canvas: the diagram is fitted above them. */
 html.ak-canvas .rp-explorer .flow:not([data-expanded]) .flow-map-column { bottom: calc(var(--space-8) + var(--space-5)); }
+/* The sheet of a box is compact: headings and lists leave small gaps, so a component reads in one screen. */
+.rp-explorer .flow-inspector h3 { margin: var(--space-3) 0 var(--space-1); }
+.rp-explorer .flow-inspector p, .rp-explorer .flow-inspector ul.plain { margin: var(--space-1) 0; }
+.rp-explorer .flow-inspector ul.plain li { margin: 0 0 var(--space-1); }
+.rp-explorer .flow-inspector details { margin: var(--space-1) 0; }
