@@ -12,6 +12,8 @@
 
 5. Area selection (Wave 4, item 2): a change to `tests/conftest.py`, `tests/areas.py`, `tests/area_floors.json`, `tests/*_support.py` or `tests/*_plants.py` selects every area, and `tools/select_areas.py` reads the diff with `--no-renames`, so a rename lists both paths. A BLOCKED merge state with green checks is WAIT (GitHub lags a few seconds), not REFUSE.
 
+6. Aggregates (item 3): the aggregate jobs of `ci.yml` and `full-verification.yml` say a job was cancelled (a superseded run), skipped or failed, each in its own words, and still refuse all three. `tools/ci_daily.py`: `red_hours` reads the Full runs of all days, so a red that began before midnight carries into the day, and a `timed_out` run is red; a cancelled run changes nothing.
+
 **Rejected.** Deleting `merge_check.py` (owner: it stays); a second table in each tool.
 
 **Tests.** `tests/test_merge_pr.py` (every row, the exit codes, `--json`, `--wait`), `tests/test_merge_check.py`.

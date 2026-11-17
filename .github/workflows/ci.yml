@@ -257,7 +257,12 @@ jobs:
         run: |
           set -euo pipefail
           for result in $RESULTS; do
-            [[ "$result" == success ]] || { echo "A check job did not succeed: $result" >&2; exit 1; }
+            case "$result" in
+              success) ;;
+              cancelled) echo "A check job was cancelled (a newer push or a person cancelled the run): run it again; this is not a failure of the code" >&2; exit 1 ;;
+              skipped) echo "A check job was skipped: GitHub counts a skipped required job as passed, so this gate refuses it" >&2; exit 1 ;;
+              *) echo "A check job failed: $result" >&2; exit 1 ;;
+            esac
           done
           [[ -n "$RESULTS" ]] || { echo "No job results" >&2; exit 1; }
 

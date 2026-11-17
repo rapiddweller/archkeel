@@ -24,6 +24,7 @@ Run = Mapping[str, object]
 Job = Mapping[str, str]
 RUN_FIELDS = "databaseId,workflowName,headBranch,createdAt,updatedAt,attempt,conclusion"
 HOUR = 3600
+RED = {"failure", "timed_out"}
 
 
 def _time(value: object) -> datetime:
@@ -57,7 +58,8 @@ def _queue(run: Run, jobs: Sequence[Job]) -> float:
 def red_hours(full_main: Sequence[Run], day: str, now: datetime) -> float:
     """Hours of `day` between the first failure and the next success of Full on main.
 
-    An open red run counts to `now`. A cancelled run changes nothing.
+    An open red run counts to `now`. A cancelled run changes nothing. A failed or timed-out run is
+    red. `full_main` holds the runs of all days: a red that began before `day` carries into it.
     """
     start = datetime.fromisoformat(f"{day}T00:00:00+00:00")
     end = min(now, start + timedelta(days=1))
@@ -65,7 +67,7 @@ def red_hours(full_main: Sequence[Run], day: str, now: datetime) -> float:
     red_since: datetime | None = None
     for run in sorted(full_main, key=lambda run: str(run["createdAt"])):
         created = _time(run["createdAt"])
-        if run["conclusion"] == "failure" and red_since is None:
+        if run["conclusion"] in RED and red_since is None:
             red_since = created
         elif run["conclusion"] == "success" and red_since is not None:
             seconds += max(0.0, (min(created, end) - max(red_since, start)).total_seconds())
@@ -97,6 +99,11 @@ def daily_line(
             queues.append(_queue(run, jobs))
     full = [run for run in today if run["workflowName"] == "Full verification"]
     full_main = [run for run in full if run["headBranch"] == "main"]
+    full_main_ever = [
+        run
+        for run in runs
+        if run["workflowName"] == "Full verification" and run["headBranch"] == "main"
+    ]
     return (
         f"{day}: CI wall {_stat(_walls(ci), 'median')} (median of {len(ci)}), "
         f"CI queue median {_stat(queues, 'median')}, p90 {_stat(queues, 'p90')}, "
@@ -104,7 +111,7 @@ def daily_line(
         f"Full wall on main {_stat(_walls(full_main), 'median')} ({len(full_main)} runs), "
         f"Full runs {len(full)}, "
         f"re-runs {sum(int(str(run['attempt'])) > 1 for run in today)}, "
-        f"red main {red_hours(full_main, day, now):.1f} h"
+        f"red main {red_hours(full_main_ever, day, now):.1f} h"
     )
 
 
