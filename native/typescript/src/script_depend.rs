@@ -233,7 +233,7 @@ impl<'a, 'p> Run<'a, 'p> {
             let node = self.sink.cite(rel, span);
             let mut fact = GapFact::resolution(&reason, &module);
             if let GapFact::SourceResolutionGap(data) = &mut fact {
-                data.message = Some(detail.clone());
+                data.message = Some(blocker_message(&detail, form));
                 // AD-564: the form can write any global, so no module proves that a free name
                 // is the standard one: the code of every module is unknown, its files are not.
                 data.effect = Some(GapEffect::EveryModule);
@@ -312,6 +312,23 @@ impl<'a, 'p> Run<'a, 'p> {
 
 /// A member that the file declares: its local name and where.
 pub(crate) type LocalMember<'a> = (String, &'a crate::source::Span);
+
+/// What the user can do about the gap of a run-time key (#1504). The scan proves a number key and
+/// a literal key, and a contract cannot declare the reach of such a key while its gap blocks the
+/// free standard names (AD-664).
+const KEY_REMEDY: &str =
+    "to remove this gap, use a number key or a literal key at this line, or accept the gap in a \
+     baseline";
+
+/// The message of a blocker gap: the count of the uses that depend on it and, for a run-time
+/// key, what the user can do.
+fn blocker_message(detail: &str, form: &str) -> String {
+    if form == key_form() {
+        format!("{detail}; {KEY_REMEDY}")
+    } else {
+        detail.to_owned()
+    }
+}
 
 /// AD-664: a run-time key is a door site; a contract can name it by its line.
 fn key_door(form: &str, line: i64) -> Option<DoorSite> {
