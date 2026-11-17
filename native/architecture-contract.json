@@ -1161,7 +1161,8 @@
           "rationale": "Read the modules, owners, imports, edges and symbols of the reply.",
           "through": [
             "native.archkeel_model.door_reach",
-            "native.archkeel_model.ownership"
+            "native.archkeel_model.ownership",
+            "native.archkeel_model.published_items"
           ]
         },
         {

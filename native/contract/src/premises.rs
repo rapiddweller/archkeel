@@ -12,7 +12,6 @@
 
 use serde::Serialize;
 
-use crate::document::Contract;
 use crate::error::{invalid, Parsed};
 use crate::json::{field, Json, Object};
 use crate::model::ItemId;
@@ -55,17 +54,6 @@ impl PremiseName {
         }
         found
     }
-}
-
-/// The names of the premises that `contract` declares, in contract order.
-pub fn declared_premises(contract: &Contract) -> Vec<PremiseName> {
-    let mut names: Vec<PremiseName> = Vec::new();
-    if let Some(declarations) = &contract.declarations {
-        for premise in &declarations.premises {
-            names.push(premise.name);
-        }
-    }
-    names
 }
 
 record!(
