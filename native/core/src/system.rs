@@ -53,10 +53,16 @@ pub(crate) fn join(
     }
     frame.insert("locations".to_owned(), Value::Object(locations(&frames)?));
     frame.insert("sections".to_owned(), Value::Object(sections(&frames)));
-    for key in ["gaps", "collection_gaps"] {
-        let rows = frames.iter().flat_map(|part| list(part, key)).collect();
-        frame.insert(key.to_owned(), Value::Array(rows));
-    }
+    // A part that names its whole contract in one text makes it the text of the system (the
+    // first such part, as for the refused collect): its gap row is then the only one (AD-546).
+    let whole = frames.iter().find(|part| whole_contract(part).is_some());
+    let gaps = match whole {
+        Some(part) => list(part, "gaps").collect(),
+        None => frames.iter().flat_map(|part| list(part, "gaps")).collect(),
+    };
+    frame.insert("gaps".to_owned(), Value::Array(gaps));
+    let rows = frames.iter().flat_map(|part| list(part, "collection_gaps"));
+    frame.insert("collection_gaps".to_owned(), Value::Array(rows.collect()));
     // AD-664: a PASS under a declared door reach stays qualified in the system frame.
     let assumed = disjoint(&frames, "assumed")?;
     if !assumed.is_empty() {
@@ -326,7 +332,15 @@ fn self_test(system: &System, frames: &[Map<String, Value>], digest: &str) -> Va
     json!({ "contract": contract, "reply": reply, "collect": collect })
 }
 
+/// The text of a part that holds its whole contract (`unsupported.rules` is one text).
+fn whole_contract(part: &Map<String, Value>) -> Option<&Value> {
+    part.get("unsupported")?
+        .get("rules")
+        .filter(|rules| rules.is_string())
+}
+
 /// What the parts leave unsupported: the rules and sections of all parts, and a report reason.
+/// A part that holds its whole contract names it in one text: the system keeps the first one.
 fn unsupported(frames: &[Map<String, Value>]) -> Value {
     let parts: Vec<&Map<String, Value>> = frames
         .iter()
@@ -335,17 +349,16 @@ fn unsupported(frames: &[Map<String, Value>]) -> Value {
     let mut joined = Map::new();
     for key in ["rules", "sections"] {
         let mut found = Map::new();
+        let mut whole = None;
         for part in &parts {
             match part.get(key) {
                 Some(Value::Object(entries)) => found.extend(entries.clone()),
-                // A part that holds its whole contract names it in one text: the system keeps it.
-                Some(text @ Value::String(_)) => {
-                    joined.insert(key.to_owned(), text.clone());
-                }
+                Some(text @ Value::String(_)) => whole = whole.or(Some(text)),
                 _ => {}
             }
         }
-        joined.entry(key.to_owned()).or_insert(Value::Object(found));
+        let value = whole.cloned().unwrap_or(Value::Object(found));
+        joined.insert(key.to_owned(), value);
     }
     let report = parts
         .iter()

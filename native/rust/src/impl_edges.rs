@@ -18,24 +18,14 @@ use archkeel_facts::ImportFact;
 
 use crate::builder::Builder;
 use crate::crates::Workspace;
-use crate::definitions::{Access, Form, ImplBlock, Member, MethodCall};
-use crate::impl_globs::{crate_path, depends, Reached};
-use crate::modules::{inside, Edge, Frame, Index, TypeOf};
+use crate::definitions::{Form, ImplBlock, MethodCall};
+use crate::impl_globs::{crate_path, Reached};
+use crate::modules::{Edge, Frame, Index, TypeOf};
 use crate::scan::Via;
 use crate::tree::Module;
+use flow::{visible, Foreign};
 use orphans::orphan_impl_gaps;
 use receivers::{certainly_visible, exact_type, Typed};
-
-/// A member of an inherent `impl` block that is not in the file of its type.
-struct Foreign<'a> {
-    module: &'a Module,
-    /// The lexical module of the block.
-    lexical: String,
-    ty: TypeOf,
-    member: &'a Member,
-    /// The block has only inert attributes and no type parameter (`ImplBlock::exact`).
-    exact: bool,
-}
 
 /// The members of the inherent `impl` blocks of the walk.
 #[derive(Default)]
@@ -43,6 +33,12 @@ struct Members<'a> {
     foreign: BTreeMap<&'a str, Vec<Foreign<'a>>>,
     /// The members of the blocks in the file of their type: its lexical module, its name, the member.
     own: BTreeSet<(String, String, &'a str)>,
+    /// The same members by name, with their block: a method call whose receiver the scan does not
+    /// resolve may reach each of them (#1571), as it may reach a foreign one.
+    owned: BTreeMap<&'a str, Vec<Foreign<'a>>>,
+    /// The names that may stand for another type in a path: each type alias and each name that
+    /// a `use` renames.
+    aliases: BTreeSet<&'a str>,
     /// The members of every block by placed type, for the calls on `self` (AD-383).
     typed: Typed<'a>,
 }
@@ -51,6 +47,7 @@ fn members<'a>(index: &Index<'_>, modules: &'a [Module]) -> Members<'a> {
     let mut found = Members::default();
     for module in modules {
         found.typed.note(module);
+        found.aliases.extend(flow::aliases(module));
         let Some(frame) = index.frame(&module.module) else {
             continue;
         };
@@ -84,17 +81,19 @@ impl<'a> Members<'a> {
             .place(frame.lexical_at(&block.scope), module, block, &ty);
         for member in &block.members {
             let name = member.name.as_str();
-            if let Some((lexical, ty)) = own {
-                self.own.insert((lexical.clone(), ty.clone(), name));
-                continue;
-            }
-            self.foreign.entry(name).or_default().push(Foreign {
+            let found = Foreign {
                 module,
                 lexical: frame.lexical_at(&block.scope),
                 ty: ty.clone(),
                 member,
                 exact: block.exact,
-            });
+            };
+            if let Some((lexical, ty)) = own {
+                self.own.insert((lexical.clone(), ty.clone(), name));
+                self.owned.entry(name).or_default().push(found);
+                continue;
+            }
+            self.foreign.entry(name).or_default().push(found);
         }
     }
 }
@@ -108,7 +107,18 @@ fn path_call(reference: &crate::scan::Reference) -> MethodCall {
         path: true,
         arity: None,
         on_self: None,
+        owner: written_owner(reference),
     }
+}
+
+/// The last name of the written type of a path `T::m`.
+fn written_owner(reference: &crate::scan::Reference) -> Option<String> {
+    let names = &reference.names;
+    names
+        .len()
+        .checked_sub(2)
+        .and_then(|at| names.get(at))
+        .cloned()
 }
 
 /// What the paths `T::m` of a module leave open.
@@ -142,31 +152,6 @@ fn rebound(module: &Module, reference: &crate::scan::Reference, shadowed: bool) 
     macros && !reference.absolute && !fixed.contains(&first)
 }
 
-/// Whether a call at `at` in `caller` can reach the member: `x.m(..)` reaches only a member with a
-/// `self` parameter and as many other parameters as the call has arguments (Rust has no overloads).
-/// `pub(in path)` counts as the crate.
-fn visible(
-    workspace: &Workspace,
-    (caller, at): (&Module, &str),
-    call: &MethodCall,
-    member: &Foreign<'_>,
-) -> bool {
-    let arity = call.arity.is_none_or(|count| count == member.member.arity);
-    if !(call.path || member.member.receiver && arity) {
-        return false;
-    }
-    let same_crate = caller.crate_index == member.module.crate_index;
-    match &member.member.access {
-        Access::Private => false,
-        Access::Package(text) if text == "pub(super)" => {
-            let parent = member.lexical.rsplit_once('.').map_or("", |(up, _)| up);
-            inside(at, parent)
-        }
-        Access::Package(_) => same_crate,
-        Access::Public => same_crate || depends(workspace, caller, member.module),
-    }
-}
-
 impl Builder {
     /// The edges and the pair gaps of the methods of foreign `impl` blocks and of glob traits.
     pub(crate) fn impl_members(
@@ -181,6 +166,7 @@ impl Builder {
             .collect();
         let edges = self.module_pairs();
         orphan_impl_gaps(self, (workspace, index, modules), &edges);
+        let mut pending = Vec::new();
         for (module, paths) in modules.iter().zip(paths) {
             let mut calls = self.calls_of(workspace, index, module, &paths.proved);
             calls.extend(paths.unresolved);
@@ -192,7 +178,7 @@ impl Builder {
             };
             // The first calls of the list are the ones of the scan: `calls_of` puts them first.
             let own = module.scan.method_calls.len();
-            self.method_gaps(workspace, &reached, &found, own);
+            self.method_gaps(workspace, &reached, &found, own, &mut pending);
             for (call, target) in &paths.doubts {
                 let reason = format!(
                     "A method call may reach the method {} of an impl block in {target}",
@@ -202,6 +188,7 @@ impl Builder {
             }
             self.glob_trait_gaps(workspace, &reached);
         }
+        flow::settle(self, pending);
     }
 
     /// A path `S::m` whose type file defines no `m` for `S` is an edge to each foreign block of it
@@ -383,6 +370,7 @@ impl Builder {
                     path: true,
                     arity: None,
                     on_self: None,
+                    owner: written_owner(reference),
                 });
             }
         }
@@ -396,6 +384,7 @@ impl Builder {
         reached: &Reached<'_>,
         found: &Members<'_>,
         own: usize,
+        pending: &mut Vec<flow::Pending>,
     ) {
         let (module, frame) = (reached.module, reached.index.frame(&reached.module.module));
         let Some(frame) = frame else {
@@ -424,6 +413,18 @@ impl Builder {
                 );
                 self.reached_gap(reached, call, target, &reason);
             }
+            // #1571: the call may reach a member in the file of its type (`impl_flow.rs`).
+            let owned = found
+                .owned
+                .get(call.name.as_str())
+                .map_or(&[][..], Vec::as_slice);
+            let candidates = (owned, &found.aliases);
+            pending.extend(flow::own_candidates(
+                workspace,
+                (module, &at),
+                call,
+                candidates,
+            ));
             // #1196: a macro call can define the method in an impl block outside the file of its
             // type, which the scan does not see; its visibility is not read either. A macro that
             // defines the type and its impl together adds a member of its own file (AD-357).
@@ -445,6 +446,10 @@ impl Builder {
 /// A trait impl in a third module gives a pair gap (AD-516).
 #[path = "orphan_impls.rs"]
 mod orphans;
+
+/// The value flow of a call into the file of a type (#1571).
+#[path = "impl_flow.rs"]
+mod flow;
 
 /// The resolution of a call on a plain `self` (AD-383).
 #[path = "impl_receivers.rs"]

@@ -138,6 +138,12 @@
         "elk.layered.spacing.nodeNodeBetweenLayers": "50",
       });
     }
+    // Boxes with no edge between them: the layered layout puts each in its own component and
+    // stacks them in one column; packing fills rows in the shape of the view (issue 1618).
+    if (wraps && !edges.length) {
+      for (const key of Object.keys(layoutOptions)) if (key.startsWith("elk.layered.")) delete layoutOptions[key];
+      layoutOptions["elk.algorithm"] = "rectpacking";
+    }
     const labels = [];
     const graphEdges = edges.map((edge) => {
       const id = componentOverview ? `edge:${edge.layoutId}` : `edge:${edge.id}`;

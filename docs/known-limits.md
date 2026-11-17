@@ -54,6 +54,9 @@ the last two were fixed after it and are checked on main at `157dc8851`:
 - A git URL of the same repository, an outside Cargo patch, a command-line patch and a repository
   patch each give UNKNOWN with a crate-pair gap (AD-704, #946).
   `tests/test_collector_false_pass_rust_redirect.py` holds the four compiling fixtures.
+- A patch of a platform prototype (`Object.defineProperty(EventTarget.prototype, …)`, a prototype
+  that is passed on, `ev.target.__proto__ = …`) gives UNKNOWN with a source-resolution gap
+  (AD-768, #1527). `tests/test_cli_native_prototype_patch.py` holds 18 forms.
 - Direct aliases of `Object`, `Reflect`, `location` and `open`, and direct timer aliases, give
   UNKNOWN with a source-resolution gap. This does not prove arbitrary value flow safe.
   `tests/test_cli_native_global_forms.py` checks the direct reflection and navigation aliases.
@@ -78,7 +81,9 @@ A re-export of a package is read through its uses: a name of a package that anot
 uses as a value escapes the package, unless its origin cannot be a module of the scan (AD-530). A
 read of `__globals__` is no gap when the dict only feeds a lookup of a literal key; library code
 that gives the dict back is not seen (AD-530).
-Python rules that read calls or constructs stay UNKNOWN. `interface_boundary` and symbol-level
+Python construct rules stay UNKNOWN when the collector cannot prove that it sees every site.
+For `type_ignore`, only an exact `name.method()` statement with a trailing readable comment is
+recorded; other type comments keep the rule UNKNOWN (AD-780). `interface_boundary` and symbol-level
 `through` ports are decided from the publication route of each named import (AD-504); the hygiene
 checks `interface.*` prove a use of a `public` entry from the imports and name `interface.usage_unknown`
 where only a declared facade signature could reach it (AD-514). A Dart project gets PASS or FAIL
@@ -169,7 +174,11 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.
   A missing symbol, call or reference is UNKNOWN, never FAIL. A planned member that the matched class lacks is
   UNKNOWN too, where 4.0.1 gives FAIL (AD-512): the collector states no complete member table. A closed scope without an extra
-  element stays UNKNOWN, also where 4.0.1 passes it from a member inventory. A dropped pair gap that
+  element passes only when it is the scope of a class, an interface or an enum over member kinds
+  and the collector states each listed member inventory complete (AD-747). TypeScript states it
+  complete when the body shows every member of the type; Python and Rust inventories are always
+  partial, and the row names the reason of the collector. A closed module scope and a closed
+  scope over relationships stay UNKNOWN: no fact states a complete module or site inventory. A dropped pair gap that
   touches a module of the target holds the UML row. A Rust UML row has no 4.0.1 comparison and
   rests on the scope proof alone.
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
@@ -516,8 +525,14 @@ form too, so `return map[key]` keeps every free standard name from a proof. A us
 the value keeps the proof: `typeof`, a comparison, a condition, arithmetic, a text, a loop over its
 elements, a member with another plain name, and a pattern of plain names. Plants:
 `native/typescript/src/script_lookup_tests.rs`, `tests/test_collector_false_pass_ts_lookup.py`.
-Older classes stay open too: a prototype change through a call
-(`Object.defineProperty(EventTarget.prototype, …)`), a member patch of a platform object that is no
+AD-768 (#1527) reads a value that may be a prototype of the global object like a window value:
+`X.prototype` of a name that is no class of the file, `x.__proto__` and a `getPrototypeOf` call.
+Its escape (`g(EventTarget.prototype)`) and a write through it with a run-time key are direct
+forms; a write of `__proto__` on a value that is not proven local is an amplifier form. A read of a
+member (`Object.prototype.hasOwnProperty.call`), an element and a comparison keep the proof.
+A reflective write on the prototype of a class of the file stays a false UNKNOWN in a scan with a
+host entry. Plants: `tests/test_cli_native_prototype_patch.py`.
+Older classes stay open too: a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
 `document.defaultView`.
 AD-788 (#1546) states the premise of every TypeScript verdict as "code outside the scan roots hands
@@ -770,7 +785,7 @@ The core decides one rule kind set where Python does not ([AD-384](architecture/
 
 - The Rust collector does not mark an external `pub use` as a re-export. So a gap into a module with any external import holds `external_dependency_scope` and `complete_external_scope`.
 - The gap scope reads the edge model of the collector, as Python does. A glob that brings in a trait through a `pub use` chain `b -> d` gives the gap `a -> b`, not `a -> d`, so a rule on `a -> d` passes (review N2 of #1084). With the explicit call both engines record only `a -> b`.
-- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. Two forms give no candidate, also inside one crate: a trait method whose impl is in the module of its trait or of its type (`impl Trait`, `Box<dyn Trait>`, the class #1004; an impl in a third module gives a pair gap, AD-516) and a method in the file of its type, called on a value that the caller does not name (for example the return value of a function of another crate). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. Both are open false PASS classes of the edge model (the second is #1571; [AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
+- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. A method in the file of its type, called on a value that the caller does not name (a field, a chain of fields, the return value of a function), is a candidate too: it gives a pair gap when the module of the type is reachable from the caller over the edges and the pair gaps, or when the caller reaches a module with a gap that names no target (#1571); a path `T::m` reaches it only when `T` is the name of the type, an alias or a renamed `use`, or a macro of the caller can give any name. One form gives no candidate, also inside one crate: a trait method whose impl is in the module of its trait or of its type (`impl Trait`, `Box<dyn Trait>`, the class #1004; an impl in a third module gives a pair gap, AD-516). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. The trait form is an open false PASS class of the edge model ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 - A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS class #1004 (a value of a type that an anchored impl serves, when the caller does not name its module) gives no edge and no gap; an item that a macro makes gives a gap since AD-662. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 
 The dual-run request is a test protocol that only test builds and the cargo feature `harness` have (#1095); a release binary refuses it. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
