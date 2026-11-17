@@ -50,12 +50,7 @@ impl ClassWrites {
     pub(super) fn add(&mut self, tree: &ModModule) {
         Walk(self).visit_body(&tree.body);
         // `from sys import modules` gives `sys.modules` a name that the walk does not follow.
-        let imports_modules = tree.body.iter().any(|stmt| {
-            matches!(stmt, Stmt::ImportFrom(node) if node.level == 0
-                && node.module.as_ref().is_some_and(|name| Identifier::as_str(name) == "sys")
-                && node.names.iter().any(|name| Identifier::as_str(&name.name) == "modules"))
-        });
-        self.namespace |= imports_modules;
+        self.namespace |= imports_from(tree, "sys", "modules");
     }
 
     /// True when a class namespace can get `name` after the class statement.
@@ -80,10 +75,15 @@ impl ClassWrites {
 
 /// True when the module has `from __future__ import annotations`: its annotations are strings.
 pub(crate) fn future_annotations(tree: &ModModule) -> bool {
+    imports_from(tree, "__future__", "annotations")
+}
+
+/// True when the module body has `from <module> import <name>`, with or without an alias.
+fn imports_from(tree: &ModModule, module: &str, name: &str) -> bool {
     tree.body.iter().any(|stmt| {
         matches!(stmt, Stmt::ImportFrom(node) if node.level == 0
-            && node.module.as_ref().is_some_and(|name| Identifier::as_str(name) == "__future__")
-            && node.names.iter().any(|name| Identifier::as_str(&name.name) == "annotations"))
+            && node.module.as_ref().is_some_and(|found| Identifier::as_str(found) == module)
+            && node.names.iter().any(|found| Identifier::as_str(&found.name) == name))
     })
 }
 

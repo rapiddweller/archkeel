@@ -23,21 +23,19 @@
 //!
 //! Any other decorator, form or body is `Unread` with the reason; the model gives a gap for it.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
-use archkeel_facts::ids::ModuleName;
 use archkeel_facts::standard::Wrapped;
 use archkeel_facts::{ImportFact, Record};
 
 use super::dataclass::class;
 use super::found::{Decorated, Found};
-use super::shape_names::Names;
-use super::shapes::Shaper;
+use super::shapes::{imports_by_module, module_names, Shaper};
 use super::wrapped_read::{function, Reader};
 use crate::module::definition::Def;
 use crate::module::Module;
 use crate::survey::binders::Binders;
-use crate::survey::class_writes::{future_annotations, ClassWrites};
+use crate::survey::class_writes::ClassWrites;
 
 /// The forms of the decorated definitions of each module, by qualified name.
 pub(crate) fn forms(
@@ -47,25 +45,12 @@ pub(crate) fn forms(
     sets: (&HashSet<String>, &HashSet<String>),
     (lazy, writes): (Option<&ClassWrites>, &ClassWrites),
 ) -> BTreeMap<String, Wrapped> {
-    let mut by_module: HashMap<&str, Vec<&Record<ImportFact>>> = HashMap::new();
-    for record in imports {
-        let source = ModuleName::as_str(&ImportFact::data(&record.data).source_module);
-        by_module.entry(source).or_default().push(record);
-    }
+    let by_module = imports_by_module(imports);
     let mut out = BTreeMap::new();
     for item in found.iter().filter(|item| !Vec::is_empty(&item.decorated)) {
         let module = &modules[item.index];
-        let own = HashMap::get(&by_module, String::as_str(&module.name));
-        let names = Names::of(
-            (&module.name, &module.tree),
-            &binders[item.index],
-            own.map_or(&[][..], Vec::as_slice),
-            sets,
-        );
-        let shaper = Shaper {
-            names: &names,
-            lazy: lazy.filter(|_| !future_annotations(&module.tree)),
-        };
+        let names = module_names(module, &binders[item.index], &by_module, sets);
+        let shaper = Shaper::of(&names, lazy, module);
         let reader = Reader {
             shaper: &shaper,
             names: &names,
