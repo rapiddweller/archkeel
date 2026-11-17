@@ -178,8 +178,17 @@ def _anchor(parts: Sequence[Part]) -> str:
     cells = "".join(_cell(verdict.counts[status]) for status in STATUSES)
     return (
         f"<tr>{name}{about.format(line=line)}{_cell(verdict.status)}{cells}"
-        f"{_cell('none')}{link}</tr>\n"
+        f"{_cell(_part_gaps(parts))}{link}</tr>\n"
     )
+
+
+def _part_gaps(parts: Sequence[Part]) -> str:
+    """The collection gaps of all parts: the total and the count of each part that has some."""
+    total = sum(part.gaps for part in parts)
+    if not total:
+        return "none"
+    each = ", ".join(f"{part.title} {part.gaps}" for part in parts if part.gaps)
+    return f"{total} collection {'gap' if total == 1 else 'gaps'} ({each})"
 
 
 def index(

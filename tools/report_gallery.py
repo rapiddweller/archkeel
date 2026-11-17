@@ -199,28 +199,37 @@ def build_run(
     if spec is not None:
         row["source"] = fixture_source.pin_facts(spec)
     if plant:
-        row["violation"] = violation_block(folder / "report.html", plant["rule"])
+        row["violation"] = violation_block(folder / "report.html", plant)
     return row
 
 
-def violation_block(page: Path, rule: str) -> dict[str, str] | None:
-    """The block of the report page that lists a violation of `rule`: its anchor and its title.
+def _token(word: str) -> re.Pattern[str]:
+    """`word` as a whole name: no name character before or after it."""
+    return re.compile(rf"(?<![\w.:-]){re.escape(word)}(?![\w.:-])")
 
-    The core writes one `rp-dos` block for each place in the code and lists each rule that fails
-    there. None when the page holds no such block.
+
+def violation_block(page: Path, plant: Mapping[str, Any]) -> dict[str, str] | None:
+    """The block of the report page that shows the exact finding of a plant.
+
+    The finding is the rule id plus its source and its target. The core writes one `rp-dos` block
+    for each place in the code and lists each rule that fails there. A block is the finding when
+    it says `Violates <rule id>` (the whole id: `R-1` is not `R-10`) and names both the source and
+    the target as whole names. A rule id alone is not enough: two plants can break the same rule.
+    None when no block shows the finding.
     """
     if not page.is_file():
         return None
     text = page.read_text(encoding="utf-8")
-    blocks = re.split(r'(?=<article class="rp-dos" id="x\d+">)', text)
-    for block in blocks:
+    violates = re.compile(rf"Violates {re.escape(plant['rule'])}(?![\w-])")
+    names = [_token(plant["source"]), _token(plant["target"])]
+    for block in re.split(r'(?=<article class="rp-dos" id="x\d+">)', text):
         found = re.match(r'<article class="rp-dos" id="(x\d+)">', block)
         if not found:
             continue
-        # A block ends where its article ends; a rule id of a later part is not this block's.
         body = block.split("</article>", 1)[0]
         title = re.search(r'<h3 class="h3">(.*?)</h3>', body, re.DOTALL)
-        if title and html.escape(rule) in body:
+        shown = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", body)))
+        if title and violates.search(shown) and all(name.search(shown) for name in names):
             return {"id": found.group(1), "title": html.unescape(re.sub(r"<[^>]+>", "", title[1]))}
     return None
 

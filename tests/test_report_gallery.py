@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from tools import fixture_source, fixture_tree, report_gallery, report_gallery_page
+from tools.report_product import Part
 
 
 @contextmanager
@@ -441,3 +442,17 @@ def test_the_page_navigation_lists_the_system_and_its_parts_first_and_the_fixtur
     assert page.index("rp-pages__divider") < page.index("Fixture reports")
     assert page.index("rp-pages__divider") > page.index("Part A")
     assert 'href="a.html" aria-current="page">Part A</a>' in page
+
+
+def _part(title: str, gaps: int) -> Part:
+    counts = {"PASS": 5, "FAIL": 0, "UNKNOWN": 0}
+    return Part("k", title, "rust", "s", "r.html", status="PASS", counts=counts, gaps=gaps)
+
+
+def test_the_self_check_row_shows_the_real_gap_count_of_all_parts() -> None:
+    clean = report_gallery_page.index([], "sha", "now", [_part("Core", 0), _part("Shell", 0)])
+    assert "<td>none</td>" in clean
+    page = report_gallery_page.index([], "sha", "now", [_part("Core", 3), _part("Shell", 2)])
+    assert "<td>5 collection gaps (Core 3, Shell 2)</td>" in page
+    one = report_gallery_page.index([], "sha", "now", [_part("Core", 0), _part("Shell", 1)])
+    assert "<td>1 collection gap (Shell 1)</td>" in one
