@@ -44,7 +44,7 @@ pub(super) fn empty(tree: &ModModule) -> bool {
 }
 
 /// A namespace operation in one module can change another module of the scan.
-pub(super) fn namespace_safe(tree: &ModModule) -> bool {
+pub(in crate::survey) fn namespace_safe(tree: &ModModule) -> bool {
     let mut walk = Walk::default();
     walk.visit_body(&tree.body);
     !walk.unsafe_namespace

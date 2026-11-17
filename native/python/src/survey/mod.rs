@@ -30,7 +30,6 @@ pub(crate) mod binders;
 pub(crate) mod bound;
 pub(crate) mod bound_kind;
 mod call_count;
-mod class_inventory;
 mod constructs;
 mod copy_local;
 mod declared;
@@ -225,7 +224,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     }
     let class_namespace_safe = modules
         .iter()
-        .all(|module| class_inventory::namespace_safe(&module.tree))
+        .all(|module| stable::class_inventory::namespace_safe(&module.tree))
         && hazards.is_empty()
         && opaque_surface.is_empty();
     let files: Vec<FileFact> = modules

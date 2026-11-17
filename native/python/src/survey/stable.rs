@@ -24,6 +24,9 @@ use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::pyminor::PyMinor;
 
+#[path = "class_inventory.rs"]
+pub(super) mod class_inventory;
+
 /// The file record and the stable bindings that the survey gives it.
 pub(super) fn file_fact(
     module: &Module,
@@ -43,7 +46,7 @@ pub(super) fn file_fact(
         compatibility_logic_free: binders.logic_free,
         stable_bindings,
         blank: module.tree.body.is_empty(),
-        class_inventory_empty: super::class_inventory::empty(&module.tree).then_some(true),
+        class_inventory_empty: class_inventory::empty(&module.tree).then_some(true),
         evidence_id: EvidenceId::new(module.file_evidence(evidence)),
     }
 }

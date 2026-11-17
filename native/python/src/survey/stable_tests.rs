@@ -13,7 +13,7 @@ fn class_inventory_proof_is_absent_when_a_class_or_namespace_can_be_hidden() {
         "\"\"\"Module.\"\"\"\nfrom __future__ import annotations\nfrom x import y\ndef test(a: T):\n    assert a.value() == 1\n",
     ] {
         let tree = crate::test_tree(source, 12).unwrap();
-        assert!(super::super::class_inventory::empty(&tree), "{source}");
+        assert!(super::class_inventory::empty(&tree), "{source}");
     }
     for source in [
         "class A: pass\n",
@@ -28,7 +28,7 @@ fn class_inventory_proof_is_absent_when_a_class_or_namespace_can_be_hidden() {
         "def __getattr__(name): return factory(name)\n",
     ] {
         let tree = crate::test_tree(source, 12).unwrap();
-        assert!(!super::super::class_inventory::empty(&tree), "{source}");
+        assert!(!super::class_inventory::empty(&tree), "{source}");
     }
 }
 
