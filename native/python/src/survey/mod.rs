@@ -397,9 +397,10 @@ fn declarations(
     let lazy = lazy_314.then_some(writes);
     declared::attach_shapes(&mut found, (modules, binders), imports, sets, lazy);
     let forms = (lazy, writes);
-    let mut positions = declared::standard_positions(&found, (modules, binders), imports, sets);
+    let mut positions =
+        declared::shape_standard::positions(&found, (modules, binders), imports, sets);
     let read = (modules, binders);
-    let wrapped = declared::wrapped_forms(&found, read, imports, sets, (forms, &mut positions));
+    let wrapped = declared::wrapped::forms(&found, read, imports, sets, (forms, &mut positions));
     let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
     for item in &found {
         let (more, other, dead) = declared::site_records(

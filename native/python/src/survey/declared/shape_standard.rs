@@ -59,20 +59,24 @@ pub(super) fn signature(
         lazy: None,
     };
     let params = &node.parameters;
-    let mut items: Vec<(String, Option<&Expr>)> = Vec::new();
-    for item in params.posonlyargs.iter().chain(&params.args) {
-        let annotation = item.parameter.annotation.as_deref();
-        items.push((item.parameter.name.to_string(), annotation));
-    }
-    if let Some(item) = &params.vararg {
-        items.push((format!("*{}", item.name), item.annotation.as_deref()));
-    }
-    for item in &params.kwonlyargs {
-        let annotation = item.parameter.annotation.as_deref();
-        items.push((item.parameter.name.to_string(), annotation));
-    }
-    if let Some(item) = &params.kwarg {
-        items.push((format!("**{}", item.name), item.annotation.as_deref()));
+    // The positions are keyed by name, so their order does not matter here.
+    let named = params
+        .posonlyargs
+        .iter()
+        .chain(&params.args)
+        .chain(&params.kwonlyargs);
+    let mut items: Vec<(String, Option<&Expr>)> = named
+        .map(|item| {
+            (
+                item.parameter.name.to_string(),
+                item.parameter.annotation.as_deref(),
+            )
+        })
+        .collect();
+    for (prefix, item) in [("*", &params.vararg), ("**", &params.kwarg)] {
+        if let Some(item) = item {
+            items.push((format!("{prefix}{}", item.name), item.annotation.as_deref()));
+        }
     }
     items.push(("return".to_owned(), node.returns.as_deref()));
     for (position, annotation) in items {
