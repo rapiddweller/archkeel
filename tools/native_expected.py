@@ -310,7 +310,7 @@ def main(argv: list[str]) -> int:
         return 0
     found = problems(result, old)
     gaps_seen, _statuses, _violations = observed(result)
-    pinned = Counter(tuple(map(str, gap)) for gap in old.get("gaps") or ())
+    pinned = Counter((str(k), str(sub), str(why)) for k, sub, why in old.get("gaps") or ())
     hint = receiver_gap_hint(result, sorted((Counter(gaps_seen) - pinned).elements()))
     if hint:
         found.append(hint)
