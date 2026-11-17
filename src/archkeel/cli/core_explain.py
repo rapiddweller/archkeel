@@ -17,7 +17,7 @@ from .core_json import CoreError, as_count, as_object, as_text
 from .core_schema import budget
 
 
-class Direction(StrEnum):
+class _Direction(StrEnum):
     """The direction that a rule gives to the pairs it judges."""
 
     FORBIDS = "forbids"
@@ -29,7 +29,7 @@ class Direction(StrEnum):
     NONE = "none"
 
 
-class HoldKind(StrEnum):
+class _HoldKind(StrEnum):
     """The reason class that holds a rule at UNKNOWN."""
 
     COVERAGE_GAPS = "coverage_gaps"
@@ -52,7 +52,7 @@ class RuleShape:
     """The kind of a rule, its direction and the sources and targets it selects."""
 
     kind: str
-    direction: Direction
+    direction: _Direction
     source: tuple[str, ...]
     target: tuple[str, ...]
 
@@ -96,7 +96,7 @@ class RuleHolds:
     """What holds one rule at UNKNOWN: the cause, the gaps and the pairs."""
 
     cause: str
-    kind: HoldKind
+    kind: _HoldKind
     gaps: tuple[str, ...]
     pairs: tuple[tuple[str, str], ...]
     total: int
@@ -160,7 +160,7 @@ def _shape(value: object, where: str) -> RuleShape:
     row = as_object(value, where)
     return RuleShape(
         as_text(row["kind"], where),
-        _word(Direction, row["direction"], where),
+        _word(_Direction, row["direction"], where),
         _texts(row["source"], where),
         _texts(row["target"], where),
     )
@@ -243,7 +243,7 @@ def _rule_holds(value: object, where: str) -> RuleHolds:
         raise CoreError(f"the core frame field {where} has an inconsistent hold count")
     return RuleHolds(
         cause,
-        _word(HoldKind, row["kind"], where),
+        _word(_HoldKind, row["kind"], where),
         gaps,
         pairs,
         total,

@@ -30,7 +30,7 @@ from .init_draft import (
     write_missing,
 )
 
-OPT_OUT: Final = "ARCHKEEL_NO_INIT"
+_OPT_OUT: Final = "ARCHKEEL_NO_INIT"
 
 
 @dataclass(frozen=True)
@@ -101,21 +101,21 @@ def _interfaces(result: Draft) -> str:
     )
 
 
-def project_root(path: Path) -> Path | None:
+def _project_root(path: Path) -> Path | None:
     """The Git work tree at or above `path`, or `None` outside a repository."""
     return next((folder for folder in (path, *path.parents) if (folder / ".git").exists()), None)
 
 
-def opted_out(options: Options) -> str | None:
+def _opted_out(options: Options) -> str | None:
     """The words for the way the user opted out of writing, or `None`."""
     if options.no_init:
         return "--no-init"
-    if os.environ.get(OPT_OUT, "") not in {"", "0"}:
-        return f"{OPT_OUT}={os.environ[OPT_OUT]}"
+    if os.environ.get(_OPT_OUT, "") not in {"", "0"}:
+        return f"{_OPT_OUT}={os.environ[_OPT_OUT]}"
     return None
 
 
-def declined(result: Draft, why: str, root: Path) -> str:
+def _declined(result: Draft, why: str, root: Path) -> str:
     """The stop text: nothing was written, what the layout would give, and the way to save it."""
     what = (
         f"a system of {len(result.parts)} parts ({', '.join(result.parts)})"
@@ -135,7 +135,7 @@ def _with(options: Options, config: str) -> Options:
     return found
 
 
-def prepare(options: Options, root: Path) -> tuple[Options, Created | str | None]:
+def _prepare(options: Options, root: Path) -> tuple[Options, Created | str | None]:
     """Make the files for a project without a configuration, and find the configuration.
 
     Without `archkeel.toml` a system document of the repository is the configuration. Gives the
@@ -145,7 +145,7 @@ def prepare(options: Options, root: Path) -> tuple[Options, Created | str | None
     """
     # An explicit `--root` is the project; without it the project is the work tree above.
     base = root if options.root is not None and (root / ".git").exists() else None
-    base = base or (project_root(root) if options.root is None else None)
+    base = base or (_project_root(root) if options.root is None else None)
     if options.config != CONFIG or base is None or (base / options.config).exists():
         return options, None
     if (base / SYSTEM).is_file():
@@ -154,16 +154,16 @@ def prepare(options: Options, root: Path) -> tuple[Options, Created | str | None
         result = draft(base)
     except NothingToDraft as error:
         return options, str(error)
-    if (reason := opted_out(options)) is not None:
-        return options, declined(result, f"switched off by {reason}", base)
+    if (reason := _opted_out(options)) is not None:
+        return options, _declined(result, f"switched off by {reason}", base)
     try:
         written = tuple(write_missing(base, result))
     except OSError as error:
-        return options, declined(result, f"cannot write: {error}", base)
+        return options, _declined(result, f"cannot write: {error}", base)
     return _with(options, result.entry), Created(written, result)
 
 
-def run_init(as_json: bool, root: Path) -> int:
+def _run_init(as_json: bool, root: Path) -> int:
     """The command `archkeel init`: draft the files, or refuse and write nothing."""
     result = draft(root)
     files = write_missing(root, result)
