@@ -12,7 +12,7 @@ use crate::jsdoc;
 use crate::references::{literal, Form, Reference};
 use crate::scan::Scan;
 use crate::source::{Source, Span};
-use crate::source_input::{Reach, SourceKind, Suffix};
+use crate::source_input::{classify_specifier, Reach, SourceKind, Suffix};
 
 const LOADER: &str = "Node module loader is not observed";
 
@@ -175,9 +175,10 @@ fn comment_concerns(
 }
 
 /// `augmentations.augmentation_concerns`: `declare module "./x"` names a file of the project, as an
-/// import does (#976). A bare name reaches one only through `paths` or `baseUrl`, and only in a
-/// module file; a wildcard name is a pattern. The resolver is not asked: when the project has
-/// `paths` or `baseUrl`, such a bare name is a concern.
+/// import does (#976). A bare name reaches one only through `paths` or `baseUrl`, or as the name
+/// of the own package (#1632), and only in a module file; a wildcard name is a pattern. The
+/// resolver is not asked: when the project has `paths` or `baseUrl`, such a bare name is a
+/// concern.
 fn augmentation_concerns(
     source: &Source,
     scan: &Scan,
@@ -191,7 +192,12 @@ fn augmentation_concerns(
             .skip(1)
             .take(text.chars().count().saturating_sub(2))
             .collect();
-        let bare = module_file && reach.aliased && !value.is_empty() && !value.contains('*');
+        let own = reach
+            .own_package
+            .as_deref()
+            .is_some_and(|name| classify_specifier(&value).package == name);
+        let bare =
+            module_file && (reach.aliased || own) && !value.is_empty() && !value.contains('*');
         if value.starts_with(['.', '/']) || bare {
             let reason = format!("Unobserved module augmentation: {value}");
             list.push(concern(source, node, &reason));

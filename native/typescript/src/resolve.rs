@@ -343,12 +343,26 @@ impl Resolver {
     }
 
     fn self_reference(&mut self, snapshot: &mut Snapshot, importer: &str, name: &str) -> bool {
-        matches!(
-            self.scope(snapshot, importer),
-            Lookup::Hit(manifest)
-                if manifest.get("name").and_then(Value::as_str) == Some(name)
-                    && manifest::declares_exports(&manifest)
-        )
+        self.own_package(snapshot, importer).as_deref() == Some(name)
+    }
+
+    /// The name of the package that holds `importer` when its manifest declares `exports`: under
+    /// an exports-aware resolution the file can import, and augment, its own package by it.
+    pub(crate) fn own_package(
+        &mut self,
+        snapshot: &mut Snapshot,
+        importer: &str,
+    ) -> Option<String> {
+        if !self.exports_aware() {
+            return None;
+        }
+        match self.scope(snapshot, importer) {
+            Lookup::Hit(manifest) if manifest::declares_exports(&manifest) => manifest
+                .get("name")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            _ => None,
+        }
     }
 }
 
