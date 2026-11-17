@@ -61,6 +61,99 @@ def choose(page: Browser, content: str) -> float:
     return elapsed
 
 
+@pytest.mark.parametrize("width", [320, 390])
+def test_mobile_navigation_and_details_do_not_overlap(
+    site: str, tmp_path_factory: pytest.TempPathFactory, width: int
+) -> None:
+    with browser(tmp_path_factory.mktemp("mobile"), width=width, height=844) as page:
+        page.send(
+            "Emulation.setDeviceMetricsOverride",
+            width=width,
+            height=844,
+            deviceScaleFactor=1,
+            mobile=True,
+        )
+        page.send("Emulation.setTouchEmulationEnabled", enabled=True)
+        page.open(f"{site}/system.html")
+        page.evaluate("document.querySelector('#flow').scrollIntoView()")
+        visible = """(selector) => {
+          const e = document.querySelector(selector), r = e.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          return r.width > 0 && r.height > 0 && (e === hit || e.contains(hit));
+        }"""
+        assert page.evaluate(f"({visible})('#flow [data-content=modules]')")
+
+        def tap(selector: str) -> None:
+            point = page.evaluate(f"""(() => {{
+              const e = document.querySelector({selector!r});
+              e.scrollIntoView({{block: "center", inline: "center"}});
+              const r = e.getBoundingClientRect();
+              return {{x: r.x + r.width / 2, y: r.y + r.height / 2}};
+            }})()""")
+            page.send("Input.dispatchTouchEvent", type="touchStart", touchPoints=[point])
+            page.send("Input.dispatchTouchEvent", type="touchEnd", touchPoints=[])
+
+        tap("#flow .node")
+        overlap = page.evaluate("""(() => {
+          const a = document.querySelector('#flow .flow-inspector').getBoundingClientRect();
+          const b = document.querySelector('#flow .ak-bottom-center').getBoundingClientRect();
+          return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+        })()""")
+        assert not overlap
+        assert page.evaluate("""(() => {
+          const canvas = document.querySelector('#flow .flow-canvas').getBoundingClientRect();
+          return canvas.width > 100 && canvas.height > 100
+            && [...document.querySelectorAll('#flow .node')].some((node) => {
+              const box = node.getBoundingClientRect();
+              return box.right > canvas.left && box.left < canvas.right
+                && box.bottom > canvas.top && box.top < canvas.bottom;
+            });
+        })()""")
+        page.evaluate("document.querySelector('#flow [data-browse-component]').scrollIntoView()")
+        assert page.evaluate(f"({visible})('#flow [data-browse-component]')")
+        assert page.evaluate("""(() => {
+          const e = document.querySelector('#flow .flow-inspector');
+          e.scrollTop = e.scrollHeight;
+          return e.scrollTop > 0;
+        })()""")
+        page.evaluate("document.querySelector('#flow .flow-inspector').scrollTop = 0")
+        tap("#flow [data-browse-component]")
+        page.settle()
+        assert page.evaluate("document.querySelector('#flow').dataset.content") == "modules"
+        assert page.state()["scope"] == "PART:shell"
+        page.evaluate("document.querySelector('#flow .flow-breadcrumb button').focus()")
+        assert page.evaluate("document.activeElement?.dataset.atlasDepth") == "0"
+        page.send(
+            "Input.dispatchKeyEvent",
+            type="keyDown",
+            key="Enter",
+            code="Enter",
+            windowsVirtualKeyCode=13,
+            text="\r",
+            unmodifiedText="\r",
+        )
+        page.send(
+            "Input.dispatchKeyEvent",
+            type="keyUp",
+            key="Enter",
+            code="Enter",
+            windowsVirtualKeyCode=13,
+        )
+        page.settle()
+        assert page.state()["scope"] is None
+        tap("#flow .ak-bottom-center button")
+        assert (
+            page.evaluate(
+                "document.querySelector('#flow .ak-bottom-center button')"
+                ".getAttribute('aria-pressed')"
+            )
+            == "true"
+        )
+        tap("#flow [aria-label='Zoom in']")
+        zoom = page.evaluate("parseInt(document.querySelector('.flow-zoom-value').textContent)")
+        assert zoom > 85
+
+
 @pytest.mark.parametrize("content", ["components", "modules"])
 def test_each_view_of_the_rust_core_is_ready_in_budget(
     site: str, page: Browser, content: str
