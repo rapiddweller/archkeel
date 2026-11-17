@@ -63,7 +63,8 @@ impl Syntax {
         self.mode.is_module(self.module_syntax)
     }
 
-    /// The file is a declaration file.
+    /// The file is a declaration file (the dump and the tests state it as a boolean).
+    #[cfg(any(test, feature = "dump"))]
     pub(crate) fn declaration_file(&self) -> bool {
         self.mode.is_declaration()
     }
