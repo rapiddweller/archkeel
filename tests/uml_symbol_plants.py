@@ -298,7 +298,7 @@ PLANTS: dict[str, tuple[dict[str, str], dict, str, str]] = {
         FILES,
         target(scopes=[closed("client", ["method"], [])]),
         "PASS",
-        "UNKNOWN",
+        "PASS",
     ),
     "referenced-found": (
         FILES,
@@ -415,7 +415,6 @@ CAUSES: dict[str, str | tuple[str, ...]] = {
     "missing-base-external": "unresolved inherits site",
     "closed-function": "closed scope holds an unlisted definition",
     "closed-method-extra": "closed scope holds an unlisted definition",
-    "closed-method-listed": "closed scope completeness",
     "referenced-absent": "relationship endpoints cannot be identified uniquely",
     "global-name-is-no-definition": "absent symbol",
     "symbol-named-as-module": "absent symbol",

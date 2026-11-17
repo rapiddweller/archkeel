@@ -51,6 +51,7 @@ fn file(module: &str, package: &str) -> FileFact {
         compatibility_logic_free: false,
         stable_bindings: Vec::new(),
         blank: false,
+        class_inventory_empty: None,
         evidence_id: EvidenceId::new(format!("EVD-{module}")),
     }
 }

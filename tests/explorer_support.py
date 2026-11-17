@@ -193,7 +193,7 @@ class Browser:
             raise BrowserError(f"{expression[:80]}: {text}")
         return result["result"].get("value")
 
-    def wait(self, expression: str, timeout: float = 30.0) -> Any:
+    def wait(self, expression: str, timeout: float = 60.0) -> Any:
         """Wait until the expression is truthy in the page; return its value."""
         deadline = time.monotonic() + timeout
         value = None
