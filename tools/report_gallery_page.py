@@ -186,10 +186,11 @@ def _section(key: str, title: str, lede: str, body: str, count: int) -> str:
 
 
 # The self-check is expected to PASS. Today the Rust collector holds it with sound gaps: a field
-# receiver of unproved type, and a trait dispatch that can reach many impls. The work is open.
+# receiver of unproved type (#1571), and a trait dispatch that can reach many impls (#1515/#1516).
+# The precision work is open.
 ANCHOR = {
     "intent": "PASS",
-    "blocked_by": [1571],
+    "blocked_by": [1571, [1515, 1516]],
     "held_by": "sound gaps of the Rust collector",
     "status_note": "the precision work is in progress",
 }

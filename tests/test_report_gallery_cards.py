@@ -45,6 +45,8 @@ def test_the_self_check_card_is_held_by_named_work_in_the_normal_colour() -> Non
     assert "expected PASS" in line and "UNKNOWN today" in line
     assert "held by sound gaps of the Rust collector (" in line
     assert f'href="{report_gallery_page.REPOSITORY}/issues/1571">#1571</a>' in line
+    assert f'href="{report_gallery_page.REPOSITORY}/issues/1515">#1515</a>/' in line
+    assert f'href="{report_gallery_page.REPOSITORY}/issues/1516">#1516</a>)' in line
     assert "the precision work is in progress" in line
     assert "ak-t-fail" not in line and "scenario not met" not in line and "blocked by" not in line
 
