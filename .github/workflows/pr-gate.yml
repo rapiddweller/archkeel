@@ -60,7 +60,9 @@ jobs:
         id: core
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: native/target/release/archkeel-core
+          path: |
+            native/target/release/archkeel-core
+            native/target/release/archkeel-core.tree
           key: core-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
       - name: Restore the Rust build cache of main
@@ -76,10 +78,18 @@ jobs:
             rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
             rust-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
 
+      # AD-732: the core is built in its own step. `make core` reuses a restored binary only when its
+      # stamp names this native tree, and a core is saved only after this step succeeded.
+      - name: Build the core
+        id: build
+        env:
+          ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
+        run: make core
+
       - name: Run the PR gate
         env:
           PR_BASE: origin/${{ github.base_ref }}
-          ARCHKEEL_PREBUILT_CORE: ${{ steps.core.outputs.cache-hit == 'true' && '1' || '' }}
+          ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
         run: make pr-gate PR_BASE="$PR_BASE"
 
       - name: Save the Rust build cache
@@ -93,8 +103,10 @@ jobs:
           key: rust-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
 
       - name: Save the core for this native tree
-        if: always() && steps.core.outputs.cache-hit != 'true'
+        if: always() && steps.build.outcome == 'success' && steps.core.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: native/target/release/archkeel-core
+          path: |
+            native/target/release/archkeel-core
+            native/target/release/archkeel-core.tree
           key: core-${{ runner.os }}-${{ steps.native.outputs.hash }}

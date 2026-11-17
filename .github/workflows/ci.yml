@@ -65,6 +65,13 @@ jobs:
           restore-keys: |
             rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
 
+      # AD-732: the core is built in its own step and saved only after it succeeded.
+      - name: Build the core
+        id: build
+        env:
+          ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
+        run: make core
+
       - name: Check architecture, format, lint and Python types
         env:
           # A dispatch has no previous push; one squash merge is one commit on main.
@@ -72,6 +79,8 @@ jobs:
         run: make ci-pr-static BASE="$BASE"
 
       - name: Check native/ and the Python shell with the core against their pinned results
+        env:
+          ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
         run: make self-validate
 
       - name: Save the Rust build cache
@@ -86,10 +95,12 @@ jobs:
 
       # AD-674: a PR gate whose native/ tree is the same downloads this core and builds nothing.
       - name: Save the core for this native tree
-        if: always()
+        if: always() && steps.build.outcome == 'success'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: native/target/release/archkeel-core
+          path: |
+            native/target/release/archkeel-core
+            native/target/release/archkeel-core.tree
           key: core-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
   tests:
