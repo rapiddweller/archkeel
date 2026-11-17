@@ -40,7 +40,13 @@ pub(super) fn split(
         }
         for (label, members) in boxes(&modules) {
             let at = nodes.len();
-            nodes.push(directory(nodes, owner, &label, members.len(), modules.len()));
+            nodes.push(directory(
+                nodes,
+                owner,
+                &label,
+                members.len(),
+                modules.len(),
+            ));
             for name in members {
                 place.insert(name.to_owned(), at);
             }
