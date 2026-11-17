@@ -10,6 +10,7 @@
 
 use std::collections::HashSet;
 
+use crate::requirement::Prepared;
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
 #[cfg(feature = "dump")]
 use archkeel_facts::pyminor::PyMinor;
@@ -115,15 +116,10 @@ pub(crate) struct Modules {
 }
 
 #[cfg(feature = "dump")]
-pub(crate) fn modules(request: &PythonRequest) -> Result<Modules, String> {
+pub(crate) fn modules(prepared: &Prepared) -> Result<Modules, String> {
+    let request: &PythonRequest = &prepared.request;
     let mut snapshot = Snapshot::new(&request.snapshot.root);
-    let minor = request
-        .resolver
-        .interpreter
-        .as_ref()
-        .ok_or("no Python target")?
-        .version
-        .minor();
+    let minor = prepared.interpreter.version.minor();
     let scope = discover::scope(
         &mut snapshot,
         &request.scope.roots,
@@ -147,12 +143,9 @@ pub(crate) fn modules(request: &PythonRequest) -> Result<Modules, String> {
     clippy::too_many_lines,
     reason = "the survey is one pipeline of passes; AD-520 adds the site pass to it"
 )]
-pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
-    let interpreter = request
-        .resolver
-        .interpreter
-        .as_ref()
-        .ok_or("no Python target")?;
+pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
+    let request: &PythonRequest = &prepared.request;
+    let interpreter = &prepared.interpreter;
     let minor = interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let namespace = &request.scope.namespace;

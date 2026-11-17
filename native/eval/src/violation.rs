@@ -150,6 +150,8 @@ pub enum Violation {
     Publication(Box<Published>),
     /// `unused_public`: a public item that no other component uses (AD-670).
     UnusedPublic(Box<UnusedItem>),
+    /// A proven class declared outside the permitted modules.
+    SymbolPlacement(Box<crate::placement_row::PlacedClass>),
 }
 
 /// A public item that no other component uses (AD-670).
@@ -488,6 +490,7 @@ impl Violation {
             Violation::Construct(row) => [&row.id, &row.rule],
             Violation::BoundaryType(row) => [&row.id, &row.rule],
             Violation::UnusedPublic(row) => [&row.id, &row.rule],
+            Violation::SymbolPlacement(row) => [&row.id, &row.rule],
         }
     }
 }

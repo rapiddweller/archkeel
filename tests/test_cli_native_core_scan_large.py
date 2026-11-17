@@ -14,6 +14,7 @@ from core_support import EMPTY_GRAPH, ROOT, SUFFIX
 from test_cli_native_core_scan_work import input_measurement, measured_scan, project
 
 from archkeel.cli import native_scan
+from archkeel.cli.core_json import CoreError
 
 
 @pytest.mark.parametrize("shape", ["addition", "casts"])
@@ -76,6 +77,24 @@ def test_two_hundred_thousand_tiny_files_hit_the_survey_budget(
     assert frame["status"] == "UNKNOWN"
     assert "more than 100000 entries" in json.dumps(frame["gaps"])
     assert peak is None or peak < 1 << 30
+
+
+# #1570: the core refuses a flat Rust expression over 8192 active operator-work units by name.
+# A Rust file of a million bytes of `x + 1` bodies, or ten thousand flat concatenations, holds more
+# operator work than that, so the scan has no frame: the expected result is the named refusal.
+# The refusal is by design; a test that wanted a frame here would test the old limit.
+OPERATOR_WORK_REFUSED = {
+    ("rust", "functions", 1_000_000),
+    ("rust", "functions", (4 << 20) - 1),
+    ("rust", "concat", 10_000),
+}
+
+
+def assert_refused_by_operator_work(core: Path, request: dict) -> None:
+    with pytest.raises(CoreError) as refused:
+        native_scan.exchange(str(core), "scan", json.dumps(request).encode())
+    text = str(refused.value)
+    assert "parse_work_limit" in text and "8192 active Rust operator-work units" in text, text
 
 
 def complete_contract(root: Path) -> None:
@@ -201,6 +220,8 @@ def test_large_honest_source_has_the_unguarded_frame(
     path = root / ("src/large.ts" if language == "typescript" else "src/lib.rs")
     path.write_text(honest_source(language, shape, size))
     assert path.stat().st_size == size
+    if (language, shape, size) in OPERATOR_WORK_REFUSED:
+        return assert_refused_by_operator_work(release_core, request)
     stdout, code = native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
     frame = json.loads(stdout)
     assert code == 0, frame["unsupported"]
@@ -234,7 +255,10 @@ def test_repeated_package_reads_do_not_refuse_a_small_distinct_project(
         (root / f"src/m{index}.ts").write_text(f"export const value{index} = {index};\n")
     measured = input_measurement(root, tmp_path / "inputs.json")
     print("Repeated manifest:", json.dumps(measured))
-    assert measured["reads"] > 64 << 20
+    # #1556: the measurement no longer carries `reads`. The premise is arithmetic: 80 modules read
+    # the one-megabyte manifest, 80 MiB of reads in all, over the cap of 64 MiB; the charge counts
+    # each input once and stays below it.
+    assert 80 * (1 << 20) > 64 << 20
     assert measured["charged"] == measured["distinct"] < 64 << 20
     stdout, code = native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
     frame = json.loads(stdout)
@@ -311,6 +335,8 @@ def test_flat_chains_keep_the_unguarded_frame(
     complete_contract(root)
     path = root / ("src/chain.ts" if language == "typescript" else "src/lib.rs")
     path.write_text(chain_source(language, shape, count))
+    if (language, shape, count) in OPERATOR_WORK_REFUSED:
+        return assert_refused_by_operator_work(release_core, request)
     stdout, code = native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
     frame = json.loads(stdout)
     assert code == 0, frame["unsupported"]
@@ -335,3 +361,19 @@ def test_six_hundred_brackets_still_refuse_without_a_frame(
     )
     assert done.returncode == 2 and done.stdout == b"", done.stderr
     assert b"parse_work_limit" in done.stderr
+
+
+@pytest.mark.parametrize("links", [20_000, 200_000])
+def test_a_long_call_chain_is_a_named_gap(release_core: Path, tmp_path: Path, links: int) -> None:
+    root = tmp_path / "project"
+    request = project(root, 1, 0, "typescript")
+    (root / "src/deep0.ts").write_text("export const v = a" + ".b()" * links + ";\n")
+    contract = root / "architecture-contract.json"
+    data = json.loads(contract.read_text())
+    data["rules"] = [rule for rule in data["rules"] if rule["id"] == "MODULE-CYCLES"]
+    contract.write_text(json.dumps(data))
+    done, peak = measured_scan(release_core, request)
+    frame = json.loads(done.stdout)
+    assert frame["status"] == "UNKNOWN"
+    assert "is too long to record" in json.dumps(frame["collection_gaps"])
+    assert peak is None or peak < 1 << 30

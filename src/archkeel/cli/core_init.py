@@ -135,7 +135,7 @@ class InitOutcome:
 def _layout(result: Draft) -> str:
     return {
         "python": "package",
-        "rust": "Cargo workspace",
+        "rust": "Cargo",
         "typescript": "TypeScript",
         "dart": "Dart package",
     }.get(result.language, result.language)
@@ -143,7 +143,10 @@ def _layout(result: Draft) -> str:
 
 def _interfaces(result: Draft) -> str:
     if result.interfaces:
-        return f"Interfaces: {len(result.interfaces)} open (each names a spec file); confirm each."
+        stated, open_ = result.stated, len(result.interfaces) - result.stated
+        words = [f"{stated} stated by a PyO3 binding (AD-784)"] if stated else []
+        words += [f"{open_} open (each names a spec file); confirm each"] if open_ else []
+        return f"Interfaces: {'; '.join(words)}."
     return (
         "Interfaces: none drafted. A crossing needs a schema file (OpenAPI, proto, ...); add "
         "`interfaces` to the system document by hand."

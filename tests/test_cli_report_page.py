@@ -290,27 +290,40 @@ def test_no_box_cell_or_edge_of_an_unknown_run_shows_pass(
     assert shown and "PASS" not in shown
 
 
-@pytest.mark.parametrize(("placement", "expected"), [(True, "UNKNOWN"), (False, "PASS")])
+@pytest.mark.parametrize(("unported", "expected"), [(True, "UNKNOWN"), (False, "PASS")])
 def test_a_fail_beside_an_unported_rule_draws_no_pass_box(
     release_core: Path,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    placement: bool,
+    unported: bool,
     expected: str,
 ) -> None:
     """#1507: the client imports the forbidden secret (FAIL) and the contract has a
-    `symbol_placement` rule that the core does not port. That rule has no row and may break in
+    `source_ownership` rule that the core does not port. That rule has no row and may break in
     any box, so the boxes without a violated place show UNKNOWN. Without it the run decides every
     rule and those boxes keep PASS."""
-    from test_cli_native_python_imports import project
+    from test_cli_native_python_imports import RULE, project
     from test_cli_python_gap_effects import FILES, RULES
-    from test_cli_python_profile_limits import PLACEMENT
 
+    ownership = {
+        **RULE,
+        "id": "UNPORTED-OWNER",
+        "kind": "source_ownership",
+        "source": "app",
+        "mode": "confined",
+        "symbols": ["app.client.page.helper"],
+        "owner": "app.client.page",
+        "roles": ["definition", "read"],
+    }
     files = {**FILES, "src/app/client/page.py": "import app.service.secret\n"}
-    root = project(tmp_path / "p", files, contract_rules=[*RULES, *([PLACEMENT] * placement)])
+    root = project(tmp_path / "p", files, contract_rules=[*RULES, *([ownership] * unported)])
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    contract["schema_version"] = "3.12.0"
+    contract_path.write_text(json.dumps(contract))
     _, text, found = write_page(release_core, monkeypatch, root, "archkeel.toml", tmp_path / "r")
     assert found["status"] == "FAIL"
-    assert ("PROTOCOLS-IN-SERVICE" in found["frame"]["unsupported"]["rules"]) is placement
+    assert ("UNPORTED-OWNER" in found["frame"]["unsupported"]["rules"]) is unported
     data = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', text)
     assert data
     boxes = {c["id"]: c["status"] for c in json.loads(data.group(1))["atlas"]["components"]}

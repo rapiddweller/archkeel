@@ -44,6 +44,13 @@ PLANTS = {
     "define-property": "addEventListener('load', ev => "
     "{ Object.defineProperty(ev.target, k, { value: () => {} }); });",
     "assign": "addEventListener('load', ev => { Object.assign(ev.target as any, { open: 1 }); });",
+    # Indirect reflective writes.
+    "call-member": "addEventListener('load', ev => "
+    "Object.assign.call(null, ev.target, { open: 1 }));",
+    "define-getter": "addEventListener('load', ev => "
+    "(ev.target as any).__defineGetter__(k, () => 1));",
+    "through-global-this": "addEventListener('load', ev => "
+    "globalThis.Object.assign(ev.target, { open: 1 }));",
 }
 
 

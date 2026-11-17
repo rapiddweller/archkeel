@@ -128,12 +128,21 @@
     };
     // A chain of boxes, or boxes with no edge, would stand in one row at a small zoom. Without a
     // layer order, the layered layout wraps them into rows that fill the view (wide as the
-    // window: 2.4), and a chain snakes from row to row with its edges following.
-    if (componentOverview && !nodes.some((node) => node.id.startsWith("LAYER:"))) {
+    // window: 2.4), and a chain snakes from row to row with its edges following. Module boxes with
+    // no component frame between them and the level wrap the same way.
+    const wraps = componentOverview ? !nodes.some((node) => node.id.startsWith("LAYER:"))
+      : nodes.every((node) => !node.ownerId || node.ownerId === parentId || !componentsById.has(node.ownerId));
+    if (wraps) {
       Object.assign(layoutOptions, {
         "elk.layered.wrapping.strategy": "MULTI_EDGE", "elk.aspectRatio": String(viewAspect()),
         "elk.layered.spacing.nodeNodeBetweenLayers": "50",
       });
+    }
+    // Boxes with no edge between them: the layered layout puts each in its own component and
+    // stacks them in one column; packing fills rows in the shape of the view (issue 1618).
+    if (wraps && !edges.length) {
+      for (const key of Object.keys(layoutOptions)) if (key.startsWith("elk.layered.")) delete layoutOptions[key];
+      layoutOptions["elk.algorithm"] = "rectpacking";
     }
     const labels = [];
     const graphEdges = edges.map((edge) => {

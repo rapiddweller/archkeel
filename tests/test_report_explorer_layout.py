@@ -80,20 +80,79 @@ def test_a_level_with_too_many_modules_groups_them_by_component(site: str, page:
         " counts: s.nodes.reduce((sum, n) => sum + (n.group || 0), 0) }; })()"
     )
     modules = scene["grouped"]["modules"]
-    assert modules > scene["grouped"]["limit"] == 150
-    assert scene["nodes"] <= 150
+    assert modules > scene["grouped"]["limit"] == 30
+    assert scene["nodes"] <= 30
     assert scene["counts"] == modules
     assert f"{modules} observed modules in" in page.evaluate(
         "document.querySelector('.atlas-summary').textContent"
     )
     page.evaluate(
-        "document.querySelector('#flow [data-uml-id=\"LAYER:PART:core:report\"]')"
+        "document.querySelector('#flow [data-uml-id=\"LAYER:PART:core:evaluation\"]')"
         ".dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))"
     )
     page.settle()
-    assert page.state()["scope"] == "LAYER:PART:core:report"
+    assert page.state()["scope"] == "LAYER:PART:core:evaluation"
     nodes = page.evaluate("ArchkeelFlow.state().scene.nodes.map((n) => n.kind)")
     assert nodes and set(nodes) == {"module"}
+
+
+def test_no_modules_view_of_the_self_report_shows_more_boxes_than_one_screen(
+    site: str, page: Browser
+) -> None:
+    page.open(f"{site}/system.html")
+    assert page.evaluate("ArchkeelFlow.reportScene.atlas.module_box_limit") == 30
+    over = page.evaluate(
+        "(() => { const R = ArchkeelFlow.reportScene, A = R.atlas;"
+        " return A.levels.map((l) => [l.parent_id, R.atlasModuleScene(l, 'diagram').nodes.length])"
+        ".filter(([, n]) => n > A.module_box_limit); })()"
+    )
+    assert over == []
+
+
+def test_a_large_leaf_component_groups_its_modules_by_directory(site: str, page: Browser) -> None:
+    # Issue 1603: a component with 64 modules and no parts drew all 64 module boxes.
+    leaf = "COMP-NATIVE-PY-SURVEY"
+    page.open(f"{site}/system.html?scope={leaf}&content=modules")
+    scene = page.evaluate(
+        "(() => { const s = ArchkeelFlow.state().scene;"
+        " return { grouped: s.grouped, boxes: s.nodes.map((n) => [n.id, n.group || 0]) }; })()"
+    )
+    assert scene["grouped"]["modules"] > scene["grouped"]["limit"]
+    assert all(box.startswith(f"FILES:{leaf}:") for box, _ in scene["boxes"])
+    assert sum(count for _, count in scene["boxes"]) == scene["grouped"]["modules"]
+    declared = next(box for box, _ in scene["boxes"] if box.endswith(":declared/"))
+    page.evaluate(
+        f"document.querySelector('#flow [data-uml-id=\"{declared}\"]')"
+        ".dispatchEvent(new MouseEvent('click', { bubbles: true }))"
+    )
+    sheet = page.evaluate("document.querySelector('#flow .flow-inspector').innerText")
+    assert "DIRECTORY FACT SHEET" in sheet.upper()
+    assert "py-survey owns the modules in the contract" in sheet
+    assert "Decided by architect" not in sheet
+    page.evaluate(
+        f"document.querySelector('#flow [data-uml-id=\"{declared}\"]')"
+        ".dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))"
+    )
+    page.settle()
+    assert page.state()["scope"] == declared
+    paths = page.evaluate("ArchkeelFlow.state().scene.nodes.map((n) => n.module.path)")
+    assert paths and all("/survey/declared/" in path for path in paths)
+    # The module keeps its owner in the contract: the box only places it on the map.
+    owners = page.evaluate("ArchkeelFlow.state().scene.nodes.map((n) => n.module.component_id)")
+    assert set(owners) == {leaf}
+
+
+def test_a_module_path_breaks_at_a_slash(site: str, page: Browser) -> None:
+    page.open(
+        f"{site}/system.html?scope=FILES%3ACOMP-NATIVE-PY-SURVEY%3Adeclared%2F&content=modules"
+    )
+    lines = page.evaluate(
+        "[...document.querySelectorAll('#flow svg [data-uml-kind=\"module\"] .meta')]"
+        ".map((meta) => [...meta.children].map((line) => line.textContent))"
+    )
+    assert lines
+    for card in lines:
+        assert all(line.endswith("/") for line in card[:-1]), card
 
 
 def test_two_stacked_boxes_get_a_direct_edge(site: str, page: Browser) -> None:
@@ -128,3 +187,50 @@ def test_the_first_view_after_a_drill_is_readable(site: str, page: Browser) -> N
     zoom = page.evaluate("document.querySelector('#flow .flow-zoom-value').textContent")
     assert int(zoom.rstrip("%")) >= READABLE_ZOOM
     assert page.evaluate(VISIBLE_CARDS) > 0
+
+
+FIRST_VIEW = """(() => {
+  const flow = document.getElementById('flow');
+  const canvas = flow.querySelector('.flow-canvas').getBoundingClientRect();
+  const inside = (r) => r.left >= canvas.left && r.right <= canvas.right
+    && r.top >= canvas.top && r.bottom <= canvas.bottom;
+  const cards = [...flow.querySelectorAll('svg [data-uml-id] .card')];
+  const labels = [...flow.querySelectorAll('svg .atlas-edge-label')];
+  const first = cards.map((c) => c.getBoundingClientRect())
+    .sort((a, b) => a.left + a.top - b.left - b.top)[0];
+  const hint = flow.querySelector('.rp-scroll-hint');
+  return { zoom: parseInt(flow.querySelector('.flow-zoom-value').textContent, 10),
+    cards: cards.length, cardsIn: cards.filter((c) => inside(c.getBoundingClientRect())).length,
+    labels: labels.length, labelsIn: labels.filter((l) => inside(l.getBoundingClientRect())).length,
+    firstIn: Boolean(first && inside(first)), overflow: flow.dataset.overflow,
+    hint: hint && !hint.hidden ? hint.textContent : null };
+})()"""
+
+
+@pytest.mark.parametrize(("width", "height"), [(1500, 1100), (1920, 1300)])
+def test_the_first_view_shows_the_whole_graph_or_starts_at_its_top_left_box(
+    tmp_path: Path, site: str, width: int, height: int
+) -> None:
+    # Issue 1618: the first view cut the graph at the right edge with no sign that it goes on.
+    with browser(tmp_path, width=width, height=height) as sized:
+        views = {}
+        for name, query in [
+            ("system", ""),
+            ("collector", "scope=LAYER%3APART%3Acore%3Acollector"),
+            ("core", f"scope={CORE}"),
+        ]:
+            sized.open(f"{site}/system.html?{query}")
+            sized.evaluate(
+                "new Promise((d) => requestAnimationFrame(() => requestAnimationFrame(d)))"
+            )
+            views[name] = sized.evaluate(FIRST_VIEW)
+    for name in ("system", "collector"):
+        view = views[name]
+        assert view["zoom"] >= READABLE_ZOOM, view
+        assert (view["cardsIn"], view["labelsIn"]) == (view["cards"], view["labels"]), view
+        assert (view["overflow"], view["hint"]) == ("", None), view
+    core = views["core"]
+    assert core["zoom"] == READABLE_ZOOM, core
+    assert core["firstIn"], core
+    assert "right" in core["overflow"].split(), core
+    assert core["hint"] == "Scroll or press Shift 1 to fit", core

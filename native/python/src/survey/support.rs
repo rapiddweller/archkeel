@@ -23,11 +23,12 @@ pub(crate) enum Construct {
     AnyAnnotation,
     DynamicImport,
     Cast,
+    TypeIgnore,
 }
 
 impl Construct {
     /// Each construct, in the order of the reply.
-    pub(crate) const ALL: [Construct; 9] = [
+    pub(crate) const ALL: [Construct; 10] = [
         Construct::Assert,
         Construct::BroadExcept,
         Construct::DunderDict,
@@ -37,6 +38,7 @@ impl Construct {
         Construct::AnyAnnotation,
         Construct::DynamicImport,
         Construct::Cast,
+        Construct::TypeIgnore,
     ];
 
     /// The word of the construct in the reply and in the contract.
@@ -51,6 +53,7 @@ impl Construct {
             Construct::AnyAnnotation => "any_annotation",
             Construct::DynamicImport => "dynamic_import",
             Construct::Cast => "cast",
+            Construct::TypeIgnore => "type_ignore",
         }
     }
 }
@@ -90,7 +93,8 @@ impl Support {
             | Construct::DunderDict
             | Construct::Vars
             | Construct::StringLiteralCompare
-            | Construct::Getattr => Seen::Supported,
+            | Construct::Getattr
+            | Construct::TypeIgnore => Seen::Supported,
         };
         Support(Construct::ALL.iter().map(|c| (*c, seen(*c))).collect())
     }

@@ -35,7 +35,7 @@ fn decided(kind: RuleKind) -> bool {
         | RuleKind::NoComponentCycles
         | RuleKind::ForbiddenConstruct => true,
         RuleKind::InterfaceBoundary => true,
-        RuleKind::SymbolPlacement => false,
+        RuleKind::SymbolPlacement => true,
         RuleKind::SourceOwnership => false,
         RuleKind::BoundedNumericOperand => false,
         RuleKind::CallOwner => false,

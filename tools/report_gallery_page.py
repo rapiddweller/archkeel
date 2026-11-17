@@ -114,8 +114,13 @@ def _planted(row: Mapping[str, Any]) -> str:
     plant = row["run"].get("plant")
     if not plant:
         return ""
-    where, line, rule = (html.escape(str(plant[key])) for key in ("where", "line", "rule"))
-    text = f'<br><span class="caption">Planted in <code>{where}</code>: <code>{line}</code>. '
+    where, line = (html.escape(str(plant[key])) for key in ("where", "line"))
+    text = f'<br><span class="caption">Planted in <code>{where}</code>: <code>{line}</code>.'
+    if "rule" not in plant:
+        # A plant that makes a rule UNKNOWN has no violation block to link.
+        return text + "</span>"
+    rule = html.escape(str(plant["rule"]))
+    text += " "
     block = row.get("violation")
     report = dict(row["links"]).get("HTML")
     if not block or not report:

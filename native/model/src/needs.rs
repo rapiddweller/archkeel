@@ -23,6 +23,8 @@ pub enum Need {
     InterfaceBoundary,
     /// The contract has an `unused_public` rule: the core reads the public items (AD-670).
     UnusedPublic,
+    /// The contract has a `symbol_placement` rule.
+    SymbolPlacement,
 }
 
 impl Need {
@@ -30,7 +32,10 @@ impl Need {
     fn symbols(self) -> bool {
         match self {
             Need::UmlTarget => true,
-            Need::BoundaryTypes | Need::InterfaceBoundary | Need::UnusedPublic => false,
+            Need::BoundaryTypes
+            | Need::InterfaceBoundary
+            | Need::UnusedPublic
+            | Need::SymbolPlacement => false,
         }
     }
 }
@@ -69,5 +74,10 @@ impl Needs {
     /// True when the run reads the shapes of the written signature types (AD-550, AD-580).
     pub fn boundary(&self) -> bool {
         self.0.contains(&Need::BoundaryTypes) || self.0.contains(&Need::InterfaceBoundary)
+    }
+
+    /// True when the run reads class declarations for placement.
+    pub fn placement(&self) -> bool {
+        self.0.contains(&Need::SymbolPlacement)
     }
 }

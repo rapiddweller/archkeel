@@ -58,6 +58,8 @@ mod direction;
 mod external;
 mod interface;
 mod layout;
+mod placement;
+mod placement_row;
 mod unused_public;
 mod violation;
 
@@ -70,6 +72,7 @@ mod layout_citation_tests;
 use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
 use archkeel_model::{Decision, Model, ModelTree, Part, Reason, Unsupported, Verdict};
 
+pub use placement_row::PlacedClass;
 pub use violation::{Cited, ConstructViolation, CycleStep, Cyclic, Layered, Published, Violation};
 
 /// The result of one rule.
@@ -139,7 +142,7 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         // Each kind that no slice decides names its kind; a new kind needs an arm here.
         Rule::NoComponentCycles(rule) => Ok(cycles::check(id, rule, model)),
         Rule::ForbiddenConstruct(rule) => constructs::check(id, rule, model),
-        Rule::SymbolPlacement(_) => unported(kind), // S12, Cut B
+        Rule::SymbolPlacement(rule) => placement::check(id, rule, model),
         Rule::SourceOwnership(_) => unported(kind),
         Rule::BoundedNumericOperand(_) => unported(kind),
         Rule::CallOwner(_) => unported(kind),             // S13

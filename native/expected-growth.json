@@ -4676,15 +4676,6 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.scope_receipt",
-        "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_model.scope_receipt",
         "A method call may reach the method members of a type in its own file native.archkeel_model.cycles"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
@@ -4731,15 +4722,6 @@
         "collection_gap",
         "native.archkeel_model.scope_receipt",
         "A method call may reach the method roots of a type in its own file native.archkeel_model.settings"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_model.scope_receipt",
-        "A method call may reach the method settings of a type in its own file native.archkeel_model.graph"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
     },
@@ -5577,15 +5559,6 @@
         "collection_gap",
         "native.archkeel_model.uml_tree",
         "A method call may reach the method scopes of a type in its own file native.archkeel_model.domain"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_python_collector",
-        "A method call may reach the method new of a type in its own file native.archkeel_snapshot.snapshot"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
     },
@@ -11362,15 +11335,6 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_typescript_collector.unselected",
-        "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
         "native.archkeel_typescript_collector.walk",
         "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.members"
       ],
@@ -11877,6 +11841,42 @@
         "scope_incomplete"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_model.uml_inventory",
+        "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class; in code of #1604 and #1635 that landed in parallel); reduced by receiver-type facts (owner decision 2026-11-17, L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_model.uml_inventory",
+        "A method call may reach the method is_empty of a type in its own file native.archkeel_model.ids"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class; in code of #1604 and #1635 that landed in parallel); reduced by receiver-type facts (owner decision 2026-11-17, L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_model.uml_scope",
+        "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class; in code of #1604 and #1635 that landed in parallel); reduced by receiver-type facts (owner decision 2026-11-17, L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.unselected",
+        "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class; in code of #1604 and #1635 that landed in parallel); reduced by receiver-type facts (owner decision 2026-11-17, L-273)"
     }
   ]
 }

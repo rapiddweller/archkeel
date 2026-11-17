@@ -47,10 +47,9 @@ row is a FAIL. The gallery runs this as `H-uml-plant-signature`.
 **Partial (UNKNOWN).** Replace the literal of `State.READY` with a computed value: in
 `demo/core.py` change `from enum import Enum` to `from enum import Enum, auto` and
 `READY = "ready"` to `READY = auto()`. A computed literal has no value to compare, so the
-existence of the literal is UNKNOWN. This cannot be told apart on 5.0 today: the unchanged
-project is already UNKNOWN, because the Python collector gives no attribute record for a bare
-annotation such as `_token: str` ([#1534](https://github.com/rapiddweller/archkeel/issues/1534)).
-The partial variant shows its own cause only after that issue is closed.
+existence of the literal is UNKNOWN (the cause is `no_receipt`). The unchanged project is a PASS
+(the bare annotation `_token: str` gets its attribute record since #1534), so this UNKNOWN is the
+effect of that one edit. The gallery runs it as `H-uml-plant-partial`.
 
 **Complete (closed inventory).** The earlier `uml-complete` Target extended this contract with
 the initializer, the namespace groups, the external references, the file inventory and every
@@ -64,8 +63,7 @@ closes the scope `core-module` in `architecture-contract.json` with a short list
 reports each relationship of the code that the list leaves out as a FAIL ("closed scope holds an
 unlisted relationship"). The edit is the `plant` entry of that run in `fixtures/matrix.json`.
 
-The unchanged project does not show a PASS today, for the reason given for the partial variant.
-PASS does not certify completeness; open scopes say what is intended and never certify that
+The unchanged project is a PASS. PASS does not certify completeness; open scopes say what is intended and never certify that
 nothing else exists.
 
 A component is a responsibility boundary, not a folder. A Python module here maps

@@ -100,11 +100,11 @@ pub(crate) fn check(rule: &Rule, components: &[Component], names: &Names<'_>) ->
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
         | Rule::SourceOwnership(_)
-        | Rule::SymbolPlacement(_)
         | Rule::BoundedNumericOperand(_)
         | Rule::ProtocolDeclarations(_) => return Subjects::Unread,
         // AD-550: the facade modules below `source` are the subjects of the rule.
         Rule::BoundaryTypes(rule) => vec![vec![rule.source().as_text()]],
+        Rule::SymbolPlacement(rule) => vec![vec![rule.source().as_text()]],
         // AD-670: the modules below `source` hold the public items of the rule.
         Rule::UnusedPublic(rule) => vec![vec![rule.source().as_text()]],
     };

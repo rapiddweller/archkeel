@@ -108,7 +108,9 @@ def test_the_files_with_an_edge_into_a_module_are_the_files_that_fail_without_it
     }
     parent = module.rsplit(".", 1)[0]
     work = tmp_path / "work"
-    shutil.copytree(frozen_root / "native", work / "native")
+    # The whole frozen tree: `native/` includes files of `schema/` (`include_str!`), so a copy of
+    # `native/` alone does not compile and its errors would not be resolution errors.
+    shutil.copytree(frozen_root, work, ignore=shutil.ignore_patterns(".git"))
     declared = work / files[parent]
     declared.write_text(_without_declaration(declared.read_text(), module.rsplit(".", 1)[1]))
     checked = subprocess.run(

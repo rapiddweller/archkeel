@@ -99,8 +99,13 @@ def test_init_and_skill_complete_without_a_status(
 
 
 def test_a_run_starts_with_the_head_and_keeps_its_fields(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # #1609: a run needs the shared release core; without it the result is command_refused.
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
     root = plant(tmp_path / "p")
     code, document = _json(capsys, "validate", "--root", str(root))
     assert list(document)[:4] == HEAD

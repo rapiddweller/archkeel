@@ -24,4 +24,7 @@ pub(super) struct Node {
     pub(super) members: Option<usize>,
     /// The place of a layer in its layer order, from the inner layer; `None` for a component.
     pub(super) rank: Option<usize>,
+    /// A box that the report makes for one directory of the modules of a large component: no
+    /// contract text is its own.
+    pub(super) directory: bool,
 }

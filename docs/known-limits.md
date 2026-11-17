@@ -8,7 +8,7 @@ What each language decides on main. The README quotes this block, and `tests/tes
 
 <!-- tiers:start -->
 Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and Python also decides `interface_boundary` (AD-504); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
 <!-- tiers:end -->
 
 The details follow.
@@ -56,6 +56,9 @@ the last two were fixed after it and are checked on main at `157dc8851`:
 - A git URL of the same repository, an outside Cargo patch, a command-line patch and a repository
   patch each give UNKNOWN with a crate-pair gap (AD-704, #946).
   `tests/test_collector_false_pass_rust_redirect.py` holds the four compiling fixtures.
+- A patch of a platform prototype (`Object.defineProperty(EventTarget.prototype, …)`, a prototype
+  that is passed on, `ev.target.__proto__ = …`) gives UNKNOWN with a source-resolution gap
+  (AD-768, #1527). `tests/test_cli_native_prototype_patch.py` holds 18 forms.
 - Direct aliases of `Object`, `Reflect`, `location` and `open`, and direct timer aliases, give
   UNKNOWN with a source-resolution gap. This does not prove arbitrary value flow safe.
   `tests/test_cli_native_global_forms.py` checks the direct reflection and navigation aliases.
@@ -80,7 +83,9 @@ A re-export of a package is read through its uses: a name of a package that anot
 uses as a value escapes the package, unless its origin cannot be a module of the scan (AD-530). A
 read of `__globals__` is no gap when the dict only feeds a lookup of a literal key; library code
 that gives the dict back is not seen (AD-530).
-Python rules that read calls or constructs stay UNKNOWN. `interface_boundary` and symbol-level
+Python construct rules stay UNKNOWN when the collector cannot prove that it sees every site.
+For `type_ignore`, only an exact `name.method()` statement with a trailing readable comment is
+recorded; other type comments keep the rule UNKNOWN (AD-780). `interface_boundary` and symbol-level
 `through` ports are decided from the publication route of each named import (AD-504); the hygiene
 checks `interface.*` prove a use of a `public` entry from the imports and name `interface.usage_unknown`
 where only a declared facade signature could reach it (AD-514). A Dart project gets PASS or FAIL
@@ -413,10 +418,12 @@ removes are not gaps. The gap holds every rule of the run.
 Narrow the scan roots to the source, or select the file in the TSConfig
 ([AD-488](architecture/decisions/ad-488-a-source-file-that-the-tsconfig-drops-is-a-coverage-gap.md)).
 
-A `.vue`, `.svelte`, `.astro`, `.mdx` or `.es6` file and an `.html` or `.htm` page with a script
-element under the scan roots is a gap too: the collector does not read these forms, and the gap
-names the file and the form (#1528). A page without a script element and a file outside the scan
-roots are not gaps.
+A `.vue`, `.svelte`, `.astro`, `.mdx` or `.es6` file is a gap too: the collector does not read
+these forms, and the gap names the file and the form (#1528). So is an `.html`, `.htm` or `.svg`
+file that can hold code (#1607): a `<script` element (also in a `<template>` or an SVG), an `on*`
+event handler attribute, a `javascript:` URL, `srcdoc`, or a `data:` URL of a page or an SVG. The
+check is lexical and over-matches on purpose: a page that only looks like code is a gap, and a
+page with plain markup is not. A file outside the scan roots is not a gap.
 
 These files give no gap in the core and in 4.0.1 (follow-up work):
 - `exclude_test_sources = true` removes `test`/`tests`/`__tests__` directories and `*.test.*` and
@@ -485,8 +492,8 @@ A write through them (`top.x = 1`) publishes nothing, but it blocks each proof o
 A write `o.x = …` blocks the global `x` unless `o` is a local new value or the `this` of a
 constructor, a field or a static block. An unknown key on a window value, a window value that
 escapes, and code from a text block every global proof of the project.
-Open false PASS, not accepted (AD-460, AD-508): any alias of `Object`, `Reflect`, `location` or
-`open` (an alias of `Object` or `Reflect` that writes by reflection, a navigation through an alias); a computed key
+Open false PASS, not accepted (AD-460, AD-508): any alias of `location` or `open` (a navigation
+through an alias); a computed key
 in a pattern (`const { [k]: v } = e`); any global that navigates or opens (`open('', '_self')`,
 `document.open`); a destructured or aliased `setTimeout`; and DOM code from text outside the named
 triggers (a `src` or `href` that is no literal, and a click on the element).
@@ -496,8 +503,11 @@ a parameter, a call result or a member) is an amplifier form, and so is `Object.
 `Object.defineProperty(ies)`, `Object.setPrototypeOf`, `Reflect.set`, `Reflect.defineProperty` or
 `Reflect.setPrototypeOf` on such a value (direct on a window value). With a host entry they block
 every global proof. A new value, `Object.create(…)`, a local name bound once to a new value and the
-`this` of a constructor keep the proof. Plants: `native/typescript/src/script_window_value_tests.rs`,
-`tests/test_collector_false_pass_ts_window_values.py`.
+`this` of a constructor keep the proof. The same holds for a reflective member that is read through
+a window name (`globalThis.Object.assign`) and for `__defineGetter__` or `__defineSetter__` of any
+object. A reflective member or an accessor member used as a value (stored, passed, called through
+`call` or `apply`, `Reflect.apply(Reflect.set, …)`) is direct. Plants:
+`native/typescript/src/script_window_value_tests.rs`, `tests/test_collector_false_pass_ts_window_values.py`.
 AD-508 closed these forms: a write with a run-time key through `this` of a class method, through
 `super` or through a name bound once to such a `this`; a call, `new`, tagged template, `call`,
 `apply` or `bind` of a member with a run-time key (also through a comma, a condition, a logical
@@ -517,8 +527,14 @@ form too, so `return map[key]` keeps every free standard name from a proof. A us
 the value keeps the proof: `typeof`, a comparison, a condition, arithmetic, a text, a loop over its
 elements, a member with another plain name, and a pattern of plain names. Plants:
 `native/typescript/src/script_lookup_tests.rs`, `tests/test_collector_false_pass_ts_lookup.py`.
-Older classes stay open too: a prototype change through a call
-(`Object.defineProperty(EventTarget.prototype, …)`), a member patch of a platform object that is no
+AD-768 (#1527) reads a value that may be a prototype of the global object like a window value:
+`X.prototype` of a name that is no class of the file, `x.__proto__` and a `getPrototypeOf` call.
+Its escape (`g(EventTarget.prototype)`) and a write through it with a run-time key are direct
+forms; a write of `__proto__` on a value that is not proven local is an amplifier form. A read of a
+member (`Object.prototype.hasOwnProperty.call`), an element and a comparison keep the proof.
+A reflective write on the prototype of a class of the file stays a false UNKNOWN in a scan with a
+host entry. Plants: `tests/test_cli_native_prototype_patch.py`.
+Older classes stay open too: a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
 `document.defaultView`, and a write in a file outside the scan roots (#1546).
 A source file inside the roots that TSConfig `exclude` drops gives a named coverage gap (AD-488),

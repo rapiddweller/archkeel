@@ -143,6 +143,39 @@ fn a_changed_reply_fails_with_the_message_of_the_python_check() {
     }
 }
 
+fn first_kind(value: &Value) -> String {
+    let mut value = value.clone();
+    let kind = records(&mut value, "imports")[0]["kind"].clone();
+    kind.as_str().unwrap_or_default().to_owned()
+}
+
+/// A duplicate record id names the id and the place of each record, so the user can find them.
+#[test]
+fn a_duplicate_record_id_names_the_places_of_both_records() {
+    let mut value = reply();
+    let first = records(&mut value, "imports")[0].clone();
+    let id = first["id"].as_str().unwrap_or_default().to_owned();
+    let evidence = first["evidence_ids"][0].clone();
+    let place = value["facts"]["evidence"]
+        .as_array()
+        .and_then(|rows| rows.iter().find(|row| row["id"] == evidence))
+        .map(|row| {
+            format!(
+                "{}:{}",
+                row["file"].as_str().unwrap_or_default(),
+                row["line"]
+            )
+        })
+        .unwrap_or_default();
+    if let Some(list) = records(&mut value, "imports").as_array_mut() {
+        list.push(first);
+    }
+    let error = error_of(&value);
+    let kind = first_kind(&value);
+    let expected = format!("duplicate source record id {id} ({kind}) at {place} and {place}");
+    assert!(error.contains(&expected), "{expected}: {error}");
+}
+
 #[test]
 fn the_store_reads_only_a_complete_compressed_reply() {
     let plain = reply().to_string().into_bytes();

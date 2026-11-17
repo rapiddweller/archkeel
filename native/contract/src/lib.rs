@@ -67,7 +67,7 @@ pub use model::{
 };
 pub use model_constructs::{ConstructSelector, ForbiddenConstruct};
 pub use model_declarations::BudgetName;
-pub use model_rules::{BoundaryAllowance, BoundaryTypes};
+pub use model_rules::{BoundaryAllowance, BoundaryTypes, SymbolClassKind, SymbolPlacement};
 pub use model_uml::{
     CompletenessMode, Entity, EntityKind, ModifierKind, ParameterKind, PresenceKind, Relationship,
     RelationshipKind, ResolutionKind, Signature, Target, TargetScope, VisibilityBasis,

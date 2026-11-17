@@ -102,6 +102,12 @@ impl ViolationDetail {
                 cause: "public name that no other component uses",
                 evidence: row.evidence.clone(),
             },
+            Violation::SymbolPlacement(row) => Self {
+                source: row.name.clone(),
+                target: Some(row.module.clone()),
+                cause: "class outside allowed modules",
+                evidence: row.evidence.clone(),
+            },
             // AD-428: the target names the imported symbol in the selector form `module:name`.
             Violation::PrivateImport { cited, symbol, .. } => Self {
                 source: cited.source_module.clone(),
