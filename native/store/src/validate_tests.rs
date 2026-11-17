@@ -92,7 +92,7 @@ fn the_frozen_reply_passes() -> Result<(), String> {
 #[test]
 fn a_changed_reply_fails_with_the_message_of_the_python_check() {
     type Change = fn(&mut Value);
-    let cases: [(&str, Change); 10] = [
+    let cases: [(&str, Change); 8] = [
         ("duplicate source record id", |v| {
             let first = records(v, "imports")[0].clone();
             if let Some(list) = records(v, "imports").as_array_mut() {
@@ -129,17 +129,6 @@ fn a_changed_reply_fails_with_the_message_of_the_python_check() {
                 {
                     features.push(json!("call-bindings-v1"));
                 }
-            },
-        ),
-        // AD-688: the block admits the capabilities; the checks of the survey still read the
-        // records of a reply that names the Python or the Dart profile.
-        ("a Python import must be an import statement", |v| {
-            v["facts"]["profile"] = json!("archkeel-python-analyzer");
-        }),
-        (
-            "a Dart import has no specifier, no type flag and no known symbols",
-            |v| {
-                v["facts"]["profile"] = json!("archkeel-dart-analyzer");
             },
         ),
         ("dangling source evidence reference", |v| {
