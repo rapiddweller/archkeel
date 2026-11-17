@@ -20,7 +20,7 @@ PAGES = {"system": (None, "docs/architecture/architecture-system.json")}
 CORE = "PART%3Acore"
 # The click on a view and the ready layout: 3 s before issue 1488, 0.1 s after it on a laptop.
 BUDGET_SECONDS = 2.0
-# The readable floor of `fit` in flow.js (READABLE_SCALE).
+# The readable floor of `fit` in flow/canvas.js (READABLE_SCALE).
 READABLE_ZOOM = 85
 STATE = "document.getElementById('flow').dataset.layoutState"
 VISIBLE_CARDS = """(() => {

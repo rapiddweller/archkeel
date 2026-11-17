@@ -19,7 +19,7 @@ fn every_script_hash_is_the_hash_of_its_embedded_bytes() {
 
 /// The files that draw: the local style of the report and each Explorer asset except the vendored
 /// ELK layout, which draws nothing.
-const FILES: [(&str, &str); 11] = [
+const FILES: [(&str, &str); 21] = [
     ("report.css", include_str!("../assets/report.css")),
     (
         "explorer.css",
@@ -33,7 +33,50 @@ const FILES: [(&str, &str); 11] = [
         "flow.runtime.js",
         include_str!("../assets/explorer/flow.runtime.js"),
     ),
-    ("flow.js", include_str!("../assets/explorer/flow.js")),
+    (
+        "flow/boot.js",
+        include_str!("../assets/explorer/flow/boot.js"),
+    ),
+    (
+        "flow/uml.js",
+        include_str!("../assets/explorer/flow/uml.js"),
+    ),
+    (
+        "flow/route.js",
+        include_str!("../assets/explorer/flow/route.js"),
+    ),
+    (
+        "flow/permissions.js",
+        include_str!("../assets/explorer/flow/permissions.js"),
+    ),
+    (
+        "flow/canvas.js",
+        include_str!("../assets/explorer/flow/canvas.js"),
+    ),
+    (
+        "flow/sheets.js",
+        include_str!("../assets/explorer/flow/sheets.js"),
+    ),
+    (
+        "flow/explore.js",
+        include_str!("../assets/explorer/flow/explore.js"),
+    ),
+    (
+        "flow/navigate.js",
+        include_str!("../assets/explorer/flow/navigate.js"),
+    ),
+    (
+        "flow/levels.js",
+        include_str!("../assets/explorer/flow/levels.js"),
+    ),
+    (
+        "flow/state.js",
+        include_str!("../assets/explorer/flow/state.js"),
+    ),
+    (
+        "flow/start.js",
+        include_str!("../assets/explorer/flow/start.js"),
+    ),
     (
         "report-canvas.js",
         include_str!("../assets/explorer/report-canvas.js"),

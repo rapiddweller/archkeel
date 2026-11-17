@@ -94,7 +94,7 @@ def _functions(node: ast.AST, prefix: str) -> Iterator[tuple[str, int]]:
 
 SIZE_LIMIT_EXEMPT: dict[str, str] = {
     "native/report/assets/explorer/elkjs-0.12.0.bundled.js": "vendored ELK release, not our code",
-    "native/report/assets/explorer/flow.runtime.js": "generated from flow.js",
+    "native/report/assets/explorer/flow.runtime.js": "generated from the parts of flow/",
 }
 # The scripts and styles of the report page are code too (lead L-283).
 REPORT_ASSETS = "native/report/assets/"

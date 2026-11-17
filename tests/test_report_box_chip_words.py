@@ -64,8 +64,8 @@ def test_the_words_follow_the_status_of_the_box(
 
 def test_no_box_says_deviation_any_more() -> None:
     assert "deviation inside" not in SCENE.read_text(encoding="utf-8")
-    flow = SCENE.with_name("flow.js").read_text(encoding="utf-8")
-    assert "deviation inside" not in flow
+    for part in sorted(SCENE.with_name("flow").glob("*.js")):
+        assert "deviation inside" not in part.read_text(encoding="utf-8"), part.name
 
 
 def test_the_colour_of_the_box_lines_follows_the_status_of_the_box() -> None:

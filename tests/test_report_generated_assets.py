@@ -41,6 +41,6 @@ def test_the_flow_runtime_is_generated_from_its_source() -> None:
 
 
 def test_a_changed_flow_source_does_not_match_the_committed_runtime() -> None:
-    source = (browser_runtime.ASSETS / "flow.js").read_bytes()
+    source = browser_runtime.source()
     committed = (browser_runtime.ASSETS / "flow.runtime.js").read_bytes()
     assert browser_runtime.runtime(source + b"\n// changed\n") != committed
