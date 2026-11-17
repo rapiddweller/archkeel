@@ -38,7 +38,7 @@ facts_data! {
         [read] source_module: ModuleName,
         /// The scope that holds the source.
         [read] source_scope: String,
-        /// The proof state of the record. A decided call with no targets proves no scanned target.
+        /// The proof state of the record.
         [read] status: Status,
         /// The evidence of the targets.
         [read skip] target_evidence_ids: Option<Vec<EvidenceId>>,
@@ -49,7 +49,7 @@ facts_data! {
 
 impl CallData {
     /// A call site of the source scope `scope` with the targets that it resolves to. The other
-    /// fields are absent.
+    /// fields are absent. A decided call with no targets proves no scanned target.
     pub fn new(
         expression: String,
         (source_module, source_scope): (ModuleName, String),
