@@ -18,7 +18,7 @@ import os
 import re
 from dataclasses import dataclass, replace
 from functools import cache
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Final
 
 from .core_schema import schema_file
@@ -96,7 +96,11 @@ def _members(root: Path, patterns: list[str], marker: str) -> list[Path]:
     the marker file."""
     found: set[Path] = set()
     for pattern in patterns:
-        for path in root.glob(pattern):
+        # `.` names the folder itself (tokio: `fuzz` is its own workspace); `glob` refuses it.
+        relative = PurePosixPath(pattern)
+        if relative.is_absolute() or ".." in relative.parts:
+            continue
+        for path in root.glob(relative.as_posix()) if relative.parts else [root]:
             if path.is_dir() and (path / marker).is_file() and path.name not in _IGNORED:
                 found.add(path)
     return sorted(found)
