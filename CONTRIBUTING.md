@@ -29,7 +29,9 @@ Python collectors are deleted; the Python collectors are gone, and a release 4.0
 make ci-pr-check BASE=origin/main        # lint, types and a fixed set of tests
 ```
 
-Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, and warns when the branch is behind `main`.
+Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, warns when the branch is behind `main`, and adds the reasons of the merge decision table (below).
+
+Merge with `python tools/merge_pr.py <number>` (AD-676, AD-736). One decision table gives MERGE, WAIT or REFUSE with reason codes (`--json` prints `{verdict, reasons, required, head}`; `--wait N` loops while the verdict is WAIT). Exit codes: 0 merged, 1 refused, 2 empty landing, 3 wait, 4 merged but the landing is not visible yet. A check that is queued or in progress, or a merge state that GitHub has not computed, is WAIT; a completed check that is not a success is REFUSE.
 
 Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md), updated by [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md), 2026-11-10):
 
