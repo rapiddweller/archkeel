@@ -187,3 +187,33 @@ fn the_type_options_and_reference_directives_name_what_they_reach() {
     let text = "// x\n/// <reference types=\"a\" />\n///<reference types='b'/>\nimport 'c';\n/// <reference types=\"d\" />\n";
     assert_eq!(super::reference_types(text), ["a", "b"]);
 }
+
+/// #1528: a code form that the profile does not read is listed, so the collector names it.
+#[test]
+fn a_code_form_that_the_profile_does_not_read_is_listed_with_its_reason() {
+    let found = sources(
+        &[
+            ("src/a.vue", ""),
+            ("src/b.svelte", ""),
+            ("src/c.astro", ""),
+            ("src/d.mdx", ""),
+            ("src/e.es6", ""),
+            ("src/f.HTML", ""),
+            ("src/g.css", ""),
+        ],
+        &["src"],
+        &[],
+    );
+    let expected = [
+        "src/a.vue",
+        "src/b.svelte",
+        "src/c.astro",
+        "src/d.mdx",
+        "src/e.es6",
+        "src/f.HTML",
+    ];
+    assert_eq!(found, expected);
+    assert!(super::unread_form("src/a.vue").is_some_and(|why| why.contains("Vue")));
+    assert!(super::page_with_script(b"<p/><SCRIPT>x</SCRIPT>"));
+    assert!(!super::page_with_script(b"<p>no code</p>"));
+}
