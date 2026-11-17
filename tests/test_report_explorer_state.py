@@ -121,3 +121,69 @@ def test_a_module_found_by_search_opens_at_its_level(site: str, page: Browser) -
     assert page.evaluate("location.pathname") == "/system.html"
     assert state["selection"] == module
     assert state["scope"] is not None
+
+
+def click(page: Browser, selector: str) -> None:
+    page.evaluate(f"document.querySelector({selector!r}).click()")
+    page.settle()
+
+
+def test_a_view_button_switches_the_view_and_keeps_the_level(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html?scope=PART%3Ashell")
+    click(page, '#flow [data-flow-view="target"]')
+    state = page.state()
+    assert (state["view"], state["scope"]) == ("target", "PART:shell")
+    assert "view=target" in state["search"]
+
+
+def test_the_details_button_opens_and_closes_the_fact_sheet(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html")
+    assert page.state()["details"] is False
+    click(page, "#flow .flow-details-toggle")
+    assert page.state()["details"] is True
+    click(page, "#flow .flow-details-toggle")
+    assert page.state()["details"] is False
+
+
+def test_a_crumb_goes_up_to_its_level(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html?scope=LAYER%3APART%3Ashell%3Aprocess")
+    click(page, '#flow .flow-breadcrumb [data-atlas-depth="1"]')
+    assert page.state()["scope"] == "PART:shell"
+
+
+def test_escape_on_the_diagram_clears_the_selection(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html?selected=PART%3Acore")
+    assert page.state()["selection"] == "PART:core"
+    page.evaluate("document.querySelector('#flow [data-uml-id=\"PART:core\"]').focus()")
+    page.press("Escape")
+    page.settle()
+    assert page.state()["selection"] is None
+
+
+def test_a_perspective_choice_is_kept_in_the_url(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html")
+    page.evaluate(
+        "[...document.querySelectorAll('#flow .ak-bottom-center button')]"
+        ".find((b) => b.textContent === 'Layer').click()"
+    )
+    assert "perspective=layer" in page.evaluate("location.search")
+    assert (
+        page.evaluate(
+            "document.querySelector('#flow .ak-bottom-center [aria-pressed=\"true\"]').textContent"
+        )
+        == "Layer"
+    )
+
+
+def test_a_matrix_cell_selects_its_import_and_names_it_in_the_url(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html?scope=PART%3Ashell")
+    page.evaluate("document.querySelector('#flow .ak-rail [data-drawer=\"overview\"]').click()")
+    page.wait("!!document.querySelector('#flow .matrix-cell')")
+    cell = page.evaluate(
+        "(() => { const c = document.querySelector('#flow .matrix-cell');"
+        " c.dispatchEvent(new MouseEvent('click', { bubbles: true })); return c.dataset.cell; })()"
+    )
+    assert f"cell={cell}" in page.evaluate("location.search")
+    assert "Observed import cell" in page.evaluate(
+        "document.querySelector('#flow .flow-inspector-content').textContent"
+    )

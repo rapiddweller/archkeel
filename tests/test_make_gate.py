@@ -128,6 +128,7 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
         "full-verification.yml",
+        "pages.yml",
         "pr-gate.yml",
         "release.yml",
     }

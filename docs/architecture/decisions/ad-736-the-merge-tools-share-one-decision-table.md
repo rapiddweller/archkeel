@@ -14,6 +14,8 @@
 
 6. Aggregates (item 3): the aggregate jobs of `ci.yml` and `full-verification.yml` say a job was cancelled (a superseded run), skipped or failed, each in its own words, and still refuse all three. `tools/ci_daily.py`: `red_hours` reads the Full runs of all days, so a red that began before midnight carries into the day, and a `timed_out` run is red; a cancelled run changes nothing.
 
+7. Tier and core source (item 4): the Makefile passes `--tier pr|fast|full` to pytest instead of the test reading a substring of the `-m` expression; the floors of `tests/area_floors.json` apply to `pr` and `fast` only. `ARCHKEEL_PREBUILT_CORE` is split: `ARCHKEEL_REQUIRE_PREBUILT=1` (a test never builds the shared core; a missing core fails) and `ARCHKEEL_CORE_SOURCE=cache|build` (`make core` reuses a binary only when CI restored it from the cache and its tree stamp matches). Behaviour is unchanged.
+
 **Rejected.** Deleting `merge_check.py` (owner: it stays); a second table in each tool.
 
 **Tests.** `tests/test_merge_pr.py` (every row, the exit codes, `--json`, `--wait`), `tests/test_merge_check.py`.
