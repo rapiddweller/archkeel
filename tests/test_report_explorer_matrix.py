@@ -54,20 +54,26 @@ def test_large_level_opens_a_grouped_matrix_and_its_real_relationships(
         page.evaluate("document.querySelector('#flow [data-drawer=overview]').click()")
         assert not page.evaluate("!!document.querySelector('#flow .flow-matrix')")
         click(page, "#flow [data-open-matrix]")
-        assert page.evaluate("document.querySelector('.atlas-matrix-dialog').open")
+        assert page.evaluate("!!document.querySelector('.atlas-matrix-view')")
         assert page.evaluate("""(() => {
-          const d = document.querySelector('.atlas-matrix-dialog');
+          const view = document.querySelector('.atlas-matrix-view');
+          return view.parentElement.matches('.flow-map-column')
+            && getComputedStyle(document.querySelector('.flow-canvas')).display === 'none'
+            && !document.querySelector('dialog[open]');
+        })()""")
+        assert page.evaluate("""(() => {
+          const d = document.querySelector('.atlas-matrix-view');
           const guide = d.querySelector('details');
           return !guide.open && guide.textContent.includes('empty position')
             && d.textContent.includes('Rows import columns.')
             && d.textContent.includes('UNKNOWN');
         })()""")
-        click(page, ".atlas-matrix-dialog summary")
-        assert page.evaluate("document.querySelector('.atlas-matrix-dialog details').open")
-        click(page, ".atlas-matrix-dialog summary")
+        click(page, ".atlas-matrix-view summary")
+        assert page.evaluate("document.querySelector('.atlas-matrix-view details').open")
+        click(page, ".atlas-matrix-view summary")
         page.settle()
         summary = page.evaluate("""(() => {
-          const d = document.querySelector('.atlas-matrix-dialog');
+          const d = document.querySelector('.atlas-matrix-view');
           const cells = [...d.querySelectorAll('button[data-row]')];
           const labels = d.querySelectorAll('th[data-row], th[data-column]');
           const max = cells.reduce((a, b) => Number(a.textContent)
@@ -145,15 +151,15 @@ def test_large_level_opens_a_grouped_matrix_and_its_real_relationships(
         assert detail["rows"] == detail["expected"]
         click(page, ".atlas-matrix-back")
         assert page.evaluate("!document.querySelector('.atlas-matrix-grid').hidden")
-        click(page, ".atlas-matrix-close")
-        page.wait("!document.querySelector('.atlas-matrix-dialog')")
+        click(page, "[data-diagram-view]")
+        page.wait("!document.querySelector('.atlas-matrix-view')")
         assert page.evaluate("!!document.querySelector('#flow [data-open-matrix]')")
         click(page, "#flow .flow-fullscreen")
         page.wait("!!document.querySelector('#flow').dataset.expanded")
         assert not page.evaluate("!!document.querySelector('#flow .flow-matrix')")
-        click(page, "#flow [data-open-matrix]")
-        assert page.evaluate("document.querySelector('.atlas-matrix-dialog').open")
-        click(page, ".atlas-matrix-close")
+        click(page, "[data-matrix-view]")
+        assert page.evaluate("!!document.querySelector('.atlas-matrix-view')")
+        click(page, "[data-diagram-view]")
         click(page, "#flow .flow-fullscreen")
         page.wait("!document.querySelector('#flow').dataset.expanded")
 
@@ -202,10 +208,14 @@ def test_foundation_matrix_keeps_module_relationships(
         assert "Observed import cell" in page.evaluate(
             "document.querySelector('#flow .flow-inspector-content').textContent"
         )
+        selected = page.evaluate("ArchkeelFlow.state().cell")
+        assert selected is not None
         click(page, ".atlas-matrix-back")
         assert page.evaluate("!document.querySelector('.atlas-matrix-grid').hidden")
-        click(page, ".atlas-matrix-close")
-        page.wait("!document.querySelector('.atlas-matrix-dialog')")
+        click(page, "[data-diagram-view]")
+        page.wait("!document.querySelector('.atlas-matrix-view')")
+        assert page.evaluate("ArchkeelFlow.state().scope") == "LAYER:PART:core:foundation"
+        assert page.evaluate("ArchkeelFlow.state().cell") == selected
 
 
 @pytest.mark.parametrize("width", [1440, 390])
@@ -234,19 +244,53 @@ def test_small_level_keeps_a_selectable_matrix(site: str, tmp_path: Path, width:
         if width < 500:
             assert page.evaluate("!document.querySelector('#flow .ak-drawer')")
         click(page, ".atlas-matrix-back")
-        click(page, ".atlas-matrix-close")
-        page.wait("!document.querySelector('.atlas-matrix-dialog')")
+        click(page, "[data-diagram-view]")
+        page.wait("!document.querySelector('.atlas-matrix-view')")
         assert page.evaluate("!document.querySelector('#flow .flow-inspector').hidden")
-        if not page.evaluate(
-            "document.querySelector('#flow [data-open-matrix]').getClientRects().length > 0"
-        ):
-            page.evaluate("document.querySelector('#flow [data-drawer=overview]').click()")
-        click(page, "#flow [data-open-matrix]")
+        click(page, "[data-matrix-view]")
         click(page, ".atlas-matrix-table th[scope=row] button[data-module]")
-        page.wait("!document.querySelector('.atlas-matrix-dialog')")
+        page.wait("!document.querySelector('.atlas-matrix-view')")
         assert "Observed module" in page.evaluate(
             "document.querySelector('#flow .flow-inspector-content').textContent"
         )
+
+
+def test_touch_matrix_has_room_with_fact_sheet_open(site: str, tmp_path: Path) -> None:
+    with browser(tmp_path / "profile", width=390, height=844) as page:
+        page.send(
+            "Emulation.setDeviceMetricsOverride",
+            width=390,
+            height=844,
+            deviceScaleFactor=1,
+            mobile=True,
+        )
+        page.send("Emulation.setTouchEmulationEnabled", enabled=True)
+        page.open(f"{site}/system.html?scope=PART%3Ashell")
+        if (
+            page.evaluate(
+                "document.querySelector('.flow-details-toggle').getAttribute('aria-expanded')"
+            )
+            != "true"
+        ):
+            click(page, ".flow-details-toggle")
+        page.evaluate("document.querySelector('#flow [data-drawer=overview]').click()")
+        click(page, "#flow [data-open-matrix]")
+        assert page.evaluate("document.querySelector('.atlas-matrix-grid').clientHeight") >= 150
+        point = page.evaluate("""(() => {
+          const cells = document.querySelectorAll('.atlas-matrix-table button[data-cell]');
+          const cell = [...cells].at(-1);
+          cell.scrollIntoView({block:'center', inline:'center'});
+          const r = cell.getBoundingClientRect();
+          const x = r.x + r.width / 2, y = r.y + r.height / 2;
+          return {x, y, hit: document.elementFromPoint(x, y) === cell};
+        })()""")
+        assert point.pop("hit"), point
+        page.send("Input.dispatchTouchEvent", type="touchStart", touchPoints=[point])
+        page.send("Input.dispatchTouchEvent", type="touchEnd", touchPoints=[])
+        page.wait("!document.querySelector('.atlas-matrix-detail').hidden")
+        click(page, ".atlas-matrix-back")
+        click(page, "[data-diagram-view]")
+        assert page.evaluate("ArchkeelFlow.state().scope") == "PART:shell"
 
 
 def test_shell_matrix_opens_separately_with_fixed_axes(site: str, tmp_path: Path) -> None:
@@ -284,11 +328,11 @@ def test_shell_matrix_opens_separately_with_fixed_axes(site: str, tmp_path: Path
         assert page.evaluate("!!document.querySelector('#flow [data-open-matrix]')")
         assert not page.evaluate("!!document.querySelector('#flow .flow-matrix')")
         click(page, "#flow [data-open-matrix]")
-        assert page.evaluate("document.querySelector('.atlas-matrix-dialog').open")
+        assert page.evaluate("!!document.querySelector('.atlas-matrix-view')")
         assert page.evaluate("!document.querySelector('#flow .flow-inspector').hidden")
         assert page.evaluate("""(() => {
           const grid = document.querySelector('.atlas-matrix-grid');
-          const dialog = document.querySelector('.atlas-matrix-dialog');
+          const dialog = document.querySelector('.atlas-matrix-view');
           const cell = [...grid.querySelectorAll('button[data-row]')].at(-1);
           cell.scrollIntoView({block:'center', inline:'center'});
           const row = grid.querySelector(`th[data-row="${cell.dataset.row}"]`);
@@ -303,6 +347,6 @@ def test_shell_matrix_opens_separately_with_fixed_axes(site: str, tmp_path: Path
             && row.scrollWidth <= row.clientWidth && col.scrollWidth <= col.clientWidth
             && dialog.scrollHeight <= dialog.clientHeight + 1;
         })()""")
-        click(page, ".atlas-matrix-close")
-        page.wait("!document.querySelector('.atlas-matrix-dialog')")
+        click(page, "[data-diagram-view]")
+        page.wait("!document.querySelector('.atlas-matrix-view')")
         assert page.evaluate("!document.querySelector('#flow .flow-inspector').hidden")

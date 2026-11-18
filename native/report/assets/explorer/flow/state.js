@@ -42,7 +42,7 @@
       case "up": atlasUp(); break;
       case "relayout": relayout(); break;
       case "collapse": restoreExpansion(); break;
-      case "setView": switchArchitectureView(action.view); break;
+      case "setView": closeMatrix(); switchArchitectureView(action.view); break;
       case "setContent": navigate(); S.content = action.content; render(); fit(); break;
       case "select": selectArchitectureSubject(action.kind || "node", action.id); break;
       case "clearSelection": S.selection = null; S.module = null; S.cell = null; S.hint = null; render(); break;

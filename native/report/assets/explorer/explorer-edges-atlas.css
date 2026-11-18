@@ -294,20 +294,38 @@
   color:var(--ink);
   background:var(--surface-2);
   border:1px solid var(--line)}
-.rp-explorer .atlas-matrix-dialog{width:min(1100px, calc(100vw - 32px));
-  max-width:none;
-  height:min(820px, calc(100dvh - 32px));
-  max-height:calc(100dvh - 32px);
+.rp-explorer .atlas-matrix-switch{position:absolute;
+  top:var(--space-2);
+  right:var(--space-2);
+  z-index:5;
+  display:flex;
+  gap:var(--space-1)}
+.rp-explorer .atlas-matrix-switch button{padding:var(--space-2);
+  color:var(--ink);
+  background:var(--surface-2);
+  border:1px solid var(--line);
+  cursor:pointer}
+.rp-explorer .atlas-matrix-switch button[aria-pressed="true"]{border-color:var(--accent)}
+.rp-explorer .atlas-matrix-switch[hidden]{display:none}
+.rp-explorer .atlas-matrix-view{position:absolute;
+  inset:44px 0 0;
   box-sizing:border-box;
   overflow:hidden;
   color:var(--ink);
-  background:var(--surface-1);
-  border:1px solid var(--line);
-  border-radius:var(--radius-md)}
-.rp-explorer .atlas-matrix-dialog[open]{display:flex;
+  background:var(--surface-0);
+  padding:var(--space-3);
+  display:flex;
   flex-direction:column}
-.rp-explorer .atlas-matrix-dialog::backdrop{background:color-mix(in srgb, var(--surface-0) 72%, transparent)}
-.rp-explorer .atlas-matrix-close,
+.rp-explorer .flow[data-matrix-view] .flow-map-column > .flow-canvas,
+.rp-explorer .flow[data-matrix-view] .flow-map-column > .flow-alternative,
+.rp-explorer .flow[data-matrix-view] .flow-inspector,
+.rp-explorer .flow[data-matrix-view] .rp-scroll-hint,
+.rp-explorer .flow[data-matrix-view] .ak-bottom-left,
+.rp-explorer .flow[data-matrix-view] .ak-bottom-center,
+.rp-explorer .flow[data-matrix-view] .ak-bottom-right{display:none}
+html.ak-canvas .rp-explorer .flow[data-matrix-view] .flow-map-column,
+html.ak-canvas .rp-explorer .flow[data-atlas][data-matrix-view][data-details-open="true"] .flow-map-column{right:0;
+  bottom:0}
 .rp-explorer .atlas-matrix-back{align-self:flex-start;
   padding:var(--space-2);
   color:var(--ink);
@@ -318,6 +336,7 @@
   flex:1;
   min-height:0;
   scroll-padding-left:156px;
+  scroll-padding-top:64px;
   border:1px solid var(--line)}
 .rp-explorer .atlas-matrix-detail{overflow:auto;
   flex:1;

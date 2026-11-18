@@ -163,6 +163,8 @@
 
   async function renderAtlas() {
     const level = atlasLevel(), content = atlasContentPane(level);
+    matrixSwitch.hidden = S.view === "target";
+    if (root.dataset.matrixView && matrixScope !== level.parent_id) closeMatrix();
     const scene = content === "modules" ? REPORT_SCENE.atlasModuleScene(level, S.view) : REPORT_SCENE.atlasScene(level, S.view);
     atlasSheet(level, scene);
     root.dataset.view = S.view; root.dataset.umlGraph = "true"; root.dataset.componentOverview = "true";

@@ -133,6 +133,24 @@
   }
 
   const MATRIX_LIMIT = 60;
+  let matrixScope = null;
+  const matrixColumn = root.querySelector(".flow-map-column");
+  const matrixSwitch = document.createElement("div");
+  matrixSwitch.className = "atlas-matrix-switch";
+  matrixSwitch.setAttribute("role", "group");
+  matrixSwitch.setAttribute("aria-label", "Scope view");
+  matrixSwitch.innerHTML = '<button type="button" data-diagram-view aria-pressed="true">Diagram</button><button type="button" data-matrix-view aria-pressed="false">Matrix</button>';
+  matrixColumn.prepend(matrixSwitch);
+  function closeMatrix() {
+    matrixScope = null;
+    root.removeAttribute("data-matrix-view");
+    matrixColumn.querySelector(".atlas-matrix-view")?.remove();
+    matrixSwitch.querySelector("[data-diagram-view]").setAttribute("aria-pressed", "true");
+    matrixSwitch.querySelector("[data-matrix-view]").setAttribute("aria-pressed", "false");
+  }
+  matrixSwitch.querySelector("[data-diagram-view]").onclick = closeMatrix;
+  matrixSwitch.querySelector("[data-matrix-view]").onclick = () =>
+    atlasGroupedMatrix(atlasLevel(), REPORT_SCENE.atlasModules(atlasLevel(), S.view));
   function setAtlasExploreOpen(open) {
     S.explore = open;
   }
@@ -189,6 +207,7 @@
   }
 
   function atlasGroupedMatrix(level, modules) {
+    root.querySelector('[data-drawer="overview"][aria-expanded="true"]')?.click();
     const nodes = modules.length <= MATRIX_LIMIT
       ? modules.map((module) => ({ id: module.id, label: module.name }))
       : REPORT_SCENE.atlasModuleScene(level, S.view).nodes;
@@ -208,11 +227,11 @@
       if (!columns.has(column)) columns.set(column, []);
       columns.get(column).push(index);
     }
-    const dialog = document.createElement("dialog");
-    dialog.className = "atlas-matrix-dialog";
+    matrixColumn.querySelector(".atlas-matrix-view")?.remove();
+    const dialog = document.createElement("section");
+    dialog.className = "atlas-matrix-view";
     dialog.setAttribute("aria-label", "Dependency matrix");
-    dialog.innerHTML = `<button type="button" class="atlas-matrix-close">Back to report</button>
-      <h2>Dependency matrix</h2><p>Rows import columns.</p>
+    dialog.innerHTML = `<h2>Dependency matrix</h2><p>Rows import columns.</p>
       <p>${esc(level.import_status)}: ${esc(level.import_reason)}</p>
       <details><summary>Reading guide</summary>
         <p>Numbers count observed module relationships. An empty position does not prove that an import is excluded.
@@ -221,14 +240,15 @@
       </details>
       <div class="atlas-matrix-grid" role="region" aria-label="Grouped dependencies" tabindex="0"></div>
       <section class="atlas-matrix-detail" hidden></section>`;
-    root.appendChild(dialog);
-    dialog.querySelector(".atlas-matrix-close").onclick = () => dialog.close();
-    dialog.addEventListener("close", () => dialog.remove(), { once: true });
+    matrixColumn.appendChild(dialog);
+    root.dataset.matrixView = "true";
+    matrixScope = level.parent_id;
+    matrixSwitch.querySelector("[data-diagram-view]").setAttribute("aria-pressed", "false");
+    matrixSwitch.querySelector("[data-matrix-view]").setAttribute("aria-pressed", "true");
     const grid = dialog.querySelector(".atlas-matrix-grid");
     if (nodes.length > MATRIX_LIMIT) {
       grid.textContent = `This level has ${nodes.length} groups. Go back and open a smaller component in the Explorer.`;
       dialog.querySelector(".atlas-matrix-detail").hidden = true;
-      dialog.showModal();
       return;
     }
     const name = (node) => byModule.get(node.id)?.name || node.label;
@@ -254,7 +274,7 @@
       const module = event.target.closest("button[data-module]");
       if (module) {
         dispatch({ type: "selectMatrix", cell: null, module: module.dataset.module });
-        dialog.close();
+        closeMatrix();
         return;
       }
       const cell = event.target.closest("button[data-row]");
@@ -279,5 +299,4 @@
       const cell = event.target.closest("button[data-row]");
       if (cell && ["Enter", " "].includes(event.key)) { event.preventDefault(); cell.click(); }
     });
-    dialog.showModal();
   }
