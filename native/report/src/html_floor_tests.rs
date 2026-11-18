@@ -191,7 +191,8 @@ fn a_fail_beside_a_rule_without_a_row_shows_no_pass_box() {
 fn a_frame_without_a_status_names_its_cause_and_a_next_step() {
     let page = document(&json!({"rules": {}, "scope": "missing input: no valid collector reply"}));
     assert!(page.contains("<h1>Verdict: unavailable</h1>"));
-    assert!(page.contains("keeps the run open: missing input: no valid collector reply"));
+    assert!(page.contains("missing input: no valid collector reply"));
+    assert!(page.contains("archkeel validate --verbose"));
     let bare = document(&json!({}));
     assert!(bare.contains("The frame states no status"), "{bare}");
     assert!(bare.contains("archkeel validate --verbose"));

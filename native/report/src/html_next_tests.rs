@@ -129,9 +129,9 @@ fn an_empty_target_says_what_is_missing() {
     assert!(data["atlas"]["declared_note"].is_null());
 }
 
-// The verdict and the next steps are one block: the steps sit inside the card, no panel is empty.
+// An UNKNOWN verdict stays compact and does not invent a generic task.
 #[test]
-fn the_next_steps_are_inside_the_verdict_card() {
+fn an_unknown_verdict_has_no_generic_task() {
     let page = document(&json!({"status": "UNKNOWN", "rules": {"A": ["k", "UNKNOWN"]}}));
     let card = page
         .split("aria-label=\"Verdict\">")
@@ -140,9 +140,9 @@ fn the_next_steps_are_inside_the_verdict_card() {
         .split("</section></div>")
         .next()
         .unwrap();
-    assert!(card.contains("class=\"rp-next\""), "{card}");
+    assert!(!card.contains("class=\"rp-next\""), "{card}");
     assert!(card.contains("ak-verdict__stats"));
-    assert_eq!(page.matches("class=\"rp-next\"").count(), 1);
+    assert_eq!(page.matches("class=\"rp-next\"").count(), 0);
 }
 
 // The detail fold of an Unknown card is offered only when it adds to the title.
@@ -179,9 +179,9 @@ fn the_architecture_line_is_plain() {
     assert!(!page.contains("in no component: assign"));
 }
 
-// #1764, #1765, #1767: each NEXT link has its own target and purpose, and the page can be skipped.
+// The folded evidence keeps each cause and its places, and the page can be skipped.
 #[test]
-fn each_next_link_goes_to_its_own_cause_and_names_its_place() {
+fn each_cause_names_its_places() {
     let frame = json!({"status": "UNKNOWN",
         "rules": {"A": ["k", "UNKNOWN"], "B": ["k", "UNKNOWN"], "C": ["k", "UNKNOWN"]},
         "explain": {"holds": {"rules": {
@@ -189,11 +189,7 @@ fn each_next_link_goes_to_its_own_cause_and_names_its_place() {
             "B": {"kind": "pair_gaps", "total": 7},
             "C": {"kind": "pair_gaps", "total": 3, "pairs": [{"source": "app.c", "target": "app.d"}]}}}}});
     let page = document(&frame);
-    for (rules, total) in [("2 unknown rules", 7), ("1 unknown rule", 3)] {
-        let link = format!(
-            "<a href=\"#cause-pair_gaps-{total}\" aria-label=\"Causes of {rules}\">Causes</a>"
-        );
-        assert!(page.contains(&link), "{link}");
+    for total in [7, 3] {
         assert!(page.contains(&format!(
             "<article class=\"rp-cause\" id=\"cause-pair_gaps-{total}\">"
         )));

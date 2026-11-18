@@ -376,6 +376,9 @@ The JSON frame lists each gap.",
             ));
         }
     }
+    if frame.status.is_none() && !frame.cause.is_empty() {
+        html.push_str("<p class=\"body-sm\">Run <code>archkeel validate --verbose</code> to inspect the core reply.</p>");
+    }
     html.push_str("</details></section>\n");
     html
 }
