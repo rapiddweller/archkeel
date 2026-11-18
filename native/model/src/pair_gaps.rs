@@ -20,12 +20,14 @@ use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
 use archkeel_facts::profile_traits::PairGapDrop;
 
-use archkeel_contract::{kind_of, Component, Contract, CycleLevel, Rule, RuleKind};
+use archkeel_contract::{
+    kind_of, Component, ComponentLabel, Contract, CycleLevel, NoComponentCycles, Rule, RuleKind,
+};
 
 use crate::graph::Graph;
 use crate::ids::{ComponentId, Table};
 use crate::imports::Resolved;
-use crate::ownership::{in_scope, owner_of};
+use crate::ownership::{claims, in_scope, owner_of};
 use crate::selection::{dependency_sides, Selection};
 
 /// One pair gap and the facts of its two ends that a reading needs.
@@ -43,6 +45,8 @@ pub(crate) struct PairGap {
     pub(crate) dispatch: bool,
     /// The gap leaves only the effects of executing an impl unknown.
     pub(crate) execution: bool,
+    /// Contract rule positions whose scope intersects a possible cycle through this pair.
+    pub(crate) cycle_rules: Vec<usize>,
 }
 
 /// The pair gaps of a run, classified one time per model.
@@ -73,13 +77,15 @@ pub(crate) enum Reads<'r> {
     Members(Vec<&'r str>),
     /// Named uses and publication routes, not execution of an impl.
     Interface,
+    /// The possible cycles at this rule's level and in its scope.
+    Cycles(usize),
     /// Every edge.
     Every,
 }
 
 /// The reading of a rule. Each kind has an arm; a kind without a proof of a narrower reading
 /// reads every edge.
-pub(crate) fn reads<'r>(rule: &'r Rule, components: &'r [Component]) -> Reads<'r> {
+pub(crate) fn reads<'r>(rule: &'r Rule, components: &'r [Component], rules: &[Rule]) -> Reads<'r> {
     match rule {
         Rule::ForbiddenDependency(rule) => Reads::Sides(dependency_sides(rule, components)),
         Rule::SiblingIsolation(rule) => {
@@ -88,6 +94,10 @@ pub(crate) fn reads<'r>(rule: &'r Rule, components: &'r [Component]) -> Reads<'r
         Rule::ExternalDependencyScope(rule) => {
             Reads::ExternalImports(Some(rule.dependency().as_text()))
         }
+        Rule::NoComponentCycles(_) => rules
+            .iter()
+            .position(|candidate| candidate == rule)
+            .map_or(Reads::Every, Reads::Cycles),
         other => by_kind(kind_of(other)),
     }
 }
@@ -100,10 +110,9 @@ fn by_kind(kind: RuleKind) -> Reads<'static> {
         K::CompleteAssignment => Reads::Modules,
         K::ExternalDependencyScope | K::CompleteExternalScope => Reads::ExternalImports(None),
         K::InterfaceBoundary => Reads::Interface,
-        // `reads` gives these two their own reading; here they read every edge (fail closed).
-        K::ForbiddenDependency | K::SiblingIsolation => Reads::Every,
+        // `reads` gives these kinds their own reading; here they read every edge (fail closed).
+        K::ForbiddenDependency | K::SiblingIsolation | K::NoComponentCycles => Reads::Every,
         K::CompleteRequires
-        | K::NoComponentCycles
         | K::ForbiddenConstruct
         | K::SourceOwnership
         | K::BoundedNumericOperand
@@ -142,6 +151,7 @@ impl PairGap {
                 .iter()
                 .any(|member| in_scope(a, member) || in_scope(b, member)),
             Reads::Interface => !self.execution || self.owned != [true; 2],
+            Reads::Cycles(rule) => self.cycle_rules.contains(rule),
             Reads::Every => true,
         }
     }
@@ -171,6 +181,8 @@ pub(crate) fn pairs(
     let mut found = Pairs::default();
     for (source, target, dispatch, execution) in gaps {
         let ends = [owner(source), owner(target)];
+        let pair = (source.as_str(), target.as_str());
+        let component_pair = ends[0].zip(ends[1]).filter(|(from, to)| from != to);
         let dropped = match ends {
             [Some(from), Some(to)] if drops => {
                 let (from_row, to_row) = (components.get(from), components.get(to));
@@ -178,8 +190,8 @@ pub(crate) fn pairs(
                     .zip(to_row)
                     .is_some_and(|(f, t)| requires_plainly(f, t));
                 !named(contract, [source, target])
-                    && !cyclic.module.contains(&(source.as_str(), target.as_str()))
-                    && (from == to || (crossing && !cyclic.component.contains(&(from, to))))
+                    && !cyclic.module.returns.contains(&pair)
+                    && (from == to || (crossing && !cyclic.component.returns.contains(&(from, to))))
             }
             _ => false,
         };
@@ -191,6 +203,15 @@ pub(crate) fn pairs(
             target_external: external.contains(target.as_str()),
             dispatch: *dispatch,
             execution: *execution,
+            cycle_rules: cyclic
+                .module
+                .rules_for(pair)
+                .chain(
+                    component_pair
+                        .into_iter()
+                        .flat_map(|pair| cyclic.component.rules_for(pair)),
+                )
+                .collect(),
         };
         if dropped {
             found.dropped.push(gap);
@@ -204,47 +225,131 @@ pub(crate) fn pairs(
 /// The pairs `(x, y)` of each active cycle level where `y` reaches `x`: with the edge `x -> y`,
 /// one cycle group (`_cyclic`).
 struct Cyclic<'g> {
-    module: HashSet<(&'g str, &'g str)>,
-    component: HashSet<(ComponentId, ComponentId)>,
+    module: CycleScope<&'g str>,
+    component: CycleScope<ComponentId>,
 }
 
 impl<'g> Cyclic<'g> {
     fn of(
-        contract: &Contract,
+        contract: &'g Contract,
         components: &Table<ComponentId, Component>,
         graph: &'g Graph,
         gaps: &'g [(String, String, bool, bool)],
     ) -> Self {
-        let levels: Vec<&CycleLevel> = contract
-            .rules()
-            .iter()
-            .filter_map(|rule| match rule {
-                Rule::NoComponentCycles(rule) => Some(rule.level()),
-                _ => None,
-            })
-            .collect();
+        let mut module_rules = Vec::new();
+        let mut component_rules = Vec::new();
+        for (index, rule) in contract.rules().iter().enumerate() {
+            if let Rule::NoComponentCycles(cycle) = rule {
+                let rules = match cycle.level() {
+                    CycleLevel::Module => &mut module_rules,
+                    CycleLevel::Component => &mut component_rules,
+                };
+                rules.push((index, NoComponentCycles::components(cycle).as_deref()));
+            }
+        }
         let mut edges: BTreeSet<(&'g str, &'g str)> = graph
             .imports()
             .iter()
             .map(|import| (import.source_module(), import.target_module()))
             .collect();
         edges.extend(gaps.iter().map(|(a, b, _, _)| (a.as_str(), b.as_str())));
-        let mut module = HashSet::new();
-        if levels.contains(&&CycleLevel::Module) {
-            let starts = gaps.iter().map(|(_, b, _, _)| b.as_str()).collect();
-            module = reach(&edges, &starts);
-        }
-        let mut component = HashSet::new();
-        if levels.iter().any(|level| **level != CycleLevel::Module) {
+        let module = CycleScope::of(
+            &edges,
+            gaps.iter().map(|(_, b, _, _)| b.as_str()).collect(),
+            module_rules,
+            |labels| {
+                let selected: Vec<_> = components
+                    .iter()
+                    .filter(|(_, component)| labels.contains(component.label()))
+                    .map(|(_, component)| component)
+                    .collect();
+                graph
+                    .modules()
+                    .iter()
+                    .map(|(_, module)| module.name())
+                    .filter(|name| selected.iter().any(|component| claims(component, name)))
+                    .collect()
+            },
+        );
+        let component = if !component_rules.is_empty() {
             let owner = |module: &str| owner_of(components, module);
             let parts: BTreeSet<(ComponentId, ComponentId)> = edges
                 .iter()
                 .filter_map(|(s, t)| Some((owner(s)?, owner(t)?)))
+                .filter(|(source, target)| source != target)
                 .collect();
             let starts = gaps.iter().filter_map(|(_, b, _, _)| owner(b)).collect();
-            component = reach(&parts, &starts);
-        }
+            CycleScope::of(&parts, starts, component_rules, |labels| {
+                components
+                    .iter()
+                    .filter(|(_, component)| labels.contains(component.label()))
+                    .map(|(id, _)| id)
+                    .collect()
+            })
+        } else {
+            CycleScope::empty()
+        };
         Cyclic { module, component }
+    }
+}
+
+type RuleScope<T> = (usize, Option<T>);
+
+struct CycleScope<N> {
+    returns: HashSet<(N, N)>,
+    rules: Vec<RuleScope<HashSet<N>>>,
+}
+
+impl<N: Copy + Eq + std::hash::Hash + Ord> CycleScope<N> {
+    fn empty() -> Self {
+        Self {
+            returns: HashSet::new(),
+            rules: Vec::new(),
+        }
+    }
+
+    fn of(
+        edges: &BTreeSet<(N, N)>,
+        mut starts: BTreeSet<N>,
+        rules: Vec<RuleScope<&[ComponentLabel]>>,
+        selected: impl Fn(&[ComponentLabel]) -> BTreeSet<N>,
+    ) -> Self {
+        let scopes: Vec<_> = rules
+            .into_iter()
+            .map(|(rule, scope)| {
+                let scope = scope.map(&selected);
+                starts.extend(scope.iter().flatten().copied());
+                (rule, scope)
+            })
+            .collect();
+        if scopes.is_empty() {
+            return Self::empty();
+        }
+        let returns = reach(edges, &starts);
+        let mut rules = Vec::new();
+        for (rule, scope) in scopes {
+            let Some(scope) = scope else {
+                rules.push((rule, None));
+                continue;
+            };
+            // A selected member is on the same cycle only if it can reach the target and return.
+            let targets = returns
+                .iter()
+                .filter(|&&(target, member)| {
+                    scope.contains(&member) && returns.contains(&(member, target))
+                })
+                .map(|&(target, _)| target)
+                .collect();
+            rules.push((rule, Some(targets)));
+        }
+        Self { returns, rules }
+    }
+
+    fn rules_for(&self, pair: (N, N)) -> impl Iterator<Item = usize> + '_ {
+        let returns = self.returns.contains(&pair);
+        self.rules.iter().filter_map(move |(rule, scope)| {
+            (returns && scope.as_ref().is_none_or(|nodes| nodes.contains(&pair.1))).then_some(*rule)
+        })
     }
 }
 

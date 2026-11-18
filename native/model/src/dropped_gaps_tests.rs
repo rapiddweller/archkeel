@@ -4,7 +4,7 @@
 
 //! The rules that a dropped pair gap holds (AD-418).
 
-use archkeel_contract::{ParsedContract, Rule};
+use archkeel_contract::{Contract, ParsedContract};
 
 use super::holds;
 use crate::pair_gaps::{reads, PairGap};
@@ -12,7 +12,7 @@ use crate::pair_gaps::{reads, PairGap};
 const HEAD: &str = r#""rationale": "r", "provenance": ["p"], "decided_by": "architect""#;
 
 /// The one rule of a contract of two components: `a` owns `x.a` and `b` owns `x.b`.
-fn rule(kind_and_fields: &str) -> Option<Rule> {
+fn rule(kind_and_fields: &str) -> Option<Contract> {
     let component = |id: &str| {
         format!(
             r#"{{"id": "{id}", "label": "{id}", "role": "component", "packages": ["x.{id}"],
@@ -27,7 +27,7 @@ fn rule(kind_and_fields: &str) -> Option<Rule> {
         component("b"),
     );
     match archkeel_contract::parse(text.as_bytes()) {
-        Ok(ParsedContract::Complete(contract)) => contract.rules().first().cloned(),
+        Ok(ParsedContract::Complete(contract)) => Some(contract),
         other => {
             assert_eq!(format!("{other:?}"), "", "the contract parses");
             None
@@ -44,12 +44,18 @@ fn gap(observed: bool, external: bool) -> PairGap {
         target_external: external,
         dispatch: false,
         execution: false,
+        cycle_rules: Vec::new(),
     }
 }
 
 /// True when the dropped gap holds the rule, read with the components of its contract.
-fn held(gap: &PairGap, rule: &Rule) -> bool {
-    holds(gap, rule, &reads(rule, &[]))
+fn held(gap: &PairGap, contract: &Contract) -> bool {
+    let rule = &contract.rules()[0];
+    holds(
+        gap,
+        rule,
+        &reads(rule, contract.components(), contract.rules()),
+    )
 }
 
 const CYCLES: &str = r#""kind": "no_component_cycles", "level": "module""#;
@@ -61,8 +67,6 @@ fn a_dropped_gap_between_two_seen_modules_holds_no_cycle_and_no_requires_rule() 
     for fields in [CYCLES, REQUIRES, r#""kind": "no_component_cycles""#] {
         let Some(rule) = rule(fields) else { return };
         assert!(!held(&gap(true, true), &rule), "{fields}");
-        // The kept reading of these kinds is every edge.
-        assert!(gap(true, true).holds(&reads(&rule, &[])), "{fields}");
     }
 }
 

@@ -10,7 +10,7 @@
 //! an active cycle level. The reference engine then forgets the gap. The core does not: the drop
 //! rule reads selector texts, not the sides of a rule (review B1 of #1084), so a whole-component
 //! side can still read the edge. A dropped gap holds each rule whose reading it can change, by
-//! the readings of AD-384 point 5, with two kinds whose reading the drop rule itself proves:
+//! the readings of AD-384 point 5. The drop rule proves two readings:
 //!
 //! - `no_component_cycles`: the drop rule keeps each gap whose target reaches its source in the
 //!   graph of the known imports plus every pair gap, at module level when the contract has a
@@ -38,7 +38,7 @@ use crate::pair_gaps::{PairGap, Reads};
 pub(crate) fn holds(gap: &PairGap, rule: &Rule, reading: &Reads<'_>) -> bool {
     match rule {
         // An end that the scan did not see can have edges that no reach saw.
-        Rule::NoComponentCycles(_) | Rule::CompleteRequires(_) => !gap.observed,
+        Rule::CompleteRequires(_) => !gap.observed,
         _ => gap.holds(reading),
     }
 }

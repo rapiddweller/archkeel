@@ -864,6 +864,7 @@
             "native.archkeel_contract:CycleLevel",
             "native.archkeel_contract:ForbiddenDependency",
             "native.archkeel_contract:LayerOrder",
+            "native.archkeel_contract:NoComponentCycles",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
             "native.archkeel_contract:Selector",

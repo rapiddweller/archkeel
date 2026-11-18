@@ -240,7 +240,7 @@ fn dropped(model: &Model, subject: Subject<'_>) -> Result<(), Reason> {
             let dropped = model.pairs().dropped.iter().filter(|gap| {
                 rules
                     .iter()
-                    .any(|rule| dropped_gaps::holds(gap, rule, &reads(rule, components)))
+                    .any(|rule| dropped_gaps::holds(gap, rule, &reads(rule, components, rules)))
             });
             holds(
                 dropped.map(|gap| (gap.source.as_str(), gap.target.as_str())),

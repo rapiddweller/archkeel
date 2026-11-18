@@ -4,6 +4,8 @@
 
 **Amended by AD-418.** A dropped gap holds each rule whose reading it can change, not each rule ([AD-418](ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 
+**Amended by AD-923.** Cycle rules read possible return paths at their own level and in their scope ([AD-923](ad-923-cycle-rules-read-pair-gaps-with-a-possible-return-path.md)).
+
 **Decision.**
 1. Scan roots. The dual-run request carries `roots` (protocol `archkeel-dual-run-4`). The model binds them to the reply: each root must be the scope label that the collector wrote (`root/**` or `root`), one for each root, in order, without `*` (`Settings::bind_roots`). Other roots refuse the settings (exit 3). No roots name `Part::ScanRoots`. So a caller cannot widen a root by word.
 2. Receipts (`model/src/receipts.rs`). `Scope::scan` gives a `ScanProof` only with bound roots and a profile whose files the core maps (`Layout::ProjectFiles`, from `archkeel-facts`; else `Part::ScanLayout`). The cycle receipts are `rules.py:516` and `:597` with `_cycle_scan_coverage`; the receipt of `complete_requires` is `scope_receipts_complete` with `_inside_rule_scope_is_complete`. A selector rule in the contract names `Part::ReceiptSources`. A receipt that fails is a fact (`Cause::Receipt`).
@@ -18,6 +20,7 @@
 | `external_dependency_scope`, `complete_external_scope` | direct external imports | `b` has an external import |
 | `forbidden_dependency` | source side to target side | `a` matches the source side or has no one owner, and `b` the target side or has no one owner |
 | `sibling_isolation` | edges at a member | `a` or `b` lies in a member |
+| `no_component_cycles` | possible cycles at the rule's level | `b` can reach `a` and the possible cycle intersects the rule's scope (AD-923) |
 | every other kind | every edge | always |
 
    Proof per kind: an internal edge adds no module, no file, no symbol and no contract value, so the first two rows read nothing that it changes. An external rule reads the direct imports of each source module; a method call of `a` into `b` adds no import of `a`, but `b` can re-export an external package, and the reply does not mark an external `pub use`, so any external import of `b` holds the rule. A forbidden edge needs both ends on their sides; an end without one owner can lie on either side. A peer edge needs an end in a member. A kind without this proof reads every edge.
