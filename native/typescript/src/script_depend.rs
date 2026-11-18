@@ -438,6 +438,7 @@ fn key_door(form: &str, line: i64) -> Option<DoorSite> {
     (form == key_form()).then(|| DoorSite {
         form: DoorForm::ComputedKey,
         line: u32::try_from(line).unwrap_or(0),
+        line_only: false,
         scope: None,
         binding: None,
     })

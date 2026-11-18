@@ -24,6 +24,7 @@ fn import(id: &str, from: (&str, &str), to: (&str, &str), type_checking: bool) -
             ..Published::default()
         },
         id: id.to_owned(),
+        declared: false,
         source_module: from.0.to_owned(),
         target_module: to.0.to_owned(),
         source_package: from.1.to_owned(),

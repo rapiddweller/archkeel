@@ -43,6 +43,7 @@ pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
             ..Published::default()
         },
         id: id.to_owned(),
+        declared: false,
         source_module: source.to_owned(),
         target_module: target.to_owned(),
         source_package: package(source),

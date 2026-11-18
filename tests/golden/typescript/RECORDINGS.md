@@ -47,3 +47,7 @@
 | 2026-11-18 | synthetic-gaps | 229ce67b9 | #1827 cites each use of one unpublished script global in one file with one gap; no use or evidence id is lost (cpython 3.11.12) |
 | 2026-11-18 | synthetic-esm-forms | 229ce67b9 | #1827 cites each use of one unpublished script global in one file with one gap; no use or evidence id is lost (cpython 3.11.12) |
 | 2026-11-18 | synthetic-allowjs | 229ce67b9 | #1827 cites each use of one unpublished script global in one file with one gap; no use or evidence id is lost (cpython 3.11.12) |
+| 2026-11-18 | l-nest-realworld | cef0d6f3a+dirty | Mark the computed import gap as a declarable loader site (AD-882) (cpython 3.11.12) |
+| 2026-11-18 | synthetic-esm-forms | cef0d6f3a+dirty | Mark the computed import gap as a declarable loader site (AD-882) (cpython 3.11.12) |
+| 2026-11-18 | l-nest-realworld | 51952f516 | Require a line selector for the computed import gap (AD-882) (cpython 3.11.12) |
+| 2026-11-18 | synthetic-esm-forms | 51952f516 | Require a line selector for the computed import gap (AD-882) (cpython 3.11.12) |

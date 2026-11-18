@@ -18,7 +18,7 @@
 //!   declarations, a word that names no form, a reach outside the scan). A problem is never
 //!   applied: its door keeps `every_module`, and the core reports the problem.
 //!
-//! The file reads words and module names only; it knows no language.
+//! This file matches collector site metadata. It does not read source code.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -49,6 +49,8 @@ pub struct Applied {
     pub line: u32,
     /// The declared module prefixes that the door may import.
     pub loads: Vec<String>,
+    /// The scanned targets of the possible dependency edges supplied by the declaration.
+    pub possible_loads: Vec<String>,
     /// The declared module prefixes whose names the door may change.
     pub changes: Vec<String>,
     /// What the gap still leaves unknown under the premise, or `None` for nothing.
@@ -200,7 +202,7 @@ struct Door<'f> {
     module: &'f str,
     form: DoorForm,
     line: u32,
-    scope: &'f str,
+    scope: Option<&'f str>,
     effect: &'f GapEffect,
     evidence: Vec<String>,
     binding: Option<&'f str>,
@@ -288,7 +290,7 @@ fn door(gap: &archkeel_facts::Record<archkeel_facts::GapFact>) -> Option<Door<'_
         module: data.module.as_ref()?.as_str(),
         form: site.form,
         line: site.line,
-        scope: site.scope.as_deref().unwrap_or(""),
+        scope: (!site.line_only).then(|| site.scope.as_deref().unwrap_or("")),
         effect: data.effect.as_ref()?,
         evidence: gap
             .evidence_ids
@@ -336,7 +338,7 @@ fn at(door: &Door<'_>, declaration: &Declaration, form: DoorForm) -> bool {
         && declaration
             .scope()
             .as_deref()
-            .is_none_or(|scope| door.scope == scope)
+            .is_none_or(|scope| door.scope == Some(scope))
 }
 
 /// The applied declaration and its declared imports, or the problem of its reach.
@@ -406,6 +408,13 @@ fn apply(
             .iter()
             .map(|p| p.as_text().to_owned())
             .collect(),
+        possible_loads: imports
+            .iter()
+            .filter(|import| import.resolved() == &Resolved::Local)
+            .map(|import| import.target_module().to_owned())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect(),
         changes: declaration
             .changes()
             .iter()
@@ -437,6 +446,7 @@ fn declared(
     evidence.sort_unstable();
     Import {
         id,
+        declared: true,
         source_module: door.module.to_owned(),
         target_module: target.to_owned(),
         source_package: source_package.to_owned(),

@@ -127,6 +127,9 @@ pub(crate) struct DoorRow {
     door: &'static str,
     /// The declared module prefixes that the door may import.
     loads: Vec<String>,
+    /// The scanned targets of the possible dependency edges, not observed imports.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    possible_loads: Vec<String>,
     /// The declared module prefixes whose names the door may change.
     changes: Vec<String>,
 }
@@ -145,6 +148,7 @@ fn row(door: &Applied) -> DoorRow {
         line: door.line,
         door: door.door(),
         loads: door.loads.clone(),
+        possible_loads: door.possible_loads.clone(),
         changes: door.changes.clone(),
     }
 }

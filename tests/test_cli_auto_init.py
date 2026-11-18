@@ -226,22 +226,21 @@ def test_a_folder_inside_a_repository_is_not_the_project_of_an_explicit_root(
 
 
 CYCLE_NOTE = (
-    "This is a real cycle in your code that the drafted rule 'no component cycles' catches; "
-    "keep it as a finding, or change the rule in the contract."
+    "The drafted rule 'no component cycles' rejects this cycle in the contract graph. "
+    "The cycle does not show that the imports execute together."
 )
 
 
-def test_the_first_run_says_that_a_cycle_is_real_and_a_later_run_does_not(
+def test_the_first_run_explains_the_graph_cycle_and_a_later_run_does_not(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Day one: the first validate of an auto-init draft that finds a cycle says plainly that the
-    cycle is in the code and that the drafted rule catches it. The cycle stays a FAIL."""
+    """The initial draft explains that the cycle is a contract graph violation, not a trace."""
     root = plant(tmp_path)
     write(root, {"src/shop/catalog/back.py": "from shop.billing import pay\n"})
     subprocess.run([*GIT, "add", "-A"], cwd=root, check=True)
     subprocess.run([*GIT, "commit", "-qm", "cycle"], cwd=root, check=True)
     code, text = run(capsys, root, "validate", "--text")
-    assert code == 1 and "dependency cycle" in text, text
+    assert code == 1 and "contract graph cycle" in text, text
     assert text.count(CYCLE_NOTE) == 1, text
     code, again = run(capsys, root, "validate", "--text")
-    assert code == 1 and "dependency cycle" in again and CYCLE_NOTE not in again
+    assert code == 1 and "contract graph cycle" in again and CYCLE_NOTE not in again

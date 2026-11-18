@@ -126,6 +126,7 @@ def test_a_declared_load_is_a_real_edge_that_a_rule_can_forbid(
     result = scanned(release_core, tmp_path, files, [door])
     assert rows(result)["CLIENT-NO-SECRET"] == "FAIL", result
     details = result["frame"]["details"]["CLIENT-NO-SECRET"]
+    assert result["frame"]["door_reach"][0]["possible_loads"] == ["app.service.secret"]
     assert {(row["source"], row["target"]) for row in details} == {
         ("app.client.page", "app.service.secret")
     }, details

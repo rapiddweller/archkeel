@@ -26,7 +26,7 @@ macro_rules! row {
 row! {
     pub(super),
     Location { path: String, line: i64 }
-    Detail { source: String, target: Option<String>, cause: String, evidence: Vec<String>, misplaced_class_fact: Option<String> }
+    Detail { source: String, target: Option<String>, cause: String, evidence: Vec<String>, misplaced_class_fact: Option<String>, possible: bool, members: Vec<String> }
     Component { id: String, name: String, parent: Option<String>, packages: Vec<String>, layer: Option<String>, public: Vec<String>, responsibilities: Vec<String>, forbidden_responsibilities: Vec<String>, planned_public: Vec<String>, provenance: Vec<String> }
     Module { name: String, path: String, component: Option<String>, language: String }
     Edge { source: String, target: String, resolution: String, count: usize, evidence: Vec<Location>, evidence_total: usize, rules: Vec<String> }
@@ -35,8 +35,8 @@ row! {
     LayerOrder { rule: String, layers: Vec<String>, part: Option<String> }
     Topology { complete: bool, total: Totals, components: Vec<Component>, modules: Vec<Module>, edges: Vec<Edge>, component_edges: Vec<Edge>, requires: Vec<Require>, layers: Vec<LayerOrder> }
     Shape { direction: String, source: Vec<String>, target: Vec<String> }
-    Step { from: String, to: String, from_component: Option<String>, to_component: Option<String>, evidence: Vec<String>, evidence_total: usize }
-    CyclePath { index: usize, members: Vec<String>, path: Vec<Step>, steps_total: usize, truncated: bool }
+    Step { from: String, to: String, from_component: Option<String>, to_component: Option<String>, evidence: Vec<String>, evidence_total: usize, possible: bool }
+    CyclePath { index: usize, members: Vec<String>, path: Vec<Step>, steps_total: usize, truncated: bool, possible: bool }
     Cycles { total: usize, items: Vec<CyclePath> }
     Pair { source: String, target: String }
     RuleHolds { kind: String, pairs: Vec<Pair>, total: usize, unnamed_imports: usize }

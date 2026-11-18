@@ -8,7 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use super::frame::{CyclePath, Detail, Frame};
+use super::frame::{CyclePath, Cycles, Detail, Frame};
 
 /// The most places that the page shows.
 pub(super) const MAX_PLACES: usize = 100;
@@ -33,6 +33,7 @@ pub(super) enum Kind {
         source: String,
         target: Option<String>,
         evidence: Vec<String>,
+        possible: bool,
     },
     /// One cycle with its closed path.
     Cycle(Box<CyclePath>),
@@ -61,8 +62,19 @@ impl Places {
     }
 }
 
-fn is_cycle(detail: &Detail) -> bool {
-    detail.cause == "dependency cycle"
+fn cycle_at(detail: &Detail, listed: Option<&Cycles>, index: usize) -> Option<CyclePath> {
+    if detail.cause != "dependency cycle" {
+        return None;
+    }
+    let mut cycle = listed
+        .and_then(|found| found.items.iter().find(|item| item.index == index))
+        .cloned()
+        .unwrap_or_else(|| CyclePath {
+            members: detail.members.clone(),
+            ..CyclePath::default()
+        });
+    cycle.possible = detail.possible;
+    Some(cycle)
 }
 
 /// The rules and the evidence that meet at one import.
@@ -72,7 +84,7 @@ struct Group {
     evidence: Vec<String>,
 }
 
-type Grouped = BTreeMap<(String, Option<String>), Group>;
+type Grouped = BTreeMap<(String, Option<String>, bool), Group>;
 
 impl Group {
     /// Add one row. A place lists each rule and cause once, also when several sites of the place
@@ -105,17 +117,18 @@ impl Places {
                     rule: rule.clone(),
                     cause: row.cause.clone(),
                 };
-                // A cycle row has its closed path when the frame lists it; else it is one row.
-                let path =
-                    listed.and_then(|found| found.items.iter().find(|item| item.index == index));
-                match (&row.misplaced_class_fact, &row.target, path) {
+                match (
+                    &row.misplaced_class_fact,
+                    &row.target,
+                    cycle_at(row, listed, index),
+                ) {
                     (Some(_), Some(module), _) => classes
                         .entry((module.clone(), row.source.clone()))
                         .or_default()
                         .add(violated, &row.evidence),
-                    (_, _, Some(path)) if is_cycle(row) => cycles.push((path.clone(), violated)),
+                    (_, _, Some(cycle)) => cycles.push((cycle, violated)),
                     _ => imports
-                        .entry((row.source.clone(), row.target.clone()))
+                        .entry((row.source.clone(), row.target.clone(), row.possible))
                         .or_default()
                         .add(violated, &row.evidence),
                 }
@@ -123,11 +136,12 @@ impl Places {
         }
         let mut all: Vec<(Kind, Vec<Violated>)> = imports
             .into_iter()
-            .map(|((source, target), group)| {
+            .map(|((source, target, possible), group)| {
                 let kind = Kind::Import {
                     source,
                     target,
                     evidence: group.evidence,
+                    possible,
                 };
                 (kind, group.rules)
             })

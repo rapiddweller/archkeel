@@ -205,29 +205,37 @@ fn import_block(
     frame: &Frame,
     names: &Names<'_>,
     place: &Place,
-    (source, target, evidence): (&str, Option<&str>, &[String]),
+    (source, target, evidence, possible): (&str, Option<&str>, &[String], bool),
 ) -> String {
     let first = evidence.first().and_then(|id| frame.locations.get(id));
     let from_file = first.map(|at| at.path.as_str());
     let (from, mut levels) = tower(names, source, from_file, "From");
+    let relation = import_words(possible);
     let title = match target {
-        Some(target) => format!("{source} imports {target}"),
+        Some(target) => format!("{source} {relation} {target}"),
         None => source.to_owned(),
+    };
+    let premise = if possible {
+        "<p class=\"caption\">The contract declares this dependency as possible. \
+         This possibility violates the rule. The scan does not show that the call ran.</p>"
+    } else {
+        ""
     };
     let mut path = from;
     if let Some(target) = target {
         let (to, to_levels) = tower(names, target, None, "To");
         levels = levels.max(to_levels);
         let line = first.map_or_else(String::new, |at| format!("line {}", at.line));
+        let tag = relation.to_uppercase();
         path.push_str(&format!(
             "<ul class=\"rp-rels\" aria-label=\"Relation\"><li class=\"rp-rel rp-r{levels} rp-rel--fail\">\
-<span class=\"tag\">IMPORTS</span><span class=\"caption\">{line}</span>{ARROW}</li></ul>{to}"
+<span class=\"tag\">{tag}</span><span class=\"caption\">{line}</span>{ARROW}</li></ul>{to}"
         ));
     }
     format!(
         "<article class=\"rp-dos\" id=\"x{n}\">{}<div class=\"rp-dos__body\">\
 <div class=\"rp-path rp-path--{levels}\" role=\"group\" aria-label=\"Evidence path\">{path}</div>\
-<p class=\"caption rp-at\">Evidence: {}</p></div>{}</article>",
+<p class=\"caption rp-at\">Evidence: {}</p>{premise}</div>{}</article>",
         head(place.number, &title),
         evidence_line(frame, evidence, 5),
         violated(frame, names, &place.rules, None),
@@ -247,9 +255,14 @@ fn file_cell(names: &Names<'_>, module: &str) -> String {
 
 fn step_row(frame: &Frame, names: &Names<'_>, index: usize, step: &super::frame::Step) -> String {
     let cited = places_text(frame, &step.evidence, 2, step.evidence_total);
+    let declared = if step.possible {
+        "Declared possible import: "
+    } else {
+        ""
+    };
     format!(
         "<tr><td class=\"code ak-num\">{}</td><td class=\"code\">{}</td><td class=\"code\">{}</td>\
-<td class=\"caption\">{}</td></tr>",
+<td class=\"caption\">{declared}{}</td></tr>",
         index + 1,
         file_cell(names, &step.from),
         file_cell(names, &step.to),
@@ -257,12 +270,21 @@ fn step_row(frame: &Frame, names: &Names<'_>, index: usize, step: &super::frame:
     )
 }
 
+fn import_words(possible: bool) -> &'static str {
+    if possible {
+        "may import"
+    } else {
+        "imports"
+    }
+}
+
 /// The sentence that closes the path: the last step imports the start of the first step.
 fn closing(names: &Names<'_>, cycle: &CyclePath) -> String {
     match (cycle.path.first(), cycle.path.last()) {
         (Some(_), Some(last)) if !cycle.truncated => format!(
-            "Step {} imports {}, where step 1 starts.",
+            "Step {} {} {}, where step 1 starts.",
             cycle.path.len(),
+            import_words(last.possible),
             file_cell(names, &last.to)
         ),
         _ => String::new(),
@@ -286,6 +308,11 @@ fn cycle_block(frame: &Frame, names: &Names<'_>, place: &Place, cycle: &CyclePat
         [one] => format!("Cycle of {} in {one}", count(cycle.members.len(), "member")),
         _ => format!("Cycle of {}", count(cycle.members.len(), "member")),
     };
+    let title = if cycle.possible {
+        format!("Contract graph cycle: {title}")
+    } else {
+        title
+    };
     let rows: String = cycle
         .path
         .iter()
@@ -301,17 +328,26 @@ fn cycle_block(frame: &Frame, names: &Names<'_>, place: &Place, cycle: &CyclePat
     } else {
         String::new()
     };
+    let table = if cycle.path.is_empty() {
+        "<p class=\"caption\">The report does not list a path for this graph cycle.</p>".to_owned()
+    } else {
+        format!(
+            "<table class=\"rp-mini\"><caption class=\"caption\">{members} are in this cycle. \
+Shortest closed path shown: {steps}. {closing}</caption><thead><tr><th class=\"caption ak-num\">Step</th>\
+<th class=\"caption\">From</th><th class=\"caption\">To</th><th class=\"caption\">Evidence</th></tr>\
+</thead><tbody>{rows}</tbody></table>",
+            members = count(cycle.members.len(), "member"),
+            steps = count(cycle.path.len(), "step"),
+            closing = closing(names, cycle)
+        )
+    };
     format!(
         "<article class=\"rp-dos\" id=\"x{n}\">{}<div class=\"rp-dos__body\"><div class=\"rp-scroll\">\
-<table class=\"rp-mini\"><caption class=\"caption\">{members} are in this cycle. Shortest closed path shown: {steps}. {closing}</caption><thead><tr><th class=\"caption ak-num\">Step</th><th class=\"caption\">From</th>\
-<th class=\"caption\">To</th><th class=\"caption\">Imports</th></tr></thead><tbody>{rows}</tbody></table></div>\
+{table}</div><p class=\"caption\">A cycle in the contract graph is not evidence that the imports execute together.</p>\
 {cut}</div>{}</article>",
         head(place.number, &title),
         violated(frame, names, &place.rules, Some(level)),
         n = place.number,
-        members = count(cycle.members.len(), "member"),
-        steps = count(cycle.path.len(), "step"),
-        closing = closing(names, cycle)
     )
 }
 
@@ -344,7 +380,13 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
                 source,
                 target,
                 evidence,
-            } => import_block(frame, names, place, (source, target.as_deref(), evidence)),
+                possible,
+            } => import_block(
+                frame,
+                names,
+                place,
+                (source, target.as_deref(), evidence, *possible),
+            ),
             Kind::Cycle(cycle) => cycle_block(frame, names, place, cycle),
         };
         // AD-606: each place is one full block, the first as the last.
@@ -391,15 +433,30 @@ pub(super) fn one_line(names: &Names<'_>, place: &Place) -> String {
             } else {
                 "components"
             };
-            match owners.as_slice() {
+            let title = match owners.as_slice() {
                 [one] => format!("Cycle of {} {level} in {one}", cycle.members.len()),
                 _ => format!("Cycle of {} {level}", cycle.members.len()),
+            };
+            if cycle.possible {
+                format!("Contract graph cycle: {title}")
+            } else {
+                title
             }
         }
-        Kind::Import { source, target, .. } => {
+        Kind::Import {
+            source,
+            target,
+            possible,
+            ..
+        } => {
             let file = |module: &str| names.file(module).unwrap_or(module).to_owned();
             match target {
-                Some(target) => format!("{} imports {}", file(source), file(target)),
+                Some(target) => format!(
+                    "{} {} {}",
+                    file(source),
+                    import_words(*possible),
+                    file(target),
+                ),
                 None => file(source),
             }
         }

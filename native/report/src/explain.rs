@@ -93,6 +93,8 @@ pub(crate) struct RuleShape {
 /// One step of a cycle path.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 struct Step {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    possible: bool,
     from: String,
     to: String,
     from_component: Option<String>,
@@ -264,6 +266,7 @@ fn cycle_path(index: usize, cycle: &archkeel_eval::Cyclic) -> CyclePath {
 
 fn step(step: &CycleStep) -> Step {
     Step {
+        possible: step.possible,
         from: step.from.clone(),
         to: step.to.clone(),
         from_component: step.from_component.clone(),

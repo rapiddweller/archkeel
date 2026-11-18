@@ -5776,6 +5776,10 @@
           "minimum": 0,
           "description": "The line of the site in the file of the module, counted from 1."
         },
+        "line_only": {
+          "type": "boolean",
+          "description": "True when the collector can identify the site by line but cannot state its scope."
+        },
         "scope": {
           "type": [
             "string",

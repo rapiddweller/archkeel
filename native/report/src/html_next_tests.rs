@@ -7,6 +7,18 @@
 
 use super::*;
 
+#[test]
+fn an_unlisted_cycle_is_not_rendered_as_an_import() {
+    let page = document(&json!({
+        "status": "FAIL", "rules": {"CY": ["no_component_cycles", "FAIL"]},
+        "details": {"CY": [{"source": "m.a -> m.b", "target": "m.a",
+            "cause": "dependency cycle", "members": ["m.a", "m.b"], "possible": true}]}
+    }));
+    assert!(page.contains("Contract graph cycle"));
+    assert!(page.contains("The report does not list a path for this graph cycle."));
+    assert!(!page.contains("m.b may import"));
+}
+
 // #1349: 337 places, the list shows 100. The card and the architecture line count all of them.
 #[test]
 fn a_capped_list_and_the_counts_beside_it_state_both_numbers() {
