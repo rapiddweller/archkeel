@@ -62,7 +62,14 @@ def _run_gate(
     result = run_bounded(
         args,
         cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": "", "OUTPUT": "", "UV": "false", "NPM": "false"},
+        env={
+            **os.environ,
+            "MAKEFLAGS": "",
+            "KEEP_GOING": "",
+            "OUTPUT": "",
+            "UV": "false",
+            "NPM": "false",
+        },
         capture_output=True,
         text=True,
         timeout=15,
