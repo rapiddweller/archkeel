@@ -69,7 +69,7 @@ def test_no_box_says_deviation_any_more() -> None:
 
 
 def test_the_colour_of_the_box_lines_follows_the_status_of_the_box() -> None:
-    css = SCENE.with_name("explorer.css").read_text(encoding="utf-8")
+    css = SCENE.with_name("explorer-edges-atlas.css").read_text(encoding="utf-8")
     assert ".atlas-finding-chip,\n.rp-explorer .atlas-deviation-chip{fill:var(--ink-muted)}" in css
     for status, token in (("UNKNOWN", "--unknown-text"), ("FAIL", "--fail")):
         assert (
