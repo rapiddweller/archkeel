@@ -246,7 +246,10 @@ impl<'a> Modules<'a> {
             && effect.evidence_ids == gap.evidence_ids
             && effect.data.expression == Some(location.excerpt.as_str())
             && effect.data.status == Some(Status::Unresolved)
-            && effect.data.targets.is_some_and(<[String]>::is_empty)
+            && effect
+                .data
+                .targets
+                .is_some_and(|targets| targets.is_empty())
     }
 
     /// A runtime-effect gap of the coverage is bound to its module and its effect record.

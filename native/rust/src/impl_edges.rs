@@ -188,7 +188,7 @@ impl Builder {
                     "A method call may reach the method {} of an impl block in {target}",
                     call.name
                 );
-                self.reached_gap(&reached, call, target, &reason);
+                self.reached_gap(&reached, call, target, &reason, false);
             }
             self.glob_trait_gaps(workspace, &reached);
         }
@@ -410,7 +410,6 @@ impl Builder {
                 *self.ended_methods.entry(module.rel.clone()).or_default() += 1;
                 continue;
             }
-            // #1571: the type of the receiver narrows the members that the call can reach.
             let verdict = match at_index < own {
                 true => types::Context {
                     index: reached.index,
@@ -432,6 +431,7 @@ impl Builder {
                 continue;
             }
             let keep = |block: &Foreign<'_>| verdict.keeps(block);
+            let no_name_route = at_index < own && !call.path;
             let at = frame.lexical_at(&call.scope);
             let blocks = found.foreign.get(call.name.as_str()).into_iter().flatten();
             let blocks = blocks.filter(|block| keep(block));
@@ -441,9 +441,8 @@ impl Builder {
                     "A method call may reach the method {} of an impl block in {target}",
                     call.name
                 );
-                self.reached_gap(reached, call, target, &reason);
+                self.reached_gap(reached, call, target, &reason, no_name_route);
             }
-            // #1571: the call may reach a member in the file of its type (`impl_flow.rs`).
             let owned = (found.owned.get(call.name.as_str())).map_or(&[][..], Vec::as_slice);
             let candidates = (owned, &found.aliases);
             pending.extend(flow::own_candidates(
@@ -452,17 +451,16 @@ impl Builder {
                 call,
                 candidates,
                 &keep,
+                no_name_route,
             ));
-            // #1196: a macro call can define the method in an impl block outside the file of its
-            // type, which the scan does not see; its visibility is not read either. A macro that
-            // defines the type and its impl together adds a member of its own file (AD-357).
+            // A macro in another file can define the method without exposing its visibility.
             let defined = (self.macro_foreign_members.get(&call.name).cloned()).unwrap_or_default();
             for target in &defined {
                 let reason = format!(
                     "A method call may reach the method {} that a macro call in {target} may define",
                     call.name
                 );
-                self.reached_gap(reached, call, target, &reason);
+                self.reached_gap(reached, call, target, &reason, no_name_route);
             }
             if at_index < own {
                 *self.ended_methods.entry(module.rel.clone()).or_default() += 1;

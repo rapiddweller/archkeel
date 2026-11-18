@@ -6952,15 +6952,6 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_store",
-        "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
         "native.archkeel_store.bindings",
         "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
       ],
@@ -7044,15 +7035,6 @@
         "collection_gap",
         "native.archkeel_store.validate",
         "A method call may reach the method invariants of a type in its own file native.archkeel_facts.record"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_store.validate",
-        "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
     },
@@ -8800,14 +8782,6 @@
     {
       "entry": [
         "rule",
-        "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-        "UNKNOWN"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "rule",
         "NATIVE-NO-COMPONENT-CYCLES",
         "UNKNOWN"
       ],
@@ -8865,14 +8839,6 @@
       "entry": [
         "unknown",
         "NATIVE-NEUTRAL-REPORT-NO-PROFILE",
-        "scope_incomplete"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "unknown",
-        "NATIVE-NEUTRAL-STORE-NO-PROFILE",
         "scope_incomplete"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
@@ -84687,15 +84653,6 @@
         "collection_gap",
         "native.archkeel_model.graph",
         "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-      ],
-      "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_model.graph",
-        "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -183057,6 +183014,51 @@
         "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
       ],
       "reason": "AD-927: An existing module pair changes its first cause from trait execution to a possible destructor. This is not a new edge."
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_collect",
+        "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-928: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_collect.run",
+        "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-928: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.ingest",
+        "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-928: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.refusal",
+        "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-928: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.system_topology",
+        "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-928: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
     }
   ]
 }

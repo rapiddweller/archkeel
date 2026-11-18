@@ -10,7 +10,7 @@ use super::Profile;
 /// package (`_cycle_scan_coverage`), or states a gap where it does not. The Dart survey proves it
 /// from its package map since AD-800 (AD-500 item 8): each import of a package that the map does
 /// not prove external is a gap.
-pub fn proves_cycle_scope(profile: Profile) -> bool {
+pub(crate) fn proves_cycle_scope(profile: Profile) -> bool {
     match profile {
         Profile::TypeScript | Profile::Rust | Profile::Python | Profile::Dart => true,
     }

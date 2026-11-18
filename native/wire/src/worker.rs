@@ -33,6 +33,7 @@ struct Packet {
     premise: String,
     dispatch: BTreeSet<FactId>,
     inferred_receivers: BTreeSet<FactId>,
+    name_free_gaps: BTreeSet<FactId>,
 }
 impl Packet {
     /// Take the assembled facts before applying the private producer statements.
@@ -62,6 +63,21 @@ impl Packet {
             .filter(|record| record.data.data().inferred_receiver)
             .map(|record| record.id.clone())
             .collect();
+        let name_free_gaps = reply
+            .facts
+            .sections
+            .iter()
+            .filter_map(|section| {
+                if let Section::Unknowns(gaps) = section {
+                    Some(gaps)
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .filter(|gap| gap.data.data().no_name_route)
+            .map(|gap| gap.id.clone())
+            .collect();
         Ok(Self {
             limits: reply
                 .facts
@@ -76,6 +92,7 @@ impl Packet {
             reply,
             dispatch,
             inferred_receivers,
+            name_free_gaps,
         })
     }
     /// Recover the two views of each gap and the original Rust scope statements.
@@ -86,11 +103,17 @@ impl Packet {
             premise,
             dispatch,
             mut inferred_receivers,
+            name_free_gaps,
         } = self;
         restore(&mut reply.facts.coverage.gaps, &dispatch)?;
+        restore_names(&mut reply.facts.coverage.gaps, &name_free_gaps)?;
+        let mut named = 0;
         for s in &mut reply.facts.sections {
             match s {
-                Section::Unknowns(gaps) => restore(gaps, &dispatch)?,
+                Section::Unknowns(gaps) => {
+                    restore(gaps, &dispatch)?;
+                    named += restore_names(gaps, &name_free_gaps)?;
+                }
                 Section::Imports(imports) => imports
                     .iter_mut()
                     .filter(|record| inferred_receivers.remove(&record.id))
@@ -101,10 +124,37 @@ impl Packet {
         if !inferred_receivers.is_empty() {
             return Err("unbound worker receiver".into());
         }
+        if named != name_free_gaps.len() {
+            return Err("unbound worker name-route proof".into());
+        }
         reply.facts.profile_limits = Some(limits);
         reply.facts.scope_premise = Some(premise);
         Ok(reply)
     }
+}
+
+fn restore_names(
+    gaps: &mut [Record<GapFact>],
+    name_free: &BTreeSet<FactId>,
+) -> Result<usize, String> {
+    let mut seen = 0;
+    for gap in gaps.iter_mut().filter(|gap| name_free.contains(&gap.id)) {
+        let (GapFact::CollectionGap(data) | GapFact::SourceResolutionGap(data)) = &mut gap.data
+        else {
+            return Err("invalid name-route proof kind".into());
+        };
+        if data
+            .source_module
+            .as_ref()
+            .zip(data.module.as_ref())
+            .is_none_or(|(a, b)| a == b)
+        {
+            return Err("name-route proof needs a pair".into());
+        }
+        data.no_name_route = true;
+        seen += 1;
+    }
+    Ok(seen)
 }
 
 fn restore(gaps: &mut [Record<GapFact>], dispatch: &BTreeSet<FactId>) -> Result<(), String> {

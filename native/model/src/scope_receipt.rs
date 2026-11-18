@@ -104,7 +104,7 @@ fn open_sites<'m>(
         .observed()
         .named_sites
         .iter()
-        .filter_map(|(source, target)| {
+        .filter_map(|((source, target), name_free)| {
             if !model.selects(source) {
                 return None;
             }
@@ -117,7 +117,8 @@ fn open_sites<'m>(
                     from != to && components.get(to)?.public().is_some()
                 }
                 Reads::SourceNames(sides) => {
-                    sides_match(sides, [source, target], owners.map(|owner| owner.is_some()))
+                    (!name_free || owners.contains(&None))
+                        && sides_match(sides, [source, target], owners.map(|owner| owner.is_some()))
                 }
                 _ => false,
             };
@@ -132,7 +133,7 @@ fn open_sites<'m>(
 pub(crate) fn scan_proof<'id, 'm>(model: &'m Model) -> Result<ScanProof<'id, 'm>, Reason> {
     let graph = model.graph();
     let roots = graph.settings().roots().ok_or(Part::ScanRoots)?;
-    if graph.observed().layout != Layout::ProjectFiles {
+    if graph.observed().analysis.layout != Layout::ProjectFiles {
         return Err(Part::ScanLayout.into());
     }
     let files = graph

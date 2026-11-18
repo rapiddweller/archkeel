@@ -46,6 +46,11 @@ impl Ingested {
     pub fn reply(&self) -> &archkeel_facts::envelope::Reply {
         self.0.reply()
     }
+
+    /// The fixed capabilities of this reply's validated profile.
+    pub fn analysis_capabilities(&self) -> archkeel_facts::profile_traits::AnalysisCapabilities {
+        self.0.reply().facts.analysis_capabilities()
+    }
 }
 
 /// Decode and validate one compressed reply (protocol 11) for a library of the core.
@@ -69,7 +74,12 @@ fn ingest(payload: &[u8], inflate_limit: u64) -> Result<Store, String> {
 /// sets, the records and their bindings. Both front doors (`ingest_reply`, `ingest_typed`) end here.
 fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Store, String> {
     validate::invariants(&reply.facts)?;
-    let names: Vec<&str> = reply.facts.sections.iter().map(Section::name).collect();
+    let names: Vec<&str> = reply
+        .facts
+        .sections
+        .iter()
+        .map(|section: &Section| section.name())
+        .collect();
     validate::envelope(&reply.facts, &names)?;
     validation::check(&reply.facts)?;
     records::records(&reply.facts, &validate::index(&reply.facts))?;

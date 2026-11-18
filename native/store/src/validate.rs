@@ -96,8 +96,13 @@ pub(crate) fn invariants(facts: &Facts) -> Result<(), String> {
         .coverage
         .gaps
         .iter()
-        .try_for_each(archkeel_facts::Record::invariants)
-        .and_then(|()| facts.sections.iter().try_for_each(Section::invariants))
+        .try_for_each(|record| record.invariants())
+        .and_then(|()| {
+            facts
+                .sections
+                .iter()
+                .try_for_each(|section: &Section| section.invariants())
+        })
         .map_err(str::to_owned)
 }
 

@@ -303,7 +303,7 @@ fn an_unresolved_import_leaves_the_imports_and_counts_unless_a_gap_names_its_sit
         return fail("the golden reply");
     };
     let total = import_records(&mut reply).map_or(0, |records| records.len());
-    let found = split(&reply.facts, |_| false);
+    let found = split(&reply.facts, reply.facts.profile.target_marks(), |_| false);
     let (imports, unknown) = (found.imports, found.unknown);
     assert_eq!(unknown, 1);
     assert_eq!(imports.len() + 1, total);
@@ -313,11 +313,17 @@ fn an_unresolved_import_leaves_the_imports_and_counts_unless_a_gap_names_its_sit
     let mut record = Record::unknown(FactId::new("UNKNOWN-G"), "gone", None, &module, gap);
     record.evidence_ids = evidence;
     reply.facts.coverage.gaps.push(record.clone());
-    assert_eq!(split(&reply.facts, |_| false).unknown, 0);
+    assert_eq!(
+        split(&reply.facts, reply.facts.profile.target_marks(), |_| false).unknown,
+        0
+    );
     // A gap at the same module with other evidence names another site.
     record.evidence_ids = vec![EvidenceId::new("EVD-other")];
     reply.facts.coverage.gaps = vec![record];
-    assert_eq!(split(&reply.facts, |_| false).unknown, 1);
+    assert_eq!(
+        split(&reply.facts, reply.facts.profile.target_marks(), |_| false).unknown,
+        1
+    );
 }
 
 #[test]
@@ -339,7 +345,7 @@ fn a_macro_body_is_no_import_and_no_unknown() {
             data.target_module.as_str().to_owned(),
         )
     });
-    let found = split(&reply.facts, |_| false);
+    let found = split(&reply.facts, reply.facts.profile.target_marks(), |_| false);
     assert_eq!((found.imports.len() + 1, found.unknown), (total, 0));
     // The macro body stays as a row of its own, for the fan counts of the modules.
     let bodies: Vec<(String, String)> = found
@@ -384,7 +390,7 @@ fn the_import_keeps_the_typed_target_and_the_type_check_flag() {
             name: "fs".to_owned(),
         };
     }
-    let imports = split(&reply.facts, |_| false).imports;
+    let imports = split(&reply.facts, reply.facts.profile.target_marks(), |_| false).imports;
     let resolved = |id: &str| {
         imports
             .iter()
@@ -418,7 +424,10 @@ fn an_unresolved_macro_body_counts_as_an_unknown_import() {
     for record in records.iter_mut().filter(|r| r.id.as_str() == id) {
         record.data = ImportFact::MacroBody(record.data.data().clone());
     }
-    assert_eq!(split(&reply.facts, |_| false).unknown, 1);
+    assert_eq!(
+        split(&reply.facts, reply.facts.profile.target_marks(), |_| false).unknown,
+        1
+    );
 }
 
 #[test]
@@ -433,17 +442,24 @@ fn the_evidence_of_an_import_is_sorted_and_the_gap_site_keeps_the_reply_order() 
     for record in records.iter_mut() {
         record.evidence_ids = unsorted.clone();
     }
-    let imports = split(&reply.facts, |_| false).imports;
+    let imports = split(&reply.facts, reply.facts.profile.target_marks(), |_| false).imports;
     assert!(imports.iter().all(|i| i.evidence() == ["EVD-a", "EVD-b"]));
     // A gap with the sorted evidence names another site than the import with the reply order.
     let gap = GapFact::resolution("gone", &module);
     let mut record = Record::unknown(FactId::new("UNKNOWN-G"), "gone", None, &module, gap);
     record.evidence_ids = vec![EvidenceId::new("EVD-a"), EvidenceId::new("EVD-b")];
     reply.facts.coverage.gaps = vec![record.clone()];
-    assert_eq!(split(&reply.facts, |_| false).unknown, 1, "{id}");
+    assert_eq!(
+        split(&reply.facts, reply.facts.profile.target_marks(), |_| false).unknown,
+        1,
+        "{id}"
+    );
     record.evidence_ids = unsorted;
     reply.facts.coverage.gaps = vec![record];
-    assert_eq!(split(&reply.facts, |_| false).unknown, 0);
+    assert_eq!(
+        split(&reply.facts, reply.facts.profile.target_marks(), |_| false).unknown,
+        0
+    );
 }
 
 #[test]

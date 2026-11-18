@@ -480,7 +480,7 @@ pub fn source_digest(inputs: &[Input]) -> String {
 }
 
 #[path = "envelope_cycle.rs"]
-pub mod cycle;
+pub(crate) mod cycle;
 
 // The constructors of the envelope types; a child module that uses this one, never the reverse.
 #[path = "envelope_build.rs"]
