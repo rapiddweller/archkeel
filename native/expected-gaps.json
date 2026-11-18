@@ -374,11 +374,6 @@
     [
       "collection_gap",
       "native.archkeel_collect",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_collect",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -1565,11 +1560,6 @@
       "collection_gap",
       "native.archkeel_collect.run",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_collect.run",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -3904,11 +3894,6 @@
     [
       "collection_gap",
       "native.archkeel_core",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -5235,11 +5220,6 @@
       "collection_gap",
       "native.archkeel_core.base",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.base",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -7609,11 +7589,6 @@
     [
       "collection_gap",
       "native.archkeel_core.check",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.check",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -9774,11 +9749,6 @@
     [
       "collection_gap",
       "native.archkeel_core.dual_run",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -11079,11 +11049,6 @@
     [
       "collection_gap",
       "native.archkeel_core.dual_run.frame_parts",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run.frame_parts",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -12335,11 +12300,6 @@
       "collection_gap",
       "native.archkeel_core.engine",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.engine",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -14090,11 +14050,6 @@
       "collection_gap",
       "native.archkeel_core.hygiene",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.hygiene",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -16649,11 +16604,6 @@
     [
       "collection_gap",
       "native.archkeel_core.ingest",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.ingest",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -17834,11 +17784,6 @@
     [
       "collection_gap",
       "native.archkeel_core.provenance",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.provenance",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -18710,11 +18655,6 @@
       "collection_gap",
       "native.archkeel_core.refusal",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.refusal",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -21409,11 +21349,6 @@
     [
       "collection_gap",
       "native.archkeel_core.scan",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.scan",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -23284,11 +23219,6 @@
     [
       "collection_gap",
       "native.archkeel_core.system",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.system",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -24230,11 +24160,6 @@
       "collection_gap",
       "native.archkeel_core.system_topology",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.system_topology",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -53899,11 +53824,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -54370,11 +54290,6 @@
       "collection_gap",
       "native.archkeel_python_collector.bin_archkeel_python_collector",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bin_archkeel_python_collector",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -54859,51 +54774,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.bindings",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings",
       "A trait impl in native.archkeel_python_collector.unparse.outcome may run in code that reaches native.archkeel_python_collector.unparse.outcome without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -55040,51 +54910,6 @@
       "collection_gap",
       "native.archkeel_python_collector.bindings.class",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.class",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.class",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.class",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.class",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.class",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.class",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.class",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.class",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.class",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -55224,51 +55049,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.bindings.closure",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.closure",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.closure",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.closure",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.closure",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.closure",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.closure",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.closure",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.closure",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.closure",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
     ],
     [
@@ -55395,51 +55175,6 @@
       "collection_gap",
       "native.archkeel_python_collector.bindings.environment",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.environment",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.environment",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.environment",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.environment",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.environment",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.environment",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.environment",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.environment",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.environment",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -55589,51 +55324,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.bindings.names",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.names",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.names",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.names",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.names",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.names",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.names",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.names",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.names",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.names",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
     ],
     [
@@ -55755,51 +55445,6 @@
       "collection_gap",
       "native.archkeel_python_collector.bindings.namespace",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.namespace",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.namespace",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.namespace",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.namespace",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.namespace",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.namespace",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.namespace",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.namespace",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.namespace",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -55935,51 +55580,6 @@
       "collection_gap",
       "native.archkeel_python_collector.bindings.proofs",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -56129,51 +55729,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.bindings.proofs.classes",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.classes",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.classes",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.classes",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.classes",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.classes",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.classes",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.classes",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.classes",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.classes",
       "A trait impl in native.archkeel_python_collector.unparse.outcome may run in code that reaches native.archkeel_python_collector.unparse.outcome without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -56300,51 +55855,6 @@
       "collection_gap",
       "native.archkeel_python_collector.bindings.proofs.methods",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.methods",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.methods",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.methods",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.methods",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.methods",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.methods",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.methods",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.methods",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.methods",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -56499,51 +56009,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.bindings.proofs.types",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.types",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.types",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.types",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.types",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.types",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.types",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.types",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.types",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.proofs.types",
       "A trait impl in native.archkeel_python_collector.unparse.outcome may run in code that reaches native.archkeel_python_collector.unparse.outcome without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -56674,51 +56139,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.bindings.records",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.records",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.records",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.records",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.records",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.records",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.records",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.records",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.records",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.records",
       "A trait impl in native.archkeel_python_collector.unparse.outcome may run in code that reaches native.archkeel_python_collector.unparse.outcome without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -56830,51 +56250,6 @@
       "collection_gap",
       "native.archkeel_python_collector.bindings.scan",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scan",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scan",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scan",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scan",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scan",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scan",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scan",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scan",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scan",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -57000,51 +56375,6 @@
       "collection_gap",
       "native.archkeel_python_collector.bindings.scopes",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scopes",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scopes",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scopes",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scopes",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scopes",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scopes",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scopes",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scopes",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.scopes",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -57184,51 +56514,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.bindings.statements",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.statements",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.statements",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.statements",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.statements",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.statements",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.statements",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.statements",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.statements",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.statements",
       "A trait impl in native.archkeel_python_collector.pyast.node may run in code that reaches native.archkeel_python_collector.pyast.node without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -57355,51 +56640,6 @@
       "collection_gap",
       "native.archkeel_python_collector.bindings.values",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.values",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.values",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.values",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.values",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.values",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.values",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.values",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.values",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.bindings.values",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -58399,96 +57639,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.parse.compilercheck",
-      "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_facts.data.door may run in code that reaches native.archkeel_facts.data.door without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_facts.data.gap_data may run in code that reaches native.archkeel_facts.data.gap_data without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_facts.data.gap_effect may run in code that reaches native.archkeel_facts.data.gap_effect without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_facts.data.symbols may run in code that reaches native.archkeel_facts.data.symbols without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_facts.fields may run in code that reaches native.archkeel_facts.fields without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_facts.type_shape may run in code that reaches native.archkeel_facts.type_shape without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.compilercheck",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
     ],
     [
@@ -58509,202 +57659,12 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.parse.expressioncheck",
-      "A method call may reach the method name of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_facts.data.door may run in code that reaches native.archkeel_facts.data.door without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_facts.data.gap_data may run in code that reaches native.archkeel_facts.data.gap_data without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_facts.data.gap_effect may run in code that reaches native.archkeel_facts.data.gap_effect without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_facts.data.symbols may run in code that reaches native.archkeel_facts.data.symbols without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_facts.fields may run in code that reaches native.archkeel_facts.fields without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_facts.type_shape may run in code that reaches native.archkeel_facts.type_shape without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.expressioncheck",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
     ],
     [
       "collection_gap",
       "native.archkeel_python_collector.parse.expressioncheck",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.data.door may run in code that reaches native.archkeel_facts.data.door without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.data.gap_data may run in code that reaches native.archkeel_facts.data.gap_data without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.data.gap_effect may run in code that reaches native.archkeel_facts.data.gap_effect without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.data.symbols may run in code that reaches native.archkeel_facts.data.symbols without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.fields may run in code that reaches native.archkeel_facts.fields without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.sections may run in code that reaches native.archkeel_facts.sections without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_facts.type_shape may run in code that reaches native.archkeel_facts.type_shape without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.identifier",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -58774,147 +57734,12 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.parse.limits",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.limits",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.limits",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.limits",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.limits",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.limits",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.limits",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
     ],
     [
       "collection_gap",
       "native.archkeel_python_collector.parse.limits",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_facts.data.door may run in code that reaches native.archkeel_facts.data.door without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_facts.data.gap_data may run in code that reaches native.archkeel_facts.data.gap_data without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_facts.data.gap_effect may run in code that reaches native.archkeel_facts.data.gap_effect without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_facts.data.symbols may run in code that reaches native.archkeel_facts.data.symbols without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_facts.fields may run in code that reaches native.archkeel_facts.fields without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_facts.type_shape may run in code that reaches native.archkeel_facts.type_shape without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.patterncheck",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -58929,192 +57754,12 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.parse.postparse",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_facts.data.door may run in code that reaches native.archkeel_facts.data.door without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_facts.data.gap_data may run in code that reaches native.archkeel_facts.data.gap_data without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_facts.data.gap_effect may run in code that reaches native.archkeel_facts.data.gap_effect without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_facts.data.symbols may run in code that reaches native.archkeel_facts.data.symbols without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_facts.fields may run in code that reaches native.archkeel_facts.fields without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_facts.type_shape may run in code that reaches native.archkeel_facts.type_shape without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.postparse",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
     ],
     [
       "collection_gap",
       "native.archkeel_python_collector.parse.postparse",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.data.door may run in code that reaches native.archkeel_facts.data.door without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.data.gap_data may run in code that reaches native.archkeel_facts.data.gap_data without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.data.gap_effect may run in code that reaches native.archkeel_facts.data.gap_effect without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.data.symbols may run in code that reaches native.archkeel_facts.data.symbols without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.fields may run in code that reaches native.archkeel_facts.fields without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.sections may run in code that reaches native.archkeel_facts.sections without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_facts.type_shape may run in code that reaches native.archkeel_facts.type_shape without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.scopecheck",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -59135,106 +57780,6 @@
       "collection_gap",
       "native.archkeel_python_collector.parse.stack",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_facts.data.door may run in code that reaches native.archkeel_facts.data.door without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_facts.data.gap_data may run in code that reaches native.archkeel_facts.data.gap_data without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_facts.data.gap_effect may run in code that reaches native.archkeel_facts.data.gap_effect without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_facts.data.symbols may run in code that reaches native.archkeel_facts.data.symbols without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_facts.fields may run in code that reaches native.archkeel_facts.fields without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_facts.type_shape may run in code that reaches native.archkeel_facts.type_shape without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_python_collector.parse.depth may run in code that reaches native.archkeel_python_collector.parse.depth without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_python_collector.parse.expressioncheck may run in code that reaches native.archkeel_python_collector.parse.expressioncheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_python_collector.parse.identifier may run in code that reaches native.archkeel_python_collector.parse.identifier without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_python_collector.parse.limits may run in code that reaches native.archkeel_python_collector.parse.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_python_collector.parse.postparse may run in code that reaches native.archkeel_python_collector.parse.postparse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_python_collector.parse.scopecheck may run in code that reaches native.archkeel_python_collector.parse.scopecheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.parse.stringcheck",
-      "A trait impl in native.archkeel_python_collector.parse.stack may run in code that reaches native.archkeel_python_collector.parse.stack without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -59415,11 +57960,6 @@
       "collection_gap",
       "native.archkeel_python_collector.reply",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.reply",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -59960,11 +58500,6 @@
       "collection_gap",
       "native.archkeel_python_collector.survey",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -63829,11 +62364,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.survey.excluded",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.excluded",
       "A trait impl in native.archkeel_python_collector.parse.compilercheck may run in code that reaches native.archkeel_python_collector.parse.compilercheck without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -65890,11 +64420,6 @@
       "collection_gap",
       "native.archkeel_python_collector.survey.layout",
       "A trait impl in native.archkeel_python_collector.names may run in code that reaches native.archkeel_python_collector.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.layout",
-      "A trait impl in native.archkeel_python_collector.parse may run in code that reaches native.archkeel_python_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
