@@ -2,14 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The symbol declarations of a module (AD-518): one record for each class, function, method and
-//! class attribute that the module binds exactly once, in a form whose kind Python decides when
-//! the statement runs.
-//!
-//! The reader writes nothing that it cannot prove. A name that another statement binds, a
-//! decorator that may replace the object, a base that may change the kind and a text that native
-//! cannot write give no record: the model then reads the name as absent, which decides nothing
-//! (AD-512). The sites (bases, calls, references) are not written here.
+//! The declarations of a module (AD-518). Rebound names and objects that the reader cannot prove
+//! give no record (AD-512). The site reader uses the declarations after import convergence.
 
 use std::collections::{HashMap, HashSet};
 
@@ -37,6 +31,7 @@ use reader::{header, Reader, Unwritable};
 
 mod dataclass;
 mod decorated;
+mod direct_calls;
 mod escapes;
 mod found;
 mod kind;
@@ -53,9 +48,12 @@ mod values;
 pub(crate) mod wrapped;
 mod wrapped_read;
 
-pub(crate) use found::{Decorated, Found, Source};
 pub(crate) use shapes::{attach as attach_shapes, collection_names, FORMS};
 pub(crate) use sites::{site_records, Context};
+pub(crate) use {
+    direct_calls::DirectMethods,
+    found::{Decorated, Found, Source},
+};
 
 pub(in crate::survey) use escapes::{all as scan_escapes, Escapes};
 

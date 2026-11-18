@@ -4,11 +4,7 @@
 
 //! The `Sections` request: the rows of each requested section, or the reason that it has none.
 //!
-//! `violations` holds the rows of the rule kinds that `archkeel-eval` decides, sorted by id as
-//! the reference engine sorts the section. A row of another kind is not in it: the harness compares a rule
-//! section per family (AD-360 point 5), and the rules of that kind are named unsupported.
-//! The sections of slice S3 come from the reply part of the model (`topology.rs`): they need no
-//! contract, so their reason is the reason of the reply part.
+//! The evaluator supplies the violations, sorted by id (AD-360). Topology rows need no contract.
 
 use std::collections::BTreeMap;
 
@@ -174,21 +170,32 @@ fn row(violation: &Violation) -> Value {
                    "annotation": found.text, "reasons": found.reasons}),
         ),
         Violation::SymbolPlacement(found) => placement_record(found),
+        Violation::CallOwner(found) => call_owner_record(found),
         Violation::UnusedPublic(found) => {
             let item = format!("{}:{}", found.module, found.name);
             let data = json!({"module": found.module, "name": found.name, "item_kind": found.kind});
-            let title = format!("{item} is public and no other component uses it");
-            let subjects = [&found.module, &found.name];
             record(
                 [&found.id, &found.rule, &found.id],
                 &found.evidence,
                 ["source", "unused_public"],
-                &subjects,
-                title,
+                &[&found.module, &found.name],
+                format!("{item} is public and no other component uses it"),
                 data,
             )
         }
     }
+}
+
+fn call_owner_record(found: &archkeel_eval::CallOwnerViolation) -> Value {
+    let (source, target) = (&found.source, &found.target);
+    record(
+        [&found.id, &found.rule, &found.fact_id],
+        &found.evidence,
+        ["calls", "call_owner"],
+        &[source, target],
+        format!("{source} invokes {target} outside its owner"),
+        json!({"source_scope": source, "target": target}),
+    )
 }
 
 fn placement_record(found: &archkeel_eval::PlacedClass) -> Value {
@@ -341,6 +348,7 @@ fn direction_record(violation: &Violation) -> Value {
         | Violation::OuterLayer(_)
         | Violation::Construct(_)
         | Violation::BoundaryType(_)
+        | Violation::CallOwner(_)
         | Violation::SymbolPlacement(_)
         | Violation::UnusedPublic(_)
         | Violation::Cycle(_) => row(violation),

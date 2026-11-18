@@ -51,6 +51,8 @@
 
 mod assignment;
 mod boundary_types;
+mod call_owner;
+mod call_owner_row;
 mod constructs;
 mod cycles;
 mod decide;
@@ -72,6 +74,7 @@ mod layout_citation_tests;
 use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
 use archkeel_model::{Decision, Model, ModelTree, Part, Reason, Unsupported, Verdict};
 
+pub use call_owner_row::CallOwnerViolation;
 pub use placement_row::PlacedClass;
 pub use violation::{Cited, ConstructViolation, CycleStep, Cyclic, Layered, Published, Violation};
 
@@ -145,7 +148,7 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         Rule::SymbolPlacement(rule) => placement::check(id, rule, model),
         Rule::SourceOwnership(_) => unported(kind),
         Rule::BoundedNumericOperand(_) => unported(kind),
-        Rule::CallOwner(_) => unported(kind),             // S13
+        Rule::CallOwner(rule) => call_owner::check(id, rule, model),
         Rule::ForbiddenCallArgument(_) => unported(kind), // S14
         Rule::CatalogArgument(_) => unported(kind),
         Rule::CatalogUse(_) => unported(kind),

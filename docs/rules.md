@@ -50,17 +50,21 @@ unproved builtin `fromlist` retains the known base edge and adds uncertainty abo
 children. This proves dependency intent, not runtime loading or a public value API.
 See [supported forms and limits](architecture/python-dynamic-dependencies.md).
 
-`call_owner` names `source`, a canonical `target`, and optional `allowed_sources`
-(scope prefixes) / `exact_sources` (module or function). It proves plain top-level
-functions, plain parameter annotations, uniquely stored typed fields, stable
-default construction, and single-base inherited method origins. Selected native
-identities are import-bound `random.random`, `random.Random` methods,
-`datetime.datetime.now`, and `secrets.token_hex`. An unrelated same-named method
-is allowed. Unproven calls withhold PASS, including empty candidate lists. Missing
-sources or target declarations remain UNKNOWN. Mutations, ambiguous providers and
-unbound saved receipts cannot certify it. This is a declared static boundary, not
-runtime type conformance. See [AD-241](architecture/decisions/ad-241-call-ownership-policy.md)
-and [AD-252](architecture/decisions/ad-252-bounded-call-identity.md).
+`call_owner` names a lexical source prefix and one exact, qualified target.
+`allowed_sources` permits lexical scope prefixes. `exact_sources` permits one module or one
+lexical scope, not its descendants. Inside contracts select callers only in their own mount.
+
+The linked Python collector proves a direct, zero-argument instance call on a fresh local object.
+It reads `return C().m()` or `value = C(); return value.m()` in the same callable.
+`C` must be a plain source class with default allocation and lookup. A direct import alias is
+valid. A qualified method of a different class is a different target. A proved violation is FAIL
+even when another site has no proof. PASS needs a complete written call inventory for the
+selected, non-exempt source and a proved target declaration.
+
+Injected fields, custom allocation, inherited methods, external providers and saved call
+receipts cannot decide this slice. A saved report can show its historical verdict, not issue a
+new one. Release 4.0.1 did not accept this rule. See
+[AD-904](architecture/decisions/ad-904-call-ownership-uses-live-constructor-witnesses.md).
 
 `bounded_numeric_operand` selects an owned `source`, `form` (`binary`,
 `augmented` or `both`), case-sensitive `terminal_suffix`, and nonnegative

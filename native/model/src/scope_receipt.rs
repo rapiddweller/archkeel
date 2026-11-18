@@ -194,12 +194,15 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             placement_receipt(model, rule)?;
             true
         }
+        Rule::CallOwner(rule) => {
+            crate::call_owner::receipt(model, rule)?;
+            true
+        }
         // AD-670: an item that another component may use without a proven import holds it back.
         Rule::UnusedPublic(rule) => crate::published::receipt(model, rule)?,
         // Each kind that no slice decides: its slice states its receipt here (AD-378). A
         // permission declaration (`allowed_dependency`) has no verdict, so it has no receipt.
-        other @ (Rule::CallOwner(_)
-        | Rule::ForbiddenCallArgument(_)
+        other @ (Rule::ForbiddenCallArgument(_)
         | Rule::CatalogArgument(_)
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)

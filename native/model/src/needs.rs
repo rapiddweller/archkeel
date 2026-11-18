@@ -25,6 +25,8 @@ pub enum Need {
     UnusedPublic,
     /// The contract has a `symbol_placement` rule.
     SymbolPlacement,
+    /// The contract reads live Python constructor-to-method witnesses.
+    CallOwner,
 }
 
 impl Need {
@@ -35,7 +37,8 @@ impl Need {
             Need::BoundaryTypes
             | Need::InterfaceBoundary
             | Need::UnusedPublic
-            | Need::SymbolPlacement => false,
+            | Need::SymbolPlacement
+            | Need::CallOwner => false,
         }
     }
 }
@@ -79,5 +82,10 @@ impl Needs {
     /// True when the run reads class declarations for placement.
     pub fn placement(&self) -> bool {
         self.0.contains(&Need::SymbolPlacement)
+    }
+
+    /// True when the run reads live Python call ownership.
+    pub fn call_owner(&self) -> bool {
+        self.0.contains(&Need::CallOwner)
     }
 }

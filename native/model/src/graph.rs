@@ -62,6 +62,7 @@ pub struct Graph {
     /// shapes (AD-550).
     boundary: Option<crate::boundary_facts::BoundaryFacts>,
     placement: Option<Vec<crate::placement_facts::Class>>,
+    call_owners: Option<archkeel_store::CallOwners>,
     /// The declared reach of the door sites (AD-664).
     doors: Doors,
 }
@@ -97,6 +98,9 @@ impl Graph {
         }
         if needs.placement() && graph.observed.symbol_facts {
             graph.placement = Some(crate::placement_facts::classes(facts));
+        }
+        if needs.call_owner() && graph.settings.producer() == Producer::Trusted {
+            graph.call_owners = reply.call_owners().cloned();
         }
         Ok(graph)
     }
@@ -166,6 +170,7 @@ impl Graph {
             symbols: None,
             boundary: None,
             placement: None,
+            call_owners: None,
             doors,
         })
     }
@@ -269,6 +274,10 @@ impl Graph {
 
     pub(crate) fn placement(&self) -> Option<&[crate::placement_facts::Class]> {
         self.placement.as_deref()
+    }
+
+    pub(crate) fn call_owners(&self) -> Option<&archkeel_store::CallOwners> {
+        self.call_owners.as_ref()
     }
 
     pub(crate) fn symbols(&self) -> Option<&crate::symbols::Symbols> {

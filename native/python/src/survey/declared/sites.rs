@@ -13,6 +13,7 @@
 use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::data::{CallData, ReferenceData};
+use archkeel_facts::envelope::ConstructedCall;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::{
     ids::{EvidenceId, FactId, ModuleName},
@@ -24,9 +25,9 @@ use archkeel_facts::{
 use ruff_python_ast::{Expr, ExprCall, ExprName};
 use ruff_text_size::{Ranged, TextSize};
 
-use super::found::{Found, Source};
 use super::reader::Reader;
 use super::scope::{self, Stored, Uses};
+use super::{DirectMethods, Found, Source};
 use crate::module::{EvidenceMap, Module};
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
@@ -124,16 +125,20 @@ impl Context {
 }
 
 /// The sites of the sources of one module.
+pub(crate) struct Sites {
+    pub calls: Vec<Record<CallFact>>,
+    pub references: Vec<Record<ReferenceFact>>,
+    pub dead: HashSet<String>,
+    pub constructed: Vec<ConstructedCall>,
+}
+
+/// The sites and accepted receiver witnesses for one module.
 pub(crate) fn site_records(
     (module, binders): (&Module, &Binders),
     found: &Found<'_>,
-    context: &Context,
+    (context, methods): (&Context, &DirectMethods),
     evidence: &mut EvidenceMap,
-) -> (
-    Vec<Record<CallFact>>,
-    Vec<Record<ReferenceFact>>,
-    HashSet<String>,
-) {
+) -> Sites {
     let mut reader = Reader {
         module,
         evidence_map: evidence,
@@ -141,6 +146,7 @@ pub(crate) fn site_records(
         writes: None,
     };
     let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
+    let mut constructed = Vec::new();
     for source in &found.sources {
         let params = scope::parameters(source.node);
         let mut hidden = Bound::of(&source.node.body).names();
@@ -153,6 +159,7 @@ pub(crate) fn site_records(
         };
         let uses = Uses::of(source.node);
         let stored = scope::stored(source.node, &reader, &params);
+        let first = calls.len();
         for (call, dead) in &uses.calls {
             let record = call_record(&mut reader, &reading, (call, *dead), &stored);
             if *dead {
@@ -160,12 +167,18 @@ pub(crate) fn site_records(
             }
             calls.push(record);
         }
+        constructed.extend(methods.witness(source.node, &calls[first..], &uses.calls));
         for (name, _) in uses.names.iter().filter(|(_, dead)| !dead) {
             references.extend(reference(&mut reader, &reading, name));
         }
         references.extend(annotations(&mut reader, &reading));
     }
-    (calls, references, dead_sites)
+    Sites {
+        calls,
+        references,
+        dead: dead_sites,
+        constructed,
+    }
 }
 
 /// What the sites of one source read.

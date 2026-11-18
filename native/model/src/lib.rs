@@ -62,6 +62,8 @@ mod published_items;
 pub use published::{unused as unused_public, Unused};
 pub use published_items::PublicItem;
 mod boundary_surface;
+mod call_owner;
+pub use call_owner::{call_owner_violations, ForbiddenCall};
 mod facade_reach;
 pub use boundary_positions::{read as boundary_reading, Position};
 pub use facade_reach::facade_types;

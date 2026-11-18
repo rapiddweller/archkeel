@@ -2,12 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The envelope of a protocol 11 reply: every part of `facts` outside the sections (AD-346).
-//!
-//! Each object is closed: an unknown key is a decode error. Parts only the Python collector fills (`state`,
-//! `type_shapes`, `uncertain_reexports`, `candidate_evidence`, `provider_bindings` and
-//! `provider_sources`) are `NoEntries`: a reply with an entry in one of them is a decode error,
-//! because no reader of these types exists yet. A value is never dropped without a check.
+//! The closed envelope of a protocol 11 reply (AD-346). Unread parts are `NoEntries`.
 
 pub use crate::envelope_vocab::{
     ConstructSupport, Profile, ProtocolVersion, RequirementState, Role, SectionName,
@@ -26,6 +21,8 @@ use crate::measures::FileMeasures;
 use crate::record::Record;
 use crate::sections::{GapFact, Section};
 
+mod constructed_call;
+pub use constructed_call::{ConstructedCall, ConstructedCalls};
 /// A closed object of the envelope: an unknown key is a decode error.
 macro_rules! object {
     ($(#[$doc:meta])* pub struct $name:ident { $($(#[$attr:meta])* pub $field:ident: $ty:ty,)* }) => {
@@ -105,6 +102,9 @@ object! {
         /// carry none.
         #[serde(skip)]
         pub standard: Option<StandardFacts>,
+        /// Linked Python constructor-to-method witnesses. Archived replies carry no authority.
+        #[serde(skip)]
+        pub constructed_calls: Option<ConstructedCalls>,
         /// The adapter that wrote the reply.
         pub adapter: Adapter,
         /// The runtime that ran the adapter.

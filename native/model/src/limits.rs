@@ -37,7 +37,6 @@ use crate::observed::Observed;
 
 /// The rule kinds that no store-accepted profile decides (`unsupported_rules`).
 const UNDECIDED_KINDS: &[RuleKind] = &[
-    RuleKind::CallOwner,
     RuleKind::BoundedNumericOperand,
     RuleKind::ProtocolDeclarations,
     RuleKind::ForbiddenCallArgument,
@@ -194,7 +193,8 @@ fn reads(rule: &Rule) -> Reads {
         | Rule::CompleteExternalScope(_)
         | Rule::LayerOrder(_)
         | Rule::NoComponentCycles(_)
-        | Rule::SiblingIsolation(_) => Reads::Edges,
+        | Rule::SiblingIsolation(_)
+        | Rule::CallOwner(_) => Reads::Edges,
     }
 }
 

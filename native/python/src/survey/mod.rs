@@ -11,7 +11,7 @@
 use std::collections::HashSet;
 
 use crate::requirement::Prepared;
-use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
+use archkeel_facts::envelope::{ConstructedCalls, Coverage, Evidence, FileFact, Input, Target};
 #[cfg(feature = "dump")]
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
@@ -103,6 +103,7 @@ pub(crate) struct Survey {
     /// The symbol declarations that the modules bind once (AD-518), and their sites (AD-520).
     pub symbols: Vec<Record<SymbolFact>>,
     pub calls: Vec<Record<CallFact>>,
+    pub constructed_calls: ConstructedCalls,
     pub references: Vec<Record<ReferenceFact>>,
     pub constructs: Vec<Record<ConstructFact>>,
     pub signals: Vec<Record<SignalFact>>,
@@ -223,11 +224,16 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     opaque_surface.extend(uses::settled(modules, &imports, &mut sources));
     // AD-654: the symbol facts and the call count read a proven lazy key as its source.
     let viewed = lazy_cover::viewed(&imports, &sources);
+    // An unread source or open namespace can replace the class before even a direct call.
+    let closed_namespace = hazards.is_empty()
+        && parsed.gaps.is_empty()
+        && found.is_empty()
+        && scope.selected.len() == modules.len();
     let symbols = declarations(
         (modules, &binders),
-        &viewed,
+        (&viewed, &imports),
         (&sole_binders, &ambiguous),
-        (&writes, lazy_314),
+        (&writes, lazy_314, closed_namespace),
         &mut evidence,
         |index, module| {
             !hazards.iter().any(|(site, _)| *site == index)
@@ -350,6 +356,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         ),
         symbols: symbols.records,
         calls: symbols.calls,
+        constructed_calls: symbols.constructed_calls,
         references: symbols.references,
         signals: constructs.signals,
         support: constructs.support,
@@ -365,6 +372,7 @@ struct Symbols {
     /// The standard library names of each written position (#1718).
     positions: standard::Positions,
     calls: Vec<Record<CallFact>>,
+    constructed_calls: ConstructedCalls,
     references: Vec<Record<ReferenceFact>>,
     dead_sites: HashSet<String>,
 }
@@ -374,9 +382,9 @@ struct Symbols {
 /// it is absent for the model.
 fn declarations(
     (modules, binders): (&[Module], &[Binders]),
-    imports: &[Record<ImportFact>],
+    (imports, written_imports): (&[Record<ImportFact>], &[Record<ImportFact>]),
     sets: (&HashSet<String>, &HashSet<String>),
-    (writes, lazy_314): (&class_writes::ClassWrites, bool),
+    (writes, lazy_314, closed_namespace): (&class_writes::ClassWrites, bool, bool),
     evidence: &mut EvidenceMap,
     admitted: impl Fn(usize, &Module) -> bool,
 ) -> Symbols {
@@ -402,17 +410,27 @@ fn declarations(
         declared::shape_standard::positions(&found, (modules, binders), imports, sets);
     let read = (modules, binders);
     let wrapped = declared::wrapped::forms(&found, read, imports, sets, (forms, &mut positions));
+    let methods = if closed_namespace {
+        declared::DirectMethods::of(&found, modules, writes, written_imports)
+    } else {
+        declared::DirectMethods::default()
+    };
+    let mut constructed_calls = ConstructedCalls {
+        targets: methods.targets(),
+        calls: Vec::new(),
+    };
     let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
     for item in &found {
-        let (more, other, dead) = declared::site_records(
+        let sites = declared::site_records(
             (&modules[item.index], &binders[item.index]),
             item,
-            &context,
+            (&context, &methods),
             evidence,
         );
-        calls.extend(more);
-        references.extend(other);
-        dead_sites.extend(dead);
+        calls.extend(sites.calls);
+        constructed_calls.calls.extend(sites.constructed);
+        references.extend(sites.references);
+        dead_sites.extend(sites.dead);
     }
     let records = found.into_iter().flat_map(|item| item.records).collect();
     Symbols {
@@ -420,6 +438,7 @@ fn declarations(
         wrapped,
         positions,
         calls,
+        constructed_calls,
         references,
         dead_sites,
     }

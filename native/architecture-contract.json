@@ -38,6 +38,8 @@
         "native.archkeel_facts.data:SelectorData",
         "native.archkeel_facts.data:SignalData",
         "native.archkeel_facts.data:ValueData",
+        "native.archkeel_facts.envelope.constructed_call:ConstructedCall",
+        "native.archkeel_facts.envelope.constructed_call:ConstructedCalls",
         "native.archkeel_facts.envelope.cycle:proves_cycle_scope",
         "native.archkeel_facts.envelope.validation:InterfaceNeed",
         "native.archkeel_facts.envelope.validation:Registered",
@@ -46,6 +48,8 @@
         "native.archkeel_facts.envelope:Adapter",
         "native.archkeel_facts.envelope:Capabilities",
         "native.archkeel_facts.envelope:ConstructSupport",
+        "native.archkeel_facts.envelope:ConstructedCall",
+        "native.archkeel_facts.envelope:ConstructedCalls",
         "native.archkeel_facts.envelope:Coverage",
         "native.archkeel_facts.envelope:Dirty",
         "native.archkeel_facts.envelope:Evidence",
@@ -275,7 +279,9 @@
         }
       ],
       "public": [
+        "native.archkeel_store:CallOwners",
         "native.archkeel_store:Ingested",
+        "native.archkeel_store:OwnedCall",
         "native.archkeel_store:ingest_reply",
         "native.archkeel_store:ingest_typed",
         "native.archkeel_store:sdk_libraries",
@@ -329,6 +335,7 @@
         "native.archkeel_contract:BoundaryAllowance",
         "native.archkeel_contract:BoundaryTypes",
         "native.archkeel_contract:BudgetName",
+        "native.archkeel_contract:CallOwner",
         "native.archkeel_contract:CompleteRequires",
         "native.archkeel_contract:CompletenessMode",
         "native.archkeel_contract:Component",
@@ -500,6 +507,7 @@
           "component": "model-proof",
           "rationale": "Take the scope proof, a receipt or the verdict that only the proof gives (AD-363).",
           "through": [
+            "native.archkeel_model.call_owner",
             "native.archkeel_model.gap_effects",
             "native.archkeel_model.premises",
             "native.archkeel_model.receipts",
@@ -528,6 +536,7 @@
         "native.archkeel_model:DoorProblem",
         "native.archkeel_model:Doors",
         "native.archkeel_model:Edge",
+        "native.archkeel_model:ForbiddenCall",
         "native.archkeel_model:Graph",
         "native.archkeel_model:Hygiene",
         "native.archkeel_model:Import",
@@ -566,6 +575,7 @@
         "native.archkeel_model:UsedPremise",
         "native.archkeel_model:Verdict",
         "native.archkeel_model:boundary_reading",
+        "native.archkeel_model:call_owner_violations",
         "native.archkeel_model:claims",
         "native.archkeel_model:compare_uml_tree",
         "native.archkeel_model:construct_matches",
@@ -733,6 +743,7 @@
           "component": "store",
           "rationale": "Read the records of the validated reply in their typed form (AD-359).",
           "through": [
+            "native.archkeel_store:CallOwners",
             "native.archkeel_store:Ingested",
             "native.archkeel_store:standard_library"
           ]
@@ -1139,6 +1150,7 @@
       "role": "component",
       "layer": "model",
       "packages": [
+        "native.archkeel_model.call_owner",
         "native.archkeel_model.gap_effects",
         "native.archkeel_model.receipts",
         "native.archkeel_model.run",
@@ -1163,6 +1175,7 @@
           "component": "contract",
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
+            "native.archkeel_contract:CallOwner",
             "native.archkeel_contract:CycleLevel",
             "native.archkeel_contract:Lifecycle",
             "native.archkeel_contract:NoComponentCycles",
@@ -1199,11 +1212,20 @@
           ]
         },
         {
+          "component": "store",
+          "rationale": "Match the validated live call inventory (AD-904).",
+          "through": [
+            "native.archkeel_store:CallOwners",
+            "native.archkeel_store:OwnedCall"
+          ]
+        },
+        {
           "component": "model-graph",
           "rationale": "Read the modules, owners, imports, edges and symbols of the reply, and the namespace, roots and contract evidence of its settings.",
           "through": [
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph",
+            "native.archkeel_model.modules",
             "native.archkeel_model.ownership",
             "native.archkeel_model.published_items",
             "native.archkeel_model.settings"
@@ -1243,6 +1265,8 @@
         }
       ],
       "public": [
+        "native.archkeel_model.call_owner:ForbiddenCall",
+        "native.archkeel_model.call_owner:call_owner_violations",
         "native.archkeel_model.premises:PremiseKind",
         "native.archkeel_model.premises:UsedPremise",
         "native.archkeel_model.premises:kind_word",
@@ -1415,6 +1439,7 @@
           "component": "eval-violation",
           "rationale": "Write a violation of the rule.",
           "through": [
+            "native.archkeel_eval.call_owner_row",
             "native.archkeel_eval.placement_row",
             "native.archkeel_eval.violation"
           ]
@@ -1425,6 +1450,7 @@
           "through": [
             "native.archkeel_eval.assignment",
             "native.archkeel_eval.boundary_types",
+            "native.archkeel_eval.call_owner",
             "native.archkeel_eval.constructs",
             "native.archkeel_eval.cycles",
             "native.archkeel_eval.direction",
@@ -1444,6 +1470,7 @@
         }
       ],
       "public": [
+        "native.archkeel_eval:CallOwnerViolation",
         "native.archkeel_eval:Cited",
         "native.archkeel_eval:ConstructViolation",
         "native.archkeel_eval:CycleStep",
@@ -1464,6 +1491,7 @@
       "role": "component",
       "layer": "evaluation",
       "packages": [
+        "native.archkeel_eval.call_owner_row",
         "native.archkeel_eval.violation",
         "native.archkeel_eval.placement_row"
       ],
@@ -1512,6 +1540,7 @@
         }
       ],
       "public": [
+        "native.archkeel_eval.call_owner_row:CallOwnerViolation",
         "native.archkeel_eval.placement_row:PlacedClass",
         "native.archkeel_eval.violation:Cited",
         "native.archkeel_eval.violation:ConstructViolation",
@@ -1532,6 +1561,7 @@
       "packages": [
         "native.archkeel_eval.assignment",
         "native.archkeel_eval.boundary_types",
+        "native.archkeel_eval.call_owner",
         "native.archkeel_eval.constructs",
         "native.archkeel_eval.cycles",
         "native.archkeel_eval.direction",
@@ -1568,6 +1598,7 @@
             "native.archkeel_model:Resolved",
             "native.archkeel_model:Unused",
             "native.archkeel_model:boundary_reading",
+            "native.archkeel_model:call_owner_violations",
             "native.archkeel_model:claims",
             "native.archkeel_model:construct_matches",
             "native.archkeel_model:crossings",
@@ -1587,6 +1618,7 @@
           "rationale": "Read the typed rules of the parsed contract (AD-359).",
           "through": [
             "native.archkeel_contract:BoundaryTypes",
+            "native.archkeel_contract:CallOwner",
             "native.archkeel_contract:CompleteRequires",
             "native.archkeel_contract:Component",
             "native.archkeel_contract:CycleLevel",
@@ -1633,6 +1665,7 @@
           "component": "eval-violation",
           "rationale": "Write a violation of the rule.",
           "through": [
+            "native.archkeel_eval.call_owner_row",
             "native.archkeel_eval.placement_row",
             "native.archkeel_eval.violation"
           ]
@@ -1641,6 +1674,7 @@
       "public": [
         "native.archkeel_eval.assignment:check",
         "native.archkeel_eval.boundary_types:check",
+        "native.archkeel_eval.call_owner:check",
         "native.archkeel_eval.constructs:check",
         "native.archkeel_eval.cycles:check",
         "native.archkeel_eval.direction:forbidden",
@@ -2460,6 +2494,7 @@
           "component": "eval",
           "rationale": "Decide the rules of the run and write the violation rows of the decided kinds (AD-370).",
           "through": [
+            "native.archkeel_eval:CallOwnerViolation",
             "native.archkeel_eval:Cited",
             "native.archkeel_eval:Cyclic",
             "native.archkeel_eval:Layered",

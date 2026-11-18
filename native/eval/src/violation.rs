@@ -2,12 +2,9 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The violations of the S1 rule kinds, with the ids of the records of the reference engine.
-//!
-//! Reference engine: the `classified(...)` calls of `check/evaluation/rules.py` `_assignment_violations`,
-//! `_external_dependency_violations` and `_external_completeness_violations`
-//! (`stable_id("VIO", rule.id, import record id)`),
-//! (`stable_id("VIO", rule.id, module record id)`) and `_root_layout_violations`
+//! The violations of the rules, with the ids of the records of the reference engine.
+//! Reference engine: `classified(...)` in `check/evaluation/rules.py`
+//! (`stable_id("VIO", rule.id, import or module record id)`) and `_root_layout_violations`
 //! (`stable_id("VIO", rule.id, child)`). The cited record is a module record: its id is
 //! `stable_id("MOD", name)` and its evidence is the evidence id of the file.
 //!
@@ -152,6 +149,8 @@ pub enum Violation {
     UnusedPublic(Box<UnusedItem>),
     /// A proven class declared outside the permitted modules.
     SymbolPlacement(Box<crate::placement_row::PlacedClass>),
+    /// A proved method call outside its allowed scope.
+    CallOwner(Box<crate::call_owner_row::CallOwnerViolation>),
 }
 
 /// A public item that no other component uses (AD-670).
@@ -495,6 +494,7 @@ impl Violation {
             Violation::BoundaryType(row) => [&row.id, &row.rule],
             Violation::UnusedPublic(row) => [&row.id, &row.rule],
             Violation::SymbolPlacement(row) => [&row.id, &row.rule],
+            Violation::CallOwner(row) => [&row.id, &row.rule],
         }
     }
 }

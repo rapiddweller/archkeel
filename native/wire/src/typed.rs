@@ -81,6 +81,7 @@ pub fn assemble(
             excluded_sources: Vec::new(),
             owned_files: Vec::new(),
             standard: None,
+            constructed_calls: None,
             adapter: provenance.adapter,
             runtime: provenance.runtime,
             source,
