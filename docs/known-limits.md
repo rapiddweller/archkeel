@@ -511,7 +511,8 @@ is on, where the package is an external edge), and syntax the grammar cannot par
 `[scan] bundler = true` opts a bundled project into treating tsconfig `paths` aliases
 (not `baseUrl`-only matches), package `exports`/`typesVersions`, and existing asset
 and JSON imports as known. It requires `moduleResolution: bundler` and asserts that
-the bundler's aliases match tsconfig `paths`; ArchKeel does not verify that. A
+the bundler's aliases match tsconfig `paths`. The verdict states this assumption when
+bundler mode is active; ArchKeel does not verify it. A
 `?query` on a source file does not make it an asset. A bare-package asset must lie inside
 the installed package (a `.` or `..` segment is unresolved). `.` and `..` imports count as
 relative. Triple-slash and JSDoc-import

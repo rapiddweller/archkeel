@@ -158,6 +158,8 @@ pub(crate) struct Pending {
     pub(crate) sites: HashMap<String, FileSite>,
     /// The settings of the project could not be read in full (`config.partial`).
     pub partial: bool,
+    /// The requested bundler mode is active for these compiler settings.
+    pub bundler: bool,
     /// What the script analysis found (`script_deps.rs`).
     pub script: ScriptFacts,
     /// Some file can use a browser global, so the reply declares `script-globals-v1`.
