@@ -11,7 +11,7 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
-# AD-406, AD-881: this crate selects the installed Rust worker or a linked collector. It reads
+# AD-406, AD-881: this crate selects an installed worker or a linked collector. It reads
 # the configuration of the repository, derives the collection request, runs the collector
 # and gives the store its typed reply. Each other profile and a configured collector are refused by
 # name.
@@ -19,7 +19,6 @@ publish.workspace = true
 archkeel-facts.workspace = true
 archkeel-snapshot.workspace = true
 archkeel-store = { path = "../store" }
-archkeel-typescript-collector = { path = "../typescript" }
 archkeel-python-collector = { path = "../python" }
 archkeel-dart-collector = { path = "../dart" }
 archkeel-wire.workspace = true

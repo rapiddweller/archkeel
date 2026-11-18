@@ -56,7 +56,8 @@ def reference(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathF
     # A copy under the build lock: a build of another test session can replace the file.
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
         directory = tmp_path_factory.mktemp("core")
-        shutil.copy2(built.with_name(f"archkeel-rust-collector{SUFFIX}"), directory)
+        for language in ("rust", "typescript"):
+            shutil.copy2(built.with_name(f"archkeel-{language}-collector{SUFFIX}"), directory)
         return Path(shutil.copy2(built, directory / NAME))
 
 
@@ -287,6 +288,28 @@ def test_a_wheel_with_a_wrong_digest_refuses(changed: Installed, crate: Path) ->
         stream.write(b"\0")
     refusal = changed.refusal(crate)
     assert refusal["kind"] == "core_error" and "digest does not match" in refusal["message"]
+
+
+@pytest.mark.parametrize("worker", ["missing", "wrong-profile"])
+def test_a_wheel_with_a_missing_or_wrong_typescript_worker_refuses(
+    changed: Installed, worker: str
+) -> None:
+    ts = changed.core.with_name(f"archkeel-typescript-collector{SUFFIX}")
+    if worker == "missing":
+        ts.rename(ts.with_suffix(".set-aside"))
+    else:
+        rust = ts.with_name(f"archkeel-rust-collector{SUFFIX}")
+        shutil.copyfile(rust, ts)
+        ts.with_name(ts.name + ".sha256").write_text(
+            hashlib.sha256(ts.read_bytes()).hexdigest(), encoding="ascii"
+        )
+    with case_root("fixture/H-typescript") as root:
+        refusal = changed.refusal(root)
+    if worker == "missing":
+        assert refusal["kind"] == "core_binary_not_found"
+    else:
+        assert refusal["kind"] == "collection_refused"
+        assert "TypeScript worker" in refusal["message"]
 
 
 @pytest.mark.skipif(WINDOWS, reason="Windows has no executable bit")

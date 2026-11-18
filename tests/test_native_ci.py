@@ -220,7 +220,7 @@ def _wheel(directory: Path, tag: str, *members: str, digest: str = "") -> Path:
 def _binaries(suffix: str = "") -> tuple[str, ...]:
     return tuple(
         base + suffix + end
-        for base in (release_core.MEMBER, release_core.WORKER)
+        for base in (release_core.MEMBER, *release_core.WORKERS)
         for end in ("", ".sha256")
     )
 
@@ -333,7 +333,10 @@ def test_native_check_runs_the_dependency_policy_with_the_pinned_cargo_deny(
         "cargo deny --locked check"
     )
     # AD-432: the self-check of native-check runs the release core of this checkout.
-    assert calls[-1] == "cargo build --locked --release -p archkeel-core -p archkeel-rust-collector"
+    assert calls[-1] == (
+        "cargo build --locked --release -p archkeel-core -p archkeel-rust-collector"
+        " -p archkeel-typescript-collector"
+    )
 
 
 def test_the_ci_install_of_cargo_deny_checks_the_hash_and_creates_the_target_directory() -> None:

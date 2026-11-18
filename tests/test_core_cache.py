@@ -29,7 +29,8 @@ def _fake_cargo(tmp_path: Path, succeed: bool = True) -> dict[str, str]:
         "mkdir -p target/release\n"
         "echo built > target/release/archkeel-core\n"
         "echo built > target/release/archkeel-rust-collector\n"
-        "chmod +x target/release/archkeel-core target/release/archkeel-rust-collector\n"
+        "echo built > target/release/archkeel-typescript-collector\n"
+        "chmod +x target/release/archkeel-*\n"
     )
     cargo.chmod(0o755)
     return {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "MAKEFLAGS": ""}

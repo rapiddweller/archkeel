@@ -30,6 +30,7 @@ from packaging.tags import platform_tags, sys_tags
 ROOT = Path(__file__).parents[1]
 MEMBER = "archkeel/_native/archkeel-core"
 WORKER = "archkeel/_native/archkeel-rust-collector"
+TS_WORKER = "archkeel/_native/archkeel-typescript-collector"
 VERSION = "0.0.0"
 
 
@@ -140,10 +141,12 @@ def _executable(path: Path, content: bytes = b"binary") -> Path:
 def test_a_prebuilt_binary_goes_into_the_package_data(tmp_path: Path) -> None:
     binary = _executable(tmp_path / "core")
     worker = _executable(tmp_path / "archkeel-rust-collector", b"worker")
+    ts = _executable(tmp_path / "archkeel-typescript-collector", b"typescript")
     data = _data()
     hook.bundle(tmp_path, VERSION, str(binary), data, platform="manylinux_2_17_x86_64")
     record = tmp_path / "native/.digests" / f"{hashlib.sha256(b'binary').hexdigest()}.sha256"
     worker_record = tmp_path / "native/.digests" / f"{hashlib.sha256(b'worker').hexdigest()}.sha256"
+    ts_record = tmp_path / "native/.digests" / f"{hashlib.sha256(b'typescript').hexdigest()}.sha256"
     assert data == {
         "pure_python": False,
         "infer_tag": False,
@@ -153,12 +156,15 @@ def test_a_prebuilt_binary_goes_into_the_package_data(tmp_path: Path) -> None:
             str(record): f"{MEMBER}.sha256",
             str(worker): WORKER,
             str(worker_record): f"{WORKER}.sha256",
+            str(ts): TS_WORKER,
+            str(ts_record): f"{TS_WORKER}.sha256",
         },
     }
     # The shell starts a binary only when its file has the digest that the wheel records (AD-432).
     assert record.read_text() == hashlib.sha256(b"binary").hexdigest()
     assert worker_record.read_text() == hashlib.sha256(b"worker").hexdigest()
     windows_worker = _executable(tmp_path / "archkeel-rust-collector.exe", b"worker")
+    windows_ts = _executable(tmp_path / "archkeel-typescript-collector.exe", b"typescript")
     data = _data()
     hook.bundle(tmp_path, VERSION, str(binary), data, platform="win_amd64")
     assert data["force_include"] == {
@@ -166,13 +172,15 @@ def test_a_prebuilt_binary_goes_into_the_package_data(tmp_path: Path) -> None:
         str(record): f"{MEMBER}.exe.sha256",
         str(windows_worker): f"{WORKER}.exe",
         str(worker_record): f"{WORKER}.exe.sha256",
+        str(windows_ts): f"{TS_WORKER}.exe",
+        str(ts_record): f"{TS_WORKER}.exe.sha256",
     }
 
 
 def test_a_prebuilt_core_without_its_worker_is_refused(tmp_path: Path) -> None:
     binary = _executable(tmp_path / "core")
     data = _data()
-    with pytest.raises(ValueError, match="needs the Rust worker"):
+    with pytest.raises(ValueError, match="needs the worker"):
         hook.bundle(tmp_path, VERSION, str(binary), data, platform="manylinux_2_17_x86_64")
     assert data == _data()
 
@@ -375,26 +383,23 @@ def test_a_bundled_wheel_carries_the_core_its_digest_and_its_sbom(tmp_path: Path
     assert tag.split("-")[2] in {item.platform for item in sys_tags()}
     windows = tag.endswith("win_amd64")
     suffix = ".exe" if windows else ""
-    member, worker = MEMBER + suffix, WORKER + suffix
+    members = [name + suffix for name in (MEMBER, WORKER, TS_WORKER)]
     with zipfile.ZipFile(wheel) as archive:
         names = archive.namelist()
         dist_info = f"archkeel-{version}.dist-info"
         assert "Root-Is-Purelib: false" in archive.read(f"{dist_info}/WHEEL").decode()
-        # The core and the Rust worker beside it are the only binaries of the wheel (AD-881).
         native = sorted(name for name in names if name.startswith("archkeel/_native/"))
-        assert native == sorted([member, member + ".sha256", worker, worker + ".sha256"])
+        assert native == sorted(name for member in members for name in (member, member + ".sha256"))
         binaries = {}
-        for name in (member, worker):
+        for name in members:
             if not windows:
                 assert stat.S_IMODE(archive.getinfo(name).external_attr >> 16) == 0o755
             binaries[name] = archive.read(name)
             recorded = archive.read(name + ".sha256").decode()
             assert recorded == hashlib.sha256(binaries[name]).hexdigest()
         sboms = sorted(name for name in names if name.startswith(f"{dist_info}/sboms/"))
-        assert sboms == [
-            f"{dist_info}/sboms/{hook.BINARY}.cdx.json",
-            f"{dist_info}/sboms/{hook.WORKER}.cdx.json",
-        ]
+        names = (hook.BINARY, *hook.WORKERS)
+        assert sboms == [f"{dist_info}/sboms/{name}.cdx.json" for name in names]
         documents = {name: json.loads(archive.read(name)) for name in sboms}
         record = archive.read(f"{dist_info}/RECORD").decode()
         assert all(f"{name}," in record for name in sboms)
@@ -403,20 +408,24 @@ def test_a_bundled_wheel_carries_the_core_its_digest_and_its_sbom(tmp_path: Path
         assert b".dep-v0" in binary
         # AD-323: the test-only `dump` feature is not in the binary that the wheel ships.
         assert b"dump request is not JSON" not in binary
-    core, rust = (
-        documents[f"{dist_info}/sboms/{name}.cdx.json"] for name in (hook.BINARY, hook.WORKER)
-    )
-    for sbom, name in ((core, hook.BINARY), (rust, hook.WORKER)):
+    core, rust, ts = (documents[f"{dist_info}/sboms/{name}.cdx.json"] for name in names)
+    for sbom, name in zip((core, rust, ts), names, strict=True):
         assert sbom["metadata"]["component"]["name"] == name
         assert sbom["metadata"]["component"]["version"] == version
     linked = {item["name"]: item for item in core["components"]}
-    assert {"archkeel-typescript-collector", "archkeel-collect", "archkeel-eval"} <= set(linked)
+    assert {"archkeel-collect", "archkeel-eval"} <= set(linked)
     assert {"tree-sitter", "serde_json", "sha2"} <= set(linked)
     # AD-881: the core links no Rust collector, and the worker links no core-side crate.
     assert "archkeel-rust-collector" not in linked
+    assert "archkeel-typescript-collector" not in linked
+    assert "tree-sitter-typescript" not in linked
     worker_linked = {item["name"] for item in rust["components"]}
     assert {"syn", "archkeel-wire", "archkeel-snapshot"} <= worker_linked
-    assert not {"archkeel-collect", "archkeel-store", "archkeel-model"} & worker_linked
+    ts_linked = {item["name"] for item in ts["components"]}
+    assert {"tree-sitter-typescript", "archkeel-wire", "archkeel-snapshot"} <= ts_linked
+    assert not {"archkeel-collect", "archkeel-store", "archkeel-model"} & (
+        worker_linked | ts_linked
+    )
     assert linked["flate2"]["hashes"] == [
         {"alg": "SHA-256", "content": _checksums()["flate2", linked["flate2"]["version"]]}
     ]

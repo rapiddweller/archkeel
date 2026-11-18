@@ -24,7 +24,10 @@ import zipfile
 from pathlib import Path
 
 MEMBER = "archkeel/_native/archkeel-core"
-WORKER = "archkeel/_native/archkeel-rust-collector"
+WORKERS = (
+    "archkeel/_native/archkeel-rust-collector",
+    "archkeel/_native/archkeel-typescript-collector",
+)
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures/H-typescript"
 
 
@@ -40,7 +43,7 @@ def carries_core(wheel: Path) -> bool:
         with zipfile.ZipFile(wheel) as archive:
             names = set(archive.namelist())
             suffix = ".exe" if wheel.name.endswith("win_amd64.whl") else ""
-            binaries = (MEMBER + suffix, WORKER + suffix)
+            binaries = (name + suffix for name in (MEMBER, *WORKERS))
             return all(
                 {name, name + ".sha256"} <= names
                 and archive.read(name + ".sha256")

@@ -24,7 +24,8 @@ SCRIPT = b"#!/bin/sh\nexit 0\n"
 def bundle(package: Path, content: bytes = SCRIPT) -> Path:
     native = package / "_native"
     native.mkdir(parents=True)
-    for name in (f"archkeel-rust-collector{EXE}", f"archkeel-core{EXE}"):
+    for name in ("archkeel-rust-collector", "archkeel-typescript-collector", "archkeel-core"):
+        name += EXE
         binary = native / name
         binary.write_bytes(content)
         binary.chmod(0o755)
@@ -61,12 +62,13 @@ def test_confirm_refuses_a_bundled_core_whose_digest_file_is_gone(tmp_path: Path
 @pytest.mark.parametrize(
     ("change", "message"), [("write", "digest does not match"), ("unlink", "missing")]
 )
-def test_confirm_refuses_a_rust_worker_that_changed_or_is_gone(
-    tmp_path: Path, change: str, message: str
+@pytest.mark.parametrize("language", ["rust", "typescript"])
+def test_confirm_refuses_a_worker_that_changed_or_is_gone(
+    tmp_path: Path, change: str, message: str, language: str
 ) -> None:
     """AD-881: the worker is bundled beside the core and checked with the same digest rule."""
     binary = bundle(tmp_path / "package")
-    worker = binary.with_name(f"archkeel-rust-collector{EXE}")
+    worker = binary.with_name(f"archkeel-{language}-collector{EXE}")
     if change == "write":
         worker.write_bytes(b"#!/bin/sh\necho changed\n")
     else:

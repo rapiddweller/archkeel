@@ -33,7 +33,6 @@ dependencies = [
  "archkeel-python-collector",
  "archkeel-snapshot",
  "archkeel-store",
- "archkeel-typescript-collector",
  "archkeel-wire",
  "flate2",
  "serde_json",
