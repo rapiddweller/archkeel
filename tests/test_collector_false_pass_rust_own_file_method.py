@@ -13,12 +13,13 @@ Before #1571 the scan gave no record that names `c`, and the rule was PASS (AD-4
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
-from rust_repository import CRATE_RULES, repository, rule, statuses, validate
+from rust_repository import CRATE_RULES, component, repository, rule, statuses, validate
 from test_cli_native_rust_interface import _rustc_accepts
 
 pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="rustc is the oracle")
@@ -111,6 +112,42 @@ def test_an_exact_field_and_an_exact_impl_give_the_edge(
     assert _real_target(root) == "c"
     found = statuses(validate(root, capsys))
     assert found.get("NO-A-TO-C") == "FAIL", found
+
+
+def test_requires_receipt_distinguishes_unrestricted_and_restricted_targets(
+    tmp_path: Path, release_core: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = {
+        SRC + "lib.rs": "mod a;\nmod c;\nmod d;\n",
+        SRC + "a.rs": CALLERS["a field of a typed parameter"],
+        SRC + "c.rs": TYPE,
+        SRC + "d.rs": HOLDER,
+    }
+    root_component = component("root", "app", ("a", "base", "c", "d"))
+    root_component["packages"] = []
+    root_component["exact_modules"] = ["native.app", "native.app.cargo_toml"]
+    a = component("a", "app.a", ("c", "d"))
+    parts = (
+        component("base", "base_crate"),
+        root_component,
+        a,
+        component("c", "app.c"),
+        component("d", "app.d", ("c",)),
+    )
+    root = repository(tmp_path, release_core, files, components=parts)
+    _rustc_accepts(root)
+    allowed = validate(root, capsys)
+    a["requires"][0]["through"] = ["native.app.c"]
+    contract = root / "architecture-contract.json"
+    contract.write_text(
+        json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
+    )
+    restricted = validate(root, capsys)
+    assert allowed["frame"]["collection_gaps"] == restricted["frame"]["collection_gaps"]
+    assert len(allowed["frame"]["collection_gaps"]) == 1
+    assert statuses(allowed)["REQUIRES"] == "PASS", allowed["frame"]["details"]
+    assert statuses(restricted)["REQUIRES"] == "UNKNOWN", restricted
+    assert "native.app.a -> native.app.c" in restricted["frame"]["explained"]["REQUIRES"]
 
 
 # #1571 (AD-804): the receiver type comes from a written return type `&S`, or from the item of a

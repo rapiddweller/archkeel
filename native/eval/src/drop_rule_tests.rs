@@ -14,8 +14,8 @@ use serde_json::{json, Value};
 
 use crate::direction_tests::{both, unchanged, MAIN};
 use crate::gap_scope_tests::{
-    dropping, dropping_settings, failed, gap, held, requires_held, rooted, run, run_held, word,
-    Run, INDEX, ORDER, PAGE,
+    dropping, dropping_settings, failed, gap, held, rooted, run, run_held, word, Run, INDEX, ORDER,
+    PAGE,
 };
 
 /// Each rule passes and the run is complete: the dropped gap changes no reading.
@@ -49,9 +49,9 @@ fn without(id: &'static str) -> impl FnOnce(&mut Value) + Clone {
 
 #[test]
 fn a_planted_allowed_gap_on_a_profile_whose_host_keeps_it_holds_its_readings_and_the_run() {
-    // Review B1: Python keeps this gap for this profile and gives UNKNOWN on each rule. The
-    // core keeps it too: it holds the rules that read every edge and the run; each other rule
-    // passes beyond Python and the frame lists it (`beyond`).
+    // Review B1: Python keeps this gap for this profile and gives UNKNOWN on each rule.
+    // The core keeps it too: it holds the cycle rules and the run. The unrestricted requires
+    // entry makes the pair harmless to complete_requires (AD-890).
     let shown = [format!("{} -> {PAGE}", MAIN.0)];
     let found = run(unchanged, gap(MAIN.0, PAGE), rooted()).unwrap_or_else(failed);
     assert!(
@@ -60,7 +60,7 @@ fn a_planted_allowed_gap_on_a_profile_whose_host_keeps_it_holds_its_readings_and
         found.0
     );
     assert!(held(&found, "MODULE-CYCLES", &texts(&shown)));
-    assert!(requires_held(&found));
+    assert_eq!(word(&found, "REQUIRES"), "PASS");
     assert!(run_held(&found, &texts(&shown)));
     for rule in [
         "LAYOUT",

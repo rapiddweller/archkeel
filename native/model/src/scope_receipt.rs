@@ -44,6 +44,30 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
         .kept
         .iter()
         .filter(|gap| reads_pair(gap.observed, gap.dispatch))
+        .filter(|gap| {
+            if !matches!(rule, Rule::CompleteRequires(_)) || !gap.observed {
+                return true;
+            }
+            let components = model.components();
+            let owners = [
+                owner_of(components, &gap.source),
+                owner_of(components, &gap.target),
+            ];
+            let [Some(source), Some(target)] = owners else {
+                return true;
+            };
+            if source == target {
+                return false;
+            }
+            let Some((source, target)) = components.get(source).zip(components.get(target)) else {
+                return true;
+            };
+            !source
+                .requires()
+                .iter()
+                .flatten()
+                .any(|entry| entry.component() == target.label() && entry.through() == &Vec::new())
+        })
         .filter(|gap| gap.holds(&reading))
         .map(|gap| (gap.source.as_str(), gap.target.as_str()));
     if let Some(held) = Held::of(held) {

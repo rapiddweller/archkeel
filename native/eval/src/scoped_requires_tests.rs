@@ -13,7 +13,7 @@ use archkeel_model::{Cause, Incomplete, Part, Reason, Settings, Unsupported};
 use serde_json::{json, Value};
 
 use crate::direction_tests::{both, unchanged, MAIN};
-use crate::gap_scope_tests::{failed, gap, rooted, run, word, Run, LOCAL, PAGE};
+use crate::gap_scope_tests::{failed, gap, rooted, run, word, Run, INDEX, LOCAL, ORDER, PAGE};
 use crate::tests::shop_settings;
 
 /// The reply as the reply of the runtime that can carry the proof.
@@ -59,6 +59,59 @@ fn a_kept_gap_of_a_runtime_without_the_proof_is_a_fact_for_complete_requires() {
     // Out of scope of the proof: the host never accepts it from this runtime.
     let found = run(unchanged, gap(PAGE, MAIN.0), rooted()).unwrap_or_else(failed);
     assert!(kept(&found, 1), "{:?}", requires(&found));
+}
+
+#[test]
+fn an_observed_pair_that_cannot_violate_requires_does_not_hold_its_receipt() {
+    for (source, target) in [(INDEX, ORDER), (PAGE, INDEX)] {
+        let found = run(unchanged, gap(source, target), rooted()).unwrap_or_else(failed);
+        assert_eq!(
+            requires(&found),
+            ("PASS".to_owned(), None),
+            "{source} -> {target}"
+        );
+        assert!(found.1.is_err(), "the run still has a pair gap");
+    }
+}
+
+#[test]
+fn an_unrestricted_declared_target_does_not_hold_the_receipt() {
+    let found = run(unchanged, gap(PAGE, INDEX), rooted()).unwrap_or_else(failed);
+    assert_eq!(requires(&found), ("PASS".to_owned(), None));
+}
+
+#[test]
+fn a_through_port_and_an_unseen_target_keep_the_receipt_open() {
+    let restricted = |contract: &mut Value| {
+        contract["components"][1]["requires"][0]["through"] = json!([INDEX]);
+    };
+    let found = run(restricted, gap(PAGE, ORDER), rooted()).unwrap_or_else(failed);
+    assert!(kept(&found, 1), "{:?}", requires(&found));
+    let unseen = run(unchanged, gap(PAGE, "shop.unseen"), rooted()).unwrap_or_else(failed);
+    assert!(kept(&unseen, 1), "{:?}", requires(&unseen));
+}
+
+#[test]
+fn an_ambiguous_owner_cannot_release_a_pair() {
+    let overlap = |contract: &mut Value| {
+        contract["components"][0]["packages"] = json!(["shop.src", "shop.src.main_x2e_ts"]);
+    };
+    let found = run(overlap, gap(INDEX, ORDER), rooted()).unwrap_or_else(failed);
+    assert_eq!(word(&found, "REQUIRES"), "UNKNOWN");
+}
+
+#[test]
+fn an_observed_undeclared_crossing_fails_even_with_an_allowed_pair_gap() {
+    let found = run(
+        unchanged,
+        both(
+            crate::direction_tests::point(7, MAIN.0, MAIN.1, false),
+            gap(INDEX, ORDER),
+        ),
+        rooted(),
+    )
+    .unwrap_or_else(failed);
+    assert_eq!(word(&found, "REQUIRES"), "FAIL");
 }
 
 #[test]
