@@ -95,14 +95,14 @@ def test_a_deep_link_opens_its_level_with_its_selection(site: str, page: Browser
     assert (state["scope"], state["selection"]) == ("PART:shell", "LAYER:PART:shell:process")
 
 
-def test_a_click_on_a_box_selects_it_and_opens_its_facts(site: str, page: Browser) -> None:
+def test_a_click_on_a_box_selects_it_without_opening_its_facts(site: str, page: Browser) -> None:
     page.open(f"{site}/system.html")
     page.evaluate(
         "document.querySelector('#flow [data-uml-id=\"PART:core\"]')"
         ".dispatchEvent(new MouseEvent('click', { bubbles: true }))"
     )
     state = page.state()
-    assert (state["selection"], state["details"]) == ("PART:core", True)
+    assert (state["selection"], state["details"]) == ("PART:core", False)
     assert "selected=PART%3Acore" in state["search"]
 
 
@@ -122,7 +122,7 @@ def test_enter_on_a_module_selects_it_on_this_page(site: str, page: Browser) -> 
     assert (state["scope"], state["selection"], state["details"]) == (
         "SHELL-ARGUMENTS",
         module,
-        True,
+        False,
     )
     assert "Enter opens direct definitions" not in page.evaluate(
         "document.querySelector('#flow .flow-legend').textContent"
@@ -212,20 +212,6 @@ def test_a_perspective_choice_is_kept_in_the_url(site: str, page: Browser) -> No
     )
 
 
-def test_a_matrix_cell_selects_its_import_and_names_it_in_the_url(site: str, page: Browser) -> None:
-    page.open(f"{site}/system.html?scope=PART%3Ashell")
-    page.evaluate("document.querySelector('#flow .ak-rail [data-drawer=\"overview\"]').click()")
-    page.wait("!!document.querySelector('#flow .matrix-cell')")
-    cell = page.evaluate(
-        "(() => { const c = document.querySelector('#flow .matrix-cell');"
-        " c.dispatchEvent(new MouseEvent('click', { bubbles: true })); return c.dataset.cell; })()"
-    )
-    assert f"cell={cell}" in page.evaluate("location.search")
-    assert "Observed import cell" in page.evaluate(
-        "document.querySelector('#flow .flow-inspector-content').textContent"
-    )
-
-
 def select(page: Browser, box: str) -> None:
     page.evaluate(
         f"document.querySelector('#flow [data-uml-id=\"{box}\"]')"
@@ -275,7 +261,7 @@ def test_the_url_of_a_state_gives_the_same_state_back(site: str, page: Browser) 
         "scope=PART%3Ashell&view=target",
         "scope=PART%3Ashell&content=modules&view=diagram&selected=archkeel.cli.core_arguments",
         "scope=PART%3Ashell&view=diff&perspective=none&selected=LAYER%3APART%3Ashell%3Aprocess",
-        "view=diagram&perspective=layer&drawer=overview",
+        "view=diagram&perspective=layer&drawer=objects",
         "view=diagram&details=open",
         "view=diagram&selected=PART%3Acore&details=closed",
     ]
@@ -442,9 +428,6 @@ def test_the_explorer_names_the_result_and_no_observation(site: str, page: Brows
     page.open(f"{site}/part.html")
     status = page.evaluate("document.querySelector('#flow .ak-run-status').textContent")
     assert status == "Result: PASS assuming 1 stated external user"
-    click(page, '#flow .ak-rail [data-drawer="overview"]')
-    drawer = page.evaluate("document.querySelector('#flow .ak-drawer').textContent")
-    assert "Result: PASS assuming 1 stated external user" in drawer
     assert "bservation" not in page.evaluate("document.getElementById('flow').innerText")
 
 

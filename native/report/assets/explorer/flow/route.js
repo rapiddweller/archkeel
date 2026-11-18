@@ -13,7 +13,7 @@
   // AD-734: the URL of a view state, and the view state of a URL. toQuery(fromQuery(q)) is q for a
   // query that toQuery wrote. A default is left out: the language perspective, Details that follow
   // the selection (open with a selected box or cell, closed without), no drawer.
-  const VIEWS = ["diagram", "target", "diff"], DRAWERS = ["overview", "objects"];
+  const VIEWS = ["diagram", "target", "diff"], DRAWERS = ["objects"];
   const PERSPECTIVES = window.ArchkeelReportScene.perspectives;
 
   function atlasLevelOf(path) {
@@ -71,7 +71,7 @@
     return { view: S.view, scope: S.path.at(-1)?.id ?? null, path: S.path.map((entry) => entry.id), content,
       selection: S.selection?.type === "node" ? S.selection.id : null,
       edge: S.selection?.type === "edge" ? S.selection.id : null,
-      module: S.module, cell: S.cell, hint: S.hint, details: S.details, drawer: S.drawer, overlay: S.overlay,
+      module: S.module, cell: S.cell, details: S.details, drawer: S.drawer, overlay: S.overlay,
       pop: S.pop, perspective: S.perspective, pinnedTag: S.pinnedTag, theme: S.theme, expanded: S.expanded,
       notice: routeNotice?.message ?? null };
   }

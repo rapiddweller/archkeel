@@ -9,7 +9,7 @@
     navigate();
     const child = S.path.at(-1);
     S.path = S.path.slice(0, -1);
-    S.selection = { type: "node", id: child.id }; S.module = null; S.cell = null; S.hint = null; S.content = null;
+    S.selection = { type: "node", id: child.id }; S.module = null; S.cell = null; S.content = null;
     routeNotice = null; positions = Object.create(null); render(); fit();
   }
 
@@ -19,7 +19,7 @@
   function goToDepth(depth) {
     navigate();
     S.path = S.path.slice(0, depth); S.selection = null; routeNotice = null;
-    S.module = null; S.cell = null; S.hint = null; S.content = null; positions = Object.create(null); render(); fit();
+    S.module = null; S.cell = null; S.content = null; positions = Object.create(null); render(); fit();
   }
 
   function selectAtlasSheet(level, changes) {
@@ -45,22 +45,11 @@
       case "setView": switchArchitectureView(action.view); break;
       case "setContent": navigate(); S.content = action.content; render(); fit(); break;
       case "select": selectArchitectureSubject(action.kind || "node", action.id); break;
-      case "clearSelection": S.selection = null; S.module = null; S.cell = null; S.hint = null; render(); break;
-      case "selectMatrix": selectAtlasSheet(atlasLevel(), { cell: action.cell, module: action.module }); break;
+      case "clearSelection": S.selection = null; S.module = null; S.cell = null; render(); break;
       case "selectEdgeCell": selectAtlasSheet(atlasLevel(), { cell: action.cell, module: null, selection: null }); break;
       case "selectEdgeSource":
         selectAtlasSheet(atlasLevel(), { selection: { type: "node", id: action.id }, module: null, cell: null }); break;
-      case "showHint": {
-        const level = atlasLevel();
-        selectAtlasSheet(level, { hint: action.index, module: ATLAS.questions[action.index].module_ids[0], cell: null });
-        root.dispatchEvent(new CustomEvent("archkeel:findings"));
-        atlasHighlightQuestion();
-        root.querySelector(".flow-explore .flow-matrix")?.focus();
-        break;
-      }
-      case "toggleAllHints": S.allHints = !S.allHints; atlasExplore(atlasLevel()); break;
       case "setDetails": setTargetDetails(action.open); render(); fit(); break;
-      case "setExplore": setAtlasExploreOpen(action.open); break;
       case "setTheme": setTheme(action.theme === "light" ? "light" : "dark"); break;
       case "openRule": {
         openAtlasComponent(action.rule.scope_id || null);
