@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_facts::data::GapData;
+use archkeel_facts::data::{GapData, GapEffect};
 use archkeel_facts::envelope::Target;
 use archkeel_facts::envelope::{Evidence, FileFact};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
@@ -105,6 +105,17 @@ impl Builder {
     pub(crate) fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str) {
         let fact = GapFact::collection(reason, module);
         let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
+        self.gaps.entry(id).or_insert(record);
+    }
+
+    pub(crate) fn external_origin(&mut self, module: &str, evidence: &str, package: &str) {
+        let reason = format!("A re-export reaches unread package {package}: its origin is unknown");
+        let mut data = GapData::at(&reason, module);
+        data.effect = Some(GapEffect::Edges {
+            sources: vec![ModuleName::new(module)],
+        });
+        let fact = GapFact::CollectionGap(data);
+        let (id, record) = Record::unknown_gap(&reason, Some(evidence), module, fact);
         self.gaps.entry(id).or_insert(record);
     }
 

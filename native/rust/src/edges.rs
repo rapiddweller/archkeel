@@ -288,6 +288,10 @@ impl Builder {
         index: Option<&Index<'_>>,
         (target, target_module, name, other_crate): (Target, String, Option<ImportName>, bool),
     ) {
+        let external = name.as_ref().and_then(ImportName::external_package);
+        if let Some(package) = external.filter(|_| reference.in_macro.is_none()) {
+            self.external_origin(from.module, &evidence, package);
+        }
         let record = record(
             index,
             from.module,

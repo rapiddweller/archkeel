@@ -235,3 +235,61 @@ def test_an_internal_dispatch_does_not_add_a_lexical_external_path(
     assert verdicts["NO-EXTERNAL-IN-A"] == "PASS"
     assert verdicts["EXTERNALS-DECLARED"] == "PASS"
     assert verdicts["NO-LOCAL-IN-A"] == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    ("bridge", "direct", "expected"),
+    [
+        ("pub use foreign::Token;", False, "UNKNOWN"),
+        ("pub struct Token; impl Token { pub fn origin() -> u32 { 42 } }", False, "PASS"),
+        ("pub use foreign::Token;", True, "FAIL"),
+    ],
+    ids=["foreign-reexport", "local-definition", "direct-import"],
+)
+def test_an_external_reexport_can_name_an_unread_package(
+    tmp_path: Path, release_core: Path, bridge: str, direct: bool, expected: str
+) -> None:
+    cc = BASE.replace('"base-crate"', '"cc"') + "[workspace]\n"
+    foreign = BASE.replace('"base-crate"', '"foreign"') + "[workspace]\n"
+    package = "cc" if direct else "base_crate"
+    files = {
+        "crates/base/Cargo.toml": BASE
+        + '[dependencies]\nforeign = { path = "../../vendor/foreign" }\n',
+        "crates/base/src/lib.rs": bridge,
+        "crates/app/src/lib.rs": f"pub fn run() -> u32 {{ {package}::Token::origin() }}\n",
+        "crates/app/src/main.rs": "fn main() { assert_eq!(app::run(), 42); }\n",
+        "vendor/foreign/Cargo.toml": foreign + '[dependencies]\ncc = { path = "../cc" }\n',
+        "vendor/foreign/src/lib.rs": "pub use cc::Token;\n",
+        "vendor/cc/Cargo.toml": cc,
+        "vendor/cc/src/lib.rs": "pub struct Token; impl Token { pub fn origin() -> u32 { 42 } }\n",
+    }
+    if direct:
+        files["crates/app/Cargo.toml"] = APP + 'cc = { path = "../../vendor/cc" }\n'
+    scope = rule(
+        "NO-CC",
+        "external_dependency_scope",
+        dependency="cc",
+        exact_sources=["native.app.cargo_toml"],
+    )
+    root = repository(tmp_path / "repo", release_core, files, rules=(scope,))
+    command = [
+        "cargo",
+        "run",
+        "--quiet",
+        "--offline",
+        "--package",
+        "app",
+        "--manifest-path",
+        str(root / "crates/Cargo.toml"),
+    ]
+    env = {**os.environ, "CARGO_TARGET_DIR": str(tmp_path / "target")}
+    done = subprocess.run(command, capture_output=True, text=True, env=env, check=False)
+    assert done.returncode == 0, done.stderr
+    result = validate(root)
+    assert statuses(result)["NO-CC"] == expected
+    if expected == "UNKNOWN":
+        gaps = result["frame"]["collection_gaps"]
+        assert any(
+            gap["subjects"] == ["native.app"] and "unread package foreign" in gap["reason"]
+            for gap in gaps
+        )
