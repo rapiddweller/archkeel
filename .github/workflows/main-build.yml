@@ -12,6 +12,8 @@ on:
       - ".github/workflows/main-build.yml"
       - ".github/workflows/native-wheels.yml"
       - "tools/publish_main_build.py"
+      - "tools/publish_main_image.py"
+      - "docker/**"
   workflow_dispatch:
     inputs:
       publish:
@@ -54,3 +56,34 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 tools/publish_main_build.py
+
+  # AD-858: the image of the current main build. It does not wait for `publish`, because the
+  # release of the first main build cannot be replaced yet.
+  image:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
+    needs: wheels
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out the built commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the tested Linux wheel
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: native-wheel-manylinux-x86_64
+          path: image-context/
+
+      - name: Log in to the container registry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Build, test and publish the image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/publish_main_image.py

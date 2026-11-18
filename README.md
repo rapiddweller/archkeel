@@ -131,11 +131,18 @@ ArchKeel needs Python 3.11+ and a Git repository with at least one commit.
 ### Install the latest main build (without Rust)
 
 This is a development build, not a release. It includes the Rust core for each supported platform.
-The first build stays available until a safe replacement process is in place.
+The wheels stay at the first main build until a safe replacement process is in place.
 
 ```bash
 pip install --pre --find-links https://github.com/rapiddweller/archkeel/releases/expanded_assets/main-build archkeel
 uv tool install --prerelease allow --find-links https://github.com/rapiddweller/archkeel/releases/expanded_assets/main-build archkeel
+```
+
+The container image `ghcr.io/rapiddweller/archkeel:5.0-rc` always holds the last tested `main`
+build. The tag `sha-<commit>` keeps each build. The image runs on `linux/amd64`.
+
+```bash
+docker run --rm --platform linux/amd64 -v "$PWD:/work" ghcr.io/rapiddweller/archkeel:5.0-rc validate
 ```
 
 ```bash
