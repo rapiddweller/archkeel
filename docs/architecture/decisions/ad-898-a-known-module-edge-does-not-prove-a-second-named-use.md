@@ -12,7 +12,8 @@ the first named use. A listed import can therefore turn UNKNOWN into a false PAS
 
 - Keep the existing dependency pair. If it already has a known edge, write the
   unresolved named use as a source resolution gap in `unknowns`, not as a
-  second coverage gap. Cite the call site and keep separate sites.
+  second coverage gap. Cite each call site, also when one glob can bind
+  two calls on the same line.
 - The store checks that the site names two distinct observed modules and cites the
   caller. The interface receipt reads the pairs with an unresolved crossing into
   a declared public surface. It still fails a proved unlisted use.
@@ -38,4 +39,5 @@ It leaves all 22,597 coverage gaps, other rule readings and statuses unchanged.
 
 `test_cli_native_rust_interface.py` compiles and checks the listed use,
 the exact unlisted call, the unresolved call, and both orders of the mixed case.
+It also checks two glob call positions on the same line and on separate lines.
 `rust_tests.rs` checks canonical fact parity and refuses live v1 authority.
