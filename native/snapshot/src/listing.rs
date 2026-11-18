@@ -16,7 +16,7 @@
 //! the Python collector does, so a file that changes into a link is not read.
 
 use std::fs::{self, File, Metadata};
-use std::io::{ErrorKind, Read};
+use std::io::{Error, ErrorKind, Read};
 
 use archkeel_facts::envelope::Role;
 use archkeel_facts::identity::sha256_hex;
@@ -120,7 +120,7 @@ impl Snapshot {
                     return None;
                 }
             };
-            let kind = match entry_kind(&entry) {
+            let kind = match self.kind(rel, &entry) {
                 Ok(kind) => kind,
                 Err(message) => {
                     let child = join(rel, &name);
@@ -205,23 +205,23 @@ impl Snapshot {
             .insert(rel.to_owned(), (sha256_hex(&raw), Role::Selected));
         Some(raw)
     }
-}
 
-fn entry_kind(entry: &fs::DirEntry) -> Result<Entry, &'static str> {
-    let kind = entry.file_type().map_err(|_| "Unreadable source entry")?;
-    if kind.is_symlink() {
-        let to_directory = match fs::metadata(entry.path()) {
-            Ok(target) => target.is_dir(),
-            Err(error) if error.kind() == ErrorKind::NotFound => false,
-            Err(_) => return Err("Unreadable link target"),
-        };
-        Ok(Entry::Link { to_directory })
-    } else if kind.is_dir() {
-        Ok(Entry::Directory)
-    } else if kind.is_file() {
-        Ok(Entry::File)
-    } else {
-        Ok(Entry::Other)
+    fn kind(&self, rel: &str, entry: &fs::DirEntry) -> Result<Entry, &'static str> {
+        let kind = entry.file_type().map_err(|_| "Unreadable source entry")?;
+        if kind.is_symlink() {
+            let to_directory = match fs::metadata(self.absolute(rel).join(entry.file_name())) {
+                Ok(target) => target.is_dir(),
+                Err(error) if Error::kind(&error) == ErrorKind::NotFound => false,
+                Err(_) => return Err("Unreadable link target"),
+            };
+            Ok(Entry::Link { to_directory })
+        } else if kind.is_dir() {
+            Ok(Entry::Directory)
+        } else if kind.is_file() {
+            Ok(Entry::File)
+        } else {
+            Ok(Entry::Other)
+        }
     }
 }
 
