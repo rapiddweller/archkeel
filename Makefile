@@ -121,6 +121,8 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --features dump,harness -- -D warnings
 	cd native && cargo deny --locked check
 	cd native && cargo build --locked -p archkeel-rust-collector
+	# Cargo puts the core test executable under deps/. Give it the same sibling as the installed core.
+	cd native && mkdir -p target/debug/deps && ln -sf ../archkeel-rust-collector target/debug/deps/archkeel-rust-collector
 	cd native && cargo test --locked
 	$(MAKE) self-validate-native
 

@@ -2,14 +2,14 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! One run of a linked collector in the process of the core (AD-406).
+//! Run the Rust worker or a linked collector and validate the reply (AD-406, AD-881).
 //!
 //! The request goes through the decode of the wire, the same check that the binary runs on its
 //! stdin, so the in-process collector reads exactly the request that the binary would read. The
 //! collector runs on a thread with a large stack. A panic of the collector ends that thread: in a
 //! test build (unwind) the join gives the panic and this boundary names it as a refusal. In the
-//! release build `panic = "abort"` ends the whole core process, as a stack overflow does; the
-//! shell then sees a dead core and the run has no verdict (exit 2), never a PASS.
+//! release build `panic = "abort"` ends the worker for Rust or the core for a linked collector.
+//! Both failures give UNKNOWN (exit 2), never a PASS.
 
 use std::time::Duration;
 

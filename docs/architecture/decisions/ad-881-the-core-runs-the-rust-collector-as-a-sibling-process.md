@@ -29,9 +29,9 @@ longer linked into the core) and AD-436 (point 1: the wheel carries two binaries
 crate edge no such pair exists, so the rule has a scope proof from the Cargo graph. The edge
 is not hidden by an exception: with the edge restored, the rule is UNKNOWN again.
 
-**Measured** (same engine, tree of main `e6a3850c0` against this draft). Rules: 81 PASS and
+**Measured** (same installed engine, tree of main `cef0d6f3a` against this draft). Rules: 81 PASS and
 11 UNKNOWN before; 82 PASS, 0 FAIL and 10 UNKNOWN after. Only `NATIVE-NO-CORE-TO-RUST` changed.
-Pair gaps: 22,599 before, 21,854 after (809 gone, 64 new). Plants: a Cargo edge or a use from
+Pair gaps: 22,597 before, 21,852 after (809 gone, 64 new). Plants: a Cargo edge or a use from
 core to the Rust collector gives FAIL; the old `collect` edge gives UNKNOWN; removing any one of
 the three wire names, or using an unlisted public name, gives `NATIVE-INTERFACE-BOUNDARY` FAIL.
 
@@ -42,7 +42,7 @@ Rust `library` tree (54 MB of source) gave more than 128 MiB, which the linked c
 
 **Limits.**
 - The 1 GiB limit gives a peak of the worker and the core together. The old path had one process.
-- `NATIVE-INTERFACE-BOUNDARY` stays UNKNOWN, as on main: its 21,854 pair gaps do not change.
+- `NATIVE-INTERFACE-BOUNDARY` stays UNKNOWN, as on main.
 - The 64 new pair gaps (new modules with trait impls) are not in `native/expected-gaps.json`,
   and 809 pinned gaps are gone. The pins are not changed in this draft.
 - The CI core cache stores both binaries. The release check verifies both wheel members and their digests.
