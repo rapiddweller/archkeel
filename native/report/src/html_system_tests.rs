@@ -168,6 +168,36 @@ fn every_explorer_payload_has_an_atlas() {
     assert!(!page.contains("id=\"flow-data\""));
 }
 
+#[test]
+fn explorer_preserves_complete_gap_messages_and_their_record_counts() {
+    let frame = json!({
+        "status": "UNKNOWN", "topology": components(2, &[]),
+        "collection_gaps": [
+            {"kind": "collection_gap", "reason": "The macro schemars::JsonSchema: not read",
+             "subjects": ["m.a"], "evidence": ["e1"]},
+            {"kind": "collection_gap", "reason": "The macro schemars::JsonSchema: not read",
+             "subjects": ["m.b"], "evidence": []},
+            {"kind": "collection_gap", "reason": "The macro schemars::Other: not read",
+             "subjects": ["m.c"], "evidence": []}
+        ],
+        "locations": {"e1": {"path": "src/a.rs", "line": 42}}
+        , "rules": {"A": ["complete_assignment", "UNKNOWN"], "B": ["complete_requires", "UNKNOWN"]},
+        "explain": {"holds": {"rules": {"A": {"kind": "coverage_gaps", "total": 1},
+                                         "B": {"kind": "coverage_gaps", "total": 1}}}}
+    });
+    let data = payload(&document(&frame));
+    let atlas = &data["atlas"];
+    assert_eq!(atlas["unknown_count"], 3);
+    assert_eq!(atlas["gap_messages_complete"], true);
+    assert_eq!(atlas["whole_scan_holds"], json!([{"gaps": 1, "rules": 2}]));
+    let rows = atlas["unknowns"].as_array().unwrap();
+    assert_eq!(rows.len(), 2);
+    let first = rows.iter().find(|row| row["count"] == 2).unwrap();
+    assert_eq!(first["reason"], "The macro schemars::JsonSchema: not read");
+    assert_eq!(first["example"], "src/a.rs:42");
+    assert!(atlas["architecture_href"].is_null());
+}
+
 // The Explorer names the result of the run in the words of its verdict (AD-764), not the 4.0.1
 // "observation", which only said that a list of the topology was cut by its budget.
 #[test]

@@ -91,7 +91,7 @@
       <p>${(row.locations || []).map((item) => esc(`${item.file || "Location unavailable"}${item.line != null ? `:${item.line}` : ""} · ${item.id}`)).join("<br>") || "Source evidence location unavailable"}</p>
       <p>${(row.routes || []).map(routeLink).join(" · ")}${ownerLinks || ""}</p>
       ${!row.routes?.length && !row.component_ids?.length ? "<p>Navigation unavailable or ambiguous; retained in root audit.</p>" : ""}
-      <p><a href="${esc(ATLAS.architecture_href || NAV?.architecture_href || "architecture.json")}">Complete audit JSON</a></p>
+      ${auditInstructions()}
     `;
   }
 

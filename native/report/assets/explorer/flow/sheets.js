@@ -53,7 +53,7 @@
         ? `<a href="${esc(atlasRuleScopeHref(scopedLevel || level, item.id))}">${esc(item.id)}</a>`
         : `<code>${esc(item.id)}</code>`;
       const evidence = item.evidence.length
-        ? `<ul>${item.evidence.map((entry) => `<li>${esc(entry.kind)} · ${esc(entry.title)} · ${esc(entry.subjects.join(", "))}${entry.subject_count > entry.subjects.length ? ` (+${entry.subject_count - entry.subjects.length} subjects in audit)` : ""}${entry.reason ? ` · ${esc(entry.reason)}` : ""} · <a href="${esc(ATLAS.architecture_href)}">record ${esc(entry.id)} in architecture JSON</a></li>`).join("")}</ul>`
+        ? `<ul>${item.evidence.map((entry) => `<li>${esc(entry.kind)} · ${esc(entry.title)} · ${esc(entry.subjects.join(", "))}${entry.subject_count > entry.subjects.length ? ` (+${entry.subject_count - entry.subjects.length} subjects in audit)` : ""}${entry.reason ? ` · ${esc(entry.reason)}` : ""} · record ${esc(entry.id)}</li>`).join("")}</ul>`
         : "";
       const scope = atlasComponentLink(item.scope_id, item.scope);
       const affected = item.component_ids.map((id) => {
@@ -66,19 +66,56 @@
           ${item.uncertainty_actions.length ? `<ul>${item.uncertainty_actions.map((action) =>
             `<li data-uncertainty-cause="${esc(action.cause)}" data-architect-actionable="${action.architect_actionable ?? "unknown"}"><strong>${esc(action.cause.replaceAll("_", " "))}</strong> · ${action.architect_actionable === true ? "Architect decision required" : action.architect_actionable === false ? "Evidence or analysis action required" : "Architect actionability not established"}: ${esc(action.next_action)}</li>`).join("")}</ul>`
             : "<p>Next action: inspect the recorded reason and affected scope. No cause was established for this uncertainty.</p>"}
-          <p><a href="${esc(ATLAS.architecture_href)}">Complete evidence in architecture JSON</a></p>` : "";
+          ${auditInstructions()}` : "";
       return `<li id="atlas-assessment-${esc(item.id)}" tabindex="-1"><strong class="atlas-rule-status ${esc(item.status.toLowerCase())}">${esc(item.status)}</strong> · ${rule} (${esc(item.kind)}) · ${scope} · ${esc(item.reason)}`
         + `${item.count ? ` · ${REPORT_SCENE.countLabel(item.count, "recorded result")}` : ""}`
         + `${item.undecided ? ` · ${REPORT_SCENE.countLabel(item.undecided, "undecided result")}` : ""}`
         + `${uncertainEvidence}</li>`;
       }).join("")}</ul>` : "<p>Rule assessments were not recorded.</p>"}</details>`;
   }
-  // The analysis limits that the frame names, each with its reason. The verdict of the run is on the
-  // card; a sheet repeats none of it.
+  function auditInstructions() {
+    return `<p>To generate the full audit JSON, run <code>archkeel report --topology --output report.json --format json</code> with the same root and configuration. A new run reads the current source; it may differ from this report.</p>`;
+  }
+
   function atlasEvidenceMarkup() {
     if (!ATLAS.unknowns.length) return "";
+    if (ATLAS.gap_messages_complete !== true) return `<section class="atlas-evidence"><h3>Analysis limits</h3>
+      <p>This older report stores shortened messages. Their full text is unavailable here.</p>${auditInstructions()}</section>`;
+    const ranked = [...ATLAS.unknowns].sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
     return `<section class="atlas-evidence"><h3>Analysis limits</h3>
-      <ul class="plain">${ATLAS.unknowns.map((item) => `<li>${REPORT_SCENE.countLabel(item.count, "analysis limit")} · ${esc(item.reason)}</li>`).join("")}</ul></section>`;
+      <p>${REPORT_SCENE.countLabel(ATLAS.unknown_count, "gap record")} · ${REPORT_SCENE.countLabel(ranked.length, "distinct message")}. These counts are not rule verdicts or independent causes. Not every gap holds every rule.</p>
+      ${(ATLAS.whole_scan_holds || []).slice(0, 3).map((hold) => `<p>${REPORT_SCENE.countLabel(hold.rules, "UNKNOWN rule")} ${hold.rules === 1 ? "reports" : "each report"} ${REPORT_SCENE.countLabel(hold.gaps, "whole-scan gap")}. Gap counts can overlap between rules; they are not added.</p>`).join("")}
+      ${(ATLAS.whole_scan_holds || []).length > 3 ? "<p>See Rules above for the other rule verdicts.</p>" : ""}
+      <p>Most frequent messages:</p><ul class="plain">${ranked.slice(0, 3).map(atlasGapMessage).join("")}</ul>
+      <details data-gap-search><summary>Search all ${ranked.length} distinct messages</summary>
+        <label>Search messages <input type="search" data-gap-query></label>
+        <p data-gap-count aria-live="polite"></p><ul class="plain" data-gap-results></ul>
+        <button type="button" data-gap-previous>Previous</button> <button type="button" data-gap-next>Next</button>
+      </details>${auditInstructions()}</section>`;
+  }
+  function atlasGapMessage(item) {
+    return `<li><strong>${REPORT_SCENE.countLabel(item.count, "gap record")}</strong> · ${esc(item.reason)}${item.example ? `<br>Example: <code>${esc(item.example)}</code>` : ""}</li>`;
+  }
+  function wireGapSearch() {
+    const section = inspectorContent.querySelector("[data-gap-search]");
+    if (!section) return;
+    const query = section.querySelector("[data-gap-query]");
+    const previous = section.querySelector("[data-gap-previous]");
+    const next = section.querySelector("[data-gap-next]");
+    let offset = 0;
+    const draw = () => {
+      const term = query.value.toLocaleLowerCase();
+      const rows = ATLAS.unknowns.filter((item) => `${item.reason} ${item.example}`.toLocaleLowerCase().includes(term))
+        .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
+      section.querySelector("[data-gap-count]").textContent = `${REPORT_SCENE.countLabel(rows.length, "matching message")} · showing ${rows.length ? offset + 1 : 0}–${Math.min(offset + 20, rows.length)}`;
+      section.querySelector("[data-gap-results]").innerHTML = rows.slice(offset, offset + 20).map(atlasGapMessage).join("");
+      previous.disabled = offset === 0;
+      next.disabled = offset + 20 >= rows.length;
+    };
+    query.addEventListener("input", () => { offset = 0; draw(); });
+    previous.onclick = () => { offset = Math.max(0, offset - 20); draw(); };
+    next.onclick = () => { offset += 20; draw(); };
+    draw();
   }
 
   function moduleInventoryMarkup(inventories) {
@@ -158,7 +195,6 @@
       .filter((item) => item.component_id === (component?.id || null))) : "";
     const entries = (items) => items ? items.map((item) => `<li>${esc(item)}</li>`).join("") : "";
     const list = (title, items) => items && items.length ? `<h3>${title}</h3><ul class="plain">${entries(items)}</ul>` : "";
-    const link = (href, label) => `<a href="${esc(href)}">${esc(label)}</a>`;
     if (S.view !== "target" && S.cell !== null) {
       const cell = ATLAS.cells[S.cell];
       const source = REPORT_SCENE.atlasModuleById(cell.source_id), target = REPORT_SCENE.atlasModuleById(cell.target_id);
@@ -225,7 +261,8 @@
         <p>${S.view === "target" ? "Select a component or declared module." : "Select a component, module, import cell or question."}</p>
         ${inventory}${boundaryPermissionMarkup()}
         ${S.view === "target" ? "" : `${atlasRuleAssessmentMarkup(level)}${atlasEvidenceMarkup()}`}
-        <p>${link(ATLAS.architecture_href, "Complete audit JSON")}</p>`;
+        ${auditInstructions()}`;
+      wireGapSearch();
       return;
     }
     const componentLevel = ATLAS.levels.find((item) => item.parent_id === component.id);
