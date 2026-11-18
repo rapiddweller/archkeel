@@ -5,7 +5,7 @@
 use super::options_reader::{has_preload_flag, option_names};
 use super::{
     malformed_config, mode_of, names_of, node_options, patches_loader, quoted_list, reaches_module,
-    yaml_list,
+    script_cwd_unknown, yaml_list,
 };
 use crate::source_input::ModuleFormat;
 
@@ -94,6 +94,38 @@ fn node_options_in_a_script_is_read() {
         ["pre"]
     );
     assert!(option_names("node --inspect a.js").is_empty());
+}
+
+#[test]
+fn only_direct_node_commands_prove_the_package_script_working_directory() {
+    for command in [
+        "cd sub && node --require hook src.js",
+        "cd $SUB && node --require hook src.js",
+        "env NODE_OPTIONS=--require\\ hook node src.js",
+        "cross-env NODE_OPTIONS=--require hook node src.js",
+        "npm --prefix sub run start",
+        "sh -c 'cd sub && node --require hook src.js'",
+        "exec node --require hook src.js",
+        "NODE=./node node --require hook src.js",
+        "node $NODE_ARGS",
+        "node --require hook src.js && echo done",
+        "node --require=./ho'ok.cjs src.js",
+        "node --env-file-if-exists=run'time'.env --require hook src.js",
+    ] {
+        let text = serde_json::json!({"scripts":{"start":command}}).to_string();
+        assert!(script_cwd_unknown("package.json", &text), "{command}");
+    }
+    for command in [
+        "node --require hook src.js",
+        "  node --env-file-if-exists=runtime.env -e 'console.log(1)'",
+    ] {
+        let text = serde_json::json!({"scripts":{"start":command}}).to_string();
+        assert!(!script_cwd_unknown("package.json", &text), "{command}");
+    }
+    assert!(!script_cwd_unknown(
+        "package.json",
+        r#"{"scripts":{"start":12}}"#
+    ));
 }
 
 #[test]

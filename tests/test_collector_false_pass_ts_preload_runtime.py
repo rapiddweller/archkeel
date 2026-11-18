@@ -63,7 +63,7 @@ def test_custom_node_conditions_do_not_leave_preload_entry_as_pass(
     assert result.returncode == 0, result.stderr
     assert "CUSTOM_TYPES" in result.stdout, result.stdout
     assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
-    assert any("conditions" in gap["reason"].lower() for gap in frame["collection_gaps"])
+    assert any("execution context" in gap["reason"] for gap in frame["collection_gaps"])
 
 
 def test_custom_node_conditions_apply_to_transitive_exports_too(
@@ -91,7 +91,7 @@ def test_custom_node_conditions_apply_to_transitive_exports_too(
     assert result.returncode == 0, result.stderr
     assert "TRANSITIVE_CUSTOM" in result.stdout, result.stdout
     assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
-    assert any("custom conditions" in gap["reason"] for gap in frame["collection_gaps"])
+    assert any("execution context" in gap["reason"] for gap in frame["collection_gaps"])
 
 
 def test_unquoted_node_options_assignment_does_not_leave_preload_as_pass(
@@ -197,7 +197,7 @@ def test_node_options_sources_and_uncertain_shell_forms_fail_closed(
             "<dynamic preload target>" in gap["reason"] for gap in frame["collection_gaps"]
         ), frame["collection_gaps"]
     else:
-        assert any("custom conditions" in gap["reason"] for gap in frame["collection_gaps"]), frame[
+        assert any("execution context" in gap["reason"] for gap in frame["collection_gaps"]), frame[
             "collection_gaps"
         ]
 

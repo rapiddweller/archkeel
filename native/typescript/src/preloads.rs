@@ -25,6 +25,9 @@ mod conditions;
 mod dynamic;
 #[path = "preloads_options.rs"]
 mod options_reader;
+#[path = "preloads_script_context.rs"]
+mod script_context;
+pub(super) use script_context::script_cwd_unknown;
 
 /// Whether a repository data filename can name a tool preload.
 pub(super) fn preload_file(name: &str) -> bool {
@@ -54,7 +57,7 @@ pub(super) struct Named {
     pub(super) file: String,
     pub(super) line: usize,
     pub(super) mode: Option<ModuleFormat>,
-    pub(super) conditions_unknown: bool,
+    pub(super) resolution_unknown: bool,
 }
 
 /// Whether this repository config can add an unmodeled Node condition.
@@ -66,8 +69,8 @@ pub(super) fn has_custom_conditions(base: &str, text: &str) -> bool {
     conditions::has_conditions_flag(text)
 }
 
-/// Unknown env-file options and the literal files named by the optional form.
-pub(super) fn env_file_context(
+/// Whether env-file inputs or package scripts leave Node's resolution context unknown.
+pub(super) fn node_context_unknown(
     base: &str,
     text: &str,
     mut source_exists: impl FnMut(&str) -> bool,
@@ -110,7 +113,7 @@ pub(super) fn env_file_context(
     if found && (text.contains('$') || text.contains('`') || text.contains('\\')) {
         unknown = true;
     }
-    unknown
+    unknown || script_cwd_unknown(base, text)
 }
 
 /// Whether a resolved file can be executable runtime source.

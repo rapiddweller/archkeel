@@ -51,9 +51,9 @@ impl Collection<'_> {
         let named = self.named_preloads();
         let mut files = Vec::new();
         for preload in named {
-            if preload.conditions_unknown {
+            if preload.resolution_unknown {
                 let reason = format!(
-                    "Preload {} named in {}:{} uses unobserved Node custom conditions",
+                    "Preload {} at {}:{} has unobserved Node execution context",
                     preload.name, preload.file, preload.line
                 );
                 self.gap(&reason, None, "", GapKind::Resolution);
@@ -119,7 +119,7 @@ impl Collection<'_> {
             );
         }
         for preload in &mut found {
-            preload.conditions_unknown |= source_unknown;
+            preload.resolution_unknown |= source_unknown;
         }
         found
     }
@@ -139,7 +139,7 @@ impl Collection<'_> {
         };
         let text = String::from_utf8_lossy(&data);
         let base = file.rsplit('/').next().unwrap_or_default();
-        let env_file_unknown = preloads::env_file_context(base, &text, |path| {
+        let context_unknown = preloads::node_context_unknown(base, &text, |path| {
             let p = join(dirname(&file), path);
             p.starts_with('/')
                 || is_outside(&p)
@@ -161,12 +161,12 @@ impl Collection<'_> {
                 .map(|name| preloads::Named {
                     line: preloads::line_of(&text, &name),
                     mode: preloads::mode_of(base, &text, &name),
-                    conditions_unknown: false,
+                    resolution_unknown: false,
                     name,
                     file: file.clone(),
                 })
                 .collect(),
-            preloads::has_custom_conditions(base, &text) || env_file_unknown,
+            preloads::has_custom_conditions(base, &text) || context_unknown,
         )
     }
     fn reaches_module(&mut self, file: &str) -> bool {

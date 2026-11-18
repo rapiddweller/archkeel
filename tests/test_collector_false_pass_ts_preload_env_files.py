@@ -38,7 +38,7 @@ def test_npmrc_conditions_apply_to_package_script_preload(
     assert "NPM_CUSTOM_TYPES" in result.stdout, result.stdout
     assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
     assert any(
-        "unobserved Node custom conditions" in gap["reason"] for gap in frame["collection_gaps"]
+        "unobserved Node execution context" in gap["reason"] for gap in frame["collection_gaps"]
     )
 
 
@@ -69,7 +69,7 @@ def test_env_file_conditions_apply_to_transitive_preload_import(
     assert "ENV_CUSTOM_TYPES" in result.stdout, result.stdout
     assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
     assert any(
-        "unobserved Node custom conditions" in gap["reason"] for gap in frame["collection_gaps"]
+        "unobserved Node execution context" in gap["reason"] for gap in frame["collection_gaps"]
     )
 
 
@@ -98,7 +98,7 @@ def test_env_file_reference_with_unclassified_source_fails_closed(
     assert "UNKNOWN_ENV_SOURCE" in result.stdout, result.stdout
     assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
     assert any(
-        "unobserved Node custom conditions" in gap["reason"] for gap in frame["collection_gaps"]
+        "unobserved Node execution context" in gap["reason"] for gap in frame["collection_gaps"]
     )
 
 
@@ -162,7 +162,7 @@ def test_documented_env_file_forms_cannot_leave_custom_preload_as_pass(
     assert "OPTIONAL_ENV_CUSTOM" in result.stdout, result.stdout
     assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
     assert any(
-        "unobserved Node custom conditions" in gap["reason"] for gap in frame["collection_gaps"]
+        "unobserved Node execution context" in gap["reason"] for gap in frame["collection_gaps"]
     )
 
 
@@ -198,6 +198,67 @@ def test_missing_optional_env_file_is_a_control_for_the_real_node_command(
     assert result.returncode == 0, result.stderr
     assert "OPTIONAL_MISSING_OK" in result.stdout, result.stdout
     assert frame["rules"]["REQUIRES"][1] == "PASS", frame["rules"]
+
+
+def test_npm_script_changed_cwd_cannot_leave_optional_env_file_as_pass(
+    tmp_path: Path, release_core: Path
+) -> None:
+    extra = {
+        "package.json": json.dumps(
+            {
+                "name": "app",
+                "scripts": {
+                    "start": (
+                        "cd sub && node --env-file-if-exists=runtime.env --require hook "
+                        "-e 'console.log(1)'"
+                    )
+                },
+            }
+        ),
+        "sub/runtime.env": "NODE_OPTIONS=--conditions=types\n",
+        "node_modules/hook/package.json": (
+            '{"name":"hook","exports":{".":{"types":"./custom.cjs","require":"./ordinary.cjs"}}}'
+        ),
+        "node_modules/hook/custom.cjs": PATCH + "console.log('SUB_ENV_CUSTOM');\n",
+        "node_modules/hook/ordinary.cjs": "module.exports = {};\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    result = subprocess.run(
+        ["npm", "run", "start"],
+        cwd=tmp_path / "repo",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "SUB_ENV_CUSTOM" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
+
+
+def test_npm_script_changed_cwd_cannot_leave_relative_preload_as_pass(
+    tmp_path: Path, release_core: Path
+) -> None:
+    extra = {
+        "package.json": json.dumps(
+            {
+                "name": "app",
+                "scripts": {"start": "cd sub && node --require ./hook.cjs -e 'console.log(1)'"},
+            }
+        ),
+        "hook.cjs": "module.exports = {};\n",
+        "sub/hook.cjs": PATCH + "console.log('SUB_RELATIVE_PRELOAD');\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    result = subprocess.run(
+        ["npm", "run", "start"],
+        cwd=tmp_path / "repo",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "SUB_RELATIVE_PRELOAD" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
 
 
 def test_oversized_env_file_snapshot_refusal_withholds_preload_pass(

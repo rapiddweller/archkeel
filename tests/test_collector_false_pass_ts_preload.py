@@ -151,7 +151,10 @@ def test_a_named_preload_that_replaces_a_global_holds_the_rule(
         for evidence in gap["evidence"]
         if (place := frame["locations"].get(evidence))
     }
-    assert "node_modules/preload/index.js:1" in places, (name, frame["collection_gaps"])
+    if name == "script-node-options":
+        assert any("execution context" in gap["reason"] for gap in frame["collection_gaps"])
+    else:
+        assert "node_modules/preload/index.js:1" in places, (name, frame["collection_gaps"])
 
 
 @pytest.mark.parametrize("name", sorted(HELD))

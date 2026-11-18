@@ -4748,7 +4748,8 @@
         "native.archkeel_typescript_collector.collect.import_record",
         "native.archkeel_typescript_collector.collect.package_closure",
         "native.archkeel_typescript_collector.collect.package_closure.names",
-        "native.archkeel_typescript_collector.collect.preloads"
+        "native.archkeel_typescript_collector.collect.preloads",
+        "native.archkeel_typescript_collector.collect.preloads.script_context"
       ],
       "responsibilities": [
         "Orchestrate one collection: select the files, parse them, resolve the imports and write the reply."
