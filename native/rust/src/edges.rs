@@ -179,12 +179,16 @@ impl Builder {
         reference: &Reference,
         named: &Named,
     ) {
-        let (target_module, key) = match named {
+        let (target_module, mut key) = match named {
             Named::Sysroot(name) => (name.clone(), format!("sysroot:{name}")),
             Named::Package(package) | Named::Registry(package) => {
                 (package.clone(), format!("package:{package}"))
             }
         };
+        // A template cannot supply evidence for a path in ordinary code.
+        if reference.in_macro.is_some() {
+            key.insert_str(0, "template:");
+        }
         // One record for each distinct path of a file; the first use is its evidence.
         if !self
             .seen

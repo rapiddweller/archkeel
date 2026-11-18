@@ -10,6 +10,7 @@ This route is a written import, not a dispatch gap.
 **Decision.** Keep the known local edge. When a proven publication route reaches an unread
 external package, record an edge gap at the source of the import. Cite the written path.
 The gap does not change the wire schema. A direct import still names the package in its path.
+Keep macro templates and ordinary paths separate when removing duplicate paths.
 
 **Rejected.** Substitute the package at the end of the scanned route for the package that
 defines the item. The scan does not read that package's exports.
@@ -20,3 +21,4 @@ through an external glob, a macro expansion, or an incomplete route.
 **Tests.** Cargo runs the same call through a foreign re-export and through a local definition.
 The external scope rule is UNKNOWN for the unread route and PASS for the local definition.
 A direct path to the restricted package gives FAIL.
+An unused template does not cause a gap or hide the ordinary path in either source order.
