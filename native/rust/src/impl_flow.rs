@@ -20,7 +20,7 @@ use crate::definitions::{Access, Form, Member, MethodCall};
 use crate::impl_globs::depends;
 use crate::impl_globs::once_gap;
 use crate::modules::inside;
-use crate::modules::TypeOf;
+use crate::modules::{Index, TypeOf};
 use crate::scan::Via;
 use crate::site::Site;
 use crate::tree::Module;
@@ -36,7 +36,7 @@ pub(super) struct Pending {
 }
 
 /// Give each pending gap whose target its source can reach.
-pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
+pub(super) fn settle(builder: &mut Builder, index: &Index<'_>, mut open: Vec<Pending>) {
     while !open.is_empty() {
         let graph = Graph::of(builder);
         let mut reach: BTreeMap<String, Reach> = BTreeMap::new();
@@ -44,11 +44,16 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
             let found = reach
                 .entry(pending.source.clone())
                 .or_insert_with(|| graph.reach(&pending.source));
-            // A type of an inline module of the file is reached through that module.
+            // An indexed child in another file is no route to code of its parent file.
             let below = format!("{}.", pending.target);
             found.any
-                || (found.modules.iter())
-                    .any(|module| *module == pending.target || module.starts_with(&below))
+                || (found.modules.iter()).any(|module| {
+                    *module == pending.target
+                        || (module.starts_with(&below)
+                            && index
+                                .file_of(module)
+                                .is_none_or(|file| file == pending.target))
+                })
         });
         if ready.is_empty() {
             return;
@@ -183,13 +188,8 @@ struct Graph {
 
 impl Graph {
     fn of(builder: &Builder) -> Self {
-        let edges: BTreeSet<(String, String)> = (builder.imports.iter())
-            .map(|record| {
-                let data = record.data.data();
-                let source = data.source_module.as_str().to_owned();
-                (source, data.target_module.as_str().to_owned())
-            })
-            .collect();
+        // Only a call of a macro can use its template paths. The call has its own records.
+        let edges = builder.module_pairs();
         let mut next: BTreeMap<String, Vec<String>> = BTreeMap::new();
         for (source, target) in edges.iter().chain(&builder.gapped) {
             next.entry(source.clone()).or_default().push(target.clone());

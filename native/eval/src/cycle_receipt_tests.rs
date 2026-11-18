@@ -9,7 +9,7 @@ use archkeel_model::{Cause, Model, Reason};
 use serde_json::{json, Value};
 
 use crate::direction_tests::unchanged;
-use crate::gap_scope_tests::{failed, rooted, run, Run};
+use crate::gap_scope_tests::{failed, gap, held, rooted, run, run_held, word, Run, LOCAL, PAGE};
 use crate::tests::{contract, reply, shop_settings};
 
 fn reason(found: &Run, rule: &str) -> Option<Reason> {
@@ -25,6 +25,33 @@ fn receipt(why: &'static str) -> Option<Reason> {
 
 const PLANNED: &str = "the contract has a planned component";
 const OUTSIDE: &str = "a component is planned or lies outside the scan roots";
+
+#[test]
+fn an_acyclic_pair_does_not_hold_cycle_rules_or_erase_the_run_gap() {
+    let found = run(unchanged, gap(PAGE, LOCAL), rooted()).unwrap_or_else(failed);
+    assert_eq!(word(&found, "COMPONENT-CYCLES"), "PASS");
+    assert_eq!(word(&found, "MODULE-CYCLES"), "PASS");
+    assert!(run_held(&found, &[&format!("{PAGE} -> {LOCAL}")]));
+}
+
+#[test]
+fn two_possible_edges_can_close_a_cycle_together() {
+    let two = |reply: &mut Value| {
+        gap(PAGE, LOCAL)(reply);
+        let forward = reply["facts"]["coverage"]["gaps"][0].clone();
+        gap(LOCAL, PAGE)(reply);
+        let mut reverse = reply["facts"]["coverage"]["gaps"][0].clone();
+        reverse["id"] = json!("UNKNOWN-00000000000000ab");
+        reply["facts"]["coverage"]["gaps"] = json!([forward, reverse]);
+        reply["facts"]["sections"][1]["records"] = json!([forward, reverse]);
+    };
+    let found = run(unchanged, two, rooted()).unwrap_or_else(failed);
+    let local_to_page = format!("{LOCAL} -> {PAGE}");
+    let page_to_local = format!("{PAGE} -> {LOCAL}");
+    let pairs = [page_to_local.as_str(), local_to_page.as_str()];
+    assert!(held(&found, "COMPONENT-CYCLES", &pairs), "{:?}", found.0);
+    assert!(held(&found, "MODULE-CYCLES", &pairs), "{:?}", found.0);
+}
 
 #[test]
 fn roots_that_are_not_the_scope_of_the_reply_refuse_the_settings() {

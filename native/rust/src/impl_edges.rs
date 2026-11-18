@@ -14,8 +14,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_facts::ImportFact;
-
 use crate::builder::Builder;
 use crate::crates::Workspace;
 use crate::definitions::{Form, ImplBlock, MethodCall};
@@ -193,7 +191,7 @@ impl Builder {
             self.glob_trait_gaps(workspace, &reached);
         }
         pending.extend(orphans::trait_impl_candidates(workspace, modules));
-        flow::settle(self, pending);
+        flow::settle(self, index, pending);
     }
 
     /// A path `S::m` whose type file defines no `m` for `S` is an edge to each foreign block of it
@@ -323,21 +321,6 @@ impl Builder {
             level: 0,
             member_of: Some((lexical, name)),
         })
-    }
-
-    /// The pairs of modules that an `import` or `reexport` record joins.
-    fn module_pairs(&self) -> BTreeSet<(String, String)> {
-        let data = self.imports.iter().filter_map(|record| match &record.data {
-            ImportFact::Import(data) | ImportFact::Reexport(data) => Some(data),
-            _ => None,
-        });
-        data.map(|d| {
-            (
-                d.source_module.as_str().to_owned(),
-                d.target_module.as_str().to_owned(),
-            )
-        })
-        .collect()
     }
 
     /// The method calls of a module: in its code, in the macros that it calls, and the last name

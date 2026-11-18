@@ -43,6 +43,8 @@ fn gap(observed: bool, external: bool) -> PairGap {
         owned: [true, true],
         target_external: external,
         dispatch: false,
+        module_cycle: false,
+        component_cycle: false,
     }
 }
 
@@ -60,8 +62,11 @@ fn a_dropped_gap_between_two_seen_modules_holds_no_cycle_and_no_requires_rule() 
     for fields in [CYCLES, REQUIRES, r#""kind": "no_component_cycles""#] {
         let Some(rule) = rule(fields) else { return };
         assert!(!held(&gap(true, true), &rule), "{fields}");
-        // The kept reading of these kinds is every edge.
-        assert!(gap(true, true).holds(&reads(&rule, &[])), "{fields}");
+        // A kept edge still holds requires. Both cycle readings need a return path.
+        assert_eq!(
+            gap(true, true).holds(&reads(&rule, &[])),
+            fields == REQUIRES
+        );
     }
 }
 

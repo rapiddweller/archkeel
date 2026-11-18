@@ -50,16 +50,11 @@ fn without(id: &'static str) -> impl FnOnce(&mut Value) + Clone {
 #[test]
 fn a_planted_allowed_gap_on_a_profile_whose_host_keeps_it_holds_its_readings_and_the_run() {
     // Review B1: Python keeps this gap for this profile and gives UNKNOWN on each rule. The
-    // core keeps it too: it holds the rules that read every edge and the run; each other rule
-    // passes beyond Python and the frame lists it (`beyond`).
+    // core keeps it too: it holds requires and the run. It has no return path.
     let shown = [format!("{} -> {PAGE}", MAIN.0)];
     let found = run(unchanged, gap(MAIN.0, PAGE), rooted()).unwrap_or_else(failed);
-    assert!(
-        held(&found, "COMPONENT-CYCLES", &texts(&shown)),
-        "{:?}",
-        found.0
-    );
-    assert!(held(&found, "MODULE-CYCLES", &texts(&shown)));
+    assert_eq!(word(&found, "COMPONENT-CYCLES"), "PASS");
+    assert_eq!(word(&found, "MODULE-CYCLES"), "PASS");
     assert!(requires_held(&found));
     assert!(run_held(&found, &texts(&shown)));
     for rule in [
@@ -100,7 +95,7 @@ fn a_gap_along_a_requires_with_through_is_kept() {
     )
     .unwrap_or_else(failed);
     assert!(run_held(&found, &texts(&shown)), "{:?}", found.1);
-    assert!(held(&found, "COMPONENT-CYCLES", &texts(&shown)));
+    assert_eq!(word(&found, "COMPONENT-CYCLES"), "PASS");
 }
 
 #[test]
@@ -143,6 +138,7 @@ fn a_gap_inside_one_component_that_closes_a_module_cycle_is_kept() {
         "{:?}",
         found.0
     );
+    assert_eq!(word(&found, "COMPONENT-CYCLES"), "PASS");
     assert_eq!(word(&found, "LAYOUT"), "PASS");
     assert!(run_held(&found, &texts(&shown)));
     // Without a module cycle rule the drop rule drops the gap.

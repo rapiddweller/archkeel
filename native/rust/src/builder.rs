@@ -102,6 +102,21 @@ pub(crate) struct Builder {
 }
 
 impl Builder {
+    /// The pairs of modules that an `import` or `reexport` record joins.
+    pub(crate) fn module_pairs(&self) -> BTreeSet<(String, String)> {
+        let data = self.imports.iter().filter_map(|record| match &record.data {
+            ImportFact::Import(data) | ImportFact::Reexport(data) => Some(data),
+            _ => None,
+        });
+        data.map(|d| {
+            (
+                d.source_module.as_str().to_owned(),
+                d.target_module.as_str().to_owned(),
+            )
+        })
+        .collect()
+    }
+
     pub(crate) fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str) {
         let fact = GapFact::collection(reason, module);
         let (id, record) = Record::unknown_gap(reason, evidence, module, fact);

@@ -14,12 +14,14 @@ holds only an associated type, keep PASS.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+from corpus_support import commit_tree
 from rust_orphan_plants import OPEN_TRAIT_FORMS, OPEN_VALUE_FORMS
 from rust_repository import APP, BASE, CRATE_RULES, component, repository, rule, statuses, validate
 
@@ -103,6 +105,53 @@ def _verdict(tmp_path: Path, core: Path, files: dict[str, str]) -> str:
 
 def _app(files: dict[str, str]) -> dict[str, str]:
     return {f"crates/app/src/{name}": text for name, text in files.items()}
+
+
+@pytest.mark.parametrize("case", ["unrelated", "inline", "parent-glob", "included-parent"])
+def test_a_child_path_reaches_its_parent_file_only_with_value_flow(
+    tmp_path: Path, core_binary: Path, case: str
+) -> None:
+    parent = "#[derive(Debug)] pub struct Y;\n"
+    caller = 'pub fn f() -> String { format!("{:?}", crate::b::child::make()) }\n'
+    files = {"lib.rs": "mod a;\nmod b;\n", "a.rs": caller}
+    if case == "inline":
+        files["b.rs"] = parent + "pub mod child { pub fn make() -> super::Y { super::Y } }\n"
+    else:
+        files["b.rs"] = parent + "pub mod child;\n"
+        files["b/child.rs"] = {
+            "unrelated": "pub fn make() -> u8 { 1 }\n",
+            "parent-glob": "use super::*;\npub fn make() -> Y { Y }\n",
+            "included-parent": 'include!("make.inc");\n',
+        }[case]
+        if case == "included-parent":
+            files["b/make.inc"] = "pub fn make() -> super::Y { super::Y }\n"
+    ban = {**NO_A_TO_B, "target_match": "exact"}
+    root = repository(tmp_path / "repo", core_binary, _app(files), rules=(*CRATE_RULES, ban))
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["schema_version"] = "3.4.0"
+    path.write_text(json.dumps(contract))
+    commit_tree(root)
+    _rustc_accepts(root)
+    verdict = statuses(validate(root))["NO-A-TO-B"]
+    assert verdict in ({"PASS"} if case == "unrelated" else {"FAIL", "UNKNOWN"})
+
+
+@pytest.mark.parametrize("expanded", [False, True])
+def test_a_macro_template_reaches_a_trait_impl_only_after_expansion(
+    tmp_path: Path, core_binary: Path, expanded: bool
+) -> None:
+    value = "make!()" if expanded else "1"
+    caller = (
+        "macro_rules! make { () => { crate::c::make() }; }\n"
+        f'pub fn f() -> String {{ format!("{{:?}}", {value}) }}\n'
+    )
+    verdict = _verdict(
+        tmp_path,
+        core_binary,
+        _app(_form("", caller) | {"b.rs": "#[derive(Debug)] pub struct Y;\n"}),
+    )
+    assert verdict in ({"FAIL", "UNKNOWN"} if expanded else {"PASS"})
 
 
 @pytest.mark.parametrize("name", list(FORMS))

@@ -15,6 +15,8 @@ fn kept(source: &str, target: &str, observed: bool, owned: [bool; 2], external: 
         owned,
         target_external: external,
         dispatch: false,
+        module_cycle: false,
+        component_cycle: false,
     }
 }
 
@@ -28,6 +30,8 @@ fn a_gap_with_an_end_outside_the_reply_holds_each_reading() {
         Reads::Modules,
         Reads::ExternalImports(None),
         Reads::Members(vec!["z"]),
+        Reads::Cycles(archkeel_contract::CycleLevel::Module),
+        Reads::Cycles(archkeel_contract::CycleLevel::Component),
         Reads::Every,
     ] {
         assert!(gap.holds(&reads), "{reads:?}");

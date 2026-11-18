@@ -41,6 +41,8 @@ pub(crate) struct PairGap {
     pub(crate) target_external: bool,
     /// The gap is about internal dispatch only.
     pub(crate) dispatch: bool,
+    pub(crate) module_cycle: bool,
+    pub(crate) component_cycle: bool,
 }
 
 /// The pair gaps of a run, classified one time per model.
@@ -69,6 +71,8 @@ pub(crate) enum Reads<'r> {
     Sides([Selection<'r>; 2]),
     /// The edges that touch a member scope (`sibling_isolation`).
     Members(Vec<&'r str>),
+    /// Edges that can be part of a cycle at the rule's level.
+    Cycles(CycleLevel),
     /// Every edge.
     Every,
 }
@@ -76,6 +80,9 @@ pub(crate) enum Reads<'r> {
 /// The reading of a rule. Each kind has an arm; a kind without a proof of a narrower reading
 /// reads every edge.
 pub(crate) fn reads<'r>(rule: &'r Rule, components: &'r [Component]) -> Reads<'r> {
+    if let Some(level) = cycle_level(rule) {
+        return Reads::Cycles(level);
+    }
     match rule {
         Rule::ForbiddenDependency(rule) => Reads::Sides(dependency_sides(rule, components)),
         Rule::SiblingIsolation(rule) => {
@@ -137,6 +144,8 @@ impl PairGap {
             Reads::Members(members) => members
                 .iter()
                 .any(|member| in_scope(a, member) || in_scope(b, member)),
+            Reads::Cycles(CycleLevel::Module) => self.module_cycle,
+            Reads::Cycles(CycleLevel::Component) => self.component_cycle,
             Reads::Every => true,
         }
     }
@@ -185,6 +194,12 @@ pub(crate) fn pairs(
             owned: ends.map(|end| end.is_some()),
             target_external: external.contains(target.as_str()),
             dispatch: *dispatch,
+            module_cycle: source != target
+                && cyclic.module.contains(&(source.as_str(), target.as_str())),
+            component_cycle: match ends {
+                [Some(from), Some(to)] => from != to && cyclic.component.contains(&(from, to)),
+                _ => true,
+            },
         };
         if dropped {
             found.dropped.push(gap);
@@ -209,14 +224,7 @@ impl<'g> Cyclic<'g> {
         graph: &'g Graph,
         gaps: &'g [(String, String, bool)],
     ) -> Self {
-        let levels: Vec<&CycleLevel> = contract
-            .rules()
-            .iter()
-            .filter_map(|rule| match rule {
-                Rule::NoComponentCycles(rule) => Some(rule.level()),
-                _ => None,
-            })
-            .collect();
+        let levels: Vec<CycleLevel> = contract.rules().iter().filter_map(cycle_level).collect();
         let mut edges: BTreeSet<(&'g str, &'g str)> = graph
             .imports()
             .iter()
@@ -224,12 +232,12 @@ impl<'g> Cyclic<'g> {
             .collect();
         edges.extend(gaps.iter().map(|(a, b, _)| (a.as_str(), b.as_str())));
         let mut module = HashSet::new();
-        if levels.contains(&&CycleLevel::Module) {
+        if levels.contains(&CycleLevel::Module) {
             let starts = gaps.iter().map(|(_, b, _)| b.as_str()).collect();
             module = reach(&edges, &starts);
         }
         let mut component = HashSet::new();
-        if levels.iter().any(|level| **level != CycleLevel::Module) {
+        if levels.contains(&CycleLevel::Component) {
             let owner = |module: &str| owner_of(components, module);
             let parts: BTreeSet<(ComponentId, ComponentId)> = edges
                 .iter()
@@ -239,6 +247,13 @@ impl<'g> Cyclic<'g> {
             component = reach(&parts, &starts);
         }
         Cyclic { module, component }
+    }
+}
+
+fn cycle_level(rule: &Rule) -> Option<CycleLevel> {
+    match rule {
+        Rule::NoComponentCycles(rule) => Some(*rule.level()),
+        _ => None,
     }
 }
 
