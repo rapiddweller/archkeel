@@ -333,12 +333,17 @@ fn unknowns(frame: &Frame) -> Vec<Value> {
 fn whole_scan_holds(frame: &Frame) -> Vec<Value> {
     let mut counts: BTreeMap<usize, usize> = BTreeMap::new();
     for (rule, (_, verdict)) in &frame.rules {
-        if *verdict == RuleVerdict::Unknown {
-            if let Some(hold) = frame.explain.holds.rules.get(rule) {
-                if hold.kind == "coverage_gaps" {
-                    *counts.entry(hold.total).or_default() += 1;
-                }
-            }
+        if *verdict != RuleVerdict::Unknown {
+            continue;
+        }
+        if let Some(hold) = frame
+            .explain
+            .holds
+            .rules
+            .get(rule)
+            .filter(|h| h.kind == "coverage_gaps")
+        {
+            *counts.entry(hold.total).or_default() += 1;
         }
     }
     let mut ranked: Vec<_> = counts.into_iter().collect();
