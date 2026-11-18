@@ -142,6 +142,13 @@ A route that the collector does not prove is UNKNOWN when some import of the run
 binds the item under another name. A type alias is an item of its own, in the
 same way as a function that returns the type: the alias itself names the item.
 
+Contract **3.19.0** adds `source_symbol_only: true` to `forbidden_dependency` with
+`target_symbol` (AD-924). It checks names in source and through name routes, not
+the inferred type of a dot-call receiver. A gap about execution alone does not
+hold this rule when the live collector proves that distinction. An open name
+route still holds the rule. Omitting `source_symbol_only` keeps the prior
+behavior.
+
 Contract **3.16.0** adds `unused_public` (AD-670). Each module-level item below
 `source` that the code declares public must have a user in another component: an
 import of that component names the item, by its own name or by a re-export route.

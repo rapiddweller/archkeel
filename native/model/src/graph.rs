@@ -211,6 +211,17 @@ impl Graph {
         &self.imports
     }
 
+    pub(crate) fn imports_for_symbol_rule(
+        &self,
+        source_names_only: bool,
+    ) -> impl Iterator<Item = &Import> {
+        // A saved reply does not distinguish a written name from an inferred receiver.
+        let live = self.settings.producer() == Producer::Trusted;
+        self.imports
+            .iter()
+            .filter(move |import| !source_names_only || live && !import.inferred_receiver)
+    }
+
     /// The source and target module of each resolved macro body (AD-670).
     pub(crate) fn macro_bodies(&self) -> &[(String, String)] {
         &self.macro_bodies

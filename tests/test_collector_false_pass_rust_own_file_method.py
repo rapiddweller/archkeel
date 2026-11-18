@@ -213,7 +213,7 @@ def test_a_std_receiver_reaches_no_member_of_the_workspace(
 
 @pytest.mark.parametrize("profile_first", (False, True))
 def test_same_call_text_keeps_both_proven_receivers(
-    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], profile_first: bool
+    tmp_path: Path, release_core: Path, capsys: pytest.CaptureFixture[str], profile_first: bool
 ) -> None:
     clean = f"fn clean() -> {STR} {{ {{ let value = crate::d::clean(); value.label() }} }}\n"
     profile = f"fn profile() -> {STR} {{ {{ let value = crate::d::profile(); value.label() }} }}\n"
@@ -239,7 +239,13 @@ def test_same_call_text_keeps_both_proven_receivers(
         target_symbol="Profile",
         include_type_checking=True,
     )
-    root = repository(tmp_path, core_binary, files, rules=(*CRATE_RULES, no_profile))
+    source_names = {**no_profile, "id": "SOURCE-NAMES", "source_symbol_only": True}
+    root = repository(tmp_path, release_core, files, rules=(*CRATE_RULES, no_profile, source_names))
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["schema_version"] = "3.19.0"
+    path.write_text(json.dumps(contract, indent=2))
     assert _real_target(root) == "clean/profile"
     found = statuses(validate(root, capsys))
     assert found.get("NO-PROFILE") == "FAIL", found
+    assert found.get("SOURCE-NAMES") == "PASS", found

@@ -114,6 +114,107 @@ RULE = rule(
     include_type_checking=True,
 )
 
+FACTORY = BASE + (
+    "pub struct Facts { pub profile: Profile }\n"
+    "pub fn facts() -> Facts { Facts { profile: Profile::Rust } }\n"
+    "pub fn profile() -> &'static Profile { &Profile::Rust }\n"
+)
+PROFILE_METHODS = """#[derive(PartialEq)]
+pub enum Profile { Rust, Python }
+impl Profile {
+    pub fn label(&self) -> u8 {
+        match self { Self::Rust => 1, Self::Python => 2 }
+    }
+}
+pub fn allowed() {}
+"""
+
+
+@pytest.mark.parametrize(
+    ("base", "app", "status", "legacy"),
+    [
+        (
+            FACTORY,
+            "pub fn f() -> bool { base_crate::profile() != base_crate::profile() }\n",
+            "PASS",
+            "UNKNOWN",
+        ),
+        (
+            FACTORY,
+            "pub fn f() -> u8 { base_crate::facts().profile.label() }\n",
+            "UNKNOWN",
+            "UNKNOWN",
+        ),
+        (RENAMED, "pub fn f(_: base_crate::Lang) {}\n", "FAIL", "FAIL"),
+        (BASE, "use base_crate::*;\npub fn f() { let _ = Profile::Rust; }\n", "FAIL", "FAIL"),
+        (BASE, "use base_crate::*;\npub fn f(_: Profile) {}\n", "UNKNOWN", "UNKNOWN"),
+        (
+            BASE,
+            "pub fn f() -> bool { None::<base_crate::Profile>.is_some() }\n",
+            "FAIL",
+            "FAIL",
+        ),
+        (
+            FACTORY,
+            "pub fn f() -> bool { let a = base_crate::profile(); "
+            "let b = if true { a } else { a }; let _ = b.label(); "
+            "a != base_crate::profile() }\n",
+            "UNKNOWN",
+            "UNKNOWN",
+        ),
+        (
+            FACTORY.replace("mod vocab;", "pub mod vocab;"),
+            "pub fn f() { base_crate::vocab::allowed(); let a = base_crate::profile(); "
+            "let b = if true { a } else { a }; let _ = b.label(); }\n",
+            "UNKNOWN",
+            "PASS",
+        ),
+        (
+            FACTORY,
+            "pub fn f() -> bool { matches!(base_crate::profile(), base_crate::Profile::Rust) "
+            "&& base_crate::profile() != base_crate::profile() }\n",
+            "FAIL",
+            "FAIL",
+        ),
+        (OPAQUE + RENAMED, "pub fn f(_: base_crate::Lang) {}\n", "UNKNOWN", "UNKNOWN"),
+    ],
+    ids=[
+        "default-ne",
+        "field",
+        "alias",
+        "glob",
+        "unproved-glob",
+        "type-arg",
+        "mixed",
+        "mixed-unresolved",
+        "named-site-beside-known-edge",
+        "open-route",
+    ],
+)
+def test_source_names_do_not_read_execution(
+    release_core: Path, tmp_path: Path, base: str, app: str, status: str, legacy: str
+) -> None:
+    files = {
+        "crates/base/src/lib.rs": base,
+        "crates/base/src/vocab.rs": PROFILE_METHODS,
+        "crates/app/src/lib.rs": app,
+    }
+    parts = (component("base", "base_crate"), component("app", "app", ("base",)))
+    named = {**RULE, "id": "SOURCE-NAMES", "source_symbol_only": True}
+    repository(tmp_path, release_core, files, parts, (RULE, named))
+    path = tmp_path / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["schema_version"] = "3.19.0"
+    path.write_text(json.dumps(contract, indent=2))
+    commit_tree(tmp_path)
+    _rustc_accepts(tmp_path)
+    result = validate(tmp_path)
+    found = statuses(result)
+    assert found["NO-PROFILE"] == legacy, result["frame"].get("explained")
+    assert found["SOURCE-NAMES"] == status, result["frame"].get("explained")
+    if legacy == "UNKNOWN":
+        assert result["frame"]["collection_gaps"], result["frame"]
+
 
 @pytest.mark.parametrize(("name", "base", "app", "status"), PLANTS, ids=[p[0] for p in PLANTS])
 def test_each_rust_form_that_names_the_item_never_passes(
