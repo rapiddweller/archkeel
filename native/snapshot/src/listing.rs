@@ -81,7 +81,7 @@ impl Snapshot {
 
     /// The sorted entries of the directory `rel`, without following a link.
     ///
-    /// `None` when `rel` is outside the snapshot, cannot be read, or exceeds the entry limit.
+    /// `None` when `rel` is outside the snapshot, is incomplete, or exceeds the entry limit.
     /// When `rel` is walked, each real subdirectory becomes walked too.
     pub fn listing(&mut self, rel: &str) -> Option<Vec<(String, Entry)>> {
         self.listing_at_most(rel, MAX_LISTING_ENTRIES)
@@ -97,6 +97,7 @@ impl Snapshot {
             return None;
         };
         let mut entries = Vec::new();
+        let mut complete = true;
         for (index, entry) in listing.enumerate() {
             if index == limit {
                 self.problems
@@ -108,16 +109,19 @@ impl Snapshot {
                 Err(_) => {
                     self.problems
                         .insert(format!("Unreadable source directory: {rel}"));
-                    return None;
+                    complete = false;
+                    continue;
                 }
             };
             let name = match entry.file_name().into_string() {
                 Ok(name) => name,
                 Err(raw) => {
-                    let child = join(rel, &raw.to_string_lossy());
+                    let name = raw.as_encoded_bytes().escape_ascii().to_string();
+                    let child = join(rel, &name);
                     self.problems
                         .insert(format!("Source name is not UTF-8: {child}"));
-                    return None;
+                    complete = false;
+                    continue;
                 }
             };
             let kind = match self.kind(rel, &entry) {
@@ -125,10 +129,14 @@ impl Snapshot {
                 Err(message) => {
                     let child = join(rel, &name);
                     self.problems.insert(format!("{message}: {child}"));
-                    return None;
+                    complete = false;
+                    continue;
                 }
             };
             entries.push((name, kind));
+        }
+        if !complete {
+            return None;
         }
         if self.walked.contains(rel) {
             self.walked.extend(

@@ -76,14 +76,42 @@ fn a_listing_over_the_limit_does_not_return_partial_entries() {
     );
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[test]
-fn a_listing_cannot_classify_a_link_loop_as_a_file() {
+fn a_listing_keeps_invalid_names_with_the_same_lossy_text_distinct() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
     let tree = Tree::new(&[("lib/a", "")]);
-    std::os::unix::fs::symlink("loop", tree.root.join("lib/loop")).unwrap();
+    let lib = tree.root.join("lib");
+    fs::write(lib.join(OsStr::from_bytes(b"a\xfe")), "").unwrap();
+    fs::create_dir(lib.join(OsStr::from_bytes(b"a\xff"))).unwrap();
     let mut snapshot = Snapshot::new(&tree.path());
     assert_eq!(snapshot.listing("lib"), None);
-    assert_eq!(problems(&snapshot), ["Unreadable link target: lib/loop"]);
+    assert_eq!(
+        problems(&snapshot),
+        [
+            "Source name is not UTF-8: lib/a\\xfe",
+            "Source name is not UTF-8: lib/a\\xff"
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_listing_reports_each_unreadable_link_target() {
+    let tree = Tree::new(&[("lib/a", "")]);
+    std::os::unix::fs::symlink("loop", tree.root.join("lib/loop")).unwrap();
+    std::os::unix::fs::symlink("other", tree.root.join("lib/other")).unwrap();
+    let mut snapshot = Snapshot::new(&tree.path());
+    assert_eq!(snapshot.listing("lib"), None);
+    assert_eq!(
+        problems(&snapshot),
+        [
+            "Unreadable link target: lib/loop",
+            "Unreadable link target: lib/other"
+        ]
+    );
 }
 
 #[test]
