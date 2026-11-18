@@ -232,7 +232,7 @@ impl Builder {
             self.named_site((source, target), at, why);
             return;
         }
-        once_gap(self, reached.edges, (source, target), at, why, false);
+        once_gap(self, reached.edges, (source, target), at, why, None);
     }
 }
 
@@ -243,7 +243,7 @@ pub(crate) fn once_gap(
     (source, target): (&str, &str),
     (rel, site): (&str, &crate::site::Site),
     why: &str,
-    dispatch: bool,
+    dispatch: Option<archkeel_facts::vocab::ResolutionDimension>,
 ) {
     let pair = (source.to_owned(), target.to_owned());
     if source == target || edges.contains(&pair) || !builder.gapped.insert(pair) {

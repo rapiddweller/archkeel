@@ -43,6 +43,7 @@ fn gap(observed: bool, external: bool) -> PairGap {
         owned: [true, true],
         target_external: external,
         dispatch: false,
+        execution: false,
     }
 }
 

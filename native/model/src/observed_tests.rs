@@ -9,6 +9,8 @@ use super::*;
 use crate::edges::tests::golden;
 use crate::{Graph, Producer, Settings};
 use archkeel_facts::envelope::{LimitSupport, Reply};
+use archkeel_facts::ids::{FactId, ModuleName};
+use archkeel_facts::Record;
 
 fn checked(required: Option<&str>, version: &str) -> Runtime {
     runtime(&RuntimeFact {
@@ -109,5 +111,44 @@ fn a_missing_requirement_needs_a_bound_producer_and_a_selected_target(
     reply.facts.runtime.required = None;
     reply.facts.runtime.version = "invalid".into();
     assert_eq!(read(&reply, Producer::Trusted)?, Runtime::Unread);
+    Ok(())
+}
+
+#[test]
+fn an_execution_only_pair_needs_the_marker_and_live_dispatch(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let reply = golden().ok_or("the golden reply")?;
+    for (dispatch, marker, only_execution) in [
+        (false, false, false),
+        (false, true, false),
+        (true, false, false),
+        (true, true, true),
+    ] {
+        let mut facts = reply.facts.clone();
+        let mut gap = GapFact::collection("unread pair", "shop.target");
+        let GapFact::CollectionGap(data) = &mut gap else {
+            return Err("expected a collection gap".into());
+        };
+        data.source_module = Some(ModuleName::new("shop.source"));
+        data.dispatch = dispatch;
+        data.resolution_dimension = marker.then_some(ResolutionDimension::RuntimeEffects);
+        facts.coverage.gaps = vec![Record::unknown(
+            FactId::new("gap"),
+            "unread pair",
+            None,
+            "shop.source",
+            gap,
+        )];
+        let pairs = observed(&facts, &[Class::Pair], None).pair_gaps;
+        assert_eq!(
+            pairs,
+            vec![(
+                "shop.source".to_owned(),
+                "shop.target".to_owned(),
+                dispatch,
+                only_execution
+            )]
+        );
+    }
     Ok(())
 }

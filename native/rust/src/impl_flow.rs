@@ -14,6 +14,8 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+use archkeel_facts::vocab::ResolutionDimension;
+
 use crate::builder::Builder;
 use crate::crates::Workspace;
 use crate::definitions::{Access, Form, Member, MethodCall};
@@ -38,6 +40,14 @@ pub(super) struct Pending {
 
 /// Give each pending gap whose target its source can reach.
 pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
+    // Both causes for the same pair become reachable together, regardless of their order.
+    let mut named: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for pending in open.iter().filter(|pending| !pending.execution) {
+        named
+            .entry(pending.source.clone())
+            .or_default()
+            .insert(pending.target.clone());
+    }
     while !open.is_empty() {
         let graph = Graph::of(builder);
         let mut reach: BTreeMap<String, Reach> = BTreeMap::new();
@@ -67,7 +77,22 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
                 builder.named_site(pair, at, &pending.reason);
                 continue;
             }
-            once_gap(builder, &graph.edges, pair, at, &pending.reason, true);
+            let can_name = named
+                .get(pair.0)
+                .is_some_and(|targets| targets.contains(pair.1));
+            let dimension = if pending.execution && !can_name {
+                ResolutionDimension::RuntimeEffects
+            } else {
+                ResolutionDimension::Imports
+            };
+            once_gap(
+                builder,
+                &graph.edges,
+                pair,
+                at,
+                &pending.reason,
+                Some(dimension),
+            );
         }
         open = waiting;
     }
@@ -241,5 +266,50 @@ impl Graph {
             any: false,
             modules,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dimension(causes: &[bool]) -> Option<ResolutionDimension> {
+        let mut builder = Builder::default();
+        builder.gap("unread caller", None, "src");
+        let pending = causes
+            .iter()
+            .map(|&execution| Pending {
+                source: "src".to_owned(),
+                rel: "src.rs".to_owned(),
+                site: Site::default(),
+                target: "dst".to_owned(),
+                reason: format!("candidate {execution}"),
+                execution,
+            })
+            .collect();
+        settle(&mut builder, pending);
+        let pair = builder
+            .gaps
+            .values()
+            .find(|gap| gap.data.data().source_module.is_some());
+        pair.expect("the pair is reachable")
+            .data
+            .data()
+            .resolution_dimension
+    }
+
+    #[test]
+    fn a_named_cause_stays_open_before_or_after_an_execution_cause() {
+        assert_eq!(
+            dimension(&[true]),
+            Some(ResolutionDimension::RuntimeEffects)
+        );
+        assert_eq!(
+            dimension(&[true, true]),
+            Some(ResolutionDimension::RuntimeEffects)
+        );
+        assert_eq!(dimension(&[true, false]), None);
+        assert_eq!(dimension(&[false, true]), None);
+        assert_eq!(dimension(&[true, false, true]), None);
     }
 }

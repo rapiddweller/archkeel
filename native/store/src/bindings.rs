@@ -55,26 +55,37 @@ impl Visitor for Bound<'_, '_, '_> {
 }
 
 impl<'a> Modules<'a> {
-    pub(crate) fn named_site(&self, gap: &Record<GapFact>) -> Result<(), String> {
-        let GapFact::SourceResolutionGap(data) = &gap.data else {
-            return Err("named site needs a source resolution gap".to_owned());
+    pub(crate) fn pair_site(&self, gap: &Record<GapFact>) -> Result<(), String> {
+        let (data, execution) = match &gap.data {
+            GapFact::SourceResolutionGap(data)
+                if data.resolution_dimension == Some(ResolutionDimension::Imports) =>
+            {
+                (data, false)
+            }
+            GapFact::CollectionGap(data)
+                if data.resolution_dimension == Some(ResolutionDimension::RuntimeEffects) =>
+            {
+                (data, true)
+            }
+            _ => return Err("pair site has no resolution dimension".to_owned()),
         };
         let endpoints = data.source_module.as_ref().zip(data.module.as_ref());
         let bound = endpoints.is_some_and(|(source, target)| {
+            let (witness, peer) = if execution {
+                (target, source)
+            } else {
+                (source, target)
+            };
             source != target
                 && gap.subjects == [source.as_str()]
-                && self.files.contains_key(target.as_str())
-                && matches!(&gap.evidence_ids[..], [id] if self.files.get(source.as_str())
+                && self.files.contains_key(peer.as_str())
+                && matches!(&gap.evidence_ids[..], [id] if self.files.get(witness.as_str())
                     .is_some_and(|file| self.file(id.as_str()) == Some(file.rel_path.as_str())))
         });
-        if bound
-            && data.resolution_dimension == Some(ResolutionDimension::Imports)
-            && data.effect.is_none()
-            && gap.fact_ids.is_empty()
-        {
+        if bound && data.effect.is_none() && gap.fact_ids.is_empty() {
             Ok(())
         } else {
-            Err("named site needs two observed modules and the caller evidence".to_owned())
+            Err("pair site needs two observed modules and evidence at its site".to_owned())
         }
     }
 

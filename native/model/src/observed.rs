@@ -57,8 +57,8 @@ pub(crate) struct Observed {
     /// The linked collector's stated assumption (AD-540), absent for a wire reply.
     pub(crate) scope_premise: Option<&'static str>,
     pub(crate) excluded_sources: Vec<String>,
-    /// Each pair gap's source, target, and whether it can only be internal dispatch.
-    pub(crate) pair_gaps: Vec<(String, String, bool)>,
+    /// Each pair's source, target, dispatch flag and execution-only flag.
+    pub(crate) pair_gaps: Vec<(String, String, bool, bool)>,
     pub(crate) named_sites: BTreeSet<(String, String)>,
     /// Each gap that states its effect (AD-564).
     pub(crate) effect_gaps: Vec<EffectGap>,
@@ -141,6 +141,7 @@ pub(crate) fn observed(
                 data.source_module.as_ref()?.as_str().to_owned(),
                 data.module.as_ref()?.as_str().to_owned(),
                 data.dispatch,
+                execution_only(&gap.data),
             ))
         })
         .collect();
@@ -228,6 +229,12 @@ pub(crate) fn observed(
             })
             .collect(),
     }
+}
+
+// A wire marker alone cannot prove that the live collector made this claim.
+fn execution_only(gap: &GapFact) -> bool {
+    matches!(gap, GapFact::CollectionGap(data)
+        if data.dispatch && data.resolution_dimension == Some(ResolutionDimension::RuntimeEffects))
 }
 
 /// A verified live target from configuration or defaults needs no comparison against an absent
