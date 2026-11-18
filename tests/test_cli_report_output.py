@@ -81,6 +81,37 @@ def test_html_sidecar_is_not_written_for_an_unsafe_target(tmp_path: Path) -> Non
     assert not list(tmp_path.glob("archkeel-gaps-*.json"))
 
 
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO requires POSIX")
+def test_existing_fifo_sidecar_is_refused_without_waiting(tmp_path: Path) -> None:
+    document = {"collection_gaps": []}
+    content = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode()
+    digest = hashlib.sha256(content).hexdigest()
+    fifo = tmp_path / f"archkeel-gaps-{digest}.json"
+    os.mkfifo(fifo)
+    script = (
+        "import sys; sys.path.insert(0, sys.argv[1]); "
+        "from pathlib import Path; from archkeel.cli.core_output import write_output; "
+        "write_output(Path(sys.argv[2]), b'', "
+        "companion=(Path(sys.argv[3]), b'{\"collection_gaps\":[]}'))"
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            script,
+            str(Path(__file__).resolve().parents[1] / "src"),
+            str(tmp_path / "report.html"),
+            str(fifo),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=3,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "not a regular file" in result.stderr
+
+
 def test_json_output_and_stdout_do_not_create_a_sidecar(tmp_path: Path) -> None:
     document = {"collection_gaps": [{"reason": "saved"}]}
     frame = SimpleNamespace(html=None)

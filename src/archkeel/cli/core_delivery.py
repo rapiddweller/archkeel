@@ -12,8 +12,6 @@ from __future__ import annotations
 import hashlib
 import html
 import json
-import os
-import stat
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Final
@@ -22,7 +20,7 @@ from urllib.parse import quote
 from .core_arguments import Options
 from .core_baseline import BaselineResult, BaselineState
 from .core_frame import CoreError, CoreFrame, RefusalKind
-from .core_output import check_output, write_new, write_output
+from .core_output import write_new, write_output
 
 _Refusal = tuple[RefusalKind, str]
 _NOT_WRITTEN: Final = (
@@ -92,28 +90,20 @@ def _write_baseline(path: str, part: BaselineResult, root: Path) -> None:
 _GAP_MARKER = '<section id="gap-records-file">Gap records file unavailable.</section>'
 
 
-def _gap_file(target: Path, document: Mapping[str, object], count: int) -> str:
-    """Write the same run's frame under its content digest, without replacing another file."""
+def _gap_file(target: Path, document: Mapping[str, object], count: int) -> tuple[str, Path, bytes]:
+    """Name the same run's frame by the digest of its bytes."""
     content = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     digest = hashlib.sha256(content).hexdigest()
     path = target.with_name(f"archkeel-gaps-{digest}.json")
-    try:
-        write_new(path, content)
-    except FileExistsError:
-        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-        with os.fdopen(descriptor, "rb") as existing:
-            if not stat.S_ISREG(os.fstat(existing.fileno()).st_mode):
-                raise OSError("the gap records file is not a regular file") from None
-            if hashlib.file_digest(existing, "sha256").hexdigest() != digest:
-                raise OSError("the existing gap records file has a different digest") from None
     href = html.escape(quote(path.name), quote=True)
-    return (
+    markup = (
         '<section id="gap-records-file"><h2>Gap records</h2>'
         f'<p><a href="{href}">Open gap records JSON</a> · {count} gap records</p>'
         f'<p>SHA-256: <code class="rp-code">{digest}</code></p>'
         "<p>Keep this file with the report. If the file is missing, the link cannot open it.</p>"
         "</section>"
     )
+    return markup, path, content
 
 
 def _write_report(
@@ -121,15 +111,17 @@ def _write_report(
 ) -> None:
     if options.output is None:
         return
+    companion = None
     if options.format == "html":
         if frame.html is None:
             raise CoreError("the core frame lacks the requested HTML")
         page = frame.html
         gaps = document.get("collection_gaps")
         if _GAP_MARKER in page and isinstance(gaps, list):
-            check_output(options.output)
-            page = page.replace(_GAP_MARKER, _gap_file(options.output, document, len(gaps)), 1)
+            markup, path, content = _gap_file(options.output, document, len(gaps))
+            page = page.replace(_GAP_MARKER, markup, 1)
+            companion = (path, content)
         payload = page.encode("utf-8")
     else:
         payload = stdout
-    write_output(options.output, payload)
+    write_output(options.output, payload, companion=companion)
