@@ -183022,7 +183022,7 @@
         "native.archkeel_collect",
         "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
-      "reason": "AD-928: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
+      "reason": "AD-932: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
     },
     {
       "entry": [
@@ -183031,7 +183031,7 @@
         "native.archkeel_collect.run",
         "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
-      "reason": "AD-928: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
+      "reason": "AD-932: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
     },
     {
       "entry": [
@@ -183040,7 +183040,7 @@
         "native.archkeel_core.ingest",
         "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
-      "reason": "AD-928: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
+      "reason": "AD-932: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
     },
     {
       "entry": [
@@ -183049,7 +183049,7 @@
         "native.archkeel_core.refusal",
         "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
-      "reason": "AD-928: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
+      "reason": "AD-932: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
     },
     {
       "entry": [
@@ -183058,7 +183058,7 @@
         "native.archkeel_core.system_topology",
         "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
-      "reason": "AD-928: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
+      "reason": "AD-932: The validated capability input adds a route to the fixed profile traits. Keep the possible impl edge in the coverage inventory."
     }
   ]
 }
