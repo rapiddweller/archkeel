@@ -144,7 +144,8 @@ fn selector_receipt(
     let Some(selector) = rule.selector() else {
         return Ok(());
     };
-    if !inventory.selectors || !model.graph().observed().inventory_complete {
+    let observed = model.graph().observed();
+    if !observed.construct_selectors || !observed.inventory_complete {
         return Err(Cause::Receipt("the selector inventory is not complete").into());
     }
     let matches = matches(model, rule)?;

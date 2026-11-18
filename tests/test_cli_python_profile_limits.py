@@ -139,6 +139,39 @@ def test_placement_decides_and_an_unmeasured_budget_names_its_own_row(
     assert "declarations.measurement_budgets.private_crossings" in budget["scope"], budget["scope"]
 
 
+def test_the_python_collector_does_not_claim_a_nominal_selector_inventory(
+    release_core: Path, tmp_path: Path
+) -> None:
+    rule = {
+        **CONSTRUCT,
+        "id": "NO-SELECTED-COMPARE",
+        "constructs": ["string_literal_compare"],
+        "selector": {
+            "receiver": "app.client.page.Connection",
+            "member": "state",
+            "role": "equality",
+            "literal": "forbidden",
+        },
+    }
+    source = (
+        "class Connection:\n    state = 'ready'\n"
+        "def check(value: Connection):\n    return value.state == 'forbidden'\n"
+    )
+    root = project(
+        tmp_path, {**FILES, "src/app/client/page.py": source}, contract_rules=[*RULES, rule]
+    )
+    contract = root / "architecture-contract.json"
+    document = json.loads(contract.read_text())
+    document["schema_version"] = "3.11.0"
+    contract.write_text(json.dumps(document))
+    result = verdict(release_core, root)
+    assert rows(result)[rule["id"]] == "UNKNOWN"
+    assert (
+        "collector does not report a complete construct selector inventory"
+        in result["frame"]["explained"][rule["id"]]
+    )
+
+
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
