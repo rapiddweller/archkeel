@@ -205,9 +205,7 @@ pub fn rule_with_edge_links(
         Err(reason) => Some(reason.clone()),
     };
     let observed = models.ok();
-    let premise = observed
-        .and_then(|tree| tree.models().find_map(Model::scope_premise))
-        .map(str::to_owned);
+    let premise = observed.and_then(|tree| tree.models().find_map(Model::scope_premise));
     let scope = scope.map_or(RunScope::Complete, RunScope::Open);
     let mut rows = Rows::default();
     let mut edge_links = crate::edge_links::Links::new();
@@ -294,7 +292,7 @@ pub fn rule_with_edge_links(
         premises: crate::assumed::Premises::of(rows.premises, models.ok()),
         scope,
         excluded_sources: observed.map_or_else(Vec::new, ModelTree::excluded_sources),
-        premise,
+        premise: premise.map(str::to_owned),
         unsupported,
         causes: rows.causes,
         contract_kind,
