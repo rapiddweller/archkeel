@@ -324,3 +324,47 @@ def test_the_core_decides_interface_boundary_from_the_item_of_each_import(
             "INTERFACE: native.app -> native.base_crate:make: import outside the public interface"
             in claims(result)
         )
+
+
+@pytest.mark.parametrize(
+    ("body", "status"),
+    [
+        ("base_crate::extra::allowed();", "PASS"),
+        ("value.touch(); base_crate::extra::allowed();", "FAIL"),
+        ("let r = if true { value } else { value }; r.touch();", "UNKNOWN"),
+        (
+            "let r = if true { value } else { value }; r.touch(); base_crate::extra::allowed();",
+            "UNKNOWN",
+        ),
+        (
+            "base_crate::extra::allowed(); let r = if true { value } else { value }; r.touch();",
+            "UNKNOWN",
+        ),
+    ],
+    ids=["allowed", "exact-unlisted", "unread", "unread-first", "listed-first"],
+)
+def test_a_listed_import_does_not_prove_a_different_method(
+    core_binary: Path, tmp_path: Path, body: str, status: str
+) -> None:
+    base = {
+        **component("base", "base_crate"),
+        "packages": [],
+        "exact_modules": ["native.base_crate", "native.base_crate.cargo_toml"],
+        "public": ["native.base_crate:Tool"],
+    }
+    extra = {
+        **component("extra", "base_crate.extra", ("base",)),
+        "public": ["native.base_crate.extra:allowed"],
+    }
+    app = component("app", "app", ("base", "extra"))
+    files = {
+        "crates/base/src/lib.rs": "pub mod extra;\npub struct Tool;\n",
+        "crates/base/src/extra.rs": (
+            "impl crate::Tool { pub fn touch(&self) {} }\npub fn allowed() {}\n"
+        ),
+        "crates/app/src/lib.rs": f"pub fn run(value: &base_crate::Tool) {{ {body} }}\n",
+    }
+    found, messages = _run(tmp_path, core_binary, files, (base, extra, app))
+    assert found == status, messages
+    if status == "FAIL":
+        assert VIOLATION.format("native.base_crate.extra:Tool") in messages

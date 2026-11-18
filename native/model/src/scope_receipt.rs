@@ -70,7 +70,11 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
         })
         .filter(|gap| gap.holds(&reading))
         .map(|gap| (gap.source.as_str(), gap.target.as_str()));
-    if let Some(held) = Held::of(held) {
+    let named = matches!(rule, Rule::InterfaceBoundary(_))
+        .then(|| open_sites(model))
+        .into_iter()
+        .flatten();
+    if let Some(held) = Held::of(held.chain(named)) {
         return Err(Reason::NotComplete(Cause::PairGaps(held)));
     }
     let dropped = pairs
@@ -83,6 +87,27 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
         Some(held) => Err(Reason::NotComplete(Cause::AllowedPairGaps(held))),
         None => Ok(GapScope::of()),
     }
+}
+
+/// An observed module edge does not prove the publication of a separate name.
+fn open_sites(model: &Model) -> impl Iterator<Item = (&str, &str)> {
+    let components = model.components();
+    model
+        .graph()
+        .observed()
+        .named_sites
+        .iter()
+        .filter_map(|(source, target)| {
+            if !model.selects(source) {
+                return None;
+            }
+            let from = owner_of(components, source)?;
+            let to = owner_of(components, target)?;
+            if from == to || components.get(to)?.public().is_none() {
+                return None;
+            }
+            Some((source.as_str(), target.as_str()))
+        })
 }
 
 /// The scan proof of the model: the bound roots and the module files of the reply.

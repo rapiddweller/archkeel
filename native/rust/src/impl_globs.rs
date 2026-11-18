@@ -226,6 +226,14 @@ impl Builder {
     ) {
         let source = reached.module.module.as_str();
         let at = (reached.module.rel.as_str(), &call.site);
+        if source != target
+            && reached
+                .edges
+                .contains(&(source.to_owned(), target.to_owned()))
+        {
+            self.named_site((source, target), at, why);
+            return;
+        }
         once_gap(self, reached.edges, (source, target), at, why, false);
     }
 }
