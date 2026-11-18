@@ -174,6 +174,8 @@ def commands() -> None:
         "archkeel-core.sha256",
         "archkeel-rust-collector",
         "archkeel-rust-collector.sha256",
+        "archkeel-typescript-collector",
+        "archkeel-typescript-collector.sha256",
     ], held
     with TemporaryDirectory(prefix="archkeel-smoke-") as temporary:
         root = Path(temporary).resolve()
