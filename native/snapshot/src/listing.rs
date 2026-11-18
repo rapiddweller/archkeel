@@ -120,27 +120,11 @@ impl Snapshot {
                     return None;
                 }
             };
-            let kind = match entry.file_type() {
-                Ok(kind) if kind.is_symlink() => {
-                    let to_directory = match fs::metadata(entry.path()) {
-                        Ok(target) => target.is_dir(),
-                        Err(error) if error.kind() == ErrorKind::NotFound => false,
-                        Err(_) => {
-                            let child = join(rel, &name);
-                            self.problems
-                                .insert(format!("Unreadable link target: {child}"));
-                            return None;
-                        }
-                    };
-                    Entry::Link { to_directory }
-                }
-                Ok(kind) if kind.is_dir() => Entry::Directory,
-                Ok(kind) if kind.is_file() => Entry::File,
-                Ok(_) => Entry::Other,
-                Err(_) => {
+            let kind = match entry_kind(&entry) {
+                Ok(kind) => kind,
+                Err(message) => {
                     let child = join(rel, &name);
-                    self.problems
-                        .insert(format!("Unreadable source entry: {child}"));
+                    self.problems.insert(format!("{message}: {child}"));
                     return None;
                 }
             };
@@ -220,6 +204,24 @@ impl Snapshot {
         self.inputs
             .insert(rel.to_owned(), (sha256_hex(&raw), Role::Selected));
         Some(raw)
+    }
+}
+
+fn entry_kind(entry: &fs::DirEntry) -> Result<Entry, &'static str> {
+    let kind = entry.file_type().map_err(|_| "Unreadable source entry")?;
+    if kind.is_symlink() {
+        let to_directory = match fs::metadata(entry.path()) {
+            Ok(target) => target.is_dir(),
+            Err(error) if error.kind() == ErrorKind::NotFound => false,
+            Err(_) => return Err("Unreadable link target"),
+        };
+        Ok(Entry::Link { to_directory })
+    } else if kind.is_dir() {
+        Ok(Entry::Directory)
+    } else if kind.is_file() {
+        Ok(Entry::File)
+    } else {
+        Ok(Entry::Other)
     }
 }
 
