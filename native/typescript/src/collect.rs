@@ -186,6 +186,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         kept: collection.kept,
         order: collection.order,
         sites: collection.sites,
+        bundler: collection.bundler,
         partial,
         script,
         dependency_scope,
