@@ -1,7 +1,7 @@
 # Reference run for the phase timings of the core
 
 The nightly run (Full verification, area "CLI and core") scans an unchanged public Python project and
-keeps the seconds of each phase (#659, AD-878). It adds no pipeline: it is one test of the existing
+keeps separate `validate` and HTML `report` measurements (#659, AD-878). It adds no pipeline: it is one test of the existing
 nightly (`tests/test_cli_phase_timings_reference.py`, in `SLOW_FILES`) and one upload step.
 
 ## The pinned project
@@ -33,8 +33,10 @@ ARCHKEEL_FETCH_SOURCES=1 uv run pytest -q -n 0 -s tests/test_cli_phase_timings_r
   of the test makes **a new folder of its own** `run-<UTC time>-<random>` below it, after the source is
   verified. Nothing in `DIR` is ever deleted or reused, so a folder with your files, or a second run at
   the same time, is safe.
-- The folder holds `run-N.timings.json` for each run (the file of `--timings`, which creates a new file
-  and never replaces one), `summary.json` (the pin, the machine, each run and the spread) and
+- Each series has its own `validate/` or `report/` folder. The run folder holds `run-N.timings.json`
+  for each run (the file of `--timings`, which never replaces one). The report series also holds
+  `run-N.timings.html` for each run. Both series have `summary.json` (the pin, the command, the
+  machine, each run and the spread) and
   `summary.md` (the table, also written to the job summary of CI). CI uploads the whole output folder.
 
 ## What is measured, and what is not
