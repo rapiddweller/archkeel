@@ -8,7 +8,7 @@
    `typed_reply` assembles it with the sections `imports` and `unknowns` and the caller provenance.
    The binary still exits 2 with no reply on a valid request. `collect` still refuses Dart.
 2. The survey reads one package: the root `pubspec.yaml`. It parses directives only. It refuses
-   `exclude_test_sources`. Parse bounds (#1097): 1 MiB and 131,072 possible tokens for each source,
+   `exclude_test_sources` (superseded by AD-884). Parse bounds (#1097): 1 MiB and 131,072 possible tokens for each source,
    bracket depth 900 (the tree limit) and 32 MiB in total.
 3. Package configuration. An absent `.dart_tool/package_config.json` (no `pub get` yet) keeps the
    language rule: the own package is `lib/`. A present file is an input; it must map the own

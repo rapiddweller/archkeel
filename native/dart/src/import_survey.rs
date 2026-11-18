@@ -58,6 +58,8 @@ pub(crate) struct PartOwner {
 /// The typed result of the survey. `unknowns` and `coverage.gaps` hold the same records.
 #[derive(Debug)]
 pub(crate) struct Survey {
+    /// The selected test sources that the request leaves out.
+    pub excluded: Vec<String>,
     /// Sorted by path: the selected sources and the `pubspec.yaml`.
     pub inputs: Vec<Input>,
     /// The glob of each scan root.
@@ -92,14 +94,33 @@ pub(crate) struct Survey {
 
 /// The survey of `request`. An error is a refusal of the whole request, never a partial survey.
 pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
-    if request.excludes_test_sources() {
-        return Err("the Dart import survey does not support exclude_test_sources".to_owned());
-    }
     let roots = scan_roots(&request.scope.roots);
     let mut snapshot = Snapshot::open_root(&request.snapshot.root)?;
-    let found = discover(&mut snapshot, &request.scope.namespace, &roots)?;
+    let mut found = discover(&mut snapshot, &request.scope.namespace, &roots)?;
+    let mut excluded: Vec<String> = Vec::new();
+    let package_files = &found.package_files;
+    if request.excludes_test_sources() {
+        Vec::retain(&mut found.sources, |source| {
+            let test = roots
+                .iter()
+                .any(|root| test_source(&source.rel_path, root, &found.package_dir, package_files));
+            if test {
+                excluded.push(source.rel_path.clone());
+            }
+            !test
+        });
+    }
     let mut gaps = Gaps::default();
     discovery_gaps(&found, &mut gaps.evidence, &mut gaps.records);
+    let sources: &[crate::discover::Source] = &found.sources;
+    if sources.is_empty() && !excluded.is_empty() {
+        gaps.plain(
+            (".", 1),
+            archkeel_facts::vocab::ExceptionName::SelectedRootError,
+            "test exclusion leaves no selected Dart source",
+            None,
+        );
+    }
     let root = &request.snapshot.root;
     let own = (found.package_name.as_str(), found.package_dir.as_str());
     let config = config::config_gaps(&mut snapshot, root, own, &mut gaps);
@@ -138,6 +159,7 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
     // AD-468: the selected sources that the survey read; a part counts as a parsed file.
     let read = selected.len();
     Ok(Survey {
+        excluded,
         inputs,
         // AD-468: the scope label of a root is `<root>/**`, as the model binds it to the roots.
         scope: roots.iter().map(|root| format!("{root}/**")).collect(),
@@ -156,6 +178,43 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
         symbols: collected.symbols,
         calls: collected.calls,
         references: collected.references,
+    })
+}
+
+fn test_source(path: &str, root: &str, package_dir: &str, package_files: &[String]) -> bool {
+    let relative = if root == "." {
+        Some(path)
+    } else {
+        path.strip_prefix(root).and_then(|s| s.strip_prefix('/'))
+    };
+    let Some(relative) = relative else {
+        return false;
+    };
+    relative.ends_with("_test.dart")
+        || relative
+            .rsplit_once('/')
+            .is_some_and(|(parent, _)| test_directory(parent, root, package_files))
+        || root != package_dir
+            && root
+                .rsplit('/')
+                .next()
+                .is_some_and(|part| matches!(part, "test" | "tests"))
+            && !package_files.contains(&format!("{root}/pubspec.yaml"))
+}
+
+fn test_directory(parent: &str, root: &str, package_files: &[String]) -> bool {
+    let mut directory: String = if root == "." {
+        String::new()
+    } else {
+        root.to_owned()
+    };
+    parent.split('/').any(|part| {
+        if !directory.is_empty() {
+            directory.push('/');
+        }
+        directory.push_str(part);
+        matches!(part, "test" | "tests")
+            && !package_files.contains(&format!("{directory}/pubspec.yaml"))
     })
 }
 

@@ -43,7 +43,7 @@ contract = "architecture-contract.json"
 
 One run covers one namespace. Roots are repository-relative, nonoverlapping and
 not globs. Optional `language` is `rust`, `typescript`, `python` or `dart`; a missing value
-selects `python`. A Dart run refuses `exclude_test_sources`. TypeScript also uses `tsconfig`; roots may be files or directories.
+selects `python`. TypeScript also uses `tsconfig`; roots may be files or directories.
 Inputs must exist inside `--root`.
 
 For Python, set `python = "3.13"` in `[scan]` to select a target version. Without it,
@@ -60,6 +60,11 @@ nested file cannot produce PASS. See [nested intent](rules.md#nested-and-indepen
 `exclude_test_sources = true` (default false) leaves recognized test sources out of the scan
 of `report` and `validate`. File counts and verdicts then cover production code only, and the
 result has a note that says so. An import from production code into a test source stays UNKNOWN.
+For Dart, this option excludes `.dart` files under `test` or `tests` within a selected root,
+and files whose names end in `_test.dart`. It also excludes a root named `test` or `tests`,
+unless that root is a Dart package directory.
+It does not classify a nested Dart package directory as a test only because of its name.
+The result names each excluded file. A scope with only excluded Dart files stays UNKNOWN.
 
 `bundler = true` (TypeScript only, default false) treats imports that a bundler
 resolves as known: tsconfig `paths` aliases (not `baseUrl`-only matches), package

@@ -4,7 +4,7 @@
 
 **Decision.**
 1. `archkeel-collect` links `native/dart` and runs `typed_reply` in the process of the core.
-   The request is 8.0.0 with the resolver `{"language": "dart"}`. `exclude_test_sources` is refused by name.
+   The request is 8.0.0 with the resolver `{"language": "dart"}`. AD-884 adds the opt-in test scope.
 2. `collect` reads each input again: its bytes must have its digest, and the source digest must be
    the digest of the input listing. Else the run is refused (`python::reread`, shared with AD-450).
 3. The store accepts a Dart reply only as the import survey: the sections `imports` and `unknowns`,
@@ -50,5 +50,5 @@ a part in the component of its library hides no edge.
 atomic snapshot: a file that changes during the scan refuses the run.
 
 **Tests.** `tests/test_cli_native_dart_imports.py`: PASS, FAIL with file, a part in the component of
-its library and in another one, each gap name of AD-454 and the refused test exclusion.
+its library and in another one, and each gap name of AD-454. AD-884 tests the test exclusion.
 `native/collect/src/dart_tests.rs` plants changed digests and each refused store claim.

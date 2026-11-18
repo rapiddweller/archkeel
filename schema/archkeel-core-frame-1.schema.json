@@ -111,6 +111,12 @@
       ],
       "description": "The one assumption that the collector states for its proofs (AD-540). The word of `scope`\nstays `complete`: the shell reads it."
     },
+    "excluded_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "measures": {
       "anyOf": [
         {

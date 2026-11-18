@@ -344,6 +344,9 @@ def render(
         out.append(f"Next: {action}")
     if frame.premise is not None:
         out.append(f"Assumption: {frame.premise}")
+    if frame.excluded_sources:
+        out.append("Excluded test sources:")
+        out.extend(f"  {path}" for path in frame.excluded_sources)
     out.extend(door_lines(frame.premises, frame.doors, SHOWN, show_all))
     if system:
         out.extend(_system(system))

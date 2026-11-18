@@ -56,6 +56,23 @@ fn the_system_frame_keeps_the_premise_of_each_part_once() {
     assert_eq!(joined(&[part("PASS", None)]).get("premise"), None);
 }
 
+#[test]
+fn the_system_keeps_exclusions_from_each_part() {
+    let make = |path: &str| {
+        serde_json::to_vec(&json!({
+            "engine": "e", "protocol": "p", "status": "PASS", "scope": "complete",
+            "excluded_sources": [path],
+        }))
+        .unwrap()
+    };
+    let frame = joined(&[make("one/test/a.dart"), make("two/test/b.dart")]);
+    assert_eq!(
+        frame["excluded_sources"],
+        json!(["one/test/a.dart", "two/test/b.dart"])
+    );
+    assert_eq!(frame["status"], "PASS");
+}
+
 fn part_with_scope(status: &str, scope: &Value) -> Vec<u8> {
     let frame = json!({"engine": "e", "protocol": "p", "status": status, "scope": scope});
     serde_json::to_vec(&frame).unwrap()

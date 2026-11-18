@@ -78,6 +78,7 @@ pub fn assemble(
             validation,
             profile_limits: None,
             scope_premise: None,
+            excluded_sources: Vec::new(),
             owned_files: Vec::new(),
             standard: None,
             adapter: provenance.adapter,

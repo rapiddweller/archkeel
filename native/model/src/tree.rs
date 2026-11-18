@@ -116,6 +116,12 @@ impl ModelTree {
         &self.root
     }
 
+    /// The exclusions of the shared observation of every model of the tree.
+    pub fn excluded_sources(&self) -> Vec<String> {
+        let root: &Model = &self.root;
+        root.excluded_sources().to_vec()
+    }
+
     /// The model of each inside contract, in the order of the walk.
     pub fn mounts(&self) -> &[Model] {
         &self.mounts

@@ -76,18 +76,151 @@ fn a_source_that_is_not_utf8_is_a_gap_and_has_no_module() {
 }
 
 #[test]
-fn a_request_that_excludes_test_sources_is_refused() {
-    let tree = Tree::new(&with_pubspec(&[("lib/a.dart", "")]));
+fn a_request_excludes_only_recognized_test_sources() {
+    let tree = Tree::new(&with_pubspec(&[
+        ("lib/a.dart", ""),
+        ("lib/latest.dart", ""),
+        ("lib/a_test.dart", ""),
+        ("lib/test/helper.dart", ""),
+    ]));
     let request = json!({
         "protocol_version": "9.0.0",
         "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
         "scope": {"roots": ["lib"], "namespace": "shop", "exclude_test_sources": true},
         "resolver": {"language": "dart"},
     });
-    let refused =
+    let found =
         survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
-            .unwrap_err();
-    assert!(refused.contains("exclude_test_sources"), "{refused}");
+            .unwrap();
+    assert_eq!(
+        found.coverage.selected_files,
+        ["lib/a.dart", "lib/latest.dart"]
+    );
+    assert_eq!(found.excluded, ["lib/a_test.dart", "lib/test/helper.dart"]);
+    assert!(found.coverage.full_scope, "{:?}", found.unknowns);
+}
+
+#[test]
+fn a_project_folder_named_test_does_not_exclude_its_library() {
+    let tree = Tree::new(&[
+        ("packages/test/pubspec.yaml", PUBSPEC),
+        ("packages/test/lib/a.dart", ""),
+        ("packages/test/lib/a_test.dart", ""),
+    ]);
+    let request = json!({
+        "protocol_version": "9.0.0",
+        "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": ["packages/test"], "namespace": "shop", "exclude_test_sources": true},
+        "resolver": {"language": "dart"},
+    });
+    let found =
+        survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
+            .unwrap();
+    assert_eq!(found.coverage.selected_files, ["packages/test/lib/a.dart"]);
+    assert_eq!(found.excluded, ["packages/test/lib/a_test.dart"]);
+}
+
+#[test]
+fn a_nested_package_named_test_does_not_hide_its_library() {
+    let tree = Tree::new(&[
+        ("pubspec.yaml", PUBSPEC),
+        ("packages/test/pubspec.yaml", "name: inner\n"),
+        ("packages/test/lib/a.dart", ""),
+        ("packages/test/test/a_test.dart", ""),
+    ]);
+    let request = json!({
+        "protocol_version": "9.0.0",
+        "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": ["."], "namespace": "shop", "exclude_test_sources": true},
+        "resolver": {"language": "dart"},
+    });
+    let found =
+        survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
+            .unwrap();
+    assert_eq!(found.coverage.selected_files, ["packages/test/lib/a.dart"]);
+    assert_eq!(found.excluded, ["packages/test/test/a_test.dart"]);
+    assert!(!found.coverage.full_scope);
+}
+
+#[test]
+fn separate_package_roots_keep_a_package_named_test() {
+    let tree = Tree::new(&[
+        ("pubspec.yaml", PUBSPEC),
+        ("packages/test/pubspec.yaml", "name: test\n"),
+        ("packages/test/lib/a.dart", ""),
+        ("packages/other/pubspec.yaml", "name: other\n"),
+        ("packages/other/lib/b.dart", ""),
+        ("packages/other/test/b_test.dart", ""),
+    ]);
+    let request = json!({
+        "protocol_version": "9.0.0",
+        "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": ["packages/test", "packages/other"], "namespace": "shop", "exclude_test_sources": true},
+        "resolver": {"language": "dart"},
+    });
+    let found =
+        survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
+            .unwrap();
+    assert_eq!(
+        found.coverage.selected_files,
+        ["packages/other/lib/b.dart", "packages/test/lib/a.dart"]
+    );
+    assert_eq!(found.excluded, ["packages/other/test/b_test.dart"]);
+    assert!(!found.coverage.full_scope);
+}
+
+#[test]
+fn a_selected_test_root_is_excluded_without_excluding_the_library_root() {
+    let tree = Tree::new(&with_pubspec(&[
+        ("lib/a.dart", ""),
+        ("test/helper.dart", ""),
+    ]));
+    let request = json!({
+        "protocol_version": "9.0.0",
+        "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": ["lib", "test"], "namespace": "shop", "exclude_test_sources": true},
+        "resolver": {"language": "dart"},
+    });
+    let found =
+        survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
+            .unwrap();
+    assert_eq!(found.coverage.selected_files, ["lib/a.dart"]);
+    assert_eq!(found.excluded, ["test/helper.dart"]);
+}
+
+#[test]
+fn a_library_that_claims_an_excluded_part_stays_unknown() {
+    let tree = Tree::new(&with_pubspec(&[
+        ("lib/a.dart", "part 'a_test.dart';\n"),
+        ("lib/a_test.dart", "part of 'a.dart';\n"),
+    ]));
+    let request = json!({
+        "protocol_version": "9.0.0",
+        "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": ["lib"], "namespace": "shop", "exclude_test_sources": true},
+        "resolver": {"language": "dart"},
+    });
+    let found =
+        survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
+            .unwrap();
+    assert_eq!(found.excluded, ["lib/a_test.dart"]);
+    assert_eq!(gaps(&found).get("DartTargetNotSelected"), Some(&1));
+    assert!(!found.coverage.full_scope);
+}
+
+#[test]
+fn a_scope_with_only_excluded_tests_is_not_complete() {
+    let tree = Tree::new(&with_pubspec(&[("lib/a_test.dart", "")]));
+    let request = json!({
+        "protocol_version": "9.0.0",
+        "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": ["lib"], "namespace": "shop", "exclude_test_sources": true},
+        "resolver": {"language": "dart"},
+    });
+    let found =
+        survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
+            .unwrap();
+    assert!(!found.coverage.full_scope, "{found:?}");
 }
 
 #[cfg(unix)]
