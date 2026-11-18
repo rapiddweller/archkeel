@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import secrets
 import stat
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Final
 
 from .core_json import CoreError, as_object, as_text
 
@@ -33,6 +35,24 @@ def read_html(
     if document.count(heading) != 1 or headings != ["<h1>Verdict:"]:
         raise CoreError("the core HTML document lacks its one exact verdict heading")
     return document
+
+
+_TIMINGS_PROTOCOL: Final = "archkeel-core-timings-1"
+
+
+def read_timings(stderr: bytes) -> bytes | None:
+    """The timings document that the core wrote as the last line of its standard error, or `None`
+    when it wrote none: a refused scan has no phases (#659)."""
+    lines = stderr.strip().splitlines()
+    if not lines:
+        return None
+    try:
+        document = json.loads(lines[-1])
+    except ValueError as error:
+        raise CoreError("the core timings line is not JSON") from error
+    if not isinstance(document, dict) or document.get("protocol") != _TIMINGS_PROTOCOL:
+        raise CoreError("the core timings line has another protocol")
+    return lines[-1] + b"\n"
 
 
 def _parent(path: Path) -> int:

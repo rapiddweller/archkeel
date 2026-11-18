@@ -11,6 +11,7 @@
 //! the file count of the reply), so the harness can prove the round trip.
 
 use std::collections::BTreeMap;
+use std::time::Instant;
 
 #[cfg(any(test, feature = "harness"))]
 use archkeel_model::Producer;
@@ -31,7 +32,8 @@ use archkeel_report::Named;
 #[path = "frame_parts.rs"]
 mod frame_parts;
 pub(crate) use frame_parts::{
-    refused_scan, Answered, Collect, InterfaceRow, PartOf, PartRow, SystemFrame, CODE_DIGEST,
+    refused_scan, Answered, Collect, InterfaceRow, PartOf, PartRow, Phases, SystemFrame,
+    CODE_DIGEST,
 };
 #[cfg(test)]
 pub(crate) use frame_parts::{typed_rows, Parts as FrameParts};
@@ -200,6 +202,7 @@ pub(crate) struct Trust {
 /// The one engine path of each request kind: the reply, the settings, the contract, the rows and
 /// the ruling, in this order, and the frame.
 pub(crate) fn run(run: Run) -> Result<Answered, String> {
+    let evaluating = Instant::now();
     let mut engine = Engine::default();
     let reply = ingest(&mut engine, run.reply)?;
     let input = ContractInput {
@@ -296,12 +299,22 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         },
         locations,
     };
+    let rendering = Instant::now();
     let frame = ruling
         .with_html(run.html)
         .frame(&parts)
         .map_err(|error| format!("{}: an inconsistent frame: {error}", run.case))?
         .into_bytes();
-    Ok(Answered { frame, names_a_gap })
+    let timings = Phases {
+        evaluate: rendering - evaluating,
+        render: rendering.elapsed(),
+        ..Phases::default()
+    };
+    Ok(Answered {
+        frame,
+        names_a_gap,
+        timings: Some(timings),
+    })
 }
 
 fn report_check(engine: &mut Engine, requested: bool) -> Result<(), String> {

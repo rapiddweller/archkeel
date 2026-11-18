@@ -99,9 +99,12 @@ def ignored_by(root: Path, paths: Sequence[str]) -> dict[str, str]:
     return found
 
 
-def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
+def exchange(
+    binary: str, kind: str, request: bytes, stderr_sink: list[bytes] | None = None
+) -> tuple[bytes, int]:
     """Run the core with one encoded request and a time limit, and give its standard output and exit
-    code. Exit 2 (no frame) is a `CoreError`."""
+    code. Exit 2 (no frame) is a `CoreError`. A caller that wants the standard error of a run that
+    gave a frame (the timings of #659) passes a list; the bytes are appended to it."""
     try:
         with _progress(Path.cwd().name) if kind == "scan" else _quiet():
             done = subprocess.run(
@@ -115,6 +118,8 @@ def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
         raise CoreError(f"the core did not answer in {_TIMEOUT_SECONDS} s") from error
     except OSError as error:
         raise CoreError(f"the core could not execute: {error}") from error
+    if stderr_sink is not None:
+        stderr_sink.append(done.stderr)
     if done.returncode == CoreExit.REFUSED:
         if done.stdout:
             raise CoreError("the core wrote frame bytes with exit 2")

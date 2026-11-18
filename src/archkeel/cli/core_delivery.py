@@ -24,7 +24,9 @@ _NOT_WRITTEN: Final = (
 )
 
 
-def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> list[_Refusal]:
+def _deliver(
+    options: Options, frame: CoreFrame, stdout: bytes, root: Path, timings: bytes | None = None
+) -> list[_Refusal]:
     """Write each requested file. Each file that was not written, in the order of the request."""
     failures: list[_Refusal] = []
     try:
@@ -32,6 +34,14 @@ def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> l
     except OSError as error:
         message = f"cannot write report file {options.output}: {error}; no report file was written"
         failures.append((RefusalKind.IO_ERROR, message))
+    if options.timings is not None and timings is not None:
+        try:
+            write_output(options.timings, timings)
+        except OSError as error:
+            message = (
+                f"cannot write timings file {options.timings}: {error}; no timings file was written"
+            )
+            failures.append((RefusalKind.IO_ERROR, message))
     if options.write_baseline is None:
         return failures
     # No part (a refused scan) or `not_written`: the core gave no bytes, and the frame stays.

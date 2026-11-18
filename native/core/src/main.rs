@@ -145,8 +145,14 @@ fn respond_with<E: From<String>>(
 ) -> (u8, Option<E>) {
     match answer(input) {
         Ok(answered) => match out.write_all(&answered.frame) {
-            Ok(()) if answered.names_a_gap => (NAMES_A_GAP, None),
-            Ok(()) => (0, None),
+            Ok(()) => {
+                // The seconds of the phases go to standard error, only when the request asked
+                // for them (#659). The frame on standard output is the same.
+                if let Some(phases) = answered.timings {
+                    eprintln!("{}", dual_run::Phases::line(&phases));
+                }
+                (if answered.names_a_gap { NAMES_A_GAP } else { 0 }, None)
+            }
             Err(error) => (1, Some(error.to_string().into())),
         },
         Err(message) => (2, Some(message)),

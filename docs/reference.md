@@ -166,7 +166,10 @@ The shell also compares the root, the commit and the dirty state of the frame wi
 A difference is a refusal. The rule rows are trusted to the located core binary.
 
 `--core-only` is accepted and changes nothing. `ARCHKEEL_CORE_ONLY` and `ARCHKEEL_NATIVE_CORE` are ignored.
-`--native-core`, `--timings`, `--html` and unported options of the Python engine give a typed refusal with exit 2.
+`--native-core`, `--html` and unported options of the Python engine give a typed refusal with exit 2.
+`validate --timings FILE` and `report --timings FILE` write the seconds of the phases of the core as one JSON file
+(`prepare`, `collect`, `validate`, `evaluate`, `render` and `core_seconds`, measured with a monotonic clock, AD-878).
+Standard output, the verdict and the report do not change. A scan that the core refuses writes no file.
 `report --json` gives the verdict frame as JSON, and `--text` gives the text summary.
 Neither stdout form is a complete `architecture.json` or an HTML report.
 `report --topology` adds a bounded `topology` section: components, modules, edges, completeness, budgets

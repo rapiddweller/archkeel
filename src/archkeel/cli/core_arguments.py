@@ -14,6 +14,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from enum import StrEnum
+from functools import partial
 from pathlib import Path, PurePosixPath
 from typing import Final, NoReturn
 
@@ -27,7 +28,7 @@ SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT, Command.INIT})
 RELEASED: Final = frozenset({Command.CHECK})
 # The options of the deleted Python shell that release 4.0.1 does not have.
 UNRELEASED_OPTIONS: Final = frozenset(
-    {"--collector-timeout-seconds", "--html", "--native-core", "--strict", "--timings"}
+    {"--collector-timeout-seconds", "--html", "--native-core", "--strict"}
 )
 # Each option of the deleted Python shell. The shell refuses it by name.
 REMOVED_OPTIONS: Final = frozenset(
@@ -52,7 +53,6 @@ REMOVED_OPTIONS: Final = frozenset(
         "--rationale",
         "--rule",
         "--strict",
-        "--timings",
         "--tsconfig",
         "--write-amendment",
         "--write-graph",
@@ -91,6 +91,7 @@ class Options(argparse.Namespace):
     action: str = ""
     agent: str = ""
     output: Path | None = None
+    timings: Path | None = None
     format: str = "html"
     baseline: str | None = None
     write_baseline: str | None = None
@@ -154,14 +155,12 @@ def command_of(argv: Sequence[str]) -> Command:
     return command
 
 
-def _output_path(value: str) -> Path:
+def _file_path(flag: str, value: str) -> Path:
     if value == "-":
-        raise argparse.ArgumentTypeError("standard output is not a file target; omit --output")
+        raise argparse.ArgumentTypeError(f"standard output is not a file target; omit {flag}")
     path = Path(value)
     if not value or not path.name:
-        raise argparse.ArgumentTypeError(
-            "--output must name a file, not an empty path or directory"
-        )
+        raise argparse.ArgumentTypeError(f"{flag} must name a file, not an empty path or directory")
     return path
 
 
@@ -205,12 +204,13 @@ def parse(argv: Sequence[str]) -> Options:
             parser.add_argument("--config", default="archkeel.toml")
         if command in {Command.VALIDATE, Command.REPORT}:
             parser.add_argument("--no-init", action="store_true")
+            parser.add_argument("--timings", type=partial(_file_path, "--timings"))
         if command is Command.VALIDATE:
             parser.add_argument("--baseline", type=_baseline_path)
             parser.add_argument("--write-baseline", type=_baseline_path)
         if command is Command.REPORT:
             parser.add_argument("--topology", action="store_true")
-            parser.add_argument("--output", type=_output_path)
+            parser.add_argument("--output", type=partial(_file_path, "--output"))
             parser.add_argument("--format", choices=["html", "json"], default="html")
             parser.add_argument("--part-of", type=_document_path)
             parser.add_argument("--system-href")
