@@ -52,6 +52,28 @@ def test_the_explorer_starts_at_the_system_level(site: str, page: Browser) -> No
     ]
 
 
+def test_toolbar_controls_precede_the_canvas_in_tab_order(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html")
+    assert page.evaluate("""(() => {
+      const canvas = document.querySelector('#flow .flow-canvas');
+      const controls = document.querySelectorAll(
+        '#flow .ak-top-left button, #flow .ak-top-center button, #flow .ak-top-right button,'
+        + ' #flow .ak-rail button'
+      );
+      return controls.length > 0 && [...controls].every((control) =>
+        control.compareDocumentPosition(canvas) & Node.DOCUMENT_POSITION_FOLLOWING);
+    })()""")
+
+
+def test_the_content_switch_names_parts_at_system_root(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html")
+    label = "document.querySelector('.atlas-content-choice [data-content=components]').textContent"
+    assert page.evaluate(label) == "Parts (2)"
+    page.evaluate("ArchkeelFlow.openComponent('PART:shell')")
+    page.settle()
+    assert page.evaluate(label).startswith("Components (")
+
+
 def test_back_leaves_each_opened_level_in_turn(site: str, page: Browser) -> None:
     page.open(f"{site}/system.html")
     page.evaluate("ArchkeelFlow.openComponent('PART:shell')")
@@ -147,10 +169,16 @@ def test_a_view_button_switches_the_view_and_keeps_the_level(site: str, page: Br
 
 def test_the_details_button_opens_and_closes_the_fact_sheet(site: str, page: Browser) -> None:
     page.open(f"{site}/system.html")
-    assert page.state()["details"] is False
-    click(page, "#flow .flow-details-toggle")
-    assert page.state()["details"] is True
-    click(page, "#flow .flow-details-toggle")
+    for expanded in (False, True):
+        assert page.state()["details"] is expanded
+        node = page.send(
+            "Runtime.evaluate", expression="document.querySelector('#flow .flow-details-toggle')"
+        )["result"]["objectId"]
+        button = page.send("Accessibility.queryAXTree", objectId=node)["nodes"][0]
+        assert button["name"]["value"] == "Details"
+        state = next(prop for prop in button["properties"] if prop["name"] == "expanded")
+        assert state["value"]["value"] is expanded
+        click(page, "#flow .flow-details-toggle")
     assert page.state()["details"] is False
 
 

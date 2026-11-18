@@ -316,7 +316,7 @@ def test_two_stacked_boxes_get_a_direct_edge(site: str, page: Browser) -> None:
     assert len(points) - 2 <= 2, points
 
 
-def test_the_first_view_after_a_drill_is_readable(site: str, page: Browser) -> None:
+def test_the_first_view_after_opening_a_level_link_is_readable(site: str, page: Browser) -> None:
     page.open(f"{site}/system.html")
     page.evaluate("ArchkeelFlow.openComponent('PART:core')")
     page.settle()
@@ -342,6 +342,21 @@ FIRST_VIEW = """(() => {
     firstIn: Boolean(first && inside(first)), overflow: flow.dataset.overflow,
     hint: hint && !hint.hidden ? hint.textContent : null };
 })()"""
+
+
+def test_a_double_click_fits_the_opened_level(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html")
+    page.evaluate("""(() => {
+      const shell = document.querySelector('#flow svg [data-uml-id="PART:shell"]');
+      shell.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+      shell.dispatchEvent(new MouseEvent('dblclick', {bubbles: true}));
+    })()""")
+    page.settle()
+    assert page.state()["scope"] == "PART:shell"
+    view = page.evaluate(FIRST_VIEW)
+    assert view["cards"] and view["labels"], view
+    assert (view["cardsIn"], view["labelsIn"]) == (view["cards"], view["labels"]), view
+    assert view["overflow"] == "", view
 
 
 @pytest.mark.parametrize(("width", "height"), [(1500, 1100), (1920, 1300)])

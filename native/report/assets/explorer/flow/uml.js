@@ -275,8 +275,6 @@
       nodeLayer.appendChild(group);
       bindings.node(group, node);
     }
-    // Runs after the caller finished its synchronous decoration of this scene.
-    queueMicrotask(() => root.dispatchEvent(new CustomEvent("archkeel:rendered")));
     return routes;
   }
 
