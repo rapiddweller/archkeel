@@ -183,21 +183,24 @@ def test_a_loader_needs_a_declaration_of_its_binding_and_of_its_call(
 
 
 @pytest.mark.parametrize(
-    ("constant", "moved", "status"),
+    ("constant", "edit", "status"),
     [
-        ("MODULES = ('model',)\n", False, "PASS"),
-        ("MODULES = ('secret',)\n", False, "FAIL"),
-        ("MODULES = ('model', 'gone')\n", False, "UNKNOWN"),
-        ("MODULES = ('model',)\nMODULES = ('secret',)\n", False, "UNKNOWN"),
-        ("MODULES = ['model']\n", False, "UNKNOWN"),
-        ("MODULES = ('model',)\n", True, "UNKNOWN"),
+        ("MODULES = ('model',)\n", "", "PASS"),
+        ("MODULES = ('secret',)\n", "", "FAIL"),
+        ("MODULES = ('model', 'gone')\n", "", "UNKNOWN"),
+        ("MODULES = ('model',)\nMODULES = ('secret',)\n", "", "UNKNOWN"),
+        ("MODULES = ['model']\n", "", "UNKNOWN"),
+        ("MODULES = ('model',)\n", "stale", "UNKNOWN"),
+        ("MODULES = ('model',)\n", "same-line", "UNKNOWN"),
     ],
 )
 def test_a_python_loader_bound_reads_the_written_tuple_again(
-    release_core: Path, tmp_path: Path, constant: str, moved: bool, status: str
+    release_core: Path, tmp_path: Path, constant: str, edit: str, status: str
 ) -> None:
     call = 'importlib.import_module(f"app.service.{names[0]}")'
-    actual = call.replace("names[0]", "names[-1]") if moved else call
+    actual = call.replace("names[0]", "names[-1]") if edit == "stale" else call
+    if edit == "same-line":
+        actual = f"({call}, importlib.import_module(names[-1]))"
     source = (
         "import importlib\n"
         "from app.service.registry import MODULES\n"
@@ -211,10 +214,14 @@ def test_a_python_loader_bound_reads_the_written_tuple_again(
         "template": "app.service.{}",
         "call": call,
     }
+    files = {"src/app/client/page.py": source, "src/app/service/registry.py": constant}
+    if status == "FAIL":
+        path = "src/app/service/secret.py"
+        files[path] = "import app.client.page\n" + FILES[path]
     result = scanned(
         release_core,
         tmp_path,
-        {"src/app/client/page.py": source, "src/app/service/registry.py": constant},
+        files,
         [door],
         version="3.18.0",
     )
@@ -222,7 +229,8 @@ def test_a_python_loader_bound_reads_the_written_tuple_again(
     frame = result["frame"]
     if status == "UNKNOWN":
         assert "door_reach" not in frame
-        assert any(gap["kind"] == "door_reach.invalid" for gap in result["gaps"])
+        problem = "ambiguous" if edit == "same-line" else "invalid"
+        assert any(gap["kind"] == f"door_reach.{problem}" for gap in result["gaps"])
     else:
         (bound,) = frame["door_reach"]
         assert bound["constant"] == (
@@ -244,6 +252,13 @@ def test_a_python_loader_bound_reads_the_written_tuple_again(
     if status == "FAIL":
         (detail,) = frame["details"]["CLIENT-NO-SECRET"]
         assert detail["possible"] is True
+        assert rows(result)["CYCLES"] == "FAIL"
+        report = json.loads(
+            command(release_core, tmp_path, "--json", "--topology", verb="report").stdout
+        )
+        edges = {(edge["source"], edge["target"]) for edge in report["frame"]["topology"]["edges"]}
+        assert ("app.service.secret", "app.client.page") in edges
+        assert ("app.client.page", "app.service.secret") not in edges
     if status != "UNKNOWN":
         assert truth(tmp_path, "", "from app.client.page import load; print(load().__name__)") == (
             f"app.service.{target}"
