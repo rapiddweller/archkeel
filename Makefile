@@ -5,7 +5,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -42,8 +42,7 @@ FAST_TEST = ARCHKEEL_REQUIRE_PREBUILT=1 $(UV) run --locked python -m pytest -n 4
 fast-test: core browser-runtime-install
 	$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)
 
-# AD-674: the PR gate, at most 3 minutes: static checks, the core build, the self and system check,
-# and the fast tests of the areas that the change selects (tools/select_areas.py).
+# The PR gate runs the main-tier tests of the areas that the change selects.
 PR_BASE ?= origin/main
 # SKIP_STATIC=1: the workflow ran `make ci-pr-static` beside the core build (AD-754).
 ifneq ($(strip $(KEEP_GOING)),)
@@ -73,8 +72,15 @@ pr-native-lint:
 	$(UV) run --locked python -m pytest -q -p no:cacheprovider -n 0 tests/test_rust_clones.py tests/test_rust_api.py
 
 pr-selected-test: core browser-runtime-install
-	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") && echo "areas: $$areas" && \
-		eval "$(FAST_TEST) --tier pr -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"
+	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") || exit $$?; \
+	paths="$$(git diff --name-only --no-renames "$(PR_BASE)...HEAD")" || exit $$?; \
+	echo "areas: $$areas"; \
+	if printf '%s\n' "$$paths" | grep -Eq '^(native/|src/archkeel/cli/)'; then \
+		eval "$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $$areas" || exit $$?; \
+	else \
+		eval "$(FAST_TEST) --tier pr -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas" || exit $$?; \
+	fi; \
+	if printf '%s\n' "$$paths" | grep -q '^native/'; then $(MAKE) native-test; fi
 
 # Checks a pull request before its merge: make merge-check PR=<number> (tools/merge_check.py).
 merge-check:
@@ -120,11 +126,14 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --no-default-features -- -D warnings
 	cd native && cargo clippy --locked --all-targets --features dump,harness -- -D warnings
 	cd native && cargo deny --locked check
+	$(MAKE) native-test
+	$(MAKE) self-validate-native
+
+native-test:
 	cd native && cargo build --locked -p archkeel-rust-collector
 	# Cargo puts the core test executable under deps/. Give it the same sibling as the installed core.
 	cd native && mkdir -p target/debug/deps && ln -sf ../archkeel-rust-collector target/debug/deps/archkeel-rust-collector
 	cd native && cargo test --locked
-	$(MAKE) self-validate-native
 
 # AD-754: the gate builds the core with a fast profile: no LTO, 16 codegen units, opt-level 1. The verdicts do not depend
 # on it; the shipped wheel, the nightly run and a build without ARCHKEEL_CORE_PROFILE keep the release profile.

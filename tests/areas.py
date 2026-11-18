@@ -150,12 +150,8 @@ HEAVY_FILES = frozenset(
 ALL = "all"
 TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
     ("tests/test_*.py", ()),
-    ("native/python/*", ("native collectors", "collectors")),
-    ("native/typescript/*", ("native collectors", "collectors")),
-    ("native/dart*/*", ("native collectors", "collectors")),
-    ("native/rust/*", ("native collectors", "collectors")),
-    ("native/report/*", ("reports", "CLI and core")),
-    ("native/*", ("CLI and core", "self-check and CI")),
+    ("native/*", ALL),
+    ("src/archkeel/cli/*", ALL),
     ("src/*", ("CLI and core", "self-check and CI")),
     ("schema/*", ("CLI and core", "self-check and CI")),
     ("fixtures/*", ("CLI and core", "collectors")),

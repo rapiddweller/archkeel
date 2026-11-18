@@ -4,6 +4,7 @@
 """AD-674: the PR tier selects test areas from the changed paths, and no area may run empty."""
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -26,13 +27,95 @@ def test_a_path_that_no_rule_names_selects_every_area() -> None:
 
 
 def test_a_source_change_selects_the_areas_that_it_can_reach() -> None:
-    assert areas_of_change(["native/python/src/lib.rs"]) == ["native collectors", "collectors"]
-    assert areas_of_change(["native/core/src/main.rs"]) == ["CLI and core", "self-check and CI"]
-    assert areas_of_change(["docs/readme.md", "native/report/src/html.rs"]) == [
-        "CLI and core",
-        "reports",
-        "self-check and CI",
-    ]
+    for path in (
+        "native/python/src/lib.rs",
+        "native/core/src/main.rs",
+        "native/report/src/html.rs",
+        "native/model/src/direction.rs",
+        "native/eval/src/scoped_requires_tests.rs",
+        "src/archkeel/cli/native_scan.py",
+    ):
+        assert areas_of_change([path]) == list(AREAS)
+
+
+def test_the_main_failures_are_in_the_fast_selection() -> None:
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "-p",
+            "no:xdist",
+            "-m",
+            "not native_wheel and not slow",
+            "tests/test_native_self_core_rows.py",
+            "tests/test_cli_native_core_scan_work.py",
+            "tests/test_cli_report_output.py",
+            "tests/test_collector_false_pass_rust_own_file_method.py",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    for name in (
+        "test_collect_hands_core_no_value_of_a_collector_type",
+        "test_release_scan_at_64_mib_keeps_a_full_frame_under_300_mib",
+        "test_native_static_page_stays_below_the_review_size_budget",
+        "test_requires_receipt_distinguishes_unrestricted_and_restricted_targets",
+    ):
+        assert name in done.stdout
+
+
+@pytest.mark.parametrize(
+    ("path", "tier", "rust"),
+    [
+        ("native/report/src/html.rs", "fast", True),
+        ("native/collect/src/lib.rs", "fast", True),
+        ("src/archkeel/cli/native_scan.py", "fast", False),
+        ("docs/readme.md", "pr", False),
+    ],
+)
+def test_gate_runs_extra_tests_only_for_relevant_paths(
+    tmp_path: Path, path: str, tier: str, rust: bool
+) -> None:
+    git = tmp_path / "git"
+    git.write_text(f"#!/bin/sh\nprintf '%s\\n' '{path}'\n")
+    git.chmod(0o755)
+    uv = tmp_path / "uv"
+    uv.write_text('#!/bin/sh\necho "--area reports"\n')
+    uv.chmod(0o755)
+    recorded = tmp_path / "recorded"
+    test = tmp_path / "test"
+    test.write_text(f'#!/bin/sh\nprintf "%s" "$*" > "{recorded}"\n')
+    test.chmod(0o755)
+    nested = tmp_path / "make"
+    called = tmp_path / "called"
+    nested.write_text(f'#!/bin/sh\nprintf "%s" "$*" > "{called}"\n')
+    nested.chmod(0o755)
+    overrides = tmp_path / "Makefile"
+    overrides.write_text(f"include {ROOT / 'Makefile'}\ncore browser-runtime-install:\n\t@:\n")
+    subprocess.run(
+        [
+            shutil.which("make"),
+            "-f",
+            str(overrides),
+            "pr-selected-test",
+            f"UV={uv}",
+            f"MAKE={nested}",
+            f"FAST_TEST={test}",
+        ],
+        cwd=ROOT,
+        env={**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert f"--tier {tier}" in recorded.read_text()
+    assert called.exists() is rust
 
 
 def test_every_slow_file_is_in_an_area() -> None:

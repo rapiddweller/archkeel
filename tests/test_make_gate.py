@@ -379,7 +379,12 @@ def test_the_fast_tests_leave_out_the_nightly_files_and_the_pr_gate_selects_by_a
     recipe = re.search(r"^FAST_TEST = .*?\n\n", makefile, re.DOTALL | re.MULTILINE)
     assert recipe is not None and "tests/test_" not in recipe[0]
     assert "-m 'not native_wheel and not slow'" in makefile
-    assert "not slow and not debug_build and not heavy" in makefile
+    selected = makefile.split("\npr-selected-test:", 1)[1].split("\n\n", 1)[0]
+    assert "--tier fast -m 'not native_wheel and not slow'" in selected
+    assert (
+        "--tier pr -m 'not native_wheel and not slow and not debug_build and not heavy'" in selected
+    )
+    assert "$(MAKE) native-test" in selected
     assert (
         "pr-gate: $(if $(strip $(SKIP_STATIC)),,ci-pr-static) self-validate pr-selected-test"
         in makefile

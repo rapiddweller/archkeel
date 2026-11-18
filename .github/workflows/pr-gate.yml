@@ -1,8 +1,6 @@
 name: PR gate
 
-# AD-674: the PR tier. One job (the free plan runs 20 jobs at once), at most 3 minutes of wall time:
-# static checks, the cached core build, the self and system check, and the fast tests of the areas
-# that the change selects. The check `PR gate` is required by the branch protection of main.
+# The PR gate runs the main-tier tests of the selected areas before merge.
 on:
   pull_request:
     branches: [main, "ci/**"]
