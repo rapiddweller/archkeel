@@ -4,6 +4,7 @@
 
 use super::*;
 use crate::parse::parse;
+use ruff_python_ast::Stmt;
 
 fn facts(text: &str) -> Binders {
     Binders::of(&parse(text, crate::test_minor(13)).expect("valid source"))
@@ -85,15 +86,52 @@ fn a_module_of_imports_and_one_literal_all_is_free_of_logic() {
     assert!(!facts("").logic_free);
 }
 
+/// `names_typing_any` of the annotation `x: <expr>` that follows `prelude`.
+fn proves(prelude: &str, expr: &str) -> bool {
+    let tree = parse(&format!("{prelude}\nx: {expr}\n"), crate::test_minor(13)).expect("source");
+    matches!(tree.body.last(), Some(Stmt::AnnAssign(last))
+        if Binders::of(&tree).names_typing_any(&last.annotation))
+}
+
 #[test]
-fn a_binder_of_any_that_is_not_the_typing_import_makes_the_name_local() {
-    assert!(!facts("from typing import Any\n").any_is_local());
-    assert!(!facts("from typing_extensions import Any\n").any_is_local());
-    assert!(!facts("x = 1\n").any_is_local());
-    assert!(facts("class Any: pass\n").any_is_local());
-    assert!(facts("Any = object\n").any_is_local());
-    assert!(facts("from typing import Any\nclass Any: pass\n").any_is_local());
-    assert!(facts("from typing import Any as A\nclass Any: pass\n").any_is_local());
-    assert!(facts("from m import Any\n").any_is_local());
-    assert!(!facts("from typing import *\nclass Any: pass\n").any_is_local());
+fn any_is_proven_only_when_every_binder_is_a_typing_import() {
+    assert!(proves("from typing import Any", "Any"));
+    assert!(proves("from typing_extensions import Any", "Any"));
+    assert!(proves("if x:\n    from typing import Any", "Any"));
+    assert!(proves("from typing import *", "Any"));
+    assert!(proves(
+        "from typing import *\nfrom typing import Any",
+        "Any"
+    ));
+}
+
+#[test]
+fn any_is_not_proven_when_a_binder_or_a_star_import_may_be_something_else() {
+    assert!(!proves("", "Any"));
+    assert!(!proves("class Any: pass", "Any"));
+    assert!(!proves("Any = object", "Any"));
+    assert!(!proves("from typing import Any\nclass Any: pass", "Any"));
+    assert!(!proves(
+        "from typing import Any as A\nclass Any: pass",
+        "Any"
+    ));
+    assert!(!proves("from m import Any", "Any"));
+    assert!(!proves("from m import *", "Any"));
+    assert!(!proves("from typing import *\nclass Any: pass", "Any"));
+    assert!(!proves("class Any: pass\nfrom typing import *", "Any"));
+    assert!(!proves("from typing import *\nfrom m import *", "Any"));
+}
+
+#[test]
+fn an_attribute_any_is_proven_only_for_a_name_of_the_typing_module() {
+    assert!(proves("import typing", "typing.Any"));
+    assert!(proves("import typing as t", "t.Any"));
+    assert!(proves("import typing_extensions as te", "te.Any"));
+    assert!(proves("if x:\n    import typing", "typing.Any"));
+    assert!(!proves("import typing\ntyping = 1", "typing.Any"));
+    assert!(!proves("import typing.io", "typing.Any"));
+    assert!(!proves("import mylib", "mylib.Any"));
+    assert!(!proves("class Outer:\n    class Any: pass", "Outer.Any"));
+    assert!(!proves("import typing\nfrom m import *", "typing.Any"));
+    assert!(!proves("import typing", "typing.sub.Any"));
 }

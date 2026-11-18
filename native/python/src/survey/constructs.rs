@@ -317,12 +317,11 @@ impl Walk<'_> {
     }
 
     fn annotation(&mut self, annotation: &Expr) {
-        // A name `Any` that the module binds to another object is not `typing.Any` (AD-874).
+        // The module binders prove that the name is `typing.Any` (AD-880).
         struct Any<'b>(&'b Binders, bool);
         impl<'a> Visitor<'a> for Any<'_> {
             fn visit_expr(&mut self, expr: &'a Expr) {
-                self.1 |= matches!(expr, Expr::Name(name) if name.id.as_str() == "Any" && !self.0.any_is_local())
-                    || matches!(expr, Expr::Attribute(attr) if attr.attr.as_str() == "Any");
+                self.1 |= self.0.names_typing_any(expr);
                 visitor::walk_expr(self, expr);
             }
         }
