@@ -301,3 +301,12 @@ def _commit_change(root: Path) -> None:
     }
     for step in (["add", "-A"], ["commit", "-qm", "change"]):
         subprocess.run(["git", "-C", str(root), *step], check=True, env=env)
+
+
+def test_a_dart_run_prints_that_the_code_is_valid(release_core: Path, tmp_path: Path) -> None:
+    # AD-796, #1779: the resolver reads code that `dart analyze` accepts; each run says so.
+    root = project(tmp_path, BASE)
+    basis = "the Dart code is valid (dart analyze accepts it)"
+    assert verdict(release_core, root)["frame"]["premise"] == basis
+    text = command(release_core, root, "--text").stdout
+    assert f"Assumption: {basis}" in text, text

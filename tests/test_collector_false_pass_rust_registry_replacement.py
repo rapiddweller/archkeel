@@ -30,8 +30,10 @@ from rust_repository import CRATE_RULES, component, repository, rule, validate
 pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="rustc is the oracle")
 
 FIXTURE = json.loads(Path(__file__).with_name("rust_registry_replacement.json").read_text())
+# AD-608, #1779: each Rust run states that the code compiles; the lock premise follows it.
+COMPILES = "the Rust code compiles (rustc accepts it)"
 PREMISE = (
-    "registry crates are built from the identity that Cargo.lock records; "
+    f"{COMPILES}; registry crates are built from the identity that Cargo.lock records; "
     "no outside source replacement"
 )
 NO_A_TO_B = rule(
@@ -109,7 +111,7 @@ def test_a_replacement_inside_the_repository_withholds_the_derive_proof(
     reasons = [gap["reason"] for gap in document["frame"]["collection_gaps"]]
     named = [r for r in reasons if "crates/.cargo/config.toml:2" in r and "serde" in r]
     assert named, reasons
-    assert "premise" not in document["frame"] or document["frame"]["premise"] != PREMISE
+    assert document["frame"]["premise"] == COMPILES
 
 
 def test_a_replacement_outside_the_repository_passes_under_the_printed_premise(
