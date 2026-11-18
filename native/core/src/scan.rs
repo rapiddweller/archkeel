@@ -18,6 +18,8 @@
 //! collector, a hostile repository over the work budget) is a frame that names it (exit 3), and
 //! the shell gives UNKNOWN without a fallback.
 
+use std::time::Duration;
+
 use serde::Deserialize;
 #[cfg(test)]
 use serde_json::Value;
@@ -29,18 +31,16 @@ use archkeel_store::Ingested;
 
 use crate::baseline_frame;
 use crate::contract::{ContractInput, ContractState, InsideFile, MAX_INSIDE_FILES};
-use crate::dual_run::{self, Answered, ReplyInput, Run, Trust, TrustOf, CODE_DIGEST};
+use crate::dual_run::{self, Answered, Phases, ReplyInput, Run, Trust, TrustOf, CODE_DIGEST};
 
 /// The first words of the reason of a reply that the core cannot verify. The shell counts it.
 pub(crate) const PRODUCER_NOT_VERIFIED: &str = "producer not verified";
-
 /// The protocol of the scan request.
 const PROTOCOL: &str = "archkeel-core-scan-1";
 /// The bounds of the shell on the inside contracts (`cli/native_core.py`): the rounds of a chain
 /// of 900 mounts. Each of the root and the inside files has a total byte bound.
 const MAX_ROUNDS: usize = 901;
 const MAX_BYTES: u64 = 64 << 20;
-
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ScanRequest {
@@ -61,6 +61,9 @@ struct ScanRequest {
     html: bool,
     #[serde(default)]
     topology: bool,
+    /// Give the seconds of the phases on standard error (#659). The frame does not change.
+    #[serde(default)]
+    timings: bool,
     /// The repository path of the baseline file to compare with (AD-546).
     #[serde(default)]
     baseline: Option<String>,
@@ -72,7 +75,6 @@ struct ScanRequest {
     #[serde(default)]
     part_of: Option<PartOfRequest>,
 }
-
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PartOfRequest {
@@ -82,10 +84,29 @@ struct PartOfRequest {
     #[serde(default)]
     href: Option<String>,
 }
-
 /// The frame of one scan request. An error is a request that the core cannot read.
-pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
+pub(crate) fn answer(
+    input: &[u8],
+    now: &dyn Fn() -> Duration,
+) -> Result<Answered, crate::refusal::Error> {
     let request: ScanRequest = crate::decode::decode(input, PROTOCOL)?;
+    let clock = request.timings.then_some(now);
+    let started = clock.map(|now| now());
+    let mut answered = of_request(&request, clock)?;
+    answered.timings_asked = request.timings;
+    answered.timings = answered.timings.map(|phases| Phases {
+        wall: clock
+            .zip(started)
+            .map_or(Duration::ZERO, |(now, start)| now() - start),
+        ..phases
+    });
+    Ok(answered)
+}
+
+fn of_request(
+    request: &ScanRequest,
+    clock: Option<&dyn Fn() -> Duration>,
+) -> Result<Answered, crate::refusal::Error> {
     let identity = Identity {
         root: &request.root,
         config: &request.config,
@@ -98,11 +119,11 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
             let reason = "collect: unsupported: --part-of names the system of one part; this configuration is a system document";
             return dual_run::refused_scan(reason, request.html).map_err(Into::into);
         }
-        Ok(Some(system)) => return system_run(&request, &identity, &system),
+        Ok(Some(system)) => return system_run(request, &identity, &system, clock),
         Ok(None) => {}
         Err(refusal) => return refused(&refusal, request.html).map_err(Into::into),
     }
-    one(&request, &identity)
+    one(request, &identity, clock)
 }
 
 /// The run of a system document (AD-616): one scan for each part, joined into one frame. A part
@@ -112,6 +133,7 @@ fn system_run(
     request: &ScanRequest,
     identity: &Identity<'_>,
     system: &archkeel_collect::System,
+    clock: Option<&dyn Fn() -> Duration>,
 ) -> Result<Answered, crate::refusal::Error> {
     if request.baseline.is_some() || request.write_baseline {
         let reason = "collect: unsupported: a system run has no baseline";
@@ -124,18 +146,33 @@ fn system_run(
         topology: request.topology || request.html,
         ..request.clone()
     };
-    let (mut frames, mut names_a_gap) = (Vec::new(), false);
+    // A part that the core refused has no timings, so the system has none: never a partial sum.
+    let (mut frames, mut names_a_gap, mut timings) = (Vec::new(), false, Some(Phases::default()));
     for part in &system.parts {
         let part_identity = Identity {
             config: &part.config,
             ..*identity
         };
-        let answered = one(&part_request, &part_identity)?;
+        let answered = one(&part_request, &part_identity, clock)?;
         names_a_gap |= answered.names_a_gap;
+        timings = timings
+            .zip(answered.timings)
+            .map(|(sum, part)| Phases::plus(sum, part));
         frames.push(answered.frame);
     }
+    let joining = clock.map(|now| now());
     let frame = crate::system::join(system, &frames, (request.html, request.topology))?;
-    Ok(Answered { frame, names_a_gap })
+    Ok(Answered {
+        frame,
+        names_a_gap,
+        timings: timings.map(|sum| Phases {
+            join: clock
+                .zip(joining)
+                .map_or(Duration::ZERO, |(now, start)| now() - start),
+            ..sum
+        }),
+        timings_asked: false,
+    })
 }
 
 /// The titles of the system of this part, read from the system document of the request (E4).
@@ -172,7 +209,11 @@ fn part_of(asked: &PartOfRequest, identity: &Identity<'_>) -> Result<dual_run::P
 }
 
 /// The frame of the scan of one configuration.
-fn one(request: &ScanRequest, identity: &Identity<'_>) -> Result<Answered, crate::refusal::Error> {
+fn one(
+    request: &ScanRequest,
+    identity: &Identity<'_>,
+    clock: Option<&dyn Fn() -> Duration>,
+) -> Result<Answered, crate::refusal::Error> {
     let part_of = match (&request.part_of, request.html) {
         (Some(asked), true) => match part_of(asked, identity) {
             Ok(found) => Some(found),
@@ -182,7 +223,11 @@ fn one(request: &ScanRequest, identity: &Identity<'_>) -> Result<Answered, crate
         },
         _ => None,
     };
-    match archkeel_collect::scan(identity, MAX_BYTES) {
+    let scanned = match clock {
+        Some(now) => archkeel_collect::scan_with_clock(identity, MAX_BYTES, Some(now)),
+        None => archkeel_collect::scan(identity, MAX_BYTES),
+    };
+    match scanned {
         Ok(scanned) => {
             if request.root_only {
                 let input = ContractInput {
@@ -202,7 +247,24 @@ fn one(request: &ScanRequest, identity: &Identity<'_>) -> Result<Answered, crate
                 }
             }
             let accept = baseline_input(&scanned, request.baseline.clone(), request.write_baseline);
-            decide(scanned, (request.html, request.topology), accept, part_of).map_err(Into::into)
+            let (prepared, collected, validated) =
+                (scanned.prepared, scanned.collected, scanned.validated);
+            let answered = decide(
+                scanned,
+                (request.html, request.topology),
+                accept,
+                part_of,
+                clock,
+            )?;
+            Ok(Answered {
+                timings: answered.timings.map(|phases| Phases {
+                    prepare: phases.prepare + prepared,
+                    collect: collected,
+                    validate: validated,
+                    ..phases
+                }),
+                ..answered
+            })
         }
         Err(refusal) if refusal.kind == RefusalKind::ParseWork => {
             Err(crate::refusal::Error::Refused(refusal))
@@ -217,10 +279,15 @@ fn decide(
     (html, topology): (bool, bool),
     accept: Option<baseline_frame::Input>,
     part_of: Option<dual_run::PartOf>,
+    clock: Option<&dyn Fn() -> Duration>,
 ) -> Result<Answered, String> {
+    let reading = clock.map(|now| now());
     let insides = tree(&scanned)?;
     // AD-466: the core reads and binds each provenance document of the tree.
     let documents = crate::provenance::read(&scanned, &insides, MAX_BYTES)?;
+    let read = clock
+        .zip(reading)
+        .map_or(Duration::ZERO, |(now, start)| now() - start);
     let contract_files: std::collections::BTreeMap<_, _> = std::iter::once((
         scanned.contract.0.clone(),
         archkeel_facts::identity::sha256_hex(&scanned.contract.1),
@@ -245,33 +312,43 @@ fn decide(
     let target = reply.reply().facts.runtime.target_description.clone();
     let facts = &reply.reply().facts;
     let library_key = facts.validation.standard_library.clone();
-    dual_run::run(Run {
-        case: "scan".to_owned(),
-        path,
-        contract,
-        insides,
-        reply: ReplyInput::Collected(Box::new(Ok(reply))),
-        sections: Vec::new(),
-        namespace,
-        roots,
-        baseline: false,
-        accept,
-        report: false,
-        html,
-        part_of,
-        topology,
-        base: None,
-        trust: in_process(collector),
-        collect: Some(crate::dual_run::Collect::Derived {
-            request,
-            contract_files,
-            target,
+    let answered = dual_run::run(
+        Run {
+            case: "scan".to_owned(),
+            path,
+            contract,
+            insides,
+            reply: ReplyInput::Collected(Box::new(Ok(reply))),
+            sections: Vec::new(),
+            namespace,
+            roots,
+            baseline: false,
+            accept,
+            report: false,
+            html,
+            part_of,
+            topology,
+            base: None,
+            trust: in_process(collector),
+            collect: Some(crate::dual_run::Collect::Derived {
+                request,
+                contract_files,
+                target,
+            }),
+            documents: Some(documents),
+            sdk_libraries: archkeel_store::sdk_libraries(&library_key)
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+        },
+        clock,
+    )?;
+    Ok(Answered {
+        timings: answered.timings.map(|phases| Phases {
+            prepare: read,
+            ..phases
         }),
-        documents: Some(documents),
-        sdk_libraries: archkeel_store::sdk_libraries(&library_key)
-            .into_iter()
-            .map(str::to_owned)
-            .collect(),
+        ..answered
     })
 }
 

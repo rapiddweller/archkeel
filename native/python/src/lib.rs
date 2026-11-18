@@ -46,6 +46,7 @@ mod source;
 
 use archkeel_facts::envelope::{LimitSupport, ProfileLimits, Reply};
 use archkeel_facts::request::PythonRequest;
+use archkeel_facts::sections::SignalFact;
 
 pub(crate) use crate::reply::Build;
 pub(crate) use crate::requirement::Prepared;
@@ -69,6 +70,11 @@ pub const BUILD: Build<'static> = Build {
 /// the repository are this premise.
 const PREMISE: &str = "Code outside the scan roots, including test code, hands in no module object of the scan and writes no binding of a module or class of the scan.";
 
+/// The assumption of a run that reports a forbidden `Any` annotation (AD-880): the name `Any` was
+/// proven to be the one of the standard module `typing`, and code outside the scan roots (a test
+/// file, a name built at run time, the interpreter itself) leaves that module unchanged.
+const TYPING_PREMISE: &str = "Code outside the scan roots, including test code, hands in no module object of the scan and writes no binding of a module or class of the scan. The Python module typing is the one of the standard library, and code outside the scan roots leaves typing.Any unchanged.";
+
 /// The compressed reply of the subprocess path.
 pub fn compressed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Vec<u8>, String> {
     let prepared = Prepared::of(request)?;
@@ -82,14 +88,19 @@ pub fn compressed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Ve
 /// (AD-426, AD-450, AD-504).
 pub fn typed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Reply, String> {
     let prepared = Prepared::of(request)?;
-    let mut reply = reply::typed(&prepared, survey::survey(&prepared)?, build)?;
+    let survey = survey::survey(&prepared)?;
+    let any = survey
+        .signals
+        .iter()
+        .any(|record| matches!(record.data, SignalFact::AnyAnnotation(_)));
+    let mut reply = reply::typed(&prepared, survey, build)?;
     verify(&prepared)?;
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: LimitSupport::Supported,
         interface_boundary: LimitSupport::Supported,
         publication_surface: LimitSupport::Unsupported,
     });
-    reply.facts.scope_premise = Some(PREMISE.to_owned());
+    reply.facts.scope_premise = Some(if any { TYPING_PREMISE } else { PREMISE }.to_owned());
     Ok(reply)
 }
 

@@ -48,7 +48,7 @@ def test_the_help_documents_only_flags_that_work() -> None:
     """#1328: a flag in a help text is a flag that the parser accepts."""
     values = {
         "--root": "r", "--config": "c.toml", "--output": "o.html", "--format": "json",
-        "--baseline": "b.json", "--write-baseline": "w.json",
+        "--baseline": "b.json", "--write-baseline": "w.json", "--timings": "t.json",
     }  # fmt: skip
     for command in (CoreCommand.VALIDATE, CoreCommand.REPORT):
         text = core_only.help_for(command)

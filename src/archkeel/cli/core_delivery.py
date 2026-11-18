@@ -15,7 +15,7 @@ from typing import Final
 from .core_arguments import Options
 from .core_baseline import BaselineResult, BaselineState
 from .core_frame import CoreError, CoreFrame, RefusalKind
-from .core_output import write_output
+from .core_output import write_new, write_output
 
 _Refusal = tuple[RefusalKind, str]
 _NOT_WRITTEN: Final = (
@@ -24,7 +24,19 @@ _NOT_WRITTEN: Final = (
 )
 
 
-def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> list[_Refusal]:
+def _refuse_timings_target(options: Options, root: Path) -> None:
+    """`--timings` must not name the baseline file that the same run writes (#659). No other input
+    can collide: `--timings` names a file that does not exist, and `--output` is compared when the
+    options are read."""
+    if options.timings is None or options.write_baseline is None:
+        return
+    if options.timings.resolve() == (root / options.write_baseline).resolve():
+        raise CoreError("--timings and --write-baseline name the same file; use two names")
+
+
+def _deliver(
+    options: Options, frame: CoreFrame, stdout: bytes, root: Path, timings: bytes | None = None
+) -> list[_Refusal]:
     """Write each requested file. Each file that was not written, in the order of the request."""
     failures: list[_Refusal] = []
     try:
@@ -32,6 +44,14 @@ def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> l
     except OSError as error:
         message = f"cannot write report file {options.output}: {error}; no report file was written"
         failures.append((RefusalKind.IO_ERROR, message))
+    if options.timings is not None and timings is not None:
+        try:
+            write_new(options.timings, timings)
+        except OSError as error:
+            message = (
+                f"cannot write timings file {options.timings}: {error}; no timings file was written"
+            )
+            failures.append((RefusalKind.IO_ERROR, message))
     if options.write_baseline is None:
         return failures
     # No part (a refused scan) or `not_written`: the core gave no bytes, and the frame stays.

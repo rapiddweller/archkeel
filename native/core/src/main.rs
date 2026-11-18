@@ -80,7 +80,7 @@ fn main() -> ExitCode {
             |input| check::answer(input).map_err(Into::into),
             REPLY_REQUEST_LIMIT,
         ),
-        [kind] if kind == "scan" => (scan::answer, SCAN_REQUEST_LIMIT),
+        [kind] if kind == "scan" => (scan_answer, SCAN_REQUEST_LIMIT),
         _ => {
             eprintln!("usage: archkeel-core scan  (a JSON request on stdin, AD-406)");
             return ExitCode::from(2);
@@ -102,6 +102,12 @@ fn main() -> ExitCode {
         eprintln!("{message}");
     }
     ExitCode::from(code)
+}
+
+fn scan_answer(input: &[u8]) -> Result<dual_run::Answered, refusal::Error> {
+    let started = std::cell::OnceCell::new();
+    let now = || started.get_or_init(std::time::Instant::now).elapsed();
+    scan::answer(input, &now)
 }
 
 /// Why a request was not read.
@@ -145,8 +151,19 @@ fn respond_with<E: From<String>>(
 ) -> (u8, Option<E>) {
     match answer(input) {
         Ok(answered) => match out.write_all(&answered.frame) {
-            Ok(()) if answered.names_a_gap => (NAMES_A_GAP, None),
-            Ok(()) => (0, None),
+            Ok(()) => {
+                // The seconds of the phases go to standard error, only when the request asked
+                // for them (#659). The frame on standard output is the same.
+                if answered.timings_asked {
+                    let line = answered
+                        .timings
+                        .map_or_else(dual_run::Phases::refused_line, |phases| {
+                            dual_run::Phases::line(&phases)
+                        });
+                    eprintln!("{line}");
+                }
+                (if answered.names_a_gap { NAMES_A_GAP } else { 0 }, None)
+            }
             Err(error) => (1, Some(error.to_string().into())),
         },
         Err(message) => (2, Some(message)),

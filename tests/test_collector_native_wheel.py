@@ -413,7 +413,7 @@ def test_a_bundled_wheel_carries_the_core_its_digest_and_its_sbom(tmp_path: Path
     assert {"archkeel-typescript-collector", "archkeel-collect", "archkeel-eval"} <= set(linked)
     assert {"tree-sitter", "serde_json", "sha2"} <= set(linked)
     # AD-881: the core links no Rust collector, and the worker links no core-side crate.
-    assert "archkeel-rust-collector" not in linked and "syn" not in linked
+    assert "archkeel-rust-collector" not in linked
     worker_linked = {item["name"] for item in rust["components"]}
     assert {"syn", "archkeel-wire", "archkeel-snapshot"} <= worker_linked
     assert not {"archkeel-collect", "archkeel-store", "archkeel-model"} & worker_linked

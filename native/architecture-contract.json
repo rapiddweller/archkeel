@@ -2890,6 +2890,7 @@
         "native.archkeel_core.dual_run:InterfaceRow",
         "native.archkeel_core.dual_run:PartOf",
         "native.archkeel_core.dual_run:PartRow",
+        "native.archkeel_core.dual_run:Phases",
         "native.archkeel_core.dual_run:ReplyInput",
         "native.archkeel_core.dual_run:Run",
         "native.archkeel_core.dual_run:Shared",
@@ -3017,7 +3018,8 @@
             "native.archkeel_collect:System",
             "native.archkeel_collect:SystemPart",
             "native.archkeel_collect:read_system",
-            "native.archkeel_collect:scan"
+            "native.archkeel_collect:scan",
+            "native.archkeel_collect:scan_with_clock"
           ]
         },
         {
@@ -3153,7 +3155,8 @@
         "native.archkeel_collect:SystemPart",
         "native.archkeel_collect:check",
         "native.archkeel_collect:read_system",
-        "native.archkeel_collect:scan"
+        "native.archkeel_collect:scan",
+        "native.archkeel_collect:scan_with_clock"
       ],
       "decided_by": "architect"
     },

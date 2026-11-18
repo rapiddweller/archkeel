@@ -67621,11 +67621,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector",
-      "A trait impl in native.archkeel_facts.sections may run in code that reaches native.archkeel_facts.sections without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector",
       "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -74092,11 +74087,6 @@
       "collection_gap",
       "native.archkeel_python_collector.survey.constructs",
       "A trait impl in native.archkeel_python_collector.survey.bound_kind may run in code that reaches native.archkeel_python_collector.survey.bound_kind without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.constructs",
-      "A trait impl in native.archkeel_python_collector.survey.class_writes may run in code that reaches native.archkeel_python_collector.survey.class_writes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",

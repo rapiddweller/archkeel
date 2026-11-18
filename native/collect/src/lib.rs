@@ -31,6 +31,8 @@ mod system;
 
 pub use system::{System, SystemPart};
 
+use std::time::Duration;
+
 use archkeel_store::Ingested;
 use serde_json::{json, Value};
 
@@ -70,6 +72,12 @@ pub struct Scanned {
     pub request: Value,
     /// The reply of the linked collector, validated once by the store.
     pub reply: Ingested,
+    /// The time of the configuration, the Git state and the survey, before the collector (#659).
+    pub prepared: Duration,
+    /// The time of the linked collector, on its own thread.
+    pub collected: Duration,
+    /// The time of the one validation of the reply by the store, with the checks of its profile.
+    pub validated: Duration,
     root: repository::Root,
 }
 
@@ -112,8 +120,18 @@ pub(crate) fn test_features() -> &'static [&'static str] {
 }
 
 /// Scan the repository of `identity` with the collector of its profile. `contract_budget` bounds
-/// the bytes of the root contract.
+/// the bytes of the root contract. The phase durations are zero without a clock.
 pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Refusal> {
+    scan_with_clock(identity, contract_budget, None)
+}
+
+/// Scan with an optional monotonic elapsed-time source from the caller. It must not decrease.
+pub fn scan_with_clock(
+    identity: &Identity<'_>,
+    contract_budget: u64,
+    clock: Option<&dyn Fn() -> Duration>,
+) -> Result<Scanned, Refusal> {
+    let started = clock.map(|now| now());
     built(test_features())?;
     let root = root_of(identity)?;
     let root_text = root
@@ -148,7 +166,10 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
     }
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
-    let reply = run::collect(config.profile, &bytes)?;
+    let prepared = clock
+        .zip(started)
+        .map_or(Duration::ZERO, |(now, start)| now() - start);
+    let (reply, collected, validated) = run::collect_timed(config.profile, &bytes, clock)?;
     let bound = match config.profile {
         Profile::Python => python::bound(&root, reply.reply()),
         Profile::Dart => dart::bound(&root, reply.reply()),
@@ -172,6 +193,9 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
         contract: (config.contract, contract),
         request,
         reply,
+        prepared,
+        collected,
+        validated,
         root,
     })
 }

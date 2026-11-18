@@ -14,8 +14,15 @@ use archkeel_store::Ingested;
 
 use super::*;
 
+fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
+    crate::scan_answer(input)
+}
+
 #[path = "scan_attribute_tests.rs"]
 mod attribute_review;
+
+#[path = "scan_timings_tests.rs"]
+mod timings_review;
 
 #[test]
 fn missing_provenance_is_derived_and_a_false_clean_claim_is_refused() {

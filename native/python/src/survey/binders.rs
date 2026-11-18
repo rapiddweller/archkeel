@@ -24,8 +24,10 @@ pub(crate) struct Binders {
     counts: HashMap<String, usize>,
     /// The names that a top-level definition or import binds, in source order.
     direct: Vec<String>,
-    /// How many imports of `Any` from `typing` or `typing_extensions` bind the name `Any`.
+    /// How many imports of `Any` from `typing` bind the name `Any`.
     typing_any: usize,
+    /// How many imports of the module `typing` bind each name.
+    typing_modules: HashMap<String, usize>,
     /// A star import or a type parameter list anywhere: no name is unique.
     opaque: bool,
     /// A type parameter list anywhere: the binders of a name are unknown (`count_beside_stars`).
@@ -61,6 +63,7 @@ impl Binders {
         Self {
             counts: walk.counts,
             typing_any: walk.typing_any,
+            typing_modules: walk.typing_modules,
             direct,
             opaque: walk.opaque,
             typed: walk.typed,
@@ -90,11 +93,46 @@ impl Binders {
         (!self.opaque).then(|| self.counts.get(name).copied().unwrap_or(0))
     }
 
-    /// Some binder of the name `Any` is not an import of `typing.Any`, so a use of the name may be
-    /// another object (a class `Any`). Unknown counts (a star import) say no.
-    pub(crate) fn any_is_local(&self) -> bool {
-        self.count("Any")
-            .is_some_and(|bound| bound > self.typing_any)
+    /// The binders of the module prove that `expr` (`Any` or `m.Any`) names the `Any` of the
+    /// standard module `typing` (AD-880). `Any`: each binder is an import of `typing.Any`, and each
+    /// star import is from `typing`; with no binder one such star import is needed. `m.Any`: each
+    /// binder of `m` is an import of the module `typing`. `typing_extensions` is no standard module:
+    /// nothing proves its object. A source order, another star import or a second binder leaves the
+    /// identity unproven. The caller still needs that nothing replaces `typing` (`ClassWrites`).
+    pub(crate) fn names_typing_any(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Name(name) if name.id.as_str() == "Any" => {
+                let typing_stars = self
+                    .stars
+                    .iter()
+                    .all(|(level, module)| *level == 0 && module.as_str() == "typing");
+                self.count_beside_stars("Any").is_some_and(|bound| {
+                    typing_stars
+                        && bound == self.typing_any
+                        && (bound > 0 || !self.stars.is_empty())
+                })
+            }
+            Expr::Attribute(attr) if attr.attr.as_str() == "Any" => {
+                matches!(&*attr.value, Expr::Name(base) if self.count(base.id.as_str())
+                    .is_some_and(|bound| bound > 0
+                        && self.typing_modules.get(base.id.as_str()) == Some(&bound)))
+            }
+            _ => false,
+        }
+    }
+
+    /// The annotation holds a name that the binders prove to be `typing.Any`.
+    pub(crate) fn names_any(&self, annotation: &Expr) -> bool {
+        struct Any<'b>(&'b Binders, bool);
+        impl<'a> Visitor<'a> for Any<'_> {
+            fn visit_expr(&mut self, expr: &'a Expr) {
+                self.1 |= self.0.names_typing_any(expr);
+                visitor::walk_expr(self, expr);
+            }
+        }
+        let mut found = Any(self, false);
+        found.visit_expr(annotation);
+        found.1
     }
 
     /// `_unique_direct_module_bindings`: a direct name that no other binder in the module binds.
@@ -113,6 +151,7 @@ pub(crate) use crate::module::{first_part, import_bindings};
 struct Walk {
     counts: HashMap<String, usize>,
     typing_any: usize,
+    typing_modules: HashMap<String, usize>,
     opaque: bool,
     typed: bool,
     stars: Vec<(u32, String)>,
@@ -147,7 +186,10 @@ impl<'a> Visitor<'a> for Walk {
                 self.type_params(node.type_params.as_deref());
             }
             Stmt::TypeAlias(node) => self.type_params(node.type_params.as_deref()),
-            Stmt::Import(node) => self.imports(&node.names, stmt),
+            Stmt::Import(node) => {
+                self.typing_module_imports(&node.names);
+                self.imports(&node.names, stmt);
+            }
             Stmt::ImportFrom(node) => {
                 if node.names.iter().any(|alias| alias.name.as_str() == "*") {
                     self.opaque = true;
@@ -255,12 +297,12 @@ pub(super) fn pattern_name(pattern: &Pattern) -> Option<&str> {
     name.map(Identifier::as_str)
 }
 
-/// How many names of `from typing import ...` (or `typing_extensions`) bind `Any` as `Any`.
+/// How many names of `from typing import ...` bind `Any` as `Any`.
 fn typing_any_imports(node: &StmtImportFrom) -> usize {
     let typing = node
         .module
         .as_ref()
-        .is_some_and(|name| matches!(name.as_str(), "typing" | "typing_extensions"));
+        .is_some_and(|name| name.as_str() == "typing");
     let own = |alias: &&Alias| {
         let named_any = alias
             .asname
@@ -276,6 +318,15 @@ fn typing_any_imports(node: &StmtImportFrom) -> usize {
 }
 
 impl Walk {
+    fn typing_module_imports(&mut self, names: &[Alias]) {
+        for alias in names {
+            if alias.name.as_str() == "typing" {
+                let bound = alias.asname.as_ref().unwrap_or(&alias.name);
+                *self.typing_modules.entry(bound.to_string()).or_default() += 1;
+            }
+        }
+    }
+
     fn imports(&mut self, names: &[Alias], stmt: &Stmt) {
         if names.iter().any(|alias| {
             alias.name.as_str() == ALL || alias.asname.as_ref().is_some_and(|a| a.as_str() == ALL)

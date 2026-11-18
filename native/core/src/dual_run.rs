@@ -11,6 +11,7 @@
 //! the file count of the reply), so the harness can prove the round trip.
 
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 #[cfg(any(test, feature = "harness"))]
 use archkeel_model::Producer;
@@ -31,7 +32,8 @@ use archkeel_report::Named;
 #[path = "frame_parts.rs"]
 mod frame_parts;
 pub(crate) use frame_parts::{
-    refused_scan, Answered, Collect, InterfaceRow, PartOf, PartRow, SystemFrame, CODE_DIGEST,
+    refused_scan, Answered, Collect, InterfaceRow, PartOf, PartRow, Phases, SystemFrame,
+    CODE_DIGEST,
 };
 #[cfg(test)]
 pub(crate) use frame_parts::{typed_rows, Parts as FrameParts};
@@ -97,30 +99,34 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             })?;
     let producer = producer(request.collector_argv.as_ref());
     let (profile, standard_library) = (request.profile, request.standard_library);
-    run(Run {
-        topology: false,
-        case: request.case,
-        path,
-        contract: contract.into_bytes(),
-        insides: insides(request.insides)?,
-        reply: ReplyInput::bytes(request.reply.map(|bytes| hex(&bytes.hex)).transpose()?),
-        sections: request::sections(&request.sections)?,
-        namespace: request.namespace,
-        roots: request.roots,
-        baseline: request.baseline.is_some(),
-        accept: None,
-        report: true,
-        html: false,
-        part_of: None,
-        base: None,
-        trust: Box::new(move |namespace, _| Trust {
-            settings: Settings::new(namespace, profile, standard_library).with_producer(producer),
-            gap: None,
-        }),
-        collect: None,
-        documents: None,
-        sdk_libraries: Vec::new(),
-    })
+    run(
+        Run {
+            topology: false,
+            case: request.case,
+            path,
+            contract: contract.into_bytes(),
+            insides: insides(request.insides)?,
+            reply: ReplyInput::bytes(request.reply.map(|bytes| hex(&bytes.hex)).transpose()?),
+            sections: request::sections(&request.sections)?,
+            namespace: request.namespace,
+            roots: request.roots,
+            baseline: request.baseline.is_some(),
+            accept: None,
+            report: true,
+            html: false,
+            part_of: None,
+            base: None,
+            trust: Box::new(move |namespace, _| Trust {
+                settings: Settings::new(namespace, profile, standard_library)
+                    .with_producer(producer),
+                gap: None,
+            }),
+            collect: None,
+            documents: None,
+            sdk_libraries: Vec::new(),
+        },
+        None,
+    )
 }
 
 /// The reply of a run: none, the bytes of a request, or the reply of the collector that the core
@@ -199,7 +205,8 @@ pub(crate) struct Trust {
 
 /// The one engine path of each request kind: the reply, the settings, the contract, the rows and
 /// the ruling, in this order, and the frame.
-pub(crate) fn run(run: Run) -> Result<Answered, String> {
+pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answered, String> {
+    let evaluating = clock.map(|now| now());
     let mut engine = Engine::default();
     let reply = ingest(&mut engine, run.reply)?;
     let input = ContractInput {
@@ -244,16 +251,9 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     let mut named = named(&contract, run.baseline, &engine, &path);
     frame_parts::hold_contract(&mut named, trust.gap, base, hygiene.refusal);
     named.rules.extend(hygiene.rules);
-    let ruled = if run.topology {
-        engine.rule(named, true)
-    } else {
-        match engine.answer(Request::Rules(named)) {
-            Answer::Rules(ruling) => (*ruling).map(|ruling| (ruling, BTreeMap::new())),
-            other => Err(format!("unexpected answer {other:?}")),
-        }
-    };
-    let (ruling, links) =
-        ruled.map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
+    let (ruling, links) = engine
+        .ruled(named, run.topology)
+        .map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
     let topology = run.topology.then(|| engine.topology(&ruling, &links));
     let explain = Some(engine.explain(&ruling));
     let (rows, sections) = crate::sections::split(rows);
@@ -286,22 +286,34 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
             report: report.err(),
         },
         self_test: SelfTest {
-            contract: match contract {
-                ContractState::Parsed(rules) => ContractCheck::Rules(rules),
-                ContractState::Missing(paths) => ContractCheck::Missing(paths),
-                ContractState::Refused(message) => ContractCheck::Refused(message),
-            },
+            contract: contract_check(contract),
             reply,
             collect: run.collect,
         },
         locations,
     };
+    let rendering = clock.map(|now| now());
     let frame = ruling
         .with_html(run.html)
         .frame(&parts)
         .map_err(|error| format!("{}: an inconsistent frame: {error}", run.case))?
         .into_bytes();
-    Ok(Answered { frame, names_a_gap })
+    let timings = Phases::evaluation(evaluating, rendering, clock.map(|now| now()));
+    Ok(Answered {
+        frame,
+        names_a_gap,
+        timings: Some(timings),
+        timings_asked: false,
+    })
+}
+
+/// What the self-test says of the contract: its rules, the inside files it misses, or why it is refused.
+fn contract_check(state: ContractState) -> ContractCheck {
+    match state {
+        ContractState::Parsed(rules) => ContractCheck::Rules(rules),
+        ContractState::Missing(paths) => ContractCheck::Missing(paths),
+        ContractState::Refused(message) => ContractCheck::Refused(message),
+    }
 }
 
 fn report_check(engine: &mut Engine, requested: bool) -> Result<(), String> {
