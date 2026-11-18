@@ -18,10 +18,7 @@
 use std::fs::{self, File, Metadata};
 use std::io::{Error, ErrorKind, Read};
 
-use archkeel_facts::envelope::Role;
-use archkeel_facts::identity::sha256_hex;
-
-use super::{Snapshot, MAX_FILE_BYTES};
+use super::{digest, Snapshot, MAX_FILE_BYTES};
 use crate::paths::{dirname, is_outside, join};
 
 const MAX_LISTING_ENTRIES: usize = 1_000_000;
@@ -209,8 +206,7 @@ impl Snapshot {
         if !crate::work::permits(&self.root, rel, &raw) {
             return None;
         }
-        self.inputs
-            .insert(rel.to_owned(), (sha256_hex(&raw), Role::Selected));
+        self.inputs.insert(rel.to_owned(), (digest(&raw), true));
         Some(raw)
     }
 

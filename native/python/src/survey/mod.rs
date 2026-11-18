@@ -11,7 +11,7 @@
 use std::collections::HashSet;
 
 use crate::requirement::Prepared;
-use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
+use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Role, Target};
 #[cfg(feature = "dump")]
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
@@ -339,7 +339,11 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         sources,
         ambiguous,
         parsed: snapshot
-            .inputs()
+            .inputs(|path, digest, selected| Input {
+                path: path.to_owned(),
+                digest: digest.to_owned(),
+                role: Role::of_read(selected),
+            })
             .into_iter()
             .filter(|input| selected.contains(input.path.as_str()))
             .collect(),

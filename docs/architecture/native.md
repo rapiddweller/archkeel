@@ -64,7 +64,7 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | Crate | Role | Uses |
 |---|---|---|
 | `archkeel-wire` | The collector wire: requests, replies and source identities. | `archkeel-facts` |
-| `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule, the size limit, linear input and depth checks, and the 64 MiB distinct-input bound (AD-420). | `archkeel-facts` |
+| `archkeel-snapshot` | Owns contained reads, path and symlink rules, parse-work checks, and input digests (AD-420). Collectors turn read results into fact records (AD-926). | No workspace crate |
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates a reply once and keeps the facts for the model; holds the pinned standard library (AD-346). | `archkeel-facts` |
 | `archkeel-contract` | Parses contract, amendment and baseline bytes into typed values, as Python does (AD-359, AD-375, AD-386). It reads no file. | no crate of the workspace |
@@ -312,7 +312,6 @@ flowchart LR
     n_11 --> n_4
     n_11 --> n_6
     n_13 --> n_14
-    n_14 --> n_4
     n_15 --> n_4
     n_16 --> n_21
     n_16 --> n_28

@@ -13,7 +13,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 
-use archkeel_facts::envelope::{FileFact, Provenance};
+use archkeel_facts::envelope::{FileFact, Input, Provenance, Role};
 use archkeel_facts::identity::module_identity;
 use archkeel_facts::request::TypeScriptRequest;
 use archkeel_facts::{GapFact, Record, Section};
@@ -199,7 +199,11 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         sections: vec![Section::Imports(imports), Section::Unknowns(gaps.clone())],
         features,
         constructs: Vec::new(),
-        inputs: collection.snapshot.inputs(),
+        inputs: collection.snapshot.inputs(|path, digest, selected| Input {
+            path: path.to_owned(),
+            digest: digest.to_owned(),
+            role: Role::of_read(selected),
+        }),
         files,
         imports: collection.targets,
         selected_files,

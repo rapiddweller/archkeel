@@ -111,7 +111,6 @@ fn scan_answer(input: &[u8]) -> Result<dual_run::Answered, refusal::Error> {
 }
 
 /// Why a request was not read.
-#[derive(Debug)]
 enum Unread {
     /// More than the limit: the rest of stdin is never read.
     Over,
