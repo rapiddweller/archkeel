@@ -294,6 +294,30 @@
   color:var(--ink);
   background:var(--surface-2);
   border:1px solid var(--line)}
+.rp-explorer .atlas-matrix-dialog{width:min(1100px, calc(100vw - 32px));
+  max-width:none;
+  max-height:90dvh;
+  color:var(--ink);
+  background:var(--surface-1);
+  border:1px solid var(--line);
+  border-radius:var(--radius-md)}
+.rp-explorer .atlas-matrix-dialog::backdrop{background:color-mix(in srgb, var(--surface-0) 72%, transparent)}
+.rp-explorer .atlas-matrix-close{padding:var(--space-2);
+  color:var(--ink);
+  background:var(--surface-2);
+  border:1px solid var(--line);
+  cursor:pointer}
+.rp-explorer .atlas-matrix-grid{overflow:auto;
+  max-height:45dvh;
+  border:1px solid var(--line)}
+.rp-explorer .atlas-matrix-detail{overflow:auto;
+  max-height:28dvh;
+  overflow-wrap:anywhere}
+.rp-explorer .atlas-matrix-count{fill:var(--surface-0);
+  font:11px var(--font-sans)}
+.rp-explorer .atlas-matrix-lines{fill:none;
+  stroke:var(--line);
+  stroke-width:1}
 .rp-explorer .flow[data-atlas] .flow-matrix{overflow:auto;
   min-width:0;
   width:100%;
@@ -304,6 +328,16 @@
   padding:var(--space-3)}
 .rp-explorer .flow-matrix svg{display:block;
   max-width:none}
+.rp-explorer .matrix-readout{position:sticky;
+  top:0;
+  left:0;
+  z-index:1;
+  width:100%;
+  box-sizing:border-box;
+  padding:var(--space-2);
+  background:var(--surface-1);
+  color:var(--ink);
+  overflow-wrap:anywhere}
 .rp-explorer .matrix-block{fill:var(--surface-2);
   stroke:var(--line);
   stroke-width:1}

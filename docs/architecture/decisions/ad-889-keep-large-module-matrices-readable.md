@@ -3,14 +3,19 @@
 The Health check matrix reduced large cells to 2.4 pixels and hid module labels.
 Expanded mode also hid the Health check because the same content had moved into a drawer.
 
-Use cells at least 12 pixels wide and keep both module axes. Give the matrix a bounded
-scroll area. Put the group legend after the matrix, so large reports reach the grid first.
+Draw the module matrix in the Health check for at most 60 modules. At 12 pixels per cell,
+60 modules need 720 pixels per axis before labels. For larger levels, open a separate
+matrix that groups modules by the existing component and directory hierarchy.
+Only observed module relationships create filled cells. A cell opens its directed list
+of module relationships. An empty position does not prove that an import is excluded.
+The separate matrix works without the Fullscreen API and returns to the Health check.
+If a level has more than 60 groups, the matrix asks for a smaller Explorer scope.
 Hide the original map-column content in expanded mode, not the drawer content.
 
 We reject shrinking the grid to fit: it removes the labels and makes cells hard to select.
-We do not add a hierarchical dependency matrix; issue #783 tracks that separate work.
-The grid remains an SVG, so very large reports still create one element per observed cell.
-The axes scroll with the grid; they do not stay fixed when a user moves away from them.
+The matrix uses the current level's existing groups. It does not add a new hierarchy.
+The matrix axes scroll with the grid. A focused or selected cell shows both full names.
+Long axis labels are shortened to limit the space above and beside the grid.
 
 `tests/test_report_explorer_matrix.py` checks a real system report at desktop and mobile
-widths, the axis labels, scrolling and the expanded fallback.
+widths, grouped relationships, the small matrix and the expanded fallback.

@@ -1,13 +1,13 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Browser checks of the module matrix in a real system report."""
+"""Check grouped and small module matrices in a real system report."""
 
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from explorer_support import browser, serve, write_pages
+from explorer_support import Browser, browser, serve, write_pages
 
 
 @pytest.fixture(scope="module")
@@ -19,11 +19,19 @@ def site(release_core: Path, tmp_path_factory: pytest.TempPathFactory) -> Iterat
         yield base
 
 
-CORE = "PART%3Acore"
+def click(page: Browser, selector: str) -> None:
+    point = page.evaluate(f"""(() => {{
+      const e = document.querySelector({selector!r});
+      e.scrollIntoView({{block: 'center', inline: 'center'}});
+      const r = e.getBoundingClientRect();
+      return {{x: r.x + r.width / 2, y: r.y + r.height / 2}};
+    }})()""")
+    for event in ("mousePressed", "mouseReleased"):
+        page.send("Input.dispatchMouseEvent", type=event, button="left", clickCount=1, **point)
 
 
 @pytest.mark.parametrize(("width", "height"), [(1440, 900), (390, 844)])
-def test_large_matrix_keeps_labels_and_survives_expansion(
+def test_large_level_opens_a_grouped_matrix_and_its_real_relationships(
     site: str, tmp_path: Path, width: int, height: int
 ) -> None:
     with browser(tmp_path / "profile", width=width, height=height) as page:
@@ -36,68 +44,113 @@ def test_large_matrix_keeps_labels_and_survives_expansion(
                 mobile=True,
             )
             page.send("Emulation.setTouchEmulationEnabled", enabled=True)
-
-        def click_fullscreen() -> None:
-            point = page.evaluate("""(() => {
-              const e = document.querySelector('#flow .flow-fullscreen');
-              e.scrollIntoView({block: 'center', inline: 'center'});
-              const r = e.getBoundingClientRect();
-              return {x: r.x + r.width / 2, y: r.y + r.height / 2};
-            })()""")
-            for event in ("mousePressed", "mouseReleased"):
-                page.send(
-                    "Input.dispatchMouseEvent", type=event, button="left", clickCount=1, **point
-                )
-
-        page.open(f"{site}/system.html?scope={CORE}")
-        page.evaluate("document.querySelector('#flow .ak-rail [data-drawer=overview]').click()")
-        page.wait("!!document.querySelector('#flow .matrix-cell')")
-        result = page.evaluate(r"""(() => {
-          const matrix = document.querySelector('#flow .flow-matrix');
-          const labels = matrix.querySelectorAll('.matrix-label');
-          const cell = matrix.querySelector('.matrix-cell');
-          const label = matrix.querySelector('svg').getAttribute('aria-label');
-          const modules = Number(label.match(/\d+/)[0]);
-          return { labels: labels.length, cellWidth: cell.getBoundingClientRect().width, modules };
+        page.open(f"{site}/system.html?scope=PART%3Acore")
+        page.evaluate("document.querySelector('#flow [data-drawer=overview]').click()")
+        assert not page.evaluate("!!document.querySelector('#flow .flow-matrix')")
+        click(page, "#flow [data-open-matrix]")
+        assert page.evaluate("document.querySelector('.atlas-matrix-dialog').open")
+        summary = page.evaluate("""(() => {
+          const d = document.querySelector('.atlas-matrix-dialog');
+          const cells = [...d.querySelectorAll('[data-row]')];
+          const labels = d.querySelectorAll('.matrix-label');
+          const max = cells.reduce((a, b) => Number(a.nextSibling.textContent)
+            > Number(b.nextSibling.textContent) ? a : b);
+          max.focus();
+          return {labels: labels.length, cells: cells.length,
+            count: Number(max.nextSibling.textContent),
+            name: max.getAttribute('aria-label'), fullscreen: !!document.fullscreenElement,
+            row: max.dataset.row, column: max.dataset.column};
         })()""")
-        assert result["modules"] > 80
-        assert result["labels"] == 2 * result["modules"]
-        assert result["cellWidth"] >= 11
-        assert page.evaluate("""(() => {
-          const m = document.querySelector('#flow .flow-matrix');
-          const labels = m.querySelectorAll('.matrix-label');
-          labels[labels.length - 1].scrollIntoView({block: 'center', inline: 'center'});
-          const a = labels[labels.length - 1].getBoundingClientRect();
-          const b = m.getBoundingClientRect();
-          return m.scrollLeft > 0 && a.left < b.right && a.right > b.left
-            && a.top < b.bottom && a.bottom > b.top;
+        assert 2 <= summary["labels"] < 1424
+        assert 0 < summary["cells"] < 712 * 712
+        assert not summary["fullscreen"]
+        page.press("Enter")
+        if width < 500:
+            point = page.evaluate(f"""(() => {{
+              const cell = document.querySelector(
+                '[data-row="{summary["row"]}"][data-column="{summary["column"]}"]');
+              cell.scrollIntoView({{block: 'center', inline: 'center'}});
+              cell.addEventListener('click', () => {{ window.matrixTouch = true; }},
+                {{once: true}});
+              const r = cell.getBoundingClientRect();
+              const x = r.x + r.width / 2, y = r.y + r.height / 2;
+              return {{x, y, hit: document.elementFromPoint(x, y) === cell}};
+            }})()""")
+            assert point["hit"], point
+            page.send(
+                "Input.dispatchTouchEvent",
+                type="touchStart",
+                touchPoints=[{"x": point["x"], "y": point["y"]}],
+            )
+            page.send("Input.dispatchTouchEvent", type="touchEnd", touchPoints=[])
+            page.wait("window.matrixTouch === true")
+            page.evaluate(f"""document.querySelector(
+              '[data-row="{summary["row"]}"][data-column="{summary["column"]}"]').focus()""")
+        detail = page.evaluate("""(() => {
+          const d = document.querySelector('.atlas-matrix-detail');
+          const R = ArchkeelFlow.reportScene, A = R.atlas;
+          const byId = new Map(A.modules.map((m) => [m.id, m.name]));
+          const known = A.cells.filter((c) => byId.has(c.source_id) && byId.has(c.target_id));
+          const names = new Set(known
+            .map((c) => `${byId.get(c.source_id)} → ${byId.get(c.target_id)}`));
+          const rows = [...d.querySelectorAll('li')].map((li) => li.textContent);
+          const level = A.levels.find((item) => item.parent_id === 'PART:core');
+          const nodes = R.atlasModuleScene(level, 'diagram').nodes;
+          const ids = new Set(nodes.map((node) => node.id));
+          const groups = new Map(R.atlasModules(level, 'diagram').map((module) => [module.id,
+            R.componentRoute(module.place_id || module.component_id)
+              .find((item) => ids.has(item.id))?.id || module.id]));
+          const focused = document.activeElement;
+          const row = nodes[Number(focused.dataset.row)].id;
+          const column = nodes[Number(focused.dataset.column)].id;
+          const expected = level.cells.map((index) => A.cells[index])
+            .filter((cell) => groups.get(cell.source_id) === row
+              && groups.get(cell.target_id) === column)
+            .map((cell) => `${byId.get(cell.source_id)} → ${byId.get(cell.target_id)} · `
+              + `${R.countLabel(cell.import_sites, 'site')} · Core ${cell.status}`);
+          return {heading: d.querySelector('h3')?.textContent, rows,
+            expected, real: rows.every((row) =>
+              [...names].some((name) => row.startsWith(name + ' · ')))};
         })()""")
-        click_fullscreen()
+        assert " imports " in detail["heading"]
+        assert summary["name"].startswith(detail["heading"] + ": ")
+        assert len(detail["rows"]) == summary["count"]
+        assert detail["real"]
+        assert detail["rows"] == detail["expected"]
+        click(page, ".atlas-matrix-close")
+        page.wait("!document.querySelector('.atlas-matrix-dialog')")
+        assert page.evaluate("!!document.querySelector('#flow [data-open-matrix]')")
+        click(page, "#flow .flow-fullscreen")
         page.wait("!!document.querySelector('#flow').dataset.expanded")
-        assert page.evaluate("""(() => {
-          const f = document.querySelector('#flow');
-          return (f.dataset.expanded === 'native') === (document.fullscreenElement === f);
-        })()""")
-        click_fullscreen()
+        assert not page.evaluate("!!document.querySelector('#flow .flow-matrix')")
+        click(page, "#flow [data-open-matrix]")
+        assert page.evaluate("document.querySelector('.atlas-matrix-dialog').open")
+        click(page, ".atlas-matrix-close")
+        click(page, "#flow .flow-fullscreen")
         page.wait("!document.querySelector('#flow').dataset.expanded")
-        page.evaluate("document.querySelector('#flow').requestFullscreen = undefined")
-        click_fullscreen()
-        page.wait("document.querySelector('#flow').dataset.expanded === 'fallback'")
-        assert page.evaluate("""(() => {
-          const m = document.querySelector('#flow .flow-matrix');
-          return getComputedStyle(m.closest('.flow-explore')).display !== 'none'
-            && m.getBoundingClientRect().width > 0;
-        })()""")
-        click_fullscreen()
-        assert page.evaluate("!document.querySelector('#flow').dataset.expanded")
-        assert (
-            page.evaluate("getComputedStyle(document.querySelector('#flow .flow-explore')).display")
-            != "none"
+
+
+@pytest.mark.parametrize("width", [1440, 390])
+def test_small_level_keeps_a_selectable_matrix(site: str, tmp_path: Path, width: int) -> None:
+    with browser(tmp_path / "profile", width=width, height=844) as page:
+        if width < 500:
+            page.send(
+                "Emulation.setDeviceMetricsOverride",
+                width=width,
+                height=844,
+                deviceScaleFactor=1,
+                mobile=True,
+            )
+            page.send("Emulation.setTouchEmulationEnabled", enabled=True)
+        page.open(f"{site}/system.html?scope=PART%3Ashell")
+        page.evaluate("document.querySelector('#flow [data-drawer=overview]').click()")
+        page.wait("!!document.querySelector('#flow .matrix-cell')")
+        assert page.evaluate("document.querySelectorAll('#flow .matrix-label').length") > 0
+        page.evaluate("""document.querySelector('#flow .matrix-cell')
+          .dispatchEvent(new MouseEvent('click', {bubbles:true}))""")
+        assert "Observed import cell" in page.evaluate(
+            "document.querySelector('#flow .flow-inspector-content').textContent"
         )
-        assert page.evaluate("""(() => {
-          const m = document.querySelector('#flow .flow-matrix');
-          const cells = m.querySelectorAll('.matrix-cell'), cell = cells[cells.length - 1];
-          cell.scrollIntoView({block: 'center', inline: 'center'});
-          const a = cell.getBoundingClientRect(), b = m.getBoundingClientRect();
-          return a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom;
-        })()""")
+        assert page.evaluate("!document.querySelector('#flow .flow-inspector').hidden")
+        if width < 500:
+            assert page.evaluate("!document.querySelector('#flow .ak-drawer')")
