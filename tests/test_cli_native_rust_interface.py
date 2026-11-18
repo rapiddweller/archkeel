@@ -368,3 +368,47 @@ def test_a_listed_import_does_not_prove_a_different_method(
     assert found == status, messages
     if status == "FAIL":
         assert VIOLATION.format("native.base_crate.extra:Tool") in messages
+
+
+@pytest.mark.parametrize(
+    ("return_type", "body", "status"),
+    [
+        ("impl Sized", "drop(base_crate::make());", "PASS"),
+        ("impl Sized", "base_crate::hidden::secret(); drop(base_crate::make());", "FAIL"),
+        (
+            "hidden::Hidden",
+            "let r = if true { base_crate::make() } else { base_crate::make() }; r.touch();",
+            "UNKNOWN",
+        ),
+    ],
+    ids=["execution-only", "unlisted-name", "mixed-method-and-execution"],
+)
+def test_impl_execution_does_not_hide_an_unread_named_use(
+    core_binary: Path, tmp_path: Path, return_type: str, body: str, status: str
+) -> None:
+    base = {
+        **component("base", "base_crate", ("hidden",)),
+        "packages": [],
+        "exact_modules": ["native.base_crate", "native.base_crate.cargo_toml"],
+        "public": ["native.base_crate:make"],
+    }
+    hidden = {
+        **component("hidden", "base_crate.hidden"),
+        "public": ["native.base_crate.hidden:make", "native.base_crate.hidden:Hidden"],
+    }
+    app = component("app", "app", ("base", "hidden"))
+    files = {
+        "crates/base/src/lib.rs": (
+            f"pub mod hidden;\npub fn make() -> {return_type} {{ hidden::make() }}\n"
+        ),
+        "crates/base/src/hidden.rs": (
+            "pub struct Hidden;\n"
+            "impl Drop for Hidden { fn drop(&mut self) {} }\n"
+            "impl Hidden { pub fn touch(&self) {} }\n"
+            "pub fn make() -> Hidden { Hidden }\n"
+            "pub fn secret() {}\n"
+        ),
+        "crates/app/src/lib.rs": f"pub fn run() {{ {body} }}\n",
+    }
+    found, messages = _run(tmp_path, core_binary, files, (base, hidden, app))
+    assert found == status, messages

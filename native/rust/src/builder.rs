@@ -127,12 +127,14 @@ impl Builder {
         reason: &str,
         evidence: &str,
         pair: (&str, &str),
-        dispatch: bool,
+        dispatch: Option<ResolutionDimension>,
     ) {
         let (source, target) = pair;
         let mut data = GapData::at(reason, target);
         data.source_module = Some(ModuleName::new(source));
-        data.dispatch = dispatch;
+        data.dispatch = dispatch.is_some();
+        data.resolution_dimension =
+            dispatch.filter(|kind| *kind == ResolutionDimension::RuntimeEffects);
         let fact = GapFact::CollectionGap(data);
         let (id, record) = Record::unknown_gap(reason, Some(evidence), source, fact);
         self.gaps.entry(id).or_insert(record);

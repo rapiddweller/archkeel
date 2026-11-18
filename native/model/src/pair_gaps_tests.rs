@@ -15,6 +15,7 @@ fn kept(source: &str, target: &str, observed: bool, owned: [bool; 2], external: 
         owned,
         target_external: external,
         dispatch: false,
+        execution: false,
     }
 }
 
@@ -28,6 +29,7 @@ fn a_gap_with_an_end_outside_the_reply_holds_each_reading() {
         Reads::Modules,
         Reads::ExternalImports(None),
         Reads::Members(vec!["z"]),
+        Reads::Interface,
         Reads::Every,
     ] {
         assert!(gap.holds(&reads), "{reads:?}");
@@ -105,4 +107,18 @@ fn an_internal_dispatch_can_only_hold_an_external_rule_that_names_its_target() {
     assert!(lexical.holds(&Reads::ExternalImports(Some("pkg"))));
     dispatch.observed = false;
     assert!(dispatch.holds(&Reads::ExternalImports(None)));
+}
+
+#[test]
+fn only_a_witnessed_execution_pair_leaves_the_named_interface_known() {
+    let mut gap = kept("a.x", "b.y", true, OWNED, false);
+    gap.dispatch = true;
+    assert!(gap.holds(&Reads::Interface));
+
+    gap.execution = true;
+    assert!(!gap.holds(&Reads::Interface));
+    assert!(gap.holds(&Reads::Every));
+
+    gap.owned[1] = false;
+    assert!(gap.holds(&Reads::Interface));
 }

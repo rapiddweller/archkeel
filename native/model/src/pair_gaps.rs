@@ -41,6 +41,8 @@ pub(crate) struct PairGap {
     pub(crate) target_external: bool,
     /// The gap is about internal dispatch only.
     pub(crate) dispatch: bool,
+    /// The gap leaves only the effects of executing an impl unknown.
+    pub(crate) execution: bool,
 }
 
 /// The pair gaps of a run, classified one time per model.
@@ -69,6 +71,8 @@ pub(crate) enum Reads<'r> {
     Sides([Selection<'r>; 2]),
     /// The edges that touch a member scope (`sibling_isolation`).
     Members(Vec<&'r str>),
+    /// Named uses and publication routes, not execution of an impl.
+    Interface,
     /// Every edge.
     Every,
 }
@@ -95,11 +99,11 @@ fn by_kind(kind: RuleKind) -> Reads<'static> {
         K::RootLayout | K::LayerOrder | K::SymbolPlacement | K::AllowedDependency => Reads::NoEdge,
         K::CompleteAssignment => Reads::Modules,
         K::ExternalDependencyScope | K::CompleteExternalScope => Reads::ExternalImports(None),
+        K::InterfaceBoundary => Reads::Interface,
         // `reads` gives these two their own reading; here they read every edge (fail closed).
         K::ForbiddenDependency | K::SiblingIsolation => Reads::Every,
         K::CompleteRequires
         | K::NoComponentCycles
-        | K::InterfaceBoundary
         | K::ForbiddenConstruct
         | K::SourceOwnership
         | K::BoundedNumericOperand
@@ -137,6 +141,7 @@ impl PairGap {
             Reads::Members(members) => members
                 .iter()
                 .any(|member| in_scope(a, member) || in_scope(b, member)),
+            Reads::Interface => !self.execution || self.owned != [true; 2],
             Reads::Every => true,
         }
     }
@@ -164,7 +169,7 @@ pub(crate) fn pairs(
     // `drop_allowed_pair_gaps` drops only for a profile whose host drops (`pair_gaps.py:66`).
     let drops = graph.observed().pair_gap_drop == PairGapDrop::Allowed;
     let mut found = Pairs::default();
-    for (source, target, dispatch) in gaps {
+    for (source, target, dispatch, execution) in gaps {
         let ends = [owner(source), owner(target)];
         let dropped = match ends {
             [Some(from), Some(to)] if drops => {
@@ -185,6 +190,7 @@ pub(crate) fn pairs(
             owned: ends.map(|end| end.is_some()),
             target_external: external.contains(target.as_str()),
             dispatch: *dispatch,
+            execution: *execution,
         };
         if dropped {
             found.dropped.push(gap);
@@ -207,7 +213,7 @@ impl<'g> Cyclic<'g> {
         contract: &Contract,
         components: &Table<ComponentId, Component>,
         graph: &'g Graph,
-        gaps: &'g [(String, String, bool)],
+        gaps: &'g [(String, String, bool, bool)],
     ) -> Self {
         let levels: Vec<&CycleLevel> = contract
             .rules()
@@ -222,10 +228,10 @@ impl<'g> Cyclic<'g> {
             .iter()
             .map(|import| (import.source_module(), import.target_module()))
             .collect();
-        edges.extend(gaps.iter().map(|(a, b, _)| (a.as_str(), b.as_str())));
+        edges.extend(gaps.iter().map(|(a, b, _, _)| (a.as_str(), b.as_str())));
         let mut module = HashSet::new();
         if levels.contains(&&CycleLevel::Module) {
-            let starts = gaps.iter().map(|(_, b, _)| b.as_str()).collect();
+            let starts = gaps.iter().map(|(_, b, _, _)| b.as_str()).collect();
             module = reach(&edges, &starts);
         }
         let mut component = HashSet::new();
@@ -235,7 +241,7 @@ impl<'g> Cyclic<'g> {
                 .iter()
                 .filter_map(|(s, t)| Some((owner(s)?, owner(t)?)))
                 .collect();
-            let starts = gaps.iter().filter_map(|(_, b, _)| owner(b)).collect();
+            let starts = gaps.iter().filter_map(|(_, b, _, _)| owner(b)).collect();
             component = reach(&parts, &starts);
         }
         Cyclic { module, component }
