@@ -9,7 +9,8 @@
       "packages": [],
       "exact_modules": [
         "browser.native.report.assets.explorer.flow_x2e_runtime_x2e_js",
-        "browser.native.report.assets.explorer.report_x2d_canvas_x2e_js"
+        "browser.native.report.assets.explorer.report_x2d_canvas_x2e_js",
+        "browser.native.report.assets.explorer.report_x2d_presentation_x2e_js"
       ],
       "public": [],
       "responsibilities": [

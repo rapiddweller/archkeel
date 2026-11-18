@@ -41,6 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ("PLACEMENT", "assets/explorer/report-placement.js"),
         ("LAYOUT", "assets/explorer/report-layout.js"),
         ("FLOW", "assets/explorer/flow.runtime.js"),
+        ("PRESENTATION", "assets/explorer/report-presentation.js"),
         ("CANVAS", "assets/explorer/report-canvas.js"),
     ] {
         println!("cargo:rustc-env=REPORT_{name}_HASH={}", hash(path)?);

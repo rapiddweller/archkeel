@@ -12,6 +12,7 @@
   "files": [
     "../../native/report/assets/explorer/flow.runtime.js",
     "../../native/report/assets/explorer/report-canvas.js",
+    "../../native/report/assets/explorer/report-presentation.js",
     "../../native/report/assets/explorer/report-scene.js",
     "../../native/report/assets/explorer/report-graph-scene.js",
     "../../native/report/assets/explorer/report-graph-protocol.js",

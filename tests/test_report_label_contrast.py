@@ -218,9 +218,12 @@ def test_report_and_explorer_label_token_pairs_meet_aa_in_both_themes() -> None:
 
 def test_language_badges_share_the_token_style_on_nodes_chips_and_legend() -> None:
     css = (ROOT / "native/report/assets/explorer/explorer.css").read_text(encoding="utf-8")
-    script = (ROOT / "native/report/assets/explorer/report-canvas.js").read_text(encoding="utf-8")
+    canvas = (ROOT / "native/report/assets/explorer/report-canvas.js").read_text(encoding="utf-8")
+    presentation = (ROOT / "native/report/assets/explorer/report-presentation.js").read_text(
+        encoding="utf-8"
+    )
     assert "ak-language-badge" in css and "ak-language-legend" in css
-    assert "ak-language-badge" in script and "languageNames.map(languageBadge)" in script
+    assert "ak-language-badge" in presentation and "languageNames.map(languageBadge)" in canvas
     for language in COLOR_VISION_LANGUAGES:
         assert f'data-language="{language}"' in css
         assert f"--lang-{language}" in css
