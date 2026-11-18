@@ -164,11 +164,6 @@
     [
       "collection_gap",
       "native.archkeel_collect",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_collect",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -1345,11 +1340,6 @@
       "collection_gap",
       "native.archkeel_collect.run",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_collect.run",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -3404,11 +3394,6 @@
     [
       "collection_gap",
       "native.archkeel_core",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -4760,11 +4745,6 @@
       "collection_gap",
       "native.archkeel_core.base",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.base",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -7144,11 +7124,6 @@
     [
       "collection_gap",
       "native.archkeel_core.check",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.check",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -9314,11 +9289,6 @@
     [
       "collection_gap",
       "native.archkeel_core.dual_run",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -10644,11 +10614,6 @@
     [
       "collection_gap",
       "native.archkeel_core.dual_run.frame_parts",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run.frame_parts",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -11880,11 +11845,6 @@
       "collection_gap",
       "native.archkeel_core.engine",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.engine",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -13705,11 +13665,6 @@
       "collection_gap",
       "native.archkeel_core.hygiene",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.hygiene",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -16469,11 +16424,6 @@
     [
       "collection_gap",
       "native.archkeel_core.ingest",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.ingest",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -17405,11 +17355,6 @@
       "collection_gap",
       "native.archkeel_core.provenance",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.provenance",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -18535,11 +18480,6 @@
       "collection_gap",
       "native.archkeel_core.refusal",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.refusal",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -20994,11 +20934,6 @@
     [
       "collection_gap",
       "native.archkeel_core.scan",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.scan",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -22869,11 +22804,6 @@
     [
       "collection_gap",
       "native.archkeel_core.system",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.system",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -24085,11 +24015,6 @@
       "collection_gap",
       "native.archkeel_core.system_topology",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.system_topology",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -26264,11 +26189,6 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -26560,11 +26480,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.bin_archkeel_dart_collector",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.bin_archkeel_dart_collector",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -28999,52 +28914,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.collection.types may run in code that reaches native.archkeel_dart_collector.collection.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -29059,32 +28929,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
       "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.resolve may run in code that reaches native.archkeel_dart_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -29100,21 +28950,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.binding",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -29194,17 +29029,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.binding",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -29379,92 +29204,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.collection.types may run in code that reaches native.archkeel_dart_collector.collection.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.import_survey.index may run in code that reaches native.archkeel_dart_collector.import_survey.index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.import_survey.package_map may run in code that reaches native.archkeel_dart_collector.import_survey.package_map without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.resolve may run in code that reaches native.archkeel_dart_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -29484,22 +29229,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
       "A trait impl in native.archkeel_dart_collector.syntax may run in code that reaches native.archkeel_dart_collector.syntax without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -29569,17 +29299,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.config",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -29624,71 +29344,6 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.edges",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.collection.types may run in code that reaches native.archkeel_dart_collector.collection.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.resolve may run in code that reaches native.archkeel_dart_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
       "A trait impl in native.archkeel_dart_collector.sdk.constraint may run in code that reaches native.archkeel_dart_collector.sdk.constraint without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -29700,21 +29355,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.edges",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -29784,11 +29424,6 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.edges",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.edges",
       "A trait impl in native.archkeel_facts.sections may run in code that reaches native.archkeel_facts.sections without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -29829,82 +29464,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.collection.types may run in code that reaches native.archkeel_dart_collector.collection.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
       "A trait impl in native.archkeel_dart_collector.import_survey.names may run in code that reaches native.archkeel_dart_collector.import_survey.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.resolve may run in code that reaches native.archkeel_dart_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -29920,21 +29485,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.index",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30014,17 +29564,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.index",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30209,77 +29749,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.package",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.collection.types may run in code that reaches native.archkeel_dart_collector.collection.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
       "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.resolve may run in code that reaches native.archkeel_dart_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30295,21 +29765,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.package",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30384,11 +29839,6 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.package",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package",
       "A trait impl in native.archkeel_facts.sections may run in code that reaches native.archkeel_facts.sections without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -30419,92 +29869,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.collection.types may run in code that reaches native.archkeel_dart_collector.collection.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.import_survey.index may run in code that reaches native.archkeel_dart_collector.import_survey.index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.resolve may run in code that reaches native.archkeel_dart_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30524,22 +29894,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
       "A trait impl in native.archkeel_dart_collector.syntax may run in code that reaches native.archkeel_dart_collector.syntax without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30619,17 +29974,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.package_map",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30684,37 +30029,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.parts",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
       "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.collection.types may run in code that reaches native.archkeel_dart_collector.collection.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30724,52 +30039,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
       "A trait impl in native.archkeel_dart_collector.import_survey.package_map may run in code that reaches native.archkeel_dart_collector.import_survey.package_map without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.resolve may run in code that reaches native.archkeel_dart_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30785,21 +30055,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.parts",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30879,11 +30134,6 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.parts",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.parts",
       "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -30919,62 +30169,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.collection.types may run in code that reaches native.archkeel_dart_collector.collection.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.import_survey.index may run in code that reaches native.archkeel_dart_collector.import_survey.index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -30984,27 +30179,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.resolve may run in code that reaches native.archkeel_dart_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -31024,22 +30199,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
       "A trait impl in native.archkeel_dart_collector.syntax may run in code that reaches native.archkeel_dart_collector.syntax without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -31119,17 +30279,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.pubspec_keys",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -31424,56 +30574,6 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.collection.types may run in code that reaches native.archkeel_dart_collector.collection.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
       "A trait impl in native.archkeel_dart_collector.import_survey.names may run in code that reaches native.archkeel_dart_collector.import_survey.names without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -31484,22 +30584,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.resolve may run in code that reaches native.archkeel_dart_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -31519,22 +30604,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
       "A trait impl in native.archkeel_dart_collector.syntax may run in code that reaches native.archkeel_dart_collector.syntax without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -31604,17 +30674,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey.workspace",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -31824,52 +30884,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
       "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -31884,22 +30904,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -31915,21 +30920,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.resolve",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32009,17 +30999,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32064,22 +31044,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
       "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32089,27 +31054,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32129,17 +31074,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
       "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32160,21 +31095,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.resolve.answers",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32254,17 +31174,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.answers",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32309,22 +31219,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
       "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32334,27 +31229,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32374,17 +31249,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
       "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32405,21 +31270,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.resolve.construct",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32499,17 +31349,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.construct",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32619,52 +31459,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
       "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32684,27 +31484,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
       "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32720,21 +31505,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.resolve.lexical",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32814,17 +31584,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.lexical",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32869,57 +31629,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.members",
-      "A method call may reach the method position of a type in its own file native.archkeel_dart_collector.tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
       "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32939,27 +31654,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
       "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -32975,16 +31675,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.resolve.members",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33064,17 +31754,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.members",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33124,47 +31804,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
       "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33184,27 +31829,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
       "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33220,21 +31850,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.resolve.namespace",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33314,17 +31929,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.namespace",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33374,47 +31979,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33434,27 +32004,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
       "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
       "A trait impl in native.archkeel_dart_collector.pubspec may run in code that reaches native.archkeel_dart_collector.pubspec without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.resolve.construct may run in code that reaches native.archkeel_dart_collector.resolve.construct without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33470,21 +32025,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.resolve.params",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33564,17 +32104,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.params",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33619,22 +32149,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
       "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33644,27 +32159,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33684,17 +32179,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
       "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33715,21 +32200,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.resolve.receivers",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33809,17 +32279,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.receivers",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33864,47 +32324,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.dartstr may run in code that reaches native.archkeel_dart_collector.dartstr without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.declarations.assembly may run in code that reaches native.archkeel_dart_collector.declarations.assembly without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
       "A trait impl in native.archkeel_dart_collector.declarations.types may run in code that reaches native.archkeel_dart_collector.declarations.types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.declarations.work may run in code that reaches native.archkeel_dart_collector.declarations.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
       "A trait impl in native.archkeel_dart_collector.discover may run in code that reaches native.archkeel_dart_collector.discover without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33924,17 +32349,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
       "A trait impl in native.archkeel_dart_collector.import_survey.uri may run in code that reaches native.archkeel_dart_collector.import_survey.uri without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.parse may run in code that reaches native.archkeel_dart_collector.parse without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -33955,21 +32370,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.resolve.sites",
       "A trait impl in native.archkeel_dart_collector.sdk.work may run in code that reaches native.archkeel_dart_collector.sdk.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.sites may run in code that reaches native.archkeel_dart_collector.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.symbol_survey may run in code that reaches native.archkeel_dart_collector.symbol_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_dart_collector.tree may run in code that reaches native.archkeel_dart_collector.tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -34049,17 +32449,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
       "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.resolve.sites",
-      "A trait impl in native.archkeel_facts.request may run in code that reaches native.archkeel_facts.request without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -34259,27 +32649,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.symbol_survey",
-      "A trait impl in native.archkeel_dart_collector.import_survey may run in code that reaches native.archkeel_dart_collector.import_survey without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.symbol_survey",
       "A trait impl in native.archkeel_dart_collector.import_survey.binding may run in code that reaches native.archkeel_dart_collector.import_survey.binding without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.symbol_survey",
-      "A trait impl in native.archkeel_dart_collector.import_survey.budget may run in code that reaches native.archkeel_dart_collector.import_survey.budget without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.symbol_survey",
-      "A trait impl in native.archkeel_dart_collector.import_survey.config may run in code that reaches native.archkeel_dart_collector.import_survey.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.symbol_survey",
-      "A trait impl in native.archkeel_dart_collector.import_survey.edges may run in code that reaches native.archkeel_dart_collector.import_survey.edges without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -34290,11 +32660,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.symbol_survey",
       "A trait impl in native.archkeel_dart_collector.import_survey.package_map may run in code that reaches native.archkeel_dart_collector.import_survey.package_map without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.symbol_survey",
-      "A trait impl in native.archkeel_dart_collector.import_survey.pubspec_keys may run in code that reaches native.archkeel_dart_collector.import_survey.pubspec_keys without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
