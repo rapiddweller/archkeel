@@ -259,7 +259,7 @@ pub(crate) fn typed_reply(
         plan.write(sink).map(|(tail, _)| tail)
     })?;
     use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
-    reply.facts.scope_premise = Some(premise(pending));
+    reply.facts.scope_premise = Some(premise(pending).to_owned());
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: if reply
             .facts

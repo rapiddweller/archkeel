@@ -1,0 +1,202 @@
+// Archkeel
+// Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+// SPDX-License-Identifier: MIT
+
+//! Private same-build Rust worker protocol. Public wire replies carry no live authority.
+
+use archkeel_facts::envelope::{ProfileLimits, Reply};
+use archkeel_facts::ids::FactId;
+use archkeel_facts::{GapFact, Record, Section};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+use std::io::{self, Read, Write};
+
+/// Select the private worker entry point.
+pub const RUST_WORKER_V1: &str = "--core-worker-v1";
+/// One worker response, before store validation.
+#[derive(Serialize, Deserialize)]
+enum Answer {
+    /// The scan completed.
+    Collected(Box<Packet>),
+    /// The snapshot budget stopped the scan.
+    ParseWork(String),
+    /// The worker refused the scan.
+    Refused(String),
+}
+
+/// A private transfer preserves dispatch flags that the public record encoding omits.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Packet {
+    reply: Reply,
+    limits: ProfileLimits,
+    premise: String,
+    dispatch: BTreeSet<FactId>,
+}
+impl Packet {
+    /// Take the assembled facts before applying the private producer statements.
+    fn new(mut reply: Reply) -> Result<Self, String> {
+        let gaps = &reply.facts.coverage.gaps;
+        if gaps.iter().any(|g| g.data.data().code.is_some())
+            || !reply.facts.owned_files.is_empty()
+            || reply.facts.standard.is_some()
+        {
+            return Err("unsupported private worker fact".into());
+        }
+        let dispatch = gaps
+            .iter()
+            .filter(|g| g.data.data().dispatch)
+            .map(|g| g.id.clone())
+            .collect();
+        Ok(Self {
+            limits: reply
+                .facts
+                .profile_limits
+                .take()
+                .ok_or("worker omitted profile limits")?,
+            premise: reply
+                .facts
+                .scope_premise
+                .take()
+                .ok_or("worker omitted scope premise")?,
+            reply,
+            dispatch,
+        })
+    }
+    /// Recover the two views of each gap and the original Rust scope statements.
+    fn finish(self) -> Result<Reply, String> {
+        let Self {
+            mut reply,
+            limits,
+            premise,
+            dispatch,
+        } = self;
+        restore(&mut reply.facts.coverage.gaps, &dispatch)?;
+        for s in &mut reply.facts.sections {
+            if let Section::Unknowns(gaps) = s {
+                restore(gaps, &dispatch)?;
+            }
+        }
+        reply.facts.profile_limits = Some(limits);
+        reply.facts.scope_premise = Some(premise);
+        Ok(reply)
+    }
+}
+
+fn restore(gaps: &mut [Record<GapFact>], dispatch: &BTreeSet<FactId>) -> Result<(), String> {
+    let mut seen = 0;
+    for g in gaps.iter_mut().filter(|g| dispatch.contains(&g.id)) {
+        let GapFact::CollectionGap(d) = &mut g.data else {
+            return Err("invalid dispatch kind".into());
+        };
+        d.dispatch = true;
+        seen += 1;
+    }
+    if seen != dispatch.len() {
+        return Err("unbound worker dispatch".into());
+    }
+    Ok(())
+}
+
+// A frame is 9 to 16 times the Rust source it covers (6.8 MB: 59 MiB; 5.8 MB of `std`: 86 MiB) and the
+// scan budget is 64 MiB of source. A lower ceiling refuses projects that the linked collector scanned.
+// Neither side reserves the length of a header: the buffers grow with the bytes that arrive.
+const MAX_FRAME: usize = 1 << 30;
+
+#[derive(Default)]
+struct Frame(Vec<u8>);
+impl Write for Frame {
+    fn write(&mut self, part: &[u8]) -> io::Result<usize> {
+        if part.len() > MAX_FRAME.saturating_sub(self.0.len()) {
+            return Err(io::Error::other("worker frame exceeds 1 GiB"));
+        }
+        self.0.extend_from_slice(part);
+        Ok(part.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Write a version-one worker result. An outer error is a work limit; an inner error is a refusal.
+pub fn write_rust_v1(
+    mut out: impl Write,
+    result: Result<Result<Reply, String>, String>,
+) -> Result<(), String> {
+    let answer = match result {
+        Err(limit) => Answer::ParseWork(limit),
+        Ok(Err(why)) => Answer::Refused(why),
+        Ok(Ok(reply)) => Answer::Collected(Box::new(Packet::new(reply)?)),
+    };
+    let mut frame = Frame::default();
+    serde_json::to_writer(&mut frame, &answer).map_err(|e| e.to_string())?;
+    let len = u32::try_from(frame.0.len()).map_err(|e| e.to_string())?;
+    out.write_all(&len.to_be_bytes())
+        .and_then(|()| out.write_all(&frame.0))
+        .and_then(|()| out.flush())
+        .map_err(|e| e.to_string())
+}
+
+/// Read exactly one bounded frame. Only the inner error denotes a parse-work refusal.
+pub fn read_rust_v1(mut input: impl Read) -> Result<Result<Reply, String>, String> {
+    let mut header = [0; 4];
+    input
+        .read_exact(&mut header)
+        .map_err(|e| format!("the worker sent no frame: {e}"))?;
+    let length = u32::from_be_bytes(header);
+    if u64::from(length) > MAX_FRAME as u64 {
+        return Err("worker frame exceeds 1 GiB".into());
+    }
+    let mut payload = Vec::new();
+    input
+        .by_ref()
+        .take(u64::from(length))
+        .read_to_end(&mut payload)
+        .map_err(|e| e.to_string())?;
+    if payload.len() as u64 != u64::from(length)
+        || input.read(&mut [0]).map_err(|e| e.to_string())? != 0
+    {
+        return Err("wrong worker frame length".into());
+    }
+    match serde_json::from_slice(&payload).map_err(|e| e.to_string())? {
+        Answer::Collected(packet) => packet.finish().map(Ok),
+        Answer::ParseWork(why) => Ok(Err(why)),
+        Answer::Refused(why) => Err(why),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn the_frame_refuses_overflow_before_reading_the_body() {
+        let header = u32::MAX.to_be_bytes();
+        assert_eq!(
+            read_rust_v1(header.as_slice()).unwrap_err(),
+            "worker frame exceeds 1 GiB"
+        );
+    }
+    #[test]
+    fn a_refusal_frame_gives_its_reason_and_an_empty_stream_gives_no_frame() {
+        let mut frame = Vec::new();
+        write_rust_v1(&mut frame, Ok(Err("the reason".into()))).unwrap();
+        assert_eq!(read_rust_v1(frame.as_slice()).unwrap_err(), "the reason");
+        assert!(read_rust_v1(&[][..])
+            .unwrap_err()
+            .starts_with("the worker sent no frame"));
+    }
+    #[test]
+    fn only_a_complete_single_frame_can_return_a_work_refusal() {
+        let mut frame = Vec::new();
+        write_rust_v1(&mut frame, Err("work limit".into())).unwrap();
+        assert_eq!(
+            read_rust_v1(frame.as_slice()).unwrap().unwrap_err(),
+            "work limit"
+        );
+        for end in 0..frame.len() {
+            assert!(read_rust_v1(&frame[..end]).is_err());
+        }
+        frame.push(0);
+        assert!(read_rust_v1(frame.as_slice()).is_err());
+    }
+}

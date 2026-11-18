@@ -89,7 +89,7 @@ pub fn typed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Reply, 
         interface_boundary: LimitSupport::Supported,
         publication_surface: LimitSupport::Unsupported,
     });
-    reply.facts.scope_premise = Some(PREMISE);
+    reply.facts.scope_premise = Some(PREMISE.to_owned());
     Ok(reply)
 }
 

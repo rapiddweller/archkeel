@@ -26,22 +26,22 @@ pub(super) fn repository() -> std::path::PathBuf {
     root
 }
 
-fn equal(request: &[u8]) {
-    let decoded = archkeel_wire::request::decode_rust(request).unwrap();
-    let wire = std::thread::Builder::new()
-        .stack_size(256 << 20)
-        .spawn(move || {
-            archkeel_rust_collector::encoded_reply(
-                &decoded,
-                archkeel_rust_collector::provenance(),
-                archkeel_wire::protocol::reply_version(decoded.protocol_version),
-            )
-        })
-        .unwrap()
-        .join()
-        .unwrap()
+pub(super) fn public_reply(request: &[u8]) -> archkeel_store::Ingested {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let mut child = Command::new(crate::rust_worker::executable().unwrap())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
         .unwrap();
-    let binary = archkeel_store::ingest_reply(&wire, 1 << 30).unwrap();
+    child.stdin.take().unwrap().write_all(request).unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success());
+    archkeel_store::ingest_reply(&out.stdout, 1 << 30).unwrap()
+}
+
+fn equal(request: &[u8]) {
+    let binary = public_reply(request);
     let linked = run::collect(Profile::Rust, request).unwrap();
     // AD-604: only the linked reply states its routes (as the Python survey of AD-504); each
     // record and every other fact of both doors is the same.
@@ -98,6 +98,17 @@ fn the_native_workspace_collects_without_a_shell_reply() {
     };
     let scanned = scan(&identity, 1 << 26).unwrap();
     assert_eq!(scanned.profile, Profile::Rust);
+    // The public encoding omits both; only the private worker frame carries them (AD-881).
+    let facts = &scanned.reply.reply().facts;
+    assert!(facts.scope_premise.is_some());
+    assert!(
+        facts
+            .coverage
+            .gaps
+            .iter()
+            .any(|gap| gap.data.data().dispatch),
+        "no dispatch flag crossed the worker boundary"
+    );
     assert!(
         scanned.reply.reply().facts.files.len() > 200,
         "{} files",

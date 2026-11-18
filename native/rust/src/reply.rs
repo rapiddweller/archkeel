@@ -86,11 +86,14 @@ impl Collected {
         });
         let features = &mut reply.facts.capabilities.resolution_features;
         features.push(ROUTES_FEATURE.to_owned());
-        reply.facts.scope_premise = Some(if premise {
-            LOCK_PREMISE
-        } else {
-            COMPILE_PREMISE
-        });
+        reply.facts.scope_premise = Some(
+            (if premise {
+                LOCK_PREMISE
+            } else {
+                COMPILE_PREMISE
+            })
+            .to_owned(),
+        );
         Ok(reply)
     }
 

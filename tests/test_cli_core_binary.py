@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""#1095: a bundled core binary is checked again at the start, not only at the lookup."""
+"""#1095: a bundled core binary and its Rust worker are checked again at the start (AD-881)."""
 
 import hashlib
 import os
@@ -24,12 +24,13 @@ SCRIPT = b"#!/bin/sh\nexit 0\n"
 def bundle(package: Path, content: bytes = SCRIPT) -> Path:
     native = package / "_native"
     native.mkdir(parents=True)
-    binary = native / f"archkeel-core{EXE}"
-    binary.write_bytes(content)
-    binary.chmod(0o755)
-    binary.with_name(binary.name + ".sha256").write_text(
-        hashlib.sha256(content).hexdigest(), encoding="ascii"
-    )
+    for name in (f"archkeel-rust-collector{EXE}", f"archkeel-core{EXE}"):
+        binary = native / name
+        binary.write_bytes(content)
+        binary.chmod(0o755)
+        binary.with_name(binary.name + ".sha256").write_text(
+            hashlib.sha256(content).hexdigest(), encoding="ascii"
+        )
     return binary
 
 
@@ -54,6 +55,23 @@ def test_confirm_refuses_a_bundled_core_whose_digest_file_is_gone(tmp_path: Path
     binary = bundle(tmp_path / "package")
     binary.with_name(binary.name + ".sha256").unlink()
     with pytest.raises(CoreError, match="missing"):
+        confirm(binary)
+
+
+@pytest.mark.parametrize(
+    ("change", "message"), [("write", "digest does not match"), ("unlink", "missing")]
+)
+def test_confirm_refuses_a_rust_worker_that_changed_or_is_gone(
+    tmp_path: Path, change: str, message: str
+) -> None:
+    """AD-881: the worker is bundled beside the core and checked with the same digest rule."""
+    binary = bundle(tmp_path / "package")
+    worker = binary.with_name(f"archkeel-rust-collector{EXE}")
+    if change == "write":
+        worker.write_bytes(b"#!/bin/sh\necho changed\n")
+    else:
+        worker.unlink()
+    with pytest.raises(CoreError, match=message):
         confirm(binary)
 
 

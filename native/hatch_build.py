@@ -1,12 +1,13 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Put the core into a platform wheel, and refuse a wheel without it (AD-317, AD-436).
+"""Put the core and its Rust worker into a wheel, and refuse a wheel without them (AD-436, AD-881).
 
-`ARCHKEEL_BUNDLE_NATIVE` selects the binary. `1` builds `archkeel-core` with `cargo auditable`
-from `native/` and adds a CycloneDX SBOM of its crates. An absolute path bundles that prebuilt
-core. Without the variable the hook refuses the build: a package without the core refuses each
-run. An editable install bundles nothing, because the shell finds the build output of the checkout.
+`ARCHKEEL_BUNDLE_NATIVE` selects the binary. `1` builds `archkeel-core` and
+`archkeel-rust-collector` with `cargo auditable` from `native/` and adds a CycloneDX SBOM of the
+crates of each. An absolute path bundles that prebuilt core and the worker beside it. Without the
+variable the hook refuses the build: a package without the core refuses each run. An editable
+install bundles nothing, because the shell finds the build output of the checkout.
 """
 
 from __future__ import annotations
@@ -26,8 +27,9 @@ from typing import Any
 Checksums = dict[tuple[str, str], str]
 
 REQUEST = "ARCHKEEL_BUNDLE_NATIVE"
-# The core links each collector, so it is the only binary of the package (AD-406, AD-436).
 BINARY = "archkeel-core"
+# The core runs the Rust collector as a sibling executable, never as a linked crate (AD-881).
+WORKER = "archkeel-rust-collector"
 PACKAGE_DATA = "archkeel/_native"
 # The minimum macOS of a binary is the default deployment target of Rust for its architecture.
 MACOS = {"x86_64": "10.12", "arm64": "11.0"}
@@ -93,15 +95,20 @@ def bundle(
     name = BINARY + (".exe" if tag.endswith("win_amd64") else "")
     if request == "1":
         binary = _cargo_build(root, version, tag) / name
-        build_data["sbom_files"].append(str(_write_sbom(root / "native", binary, version)))
     else:
         binary = _prebuilt(request)
+    worker = binary.with_name(WORKER + Path(name).suffix)
+    if not worker.is_file() or not os.access(worker, os.X_OK):
+        raise ValueError(f"The core {binary} needs the Rust worker {worker} beside it.")
     build_data["pure_python"] = False
     build_data["tag"] = tag
-    build_data["force_include"][str(binary)] = f"{PACKAGE_DATA}/{name}"
-    # The shell starts the binary only when its file has this digest (AD-432).
-    digest = _write_digest(root, binary)
-    build_data["force_include"][str(digest)] = f"{PACKAGE_DATA}/{name}.sha256"
+    for executable, installed in ((binary, name), (worker, worker.name)):
+        if request == "1":
+            build_data["sbom_files"].append(str(_write_sbom(root / "native", executable, version)))
+        build_data["force_include"][str(executable)] = f"{PACKAGE_DATA}/{installed}"
+        # The shell starts the binary only when its file has this digest (AD-432).
+        digest = _write_digest(root, executable)
+        build_data["force_include"][str(digest)] = f"{PACKAGE_DATA}/{installed}.sha256"
 
 
 def _write_digest(root: Path, binary: Path) -> Path:
@@ -157,7 +164,7 @@ def _cargo_build(root: Path, version: str, tag: str) -> Path:
     # cargo auditable records the crates in the `.dep-v0` section for `cargo audit bin`.
     subprocess.run(
         [cargo, "auditable", "build", "--release", "--locked", "--target-dir", str(target)]
-        + ["-p", BINARY],
+        + ["-p", BINARY, "-p", WORKER],
         cwd=native,
         env=environment,
         stdout=sys.stderr,
@@ -182,8 +189,10 @@ def _write_sbom(native: Path, binary: Path, version: str) -> Path:
         for crate in lock["package"]
         if "checksum" in crate
     }
-    sbom = binary.with_name(f"{BINARY}.cdx.json")
-    text = json.dumps(cyclonedx(metadata, checksums, version), indent=2, sort_keys=True)
+    sbom = binary.with_name(f"{binary.stem}.cdx.json")
+    text = json.dumps(
+        cyclonedx(metadata, checksums, version, binary.stem), indent=2, sort_keys=True
+    )
     sbom.write_text(text + "\n", encoding="utf-8")
     return sbom
 
@@ -195,7 +204,9 @@ def _run(command: list[str], cwd: Path) -> str:
     ).stdout
 
 
-def cyclonedx(metadata: dict[str, Any], checksums: Checksums, version: str) -> dict[str, Any]:
+def cyclonedx(
+    metadata: dict[str, Any], checksums: Checksums, version: str, application: str = BINARY
+) -> dict[str, Any]:
     """Give a CycloneDX 1.6 SBOM of the crates that the binary links (PEP 770).
 
     The SBOM follows the normal dependencies from the binary: build and test crates are not in it.
@@ -210,7 +221,7 @@ def cyclonedx(metadata: dict[str, Any], checksums: Checksums, version: str) -> d
         )
         for node in metadata["resolve"]["nodes"]
     }
-    (root,) = (key for key, package in packages.items() if package["name"] == BINARY)
+    (root,) = (key for key, package in packages.items() if package["name"] == application)
     linked, pending = {root}, [root]
     while pending:
         for dependency in edges[pending.pop()]:

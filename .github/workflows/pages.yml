@@ -100,6 +100,7 @@ jobs:
         with:
           path: |
             native/target/release/archkeel-core
+            native/target/release/archkeel-rust-collector
             native/target/release/archkeel-core.tree
           key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 

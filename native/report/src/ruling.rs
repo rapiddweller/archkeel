@@ -108,7 +108,7 @@ pub struct Ruling {
     /// The one assumption that the collector states for its proofs (AD-540). The word of `scope`
     /// stays `complete`: the shell reads it.
     #[serde(skip_serializing_if = "Option::is_none")]
-    premise: Option<&'static str>,
+    premise: Option<String>,
     #[serde(skip)]
     unsupported: RuleReasons,
     /// The typed reason of each rule without a decision, UNKNOWN rows and named rows alike. The
@@ -204,7 +204,8 @@ pub fn rule_with_edge_links(
     };
     let premise = models
         .ok()
-        .and_then(|tree| tree.models().find_map(Model::scope_premise));
+        .and_then(|tree| tree.models().find_map(Model::scope_premise))
+        .map(str::to_owned);
     let scope = scope.map_or(RunScope::Complete, RunScope::Open);
     let mut rows = Rows::default();
     let mut edge_links = crate::edge_links::Links::new();

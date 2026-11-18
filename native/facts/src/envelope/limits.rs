@@ -6,7 +6,7 @@
 //! A wire reply carries none.
 
 /// Whether a documented profile limit applies to this collection.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LimitSupport {
     /// The collector supports it.
     Supported,
@@ -16,7 +16,7 @@ pub enum LimitSupport {
 
 /// The profile differences that the linked collector can state for its own reply.
 /// These statements never replace coverage gaps or a rule's scope proof.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ProfileLimits {
     /// Whether the profile reads the imported names of a dependency.
     pub dependency_symbols: LimitSupport,

@@ -21,9 +21,12 @@ const STACK_BYTES: usize = 256 << 20;
 
 /// The typed reply of the request bytes, validated by the store, or why there is none.
 pub(crate) fn collect(profile: Profile, request: &[u8]) -> Result<Ingested, Refusal> {
-    let request = request.to_vec();
-    let reply =
-        isolated(move || reply_of(profile, &request))?.map_err(|why| refused("collector", why))?;
+    let reply = if profile == Profile::Rust {
+        crate::rust_worker::read(request)?
+    } else {
+        let request = request.to_vec();
+        isolated(move || reply_of(profile, &request))?.map_err(|why| refused("collector", why))?
+    };
     let ingested = archkeel_store::ingest_typed(reply).map_err(|reason| {
         refused(
             "collector",
@@ -88,14 +91,7 @@ pub(crate) fn isolated<T: Send + 'static>(
 /// The typed reply without the store, for the comparison with the bytes of the binary.
 pub(crate) fn reply_of(profile: Profile, request: &[u8]) -> Result<Reply, String> {
     archkeel_snapshot::work::bounded(|| match profile {
-        Profile::Rust => {
-            let request = archkeel_wire::request::decode_rust(request)?;
-            archkeel_rust_collector::typed_reply(
-                &request,
-                archkeel_rust_collector::provenance(),
-                reply_version(request.protocol_version),
-            )
-        }
+        Profile::Rust => crate::rust_worker::read(request).map_err(|e| e.to_string()),
         Profile::TypeScript => {
             let request = archkeel_wire::request::decode(request)?;
             archkeel_typescript_collector::typed_reply(
