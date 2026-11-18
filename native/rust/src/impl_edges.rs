@@ -12,10 +12,6 @@
 //! The scan reads no types, so a pair gap is the sound answer; the host drops it when the contract
 //! lets the caller use that module.
 
-use std::collections::{BTreeMap, BTreeSet};
-
-use archkeel_facts::ImportFact;
-
 use crate::builder::Builder;
 use crate::crates::Workspace;
 use crate::definitions::{Form, ImplBlock, MethodCall};
@@ -26,6 +22,7 @@ use crate::tree::Module;
 use flow::{visible, Foreign};
 use orphans::orphan_impl_gaps;
 use receivers::{certainly_visible, exact_type, Typed};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The members of the inherent `impl` blocks of the walk.
 #[derive(Default)]
@@ -170,7 +167,10 @@ impl Builder {
             .collect();
         let edges = self.module_pairs();
         orphan_impl_gaps(self, (workspace, index, modules), &edges);
-        let mut pending = Vec::new();
+        let mut work = flow::Work {
+            pending: Vec::new(),
+            proved_at_call: BTreeSet::new(),
+        };
         for (module, paths) in modules.iter().zip(paths) {
             let mut calls = self.calls_of(workspace, index, module, &paths.proved);
             calls.extend(paths.unresolved);
@@ -182,7 +182,7 @@ impl Builder {
             };
             // The first calls of the list are the ones of the scan: `calls_of` puts them first.
             let own = module.scan.method_calls.len();
-            self.method_gaps(workspace, &reached, &found, own, &mut pending);
+            self.method_gaps(workspace, &reached, &found, own, &mut work);
             for (call, target) in &paths.doubts {
                 let reason = format!(
                     "A method call may reach the method {} of an impl block in {target}",
@@ -192,8 +192,9 @@ impl Builder {
             }
             self.glob_trait_gaps(workspace, &reached);
         }
-        pending.extend(orphans::trait_impl_candidates(workspace, modules));
-        flow::settle(self, pending);
+        work.pending
+            .extend(orphans::trait_impl_candidates(workspace, modules));
+        flow::settle(self, work);
     }
 
     /// A path `S::m` whose type file defines no `m` for `S` is an edge to each foreign block of it
@@ -325,21 +326,6 @@ impl Builder {
         })
     }
 
-    /// The pairs of modules that an `import` or `reexport` record joins.
-    fn module_pairs(&self) -> BTreeSet<(String, String)> {
-        let data = self.imports.iter().filter_map(|record| match &record.data {
-            ImportFact::Import(data) | ImportFact::Reexport(data) => Some(data),
-            _ => None,
-        });
-        data.map(|d| {
-            (
-                d.source_module.as_str().to_owned(),
-                d.target_module.as_str().to_owned(),
-            )
-        })
-        .collect()
-    }
-
     /// The method calls of a module: in its code, in the macros that it calls, and the last name
     /// of each path into another crate of the workspace.
     fn calls_of(
@@ -390,7 +376,7 @@ impl Builder {
         reached: &Reached<'_>,
         found: &Members<'_>,
         own: usize,
-        pending: &mut Vec<flow::Pending>,
+        work: &mut flow::Work,
     ) {
         let (module, frame) = (reached.module, reached.index.frame(&reached.module.module));
         let Some(frame) = frame else {
@@ -411,23 +397,37 @@ impl Builder {
                 continue;
             }
             // #1571: the type of the receiver narrows the members that the call can reach.
-            let verdict = match at_index < own {
-                true => types::Context {
-                    index: reached.index,
-                    frame,
-                    module,
-                    at: frame.lexical_at(&call.scope),
-                    typed: &found.typed,
-                    macro_members: &self.macro_members,
-                    closed,
-                }
-                .verdict(call),
-                false => types::Verdict::Unknown,
+            let context = types::Context {
+                index: reached.index,
+                frame,
+                module,
+                at: frame.lexical_at(&call.scope),
+                typed: &found.typed,
+                macro_members: &self.macro_members,
+                closed,
             };
-            if let types::Verdict::Own(type_name, _, Some(candidate)) = &verdict {
+            let verdict = if at_index < own {
+                context.verdict(call)
+            } else {
+                types::Verdict::Unknown
+            };
+            let member = if at_index >= own {
+                None
+            } else if let types::Verdict::Own(ty, _, Some(candidate)) = &verdict {
+                Some((ty.clone(), *candidate))
+            } else {
+                context.result_member(call)
+            };
+            if let (Some((_, candidate)), false) = (
+                &member,
+                matches!(verdict, types::Verdict::Own(_, _, Some(_))),
+            ) {
+                work.proved_at_call
+                    .insert((module.module.clone(), candidate.module.module.clone()));
+            }
+            if let Some((ty, candidate)) = member {
                 let root = call.chain.as_ref().map_or("", |chain| chain.name.as_str());
-                let type_name = type_name.clone();
-                self.member_edge((reached.index, module), call, root, (candidate, type_name));
+                self.member_edge((reached.index, module), call, root, (candidate, ty));
                 *self.ended_methods.entry(module.rel.clone()).or_default() += 1;
                 continue;
             }
@@ -446,7 +446,7 @@ impl Builder {
             // #1571: the call may reach a member in the file of its type (`impl_flow.rs`).
             let owned = (found.owned.get(call.name.as_str())).map_or(&[][..], Vec::as_slice);
             let candidates = (owned, &found.aliases);
-            pending.extend(flow::own_candidates(
+            work.pending.extend(flow::own_candidates(
                 workspace,
                 (module, &at),
                 call,

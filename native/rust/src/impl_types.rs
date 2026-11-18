@@ -65,6 +65,32 @@ impl Verdict<'_, '_> {
 }
 
 impl<'t, 'a> Context<'t, '_, 'a> {
+    /// An inherent `&self` call on the concrete result of a qualified free function.
+    pub(super) fn result_member(
+        &self,
+        call: &MethodCall,
+    ) -> Option<((String, String), &'t Candidate<'a>)> {
+        let chain = call.chain.as_deref()?;
+        let Root::Call(path, _) = &chain.root else {
+            return None;
+        };
+        if call.path
+            || call.arity != Some(0)
+            || !Vec::is_empty(&call.scope)
+            || !Vec::is_empty(&chain.steps)
+            || self.module.gated
+            || !defs::shared_autoref(self.frame, &call.name)
+        {
+            return None;
+        }
+        let (frame, found) = defs::routed_function(self.index, self.frame, path)?;
+        let Ty::Own(at, ty) = self.written((frame, &found.scope), &found.ret, None) else {
+            return None;
+        };
+        let member = self.sole((&at, &ty), &call.name, (SelfKind::Shared, 0))?;
+        Some(((at, ty), member))
+    }
+
     /// The verdict of a method call of the scan.
     pub(super) fn verdict(&self, call: &MethodCall) -> Verdict<'t, 'a> {
         let Some(chain) = call.chain.as_deref() else {

@@ -12,7 +12,9 @@
 //! candidate of the caller; a gap of the whole workspace keeps each candidate. Each gap that this
 //! adds is a new step of the graph, so the check runs until no candidate changes.
 
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
+
+use archkeel_facts::ImportFact;
 
 use crate::builder::Builder;
 use crate::crates::Workspace;
@@ -35,8 +37,38 @@ pub(super) struct Pending {
     pub(super) reason: String,
 }
 
+pub(super) struct Work {
+    pub(super) pending: Vec<Pending>,
+    /// These edges prove individual calls. They do not answer any independent pending gap.
+    pub(super) proved_at_call: BTreeSet<(String, String)>,
+}
+
+impl Builder {
+    /// The pairs of modules that an `import` or `reexport` record joins.
+    pub(super) fn module_pairs(&self) -> BTreeSet<(String, String)> {
+        self.imports
+            .iter()
+            .filter_map(|record| match &record.data {
+                ImportFact::Import(d) | ImportFact::Reexport(d) => Some((
+                    d.source_module.as_str().to_owned(),
+                    d.target_module.as_str().to_owned(),
+                )),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
 /// Give each pending gap whose target its source can reach.
-pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
+pub(super) fn settle(builder: &mut Builder, work: Work) {
+    let Work {
+        pending: mut open,
+        proved_at_call,
+    } = work;
+    let proved: HashSet<_> = (proved_at_call.iter())
+        .map(|(source, target)| (source.as_str(), target.as_str()))
+        .collect();
+    let no_edges = BTreeSet::new();
     while !open.is_empty() {
         let graph = Graph::of(builder);
         let mut reach: BTreeMap<String, Reach> = BTreeMap::new();
@@ -57,7 +89,12 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
         for pending in &ready {
             let pair = (pending.source.as_str(), pending.target.as_str());
             let at = (pending.rel.as_str(), &pending.site);
-            once_gap(builder, &graph.edges, pair, at, &pending.reason, true);
+            let edges = if proved.contains(&pair) {
+                &no_edges
+            } else {
+                &graph.edges
+            };
+            once_gap(builder, edges, pair, at, &pending.reason, true);
         }
         open = waiting;
     }

@@ -8,6 +8,7 @@
 
 use crate::definitions::{Definition, Form, Owner};
 use crate::modules::{Frame, Index, Outcome};
+use crate::routes::Route;
 use crate::scan::{Reference, Via};
 
 /// The one definition of `form` and `name` in the lexical module `lexical`, with the frame of its
@@ -59,6 +60,67 @@ pub(super) fn function<'f>(
         }
     };
     one(index, &lexical, (Form::Function, name))
+}
+
+/// A qualified call whose item route ends at a written free function, even under a new name.
+pub(super) fn routed_function<'f>(
+    index: &'f Index<'_>,
+    frame: &Frame<'_>,
+    path: &[String],
+) -> Option<(&'f Frame<'f>, &'f Definition)> {
+    if path.len() < 2 {
+        return None;
+    }
+    let reference = Reference {
+        names: path.to_vec(),
+        ..Reference::default()
+    };
+    let route = Route::from_path(index, frame, &reference)?;
+    if !route.complete || route.external_package.is_some() {
+        return None;
+    }
+    let (lexical, name) = route.hops.last()?.rsplit_once('.')?;
+    one(index, lexical, (Form::Function, name))
+        .filter(|(frame, _)| !frame.module.gated && !frame.module.scan.module_macros)
+}
+
+/// With no explicit trait source, only zero-argument by-value prelude methods can win over
+/// an inherent `&self` method. Use the union of the stable core/std preludes (Rust 1.97).
+pub(super) fn shared_autoref(frame: &Frame<'_>, name: &str) -> bool {
+    let scan = &frame.module.scan;
+    frame.root() == frame.module.module
+        && Vec::is_empty(&scan.concerns)
+        && Vec::is_empty(&scan.macro_calls)
+        && Vec::is_empty(&scan.extern_crates)
+        && Vec::is_empty(&scan.orphans.block_items)
+        && frame.leaves().next().is_none()
+        && frame.globs().next().is_none()
+        && !scan.definitions.iter().any(|d| d.form == Form::Trait)
+        && !matches!(
+            name,
+            "into"
+                | "try_into"
+                | "into_future"
+                | "into_iter"
+                | "count"
+                | "last"
+                | "enumerate"
+                | "peekable"
+                | "flatten"
+                | "fuse"
+                | "collect"
+                | "max"
+                | "min"
+                | "rev"
+                | "unzip"
+                | "copied"
+                | "cloned"
+                | "cycle"
+                | "array_chunks"
+                | "sum"
+                | "product"
+                | "is_sorted"
+        )
 }
 
 /// The one enum `name` of `lexical`, when it has the variant `variant`.

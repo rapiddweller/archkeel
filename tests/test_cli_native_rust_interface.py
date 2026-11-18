@@ -324,3 +324,125 @@ def test_the_core_decides_interface_boundary_from_the_item_of_each_import(
             "INTERFACE: native.app -> native.base_crate:make: import outside the public interface"
             in claims(result)
         )
+
+
+@pytest.mark.parametrize(
+    ("returned", "caller", "reexports", "path", "second", "status", "value"),
+    [
+        ("Allowed", "", False, "factory::make", False, "PASS", 1),
+        ("Unlisted", "", False, "factory::make", False, "FAIL", 2),
+        ("Unlisted", "", True, "factory::make", False, "FAIL", 2),
+        ("Allowed", "", True, "build", False, "PASS", 1),
+        ("Unlisted", "", True, "build", False, "UNKNOWN", 2),
+        ("cfg", "", False, "factory::make", False, "UNKNOWN", 1),
+        (
+            "impl Touch",
+            "use base_crate::factory::Touch;\n",
+            False,
+            "factory::make",
+            False,
+            "UNKNOWN",
+            2,
+        ),
+        (
+            "Box<dyn Touch>",
+            "",
+            False,
+            "factory::make",
+            False,
+            "UNKNOWN",
+            2,
+        ),
+        (
+            "Allowed",
+            "use base_crate::factory::Competing;\n",
+            False,
+            "factory::make",
+            False,
+            "UNKNOWN",
+            3,
+        ),
+        ("Allowed", "", False, "factory::make", True, "UNKNOWN", 3),
+    ],
+)
+def test_factory_result_proves_inherent_receiver_and_publication(
+    tmp_path: Path,
+    core_binary: Path,
+    returned: str,
+    caller: str,
+    reexports: bool,
+    path: str,
+    second: bool,
+    status: str,
+    value: int,
+) -> None:
+    lib = "pub mod factory;\npub mod types;\n"
+    if reexports:
+        lib += "pub use types::Allowed as Public;\n"
+    if path == "build":
+        lib += "pub use factory::make as build;\n"
+    factory = "use crate::types::{Allowed, Unlisted};\n"
+    made = returned
+    if returned in ("impl Touch", "Box<dyn Touch>"):
+        factory += (
+            "pub trait Touch { fn touch(&self) -> u8; }\n"
+            "impl Touch for Unlisted { fn touch(&self) -> u8 { 2 } }\n"
+        )
+        made = "Box::new(Unlisted)" if returned == "Box<dyn Touch>" else "Unlisted"
+    if "Competing" in caller:
+        factory += (
+            "pub trait Competing { fn touch(self) -> u8; }\n"
+            "impl Competing for Allowed { fn touch(self) -> u8 { 3 } }\n"
+        )
+    if returned == "cfg":
+        factory += (
+            '#[cfg(target_pointer_width = "64")]\npub fn make() -> Allowed { Allowed }\n'
+            '#[cfg(not(target_pointer_width = "64"))]\npub fn make() -> Unlisted { Unlisted }\n'
+        )
+    else:
+        factory += f"pub fn make() -> {returned} {{ {made} }}\n"
+    expr = f"base_crate::{path}().touch()"
+    if second:
+        factory += "pub type Alias = Unlisted;\npub fn hidden() -> Alias { Unlisted }\n"
+        expr += " + base_crate::factory::hidden().touch()"
+    files = {
+        "crates/base/src/lib.rs": lib,
+        "crates/base/src/factory.rs": factory,
+        "crates/base/src/types.rs": (
+            "pub struct Allowed;\npub struct Unlisted;\n"
+            "impl Allowed { pub fn touch(&self) -> u8 { 1 } }\n"
+            "impl Unlisted { pub fn touch(&self) -> u8 { 2 } }\n"
+        ),
+        "crates/app/src/lib.rs": caller + f"pub fn run() -> u8 {{ {expr} }}\n",
+    }
+    published_type = "native.base_crate:Public" if reexports else "native.base_crate.types:Allowed"
+    published_factory = (
+        "native.base_crate:build" if path == "build" else "native.base_crate.factory:make"
+    )
+    public = [published_type, published_factory]
+    public += [
+        f"native.base_crate.factory:{name}" for name in ("Touch", "Competing") if name in caller
+    ]
+    if second:
+        public.append("native.base_crate.factory:hidden")
+    base = {**component("base", "base_crate"), "public": public}
+    found, detail = _run(tmp_path, core_binary, files, (base, component("app", "app", ("base",))))
+    assert found == status, detail
+    if status == "FAIL":
+        assert VIOLATION.format("native.base_crate.types:Unlisted") in detail
+    if status == "UNKNOWN" and path == "build":
+        assert (
+            "BOUNDARY: incomplete scope: interface_boundary: unproven publication route" in detail
+        )
+
+    (tmp_path / "crates/app/src/main.rs").write_text(
+        f"fn main() {{ assert_eq!(app::run(), {value}); }}\n"
+    )
+    done = subprocess.run(
+        ["cargo", "run", "--quiet", "--offline", "-p", "app"],
+        cwd=tmp_path / "crates",
+        capture_output=True,
+        text=True,
+        env={**os.environ, "CARGO_TARGET_DIR": str(tmp_path / "target")},
+    )
+    assert done.returncode == 0, done.stderr

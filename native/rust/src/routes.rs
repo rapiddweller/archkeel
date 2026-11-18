@@ -32,6 +32,18 @@ pub(crate) struct Route {
 }
 
 impl Route {
+    /// Follow an item path to its definition, also when the path names an alias.
+    pub(crate) fn from_path(
+        index: &Index<'_>,
+        frame: &Frame<'_>,
+        path: &Reference,
+    ) -> Option<Self> {
+        let Next::Item(at, name) = next(index, frame, path)? else {
+            return None;
+        };
+        Some(route(index, &at, &name))
+    }
+
     /// No route: the import names no item, or names it where no hop can stand.
     pub(crate) fn none() -> Self {
         Route {
