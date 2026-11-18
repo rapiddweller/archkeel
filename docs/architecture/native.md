@@ -235,12 +235,14 @@ its own request field by field, or the refusal that names the part. Stage 1 stay
 kinds of the contract bytes against the verdict map, and the reply that the store accepts. A
 part that is not ported answers with the slice that ports it, never with an empty result.
 
-Rust scan at runtime (AD-881). These arrows cross a process boundary:
+Rust and TypeScript scans at runtime (AD-881, AD-896). These arrows cross a process boundary:
 
 ```mermaid
 flowchart LR
     core["archkeel-collect in archkeel-core"] -->|"start --core-worker-v1; request on stdin"| worker["archkeel-rust-collector"]
     worker -->|"length-prefixed reply on stdout"| core
+    core -->|"start --core-worker-v1; request on stdin"| ts["archkeel-typescript-collector"]
+    ts -->|"length-prefixed reply on stdout"| core
 ```
 
 The component graph below shows imports. A process call is not a crate dependency.
