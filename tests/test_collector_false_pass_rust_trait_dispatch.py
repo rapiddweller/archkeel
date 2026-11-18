@@ -235,3 +235,97 @@ def test_an_internal_dispatch_does_not_add_a_lexical_external_path(
     assert verdicts["NO-EXTERNAL-IN-A"] == "PASS"
     assert verdicts["EXTERNALS-DECLARED"] == "PASS"
     assert verdicts["NO-LOCAL-IN-A"] == "UNKNOWN"
+
+
+REEXPORT_CALL = "pub fn run() -> u32 { base_crate::Token::origin() }\n"
+UNUSED_REEXPORT = "macro_rules! unused { () => { base_crate::Token::origin() }; }\n"
+
+
+@pytest.mark.parametrize(
+    ("bridge", "app", "direct", "answer", "expected"),
+    [
+        ("pub use foreign::Token;", REEXPORT_CALL, False, 42, "UNKNOWN"),
+        ("pub use foreign::Token;", UNUSED_REEXPORT + REEXPORT_CALL, False, 42, "UNKNOWN"),
+        ("pub use foreign::Token;", REEXPORT_CALL + UNUSED_REEXPORT, False, 42, "UNKNOWN"),
+        (
+            "pub use foreign::Token;",
+            UNUSED_REEXPORT + "pub fn run() -> u32 { 0 }\n",
+            False,
+            0,
+            "PASS",
+        ),
+        (
+            "pub struct Token; impl Token { pub fn origin() -> u32 { 42 } }",
+            REEXPORT_CALL,
+            False,
+            42,
+            "PASS",
+        ),
+        ("pub use foreign::Token;", REEXPORT_CALL.replace("base_crate", "cc"), True, 42, "FAIL"),
+    ],
+    ids=[
+        "foreign-reexport",
+        "template-first",
+        "template-last",
+        "template-only",
+        "local-definition",
+        "direct-import",
+    ],
+)
+def test_an_external_reexport_can_name_an_unread_package(
+    tmp_path: Path,
+    release_core: Path,
+    bridge: str,
+    app: str,
+    direct: bool,
+    answer: int,
+    expected: str,
+) -> None:
+    cc = BASE.replace('"base-crate"', '"cc"') + "[workspace]\n"
+    foreign = BASE.replace('"base-crate"', '"foreign"') + "[workspace]\n"
+    files = {
+        "crates/base/Cargo.toml": BASE
+        + '[dependencies]\nforeign = { path = "../../vendor/foreign" }\n',
+        "crates/base/src/lib.rs": bridge,
+        "crates/app/src/lib.rs": app,
+        "crates/app/src/main.rs": f"fn main() {{ assert_eq!(app::run(), {answer}); }}\n",
+        "vendor/foreign/Cargo.toml": foreign + '[dependencies]\ncc = { path = "../cc" }\n',
+        "vendor/foreign/src/lib.rs": "pub use cc::Token;\n",
+        "vendor/cc/Cargo.toml": cc,
+        "vendor/cc/src/lib.rs": "pub struct Token; impl Token { pub fn origin() -> u32 { 42 } }\n",
+    }
+    if direct:
+        files["crates/app/Cargo.toml"] = APP + 'cc = { path = "../../vendor/cc" }\n'
+    scope = rule(
+        "NO-CC",
+        "external_dependency_scope",
+        dependency="cc",
+        exact_sources=["native.app.cargo_toml"],
+    )
+    root = repository(tmp_path / "repo", release_core, files, rules=(scope,))
+    command = [
+        "cargo",
+        "run",
+        "--quiet",
+        "--offline",
+        "--package",
+        "app",
+        "--manifest-path",
+        str(root / "crates/Cargo.toml"),
+    ]
+    env = {**os.environ, "CARGO_TARGET_DIR": str(tmp_path / "target")}
+    done = subprocess.run(command, capture_output=True, text=True, env=env, check=False)
+    assert done.returncode == 0, done.stderr
+    result = validate(root)
+    assert statuses(result)["NO-CC"] == expected
+    gaps = result["frame"]["collection_gaps"]
+    unread = [gap for gap in gaps if "unread package foreign" in gap["reason"]]
+    if expected == "UNKNOWN":
+        assert len(unread) == 1
+        assert unread[0]["subjects"] == ["native.app"]
+        [site] = unread[0]["evidence"]
+        at = result["frame"]["locations"][site]
+        assert at["path"] == "crates/app/src/lib.rs"
+        assert app.splitlines()[at["line"] - 1] == REEXPORT_CALL.rstrip()
+    else:
+        assert not unread

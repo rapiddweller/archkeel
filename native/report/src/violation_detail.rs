@@ -16,6 +16,9 @@ pub(crate) struct ViolationDetail {
     target: Option<String>,
     cause: &'static str,
     evidence: Vec<String>,
+    /// The class fact of a placement violation: source names the class and target its module.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    misplaced_class_fact: Option<String>,
     /// The members of a cycle, sorted: a set without order.
     #[serde(skip_serializing_if = "Option::is_none")]
     members: Option<Vec<String>>,
@@ -58,6 +61,7 @@ fn detail(
         target,
         cause,
         evidence: evidence.to_vec(),
+        misplaced_class_fact: None,
         members: None,
         path: None,
     }
@@ -130,6 +134,7 @@ impl ViolationDetail {
                 target: cycle.members.first().cloned(),
                 cause: "dependency cycle",
                 evidence: cycle.evidence.clone(),
+                misplaced_class_fact: None,
                 members: Some(cycle.members.clone()),
                 path: Some(
                     IntoIterator::into_iter(&cycle.path)
@@ -156,12 +161,15 @@ impl ViolationDetail {
                 "public name that no other component uses",
                 &row.evidence,
             ),
-            Violation::SymbolPlacement(row) => detail(
-                row.name.clone(),
-                Some(row.module.clone()),
-                "class outside allowed modules",
-                &row.evidence,
-            ),
+            Violation::SymbolPlacement(row) => Self {
+                misplaced_class_fact: Some(row.fact_id.clone()),
+                ..detail(
+                    row.name.clone(),
+                    Some(row.module.clone()),
+                    "class outside allowed modules",
+                    &row.evidence,
+                )
+            },
             // AD-428: the target names the imported symbol in the selector form `module:name`.
             Violation::PrivateImport { cited, symbol, .. } => detail(
                 cited.source_module.clone(),
@@ -273,5 +281,26 @@ mod tests {
         assert_eq!(named.evidence, ["EVD-1"]);
         let module = ViolationDetail::of(&private_import(None));
         assert_eq!(module.target.as_deref(), Some("app.impl"));
+    }
+
+    #[test]
+    fn only_the_placement_row_exports_the_cited_class_fact() {
+        let placement = Violation::SymbolPlacement(Box::new(archkeel_eval::PlacedClass {
+            id: "VIO-1".into(),
+            rule: "LAYOUT".into(),
+            fact_id: "SYM-1".into(),
+            name: "app.Client".into(),
+            module: "app".into(),
+            kind: "class".into(),
+            evidence: vec!["E1".into()],
+        }));
+        let wire = |v: &Violation| serde_json::to_value(ViolationDetail::of(v)).unwrap();
+        let row = wire(&placement);
+        assert_eq!(row["misplaced_class_fact"], "SYM-1");
+        assert_eq!(row["source"], "app.Client");
+        assert_eq!(row["target"], "app");
+        assert!(wire(&private_import(Some("Client")))
+            .get("misplaced_class_fact")
+            .is_none());
     }
 }

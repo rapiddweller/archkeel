@@ -38,7 +38,9 @@ fn outside(places: &Places, names: &Names<'_>) -> usize {
     places
         .every()
         .filter(|kind| match kind {
-            Kind::Import { source, .. } => names.component(source).is_none(),
+            Kind::Import { source, .. } | Kind::MisplacedClass { module: source, .. } => {
+                names.component(source).is_none()
+            }
             Kind::Cycle(cycle) => cycle.members.iter().all(|m| names.component(m).is_none()),
         })
         .count()

@@ -22,6 +22,12 @@ pub(super) struct Violated {
 
 #[derive(Clone, Debug)]
 pub(super) enum Kind {
+    /// A class whose definition lies outside the modules of its placement rule.
+    MisplacedClass {
+        module: String,
+        name: String,
+        evidence: Vec<String>,
+    },
     /// An import, or a module with a finding of its own (`target` is `None`).
     Import {
         source: String,
@@ -90,6 +96,7 @@ impl Group {
 impl Places {
     pub(super) fn of(frame: &Frame) -> Places {
         let mut imports = Grouped::new();
+        let mut classes: BTreeMap<(String, String), Group> = BTreeMap::new();
         let mut cycles: Vec<(CyclePath, Violated)> = Vec::new();
         for (rule, rows) in &frame.details {
             let listed = frame.explain.cycles.get(rule);
@@ -101,8 +108,12 @@ impl Places {
                 // A cycle row has its closed path when the frame lists it; else it is one row.
                 let path =
                     listed.and_then(|found| found.items.iter().find(|item| item.index == index));
-                match path {
-                    Some(path) if is_cycle(row) => cycles.push((path.clone(), violated)),
+                match (&row.misplaced_class_fact, &row.target, path) {
+                    (Some(_), Some(module), _) => classes
+                        .entry((module.clone(), row.source.clone()))
+                        .or_default()
+                        .add(violated, &row.evidence),
+                    (_, _, Some(path)) if is_cycle(row) => cycles.push((path.clone(), violated)),
                     _ => imports
                         .entry((row.source.clone(), row.target.clone()))
                         .or_default()
@@ -121,6 +132,16 @@ impl Places {
                 (kind, group.rules)
             })
             .collect();
+        all.extend(classes.into_iter().map(|((module, name), group)| {
+            (
+                Kind::MisplacedClass {
+                    module,
+                    name,
+                    evidence: group.evidence,
+                },
+                group.rules,
+            )
+        }));
         all.extend(
             cycles
                 .into_iter()

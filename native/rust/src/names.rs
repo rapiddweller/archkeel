@@ -35,6 +35,11 @@ impl ImportName {
             route: Route::none(),
         }
     }
+
+    /// The first unread package in a proven publication route, not the item's origin.
+    pub(crate) fn external_package(&self) -> Option<&str> {
+        self.route.external_package.as_deref()
+    }
 }
 
 pub(crate) fn named(
@@ -119,7 +124,7 @@ pub(crate) fn with_name(mut record: Record<ImportFact>, named: ImportName) -> Re
     let data = record.data.data_mut();
     data.symbol = named.symbol;
     data.symbols_known = true;
-    let Route { hops, complete } = named.route;
+    let Route { hops, complete, .. } = named.route;
     data.route_complete = (!hops.is_empty() && !complete).then_some(false);
     data.reexport_chain = (!hops.is_empty()).then_some(hops);
     record

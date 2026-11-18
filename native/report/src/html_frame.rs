@@ -26,7 +26,7 @@ macro_rules! row {
 row! {
     pub(super),
     Location { path: String, line: i64 }
-    Detail { source: String, target: Option<String>, cause: String, evidence: Vec<String> }
+    Detail { source: String, target: Option<String>, cause: String, evidence: Vec<String>, misplaced_class_fact: Option<String> }
     Component { id: String, name: String, parent: Option<String>, packages: Vec<String>, layer: Option<String>, public: Vec<String>, responsibilities: Vec<String>, forbidden_responsibilities: Vec<String>, planned_public: Vec<String>, provenance: Vec<String> }
     Module { name: String, path: String, component: Option<String>, language: String }
     Edge { source: String, target: String, resolution: String, count: usize, evidence: Vec<Location>, evidence_total: usize, rules: Vec<String> }

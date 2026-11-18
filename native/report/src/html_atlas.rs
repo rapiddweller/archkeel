@@ -23,6 +23,16 @@ fn findings(frame: &Frame, places: &Places, names: &Names<'_>, refs: &mut Refs) 
     let mut found = Vec::new();
     for place in &places.shown {
         let (modules, pair, evidence) = match &place.kind {
+            Kind::MisplacedClass {
+                module, evidence, ..
+            } => (
+                vec![module.clone()],
+                None,
+                evidence
+                    .iter()
+                    .find(|id| frame.locations.contains_key(*id))
+                    .cloned(),
+            ),
             Kind::Import {
                 source,
                 target,

@@ -8,6 +8,43 @@
 
 use super::*;
 
+#[test]
+fn a_misplaced_class_belongs_to_its_defining_module_and_cites_only_its_evidence() {
+    let mut frame = frame_of(
+        Some("FAIL"),
+        json!({"LAYOUT": ["symbol_placement", "FAIL"]}),
+    );
+    frame["topology"]["modules"][0]["path"] = json!("src/client.py");
+    frame["details"] = json!({"LAYOUT": [{"source": "m0.Client", "target": "m0",
+        "cause": "class outside allowed modules", "misplaced_class_fact": "SYM-1", "evidence": ["E1"]}]});
+    frame["locations"] = json!({"E1": {"path": "src/client.py", "line": 7},
+        "E2": {"path": "Cargo.toml", "line": 3}});
+    let page = document(&frame);
+    let data = payload(&page);
+    let atlas = &data["atlas"];
+    let finding = &atlas["findings"][0];
+    assert_eq!(finding["title"], "Misplaced class: m0.Client");
+    assert_eq!(finding["line"], 7);
+    let owner = atlas["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == "COMP-0")
+        .unwrap();
+    assert_eq!(owner["status"], "FAIL");
+    let block = page
+        .split("id=\"x1\"")
+        .nth(1)
+        .unwrap()
+        .split("</article>")
+        .next()
+        .unwrap();
+    assert!(block.contains("m0</span>") && block.contains("src/client.py:7"));
+    assert!(!block.contains("IMPORTS") && !block.contains("Cargo.toml"));
+    frame["locations"] = json!({});
+    assert!(document(&frame).contains("No source location recorded"));
+}
+
 /// Every status that the Explorer data shows for a component, a cell or an edge of a level.
 fn shown(data: &Value) -> Vec<String> {
     let atlas = &data["atlas"];

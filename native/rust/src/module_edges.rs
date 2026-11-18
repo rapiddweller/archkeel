@@ -409,6 +409,10 @@ impl Builder {
             declaration_file: None,
         });
         let named = names::named(index, &mut self.publications, edge, &reference.via);
+        let external = named.external_package();
+        if let Some(package) = external.filter(|_| reference.in_macro.is_none()) {
+            self.external_origin(&module.module, &evidence, package);
+        }
         let mut record = with_name(
             module_record(index, module, reference, edge, &identity, evidence),
             named,
