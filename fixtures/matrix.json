@@ -76,7 +76,7 @@
     "L-nest-realworld": {
       "language": "typescript",
       "runs": [
-      {"name": "L-nest-realworld", "section": "unknown", "intent": "UNKNOWN", "blocked_by": [], "about": "Real project: the mikro-orm nestjs-realworld app, pinned. One computed import(id) in src/mikro-orm.config.ts can load any module, so the rules that read every module stay UNKNOWN. A declared reach (#723) would state that premise.", "root": "L-nest-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 6}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {}, "refusal": null}}
+      {"name": "L-nest-realworld", "section": "unknown", "intent": "UNKNOWN", "blocked_by": [], "about": "Real project: the mikro-orm nestjs-realworld app, pinned. The computed import(id) in src/mikro-orm.config.ts has no declared reach. The fixture does not state which modules the caller can load, so the affected rules stay UNKNOWN.", "root": "L-nest-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 6}, "scope": "incomplete scope: the collector reports 2 coverage gaps; 1 of them leaves the whole scope unknown", "gaps": {}, "refusal": null}}
       ]
     },
     "M-review-workflow": {
