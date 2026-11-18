@@ -31,7 +31,7 @@ def _collector_parts() -> set[str]:
         if path.name.endswith("_tests.rs"):
             continue
         for match in PART.finditer(path.read_text(encoding="utf-8")):
-            found.add(match[1] or match[2])
+            found.add((match[1] or match[2]).lower())
     return found
 
 
@@ -68,6 +68,7 @@ def test_the_part_of_a_refusal_is_read_in_one_place(
         ("git head: moved", "read the problem above"),
         ("collector: file or folder not found", "check the path and run again."),
         ("dirty: permission denied", "check the permissions"),
+        ("Rust worker: permission denied", "check that the installed Rust worker"),
     ],
 )
 def test_each_refused_part_keeps_its_fix(message: str, start: str) -> None:

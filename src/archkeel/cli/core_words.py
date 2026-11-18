@@ -82,6 +82,7 @@ class _RefusedPart(StrEnum):
     PROFILE = "profile"
     REQUEST = "request"
     ROOT = "root"
+    RUST_WORKER = "rust worker"
     SCAN = "scan"
     SYSTEM = "system"
     WORK_BUDGET = "work budget"
@@ -104,6 +105,7 @@ PART_FIXES: Final = {
         "check `contract` under [scan] in archkeel.toml and that the file exists."
     ),
     _RefusedPart.SYSTEM: "check the system document that --config names, and its parts.",
+    _RefusedPart.RUST_WORKER: "check that the installed Rust worker matches the core and can run.",
 }
 #: What to do for a refused configuration, by the words of its cause (#1708, first match wins).
 _CONFIG_FIXES: Final = (
