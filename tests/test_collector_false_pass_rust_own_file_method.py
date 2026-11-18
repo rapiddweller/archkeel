@@ -137,23 +137,32 @@ def test_requires_receipt_distinguishes_matching_and_wrong_ports(
     root = repository(tmp_path, release_core, files, components=parts)
     _rustc_accepts(root)
     allowed = validate(root, capsys)
-    # A module port permits any symbol. A symbol port still needs a named edge.
-    a["requires"][0]["through"] = ["native.app.c:S"]
+    a["requires"][0]["through"] = ["native.app.c"]
     contract = root / "architecture-contract.json"
     contract.write_text(
         json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
     )
     matching = validate(root, capsys)
+    a["requires"][0]["through"] = ["native.app.c:S"]
+    contract.write_text(
+        json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
+    )
+    symbol = validate(root, capsys)
     a["requires"][0]["through"] = ["native.app.c.other"]
     contract.write_text(
         json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
     )
     wrong = validate(root, capsys)
     assert allowed["frame"]["collection_gaps"] == matching["frame"]["collection_gaps"]
+    assert allowed["frame"]["collection_gaps"] == symbol["frame"]["collection_gaps"]
     assert allowed["frame"]["collection_gaps"] == wrong["frame"]["collection_gaps"]
     assert len(allowed["frame"]["collection_gaps"]) == 1
     assert statuses(allowed)["REQUIRES"] == "PASS", allowed["frame"]["details"]
     assert statuses(matching)["REQUIRES"] == "PASS", matching
+    assert statuses(symbol)["REQUIRES"] == "UNKNOWN", symbol
+    held = symbol["frame"]["explain"]["holds"]["rules"]["REQUIRES"]
+    assert held["kind"] == "pair_gaps"
+    assert held["pairs"] == [{"source": "native.app.a", "target": "native.app.c"}]
     assert statuses(wrong)["REQUIRES"] == "UNKNOWN", wrong
     assert "native.app.a -> native.app.c" in wrong["frame"]["explained"]["REQUIRES"]
 
