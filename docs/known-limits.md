@@ -738,8 +738,8 @@ withhold every crate. A derive that loses its proof this way is UNKNOWN, and a g
 line of the setting. A configuration without such a setting (`[build]`, `[alias]`) keeps the proof.
 Settings outside the repository (`$CARGO_HOME`, `CARGO_*` variables, `--config`) are not read, so a
 result does not depend on the machine. A Rust scan whose proof rests on a locked registry crate
-states the premise "registry crates are built from the identity that Cargo.lock records; no outside
-source replacement" with its verdict; a build that breaks it is outside the PASS.
+states the premise "the Rust code compiles (rustc accepts it); registry crates are built from the
+identity that Cargo.lock records; no outside source replacement" with its verdict; a build that breaks it is outside the PASS.
 `tests/test_collector_false_pass_rust_registry_replacement.py` holds the plants: the replacement in
 the repository gives UNKNOWN, the same replacement in `$CARGO_HOME` gives PASS under the premise.
 These derives generate impl code using their own crate, written types, and documented helper paths.
