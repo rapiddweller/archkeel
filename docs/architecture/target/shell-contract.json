@@ -629,6 +629,7 @@
       "public": [
         "archkeel.cli.core_output:read_html",
         "archkeel.cli.core_output:read_timings",
+        "archkeel.cli.core_output:write_new",
         "archkeel.cli.core_output:write_output"
       ]
     },

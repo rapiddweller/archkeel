@@ -46,22 +46,29 @@ _ROUNDING: Final = 1e-5
 
 
 def _seconds(value: object, name: str) -> float:
+    """A finite number of seconds, 0 or more. A JSON integer too large for a float is refused."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise CoreError(f"the core timings value {name} is not a number")
-    if not math.isfinite(value) or value < 0:
+    try:
+        seconds = float(value)
+    except OverflowError as error:
+        raise CoreError(f"the core timings value {name} is too large") from error
+    if not math.isfinite(seconds) or seconds < 0:
         raise CoreError(
             f"the core timings value {name} is not a finite number of seconds, 0 or more"
         )
-    return float(value)
+    return seconds
 
 
-def read_timings(stderr: bytes) -> bytes | None:
+def read_timings(stderr: bytes, *, refused: bool) -> bytes | None:
     """The one timings line that the core wrote on standard error for a request that asked (#659).
 
-    A refused scan, in whole or in a part of a system run, has the line `refused` and no seconds:
-    the result is `None` and no file is written. A missing line, more than one line, another
-    protocol, a missing or unknown field or a number that is not finite and not negative is a
-    `CoreError`: a successful run that was asked for its timings must give them.
+    `refused` comes from the frame (a refused collection, in whole or in a part of a system run),
+    never from this line. The line must agree with it: a refused frame has the line `refused` and
+    gives `None` (no file); any other frame has the complete line, which is checked as a whole. A
+    missing or second line, another protocol, an unknown or missing field, a number that is not a
+    finite number of seconds of 0 or more, or a line that disagrees with the frame is a
+    `CoreError`: a run that was asked for its timings must give them.
     """
     lines = stderr.strip().splitlines()
     if len(lines) != 1:
@@ -71,11 +78,19 @@ def read_timings(stderr: bytes) -> bytes | None:
         )
     try:
         document = json.loads(lines[0])
-    except ValueError as error:
+    except (ValueError, RecursionError) as error:
         raise CoreError("the core timings line is not JSON") from error
     if not isinstance(document, dict) or document.get("protocol") != _TIMINGS_PROTOCOL:
         raise CoreError("the core timings line has another protocol")
-    if set(document) == {"protocol", "refused"} and document["refused"] is True:
+    marker = set(document) == {"protocol", "refused"} and document["refused"] is True
+    if marker != refused:
+        raise CoreError(
+            "the core timings line says "
+            + ("refused" if marker else "measured")
+            + ", and its frame says "
+            + ("refused" if refused else "decided")
+        )
+    if marker:
         return None
     if set(document) != {"protocol", "clock", "unit", "phases", "core_seconds"}:
         raise CoreError("the core timings line has other fields than the protocol names")
@@ -132,6 +147,36 @@ def write_output(path: Path, payload: bytes) -> None:
         _target(directory, path.name)
         os.replace(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
         created = False
+    finally:
+        try:
+            if created:
+                os.unlink(temporary, dir_fd=directory)
+        finally:
+            os.close(directory)
+
+
+def write_new(path: Path, payload: bytes) -> None:
+    """Create one regular file that does not exist, with all of its bytes, or fail.
+
+    The bytes go to a temporary file in the directory of `path`; the file is then linked under its
+    name, which fails when the name exists, also as a link, and when it appears during the write. It
+    never replaces a file (`--timings`, #659)."""
+    directory = _parent(path)
+    temporary = f".archkeel-{secrets.token_hex(16)}"
+    created = False
+    try:
+        descriptor = os.open(
+            temporary,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=directory,
+        )
+        created = True
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.link(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
     finally:
         try:
             if created:

@@ -36,7 +36,7 @@ _COMMON: Final = """\
   --no-init       Without archkeel.toml, write nothing (ARCHKEEL_NO_INIT=1 does the same).
   --timings FILE  Write the seconds of the core phases (prepare, collect, validate, evaluate,
                   render, join) to this JSON file. The output and the verdict do not change.
-                  The file must not be an input of the run or another output file."""
+                  It creates a new file and never replaces one: use a new name for each run."""
 _VALIDATE: Final = """\
 usage: archkeel validate [--root PATH] [--config PATH] [--baseline FILE | --write-baseline FILE]
                          [--timings FILE] [--json | --text | --summary] [--all] [--verbose]

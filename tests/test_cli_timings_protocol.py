@@ -5,6 +5,8 @@
 timings but got none is an error, not a silent success (#659, review of PR #1834)."""
 
 import json
+import os
+import stat
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +15,7 @@ from core_support import HONEST, case_root, run
 
 from archkeel.cli import core_only
 from archkeel.cli.core_json import CoreError
-from archkeel.cli.core_output import read_timings
+from archkeel.cli.core_output import read_timings, write_new
 
 PHASES = {
     "prepare": 0.1,
@@ -37,13 +39,22 @@ def _line(**change: Any) -> bytes:
     return json.dumps(document).encode() + b"\n"
 
 
-def test_a_complete_line_is_kept_as_it_is() -> None:
+REFUSED = b'{"protocol":"archkeel-core-timings-1","refused":true}\n'
+
+
+def test_a_complete_line_of_a_decided_frame_is_kept_as_it_is() -> None:
     line = _line()
-    assert read_timings(line) == line
+    assert read_timings(line, refused=False) == line
 
 
-def test_the_line_of_a_refused_scan_has_no_seconds_and_gives_no_file() -> None:
-    assert read_timings(b'{"protocol":"archkeel-core-timings-1","refused":true}\n') is None
+def test_the_line_of_a_refused_frame_has_no_seconds_and_gives_no_file() -> None:
+    assert read_timings(REFUSED, refused=True) is None
+
+
+@pytest.mark.parametrize(("stderr", "refused"), [(REFUSED, False), (_line(), True)])
+def test_a_line_that_disagrees_with_its_frame_is_an_error(stderr: bytes, refused: bool) -> None:
+    with pytest.raises(CoreError, match="its frame says"):
+        read_timings(stderr, refused=refused)
 
 
 @pytest.mark.parametrize(
@@ -69,6 +80,9 @@ def test_the_line_of_a_refused_scan_has_no_seconds_and_gives_no_file() -> None:
         _line(phases={**PHASES, "collect": 5.0}),
         _line(core_seconds=-1),
         _line(core_seconds=None),
+        _line(phases={**PHASES, "prepare": 10**400}, core_seconds=10**400),
+        _line(phases={**PHASES, "prepare": 10**400}),
+        b"[" * 100000 + b"\n",
         b'{"protocol":"archkeel-core-timings-1","clock":"monotonic","unit":"seconds",'
         b'"phases":{"prepare":NaN,"collect":1,"validate":0,"evaluate":0,"render":0,"join":0},'
         b'"core_seconds":2}\n',
@@ -79,26 +93,42 @@ def test_the_line_of_a_refused_scan_has_no_seconds_and_gives_no_file() -> None:
 )
 def test_a_line_that_breaks_the_protocol_is_an_error(stderr: bytes) -> None:
     with pytest.raises(CoreError):
-        read_timings(stderr)
+        read_timings(stderr, refused=False)
 
 
-def test_a_run_that_was_asked_for_its_timings_and_got_none_is_an_error(
-    tmp_path: Path, core_binary: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("stderr", "broken_config", "cause"),
+    [
+        (b"", False, "one timings line"),
+        (REFUSED, False, "its frame says"),
+        (_line(), True, "its frame says"),
+        (_line(phases={**PHASES, "prepare": 10**400}), False, "too large"),
+    ],
+)
+def test_a_line_that_does_not_fit_the_run_is_an_error_and_writes_no_file(
+    tmp_path: Path,
+    core_binary: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    stderr: bytes,
+    broken_config: bool,
+    cause: str,
 ) -> None:
     real = core_only.exchange
 
-    def silent(binary: str, kind: str, request: bytes, stderr_sink: list[bytes]) -> Any:
+    def other(binary: str, kind: str, request: bytes, stderr_sink: list[bytes]) -> Any:
         answer = real(binary, kind, request, stderr_sink)
-        stderr_sink[:] = [b""]
+        stderr_sink[:] = [stderr]
         return answer
 
     target = tmp_path / "timings.json"
     monkeypatch.setattr(core_only, "locate_core", lambda: core_binary)
-    monkeypatch.setattr(core_only, "exchange", silent)
+    monkeypatch.setattr(core_only, "exchange", other)
     with case_root(HONEST) as root:
+        if broken_config:
+            (root / "archkeel.toml").write_text("[scan\n", encoding="utf-8")
         code, result = run("validate", "--root", str(root), "--timings", str(target))
     assert code == 2, result
-    assert "one timings line" in json.dumps(result)
+    assert cause in json.dumps(result)
     assert not target.exists()
 
 
@@ -115,3 +145,38 @@ def test_a_run_that_did_not_ask_for_timings_reads_no_standard_error(
     with case_root(HONEST) as root:
         code, result = run("validate", "--root", str(root))
     assert code == 0, result
+
+
+def test_write_new_creates_a_complete_file_and_leaves_no_temporary_file(tmp_path: Path) -> None:
+    target = tmp_path / "timings.json"
+    write_new(target, b"complete\n")
+    assert target.read_bytes() == b"complete\n"
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+    assert [path.name for path in tmp_path.iterdir()] == ["timings.json"]
+
+
+def test_write_new_never_replaces_a_file_a_link_or_a_second_name(tmp_path: Path) -> None:
+    kept = tmp_path / "kept.txt"
+    kept.write_bytes(b"keep\n")
+    names = {
+        "regular": kept,
+        "symlink": tmp_path / "symlink.txt",
+        "dangling": tmp_path / "dangling.txt",
+        "hardlink": tmp_path / "hardlink.txt",
+    }
+    names["symlink"].symlink_to(kept)
+    names["dangling"].symlink_to(tmp_path / "missing.txt")
+    os.link(kept, names["hardlink"])
+    for name, path in names.items():
+        with pytest.raises(OSError):
+            write_new(path, b"new\n")
+        assert kept.read_bytes() == b"keep\n", name
+    assert not (tmp_path / "missing.txt").exists()
+    assert sorted(path.name for path in tmp_path.iterdir()) == sorted(
+        path.name for path in names.values()
+    ), "no temporary file"
+
+
+def test_write_new_needs_the_folder_to_exist(tmp_path: Path) -> None:
+    with pytest.raises(OSError):
+        write_new(tmp_path / "missing" / "timings.json", b"x")

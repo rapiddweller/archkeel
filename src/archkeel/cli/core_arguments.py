@@ -11,6 +11,7 @@ only: it starts no process, finds no binary and reads no frame.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections.abc import Sequence
 from enum import StrEnum
@@ -164,6 +165,19 @@ def _file_path(flag: str, value: str) -> Path:
     return path
 
 
+def _new_file_path(flag: str, value: str) -> Path:
+    """A file that does not exist: the option creates it and never replaces a file (#659)."""
+    path = _file_path(flag, value)
+    if os.path.lexists(path):
+        raise argparse.ArgumentTypeError(
+            f"{flag} creates a new file and never replaces one, and {path} exists "
+            "(a link counts); use a new name for each run"
+        )
+    if not path.resolve().parent.is_dir():
+        raise argparse.ArgumentTypeError(f"{flag}: the folder of {path} does not exist")
+    return path
+
+
 def _baseline_path(value: str) -> str:
     """A baseline path below the root, in the form that the core reads (AD-546)."""
     path = PurePosixPath(value.replace("\\", "/"))
@@ -204,7 +218,7 @@ def parse(argv: Sequence[str]) -> Options:
             parser.add_argument("--config", default="archkeel.toml")
         if command in {Command.VALIDATE, Command.REPORT}:
             parser.add_argument("--no-init", action="store_true")
-            parser.add_argument("--timings", type=partial(_file_path, "--timings"))
+            parser.add_argument("--timings", type=partial(_new_file_path, "--timings"))
         if command is Command.VALIDATE:
             parser.add_argument("--baseline", type=_baseline_path)
             parser.add_argument("--write-baseline", type=_baseline_path)
@@ -235,6 +249,9 @@ def parse(argv: Sequence[str]) -> Options:
         )
     if any(arg == "--format" or arg.startswith("--format=") for arg in argv) and not options.output:
         raise ValueError("--format needs --output; no report file was written")
+    if options.timings is not None and options.output is not None:
+        if options.timings.resolve() == options.output.resolve():
+            raise ValueError("--output and --timings name the same file; use two names")
     if options.system_href is not None and options.part_of is None:
         raise ValueError("--system-href needs --part-of: name the system document of this part")
     if options.part_of is not None and (options.output is None or options.format != "html"):

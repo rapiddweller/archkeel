@@ -171,8 +171,9 @@ A difference is a refusal. The rule rows are trusted to the located core binary.
 (`prepare`, `collect`, `validate`, `evaluate`, `render`, `join` for a system run, and `core_seconds`, measured with a
 monotonic clock, AD-878). `core_seconds` is the time inside the core, not the time of the whole command.
 Standard output, the verdict and the report do not change. A scan that the core refuses, also in one part of a system
-run, writes no file. `--output`, `--timings` and `--write-baseline` must not name one another or a file that the run read
-(the configuration, a contract, a part configuration, the baseline or a source file); the run then writes no file.
+run, writes no file. `--timings` creates a new file and never replaces one: a name that exists (also as a link) is
+refused before the scan, and so is a name that `--output` or `--write-baseline` also names. Give each run a new
+name, for example `--timings "timings-$(date +%s).json"`.
 `report --json` gives the verdict frame as JSON, and `--text` gives the text summary.
 Neither stdout form is a complete `architecture.json` or an HTML report.
 `report --topology` adds a bounded `topology` section: components, modules, edges, completeness, budgets

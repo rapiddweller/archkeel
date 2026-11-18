@@ -1,105 +1,185 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""`--timings FILE` never replaces an input or another output, and it is written only for a run
-that the core measured completely (#659, review of PR #1834).
+"""`--timings FILE` creates a new file and never replaces one (#659, review of PR #1834).
 
-Each test names the bytes of the files before and after the run: a refused run changes no file.
+A path that exists, also as a link or a second name of a file, is refused before the scan and
+before any other output. Two new targets that name one file are refused too. A file that appears
+while the run writes is not replaced. Each test compares the bytes of every file before and after.
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import HONEST, SUFFIX, case_root
+from core_support import HONEST, SUFFIX, case_root, run
 from test_cli_core_only_scan import command
 from test_cli_native_system_run import PASSING, _system, _validate
+
+from archkeel.cli import core_only
 
 SENTINEL = b"keep these bytes\n"
 SECOND = tuple({**rule, "id": f"Q-{rule['id']}"} for rule in PASSING)
 
 
-def _refused(done: Any, *, kept: dict[Path, bytes], code: int = 2) -> None:
-    assert done.returncode == code, done.stdout + done.stderr
-    assert "no file was written" in done.stdout + done.stderr
-    for path, before in kept.items():
-        assert path.read_bytes() == before, f"{path} changed"
+def _bytes(*folders: Path) -> dict[Path, bytes]:
+    """Every file below the folders, except the Git directory, with its bytes."""
+    return {
+        path: path.read_bytes()
+        for folder in folders
+        for path in sorted(folder.rglob("*"))
+        if path.is_file() and ".git" not in path.parts
+    }
 
 
-def test_an_output_and_a_timings_file_cannot_be_the_same_file(built: Path, tmp_path: Path) -> None:
-    same = tmp_path / "same.html"
-    same.write_bytes(SENTINEL)
-    with case_root(HONEST) as root:
-        done = command(
-            built / f"archkeel-core{SUFFIX}",
-            root,
-            "--output",
-            str(same),
-            "--timings",
-            str(same),
-            verb="report",
-        )
-    _refused(done, kept={same: SENTINEL})
+def _refused(done: Any, cause: str) -> None:
+    assert done.returncode == 2, done.stdout + done.stderr
+    text = done.stdout + done.stderr
+    assert cause in text and "--timings" in text, text
+    assert '"frame"' not in text and "PASS" not in text, "no output of the run"
 
 
 @pytest.mark.parametrize(
     "target",
-    ["archkeel.toml", "architecture-contract.json", "src/a/a.ts", "./src/../archkeel.toml"],
+    [
+        "archkeel.toml",
+        "architecture-contract.json",
+        "tsconfig.json",
+        "src/a/a.ts",
+        "outside.js",
+        "./src/../archkeel.toml",
+    ],
 )
-def test_a_timings_file_cannot_replace_an_input_of_the_run(built: Path, target: str) -> None:
+def test_a_file_that_exists_is_refused_before_the_scan(built: Path, target: str) -> None:
     with case_root(HONEST) as root:
-        before = {name: (root / name).read_bytes() for name in ("archkeel.toml", "src/a/a.ts")}
-        before["architecture-contract.json"] = (root / "architecture-contract.json").read_bytes()
+        (root / "outside.js").write_text("const value = 42;\n", encoding="utf-8")
+        before = _bytes(root)
         done = command(built / f"archkeel-core{SUFFIX}", root, "--timings", target, cwd=root)
-        _refused(done, kept={root / name: data for name, data in before.items()})
+        _refused(done, "never replaces one")
+        assert _bytes(root) == before
 
 
-def test_a_link_to_an_input_is_the_input(built: Path, tmp_path: Path) -> None:
-    with case_root(HONEST) as root:
-        alias = tmp_path / "alias.json"
-        alias.symlink_to(root / "archkeel.toml")
-        before = (root / "archkeel.toml").read_bytes()
-        done = command(built / f"archkeel-core{SUFFIX}", root, "--timings", str(alias))
-        _refused(done, kept={root / "archkeel.toml": before})
-        assert alias.is_symlink()
-
-
-def test_a_baseline_and_a_timings_file_cannot_be_the_same_file(built: Path) -> None:
-    with case_root(HONEST) as root:
-        same = root / "baseline.json"
-        same.write_bytes(SENTINEL)
-        # A file that was not written exits 1 with `--baseline` and 2 without it (AD-731).
-        for code, flags in (
-            (1, ("--baseline", "baseline.json", "--timings", str(same))),
-            (2, ("--write-baseline", "baseline.json", "--timings", str(same))),
-        ):
-            done = command(built / f"archkeel-core{SUFFIX}", root, *flags, cwd=root)
-            _refused(done, kept={same: SENTINEL}, code=code)
-
-
-def test_a_system_run_does_not_replace_a_part_configuration(
-    tmp_path: Path, core_binary: Path
+def test_a_link_or_a_second_name_of_an_input_is_a_file_that_exists(
+    built: Path, tmp_path: Path
 ) -> None:
-    root = _system(tmp_path, core_binary, {"one": PASSING}, [])
-    kept = {root / name: (root / name).read_bytes() for name in ("one.toml", "system.json")}
-    for name in ("one.toml", "system.json", "one-contract.json"):
-        code, result = _validate(root, core_binary, "--timings", str(root / name))
-        assert code == 2, result
-        assert "no file was written" in json.dumps(result)
-    assert {path: path.read_bytes() for path in kept} == kept
+    with case_root(HONEST) as root:
+        names = {
+            "symlink": tmp_path / "symlink.json",
+            "dangling": tmp_path / "dangling.json",
+            "hardlink": tmp_path / "hardlink.json",
+        }
+        names["symlink"].symlink_to(root / "tsconfig.json")
+        names["dangling"].symlink_to(tmp_path / "missing.json")
+        os.link(root / "tsconfig.json", names["hardlink"])
+        before = _bytes(root)
+        for target in names.values():
+            done = command(built / f"archkeel-core{SUFFIX}", root, "--timings", str(target))
+            _refused(done, "never replaces one")
+        assert _bytes(root) == before
+        assert names["symlink"].is_symlink() and not (tmp_path / "missing.json").exists()
 
 
-def test_a_system_run_with_a_refused_part_writes_no_timings_and_keeps_the_old_file(
-    tmp_path: Path, core_binary: Path
+def test_an_output_and_a_timings_file_cannot_be_one_new_file(built: Path, tmp_path: Path) -> None:
+    (tmp_path / "sub").mkdir()
+    with case_root(HONEST) as root:
+        for spelling in (str(tmp_path / "same.html"), str(tmp_path / "sub" / ".." / "same.html")):
+            done = command(
+                built / f"archkeel-core{SUFFIX}",
+                root,
+                "--output",
+                str(tmp_path / "same.html"),
+                "--timings",
+                spelling,
+                verb="report",
+            )
+            _refused(done, "name the same file")
+    assert not (tmp_path / "same.html").exists()
+
+
+def test_a_baseline_and_a_timings_file_cannot_be_one_new_file(built: Path) -> None:
+    with case_root(HONEST) as root:
+        before = _bytes(root)
+        done = command(
+            built / f"archkeel-core{SUFFIX}",
+            root,
+            "--write-baseline",
+            "new.json",
+            "--timings",
+            str(root / "new.json"),
+            cwd=root,
+        )
+        _refused(done, "name the same file")
+        assert _bytes(root) == before
+
+
+def test_a_new_file_is_created_once_and_a_second_run_does_not_replace_it(
+    built: Path, tmp_path: Path
 ) -> None:
-    root = _system(tmp_path, core_binary, {"one": PASSING, "two": SECOND}, [])
-    (root / "two.toml").write_text("[scan\n", encoding="utf-8")
+    binary = built / f"archkeel-core{SUFFIX}"
     target = tmp_path / "timings.json"
-    target.write_bytes(SENTINEL)
-    code, result = _validate(root, core_binary, "--timings", str(target))
-    assert code == 2 and result["status"] == "UNKNOWN", result
-    assert target.read_bytes() == SENTINEL
+    with case_root(HONEST) as root:
+        first = command(binary, root, "--timings", str(target))
+        assert first.returncode == 0, first.stdout + first.stderr
+        written = target.read_bytes()
+        assert json.loads(written)["protocol"] == "archkeel-core-timings-1"
+        second = command(binary, root, "--timings", str(target))
+        _refused(second, "never replaces one")
+    assert target.read_bytes() == written
+    assert [path.name for path in tmp_path.iterdir()] == ["timings.json"], "no temporary file"
+
+
+@pytest.mark.parametrize("racer", ["file", "link"])
+def test_a_file_that_appears_during_the_run_is_not_replaced(
+    tmp_path: Path, core_binary: Path, monkeypatch: pytest.MonkeyPatch, racer: str
+) -> None:
+    real = core_only.exchange
+    target = tmp_path / "timings.json"
+
+    def late(binary: str, kind: str, request: bytes, stderr_sink: list[bytes]) -> Any:
+        answer = real(binary, kind, request, stderr_sink)
+        if racer == "file":
+            target.write_bytes(SENTINEL)
+        else:
+            target.symlink_to(tmp_path / "victim.txt")
+        return answer
+
+    victim = tmp_path / "victim.txt"
+    victim.write_bytes(SENTINEL)
+    monkeypatch.setattr(core_only, "locate_core", lambda: core_binary)
+    monkeypatch.setattr(core_only, "exchange", late)
+    with case_root(HONEST) as root:
+        before = _bytes(root)
+        code, result = run("validate", "--root", str(root), "--timings", str(target))
+        assert _bytes(root) == before
+    assert code == 2 and "cannot write timings file" in json.dumps(result), result
+    assert victim.read_bytes() == SENTINEL
+    assert (target.read_bytes() == SENTINEL) if racer == "file" else target.is_symlink()
+    assert sorted(path.name for path in tmp_path.iterdir()) == sorted(
+        ["timings.json", "victim.txt"]
+    ), "no temporary file"
+
+
+def test_a_system_run_with_a_refused_part_writes_no_timings_file(
+    tmp_path: Path, core_binary: Path
+) -> None:
+    for refused in ("two", "one"):
+        root = _system(tmp_path / refused, core_binary, {"one": PASSING, "two": SECOND}, [])
+        (root / f"{refused}.toml").write_text("[scan\n", encoding="utf-8")
+        target = tmp_path / f"timings-{refused}.json"
+        code, result = _validate(root, core_binary, "--timings", str(target))
+        assert code == 2 and result["status"] == "UNKNOWN", result
+        assert not target.exists(), f"a system with a refused part {refused!r} has no timings"
+
+
+def test_a_refused_scan_writes_no_timings_file_and_is_no_error(built: Path, tmp_path: Path) -> None:
+    target = tmp_path / "timings.json"
+    with case_root(HONEST) as root:
+        (root / "archkeel.toml").write_text("[scan\n", encoding="utf-8")
+        done = command(built / f"archkeel-core{SUFFIX}", root, "--timings", str(target))
+    assert done.returncode == 2 and "UNKNOWN" in done.stdout, done.stdout + done.stderr
+    assert not target.exists()
 
 
 def test_a_complete_system_run_names_the_join_apart_from_the_render(
