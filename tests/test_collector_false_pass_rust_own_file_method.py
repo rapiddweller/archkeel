@@ -137,7 +137,8 @@ def test_requires_receipt_distinguishes_unrestricted_and_restricted_targets(
     root = repository(tmp_path, release_core, files, components=parts)
     _rustc_accepts(root)
     allowed = validate(root, capsys)
-    a["requires"][0]["through"] = ["native.app.c"]
+    # A module port permits any symbol. A symbol port still needs a named edge.
+    a["requires"][0]["through"] = ["native.app.c:S"]
     contract = root / "architecture-contract.json"
     contract.write_text(
         json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
