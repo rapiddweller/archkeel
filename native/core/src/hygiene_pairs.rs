@@ -36,6 +36,7 @@ pub(crate) fn observed(contract: &Contract, graph: &Graph) -> BTreeSet<Pair> {
     graph
         .imports()
         .iter()
+        .filter(|import| !import.declared())
         .filter_map(|import| {
             let source = owner(components, import.source_module())?;
             let target = owner(components, import.target_module())?;

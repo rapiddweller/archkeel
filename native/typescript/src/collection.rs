@@ -7,6 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
+use archkeel_facts::data::{DoorForm, DoorSite, GapEffect};
 use archkeel_facts::envelope::{Evidence, FileFact, Target};
 use archkeel_facts::request::TypeScriptRequest;
 use archkeel_facts::{GapFact, Record};
@@ -21,6 +22,7 @@ use archkeel_snapshot::Snapshot;
 pub(crate) enum GapKind {
     Collection,
     Resolution,
+    ComputedImport(u32),
 }
 
 pub(crate) struct Collection<'a> {
@@ -98,10 +100,22 @@ impl Collection<'_> {
         module: &str,
         kind: GapKind,
     ) {
-        let fact = match kind {
+        let mut fact = match kind {
             GapKind::Collection => GapFact::collection(reason, module),
-            GapKind::Resolution => GapFact::resolution(reason, module),
+            GapKind::Resolution | GapKind::ComputedImport(_) => GapFact::resolution(reason, module),
         };
+        if let (GapKind::ComputedImport(line), GapFact::SourceResolutionGap(data)) =
+            (kind, &mut fact)
+        {
+            // An unknown module can run code that changes bindings elsewhere.
+            data.effect = Some(GapEffect::EveryModule);
+            data.door = Some(DoorSite {
+                form: DoorForm::Loader,
+                line,
+                scope: None,
+                binding: None,
+            });
+        }
         let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
         self.gaps.entry(id).or_insert(record);
     }

@@ -162,8 +162,12 @@ fn steps(model: &Model, links: &[Link], by_label: bool) -> Vec<CycleStep> {
     cycle_path(&members, links)
         .into_iter()
         .map(|step| {
-            let (facts, evidence) = cited(step.imports.iter().filter_map(|&i| imports.get(i)));
+            let cited_imports = || step.imports.iter().filter_map(|&i| imports.get(i));
+            let possible = cited_imports().all(Import::declared);
+            let (facts, evidence) =
+                cited(cited_imports().filter(|import| import.declared() == possible));
             CycleStep {
+                possible: possible && !facts.is_empty(),
                 from_component: component_of(&step.from),
                 to_component: component_of(&step.to),
                 from: step.from,

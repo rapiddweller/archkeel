@@ -12,11 +12,13 @@ of a public entry of `t`: the core keeps `interface.usage_unknown`, as before AD
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 from test_cli_core_only_scan import command
 from test_cli_core_uml_review import (
+    ONE,
     PROVENANCE,
     ROW,
     RULE,
@@ -24,8 +26,10 @@ from test_cli_core_uml_review import (
     T,
     imports,
     project,
+    readme,
     ts,
 )
+from test_cli_python_door_reach import GIT
 
 LAZY = {
     "t-dyn-mod": "export const one = import('../b/t');\n",
@@ -74,6 +78,112 @@ TYPES = {
     ),
     "t-typeof-import": ("export type M = typeof import('../b/t');\n", [T], [T]),
 }
+
+
+@pytest.mark.parametrize(
+    ("case", "status"),
+    [
+        ("allowed", "PASS"),
+        ("forbidden", "FAIL"),
+        ("open", "UNKNOWN"),
+        ("missing", "UNKNOWN"),
+        ("scope", "UNKNOWN"),
+    ],
+)
+def test_computed_imports_use_declared_possible_targets(
+    release_core: Path, tmp_path: Path, case: str, status: str
+) -> None:
+    source = "export const load = (name: string) => import(name);\n"
+    if case == "open":
+        source += "export const other = (name: string) => import(name);\n"
+    files = {"src/a/one.ts": source, "src/b/secret.ts": "export {};\n"}
+    if case == "forbidden":
+        files["src/b/secret.ts"] = "import '../a/one';\n"
+    plant = ts(TS_MODULES, [], files=files)
+    secret = "app.src.b.secret_x2e_ts"
+    forbidden = {
+        **RULE[0],
+        "id": "NO-SECRET",
+        "kind": "forbidden_dependency",
+        "source": ONE,
+        "target": secret,
+        "include_type_checking": True,
+    }
+    cycles = {**RULE[0], "id": "NO-CYCLE", "kind": "no_component_cycles", "level": "module"}
+    directions = [
+        {
+            **RULE[0],
+            "id": identity,
+            "kind": "allowed_dependency",
+            "source": start,
+            "target": end,
+        }
+        for identity, start, end in (
+            ("AB", "app.src.a", "app.src.b"),
+            ("BA", "app.src.b", "app.src.a"),
+        )
+    ]
+    root = project(tmp_path, plant, [forbidden, cycles, *directions])
+    if case == "forbidden":
+        (root / "README.md").write_text(readme(True).replace("n_0 --> n_1", "n_1 --> n_0"))
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["schema_version"] = "3.15.0"
+    loads = {"forbidden": ["app.src.b"], "missing": [T, "app.src.b.gone_x2e_ts"]}.get(case, [T])
+    contract["declarations"] = {
+        "door_reach": [
+            {
+                "id": "D-IMPORT",
+                "module": ONE,
+                "door": "loader",
+                **({"scope": ""} if case == "scope" else {"line": 1}),
+                "loads": loads,
+                "rationale": "The caller supplies a name from the registry.",
+                "provenance": PROVENANCE,
+            }
+        ]
+    }
+    path.write_text(json.dumps(contract))
+    subprocess.run(["git", "-C", str(root), "commit", "-qam", "reach"], check=True, env=GIT)
+    done = command(release_core, root, "--json", "--topology", verb="report")
+    result = json.loads(done.stdout)
+    assert "frame" in result, result
+    frame = result["frame"]
+    assert frame["rules"]["NO-SECRET"] == ["forbidden_dependency", status], result
+    assert frame["rules"]["NO-CYCLE"] == ["no_component_cycles", status], result
+    assert not [edge for edge in frame["topology"]["edges"] if edge["source"] == ONE]
+    if case in {"missing", "scope"}:
+        assert "door_reach" not in frame
+        problem = "door_reach.invalid" if case == "missing" else "door_reach.unmatched"
+        assert any(gap["kind"] == problem for gap in result["gaps"])
+    else:
+        (reach,) = frame["door_reach"]
+        assert reach["loads"] == loads
+        assert reach["possible_loads"] == ([secret, T] if case == "forbidden" else [T])
+    if case == "allowed":
+        assert frame["assumed"]["NO-SECRET"] == [f"D-IMPORT ({ONE}:1 loader)"]
+        assert frame["topology"]["requires"][0]["imports"] == 0
+        assert result["status"] == "PASS", result
+    if case == "forbidden":
+        (detail,) = frame["details"]["NO-SECRET"]
+        assert (detail["source"], detail["target"]) == (ONE, secret)
+        assert detail["possible"] is True
+        (evidence,) = detail["evidence"]
+        assert frame["locations"][evidence] == {"path": "src/a/one.ts", "line": 1}
+        (cycle,) = frame["details"]["NO-CYCLE"]
+        assert [(edge["from"], edge["to"]) for edge in cycle["path"] if edge.get("possible")] == [
+            (ONE, secret)
+        ]
+        text = command(release_core, root, "--text").stdout
+        assert "Possible targets: app.src.b.secret.ts, app.src.b.t.ts" in text
+        assert "PASS assuming" not in text
+        page_path = tmp_path / "report.html"
+        command(release_core, root, "--output", str(page_path), "--format", "html", verb="report")
+        page = page_path.read_text()
+        assert "MAY IMPORT" in page
+        assert "Declared possible import:" in page
+    if status == "UNKNOWN":
+        assert "NO-SECRET" not in frame.get("assumed", {})
 
 
 @pytest.mark.parametrize("name", sorted(LAZY))

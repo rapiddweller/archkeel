@@ -205,13 +205,14 @@ fn import_block(
     frame: &Frame,
     names: &Names<'_>,
     place: &Place,
-    (source, target, evidence): (&str, Option<&str>, &[String]),
+    (source, target, evidence, possible): (&str, Option<&str>, &[String], bool),
 ) -> String {
     let first = evidence.first().and_then(|id| frame.locations.get(id));
     let from_file = first.map(|at| at.path.as_str());
     let (from, mut levels) = tower(names, source, from_file, "From");
+    let relation = import_words(possible);
     let title = match target {
-        Some(target) => format!("{source} imports {target}"),
+        Some(target) => format!("{source} {relation} {target}"),
         None => source.to_owned(),
     };
     let mut path = from;
@@ -219,9 +220,10 @@ fn import_block(
         let (to, to_levels) = tower(names, target, None, "To");
         levels = levels.max(to_levels);
         let line = first.map_or_else(String::new, |at| format!("line {}", at.line));
+        let tag = relation.to_uppercase();
         path.push_str(&format!(
             "<ul class=\"rp-rels\" aria-label=\"Relation\"><li class=\"rp-rel rp-r{levels} rp-rel--fail\">\
-<span class=\"tag\">IMPORTS</span><span class=\"caption\">{line}</span>{ARROW}</li></ul>{to}"
+<span class=\"tag\">{tag}</span><span class=\"caption\">{line}</span>{ARROW}</li></ul>{to}"
         ));
     }
     format!(
@@ -247,9 +249,14 @@ fn file_cell(names: &Names<'_>, module: &str) -> String {
 
 fn step_row(frame: &Frame, names: &Names<'_>, index: usize, step: &super::frame::Step) -> String {
     let cited = places_text(frame, &step.evidence, 2, step.evidence_total);
+    let declared = if step.possible {
+        "Declared possible import: "
+    } else {
+        ""
+    };
     format!(
         "<tr><td class=\"code ak-num\">{}</td><td class=\"code\">{}</td><td class=\"code\">{}</td>\
-<td class=\"caption\">{}</td></tr>",
+<td class=\"caption\">{declared}{}</td></tr>",
         index + 1,
         file_cell(names, &step.from),
         file_cell(names, &step.to),
@@ -257,12 +264,21 @@ fn step_row(frame: &Frame, names: &Names<'_>, index: usize, step: &super::frame:
     )
 }
 
+fn import_words(possible: bool) -> &'static str {
+    if possible {
+        "may import"
+    } else {
+        "imports"
+    }
+}
+
 /// The sentence that closes the path: the last step imports the start of the first step.
 fn closing(names: &Names<'_>, cycle: &CyclePath) -> String {
     match (cycle.path.first(), cycle.path.last()) {
         (Some(_), Some(last)) if !cycle.truncated => format!(
-            "Step {} imports {}, where step 1 starts.",
+            "Step {} {} {}, where step 1 starts.",
             cycle.path.len(),
+            import_words(last.possible),
             file_cell(names, &last.to)
         ),
         _ => String::new(),
@@ -344,7 +360,13 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
                 source,
                 target,
                 evidence,
-            } => import_block(frame, names, place, (source, target.as_deref(), evidence)),
+                possible,
+            } => import_block(
+                frame,
+                names,
+                place,
+                (source, target.as_deref(), evidence, *possible),
+            ),
             Kind::Cycle(cycle) => cycle_block(frame, names, place, cycle),
         };
         // AD-606: each place is one full block, the first as the last.
@@ -396,10 +418,20 @@ pub(super) fn one_line(names: &Names<'_>, place: &Place) -> String {
                 _ => format!("Cycle of {} {level}", cycle.members.len()),
             }
         }
-        Kind::Import { source, target, .. } => {
+        Kind::Import {
+            source,
+            target,
+            possible,
+            ..
+        } => {
             let file = |module: &str| names.file(module).unwrap_or(module).to_owned();
             match target {
-                Some(target) => format!("{} imports {}", file(source), file(target)),
+                Some(target) => format!(
+                    "{} {} {}",
+                    file(source),
+                    import_words(*possible),
+                    file(target),
+                ),
                 None => file(source),
             }
         }

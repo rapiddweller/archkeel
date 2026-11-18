@@ -5781,7 +5781,7 @@
             "string",
             "null"
           ],
-          "description": "The dotted names of the classes and functions that hold the site, outermost first. The\nmodule level has none."
+          "description": "The dotted names of the classes and functions that hold the site. Empty text means module\nlevel. An absent scope cannot match a scope selector."
         },
         "binding": {
           "type": [

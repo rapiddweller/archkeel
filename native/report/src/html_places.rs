@@ -33,6 +33,7 @@ pub(super) enum Kind {
         source: String,
         target: Option<String>,
         evidence: Vec<String>,
+        possible: bool,
     },
     /// One cycle with its closed path.
     Cycle(Box<CyclePath>),
@@ -72,7 +73,7 @@ struct Group {
     evidence: Vec<String>,
 }
 
-type Grouped = BTreeMap<(String, Option<String>), Group>;
+type Grouped = BTreeMap<(String, Option<String>, bool), Group>;
 
 impl Group {
     /// Add one row. A place lists each rule and cause once, also when several sites of the place
@@ -115,7 +116,7 @@ impl Places {
                         .add(violated, &row.evidence),
                     (_, _, Some(path)) if is_cycle(row) => cycles.push((path.clone(), violated)),
                     _ => imports
-                        .entry((row.source.clone(), row.target.clone()))
+                        .entry((row.source.clone(), row.target.clone(), row.possible))
                         .or_default()
                         .add(violated, &row.evidence),
                 }
@@ -123,11 +124,12 @@ impl Places {
         }
         let mut all: Vec<(Kind, Vec<Violated>)> = imports
             .into_iter()
-            .map(|((source, target), group)| {
+            .map(|((source, target, possible), group)| {
                 let kind = Kind::Import {
                     source,
                     target,
                     evidence: group.evidence,
+                    possible,
                 };
                 (kind, group.rules)
             })

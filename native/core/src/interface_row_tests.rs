@@ -11,6 +11,7 @@ fn an_interface_failure_keeps_its_import_evidence_and_components() {
         id: "VIO".into(),
         rule: "INTERFACE".into(),
         cited: Cited {
+            possible: false,
             import: "IMP".into(),
             source_module: "app.client".into(),
             target_module: "app.api".into(),

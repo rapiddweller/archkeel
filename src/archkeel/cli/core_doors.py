@@ -29,6 +29,7 @@ class DoorRow:
     door: str
     loads: tuple[str, ...]
     changes: tuple[str, ...]
+    possible_loads: tuple[str, ...] = ()
 
 
 #: The word of a premise kind: `door_reach`, `external_user` or the name of a declared premise.
@@ -111,6 +112,9 @@ def read_doors(frame: Mapping[str, object]) -> tuple[DoorRow, ...]:
                 door=as_text(fields["door"], "door_reach.door"),
                 loads=_texts(fields["loads"], "door_reach.loads"),
                 changes=_texts(fields["changes"], "door_reach.changes"),
+                possible_loads=_texts(
+                    fields.get("possible_loads", []), "door_reach.possible_loads"
+                ),
             )
         )
     return tuple(rows)
@@ -137,17 +141,21 @@ def door_lines(
     premises: Premises, doors: Sequence[DoorRow], shown: int, show_all: bool
 ) -> list[str]:
     """The applied door declarations, the stated external users and the rules that rest on them."""
-    if premises.assuming is None:
-        return []
-    count = len(premises.rules)
-    noun = "rule" if count == 1 else "rules"
-    lines = [f"{qualifier(premises.assuming)} ({count} {noun}); a premise is not a proof:"]
+    lines = []
+    if premises.assuming is not None and premises.rules:
+        count = len(premises.rules)
+        noun = "rule" if count == 1 else "rules"
+        lines.append(f"{qualifier(premises.assuming)} ({count} {noun}); a premise is not a proof:")
+    elif doors:
+        lines.append("Declared reach (a premise, not a proof):")
     for row in doors:
         loads = ", ".join(row.loads) or "nothing"
         changes = ", ".join(row.changes) or "nothing"
         lines.append(
             f"  {row.id}: {row.module}:{row.line} ({row.door}) loads {loads}; changes {changes}"
         )
+        if row.possible_loads:
+            lines.append(f"    Possible targets: {', '.join(row.possible_loads)}")
     by_kind: dict[str, set[str]] = {}
     for found in premises.rules.values():
         for kind, subject in found:

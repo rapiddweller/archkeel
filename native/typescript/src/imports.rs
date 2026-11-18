@@ -81,7 +81,11 @@ impl Collection<'_> {
                 self.gap(reason, Some(&evidence), module, GapKind::Resolution);
             } else if reference.specifier.is_none() {
                 let reason = format!("Computed {} cannot be resolved", reference.form.as_str());
-                self.gap(&reason, Some(&evidence), module, GapKind::Resolution);
+                let kind = match (reference.form, u32::try_from(reference.span.line)) {
+                    (Form::DynamicImport, Ok(line)) => GapKind::ComputedImport(line),
+                    _ => GapKind::Resolution,
+                };
+                self.gap(&reason, Some(&evidence), module, kind);
             } else {
                 self.import(rel, module, reference, &evidence, &format);
             }

@@ -50,6 +50,7 @@ pub(crate) struct Published {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Import {
     pub(crate) id: String,
+    pub(crate) declared: bool,
     pub(crate) source_module: String,
     pub(crate) target_module: String,
     pub(crate) source_package: String,
@@ -165,6 +166,11 @@ impl Import {
     /// The evidence ids of the import record, sorted.
     pub fn evidence(&self) -> &[String] {
         &self.evidence
+    }
+
+    /// True for a possible dependency supplied by the contract, not by the collector.
+    pub fn declared(&self) -> bool {
+        self.declared
     }
 }
 
@@ -283,6 +289,7 @@ pub(crate) fn split(facts: &Facts, declared: impl Fn(&str) -> bool) -> Split {
         };
         found.imports.push(Import {
             id: record.id.as_str().to_owned(),
+            declared: false,
             source_module: data.source_module.as_str().to_owned(),
             target_module: data.target_module.as_str().to_owned(),
             source_package: data.source_package.as_str().to_owned(),

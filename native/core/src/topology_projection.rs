@@ -331,7 +331,13 @@ fn edge_rows(
         .collect();
     let mut buckets = BTreeMap::new();
     let listed: BTreeSet<&str> = modules.iter().map(|m| m.name.as_str()).collect();
-    for import in models.root().graph().imports() {
+    for import in models
+        .root()
+        .graph()
+        .imports()
+        .iter()
+        .filter(|import| !import.declared())
+    {
         // The typed target decides. A profile that reads each target by its module gives the
         // rules `Resolved::Local` for a library or a platform module: it is no module of the
         // scan, so the display calls it external (AD-482).

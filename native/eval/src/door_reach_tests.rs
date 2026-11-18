@@ -45,7 +45,10 @@ fn doors(reply: &mut Value, gaps: Vec<Value>) {
 fn door(reply: &mut Value) {
     doors(
         reply,
-        vec![door_gap(ID, json!({"form": "eval", "line": 7}))],
+        vec![door_gap(
+            ID,
+            json!({"form": "eval", "line": 7, "scope": ""}),
+        )],
     );
 }
 

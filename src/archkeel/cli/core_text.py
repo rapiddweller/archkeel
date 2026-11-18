@@ -221,7 +221,8 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     for rule, row in rows if show_all else rows[:_VIOLATIONS_SHOWN]:
         edge, sites = _edge(frame, row)
         where = ", ".join(sites)
-        text = f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else "")
+        premise = " (uses a declared possible dependency)" if row.possible else ""
+        text = f"  {rule}: {row.cause}{premise}: {edge}" + (f" ({where})" if where else "")
         texts[text] = texts.get(text, 0) + 1  # one line per place; a repeat is counted
     lines.extend(f"{text} (x{n})" if n > 1 else text for text, n in texts.items())
     if more := rest(len(rows), _VIOLATIONS_SHOWN, show_all):
