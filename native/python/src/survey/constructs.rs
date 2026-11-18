@@ -30,10 +30,11 @@ pub(super) fn collect(
     binders: &[Binders],
     imports: &[Record<ImportFact>],
     sets: (&HashSet<String>, &HashSet<String>),
-    writes: &ClassWrites,
+    (writes, hazard_free): (&ClassWrites, bool),
     evidence: &mut EvidenceMap,
 ) -> Findings {
-    let typing_unchanged = writes.typing_unchanged();
+    // AD-880: no site of the scan changes the import system or runs a door, and no write replaces `typing`.
+    let typing_unchanged = hazard_free && writes.typing_unchanged();
     let mut records = Vec::new();
     let mut signals = Vec::new();
     let mut support = Support::start();

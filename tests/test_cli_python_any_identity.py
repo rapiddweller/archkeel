@@ -132,6 +132,48 @@ CASES = {
         UNKNOWN,
         False,
     ),
+    # The second review: the scan itself can change what `import typing` gives (#1835).
+    "sys-modules-through-an-alias": Case(
+        page(
+            "import sys as s\nfrom types import SimpleNamespace\n"
+            "s.modules['typing'] = SimpleNamespace(Any=int)\nimport typing as t\nx: t.Any = None\n"
+        ),
+        UNKNOWN,
+        False,
+    ),
+    "sys-modules-in-a-function": Case(
+        page(
+            "from types import SimpleNamespace\ndef patch():\n"
+            "    from sys import modules as cache\n"
+            "    cache['typing'] = SimpleNamespace(Any=int)\npatch()\n"
+            "import typing as t\nx: t.Any = None\n"
+        ),
+        UNKNOWN,
+        False,
+    ),
+    "sys-path-before-a-local-typing": Case(
+        {
+            **page(
+                "import sys\nsys.path.insert(0, 'hidden')\nimport typing as t\nx: t.Any = None\n"
+            ),
+            "hidden/typing.py": "Any = int\n",
+        },
+        UNKNOWN,
+        False,
+    ),
+    # Safe controls: no site of the scan touches the import system.
+    "unrelated-sys-use": Case(
+        page("import sys\nARGS = sys.argv\nfrom typing import Any\nx: Any = None\n"), FAIL, True
+    ),
+    "path-append-of-a-clean-directory": Case(
+        page(
+            "import sys\nfrom pathlib import Path\n"
+            "sys.path.append(str(Path(__file__).resolve().parents[1]))\n"
+            "from typing import Any\nx: Any = None\n"
+        ),
+        FAIL,
+        True,
+    ),
     # Named gaps: CPython says typing.Any, the survey has no sound basis and stays UNKNOWN.
     "local-class-then-star": Case(
         page("class Any: pass\nfrom typing import *\nx: Any = None\n"), UNKNOWN, True

@@ -27,15 +27,23 @@ also needs that nothing replaces `typing` (`ClassWrites::typing_unchanged`, the 
 - No store that can change `Any`: an attribute store of that name, a computed name (`setattr`),
   a store through `sys.modules`, `vars`, `__dict__` or `globals`, or code run from a text. The
   files outside the scan roots count; a test file does not (the stated premise).
+- No site of the scanned modules changes the import system or runs a door, after the `sys.path`
+  forms of AD-538 are settled (`hazards`, AD-450): `sys.modules` in any alias or scope, `sys.path`,
+  `site`, `importlib`, `__import__`, `exec`, `eval`, `mock.patch`. A scan with such a site leaves
+  the identity of `typing` unproven (UNKNOWN). The same list gives `class_namespace_safe`.
 - A run that reports an `any_annotation` states one more sentence of its premise: the module
   `typing` is the one of the standard library and code outside the scan roots leaves `typing.Any`
-  unchanged (`TYPING_PREMISE`). A true positive rests on this premise.
+  unchanged (`TYPING_PREMISE`). The premise covers only code outside the scan; what the scan
+  shows is evidence, not premise. A true positive rests on both.
 
 `typing_extensions` is no standard module. Nothing in the scan shows which object it gives
 (`typing.Any` from version 4.4 on Python 3.11, its own class before). It is never proven: UNKNOWN.
 
 ## Kept gaps
 
+- Any door or import-system site in the scan (for example `importlib.import_module`) gives UNKNOWN
+  for each `Any` annotation of the run, even when it cannot reach `typing`. The guard has no
+  narrower fact for what a site can replace. A narrower proof needs its own AD.
 - A star import from `typing` and a class `Any` in one module is UNKNOWN in both orders. The source
   order decides the object at run time, and the survey does not order the bindings.
 - `from lib import Any`, where `lib` re-exports `typing.Any`, is UNKNOWN (AD-874).
