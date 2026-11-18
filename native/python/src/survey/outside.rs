@@ -123,8 +123,8 @@ pub(super) fn written(
     found
 }
 
-/// The directories where the modules of the scan are found: the path before the module, `src` for
-/// `src/app/page.py` named `app.page`.
+/// The directories where the modules of the scan are found: the part of the path before the
+/// first name of the module (`src` for the module `app.page` in the directory `src/app`).
 fn import_roots(modules: &[Module]) -> HashSet<String> {
     let mut roots = HashSet::new();
     for module in modules {
