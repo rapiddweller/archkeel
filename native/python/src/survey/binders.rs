@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
     Alias, ExceptHandler, Expr, ExprContext, Identifier, ModModule, Parameter, Pattern, Stmt,
-    TypeParams,
+    StmtImportFrom, TypeParams,
 };
 
 const ALL: &str = "__all__";
@@ -154,21 +154,7 @@ impl<'a> Visitor<'a> for Walk {
                     let module = node.module.as_ref().map_or("", |name| name.as_str());
                     self.stars.push((node.level, module.to_owned()));
                 }
-                if node.level == 0
-                    && node
-                        .module
-                        .as_ref()
-                        .is_some_and(|name| matches!(name.as_str(), "typing" | "typing_extensions"))
-                {
-                    let own = |alias: &&Alias| {
-                        alias.name.as_str() == "Any"
-                            && alias
-                                .asname
-                                .as_ref()
-                                .is_none_or(|name| name.as_str() == "Any")
-                    };
-                    self.typing_any += node.names.iter().filter(own).count();
-                }
+                self.typing_any += typing_any_imports(node);
                 self.imports(&node.names, stmt);
             }
             Stmt::Global(_) | Stmt::Nonlocal(_) => {
@@ -267,6 +253,26 @@ pub(super) fn pattern_name(pattern: &Pattern) -> Option<&str> {
         _ => None,
     };
     name.map(Identifier::as_str)
+}
+
+/// How many names of `from typing import ...` (or `typing_extensions`) bind `Any` as `Any`.
+fn typing_any_imports(node: &StmtImportFrom) -> usize {
+    let typing = node
+        .module
+        .as_ref()
+        .is_some_and(|name| matches!(name.as_str(), "typing" | "typing_extensions"));
+    let own = |alias: &&Alias| {
+        let named_any = alias
+            .asname
+            .as_ref()
+            .is_none_or(|name| name.as_str() == "Any");
+        alias.name.as_str() == "Any" && named_any
+    };
+    if node.level == 0 && typing {
+        node.names.iter().filter(own).count()
+    } else {
+        0
+    }
 }
 
 impl Walk {
