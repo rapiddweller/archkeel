@@ -89,8 +89,9 @@ uses as a value escapes the package, unless its origin cannot be a module of the
 read of `__globals__` is no gap when the dict only feeds a lookup of a literal key; library code
 that gives the dict back is not seen (AD-530).
 Python construct rules stay UNKNOWN when the collector cannot prove that it sees every site.
-For `type_ignore`, only an exact `name.method()` statement with a trailing readable comment is
-recorded; other type comments keep the rule UNKNOWN (AD-780). `interface_boundary` and symbol-level
+For `type_ignore`, a single-line `name.method(...)` call, assignment to one name, or return with a
+value can carry an exact trailing comment. Other unread type comments keep the rule UNKNOWN
+(AD-780, AD-868, AD-872, AD-908). `interface_boundary` and symbol-level
 `through` ports are decided from the publication route of each named import (AD-504); the hygiene
 checks `interface.*` prove a use of a `public` entry from the imports and name `interface.usage_unknown`
 where only a declared facade signature could reach it (AD-514). A Dart project gets PASS or FAIL

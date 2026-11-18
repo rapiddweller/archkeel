@@ -22,6 +22,17 @@ from test_cli_python_profile_limits import CONSTRUCT, Plant, scanned
         ("def check(item):\n    item.close(key='x')  # type: ignore[attr-defined]\n", "FAIL"),
         ("def check(item):\n    value = item  # type: ignore[assignment]\n", "FAIL"),
         ("def check(item):\n    value = item.close(1)  # type: ignore[assignment]\n", "FAIL"),
+        ("def check(item):\n    return item  # type: ignore[return-value]\n", "FAIL"),
+        ("def check():\n    return  # type: ignore[return-value]\n", "UNKNOWN"),
+        ('def check(item):\n    return "# type: ignore[return-value]"\n', "PASS"),
+        (
+            "def check(item):\n    return (\n        item)  # type: ignore[return-value]\n",
+            "UNKNOWN",
+        ),
+        (
+            "def check(item):\n    return item; item.close()  # type: ignore[return-value]\n",
+            "UNKNOWN",
+        ),
         (
             "def check(item):\n    value = (\n        item)  # type: ignore[assignment]\n",
             "UNKNOWN",
@@ -52,7 +63,9 @@ def test_type_ignore_is_a_comment_not_string_text(
 
 
 @pytest.mark.parametrize(("tag", "expected"), [("[attr-defined]", "PASS"), ("[other]", "FAIL")])
-@pytest.mark.parametrize("statement", ["item.close()", "item.close(1, key='x')", "value = item"])
+@pytest.mark.parametrize(
+    "statement", ["item.close()", "item.close(1, key='x')", "value = item", "return item"]
+)
 def test_a_type_ignore_allowance_matches_the_exact_site(
     release_core: Path, tmp_path: Path, tag: str, expected: str, statement: str
 ) -> None:
