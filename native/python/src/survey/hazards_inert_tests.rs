@@ -6,6 +6,9 @@
 
 use super::*;
 
+#[path = "hazards_proved_tests.rs"]
+mod proved;
+
 #[test]
 fn imported_code_types_in_isinstance_keep_the_import_gap() {
     for name in ["FunctionType", "CodeType"] {

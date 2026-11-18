@@ -466,6 +466,12 @@ pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
 /// The sites that the lazy import proof covers (`lazy.rs`) are no hazard when `lazy` is given.
 pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy]>) -> Split {
     let (mut literals, mut found) = (Vec::new(), Vec::new());
+    let items: Vec<_> = modules
+        .iter()
+        .zip(binders)
+        .map(|(m, b)| (m.name.as_str(), &m.tree, b.unique(), bindings(&m.tree)))
+        .collect();
+    let proved = reflect::proved(&items, &[&BUILTIN_DOORS, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let proof = literal::Proof::of(&module.tree, binders);
@@ -475,9 +481,10 @@ pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy
         }
         for site in sites(&module.tree, proof, binders, &reads[index]) {
             let exempt = covered.iter().flat_map(|item| &item.exempt);
-            if exempt
-                .into_iter()
-                .any(|range| range.contains_range(site.range))
+            let inside = |range: &TextRange| range.contains_range(site.range);
+            let kind = (site.kind == DYNAMIC, site.kind == IMPORT_SYSTEM);
+            if exempt.into_iter().any(inside)
+                || proved[index].covers(kind, &site.detail, site.range)
             {
                 continue;
             }

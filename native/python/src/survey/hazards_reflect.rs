@@ -3,13 +3,15 @@
 // SPDX-License-Identifier: MIT
 
 //! One-step aliases and literal reflection of import-bound module names.
+//! `Proved` holds the sites that the scan proves are no door (AD-894).
 
 use std::collections::HashMap;
 
 use std::collections::HashSet;
 
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
+use ruff_python_ast::{Comprehension, Expr, ExprContext, ModModule, Stmt};
+use ruff_text_size::{Ranged, TextRange};
 
 use crate::survey::value::assignment_parts;
 
@@ -163,4 +165,156 @@ pub(super) fn code(expr: &Expr, bindings: &Bindings) -> bool {
         return module(base, bindings);
     }
     matches!(&*node.value, Expr::Attribute(attr) if attr.attr.as_str() == "__dict__" && module(&attr.value, bindings))
+}
+
+/// One module for the proof: its name, its tree, its unique direct bindings and its imports.
+pub(super) type Item<'a> = (&'a str, &'a ModModule, HashSet<String>, Bindings);
+
+/// The sites that are no door although a door name appears in them (AD-894). The walk of the
+/// hazards reports each site, and `covers` finds it again by its range.
+pub(super) struct Proved {
+    /// A name of a module `def` or `class`, or an attribute chain on it: the name of its root.
+    local: HashMap<TextRange, String>,
+    /// An attribute chain on an import of a class of the scan.
+    class: HashSet<TextRange>,
+    /// A `sys.path` that a read uses.
+    path: HashSet<TextRange>,
+}
+
+/// The proof facts of each module. `fixed` lists the names that a module `def` never makes local:
+/// the builtin doors and the import functions.
+pub(super) fn proved(modules: &[Item], fixed: &[&[&str]]) -> Vec<Proved> {
+    let mut scan = HashSet::new();
+    for (module, tree, unique, _) in modules {
+        let own = tree.body.iter().filter_map(|stmt| match stmt {
+            Stmt::ClassDef(node) => Some(node.name.as_str()),
+            _ => None,
+        });
+        for name in own.filter(|name| unique.contains(*name)) {
+            scan.insert(format!("{module}.{name}"));
+        }
+    }
+    let each =
+        |(_, tree, unique, imports): &Item| Proved::of(tree, (imports, unique), &scan, fixed);
+    modules.iter().map(each).collect()
+}
+
+impl Proved {
+    fn of(
+        tree: &ModModule,
+        (imports, unique): (&Bindings, &HashSet<String>),
+        scan: &HashSet<String>,
+        fixed: &[&[&str]],
+    ) -> Self {
+        let defined = tree.body.iter().filter_map(|stmt| match stmt {
+            Stmt::FunctionDef(node) => Some(node.name.as_str()),
+            Stmt::ClassDef(node) => Some(node.name.as_str()),
+            _ => None,
+        });
+        let local = defined
+            .filter(|name| unique.contains(*name) && !imports.contains_key(*name))
+            .filter(|name| !fixed.iter().any(|names| names.contains(name)))
+            .map(str::to_owned)
+            .collect();
+        let mut class = HashSet::new();
+        let mut sys = HashSet::new();
+        for (name, origins) in imports.iter().filter(|(name, _)| unique.contains(*name)) {
+            if origins.iter().all(|origin| scan.contains(origin)) {
+                class.insert(name.clone());
+            }
+            if origins.as_slice() == ["sys"] {
+                sys.insert(name.clone());
+            }
+        }
+        let mut marks = Marks {
+            local,
+            class,
+            sys,
+            found: Self {
+                local: HashMap::new(),
+                class: HashSet::new(),
+                path: HashSet::new(),
+            },
+        };
+        marks.visit_body(&tree.body);
+        marks.found
+    }
+
+    /// True when the site is no door. `kind` tells whether the site is a dynamic import or an
+    /// import-system change; a site of another kind is never covered.
+    pub(super) fn covers(&self, kind: (bool, bool), detail: &str, range: TextRange) -> bool {
+        let (dynamic, system) = kind;
+        let under = |root: &String| {
+            detail == root
+                || detail
+                    .strip_prefix(root.as_str())
+                    .is_some_and(|rest| rest.starts_with('.'))
+        };
+        let door = self.local.get(&range).is_some_and(under)
+            || (detail == "code" && self.class.contains(&range));
+        (dynamic && door) || (system && detail == "sys.path" && self.path.contains(&range))
+    }
+}
+
+/// The walk that finds the sites of `Proved`.
+struct Marks {
+    local: HashSet<String>,
+    class: HashSet<String>,
+    sys: HashSet<String>,
+    found: Proved,
+}
+
+impl Marks {
+    /// `sys.path` as a plain attribute of a name for `sys`, in a position that only reads.
+    fn read(&mut self, expr: &Expr) {
+        if let Expr::Attribute(node) = expr {
+            let sys =
+                matches!(&*node.value, Expr::Name(name) if self.sys.contains(name.id.as_str()));
+            if sys && node.attr.as_str() == "path" && node.ctx == ExprContext::Load {
+                self.found.path.insert(node.range());
+            }
+        }
+    }
+
+    /// The root name of an attribute chain decides the kind of the chain.
+    fn chain(&mut self, expr: &Expr) {
+        let mut base = expr;
+        while let Expr::Attribute(node) = base {
+            base = &node.value;
+        }
+        let Expr::Name(root) = base else { return };
+        let id = root.id.as_str();
+        if self.local.contains(id) {
+            self.found.local.insert(expr.range(), id.to_owned());
+        } else if self.class.contains(id) {
+            self.found.class.insert(expr.range());
+        }
+    }
+}
+
+impl<'a> Visitor<'a> for Marks {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if let Stmt::For(node) = stmt {
+            self.read(&node.iter);
+        }
+        visitor::walk_stmt(self, stmt);
+    }
+
+    fn visit_comprehension(&mut self, comprehension: &'a Comprehension) {
+        self.read(&comprehension.iter);
+        visitor::walk_comprehension(self, comprehension);
+    }
+
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        match expr {
+            Expr::Name(node) if self.local.contains(node.id.as_str()) => {
+                self.found.local.insert(node.range(), node.id.to_string());
+            }
+            Expr::Attribute(_) => self.chain(expr),
+            Expr::Compare(node) => node.operands.iter().for_each(|item| self.read(item)),
+            Expr::Subscript(node) if node.ctx == ExprContext::Load => self.read(&node.value),
+            _ => {}
+        }
+        visitor::walk_expr(self, expr);
+    }
 }
