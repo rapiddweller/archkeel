@@ -33,6 +33,14 @@ fn a_scan_gives_its_phases_only_when_asked_and_the_frame_does_not_change() {
 }
 
 #[test]
+fn a_scan_without_timings_does_not_read_the_clock() {
+    let root = repository("no-clock");
+    let input = request(&root).to_string();
+    let answer = crate::scan::answer(input.as_bytes(), &|| panic!("clock was read")).unwrap();
+    assert!(!answer.timings_asked);
+}
+
+#[test]
 fn a_refused_scan_has_no_phases_but_the_request_still_asked() {
     let root = repository("timings-refused");
     let mut asked = request(&root);

@@ -13,7 +13,7 @@ fn a_parse_work_refusal_is_exit_two_without_frame_bytes() {
     std::fs::write(root.join("src/deep.ts"), text).unwrap();
     let mut out = Vec::new();
     let (code, reason) = crate::respond_with(
-        super::answer,
+        crate::scan_answer,
         request(&root).to_string().as_bytes(),
         &mut out,
     );

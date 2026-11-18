@@ -35,6 +35,7 @@ SYSTEM_USES = Counter(
         "core/src/main.rs: std::process": 1,
         "core/src/main.rs: std::io::stdin": 1,
         "core/src/main.rs: std::io::stdout": 1,
+        "core/src/main.rs: std::time::Instant": 1,
     }
 )
 # (planted text in native/model/src/lib.rs, the hit that the scan must give)
@@ -98,6 +99,14 @@ def test_a_planted_system_access_in_model_fails(tmp_path: Path, planted: str, hi
     lib = copy / "model/src/lib.rs"
     lib.write_text(lib.read_text() + "\n" + planted)
     assert system_uses(copy) - SYSTEM_USES == Counter({f"model/src/lib.rs: {hit}": 1})
+
+
+@pytest.mark.parametrize("name", ["scan.rs", "dual_run.rs"])
+def test_a_planted_clock_in_scan_or_dual_run_fails(tmp_path: Path, name: str) -> None:
+    copy = _core_side(tmp_path)
+    path = copy / "core/src" / name
+    path.write_text(path.read_text() + "\nuse std::time::Instant;\n")
+    assert system_uses(copy) - SYSTEM_USES == Counter({f"core/src/{name}: std::time::Instant": 1})
 
 
 @pytest.mark.parametrize("crate", ["eval", "report", "core"])

@@ -41,6 +41,7 @@
     "fn read_system(identity:&Identity<'_>)->Result<Option<System>,Refusal>",
     "fn run::check(facts:&Facts)->Result<(),String>",
     "fn scan(identity:&Identity<'_>,contract_budget:u64)->Result<Scanned,Refusal>",
+    "fn scan_with_clock(identity:&Identity<'_>,contract_budget:u64,clock:Option<&dyn Fn()->Duration>,)->Result<Scanned,Refusal>",
     "struct Identity",
     "struct Scanned",
     "struct refusal::Refusal",
