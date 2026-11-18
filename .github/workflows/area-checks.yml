@@ -1,0 +1,136 @@
+name: Shared area checks
+
+on:
+  workflow_call:
+    inputs:
+      base:
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  ARCHKEEL_CORE_PROFILE: gate
+
+jobs:
+  tests:
+    name: "Tests: ${{ matrix.area }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        area:
+          - CLI and core
+          - native collectors
+          - collectors
+          - reports
+          - self-check and CI
+    runs-on: ubuntu-24.04
+    # Main keeps the measured hang guard. PR checks must finish within the 15-minute target.
+    timeout-minutes: ${{ inputs.base != '' && 15 || 40 }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select this area
+        id: select
+        env:
+          BASE: ${{ inputs.base }}
+          AREA: ${{ matrix.area }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASE" ]; then selected=run; else selected="$(python3 tools/select_areas.py --job "$AREA" "$BASE")"; fi
+          echo "$selected"
+          echo "selected=$selected" >> "$GITHUB_OUTPUT"
+
+      - name: Install Node
+        if: steps.select.outputs.selected == 'run'
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+
+      - name: Install uv and Python
+        if: steps.select.outputs.selected == 'run'
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install supported runtimes
+        if: steps.select.outputs.selected == 'run'
+        run: uv python install 3.11.12 3.12.10
+
+      - name: Install locked dependencies
+        if: steps.select.outputs.selected == 'run'
+        run: uv sync --locked
+
+      - name: Install the pinned Rust toolchain
+        if: steps.select.outputs.selected == 'run'
+        working-directory: native
+        run: rustup toolchain install
+
+      - name: Run the fast tests of this area
+        if: steps.select.outputs.selected == 'run'
+        env:
+          AREA: ${{ matrix.area }}
+        run: make fast-test AREA="$AREA"
+
+      - name: Upload JUnit results
+        if: always() && steps.select.outputs.selected == 'run'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pytest-results-fast-${{ matrix.area }}
+          path: test-artifacts/pytest/fast.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+  native:
+    name: "Native: Rust checks and dependency policy"
+    runs-on: ubuntu-24.04
+    # Main keeps its hang guard. PR checks must finish within the 15-minute target.
+    timeout-minutes: ${{ inputs.base != '' && 15 || 30 }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select native checks
+        id: select
+        env:
+          BASE: ${{ inputs.base }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASE" ]; then selected=run; else selected="$(python3 tools/select_areas.py --job native "$BASE")"; fi
+          echo "$selected"
+          echo "selected=$selected" >> "$GITHUB_OUTPUT"
+
+      - name: Install uv and Python
+        if: steps.select.outputs.selected == 'run'
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install locked dependencies
+        if: steps.select.outputs.selected == 'run'
+        run: uv sync --locked
+
+      - name: Install the pinned Rust toolchain
+        if: steps.select.outputs.selected == 'run'
+        working-directory: native
+        run: rustup toolchain install
+
+      - name: Install the pinned cargo-deny
+        if: steps.select.outputs.selected == 'run'
+        run: make cargo-deny-install
+
+      - name: Run native checks
+        if: steps.select.outputs.selected == 'run'
+        run: make native-check

@@ -38,7 +38,7 @@ def test_every_action_is_pinned_to_a_commit() -> None:
 
 
 def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
-    jobs = _jobs("ci.yml")
+    jobs = _jobs("area-checks.yml")
     native = jobs["native"]
     assert "runs-on: ubuntu-24.04\n" in native
     assert native.index("run: make cargo-deny-install") < native.index("run: make native-check")
@@ -54,9 +54,9 @@ _TOOLCHAIN_STEP = "run: rustup toolchain install\n"
     ("workflow", "job", "first_make"),
     [
         ("ci.yml", "lint", "run: make ci-pr-static"),
-        ("ci.yml", "tests", "run: make fast-test"),
-        ("pr-gate.yml", "pr-gate", "run: make pr-gate"),
-        ("ci.yml", "native", "run: make cargo-deny-install"),
+        ("area-checks.yml", "tests", "run: make fast-test"),
+        ("pr-gate.yml", "base", "run: make pr-gate"),
+        ("area-checks.yml", "native", "run: make cargo-deny-install"),
         ("full-verification.yml", "full-suite-and-reports", "run: make ci-core-check"),
         ("full-verification.yml", "tests", "run: make full-test"),
         ("full-verification.yml", "shell-compat", "run: make shell-compat"),

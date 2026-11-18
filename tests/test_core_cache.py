@@ -82,7 +82,7 @@ def test_make_core_reuses_a_core_only_with_the_stamp_of_its_tree(tmp_path: Path)
 
 def test_a_core_is_saved_only_after_its_own_build_step_succeeded() -> None:
     """AD-732: `always()` alone would save the old core that a failed run restored."""
-    for workflow, job in (("pr-gate.yml", "pr-gate"), ("ci.yml", "lint")):
+    for workflow, job in (("pr-gate.yml", "base"), ("ci.yml", "lint")):
         body = _jobs(workflow)[job]
         assert "      - name: Build the core\n        id: build\n" in body, workflow
         save = body.split("      - name: Save the core for this native tree\n", 1)[1]
@@ -138,7 +138,7 @@ def test_the_gate_profile_builds_without_lto_and_with_16_codegen_units(tmp_path:
 
 def test_the_pr_gate_runs_the_static_checks_beside_the_core_build_and_checks_their_result() -> None:
     """AD-754: the static checks need no core; they run while cargo builds."""
-    body = _jobs("pr-gate.yml")["pr-gate"]
+    body = _jobs("pr-gate.yml")["base"]
     build = body.split("      - name: Build the core\n", 1)[1].split("\n      - name:", 1)[0]
     assert "make ci-pr-static" in build and "make core" in build and "wait " in build
     assert "make pr-native-lint" in build

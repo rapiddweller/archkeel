@@ -150,12 +150,9 @@ HEAVY_FILES = frozenset(
 ALL = "all"
 TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
     ("tests/test_*.py", ()),
-    ("native/python/*", ("native collectors", "collectors")),
-    ("native/typescript/*", ("native collectors", "collectors")),
-    ("native/dart*/*", ("native collectors", "collectors")),
-    ("native/rust/*", ("native collectors", "collectors")),
-    ("native/report/*", ("reports", "CLI and core")),
-    ("native/*", ("CLI and core", "self-check and CI")),
+    ("native/report/*", ("CLI and core", "reports")),
+    ("native/*", ALL),
+    ("src/archkeel/cli/*", ALL),
     ("src/*", ("CLI and core", "self-check and CI")),
     ("schema/*", ("CLI and core", "self-check and CI")),
     ("fixtures/*", ("CLI and core", "collectors")),
@@ -163,7 +160,11 @@ TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
     # AD-736: a shared helper of the tests, the area table and its floors can change any area.
     ("tests/conftest.py", ALL),
     ("tests/areas.py", ALL),
+    ("tools/select_areas.py", ALL),
+    (".github/workflows/area-checks.yml", ALL),
+    (".github/workflows/ci.yml", ALL),
     ("tests/area_floors.json", ALL),
+    (".github/workflows/pr-gate.yml", ALL),
     ("tests/*_support.py", ALL),
     ("tests/*_plants.py", ALL),
     ("tests/*", ("self-check and CI",)),
@@ -171,7 +172,7 @@ TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
     ("docs/*", ("self-check and CI",)),
     ("skills/*", ("self-check and CI",)),
     ("*.md", ("self-check and CI",)),
-    ("Makefile", ("self-check and CI",)),
+    ("Makefile", ALL),
     ("pyproject.toml", ALL),
     ("uv.lock", ALL),
     ("*.toml", ("self-check and CI",)),
@@ -203,3 +204,25 @@ def areas_of_change(paths: list[str]) -> list[str]:
             return list(AREAS)
         chosen.update(rule)
     return [area for area in AREAS if area in chosen]
+
+
+GATE_FILES = frozenset(
+    {
+        "Makefile",
+        "tests/areas.py",
+        "tools/select_areas.py",
+        ".github/workflows/area-checks.yml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/pr-gate.yml",
+    }
+)
+
+
+def rust_checks(paths: list[str]) -> bool:
+    return any(path.startswith("native/") or path in GATE_FILES for path in paths)
+
+
+def parallel_areas(paths: list[str]) -> list[str]:
+    if rust_checks(paths) or any(path.startswith("src/archkeel/cli/") for path in paths):
+        return areas_of_change(paths)
+    return []
