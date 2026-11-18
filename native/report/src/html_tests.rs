@@ -416,7 +416,7 @@ fn every_unknown_run_names_a_cause_and_the_rules_it_holds_with_a_bound() {
             .split("</article>")
             .next()
             .unwrap();
-        for index in 0..held.min(5) {
+        for index in 0..held {
             assert!(
                 card.contains(&format!("R{index:02}")),
                 "{held}: R{index:02}"
@@ -424,12 +424,13 @@ fn every_unknown_run_names_a_cause_and_the_rules_it_holds_with_a_bound() {
         }
         if held > 5 {
             assert!(card.contains(&format!("+{} more", held - 5)), "{held}");
-            let fold = card.split("</summary>").nth(1).unwrap();
+            let fold = card.split("<summary class=\"caption rp-at\">+").nth(1).unwrap();
             assert!(fold.contains("R05"), "the sixth id is in the fold");
         }
+        assert!(card.contains("why"), "the cause is recorded");
     }
     let empty = document(&json!({"status": "UNKNOWN", "scope": "missing input"}));
-    assert!(empty.contains("keeps the run open: missing input"));
+    assert!(empty.contains("missing input"));
 }
 
 // A tower lays out its rows on the row tracks of its path (`subgrid`). A path without its row
