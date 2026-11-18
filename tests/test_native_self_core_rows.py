@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 import zlib
@@ -66,6 +67,31 @@ def test_the_core_decides_each_rule_of_the_self_contract(
         found = re.fullmatch(r"incomplete scope: (\d+) gaps? .*", frame["scope"], re.DOTALL)
         assert found, frame["scope"]
         assert 0 < int(found.group(1)) <= len(expected["gaps"])
+
+
+def test_a_planted_report_cycle_fails_the_native_component_rule(
+    tmp_path: Path, frozen_root: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = shutil.copytree(frozen_root, tmp_path / "planted")
+    renderer = root / "native/report/src/html.rs"
+    with renderer.open("a", encoding="utf-8") as source:
+        source.write(
+            "\n#[allow(dead_code)]\n"
+            "fn planted_return(frame: &Map<String, Value>) -> Result<Value, serde_json::Error> {\n"
+            "    crate::engine_frame::page(frame)\n"
+            "}\n"
+        )
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    code, result = run("validate", "--root", str(root), "--config", "native/archkeel.toml")
+    frame = result["frame"]
+    rule = "NATIVE-NO-COMPONENT-CYCLES"
+    assert (code, frame["rules"][rule][1]) == (1, "FAIL")
+    [cycle] = frame["explain"]["cycles"][rule]["items"]
+    assert {(step["from"], step["to"]) for step in cycle["path"]} == {
+        ("report-frame", "report-page"),
+        ("report-page", "report-frame"),
+    }
+    assert all(step["evidence"] and not step.get("possible") for step in cycle["path"])
 
 
 # Review B2 and B3 of #1121: `core` reaches the collector crates only through `archkeel_collect`.

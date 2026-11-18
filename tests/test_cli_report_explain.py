@@ -13,7 +13,7 @@ import pytest
 from core_support import ROOT, run
 from frozen_native import frozen_root as frozen_root
 from planted_cycle import cycle_root as cycle_root
-from rust_repository import CRATE_RULES, report, repository
+from rust_repository import CRATE_RULES, component, report, repository
 from rust_repository import rule as crate_rule
 
 from archkeel.cli import core_only
@@ -109,6 +109,42 @@ def test_an_unknown_run_names_the_gaps_of_each_rule_and_the_rules_of_each_gap(
 
 
 LIB = "mod a;\nmod b;\nmod c;\n"
+
+
+def test_a_known_return_edge_fails_the_component_cycle_rule(
+    tmp_path: Path, release_core: Path
+) -> None:
+    app = component("app", "app", ("base",))
+    app["packages"] = []
+    app["exact_modules"] = ["native.app", "native.app.cargo_toml"]
+    prefix = "crates/app/src/"
+    rule = "NO-CYCLES"
+    for closed in (False, True):
+        root = repository(
+            tmp_path / str(closed),
+            release_core,
+            {
+                prefix + "lib.rs": "mod a;\nmod b;\n",
+                prefix + "a.rs": "pub fn value() -> u8 { 1 }\n"
+                + ("pub fn run() -> u8 { crate::b::read() }\n" if closed else ""),
+                prefix + "b.rs": "pub fn read() -> u8 { crate::a::value() }\n",
+            },
+            components=(
+                component("base", "base_crate"),
+                app,
+                component("a", "app.a", ("b",) if closed else ()),
+                component("b", "app.b", ("a",)),
+            ),
+        )
+        frame = report(root)["frame"]
+        assert frame["rules"][rule][1] == ("FAIL" if closed else "PASS"), frame
+        if closed:
+            [cycle] = frame["explain"]["cycles"][rule]["items"]
+            assert {(step["from"], step["to"]) for step in cycle["path"]} == {
+                ("a", "b"),
+                ("b", "a"),
+            }
+            assert all(step["evidence"] and not step.get("possible") for step in cycle["path"])
 
 
 def _calls(name: str, impl: str) -> str:

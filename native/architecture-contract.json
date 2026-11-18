@@ -2019,7 +2019,7 @@
       "layer": "report",
       "packages": [
         "native.archkeel_report.build_script",
-        "native.archkeel_report.engine_frame.html"
+        "native.archkeel_report.html"
       ],
       "responsibilities": [
         "Render the static HTML page of one engine frame and derive its script hashes at build time (AD-440, AD-496, AD-498)."
@@ -2033,7 +2033,7 @@
         "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
       ],
       "public": [
-        "native.archkeel_report.engine_frame.html:render"
+        "native.archkeel_report.html:render"
       ],
       "requires": [
         {
@@ -2079,7 +2079,7 @@
           "component": "report-page",
           "rationale": "Render the page of the frame (AD-496).",
           "through": [
-            "native.archkeel_report.engine_frame.html"
+            "native.archkeel_report.html"
           ]
         }
       ],

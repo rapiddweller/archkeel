@@ -32,7 +32,7 @@
     "NATIVE-NO-COLLECT-TO-EVAL": "PASS",
     "NATIVE-NO-COLLECT-TO-MODEL": "PASS",
     "NATIVE-NO-COLLECT-TO-REPORT": "PASS",
-    "NATIVE-NO-COMPONENT-CYCLES": "UNKNOWN",
+    "NATIVE-NO-COMPONENT-CYCLES": "PASS",
     "NATIVE-NO-CONTRACT-TO-CORE": "PASS",
     "NATIVE-NO-CONTRACT-TO-EVAL": "PASS",
     "NATIVE-NO-CONTRACT-TO-MODEL": "PASS",
@@ -96,7 +96,6 @@
   },
   "unknown": {
     "NATIVE-INTERFACE-BOUNDARY": "scope_incomplete",
-    "NATIVE-NO-COMPONENT-CYCLES": "scope_incomplete",
     "NATIVE-NO-CORE-TO-TYPESCRIPT": "scope_incomplete",
     "NATIVE-NO-MODULE-CYCLES": "scope_incomplete",
     "NATIVE-REQUIRES-COMPLETE": "scope_incomplete"
@@ -3520,11 +3519,6 @@
     [
       "collection_gap",
       "native.archkeel_core",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -4260,27 +4254,27 @@
     [
       "collection_gap",
       "native.archkeel_core",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -4881,11 +4875,6 @@
       "collection_gap",
       "native.archkeel_core.base",
       "A trait impl in native.archkeel_dart_collector.work may run in code that reaches native.archkeel_dart_collector.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.base",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -5605,27 +5594,27 @@
     [
       "collection_gap",
       "native.archkeel_core.base",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.base",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.base",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.base",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.base",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.base",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.base",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.base",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.base",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -6395,27 +6384,27 @@
     [
       "collection_gap",
       "native.archkeel_core.baseline",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.baseline",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.baseline",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.baseline",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.baseline",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -6521,11 +6510,6 @@
       "collection_gap",
       "native.archkeel_core.baseline_frame",
       "A trait impl in native.archkeel_contract.version may run in code that reaches native.archkeel_contract.version without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline_frame",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -6895,27 +6879,27 @@
     [
       "collection_gap",
       "native.archkeel_core.baseline_frame",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline_frame",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline_frame",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline_frame",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.baseline_frame",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.baseline_frame",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.baseline_frame",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.baseline_frame",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.baseline_frame",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -7271,11 +7255,6 @@
       "collection_gap",
       "native.archkeel_core.check",
       "A trait impl in native.archkeel_dart_collector.work may run in code that reaches native.archkeel_dart_collector.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.check",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -7990,27 +7969,27 @@
     [
       "collection_gap",
       "native.archkeel_core.check",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.check",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.check",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.check",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.check",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.check",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.check",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.check",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.check",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -9450,11 +9429,6 @@
     [
       "collection_gap",
       "native.archkeel_core.dual_run",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -10160,27 +10134,27 @@
     [
       "collection_gap",
       "native.archkeel_core.dual_run",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.dual_run",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.dual_run",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.dual_run",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.dual_run",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -11470,27 +11444,27 @@
     [
       "collection_gap",
       "native.archkeel_core.dual_run.frame_parts",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run.frame_parts",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run.frame_parts",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run.frame_parts",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.dual_run.frame_parts",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.dual_run.frame_parts",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.dual_run.frame_parts",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.dual_run.frame_parts",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.dual_run.frame_parts",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -12021,11 +11995,6 @@
       "collection_gap",
       "native.archkeel_core.engine",
       "A trait impl in native.archkeel_dart_collector.work may run in code that reaches native.archkeel_dart_collector.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.engine",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -12745,27 +12714,27 @@
     [
       "collection_gap",
       "native.archkeel_core.engine",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.engine",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.engine",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.engine",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.engine",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.engine",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.engine",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.engine",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.engine",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -13150,11 +13119,6 @@
     [
       "collection_gap",
       "native.archkeel_core.gap_key",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.gap_key",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -13525,27 +13489,27 @@
     [
       "collection_gap",
       "native.archkeel_core.gap_key",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.gap_key",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.gap_key",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.gap_key",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.gap_key",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.gap_key",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.gap_key",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.gap_key",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.gap_key",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -19910,11 +19874,6 @@
     [
       "collection_gap",
       "native.archkeel_core.request",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.request",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -20290,27 +20249,27 @@
     [
       "collection_gap",
       "native.archkeel_core.request",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.request",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.request",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.request",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.request",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.request",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.request",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.request",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.request",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -20800,27 +20759,27 @@
     [
       "collection_gap",
       "native.archkeel_core.rules",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.rules",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.rules",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.rules",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.rules",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.rules",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.rules",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.rules",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.rules",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -21156,11 +21115,6 @@
       "collection_gap",
       "native.archkeel_core.scan",
       "A trait impl in native.archkeel_dart_collector.work may run in code that reaches native.archkeel_dart_collector.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.scan",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -21865,27 +21819,27 @@
     [
       "collection_gap",
       "native.archkeel_core.scan",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.scan",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.scan",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.scan",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.scan",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.scan",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.scan",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.scan",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.scan",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -22660,27 +22614,27 @@
     [
       "collection_gap",
       "native.archkeel_core.sections",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.sections",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.sections",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.sections",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.sections",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.sections",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.sections",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.sections",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.sections",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -23036,11 +22990,6 @@
       "collection_gap",
       "native.archkeel_core.system",
       "A trait impl in native.archkeel_dart_collector.work may run in code that reaches native.archkeel_dart_collector.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.system",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -23750,27 +23699,27 @@
     [
       "collection_gap",
       "native.archkeel_core.system",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.system",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.system",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.system",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.system",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.system",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.system",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.system",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.system",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -25915,11 +25864,6 @@
     [
       "collection_gap",
       "native.archkeel_core.topology_projection",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.topology_projection",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -26235,27 +26179,27 @@
     [
       "collection_gap",
       "native.archkeel_core.topology_projection",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.topology_projection",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.topology_projection",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.topology_projection",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.topology_projection",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.topology_projection",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.topology_projection",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.topology_projection",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.topology_projection",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -35070,11 +35014,6 @@
     [
       "collection_gap",
       "native.archkeel_eval.assignment",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.assignment",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -35476,11 +35415,6 @@
       "collection_gap",
       "native.archkeel_eval.boundary_types",
       "A trait impl in native.archkeel_contract.version may run in code that reaches native.archkeel_contract.version without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.boundary_types",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -35920,11 +35854,6 @@
     [
       "collection_gap",
       "native.archkeel_eval.constructs",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.constructs",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -36350,11 +36279,6 @@
     [
       "collection_gap",
       "native.archkeel_eval.cycles",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.cycles",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -36736,11 +36660,6 @@
       "collection_gap",
       "native.archkeel_eval.decide",
       "A trait impl in native.archkeel_contract.version may run in code that reaches native.archkeel_contract.version without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.decide",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -37195,11 +37114,6 @@
     [
       "collection_gap",
       "native.archkeel_eval.direction",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.direction",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -37620,11 +37534,6 @@
     [
       "collection_gap",
       "native.archkeel_eval.external",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.external",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -38006,11 +37915,6 @@
       "collection_gap",
       "native.archkeel_eval.interface",
       "A trait impl in native.archkeel_contract.version may run in code that reaches native.archkeel_contract.version without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.interface",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -38475,11 +38379,6 @@
     [
       "collection_gap",
       "native.archkeel_eval.layout",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.layout",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -38851,11 +38750,6 @@
       "collection_gap",
       "native.archkeel_eval.placement",
       "A trait impl in native.archkeel_contract.version may run in code that reaches native.archkeel_contract.version without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.placement",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -39310,11 +39204,6 @@
     [
       "collection_gap",
       "native.archkeel_eval.unused_public",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.unused_public",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -39711,11 +39600,6 @@
       "collection_gap",
       "native.archkeel_eval.violation",
       "A trait impl in native.archkeel_contract.version may run in code that reaches native.archkeel_contract.version without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.violation",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -72630,11 +72514,6 @@
     [
       "collection_gap",
       "native.archkeel_report",
-      "A trait impl in native.archkeel_eval may run in code that reaches native.archkeel_eval without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report",
       "A trait impl in native.archkeel_eval.placement_row may run in code that reaches native.archkeel_eval.placement_row without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -73015,22 +72894,22 @@
     [
       "collection_gap",
       "native.archkeel_report",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_report",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_report",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_report",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -75225,666 +75104,36 @@
     [
       "collection_gap",
       "native.archkeel_report.engine_frame",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame",
       "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_report.engine_frame",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.engine_frame",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.engine_frame",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.engine_frame",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.engine_frame",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
     ],
     [
       "collection_gap",
       "native.archkeel_report.engine_frame",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html",
-      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.arch",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.arch",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.arch",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.arch",
-      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.arch",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.arch",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_dirs",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_dirs",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_dirs",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_dirs",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_dirs",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_dirs",
-      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_dirs",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_dirs",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_groups",
-      "A method call may reach the method chain of a type in its own file native.archkeel_report.engine_frame.html.atlas_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_groups",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_groups",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_groups",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_groups",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_groups",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_groups",
-      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_groups",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_groups",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_levels",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_levels",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_levels",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_levels",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_members",
-      "A method call may reach the method chain of a type in its own file native.archkeel_report.engine_frame.html.atlas_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_members",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_members",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_members",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_members",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_members",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_members",
-      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_members",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_members",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_tree",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_tree",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_tree",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_tree",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.atlas_tree",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.cases",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.cases",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.cases",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.cases",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.cases",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.cases",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.causes",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.causes",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.causes",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.causes",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.causes",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.causes",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.causes",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.components",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.components",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.components",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.components",
-      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.components",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.components",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.explorer",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.explorer",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.footer",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.footer",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.footer",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.footer",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.footer",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.footer",
-      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.footer",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.footer",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.frame",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.frame",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.markup",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.markup",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.markup",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.markup",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.markup",
-      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.markup",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.markup",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.places",
-      "A method call may reach the method chain of a type in its own file native.archkeel_report.engine_frame.html.atlas_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.places",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.places",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.places",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.places",
-      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.places",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.places",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.rules",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.rules",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.rules",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.rules",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.rules",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.rules",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.rules",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.shell",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.shell",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.shell",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.shell",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.shell",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.shell",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.shell",
-      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.shell",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.shell",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.status",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.status",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.status",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.status",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.status",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.unknown",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.unknown",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.unknown",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.unknown",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.unknown",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.unknown",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.verdict",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.verdict",
-      "A trait impl in native.archkeel_report.engine_frame may run in code that reaches native.archkeel_report.engine_frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.verdict",
-      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.engine_frame.html.verdict",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
     ],
     [
@@ -75895,6 +75144,401 @@
     [
       "collection_gap",
       "native.archkeel_report.head",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html",
+      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.arch",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.arch",
+      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.arch",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.arch",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.arch",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_dirs",
+      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_dirs",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_dirs",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_groups",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_groups",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_levels",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_levels",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_members",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_members",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_tree",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.atlas_tree",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.cases",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.cases",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.cases",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.cases",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.cases",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.causes",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.causes",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.causes",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.causes",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.causes",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.components",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.components",
+      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.components",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.components",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.components",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.explorer",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.explorer",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.footer",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.footer",
+      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.footer",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.footer",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.footer",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.footer",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.frame",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.frame",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.markup",
+      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.markup",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.markup",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.markup",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.markup",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.places",
+      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.places",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.places",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.rules",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.rules",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.rules",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.rules",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.rules",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.shell",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.shell",
+      "A trait impl in native.archkeel_report.head may run in code that reaches native.archkeel_report.head without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.shell",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.shell",
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.shell",
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.shell",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.shell",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.status",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.status",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.status",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.unknown",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.unknown",
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.unknown",
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.unknown",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.unknown",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.verdict",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.verdict",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_report.html.verdict",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
     ],
     [
@@ -76760,22 +76404,22 @@
     [
       "collection_gap",
       "native.archkeel_report.ruling",
-      "A trait impl in native.archkeel_report.engine_frame.html.atlas_tree may run in code that reaches native.archkeel_report.engine_frame.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      "A trait impl in native.archkeel_report.html.atlas_tree may run in code that reaches native.archkeel_report.html.atlas_tree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_report.ruling",
-      "A trait impl in native.archkeel_report.engine_frame.html.frame may run in code that reaches native.archkeel_report.engine_frame.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      "A trait impl in native.archkeel_report.html.frame may run in code that reaches native.archkeel_report.html.frame without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_report.ruling",
-      "A trait impl in native.archkeel_report.engine_frame.html.places may run in code that reaches native.archkeel_report.engine_frame.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      "A trait impl in native.archkeel_report.html.places may run in code that reaches native.archkeel_report.html.places without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_report.ruling",
-      "A trait impl in native.archkeel_report.engine_frame.html.status may run in code that reaches native.archkeel_report.engine_frame.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      "A trait impl in native.archkeel_report.html.status may run in code that reaches native.archkeel_report.html.status without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
