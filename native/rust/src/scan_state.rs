@@ -41,6 +41,8 @@ pub(crate) enum Via {
     /// A path in code, in an attribute or in the body of a macro call.
     #[default]
     Path,
+    /// A dot call whose receiver and member the collector resolves.
+    Method,
     /// A validated derive-helper path, including a bare child-module name.
     Helper,
     /// A leaf of a `use` item: the local name that it binds.

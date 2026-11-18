@@ -359,7 +359,7 @@ impl Builder {
             site: call.site.clone(),
             names: vec![root.to_owned(), call.name.clone()],
             scope: call.scope.clone(),
-            via: Via::Path,
+            via: if call.path { Via::Path } else { Via::Method },
             ..Reference::default()
         };
         let edge = Edge {

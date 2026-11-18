@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 
 //! The records of the edges between the modules of one crate: one `import` or `reexport` record
-//! for each distinct path of a module that names another module of its crate, and one gap for
-//! each path that the scan cannot resolve. The resolution is in `modules.rs`.
+//! for each distinct path or proven dot call, and one gap for each path that the scan
+//! cannot resolve. The resolution is in `modules.rs`.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -379,10 +379,15 @@ impl Builder {
             Some(_) => ("template:", "macro_body"),
             None => ("", "module"),
         };
+        let receiver = match reference.via {
+            Via::Method => edge.member_of.clone(),
+            _ => None,
+        };
         let key = (
             module.module.clone(),
             format!("{template}module:{}", edge.module),
             reference.path.clone(),
+            receiver,
         );
         if !self.seen.insert(key) {
             self.ended += 1;
@@ -443,7 +448,7 @@ fn module_record(
             block,
         } => (binding.clone(), *reexport, *block, false),
         Via::Glob { reexport, block } => (None, *reexport, *block, true),
-        Via::Path | Via::Helper => (None, false, true, false),
+        Via::Path | Via::Method | Via::Helper => (None, false, true, false),
     };
     let data = ImportData {
         source_module: ModuleName::new(&module.module),
