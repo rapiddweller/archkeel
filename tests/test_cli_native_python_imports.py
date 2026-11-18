@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,55 @@ BASE = {
     "src/app/client.py": "import os\n",
     "src/app/service.py": "VALUE = 1\n",
 }
+
+
+@pytest.mark.parametrize(
+    ("client", "called"),
+    [
+        ("from app.service import Plan\nPlan.code.interact()\n", True),
+        ("from app.service import Plan as P\nP.code.interact()\n", True),
+        ("from app.service import Described\nDescribed.code.interact()\n", True),
+        ("from app.service import Plan\nvalue = Plan.code\n", False),
+    ],
+)
+def test_class_code_dispatch_keeps_gap(
+    release_core: Path, tmp_path: Path, client: str, called: bool
+) -> None:
+    models = (
+        "value = None\n"
+        "class Descriptor:\n"
+        " def __get__(self, obj, owner): return value\n"
+        "class Plan:\n code = None\n"
+        "class Described:\n code = Descriptor()\n"
+    )
+    root = project(
+        tmp_path,
+        {
+            "src/app/__init__.py": "",
+            "src/app/service.py": models,
+            "src/app/client.py": client,
+            "p": "# Target\n\n<!-- archkeel-component-graph -->\n"
+            "```mermaid\nflowchart LR\n    client --> service\n```\n",
+        },
+        contract_rules=[{**RULE, "id": "CYCLES", "kind": "no_component_cycles"}],
+    )
+    witness = (
+        "import code\ncalls = []\n"
+        "code.interact = lambda: calls.append('called')\n"
+        "import app.service\n"
+        "app.service.Plan.code = code\napp.service.value = code\n"
+        f"import app.client\nassert calls == {['called'] if called else []!r}\n"
+    )
+    subprocess.run(
+        [sys.executable, "-c", witness],
+        env={**os.environ, "PYTHONPATH": str(root / "src")},
+        check=True,
+        capture_output=True,
+    )
+    result = verdict(release_core, root)
+    assert "dynamic_import" in json.dumps(result)
+    assert result["status"] == "UNKNOWN"
+    assert rows(result)["CYCLES"] == "UNKNOWN"
 
 
 def component(

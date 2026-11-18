@@ -167,16 +167,14 @@ pub(super) fn code(expr: &Expr, bindings: &Bindings) -> bool {
     matches!(&*node.value, Expr::Attribute(attr) if attr.attr.as_str() == "__dict__" && module(&attr.value, bindings))
 }
 
-/// One module for the proof: its name, its tree, its unique direct bindings and its imports.
-pub(super) type Item<'a> = (&'a str, &'a ModModule, HashSet<String>, Bindings);
+/// One module for the proof: its tree, its unique direct bindings and its imports.
+pub(super) type Item<'a> = (&'a ModModule, HashSet<String>, Bindings);
 
 /// The sites that are no door although a door name appears in them (AD-894). The walk of the
 /// hazards reports each site, and `covers` finds it again by its range.
 pub(super) struct Proved {
     /// A name of a module `def` or `class`, or an attribute chain on it: the name of its root.
     local: HashMap<TextRange, String>,
-    /// An attribute chain on an import of a class of the scan.
-    class: HashSet<TextRange>,
     /// A `sys.path` that a read uses.
     path: HashSet<TextRange>,
 }
@@ -184,18 +182,7 @@ pub(super) struct Proved {
 /// The proof facts of each module. `fixed` lists the names that a module `def` never makes local:
 /// the builtin doors and the import functions.
 pub(super) fn proved(modules: &[Item], fixed: &[&[&str]]) -> Vec<Proved> {
-    let mut scan = HashSet::new();
-    for (module, tree, unique, _) in modules {
-        let own = tree.body.iter().filter_map(|stmt| match stmt {
-            Stmt::ClassDef(node) => Some(node.name.as_str()),
-            _ => None,
-        });
-        for name in own.filter(|name| unique.contains(*name)) {
-            scan.insert(format!("{module}.{name}"));
-        }
-    }
-    let each =
-        |(_, tree, unique, imports): &Item| Proved::of(tree, (imports, unique), &scan, fixed);
+    let each = |(tree, unique, imports): &Item| Proved::of(tree, (imports, unique), fixed);
     modules.iter().map(each).collect()
 }
 
@@ -203,7 +190,6 @@ impl Proved {
     fn of(
         tree: &ModModule,
         (imports, unique): (&Bindings, &HashSet<String>),
-        scan: &HashSet<String>,
         fixed: &[&[&str]],
     ) -> Self {
         let defined = tree.body.iter().filter_map(|stmt| match stmt {
@@ -216,23 +202,17 @@ impl Proved {
             .filter(|name| !fixed.iter().any(|names| names.contains(name)))
             .map(str::to_owned)
             .collect();
-        let mut class = HashSet::new();
         let mut sys = HashSet::new();
         for (name, origins) in imports.iter().filter(|(name, _)| unique.contains(*name)) {
-            if origins.iter().all(|origin| scan.contains(origin)) {
-                class.insert(name.clone());
-            }
             if origins.as_slice() == ["sys"] {
                 sys.insert(name.clone());
             }
         }
         let mut marks = Marks {
             local,
-            class,
             sys,
             found: Self {
                 local: HashMap::new(),
-                class: HashSet::new(),
                 path: HashSet::new(),
             },
         };
@@ -250,8 +230,7 @@ impl Proved {
                     .strip_prefix(root.as_str())
                     .is_some_and(|rest| rest.starts_with('.'))
         };
-        let door = self.local.get(&range).is_some_and(under)
-            || (detail == "code" && self.class.contains(&range));
+        let door = self.local.get(&range).is_some_and(under);
         (dynamic && door) || (system && detail == "sys.path" && self.path.contains(&range))
     }
 }
@@ -259,7 +238,6 @@ impl Proved {
 /// The walk that finds the sites of `Proved`.
 struct Marks {
     local: HashSet<String>,
-    class: HashSet<String>,
     sys: HashSet<String>,
     found: Proved,
 }
@@ -286,8 +264,6 @@ impl Marks {
         let id = root.id.as_str();
         if self.local.contains(id) {
             self.found.local.insert(expr.range(), id.to_owned());
-        } else if self.class.contains(id) {
-            self.found.class.insert(expr.range());
         }
     }
 }

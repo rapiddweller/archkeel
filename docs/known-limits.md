@@ -274,7 +274,7 @@ appears in the directory after the snapshot, a writer outside the scan roots (`c
 `sitecustomize`, an installed package), a name that only code outside the scan imports, and a
 namespace that does not resolve to the scan root are not seen. `insert` and each other write of
 `sys.path` stay the gap of the whole run. A read of `sys.path` as the source of a loop or a
-comprehension, an operand of a comparison or a subscript read is no gap (AD-894).
+comprehension, or as a subscript read, is no gap. Comparisons keep the gap (AD-894).
 
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 

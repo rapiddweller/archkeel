@@ -469,7 +469,7 @@ pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy
     let items: Vec<_> = modules
         .iter()
         .zip(binders)
-        .map(|(m, b)| (m.name.as_str(), &m.tree, b.unique(), bindings(&m.tree)))
+        .map(|(m, b)| (&m.tree, b.unique(), bindings(&m.tree)))
         .collect();
     let proved = reflect::proved(&items, &[&BUILTIN_DOORS, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);

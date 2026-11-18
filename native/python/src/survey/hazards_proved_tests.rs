@@ -60,7 +60,7 @@ fn has_dynamic(source: &str) -> bool {
 }
 
 #[test]
-fn an_attribute_code_of_a_class_of_the_scan_is_no_gap_and_of_a_module_is() {
+fn an_attribute_code_of_an_imported_class_or_module_keeps_its_gap() {
     let files = [
         ("src/app/__init__.py", ""),
         (
@@ -78,9 +78,9 @@ fn an_attribute_code_of_a_class_of_the_scan_is_no_gap_and_of_a_module_is() {
         reasons(&surveyed(&all))
     };
     let plain = "from app.models import Plan\ndef use():\n    return Plan.code, Plan.name\n";
-    assert!(with(plain).is_empty(), "{:?}", with(plain));
+    assert!(!with(plain).is_empty(), "{:?}", with(plain));
     let aliased = "from app.models import Plan as P\nvalue = P.code\n";
-    assert!(with(aliased).is_empty(), "{:?}", with(aliased));
+    assert!(!with(aliased).is_empty(), "{:?}", with(aliased));
     for source in [
         "import code\ncode.interact()\n",
         "import code as c\nvalue = c.code\n",
@@ -104,6 +104,41 @@ fn a_class_of_the_scan_that_a_package_re_exports_keeps_its_gap() {
         ),
     ]);
     assert!(!reasons(&found).is_empty());
+}
+
+#[test]
+fn a_class_attribute_named_code_keeps_the_dynamic_import_gap() {
+    let models = "import code as module\nclass Descriptor:\n    def __get__(self, obj, owner):\n        return module\nclass Plan:\n    code = module\nclass Described:\n    code = Descriptor()\n";
+    for client in [
+        "from app.models import Plan\nPlan.code.interact()\n",
+        "from app.models import Plan as P\nP.code.interact()\n",
+        "from app.models import Described\nDescribed.code.interact()\n",
+        "from app.models import Plan\nvalue = Plan.code\n",
+    ] {
+        let modules: Vec<_> = [("app.models", models), ("app.client", client)]
+            .into_iter()
+            .map(|(name, source)| {
+                Module::new(
+                    format!("src/{}.py", name.replace('.', "/")),
+                    name.to_owned(),
+                    source.to_owned(),
+                    crate::test_tree(source, 14).unwrap(),
+                )
+            })
+            .collect();
+        let binders: Vec<_> = modules
+            .iter()
+            .map(|module| Binders::of(&module.tree))
+            .collect();
+        let (_, found) = split(&modules, &binders, None);
+        assert!(
+            found
+                .iter()
+                .any(|(index, site)| *index == 1 && site.kind == DYNAMIC && site.detail == "code"),
+            "{client}"
+        );
+    }
+    assert!(has_dynamic("class Plan:\n    pass\nPlan.code.interact()\n"));
 }
 
 #[test]
