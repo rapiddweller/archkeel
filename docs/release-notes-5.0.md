@@ -1,8 +1,8 @@
 # ArchKeel 5.0 release notes (draft)
 
-> **Draft for the release owner (#716).** Do not publish as is. The lead finalises the text at
-> release. Each number below names its source. A row marked **to confirm** needs a check on the
-> release commit.
+> **Draft for the release owner (#716).** Do not publish as is. This draft does not approve an RC,
+> tag or release. The lead finalises the text at the final release gate. Each number below names
+> its source. A row marked **to confirm** needs a check on the release commit.
 
 These notes compare ArchKeel 4.0.1 with the current development line. They describe new behavior,
 breaking changes, migration steps, and known limits. They are not final release notes.
@@ -13,22 +13,24 @@ breaking changes, migration steps, and known limits. They are not final release 
   of 4.0.1 is deleted
   ([AD-432](architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md)).
   The Python package reads the options, starts the core and prints its result.
-- **More honest results.** A rule is PASS only when the core proves it. Where 4.0.1 gave PASS
-  without a proof, 5.0 gives UNKNOWN and names the cause. UNKNOWN is not PASS.
+- **Named uncertainty.** The core reports UNKNOWN when it detects incomplete evidence. This does
+  not prove that every PASS is sound. Open false-PASS issue
+  [#1811](https://github.com/rapiddweller/archkeel/issues/1811) has a compiled reproduction on
+  `main`.
 - **Exit codes follow the verdict.** Without a baseline, PASS exits 0, FAIL exits 1, and UNKNOWN
   or a refusal exits 2 for `validate` and `report`. With a baseline, exit 2 means every UNKNOWN is
   accepted; a refused run exits 1. This changes CI behavior (see
   [breaking changes](#breaking-changes-and-migration)).
 - **Some 4.0.1 features are not on the current development line** (`check`, amendments, saved
-  observations, focused reports, and the Explorer and Studio tools). The shell refuses these
-  commands or options by name. Do not treat `main` as a released 5.0 build.
+  observations, focused reports, the standalone `explore` command, and Studio). The report still
+  includes its Explorer. Do not treat `main` as a released 5.0 build.
 
 ## What is new
 
 ### The Rust core and its language profiles
 
 - One core binary collects the facts of each language and decides each rule. There is no Python
-  fallback. A rule cannot PASS without a core result.
+  fallback.
 - **Rust is a new language profile.** ArchKeel checks Cargo workspaces and single crates.
 - TypeScript: each rule kind that the core has ported is decided.
 - Python and Dart: the rules that read the import graph are decided, and `interface_boundary`
@@ -71,8 +73,11 @@ breaking changes, migration steps, and known limits. They are not final release 
   ([AD-735](architecture/decisions/ad-735-the-draft-step-has-one-outcome-and-runs-after-the-core-is-found.md)).
   `outcome` is one of `verdict`, `collect_refused`, `command_refused`, `delivery_failed` or
   `completed`. A refusal has the field `refusal` with `kind` and `message`.
-- **HTML report.** `report --output PATH` writes one static page from the same ruling. It has no
-  interactive Explorer or architecture graph on the current development line.
+- **HTML report.** `report --output PATH` writes a static page from the same ruling. The page
+  includes the interactive Explorer and its architecture view: As-Is, Target and Diff. The
+  standalone `explore` command is not available on `main`. Studio is also unavailable, so this is
+  not a standalone Studio drill. See the [report reference](reference.md) and
+  [`html_arch.rs`](../native/report/src/html_arch.rs).
 - `report --topology` adds the components, modules, edges and declared structure to the JSON.
   `report --format json` writes the core frame to a file.
 - **Cycles.** A cycle shows its closed path in import order, with one `file:line` for each step.
@@ -87,13 +92,17 @@ breaking changes, migration steps, and known limits. They are not final release 
 
 ### More UNKNOWN, and why
 
-4.0.1 gave PASS for some forms that it could not see. 5.0 follows one law: a wrong PASS is never
-allowed, and a case that the core cannot see is a named gap. So some rules that were PASS on 4.0.1
-are UNKNOWN on 5.0, each with its cause.
+Some cases that 4.0.1 could not see now produce a named UNKNOWN. This is not complete. A compiled
+reproduction for [#1811](https://github.com/rapiddweller/archkeel/issues/1811) still gives false
+PASS results for a forbidden dependency and two cycle rules on `main` `cef0d6f3a`. Independent
+review evidence is recorded in
+[#1824's review comment](https://github.com/rapiddweller/archkeel/pull/1824#issuecomment-6973117320).
+The proposed fix in [#1842](https://github.com/rapiddweller/archkeel/pull/1842) is a draft. It is
+not part of `main`.
 
 The earlier plant and reference-project counts do not describe current `main`. The collectors and
-decision path changed after those runs. Do not use those counts as release evidence.
-Re-run the reference projects on the release commit before publication.
+decision path changed after those runs. Do not use those counts as release evidence. Re-run the
+reference projects on the release commit before publication.
 
 ### Other changes
 
@@ -128,32 +137,39 @@ Measure the same projects again on the release commit before publication.
 
 ## Known limits and open false-PASS classes
 
-The full list is [known limits](known-limits.md). The release waits for each open false-PASS class
-below. A false PASS is a PASS where the code breaks the rule.
+The full list is [known limits](known-limits.md). A false PASS occurs when the code breaks a rule
+but the result is PASS. The table lists open, reproduced cases checked for this draft.
 
 | Class | Issue |
 |---|---|
-| Rust: a method in the file of its type, called through a field. This was a documented limit (AD-418); a documented limit does not accept a false PASS. | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
-State checked on 2026-11-18. The only open issue with the `false-pass` label is
-[#1571](https://github.com/rapiddweller/archkeel/issues/1571). Issue #1810 is closed and is not an
-open blocker. These issues were in the earlier table and are closed on GitHub:
+| Rust: dropping an erased value from a sibling store gives false PASS for a forbidden dependency and both cycle rules. Reproduced on `main` `cef0d6f3a`; see the compiled cases in [#1824's review](https://github.com/rapiddweller/archkeel/pull/1824#issuecomment-6973117320). | [#1811](https://github.com/rapiddweller/archkeel/issues/1811) |
+| Rust: a method in the file of its type, called through a field. The issue remains open; main has regression tests in `tests/test_collector_false_pass_rust_own_file_method.py`. | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
+
+Issue #1811 was open on GitHub when this draft was checked on 2026-11-18. Remove or update its
+row if the issue closes or its reproduction changes before release.
+The #1811 fix proposal in #1842 is a draft and does not change `main`. Before release, fix each
+reproduced false PASS in this table and retain its regression test. Do not treat an unresolved
+false PASS as accepted.
+
+These issues were in the earlier table and are closed on GitHub:
 [#1515](https://github.com/rapiddweller/archkeel/issues/1515),
 [#1516](https://github.com/rapiddweller/archkeel/issues/1516),
 [#1517](https://github.com/rapiddweller/archkeel/issues/1517),
 [#1518](https://github.com/rapiddweller/archkeel/issues/1518),
 [#1523](https://github.com/rapiddweller/archkeel/issues/1523),
 [#1529](https://github.com/rapiddweller/archkeel/issues/1529) and
-[#1674](https://github.com/rapiddweller/archkeel/issues/1674). **To confirm**: query the label
-`false-pass` again on the release commit. This table must be empty, or each row accepted by the
-owner, before the release.
+[#1674](https://github.com/rapiddweller/archkeel/issues/1674). Check issue status and reproductions
+again on the release commit.
 
 Other limits of 5.0:
 
 - Python and Dart decide only the import-graph rules and `interface_boundary`. Dart cycle rules
   have a receipt when the survey proves the package map is complete.
-- Rust macros: a macro that the scan does not expand is a named gap. On `pydantic-core` this holds
-  the assignment rule UNKNOWN (20,366 named gaps, mostly `intern!` and derives).
-- `explore`, `guide`, `story`, `view` and `studio` are not on the current development line.
+- Rust macros: a macro that the scan does not expand is a named gap. On `pydantic-core`, unexpanded
+  macros can hold the assignment rule UNKNOWN. The historical count and its source commit are not
+  verified here, so this draft does not state a number.
+- `explore`, `guide`, `story`, `view` and `studio` are not on the current development line. The
+  report's embedded Explorer remains available.
 - File output (`report --output`) needs POSIX directory handles; other platforms refuse it.
 
 ## Premises that a PASS can rest on
