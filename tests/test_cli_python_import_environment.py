@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from python_syspath_plants import Plant
-from test_cli_native_python_imports import RULE, project, rows, verdict
+from test_cli_native_python_imports import RULE, component, project, rows, verdict
 from test_cli_python_syspath import tree
 
 
@@ -39,6 +39,49 @@ def test_literal_membership_comparison_remains_unknown(release_core: Path, tmp_p
     assert result["status"] == "UNKNOWN"
 
 
+def test_issue_1847_plain_reads_pass_validation(release_core: Path, tmp_path: Path) -> None:
+    root = project(
+        tmp_path,
+        {
+            "app/beta/models.py": 'class Plan:\n    code = "x"\n    name = "n"\n',
+            "app/alpha/a.py": (
+                "import sys\n\n"
+                "from app.beta.models import Plan\n\n\n"
+                "def inspect(x):\n"
+                "    return x\n\n\n"
+                "def use(plan: Plan) -> list[str]:\n"
+                "    inspect(1)\n"
+                "    a = Plan.code\n"
+                "    b = Plan.name\n"
+                "    paths = [p for p in sys.path if p]\n"
+                "    return [a, b, *paths]\n"
+            ),
+            "p": "# Target\n\n<!-- archkeel-component-graph -->\n"
+            "```mermaid\nflowchart LR\n    alpha --> beta\n```\n",
+        },
+        roots='["app"]',
+        contract_rules=[
+            {**RULE, "id": "ASSIGNMENT-COMPLETE", "kind": "complete_assignment", "source": "app"},
+            {**RULE, "id": "COMPONENT-NO-CYCLES", "kind": "no_component_cycles"},
+            {**RULE, "id": "REQUIRES", "kind": "complete_requires"},
+        ],
+    )
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.14"\n')
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["components"] = [
+        component("alpha", ["app.alpha"], ["beta"]),
+        component("beta", ["app.beta"]),
+    ]
+    path.write_text(json.dumps(contract))
+    result = verdict(release_core, root)
+    assert result["frame"]["collection_gaps"] == []
+    assert rows(result) == dict.fromkeys(
+        ["ASSIGNMENT-COMPLETE", "COMPONENT-NO-CYCLES", "REQUIRES"], "PASS"
+    )
+    assert (result["status"], result["exit_code"]) == ("PASS", 0)
+
+
 @pytest.mark.parametrize(
     ("client", "called"),
     [
@@ -52,11 +95,13 @@ def test_class_code_dispatch_keeps_gap(
     release_core: Path, tmp_path: Path, client: str, called: bool
 ) -> None:
     models = (
+        "import code as module\n"
         "value = None\n"
         "class Descriptor:\n"
         " def __get__(self, obj, owner): return value\n"
         "class Plan:\n code = None\n"
         "class Described:\n code = Descriptor()\n"
+        "Plan.code = module\nvalue = module\n"
     )
     root = project(
         tmp_path,
@@ -72,8 +117,6 @@ def test_class_code_dispatch_keeps_gap(
     witness = (
         "import code\ncalls = []\n"
         "code.interact = lambda: calls.append('called')\n"
-        "import app.service\n"
-        "app.service.Plan.code = code\napp.service.value = code\n"
         f"import app.client\nassert calls == {['called'] if called else []!r}\n"
     )
     subprocess.run(
@@ -83,6 +126,9 @@ def test_class_code_dispatch_keeps_gap(
         capture_output=True,
     )
     result = verdict(release_core, root)
-    assert "dynamic_import" in json.dumps(result)
+    assert any(
+        gap["reason"] == "dynamic_import: code" and gap["subjects"] == ["app.client"]
+        for gap in result["frame"]["collection_gaps"]
+    )
     assert result["status"] == "UNKNOWN"
     assert rows(result)["CYCLES"] == "UNKNOWN"

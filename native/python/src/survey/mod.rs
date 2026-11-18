@@ -184,7 +184,26 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     let mut evidence = EvidenceMap::new();
     let lazy = lazy::find(modules, &binders, namespace);
     // AD-472: a proven literal import call is an import record; each other site is a gap.
-    let (literals, hazards) = hazards::split(modules, &binders, Some(&lazy));
+    let (literals, mut hazards) = hazards::split(modules, &binders, Some(&lazy));
+    let candidates = hazards.iter().map(|(index, site)| {
+        (site.kind == hazards::DYNAMIC && site.detail == "code").then_some((*index, site.range))
+    });
+    let class_inputs = modules.iter().zip(&binders).map(|(module, binders)| {
+        let exports = !Module::is_init(module) && Binders::count(binders, "__getattr__") == Some(0);
+        (
+            String::as_str(&module.name),
+            &module.tree,
+            Binders::unique(binders),
+            exports,
+        )
+    });
+    let stable = |name: &str| !class_writes::may_write(&writes, name);
+    if parsed.gaps.is_empty()
+        && found.is_empty()
+        && hazards::reflect::only_class_data_reads(candidates, class_inputs, &outside, stable)
+    {
+        hazards.clear();
+    }
     // AD-654: a module with a hazard site keeps no proven key.
     let names = modules.iter().map(|module| module.name.as_str());
     let mut sources = lazy_cover::by_module(names, &lazy);
