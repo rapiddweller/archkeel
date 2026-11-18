@@ -180,6 +180,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
         }
         match stmt {
             Stmt::Expr(node) if ignores::member_call(&node.value) => self.type_ignore(stmt),
+            Stmt::Assign(_) => self.type_ignore(stmt),
             Stmt::FunctionDef(node) => {
                 if let Some(annotation) = &node.returns {
                     self.annotation(annotation);
@@ -300,9 +301,9 @@ impl Walk<'_> {
         let Ok(column) = usize::try_from(location.column) else {
             return;
         };
-        let Some((tag, text)) = self
-            .comments
-            .take(self.module.text(), start - column, start, end)
+        let Some((tag, text)) =
+            self.comments
+                .take(self.module.text(), start - column, start, end, stmt)
         else {
             return;
         };

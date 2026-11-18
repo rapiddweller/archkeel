@@ -61,3 +61,33 @@ def test_a_protocol_body_is_a_declaration() -> None:
         [sys.executable, "-c", source], capture_output=True, text=True, check=True
     )
     assert done.stdout.strip() == "True"
+
+
+@pytest.mark.parametrize(
+    ("prefix", "is_builtin"),
+    [
+        ("", True),
+        ("class NotImplementedError(ValueError): pass\n", False),
+        ("NotImplementedError = ValueError\n", False),
+        ("import builtins\nbuiltins.NotImplementedError = ValueError\n", False),
+    ],
+)
+def test_raise_name_needs_builtin_identity(
+    release_core: Path, tmp_path: Path, prefix: str, is_builtin: bool
+) -> None:
+    source = prefix + "def check():\n    raise NotImplementedError\n"
+    witness = (
+        "import builtins\noriginal = builtins.NotImplementedError\n"
+        + source
+        + "try:\n    check()\nexcept Exception as error:\n"
+        + "    print(type(error) is original)\n"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", witness], capture_output=True, text=True, check=True
+    )
+    assert done.stdout.strip() == str(is_builtin)
+    rule = {**CONSTRUCT, "id": "NO-PLACEHOLDER", "constructs": ["placeholder_body"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-PLACEHOLDER"] == "UNKNOWN", result["frame"]
