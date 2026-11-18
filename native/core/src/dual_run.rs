@@ -298,15 +298,7 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
         .frame(&parts)
         .map_err(|error| format!("{}: an inconsistent frame: {error}", run.case))?
         .into_bytes();
-    let timings = Phases {
-        evaluate: rendering
-            .zip(evaluating)
-            .map_or(Duration::ZERO, |(end, start)| end - start),
-        render: clock
-            .zip(rendering)
-            .map_or(Duration::ZERO, |(now, start)| now() - start),
-        ..Phases::default()
-    };
+    let timings = Phases::evaluation(evaluating, rendering, clock.map(|now| now()));
     Ok(Answered {
         frame,
         names_a_gap,
