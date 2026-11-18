@@ -223,7 +223,7 @@
   }
 
   // ---------- the view state of the presentation choices ----------
-  const { decider: DECIDER } = window.ArchkeelReportScene;
+  const { decider: DECIDER, perspectives: PERSPECTIVES } = window.ArchkeelReportScene;
   // AD-734: the presentation choices live in the one view state S of flow.js; a change is a dispatch,
   // and flow.js writes the URL. AD-606: the report opens with the language of each component on its
   // box ("language" is the default of S.perspective); "none" is a choice.
@@ -409,7 +409,7 @@
   const tagBar = h("div", { class: "ak-bar ak-bottom-center", role: "toolbar", "aria-label": "Perspectives" });
   // report-presentation.js owns the perspectives, the tag bar and the export of the diagram.
   const { applyPerspective, renderTagBar, cyclePerspective, colorOf, languageNames, languageBadge, copy, mermaid, downloadSvg } =
-    window.ArchkeelReportPresentation.create({ F, A, root, h, s, S, present, tagBar, components, toast, modal });
+    window.ArchkeelReportPresentation.create({ F, A, root, html, SVGNS, PERSPECTIVES, h, s, S, present, tagBar, components, toast, modal });
   const zoom = move(".flow-zoom-controls");
   zoom?.querySelector(".flow-fit-overview")?.replaceChildren(icon("fit"));
   zoom?.querySelector(".flow-fit-overview")?.setAttribute("aria-label", "Fit overview");

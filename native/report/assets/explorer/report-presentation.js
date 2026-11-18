@@ -2,10 +2,7 @@
 // ArchQ Explorer presents recorded evidence; it never computes verdicts.
 // The presentation choices of the canvas (perspectives and the tag bar) and the export of the diagram.
 (function () {
-  function create({ F, A, root, h, s, S, present, tagBar, components, toast, modal }) {
-    const { perspectives: PERSPECTIVES } = window.ArchkeelReportScene;
-    const SVGNS = "http://www.w3.org/2000/svg";
-    const html = document.documentElement;
+  function create({ F, A, root, html, SVGNS, PERSPECTIVES, h, s, S, present, tagBar, components, toast, modal }) {
     const PALETTE = ["var(--line-strong)", "var(--accent-text)", "var(--ink-muted)", "var(--accent-hover)", "var(--ink-subtle)", "var(--accent)", "var(--ink)", "var(--surface-3)"];
     const categorical = {};
     for (const [key, choice] of Object.entries(PERSPECTIVES)) {

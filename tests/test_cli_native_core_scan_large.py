@@ -150,13 +150,12 @@ def honest_source(language: str, shape: str, size: int) -> str:
 
 
 def drop_premise(frame: dict) -> None:
-    """AD-540: the linked TypeScript collector states one assumption as text; the wire reply of
-    the harness carries none. Check that it is a non-empty string before it is left out."""
+    """AD-540: the linked TypeScript and Rust collectors state one assumption as text (Rust: the
+    code compiles, #1779); the wire reply of the harness carries none. Check that it is a
+    non-empty string before it is left out."""
     language = frame["self_test"]["collect"]["request"]["resolver"]["language"]
-    if language == "typescript":
-        assert isinstance(frame["premise"], str) and frame["premise"], frame.get("premise")
-    else:
-        assert "premise" not in frame
+    assert language in {"typescript", "rust"}, language
+    assert isinstance(frame["premise"], str) and frame["premise"], frame.get("premise")
     frame.pop("premise", None)
 
 

@@ -36,6 +36,11 @@ fn validation() -> Validation {
     }
 }
 
+/// The basis of the resolver (AD-796, #1779): a declaration of a library hides an import of its
+/// name, and a project binding through an unprefixed import is the binding, because two
+/// non-platform libraries that export one used name are a compile error.
+const VALID_PREMISE: &str = "the Dart code is valid (dart analyze accepts it)";
+
 /// Decode a Dart request with the shared wire, as the binary reads it on stdin.
 pub fn decode(payload: &[u8]) -> Result<DartRequest, String> {
     archkeel_wire::request::decode_dart(payload)
@@ -93,6 +98,7 @@ pub fn typed_reply(
         interface_boundary: LimitSupport::Supported,
         publication_surface: LimitSupport::Supported,
     });
+    reply.facts.scope_premise = Some(VALID_PREMISE);
     // The wire counts a parsed file for each module; a part is a parsed file too (AD-468).
     reply.facts.coverage.files_parsed = parsed;
     reply.facts.owned_files = parts
