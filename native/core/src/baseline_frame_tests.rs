@@ -10,10 +10,8 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use crate::scan::{
-    answer,
-    tests::{repository, request},
-};
+use crate::scan::tests::{repository, request};
+use crate::scan_answer as answer;
 
 fn frame(root: &Path, extra: Value) -> Value {
     let mut request = request(root);

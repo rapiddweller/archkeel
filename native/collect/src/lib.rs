@@ -30,7 +30,7 @@ mod system;
 
 pub use system::{System, SystemPart};
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use archkeel_store::Ingested;
 use serde_json::{json, Value};
@@ -120,9 +120,18 @@ pub(crate) fn test_features() -> &'static [&'static str] {
 }
 
 /// Scan the repository of `identity` with the collector of its profile. `contract_budget` bounds
-/// the bytes of the root contract.
+/// the bytes of the root contract. The phase durations are zero without a clock.
 pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Refusal> {
-    let started = Instant::now();
+    scan_with_clock(identity, contract_budget, None)
+}
+
+/// Scan with an optional monotonic elapsed-time source from the caller. It must not decrease.
+pub fn scan_with_clock(
+    identity: &Identity<'_>,
+    contract_budget: u64,
+    clock: Option<&dyn Fn() -> Duration>,
+) -> Result<Scanned, Refusal> {
+    let started = clock.map(|now| now());
     built(test_features())?;
     let root = root_of(identity)?;
     let root_text = root
@@ -157,8 +166,10 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
     }
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
-    let prepared = started.elapsed();
-    let (reply, collected, validated) = run::collect_timed(config.profile, &bytes)?;
+    let prepared = clock
+        .zip(started)
+        .map_or(Duration::ZERO, |(now, start)| now() - start);
+    let (reply, collected, validated) = run::collect_timed(config.profile, &bytes, clock)?;
     let bound = match config.profile {
         Profile::Python => python::bound(&root, reply.reply()),
         Profile::Dart => dart::bound(&root, reply.reply()),

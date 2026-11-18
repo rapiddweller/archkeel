@@ -1,0 +1,6 @@
+[scan]
+language = "python"
+namespace = "sympy"
+roots = ["sympy"]
+contract = "architecture-contract.json"
+exclude_test_sources = true

@@ -89,27 +89,30 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             };
             Box::new(move |candidate, shared| crate::base::gap(base, candidate, shared))
         });
-    dual_run::run(Run {
-        topology: false,
-        case: "check".to_owned(),
-        path: request.contract.path,
-        contract: decode::hex(&request.contract.hex)?,
-        insides: decode::insides(request.insides)?,
-        reply,
-        sections: Vec::new(),
-        namespace: request.namespace,
-        roots: request.roots,
-        baseline: false,
-        accept: None,
-        report: false,
-        html: false,
-        part_of: None,
-        base,
-        trust: Box::new(stage_one_shell_trust),
-        collect: None,
-        documents: None,
-        sdk_libraries: Vec::new(),
-    })
+    dual_run::run(
+        Run {
+            topology: false,
+            case: "check".to_owned(),
+            path: request.contract.path,
+            contract: decode::hex(&request.contract.hex)?,
+            insides: decode::insides(request.insides)?,
+            reply,
+            sections: Vec::new(),
+            namespace: request.namespace,
+            roots: request.roots,
+            baseline: false,
+            accept: None,
+            report: false,
+            html: false,
+            part_of: None,
+            base,
+            trust: Box::new(stage_one_shell_trust),
+            collect: None,
+            documents: None,
+            sdk_libraries: Vec::new(),
+        },
+        None,
+    )
 }
 
 /// Stage 1 trust of the shell-run bundled collector. Limit (AD-390): the shell is the trust

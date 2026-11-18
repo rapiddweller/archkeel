@@ -24,6 +24,20 @@ fn each(seconds: u64) -> Phases {
 }
 
 #[test]
+fn evaluation_and_render_use_their_own_boundaries() {
+    let phases = Phases::evaluation(
+        Some(Duration::from_secs(2)),
+        Some(Duration::from_secs(5)),
+        Some(Duration::from_secs(9)),
+    );
+    assert_eq!(phases.evaluate, Duration::from_secs(3));
+    assert_eq!(phases.render, Duration::from_secs(4));
+    let untimed = Phases::evaluation(None, None, None);
+    assert_eq!(untimed.evaluate, Duration::ZERO);
+    assert_eq!(untimed.render, Duration::ZERO);
+}
+
+#[test]
 fn the_timings_line_is_one_json_document_with_the_phases_in_the_order_of_the_run() {
     let line = Phases::line(&each(2));
     let document: Value = serde_json::from_str(&line).unwrap();
