@@ -96,7 +96,6 @@ fn proves(prelude: &str, expr: &str) -> bool {
 #[test]
 fn any_is_proven_only_when_every_binder_is_a_typing_import() {
     assert!(proves("from typing import Any", "Any"));
-    assert!(proves("from typing_extensions import Any", "Any"));
     assert!(proves("if x:\n    from typing import Any", "Any"));
     assert!(proves("from typing import *", "Any"));
     assert!(proves(
@@ -108,6 +107,8 @@ fn any_is_proven_only_when_every_binder_is_a_typing_import() {
 #[test]
 fn any_is_not_proven_when_a_binder_or_a_star_import_may_be_something_else() {
     assert!(!proves("", "Any"));
+    assert!(!proves("from typing_extensions import Any", "Any"));
+    assert!(!proves("from typing_extensions import *", "Any"));
     assert!(!proves("class Any: pass", "Any"));
     assert!(!proves("Any = object", "Any"));
     assert!(!proves("from typing import Any\nclass Any: pass", "Any"));
@@ -126,10 +127,11 @@ fn any_is_not_proven_when_a_binder_or_a_star_import_may_be_something_else() {
 fn an_attribute_any_is_proven_only_for_a_name_of_the_typing_module() {
     assert!(proves("import typing", "typing.Any"));
     assert!(proves("import typing as t", "t.Any"));
-    assert!(proves("import typing_extensions as te", "te.Any"));
     assert!(proves("if x:\n    import typing", "typing.Any"));
     assert!(!proves("import typing\ntyping = 1", "typing.Any"));
     assert!(!proves("import typing.io", "typing.Any"));
+    assert!(!proves("import typing_extensions as te", "te.Any"));
+    assert!(!proves("import typing_extensions", "typing_extensions.Any"));
     assert!(!proves("import mylib", "mylib.Any"));
     assert!(!proves("class Outer:\n    class Any: pass", "Outer.Any"));
     assert!(!proves("import typing\nfrom m import *", "typing.Any"));

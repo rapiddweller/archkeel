@@ -208,6 +208,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         &binders,
         &imports,
         (&sole_binders, &ambiguous),
+        &writes,
         &mut evidence,
     );
     let scan = pathscope::Scan::new(modules, &imports, roots, namespace);

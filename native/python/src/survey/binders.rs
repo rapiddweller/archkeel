@@ -24,9 +24,9 @@ pub(crate) struct Binders {
     counts: HashMap<String, usize>,
     /// The names that a top-level definition or import binds, in source order.
     direct: Vec<String>,
-    /// How many imports of `Any` from `typing` or `typing_extensions` bind the name `Any`.
+    /// How many imports of `Any` from `typing` bind the name `Any`.
     typing_any: usize,
-    /// How many imports of the module `typing` or `typing_extensions` bind each name.
+    /// How many imports of the module `typing` bind each name.
     typing_modules: HashMap<String, usize>,
     /// A star import or a type parameter list anywhere: no name is unique.
     opaque: bool,
@@ -93,16 +93,19 @@ impl Binders {
         (!self.opaque).then(|| self.counts.get(name).copied().unwrap_or(0))
     }
 
-    /// The module proves that `expr` (`Any` or `m.Any`) is `typing.Any` (AD-880). `Any`: each binder
-    /// is an import of `typing.Any`, and each star import is from `typing`; with no binder one such
-    /// star import is needed. `m.Any`: each binder of `m` is an import of the module `typing`. A
-    /// source order, another star import or a second binder leaves the identity unproven.
+    /// The binders of the module prove that `expr` (`Any` or `m.Any`) names the `Any` of the
+    /// standard module `typing` (AD-880). `Any`: each binder is an import of `typing.Any`, and each
+    /// star import is from `typing`; with no binder one such star import is needed. `m.Any`: each
+    /// binder of `m` is an import of the module `typing`. `typing_extensions` is no standard module:
+    /// nothing proves its object. A source order, another star import or a second binder leaves the
+    /// identity unproven. The caller still needs that nothing replaces `typing` (`ClassWrites`).
     pub(crate) fn names_typing_any(&self, expr: &Expr) -> bool {
         match expr {
             Expr::Name(name) if name.id.as_str() == "Any" => {
-                let typing_stars = self.stars.iter().all(|(level, module)| {
-                    *level == 0 && matches!(module.as_str(), "typing" | "typing_extensions")
-                });
+                let typing_stars = self
+                    .stars
+                    .iter()
+                    .all(|(level, module)| *level == 0 && module.as_str() == "typing");
                 self.count_beside_stars("Any").is_some_and(|bound| {
                     typing_stars
                         && bound == self.typing_any
@@ -116,6 +119,20 @@ impl Binders {
             }
             _ => false,
         }
+    }
+
+    /// The annotation holds a name that the binders prove to be `typing.Any`.
+    pub(crate) fn names_any(&self, annotation: &Expr) -> bool {
+        struct Any<'b>(&'b Binders, bool);
+        impl<'a> Visitor<'a> for Any<'_> {
+            fn visit_expr(&mut self, expr: &'a Expr) {
+                self.1 |= self.0.names_typing_any(expr);
+                visitor::walk_expr(self, expr);
+            }
+        }
+        let mut found = Any(self, false);
+        found.visit_expr(annotation);
+        found.1
     }
 
     /// `_unique_direct_module_bindings`: a direct name that no other binder in the module binds.
@@ -280,12 +297,12 @@ pub(super) fn pattern_name(pattern: &Pattern) -> Option<&str> {
     name.map(Identifier::as_str)
 }
 
-/// How many names of `from typing import ...` (or `typing_extensions`) bind `Any` as `Any`.
+/// How many names of `from typing import ...` bind `Any` as `Any`.
 fn typing_any_imports(node: &StmtImportFrom) -> usize {
     let typing = node
         .module
         .as_ref()
-        .is_some_and(|name| matches!(name.as_str(), "typing" | "typing_extensions"));
+        .is_some_and(|name| name.as_str() == "typing");
     let own = |alias: &&Alias| {
         let named_any = alias
             .asname
@@ -303,7 +320,7 @@ fn typing_any_imports(node: &StmtImportFrom) -> usize {
 impl Walk {
     fn typing_module_imports(&mut self, names: &[Alias]) {
         for alias in names {
-            if matches!(alias.name.as_str(), "typing" | "typing_extensions") {
+            if alias.name.as_str() == "typing" {
                 let bound = alias.asname.as_ref().unwrap_or(&alias.name);
                 *self.typing_modules.entry(bound.to_string()).or_default() += 1;
             }

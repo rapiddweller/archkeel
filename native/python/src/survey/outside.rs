@@ -86,6 +86,12 @@ pub(super) fn written(
     let names: HashSet<String> = scan.iter().map(|module| module.name.clone()).collect();
     let selected: HashSet<&str> = selected.iter().map(String::as_str).collect();
     let mut files = walk(snapshot, &selected);
+    let roots = super::class_writes::import_roots(scan);
+    let paths = selected
+        .iter()
+        .copied()
+        .chain(files.python.iter().map(String::as_str));
+    paths.for_each(|rel| writes.add_path(&roots, rel));
     let mut outside = Vec::new();
     for rel in &files.python {
         match read(snapshot, rel, Vec::len(&outside)) {
