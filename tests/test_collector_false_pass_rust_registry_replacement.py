@@ -134,3 +134,24 @@ def test_a_configuration_without_a_source_setting_keeps_the_proof(
     document = validate(root)
     assert _row(document) == "PASS"
     assert document["frame"]["premise"] == PREMISE
+
+
+def test_a_cache_tag_does_not_hide_a_nested_paths_override(
+    tmp_path: Path, release_core: Path
+) -> None:
+    path = "docs/cache/nested/.cargo/config.toml"
+    root = _plant(
+        tmp_path,
+        release_core,
+        {
+            "docs/cache/CACHEDIR.TAG": "Signature: 8a477f597d28d172789f06886806bc55\n",
+            path: 'paths = ["local-input"]\n',
+        },
+    )
+    document = validate(root)
+    assert _row(document) == "UNKNOWN"
+    assert document["frame"]["premise"] == COMPILES
+    assert any(
+        f"A paths override in {path}:1" in gap["reason"]
+        for gap in document["frame"]["collection_gaps"]
+    )

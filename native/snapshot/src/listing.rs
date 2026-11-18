@@ -16,13 +16,15 @@
 //! the Python collector does, so a file that changes into a link is not read.
 
 use std::fs::{self, File, Metadata};
-use std::io::Read;
+use std::io::{Error, ErrorKind, Read};
 
 use archkeel_facts::envelope::Role;
 use archkeel_facts::identity::sha256_hex;
 
 use super::{Snapshot, MAX_FILE_BYTES};
 use crate::paths::{dirname, is_outside, join};
+
+const MAX_LISTING_ENTRIES: usize = 1_000_000;
 
 /// The kind of one entry of a listing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,9 +81,13 @@ impl Snapshot {
 
     /// The sorted entries of the directory `rel`, without following a link.
     ///
-    /// `None` when `rel` is outside the snapshot or cannot be read; a read failure is a problem.
+    /// `None` when `rel` is outside the snapshot, cannot be read, or exceeds the entry limit.
     /// When `rel` is walked, each real subdirectory becomes walked too.
     pub fn listing(&mut self, rel: &str) -> Option<Vec<(String, Entry)>> {
+        self.listing_at_most(rel, MAX_LISTING_ENTRIES)
+    }
+
+    fn listing_at_most(&mut self, rel: &str, limit: usize) -> Option<Vec<(String, Entry)>> {
         if is_outside(rel) {
             return None;
         }
@@ -90,29 +96,47 @@ impl Snapshot {
                 .insert(format!("Unreadable source directory: {rel}"));
             return None;
         };
-        let walked = self.walked.contains(rel);
         let mut entries = Vec::new();
-        for entry in listing {
-            let name = match entry.map(|entry| entry.file_name().into_string()) {
-                Ok(Ok(name)) => name,
-                Ok(Err(raw)) => {
-                    let child = join(rel, &raw.to_string_lossy());
-                    self.problems
-                        .insert(format!("Source name is not UTF-8: {child}"));
-                    continue;
-                }
+        for (index, entry) in listing.enumerate() {
+            if index == limit {
+                self.problems
+                    .insert(format!("Source directory exceeds the entry limit: {rel}"));
+                return None;
+            }
+            let entry = match entry {
+                Ok(entry) => entry,
                 Err(_) => {
                     self.problems
                         .insert(format!("Unreadable source directory: {rel}"));
-                    continue;
+                    return None;
                 }
             };
-            let child = join(rel, &name);
-            let kind = self.kind(&child);
-            if walked && kind == Entry::Directory {
-                self.walked.insert(child);
-            }
+            let name = match entry.file_name().into_string() {
+                Ok(name) => name,
+                Err(raw) => {
+                    let child = join(rel, &raw.to_string_lossy());
+                    self.problems
+                        .insert(format!("Source name is not UTF-8: {child}"));
+                    return None;
+                }
+            };
+            let kind = match self.kind(rel, &entry) {
+                Ok(kind) => kind,
+                Err(message) => {
+                    let child = join(rel, &name);
+                    self.problems.insert(format!("{message}: {child}"));
+                    return None;
+                }
+            };
             entries.push((name, kind));
+        }
+        if self.walked.contains(rel) {
+            self.walked.extend(
+                entries
+                    .iter()
+                    .filter(|(_, kind)| *kind == Entry::Directory)
+                    .map(|(name, _)| join(rel, name)),
+            );
         }
         entries.sort_by(|a, b| a.0.cmp(&b.0));
         Some(entries)
@@ -182,15 +206,21 @@ impl Snapshot {
         Some(raw)
     }
 
-    fn kind(&self, rel: &str) -> Entry {
-        let path = self.absolute(rel);
-        match fs::symlink_metadata(&path) {
-            Ok(found) if found.file_type().is_symlink() => Entry::Link {
-                to_directory: fs::metadata(&path).is_ok_and(|target| target.is_dir()),
-            },
-            Ok(found) if found.is_dir() => Entry::Directory,
-            Ok(found) if found.is_file() => Entry::File,
-            _ => Entry::Other,
+    fn kind(&self, rel: &str, entry: &fs::DirEntry) -> Result<Entry, &'static str> {
+        let kind = entry.file_type().map_err(|_| "Unreadable source entry")?;
+        if kind.is_symlink() {
+            let to_directory = match fs::metadata(self.absolute(rel).join(entry.file_name())) {
+                Ok(target) => target.is_dir(),
+                Err(error) if Error::kind(&error) == ErrorKind::NotFound => false,
+                Err(_) => return Err("Unreadable link target"),
+            };
+            Ok(Entry::Link { to_directory })
+        } else if kind.is_dir() {
+            Ok(Entry::Directory)
+        } else if kind.is_file() {
+            Ok(Entry::File)
+        } else {
+            Ok(Entry::Other)
         }
     }
 }

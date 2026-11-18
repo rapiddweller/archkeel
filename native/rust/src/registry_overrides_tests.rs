@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 // Consumer: the search for the Cargo settings of the repository that can change a registry crate
-// (AD-774). A build directory that a parallel build changes must not make the scan unreadable
-// (#880); a configuration with no source setting changes nothing.
+// (AD-774). A cache marker does not affect Cargo's configuration search (#1859).
 
 use archkeel_snapshot::test_tree::Tree;
 use archkeel_snapshot::Snapshot;
@@ -12,6 +11,7 @@ use archkeel_snapshot::Snapshot;
 use super::{configs, manifest, package_of_spec, Lines, Overrides};
 
 const REPLACED: &str = "[build]\njobs = 1\n\n[source.crates-io]\nreplace-with = \"vendored\"\n";
+const CACHE_TAG: &str = "Signature: 8a477f597d28d172789f06886806bc55\n";
 
 fn scan(tree: &Tree) -> (Overrides, bool) {
     let mut snapshot = Snapshot::new(&tree.path());
@@ -90,19 +90,24 @@ fn a_configuration_that_does_not_parse_changes_every_crate() {
 }
 
 #[test]
-fn a_cargo_config_below_a_build_directory_is_not_searched() {
-    let tagged = Tree::new(&[
-        ("Cargo.toml", ""),
-        ("target/CACHEDIR.TAG", ""),
-        ("target/debug/.cargo/config.toml", REPLACED),
-    ]);
-    assert_eq!(every(&tagged), (false, true));
-    let plain = Tree::new(&[
-        ("Cargo.toml", ""),
-        ("out/debug/.cargo/config.toml", REPLACED),
-        ("out/note.txt", ""),
-    ]);
-    assert_eq!(every(&plain), (true, true));
+fn a_marker_does_not_change_which_cargo_config_is_read() {
+    for marker in [
+        None,
+        Some(("target/CACHEDIR.TAG", "invalid")),
+        Some(("target/CACHEDIR.TAG", CACHE_TAG)),
+        Some(("target/.rustc_info.json", "{}")),
+    ] {
+        let path = "target/debug/nested/.cargo/config.toml";
+        let mut files = vec![("Cargo.toml", ""), (path, "paths = [\"local-input\"]\n")];
+        files.extend(marker);
+        let tree = Tree::new(&files);
+        let (found, clean) = scan(&tree);
+        assert_eq!(found.all.expect("the paths override is read").rel, path);
+        assert!(clean);
+
+        files[1].1 = "[build]\njobs = 1\n";
+        assert_eq!(every(&Tree::new(&files)), (false, true));
+    }
 }
 
 #[test]
@@ -117,12 +122,12 @@ fn the_config_of_the_build_directory_itself_still_withholds_the_model() {
 
 #[cfg(unix)]
 #[test]
-fn a_directory_that_cannot_be_listed_below_a_build_directory_is_no_problem() {
+fn a_directory_that_cannot_be_listed_below_a_build_directory_withholds_proof() {
     use std::os::unix::fs::PermissionsExt;
 
     let tree = Tree::new(&[
         ("Cargo.toml", ""),
-        ("target/CACHEDIR.TAG", ""),
+        ("target/CACHEDIR.TAG", CACHE_TAG),
         ("target/debug/deps/x", ""),
     ]);
     let locked = tree.root.join("target/debug");
@@ -132,10 +137,63 @@ fn a_directory_that_cannot_be_listed_below_a_build_directory_is_no_problem() {
     let result = every(&tree);
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
     if !readable {
-        assert_eq!(result, (false, true));
+        assert_eq!(result, (true, false));
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn a_link_below_a_cache_tag_withholds_proof_without_reading_its_target() {
+    use std::os::unix::fs::symlink;
+
+    let outside = Tree::new(&[(".cargo/config.toml", REPLACED)]);
+    let tree = Tree::new(&[("target/CACHEDIR.TAG", CACHE_TAG), ("target/debug/x", "")]);
+    symlink(&outside.root, tree.root.join("target/debug/nested")).unwrap();
+    let (found, clean) = scan(&tree);
+    assert_eq!(
+        found.all.expect("the link withholds proof").rel,
+        "target/debug/nested"
+    );
+    assert!(!clean);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_directory_alias_is_covered_only_when_its_real_path_is_walked() {
+    use std::os::unix::fs::symlink;
+
+    let tree = Tree::new(&[
+        ("cache/CACHEDIR.TAG", CACHE_TAG),
+        ("cache/lib/.cargo/config.toml", "[build]\njobs = 1\n"),
+        ("node_modules/local/.cargo/config.toml", REPLACED),
+    ]);
+    symlink("lib", tree.root.join("cache/lib64")).unwrap();
+    assert_eq!(every(&tree), (false, true));
+
+    symlink("../node_modules/local", tree.root.join("cache/local")).unwrap();
+    let (found, clean) = scan(&tree);
+    assert_eq!(
+        found.all.expect("the target is not walked").rel,
+        "cache/local"
+    );
+    assert!(clean);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_dangling_cargo_config_link_below_a_cache_tag_withholds_proof() {
+    use std::os::unix::fs::symlink;
+
+    let tree = Tree::new(&[
+        ("target/CACHEDIR.TAG", CACHE_TAG),
+        ("target/debug/.cargo/keep", ""),
+    ]);
+    let path = "target/debug/.cargo/config.toml";
+    symlink("missing", tree.root.join(path)).unwrap();
+    let (found, clean) = scan(&tree);
+    assert_eq!(found.all.expect("the config is unreadable").rel, path);
+    assert!(clean);
+}
 #[cfg(unix)]
 #[test]
 fn a_directory_that_cannot_be_listed_outside_a_build_directory_stays_a_problem() {
