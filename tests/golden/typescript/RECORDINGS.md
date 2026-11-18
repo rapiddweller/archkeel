@@ -44,3 +44,6 @@
 | 2026-11-18 | h-typescript | c41f0dacb | AD-845 reads repository preload manifests and reports unresolved package scripts (cpython 3.12.10) |
 | 2026-11-18 | synthetic-package-maps | c41f0dacb | AD-845 reads repository preload manifests and reports unresolved package scripts (cpython 3.12.10) |
 | 2026-11-18 | l-nest-realworld | c41f0dacb | AD-845 reads repository preload manifests and reports unresolved package scripts (cpython 3.12.10) |
+| 2026-11-18 | synthetic-gaps | 229ce67b9 | #1827 cites each use of one unpublished script global in one file with one gap; no use or evidence id is lost (cpython 3.11.12) |
+| 2026-11-18 | synthetic-esm-forms | 229ce67b9 | #1827 cites each use of one unpublished script global in one file with one gap; no use or evidence id is lost (cpython 3.11.12) |
+| 2026-11-18 | synthetic-allowjs | 229ce67b9 | #1827 cites each use of one unpublished script global in one file with one gap; no use or evidence id is lost (cpython 3.11.12) |
