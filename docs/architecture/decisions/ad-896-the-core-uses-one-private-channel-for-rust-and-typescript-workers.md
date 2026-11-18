@@ -1,7 +1,7 @@
 # AD-896 The core uses one private channel for Rust and TypeScript workers
 
 **Status.** Integration draft. It extends AD-881 and amends AD-406 for TypeScript.
-No rule, gap or API pin is approved by this record.
+No rule or gap pin is approved by this record.
 
 **Reason.** The installed core links the TypeScript collector through `collect`.
 AD-806 retains 1,152 pairs because the linked collector can run in the core process.
@@ -11,8 +11,10 @@ The same reason holds for the Rust link that AD-881 removes.
 1. `collect` selects the installed TypeScript worker beside the core. It uses the launch,
    cancellation and frame reader that it uses for Rust. The core does not link either worker.
 2. The two worker binaries use `wire::worker::serve_v1`. The server owns the request limit,
-   scan thread and reply frame. Each worker owns its request decoder and snapshot work bound.
-   The frame grammar and the TypeScript public compressed reply do not change.
+    scan thread and reply frame. Each worker owns its request decoder and snapshot work bound.
+    The frame grammar and the TypeScript public compressed reply do not change.
+    The wire API replaces `worker::write_rust_v1` with `worker::serve_v1`. The shared server
+    owns the write operation and request handling, so the worker binaries do not duplicate them.
 3. Every worker goes through the same build digest and store checks. Python and Dart keep their
    linked paths. Their profile selection does not change.
 4. A wheel contains the core and both workers. The build records each digest and SBOM.
