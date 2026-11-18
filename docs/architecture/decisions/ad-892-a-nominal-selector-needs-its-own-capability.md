@@ -12,6 +12,9 @@ Require `Supported` before the Model can prove a selector rule. Missing, partial
 unsupported, and construct-decision-only facts cannot grant this proof.
 The rule still needs complete source coverage and an observed selected subject.
 A known violation still fails even when the receipt for absence is incomplete.
+The Store refuses duplicate capability names before either replayed or typed
+facts reach the Model. The Model test entry that reads recorded facts without
+the Store does not establish this input invariant.
 
 **Rejected.** Do not infer complete observation from the language, from a
 literal comparison capability, or from one selector record.

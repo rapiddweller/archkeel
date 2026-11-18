@@ -10,7 +10,7 @@ use archkeel_contract::{Contract, ParsedContract, Rule};
 use archkeel_facts::envelope::{Facts, Profile};
 use serde_json::{json, Value};
 
-use crate::{Decision, Graph, Model, Producer, Settings, Verdict};
+use crate::{Decision, Graph, Model, Producer, Reason, Settings, Verdict};
 
 const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
 const OWNER: &str = "shop.src.data.local_x2e_ts";
@@ -258,20 +258,22 @@ fn each_selector_role_matches_identity_and_never_passes_an_empty_inventory(
 }
 
 #[test]
-fn the_missing_selector_capability_does_not_borrow_support_from_the_profile(
+fn a_selector_receipt_needs_complete_capability_and_producer_evidence(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let options = json!({"constructs": ["string_literal_compare"], "selector": {
         "receiver": "shop.Connection", "member": "backend", "role": "equality", "literal": "forbidden"}});
-    for (status, literal, expected) in [
-        (None, "other", Verdict::Unknown),
-        (Some("partial"), "other", Verdict::Unknown),
-        (Some("unsupported"), "other", Verdict::Unknown),
-        (Some("decided"), "other", Verdict::Unknown),
-        (None, "forbidden", Verdict::Fail),
+    let producer = Profile::Python.as_str();
+    for (status, adapter, literal, expected) in [
+        (None, producer, "other", Verdict::Unknown),
+        (Some("partial"), producer, "other", Verdict::Unknown),
+        (Some("unsupported"), producer, "other", Verdict::Unknown),
+        (Some("decided"), producer, "other", Verdict::Unknown),
+        (Some("supported"), "external", "other", Verdict::Unknown),
+        (None, producer, "forbidden", Verdict::Fail),
     ] {
         let model = model(options.clone(), |v| {
-            v["facts"]["profile"] = json!(Profile::Python.as_str());
-            v["facts"]["adapter"]["name"] = json!(Profile::Python.as_str());
+            v["facts"]["profile"] = json!(producer);
+            v["facts"]["adapter"]["name"] = json!(adapter);
             v["facts"]["capabilities"]["constructs"] = selector_capabilities(status);
             record(
                 v,
@@ -282,7 +284,18 @@ fn the_missing_selector_capability_does_not_borrow_support_from_the_profile(
                        "receiver_parameter": null}),
             );
         })?;
-        assert_eq!(decide(&model)?.verdict(), &expected, "{status:?} {literal}");
+        let decision = decide(&model)?;
+        assert_eq!(
+            decision.verdict(),
+            &expected,
+            "{status:?} {adapter} {literal}"
+        );
+        if adapter != producer {
+            assert!(matches!(
+                decision.reason(),
+                Some(Reason::NotComplete(crate::Cause::Producer))
+            ));
+        }
     }
     Ok(())
 }
