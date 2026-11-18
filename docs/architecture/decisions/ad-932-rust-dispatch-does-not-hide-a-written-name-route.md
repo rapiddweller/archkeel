@@ -1,4 +1,4 @@
-# AD-928: Rust dispatch does not hide a written name route
+# AD-932: Rust dispatch does not hide a written name route
 
 **Reason.** Store had 41 pairs holding its source-name rule. Twenty cited possible
 destructors at `snapshot/src/test_tree.rs:43` or `snapshot/src/work.rs:92`. The other
