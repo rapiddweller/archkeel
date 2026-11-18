@@ -21,10 +21,10 @@ archkeel-model = { path = "../model" }
 serde.workspace = true
 schemars.workspace = true
 serde_json.workspace = true
+flate2.workspace = true
 
 [dev-dependencies]
 archkeel-store = { path = "../store" }
-flate2.workspace = true
 sha2.workspace = true
 
 [build-dependencies]

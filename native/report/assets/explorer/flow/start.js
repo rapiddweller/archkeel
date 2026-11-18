@@ -35,6 +35,15 @@
 
 
   detailsToggle.addEventListener("click", () => dispatch({ type: "setDetails", open: !S.details }));
+  inspectorContent.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-download-frame]")) return;
+    const encoded = document.getElementById("run-frame-gzip").textContent;
+    const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], {type: "application/gzip"}));
+    const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = "archkeel-run-frame.json.gz"; anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
   if (NAV) {
     setTargetDetails(true);
     readRoute();

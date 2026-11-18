@@ -4,6 +4,7 @@
 
 //! Static presentation of the frame assembled from one typed ruling. No verdict is inferred here.
 
+use flate2::{write::GzEncoder, Compression};
 use serde_json::{json, Map, Value};
 
 #[path = "html_arch.rs"]
@@ -66,6 +67,15 @@ pub(super) fn render(frame: &Map<String, Value>) -> Result<Value, serde_json::Er
     };
     let mut page = shell::start(&subject);
     page.push_str(&verdict::section(&view, &places));
+    if view.topology.is_some() {
+        let mut compressed = GzEncoder::new(Vec::new(), Compression::fast());
+        serde_json::to_writer(&mut compressed, frame)?;
+        let compressed = compressed.finish().map_err(serde_json::Error::io)?;
+        page.push_str(&format!(
+            "<script type=\"application/octet-stream\" id=\"run-frame-gzip\">{}</script>",
+            markup::base64(&compressed)
+        ));
+    }
     page.push_str(&arch::section(&view, &places, &names));
     page.push_str(&cases::section(&view, &places, &names));
     page.push_str(&unknown::section(&view, &names));

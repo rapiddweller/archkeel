@@ -7,14 +7,13 @@ One recorded location or subject is an example, not the complete evidence for th
 The page does not infer causes or rule relationships from message text.
 It shows whole-scan gap counts per UNKNOWN rule from the typed holds, without summing them.
 
-The standalone page does not contain the complete audit frame.
-It gives a command to run an audit instead of linking to a fragment as JSON.
-The command starts a new run, which can differ from the displayed report.
-An older payload can contain shortened reasons; the page does not reconstruct them.
+The standalone page embeds the complete frame as compressed JSON from that same run.
+The reader can download it without another scan.
+An older payload can contain shortened reasons and no frame; the page does not reconstruct them.
 
 The alternative of grouping on a colon loses qualified names and changes the reason.
-Embedding every audit record would duplicate the frame in the standalone page.
-The Core frame remains the source for a full audit.
+Compression limits the cost of embedding the frame in the standalone page.
+The Core frame remains the source for the download.
 
 The report unit test checks full messages, counts and an example location.
 The Explorer browser test checks search, pagination and the older payload.

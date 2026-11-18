@@ -62,6 +62,17 @@ def test_analysis_limit_messages_are_searchable_and_old_payloads_are_not_reconst
     site: str, page: Browser
 ) -> None:
     page.open(f"{site}/system.html")
+    stored = page.evaluate(
+        """(async () => {
+          const text = document.getElementById('run-frame-gzip').textContent;
+          const bytes = Uint8Array.from(atob(text), c => c.charCodeAt(0));
+          const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+          const frame = await new Response(stream).json();
+          return {count: frame.collection_gaps.length, status: frame.status};
+        })()"""
+    )
+    assert stored["count"] == page.evaluate("ArchkeelFlow.atlas.unknown_count")
+    assert stored["status"] == page.evaluate("ArchkeelFlow.atlas.status")
     page.evaluate(
         """(() => {
           const a = ArchkeelFlow.atlas;
@@ -108,6 +119,7 @@ def test_analysis_limit_messages_are_searchable_and_old_payloads_are_not_reconst
     page.evaluate(
         """(() => { ArchkeelFlow.atlas.gap_messages_complete = false;
           ArchkeelFlow.atlas.unknowns = [{reason: 'The macro schemars', count: 1}];
+          document.getElementById('run-frame-gzip')?.remove();
           ArchkeelFlow.dispatch({type: 'clearSelection'}); })()"""
     )
     old = page.evaluate("document.querySelector('.atlas-evidence').innerText")

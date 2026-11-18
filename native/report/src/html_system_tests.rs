@@ -198,6 +198,17 @@ fn explorer_preserves_complete_gap_messages_and_their_record_counts() {
     assert!(atlas["architecture_href"].is_null());
 }
 
+#[test]
+fn the_page_embeds_the_frame_without_exposing_script_closers() {
+    let frame = json!({
+        "status": "UNKNOWN", "topology": components(2, &[]),
+        "collection_gaps": [{"kind": "collection_gap", "reason": "</script><script>alert(1)</script>"}]
+    });
+    let page = document(&frame);
+    assert!(page.contains("id=\"run-frame-gzip\""));
+    assert!(!page.contains("</script><script>alert(1)</script>"));
+}
+
 // The Explorer names the result of the run in the words of its verdict (AD-764), not the 4.0.1
 // "observation", which only said that a list of the topology was cut by its budget.
 #[test]
