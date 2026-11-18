@@ -365,6 +365,12 @@ def test_getattr_call_is_proven_or_left_unknown(
         ("from typing import Any\nx = Any\n", "UNKNOWN"),
         ("from typing import Any as Opaque\nx: Opaque = None\n", "UNKNOWN"),
         ("x: 'Any' = None\n", "UNKNOWN"),
+        ("class Any: pass\nx: Any = None\n", "UNKNOWN"),
+        ("Any = object\nx: Any = None\n", "UNKNOWN"),
+        ("from typing import Any\nclass Any: pass\nx: Any = None\n", "UNKNOWN"),
+        ("from typing import Any\ndef f():\n    Any = 1\nx: Any = None\n", "UNKNOWN"),
+        ("from typing import *\nx: Any = None\n", "FAIL"),
+        ("if TYPE_CHECKING:\n    from typing import Any\nx: Any = None\n", "FAIL"),
     ],
 )
 def test_opaque_annotations_are_reported_or_left_unknown(
