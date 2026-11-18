@@ -244,10 +244,9 @@ def test_a_large_leaf_component_groups_its_modules_by_directory(site: str, page:
         f"document.querySelector('#flow [data-uml-id=\"{declared}\"]')"
         ".dispatchEvent(new MouseEvent('click', { bubbles: true }))"
     )
-    sheet = page.evaluate("document.querySelector('#flow .flow-inspector').innerText")
-    assert "DIRECTORY FACT SHEET" in sheet.upper()
     page.evaluate("document.querySelector('#flow .flow-inspector details').open = true")
     sheet = page.evaluate("document.querySelector('#flow .flow-inspector').innerText")
+    assert "DIRECTORY FACT SHEET" in sheet.upper()
     assert "py-survey owns the modules in the contract" in sheet
     assert "Decided by architect" not in sheet
     page.evaluate(
