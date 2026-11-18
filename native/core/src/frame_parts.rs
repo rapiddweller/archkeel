@@ -5,6 +5,7 @@
 //! Frame metadata and source locations. Only the report ruling writes a verdict.
 
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 use archkeel_contract::RuleKind;
 use archkeel_facts::identity::{evidence_id, sha256_hex};
@@ -242,6 +243,75 @@ pub(super) fn refusals(
 pub(crate) struct Answered {
     pub(crate) frame: Vec<u8>,
     pub(crate) names_a_gap: bool,
+    /// The seconds of the phases (#659). `None` when a scan was refused, in whole or in a part of a
+    /// system run. Not part of the frame.
+    pub(crate) timings: Option<Phases>,
+    /// The request asked for the timings: the core then writes one timings line on standard error.
+    pub(crate) timings_asked: bool,
+}
+
+// The wall-clock seconds of the phases of one scan (#659, AD-878): `prepare` (configuration, Git
+// state, survey, inside contracts, provenance documents), `collect` (the linked collector),
+// `validate` (the store validates the reply once), `evaluate` (rules, topology, explaining rows)
+// and `render` (the frame bytes, with the page when one is asked for). A system run adds `join`:
+// the frames of the parts become one frame, with the page of the system. The collector hands its
+// typed reply to the core in the same process (AD-406), so there is no encode or decode step. When
+// the scan request sets `timings`, the core writes exactly one JSON line to standard error: the
+// seconds, or `refused` for a scan that was refused in whole or in a part. The frame does not
+// change. The phases of the parts of a system run are summed.
+/// The protocol word of the timings line.
+const PROTOCOL: &str = "archkeel-core-timings-1";
+
+/// The time of each phase of one scan, or of the sum of the parts of a system run.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct Phases {
+    pub(crate) prepare: Duration,
+    pub(crate) collect: Duration,
+    pub(crate) validate: Duration,
+    pub(crate) evaluate: Duration,
+    pub(crate) render: Duration,
+    /// The join of the frames of the parts of a system run; zero for one configuration.
+    pub(crate) join: Duration,
+    /// The time from the read request to the end of the frame in the core, not the time of the CLI:
+    /// the phases and the rest that no phase measures.
+    pub(crate) wall: Duration,
+}
+
+impl Phases {
+    /// The sum of two parts of one run.
+    pub(crate) fn plus(self, other: Phases) -> Phases {
+        Phases {
+            prepare: self.prepare + other.prepare,
+            collect: self.collect + other.collect,
+            validate: self.validate + other.validate,
+            evaluate: self.evaluate + other.evaluate,
+            render: self.render + other.render,
+            join: self.join + other.join,
+            wall: self.wall + other.wall,
+        }
+    }
+
+    /// The timings line: the phases in the order of the run, in seconds.
+    pub(crate) fn line(&self) -> String {
+        let seconds = |time: Duration| format!("{:.6}", time.as_secs_f64());
+        format!(
+            "{{\"protocol\":\"{PROTOCOL}\",\"clock\":\"monotonic\",\"unit\":\"seconds\",\
+\"phases\":{{\"prepare\":{},\"collect\":{},\"validate\":{},\"evaluate\":{},\"render\":{},\"join\":{}}},\
+\"core_seconds\":{}}}",
+            seconds(self.prepare),
+            seconds(self.collect),
+            seconds(self.validate),
+            seconds(self.evaluate),
+            seconds(self.render),
+            seconds(self.join),
+            seconds(self.wall),
+        )
+    }
+
+    /// The timings line of a scan that was refused in whole or in a part: no seconds.
+    pub(crate) fn refused_line() -> String {
+        format!("{{\"protocol\":\"{PROTOCOL}\",\"refused\":true}}")
+    }
 }
 
 /// Copy validated evidence, including the root contract citation that the settings made.
@@ -326,8 +396,14 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
     Ok(Answered {
         frame,
         names_a_gap: true,
+        timings: None,
+        timings_asked: false,
     })
 }
+
+#[cfg(test)]
+#[path = "phases_tests.rs"]
+mod phases_tests;
 
 #[cfg(test)]
 mod tests {

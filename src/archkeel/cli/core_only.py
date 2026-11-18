@@ -25,7 +25,7 @@ from .core_arguments import NotOnThisLine, Options, OutputMode, command_of, outp
 from .core_baseline import as_json as baseline_json
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
 from .core_binding import ProjectRoot, RootMode, resolve_root
-from .core_delivery import _deliver, _Refusal
+from .core_delivery import _deliver, _Refusal, _refuse_timings_target
 from .core_exit import Outcome, envelope, exit_for, outcome_of, require_baseline_part
 from .core_frame import CoreCommand as Command
 from .core_frame import (
@@ -39,6 +39,7 @@ from .core_frame import (
 from .core_help import help_for
 from .core_init import Created, InitOutcome, _prepare, _run_init
 from .core_json import Gap, RequestMismatch
+from .core_output import read_timings
 from .core_text import header, refusal, render, summary
 from .core_words import NOT_FOUND_PREFIX, fix_for, plain
 from .init_draft import DOCUMENT
@@ -162,6 +163,8 @@ def _request(options: Options, project: ProjectRoot) -> dict[str, object]:
         request["baseline"] = options.baseline
     if options.write_baseline is not None:
         request["write_baseline"] = True
+    if options.timings is not None:
+        request["timings"] = True
     return request
 
 
@@ -305,10 +308,15 @@ def _scan(
     """Send the scan identity to the core and print the one frame that it gives."""
     baseline = options.baseline is not None
     root = project.path
+    _refuse_timings_target(options, root)
     request = _request(options, project)
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
     started_ns = time_ns()
-    stdout, status_code = exchange(str(binary), "scan", json.dumps(request).encode())
+    payload = json.dumps(request).encode()
+    # #659: the seconds of the phases come on standard error, only when the user asked for them.
+    sink: list[bytes] = []
+    asked = {"stderr_sink": sink} if options.timings is not None else {}
+    stdout, status_code = exchange(str(binary), "scan", payload, **asked)
     frame = read_frame(
         stdout,
         status_code,
@@ -329,7 +337,11 @@ def _scan(
     if collected is not None and _NO_CONFIG in collected.reason:
         # The core names the cause; the way forward is the shell's to name (#1314).
         collected = replace(collected, reason=_config_reason(options, project, collected.reason))
-    failures = _deliver(options, frame, stdout, root)
+    timings = None
+    if options.timings is not None:
+        refused = any(gap.kind is GapKind.COLLECT for gap in frame.gaps)
+        timings = read_timings(sink[0], refused=refused)
+    failures = _deliver(options, frame, stdout, root, timings)
     outcome = outcome_of(frame, delivered=not failures)
     code = exit_for(outcome, frame, baseline=baseline)
     result = (

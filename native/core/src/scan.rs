@@ -18,6 +18,8 @@
 //! collector, a hostile repository over the work budget) is a frame that names it (exit 3), and
 //! the shell gives UNKNOWN without a fallback.
 
+use std::time::Instant;
+
 use serde::Deserialize;
 #[cfg(test)]
 use serde_json::Value;
@@ -29,7 +31,7 @@ use archkeel_store::Ingested;
 
 use crate::baseline_frame;
 use crate::contract::{ContractInput, ContractState, InsideFile, MAX_INSIDE_FILES};
-use crate::dual_run::{self, Answered, ReplyInput, Run, Trust, TrustOf, CODE_DIGEST};
+use crate::dual_run::{self, Answered, Phases, ReplyInput, Run, Trust, TrustOf, CODE_DIGEST};
 
 /// The first words of the reason of a reply that the core cannot verify. The shell counts it.
 pub(crate) const PRODUCER_NOT_VERIFIED: &str = "producer not verified";
@@ -61,6 +63,9 @@ struct ScanRequest {
     html: bool,
     #[serde(default)]
     topology: bool,
+    /// Give the seconds of the phases on standard error (#659). The frame does not change.
+    #[serde(default)]
+    timings: bool,
     /// The repository path of the baseline file to compare with (AD-546).
     #[serde(default)]
     baseline: Option<String>,
@@ -85,7 +90,18 @@ struct PartOfRequest {
 
 /// The frame of one scan request. An error is a request that the core cannot read.
 pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
+    let started = Instant::now();
     let request: ScanRequest = crate::decode::decode(input, PROTOCOL)?;
+    let mut answered = of_request(&request)?;
+    answered.timings_asked = request.timings;
+    answered.timings = answered.timings.map(|phases| Phases {
+        wall: started.elapsed(),
+        ..phases
+    });
+    Ok(answered)
+}
+
+fn of_request(request: &ScanRequest) -> Result<Answered, crate::refusal::Error> {
     let identity = Identity {
         root: &request.root,
         config: &request.config,
@@ -98,11 +114,11 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
             let reason = "collect: unsupported: --part-of names the system of one part; this configuration is a system document";
             return dual_run::refused_scan(reason, request.html).map_err(Into::into);
         }
-        Ok(Some(system)) => return system_run(&request, &identity, &system),
+        Ok(Some(system)) => return system_run(request, &identity, &system),
         Ok(None) => {}
         Err(refusal) => return refused(&refusal, request.html).map_err(Into::into),
     }
-    one(&request, &identity)
+    one(request, &identity)
 }
 
 /// The run of a system document (AD-616): one scan for each part, joined into one frame. A part
@@ -124,7 +140,8 @@ fn system_run(
         topology: request.topology || request.html,
         ..request.clone()
     };
-    let (mut frames, mut names_a_gap) = (Vec::new(), false);
+    // A part that the core refused has no timings, so the system has none: never a partial sum.
+    let (mut frames, mut names_a_gap, mut timings) = (Vec::new(), false, Some(Phases::default()));
     for part in &system.parts {
         let part_identity = Identity {
             config: &part.config,
@@ -132,10 +149,22 @@ fn system_run(
         };
         let answered = one(&part_request, &part_identity)?;
         names_a_gap |= answered.names_a_gap;
+        timings = timings
+            .zip(answered.timings)
+            .map(|(sum, part)| Phases::plus(sum, part));
         frames.push(answered.frame);
     }
+    let joining = Instant::now();
     let frame = crate::system::join(system, &frames, (request.html, request.topology))?;
-    Ok(Answered { frame, names_a_gap })
+    Ok(Answered {
+        frame,
+        names_a_gap,
+        timings: timings.map(|sum| Phases {
+            join: joining.elapsed(),
+            ..sum
+        }),
+        timings_asked: false,
+    })
 }
 
 /// The titles of the system of this part, read from the system document of the request (E4).
@@ -202,7 +231,18 @@ fn one(request: &ScanRequest, identity: &Identity<'_>) -> Result<Answered, crate
                 }
             }
             let accept = baseline_input(&scanned, request.baseline.clone(), request.write_baseline);
-            decide(scanned, (request.html, request.topology), accept, part_of).map_err(Into::into)
+            let (prepared, collected, validated) =
+                (scanned.prepared, scanned.collected, scanned.validated);
+            let answered = decide(scanned, (request.html, request.topology), accept, part_of)?;
+            Ok(Answered {
+                timings: answered.timings.map(|phases| Phases {
+                    prepare: phases.prepare + prepared,
+                    collect: collected,
+                    validate: validated,
+                    ..phases
+                }),
+                ..answered
+            })
         }
         Err(refusal) if refusal.kind == RefusalKind::ParseWork => {
             Err(crate::refusal::Error::Refused(refusal))
@@ -218,9 +258,11 @@ fn decide(
     accept: Option<baseline_frame::Input>,
     part_of: Option<dual_run::PartOf>,
 ) -> Result<Answered, String> {
+    let reading = Instant::now();
     let insides = tree(&scanned)?;
     // AD-466: the core reads and binds each provenance document of the tree.
     let documents = crate::provenance::read(&scanned, &insides, MAX_BYTES)?;
+    let read = reading.elapsed();
     let contract_files: std::collections::BTreeMap<_, _> = std::iter::once((
         scanned.contract.0.clone(),
         archkeel_facts::identity::sha256_hex(&scanned.contract.1),
@@ -245,7 +287,7 @@ fn decide(
     let target = reply.reply().facts.runtime.target_description.clone();
     let facts = &reply.reply().facts;
     let library_key = facts.validation.standard_library.clone();
-    dual_run::run(Run {
+    let answered = dual_run::run(Run {
         case: "scan".to_owned(),
         path,
         contract,
@@ -272,6 +314,13 @@ fn decide(
             .into_iter()
             .map(str::to_owned)
             .collect(),
+    })?;
+    Ok(Answered {
+        timings: answered.timings.map(|phases| Phases {
+            prepare: read,
+            ..phases
+        }),
+        ..answered
     })
 }
 
