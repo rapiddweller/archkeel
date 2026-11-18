@@ -147,7 +147,7 @@ fn the_edge_id_is_the_stable_id_of_the_reference_engine() {
 }
 
 /// The typed facts of the frozen H-typescript reply (AD-343).
-fn golden() -> Option<Reply> {
+pub(crate) fn golden() -> Option<Reply> {
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../tests/golden/typescript/h-typescript.json.gz"

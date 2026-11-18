@@ -24,6 +24,7 @@ use std::collections::BTreeSet;
 
 use archkeel_facts::envelope::{
     ConstructSupport, Dirty, Facts, ProfileLimits, RequirementState, Role, Runtime as RuntimeFact,
+    TargetSource,
 };
 use archkeel_facts::profile_traits::{Layout, PairGapDrop};
 use archkeel_facts::{GapFact, Section};
@@ -119,7 +120,11 @@ impl Dynamic {
 }
 
 /// The scope facts of the facts of a reply.
-pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
+pub(crate) fn observed(
+    facts: &Facts,
+    classes: &[Class],
+    live_target: Option<TargetSource>,
+) -> Observed {
     // A gap between two modules that states an effect is not a pair gap (`gap_class::Class`).
     let pair_gaps = facts
         .coverage
@@ -163,16 +168,7 @@ pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
         effect_gaps: gap_class::effect_gaps(&facts.coverage, classes),
         git_unknown: facts.source.git_head == "unknown"
             || matches!(facts.source.dirty, Dirty::Unknown(_)),
-        runtime: if facts.profile_limits.is_some()
-            && facts.profile.selects_target_without_requirement()
-            && matches!(
-                facts.runtime.requirement_state,
-                RequirementState::MetadataMissing | RequirementState::RequirementMissing
-            ) {
-            Runtime::Satisfied
-        } else {
-            runtime(&facts.runtime)
-        },
+        runtime: reply_runtime(&facts.runtime, live_target),
         dynamic_imports,
         constructs: facts
             .capabilities
@@ -212,6 +208,23 @@ pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
                 )
             })
             .collect(),
+    }
+}
+
+/// A verified live target from configuration or defaults needs no comparison against an absent
+/// project requirement. The target source in a saved reply cannot grant this exception.
+fn reply_runtime(reported: &RuntimeFact, live_target: Option<TargetSource>) -> Runtime {
+    match (reported, live_target) {
+        (
+            RuntimeFact {
+                required: None,
+                requirement_state:
+                    RequirementState::MetadataMissing | RequirementState::RequirementMissing,
+                ..
+            },
+            Some(TargetSource::Config | TargetSource::Default),
+        ) if release(&reported.version).is_some() => Runtime::Satisfied,
+        _ => runtime(reported),
     }
 }
 
