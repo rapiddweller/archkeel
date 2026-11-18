@@ -81,6 +81,37 @@ fn an_unrestricted_declared_target_does_not_hold_the_receipt() {
 }
 
 #[test]
+fn a_module_port_covers_known_and_possible_edges_but_a_symbol_port_does_not_cover_a_pair() {
+    for port in ["shop.src.domain", INDEX] {
+        let contract = |value: &mut Value| {
+            value["components"][1]["requires"][0]["through"] = json!([port]);
+        };
+        let possible = run(contract, gap(PAGE, INDEX), rooted()).unwrap_or_else(failed);
+        let known = run(contract, unchanged, rooted()).unwrap_or_else(failed);
+        assert_eq!(requires(&possible), ("PASS".to_owned(), None), "{port}");
+        assert_eq!(requires(&known), ("PASS".to_owned(), None), "{port}");
+        assert!(possible.1.is_err());
+    }
+    for port in ["shop.src.domain.other".to_owned(), format!("{ORDER}:Item")] {
+        let contract = |value: &mut Value| {
+            value["components"][1]["requires"][0]["through"] = json!([INDEX, port]);
+        };
+        let possible = run(contract, gap(PAGE, ORDER), rooted()).unwrap_or_else(failed);
+        assert!(kept(&possible, 1), "{port}: {:?}", requires(&possible));
+    }
+    let contract = |value: &mut Value| {
+        value["components"][1]["requires"][0]["through"] = json!(["shop.src.domain"]);
+    };
+    for (source, target) in [
+        (PAGE, "shop.src.domain.unseen"),
+        ("shop.src.presentation.unseen", INDEX),
+    ] {
+        let possible = run(contract, gap(source, target), rooted()).unwrap_or_else(failed);
+        assert!(kept(&possible, 1), "{source} -> {target}");
+    }
+}
+
+#[test]
 fn a_through_port_and_an_unseen_target_keep_the_receipt_open() {
     let restricted = |contract: &mut Value| {
         contract["components"][1]["requires"][0]["through"] = json!([INDEX]);

@@ -1119,6 +1119,7 @@
         "native.archkeel_model.construct_match:matches",
         "native.archkeel_model.construct_match:receipt",
         "native.archkeel_model.direction:Judged",
+        "native.archkeel_model.direction:assessment",
         "native.archkeel_model.direction:crossings",
         "native.archkeel_model.direction:forbidden",
         "native.archkeel_model.direction:peers",
