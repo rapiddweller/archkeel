@@ -17,6 +17,28 @@ pub(crate) const WALK_ROOTS: [&str; 4] = ["window", "globalThis", "self", "frame
 /// them as roots; a publication does not.
 pub(crate) const FRAME_ROOTS: [&str; 2] = ["top", "parent"];
 
+const INSTALLED_DIRECTORIES: [&str; 3] = ["node_modules", "jspm_packages", "bower_components"];
+const NON_CODE_DIRECTORIES: [&str; 8] = [
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+];
+
+/// Whether a child directory is outside the repository-source walks.
+pub(crate) fn skipped_directory(name: &str) -> bool {
+    INSTALLED_DIRECTORIES.contains(&name) || NON_CODE_DIRECTORIES.contains(&name)
+}
+
+/// Whether a directory is an installed package tree.
+pub(crate) fn installed_directory(name: &str) -> bool {
+    INSTALLED_DIRECTORIES.contains(&name)
+}
+
 /// The other global names whose value is a window: the window that opened this one, and the
 /// global object of Node.
 const OTHER_WINDOWS: [&str; 2] = ["opener", "global"];

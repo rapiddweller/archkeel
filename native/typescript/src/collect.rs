@@ -124,6 +124,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         script,
         pending_effects: Vec::new(),
         installed: Vec::new(),
+        preload_files: Vec::new(),
     };
     collection.queue = listed
         .iter()
@@ -292,6 +293,9 @@ mod imports;
 
 #[path = "package_closure.rs"]
 mod package_closure;
+
+#[path = "preloads.rs"]
+mod preloads;
 
 #[path = "script_run.rs"]
 mod script_run;
