@@ -16,6 +16,7 @@ fn kept(source: &str, target: &str, observed: bool, owned: [bool; 2], external: 
         target_external: external,
         dispatch: false,
         execution: false,
+        cycle_rules: Vec::new(),
     }
 }
 

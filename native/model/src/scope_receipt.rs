@@ -24,7 +24,8 @@ use archkeel_facts::profile_traits::Layout;
 
 /// The gap scope of one rule, or the kept gaps that can change what it reads.
 pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>, Reason> {
-    let reading = reads(rule, model.contract().components());
+    let contract = model.contract();
+    let reading = reads(rule, contract.components(), contract.rules());
     let pairs = model.pairs();
     // Dispatch can add a user, but cannot undo a known use or add an item to the inventory.
     let users_proven = match rule {
