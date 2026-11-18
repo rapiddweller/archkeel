@@ -126,6 +126,15 @@ def _target(directory: int, name: str) -> None:
         raise OSError("the report target must be a regular file, not a directory or link")
 
 
+def check_output(path: Path) -> None:
+    """Refuse an unsafe report target before writing its companion file."""
+    directory = _parent(path)
+    try:
+        _target(directory, path.name)
+    finally:
+        os.close(directory)
+
+
 def write_output(path: Path, payload: bytes) -> None:
     """Atomically replace one regular file. Refuse final links and missing parents. No sidecars."""
     directory = _parent(path)
