@@ -65,6 +65,18 @@ fn a_missing_directory_has_no_listing_and_is_a_problem() {
 }
 
 #[test]
+fn a_listing_over_the_limit_does_not_return_partial_entries() {
+    let tree = Tree::new(&[("lib/a", ""), ("lib/b", "")]);
+    let mut snapshot = Snapshot::new(&tree.path());
+    assert_eq!(snapshot.listing_at_most("lib", 2).unwrap().len(), 2);
+    assert_eq!(snapshot.listing_at_most("lib", 1), None);
+    assert_eq!(
+        problems(&snapshot),
+        ["Source directory exceeds the entry limit: lib"]
+    );
+}
+
+#[test]
 fn a_path_outside_the_snapshot_has_no_listing() {
     let tree = Tree::new(&[("lib/a.dart", "")]);
     let mut snapshot = Snapshot::new(&tree.path());

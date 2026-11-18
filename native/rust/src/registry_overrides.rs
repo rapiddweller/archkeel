@@ -14,9 +14,9 @@
 
 use std::collections::BTreeMap;
 
-use crate::source::{read_text, BUILD_MARKERS};
+use crate::source::read_text;
 use crate::toml::{self, Table, Value};
-use archkeel_snapshot::paths::join;
+use archkeel_snapshot::paths::{basename, join};
 use archkeel_snapshot::{Entry, Snapshot};
 
 const CONFIGS: [&str; 2] = ["config.toml", "config"];
@@ -72,29 +72,33 @@ pub(crate) fn configs(snapshot: &mut Snapshot) -> Overrides {
         what: format!("A directory that may hold a Cargo configuration {why}"),
     };
     while let Some((dir, depth)) = pending.pop() {
+        if depth > MAX_DEPTH || remaining == 0 {
+            found.every(hidden(&dir, "is beyond the limits of the walk"));
+            break;
+        }
         let Some(entries) = Snapshot::listing(snapshot, &dir) else {
             found.every(hidden(&dir, "cannot be listed"));
-            continue;
+            break;
         };
-        if depth > MAX_DEPTH || Vec::len(&entries) > remaining {
+        if Vec::len(&entries) > remaining {
             found.every(hidden(&dir, "is beyond the limits of the walk"));
             break;
         }
         remaining -= Vec::len(&entries);
-        // Build output is not source, and a parallel build changes it while the scan runs.
-        let built = entries.iter().any(|(name, kind)| {
-            *kind == Entry::File && BUILD_MARKERS.contains(&String::as_str(name))
-        });
+        // Cargo searches from its working directory, even inside a marked cache.
+        let cargo = basename(&dir) == ".cargo";
         for (name, kind) in entries {
             let rel = join(&dir, &name);
+            if cargo && CONFIGS.contains(&String::as_str(&name)) {
+                config_file(snapshot, &rel, &mut found);
+            }
             match kind {
-                Entry::Directory if name == ".cargo" => config_dir(snapshot, &rel, &mut found),
                 // A link named `.cargo` may lead to a configuration outside the repository.
                 Entry::Link { .. } if name == ".cargo" => found.every(hidden(&rel, "is a link")),
-                Entry::Directory if !built && !SKIPPED.contains(&String::as_str(&name)) => {
+                Entry::Directory if !SKIPPED.contains(&String::as_str(&name)) => {
                     pending.push((rel, depth + 1));
                 }
-                Entry::Link { to_directory: true } if !built => {
+                Entry::Link { to_directory: true } => {
                     found.every(hidden(&rel, "is a link"));
                 }
                 _ => (),
@@ -104,22 +108,16 @@ pub(crate) fn configs(snapshot: &mut Snapshot) -> Overrides {
     found
 }
 
-fn config_dir(snapshot: &mut Snapshot, dir: &str, found: &mut Overrides) {
-    for name in CONFIGS {
-        let rel = join(dir, name);
-        if !snapshot.is_file(&rel) {
-            continue;
-        }
-        let read = read_text(snapshot, &rel).and_then(|text| Ok((toml::parse(&text)?, text)));
-        match read {
-            Ok((table, text)) => config(&table, &Lines::new(&rel, &text), found),
-            Err(_) => found.every(Cited {
-                rel: rel.clone(),
-                line: 1,
-                excerpt: String::new(),
-                what: "A Cargo configuration that the scan cannot read".to_owned(),
-            }),
-        }
+fn config_file(snapshot: &mut Snapshot, rel: &str, found: &mut Overrides) {
+    let read = read_text(snapshot, rel).and_then(|text| Ok((toml::parse(&text)?, text)));
+    match read {
+        Ok((table, text)) => config(&table, &Lines::new(rel, &text), found),
+        Err(_) => found.every(Cited {
+            rel: rel.to_owned(),
+            line: 1,
+            excerpt: String::new(),
+            what: "A Cargo configuration that the scan cannot read".to_owned(),
+        }),
     }
 }
 

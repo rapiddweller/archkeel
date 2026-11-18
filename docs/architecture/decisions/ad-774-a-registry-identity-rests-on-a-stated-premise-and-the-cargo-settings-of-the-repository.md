@@ -6,7 +6,7 @@
 
 **Decision.**
 1. **Premise (C).** A Rust scan in which a crate keeps a proven locked registry crate states the premise "registry crates are built from the identity that Cargo.lock records; no outside source replacement" (`scope_premise`, AD-540). The JSON key `premise`, the text line `Assumption:` and the report show it wherever they show the premise of a scan. The premise seam of #1634 is not merged yet; it reads the same field.
-2. **Settings of the repository (B, inside the snapshot).** The collector reads each `.cargo/config.toml` and `.cargo/config` at any level of the repository. It does not read below build output (AD-704), in `.git` or in `node_modules`, because Cargo does not build the work tree from there.
+2. **Settings of the repository (B, inside the snapshot).** The collector reads each `.cargo/config.toml` and `.cargo/config` at any level of the repository, except below `.git` and `node_modules`. It also reads below cache markers, as amended by [AD-902](ad-902-a-cache-marker-does-not-bound-cargo-configuration.md).
    - A table `[source.crates-io]` (a replacement of crates.io) or a non-empty `paths` override withholds the proof of every registry crate.
    - A `[patch.<registry>]` entry withholds the crate that it names (its `package` key when it renames).
    - In the manifests of the crate and its workspace, a `[patch]` entry and a `[replace]` entry withhold the crate that they name. A package ID spec whose name the scan cannot read withholds every crate.
