@@ -207,7 +207,7 @@ pub(super) fn exact_type(index: &Index<'_>, caller: &Module, lexical: &str, ty: 
     })
 }
 
-/// The one visible named field of an exact struct, with the file of the struct.
+/// The one visible field of an exact struct, with the file of the struct.
 pub(super) fn field_of<'f>(
     index: &'f Index<'_>,
     caller: &Module,

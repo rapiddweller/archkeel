@@ -232,7 +232,7 @@ impl<'t, 'a> Context<'t, '_, 'a> {
         }
     }
 
-    /// A named field after auto-deref through references, of an exact struct.
+    /// A field after auto-deref through references, of an exact struct.
     fn field(&self, ty: Ty, name: &str) -> Ty {
         let mut ty = ty;
         while let Ty::Ref(_, inner) = ty {

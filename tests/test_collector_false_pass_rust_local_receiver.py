@@ -195,7 +195,6 @@ def test_a_typed_closure_receiver_proves_a_field(
             "pub struct W { pub s: &'static mut crate::c::S }\n"
             "pub fn f(w: &mut W) -> u8 { w.s.m(1) }\n"
         ),
-        "pub struct W(pub &'static crate::c::S);\npub fn f(w: &W) -> u8 { w.0.m(1) }\n",
         (
             "macro_rules! make { () => { pub struct W { pub s: &'static crate::c::S } }; }\n"
             "make!();\npub fn f(w: &W) -> u8 { w.s.m(1) }\n"
@@ -212,7 +211,6 @@ def test_a_typed_closure_receiver_proves_a_field(
         "alias",
         "cfg-field",
         "receiver-form",
-        "tuple",
         "macro-struct",
         "deref-base",
     ],

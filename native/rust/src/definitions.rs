@@ -143,7 +143,7 @@ pub(crate) struct OnSelf {
     pub fields: Vec<String>,
 }
 
-/// One named field of a non-generic, exact struct.
+/// One field of a non-generic, exact struct.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Field {
     pub scope: Vec<String>,
