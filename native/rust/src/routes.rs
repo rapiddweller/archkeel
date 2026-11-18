@@ -27,6 +27,8 @@ use crate::scan::{Reference, Via};
 pub(crate) struct Route {
     pub hops: Vec<String>,
     pub complete: bool,
+    /// This package can publish an item that a different package defines.
+    pub external_package: Option<String>,
 }
 
 impl Route {
@@ -35,6 +37,7 @@ impl Route {
         Route {
             hops: Vec::new(),
             complete: true,
+            external_package: None,
         }
     }
 }
@@ -43,8 +46,10 @@ impl Route {
 enum Next {
     /// A name of a module of the workspace: its lexical module and the name there.
     Item(String, String),
-    /// A crate that the scan does not read.
-    Outside,
+    /// The sysroot, which does not give an external dependency.
+    Sysroot,
+    /// A package that the scan does not read.
+    External { package: String, registry: bool },
 }
 
 /// The route of `name` in the lexical module `at`.
@@ -63,7 +68,11 @@ fn type_route(index: &Index<'_>, at: &str, name: &str) -> Route {
 fn route_in(index: &Index<'_>, at: &str, name: &str, of_type: bool) -> Route {
     let mut hops = Vec::new();
     let (mut at, mut name) = (at.to_owned(), name.to_owned());
-    let stop = |hops: Vec<String>, complete: bool| Route { hops, complete };
+    let stop = |hops: Vec<String>, complete: bool| Route {
+        hops,
+        complete,
+        external_package: None,
+    };
     loop {
         let Some(frame) = index.file_of(&at).and_then(|file| index.frame(file)) else {
             return stop(hops, false);
@@ -98,7 +107,14 @@ fn route_in(index: &Index<'_>, at: &str, name: &str, of_type: bool) -> Route {
         }
         match next(index, frame, leaf) {
             Some(Next::Item(module, item)) => (at, name) = (module, item),
-            Some(Next::Outside) => return stop(hops, true),
+            Some(Next::Sysroot) => return stop(hops, true),
+            Some(Next::External { package, registry }) => {
+                return Route {
+                    hops,
+                    complete: registry,
+                    external_package: Some(package),
+                }
+            }
             None => return stop(hops, false),
         }
     }
@@ -136,12 +152,21 @@ fn next(index: &Index<'_>, frame: &Frame<'_>, leaf: &Reference) -> Option<Next> 
     .filter(|_| !alias);
     let outcome = match found {
         Some(Found::Edge(Named::Package(package))) => {
-            let root = &index.workspace().primary_of(&package)?.module;
-            index.reach(root, leaf.names.get(1..)?)
+            let Some(root) = index.workspace().primary_of(&package) else {
+                return Some(Next::External {
+                    package,
+                    registry: false,
+                });
+            };
+            index.reach(&root.module, leaf.names.get(1..)?)
         }
-        Some(Found::Edge(Named::Registry(_) | Named::Sysroot(_))) => {
-            return Some(Next::Outside);
+        Some(Found::Edge(Named::Registry(package))) => {
+            return Some(Next::External {
+                package,
+                registry: true,
+            });
         }
+        Some(Found::Edge(Named::Sysroot(_))) => return Some(Next::Sysroot),
         Some(Found::Shadowed) => return None,
         None => index.resolve(frame, leaf),
     };
@@ -182,6 +207,7 @@ impl Publications {
             return Route {
                 hops,
                 complete: false,
+                external_package: None,
             };
         };
         let root = frame.root();
@@ -203,6 +229,7 @@ impl Publications {
         Route {
             hops,
             complete: !published.partial,
+            external_package: None,
         }
     }
 }
@@ -226,7 +253,7 @@ fn published(index: &Index<'_>, root: &str) -> Published {
         if scan.restricted_bindings.contains(name) || frame.lexical_at(&leaf.scope) != root {
             continue;
         }
-        let Route { hops, complete } = type_route(index, root, name);
+        let Route { hops, complete, .. } = type_route(index, root, name);
         match hops.last() {
             Some(last) if complete => {
                 let entry = found.by_definition.entry(last.clone()).or_default();
