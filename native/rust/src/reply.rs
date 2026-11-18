@@ -24,22 +24,13 @@ const FEATURES: [&str; 1] = ["rust-crate-edges"];
 const ROUTES_FEATURE: &str = "rust-item-routes-v1";
 /// The basis of the route proofs (AD-608, #1779): a compile error rules out a second binding of
 /// a name, so the scan reads code that rustc accepts. Every typed reply states it.
-macro_rules! compile_premise {
-    () => {
-        "the Rust code compiles (rustc accepts it)"
-    };
-}
-
-/// The basis alone, when no Cargo.lock premise applies.
-const COMPILE_PREMISE: &str = compile_premise!();
+const COMPILE_PREMISE: &str = "the Rust code compiles (rustc accepts it)";
 
 /// The basis and the assumption that the identity proofs of registry crates rest on (AD-774). The
 /// collector reads the Cargo settings of the repository; it cannot see the settings of the machine
-/// that builds.
-const LOCK_PREMISE: &str = concat!(
-    compile_premise!(),
-    "; registry crates are built from the identity that Cargo.lock records; no outside source replacement"
-);
+/// that builds. A literal, not `concat!`: a macro call in the collector is a gap that the scan of
+/// ArchKeel itself reports.
+const LOCK_PREMISE: &str = "the Rust code compiles (rustc accepts it); registry crates are built from the identity that Cargo.lock records; no outside source replacement";
 
 /// The validation table of the collector (AD-688; `evaluate.py:1055-1056`, `ir/profiles.py:227-252`):
 /// the sections `imports` and `unknowns` and optionally `symbols`, the crate edges and the routes
