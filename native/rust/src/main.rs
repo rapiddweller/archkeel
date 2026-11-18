@@ -43,19 +43,11 @@ fn run() -> Result<Vec<u8>, String> {
 }
 
 fn main() -> ExitCode {
-    if let Some(exit) = archkeel_wire::worker::serve_v1(decode_rust, |request| {
-        if !TEST_FEATURES.is_empty() {
-            return Ok(Err("test-feature worker".into()));
-        }
-        archkeel_snapshot::work::bounded(|| {
-            typed_reply(
-                &request,
-                provenance(),
-                reply_version(request.protocol_version),
-            )
+    if let Some(exit) =
+        archkeel_wire::worker::serve_v1(decode_rust, TEST_FEATURES, |request, version| {
+            archkeel_snapshot::work::bounded(|| typed_reply(request, provenance(), version))
         })
-        .map_err(|limit| limit.to_string())
-    }) {
+    {
         return exit;
     }
     match run().and_then(|reply| {

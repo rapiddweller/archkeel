@@ -6,19 +6,25 @@
 
 use archkeel_facts::envelope::{ProfileLimits, Reply};
 use archkeel_facts::ids::FactId;
+use archkeel_facts::request::Request;
 use archkeel_facts::{GapFact, Record, Section};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::io::{self, BufRead, Read, Write};
 use std::process::ExitCode;
 
+use crate::protocol::{reply_version, Version};
+
 /// Select the private worker entry point.
 pub const RUST_WORKER_V1: &str = "--core-worker-v1";
 
 /// Serve one request on the private channel, or let the binary use its public entry point.
-pub fn serve_v1<Request: Send + 'static>(
-    decode: impl FnOnce(&[u8]) -> Result<Request, String>,
-    scan: impl FnOnce(Request) -> Result<Result<Reply, String>, String> + Send + 'static,
+pub fn serve_v1<Settings: Send + 'static, Limit: std::fmt::Display>(
+    decode: impl FnOnce(&[u8]) -> Result<Request<Settings>, String>,
+    test_features: &[&str],
+    scan: impl FnOnce(&Request<Settings>, Version) -> Result<Result<Reply, String>, Limit>
+        + Send
+        + 'static,
 ) -> Option<ExitCode> {
     if std::env::args_os().nth(1).as_deref() != Some(std::ffi::OsStr::new(RUST_WORKER_V1)) {
         return None;
@@ -34,6 +40,9 @@ pub fn serve_v1<Request: Send + 'static>(
                 return Err("incomplete worker request".into());
             }
             let request = decode(payload.as_bytes())?;
+            if !test_features.is_empty() {
+                return write_v1(io::stdout().lock(), Ok(Err("test-feature worker".into())));
+            }
             // EOF means the parent has died or cancelled the scan.
             std::thread::spawn(|| {
                 let mut byte = [0];
@@ -42,7 +51,10 @@ pub fn serve_v1<Request: Send + 'static>(
             });
             let answer = std::thread::Builder::new()
                 .stack_size(256 << 20)
-                .spawn(move || scan(request))
+                .spawn(move || {
+                    scan(&request, reply_version(request.protocol_version))
+                        .map_err(|limit| limit.to_string())
+                })
                 .map_err(|e| e.to_string())?
                 .join()
                 .map_err(|_| "worker panic")?;

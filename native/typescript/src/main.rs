@@ -72,19 +72,11 @@ fn dump_records(mut input: impl Read, output: &mut impl Write) -> Result<(), Str
 }
 
 fn main() -> ExitCode {
-    if let Some(exit) = archkeel_wire::worker::serve_v1(decode, |request| {
-        if !TEST_FEATURES.is_empty() {
-            return Ok(Err("test-feature worker".into()));
-        }
-        archkeel_snapshot::work::bounded(|| {
-            typed_reply(
-                &request,
-                provenance(),
-                reply_version(request.protocol_version),
-            )
+    if let Some(exit) =
+        archkeel_wire::worker::serve_v1(decode, TEST_FEATURES, |request, version| {
+            archkeel_snapshot::work::bounded(|| typed_reply(request, provenance(), version))
         })
-        .map_err(|limit| limit.to_string())
-    }) {
+    {
         return exit;
     }
     #[cfg(feature = "dump")]
