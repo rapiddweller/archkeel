@@ -29,13 +29,6 @@ def cases(language: str) -> dict[str, Path]:
     return {item["case"]: ROOT / item["root"] for item in listing}
 
 
-def options(language: str, case: str) -> dict[str, object]:
-    """The settings of a case beyond its root. A Python case can set the three that follow."""
-    listing = json.loads((golden_replies.GOLDEN / language / "cases.json").read_text())
-    item = next(item for item in listing if item["case"] == case)
-    return {key: item[key] for key in ("phase", "features", "exclude_tests") if key in item}
-
-
 def git(root: Path, *args: str) -> str:
     return subprocess.run(
         ["git", *args], cwd=root, capture_output=True, text=True, check=True
