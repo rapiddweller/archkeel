@@ -329,6 +329,13 @@
             "type": "string"
           }
         },
+        "misplaced_class_fact": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The class fact of a placement violation: source names the class and target its module."
+        },
         "members": {
           "type": [
             "array",

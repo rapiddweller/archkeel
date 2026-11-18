@@ -329,6 +329,17 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
     );
     for place in &places.shown {
         let block = match &place.kind {
+            Kind::MisplacedClass {
+                module, evidence, ..
+            } => {
+                let (owner, _) = tower(names, module, None, "Defining module");
+                let mut sites = evidence_line(frame, evidence, 5);
+                if sites.is_empty() {
+                    sites.push_str("No source location recorded");
+                }
+                format!("<article class=\"rp-dos\" id=\"x{}\">{}<div class=\"rp-dos__body\">{owner}<p class=\"caption rp-at\">Evidence: {sites}</p></div>{}</article>",
+                    place.number, head(place.number, &one_line(names, place)), violated(frame, names, &place.rules, None))
+            }
             Kind::Import {
                 source,
                 target,
@@ -364,6 +375,7 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
 /// A place as one line of text, for the list of the exceptions.
 pub(super) fn one_line(names: &Names<'_>, place: &Place) -> String {
     match &place.kind {
+        Kind::MisplacedClass { name, .. } => format!("Misplaced class: {name}"),
         Kind::Cycle(cycle) => {
             let mut owners = cycle
                 .path
