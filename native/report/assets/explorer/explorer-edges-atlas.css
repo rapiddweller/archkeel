@@ -1,0 +1,400 @@
+.rp-explorer .edge.library-use.conforms .line{stroke-dasharray: 5 3;}
+.rp-explorer .flow-arrow.conforms path{fill: none;
+  stroke: var(--accent-text);
+  stroke-width: 1.5px;}
+.rp-explorer .flow-arrow.violation path{fill: none;
+  stroke: var(--fail);
+  stroke-width: 1.5px;}
+.rp-explorer .flow-arrow.undecided path{fill: none;
+  stroke: var(--unknown);
+  stroke-width: 1.5px;}
+.rp-explorer .flow-arrow.observed path{fill: none;
+  stroke: var(--ink-muted);
+  stroke-width: 1.5px;}
+.rp-explorer .edge .line{fill: none;
+  stroke-linecap: round;
+  opacity: 0.85;}
+.rp-explorer .edge.target-edge .line{stroke: var(--ink-muted);
+  stroke-width: 1.4;
+  opacity: 0.34;
+  marker-end: none;}
+.rp-explorer .edge.target-edge.requires .line{stroke: var(--ink-muted);
+  stroke-width: 1.8;
+  stroke-dasharray: 6 4;
+  opacity: 1;
+  marker-end: url(#flow-arrow-declared);}
+.rp-explorer .flow-arrow.declared path{fill: none;
+  stroke: var(--ink-muted);
+  stroke-width: 1.5px;}
+.rp-explorer .edge.target-edge.selected .line,
+.rp-explorer .edge.target-edge.requires.selected .line{stroke: var(--accent-text);
+  stroke-width: 2.4;
+  opacity: 1;}
+.rp-explorer .edge.target-edge.owns_package .line{stroke: var(--accent-text);
+  stroke-dasharray: 4 3;}
+.rp-explorer .edge.target-edge.allowed_child .line{stroke-dasharray: 1 4;}
+.rp-explorer .edge.target-edge.contains .line{stroke: var(--line);
+  stroke-dasharray: 2 4;}
+.rp-explorer .edge.target-edge.navigation_grouping .line{stroke: var(--ink-muted);
+  stroke-dasharray: 5 3;}
+.rp-explorer .target-legend-swatch{display: inline-block;
+  width: 28px;
+  border-top: 2px solid var(--ink-muted);}
+.rp-explorer .target-legend-swatch.requires{border-color: var(--ink-muted);
+  border-top-style: dashed;}
+.rp-explorer .target-legend-swatch.owns_package{border-color: var(--accent-text);
+  border-top-style: dashed;}
+.rp-explorer .target-legend-swatch.allowed_child{border-top-style: dotted;}
+.rp-explorer .target-legend-swatch.contains{border-color: var(--line);
+  border-top-style: dashed;}
+.rp-explorer .target-legend-swatch.navigation_grouping{border-color: var(--ink-muted);
+  border-top-style: dotted;}
+.rp-explorer .edge.conforms .line{stroke: var(--accent-text);}
+.rp-explorer .edge.violation .line{stroke: var(--fail);}
+.rp-explorer .edge.undecided .line{stroke: var(--unknown);}
+.rp-explorer .edge.observed .line{stroke: var(--ink-muted);
+  opacity: 0.8;}
+.rp-explorer .edge .line{marker-end: url(#flow-arrow-observed);}
+.rp-explorer .edge.undecided .line{marker-end: url(#flow-arrow-undecided);}
+.rp-explorer .edge.conforms .line{marker-end: url(#flow-arrow-conforms);}
+.rp-explorer .edge.violation .line{marker-end: url(#flow-arrow-violation);}
+.rp-explorer .edge .pulse{fill: none;
+  stroke-linecap: round;
+  stroke-width: 1.25px;
+  stroke-dasharray: 1 13;
+  opacity: 0.9;
+  animation: flow-pulse 1.8s linear infinite;}
+.rp-explorer .edge.conforms .pulse{stroke: var(--surface-1);}
+.rp-explorer .edge.violation .pulse{stroke: var(--surface-1);}
+.rp-explorer .edge.undecided .pulse{stroke: var(--surface-1);}
+.rp-explorer .edge.observed .pulse{stroke: var(--ink);}
+@keyframes flow-pulse{
+  from {
+    stroke-dashoffset: 14;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.rp-explorer .edge .hit{fill: none;
+  stroke: transparent;
+  stroke-width: 16px;
+  cursor: pointer;}
+.rp-explorer .edge.target-edge .target-hit{stroke-width: 8px;}
+.rp-explorer .edge.dim .line,
+.rp-explorer .edge.target-edge.dim .line,
+.rp-explorer .edge.dim .pulse{opacity: 0.08;}
+.rp-explorer .edge.dim{pointer-events: none;}
+.rp-explorer [data-component-overview="true"] .edge:not(.related):not(.dim):not(.violation):not(.undecided) .line{opacity: 0.32;}
+.rp-explorer .edge.related .line{opacity: 1;
+  stroke-width: 3px;}
+.rp-explorer .edge.target-edge.related .line{stroke: var(--line-strong);
+  stroke-width: 3px;}
+.rp-explorer .edge.target-edge.selected .line{stroke: var(--accent-text);}
+.rp-explorer .architecture-edge[data-relationship-kind="calls"],
+.rp-explorer .flow-legend-item[data-relationship-kind="calls"]{--uml-relationship-color: var(--accent-text);}
+.rp-explorer .architecture-edge[data-relationship-kind="imports"],
+.rp-explorer .flow-legend-item[data-relationship-kind="imports"]{--uml-relationship-color: var(--ink-muted);}
+.rp-explorer .architecture-edge[data-relationship-kind="references"],
+.rp-explorer .flow-legend-item[data-relationship-kind="references"]{--uml-relationship-color: var(--ink-subtle);}
+.rp-explorer .architecture-edge[data-relationship-kind="creates"],
+.rp-explorer .flow-legend-item[data-relationship-kind="creates"]{--uml-relationship-color: var(--accent);}
+.rp-explorer .architecture-edge[data-relationship-kind="instance_of"],
+.rp-explorer .flow-legend-item[data-relationship-kind="instance_of"]{--uml-relationship-color: var(--ink-muted);}
+.rp-explorer .architecture-edge:not(.violation):not(.undecided) .line{stroke: var(--uml-relationship-color, var(--ink-muted));}
+.rp-explorer .flow-legend-item[data-relationship-kind]{color: var(--uml-relationship-color, var(--ink-muted));}
+.rp-explorer .flow-legend button[aria-pressed="true"]{background: var(--surface-2);
+  border-color: currentColor;}
+.rp-explorer .chip rect{fill: var(--surface-1);
+  stroke: var(--line);}
+.rp-explorer .chip.violation rect{stroke: var(--fail);}
+.rp-explorer .chip text{fill: var(--ink);
+  font: 11px var(--font-mono);}
+.rp-explorer .chip.dim{opacity: 0.15;
+  pointer-events: none;}
+@media (prefers-reduced-motion: reduce){.rp-explorer .flow-viewport{transition: none !important;}
+.rp-explorer .edge .pulse{animation: none !important;}
+}
+@media print{.rp-explorer .flow-section{display: none;}
+}
+@media (max-width: 760px){.rp-explorer .flow-layout{grid-template-columns: minmax(0, 1fr);}
+.rp-explorer .flow-selected-responsibility[data-selected="true"]{position: sticky;
+    top: 0;
+    z-index: 5;
+    margin-bottom: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface-1);}
+.rp-explorer .flow-selected-responsibility h3,
+.rp-explorer .flow-selected-responsibility p{margin: 0;}
+.rp-explorer .flow-item-list button{flex-direction: column;}
+.rp-explorer .flow-responsibility-list button{grid-template-columns: 1fr;
+    gap: var(--space-2);}
+.rp-explorer .flow-inspector .bars .row{grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-1);}
+}
+.rp-explorer .flow-inspector [data-target-detail]{display: block;
+  width: 100%;
+  padding: .4rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;}
+.rp-explorer .flow-inspector [data-target-detail]:focus-visible{outline: 2px solid currentColor;
+  outline-offset: 2px;}
+.rp-explorer .flow-inspector [data-uml-detail]{border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;}
+.rp-explorer .uml-card[data-assessment-status="FAIL"] .card{stroke: var(--fail);}
+.rp-explorer .uml-card[data-assessment-status="UNKNOWN"] .card{stroke: var(--unknown);}
+.rp-explorer .uml-card[data-assessment-status="PASS"] .card{stroke: var(--accent-text);}
+.rp-explorer .architecture-edge[data-assessment-status="FAIL"] .line{stroke: var(--fail);}
+.rp-explorer .architecture-edge[data-assessment-status="UNKNOWN"] .line{stroke: var(--unknown);}
+.rp-explorer .uml-assessment{font: 11px var(--font-mono);
+  pointer-events: none;}
+.rp-explorer [data-assessment-status="FAIL"] .uml-assessment{fill: var(--fail);}
+.rp-explorer [data-assessment-status="UNKNOWN"] .uml-assessment{fill: var(--unknown);}
+.rp-explorer [data-assessment-status="PASS"] .uml-assessment{fill: var(--pass);}
+.rp-explorer .report-shell:has(.atlas-heading){width:min(1600px,calc(100% - 40px));
+  padding-top:var(--space-3)}
+.rp-explorer .atlas-heading{margin-bottom: var(--space-2);
+  display:flex;
+  gap:20px;
+  align-items:center;
+  justify-content:space-between}
+.rp-explorer .atlas-heading h1{font-size:30px}
+.rp-explorer .atlas-heading p{margin:6px 0;
+  overflow-wrap:anywhere}
+.rp-explorer .theme-toggle{background:var(--surface-1);
+  border:1px solid var(--line);
+  color:var(--ink);
+  border-radius:50%;
+  width:40px;
+  height:40px;
+  font-size:24px;
+  cursor:pointer;
+  flex-shrink:0}
+.rp-explorer .atlas-status{color:var(--ink-muted);
+  margin:var(--space-2) 0 var(--space-3)}
+.rp-explorer .flow[data-atlas] .flow-layout{display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:20px;
+  align-items:start}
+.rp-explorer .flow[data-atlas][data-details-open="true"] .flow-layout{grid-template-columns:minmax(0,7fr) minmax(260px,3fr)}
+.rp-explorer .flow[data-atlas] .flow-map-column{min-width:0}
+.rp-explorer .flow[data-atlas] .flow-canvas{height:60dvh;
+  min-height:300px;
+  background:var(--surface-0);
+  border:1px solid var(--line);
+  border-radius:var(--radius-md)}
+.rp-explorer .flow[data-atlas] .flow-inspector{height: auto;
+  position:sticky;
+  top:20px;
+  max-height:calc(100vh - 40px);
+  overflow:auto;
+  width:auto;
+  max-width:none;
+  min-width:0;
+  background:var(--surface-1);
+  border:1px solid var(--line);
+  border-radius:var(--radius-md);
+  padding:20px}
+.rp-explorer .flow[data-atlas] .flow-inspector h2{font-size:20px}
+.rp-explorer .flow[data-atlas] .flow-inspector h3{font-size:13px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  margin:var(--space-5) 0 var(--space-2);
+  color:var(--ink-muted)}
+.rp-explorer .flow[data-atlas] .flow-inspector p{overflow-wrap:anywhere}
+.rp-explorer .flow[data-atlas] .flow-inspector ul{padding-left:18px}
+.rp-explorer .flow[data-atlas] .flow-inspector li{margin:var(--space-2) 0}
+.rp-explorer .flow[data-atlas] .flow-toolbar{min-height: 0;
+  gap: var(--space-2);}
+.rp-explorer .flow[data-atlas] .flow-how-to-read{display:none}
+.rp-explorer .atlas-summary{padding:var(--space-1) 0;
+  color:var(--ink-muted)}
+.rp-explorer .atlas-module-inventory-label{fill:var(--ink-muted);
+  font:12px var(--font-sans)}
+.rp-explorer .flow[data-atlas] .flow-graph .card{fill:var(--surface-1);
+  stroke:var(--line)}
+.rp-explorer .flow[data-atlas] .uml-frame[data-owner-color] .target-frame{stroke:var(--atlas-owner-color);
+  stroke-opacity:.72}
+.rp-explorer .flow[data-atlas] .uml-frame[data-owner-color] .target-frame-header-hit{fill:var(--atlas-owner-color);
+  fill-opacity:.055}
+.rp-explorer .flow[data-atlas] .flow-graph [data-owner-color] .card{stroke:var(--atlas-owner-color)}
+.rp-explorer .flow[data-atlas] .flow-graph .selected .card{stroke:var(--accent);
+  stroke-width:2}
+.rp-explorer .flow[data-atlas] .flow-graph [data-assessment-status="FAIL"] .card{stroke:var(--fail)}
+.rp-explorer .flow[data-atlas] .flow-graph [data-assessment-status="UNKNOWN"] .card{stroke:var(--unknown)}
+.rp-explorer .flow[data-atlas] .flow-graph .atlas-undeclared .line{stroke:var(--fail);
+  stroke-dasharray:6 4}
+.rp-explorer .flow[data-atlas] .flow-graph .atlas-permitted .line{stroke:var(--pass)}
+.rp-explorer .flow[data-atlas] .flow-graph .atlas-allowed-unused .line{stroke:var(--ink-muted);
+  stroke-dasharray:6 4}
+.rp-explorer .flow[data-atlas] .flow-graph .meta{font-family:var(--font-sans);
+  font-size:12px}
+.rp-explorer .flow[data-atlas] .flow-graph .dim{opacity:.25}
+.rp-explorer .atlas-weight{fill:var(--ink-muted);
+  font:11px var(--font-mono)}
+.rp-explorer .atlas-finding-chip,
+.rp-explorer .atlas-deviation-chip{font:11px var(--font-sans)}
+/* The colour of the two lines follows the status of the box: the fail token only in a FAIL box. */
+.rp-explorer .atlas-finding-chip,
+.rp-explorer .atlas-deviation-chip{fill:var(--ink-muted)}
+.rp-explorer .node[data-assessment-status="UNKNOWN"] .atlas-finding-chip,
+.rp-explorer .node[data-assessment-status="UNKNOWN"] .atlas-deviation-chip{fill:var(--unknown-text)}
+.rp-explorer .node[data-assessment-status="FAIL"] .atlas-finding-chip,
+.rp-explorer .node[data-assessment-status="FAIL"] .atlas-deviation-chip{fill:var(--fail)}
+.rp-explorer .atlas-edge-label{fill:var(--ink-muted);
+  font:11px var(--font-sans);
+  paint-order:stroke;
+  stroke:var(--surface-0);
+  stroke-width:4px;
+  stroke-linejoin:round}
+.rp-explorer .flow[data-atlas] .flow-graph .violation .atlas-edge-label{fill:var(--fail)}
+.rp-explorer .flow-explore{margin-top:var(--space-5);
+  padding:20px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-md);
+  background:var(--surface-1);
+  min-width:0}
+.rp-explorer .flow-explore h3{margin:0 0 var(--space-2)}
+.rp-explorer .flow-explore p{margin:var(--space-2) 0;
+  color:var(--ink-muted)}
+.rp-explorer .atlas-explore-heading{display:flex;
+  flex-wrap:wrap;
+  gap:var(--space-2) 20px;
+  justify-content:space-between}
+.rp-explorer .atlas-explore-heading span{color:var(--ink-muted)}
+.rp-explorer .atlas-questions{list-style:none;
+  padding:0;
+  margin:var(--space-4) 0;
+  overflow-wrap:anywhere}
+.rp-explorer .atlas-questions>li{padding:var(--space-1) 0;
+  border-bottom:1px solid var(--line)}
+.rp-explorer .atlas-chip{display:inline-block;
+  background:var(--surface-2);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:2px 6px;
+  font-size:11px}
+.rp-explorer .flow-explore button{background:transparent;
+  border:0;
+  color:var(--accent-text);
+  cursor:pointer;
+  padding:var(--space-1)}
+.rp-explorer .flow-explore textarea{width:100%;
+  min-height:150px;
+  color:var(--ink);
+  background:var(--surface-2);
+  border:1px solid var(--line)}
+.rp-explorer .flow[data-atlas] .flow-matrix{overflow:auto;
+  min-width:0;
+  width:100%;
+  max-width:100%;
+  margin-top:var(--space-3);
+  border:1px solid var(--line);
+  padding:var(--space-3)}
+.rp-explorer .flow-matrix svg{display:block;
+  max-width:none}
+.rp-explorer .matrix-block{fill:var(--surface-2);
+  stroke:var(--line);
+  stroke-width:1}
+.rp-explorer .matrix-label{fill:var(--ink-muted);
+  font:10px var(--font-mono);
+  cursor:pointer}
+.rp-explorer .matrix-group-label{fill:var(--ink);
+  font:9px var(--font-sans);}
+.rp-explorer .matrix-axis-heading{fill:var(--ink);
+  font:9px var(--font-sans);
+  font-weight:600;}
+.rp-explorer .matrix-cell{cursor:pointer;
+  fill:var(--ink-muted)}
+.rp-explorer .matrix-cell.fail{fill:var(--fail)}
+.rp-explorer .matrix-cell.pass{fill:var(--ink-muted)}
+.rp-explorer .matrix-cell.unknown{fill:var(--unknown)}
+.rp-explorer .matrix-cell.quiet{opacity:.3}
+.rp-explorer .matrix-cell.highlighted{stroke:var(--accent);
+  stroke-width:2;
+  opacity:1}
+.rp-explorer .atlas-coverage{font-size:12px}
+.rp-explorer .flow-element-index{max-height: 360px;
+  overflow: auto;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);}
+.rp-explorer .flow-element-index h3{margin: 0 0 var(--space-2);}
+.rp-explorer .flow-element-index ul{columns: 3; padding-left: 20px;}
+.rp-explorer .flow-element-index button:not(.flow-fit){border: 0;
+  background: none;
+  color: var(--accent-text);
+  cursor: pointer;}
+.rp-explorer .uml-edge-label{fill: var(--ink);
+  font: 10px var(--font-mono);
+  paint-order: stroke;
+  stroke: var(--surface-1);
+  stroke-width: 4px;
+  stroke-linejoin: round;}
+.rp-explorer .atlas-findings{margin: var(--space-2) 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 6px;}
+.rp-explorer .atlas-findings summary{cursor: pointer; color: var(--accent-text);}
+.rp-explorer .atlas-findings li{margin: 10px 0; overflow-wrap: anywhere;}
+.rp-explorer .atlas-finding-group{margin: 10px 0;}
+.rp-explorer .atlas-nested-annotation{margin: var(--space-1) 0; color: var(--ink-muted);}
+.rp-explorer .atlas-module-list a{overflow-wrap: anywhere;}
+.rp-explorer .atlas-rule-assessments,
+.rp-explorer .atlas-evidence{margin: var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 6px;}
+.rp-explorer .atlas-rule-status.fail{color: var(--fail);}
+.rp-explorer .atlas-rule-status.unknown{color: var(--unknown);}
+.rp-explorer .atlas-rule-status.pass{color: var(--ink-muted);}
+.rp-explorer .atlas-balance{margin: var(--space-2) 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent-text);
+  background: var(--surface-2);}
+.rp-explorer .atlas-balance p{margin: var(--space-1) 0; font: 12px var(--font-mono);}
+.rp-explorer .atlas-balance a{color: var(--accent-text);}
+.rp-explorer .atlas-source{margin-top:var(--space-5);
+  overflow-wrap:anywhere}
+@media(max-width:900px){.rp-explorer .flow[data-atlas] .flow-layout{grid-template-columns:minmax(0,1fr)}
+.rp-explorer .flow[data-atlas][data-details-open="true"] .flow-layout{grid-template-columns:minmax(0,1fr)}
+.rp-explorer .flow[data-atlas] .flow-inspector{position:static;
+    max-height:none}
+.rp-explorer .flow[data-atlas] .flow-canvas{height:min(55dvh, 460px)}
+.rp-explorer .report-shell:has(.atlas-heading){width:calc(100% - 24px)}
+.rp-explorer .flow-explore{padding:var(--space-3)}
+.rp-explorer .flow[data-atlas] .flow-toolbar{padding:var(--space-2) 0}
+.rp-explorer .flow[data-atlas] .flow-inspector-content{max-height:none}
+.rp-explorer .flow[data-atlas] .flow-zoom-controls{flex-wrap:wrap}
+.rp-explorer .flow[data-atlas] .flow-view-group{max-width:100%}
+.rp-explorer .atlas-heading h1{font-size:24px}
+}
+.rp-explorer .atlas-section{margin-top: var(--space-4);}
+.rp-explorer .flow[data-atlas]{grid-template-rows: auto;
+  gap: var(--space-2);}
+.rp-explorer .flow[data-atlas] h2{margin-bottom: 0;}
+.rp-explorer .flow[data-atlas] [hidden]{display: none !important;}
+.rp-explorer body:has(.atlas-heading) .report-header{min-height: 64px;
+  padding-block: 10px;}
+.rp-explorer body:has(.atlas-heading) .report-logo{width: 170px;}
+.rp-explorer .flow[data-atlas] .flow-toolbar{margin-bottom: var(--space-7);}
+.rp-explorer .flow[data-atlas] .flow-views{margin-bottom: 0;}
+.rp-explorer .flow[data-atlas] .flow-views button{padding-block: 6px;}
+.rp-explorer .flow[data-atlas] .flow-breadcrumb{flex: 1 1 180px;
+  order: 0;}
+.rp-explorer .flow[data-atlas] .node.uml-card .stereotype,
+.rp-explorer .flow[data-atlas] .node.uml-card .uml-icon text{fill: var(--ink-muted);}
+.rp-explorer .flow[data-atlas] .uml-kind-accent{stroke: var(--accent-text);}
+.rp-explorer .flow[data-atlas][data-content="modules"] .flow-alternative{height: auto;
+  padding: var(--space-4);}
