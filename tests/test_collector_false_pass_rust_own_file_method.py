@@ -114,7 +114,7 @@ def test_an_exact_field_and_an_exact_impl_give_the_edge(
     assert found.get("NO-A-TO-C") == "FAIL", found
 
 
-def test_requires_receipt_distinguishes_unrestricted_and_restricted_targets(
+def test_requires_receipt_distinguishes_matching_and_wrong_ports(
     tmp_path: Path, release_core: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     files = {
@@ -142,12 +142,19 @@ def test_requires_receipt_distinguishes_unrestricted_and_restricted_targets(
     contract.write_text(
         json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
     )
-    restricted = validate(root, capsys)
-    assert allowed["frame"]["collection_gaps"] == restricted["frame"]["collection_gaps"]
+    matching = validate(root, capsys)
+    a["requires"][0]["through"] = ["native.app.c.other"]
+    contract.write_text(
+        json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
+    )
+    wrong = validate(root, capsys)
+    assert allowed["frame"]["collection_gaps"] == matching["frame"]["collection_gaps"]
+    assert allowed["frame"]["collection_gaps"] == wrong["frame"]["collection_gaps"]
     assert len(allowed["frame"]["collection_gaps"]) == 1
     assert statuses(allowed)["REQUIRES"] == "PASS", allowed["frame"]["details"]
-    assert statuses(restricted)["REQUIRES"] == "UNKNOWN", restricted
-    assert "native.app.a -> native.app.c" in restricted["frame"]["explained"]["REQUIRES"]
+    assert statuses(matching)["REQUIRES"] == "PASS", matching
+    assert statuses(wrong)["REQUIRES"] == "UNKNOWN", wrong
+    assert "native.app.a -> native.app.c" in wrong["frame"]["explained"]["REQUIRES"]
 
 
 # #1571 (AD-804): the receiver type comes from a written return type `&S`, or from the item of a
