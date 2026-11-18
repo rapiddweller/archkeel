@@ -77,6 +77,6 @@ def test_the_text_of_a_cycle_shows_the_closed_path_with_one_site_for_each_step(
     release_core: Path, tmp_path: Path
 ) -> None:
     done = command(release_core, plant(tmp_path), "--text")
-    expected = f"CYCLES: dependency cycle: {' -> '.join(PATH)} ({', '.join(SITES)})"
+    expected = f"CYCLES: contract graph cycle: {' -> '.join(PATH)} ({', '.join(SITES)})"
     assert expected in done.stdout, done.stdout
     assert "argument_markers -> build_tools" not in done.stdout

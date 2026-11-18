@@ -397,6 +397,12 @@ does not state the enclosing scope, so a scope selector does not match.
 Use qualified module names or prefixes, not the import specifier text. The frame lists scanned
 targets under `door_reach[].possible_loads`. These are possible dependencies, not observed
 imports. Boundary and cycle rules use them, but the observed topology does not count them.
+The cycle rule checks the contract graph. A graph cycle does not show that its imports run together.
+If two sites match the same line, the declaration applies to neither and the gap stays open.
+
+`loads` is the existing AD-664 prefix premise. It does not read a target list from source code.
+It is not the constant-bound declaration in #723. That work must read and expand the actual
+code constant on each scan. This change adds no free list field and does not complete #723.
 
 ```json
 {"id": "DOOR-FORMULA", "module": "app.calc", "door": "eval", "scope": "Formula.value",

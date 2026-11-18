@@ -221,8 +221,14 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     for rule, row in rows if show_all else rows[:_VIOLATIONS_SHOWN]:
         edge, sites = _edge(frame, row)
         where = ", ".join(sites)
-        premise = " (uses a declared possible dependency)" if row.possible else ""
-        text = f"  {rule}: {row.cause}{premise}: {edge}" + (f" ({where})" if where else "")
+        cause = row.cause
+        if row.members is not None:
+            cause = "contract graph cycle"
+            if row.possible:
+                cause += " (uses a declared possible dependency)"
+        elif row.possible:
+            cause += " (the contract declares this possibility)"
+        text = f"  {rule}: {cause}: {edge}" + (f" ({where})" if where else "")
         texts[text] = texts.get(text, 0) + 1  # one line per place; a repeat is counted
     lines.extend(f"{text} (x{n})" if n > 1 else text for text, n in texts.items())
     if more := rest(len(rows), _VIOLATIONS_SHOWN, show_all):
@@ -304,8 +310,8 @@ def _errors(frame: CoreFrame, contract_files: Sequence[str]) -> list[str]:
 
 #: Day one: the first run of a draft that finds a cycle says what it is, once (a cycle stays FAIL).
 _CYCLE_NOTE = (
-    "This is a real cycle in your code that the drafted rule 'no component cycles' catches; "
-    "keep it as a finding, or change the rule in the contract."
+    "The drafted rule 'no component cycles' rejects this cycle in the contract graph. "
+    "The cycle does not show that the imports execute together."
 )
 
 

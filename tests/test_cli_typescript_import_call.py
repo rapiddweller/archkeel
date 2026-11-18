@@ -12,6 +12,7 @@ of a public entry of `t`: the core keeps `interface.usage_unknown`, as before AD
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -88,17 +89,32 @@ TYPES = {
         ("open", "UNKNOWN"),
         ("missing", "UNKNOWN"),
         ("scope", "UNKNOWN"),
+        ("same-line", "UNKNOWN"),
+        ("include", "UNKNOWN"),
+        ("inside", "UNKNOWN"),
+        ("system", "PASS"),
+        ("system-open", "PASS"),
+        ("exclusive", "FAIL"),
     ],
 )
 def test_computed_imports_use_declared_possible_targets(
     release_core: Path, tmp_path: Path, case: str, status: str
 ) -> None:
     source = "export const load = (name: string) => import(name);\n"
-    if case == "open":
-        source += "export const other = (name: string) => import(name);\n"
+    if case in {"open", "same-line"}:
+        other = "export const other = (name: string) => import(name);\n"
+        source = source + other if case == "open" else source.rstrip() + " " + other
+    if case == "exclusive":
+        source = "export const load = mode => mode === 'left' && import('../b/' + 'secret.mjs');\n"
     files = {"src/a/one.ts": source, "src/b/secret.ts": "export {};\n"}
     if case == "forbidden":
         files["src/b/secret.ts"] = "import '../a/one';\n"
+    if case == "exclusive":
+        files["src/b/secret.ts"] = (
+            "export const load = mode => mode === 'right' && import('../a/' + 'one.mjs');\n"
+        )
+    if case == "include":
+        files["tsconfig.json"] = json.dumps({"include": ["src/a/one.ts", "src/b/secret.ts"]})
     plant = ts(TS_MODULES, [], files=files)
     secret = "app.src.b.secret_x2e_ts"
     forbidden = {
@@ -129,7 +145,11 @@ def test_computed_imports_use_declared_possible_targets(
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
     contract["schema_version"] = "3.15.0"
-    loads = {"forbidden": ["app.src.b"], "missing": [T, "app.src.b.gone_x2e_ts"]}.get(case, [T])
+    loads = {
+        "forbidden": ["app.src.b"],
+        "missing": [T, "app.src.b.gone_x2e_ts"],
+        "exclusive": [secret],
+    }.get(case, [T])
     contract["declarations"] = {
         "door_reach": [
             {
@@ -143,28 +163,103 @@ def test_computed_imports_use_declared_possible_targets(
             }
         ]
     }
+    if case == "exclusive":
+        first = contract["declarations"]["door_reach"][0]
+        contract["declarations"]["door_reach"].append(
+            {**first, "id": "D-RETURN", "module": secret, "loads": [ONE]}
+        )
+    if case == "inside":
+        outer = contract["components"][0]
+        inside = {
+            "schema_version": "3.15.0",
+            "components": [{**outer, "id": "INNER", "label": "inner", "requires": []}],
+            "rules": [],
+            "declarations": contract.pop("declarations"),
+        }
+        outer["inside"] = "inside.json"
+        (root / "inside.json").write_text(json.dumps(inside))
     path.write_text(json.dumps(contract))
+    options = ()
+    if case in {"system", "system-open"}:
+        part = {
+            "id": "web",
+            "title": "Web",
+            "config": "archkeel.toml",
+            "responsibilities": ["Check the web code."],
+            "forbidden_responsibilities": ["Check code outside this part."],
+            "provides": ["The web verdict."],
+        }
+        parts = [part]
+        if case == "system-open":
+            config = (root / "archkeel.toml").read_text()
+            (root / "open.toml").write_text(
+                config.replace('namespace = "app"', 'namespace = "open"').replace(
+                    '"architecture-contract.json"', '"open.json"'
+                )
+            )
+            other = json.loads(json.dumps(contract).replace("app.src.", "open.src."))
+            other.pop("declarations")
+            for row in [*other["rules"], *other["components"]]:
+                row["id"] = f"OPEN-{row['id']}"
+            (root / "open.json").write_text(json.dumps(other))
+            parts.append({**part, "id": "open", "title": "Open", "config": "open.toml"})
+        document = {
+            "schema_version": "archkeel-system-contract-1",
+            "kind": "system",
+            "title": "Fixture",
+            "parts": parts,
+            "interfaces": [],
+            "rules": [],
+        }
+        (root / "system.json").write_text(json.dumps(document))
+        options = ("--config", "system.json")
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, env=GIT)
     subprocess.run(["git", "-C", str(root), "commit", "-qam", "reach"], check=True, env=GIT)
-    done = command(release_core, root, "--json", "--topology", verb="report")
+    done = command(release_core, root, "--json", "--topology", *options, verb="report")
     result = json.loads(done.stdout)
     assert "frame" in result, result
     frame = result["frame"]
     assert frame["rules"]["NO-SECRET"] == ["forbidden_dependency", status], result
     assert frame["rules"]["NO-CYCLE"] == ["no_component_cycles", status], result
     assert not [edge for edge in frame["topology"]["edges"] if edge["source"] == ONE]
-    if case in {"missing", "scope"}:
+    problems = {
+        "missing": "door_reach.invalid",
+        "scope": "door_reach.unmatched",
+        "same-line": "door_reach.ambiguous",
+        "include": "door_reach.invalid",
+        "inside": "door_reach.inside",
+    }
+    if case in problems:
         assert "door_reach" not in frame
-        problem = "door_reach.invalid" if case == "missing" else "door_reach.unmatched"
-        assert any(gap["kind"] == problem for gap in result["gaps"])
+        assert any(gap["kind"] == problems[case] for gap in result["gaps"]), result["gaps"]
     else:
-        (reach,) = frame["door_reach"]
+        reach = frame["door_reach"][0]
         assert reach["loads"] == loads
-        assert reach["possible_loads"] == ([secret, T] if case == "forbidden" else [T])
-    if case == "allowed":
+        expected = {"forbidden": [secret, T], "exclusive": [secret]}.get(case, [T])
+        assert reach["possible_loads"] == expected
+    if case in {"allowed", "system"}:
         assert frame["assumed"]["NO-SECRET"] == [f"D-IMPORT ({ONE}:1 loader)"]
         assert frame["topology"]["requires"][0]["imports"] == 0
         assert result["status"] == "PASS", result
+    if case == "system":
+        assert frame["system"]["parts"][0]["id"] == "web"
+        assert frame["premises"]["NO-SECRET"][0]["kind"] == "door_reach"
+        text = command(release_core, root, "--text", *options).stdout
+        assert "PASS assuming the declared reach of 1 door" in text
+        assert "Possible targets: app.src.b.t.ts" in text
+        target = tmp_path / "system.html"
+        command(release_core, root, "--output", str(target), *options, verb="report")
+        assert "PASS ASSUMING THE DECLARED REACH OF 1 DOOR" in target.read_text()
+    if case == "system-open":
+        assert result["status"] == "UNKNOWN", result
+        assert frame["rules"]["OPEN-NO-SECRET"] == ["forbidden_dependency", "UNKNOWN"]
+        assert "OPEN-NO-SECRET" not in frame["premises"]
+        assert frame["assumed"]["NO-SECRET"] == [f"D-IMPORT ({ONE}:1 loader)"]
+        assert len(frame["door_reach"]) == 1
     if case == "forbidden":
+        assert {(edge["source"], edge["target"]) for edge in frame["topology"]["edges"]} == {
+            (secret, ONE)
+        }
         (detail,) = frame["details"]["NO-SECRET"]
         assert (detail["source"], detail["target"]) == (ONE, secret)
         assert detail["possible"] is True
@@ -176,12 +271,43 @@ def test_computed_imports_use_declared_possible_targets(
         ]
         text = command(release_core, root, "--text").stdout
         assert "Possible targets: app.src.b.secret.ts, app.src.b.t.ts" in text
+        assert "NO-CYCLE: contract graph cycle" in text
+        assert "the contract declares this possibility" in text
         assert "PASS assuming" not in text
         page_path = tmp_path / "report.html"
         command(release_core, root, "--output", str(page_path), "--format", "html", verb="report")
         page = page_path.read_text()
         assert "MAY IMPORT" in page
         assert "Declared possible import:" in page
+        assert "Contract graph cycle" in page
+        assert "not evidence that the imports execute together" in page
+    if case == "exclusive":
+        assert frame["topology"]["edges"] == []
+        (cycle,) = frame["details"]["NO-CYCLE"]
+        assert {(edge["from"], edge["to"]) for edge in cycle["path"] if edge.get("possible")} == {
+            (ONE, secret),
+            (secret, ONE),
+        }
+        if node := shutil.which("node"):
+            # Run the same fixture bodies as ES modules without a TypeScript compiler.
+            for path in ("a/one", "b/secret"):
+                runtime = root / "src" / f"{path}.mjs"
+                runtime.write_text(files[f"src/{path}.ts"])
+            script = """
+const a = await import('./src/a/one.mjs');
+const b = await import('./src/b/secret.mjs');
+const mode = process.argv[1];
+console.log(JSON.stringify([Boolean(await a.load(mode)), Boolean(await b.load(mode))]));
+"""
+            for mode, expected in (("left", [True, False]), ("right", [False, True])):
+                ran = subprocess.run(
+                    [node, "--input-type=module", "-e", script, "--", mode],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                assert json.loads(ran.stdout) == expected
     if status == "UNKNOWN":
         assert "NO-SECRET" not in frame.get("assumed", {})
 

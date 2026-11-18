@@ -215,6 +215,12 @@ fn import_block(
         Some(target) => format!("{source} {relation} {target}"),
         None => source.to_owned(),
     };
+    let premise = if possible {
+        "<p class=\"caption\">The contract declares this dependency as possible. \
+         This possibility violates the rule. The scan does not show that the call ran.</p>"
+    } else {
+        ""
+    };
     let mut path = from;
     if let Some(target) = target {
         let (to, to_levels) = tower(names, target, None, "To");
@@ -229,7 +235,7 @@ fn import_block(
     format!(
         "<article class=\"rp-dos\" id=\"x{n}\">{}<div class=\"rp-dos__body\">\
 <div class=\"rp-path rp-path--{levels}\" role=\"group\" aria-label=\"Evidence path\">{path}</div>\
-<p class=\"caption rp-at\">Evidence: {}</p></div>{}</article>",
+<p class=\"caption rp-at\">Evidence: {}</p>{premise}</div>{}</article>",
         head(place.number, &title),
         evidence_line(frame, evidence, 5),
         violated(frame, names, &place.rules, None),
@@ -302,6 +308,11 @@ fn cycle_block(frame: &Frame, names: &Names<'_>, place: &Place, cycle: &CyclePat
         [one] => format!("Cycle of {} in {one}", count(cycle.members.len(), "member")),
         _ => format!("Cycle of {}", count(cycle.members.len(), "member")),
     };
+    let title = if cycle.possible {
+        format!("Contract graph cycle: {title}")
+    } else {
+        title
+    };
     let rows: String = cycle
         .path
         .iter()
@@ -317,17 +328,26 @@ fn cycle_block(frame: &Frame, names: &Names<'_>, place: &Place, cycle: &CyclePat
     } else {
         String::new()
     };
+    let table = if cycle.path.is_empty() {
+        "<p class=\"caption\">The report does not list a path for this graph cycle.</p>".to_owned()
+    } else {
+        format!(
+            "<table class=\"rp-mini\"><caption class=\"caption\">{members} are in this cycle. \
+Shortest closed path shown: {steps}. {closing}</caption><thead><tr><th class=\"caption ak-num\">Step</th>\
+<th class=\"caption\">From</th><th class=\"caption\">To</th><th class=\"caption\">Evidence</th></tr>\
+</thead><tbody>{rows}</tbody></table>",
+            members = count(cycle.members.len(), "member"),
+            steps = count(cycle.path.len(), "step"),
+            closing = closing(names, cycle)
+        )
+    };
     format!(
         "<article class=\"rp-dos\" id=\"x{n}\">{}<div class=\"rp-dos__body\"><div class=\"rp-scroll\">\
-<table class=\"rp-mini\"><caption class=\"caption\">{members} are in this cycle. Shortest closed path shown: {steps}. {closing}</caption><thead><tr><th class=\"caption ak-num\">Step</th><th class=\"caption\">From</th>\
-<th class=\"caption\">To</th><th class=\"caption\">Imports</th></tr></thead><tbody>{rows}</tbody></table></div>\
+{table}</div><p class=\"caption\">A cycle in the contract graph is not evidence that the imports execute together.</p>\
 {cut}</div>{}</article>",
         head(place.number, &title),
         violated(frame, names, &place.rules, Some(level)),
         n = place.number,
-        members = count(cycle.members.len(), "member"),
-        steps = count(cycle.path.len(), "step"),
-        closing = closing(names, cycle)
     )
 }
 
@@ -413,9 +433,14 @@ pub(super) fn one_line(names: &Names<'_>, place: &Place) -> String {
             } else {
                 "components"
             };
-            match owners.as_slice() {
+            let title = match owners.as_slice() {
                 [one] => format!("Cycle of {} {level} in {one}", cycle.members.len()),
                 _ => format!("Cycle of {} {level}", cycle.members.len()),
+            };
+            if cycle.possible {
+                format!("Contract graph cycle: {title}")
+            } else {
+                title
             }
         }
         Kind::Import {
