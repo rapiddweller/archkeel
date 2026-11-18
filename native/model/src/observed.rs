@@ -141,9 +141,7 @@ pub(crate) fn observed(
                 data.source_module.as_ref()?.as_str().to_owned(),
                 data.module.as_ref()?.as_str().to_owned(),
                 data.dispatch,
-                data.dispatch
-                    && matches!(gap.data, GapFact::CollectionGap(_))
-                    && data.resolution_dimension == Some(ResolutionDimension::RuntimeEffects),
+                execution_only(&gap.data),
             ))
         })
         .collect();
@@ -231,6 +229,12 @@ pub(crate) fn observed(
             })
             .collect(),
     }
+}
+
+// A wire marker alone cannot prove that the live collector made this claim.
+fn execution_only(gap: &GapFact) -> bool {
+    matches!(gap, GapFact::CollectionGap(data)
+        if data.dispatch && data.resolution_dimension == Some(ResolutionDimension::RuntimeEffects))
 }
 
 /// A verified live target from configuration or defaults needs no comparison against an absent
