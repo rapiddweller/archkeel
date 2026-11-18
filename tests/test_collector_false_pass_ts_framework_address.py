@@ -25,7 +25,8 @@ from archkeel.cli import core_only
 
 PREMISE = (
     "code outside the scan roots hands in no global or platform object and replaces no global, "
-    "and addresses that a framework renders from data hold no javascript: code"
+    "and addresses that a framework renders from data hold no javascript: code; "
+    "the runtime supplies any host global proved by a project declaration"
 )
 JSX = '{"compilerOptions":{"allowJs":true,"jsx":"preserve"},"include":["src"]}'
 

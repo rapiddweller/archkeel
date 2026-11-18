@@ -5,7 +5,7 @@
 //! What the script analysis writes: the import records of the globals, their targets, their gaps and
 //! the facts that the later records cite (`collect._script_*`).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use archkeel_facts::data::{BindingData, ImportData};
 use archkeel_facts::envelope::Target;
@@ -121,6 +121,8 @@ pub(crate) struct Sink {
     /// The uses of a free standard name that the named direct forms of the project block: the
     /// name and the evidence of the use (AD-540). `state_blockers` gives them one gap.
     pub blocked: Vec<(String, String)>,
+    /// Missing publications of the current file, with every distinct use of each name.
+    pub unpublished: BTreeMap<String, BTreeSet<String>>,
 }
 
 impl Sink {
@@ -142,8 +144,11 @@ impl Sink {
     pub(crate) fn gap(&mut self, reason: &str, evidence: &[String], module: &str) {
         let fact = GapFact::resolution(reason, module);
         let first = evidence.first().map(String::as_str);
-        self.gaps
-            .push(GapRecord::unknown_gap(reason, first, module, fact));
+        let (id, mut record) = GapRecord::unknown_gap(reason, first, module, fact);
+        record
+            .evidence_ids
+            .extend(evidence.iter().skip(1).map(EvidenceId::new));
+        self.gaps.push((id, record));
     }
 
     /// The gap of a runtime effect: its id is made from the effect, and it names the effect as its
