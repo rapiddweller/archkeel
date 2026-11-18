@@ -35,14 +35,12 @@ use crate::dual_run::{self, Answered, Phases, ReplyInput, Run, Trust, TrustOf, C
 
 /// The first words of the reason of a reply that the core cannot verify. The shell counts it.
 pub(crate) const PRODUCER_NOT_VERIFIED: &str = "producer not verified";
-
 /// The protocol of the scan request.
 const PROTOCOL: &str = "archkeel-core-scan-1";
 /// The bounds of the shell on the inside contracts (`cli/native_core.py`): the rounds of a chain
 /// of 900 mounts. Each of the root and the inside files has a total byte bound.
 const MAX_ROUNDS: usize = 901;
 const MAX_BYTES: u64 = 64 << 20;
-
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ScanRequest {
@@ -77,7 +75,6 @@ struct ScanRequest {
     #[serde(default)]
     part_of: Option<PartOfRequest>,
 }
-
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PartOfRequest {
@@ -87,7 +84,6 @@ struct PartOfRequest {
     #[serde(default)]
     href: Option<String>,
 }
-
 /// The frame of one scan request. An error is a request that the core cannot read.
 pub(crate) fn answer(
     input: &[u8],
@@ -227,7 +223,11 @@ fn one(
         },
         _ => None,
     };
-    match archkeel_collect::scan_with_clock(identity, MAX_BYTES, clock) {
+    let scanned = match clock {
+        Some(now) => archkeel_collect::scan_with_clock(identity, MAX_BYTES, Some(now)),
+        None => archkeel_collect::scan(identity, MAX_BYTES),
+    };
+    match scanned {
         Ok(scanned) => {
             if request.root_only {
                 let input = ContractInput {
