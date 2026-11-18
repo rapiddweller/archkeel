@@ -25,19 +25,34 @@ use archkeel_facts::profile_traits::Layout;
 /// The gap scope of one rule, or the kept gaps that can change what it reads.
 pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>, Reason> {
     let reading = reads(rule, model.contract().components());
-    let held = model
-        .pairs()
+    let pairs = model.pairs();
+    // Dispatch can add a user, but cannot undo a known use or add an item to the inventory.
+    let users_proven = match rule {
+        Rule::UnusedPublic(rule) => {
+            pairs
+                .kept
+                .iter()
+                .chain(&pairs.dropped)
+                .any(|gap| gap.observed && gap.dispatch)
+                && model.graph().published().is_some()
+                && crate::published::unused(model, rule).is_empty()
+        }
+        _ => false,
+    };
+    let reads_pair = |observed, dispatch| !(users_proven && observed && dispatch);
+    let held = pairs
         .kept
         .iter()
+        .filter(|gap| reads_pair(gap.observed, gap.dispatch))
         .filter(|gap| gap.holds(&reading))
         .map(|gap| (gap.source.as_str(), gap.target.as_str()));
     if let Some(held) = Held::of(held) {
         return Err(Reason::NotComplete(Cause::PairGaps(held)));
     }
-    let dropped = model
-        .pairs()
+    let dropped = pairs
         .dropped
         .iter()
+        .filter(|gap| reads_pair(gap.observed, gap.dispatch))
         .filter(|gap| dropped_gaps::holds(gap, rule, &reading))
         .map(|gap| (gap.source.as_str(), gap.target.as_str()));
     match Held::of(dropped) {

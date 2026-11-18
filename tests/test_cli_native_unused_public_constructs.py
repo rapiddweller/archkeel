@@ -73,17 +73,43 @@ def test_each_public_item_is_stated_or_named_as_unread(
     core_binary: Path, tmp_path: Path, name: str
 ) -> None:
     base, app, verdict, rows = PLANTS[name]
+    files = {"crates/base/src/lib.rs": base, "crates/app/src/lib.rs": app}
+    result = validate(_fixture(tmp_path, core_binary, files))
+    found = sorted(row["target"] for row in result["frame"].get("details", {}).get("UNUSED", []))
+
+    assert (statuses(result)["UNUSED"], found) == (verdict, rows), name
+
+
+def _fixture(root: Path, binary: Path, files: dict[str, str]) -> Path:
     unused = rule("UNUSED", "unused_public", source="native.base_crate")
     parts = (component("base", "base_crate"), component("app", "app", ("base",)))
-    files = {"crates/base/src/lib.rs": base, "crates/app/src/lib.rs": app}
-    root = repository(tmp_path, core_binary, files, parts, (unused,))
+    repository(root, binary, files, parts, (unused,))
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
     contract["schema_version"] = "3.16.0"
     path.write_text(json.dumps(contract, indent=2))
     commit_tree(root)
     _rustc_accepts(root)
-    result = validate(root)
-    found = sorted(row["target"] for row in result["frame"].get("details", {}).get("UNUSED", []))
+    return root
 
-    assert (statuses(result)["UNUSED"], found) == (verdict, rows), name
+
+@pytest.mark.parametrize(
+    ("extra", "verdict"), [("", "PASS"), ("pub struct UnusedType;", "UNKNOWN")]
+)
+def test_dispatch_keeps_only_unproved_public_users_open(
+    tmp_path: Path, release_core: Path, extra: str, verdict: str
+) -> None:
+    files = {
+        "crates/base/src/lib.rs": (
+            "mod carrier;\npub fn make() -> impl Drop { carrier::Value }\n" + extra
+        ),
+        "crates/base/src/carrier.rs": "pub(crate) struct Value;\n"
+        "impl Drop for Value { fn drop(&mut self) {} }",
+        "crates/app/src/lib.rs": "pub fn run() { drop(base_crate::make()); }",
+    }
+    result = validate(_fixture(tmp_path, release_core, files))
+    assert any(
+        "A trait impl in native.base_crate.carrier" in gap["reason"]
+        for gap in result["frame"]["collection_gaps"]
+    )
+    assert statuses(result)["UNUSED"] == verdict
