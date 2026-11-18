@@ -4,8 +4,8 @@
 
 //! Static presentation of the frame assembled from one typed ruling. No verdict is inferred here.
 
-use flate2::{write::GzEncoder, Compression};
 use serde_json::{json, Map, Value};
+use std::collections::BTreeMap;
 
 #[path = "html_arch.rs"]
 mod arch;
@@ -68,12 +68,10 @@ pub(super) fn render(frame: &Map<String, Value>) -> Result<Value, serde_json::Er
     let mut page = shell::start(&subject);
     page.push_str(&verdict::section(&view, &places));
     if view.topology.is_some() {
-        let mut compressed = GzEncoder::new(Vec::new(), Compression::fast());
-        serde_json::to_writer(&mut compressed, frame)?;
-        let compressed = compressed.finish().map_err(serde_json::Error::io)?;
+        let packed = pack_frame(frame)?;
         page.push_str(&format!(
-            "<script type=\"application/octet-stream\" id=\"run-frame-gzip\">{}</script>",
-            markup::base64(&compressed)
+            "<script type=\"application/json\" id=\"run-frame-data\">{}</script>",
+            serde_json::to_string(&packed)?.replace('<', "\\u003c")
         ));
     }
     page.push_str(&arch::section(&view, &places, &names));
@@ -84,6 +82,80 @@ pub(super) fn render(frame: &Map<String, Value>) -> Result<Value, serde_json::Er
     page.push_str(&footer::section(&view));
     page.push_str(shell::END);
     Ok(json!({"protocol": "archkeel-core-html-1", "status": status, "document": page}))
+}
+
+fn intern<'a>(
+    text: &'a str,
+    ids: &mut BTreeMap<&'a str, usize>,
+    strings: &mut Vec<&'a str>,
+) -> usize {
+    *ids.entry(text).or_insert_with(|| {
+        strings.push(text);
+        strings.len() - 1
+    })
+}
+
+fn pack_frame(frame: &Map<String, Value>) -> Result<Value, serde_json::Error> {
+    let mut rest = frame.clone();
+    let Some(Value::Array(gaps)) = rest.remove("collection_gaps") else {
+        return Ok(json!({"frame_json": serde_json::to_string(frame)?}));
+    };
+    let mut strings = Vec::new();
+    let mut ids = BTreeMap::new();
+    let mut rows = Vec::new();
+    for gap in &gaps {
+        let Some(object) = gap.as_object() else {
+            rows.push(json!({"raw": serde_json::to_string(gap)?}));
+            continue;
+        };
+        let fields = ["kind", "reason", "subjects", "evidence", "detail"];
+        if object.keys().any(|key| !fields.contains(&key.as_str())) {
+            rows.push(json!({"raw": serde_json::to_string(gap)?}));
+            continue;
+        }
+        let (Some(kind), Some(reason), Some(subjects), Some(evidence)) = (
+            object.get("kind").and_then(Value::as_str),
+            object.get("reason").and_then(Value::as_str),
+            object.get("subjects").and_then(Value::as_array),
+            object.get("evidence").and_then(Value::as_array),
+        ) else {
+            rows.push(json!({"raw": serde_json::to_string(gap)?}));
+            continue;
+        };
+        let subjects = subjects
+            .iter()
+            .map(Value::as_str)
+            .collect::<Option<Vec<_>>>();
+        let evidence = evidence
+            .iter()
+            .map(Value::as_str)
+            .collect::<Option<Vec<_>>>();
+        let (Some(subjects), Some(evidence)) = (subjects, evidence) else {
+            rows.push(json!({"raw": serde_json::to_string(gap)?}));
+            continue;
+        };
+        if object.get("detail").is_some_and(|item| !item.is_string()) {
+            rows.push(json!({"raw": serde_json::to_string(gap)?}));
+            continue;
+        }
+        let mut row = vec![
+            json!(intern(kind, &mut ids, &mut strings)),
+            json!(intern(reason, &mut ids, &mut strings)),
+            json!(subjects
+                .iter()
+                .map(|text| intern(text, &mut ids, &mut strings))
+                .collect::<Vec<_>>()),
+            json!(evidence
+                .iter()
+                .map(|text| intern(text, &mut ids, &mut strings))
+                .collect::<Vec<_>>()),
+        ];
+        if let Some(detail) = object.get("detail").and_then(Value::as_str) {
+            row.push(json!(intern(detail, &mut ids, &mut strings)));
+        }
+        rows.push(Value::Array(row));
+    }
+    Ok(json!({"frame_json": serde_json::to_string(&rest)?, "strings": strings, "gaps": rows}))
 }
 
 #[cfg(test)]

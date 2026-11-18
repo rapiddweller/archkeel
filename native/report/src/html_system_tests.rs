@@ -205,8 +205,21 @@ fn the_page_embeds_the_frame_without_exposing_script_closers() {
         "collection_gaps": [{"kind": "collection_gap", "reason": "</script><script>alert(1)</script>"}]
     });
     let page = document(&frame);
-    assert!(page.contains("id=\"run-frame-gzip\""));
+    assert!(page.contains("id=\"run-frame-data\""));
     assert!(!page.contains("</script><script>alert(1)</script>"));
+}
+
+#[test]
+fn the_embedded_frame_keeps_unusual_gap_fields_and_large_integers() {
+    let gap = json!({"reason": "</script>", "extra": 18446744073709551615_u64});
+    let frame = json!({"large": 18446744073709551615_u64, "collection_gaps": [gap.clone()]});
+    let packed = super::super::pack_frame(frame.as_object().unwrap()).unwrap();
+    assert!(packed["frame_json"]
+        .as_str()
+        .unwrap()
+        .contains("18446744073709551615"));
+    let restored: Value = serde_json::from_str(packed["gaps"][0]["raw"].as_str().unwrap()).unwrap();
+    assert_eq!(restored, gap);
 }
 
 // The Explorer names the result of the run in the words of its verdict (AD-764), not the 4.0.1

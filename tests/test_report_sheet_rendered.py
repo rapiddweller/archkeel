@@ -63,16 +63,28 @@ def test_analysis_limit_messages_are_searchable_and_old_payloads_are_not_reconst
 ) -> None:
     page.open(f"{site}/system.html")
     stored = page.evaluate(
-        """(async () => {
-          const text = document.getElementById('run-frame-gzip').textContent;
-          const bytes = Uint8Array.from(atob(text), c => c.charCodeAt(0));
-          const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-          const frame = await new Response(stream).json();
-          return {count: frame.collection_gaps.length, status: frame.status};
+        """(() => {
+          const data = JSON.parse(document.getElementById('run-frame-data').textContent);
+          return {count: data.gaps.length, status: JSON.parse(data.frame_json).status};
         })()"""
     )
     assert stored["count"] == page.evaluate("ArchkeelFlow.atlas.unknown_count")
     assert stored["status"] == page.evaluate("ArchkeelFlow.atlas.status")
+    exported = page.evaluate(
+        """(async () => {
+          const create = URL.createObjectURL;
+          const click = HTMLAnchorElement.prototype.click;
+          let content;
+          URL.createObjectURL = blob => { content = blob.text(); return create(blob); };
+          HTMLAnchorElement.prototype.click = () => {};
+          document.querySelector('[data-download-frame]').click();
+          HTMLAnchorElement.prototype.click = click;
+          URL.createObjectURL = create;
+          const frame = JSON.parse(await content);
+          return {count: frame.collection_gaps.length, status: frame.status};
+        })()"""
+    )
+    assert exported == stored
     page.evaluate(
         """(() => {
           const a = ArchkeelFlow.atlas;
@@ -119,7 +131,7 @@ def test_analysis_limit_messages_are_searchable_and_old_payloads_are_not_reconst
     page.evaluate(
         """(() => { ArchkeelFlow.atlas.gap_messages_complete = false;
           ArchkeelFlow.atlas.unknowns = [{reason: 'The macro schemars', count: 1}];
-          document.getElementById('run-frame-gzip')?.remove();
+          document.getElementById('run-frame-data')?.remove();
           ArchkeelFlow.dispatch({type: 'clearSelection'}); })()"""
     )
     old = page.evaluate("document.querySelector('.atlas-evidence').innerText")

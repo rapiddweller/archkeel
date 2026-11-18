@@ -74,7 +74,7 @@
       }).join("")}</ul>` : "<p>Rule assessments were not recorded.</p>"}</details>`;
   }
   function auditInstructions() {
-    if (document.getElementById("run-frame-gzip")) return `<p><button type="button" data-download-frame>Download this run's complete frame (JSON.gz)</button></p>
+    if (document.getElementById("run-frame-data")) return `<p><button type="button" data-download-frame>Download this run's complete frame (JSON)</button></p>
       <p>The file contains the original gap records and evidence locations from this report. It is not a new scan.</p>`;
     return `<p>To generate the full audit JSON, run <code>archkeel report --topology --output report.json --format json</code> with the same root and configuration. A new run reads the current source; it may differ from this report.</p>`;
   }

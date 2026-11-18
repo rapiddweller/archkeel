@@ -7,12 +7,12 @@ One recorded location or subject is an example, not the complete evidence for th
 The page does not infer causes or rule relationships from message text.
 It shows whole-scan gap counts per UNKNOWN rule from the typed holds, without summing them.
 
-The standalone page embeds the complete frame as compressed JSON from that same run.
+The standalone page embeds the complete frame from that same run.
 The reader can download it without another scan.
 An older payload can contain shortened reasons and no frame; the page does not reconstruct them.
 
 The alternative of grouping on a colon loses qualified names and changes the reason.
-Compression limits the cost of embedding the frame in the standalone page.
+The page stores repeated gap strings once to limit the size of the embedded frame.
 The Core frame remains the source for the download.
 
 The report unit test checks full messages, counts and an example location.

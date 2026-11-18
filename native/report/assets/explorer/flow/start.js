@@ -37,11 +37,22 @@
   detailsToggle.addEventListener("click", () => dispatch({ type: "setDetails", open: !S.details }));
   inspectorContent.addEventListener("click", (event) => {
     if (!event.target.closest("[data-download-frame]")) return;
-    const encoded = document.getElementById("run-frame-gzip").textContent;
-    const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
-    const url = URL.createObjectURL(new Blob([bytes], {type: "application/gzip"}));
+    const data = JSON.parse(document.getElementById("run-frame-data").textContent);
+    let text = data.frame_json;
+    if (data.gaps) {
+      const values = data.strings;
+      const rows = data.gaps.map((row) => {
+        if (!Array.isArray(row)) return row.raw;
+        const gap = {kind: values[row[0]], reason: values[row[1]],
+          subjects: row[2].map((index) => values[index]), evidence: row[3].map((index) => values[index])};
+        if (row.length === 5) gap.detail = values[row[4]];
+        return JSON.stringify(gap);
+      });
+      text = `${text.slice(0, -1)}${text === "{}" ? "" : ","}"collection_gaps":[${rows.join(",")}]}`;
+    }
+    const url = URL.createObjectURL(new Blob([text], {type: "application/json"}));
     const anchor = document.createElement("a");
-    anchor.href = url; anchor.download = "archkeel-run-frame.json.gz"; anchor.click();
+    anchor.href = url; anchor.download = "archkeel-run-frame.json"; anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   if (NAV) {
