@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import stat
 import sys
 import tomllib
@@ -71,6 +70,7 @@ class ProjectRoot:
     path: Path
     mode: RootMode
     config: str = _CONFIG
+    given_root: Path | None = None
 
     @classmethod
     def top(cls, root: Path | None) -> ProjectRoot:
@@ -90,7 +90,7 @@ class ProjectRoot:
         `archkeel.toml` at or above the current folder, inside its work tree, names the project.
         """
         if root is not None:
-            return cls(resolve_root(root), RootMode.EXPLICIT, config or _CONFIG)
+            return cls(resolve_root(root), RootMode.EXPLICIT, config or _CONFIG, root.absolute())
         here = resolve_root(Path.cwd())
         if config is not None:
             file = resolve_root(here / config)
@@ -134,11 +134,11 @@ class ProjectRoot:
         return {"root": str(self.path), "config": str(self.path / self.config)}
 
     def named(self, here: Path) -> tuple[str, str]:
-        """The root and the configuration as paths from the folder `here`, for the header."""
-        try:
-            return os.path.relpath(self.path, here), os.path.relpath(self.path / self.config, here)
-        except ValueError:
-            return str(self.path), str(self.path / self.config)
+        """Use a relative path inside `here`, or the absolute spelling given for display."""
+        root = self.given_root or self.path
+        if self.path.is_relative_to(here):
+            root = self.path.relative_to(here)
+        return str(root), str(root / self.config)
 
 
 def _stated_root(file: Path) -> str:

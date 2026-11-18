@@ -223,6 +223,6 @@ def test_a_pass_that_rests_on_stated_external_users_is_never_a_bare_pass(
         patch.setattr(core_only, "locate_core", lambda: core_binary)
         core_only.run(["validate", "--text", "--root", str(tmp_path)])
     text = output.getvalue()
-    assert "PASS assuming 2 stated external users (1 rules); a premise is not a proof:" in text
+    assert "PASS assuming 2 stated external users (1 rule); a premise is not a proof:" in text
     assert "stated external users: pkg.base:Shape, pkg.base:unused" in text
     assert "rules: UNUSED" in text
