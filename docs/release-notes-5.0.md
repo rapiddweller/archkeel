@@ -143,7 +143,7 @@ Measured with `uvx archkeel==4.0.1` and main `edef7a140` on the same plant unles
 | Internal shell names (`archkeel.cli.*`) | public names | 35 names got a leading underscore ([#1438](https://github.com/rapiddweller/archkeel/pull/1438), owner decision) | They were never an API. Use the command. |
 | Baseline files of 4.0.1 (schema 1.0.0 to 1.3.0) | read | read; the budgets `calls_unresolved`, `typing_positions`, `untyped_private_accesses` are not measured and give exit 2 | Run `archkeel validate --write-baseline <file>` once, review the diff, commit it. |
 | Exit codes under `--baseline` | — | exit 2 only for a verdict whose every UNKNOWN is accepted; a refusal or an unwritten file exits 1 ([AD-731](architecture/decisions/ad-731-under-a-baseline-only-a-verdict-exits-2.md)) | Treat 1 under `--baseline` as "the baseline gate failed". |
-| Installation of the core | — | the platform wheel carries the core and its digest ([AD-436](architecture/decisions/ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md)) | **To confirm** at release: which platforms have a wheel. |
+| Installation of the core | — | the platform wheel carries the core and its digest ([AD-436](architecture/decisions/ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md)) | `release.yml` requires six platform wheels (manylinux x86_64 and aarch64, musllinux x86_64, macOS x86_64 and arm64, Windows x86_64) and refuses any other count. The `main-build` pre-release carries these six as a development build (`4.0.2.dev…`), not as a release candidate. **To confirm** on the release tag: the six wheels and the version. |
 
 ## Performance
 
@@ -169,22 +169,25 @@ below. A false PASS is a PASS where the code breaks the rule.
 
 | Class | Issue |
 |---|---|
-| Rust: 13 anchored value and trait dispatch forms | [#1515](https://github.com/rapiddweller/archkeel/issues/1515) |
-| Rust: generic bounds and supertraits hide a forbidden trait impl | [#1516](https://github.com/rapiddweller/archkeel/issues/1516) |
-| Rust: a public re-export of an extern self alias hides a forbidden module | [#1517](https://github.com/rapiddweller/archkeel/issues/1517) |
-| Rust: an outside registry source replacement changes a modeled derive | [#1518](https://github.com/rapiddweller/archkeel/issues/1518) |
-| Rust: a method in the file of its type, called through a field | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
-| Python boundary types on 3.14: slots and an outside class write | [#1523](https://github.com/rapiddweller/archkeel/issues/1523) |
-| TypeScript: an installed local package imports project source | [#1529](https://github.com/rapiddweller/archkeel/issues/1529) |
-| TypeScript: a member patch of a standard global (`Math.max = f`) | [#1674](https://github.com/rapiddweller/archkeel/issues/1674) |
+| Rust: a method in the file of its type, called through a field. This was a documented limit (AD-418); a documented limit does not accept a false PASS. | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
+| Rust: an external scope gives PASS for an item that an unread crate re-exports. **Release blocker.** | [#1810](https://github.com/rapiddweller/archkeel/issues/1810) |
 
-State on 2026-11-17. **To confirm**: this table must be empty, or each row accepted by the owner,
-before the release.
+State on 2026-11-18. These issues were in the earlier table and are closed on GitHub since
+2026-11-17: [#1515](https://github.com/rapiddweller/archkeel/issues/1515),
+[#1516](https://github.com/rapiddweller/archkeel/issues/1516),
+[#1517](https://github.com/rapiddweller/archkeel/issues/1517),
+[#1518](https://github.com/rapiddweller/archkeel/issues/1518),
+[#1523](https://github.com/rapiddweller/archkeel/issues/1523),
+[#1529](https://github.com/rapiddweller/archkeel/issues/1529) and
+[#1674](https://github.com/rapiddweller/archkeel/issues/1674). **To confirm**: query the label
+`false-pass` again on the release commit. This table must be empty, or each row accepted by the
+owner, before the release.
 
 Other limits of 5.0:
 
-- Python and Dart decide only the import-graph rules and `interface_boundary`; a Dart cycle rule is
-  always UNKNOWN.
+- Python and Dart decide only the import-graph rules and `interface_boundary`. A Dart cycle rule has
+  its receipt only when the package map is complete
+  ([AD-800](architecture/decisions/ad-800-a-dart-package-map-proof-releases-the-cycle-receipt.md)).
 - Rust macros: a macro that the scan does not expand is a named gap. On `pydantic-core` this holds
   the assignment rule UNKNOWN (20,366 named gaps, mostly `intern!` and derives).
 - `explore`, `guide`, `story`, `view` and `studio` are not in 5.0.
