@@ -110,10 +110,17 @@ impl Builder {
 
     /// The gap of one pair: the scan cannot tell whether `source` uses `target` (#953). The host
     /// drops it when the contract lets the component of `source` use the component of `target`.
-    pub(crate) fn pair_gap(&mut self, reason: &str, evidence: &str, pair: (&str, &str)) {
+    pub(crate) fn pair_gap(
+        &mut self,
+        reason: &str,
+        evidence: &str,
+        pair: (&str, &str),
+        dispatch: bool,
+    ) {
         let (source, target) = pair;
         let mut data = GapData::at(reason, target);
         data.source_module = Some(ModuleName::new(source));
+        data.dispatch = dispatch;
         let fact = GapFact::CollectionGap(data);
         let (id, record) = Record::unknown_gap(reason, Some(evidence), source, fact);
         self.gaps.entry(id).or_insert(record);

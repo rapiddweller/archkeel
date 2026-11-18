@@ -28,8 +28,12 @@ impl Collection<'_> {
             partial,
         };
         let vendors = script_vendor::read(&mut self.snapshot, &mut self.parsers, &setting);
-        let outside =
-            crate::script_outside::read(&mut self.snapshot, &mut self.parsers, &self.roots);
+        let outside = crate::script_outside::read(
+            &mut self.snapshot,
+            &mut self.parsers,
+            &self.roots,
+            &self.preload_files,
+        );
         let project = Project::new(&order, &kept, options.scripts_are_global());
         let dependency_scope = project
             .files

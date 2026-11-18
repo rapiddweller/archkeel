@@ -48,7 +48,7 @@ fn the_system_frame_keeps_the_premise_of_each_part_once() {
     assert_eq!(frame["premise"], json!(shell));
     let frame = joined(&[part("PASS", Some(shell)), part("PASS", Some(shell))]);
     assert_eq!(frame["premise"], json!(shell));
-    let frame = joined(&[part("PASS", Some("a")), part("FAIL", Some("b"))]);
+    let frame = joined(&[part("PASS", Some("a.")), part("FAIL", Some("b"))]);
     assert_eq!(
         (frame["premise"].clone(), frame["status"].clone()),
         (json!("a; b"), json!("FAIL"))

@@ -13,8 +13,9 @@ types along it.
   with a proof (AD-524) and its type arguments (`scan_written.rs`); an untyped local (the chain of
   its initializer; in a nested block or shadowed, it holds up to the next `let` of its name); a literal; a call `f(..)`, `m::f(..)`, `T::f(..)`, a struct literal and
   a variant, when no name and no macro call of the `fn` can hide the path.
-- **Steps.** A named field of an exact struct; a method call with the written return type of the
-  one member that it reaches (AD-383); `?` on `Result` and `Option`; `&`, `&mut`.
+- **Steps.** A named field of an exact struct or a tuple struct field (AD-833); a method call with
+  the written return type of the one member that it reaches (AD-383); `?` on `Result` and
+  `Option`; `&`, `&mut`.
 - **Patterns** (`scan_bodies.rs`). A name in `Some(..)`, `Ok(..)` and tuple patterns of `if let`,
   `while let`, a match arm, a let-else, a tuple `let` or parameter, a closure or a `for`: the part of
   the matched value; through a reference, the default binding mode binds `&T`. `mut` or `ref`

@@ -306,20 +306,14 @@ fn fields(walker: &mut Walker<'_>, item: &syn::ItemStruct) {
     {
         return;
     }
-    let syn::Fields::Named(fields) = &item.fields else {
-        return;
-    };
-    if fields.named.iter().any(|field| !inert(&field.attrs)) {
+    if item.fields.iter().any(|field| !inert(&field.attrs)) {
         return;
     }
-    for field in &fields.named {
-        let Some(name) = &field.ident else {
-            continue;
-        };
+    for (at, field) in item.fields.iter().enumerate() {
         // A field of another form keeps no plain path, only its written type (#1571).
         let (path, kind) = written_type(&field.ty).unwrap_or((Vec::new(), SelfKind::Value));
         let owner = plain(&item.ident);
-        let name = plain(name);
+        let name = field.ident.as_ref().map_or_else(|| at.to_string(), plain);
         walker
             .out
             .fields

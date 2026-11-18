@@ -53,6 +53,8 @@ pub(crate) struct Collection<'a> {
     /// Each installed file that an import of the scan reaches, with the module and the evidence
     /// of that import (#1529).
     pub(crate) installed: Vec<(String, String, String)>,
+    /// Each installed file in a repository-named preload closure (#1750).
+    pub(crate) preload_files: Vec<String>,
 }
 
 impl Collection<'_> {

@@ -143,5 +143,5 @@ fn a_member_of_a_trait_impl_or_of_the_field_type_is_no_inherent_member() {
     // `self.0` has the type of the field, not `S`.
     let c = ("crates/app/src/c.rs", "pub struct S(pub crate::d::T);\n");
     let found = outcome(&shared(), &caller("&self", "self.0.m();"), &[c]);
-    assert_eq!(found, kept());
+    assert_eq!(found, (Vec::new(), vec!["e".to_owned()]));
 }

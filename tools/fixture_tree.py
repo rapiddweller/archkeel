@@ -87,7 +87,7 @@ def fixture_tree(
                 fixture_source.copy_source(checked, spec, root)
         modules = (root / RESOLVER_INPUTS).is_dir()
         if modules:
-            shutil.copytree(root / RESOLVER_INPUTS, root / MODULES)
+            shutil.move(root / RESOLVER_INPUTS, root / MODULES)
         _git(root, "init", "-q", "-b", "main")
         _commit(root, "base", *([MODULES] if modules else []))
         if overlay:

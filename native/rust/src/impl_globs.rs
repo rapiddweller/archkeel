@@ -226,7 +226,7 @@ impl Builder {
     ) {
         let source = reached.module.module.as_str();
         let at = (reached.module.rel.as_str(), &call.site);
-        once_gap(self, reached.edges, (source, target), at, why);
+        once_gap(self, reached.edges, (source, target), at, why, false);
     }
 }
 
@@ -237,11 +237,12 @@ pub(crate) fn once_gap(
     (source, target): (&str, &str),
     (rel, site): (&str, &crate::site::Site),
     why: &str,
+    dispatch: bool,
 ) {
     let pair = (source.to_owned(), target.to_owned());
     if source == target || edges.contains(&pair) || !builder.gapped.insert(pair) {
         return;
     }
     let evidence = builder.cite(rel, site);
-    builder.pair_gap(why, &evidence, (source, target));
+    builder.pair_gap(why, &evidence, (source, target), dispatch);
 }

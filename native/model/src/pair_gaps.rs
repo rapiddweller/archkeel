@@ -39,6 +39,8 @@ pub(crate) struct PairGap {
     pub(crate) owned: [bool; 2],
     /// The target module imports an external package: it can re-export it.
     pub(crate) target_external: bool,
+    /// The gap is about internal dispatch only.
+    pub(crate) dispatch: bool,
 }
 
 /// The pair gaps of a run, classified one time per model.
@@ -61,7 +63,7 @@ pub(crate) enum Reads<'r> {
     Modules,
     /// The direct external imports of each module. An internal edge adds none, but the target
     /// module can re-export an external package, so a gap into such a module holds the rule.
-    ExternalImports,
+    ExternalImports(Option<&'r str>),
     /// The edges from the source side to the target side (`forbidden_dependency`). An end that
     /// no one component owns can be on either side.
     Sides([Selection<'r>; 2]),
@@ -79,6 +81,9 @@ pub(crate) fn reads<'r>(rule: &'r Rule, components: &'r [Component]) -> Reads<'r
         Rule::SiblingIsolation(rule) => {
             Reads::Members(rule.members().iter().map(|m| m.as_text()).collect())
         }
+        Rule::ExternalDependencyScope(rule) => {
+            Reads::ExternalImports(Some(rule.dependency().as_text()))
+        }
         other => by_kind(kind_of(other)),
     }
 }
@@ -89,7 +94,7 @@ fn by_kind(kind: RuleKind) -> Reads<'static> {
     match kind {
         K::RootLayout | K::LayerOrder | K::SymbolPlacement | K::AllowedDependency => Reads::NoEdge,
         K::CompleteAssignment => Reads::Modules,
-        K::ExternalDependencyScope | K::CompleteExternalScope => Reads::ExternalImports,
+        K::ExternalDependencyScope | K::CompleteExternalScope => Reads::ExternalImports(None),
         // `reads` gives these two their own reading; here they read every edge (fail closed).
         K::ForbiddenDependency | K::SiblingIsolation => Reads::Every,
         K::CompleteRequires
@@ -119,7 +124,13 @@ impl PairGap {
         let (a, b) = (self.source.as_str(), self.target.as_str());
         match reads {
             Reads::NoEdge | Reads::Modules => false,
-            Reads::ExternalImports => self.target_external,
+            Reads::ExternalImports(dependency) => {
+                if self.dispatch {
+                    dependency.is_some_and(|name| in_scope(b, name))
+                } else {
+                    self.target_external
+                }
+            }
             Reads::Sides([sources, targets]) => {
                 (sources.matches(a) || !self.owned[0]) && (targets.matches(b) || !self.owned[1])
             }
@@ -153,7 +164,7 @@ pub(crate) fn pairs(
     // `drop_allowed_pair_gaps` drops only for a profile whose host drops (`pair_gaps.py:66`).
     let drops = graph.observed().pair_gap_drop == PairGapDrop::Allowed;
     let mut found = Pairs::default();
-    for (source, target) in gaps {
+    for (source, target, dispatch) in gaps {
         let ends = [owner(source), owner(target)];
         let dropped = match ends {
             [Some(from), Some(to)] if drops => {
@@ -173,6 +184,7 @@ pub(crate) fn pairs(
             observed: modules.contains(source.as_str()) && modules.contains(target.as_str()),
             owned: ends.map(|end| end.is_some()),
             target_external: external.contains(target.as_str()),
+            dispatch: *dispatch,
         };
         if dropped {
             found.dropped.push(gap);
@@ -195,7 +207,7 @@ impl<'g> Cyclic<'g> {
         contract: &Contract,
         components: &Table<ComponentId, Component>,
         graph: &'g Graph,
-        gaps: &'g [(String, String)],
+        gaps: &'g [(String, String, bool)],
     ) -> Self {
         let levels: Vec<&CycleLevel> = contract
             .rules()
@@ -210,10 +222,10 @@ impl<'g> Cyclic<'g> {
             .iter()
             .map(|import| (import.source_module(), import.target_module()))
             .collect();
-        edges.extend(gaps.iter().map(|(a, b)| (a.as_str(), b.as_str())));
+        edges.extend(gaps.iter().map(|(a, b, _)| (a.as_str(), b.as_str())));
         let mut module = HashSet::new();
         if levels.contains(&&CycleLevel::Module) {
-            let starts = gaps.iter().map(|(_, b)| b.as_str()).collect();
+            let starts = gaps.iter().map(|(_, b, _)| b.as_str()).collect();
             module = reach(&edges, &starts);
         }
         let mut component = HashSet::new();
@@ -223,7 +235,7 @@ impl<'g> Cyclic<'g> {
                 .iter()
                 .filter_map(|(s, t)| Some((owner(s)?, owner(t)?)))
                 .collect();
-            let starts = gaps.iter().filter_map(|(_, b)| owner(b)).collect();
+            let starts = gaps.iter().filter_map(|(_, b, _)| owner(b)).collect();
             component = reach(&parts, &starts);
         }
         Cyclic { module, component }

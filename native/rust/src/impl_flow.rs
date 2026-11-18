@@ -53,10 +53,11 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
         if ready.is_empty() {
             return;
         }
+        // The stored pair keeps any earlier gap that can also hide a lexical path.
         for pending in &ready {
             let pair = (pending.source.as_str(), pending.target.as_str());
             let at = (pending.rel.as_str(), &pending.site);
-            once_gap(builder, &graph.edges, pair, at, &pending.reason);
+            once_gap(builder, &graph.edges, pair, at, &pending.reason, true);
         }
         open = waiting;
     }

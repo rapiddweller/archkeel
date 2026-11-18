@@ -22,28 +22,12 @@ use tree_sitter::Node;
 
 use crate::script_outside_forms::{writes_of, Found};
 use crate::source::Span;
-use crate::source_input::classify_file;
+use crate::source_input::{classify_file, installed_directory, skipped_directory};
 use crate::syntax::Parsers;
 use crate::test_sources::is_test_source;
 
 /// The directories that hold installed third-party packages. Their code is code outside the scan
 /// roots, so the premise covers it; the guard reads the code of the repository itself.
-const INSTALLED: [&str; 3] = ["node_modules", "jspm_packages", "bower_components"];
-
-/// The hidden directories that hold no code of the repository: version-control metadata, and
-/// Python environments and tool caches (third-party packages and caches, as `INSTALLED`). Every
-/// other hidden directory is read: `.storybook`, `.vitepress` or `.config` can run in the page.
-const NOT_CODE: [&str; 8] = [
-    ".git",
-    ".hg",
-    ".svn",
-    ".venv",
-    ".tox",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".ruff_cache",
-];
-
 /// A write of a file outside the scan roots: the file and the place.
 pub(crate) type Site = (String, Span);
 
@@ -103,10 +87,16 @@ impl Outside {
     }
 }
 
-/// Read each file of the repository outside `roots` for a write that replaces a global.
-pub(crate) fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, roots: &[String]) -> Outside {
+/// Read repository files outside `roots` and repository-named preload closures for global writes.
+pub(crate) fn read(
+    snapshot: &mut Snapshot,
+    parsers: &mut Parsers,
+    roots: &[String],
+    preloads: &[String],
+) -> Outside {
     let mut found = Outside::default();
-    let files = outside_files(snapshot, roots);
+    let mut files = outside_files(snapshot, roots);
+    Vec::extend(&mut files, preloads.iter().cloned());
     let count = Vec::len(&files);
     // The code address of a data file below a scan root (#1662, AD-810).
     found.address = addresses(snapshot, roots);
@@ -123,10 +113,14 @@ pub(crate) fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, roots: &[Stri
             continue;
         }
         let page = classify_file(&rel).is_none();
+        let preload = preloads.contains(&rel);
         for (typescript, module, program) in programs(&rel, &data) {
-            // The write detector of the scan (#1712); a page program is read as JavaScript.
+            // Node loads preloads as modules, not classic scripts.
+            let module = module || preload;
             let named = if page {
                 format!("{rel}.js")
+            } else if preload {
+                format!("{rel}.cjs")
             } else {
                 rel.clone()
             };
@@ -185,7 +179,7 @@ fn data_files(snapshot: &mut Snapshot, roots: &[String]) -> Vec<String> {
         Vec::extend(&mut found, data);
         let walked = children
             .iter()
-            .filter(|name| !name.starts_with('.') && !INSTALLED.contains(&String::as_str(name)))
+            .filter(|name| !name.starts_with('.') && !installed_directory(name))
             .map(|name| join(&directory, name));
         Vec::extend(&mut pending, walked);
     }
@@ -248,7 +242,7 @@ fn outside_files(snapshot: &mut Snapshot, roots: &[String]) -> Vec<String> {
         for child in children {
             let path = join(&directory, &child);
             let name = String::as_str(&child);
-            let skipped = NOT_CODE.contains(&name) || INSTALLED.contains(&name);
+            let skipped = skipped_directory(name);
             // A directory below a scan root is scanned; a directory above one is walked for its
             // other entries.
             if !skipped && !inside(&path) {

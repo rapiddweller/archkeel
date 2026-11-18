@@ -196,7 +196,8 @@
       const nodes = children.map((component) => ({
         id: component.id, label: component.label, kind: component.directory ? "package" : "component",
         entity: null, sourceGraph: null,
-        meta: component.responsibilities.join(" ").slice(0, 126) || "Not declared",
+        meta: (component.layer_rank != null && component.groups > 1
+          ? component.responsibilities[0] : component.responsibilities.join(" ").slice(0, 126)) || "Not declared",
         sections: [], outside: false, component,
         tooltip: `${component.label}: ${component.responsibilities.join(" ")}.${viewMode === "target" ? "" : ` ${component.reason}`}`,
       }));

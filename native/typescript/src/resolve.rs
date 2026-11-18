@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use crate::manifest::{self, Json, Lookup, Unknown};
 use crate::options::Resolution;
-use crate::resolver::{Kinds, Resolver, TS_AND_DECLARATION};
+use crate::resolver::{Kinds, Resolver, NODE_RUNTIME, TS_AND_DECLARATION};
 use crate::source_input::{
     classify_file, classify_specifier, ModuleFormat, SourceKind, Specifier, SpecifierKind, Suffix,
 };
@@ -154,11 +154,57 @@ impl Resolver {
     }
 
     /// `resolve` for a specifier that the caller has classified already.
+    pub(crate) fn resolve_classified(
+        &mut self,
+        snapshot: &mut Snapshot,
+        (specifier, source): (&str, &Specifier),
+        importer: &str,
+        mode: Option<ModuleFormat>,
+        prefer_builtin: bool,
+    ) -> Lookup<Found> {
+        if !self.node_runtime {
+            return self.resolve_classified_inner(
+                snapshot,
+                (specifier, source),
+                importer,
+                mode,
+                prefer_builtin,
+            );
+        }
+        match self.resolve_classified_inner(
+            snapshot,
+            (specifier, source),
+            importer,
+            mode,
+            prefer_builtin,
+        ) {
+            Lookup::Missing => {
+                let mut types = Resolver::new(self.options.clone(), self.partial);
+                match types.resolve_classified_inner(
+                    snapshot,
+                    (specifier, source),
+                    importer,
+                    mode,
+                    prefer_builtin,
+                ) {
+                    Lookup::Hit(found) => Lookup::Unknown(Unknown::new(format!(
+                        "Node runtime target for {specifier} is not established; \
+                         TypeScript resolution selects {}",
+                        found.path
+                    ))),
+                    Lookup::Unknown(reason) => Lookup::Unknown(reason),
+                    Lookup::Missing => Lookup::Missing,
+                }
+            }
+            found => found,
+        }
+    }
+
     #[expect(
         clippy::excessive_nesting,
         reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
     )]
-    pub(crate) fn resolve_classified(
+    fn resolve_classified_inner(
         &mut self,
         snapshot: &mut Snapshot,
         (specifier, source): (&str, &Specifier),
@@ -176,8 +222,12 @@ impl Resolver {
         } else {
             &[SourceKind::JavaScript]
         };
-        let all = [TS_AND_DECLARATION, last].concat();
-        let passes: Vec<Kinds> = if node10 {
+        let all = if self.node_runtime {
+            NODE_RUNTIME.to_vec()
+        } else {
+            [TS_AND_DECLARATION, last].concat()
+        };
+        let passes: Vec<Kinds> = if node10 && !self.node_runtime {
             vec![TS_AND_DECLARATION, last]
         } else {
             vec![&all]

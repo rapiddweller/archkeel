@@ -85,7 +85,7 @@ of its module to a component of the contract, a root package too. See the violat
     }
     if !frame.named.is_empty() {
         lede.push_str(&format!(
-            " {} of the run name no component: see Unknown.",
+            " See <a href=\"#unknown\">Unknown</a> for {} with no component.",
             count(frame.named.len(), "gap")
         ));
     }

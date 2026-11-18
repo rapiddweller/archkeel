@@ -21,7 +21,7 @@ fn a_page_names_each_pass_under_a_stated_external_user() {
         "{page}"
     );
     assert!(page.contains("All 2 rules hold; 1 hold assuming 1 stated external user"));
-    assert!(page.contains("PASS assuming 1 stated external user: 1 rule hold only under"));
+    assert!(page.contains("PASS assuming 1 stated external user: 1 rule holds only under"));
     assert!(page.contains("PASS ASSUMING 1 STATED EXTERNAL USER"));
     assert!(page.contains("app.api:serve"));
     let plain = page.split("PASS ASSUMING").next().unwrap_or_default();

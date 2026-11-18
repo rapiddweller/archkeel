@@ -165,6 +165,22 @@ def test_each_view_of_the_rust_core_is_ready_in_budget(
     assert page.evaluate(VISIBLE_CARDS) > 0, "the canvas shows no complete box"
 
 
+def test_component_cards_use_whole_counts_and_a_short_layer_description(
+    site: str, page: Browser
+) -> None:
+    page.open(f"{site}/system.html?scope={CORE}&content=components")
+    weights = page.evaluate(
+        "Array.from(document.querySelectorAll('#flow .atlas-weight'), e => e.textContent)"
+    )
+    assert weights and all(" module" in text for text in weights), weights
+    layer = page.evaluate(
+        "document.querySelector('#flow [data-uml-id=\"LAYER:PART:core:evaluation\"] .meta')"
+        ".textContent"
+    )
+    assert "components in this layer" in layer
+    assert layer.endswith("."), layer
+
+
 def test_a_level_with_too_many_modules_groups_them_by_component(site: str, page: Browser) -> None:
     page.open(f"{site}/system.html?scope={CORE}&content=modules")
     scene = page.evaluate(

@@ -93,12 +93,9 @@ pub(super) fn aggregate(nodes: &mut [Node]) {
                     .about
                     .first()
                     .and_then(|t| t.split_once(':'))
-                    .map(|(h, _)| h);
-                let place = place.map_or(String::new(), |p| format!(" ({})", p.to_lowercase()));
-                format!(
-                    "This box groups {count} {noun} of layer {}{place}.",
-                    nodes[at].label
-                )
+                    .and_then(|(head, _)| head.strip_prefix("Layer "));
+                let place = place.map_or(String::new(), |p| format!(" ({p})"));
+                format!("{count} {noun} in this layer{place}.")
             }
             None => {
                 let why = nodes[at].about.first().cloned().unwrap_or_default();
