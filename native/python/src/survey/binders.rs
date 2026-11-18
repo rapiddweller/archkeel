@@ -24,6 +24,8 @@ pub(crate) struct Binders {
     counts: HashMap<String, usize>,
     /// The names that a top-level definition or import binds, in source order.
     direct: Vec<String>,
+    /// How many imports of `Any` from `typing` or `typing_extensions` bind the name `Any`.
+    typing_any: usize,
     /// A star import or a type parameter list anywhere: no name is unique.
     opaque: bool,
     /// A type parameter list anywhere: the binders of a name are unknown (`count_beside_stars`).
@@ -58,6 +60,7 @@ impl Binders {
         let all_literal = !walk.all_imported && one_literal(&tree.body, walk.all_names);
         Self {
             counts: walk.counts,
+            typing_any: walk.typing_any,
             direct,
             opaque: walk.opaque,
             typed: walk.typed,
@@ -87,6 +90,13 @@ impl Binders {
         (!self.opaque).then(|| self.counts.get(name).copied().unwrap_or(0))
     }
 
+    /// Some binder of the name `Any` is not an import of `typing.Any`, so a use of the name may be
+    /// another object (a class `Any`). Unknown counts (a star import) say no.
+    pub(crate) fn any_is_local(&self) -> bool {
+        self.count("Any")
+            .is_some_and(|bound| bound > self.typing_any)
+    }
+
     /// `_unique_direct_module_bindings`: a direct name that no other binder in the module binds.
     pub(crate) fn unique(&self) -> HashSet<String> {
         if self.opaque {
@@ -102,6 +112,7 @@ pub(crate) use crate::module::{first_part, import_bindings};
 #[derive(Default)]
 struct Walk {
     counts: HashMap<String, usize>,
+    typing_any: usize,
     opaque: bool,
     typed: bool,
     stars: Vec<(u32, String)>,
@@ -142,6 +153,21 @@ impl<'a> Visitor<'a> for Walk {
                     self.opaque = true;
                     let module = node.module.as_ref().map_or("", |name| name.as_str());
                     self.stars.push((node.level, module.to_owned()));
+                }
+                if node.level == 0
+                    && node
+                        .module
+                        .as_ref()
+                        .is_some_and(|name| matches!(name.as_str(), "typing" | "typing_extensions"))
+                {
+                    let own = |alias: &&Alias| {
+                        alias.name.as_str() == "Any"
+                            && alias
+                                .asname
+                                .as_ref()
+                                .is_none_or(|name| name.as_str() == "Any")
+                    };
+                    self.typing_any += node.names.iter().filter(own).count();
                 }
                 self.imports(&node.names, stmt);
             }

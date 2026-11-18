@@ -316,17 +316,18 @@ impl Walk<'_> {
     }
 
     fn annotation(&mut self, annotation: &Expr) {
-        struct Any(bool);
-        impl<'a> Visitor<'a> for Any {
+        // A name `Any` that the module binds to another object is not `typing.Any` (AD-874).
+        struct Any<'b>(&'b Binders, bool);
+        impl<'a> Visitor<'a> for Any<'_> {
             fn visit_expr(&mut self, expr: &'a Expr) {
-                self.0 |= matches!(expr, Expr::Name(name) if name.id.as_str() == "Any")
+                self.1 |= matches!(expr, Expr::Name(name) if name.id.as_str() == "Any" && !self.0.any_is_local())
                     || matches!(expr, Expr::Attribute(attr) if attr.attr.as_str() == "Any");
                 visitor::walk_expr(self, expr);
             }
         }
-        let mut found = Any(false);
+        let mut found = Any(self.binders, false);
         found.visit_expr(annotation);
-        if !found.0 {
+        if !found.1 {
             return;
         }
         let text = &self.module.text()[annotation.start().to_usize()..annotation.end().to_usize()];

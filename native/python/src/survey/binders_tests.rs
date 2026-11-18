@@ -84,3 +84,16 @@ fn a_module_of_imports_and_one_literal_all_is_free_of_logic() {
     assert!(!facts("__all__ = ['a']\n__all__ = ['b']\n").logic_free);
     assert!(!facts("").logic_free);
 }
+
+#[test]
+fn a_binder_of_any_that_is_not_the_typing_import_makes_the_name_local() {
+    assert!(!facts("from typing import Any\n").any_is_local());
+    assert!(!facts("from typing_extensions import Any\n").any_is_local());
+    assert!(!facts("x = 1\n").any_is_local());
+    assert!(facts("class Any: pass\n").any_is_local());
+    assert!(facts("Any = object\n").any_is_local());
+    assert!(facts("from typing import Any\nclass Any: pass\n").any_is_local());
+    assert!(facts("from typing import Any as A\nclass Any: pass\n").any_is_local());
+    assert!(facts("from m import Any\n").any_is_local());
+    assert!(!facts("from typing import *\nclass Any: pass\n").any_is_local());
+}
