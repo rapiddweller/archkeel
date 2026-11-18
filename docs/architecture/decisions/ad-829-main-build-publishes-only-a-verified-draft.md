@@ -1,5 +1,7 @@
 # AD-829: Main build publishes only a verified draft
 
+Superseded by [AD-863](ad-863-the-main-build-release-is-replaced-by-verified-staging-and-rename.md).
+
 ## Decision
 
 Create the first main build as a draft. Publish it only after every uploaded asset matches its SHA-256.

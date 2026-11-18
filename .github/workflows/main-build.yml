@@ -34,6 +34,10 @@ jobs:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
     needs: wheels
     runs-on: ubuntu-24.04
+    # AD-863: two publish jobs never run together. A cancelled run is completed by the next run.
+    concurrency:
+      group: main-build-publish
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
