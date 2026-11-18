@@ -189,8 +189,10 @@
   }
 
   function atlasGroupedMatrix(level, modules) {
-    const scene = REPORT_SCENE.atlasModuleScene(level, S.view);
-    const nodes = scene.nodes, ids = new Set(nodes.map((node) => node.id));
+    const nodes = modules.length <= MATRIX_LIMIT
+      ? modules.map((module) => ({ id: module.id, label: module.name }))
+      : REPORT_SCENE.atlasModuleScene(level, S.view).nodes;
+    const ids = new Set(nodes.map((node) => node.id));
     const byModule = new Map(modules.map((module) => [module.id, module]));
     const group = new Map(modules.map((module) => [module.id,
       REPORT_SCENE.componentRoute(module.place_id || module.component_id)

@@ -158,6 +158,56 @@ def test_large_level_opens_a_grouped_matrix_and_its_real_relationships(
         page.wait("!document.querySelector('#flow').dataset.expanded")
 
 
+@pytest.mark.parametrize("width", [1260, 390])
+def test_foundation_matrix_keeps_module_relationships(
+    site: str, tmp_path: Path, width: int
+) -> None:
+    with browser(tmp_path / "profile", width=width, height=844) as page:
+        if width < 500:
+            page.send(
+                "Emulation.setDeviceMetricsOverride",
+                width=width,
+                height=844,
+                deviceScaleFactor=1,
+                mobile=True,
+            )
+            page.send("Emulation.setTouchEmulationEnabled", enabled=True)
+        page.open(f"{site}/system.html?scope=LAYER%3APART%3Acore%3Afoundation")
+        page.evaluate("document.querySelector('#flow [data-drawer=overview]').click()")
+        click(page, "#flow [data-open-matrix]")
+        summary = page.evaluate("""(() => {
+          const R = ArchkeelFlow.reportScene;
+          const level = R.atlas.levels.find((x) => x.parent_id === 'LAYER:PART:core:foundation');
+          const buttons = [...document.querySelectorAll('.atlas-matrix-table td button')];
+          return {modules: R.atlasModules(level, 'diagram').length, observed: level.cells.length,
+            rows: document.querySelectorAll('.atlas-matrix-table tbody th').length,
+            cells: buttons.length, single: buttons.every((button) => button.dataset.cell)};
+        })()""")
+        assert summary == {"modules": 47, "observed": 103, "rows": 47, "cells": 103, "single": True}
+        if width < 500:
+            point = page.evaluate("""(() => {
+              const cell = document.querySelector('.atlas-matrix-table button[data-cell]');
+              cell.scrollIntoView({block:'center', inline:'center'});
+              const r = cell.getBoundingClientRect();
+              const x = r.x + r.width / 2, y = r.y + r.height / 2;
+              return {x, y, hit: document.elementFromPoint(x, y) === cell};
+            })()""")
+            assert point.pop("hit"), point
+            page.send("Input.dispatchTouchEvent", type="touchStart", touchPoints=[point])
+            page.send("Input.dispatchTouchEvent", type="touchEnd", touchPoints=[])
+        else:
+            click(page, ".atlas-matrix-table button[data-cell]")
+        page.wait("!document.querySelector('.atlas-matrix-detail').hidden")
+        assert page.evaluate("document.querySelectorAll('.atlas-matrix-detail li').length") == 1
+        assert "Observed import cell" in page.evaluate(
+            "document.querySelector('#flow .flow-inspector-content').textContent"
+        )
+        click(page, ".atlas-matrix-back")
+        assert page.evaluate("!document.querySelector('.atlas-matrix-grid').hidden")
+        click(page, ".atlas-matrix-close")
+        page.wait("!document.querySelector('.atlas-matrix-dialog')")
+
+
 @pytest.mark.parametrize("width", [1440, 390])
 def test_small_level_keeps_a_selectable_matrix(site: str, tmp_path: Path, width: int) -> None:
     with browser(tmp_path / "profile", width=width, height=844) as page:

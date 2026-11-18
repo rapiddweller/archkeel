@@ -10,7 +10,9 @@ relationships in the same dialog. A button returns to the matrix; another return
 report. A single module relationship also opens the existing fact sheet.
 Module headers still open their module fact sheets. A single relationship keeps its Core status.
 
-The existing hierarchy groups large levels. At most 60 groups give at most 3,600 table
+The matrix shows individual modules up to 60 modules. The Explorer's lower grouping
+threshold does not change the matrix resolution. The existing hierarchy groups larger
+levels. At most 60 groups give at most 3,600 table
 positions. More groups ask the reader to open a smaller scope. Empty positions state no
 exclusion. No relationship is inferred from the position.
 
