@@ -32,7 +32,6 @@ pub(crate) struct Constructs {
     pub(crate) sites: Vec<ConstructSite>,
     pub(crate) symbols: Vec<(String, String)>,
     pub(crate) capabilities: Vec<(String, ConstructSupport)>,
-    pub(crate) selectors: bool,
     pub(crate) constructs_measured: bool,
     pub(crate) signals_measured: bool,
 }
@@ -65,7 +64,6 @@ impl Constructs {
             sites: Vec::new(),
             symbols: Vec::new(),
             capabilities: Vec::new(),
-            selectors: facts.profile.construct_selectors(),
             constructs_measured: false,
             signals_measured: false,
         };

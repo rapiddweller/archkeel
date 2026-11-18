@@ -27,7 +27,7 @@ use archkeel_facts::envelope::{
     TargetSource,
 };
 use archkeel_facts::profile_traits::{Layout, PairGapDrop};
-use archkeel_facts::vocab::ResolutionDimension;
+use archkeel_facts::vocab::{Kind, ResolutionDimension};
 use archkeel_facts::{GapFact, Section};
 
 use crate::coverage::data_of;
@@ -71,6 +71,7 @@ pub(crate) struct Observed {
     pub(crate) dynamic_imports: Vec<Dynamic>,
     /// The construct kinds that the collector examines (any status but `unsupported`).
     pub(crate) constructs: Vec<String>,
+    /// The collector explicitly supports a complete inventory of nominal construct selectors.
     pub(crate) construct_selectors: bool,
     /// The reply has the feature after which one profile reads symbol-level selectors.
     pub(crate) symbol_feature: bool,
@@ -197,7 +198,13 @@ pub(crate) fn observed(
             .filter(|entry| entry.status != ConstructSupport::Unsupported)
             .map(|entry| entry.name.clone())
             .collect(),
-        construct_selectors: facts.profile.construct_selectors(),
+        construct_selectors: Kind::ConstructSelector.construct().is_some_and(|name| {
+            facts
+                .capabilities
+                .constructs
+                .iter()
+                .any(|entry| entry.name == name && entry.status == ConstructSupport::Supported)
+        }),
         symbol_feature: facts
             .capabilities
             .resolution_features

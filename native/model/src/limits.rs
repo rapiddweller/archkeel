@@ -227,7 +227,7 @@ fn own_limit(rule: &Rule, observed: &Observed) -> Option<Limit> {
                     "{id}: the collector examines no {words}"
                 )))
             } else if rule.selector().is_some() && !observed.construct_selectors {
-                let lack = "the collector reads no construct selector";
+                let lack = "the collector does not report a complete construct selector inventory";
                 Some(Limit::Certain(format!("{id}: {lack}")))
             } else {
                 None

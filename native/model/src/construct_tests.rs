@@ -95,6 +95,12 @@ fn record(reply: &mut Value, kind: &str, data: Value) {
     }
 }
 
+fn selector_capabilities(status: Option<&str>) -> Value {
+    let mut entries = vec![json!({"name": "string_literal_compare", "status": "supported"})];
+    entries.extend(status.map(|status| json!({"name": "selector", "status": status})));
+    json!(entries)
+}
+
 #[test]
 fn complete_absence_passes_only_through_the_scope_proof() -> Result<(), Box<dyn std::error::Error>>
 {
@@ -222,10 +228,7 @@ fn each_selector_role_matches_identity_and_never_passes_an_empty_inventory(
             ("other", if literal_role { "PASS" } else { "FAIL" }),
         ] {
             let model = model(options.clone(), |v| {
-                v["facts"]["profile"] = json!(Profile::Python.as_str());
-                v["facts"]["adapter"]["name"] = json!(Profile::Python.as_str());
-                v["facts"]["capabilities"]["constructs"] =
-                    json!([{"name": "string_literal_compare", "status": "supported"}]);
+                v["facts"]["capabilities"]["constructs"] = selector_capabilities(Some("supported"));
                 record(
                     v,
                     "construct_selector",
@@ -247,12 +250,39 @@ fn each_selector_role_matches_identity_and_never_passes_an_empty_inventory(
             );
         }
         let empty = model(options, |v| {
-            v["facts"]["profile"] = json!(Profile::Python.as_str());
-            v["facts"]["adapter"]["name"] = json!(Profile::Python.as_str());
-            v["facts"]["capabilities"]["constructs"] =
-                json!([{"name": "string_literal_compare", "status": "supported"}]);
+            v["facts"]["capabilities"]["constructs"] = selector_capabilities(Some("supported"));
         })?;
         assert!(matches!(decide(&empty)?.verdict(), Verdict::Unknown));
+    }
+    Ok(())
+}
+
+#[test]
+fn the_missing_selector_capability_does_not_borrow_support_from_the_profile(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let options = json!({"constructs": ["string_literal_compare"], "selector": {
+        "receiver": "shop.Connection", "member": "backend", "role": "equality", "literal": "forbidden"}});
+    for (status, literal, expected) in [
+        (None, "other", Verdict::Unknown),
+        (Some("partial"), "other", Verdict::Unknown),
+        (Some("unsupported"), "other", Verdict::Unknown),
+        (Some("decided"), "other", Verdict::Unknown),
+        (None, "forbidden", Verdict::Fail),
+    ] {
+        let model = model(options.clone(), |v| {
+            v["facts"]["profile"] = json!(Profile::Python.as_str());
+            v["facts"]["adapter"]["name"] = json!(Profile::Python.as_str());
+            v["facts"]["capabilities"]["constructs"] = selector_capabilities(status);
+            record(
+                v,
+                "construct_selector",
+                json!({"construct": "selector", "owner": OWNER, "selector_role": "equality",
+                       "receiver_type": "shop.Connection", "member": "backend", "literal": literal,
+                       "status": "decided", "operation": "compare", "receiver_binding": null,
+                       "receiver_parameter": null}),
+            );
+        })?;
+        assert_eq!(decide(&model)?.verdict(), &expected, "{status:?} {literal}");
     }
     Ok(())
 }
@@ -345,10 +375,7 @@ fn selectors_with_wrong_or_missing_identity_are_unknown() -> Result<(), Box<dyn 
         ("equality", Some("shop.Connection"), "decided", None),
     ] {
         let model = model(options.clone(), |v| {
-            v["facts"]["profile"] = json!(Profile::Python.as_str());
-            v["facts"]["adapter"]["name"] = json!(Profile::Python.as_str());
-            v["facts"]["capabilities"]["constructs"] =
-                json!([{"name": "string_literal_compare", "status": "decided"}]);
+            v["facts"]["capabilities"]["constructs"] = selector_capabilities(Some("supported"));
             record(
                 v,
                 "construct_selector",
