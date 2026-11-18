@@ -280,10 +280,20 @@ def test_touch_matrix_has_room_with_fact_sheet_open(site: str, tmp_path: Path) -
           const cells = document.querySelectorAll('.atlas-matrix-table button[data-cell]');
           const cell = [...cells].at(-1);
           cell.scrollIntoView({block:'center', inline:'center'});
+          const grid = cell.closest('.atlas-matrix-grid');
+          const row = grid.querySelector(`th[data-row="${cell.dataset.row}"]`)
+            .getBoundingClientRect();
+          const col = grid.querySelector(`th[data-column="${cell.dataset.column}"]`)
+            .getBoundingClientRect();
           const r = cell.getBoundingClientRect();
           const x = r.x + r.width / 2, y = r.y + r.height / 2;
-          return {x, y, hit: document.elementFromPoint(x, y) === cell};
+          return {x, y, hit: document.elementFromPoint(x, y) === cell,
+            axesVisible: col.top >= 0 && col.bottom <= innerHeight
+              && col.left >= row.right - 1 && col.right <= innerWidth
+              && row.top >= col.bottom - 1 && row.bottom <= innerHeight
+              && r.top >= col.bottom - 1 && r.bottom <= innerHeight};
         })()""")
+        assert point.pop("axesVisible"), point
         assert point.pop("hit"), point
         page.send("Input.dispatchTouchEvent", type="touchStart", touchPoints=[point])
         page.send("Input.dispatchTouchEvent", type="touchEnd", touchPoints=[])

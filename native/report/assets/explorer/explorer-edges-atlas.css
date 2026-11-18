@@ -326,6 +326,9 @@
 html.ak-canvas .rp-explorer .flow[data-matrix-view] .flow-map-column,
 html.ak-canvas .rp-explorer .flow[data-atlas][data-matrix-view][data-details-open="true"] .flow-map-column{right:0;
   bottom:0}
+@media (max-width:900px){
+  html.ak-canvas .rp-explorer .flow[data-atlas][data-matrix-view]:not([data-expanded]){height:100dvh}
+}
 .rp-explorer .atlas-matrix-back{align-self:flex-start;
   padding:var(--space-2);
   color:var(--ink);

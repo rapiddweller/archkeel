@@ -243,6 +243,7 @@
     matrixColumn.appendChild(dialog);
     root.dataset.matrixView = "true";
     matrixScope = level.parent_id;
+    if (matchMedia("(max-width: 900px)").matches) root.scrollIntoView({ block: "start" });
     matrixSwitch.querySelector("[data-diagram-view]").setAttribute("aria-pressed", "false");
     matrixSwitch.querySelector("[data-matrix-view]").setAttribute("aria-pressed", "true");
     const grid = dialog.querySelector(".atlas-matrix-grid");
