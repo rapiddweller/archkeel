@@ -147,11 +147,11 @@ fn an_import_with_known_symbols_or_a_specifier_is_refused() {
 }
 
 #[test]
-fn a_dart_test_exclusion_is_refused_by_the_configuration() {
+fn a_dart_test_exclusion_is_accepted_by_the_configuration() {
     let config = "[scan]\nlanguage = \"dart\"\nroots = [\"lib\"]\nnamespace = \"shop\"\n\
                   contract = \"c.json\"\nexclude_test_sources = true\n";
-    let refused = crate::config::parse(config.as_bytes(), "archkeel.toml").unwrap_err();
-    assert!(format!("{refused:?}").contains("exclude_test_sources is not supported"));
+    let parsed = crate::config::parse(config.as_bytes(), "archkeel.toml").unwrap();
+    assert!(parsed.exclude_test_sources);
 }
 
 #[test]

@@ -94,6 +94,9 @@ object! {
         /// (AD-540). It is no proof and replaces no gap. Wire replies carry none.
         #[serde(skip)]
         pub scope_premise: Option<&'static str>,
+        /// Paths intentionally excluded from the linked collector's source scope.
+        #[serde(skip)]
+        pub excluded_sources: Vec<String>,
         /// The linked collector's files that belong to another module (AD-468). Wire replies
         /// carry none.
         #[serde(skip)]

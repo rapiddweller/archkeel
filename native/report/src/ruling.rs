@@ -109,6 +109,8 @@ pub struct Ruling {
     /// stays `complete`: the shell reads it.
     #[serde(skip_serializing_if = "Option::is_none")]
     premise: Option<&'static str>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    excluded_sources: Vec<String>,
     #[serde(skip)]
     unsupported: RuleReasons,
     /// The typed reason of each rule without a decision, UNKNOWN rows and named rows alike. The
@@ -202,9 +204,8 @@ pub fn rule_with_edge_links(
             .find_map(|checked: &Model| checked.scope(|scope| scope.run()).err()),
         Err(reason) => Some(reason.clone()),
     };
-    let premise = models
-        .ok()
-        .and_then(|tree| tree.models().find_map(Model::scope_premise));
+    let observed = models.ok();
+    let premise = observed.and_then(|tree| tree.models().find_map(Model::scope_premise));
     let scope = scope.map_or(RunScope::Complete, RunScope::Open);
     let mut rows = Rows::default();
     let mut edge_links = crate::edge_links::Links::new();
@@ -290,6 +291,7 @@ pub fn rule_with_edge_links(
         beyond: rows.beyond,
         premises: crate::assumed::Premises::of(rows.premises, models.ok()),
         scope,
+        excluded_sources: observed.map_or_else(Vec::new, ModelTree::excluded_sources),
         premise,
         unsupported,
         causes: rows.causes,
