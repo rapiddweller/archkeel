@@ -100,27 +100,23 @@ impl Places {
         let mut cycles: Vec<(CyclePath, Violated)> = Vec::new();
         for (rule, rows) in &frame.details {
             let listed = frame.explain.cycles.get(rule);
+            let placement = frame.rules.get(rule).is_some_and(|(kind, _)| {
+                kind == crate::kind::word(archkeel_contract::RuleKind::SymbolPlacement)
+            });
             for (index, row) in rows.iter().enumerate() {
                 let violated = Violated {
                     rule: rule.clone(),
                     cause: row.cause.clone(),
                 };
-                if frame.rules.get(rule).is_some_and(|(kind, _)| {
-                    kind == crate::kind::word(archkeel_contract::RuleKind::SymbolPlacement)
-                }) {
-                    if let Some(module) = &row.target {
-                        classes
-                            .entry((module.clone(), row.source.clone()))
-                            .or_default()
-                            .add(violated, &row.evidence);
-                        continue;
-                    }
-                }
                 // A cycle row has its closed path when the frame lists it; else it is one row.
                 let path =
                     listed.and_then(|found| found.items.iter().find(|item| item.index == index));
-                match path {
-                    Some(path) if is_cycle(row) => cycles.push((path.clone(), violated)),
+                match (placement, &row.target, path) {
+                    (true, Some(module), _) => classes
+                        .entry((module.clone(), row.source.clone()))
+                        .or_default()
+                        .add(violated, &row.evidence),
+                    (_, _, Some(path)) if is_cycle(row) => cycles.push((path.clone(), violated)),
                     _ => imports
                         .entry((row.source.clone(), row.target.clone()))
                         .or_default()
