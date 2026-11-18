@@ -12,8 +12,7 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use archkeel_facts::envelope::{Input, Role};
-use archkeel_facts::identity::sha256_hex;
+use sha2::{Digest, Sha256};
 
 use crate::paths::{is_outside, join, normpath};
 
@@ -44,7 +43,7 @@ pub struct Snapshot {
     root: PathBuf,
     // The directories above the root, which the format lookup must also cover.
     depth: usize,
-    inputs: BTreeMap<String, (String, Role)>,
+    inputs: BTreeMap<String, (String, bool)>,
     // The snapshot does not change during one collection, so each real path is looked up once.
     reals: HashMap<String, Option<String>>,
     oversized: BTreeSet<String>,
@@ -162,11 +161,8 @@ impl Snapshot {
                 if !crate::work::permits(&self.root, rel, &raw) {
                     return None;
                 }
-                let role = self
-                    .inputs
-                    .get(rel)
-                    .map_or(Role::Resolution, |(_, role)| *role);
-                self.inputs.insert(rel.to_owned(), (sha256_hex(&raw), role));
+                let selected = self.inputs.get(rel).is_some_and(|(_, selected)| *selected);
+                self.inputs.insert(rel.to_owned(), (digest(&raw), selected));
                 Some(raw)
             }
             Err(_) => {
@@ -196,8 +192,8 @@ impl Snapshot {
 
     /// Mark a read file as a selected source file.
     pub fn select(&mut self, rel: &str) {
-        if let Some((_, role)) = self.inputs.get_mut(rel) {
-            *role = Role::Selected;
+        if let Some((_, selected)) = self.inputs.get_mut(rel) {
+            *selected = true;
         }
     }
 
@@ -276,17 +272,17 @@ impl Snapshot {
         (!kind.is_file() && !kind.is_dir()).then_some(Hidden::Special(name))
     }
 
-    /// The digested inputs, sorted by path.
-    pub fn inputs(&self) -> Vec<Input> {
+    /// Build a record from each input's path, digest and selection flag, in path order.
+    pub fn inputs<T>(&self, mut record: impl FnMut(&str, &str, bool) -> T) -> Vec<T> {
         self.inputs
             .iter()
-            .map(|(path, (digest, role))| Input {
-                digest: digest.clone(),
-                path: path.clone(),
-                role: *role,
-            })
+            .map(|(path, (digest, selected))| record(path, digest, *selected))
             .collect()
     }
+}
+
+pub(super) fn digest(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
 }
 
 /// The entry as a dangling link or a name that is not UTF-8, or `None`.

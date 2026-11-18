@@ -6,7 +6,8 @@
 
 use archkeel_facts::envelope::validation::{InterfaceNeed, Registered};
 use archkeel_facts::envelope::{
-    Evidence, LimitSupport, Profile, ProfileLimits, Provenance, Reply, SectionName, Validation,
+    Evidence, Input, LimitSupport, Profile, ProfileLimits, Provenance, Reply, Role, SectionName,
+    Validation,
 };
 use archkeel_facts::request::RustRequest;
 use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
@@ -176,7 +177,11 @@ impl Builder {
             sections: SECTIONS.to_vec(),
             features: FEATURES.to_vec(),
             constructs: Vec::new(),
-            inputs: source.inputs(),
+            inputs: source.inputs(|path, digest, selected| Input {
+                path: path.to_owned(),
+                digest: digest.to_owned(),
+                role: Role::of_read(selected),
+            }),
             source_digest: None,
             files,
             imports: self.targets,

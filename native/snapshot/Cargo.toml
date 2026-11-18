@@ -12,7 +12,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-archkeel-facts.workspace = true
+sha2.workspace = true
 
 [features]
 # Test only: a temporary source tree for the unit tests of the crates that read a snapshot.

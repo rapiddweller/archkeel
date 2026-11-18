@@ -104,9 +104,8 @@ def _crate(module: str) -> str:
     return ".".join(module.split(".")[:2])
 
 
-def test_collect_hands_core_no_value_of_a_collector_type(
-    built: Path, checked: tuple[int, dict[str, Any]]
-) -> None:
+@pytest.fixture(scope="module")
+def import_records(built: Path, checked: tuple[int, dict[str, Any]]) -> list[dict[str, Any]]:
     # The core states the request that it sent to its collector; the Rust collector of the same
     # build answers it again here, so the test reads the import records themselves.
     request = checked[1]["frame"]["self_test"]["collect"]["request"]
@@ -118,12 +117,31 @@ def test_collect_hands_core_no_value_of_a_collector_type(
     )
     assert done.returncode == 0, done.stderr.decode(errors="replace")
     reply = json.loads(zlib.decompress(done.stdout))
-    records = [
+    return [
         record["data"]
         for section in reply["facts"]["sections"]
         if section["name"] == "imports"
         for record in section["records"]
     ]
+
+
+def test_snapshot_io_does_not_depend_on_collector_facts(
+    import_records: list[dict[str, Any]],
+) -> None:
+    snapshot = "native.archkeel_snapshot"
+    facts = "native.archkeel_facts"
+    assert any(_crate(row["source_module"]) == snapshot for row in import_records)
+    assert [
+        row
+        for row in import_records
+        if _crate(row["source_module"]) == snapshot and _crate(row["target_module"]) == facts
+    ] == []
+
+
+def test_collect_hands_core_no_value_of_a_collector_type(
+    import_records: list[dict[str, Any]],
+) -> None:
+    records = import_records
     # The collector crates are the crates of the reply whose name says so; a new one (the Rust
     # collector of #1120) is in the set without a change of this test.
     modules = {data[end] for data in records for end in ("source_module", "target_module")}

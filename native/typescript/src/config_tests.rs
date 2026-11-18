@@ -22,11 +22,7 @@ fn load(files: &[(&str, &str)]) -> Loaded {
     Loaded {
         files,
         problems: snapshot.problems.iter().cloned().collect(),
-        inputs: snapshot
-            .inputs()
-            .into_iter()
-            .map(|input| input.path)
-            .collect(),
+        inputs: snapshot.inputs(|path, _, _| path.to_owned()),
     }
 }
 

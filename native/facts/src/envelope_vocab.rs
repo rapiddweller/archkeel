@@ -100,6 +100,17 @@ closed! {
     }
 }
 
+impl Role {
+    /// The role of a read, based on whether the scan selects its file.
+    pub fn of_read(selected: bool) -> Self {
+        if selected {
+            Self::Selected
+        } else {
+            Self::Resolution
+        }
+    }
+}
+
 closed! {
     /// How completely the collector examines one construct kind.
     pub enum ConstructSupport {

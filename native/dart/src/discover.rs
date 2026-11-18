@@ -154,9 +154,8 @@ pub(crate) fn discover(
     sources.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
     excluded.sort();
     let digests: BTreeMap<String, String> = snapshot
-        .inputs()
+        .inputs(|path, digest, _| (path.to_owned(), digest.to_owned()))
         .into_iter()
-        .map(|input| (input.path, input.digest))
         .collect();
     for source in &mut sources {
         if let Some(digest) = digests.get(&source.rel_path) {

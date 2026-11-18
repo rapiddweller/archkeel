@@ -74,7 +74,6 @@
         "native.archkeel_facts.fields:Fields",
         "native.archkeel_facts.fields:Named",
         "native.archkeel_facts.identity:Part",
-        "native.archkeel_facts.identity:StreamDigest",
         "native.archkeel_facts.identity:evidence_id",
         "native.archkeel_facts.identity:inside",
         "native.archkeel_facts.identity:is_identifier",
@@ -177,15 +176,6 @@
       ],
       "provenance": [
         "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
-      ],
-      "requires": [
-        {
-          "component": "facts",
-          "rationale": "Write and read the typed facts that the reply holds (AD-345).",
-          "through": [
-            "native.archkeel_facts"
-          ]
-        }
       ],
       "public": [
         "native.archkeel_snapshot.paths:basename",
@@ -7190,6 +7180,8 @@
         "native.archkeel_python_collector",
         "native.archkeel_report.build_script",
         "native.archkeel_report.cargo_toml",
+        "native.archkeel_snapshot.cargo_toml",
+        "native.archkeel_snapshot.snapshot",
         "native.archkeel_store"
       ],
       "rationale": "These crates compute source digests, or the report's build-time script hashes; the model, evaluator and core copy digests and compute none.",
