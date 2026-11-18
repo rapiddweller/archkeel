@@ -261,6 +261,33 @@ def test_npm_script_changed_cwd_cannot_leave_relative_preload_as_pass(
     assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
 
 
+def test_npm_script_quote_concatenation_hides_preload_name_but_fails_closed(
+    tmp_path: Path, release_core: Path
+) -> None:
+    extra = {
+        "package.json": json.dumps(
+            {
+                "name": "app",
+                "scripts": {"start": "cd sub && node --requ''ire hook -e 'console.log(1)'"},
+            }
+        ),
+        "sub/node_modules/hook/package.json": '{"name":"hook","main":"index.js"}',
+        "sub/node_modules/hook/index.js": PATCH + "console.log('CONCATENATED_PRELOAD');\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    result = subprocess.run(
+        ["npm", "run", "start"],
+        cwd=tmp_path / "repo",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "CONCATENATED_PRELOAD" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
+    assert any("<unsupported package script>" in gap["reason"] for gap in frame["collection_gaps"])
+
+
 def test_oversized_env_file_snapshot_refusal_withholds_preload_pass(
     tmp_path: Path, release_core: Path
 ) -> None:

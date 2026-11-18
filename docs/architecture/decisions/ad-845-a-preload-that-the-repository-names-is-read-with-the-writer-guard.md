@@ -39,6 +39,8 @@ A preload can also patch the module loader and redirect any import.
    existing optional env files and unknown `--env-file*` options make every named preload UNKNOWN.
    A missing optional file is safe only for one direct `node` command. It accepts simple arguments
    and whitespace-free quotes. Wrappers, shell operators, escapes and expansions withhold proof.
+   An unsupported package script with no statically named preload emits its own resolution gap;
+   uncertainty does not depend on recognizing a preload flag.
    The caller's environment and external env files are not scanned. Check project-source reach and
    pass it to AD-788's `script_outside::read` guard. Node
    loads installed preloads as modules, so top-level bindings are not global; each global write

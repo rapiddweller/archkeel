@@ -109,6 +109,7 @@ fn only_direct_node_commands_prove_the_package_script_working_directory() {
         "NODE=./node node --require hook src.js",
         "node $NODE_ARGS",
         "node --require hook src.js && echo done",
+        "node --require hook src.js\ncd sub",
         "node --require=./ho'ok.cjs src.js",
         "node --env-file-if-exists=run'time'.env --require hook src.js",
     ] {
@@ -126,6 +127,27 @@ fn only_direct_node_commands_prove_the_package_script_working_directory() {
         "package.json",
         r#"{"scripts":{"start":12}}"#
     ));
+}
+
+#[test]
+fn an_opaque_package_script_creates_a_preload_gap_without_a_parsed_preload_name() {
+    for command in [
+        "cd sub && node --requ''ire hook -e '0'",
+        "env node --requ''ire hook -e '0'",
+        "sh -c 'node --requ''ire hook -e 0'",
+        "eval \"$RUN\"",
+        "$NODE --require hook",
+        "node \"$NODE_ARGS\"",
+        "node --unknown='x' --requ''ire hook",
+    ] {
+        let text = serde_json::json!({"scripts":{"start":command}}).to_string();
+        assert!(script_cwd_unknown("package.json", &text), "{command}");
+    }
+    let text = r#"{"scripts":{"start":"cd sub && node --requ''ire hook -e '0'"}}"#;
+    assert_eq!(
+        names_of("package.json", text),
+        ["<unsupported package script>"]
+    );
 }
 
 #[test]

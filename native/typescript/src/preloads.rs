@@ -28,6 +28,7 @@ mod options_reader;
 #[path = "preloads_script_context.rs"]
 mod script_context;
 pub(super) use script_context::script_cwd_unknown;
+use script_context::script_names;
 
 /// Whether a repository data filename can name a tool preload.
 pub(super) fn preload_file(name: &str) -> bool {
@@ -255,27 +256,6 @@ fn option_mode(command: &str, name: &str) -> Option<ModuleFormat> {
         index += 1;
     }
     found
-}
-
-/// Preload names and unresolved preload flags from package scripts.
-fn script_names(scripts: Option<&Value>) -> Vec<String> {
-    scripts
-        .and_then(Value::as_object)
-        .into_iter()
-        .flat_map(serde_json::Map::values)
-        .filter_map(Value::as_str)
-        .flat_map(|script| {
-            let mut found = options_reader::option_names(script);
-            if conditions::has_opaque_preload_command(script) {
-                found.push("<dynamic preload target>".to_owned());
-            }
-            if found.is_empty() && options_reader::has_preload_flag(script) {
-                vec!["<dynamic preload target>".to_owned()]
-            } else {
-                found
-            }
-        })
-        .collect()
 }
 
 /// The modules that the jest keys of a configuration name.
