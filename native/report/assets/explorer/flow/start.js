@@ -35,6 +35,27 @@
 
 
   detailsToggle.addEventListener("click", () => dispatch({ type: "setDetails", open: !S.details }));
+  inspectorContent.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-download-frame]")) return;
+    const data = JSON.parse(document.getElementById("run-frame-data").textContent);
+    let text = data.frame_json;
+    if (data.gaps) {
+      const values = data.strings;
+      const rows = data.gaps.map((row) => {
+        if (!Array.isArray(row)) return row.raw;
+        const list = (items) => (Array.isArray(items) ? items : [items]).map((index) => values[index]);
+        const gap = {kind: data.kind, reason: values[row[0]],
+          subjects: list(row[1]), evidence: list(row[2])};
+        if (row.length === 4) gap.detail = values[row[3]];
+        return JSON.stringify(gap);
+      });
+      text = `${text.slice(0, -1)}${text === "{}" ? "" : ","}"collection_gaps":[${rows.join(",")}]}`;
+    }
+    const url = URL.createObjectURL(new Blob([text], {type: "application/json"}));
+    const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = "archkeel-gap-records.json"; anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
   if (NAV) {
     setTargetDetails(true);
     readRoute();

@@ -308,14 +308,50 @@ fn rule_assessments(frame: &Frame, found: &[Finding], refs: &mut Refs) -> Vec<Va
 }
 
 fn unknowns(frame: &Frame) -> Vec<Value> {
-    let mut by_reason: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut by_reason: BTreeMap<&str, (usize, String)> = BTreeMap::new();
     for gap in &frame.collection_gaps {
-        let reason = gap.reason.split(':').next().unwrap_or(&gap.reason);
-        *by_reason.entry(reason).or_default() += 1;
+        let entry = by_reason.entry(&gap.reason).or_default();
+        entry.0 += 1;
+        if entry.1.is_empty() {
+            entry.1 = gap
+                .evidence
+                .iter()
+                .find_map(|id| frame.place(id))
+                .or_else(|| gap.subjects.first().cloned())
+                .unwrap_or_default();
+        }
     }
     by_reason
         .into_iter()
-        .map(|(reason, count)| json!({"count": count, "reason": reason}))
+        .map(|(reason, (count, example))| {
+            json!({
+                "reason": reason, "count": count, "example": example
+            })
+        })
+        .collect()
+}
+
+fn whole_scan_holds(frame: &Frame) -> Vec<Value> {
+    let mut counts: BTreeMap<usize, usize> = BTreeMap::new();
+    for (rule, (_, verdict)) in &frame.rules {
+        if *verdict != RuleVerdict::Unknown {
+            continue;
+        }
+        if let Some(hold) = frame
+            .explain
+            .holds
+            .rules
+            .get(rule)
+            .filter(|h| h.kind == "coverage_gaps")
+        {
+            *counts.entry(hold.total).or_default() += 1;
+        }
+    }
+    let mut ranked: Vec<_> = counts.into_iter().collect();
+    ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    ranked
+        .into_iter()
+        .map(|(gaps, rules)| json!({"gaps": gaps, "rules": rules}))
         .collect()
 }
 
@@ -352,11 +388,12 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
         "components": components, "modules": levels.modules, "assignments": levels.assignments,
         "cells": levels.cells, "levels": levels.rows, "deviations": levels.deviations,
         "balance": levels.balance, "findings": found.iter().map(|f| &f.value).collect::<Vec<_>>(),
-        "rule_assessments": rule_assessments, "unknowns": unknowns(frame),
+        "rule_assessments": rule_assessments, "unknowns": unknowns(frame), "gap_messages_complete": true,
+        "whole_scan_holds": whole_scan_holds(frame),
         "declared_note": declared_note(frame, topology),
         "unknown_count": frame.collection_gaps.len(), "questions": [], "declared_modules": [],
         "module_correspondences": [], "module_inventories": [], "symbols_complete": false,
-        "symbol_coverages": coverage, "architecture_href": "#next", "detail_page": null,
+        "symbol_coverages": coverage, "architecture_href": null, "detail_page": null,
         "unassigned_detail_href": null,
         "module_box_limit": super::atlas_node::ON_SCREEN,
         "cell_permission_reason_ref": refs.id("The page names no permission for one pair of modules."),
