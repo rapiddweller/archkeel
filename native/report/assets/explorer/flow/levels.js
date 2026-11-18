@@ -75,8 +75,19 @@
     fit(overview, { whole });
   }
 
+  // The parent that a frame is drawn in. A layer that holds one component is that component, so it
+  // gets no frame of its own: its frame would repeat the frame of the component inside it.
+  function atlasFrameParentId(component, byId) {
+    let parent = byId.get(component.parent_id);
+    while (parent && parent.layer_rank != null && atlasBoxHoldsOneComponent(parent)) {
+      parent = byId.get(parent.parent_id);
+    }
+    return parent?.id ?? null;
+  }
+
   async function layoutAtlasScene(scene, level) {
     const layoutEdges = scene.componentOverview ? scene.layoutEdges : scene.edges;
+    const componentsById = new Map(ATLAS.components.map((component) => [component.id, component]));
     const result = await REPORT_LAYOUT.layoutAtlas({
       componentOverview: scene.componentOverview,
       parentId: level.parent_id,
@@ -85,7 +96,7 @@
       edges: layoutEdges.map((edge) => ({ id: edge.id, layoutId: edge.layoutId || edge.id,
         source: edge.source, target: edge.target, label: edge.label || "" })),
       components: ATLAS.components.map((component) => ({
-        id: component.id, parentId: component.parent_id, label: component.label,
+        id: component.id, parentId: atlasFrameParentId(component, componentsById), label: component.label,
       })),
       cardWidth: CARD.w,
       cardHeights: Object.fromEntries(scene.nodes.map((node) => [node.id, cardHeight(node.id)])),
