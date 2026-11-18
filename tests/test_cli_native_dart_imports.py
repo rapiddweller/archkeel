@@ -295,6 +295,45 @@ def test_dart_import_into_excluded_test_is_unknown(release_core: Path, tmp_path:
     assert "lib/data/repo_test.dart" in json.dumps(result["frame"]["collection_gaps"])
 
 
+def test_excluded_invalid_and_colliding_paths_are_visible(
+    release_core: Path, tmp_path: Path
+) -> None:
+    files = {
+        **BASE,
+        "lib/domain/a-test.dart": "class A {}\n",
+        "lib/domain/a_test.dart": "class TestA {}\n",
+        "lib/domain/test/9helper.dart": "class Helper {}\n",
+    }
+    root = project(tmp_path, files, extra="exclude_test_sources = true\n")
+    result = verdict(release_core, root)
+    assert result["status"] == "PASS", result["frame"].get("collection_gaps")
+    assert result["frame"]["excluded_sources"] == [
+        "lib/domain/a_test.dart",
+        "lib/domain/test/9helper.dart",
+    ]
+    text = command(release_core, root, "--text").stdout
+    assert all(path in text for path in result["frame"]["excluded_sources"])
+
+
+def test_excluded_paths_with_the_same_name_keep_both_roots(
+    release_core: Path, tmp_path: Path
+) -> None:
+    files = {
+        **BASE,
+        "lib/test/9helper.dart": "",
+        "other/test/9helper.dart": "",
+    }
+    root = project(tmp_path, files, extra="exclude_test_sources = true\n")
+    config = root / "archkeel.toml"
+    config.write_text(config.read_text().replace('roots = ["lib"]', 'roots = ["lib", "other"]'))
+    result = verdict(release_core, root)
+    assert result["status"] == "PASS", result["frame"].get("collection_gaps")
+    paths = ["lib/test/9helper.dart", "other/test/9helper.dart"]
+    assert result["frame"]["excluded_sources"] == paths
+    text = command(release_core, root, "--text").stdout
+    assert all(path in text for path in paths)
+
+
 @pytest.mark.skipif(os.name == "nt", reason="symbolic links need privileges on Windows")
 def test_a_linked_directory_below_a_scan_root_makes_each_rule_unknown(
     release_core: Path, tmp_path: Path

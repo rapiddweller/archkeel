@@ -11,6 +11,8 @@ The collector names every excluded file in the live result. The core carries tho
 JSON, text and HTML, and combines the names from each system part. An import or part directive
 that reaches an excluded source stays a `DartTargetNotSelected` gap. A scope that contains only
 excluded files stays UNKNOWN.
+After package discovery, the exclusion runs before module naming and collision checks. An
+excluded path need not be a valid module name. A collision among selected files stays UNKNOWN.
 The shell still recognizes the `scan` refusal of an older collector.
 
 **Reason.** A production view must not treat test dependencies as production dependencies.
@@ -27,3 +29,4 @@ issue #874.
 **Check.** Dart collector plants cover the opt-in, production names, project folders and an empty
 production scope. CLI plants cover the default, both verdicts, named exclusions and a production
 import into an excluded source. The system test keeps exclusions from both parts.
+The collision and invalid-path plants check both the default and opt-in scopes.

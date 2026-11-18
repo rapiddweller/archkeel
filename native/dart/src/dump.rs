@@ -76,7 +76,7 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
     let started = Instant::now();
     // A snapshot root that is a link, missing or not a directory stops the collection.
     let result = Snapshot::open_root(root)
-        .and_then(|mut snapshot| discover(&mut snapshot, namespace, &roots));
+        .and_then(|mut snapshot| discover(&mut snapshot, namespace, &roots, false));
     let result = result.and_then(|found| {
         let mut parser = DartParser::new()?;
         let syntax: Vec<_> = found

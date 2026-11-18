@@ -24,6 +24,93 @@ fn gaps(found: &super::Survey) -> BTreeMap<String, usize> {
     gap_rows(found)
 }
 
+fn scoped(files: &[(&str, &str)], roots: &[&str], exclude: bool) -> super::Survey {
+    let tree = Tree::new(&with_pubspec(files));
+    let request = json!({
+        "protocol_version": "9.0.0",
+        "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": roots, "namespace": "shop", "exclude_test_sources": exclude},
+        "resolver": {"language": "dart"},
+    });
+    survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap()).unwrap()
+}
+
+#[test]
+fn test_paths_leave_before_module_names_and_collisions() {
+    let files = [
+        ("lib/domain/a-test.dart", ""),
+        ("lib/domain/a_test.dart", ""),
+        ("lib/domain/test/9helper.dart", ""),
+    ];
+    let excluded = scoped(&files, &["lib"], true);
+    assert_eq!(
+        excluded.excluded,
+        ["lib/domain/a_test.dart", "lib/domain/test/9helper.dart"]
+    );
+    assert_eq!(excluded.coverage.selected_files, ["lib/domain/a-test.dart"]);
+    assert!(excluded.coverage.full_scope, "{:?}", excluded.unknowns);
+
+    let default = scoped(&files, &["lib"], false);
+    assert!(default.excluded.is_empty());
+    assert_eq!(gaps(&default).get("DartModuleCollision"), Some(&2));
+    assert_eq!(gaps(&default).get("DartModuleError"), Some(&1));
+}
+
+#[test]
+fn production_collisions_stay_unknown_with_test_exclusion() {
+    let found = scoped(
+        &[
+            ("lib/domain/a-test.dart", ""),
+            ("lib/domain/a_test.dart", ""),
+        ],
+        &["lib"],
+        false,
+    );
+    assert_eq!(gaps(&found).get("DartModuleCollision"), Some(&2));
+    let found = scoped(
+        &[("lib/domain/a-b.dart", ""), ("lib/domain/a_b.dart", "")],
+        &["lib"],
+        true,
+    );
+    assert_eq!(gaps(&found).get("DartModuleCollision"), Some(&2));
+    assert!(!found.coverage.full_scope);
+}
+
+#[test]
+fn an_import_into_an_excluded_colliding_file_stays_unknown() {
+    let found = scoped(
+        &[
+            ("lib/domain/a-test.dart", "import 'a_test.dart';\n"),
+            ("lib/domain/a_test.dart", ""),
+        ],
+        &["lib"],
+        true,
+    );
+    assert_eq!(found.excluded, ["lib/domain/a_test.dart"]);
+    assert_eq!(gaps(&found).get("DartTargetNotSelected"), Some(&1));
+    assert!(!found.coverage.full_scope);
+}
+
+#[test]
+fn separate_roots_name_each_excluded_path_even_when_relative_names_match() {
+    let found = scoped(
+        &[
+            ("one/a.dart", ""),
+            ("two/b.dart", ""),
+            ("one/test/9helper.dart", ""),
+            ("two/test/9helper.dart", ""),
+        ],
+        &["one", "two"],
+        true,
+    );
+    assert_eq!(
+        found.excluded,
+        ["one/test/9helper.dart", "two/test/9helper.dart"]
+    );
+    assert_eq!(found.coverage.selected_files, ["one/a.dart", "two/b.dart"]);
+    assert!(found.coverage.full_scope, "{:?}", found.unknowns);
+}
+
 #[cfg(unix)]
 #[test]
 fn a_link_out_of_the_root_and_an_unreadable_directory_are_gaps() {

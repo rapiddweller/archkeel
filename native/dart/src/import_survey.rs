@@ -96,23 +96,16 @@ pub(crate) struct Survey {
 pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
     let roots = scan_roots(&request.scope.roots);
     let mut snapshot = Snapshot::open_root(&request.snapshot.root)?;
-    let mut found = discover(&mut snapshot, &request.scope.namespace, &roots)?;
-    let mut excluded: Vec<String> = Vec::new();
-    let package_files = &found.package_files;
-    if request.excludes_test_sources() {
-        Vec::retain(&mut found.sources, |source| {
-            let test = roots
-                .iter()
-                .any(|root| test_source(&source.rel_path, root, &found.package_dir, package_files));
-            if test {
-                excluded.push(source.rel_path.clone());
-            }
-            !test
-        });
-    }
+    let found = discover(
+        &mut snapshot,
+        &request.scope.namespace,
+        &roots,
+        request.excludes_test_sources(),
+    )?;
     let mut gaps = Gaps::default();
     discovery_gaps(&found, &mut gaps.evidence, &mut gaps.records);
     let sources: &[crate::discover::Source] = &found.sources;
+    let excluded: &[String] = &found.excluded;
     if sources.is_empty() && !excluded.is_empty() {
         gaps.plain(
             (".", 1),
@@ -159,7 +152,7 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
     // AD-468: the selected sources that the survey read; a part counts as a parsed file.
     let read = selected.len();
     Ok(Survey {
-        excluded,
+        excluded: found.excluded,
         inputs,
         // AD-468: the scope label of a root is `<root>/**`, as the model binds it to the roots.
         scope: roots.iter().map(|root| format!("{root}/**")).collect(),
@@ -178,43 +171,6 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
         symbols: collected.symbols,
         calls: collected.calls,
         references: collected.references,
-    })
-}
-
-fn test_source(path: &str, root: &str, package_dir: &str, package_files: &[String]) -> bool {
-    let relative = if root == "." {
-        Some(path)
-    } else {
-        path.strip_prefix(root).and_then(|s| s.strip_prefix('/'))
-    };
-    let Some(relative) = relative else {
-        return false;
-    };
-    relative.ends_with("_test.dart")
-        || relative
-            .rsplit_once('/')
-            .is_some_and(|(parent, _)| test_directory(parent, root, package_files))
-        || root != package_dir
-            && root
-                .rsplit('/')
-                .next()
-                .is_some_and(|part| matches!(part, "test" | "tests"))
-            && !package_files.contains(&format!("{root}/pubspec.yaml"))
-}
-
-fn test_directory(parent: &str, root: &str, package_files: &[String]) -> bool {
-    let mut directory: String = if root == "." {
-        String::new()
-    } else {
-        root.to_owned()
-    };
-    parent.split('/').any(|part| {
-        if !directory.is_empty() {
-            directory.push('/');
-        }
-        directory.push_str(part);
-        matches!(part, "test" | "tests")
-            && !package_files.contains(&format!("{directory}/pubspec.yaml"))
     })
 }
 
