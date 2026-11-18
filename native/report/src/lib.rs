@@ -107,6 +107,7 @@ mod build_error;
 mod edge_links;
 mod engine_frame;
 mod head;
+mod html;
 mod kind;
 mod report;
 mod ruling;
