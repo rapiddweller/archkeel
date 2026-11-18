@@ -23,12 +23,14 @@ permissions:
   contents: read
 
 jobs:
-  # AD-863: a newer push cancels an older build, never a publication that has started.
+  # AD-863: a build that has started finishes, and the newest waiting build replaces older waiting
+  # ones. A build takes about 20 minutes and merges come faster, so a cancel would starve the
+  # publication. Manual runs wait in their own queue and never replace a build of a push.
   wheels:
     uses: ./.github/workflows/native-wheels.yml
     concurrency:
-      group: main-build-wheels
-      cancel-in-progress: true
+      group: main-build-wheels-${{ github.event_name }}
+      cancel-in-progress: false
 
   publish:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
