@@ -21,7 +21,7 @@ no import. Each gap marks the whole run as unproven, so a clean project got a wr
   scan, one plain `class` binds `Class` there, and the importing module binds the name one time.
   The attribute `code` of such a name is no `code` module.
 - A read of `sys.path` gives no gap in these positions: the source of a `for` or of a comprehension,
-  an operand of a comparison, and the value of a subscript read. Each other use is a gap, so a
+  and the value of a subscript read. Each other use is a gap, so a
   call, an assignment, an augmented assignment, a subscript store, `del`, a call of a method and
   an alias (`p = sys.path`) keep the gap.
 
@@ -29,12 +29,14 @@ no import. Each gap marks the whole run as unproven, so a clean project got a wr
 
 - Drop `inspect` and `code` from the door list. `import code; code.interact()` is a true site.
 - Treat each read of `sys.path` as inert. A call such as `f(sys.path)` can change it.
+- Treat comparisons as inert. An operand can receive `sys.path` in its comparison method and change it.
 - Resolve a class through a package re-export. That needs the binding proof of `routes.rs`.
 
 ## Kept gaps
 
 - A class that a package re-exports (`from app import Plan`) keeps the gap on `Plan.code`.
 - `from sys import path` and `sys.path` as a plain value keep the gap.
+- Comparisons keep the gap, including literal membership tests, until a proof covers their operands.
 - A `def` that another statement of the module also binds keeps the gap.
 
 ## Tests

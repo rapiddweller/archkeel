@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,30 @@ from test_cli_native_python_imports import RULE, project, rows, rules, verdict
 PLANTS = plants()
 DECIDED = [*rules(), {**RULE, "id": "REQUIRES", "kind": "complete_requires"}]
 NAMES = ["FORBID", "ASSIGN", "CYCLES", "EXTERNAL", "REQUIRES"]
+
+
+@pytest.mark.parametrize("comparison", ["Mutator() == sys.path", "sys.path == Mutator()"])
+def test_comparison_can_mutate_path(release_core: Path, tmp_path: Path, comparison: str) -> None:
+    source = (
+        "import sys\n"
+        "class Mutator:\n"
+        " def __eq__(self, path):\n"
+        "  path.append('/injected')\n"
+        "  return False\n"
+        f"{comparison}\n"
+        "assert sys.path[-1] == '/injected'\n"
+    )
+    subprocess.run([sys.executable, "-c", source], check=True, capture_output=True)
+    result = verdict(release_core, tree(tmp_path, Plant("comparison", source)))
+    assert "import_system_change" in json.dumps(result)
+    assert result["status"] == "UNKNOWN"
+
+
+def test_literal_membership_comparison_remains_unknown(release_core: Path, tmp_path: Path) -> None:
+    source = "import sys\nx = 'a' in sys.path\n"
+    result = verdict(release_core, tree(tmp_path, Plant("literal", source)))
+    assert "import_system_change" in json.dumps(result)
+    assert result["status"] == "UNKNOWN"
 
 
 def tree(root: Path, plant: Plant) -> Path:

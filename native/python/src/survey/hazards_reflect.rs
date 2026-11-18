@@ -311,7 +311,6 @@ impl<'a> Visitor<'a> for Marks {
                 self.found.local.insert(node.range(), node.id.to_string());
             }
             Expr::Attribute(_) => self.chain(expr),
-            Expr::Compare(node) => node.operands.iter().for_each(|item| self.read(item)),
             Expr::Subscript(node) if node.ctx == ExprContext::Load => self.read(&node.value),
             _ => {}
         }
