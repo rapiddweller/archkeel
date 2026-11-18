@@ -7,7 +7,7 @@ Full verification and the main build call the same wheel workflow.
 Each wheel must pass its installed test before publication.
 Publish the complete set and its checksums on the `main-build` pre-release.
 Move its tag to the built commit. It is not the latest release.
-Cancel an older main build when a new one starts.
+Cancel an older main build when a new one starts. (Superseded by [AD-863](ad-863-the-main-build-release-is-replaced-by-verified-staging-and-rename.md): a started build finishes.)
 
 ## Reason
 

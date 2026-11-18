@@ -41,11 +41,17 @@ one asset in one call. The new wheels appear for pip only after all six are stag
   Each wheel was tested on its own. The next run completes the rename.
 - For about two calls, `SHA256SUMS` is missing or lists the previous set. `SHA256SUMS.old` keeps the previous list until the end.
 - A user who downloads an old wheel while it is deleted gets a 404 once.
-- Serialization: the wheel build has the group `main-build-wheels`. A newer push cancels an older build.
-  The publish job has the group `main-build-publish` without cancel. A started publication runs to its end.
-  The newest waiting publication replaces older waiting ones. There is no workflow-wide group, because
-  it would cancel a started publication. A manual cancel or a crash can still stop a run in any step.
+- Serialization: the wheel build has the group `main-build-wheels-<event>` without cancel. A build that has
+  started finishes. The newest waiting build replaces older waiting ones, so at most one build runs and one waits.
+  A cancel would starve the publication: a build takes about 20 minutes, and on 2026-11-18 merges came every
+  10 to 17 minutes, so five runs in a row were cancelled before `publish`. Manual runs have their own queue
+  and never replace the waiting build of a push. This supersedes the cancel rule of AD-824.
+  The publish job has the group `main-build-publish` without cancel. It runs to its end, and the newest
+  waiting publication replaces older waiting ones. There is no workflow-wide group, because it would cancel
+  a started publication. A manual cancel or a crash can still stop a run in any step.
   Every step can be repeated, so the next run completes or cleans the state.
+- A re-run of an old run builds the old commit again and can take the waiting place. Its publication is
+  skipped by the check of step 2. The next push takes the place back.
 - Checked by GET on the public release (2026-11-18): the asset name keeps `+`, the download link has `%2B`,
   the page lists the same names after unquoting, `digest` is `sha256:<hex>` and equals the file, `state` is
   `uploaded`, and the notes parser and `SHA256SUMS` text match the live files. The rename, the upload of a
