@@ -21,9 +21,13 @@ ARCHKEEL_FETCH_SOURCES=1 uv run pytest -q -n 0 -s tests/test_cli_phase_timings_r
 - `ARCHKEEL_SOURCE_CACHE=DIR` keeps the checkout. With the checkout in `DIR` the run needs no network
   (offline replay). A cached checkout is **verified before use** (`tools/fixture_source.verify_checkout`):
   the object store must be sound (`git fsck`, no borrowed objects, replacement refs ignored), `HEAD` must
-  be the pin, and the files of the folder must be exactly the files of that commit with the hash of
-  each blob. A wrong folder, another commit, a changed, added or deleted file, or a damaged store is an
-  error. The cache is not repaired, not deleted and not fetched again.
+  be the pin, and the files of the folder must be exactly the files of that commit: the same type (a
+  link only for a link, read with `lstat` and the exact bytes of its target; a regular file only for a
+  file), the hash of each blob, and the executable bit where the checkout records it (`core.filemode`,
+  POSIX). A wrong folder, another commit, a changed, added or deleted file, a link in place of a file
+  (or the reverse) with the same bytes, or a damaged store is an error. The copy takes a link as a
+  link and refuses one that points outside the fixture, so no byte from outside the verified tree
+  comes in (the one link of the pinned Dart fixture points inside). The cache is not repaired, not deleted and not fetched again.
 - `ARCHKEEL_TIMINGS_RUNS=N` sets the number of runs (default 5).
 - `ARCHKEEL_TIMINGS_DIR=DIR` sets the output folder (default `test-artifacts/phase-timings`). Each run
   of the test makes **a new folder of its own** `run-<UTC time>-<random>` below it, after the source is
