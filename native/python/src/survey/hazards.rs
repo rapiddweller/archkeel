@@ -42,7 +42,7 @@ mod inert;
 #[path = "hazards_names.rs"]
 pub(super) mod names;
 #[path = "hazards_reflect.rs"]
-mod reflect;
+pub(super) mod reflect;
 
 /// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
 pub(super) const LITERAL: &str = "literal_import";

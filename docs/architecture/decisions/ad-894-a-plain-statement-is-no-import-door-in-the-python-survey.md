@@ -31,7 +31,8 @@ no import. Each gap marks the whole run as unproven, so a clean project got a wr
 ## Kept gaps
 
 - A class that a package re-exports (`from app import Plan`) keeps the gap on `Plan.code`.
-- A directly imported class also keeps the gap on `Plan.code`, including a read without a call.
+- A directly imported class keeps the gap on `Plan.code` unless
+  [AD-935](ad-935-a-proven-class-literal-is-no-import-door.md) proves the value.
 - `from sys import path` and `sys.path` as a plain value keep the gap.
 - Comparisons keep the gap, including literal membership tests, until a proof covers their operands.
 - A `def` that another statement of the module also binds keeps the gap.

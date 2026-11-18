@@ -61884,11 +61884,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.survey",
-      "A trait impl in native.archkeel_python_collector.survey.hazards.reflect may run in code that reaches native.archkeel_python_collector.survey.hazards.reflect without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey",
       "A trait impl in native.archkeel_python_collector.survey.lazy_agree may run in code that reaches native.archkeel_python_collector.survey.lazy_agree without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
