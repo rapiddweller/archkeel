@@ -15,6 +15,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use archkeel_facts::vocab::ResolutionDimension;
+use archkeel_facts::ImportFact;
 
 use crate::builder::Builder;
 use crate::crates::Workspace;
@@ -22,10 +23,69 @@ use crate::definitions::{Access, Form, Member, MethodCall};
 use crate::impl_globs::depends;
 use crate::impl_globs::once_gap;
 use crate::modules::inside;
-use crate::modules::{Index, TypeOf};
-use crate::scan::Via;
+use crate::modules::{Frame, Index, TypeOf};
+use crate::scan::{Reference, Via};
 use crate::site::Site;
 use crate::tree::Module;
+
+/// Exact import binding sites whose recorded routes reach their named types.
+pub(super) struct NameRoutes {
+    sites: BTreeSet<(String, i64, i64)>,
+    macro_shadow: bool,
+}
+
+impl NameRoutes {
+    pub(super) fn of(builder: &Builder, macro_shadow: bool) -> Self {
+        let sites = builder.imports.iter().filter_map(|record| {
+            let (ImportFact::Import(data) | ImportFact::Reexport(data)) = &record.data else {
+                return None;
+            };
+            if !data.symbols_known || data.route_complete == Some(false) || data.symbol.is_none() {
+                return None;
+            }
+            let [id] = &record.evidence_ids[..] else {
+                return None;
+            };
+            let site = builder.evidence.get(id.as_str())?;
+            Some((site.file.clone(), site.line, site.column))
+        });
+        Self {
+            sites: sites.collect(),
+            macro_shadow,
+        }
+    }
+
+    pub(super) fn covers(&self, index: &Index<'_>, frame: &Frame<'_>, path: &Reference) -> bool {
+        let [receiver, _] = path.names.as_slice() else {
+            return false;
+        };
+        let [leaf] = frame.bound(receiver) else {
+            return false;
+        };
+        let module = frame.module;
+        let site = (path.site.line, path.site.column);
+        !path.absolute
+            && path.in_macro.is_none()
+            && matches!(path.via, Via::Path)
+            && !module.scan.generic_paths.contains(&site)
+            && !module.scan.body_macros
+            && !module.scan.module_macros
+            && !(module.scan.placed_macros && self.macro_shadow)
+            && (!module.gated || module.gates.is_some())
+            && module.scan.counts.get(receiver) == Some(&1)
+            && !module.scan.conditional_bindings.contains(receiver)
+            && matches!(leaf.via, Via::Use { block: false, .. })
+            && !leaf.absolute
+            && frame.lexical_at(&path.scope) == frame.lexical_at(&leaf.scope)
+            && self
+                .sites
+                .contains(&(module.rel.clone(), leaf.site.line, leaf.site.column))
+            && matches!(
+                index.type_of(frame, &path.scope, std::slice::from_ref(receiver)),
+                TypeOf::Known(..)
+            )
+    }
+}
 
 /// A gap that waits for the value flow: a call in `source` (in the file `rel`, at `site`) may
 /// reach a member of a type in `target`.

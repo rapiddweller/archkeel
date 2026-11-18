@@ -8750,38 +8750,6 @@
     {
       "entry": [
         "rule",
-        "NATIVE-NEUTRAL-CORE-NO-PROFILE",
-        "UNKNOWN"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "rule",
-        "NATIVE-NEUTRAL-EVAL-NO-PROFILE",
-        "UNKNOWN"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "rule",
-        "NATIVE-NEUTRAL-MODEL-NO-PROFILE",
-        "UNKNOWN"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "rule",
-        "NATIVE-NEUTRAL-REPORT-NO-PROFILE",
-        "UNKNOWN"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "rule",
         "NATIVE-NO-COMPONENT-CYCLES",
         "UNKNOWN"
       ],
@@ -8807,38 +8775,6 @@
       "entry": [
         "unknown",
         "NATIVE-INTERFACE-BOUNDARY",
-        "scope_incomplete"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "unknown",
-        "NATIVE-NEUTRAL-CORE-NO-PROFILE",
-        "scope_incomplete"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "unknown",
-        "NATIVE-NEUTRAL-EVAL-NO-PROFILE",
-        "scope_incomplete"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "unknown",
-        "NATIVE-NEUTRAL-MODEL-NO-PROFILE",
-        "scope_incomplete"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "unknown",
-        "NATIVE-NEUTRAL-REPORT-NO-PROFILE",
         "scope_incomplete"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"

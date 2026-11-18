@@ -272,6 +272,7 @@ impl Walker<'_> {
             return;
         }
         self.out.method_calls.push(MethodCall {
+            bound_name: false,
             name,
             site,
             scope,

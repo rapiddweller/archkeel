@@ -122,10 +122,13 @@ FACTORY = BASE + (
 PROFILE_METHODS = """#[derive(PartialEq)]
 pub enum Profile { Rust, Python }
 impl Profile {
+    pub fn make() -> Self { Self::Rust }
     pub fn label(&self) -> u8 {
         match self { Self::Rust => 1, Self::Python => 2 }
     }
 }
+pub struct Safe;
+impl Safe { pub fn make() -> Self { Self } }
 struct Stored;
 impl Drop for Stored { fn drop(&mut self) {} }
 pub fn allowed() {}
@@ -140,6 +143,24 @@ ERASED_SOURCE = "static COUNT: u8 = 0;\npub fn f() -> u8 { COUNT }\n"
             FACTORY,
             "pub fn f() -> bool { base_crate::profile() != base_crate::profile() }\n",
             "PASS",
+            "UNKNOWN",
+        ),
+        (
+            BASE + "pub use vocab::Safe;\n",
+            "use base_crate::Safe;\npub fn f() { let _ = Safe::make(); }\n",
+            "PASS",
+            "UNKNOWN",
+        ),
+        (
+            RENAMED,
+            "use base_crate::Lang;\npub fn f() { let _ = Lang::make(); }\n",
+            "FAIL",
+            "FAIL",
+        ),
+        (
+            OPAQUE + BASE + "pub use vocab::Safe;\n",
+            "use base_crate::Safe;\npub fn f() { let _ = Safe::make(); }\n",
+            "UNKNOWN",
             "UNKNOWN",
         ),
         (
@@ -189,6 +210,9 @@ ERASED_SOURCE = "static COUNT: u8 = 0;\npub fn f() -> u8 { COUNT }\n"
     ],
     ids=[
         "default-ne",
+        "qualified-safe",
+        "qualified-alias",
+        "qualified-open-binding",
         "field",
         "erased-destructor",
         "alias",

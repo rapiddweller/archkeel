@@ -282,6 +282,7 @@ impl Builder {
             }
         }
         let calls = def.methods.iter().map(|name| MethodCall {
+            bound_name: false,
             name: name.clone(),
             site: call.site.clone(),
             scope: Vec::new(),
