@@ -163,6 +163,7 @@ pub(super) fn trait_impl_candidates(workspace: &Workspace, modules: &[Module]) -
         );
         let callers = modules.iter().filter(|caller| {
             caller.module != home.module
+                && (caller.gated || !caller.scan.declarations_only)
                 && (caller.crate_index == home.crate_index || depends(workspace, caller, home))
         });
         for caller in callers {

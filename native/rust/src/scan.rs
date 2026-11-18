@@ -63,6 +63,7 @@ pub(crate) fn scan(
             tools: !crate::attrs::kinds::no_tools(&file.attrs),
             derives: Vec::new(),
             out: Scan {
+                declarations_only: declarations_only(&file.items),
                 tally: Tally::of(&file, exclude_tests),
                 ..Scan::default()
             },
@@ -81,6 +82,21 @@ pub(crate) fn scan(
     visitor.visit_file(&file);
     attributes::finish(&mut visitor.walker);
     Ok(visitor.walker.out)
+}
+
+/// Imports and module declarations give names to other code. They contain no call site.
+fn declarations_only(items: &[Item]) -> bool {
+    items.iter().all(|item| match item {
+        Item::Use(item) => receivers::inert(&item.attrs),
+        Item::Mod(item) => {
+            (receivers::module_inert(&item.attrs) || receivers::module_cfg(&item.attrs).is_some())
+                && item
+                    .content
+                    .as_ref()
+                    .is_none_or(|(_, items)| declarations_only(items))
+        }
+        _ => false,
+    })
 }
 
 #[path = "scan_path_safety.rs"]

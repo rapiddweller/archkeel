@@ -123,6 +123,8 @@ pub(crate) struct Scan {
     pub fields: BTreeMap<(String, String), Vec<Field>>,
     /// An inner attribute of the file may remove the module in some configuration.
     pub gated_file: bool,
+    /// The file only imports names and declares modules, so its body cannot dispatch.
+    pub declarations_only: bool,
     /// Expression paths whose first name can be hidden by a generic parameter in this file.
     pub generic_paths: BTreeSet<(i64, i64)>,
     /// A `use` may be removed or rewritten by an attribute.

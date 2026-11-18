@@ -235,3 +235,29 @@ def test_an_internal_dispatch_does_not_add_a_lexical_external_path(
     assert verdicts["NO-EXTERNAL-IN-A"] == "PASS"
     assert verdicts["EXTERNALS-DECLARED"] == "PASS"
     assert verdicts["NO-LOCAL-IN-A"] == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("pub use crate::c::make;\n", {"PASS"}, id="reexport-only"),
+        pytest.param(
+            "pub mod facade { pub use crate::c::make; }\n", {"PASS"}, id="inline-reexport-only"
+        ),
+        pytest.param(
+            "pub mod inner { pub fn f() { drop(crate::c::make()); } }\n",
+            {"FAIL", "UNKNOWN"},
+            id="inline-drop",
+        ),
+        pytest.param(
+            "macro_rules! run { () => { pub fn f() { drop(crate::c::make()); } } }\nrun!();\n",
+            {"FAIL", "UNKNOWN"},
+            id="macro-generated-drop",
+        ),
+    ],
+)
+def test_only_code_can_run_a_trait_impl(
+    tmp_path: Path, release_core: Path, source: str, expected: set[str]
+) -> None:
+    files = _form("impl Drop for Y { fn drop(&mut self) {} }\n", source)
+    assert _verdict(tmp_path, release_core, _app(files)) in expected
