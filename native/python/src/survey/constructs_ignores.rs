@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, ops::Range};
 
 use archkeel_facts::data::SignalData;
 use archkeel_facts::vocab::Signal;
-use ruff_python_ast::Expr;
+use ruff_python_ast::{Expr, Stmt};
 
 pub(super) fn member_call(expr: &Expr) -> bool {
     matches!(expr, Expr::Call(call) if matches!(&*call.func, Expr::Attribute(attr) if matches!(&*attr.value, Expr::Name(_))))
@@ -68,20 +68,34 @@ impl Comments {
         line: usize,
         start: usize,
         end: usize,
+        stmt: &Stmt,
     ) -> Option<(String, String)> {
         let statement = text.get(start..end)?;
-        if statement.contains(['\n', '\r']) || !statement.ends_with(')') {
+        if statement.contains(['\n', '\r']) {
             return None;
         }
-        let (base, member) = statement.split_once('(')?.0.split_once('.')?;
-        if !identifier(base) || !identifier(member) {
-            return None;
+        match stmt {
+            Stmt::Assign(node) if matches!(node.targets.as_slice(), [Expr::Name(_)]) => {}
+            Stmt::Expr(_) => {
+                let (base, member) = statement
+                    .strip_suffix(')')?
+                    .split_once('(')?
+                    .0
+                    .split_once('.')?;
+                if !identifier(base) || !identifier(member) {
+                    return None;
+                }
+            }
+            _ => return None,
         }
         if !str::is_empty(text[line..start].trim()) {
             return None;
         }
         let (&at, tag) = self.pending.range(end..).next()?;
-        if tag.is_none() || !str::is_empty(text[end..at].trim()) || text[end..at].contains('\n') {
+        if tag.is_none()
+            || !str::is_empty(text[end..at].trim())
+            || text[end..at].contains(['\n', '\r'])
+        {
             return None;
         }
         Some((self.pending.remove(&at).flatten()?, statement.to_owned()))
