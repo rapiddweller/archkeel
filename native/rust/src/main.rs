@@ -9,7 +9,7 @@
 
 #![forbid(unsafe_code)]
 
-use std::io::{BufRead, Read, Write};
+use std::io::{Read, Write};
 use std::process::ExitCode;
 
 use archkeel_rust_collector::{encoded_reply, provenance, typed_reply, TEST_FEATURES};
@@ -42,57 +42,13 @@ fn run() -> Result<Vec<u8>, String> {
         .map_err(|_| "the scan stopped without a reply".to_owned())?
 }
 
-fn private() -> Result<(), String> {
-    let mut payload = String::new();
-    std::io::stdin()
-        .lock()
-        .take(1 << 20)
-        .read_line(&mut payload)
-        .map_err(|e| e.to_string())?;
-    if !payload.ends_with('\n') {
-        return Err("incomplete worker request".into());
-    }
-    let request = decode_rust(payload.as_bytes())?;
-    // EOF means the parent has died or cancelled the scan.
-    std::thread::spawn(|| {
-        let mut byte = [0];
-        let _ = std::io::stdin().read(&mut byte);
-        std::process::exit(2);
-    });
-    let answer = std::thread::Builder::new()
-        .stack_size(STACK_BYTES)
-        .spawn(move || {
-            if !TEST_FEATURES.is_empty() {
-                return Ok(Err("test-feature worker".into()));
-            }
-            archkeel_snapshot::work::bounded(|| {
-                typed_reply(
-                    &request,
-                    provenance(),
-                    reply_version(request.protocol_version),
-                )
-            })
-            .map_err(|limit| limit.to_string())
-        })
-        .map_err(|e| e.to_string())?
-        .join()
-        .map_err(|_| "worker panic")?;
-    archkeel_wire::worker::write_rust_v1(std::io::stdout().lock(), answer)
-}
-
 fn main() -> ExitCode {
-    if std::env::args_os().nth(1).as_deref()
-        == Some(std::ffi::OsStr::new(archkeel_wire::worker::RUST_WORKER_V1))
+    if let Some(exit) =
+        archkeel_wire::worker::serve_v1(decode_rust, TEST_FEATURES, |request, version| {
+            archkeel_snapshot::work::bounded(|| typed_reply(request, provenance(), version))
+        })
     {
-        return match private() {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(why) => {
-                // Nothing is written before a failure of the frame itself, so this is the one frame.
-                let _ =
-                    archkeel_wire::worker::write_rust_v1(std::io::stdout().lock(), Ok(Err(why)));
-                ExitCode::FAILURE
-            }
-        };
+        return exit;
     }
     match run().and_then(|reply| {
         std::io::stdout()

@@ -237,7 +237,7 @@
         "native.archkeel_wire.typed:assemble",
         "native.archkeel_wire.worker:RUST_WORKER_V1",
         "native.archkeel_wire.worker:read_rust_v1",
-        "native.archkeel_wire.worker:write_rust_v1"
+        "native.archkeel_wire.worker:serve_v1"
       ],
       "decided_by": "architect"
     },
@@ -3080,7 +3080,7 @@
         "native.archkeel_collect"
       ],
       "responsibilities": [
-        "The composition between the core and the collectors: read the repository configuration, derive the collection request, run the linked collector of the profile in the process of the core and give the store its typed reply; name each other profile and a configured collector as unsupported (AD-406). The refusal module owns typed failures. The collector thread enables the shared snapshot parse-work bound (AD-420)."
+        "Read the repository configuration and derive the collection request. Run the Rust and TypeScript workers or the linked Python and Dart collectors. Give the store the typed reply. Refuse a configured collector. Own the typed failures and enable the snapshot parse-work bound."
       ],
       "forbidden_responsibilities": [
         "Deciding a rule, writing a frame, and trusting a reply or a digest that a caller gives."
@@ -3112,16 +3112,9 @@
         },
         {
           "component": "wire",
-          "rationale": "Decode the derived request with the check of the binary (AD-406).",
+          "rationale": "Decode linked requests and read the private reply of an installed worker (AD-406, AD-881).",
           "through": [
             "native.archkeel_wire"
-          ]
-        },
-        {
-          "component": "ts-entry",
-          "rationale": "Run the TypeScript collector through its library: the typed reply, the provenance and its test features (AD-406).",
-          "through": [
-            "native.archkeel_typescript_collector"
           ]
         },
         {
@@ -4970,7 +4963,7 @@
         "native.archkeel_typescript_collector.cargo_toml"
       ],
       "responsibilities": [
-        "The library root and the binary of the TypeScript collector: the typed reply for archkeel-collect, the binary that reads the request and writes the reply, the build script and the manifest of the crate (AD-406)."
+        "The library root, build script and manifest of the TypeScript collector. Its binary writes the public reply or the typed reply on the private channel."
       ],
       "forbidden_responsibilities": [
         "Reading TypeScript source."

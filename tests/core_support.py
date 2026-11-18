@@ -170,7 +170,7 @@ def release_core() -> Path:
     binary = NATIVE / "target" / "release" / f"archkeel-core{SUFFIX}"
     if (prebuilt := prebuilt_core(binary)) is not None:
         return prebuilt
-    _build("--release", "-p", "archkeel-rust-collector")
+    _build("--release", *(argument for name in COLLECTORS for argument in ("-p", name)))
     return binary
 
 

@@ -102,16 +102,11 @@ def test_a_planted_report_cycle_fails_the_native_component_rule(
 # alias (`extern crate ... as`) or a renamed dependency is a record too. A new record fails the
 # test, and the row of `core` has to be decided again.
 COLLECT = "native.archkeel_collect"
-TS = "native.archkeel_typescript_collector"
 # AD-450: `BUILD` is the version and code digest text of the Python collector. It stays in collect.
 PY = "native.archkeel_python_collector"
 # AD-468: the Dart items return a `Reply`, a `Provenance` and text, all facts types.
 DART = "native.archkeel_dart_collector"
 COLLECT_TO_COLLECTORS = {
-    ("native.archkeel_collect", "archkeel_typescript_collector::TEST_FEATURES", TS),
-    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-typescript-collector", TS),
-    ("native.archkeel_collect.run", "archkeel_typescript_collector::provenance", TS),
-    ("native.archkeel_collect.run", "archkeel_typescript_collector::typed_reply", TS),
     ("native.archkeel_collect", "archkeel_python_collector::TEST_FEATURES", PY),
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-python-collector", PY),
     ("native.archkeel_collect.run", "archkeel_python_collector::BUILD", PY),

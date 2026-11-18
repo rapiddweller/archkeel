@@ -66,6 +66,7 @@ jobs:
             native/target/CACHEDIR.TAG
             native/target/release/archkeel-core
             native/target/release/archkeel-rust-collector
+            native/target/release/archkeel-typescript-collector
             native/target/release/archkeel-core.tree
           key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
@@ -130,6 +131,7 @@ jobs:
             native/target/CACHEDIR.TAG
             native/target/release/archkeel-core
             native/target/release/archkeel-rust-collector
+            native/target/release/archkeel-typescript-collector
             native/target/release/archkeel-core.tree
           key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 

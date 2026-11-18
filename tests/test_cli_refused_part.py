@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 COLLECTOR = ROOT / "native" / "collect" / "src"
 # `refused("part", ...)`, `Refused::Unsupported("part", ...)` and `part: "part"` of a `Refusal`.
 PART = re.compile(r'(?:\brefused|Refused::Unsupported)\(\s*"([^"]+)"|\bpart:\s*"([^"]+)"')
+WORKER_PART = re.compile(r'Worker::(?:Rust|TypeScript)\s*=>\s*"([^"]+ worker)"')
 
 
 def _collector_parts() -> set[str]:
@@ -30,8 +31,10 @@ def _collector_parts() -> set[str]:
     for path in COLLECTOR.rglob("*.rs"):
         if path.name.endswith("_tests.rs"):
             continue
-        for match in PART.finditer(path.read_text(encoding="utf-8")):
+        source = path.read_text(encoding="utf-8")
+        for match in PART.finditer(source):
             found.add((match[1] or match[2]).lower())
+        found.update(part.lower() for part in WORKER_PART.findall(source))
     return found
 
 
@@ -69,6 +72,7 @@ def test_the_part_of_a_refusal_is_read_in_one_place(
         ("collector: file or folder not found", "check the path and run again."),
         ("dirty: permission denied", "check the permissions"),
         ("Rust worker: permission denied", "check that the installed Rust worker"),
+        ("TypeScript worker: permission denied", "check that the installed TypeScript worker"),
     ],
 )
 def test_each_refused_part_keeps_its_fix(message: str, start: str) -> None:

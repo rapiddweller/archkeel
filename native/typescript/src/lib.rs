@@ -5,9 +5,8 @@
 //! The native TypeScript collector of Archkeel as a library (AD-406).
 //!
 //! Two callers run one collection: the binary `archkeel-typescript-collector` (`main.rs`), which
-//! the host starts as a subprocess and which writes the compressed reply to stdout (`reply`), and
-//! the crate `archkeel-collect`, which runs the collector in the process of the core and takes the
-//! typed reply (`typed_reply`). Both run the same `gather` and the same producer of the records
+//! the public channel starts for a compressed reply (`reply`). The same binary also serves the
+//! installed core on a private channel (`typed_reply`). Both use the same record producer
 //! (`records::plan`); only the sink differs.
 
 #![forbid(unsafe_code)]
@@ -133,7 +132,7 @@ use archkeel_wire::protocol::Version;
 
 pub use crate::collect::reply;
 
-/// Test features read planted faults, so `archkeel-collect` refuses a build with one (AD-406).
+/// Test features read planted faults, so the private worker refuses a build with one (AD-406).
 pub const TEST_FEATURES: &[&str] = test_features(cfg!(feature = "dump"));
 
 /// The provenance of this build: the collector of its profile with the code digest of the workspace.

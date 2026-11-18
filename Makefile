@@ -132,9 +132,9 @@ native-check:
 	$(MAKE) self-validate-native
 
 native-test:
-	cd native && cargo build --locked -p archkeel-rust-collector
+	cd native && cargo build --locked -p archkeel-rust-collector -p archkeel-typescript-collector
 	# Cargo puts the core test executable under deps/. Give it the same sibling as the installed core.
-	cd native && mkdir -p target/debug/deps && ln -sf ../archkeel-rust-collector target/debug/deps/archkeel-rust-collector
+	cd native && mkdir -p target/debug/deps && ln -sf ../archkeel-rust-collector ../archkeel-typescript-collector target/debug/deps/
 	cd native && cargo test --locked
 
 # AD-754: the gate builds the core with a fast profile: no LTO, 16 codegen units, opt-level 1. The verdicts do not depend
@@ -148,10 +148,10 @@ CORE_PROFILE_ENV := $(if $(filter gate,$(ARCHKEEL_CORE_PROFILE)),CARGO_PROFILE_R
 # from a cache, therefore never stands for the tree of a pull request. CORE_SOURCE is `build` by default.
 core:
 	@stamp=native/target/release/archkeel-core.tree; tree="$$ARCHKEEL_NATIVE_TREE"; \
-	if [ "$$ARCHKEEL_CORE_SOURCE" = cache ] && [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ -x native/target/release/archkeel-rust-collector ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
+	if [ "$$ARCHKEEL_CORE_SOURCE" = cache ] && [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ -x native/target/release/archkeel-rust-collector ] && [ -x native/target/release/archkeel-typescript-collector ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
 		echo "core: the release core of tree $$tree is used (AD-732)"; \
 	else \
-		rm -f $$stamp; (cd native && $(CORE_PROFILE_ENV) cargo build --locked --release -p archkeel-core -p archkeel-rust-collector) && \
+		rm -f $$stamp; (cd native && $(CORE_PROFILE_ENV) cargo build --locked --release -p archkeel-core -p archkeel-rust-collector -p archkeel-typescript-collector) && \
 		{ [ -z "$$tree" ] || echo "$$tree" > $$stamp; }; \
 	fi
 

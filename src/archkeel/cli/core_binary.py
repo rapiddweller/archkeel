@@ -38,11 +38,12 @@ def _verify(bundled: Path) -> None:
 
 
 def confirm(binary: Path) -> None:
-    """Check a bundled core binary and the Rust worker beside it again, immediately before the
+    """Check a bundled core binary and both workers beside it again, immediately before the
     core starts. A checkout binary has no digest file and is not checked."""
     if binary.parent.name == "_native":
         _verify(binary)
-        _verify(binary.with_name("archkeel-rust-collector" + binary.suffix))
+        for worker in ("archkeel-rust-collector", "archkeel-typescript-collector"):
+            _verify(binary.with_name(worker + binary.suffix))
 
 
 def locate_core(package: Path | None = None) -> Path:

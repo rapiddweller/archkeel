@@ -2,17 +2,72 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Private same-build Rust worker protocol. Public wire replies carry no live authority.
+//! Private same-build worker protocol. Public wire replies carry no live authority.
 
 use archkeel_facts::envelope::{ProfileLimits, Reply};
 use archkeel_facts::ids::FactId;
+use archkeel_facts::request::Request;
 use archkeel_facts::{GapFact, Record, Section};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-use std::io::{self, Read, Write};
+use std::io::{self, BufRead, Read, Write};
+use std::process::ExitCode;
+
+use crate::protocol::{reply_version, Version};
 
 /// Select the private worker entry point.
 pub const RUST_WORKER_V1: &str = "--core-worker-v1";
+
+/// Serve one request on the private channel, or let the binary use its public entry point.
+pub fn serve_v1<Settings: Send + 'static, Limit: std::fmt::Display>(
+    decode: impl FnOnce(&[u8]) -> Result<Request<Settings>, String>,
+    test_features: &[&str],
+    scan: impl FnOnce(&Request<Settings>, Version) -> Result<Result<Reply, String>, Limit>
+        + Send
+        + 'static,
+) -> Option<ExitCode> {
+    if std::env::args_os().nth(1).as_deref() != Some(std::ffi::OsStr::new(RUST_WORKER_V1)) {
+        return None;
+    }
+    let mut payload = String::new();
+    let answer = io::stdin()
+        .lock()
+        .take(1 << 20)
+        .read_line(&mut payload)
+        .map_err(|e| e.to_string())
+        .and_then(|_| {
+            if !payload.ends_with('\n') {
+                return Err("incomplete worker request".into());
+            }
+            let request = decode(payload.as_bytes())?;
+            if !test_features.is_empty() {
+                return write_v1(io::stdout().lock(), Ok(Err("test-feature worker".into())));
+            }
+            // EOF means the parent has died or cancelled the scan.
+            std::thread::spawn(|| {
+                let mut byte = [0];
+                let _ = io::stdin().read(&mut byte);
+                std::process::exit(2);
+            });
+            let answer = std::thread::Builder::new()
+                .stack_size(256 << 20)
+                .spawn(move || {
+                    scan(&request, reply_version(request.protocol_version))
+                        .map_err(|limit| limit.to_string())
+                })
+                .map_err(|e| e.to_string())?
+                .join()
+                .map_err(|_| "worker panic")?;
+            write_v1(io::stdout().lock(), answer)
+        });
+    Some(match answer {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(why) => {
+            let _ = write_v1(io::stdout().lock(), Ok(Err(why)));
+            ExitCode::FAILURE
+        }
+    })
+}
 /// One worker response, before store validation.
 #[derive(Serialize, Deserialize)]
 enum Answer {
@@ -95,7 +150,7 @@ impl Packet {
             name_free_gaps,
         })
     }
-    /// Recover the two views of each gap and the original Rust scope statements.
+    /// Recover the two views of each gap and the original scope statements.
     fn finish(self) -> Result<Reply, String> {
         let Self {
             mut reply,
@@ -193,7 +248,7 @@ impl Write for Frame {
 }
 
 /// Write a version-one worker result. An outer error is a work limit; an inner error is a refusal.
-pub fn write_rust_v1(
+fn write_v1(
     mut out: impl Write,
     result: Result<Result<Reply, String>, String>,
 ) -> Result<(), String> {
@@ -253,7 +308,7 @@ mod tests {
     #[test]
     fn a_refusal_frame_gives_its_reason_and_an_empty_stream_gives_no_frame() {
         let mut frame = Vec::new();
-        write_rust_v1(&mut frame, Ok(Err("the reason".into()))).unwrap();
+        write_v1(&mut frame, Ok(Err("the reason".into()))).unwrap();
         assert_eq!(read_rust_v1(frame.as_slice()).unwrap_err(), "the reason");
         assert!(read_rust_v1(&[][..])
             .unwrap_err()
@@ -262,7 +317,7 @@ mod tests {
     #[test]
     fn only_a_complete_single_frame_can_return_a_work_refusal() {
         let mut frame = Vec::new();
-        write_rust_v1(&mut frame, Err("work limit".into())).unwrap();
+        write_v1(&mut frame, Err("work limit".into())).unwrap();
         assert_eq!(
             read_rust_v1(frame.as_slice()).unwrap().unwrap_err(),
             "work limit"

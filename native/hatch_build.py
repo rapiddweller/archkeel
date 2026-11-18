@@ -1,11 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Put the core and its Rust worker into a wheel, and refuse a wheel without them (AD-436, AD-881).
+"""Put the core and its workers into a wheel, and refuse a wheel without them (AD-896).
 
 `ARCHKEEL_BUNDLE_NATIVE` selects the binary. `1` builds `archkeel-core` and
-`archkeel-rust-collector` with `cargo auditable` from `native/` and adds a CycloneDX SBOM of the
-crates of each. An absolute path bundles that prebuilt core and the worker beside it. Without the
+its workers with `cargo auditable` from `native/` and adds a CycloneDX SBOM for each executable.
+An absolute path bundles that prebuilt core and the workers beside it. Without the
 variable the hook refuses the build: a package without the core refuses each run. An editable
 install bundles nothing, because the shell finds the build output of the checkout.
 """
@@ -29,7 +29,7 @@ Checksums = dict[tuple[str, str], str]
 REQUEST = "ARCHKEEL_BUNDLE_NATIVE"
 BINARY = "archkeel-core"
 # The core runs the Rust collector as a sibling executable, never as a linked crate (AD-881).
-WORKER = "archkeel-rust-collector"
+WORKERS = ("archkeel-rust-collector", "archkeel-typescript-collector")
 PACKAGE_DATA = "archkeel/_native"
 # The minimum macOS of a binary is the default deployment target of Rust for its architecture.
 MACOS = {"x86_64": "10.12", "arm64": "11.0"}
@@ -97,12 +97,13 @@ def bundle(
         binary = _cargo_build(root, version, tag) / name
     else:
         binary = _prebuilt(request)
-    worker = binary.with_name(WORKER + Path(name).suffix)
-    if not worker.is_file() or not os.access(worker, os.X_OK):
-        raise ValueError(f"The core {binary} needs the Rust worker {worker} beside it.")
+    workers = [binary.with_name(worker + Path(name).suffix) for worker in WORKERS]
+    for worker in workers:
+        if not worker.is_file() or not os.access(worker, os.X_OK):
+            raise ValueError(f"The core {binary} needs the worker {worker} beside it.")
     build_data["pure_python"] = False
     build_data["tag"] = tag
-    for executable, installed in ((binary, name), (worker, worker.name)):
+    for executable, installed in [(binary, name), *((worker, worker.name) for worker in workers)]:
         if request == "1":
             build_data["sbom_files"].append(str(_write_sbom(root / "native", executable, version)))
         build_data["force_include"][str(executable)] = f"{PACKAGE_DATA}/{installed}"
@@ -164,7 +165,7 @@ def _cargo_build(root: Path, version: str, tag: str) -> Path:
     # cargo auditable records the crates in the `.dep-v0` section for `cargo audit bin`.
     subprocess.run(
         [cargo, "auditable", "build", "--release", "--locked", "--target-dir", str(target)]
-        + ["-p", BINARY, "-p", WORKER],
+        + [arg for package in (BINARY, *WORKERS) for arg in ("-p", package)],
         cwd=native,
         env=environment,
         stdout=sys.stderr,

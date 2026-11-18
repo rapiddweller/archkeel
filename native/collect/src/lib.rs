@@ -7,7 +7,7 @@
 //! It is the only crate that names a language. The core gives it the scan identity: the
 //! repository root, the location of the configuration, and the Git head and dirty state that the
 //! shell read. It reads the configuration itself, derives the profile, the scan roots, the
-//! namespace, the test scope and the resolver settings. It starts the sibling Rust worker or
+//! namespace, the test scope and the resolver settings. It starts a sibling worker or
 //! runs the linked collector for another profile. It gives the store the typed reply and returns the validated
 //! reply and the contract bytes, or a `Refusal` that names the part it cannot run. No plugin, no
 //! trait: one function selects the collector.
@@ -26,8 +26,8 @@ mod python;
 mod refusal;
 mod repository;
 mod run;
-mod rust_worker;
 mod system;
+mod worker;
 
 pub use system::{System, SystemPart};
 
@@ -116,7 +116,7 @@ pub(crate) fn test_features() -> &'static [&'static str] {
     ]
     .into_iter()
     .find(|features| !features.is_empty())
-    .unwrap_or(archkeel_typescript_collector::TEST_FEATURES)
+    .unwrap_or_default()
 }
 
 /// Scan the repository of `identity` with the collector of its profile. `contract_budget` bounds

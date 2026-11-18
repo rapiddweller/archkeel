@@ -27,17 +27,8 @@ pub(super) fn repository() -> std::path::PathBuf {
 }
 
 pub(super) fn public_reply(request: &[u8]) -> archkeel_store::Ingested {
-    use std::io::Write;
-    use std::process::{Command, Stdio};
-    let mut child = Command::new(crate::rust_worker::executable().unwrap())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    child.stdin.take().unwrap().write_all(request).unwrap();
-    let out = child.wait_with_output().unwrap();
-    assert!(out.status.success());
-    archkeel_store::ingest_reply(&out.stdout, 1 << 30).unwrap()
+    let bytes = crate::tests::public_output(crate::worker::Worker::Rust, request);
+    archkeel_store::ingest_reply(&bytes, 1 << 30).unwrap()
 }
 
 fn equal(request: &[u8]) {

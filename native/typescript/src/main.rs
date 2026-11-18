@@ -16,7 +16,7 @@ use std::io::Read;
 use std::io::Write;
 use std::process::ExitCode;
 
-use archkeel_typescript_collector::{provenance, reply};
+use archkeel_typescript_collector::{provenance, reply, typed_reply, TEST_FEATURES};
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::request::decode;
 
@@ -72,6 +72,13 @@ fn dump_records(mut input: impl Read, output: &mut impl Write) -> Result<(), Str
 }
 
 fn main() -> ExitCode {
+    if let Some(exit) =
+        archkeel_wire::worker::serve_v1(decode, TEST_FEATURES, |request, version| {
+            archkeel_snapshot::work::bounded(|| typed_reply(request, provenance(), version))
+        })
+    {
+        return exit;
+    }
     #[cfg(feature = "dump")]
     if let Some(code) = dump_requested() {
         return code;
