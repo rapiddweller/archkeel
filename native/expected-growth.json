@@ -9022,14 +9022,6 @@
     {
       "entry": [
         "rule",
-        "NATIVE-PUBLIC-HAS-A-USER",
-        "UNKNOWN"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "rule",
         "NATIVE-REQUIRES-COMPLETE",
         "UNKNOWN"
       ],
@@ -9095,14 +9087,6 @@
       "entry": [
         "unknown",
         "NATIVE-NO-MODULE-CYCLES",
-        "scope_incomplete"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "unknown",
-        "NATIVE-PUBLIC-HAS-A-USER",
         "scope_incomplete"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
