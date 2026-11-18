@@ -458,3 +458,41 @@ def test_every_chip_line_stays_inside_its_box(site: str, page: Browser) -> None:
         )
         assert all(chip["inside"] for chip in chips), [c for c in chips if not c["inside"]]
         assert not any(" · " in chip["text"] for chip in chips), chips
+
+
+def test_a_layer_of_one_component_draws_no_frame_around_that_component(
+    site: str, page: Browser
+) -> None:
+    # The shell part has layers of one component (`entry`, `commands`, `frame`) and layers of
+    # several. The box of a layer that holds one component is that component: the Modules view drew
+    # two nested frames with the same label and the same stereotype for it. A layer of several
+    # components is a real parent and keeps its frame.
+    page.open(f"{site}/system.html?scope=PART%3Ashell&content=modules")
+    frames = {
+        frame["id"]: frame
+        for frame in page.evaluate(
+            "[...document.querySelectorAll('#flow svg .uml-frame')].map((g) => {"
+            " const r = g.querySelector('.target-frame').getBoundingClientRect();"
+            " return { id: g.dataset.umlId, label: g.dataset.label,"
+            " box: [r.left, r.top, r.right, r.bottom] }; })"
+        )
+    }
+
+    def inside(inner: str, outer: str) -> bool:
+        (a, b, c, d), (e, f, g, h) = frames[inner]["box"], frames[outer]["box"]
+        return e <= a and f <= b and c <= g and d <= h
+
+    for single in ("entry", "commands", "frame"):
+        assert f"LAYER:PART:shell:{single}" not in frames
+        assert f"SHELL-{single.upper()}" in frames
+    assert inside("SHELL-JSON", "LAYER:PART:shell:foundation")
+    assert inside("SHELL-GAPS", "LAYER:PART:shell:present")
+    nested = [
+        (inner, outer)
+        for inner in frames
+        for outer in frames
+        if inner != outer
+        and frames[inner]["label"] == frames[outer]["label"]
+        and inside(inner, outer)
+    ]
+    assert not nested, nested

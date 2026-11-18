@@ -101,11 +101,14 @@
     const reason = (limit.reason || "").replace(/\.$/, "");
     return `Symbols: not counted${reason ? ` (${esc(reason.charAt(0).toLowerCase() + reason.slice(1))})` : ""}`;
   }
+  // A box that holds one component is that component, whatever its id says.
+  function atlasBoxHoldsOneComponent(component) {
+    return component.groups === null || component.groups === undefined || component.groups === 1;
+  }
   // What a box is: a layer or a group of components, or a component.
   function atlasBoxKind(component) {
     if (component.directory) return "Directory";
-    // A box that holds one component is that component, whatever its id says.
-    if (component.groups === null || component.groups === undefined || component.groups === 1) return "Component";
+    if (atlasBoxHoldsOneComponent(component)) return "Component";
     return component.layer_rank !== null && component.layer_rank !== undefined ? "Layer" : "Group";
   }
   // The public names of a box, grouped by module with short names and a count. The module paths lose
