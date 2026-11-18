@@ -114,7 +114,7 @@ def test_an_exact_field_and_an_exact_impl_give_the_edge(
     assert found.get("NO-A-TO-C") == "FAIL", found
 
 
-def test_requires_receipt_distinguishes_matching_and_wrong_ports(
+def test_requires_receipt_distinguishes_module_and_symbol_ports(
     tmp_path: Path, release_core: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     files = {
@@ -127,6 +127,7 @@ def test_requires_receipt_distinguishes_matching_and_wrong_ports(
     root_component["packages"] = []
     root_component["exact_modules"] = ["native.app", "native.app.cargo_toml"]
     a = component("a", "app.a", ("c", "d"))
+    a["requires"][0]["through"] = ["native.app.c"]
     parts = (
         component("base", "base_crate"),
         root_component,
@@ -143,17 +144,18 @@ def test_requires_receipt_distinguishes_matching_and_wrong_ports(
     contract.write_text(
         json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
     )
-    matching = validate(root, capsys)
+    symbol = validate(root, capsys)
     a["requires"][0]["through"] = ["native.app.c.other"]
     contract.write_text(
         json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
     )
     wrong = validate(root, capsys)
-    assert allowed["frame"]["collection_gaps"] == matching["frame"]["collection_gaps"]
+    assert allowed["frame"]["collection_gaps"] == symbol["frame"]["collection_gaps"]
     assert allowed["frame"]["collection_gaps"] == wrong["frame"]["collection_gaps"]
     assert len(allowed["frame"]["collection_gaps"]) == 1
     assert statuses(allowed)["REQUIRES"] == "PASS", allowed["frame"]["details"]
-    assert statuses(matching)["REQUIRES"] == "PASS", matching
+    assert statuses(symbol)["REQUIRES"] == "UNKNOWN", symbol
+    assert "native.app.a -> native.app.c" in symbol["frame"]["explained"]["REQUIRES"]
     assert statuses(wrong)["REQUIRES"] == "UNKNOWN", wrong
     assert "native.app.a -> native.app.c" in wrong["frame"]["explained"]["REQUIRES"]
 
