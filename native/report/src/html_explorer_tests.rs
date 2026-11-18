@@ -19,7 +19,7 @@ fn every_script_hash_is_the_hash_of_its_embedded_bytes() {
 
 /// The files that draw: the local style of the report and each Explorer asset except the vendored
 /// ELK layout, which draws nothing.
-const FILES: [(&str, &str); 21] = [
+const FILES: [(&str, &str); 22] = [
     ("report.css", include_str!("../assets/report.css")),
     (
         "explorer.css",
@@ -76,6 +76,10 @@ const FILES: [(&str, &str); 21] = [
     (
         "flow/start.js",
         include_str!("../assets/explorer/flow/start.js"),
+    ),
+    (
+        "report-presentation.js",
+        include_str!("../assets/explorer/report-presentation.js"),
     ),
     (
         "report-canvas.js",

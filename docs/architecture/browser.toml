@@ -9,6 +9,7 @@ roots = [
   # The Explorer runs flow.runtime.js: tools/browser_runtime.py joins the parts of flow/ into it.
   "native/report/assets/explorer/flow.runtime.js",
   "native/report/assets/explorer/report-canvas.js",
+  "native/report/assets/explorer/report-presentation.js",
   "native/report/assets/explorer/report-scene.js",
   "native/report/assets/explorer/report-graph-scene.js",
   "native/report/assets/explorer/report-graph-protocol.js",
