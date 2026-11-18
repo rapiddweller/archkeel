@@ -47,6 +47,18 @@ def is_ancestor(old: str, new: str) -> bool:
     return code == 0
 
 
+def commit_of(version: str) -> str:
+    abbreviated = version.partition("+g")[2]
+    done = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{abbreviated}^{{commit}}"],
+        text=True,
+        capture_output=True,
+    )
+    if not abbreviated or done.returncode:
+        raise ValueError(f"The commit of version {version} is unknown here")
+    return done.stdout.strip()
+
+
 def digest(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
@@ -103,12 +115,21 @@ def main() -> None:
     published = re.search(r"^Commit: ([0-9a-f]{40})\s*$", release["body"] or "", re.MULTILINE)
     if published is None:
         raise ValueError(f"The notes of {RELEASE} name no commit")
-    if not is_ancestor(published[1], sha):
-        print(f"Skipped: {sha} is not newer than the published build {published[1]}")
+    # A stopped promotion can show wheels of a newer commit while the notes name an older one.
+    # A build replaces only a set that it descends from, whatever the notes say.
+    assets = assets_of(repo, release)
+    versions = {
+        name.split("-")[1]
+        for name in assets
+        if OWN.fullmatch(name) and name.endswith((".whl", ".whl" + STAGING))
+    }
+    seen = {published[1], *map(commit_of, versions)}
+    newer = sorted(commit for commit in seen if not is_ancestor(commit, sha))
+    if newer:
+        print(f"Skipped: {sha} does not descend from {newer[0]}, which is public or staged")
         return
 
     # A name that is already public keeps its published bytes. A rerun may build other bytes.
-    assets = assets_of(repo, release)
     final = {}
     for wheel in wheels:
         public = assets.get(wheel.name)

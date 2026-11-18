@@ -10,6 +10,7 @@ import re
 import subprocess
 import zipfile
 from pathlib import Path
+from urllib.parse import unquote
 
 import pytest
 
@@ -58,9 +59,16 @@ class Hub:
         self._add(build.SUMS, b"old sums")
         self._add(FOREIGN, b"not ours")
 
-    def _add(self, name: str, data: bytes, digest: str | None = None) -> None:
+    def _add(
+        self, name: str, data: bytes, digest: str | None = None, state: str = "uploaded"
+    ) -> None:
         digest = digest or "sha256:" + hashlib.sha256(data).hexdigest()
-        self.assets[self.next_id] = {"name": name, "digest": digest, "data": data.hex()}
+        self.assets[self.next_id] = {
+            "name": name,
+            "digest": digest,
+            "state": state,
+            "data": data.hex(),
+        }
         self.next_id += 1
 
     def names(self) -> dict[str, str]:
@@ -73,7 +81,13 @@ class Hub:
         self.mutations += 1
         if self.fail_at == self.mutations:
             if upload is not None and self.partial_upload:
-                self._add(upload.name, b"", "")
+                self.assets[self.next_id] = {
+                    "name": upload.name,
+                    "digest": None,
+                    "state": "starter",
+                    "data": "",
+                }
+                self.next_id += 1
             raise RuntimeError("injected failure")
 
     def command(self, *args: str) -> str:
@@ -229,6 +243,60 @@ def test_a_failure_at_any_step_keeps_a_usable_set_and_a_rerun_recovers(
         assert FOREIGN in names
         _publish(hub, monkeypatch, 2)
         _assert_clean(hub, 2)
+
+
+@pytest.mark.parametrize("partial", [False, True])
+def test_an_older_run_does_not_clear_away_a_newer_stopped_promotion(
+    hub: Hub, monkeypatch: pytest.MonkeyPatch, partial: bool
+) -> None:
+    _publish(hub, monkeypatch, 1)
+    saved = copy.deepcopy((hub.assets, hub.next_id, hub.body, hub.tag))
+    hub.mutations = 0
+    _publish(hub, monkeypatch, 3)
+    steps = hub.mutations
+    hub.partial_upload = partial
+    newer = f"+g{hub.commits[3][:9]}"
+    shown = set()
+    for step in range(1, steps + 1):
+        hub.assets, hub.next_id, hub.body, hub.tag = copy.deepcopy(saved)
+        hub.mutations, hub.fail_at = 0, step
+        with pytest.raises(RuntimeError, match="injected"):
+            _publish(hub, monkeypatch, 3)
+        hub.fail_at = None
+        if any(newer in name for name in hub.names()):
+            # The notes may still name commit 1 while wheels of commit 3 are public.
+            public = any(newer in n and n.endswith(".whl") for n in hub.names())
+            shown.add((public, f"Commit: {hub.commits[1]}" in hub.body))
+            before = (hub.names(), hub.body, hub.tag)
+            hub.mutations = 0
+            _publish(hub, monkeypatch, 2)
+            assert (hub.names(), hub.body, hub.tag) == before
+            assert hub.mutations == 0
+        _publish(hub, monkeypatch, 3)
+        _assert_clean(hub, 3)
+    # The cases include public newer wheels under old notes, and only staged newer wheels.
+    assert {(True, True), (False, True)} <= shown
+
+
+def test_the_asset_names_follow_the_live_release_api() -> None:
+    # Live (GET only, 2026-11-18): the API name keeps "+"; the download link has "%2B" and the page
+    # lists the same names after unquoting; the digest is "sha256:<hex>"; the state is "uploaded".
+    live = "archkeel-4.0.2.dev818+g75037b1f7-py3-none-manylinux_2_17_x86_64.whl"
+    assert build.OWN.fullmatch(live) and build.OWN.fullmatch(live + build.STAGING)
+    assert build.OWN.fullmatch(build.SUMS) and not build.OWN.fullmatch(FOREIGN)
+    assert unquote(f"https://x/main-build/{live.replace('+', '%2B')}".rsplit("/", 1)[1]) == live
+    assert live.split("-")[1] == "4.0.2.dev818+g75037b1f7"
+    notes = "Development build, not a release.\n\nCommit: " + "7" * 40 + "\nDate: 2026-11-18\n"
+    assert re.search(r"^Commit: ([0-9a-f]{40})\s*$", notes.replace("\n", "\r\n"), re.MULTILINE)
+
+
+def test_a_started_publication_is_not_cancelled_by_a_newer_push() -> None:
+    text = (Path(__file__).parents[1] / ".github/workflows/main-build.yml").read_text()
+    assert "\nconcurrency:\n" not in text
+    wheels = text.split("\n  wheels:\n")[1].split("\n  publish:\n")[0]
+    publish = text.split("\n  publish:\n")[1]
+    assert "group: main-build-wheels\n      cancel-in-progress: true" in wheels
+    assert "group: main-build-publish\n      cancel-in-progress: false" in publish
 
 
 def test_a_damaged_upload_stops_before_the_first_public_change(

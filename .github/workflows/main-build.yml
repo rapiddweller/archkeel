@@ -19,22 +19,22 @@ on:
         type: boolean
         default: false
 
-concurrency:
-  group: main-build
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
 jobs:
+  # AD-863: a newer push cancels an older build, never a publication that has started.
   wheels:
     uses: ./.github/workflows/native-wheels.yml
+    concurrency:
+      group: main-build-wheels
+      cancel-in-progress: true
 
   publish:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
     needs: wheels
     runs-on: ubuntu-24.04
-    # AD-863: two publish jobs never run together. A cancelled run is completed by the next run.
+    # A started publication runs to its end. The newest waiting publication replaces older waiting ones.
     concurrency:
       group: main-build-publish
       cancel-in-progress: false

@@ -11,8 +11,10 @@ After the six wheels pass their tests, `tools/publish_main_build.py` replaces th
 
 1. Check the candidate: six wheels, one version, the version names the built commit, each archive is
    whole, and its `METADATA` carries the same version. Nothing is changed on failure.
-2. Read the release. It must be a published pre-release. Its notes name the published commit.
-   Skip the run when that commit is not an ancestor of the built commit. An older run stops here.
+2. Read the release. It must be a published pre-release. Its notes name a commit. Collect that commit
+   and the commit of every public or staged wheel of ours. Skip the run unless the built commit descends
+   from all of them. An older run stops here. A stopped promotion can show newer wheels under old notes,
+   so the notes alone do not decide.
 3. Upload each new wheel as `<name>.staging`, and `SHA256SUMS.staging`. Pip ignores these names.
    Never overwrite. Delete only a staged file of ours that is incomplete or has another digest, then upload it again.
 4. Read the release again. Each staged file must have the digest of the candidate. If not, stop.
@@ -39,10 +41,15 @@ one asset in one call. The new wheels appear for pip only after all six are stag
   Each wheel was tested on its own. The next run completes the rename.
 - For about two calls, `SHA256SUMS` is missing or lists the previous set. `SHA256SUMS.old` keeps the previous list until the end.
 - A user who downloads an old wheel while it is deleted gets a 404 once.
-- Serialization: the workflow group `main-build` cancels an older run. The job group `main-build-publish` lets
-  two publish jobs never run together. A cancelled run can stop in any step. Every step can be repeated,
-  so the next run completes or cleans the state.
-- The asset API, the rename and the move of the tag were checked in tests with a fake, not on the public release.
+- Serialization: the wheel build has the group `main-build-wheels`. A newer push cancels an older build.
+  The publish job has the group `main-build-publish` without cancel. A started publication runs to its end.
+  The newest waiting publication replaces older waiting ones. There is no workflow-wide group, because
+  it would cancel a started publication. A manual cancel or a crash can still stop a run in any step.
+  Every step can be repeated, so the next run completes or cleans the state.
+- Checked by GET on the public release (2026-11-18): the asset name keeps `+`, the download link has `%2B`,
+  the page lists the same names after unquoting, `digest` is `sha256:<hex>` and equals the file, `state` is
+  `uploaded`, and the notes parser and `SHA256SUMS` text match the live files. The rename, the upload of a
+  `.staging` name, the digest of an incomplete upload and the move of the tag are checked only with a fake.
 
 ## Alternatives
 
@@ -52,5 +59,6 @@ Upload the new wheels directly under their final names: pip can see an incomplet
 
 ## Check
 
-`tests/test_main_build.py` checks two builds in a row, a rerun, an older run, a failure at every
-mutation including a partial upload, a damaged upload, a bad candidate and the release type.
+`tests/test_main_build.py` checks two builds in a row, a rerun, an older run, an older run after a stopped
+promotion (public and staged newer wheels), a failure at every mutation including a partial upload, a damaged
+upload, a bad candidate, the release type, the live name rules and the workflow groups.
