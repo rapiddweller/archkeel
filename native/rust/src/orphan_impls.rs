@@ -172,6 +172,7 @@ pub(super) fn trait_impl_candidates(workspace: &Workspace, modules: &[Module]) -
                 site: site.clone(),
                 target: target.to_owned(),
                 reason: reason.clone(),
+                erased: false,
                 execution: true,
             });
         }

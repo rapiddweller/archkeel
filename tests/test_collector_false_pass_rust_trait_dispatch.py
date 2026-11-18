@@ -14,12 +14,14 @@ holds only an associated type, keep PASS.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+from corpus_support import commit_tree
 from rust_orphan_plants import OPEN_TRAIT_FORMS, OPEN_VALUE_FORMS
 from rust_repository import APP, BASE, CRATE_RULES, component, repository, rule, statuses, validate
 
@@ -32,6 +34,142 @@ NO_A_TO_B = rule(
     target="native.app.b",
     include_type_checking=True,
 )
+
+STORED_VALUE = """
+use std::sync::Mutex;
+static SLOT: Mutex<Option<Box<dyn Send>>> = Mutex::new(None);
+pub fn put(value: Box<dyn Send>) { *SLOT.lock().unwrap() = Some(value); }
+pub fn take() -> Option<Box<dyn Send>> { SLOT.lock().unwrap().take() }
+"""
+HOOK_VALUE = """
+use std::sync::Mutex;
+pub fn put(value: Box<dyn Send>) {
+    let payload = Mutex::new(value);
+    std::panic::set_hook(Box::new(move |_| { let _ = &payload; }));
+}
+pub fn take() -> Box<dyn Send> { Box::new(std::panic::take_hook()) }
+"""
+DISCARDED_VALUE = """
+pub fn put(value: Box<dyn Send>) { drop(value); }
+pub fn take() -> Option<Box<dyn Send>> { None }
+"""
+
+
+@pytest.mark.parametrize(
+    ("store", "external", "destructor", "runs_in_reader"),
+    [
+        (STORED_VALUE, False, True, True),
+        (HOOK_VALUE, False, True, True),
+        (STORED_VALUE, True, True, True),
+        (DISCARDED_VALUE, True, True, False),
+        (STORED_VALUE, False, False, False),
+        (HOOK_VALUE, False, False, False),
+        (STORED_VALUE, True, False, False),
+    ],
+    ids=[
+        "sibling",
+        "no-counter",
+        "unread-stores",
+        "unread-discards",
+        "sibling-other-trait",
+        "no-counter-other-trait",
+        "unread-other-trait",
+    ],
+)
+def test_a_value_from_shared_state_can_run_its_destructor(
+    tmp_path: Path,
+    release_core: Path,
+    store: str,
+    external: bool,
+    destructor: bool,
+    runs_in_reader: bool,
+) -> None:
+    access = "vault" if external else "crate::slot"
+    body = f"""
+        use std::sync::{{Arc, atomic::{{AtomicBool, Ordering}}}};
+        struct Y(Arc<AtomicBool>);
+        pub fn drive() -> bool {{
+            let hit = Arc::new(AtomicBool::new(false));
+            {access}::put(Box::new(Y(hit.clone())));
+            hit.store(false, Ordering::SeqCst);
+            crate::a::run();
+            hit.load(Ordering::SeqCst)
+        }}
+    """
+    if destructor:
+        body += """
+            use std::ops::Drop as Destructor;
+            impl Destructor for Y {
+                fn drop(&mut self) { self.0.store(true, Ordering::SeqCst); }
+            }
+        """
+    else:
+        body += "trait Other { fn other(); } impl Other for Y { fn other() {} }"
+    files = _app(
+        {
+            "lib.rs": "pub mod b; mod a;" + ("" if external else "mod slot;"),
+            "a.rs": f"pub fn run() {{ let _value = {access}::take(); }}",
+            "b.rs": body,
+        }
+    )
+    parts = [component("base", "base_crate")]
+    for label, modules, needs in (
+        ("app", ["native.app", "native.app.cargo_toml"], ("base",)),
+        ("a", ["native.app.a"], () if external else ("slot",)),
+        ("b", ["native.app.b"], ("a",) if external else ("a", "slot")),
+    ):
+        parts.append({**component(label, "app", needs), "packages": [], "exact_modules": modules})
+    if external:
+        files["crates/app/Cargo.toml"] = APP + 'vault = { path = "../../vendor/vault" }\n'
+        files["vendor/vault/Cargo.toml"] = BASE.replace('"base-crate"', '"vault"') + "[workspace]\n"
+        files["vendor/vault/src/lib.rs"] = store
+    else:
+        files["crates/app/src/slot.rs"] = store
+        parts.append(component("slot", "app.slot"))
+    rules = (
+        *CRATE_RULES,
+        rule("MODULE-CYCLE", "no_component_cycles", level="module"),
+        {**NO_A_TO_B, "target_match": "exact"},
+    )
+    root = repository(tmp_path / "repo", release_core, files, tuple(parts), rules)
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["schema_version"] = "3.4.0"
+    path.write_text(json.dumps(contract))
+    commit_tree(root)
+    compile_lib = ["rustc", "--edition=2021", "--crate-type", "rlib"]
+    extra = []
+    if external:
+        vault = tmp_path / "libvault.rlib"
+        subprocess.run(
+            [*compile_lib, "--crate-name", "vault", root / "vendor/vault/src/lib.rs", "-o", vault],
+            check=True,
+        )
+        extra = ["--extern", f"vault={vault}"]
+    app = tmp_path / "libprobe.rlib"
+    subprocess.run(
+        [*compile_lib, "--crate-name", "probe", root / "crates/app/src/lib.rs", "-o", app, *extra],
+        check=True,
+    )
+    exe = tmp_path / ("witness.exe" if os.name == "nt" else "witness")
+    expected = str(runs_in_reader).lower()
+    subprocess.run(
+        ["rustc", "-L", f"dependency={tmp_path}", "--extern", f"probe={app}", "-", "-o", exe],
+        input=f"extern crate probe; fn main() {{ assert_eq!(probe::b::drive(), {expected}); }}",
+        text=True,
+        check=True,
+    )
+    subprocess.run([exe], check=True)
+    result = validate(root)
+    actual = statuses(result)
+    assert actual["ASSIGNED"] == "PASS"
+    for name in ("NO-A-TO-B", "MODULE-CYCLE", "NO-CYCLES"):
+        assert actual[name] == ("UNKNOWN" if destructor else "PASS")
+        if destructor:
+            holds = result["frame"]["explain"]["holds"]["rules"]
+            assert {"source": "native.app.a", "target": "native.app.b"} in holds[name]["pairs"]
+
+
 LIB = "mod a;\nmod b;\nmod c;\n"
 MAKE = "pub fn make() -> crate::b::Y {\n    crate::b::Y\n}\n"
 

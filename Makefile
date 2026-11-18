@@ -120,6 +120,9 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --no-default-features -- -D warnings
 	cd native && cargo clippy --locked --all-targets --features dump,harness -- -D warnings
 	cd native && cargo deny --locked check
+	cd native && cargo build --locked -p archkeel-rust-collector
+	# Cargo puts the core test executable under deps/. Give it the same sibling as the installed core.
+	cd native && mkdir -p target/debug/deps && ln -sf ../archkeel-rust-collector target/debug/deps/archkeel-rust-collector
 	cd native && cargo test --locked
 	$(MAKE) self-validate-native
 
@@ -134,10 +137,10 @@ CORE_PROFILE_ENV := $(if $(filter gate,$(ARCHKEEL_CORE_PROFILE)),CARGO_PROFILE_R
 # from a cache, therefore never stands for the tree of a pull request. CORE_SOURCE is `build` by default.
 core:
 	@stamp=native/target/release/archkeel-core.tree; tree="$$ARCHKEEL_NATIVE_TREE"; \
-	if [ "$$ARCHKEEL_CORE_SOURCE" = cache ] && [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
+	if [ "$$ARCHKEEL_CORE_SOURCE" = cache ] && [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ -x native/target/release/archkeel-rust-collector ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
 		echo "core: the release core of tree $$tree is used (AD-732)"; \
 	else \
-		rm -f $$stamp; (cd native && $(CORE_PROFILE_ENV) cargo build --locked --release -p archkeel-core) && \
+		rm -f $$stamp; (cd native && $(CORE_PROFILE_ENV) cargo build --locked --release -p archkeel-core -p archkeel-rust-collector) && \
 		{ [ -z "$$tree" ] || echo "$$tree" > $$stamp; }; \
 	fi
 

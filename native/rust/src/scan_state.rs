@@ -82,6 +82,7 @@ pub(crate) struct Child {
 
 #[derive(Debug, Default)]
 pub(crate) struct Scan {
+    pub has_static: bool,
     pub references: Vec<Reference>,
     pub concerns: Vec<Concern>,
     pub children: Vec<Child>,

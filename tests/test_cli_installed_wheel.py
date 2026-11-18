@@ -55,7 +55,9 @@ def reference(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathF
     built: Path = request.getfixturevalue("release_core")
     # A copy under the build lock: a build of another test session can replace the file.
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
-        return Path(shutil.copy2(built, tmp_path_factory.mktemp("core") / NAME))
+        directory = tmp_path_factory.mktemp("core")
+        shutil.copy2(built.with_name(f"archkeel-rust-collector{SUFFIX}"), directory)
+        return Path(shutil.copy2(built, directory / NAME))
 
 
 @pytest.fixture(scope="module")

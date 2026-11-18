@@ -217,6 +217,14 @@ def _wheel(directory: Path, tag: str, *members: str, digest: str = "") -> Path:
     return wheel
 
 
+def _binaries(suffix: str = "") -> tuple[str, ...]:
+    return tuple(
+        base + suffix + end
+        for base in (release_core.MEMBER, release_core.WORKER)
+        for end in ("", ".sha256")
+    )
+
+
 def test_a_wheel_carries_the_core_only_with_the_binary_and_its_digest(tmp_path: Path) -> None:
     core = release_core.MEMBER
     assert core == "archkeel/_native/archkeel-core"
@@ -224,13 +232,12 @@ def test_a_wheel_carries_the_core_only_with_the_binary_and_its_digest(tmp_path: 
     assert not release_core.carries_core(_wheel(tmp_path, "b", core))
     assert not release_core.carries_core(_wheel(tmp_path, "c", core + ".sha256"))
     assert not release_core.carries_core(_wheel(tmp_path, "d", core, core + ".exe.sha256"))
-    assert release_core.carries_core(_wheel(tmp_path, "e", core, core + ".sha256"))
-    assert release_core.carries_core(_wheel(tmp_path, "f", core + ".exe", core + ".exe.sha256"))
+    assert not release_core.carries_core(_wheel(tmp_path, "e", core, core + ".sha256"))
+    assert release_core.carries_core(_wheel(tmp_path, "py3-none-host", *_binaries()))
+    assert release_core.carries_core(_wheel(tmp_path, "py3-none-win_amd64", *_binaries(".exe")))
     # A digest of other bytes makes the shell refuse the binary, so the wheel carries no core.
     other = hashlib.sha256(b"other").hexdigest()
-    assert not release_core.carries_core(
-        _wheel(tmp_path, "g", core, core + ".sha256", digest=other)
-    )
+    assert not release_core.carries_core(_wheel(tmp_path, "g", *_binaries(), digest=other))
     assert not release_core.carries_core(_wheel(tmp_path, "h", core, core + ".sha256", digest="x"))
     (tmp_path / "no-archive.whl").write_bytes(b"wheel")
     assert not release_core.carries_core(tmp_path / "no-archive.whl")
@@ -242,7 +249,7 @@ def test_the_release_check_refuses_each_wheel_without_the_core(
     core = release_core.MEMBER
     monkeypatch.setattr(release_core, "platform_tags", lambda: ("py3-none-host",))
     assert release_core.main([str(tmp_path), "x.whl"]) == 2
-    host = _wheel(tmp_path, "py3-none-host", core, core + ".sha256")
+    host = _wheel(tmp_path, "py3-none-host", *_binaries())
     bare = _wheel(tmp_path, "py3-none-other")
     ran: list[Path] = []
     monkeypatch.setattr(release_core, "smoke", lambda wheel: ran.append(wheel) or "")
@@ -263,9 +270,8 @@ def test_the_release_check_wants_exactly_the_platforms_of_the_matrix(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """AD-476: a missing or an unlisted platform stops the release; each listed one passes."""
-    core = release_core.MEMBER
-    host = _wheel(tmp_path, "py3-none-host", core, core + ".sha256")
-    windows = _wheel(tmp_path, "py3-none-win_amd64", core + ".exe", core + ".exe.sha256")
+    host = _wheel(tmp_path, "py3-none-host", *_binaries())
+    windows = _wheel(tmp_path, "py3-none-win_amd64", *_binaries(".exe"))
     ran: list[Path] = []
     monkeypatch.setattr(release_core, "smoke", lambda wheel: ran.append(wheel) or "")
     monkeypatch.setattr(
@@ -275,7 +281,7 @@ def test_the_release_check_wants_exactly_the_platforms_of_the_matrix(
     windows.unlink()
     assert release_core.main([str(tmp_path), str(host)]) == 2
     assert "are not exactly the platforms" in capsys.readouterr().err
-    windows = _wheel(tmp_path, "py3-none-win_amd64", core + ".exe", core + ".exe.sha256")
+    windows = _wheel(tmp_path, "py3-none-win_amd64", *_binaries(".exe"))
     monkeypatch.setattr(release_core, "platform_tags", lambda: ("py3-none-host",))
     assert release_core.main([str(tmp_path), str(host)]) == 2
     assert "are not exactly the platforms" in capsys.readouterr().err
@@ -327,7 +333,7 @@ def test_native_check_runs_the_dependency_policy_with_the_pinned_cargo_deny(
         "cargo deny --locked check"
     )
     # AD-432: the self-check of native-check runs the release core of this checkout.
-    assert calls[-1] == "cargo build --locked --release -p archkeel-core"
+    assert calls[-1] == "cargo build --locked --release -p archkeel-core -p archkeel-rust-collector"
 
 
 def test_the_ci_install_of_cargo_deny_checks_the_hash_and_creates_the_target_directory() -> None:

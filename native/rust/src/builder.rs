@@ -102,6 +102,8 @@ pub(crate) struct Builder {
     pub(crate) ended_methods: BTreeMap<String, usize>,
     /// The names that each crate root publishes, for the route of a member (AD-608).
     pub(crate) publications: crate::routes::Publications,
+    /// Modules with a path to code whose value transfers the scan does not read.
+    pub(crate) opaque_values: BTreeSet<String>,
 }
 
 impl Builder {

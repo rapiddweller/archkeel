@@ -13,7 +13,7 @@ use archkeel_facts::identity::{package_of, stable_id, Part};
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 use archkeel_facts::{ImportFact, Record};
 
-use crate::builder::{import_record, Builder, Origin};
+use crate::builder::{import_record, Builder, Form, Origin};
 use crate::crates::{Crate, Root, Workspace};
 use crate::derive_imports::Local;
 use crate::modules::{Index, Outcome};
@@ -292,6 +292,11 @@ impl Builder {
         index: Option<&Index<'_>>,
         (target, target_module, name, other_crate): (Target, String, Option<ImportName>, bool),
     ) {
+        if matches!(from.form, Form::Import)
+            && matches!(&target, Target::External { .. } | Target::Builtin { .. })
+        {
+            self.opaque_values.insert(from.module.to_owned());
+        }
         let external = name.as_ref().and_then(ImportName::external_package);
         if let Some(package) = external.filter(|_| reference.in_macro.is_none()) {
             self.external_origin(from.module, &evidence, package);

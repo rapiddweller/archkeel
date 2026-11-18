@@ -92,7 +92,7 @@ object! {
         /// The linked collector's one stated assumption of its proofs, shown with the verdict
         /// (AD-540). It is no proof and replaces no gap. Wire replies carry none.
         #[serde(skip)]
-        pub scope_premise: Option<&'static str>,
+        pub scope_premise: Option<String>,
         /// Paths intentionally excluded from the linked collector's source scope.
         #[serde(skip)]
         pub excluded_sources: Vec<String>,

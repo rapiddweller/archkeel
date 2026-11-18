@@ -193,7 +193,7 @@ impl Builder {
             self.glob_trait_gaps(workspace, &reached);
         }
         pending.extend(orphans::trait_impl_candidates(workspace, modules));
-        flow::settle(self, pending);
+        flow::settle(self, pending, index, modules);
     }
 
     /// A path `S::m` whose type file defines no `m` for `S` is an edge to each foreign block of it

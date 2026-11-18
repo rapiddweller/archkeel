@@ -244,7 +244,10 @@
         "native.archkeel_wire.stream:Tail",
         "native.archkeel_wire.stream:TypedEmit",
         "native.archkeel_wire.stream:encode_stream",
-        "native.archkeel_wire.typed:assemble"
+        "native.archkeel_wire.typed:assemble",
+        "native.archkeel_wire.worker:RUST_WORKER_V1",
+        "native.archkeel_wire.worker:read_rust_v1",
+        "native.archkeel_wire.worker:write_rust_v1"
       ],
       "decided_by": "architect"
     },
@@ -3125,13 +3128,6 @@
           "rationale": "Run the TypeScript collector through its library: the typed reply, the provenance and its test features (AD-406).",
           "through": [
             "native.archkeel_typescript_collector"
-          ]
-        },
-        {
-          "component": "rs-entry",
-          "rationale": "Run the Rust collector through the same typed library path (AD-406, issue #1095 slice 2).",
-          "through": [
-            "native.archkeel_rust_collector"
           ]
         },
         {

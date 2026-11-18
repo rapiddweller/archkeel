@@ -31,7 +31,6 @@ dependencies = [
  "archkeel-dart-collector",
  "archkeel-facts",
  "archkeel-python-collector",
- "archkeel-rust-collector",
  "archkeel-snapshot",
  "archkeel-store",
  "archkeel-typescript-collector",

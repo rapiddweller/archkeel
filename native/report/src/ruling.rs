@@ -108,7 +108,7 @@ pub struct Ruling {
     /// The one assumption that the collector states for its proofs (AD-540). The word of `scope`
     /// stays `complete`: the shell reads it.
     #[serde(skip_serializing_if = "Option::is_none")]
-    premise: Option<&'static str>,
+    premise: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     excluded_sources: Vec<String>,
     #[serde(skip)]
@@ -292,7 +292,7 @@ pub fn rule_with_edge_links(
         premises: crate::assumed::Premises::of(rows.premises, models.ok()),
         scope,
         excluded_sources: observed.map_or_else(Vec::new, ModelTree::excluded_sources),
-        premise,
+        premise: premise.map(str::to_owned),
         unsupported,
         causes: rows.causes,
         contract_kind,

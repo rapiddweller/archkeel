@@ -7,10 +7,10 @@
 //! It is the only crate that names a language. The core gives it the scan identity: the
 //! repository root, the location of the configuration, and the Git head and dirty state that the
 //! shell read. It reads the configuration itself, derives the profile, the scan roots, the
-//! namespace, the test scope and the resolver settings, runs the linked collector of the profile
-//! in the process of the core, and gives the store the typed reply. It returns the validated
+//! namespace, the test scope and the resolver settings. It starts the sibling Rust worker or
+//! runs the linked collector for another profile. It gives the store the typed reply and returns the validated
 //! reply and the contract bytes, or a `Refusal` that names the part it cannot run. No plugin, no
-//! trait: one function for the linked TypeScript and Rust profiles.
+//! trait: one function selects the collector.
 //!
 //! Trust: the core trusts the reply because it ran the collector itself; no digest and no reply
 //! bytes come from the caller. The caller still chooses the root and the configuration file, and
@@ -26,6 +26,7 @@ mod python;
 mod refusal;
 mod repository;
 mod run;
+mod rust_worker;
 mod system;
 
 pub use system::{System, SystemPart};
@@ -110,7 +111,6 @@ pub fn read_system(identity: &Identity<'_>) -> Result<Option<System>, Refusal> {
 /// The test features of the linked collectors. A build with one cannot give an accepted reply.
 pub(crate) fn test_features() -> &'static [&'static str] {
     [
-        archkeel_rust_collector::TEST_FEATURES,
         archkeel_python_collector::TEST_FEATURES,
         archkeel_dart_collector::TEST_FEATURES,
     ]

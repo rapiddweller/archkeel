@@ -2,17 +2,17 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The scan request of the shell (AD-406): the core runs the collector in its own process.
+//! The scan request of the shell: the core selects and runs the collector (AD-406, AD-881).
 //!
 //! The request carries only the scan identity: the repository root, the location of the
 //! configuration, and the Git head and dirty state that the shell read. It has no reply, digest,
 //! profile, root list or trust field: `deny_unknown_fields` refuses a request that names one
 //! (exit 2), so no caller can give this kind facts. `archkeel-collect` reads the configuration
-//! and the contract, derives the request, runs the linked collector and gives the store its typed
+//! and the contract, derives the request, runs the collector and gives the store its typed
 //! reply. The core then reads the inside contracts through the same reader, in the rounds of the
 //! shell (AD-379), and sends the run through the one engine path (`dual_run::run`).
 //!
-//! Trust: `Producer::Trusted` comes from the fact that the core ran the linked collector itself
+//! Trust: `Producer::Trusted` requires that the core ran the collector and verified its provenance
 //! (`in_process`). It is not `check::stage_one_shell_trust`, which stays the only trust path of the
 //! check request. A part that `archkeel-collect` cannot run (another profile, a configured
 //! collector, a hostile repository over the work budget) is a frame that names it (exit 3), and
@@ -425,7 +425,7 @@ fn in_process(collector: &'static str) -> TrustOf {
         Trust {
             settings,
             gap: Some(format!(
-                "{PRODUCER_NOT_VERIFIED}: the collector in the core process ran for {} and its \
+                "{PRODUCER_NOT_VERIFIED}: the core ran the collector for {} and its \
                  reply names the adapter {} with the code digest {}",
                 collector, adapter.name, adapter.code_digest
             )),

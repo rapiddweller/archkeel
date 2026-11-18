@@ -15,3 +15,4 @@ pub mod protocol;
 pub mod request;
 pub mod stream;
 pub mod typed;
+pub mod worker;

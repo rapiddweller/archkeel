@@ -98,6 +98,8 @@ pub(crate) struct TraitImpl {
     /// The block holds an item other than an associated type (a `fn`, a `const`, a macro call):
     /// a caller that runs the impl runs code of its module (AD-806).
     pub runs: bool,
+    /// An impl whose members do not rule out a destructor.
+    pub may_drop: bool,
 }
 
 /// An item that a block declares, with the end of the block: a struct, enum or union (`nominal`),

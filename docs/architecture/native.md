@@ -72,14 +72,14 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | `archkeel-model-barrier` | A test crate without code: each document test tries to build a PASS without the scope proof of the same model, from outside the model, and has a twin that compiles (AD-378). It also tries a run PASS without the run proof; the report and the evaluator hold their own attempts as document tests (AD-381, AD-382). Attempts 25 to 29 try the gap scope and the scan proof of slice S7 (AD-384). | `archkeel-model`, `archkeel-contract` |
 | `archkeel-eval` | Decides each rule over the model: an outcome with a decision and its violations. Slice S1 decides `complete_assignment` and `root_layout`, slice S2 `external_dependency_scope` and `complete_external_scope`, slice S5 the direction kinds (`forbidden_dependency`, `allowed_dependency` as a declaration, `sibling_isolation`, `layer_order`, `complete_requires`), slice S7 `no_component_cycles`; each other kind names its slice (AD-370, AD-372, AD-380, AD-384). | `archkeel-model`, `archkeel-contract`, `archkeel-facts` |
 | `archkeel-report` | The engine ruling, its frame and the HTML presentation. The core writes its status and rule verdicts only through its `Ruling` (AD-388). A PASS needs the model and the run proof. The unused report v2 builder and checker are removed (AD-612). | `archkeel-eval`, `archkeel-model`, `archkeel-contract` |
-| `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run (AD-363), the check request of the shell and the scan request; `archkeel report --native-core` and `archkeel check --native-core` take their rule verdicts when it decides every rule (AD-390, AD-399). For the scan request it runs the collector in its own process (AD-406). It takes the status of a frame from the report (AD-388). | `archkeel-collect`, `archkeel-report`, `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
-| `archkeel-collect` | The composition between the core and the collectors and the only crate that names a language: it reads the repository configuration, derives the collection request, runs the linked TypeScript or Rust collector and gives the store its typed reply; each other profile and a configured collector are refused by name (AD-406). It enables the snapshot work charge before any linked collector runs (AD-420). | `archkeel-typescript-collector`, `archkeel-rust-collector`, `archkeel-store`, `archkeel-wire`, `archkeel-facts`, `archkeel-snapshot` |
+| `archkeel-core` | Handles the engine command, check request and scan request (AD-363, AD-390, AD-399). It delegates collection to `archkeel-collect` and reads the frame status from the report (AD-388). | `archkeel-collect`, `archkeel-report`, `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
+| `archkeel-collect` | Reads the repository configuration and derives the collection request. Starts the installed Rust worker, or runs a linked TypeScript, Python or Dart collector. Gives the store the typed reply (AD-406, AD-881). | `archkeel-store`, `archkeel-wire`, `archkeel-facts`, `archkeel-snapshot`, `archkeel-typescript-collector`, `archkeel-python-collector`, `archkeel-dart-collector` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-pytext` | The text rules of Python `str` that more than one collector repeats, such as `str.splitlines` (AD-327). | no crate of the workspace |
 | `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse; only the Dart collector uses it (`deny.toml`). | no crate of the workspace |
-| `archkeel-dart-collector` | Reads Dart source. It holds discovery (AD-365), request decoding (AD-368), syntax and sites (AD-369, AD-376), SDK checks (AD-387), declarations (AD-392) and complete collection assembly from typed resolver answers (AD-400) and the typed import survey of one package with its own resolver (AD-454). The binary writes no reply, and `archkeel-collect` does not link it yet. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-dart-grammar`, `archkeel-build-support` |
+| `archkeel-dart-collector` | Reads Dart source. It holds discovery (AD-365), request decoding (AD-368), syntax and sites (AD-369, AD-376), SDK checks (AD-387), declarations (AD-392) and complete collection assembly from typed resolver answers (AD-400) and the typed import survey of one package with its own resolver (AD-454). `archkeel-collect` links its library. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-dart-grammar`, `archkeel-build-support` |
 | `archkeel-typescript-collector` | Reads TypeScript source. A library that `archkeel-collect` links, and a binary that the host starts (AD-406). | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-build-support` |
-| `archkeel-rust-collector` | Reads Rust source. A linked library and a binary use one record producer (AD-406, #1095 slice 2). | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
+| `archkeel-rust-collector` | Reads Rust source. Its binary serves the private worker channel and the public collector protocol (AD-881). | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 | `archkeel-python-collector` | Reads Python source with `ruff_python_parser`, pinned exactly ([AD-334](decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md)). Slice 1c-2d: the reply of the import survey, which the host does not read yet. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 
 A collector crate never uses another collector crate. Only a collector crate uses a parser crate.
@@ -126,7 +126,7 @@ A stated unsupported feature holds only the rules that read it, not the run
 Each other profile limit also holds only what reads it: an unexamined construct or an undecided kind
 holds its own rule, and a declaration that no rule reads holds the run
 ([AD-644](decisions/ad-644-a-profile-limit-holds-only-what-reads-it.md)).
-The statements are not serialized. The wire path keeps its conservative profile refusals.
+The public wire reply omits these statements. The private Rust worker frame carries them (AD-881).
 
 Slice S11 decides `forbidden_construct` from construct and typing-signal facts (AD-408).
 A known occurrence can FAIL with incomplete coverage. Absence needs the existing scope proof,
@@ -224,15 +224,25 @@ of `report` changes no verdict, so the request has no baseline field.
 `archkeel-core scan` is the request kind for which the core runs the collector itself
 ([AD-406](decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md)).
 It carries the repository root, the configuration file, and the Git head and dirty state of the
-shell, and no reply. `archkeel-collect` reads the configuration and the contract, derives the
-collection request and runs the linked TypeScript or Rust collector; the store validates its typed reply
-through the same validation as a reply of bytes. The trust comes from the fact that the core ran
-the collector. The frame has a `collect` part: the derived request, which the shell compares with
+shell, and no reply. `archkeel-collect` reads the configuration and the contract and derives the
+collection request. For Rust it starts the executable beside the core and reads one private frame.
+The store validates the typed reply. The core checks the producer identity and code digest.
+The frame has a `collect` part: the derived request, which the shell compares with
 its own request field by field, or the refusal that names the part. Stage 1 stays on.
 
 `--self-test` compares what the core read: the rule ids and
 kinds of the contract bytes against the verdict map, and the reply that the store accepts. A
 part that is not ported answers with the slice that ports it, never with an empty result.
+
+Rust scan at runtime (AD-881). These arrows cross a process boundary:
+
+```mermaid
+flowchart LR
+    core["archkeel-collect in archkeel-core"] -->|"start --core-worker-v1; request on stdin"| worker["archkeel-rust-collector"]
+    worker -->|"length-prefixed reply on stdout"| core
+```
+
+The component graph below shows imports. A process call is not a crate dependency.
 
 <!-- archkeel-component-graph -->
 ```mermaid
@@ -334,7 +344,6 @@ flowchart LR
     n_53 --> n_15
     n_53 --> n_30
     n_53 --> n_19
-    n_53 --> n_8
     n_53 --> n_40
     n_53 --> n_36
     n_53 --> n_14

@@ -55,7 +55,7 @@ pub(crate) struct Observed {
     /// The linked collector's typed profile statements, absent for a wire reply.
     pub(crate) profile_limits: Option<ProfileLimits>,
     /// The linked collector's stated assumption (AD-540), absent for a wire reply.
-    pub(crate) scope_premise: Option<&'static str>,
+    pub(crate) scope_premise: Option<String>,
     pub(crate) excluded_sources: Vec<String>,
     /// Each pair's source, target, dispatch flag and execution-only flag.
     pub(crate) pair_gaps: Vec<(String, String, bool, bool)>,
@@ -183,7 +183,7 @@ pub(crate) fn observed(
                 (source != target).then(|| (source.as_str().to_owned(), target.as_str().to_owned()))
             })
             .collect(),
-        scope_premise: facts.scope_premise,
+        scope_premise: facts.scope_premise.clone(),
         excluded_sources: facts.excluded_sources.clone(),
         pair_gaps,
         effect_gaps: gap_class::effect_gaps(&facts.coverage, classes),
