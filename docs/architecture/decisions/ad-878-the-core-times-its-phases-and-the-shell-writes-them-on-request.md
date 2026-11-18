@@ -40,12 +40,15 @@ the wall-clock seconds of the phases of the core. No other output changes.
   `--timings "timings-$(date +%s).json"` or `--timings "$(mktemp -d)/timings.json"`. A script that
   keeps the last file removes the old one first. The seconds depend on the machine; they are no snapshot.
 
+- **Nightly reference.** One test of the existing nightly scans a pinned public project (SymPy, a fixed
+  commit) several times with `--timings`, keeps one file for each run and a table of the spread, and sets
+  no limit (`tests/timing_reference/README.md`, `tools/phase_timings.py`).
+
 **Rejected.** A `timings` key in the frame (frame schema and system join change, and a snapshot would
 hold seconds); a file written by the core (it is read-only); an environment switch or a global
 recorder; a list of all files that the run read (it is never complete, for example outside-code reads).
 
-**Not in this decision.** Phase budgets in the PR gate and the nightly run on a pinned public project
-stay in #659.
+**Not in this decision.** Phase limits in a gate stay in #659: the spread of many nights comes first.
 
 **Check.** `native/core/src/scan_timings_tests.rs` and `native/core/src/phases_tests.rs` (line,
 sum, frame equal with and without `timings`); `tests/test_cli_timings.py`, `test_cli_timings_targets.py`

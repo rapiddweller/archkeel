@@ -1,0 +1,8 @@
+{
+  "name": "SymPy",
+  "repo": "https://github.com/sympy/sympy",
+  "ref": "sympy-1.13.3",
+  "commit": "b4ce69ad5d40e4e545614b6c76ca9b0be0b98f0b",
+  "license": "BSD-3-Clause",
+  "copy": [{"from": "sympy", "to": "sympy"}]
+}

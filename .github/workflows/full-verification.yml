@@ -138,6 +138,18 @@ jobs:
           if-no-files-found: warn
           retention-days: 1
 
+      # #659, AD-878: the phase seconds of the core on a pinned public project. Only the area
+      # "CLI and core" writes them. The table is in the job summary; no limit is set, because the
+      # spread of many nights is needed first (tests/timing_reference/README.md).
+      - name: Upload phase timings
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: phase-timings-${{ matrix.area }}
+          path: test-artifacts/phase-timings/
+          if-no-files-found: ignore
+          retention-days: 30
+
   shell-compat:
     name: "Linux: shell and package on Python 3.12"
     runs-on: ubuntu-24.04
