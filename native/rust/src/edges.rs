@@ -192,7 +192,7 @@ impl Builder {
         // One record for each distinct path of a file; the first use is its evidence.
         if !self
             .seen
-            .insert((from.module.to_owned(), key, reference.path.clone()))
+            .insert((from.module.to_owned(), key, reference.path.clone(), None))
         {
             self.ended += 1;
             return;
