@@ -38,7 +38,7 @@ fn a_door_reach_with_a_line_parses_and_keeps_its_fields() -> Result<(), String> 
     assert_eq!(door.door(), "eval");
     assert_eq!(*door.line(), Some(12));
     assert_eq!(door.scope(), &None);
-    let loads: Vec<&str> = door.loads().iter().map(|p| p.as_text()).collect();
+    let loads: Vec<&str> = door.loads().iter().flatten().map(|p| p.as_text()).collect();
     assert_eq!(loads, ["p.b", "json"]);
     let changes: Vec<&str> = door.changes().iter().map(|p| p.as_text()).collect();
     assert_eq!(changes, ["p.c"]);
@@ -88,5 +88,25 @@ fn the_canonical_bytes_keep_the_door_reach() -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     assert!(bytes.contains("\"door_reach\""), "{bytes}");
     assert!(bytes.contains("\"line\": 3"), "{bytes}");
+    Ok(())
+}
+
+#[test]
+fn a_constant_bound_is_versioned_and_round_trips_without_a_free_list() -> Result<(), String> {
+    let bound = r#"{"constant":"app.registry:MODULES","template":"app.{}.interface",
+                     "call":"importlib.import_module(name)"}"#;
+    let extra = format!(r#", "line": 7, "loads_from": {bound}"#);
+    let raw = reach(&extra);
+    let only_bound = raw
+        .replace(r#""loads": ["p.b", "json"],"#, "")
+        .replace(r#""door": "eval""#, r#""door": "loader""#);
+    assert_ne!(raw, only_bound);
+    let parsed = read(&contract("3.18.0", &only_bound))?;
+    let bytes = String::from_utf8(crate::canonical::canonical_bytes(&parsed))
+        .map_err(|error| error.to_string())?;
+    assert!(bytes.contains("\"loads_from\"") && !bytes.contains("\"loads\""));
+    read(&bytes)?;
+    assert!(read(&contract("3.17.0", &only_bound)).is_err());
+    assert!(read(&contract("3.18.0", &raw)).is_err());
     Ok(())
 }

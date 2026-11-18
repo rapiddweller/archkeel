@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
 from test_cli_native_python_imports import command, project, rows, verdict
 from test_cli_python_gap_effects import BINDS_SECRET, FILES, ON_FILES, RULES
 
@@ -54,13 +55,18 @@ def declaration(**fields: Any) -> dict[str, Any]:
 
 
 def scanned(
-    binary: Path, root: Path, files: dict[str, str], declared: list[dict[str, Any]]
+    binary: Path,
+    root: Path,
+    files: dict[str, str],
+    declared: list[dict[str, Any]],
+    *,
+    version: str = "3.15.0",
 ) -> dict[str, Any]:
     """The verdict of the project with `files` and the door declarations `declared`."""
     project(root, {**FILES, **files}, contract_rules=RULES)
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
-    contract["schema_version"] = "3.15.0"
+    contract["schema_version"] = version
     contract["declarations"] = {"door_reach": declared}
     path.write_text(json.dumps(contract))
     subprocess.run(["git", "-C", str(root), "commit", "-qam", "reach"], check=True, env=GIT)
@@ -174,3 +180,71 @@ def test_a_loader_needs_a_declaration_of_its_binding_and_of_its_call(
     kinds = {gap["kind"] for gap in refused["gaps"]}
     assert "door_reach.invalid" in kinds, refused["gaps"]
     assert rows(refused)["CYCLES"] == "UNKNOWN", refused
+
+
+@pytest.mark.parametrize(
+    ("constant", "moved", "status"),
+    [
+        ("MODULES = ('model',)\n", False, "PASS"),
+        ("MODULES = ('secret',)\n", False, "FAIL"),
+        ("MODULES = ('model', 'gone')\n", False, "UNKNOWN"),
+        ("MODULES = ('model',)\nMODULES = ('secret',)\n", False, "UNKNOWN"),
+        ("MODULES = ['model']\n", False, "UNKNOWN"),
+        ("MODULES = ('model',)\n", True, "UNKNOWN"),
+    ],
+)
+def test_a_python_loader_bound_reads_the_written_tuple_again(
+    release_core: Path, tmp_path: Path, constant: str, moved: bool, status: str
+) -> None:
+    call = 'importlib.import_module(f"app.service.{names[0]}")'
+    actual = call.replace("names[0]", "names[-1]") if moved else call
+    source = (
+        "import importlib\n"
+        "from app.service.registry import MODULES\n"
+        "def load(names=MODULES):\n"
+        f"    return {actual}\n"
+    )
+    door = declaration(module="app.client.page", door="loader", line=4)
+    door.pop("loads")
+    door["loads_from"] = {
+        "constant": "app.service.registry:MODULES",
+        "template": "app.service.{}",
+        "call": call,
+    }
+    result = scanned(
+        release_core,
+        tmp_path,
+        {"src/app/client/page.py": source, "src/app/service/registry.py": constant},
+        [door],
+        version="3.18.0",
+    )
+    assert rows(result)["CLIENT-NO-SECRET"] == status, result
+    frame = result["frame"]
+    if status == "UNKNOWN":
+        assert "door_reach" not in frame
+        assert any(gap["kind"] == "door_reach.invalid" for gap in result["gaps"])
+    else:
+        (bound,) = frame["door_reach"]
+        assert bound["constant"] == (
+            "app.service.registry:MODULES (src/app/service/registry.py:1, template app.service.{})"
+        )
+        target = "model" if status == "PASS" else "secret"
+        assert bound["possible_loads"] == [f"app.service.{target}"]
+    if status == "PASS":
+        assert (
+            "loads only the targets from app.service.registry:MODULES"
+            in frame["assumed"]["CLIENT-NO-SECRET"][0]
+        )
+        assert "only the targets from app.service.registry:MODULES" in (
+            command(release_core, tmp_path, "--text").stdout
+        )
+        page = tmp_path / "bound.html"
+        command(release_core, tmp_path, "--output", str(page), verb="report")
+        assert "loads only the targets from app.service.registry:MODULES" in page.read_text()
+    if status == "FAIL":
+        (detail,) = frame["details"]["CLIENT-NO-SECRET"]
+        assert detail["possible"] is True
+    if status != "UNKNOWN":
+        assert truth(tmp_path, "", "from app.client.page import load; print(load().__name__)") == (
+            f"app.service.{target}"
+        )

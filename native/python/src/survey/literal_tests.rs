@@ -132,3 +132,31 @@ fn a_locals_call_proves_nothing() {
     let kinds: Vec<&str> = found(source).into_iter().map(|(kind, _)| kind).collect();
     assert!(!kinds.contains(&LITERAL), "{kinds:?}");
 }
+
+#[test]
+fn a_constant_bound_uses_the_same_callee_identity_as_the_gap() {
+    let source = "import importlib\nMODULES = ('one', 'two')\nimportlib.import_module(name)\n";
+    let tree = crate::test_tree(source, 14).expect("valid probe");
+    let binders = Binders::of(&tree);
+    let module = Module::new("src/app.py".into(), "app".into(), source.into(), tree);
+    let gaps = sites(
+        &module.tree,
+        Proof::of(&module.tree, &binders),
+        &binders,
+        &std::collections::HashSet::new(),
+    );
+    let gap = gaps
+        .iter()
+        .find(|gap| gap.door.is_some())
+        .expect("a loader gap");
+    let at = module.location(&gap.range);
+    let id = evidence_id(&module.rel, at.line, at.end_line, at.column);
+    let calls = loader_calls(&module, &binders);
+    assert_eq!(
+        calls.get(&id).map(String::as_str),
+        Some("importlib.import_module(name)")
+    );
+    let tuples = literal_tuples(&module, &["MODULES".to_owned()]);
+    assert_eq!(tuples["MODULES"], (2, vec!["one".into(), "two".into()]));
+    assert!(literal_tuples(&module, &[]).is_empty());
+}

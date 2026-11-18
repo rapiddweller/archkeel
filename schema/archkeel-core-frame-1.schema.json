@@ -473,6 +473,13 @@
           },
           "description": "The declared module prefixes that the door may import."
         },
+        "constant": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The scanned binding and template for a constant-bound premise."
+        },
         "possible_loads": {
           "type": "array",
           "items": {
