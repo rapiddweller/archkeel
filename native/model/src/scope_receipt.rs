@@ -62,11 +62,8 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
             let Some((source, target)) = components.get(source).zip(components.get(target)) else {
                 return true;
             };
-            !source
-                .requires()
-                .iter()
-                .flatten()
-                .any(|entry| entry.component() == target.label() && entry.through() == &Vec::new())
+            direction::assessment(source, target, &gap.target, None, false)
+                != direction::Judged::Pass
         })
         .filter(|gap| gap.holds(&reading))
         .map(|gap| (gap.source.as_str(), gap.target.as_str()));
