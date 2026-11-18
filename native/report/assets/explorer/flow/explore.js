@@ -189,8 +189,7 @@
   }
 
   function atlasMatrixGeometry(matrix, modules) {
-    const n = modules.length, requestedSize = Math.max(2.4, Math.min(16, 720 / Math.max(1, n)));
-    const size = requestedSize >= 9 && requestedSize < 12 ? 12 : requestedSize;
+    const n = modules.length, size = Math.max(12, Math.min(16, 720 / Math.max(1, n)));
     const groups = [];
     for (let start = 0; start < n;) {
       let end = start + 1;
@@ -211,12 +210,12 @@
     }));
     probe.setAttribute("class", "matrix-label");
     measureText.font = getComputedStyle(probe).font;
-    const margin = size < 9 ? 54 : Math.max(154, ...modules.map((module) =>
+    const margin = Math.max(154, ...modules.map((module) =>
       measureText.measureText(module.name.split(".").slice(-2).join(".")).width + 12));
     probe.remove();
-    const bandHeight = 28 + groups.length * 14, gridTop = margin + bandHeight;
+    const bandHeight = 28 + groups.length * 14, gridTop = margin + 28;
     matrix.setAttribute("width", String(Math.max(margin + n * size + 12, margin + labelWidth * 2 + 20)));
-    matrix.setAttribute("height", String(gridTop + n * size + 12));
+    matrix.setAttribute("height", String(gridTop + n * size + bandHeight + 12));
     return { size, groups, margin, labelWidth, gridTop };
   }
 
@@ -228,12 +227,13 @@
     region.appendChild(matrix);
     const { size, groups, margin, labelWidth, gridTop } = atlasMatrixGeometry(matrix, modules);
     const indexes = new Map(modules.map((module, index) => [module.id, index]));
-    const columnHeading = el("text", { class: "matrix-axis-heading", x: String(margin), y: "14" });
+    const legendTop = gridTop + modules.length * size + 28;
+    const columnHeading = el("text", { class: "matrix-axis-heading", x: String(margin), y: String(legendTop) });
     columnHeading.textContent = "Column groups · left to right"; matrix.appendChild(columnHeading);
-    const rowHeading = el("text", { class: "matrix-axis-heading", x: String(margin + labelWidth + 20), y: "14" });
+    const rowHeading = el("text", { class: "matrix-axis-heading", x: String(margin + labelWidth + 20), y: String(legendTop) });
     rowHeading.textContent = "Row groups · top to bottom"; matrix.appendChild(rowHeading);
     groups.forEach((group, index) => {
-      const y = String(28 + index * 14), range = `${group.start + 1}–${group.end}`;
+      const y = String(legendTop + 14 + index * 14), range = `${group.start + 1}–${group.end}`;
       for (const [axis, x] of [["column", margin], ["row", margin + labelWidth + 20]]) {
         const label = el("text", { class: "matrix-group-label", "data-axis": axis, x: String(x), y });
         label.textContent = `${index + 1}. ${group.name} · ${axis === "column" ? "columns" : "rows"} ${range}`;
@@ -244,7 +244,6 @@
         width: String((group.end - group.start) * size), height: String((group.end - group.start) * size) }));
     });
     modules.forEach((module, index) => {
-      if (size < 9) return;
       for (const column of [false, true]) {
         const label = el("text", { class: "matrix-label", "data-module": module.id, tabindex: "0", role: "button",
           x: String(column ? margin + (index + .5) * size : margin - 6),
