@@ -76,6 +76,7 @@ impl Comments {
         }
         match stmt {
             Stmt::Assign(node) if matches!(node.targets.as_slice(), [Expr::Name(_)]) => {}
+            Stmt::Return(node) if node.value.is_some() => {}
             Stmt::Expr(_) => {
                 let (base, member) = statement
                     .strip_suffix(')')?
