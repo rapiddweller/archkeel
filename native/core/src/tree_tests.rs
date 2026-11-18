@@ -108,6 +108,7 @@ fn a_rule_of_a_mount_passes_with_the_proof_of_its_own_model_under_its_scoped_id(
         "shop.src.domain.repository_x2e_ts",
     ]);
     let got = frame(&request(Some(&leaf)));
+    assert_eq!(got["rule_rationales"]["domain:IN"], "r");
     assert_eq!(
         statuses(&got).get("domain:IN").map(String::as_str),
         Some("PASS"),

@@ -141,6 +141,12 @@
         }
       ]
     },
+    "rule_rationales": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
     "engine": {
       "type": "string"
     },

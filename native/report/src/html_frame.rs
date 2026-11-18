@@ -96,6 +96,7 @@ pub(super) struct Frame {
     pub(super) status: Option<Status>,
     /// Each rule row: its kind and its verdict.
     pub(super) rules: BTreeMap<String, (String, RuleVerdict)>,
+    pub(super) rule_rationales: BTreeMap<String, String>,
     pub(super) details: BTreeMap<String, Vec<Detail>>,
     pub(super) locations: BTreeMap<String, Location>,
     pub(super) topology: Option<Topology>,
@@ -193,6 +194,7 @@ impl Frame {
             assuming: text(&frame["assuming"]),
             status: serde_json::from_value(frame["status"].clone()).ok(),
             rules: field(frame, "rules"),
+            rule_rationales: field(frame, "rule_rationales"),
             details: field(frame, "details"),
             locations: field(frame, "locations"),
             topology: serde_json::from_value(frame["topology"].clone()).ok(),

@@ -77,6 +77,22 @@ pub(crate) struct Usable {
 }
 
 impl Usable {
+    /// The rationale of each rule in the validated tree, keyed by its scoped id.
+    pub(crate) fn rationales(&self) -> std::collections::BTreeMap<String, String> {
+        std::iter::once(&self.root)
+            .chain(
+                self.tree
+                    .iter()
+                    .flat_map(|tree| tree.mounts().iter().map(|mount| mount.contract())),
+            )
+            .flat_map(|contract| contract.rules())
+            .map(|rule| {
+                let head = head_of(rule);
+                (head.id().as_text().to_owned(), head.rationale().clone())
+            })
+            .collect()
+    }
+
     /// What the run of this contract tree needs beyond the module and import facts (AD-512).
     /// This is the one owner of the needs of a run: a new reason is one more `Need`.
     pub(crate) fn needs(&self) -> Needs {

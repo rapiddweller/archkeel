@@ -11,8 +11,14 @@ Show each available rule kind beside its ID. Use whole words for inventory count
 the group summary on a layer card and keep the member responsibilities in Details.
 Link run gaps with no component to the Unknown section.
 
-Use only the metadata in the report frame. It gives each rule kind but carries no general
-rule rationale. A rationale from another rule or from a dependency would mislead.
+Use only the metadata in the report frame. At first it gave each rule kind but carried no
+general rule rationale. A rationale from another rule or from a dependency would mislead.
 
-The report tests check the grouped reasons, rule kinds, and run-gap link. The Explorer browser
+Amendment for #1769: The core copies each rule's rationale from its validated contract into
+`rule_rationales`, keyed by rule ID. System frames join the maps by ID. The Unknown cards show
+the escaped rationale beside the ID and kind. Older frames without this field show the kind only.
+This adds no verdict and never substitutes a dependency rationale. A tooltip alone hides the
+reason from touch and keyboard users. Truncation hides part of the contract's reason.
+
+The report tests check the grouped reasons, rule kinds, rationale, and run-gap link. The Explorer browser
 test checks the visible counts and layer summary.
