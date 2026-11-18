@@ -100,9 +100,6 @@ impl Places {
         let mut cycles: Vec<(CyclePath, Violated)> = Vec::new();
         for (rule, rows) in &frame.details {
             let listed = frame.explain.cycles.get(rule);
-            let placement = frame.rules.get(rule).is_some_and(|(kind, _)| {
-                kind == crate::kind::word(archkeel_contract::RuleKind::SymbolPlacement)
-            });
             for (index, row) in rows.iter().enumerate() {
                 let violated = Violated {
                     rule: rule.clone(),
@@ -111,8 +108,8 @@ impl Places {
                 // A cycle row has its closed path when the frame lists it; else it is one row.
                 let path =
                     listed.and_then(|found| found.items.iter().find(|item| item.index == index));
-                match (placement, &row.target, path) {
-                    (true, Some(module), _) => classes
+                match (&row.misplaced_class_fact, &row.target, path) {
+                    (Some(_), Some(module), _) => classes
                         .entry((module.clone(), row.source.clone()))
                         .or_default()
                         .add(violated, &row.evidence),

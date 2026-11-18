@@ -16,7 +16,7 @@ fn a_misplaced_class_belongs_to_its_defining_module_and_cites_only_its_evidence(
     );
     frame["topology"]["modules"][0]["path"] = json!("src/client.py");
     frame["details"] = json!({"LAYOUT": [{"source": "m0.Client", "target": "m0",
-        "cause": "class outside allowed modules", "evidence": ["E1"]}]});
+        "cause": "class outside allowed modules", "misplaced_class_fact": "SYM-1", "evidence": ["E1"]}]});
     frame["locations"] = json!({"E1": {"path": "src/client.py", "line": 7},
         "E2": {"path": "Cargo.toml", "line": 3}});
     let page = document(&frame);

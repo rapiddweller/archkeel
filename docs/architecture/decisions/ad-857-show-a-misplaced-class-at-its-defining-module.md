@@ -7,9 +7,10 @@ The report read the class as an importer and the defining module as the imported
 
 ## Decision
 
-1. Group placement findings by defining module and class, separate from imports.
-2. Attribute the finding to the component of the defining module.
-3. Show the recorded class and the cited locations in the existing finding. State when no location is recorded.
+1. Copy `misplaced_class_fact` from the evaluated placement violation. Other rows omit it.
+2. Group these findings by defining module and class, separate from imports.
+3. Attribute the finding to the component of the defining module.
+4. Show the recorded class and the cited locations in the existing finding. State when no location is recorded.
 
 The report reads the frame of the snapshot. It does not read source files.
 The existing limits on findings and displayed locations apply. This adds no inventory to the page.
