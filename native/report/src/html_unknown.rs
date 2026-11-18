@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use super::cases::Names;
 use super::causes::{anchor, grouped, hygiene, title, Cause};
 use super::frame::Frame;
-use super::markup::{count, escape, status_icon};
+use super::markup::{count, escape, escape_literal, status_icon};
 use super::status::{cause, Shown};
 use crate::head::{RuleVerdict, Status};
 
@@ -195,7 +195,9 @@ fn rule_id(frame: &Frame, id: &str) -> String {
         .rule_rationales
         .get(id)
         .filter(|text| !text.trim().is_empty())
-        .map_or_else(String::new, |text| format!(" &#8212; {}", escape(text)));
+        .map_or_else(String::new, |text| {
+            format!(" &#8212; {}", escape_literal(text))
+        });
     format!(
         "<span class=\"rp-code\">{}</span>{kind}{rationale}{mark}",
         escape(id)
@@ -409,12 +411,12 @@ mod tests {
         let frame = json!({
             "status": "UNKNOWN",
             "rules": {"RULE-A": ["complete_requires", "UNKNOWN"]},
-            "rule_rationales": {"RULE-A": "Keep <untrusted> dependencies explicit."},
+            "rule_rationales": {"RULE-A": "Keep literal _x2f_ distinct from / & <raw>."},
             "explained": {"RULE-A": "proof is open"}
         });
         let rendered = page(&frame);
-        assert!(rendered.contains("Keep &lt;untrusted&gt; dependencies explicit."));
-        assert!(!rendered.contains("Keep <untrusted>"));
+        assert!(rendered.contains("Keep literal _x2f_ distinct from / &amp; &lt;raw&gt;."));
+        assert!(!rendered.contains("Keep literal _x2f_ distinct from / & <raw>."));
     }
 
     #[test]

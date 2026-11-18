@@ -11,8 +11,13 @@ use super::status::Shown;
 /// its real characters (`index_x2e_ts` reads `index.ts`, #1617); the page holds no raw id in an
 /// attribute, and the data of the Explorer keeps each id as it is.
 pub(super) fn escape(text: &str) -> String {
+    escape_literal(&archkeel_facts::identity::readable(text))
+}
+
+/// Escape literal text without decoding module identities.
+pub(super) fn escape_literal(text: &str) -> String {
     let mut safe = String::new();
-    for character in archkeel_facts::identity::readable(text).chars() {
+    for character in text.chars() {
         safe.push_str(match character {
             '&' => "&amp;",
             '<' => "&lt;",
