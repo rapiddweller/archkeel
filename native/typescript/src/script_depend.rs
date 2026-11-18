@@ -209,7 +209,11 @@ impl<'a, 'p> Run<'a, 'p> {
         if Self::behind_named_blockers(self, (rel, probe), first, publishers) {
             self.sink.blocked.push((first.to_owned(), evidence));
         } else {
-            self.sink.gap(&reason, &[evidence], &module);
+            self.sink
+                .unpublished
+                .entry(reason)
+                .or_default()
+                .insert(evidence);
         }
         first.to_owned()
     }

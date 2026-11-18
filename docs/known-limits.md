@@ -526,6 +526,15 @@ a `lib` value the pinned compiler does not name, `noLib` or `libReplacement` lea
 `types` and `typeRoots` add names the catalog does not hold, so those names stay unproved
 ([AD-274](architecture/decisions/ad-274-types-add-and-project-declarations-publish.md)); a
 project `declare` of a name, in a global script or a `declare global` block, proves that name.
+For Node, first check which declarations the project's locked compiler selects
+(`tsc --noEmit --listFiles`). For example, `@types/node` can declare `process` even with
+`lib: ["ES2022"]`. That is type evidence, not a runtime publisher.
+If the deployment supplies Node's `process`, a reviewed `declare var process: NodeJS.Process;`
+in a script `.d.ts` selected by both tools states that host contract. Check it with
+`tsc --noEmit --skipLibCheck false` and check the binding under the actual startup options.
+A preload can replace it. Without this contract, keep UNKNOWN or import the value from
+`node:process` when the code needs that builtin specifically
+([AD-870](architecture/decisions/ad-870-a-node-host-declaration-is-a-premise-not-a-runtime-publisher.md)).
 Without `lib`, the target's default file applies, DOM included. Only top-level value declarations count, so types such as `Document` are not
 proved, and a newer `lib` name waits for the pinned TypeScript version to move.
 A `/// <reference types="./x" />` directive with a relative or absolute path names a file of the

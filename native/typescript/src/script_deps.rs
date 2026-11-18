@@ -103,6 +103,10 @@ impl<'a, 'p> Run<'a, 'p> {
         for (rel, file) in &project.files {
             if file.script.dependency_scope {
                 self.file_sites(rel, file, &loaders);
+                for (reason, sites) in std::mem::take(&mut self.sink.unpublished) {
+                    let sites: Vec<_> = sites.into_iter().collect();
+                    self.sink.gap(&reason, &sites, &file.module);
+                }
             }
         }
         self.state_blockers();

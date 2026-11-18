@@ -36,13 +36,14 @@ use crate::symbols;
 /// repository outside the scan roots that replaces a global is read (`script_outside.rs`).
 const SCRIPT_PREMISE: &str = "code outside the scan roots hands in no global or platform object \
      and replaces no global, and addresses that a framework renders from data hold no javascript: \
-     code";
+     code; the runtime supplies any host global proved by a project declaration";
 
 /// The premise of a run whose repository guard applied a stated generated copy (AD-788).
 const SCRIPT_PREMISE_GENERATED: &str =
     "code outside the scan roots hands in no global or platform \
      object and replaces no global, and addresses that a framework renders from data hold no \
-     javascript: code, and a stated generated copy is the code of its sources";
+     javascript: code, and a stated generated copy is the code of its sources; the runtime \
+     supplies any host global proved by a project declaration";
 
 /// The import features that each registered set of the collector states (`native` set).
 const NATIVE_IMPORTS: [&str; 4] = [
