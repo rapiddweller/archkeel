@@ -121,7 +121,7 @@ fn outside(tree: &ModelTree, parts: &[UmlPart]) -> Option<String> {
         let stray = part.target.entities().iter().find(|item| {
             *item.kind() == EntityKind::Module
                 && defined(item)
-                && item.language() == observed.language
+                && item.language() == observed.analysis.language
                 && modules
                     .iter()
                     .any(|(_, module)| module.name() == item.qualified_name())

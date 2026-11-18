@@ -126,8 +126,11 @@ impl Profile {
         match self { Self::Rust => 1, Self::Python => 2 }
     }
 }
+struct Stored;
+impl Drop for Stored { fn drop(&mut self) {} }
 pub fn allowed() {}
 """
+ERASED_SOURCE = "static COUNT: u8 = 0;\npub fn f() -> u8 { COUNT }\n"
 
 
 @pytest.mark.parametrize(
@@ -142,7 +145,13 @@ pub fn allowed() {}
         (
             FACTORY,
             "pub fn f() -> u8 { base_crate::facts().profile.label() }\n",
+            "PASS",
             "UNKNOWN",
+        ),
+        (
+            BASE,
+            ERASED_SOURCE,
+            "PASS",
             "UNKNOWN",
         ),
         (RENAMED, "pub fn f(_: base_crate::Lang) {}\n", "FAIL", "FAIL"),
@@ -159,14 +168,14 @@ pub fn allowed() {}
             "pub fn f() -> bool { let a = base_crate::profile(); "
             "let b = if true { a } else { a }; let _ = b.label(); "
             "a != base_crate::profile() }\n",
-            "UNKNOWN",
+            "PASS",
             "UNKNOWN",
         ),
         (
             FACTORY.replace("mod vocab;", "pub mod vocab;"),
             "pub fn f() { base_crate::vocab::allowed(); let a = base_crate::profile(); "
             "let b = if true { a } else { a }; let _ = b.label(); }\n",
-            "UNKNOWN",
+            "PASS",
             "PASS",
         ),
         (
@@ -181,13 +190,14 @@ pub fn allowed() {}
     ids=[
         "default-ne",
         "field",
+        "erased-destructor",
         "alias",
         "glob",
         "unproved-glob",
         "type-arg",
-        "mixed",
-        "mixed-unresolved",
+        "dispatch-and-operator",
         "named-site-beside-known-edge",
+        "written-pattern-and-operator",
         "open-route",
     ],
 )
@@ -214,6 +224,11 @@ def test_source_names_do_not_read_execution(
     assert found["SOURCE-NAMES"] == status, result["frame"].get("explained")
     if legacy == "UNKNOWN":
         assert result["frame"]["collection_gaps"], result["frame"]
+    if app == ERASED_SOURCE:
+        assert any(
+            "unproved value origin may run a destructor" in gap["reason"]
+            for gap in result["frame"]["collection_gaps"]
+        )
 
 
 @pytest.mark.parametrize(("name", "base", "app", "status"), PLANTS, ids=[p[0] for p in PLANTS])

@@ -45,6 +45,8 @@ pub(crate) struct PairGap {
     pub(crate) dispatch: bool,
     /// The gap leaves only the effects of executing an impl unknown.
     pub(crate) execution: bool,
+    /// The gap does not hide a written source name.
+    pub(crate) no_name_route: bool,
     /// Contract rule positions whose scope intersects a possible cycle through this pair.
     pub(crate) cycle_rules: Vec<usize>,
 }
@@ -151,7 +153,7 @@ impl PairGap {
             }
             Reads::Sides(sides) => sides_match(sides, [a, b], self.owned),
             Reads::SourceNames(sides) => {
-                (!self.execution || self.owned != [true; 2])
+                (!self.no_name_route || self.owned != [true; 2])
                     && sides_match(sides, [a, b], self.owned)
             }
             Reads::Members(members) => members
@@ -188,9 +190,9 @@ pub(crate) fn pairs(
     let owner = |module: &str| owner_of(components, module);
     let cyclic = Cyclic::of(contract, components, graph, gaps);
     // `drop_allowed_pair_gaps` drops only for a profile whose host drops (`pair_gaps.py:66`).
-    let drops = graph.observed().pair_gap_drop == PairGapDrop::Allowed;
+    let drops = graph.observed().analysis.pair_gap_drop == PairGapDrop::Allowed;
     let mut found = Pairs::default();
-    for (source, target, dispatch, execution) in gaps {
+    for (source, target, dispatch, execution, no_name_route) in gaps {
         let ends = [owner(source), owner(target)];
         let pair = (source.as_str(), target.as_str());
         let component_pair = ends[0].zip(ends[1]).filter(|(from, to)| from != to);
@@ -214,6 +216,7 @@ pub(crate) fn pairs(
             target_external: external.contains(target.as_str()),
             dispatch: *dispatch,
             execution: *execution,
+            no_name_route: *no_name_route,
             cycle_rules: cyclic
                 .module
                 .rules_for(pair)
@@ -245,7 +248,7 @@ impl<'g> Cyclic<'g> {
         contract: &'g Contract,
         components: &Table<ComponentId, Component>,
         graph: &'g Graph,
-        gaps: &'g [(String, String, bool, bool)],
+        gaps: &'g [(String, String, bool, bool, bool)],
     ) -> Self {
         let mut module_rules = Vec::new();
         let mut component_rules = Vec::new();
@@ -263,10 +266,10 @@ impl<'g> Cyclic<'g> {
             .iter()
             .map(|import| (import.source_module(), import.target_module()))
             .collect();
-        edges.extend(gaps.iter().map(|(a, b, _, _)| (a.as_str(), b.as_str())));
+        edges.extend(gaps.iter().map(|(a, b, _, _, _)| (a.as_str(), b.as_str())));
         let module = CycleScope::of(
             &edges,
-            gaps.iter().map(|(_, b, _, _)| b.as_str()).collect(),
+            gaps.iter().map(|(_, b, _, _, _)| b.as_str()).collect(),
             module_rules,
             |labels| {
                 let selected: Vec<_> = components
@@ -289,7 +292,7 @@ impl<'g> Cyclic<'g> {
                 .filter_map(|(s, t)| Some((owner(s)?, owner(t)?)))
                 .filter(|(source, target)| source != target)
                 .collect();
-            let starts = gaps.iter().filter_map(|(_, b, _, _)| owner(b)).collect();
+            let starts = gaps.iter().filter_map(|(_, b, _, _, _)| owner(b)).collect();
             CycleScope::of(&parts, starts, component_rules, |labels| {
                 components
                     .iter()

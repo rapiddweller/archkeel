@@ -44,6 +44,7 @@ fn gap(observed: bool, external: bool) -> PairGap {
         target_external: external,
         dispatch: false,
         execution: false,
+        no_name_route: false,
         cycle_rules: Vec::new(),
     }
 }

@@ -16,6 +16,7 @@ fn kept(source: &str, target: &str, observed: bool, owned: [bool; 2], external: 
         target_external: external,
         dispatch: false,
         execution: false,
+        no_name_route: false,
         cycle_rules: Vec::new(),
     }
 }
@@ -137,7 +138,7 @@ fn source_names_keep_unread_routes_but_not_proven_execution() {
     gap.dispatch = true;
     assert!(gap.holds(&reading));
 
-    gap.execution = true;
+    gap.no_name_route = true;
     assert!(!gap.holds(&reading));
     assert!(gap.holds(&Reads::Sides(sides())));
     assert!(gap.holds(&Reads::Every));

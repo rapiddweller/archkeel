@@ -20,13 +20,13 @@
 
 use std::cmp::Ordering;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::envelope::{
     ConstructSupport, Dirty, Facts, ProfileLimits, RequirementState, Role, Runtime as RuntimeFact,
     TargetSource,
 };
-use archkeel_facts::profile_traits::{Layout, PairGapDrop};
+use archkeel_facts::profile_traits::AnalysisCapabilities;
 use archkeel_facts::vocab::{Kind, ResolutionDimension};
 use archkeel_facts::{GapFact, Section};
 
@@ -57,9 +57,10 @@ pub(crate) struct Observed {
     /// The linked collector's stated assumption (AD-540), absent for a wire reply.
     pub(crate) scope_premise: Option<String>,
     pub(crate) excluded_sources: Vec<String>,
-    /// Each pair's source, target, dispatch flag and execution-only flag.
-    pub(crate) pair_gaps: Vec<(String, String, bool, bool)>,
-    pub(crate) named_sites: BTreeSet<(String, String)>,
+    /// Each pair's source, target, dispatch flag and the two scope proofs.
+    pub(crate) pair_gaps: Vec<(String, String, bool, bool, bool)>,
+    /// Whether every separate site for a pair leaves no written route open.
+    pub(crate) named_sites: BTreeMap<(String, String), bool>,
     /// Each gap that states its effect (AD-564).
     pub(crate) effect_gaps: Vec<EffectGap>,
     /// The host could not read the head or the state of the work tree.
@@ -78,29 +79,8 @@ pub(crate) struct Observed {
     /// The collector read and parsed each selected file, and the selected inputs are the
     /// selected files (`evaluate.py` `_source_inventory_complete`; slice S7).
     pub(crate) inventory_complete: bool,
-    /// How the modules of the profile lie in the scan roots (slice S7).
-    pub(crate) layout: Layout,
-    /// Whether a cycle rule can have its receipt (AD-500).
-    pub(crate) cycle_scope: bool,
-    /// The language name of the profile, as a UML target entity names it (AD-494).
-    pub(crate) language: &'static str,
-    /// The profile keeps a type namespace apart from a value namespace (AD-512).
-    pub(crate) namespaces: bool,
-    /// The collector of the profile states symbol facts (AD-512).
-    pub(crate) symbol_facts: bool,
-    /// The collector of the profile states each public module-level item (AD-718).
-    pub(crate) public_symbols: bool,
-    /// The collector of the profile also states the sites of the symbols (AD-518).
-    pub(crate) symbol_sites: bool,
-    /// A public signature of the language needs public types (AD-670).
-    pub(crate) signatures_need_public_types: bool,
-    /// The collector of the profile writes the shape of each written signature type (AD-550).
-    pub(crate) type_shapes: bool,
-    /// The collector of the profile writes each use through a whole-module import as a record
-    /// of its own, so such an import binds no name (AD-604).
-    pub(crate) namespace_uses: bool,
-    /// Whether the host drops an allowed pair gap of the profile (slice S7).
-    pub(crate) pair_gap_drop: PairGapDrop,
+    /// Fixed capabilities supplied with the checked facts.
+    pub(crate) analysis: AnalysisCapabilities,
     /// The host can accept a dependency scope proof from the runtime of the reply (AD-418).
     pub(crate) scope_receipt: bool,
     /// Each file without a module of its own: its path, the module of its path and its owner.
@@ -126,6 +106,7 @@ impl Dynamic {
 /// The scope facts of the facts of a reply.
 pub(crate) fn observed(
     facts: &Facts,
+    analysis: AnalysisCapabilities,
     classes: &[Class],
     live_target: Option<TargetSource>,
 ) -> Observed {
@@ -143,6 +124,7 @@ pub(crate) fn observed(
                 data.module.as_ref()?.as_str().to_owned(),
                 data.dispatch,
                 execution_only(&gap.data),
+                data.no_name_route,
             ))
         })
         .collect();
@@ -171,18 +153,7 @@ pub(crate) fn observed(
         .collect();
     Observed {
         profile_limits: facts.profile_limits,
-        named_sites: unknowns()
-            .filter_map(|gap| {
-                let GapFact::SourceResolutionGap(data) = &gap.data else {
-                    return None;
-                };
-                if data.resolution_dimension != Some(ResolutionDimension::Imports) {
-                    return None;
-                }
-                let (source, target) = (data.source_module.as_ref()?, data.module.as_ref()?);
-                (source != target).then(|| (source.as_str().to_owned(), target.as_str().to_owned()))
-            })
-            .collect(),
+        named_sites: named_sites(unknowns().map(|gap| &gap.data)),
         scope_premise: facts.scope_premise.clone(),
         excluded_sources: facts.excluded_sources.clone(),
         pair_gaps,
@@ -205,17 +176,7 @@ pub(crate) fn observed(
             .iter()
             .any(|feature| feature == SYMBOL_FEATURE),
         inventory_complete: inventory_complete(facts),
-        layout: facts.profile.layout(),
-        cycle_scope: archkeel_facts::envelope::cycle::proves_cycle_scope(facts.profile),
-        language: facts.profile.language_name(),
-        namespaces: facts.profile.separates_type_namespace(),
-        symbol_facts: facts.profile.symbol_facts(),
-        public_symbols: facts.profile.public_symbols(),
-        signatures_need_public_types: facts.profile.signatures_need_public_types(),
-        symbol_sites: facts.profile.symbol_sites(),
-        type_shapes: facts.profile.type_shapes(),
-        namespace_uses: facts.profile.namespace_uses_recorded(),
-        pair_gap_drop: facts.profile.pair_gap_drop(),
+        analysis,
         scope_receipt: facts.runtime.carries_scope_proof(),
         owned_files: facts
             .owned_files
@@ -230,6 +191,31 @@ pub(crate) fn observed(
             })
             .collect(),
     }
+}
+
+fn named_sites<'a>(gaps: impl Iterator<Item = &'a GapFact>) -> BTreeMap<(String, String), bool> {
+    gaps.filter_map(|gap| {
+        let GapFact::SourceResolutionGap(data) = gap else {
+            return None;
+        };
+        if data.resolution_dimension != Some(ResolutionDimension::Imports) {
+            return None;
+        }
+        let (source, target) = (data.source_module.as_ref()?, data.module.as_ref()?);
+        (source != target).then(|| {
+            (
+                (source.as_str().to_owned(), target.as_str().to_owned()),
+                data.no_name_route,
+            )
+        })
+    })
+    .fold(BTreeMap::new(), |mut pairs, (pair, name_free)| {
+        pairs
+            .entry(pair)
+            .and_modify(|all| *all &= name_free)
+            .or_insert(name_free);
+        pairs
+    })
 }
 
 fn construct_selectors(facts: &Facts) -> bool {

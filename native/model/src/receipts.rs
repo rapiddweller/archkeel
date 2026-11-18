@@ -83,7 +83,7 @@ pub(crate) fn cycle(
     };
     // AD-500: without a proof that the reply sees each local package, a cycle can close through
     // a package that it does not see.
-    if !model.graph().observed().cycle_scope {
+    if !model.graph().observed().analysis.cycle_scope {
         return Err(
             Cause::Receipt("the collector does not prove that it sees each local package").into(),
         );

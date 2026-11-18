@@ -21,6 +21,7 @@ impl GapData {
         Self {
             code: None,
             dispatch: false,
+            no_name_route: false,
             reason: Some(reason.to_owned()),
             module: Some(ModuleName::new(module)),
             resolution_dimension: None,

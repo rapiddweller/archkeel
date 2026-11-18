@@ -13,6 +13,7 @@
 use std::collections::HashMap;
 
 use archkeel_facts::envelope::{Facts, Target};
+use archkeel_facts::profile_traits::AnalysisCapabilities;
 use archkeel_facts::FactData;
 use archkeel_facts::Section;
 use archkeel_store::Ingested;
@@ -81,21 +82,26 @@ impl Graph {
         needs: &Needs,
     ) -> Result<Graph, Reason> {
         let facts = admitted(reply, &settings)?;
-        let mut graph = Self::from_facts(facts, settings, needs.doors())?;
-        if needs.symbols() && graph.observed.symbol_facts {
+        let mut graph = Self::from_facts(
+            facts,
+            reply.analysis_capabilities(),
+            settings,
+            needs.doors(),
+        )?;
+        if needs.symbols() && graph.observed.analysis.symbol_facts {
             graph.symbols = Some(crate::symbol_table::derive(
                 facts,
                 &graph.modules,
-                graph.observed.symbol_sites,
+                graph.observed.analysis.symbol_sites,
             ));
         }
         if needs.published() {
             graph.published = Some(crate::published_items::items(facts));
         }
-        if needs.boundary() && graph.observed.type_shapes {
+        if needs.boundary() && graph.observed.analysis.type_shapes {
             graph.boundary = Some(crate::boundary_facts::BoundaryFacts::derive(facts));
         }
-        if needs.placement() && graph.observed.symbol_facts {
+        if needs.placement() && graph.observed.analysis.symbol_facts {
             graph.placement = Some(crate::placement_facts::classes(facts));
         }
         Ok(graph)
@@ -103,6 +109,7 @@ impl Graph {
 
     fn from_facts(
         facts: &Facts,
+        analysis: AnalysisCapabilities,
         settings: Settings,
         declared: &[archkeel_contract::DoorReach],
     ) -> Result<Graph, Reason> {
@@ -110,7 +117,9 @@ impl Graph {
         let (modules, packages) = modules::tables(&facts.files)?;
         // AD-664: the declared reach of the doors; a declared gap names no unresolved import.
         let mut doors = door_reach::matched(declared, facts, &settings);
-        let mut split = imports::split(facts, |gap| doors.of_gap(gap).is_some());
+        let mut split = imports::split(facts, analysis.target_marks, |gap| {
+            doors.of_gap(gap).is_some()
+        });
         split.imports.extend(doors.take_imports());
         let (module_edges, package_edges) =
             edges::both(&facts.files, &split.imports, settings.namespace());
@@ -131,7 +140,7 @@ impl Graph {
             Producer::Trusted if facts.profile_limits.is_some() => facts.runtime.target_source,
             Producer::Trusted | Producer::External => None,
         };
-        let mut observed = observed::observed(facts, &classes, live_target);
+        let mut observed = observed::observed(facts, analysis, &classes, live_target);
         observed.effect_gaps = door_reach::narrowed(&doors, observed.effect_gaps);
         let gaps = crate::gaps::coverage_gaps(&facts.coverage, &classes);
         drop(names);
@@ -173,7 +182,7 @@ impl Graph {
     /// Recorded inputs for unit tests only; no production caller can bypass the store.
     #[cfg(test)]
     pub(crate) fn recorded(facts: &Facts, settings: Settings) -> Result<Graph, Reason> {
-        Self::from_facts(facts, settings, &[])
+        Self::from_facts(facts, facts.analysis_capabilities(), settings, &[])
     }
 
     /// The declared reach of the door sites, matched to the doors of the reply (AD-664).
@@ -289,7 +298,7 @@ impl Graph {
     /// The language name of the collector that read the modules, as the collector states it
     /// (AD-494). The model compares no name and maps none.
     pub fn language(&self) -> &'static str {
-        self.observed.language
+        self.observed.analysis.language
     }
 
     /// What the reply says about its own scope (slice S4).

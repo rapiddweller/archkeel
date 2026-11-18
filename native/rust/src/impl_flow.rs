@@ -37,6 +37,7 @@ pub(super) struct Pending {
     pub(super) reason: String,
     pub(super) erased: bool,
     pub(super) execution: bool,
+    pub(super) no_name_route: bool,
 }
 
 /// Keep known origins first. An erased value can also come from shared storage or unread code.
@@ -72,6 +73,7 @@ pub(super) fn settle(
                 reason: format!("An unproved value origin may run a destructor in {target}"),
                 erased: true,
                 execution: true,
+                no_name_route: true,
             });
         }
     }
@@ -123,7 +125,7 @@ fn settle_pending(
                     .edges
                     .contains(&(pending.source.clone(), pending.target.clone()))
             {
-                builder.named_site(pair, at, &pending.reason);
+                builder.named_site(pair, at, &pending.reason, pending.no_name_route);
                 continue;
             }
             let can_name = named
@@ -141,6 +143,7 @@ fn settle_pending(
                 at,
                 &pending.reason,
                 Some(dimension),
+                pending.no_name_route,
             );
         }
         open = waiting;
@@ -195,6 +198,7 @@ pub(super) fn own_candidates(
     call: &MethodCall,
     (owned, aliases): (&[Foreign<'_>], &BTreeSet<&str>),
     keep: Keep<'_>,
+    no_name_route: bool,
 ) -> Vec<Pending> {
     owned
         .iter()
@@ -215,6 +219,7 @@ pub(super) fn own_candidates(
                 reason,
                 erased: false,
                 execution: false,
+                no_name_route,
             }
         })
         .collect()
@@ -279,7 +284,7 @@ impl Graph {
             })
             .collect();
         let mut next: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        for (source, target) in edges.iter().chain(&builder.gapped) {
+        for (source, target) in edges.iter().chain(builder.gapped.keys()) {
             next.entry(source.clone()).or_default().push(target.clone());
         }
         let mut open = BTreeSet::new();
@@ -332,7 +337,7 @@ impl Graph {
 mod tests {
     use super::*;
 
-    fn dimension(causes: &[bool]) -> Option<ResolutionDimension> {
+    fn proofs(causes: &[bool]) -> (Option<ResolutionDimension>, bool) {
         let mut builder = Builder::default();
         builder.gap("unread caller", None, "src");
         let pending = causes
@@ -344,6 +349,7 @@ mod tests {
                 target: "dst".to_owned(),
                 reason: format!("candidate {execution}"),
                 execution,
+                no_name_route: execution,
                 erased: false,
             })
             .collect();
@@ -360,24 +366,22 @@ mod tests {
             .gaps
             .values()
             .find(|gap| gap.data.data().source_module.is_some());
-        pair.expect("the pair is reachable")
-            .data
-            .data()
-            .resolution_dimension
+        let data = pair.expect("the pair is reachable").data.data();
+        (data.resolution_dimension, data.no_name_route)
     }
 
     #[test]
     fn a_named_cause_stays_open_before_or_after_an_execution_cause() {
         assert_eq!(
-            dimension(&[true]),
-            Some(ResolutionDimension::RuntimeEffects)
+            proofs(&[true]),
+            (Some(ResolutionDimension::RuntimeEffects), true)
         );
         assert_eq!(
-            dimension(&[true, true]),
-            Some(ResolutionDimension::RuntimeEffects)
+            proofs(&[true, true]),
+            (Some(ResolutionDimension::RuntimeEffects), true)
         );
-        assert_eq!(dimension(&[true, false]), None);
-        assert_eq!(dimension(&[false, true]), None);
-        assert_eq!(dimension(&[true, false, true]), None);
+        assert_eq!(proofs(&[true, false]), (None, false));
+        assert_eq!(proofs(&[false, true]), (None, false));
+        assert_eq!(proofs(&[true, false, true]), (None, false));
     }
 }
