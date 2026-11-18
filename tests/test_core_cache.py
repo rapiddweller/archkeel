@@ -92,6 +92,16 @@ def test_a_core_is_saved_only_after_its_own_build_step_succeeded() -> None:
         assert body.index("id: build") < body.index("Save the core for this native tree")
 
 
+def test_each_partial_core_cache_carries_the_target_directory_marker() -> None:
+    # A restore creates target before Cargo can mark it. The native self-scan then counts builds.
+    for workflow in ("ci.yml", "pr-gate.yml", "pages.yml"):
+        text = (ROOT / ".github/workflows" / workflow).read_text()
+        paths = re.findall(r"path: \|\n((?:            \S+\n)+)          key: core-gate-", text)
+        assert paths, workflow
+        for block in paths:
+            assert "native/target/CACHEDIR.TAG" in block, workflow
+
+
 def test_the_gate_profile_builds_without_lto_and_with_16_codegen_units(tmp_path: Path) -> None:
     """AD-754: ARCHKEEL_CORE_PROFILE=gate passes the fast profile; no variable keeps release."""
     bin_dir = tmp_path / "bin"
