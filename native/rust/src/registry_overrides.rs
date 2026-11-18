@@ -14,7 +14,6 @@
 
 use std::collections::BTreeMap;
 
-use crate::source::read_text;
 use crate::toml::{self, Table, Value};
 use archkeel_snapshot::paths::{basename, join};
 use archkeel_snapshot::{Entry, Snapshot};
@@ -109,10 +108,13 @@ pub(crate) fn configs(snapshot: &mut Snapshot) -> Overrides {
 }
 
 fn config_file(snapshot: &mut Snapshot, rel: &str, found: &mut Overrides) {
-    let read = read_text(snapshot, rel).and_then(|text| Ok((toml::parse(&text)?, text)));
+    let read = snapshot
+        .read(rel)
+        .and_then(|bytes| String::from_utf8(bytes).ok())
+        .and_then(|text| Some((toml::parse(&text).ok()?, text)));
     match read {
-        Ok((table, text)) => config(&table, &Lines::new(rel, &text), found),
-        Err(_) => found.every(Cited {
+        Some((table, text)) => config(&table, &Lines::new(rel, &text), found),
+        None => found.every(Cited {
             rel: rel.to_owned(),
             line: 1,
             excerpt: String::new(),
