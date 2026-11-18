@@ -86,6 +86,12 @@ pub(super) fn written(
     let names: HashSet<String> = scan.iter().map(|module| module.name.clone()).collect();
     let selected: HashSet<&str> = selected.iter().map(String::as_str).collect();
     let mut files = walk(snapshot, &selected);
+    let roots = import_roots(scan);
+    let paths = selected
+        .iter()
+        .copied()
+        .chain(files.python.iter().map(String::as_str));
+    paths.for_each(|rel| writes.add_path(&roots, rel));
     let mut outside = Vec::new();
     for rel in &files.python {
         match read(snapshot, rel, Vec::len(&outside)) {
@@ -115,6 +121,26 @@ pub(super) fn written(
     }
     found.extend(escaped(scan, outside, namespace));
     found
+}
+
+/// The directories where the modules of the scan are found: the part of the path before the
+/// first name of the module (`src` for the module `app.page` in the directory `src/app`).
+fn import_roots(modules: &[Module]) -> HashSet<String> {
+    let mut roots = HashSet::new();
+    for module in modules {
+        let path = String::as_str(&module.rel);
+        let stem =
+            str::strip_suffix(path, "/__init__.py").or_else(|| str::strip_suffix(path, ".py"));
+        let tail = module.name.replace('.', "/");
+        let Some(found) = stem.and_then(|stem| str::strip_suffix(stem, String::as_str(&tail)))
+        else {
+            continue;
+        };
+        if str::is_empty(found) || str::ends_with(found, '/') {
+            roots.insert(str::trim_end_matches(found, '/').to_owned());
+        }
+    }
+    roots
 }
 
 /// What the read of one Python file gives.

@@ -16,6 +16,7 @@ use ruff_text_size::Ranged;
 use std::collections::HashSet;
 
 use super::binders::Binders;
+use super::class_writes::ClassWrites;
 use super::support::{Construct, Support};
 use crate::module::{EvidenceMap, Location, Module};
 
@@ -29,8 +30,11 @@ pub(super) fn collect(
     binders: &[Binders],
     imports: &[Record<ImportFact>],
     sets: (&HashSet<String>, &HashSet<String>),
+    (writes, hazard_free): (&ClassWrites, bool),
     evidence: &mut EvidenceMap,
 ) -> Findings {
+    // AD-880: no site of the scan changes the import system or runs a door, and no write replaces `typing`.
+    let typing_unchanged = hazard_free && writes.typing_unchanged();
     let mut records = Vec::new();
     let mut signals = Vec::new();
     let mut support = Support::start();
@@ -41,7 +45,7 @@ pub(super) fn collect(
             .map_or(&[][..], Vec::as_slice);
         let withheld =
             super::declared::placeholder::withheld(module, binders, source_imports, sets);
-        let mut found = one(module, binders, evidence);
+        let mut found = one(module, binders, typing_unchanged, evidence);
         found
             .records
             .extend(placeholder::collect(module, evidence, &withheld));
@@ -63,7 +67,12 @@ pub(super) struct Findings {
     pub support: Support,
 }
 
-fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findings {
+fn one(
+    module: &Module,
+    binders: &Binders,
+    typing_unchanged: bool,
+    evidence: &mut EvidenceMap,
+) -> Findings {
     let unique = binders.unique();
     let mut loaders = HashSet::new();
     let mut importlibs = HashSet::new();
@@ -112,6 +121,7 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
     let mut walk = Walk {
         module,
         binders,
+        typing_unchanged,
         evidence,
         owner: module.name.clone(),
         records: Vec::new(),
@@ -137,6 +147,7 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
 struct Walk<'a> {
     module: &'a Module,
     binders: &'a Binders,
+    typing_unchanged: bool,
     evidence: &'a mut EvidenceMap,
     owner: String,
     records: Vec<Record<ConstructFact>>,
@@ -317,18 +328,7 @@ impl Walk<'_> {
     }
 
     fn annotation(&mut self, annotation: &Expr) {
-        // A name `Any` that the module binds to another object is not `typing.Any` (AD-874).
-        struct Any<'b>(&'b Binders, bool);
-        impl<'a> Visitor<'a> for Any<'_> {
-            fn visit_expr(&mut self, expr: &'a Expr) {
-                self.1 |= matches!(expr, Expr::Name(name) if name.id.as_str() == "Any" && !self.0.any_is_local())
-                    || matches!(expr, Expr::Attribute(attr) if attr.attr.as_str() == "Any");
-                visitor::walk_expr(self, expr);
-            }
-        }
-        let mut found = Any(self.binders, false);
-        found.visit_expr(annotation);
-        if !found.1 {
+        if !(self.typing_unchanged && self.binders.names_any(annotation)) {
             return;
         }
         let text = &self.module.text()[annotation.start().to_usize()..annotation.end().to_usize()];

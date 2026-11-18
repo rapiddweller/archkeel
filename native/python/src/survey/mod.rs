@@ -203,15 +203,16 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+    let scan = pathscope::Scan::new(modules, &imports, roots, namespace);
+    let (hazards, listings) = pathscope::settle(hazards, &scan, &mut snapshot);
     let constructs = constructs::collect(
         modules,
         &binders,
         &imports,
         (&sole_binders, &ambiguous),
+        (&writes, hazards.is_empty()),
         &mut evidence,
     );
-    let scan = pathscope::Scan::new(modules, &imports, roots, namespace);
-    let (hazards, listings) = pathscope::settle(hazards, &scan, &mut snapshot);
     let mut opaque_surface: HashSet<String> = modules
         .iter()
         .zip(&binders)
