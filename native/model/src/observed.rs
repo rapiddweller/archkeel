@@ -27,6 +27,7 @@ use archkeel_facts::envelope::{
     TargetSource,
 };
 use archkeel_facts::profile_traits::{Layout, PairGapDrop};
+use archkeel_facts::vocab::ResolutionDimension;
 use archkeel_facts::{GapFact, Section};
 
 use crate::coverage::data_of;
@@ -58,6 +59,7 @@ pub(crate) struct Observed {
     pub(crate) excluded_sources: Vec<String>,
     /// Each pair gap's source, target, and whether it can only be internal dispatch.
     pub(crate) pair_gaps: Vec<(String, String, bool)>,
+    pub(crate) named_sites: BTreeSet<(String, String)>,
     /// Each gap that states its effect (AD-564).
     pub(crate) effect_gaps: Vec<EffectGap>,
     /// The host could not read the head or the state of the work tree.
@@ -142,14 +144,17 @@ pub(crate) fn observed(
             ))
         })
         .collect();
-    let dynamic_imports = facts
-        .sections
-        .iter()
-        .filter_map(|section| match section {
-            Section::Unknowns(records) => Some(records),
-            _ => None,
-        })
-        .flatten()
+    let unknowns = || {
+        facts
+            .sections
+            .iter()
+            .filter_map(|section| match section {
+                Section::Unknowns(records) => Some(records),
+                _ => None,
+            })
+            .flatten()
+    };
+    let dynamic_imports = unknowns()
         .filter_map(|record| match &record.data {
             GapFact::DynamicImportLimit(data) => Some(Dynamic {
                 source: data.source_module.as_ref().map(|m| m.as_str().to_owned()),
@@ -164,6 +169,18 @@ pub(crate) fn observed(
         .collect();
     Observed {
         profile_limits: facts.profile_limits,
+        named_sites: unknowns()
+            .filter_map(|gap| {
+                let GapFact::SourceResolutionGap(data) = &gap.data else {
+                    return None;
+                };
+                if data.resolution_dimension != Some(ResolutionDimension::Imports) {
+                    return None;
+                }
+                let (source, target) = (data.source_module.as_ref()?, data.module.as_ref()?);
+                (source != target).then(|| (source.as_str().to_owned(), target.as_str().to_owned()))
+            })
+            .collect(),
         scope_premise: facts.scope_premise,
         excluded_sources: facts.excluded_sources.clone(),
         pair_gaps,

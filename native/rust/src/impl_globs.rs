@@ -204,19 +204,17 @@ impl Builder {
             return;
         };
         let methods = trait_methods(reached.index, &edge.lexical, name);
-        let mut calls = reached.calls.iter();
-        let Some(call) = calls.find(|c| methods.as_ref().is_none_or(|m| m.contains(&c.name)))
-        else {
-            return;
-        };
         let reason = format!(
             "A method call may use the trait {name} that a glob brings in from {}",
             edge.module
         );
-        self.reached_gap(reached, call, &edge.module, &reason);
+        let calls = reached.calls.iter();
+        for call in calls.filter(|c| methods.as_ref().is_none_or(|m| m.contains(&c.name))) {
+            self.reached_gap(reached, call, &edge.module, &reason);
+        }
     }
 
-    /// The pair gap of a call, unless the module is the target or already has an edge to it.
+    /// A call holds a named site beside a known edge, or a gap for an unproved edge.
     pub(crate) fn reached_gap(
         &mut self,
         reached: &Reached<'_>,
@@ -226,6 +224,14 @@ impl Builder {
     ) {
         let source = reached.module.module.as_str();
         let at = (reached.module.rel.as_str(), &call.site);
+        if source != target
+            && reached
+                .edges
+                .contains(&(source.to_owned(), target.to_owned()))
+        {
+            self.named_site((source, target), at, why);
+            return;
+        }
         once_gap(self, reached.edges, (source, target), at, why, false);
     }
 }

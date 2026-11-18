@@ -11,8 +11,8 @@ use std::collections::{HashMap, HashSet};
 use archkeel_facts::envelope::{Evidence, Facts, FileFact, OwnedFile, Target};
 use archkeel_facts::fields::Named;
 use archkeel_facts::ids::EvidenceId;
-use archkeel_facts::vocab::Status;
-use archkeel_facts::{FactData, Record, Section};
+use archkeel_facts::vocab::{ResolutionDimension, Status};
+use archkeel_facts::{FactData, GapFact, Record, Section};
 
 use crate::stored::{visit, Visitor};
 use crate::validate::unique;
@@ -55,6 +55,29 @@ impl Visitor for Bound<'_, '_, '_> {
 }
 
 impl<'a> Modules<'a> {
+    pub(crate) fn named_site(&self, gap: &Record<GapFact>) -> Result<(), String> {
+        let GapFact::SourceResolutionGap(data) = &gap.data else {
+            return Err("named site needs a source resolution gap".to_owned());
+        };
+        let endpoints = data.source_module.as_ref().zip(data.module.as_ref());
+        let bound = endpoints.is_some_and(|(source, target)| {
+            source != target
+                && gap.subjects == [source.as_str()]
+                && self.files.contains_key(target.as_str())
+                && matches!(&gap.evidence_ids[..], [id] if self.files.get(source.as_str())
+                    .is_some_and(|file| self.file(id.as_str()) == Some(file.rel_path.as_str())))
+        });
+        if bound
+            && data.resolution_dimension == Some(ResolutionDimension::Imports)
+            && data.effect.is_none()
+            && gap.fact_ids.is_empty()
+        {
+            Ok(())
+        } else {
+            Err("named site needs two observed modules and the caller evidence".to_owned())
+        }
+    }
+
     pub(crate) fn of(facts: &'a Facts) -> Result<Self, String> {
         let paths = facts.files.iter().map(|file| file.rel_path.as_str());
         unique(paths, "module path")?;

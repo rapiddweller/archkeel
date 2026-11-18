@@ -22,10 +22,15 @@ use archkeel_facts::envelope::validation::{
 };
 use archkeel_facts::envelope::{Facts, LimitSupport, Validation};
 
-use crate::features::{known_feature, SYMBOL_FEATURES};
+use crate::features::{known_feature, OLD_RUST_ROUTES, RUST_ROUTES_FEATURE, SYMBOL_FEATURES};
 
 /// The message of `evaluate_source` for a set that is not registered.
 pub(crate) const NOT_REGISTERED: &str = "source sections or resolution features are not registered";
+
+pub(crate) fn named_routes(facts: &Facts) -> bool {
+    matches!(&facts.validation.interface,
+        InterfaceNeed::Feature(feature) if feature == RUST_ROUTES_FEATURE)
+}
 
 /// The block keeps the minimum and admits the reply (`evaluate_source` checks the registered
 /// sets after the generic checks, L-35a).
@@ -143,6 +148,9 @@ fn interface(facts: &Facts, block: &Validation) -> Result<(), String> {
     match &block.interface {
         InterfaceNeed::Unsupported if supported => {
             Err("the collector makes no interface statement".to_owned())
+        }
+        InterfaceNeed::Feature(feature) if supported && feature == OLD_RUST_ROUTES => {
+            Err("the interface statement does not cover separate named sites".to_owned())
         }
         InterfaceNeed::Feature(feature) => {
             let stated = facts

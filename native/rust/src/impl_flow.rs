@@ -33,6 +33,7 @@ pub(super) struct Pending {
     pub(super) site: Site,
     pub(super) target: String,
     pub(super) reason: String,
+    pub(super) execution: bool,
 }
 
 /// Give each pending gap whose target its source can reach.
@@ -57,6 +58,15 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
         for pending in &ready {
             let pair = (pending.source.as_str(), pending.target.as_str());
             let at = (pending.rel.as_str(), &pending.site);
+            if !pending.execution
+                && pair.0 != pair.1
+                && graph
+                    .edges
+                    .contains(&(pending.source.clone(), pending.target.clone()))
+            {
+                builder.named_site(pair, at, &pending.reason);
+                continue;
+            }
             once_gap(builder, &graph.edges, pair, at, &pending.reason, true);
         }
         open = waiting;
@@ -128,6 +138,7 @@ pub(super) fn own_candidates(
                 site: call.site.clone(),
                 target,
                 reason,
+                execution: false,
             }
         })
         .collect()
