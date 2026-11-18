@@ -429,8 +429,30 @@ fn trait_impl(walker: &mut Walker<'_>, item: &ItemImpl) {
         blocks: walker.block_ends.clone(),
         site: walker.site(item.impl_token.span),
         runs: (item.items.iter()).any(|member| !matches!(member, syn::ImplItem::Type(_))),
+        may_drop: may_define_destructor(item),
     };
     walker.out.orphans.impls.push(found);
+}
+
+fn may_define_destructor(item: &ItemImpl) -> bool {
+    let mut possible = false;
+    for member in &item.items {
+        if !inert(impl_item_attributes(member)) {
+            possible = true;
+            continue;
+        }
+        match member {
+            syn::ImplItem::Fn(f) if plain(&f.sig.ident) == "drop" => possible = true,
+            syn::ImplItem::Fn(_) | syn::ImplItem::Type(_) | syn::ImplItem::Const(_) => {
+                // Drop has no other member. A macro beside this item cannot remove it.
+                if inert(&item.attrs) {
+                    return false;
+                }
+            }
+            _ => possible = true,
+        }
+    }
+    possible
 }
 
 /// Keep each item that a block declares, and each `use` of a block.

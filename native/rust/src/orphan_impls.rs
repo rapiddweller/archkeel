@@ -33,7 +33,7 @@ use crate::modules::{Index, TypeOf};
 use crate::site::Site;
 use crate::tree::Module;
 
-use super::flow::Pending;
+use super::flow::{Origin, Pending};
 
 /// What the blocks around an impl say of its self type: `Some(anchored)` when they decide it,
 /// `None` when no block item or `use` can bind its first name and the module decides.
@@ -167,6 +167,7 @@ pub(super) fn trait_impl_candidates(workspace: &Workspace, modules: &[Module]) -
         });
         for caller in callers {
             pending.push(Pending {
+                origin: Origin::Home,
                 source: caller.module.clone(),
                 rel: home.rel.clone(),
                 site: site.clone(),

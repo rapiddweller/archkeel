@@ -20,7 +20,7 @@ use crate::definitions::{Access, Form, Member, MethodCall};
 use crate::impl_globs::depends;
 use crate::impl_globs::once_gap;
 use crate::modules::inside;
-use crate::modules::TypeOf;
+use crate::modules::{Index, TypeOf};
 use crate::scan::Via;
 use crate::site::Site;
 use crate::tree::Module;
@@ -28,6 +28,7 @@ use crate::tree::Module;
 /// A gap that waits for the value flow: a call in `source` (in the file `rel`, at `site`) may
 /// reach a member of a type in `target`.
 pub(super) struct Pending {
+    pub(super) origin: Origin,
     pub(super) source: String,
     pub(super) rel: String,
     pub(super) site: Site,
@@ -35,15 +36,36 @@ pub(super) struct Pending {
     pub(super) reason: String,
 }
 
-/// Give each pending gap whose target its source can reach.
-pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
+pub(super) enum Origin {
+    Home,
+    Store,
+}
+
+/// Give each pending gap whose reader reaches its possible origin.
+pub(super) fn settle(
+    builder: &mut Builder,
+    mut open: Vec<Pending>,
+    index: &Index<'_>,
+    modules: &[Module],
+) {
+    let stores: BTreeSet<_> = modules
+        .iter()
+        .filter(|module| module.scan.has_static)
+        .map(|module| module.module.as_str())
+        .collect();
+    if !stores.is_empty() {
+        stored_drop_candidates(modules, &mut open);
+    }
     while !open.is_empty() {
         let graph = Graph::of(builder);
         let mut reach: BTreeMap<String, Reach> = BTreeMap::new();
         let (ready, waiting): (Vec<_>, Vec<_>) = open.into_iter().partition(|pending| {
             let found = reach
                 .entry(pending.source.clone())
-                .or_insert_with(|| graph.reach(&pending.source));
+                .or_insert_with(|| graph.reach(&pending.source, index, &stores));
+            if matches!(pending.origin, Origin::Store) {
+                return found.store || found.any;
+            }
             // A type of an inline module of the file is reached through that module.
             let below = format!("{}.", pending.target);
             found.any
@@ -60,6 +82,28 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
             once_gap(builder, &graph.edges, pair, at, &pending.reason, true);
         }
         open = waiting;
+    }
+}
+
+/// A shared store can hold a value from another writer, even from a downstream crate.
+fn stored_drop_candidates(modules: &[Module], pending: &mut Vec<Pending>) {
+    for home in modules {
+        let Some(found) = home.scan.orphans.impls.iter().find(|found| found.may_drop) else {
+            continue;
+        };
+        for caller in modules.iter().filter(|caller| caller.module != home.module) {
+            pending.push(Pending {
+                origin: Origin::Store,
+                source: caller.module.clone(),
+                rel: home.rel.clone(),
+                site: found.site.clone(),
+                target: home.module.clone(),
+                reason: format!(
+                    "Shared storage may supply a value whose destructor runs in {}",
+                    home.module
+                ),
+            });
+        }
     }
 }
 
@@ -123,6 +167,7 @@ pub(super) fn own_candidates(
                 call.name
             );
             Pending {
+                origin: Origin::Home,
                 source: module.module.clone(),
                 rel: module.rel.clone(),
                 site: call.site.clone(),
@@ -169,6 +214,7 @@ pub(super) fn aliases(module: &Module) -> impl Iterator<Item = &str> {
 /// What a module reaches: each module, or any module.
 struct Reach {
     any: bool,
+    store: bool,
     modules: BTreeSet<String>,
 }
 
@@ -214,13 +260,19 @@ impl Graph {
         }
     }
 
-    fn reach(&self, source: &str) -> Reach {
+    fn reach(&self, source: &str, index: &Index<'_>, stores: &BTreeSet<&str>) -> Reach {
         let mut modules = BTreeSet::new();
+        let mut store = false;
         let mut queue = VecDeque::from([source.to_owned()]);
         while let Some(module) = queue.pop_front() {
             if self.anywhere || self.open.contains(&module) {
-                return Reach { any: true, modules };
+                return Reach {
+                    any: true,
+                    store,
+                    modules,
+                };
             }
+            store |= stores.contains(index.file_of(&module).unwrap_or(&module));
             let next = self.next.get(&module).into_iter().flatten();
             for target in next.filter(|target| modules.insert((*target).clone())) {
                 queue.push_back(target.clone());
@@ -228,6 +280,7 @@ impl Graph {
         }
         Reach {
             any: false,
+            store,
             modules,
         }
     }

@@ -704,6 +704,9 @@ in. A generic or `dyn` callee that runs an impl which its caller hands in gets n
 is the caller's, which reaches `b`. On `native/`, `NATIVE-NO-CORE-TO-RUST` and
 `NATIVE-NO-CORE-TO-TYPESCRIPT` are UNKNOWN for this reason, because `core` reaches both collectors
 through `collect`.
+A parameterless reader can also take an erased value from a static store. Its destructor can
+run without a path from the reader to the module that implements it. A reader that reaches a
+file with a written static keeps a gap to each possible destructor (AD-864, #1811).
 A member that a `macro_rules!` impl adds outside the file of its type gives a pair gap (AD-656); only
 a type of the same arm, or an item of the module that every configuration has, anchors it (AD-662). A
 call of a macro whose expansion the scan does not read (a procedural macro, a `macro_rules!` of a
