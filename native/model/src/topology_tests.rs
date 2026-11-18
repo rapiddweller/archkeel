@@ -23,6 +23,8 @@ pub(crate) fn file(module: &str, package: &str) -> FileFact {
         all_literal: false,
         compatibility_logic_free: false,
         stable_bindings: Vec::new(),
+        literal_tuples: Default::default(),
+        loader_calls: Default::default(),
         blank: false,
         class_inventory_empty: None,
         class_inventory_site: None,

@@ -16,11 +16,14 @@
 //! alias, value or attribute use stays a `dynamic_import` gap (`hazards.rs`). A target that is
 //! itself a hazard keeps its named gap as well as the edge.
 
-use archkeel_facts::identity::is_identifier;
+use std::collections::BTreeMap;
+
+use archkeel_facts::identity::{evidence_id, is_identifier};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprCall, ModModule, Stmt};
 
 use super::binders::Binders;
+use crate::module::Module;
 
 /// What one module proves about the names of the two import functions.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -30,6 +33,14 @@ pub(super) struct Proof {
 }
 
 impl Proof {
+    /// A direct `importlib.import_module` reference with the loader binding proved.
+    pub(super) fn loader(&self, function: &Expr) -> bool {
+        self.importlib
+            && matches!(function, Expr::Attribute(node)
+                if node.attr.as_str() == "import_module"
+                && matches!(&*node.value, Expr::Name(base) if base.id.as_str() == "importlib"))
+    }
+
     /// The proof of a module from its binding counts (`binders.rs`).
     pub(super) fn of(tree: &ModModule, binders: &Binders) -> Self {
         let mut walk = Walk::default();
@@ -47,11 +58,7 @@ impl Proof {
     pub(super) fn target(&self, call: &ExprCall) -> Option<String> {
         let trusted = match &*call.func {
             Expr::Name(node) => node.id.as_str() == "__import__" && self.dunder,
-            Expr::Attribute(node) => {
-                node.attr.as_str() == "import_module"
-                    && matches!(&*node.value, Expr::Name(base) if base.id.as_str() == "importlib")
-                    && self.importlib
-            }
+            Expr::Attribute(_) => self.loader(&call.func),
             _ => false,
         };
         if !trusted || !call.arguments.keywords.is_empty() {
@@ -96,6 +103,95 @@ impl<'a> Visitor<'a> for Walk {
         self.namespace |= matches!(expr, Expr::Name(node)
             if matches!(node.id.as_str(), "globals" | "vars" | "locals"));
         visitor::walk_expr(self, expr);
+    }
+}
+
+/// A stable direct assignment supplies its written immutable tuple, not its callers.
+pub(super) fn literal_tuples(
+    module: &Module,
+    stable: &[String],
+) -> BTreeMap<String, (u32, Vec<String>)> {
+    module
+        .tree
+        .body
+        .iter()
+        .filter_map(|stmt| tuple_binding(module, stable, stmt))
+        .collect()
+}
+
+fn tuple_binding(
+    module: &Module,
+    stable: &[String],
+    stmt: &Stmt,
+) -> Option<(String, (u32, Vec<String>))> {
+    let Stmt::Assign(node) = stmt else {
+        return None;
+    };
+    let ([Expr::Name(name)], Expr::Tuple(tuple)) = (node.targets.as_slice(), node.value.as_ref())
+    else {
+        return None;
+    };
+    let name = name.id.as_str();
+    stable
+        .binary_search_by(|item| String::as_str(item).cmp(name))
+        .ok()?;
+    let members = tuple.elts.iter().map(member).collect::<Option<Vec<_>>>()?;
+    let line = u32::try_from(module.location(stmt).line).ok()?;
+    (!Vec::is_empty(&members)).then(|| (name.to_owned(), (line, members)))
+}
+
+fn member(expr: &Expr) -> Option<String> {
+    let Expr::StringLiteral(literal) = expr else {
+        return None;
+    };
+    let text = literal.value.to_str();
+    (!literal.value.is_implicit_concatenated() && text.split('.').all(is_identifier))
+        .then(|| text.to_owned())
+}
+
+/// Cite the same callee position as the unresolved loader gap.
+pub(super) fn loader_calls(module: &Module, binders: &Binders) -> BTreeMap<String, String> {
+    if binders.count("importlib").unwrap_or(0) == 0 {
+        return BTreeMap::new();
+    }
+    let mut walk = Calls {
+        module,
+        proof: Proof::of(&module.tree, binders),
+        found: BTreeMap::new(),
+    };
+    walk.visit_body(&module.tree.body);
+    walk.found
+}
+
+struct Calls<'m> {
+    module: &'m Module,
+    proof: Proof,
+    found: BTreeMap<String, String>,
+}
+
+impl<'a> Visitor<'a> for Calls<'_> {
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        if let Expr::Call(call) = expr {
+            self.record(expr, call);
+        }
+        visitor::walk_expr(self, expr);
+    }
+}
+
+impl Calls<'_> {
+    fn record(&mut self, expr: &Expr, call: &ExprCall) {
+        if !self.proof.loader(&call.func)
+            || !call.arguments.keywords.is_empty()
+            || !matches!(&*call.arguments.args, [Expr::Name(_) | Expr::FString(_)])
+        {
+            return;
+        }
+        let Some(text) = self.module.source_of(expr) else {
+            return;
+        };
+        let at = self.module.location(&*call.func);
+        let id = evidence_id(&self.module.rel, at.line, at.end_line, at.column);
+        BTreeMap::insert(&mut self.found, id, text.to_owned());
     }
 }
 

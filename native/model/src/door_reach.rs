@@ -49,6 +49,8 @@ pub struct Applied {
     pub line: u32,
     /// The declared module prefixes that the door may import.
     pub loads: Vec<String>,
+    /// The source binding and template of a constant-bound declaration.
+    pub constant: Option<String>,
     /// The scanned targets of the possible dependency edges supplied by the declaration.
     pub possible_loads: Vec<String>,
     /// The declared module prefixes whose names the door may change.
@@ -62,13 +64,17 @@ pub struct Applied {
 impl Applied {
     /// `D-1 (pkg.mod:12 eval)`: the declaration and its site, for a reader.
     pub fn site(&self) -> String {
-        format!(
+        let site = format!(
             "{} ({}:{} {})",
             self.id,
             self.module,
             self.line,
             self.door()
-        )
+        );
+        match &self.constant {
+            Some(bound) => format!("{site}: loads only the targets from {bound}"),
+            None => site,
+        }
     }
 
     /// The word of the form of the door.
@@ -97,6 +103,8 @@ pub enum DoorProblem {
     Exported(Vec<String>),
     /// The gap of the door covers this number of imports that the scan cannot resolve.
     Unresolved(usize),
+    /// The scanned evidence does not establish a usable constant bound.
+    Constant(String),
 }
 
 impl DoorProblem {
@@ -110,6 +118,7 @@ impl DoorProblem {
             | DoorProblem::ChangesOutside(_)
             | DoorProblem::LoadsNothing(_)
             | DoorProblem::Exported(_)
+            | DoorProblem::Constant(_)
             | DoorProblem::Unresolved(_) => "door_reach.invalid",
         }
     }
@@ -148,6 +157,7 @@ impl DoorProblem {
                 "loads {prefix}, which lies in the project and holds no module of the scan; the \
                  declaration is not applied"
             ),
+            DoorProblem::Constant(reason) => format!("{reason}; the declaration is not applied"),
         }
     }
 }
@@ -370,8 +380,25 @@ fn apply(
     let source = files
         .get(door.module)
         .map_or("", |file| file.package.as_str());
-    let mut imports = Vec::new();
-    for prefix in declaration.loads() {
+    let bound = declaration.loads_from().as_ref().map(|bound| {
+        (
+            bound.constant().as_str(),
+            bound.template().as_str(),
+            bound.call().as_str(),
+        )
+    });
+    let (constant, targets) =
+        crate::imports::constant_bound(files, (door.form, door.module, &door.evidence), bound)
+            .map_err(DoorProblem::Constant)?;
+    let edge = |target, package, resolved| {
+        declared(declaration, door, (source, target, package), resolved)
+    };
+    let mut imports: Vec<Import> = targets
+        .into_iter()
+        .filter(|file| file.module.as_str() != door.module)
+        .map(|file| edge(file.module.as_str(), file.package.as_str(), Resolved::Local))
+        .collect();
+    for prefix in declaration.loads().iter().flatten() {
         let prefix = prefix.as_text();
         let names = below(prefix);
         let top = prefix.split('.').next().unwrap_or(prefix);
@@ -385,16 +412,11 @@ fn apply(
             } else {
                 Resolved::External(top.to_owned())
             };
-            imports.push(declared(declaration, door, (source, prefix, top), resolved));
+            imports.push(edge(prefix, top, resolved));
         }
         for name in names.into_iter().filter(|name| *name != door.module) {
             let package = files.get(name).map_or("", |file| file.package.as_str());
-            imports.push(declared(
-                declaration,
-                door,
-                (source, name, package),
-                Resolved::Local,
-            ));
+            imports.push(edge(name, package, Resolved::Local));
         }
     }
     let applied = Applied {
@@ -403,9 +425,11 @@ fn apply(
         module: door.module.to_owned(),
         form: door.form,
         line: door.line,
+        constant,
         loads: declaration
             .loads()
             .iter()
+            .flatten()
             .map(|p| p.as_text().to_owned())
             .collect(),
         possible_loads: imports

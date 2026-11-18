@@ -36,6 +36,8 @@ pub(super) fn file_fact(
 ) -> FileFact {
     let mut exports: Vec<String> = binders.all_exports.iter().cloned().collect();
     exports.sort();
+    let literal_tuples = super::literal::literal_tuples(module, &stable_bindings);
+    let loader_calls = super::literal::loader_calls(module, binders);
     FileFact {
         id: FactId::new(stable_id("FILE", &[Part::Text(&module.name)])),
         rel_path: module.rel.clone(),
@@ -45,6 +47,8 @@ pub(super) fn file_fact(
         all_literal: binders.all_literal,
         compatibility_logic_free: binders.logic_free,
         stable_bindings,
+        literal_tuples,
+        loader_calls,
         blank: module.tree.body.is_empty(),
         class_inventory_empty: class_inventory::empty(&module.tree).then_some(true),
         class_inventory_site: class_inventory::factory_site(&module.tree).map(|(range, callee)| {

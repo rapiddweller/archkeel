@@ -98,6 +98,12 @@ impl Module {
         &self.text
     }
 
+    /// The exact source of a parsed expression.
+    pub(crate) fn source_of(&self, node: &impl Ranged) -> Option<&str> {
+        self.text
+            .get(node.start().to_usize()..node.end().to_usize())
+    }
+
     /// `"\n".join(module.lines[line - 1 : end_line])`, or `None` outside the file.
     #[cfg(any(test, feature = "dump"))]
     pub(crate) fn excerpt(&self, line: i64, end_line: i64) -> Option<String> {

@@ -30,6 +30,7 @@ class DoorRow:
     loads: tuple[str, ...]
     changes: tuple[str, ...]
     possible_loads: tuple[str, ...] = ()
+    constant: str | None = None
 
 
 #: The word of a premise kind: `door_reach`, `external_user` or the name of a declared premise.
@@ -104,6 +105,7 @@ def read_doors(frame: Mapping[str, object]) -> tuple[DoorRow, ...]:
     rows = []
     for item in value:
         fields = as_object(item, "door_reach[]")
+        constant = fields.get("constant")
         rows.append(
             DoorRow(
                 id=as_text(fields["id"], "door_reach.id"),
@@ -115,6 +117,7 @@ def read_doors(frame: Mapping[str, object]) -> tuple[DoorRow, ...]:
                 possible_loads=_texts(
                     fields.get("possible_loads", []), "door_reach.possible_loads"
                 ),
+                constant=None if constant is None else as_text(constant, "door_reach.constant"),
             )
         )
     return tuple(rows)
@@ -149,7 +152,11 @@ def door_lines(
     elif doors:
         lines.append("Declared reach (a premise, not a proof):")
     for row in doors:
-        loads = ", ".join(row.loads) or "nothing"
+        loads = (
+            f"only the targets from {row.constant}"
+            if row.constant
+            else ", ".join(row.loads) or "nothing"
+        )
         changes = ", ".join(row.changes) or "nothing"
         lines.append(
             f"  {row.id}: {row.module}:{row.line} ({row.door}) loads {loads}; changes {changes}"

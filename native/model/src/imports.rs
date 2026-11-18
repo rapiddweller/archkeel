@@ -15,10 +15,10 @@
 //! A macro body is not an import of the edges, the cycles or the ranks (AD-349). It stays as a
 //! row of its own (`MacroBody`): the fan counts of the modules read it (`count_macro_bodies`).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use archkeel_facts::data::GapEffect;
-use archkeel_facts::envelope::{Facts, Target};
+use archkeel_facts::data::{DoorForm, GapEffect};
+use archkeel_facts::envelope::{Facts, FileFact, Target};
 use archkeel_facts::profile_traits::TargetMarks;
 use archkeel_facts::vocab::ResolutionDimension;
 use archkeel_facts::Record;
@@ -363,6 +363,41 @@ fn records(section: &Section) -> &[Record<ImportFact>] {
         Section::Imports(records) => records,
         _ => &[],
     }
+}
+
+/// The source location of a linked tuple and each exact target that the declaration names.
+pub(crate) fn constant_bound<'f>(
+    files: &HashMap<&str, &'f FileFact>,
+    (form, module, evidence): (DoorForm, &str, &[String]),
+    bound: Option<(&str, &str, &str)>,
+) -> Result<(Option<String>, Vec<&'f FileFact>), String> {
+    let Some((constant, template, call)) = bound else {
+        return Ok((None, Vec::new()));
+    };
+    let source = HashMap::get(files, module).ok_or("loader has no source file")?;
+    let [site] = evidence else {
+        return Err("loader has no unique call evidence".to_owned());
+    };
+    let actual = BTreeMap::get(&source.loader_calls, site).map(String::as_str);
+    if form != DoorForm::Loader || actual != Some(call) {
+        return Err("loader call text changed or the scan cannot prove its binding".to_owned());
+    }
+    let (module, name) = constant.split_once(':').ok_or("invalid constant")?;
+    let file =
+        HashMap::get(files, module).ok_or_else(|| format!("no source file for {constant}"))?;
+    let (line, members) = BTreeMap::get(&file.literal_tuples, name)
+        .ok_or_else(|| format!("no stable literal tuple {constant}"))?;
+    let targets = members
+        .iter()
+        .map(|member| {
+            let target = template.replacen("{}", member, 1);
+            HashMap::get(files, target.as_str())
+                .copied()
+                .ok_or_else(|| format!("constant target {target} is outside the scan"))
+        })
+        .collect::<Result<_, _>>()?;
+    let premise = format!("{constant} ({}:{line}, template {template})", file.rel_path);
+    Ok((Some(premise), targets))
 }
 
 /// The evidence ids sorted, as `classified` sorts the `evidence_ids` of a row. The site of a

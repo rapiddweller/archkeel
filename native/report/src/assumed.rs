@@ -127,6 +127,9 @@ pub(crate) struct DoorRow {
     door: &'static str,
     /// The declared module prefixes that the door may import.
     loads: Vec<String>,
+    /// The scanned binding and template for a constant-bound premise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    constant: Option<String>,
     /// The scanned targets of the possible dependency edges, not observed imports.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     possible_loads: Vec<String>,
@@ -148,6 +151,7 @@ fn row(door: &Applied) -> DoorRow {
         line: door.line,
         door: door.door(),
         loads: door.loads.clone(),
+        constant: door.constant.clone(),
         possible_loads: door.possible_loads.clone(),
         changes: door.changes.clone(),
     }

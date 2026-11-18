@@ -14,12 +14,11 @@ pub use crate::envelope_vocab::{
 };
 
 use crate::standard::StandardFacts;
-use std::fmt;
-
 use serde::de::{self, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
+use std::{collections::BTreeMap, fmt};
 
 use crate::identity::sha256_hex;
 use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
@@ -294,6 +293,12 @@ pub struct FileFact {
     pub compatibility_logic_free: bool,
     /// The names that one plain statement binds and nothing rebinds.
     pub stable_bindings: Vec<String>,
+    /// Written immutable tuple bindings of a linked collector: name, line and literal members.
+    #[serde(skip)]
+    pub literal_tuples: BTreeMap<String, (u32, Vec<String>)>,
+    /// Eligible linked loader calls: evidence id of the callee and exact text of the call.
+    #[serde(skip)]
+    pub loader_calls: BTreeMap<String, String>,
     /// True when the file has no code.
     pub blank: bool,
     /// A proof that the file has no class declarations; absence is not such a proof.

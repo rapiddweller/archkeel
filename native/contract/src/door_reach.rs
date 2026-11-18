@@ -13,7 +13,7 @@
 use crate::error::{invalid, Parsed};
 use crate::json::{field, Json, Object};
 use crate::model::{ItemId, Package};
-use crate::names::{dotted_name, qualified_identifier};
+use crate::names::{dotted_name, public_entry, qualified_identifier};
 use crate::read::{
     declared_items, listed_strings, nonempty_field, positive, present, record, text,
 };
@@ -37,7 +37,11 @@ record!(
         #[serde(skip_serializing_if = "Option::is_none")]
         scope: Option<String>,
         /// The module prefixes that the door may import.
-        loads: Vec<Package>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        loads: Option<Vec<Package>>,
+        /// A bound from a scanned literal tuple, instead of explicit prefixes.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        loads_from: Option<ConstantLoad>,
         /// The module prefixes whose names the door may change.
         changes: Vec<Package>,
         /// Why the reach holds.
@@ -47,8 +51,21 @@ record!(
     }
 );
 
-const REQUIRED: [&str; 4] = ["module", "door", "loads", "rationale"];
-const OPTIONAL: [&str; 3] = ["line", "scope", "changes"];
+record!(
+    pub(crate),
+    /// The source binding, template and exact call of a loader bound.
+    ConstantLoad {
+        /// The binding as `module:name`.
+        constant: String,
+        /// An absolute module template with one `{}` segment.
+        template: String,
+        /// The source text of the call at the declared line.
+        call: String,
+    }
+);
+
+const REQUIRED: [&str; 3] = ["module", "door", "rationale"];
+const OPTIONAL: [&str; 5] = ["line", "scope", "changes", "loads", "loads_from"];
 
 /// The door reach records, or none for an absent key.
 pub(crate) fn door_reach(object: &Object, version: ContractVersion) -> Parsed<Vec<DoorReach>> {
@@ -64,11 +81,11 @@ pub(crate) fn door_reach(object: &Object, version: ContractVersion) -> Parsed<Ve
     items
         .iter()
         .enumerate()
-        .map(|(index, raw)| one(raw, &format!("door_reach[{index}]")))
+        .map(|(index, raw)| one(raw, &format!("door_reach[{index}]"), version))
         .collect()
 }
 
-fn one(raw: &Json, label: &str) -> Parsed<DoorReach> {
+fn one(raw: &Json, label: &str, version: ContractVersion) -> Parsed<DoorReach> {
     let (item, id, provenance) = record(raw, &REQUIRED, &OPTIONAL, label)?;
     let module: Package = nonempty_field(item, "module", label)?;
     if !dotted_name(module.as_text()) {
@@ -90,7 +107,21 @@ fn one(raw: &Json, label: &str) -> Parsed<DoorReach> {
             "{label} must name the site by line or scope"
         )));
     }
-    let loads = prefixes(item, "loads", label)?;
+    let loads_from = field(item, "loads_from")
+        .map(|raw| constant(raw, label, version))
+        .transpose()?;
+    if loads_from.is_some() {
+        if field(item, "loads").is_some() || line.is_none() {
+            return Err(invalid(format!(
+                "{label}.loads_from requires a line and cannot be used with loads"
+            )));
+        }
+    } else {
+        present(item, "loads", label)?;
+    }
+    let loads = field(item, "loads")
+        .map(|_| prefixes(item, "loads", label))
+        .transpose()?;
     let changes = prefixes(item, "changes", label)?;
     Ok(DoorReach {
         id,
@@ -99,9 +130,36 @@ fn one(raw: &Json, label: &str) -> Parsed<DoorReach> {
         line,
         scope,
         loads,
+        loads_from,
         changes,
         rationale: nonempty_field(item, "rationale", label)?,
         provenance,
+    })
+}
+
+fn constant(raw: &Json, label: &str, version: ContractVersion) -> Parsed<ConstantLoad> {
+    if !crate::version::supports(version, Feature::ConstantLoad) {
+        return Err(invalid(
+            "loads_from requires contract schema_version 3.18.0",
+        ));
+    }
+    let label = format!("{label}.loads_from");
+    let fields = crate::read::fields(raw, &["constant", "template", "call"], &[], &label)?;
+    let constant: String = nonempty_field(fields, "constant", &label)?;
+    let template: String = nonempty_field(fields, "template", &label)?;
+    let call = nonempty_field(fields, "call", &label)?;
+    if !public_entry(&constant)
+        || template.split('.').filter(|part| *part == "{}").count() != 1
+        || !dotted_name(&template.replacen("{}", "item", 1))
+    {
+        return Err(invalid(format!(
+            "{label} needs module:name and a dotted template with one {{}} segment"
+        )));
+    }
+    Ok(ConstantLoad {
+        constant,
+        template,
+        call,
     })
 }
 
@@ -119,9 +177,6 @@ fn scope_text(raw: &Json, label: &str) -> Parsed<String> {
 
 /// A list of unique dotted module prefixes; an absent `changes` is empty.
 fn prefixes(item: &Object, key: &str, label: &str) -> Parsed<Vec<Package>> {
-    if key == "loads" {
-        present(item, key, label)?;
-    }
     let values: Vec<Package> = listed_strings(item, key, label)?;
     if values.iter().any(|value| !dotted_name(value.as_text())) {
         return Err(invalid(format!(

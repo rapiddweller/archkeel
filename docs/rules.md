@@ -401,8 +401,20 @@ The cycle rule checks the contract graph. A graph cycle does not show that its i
 If two sites match the same line, the declaration applies to neither and the gap stays open.
 
 `loads` is the existing AD-664 prefix premise. It does not read a target list from source code.
-It is not the constant-bound declaration in #723. That work must read and expand the actual
-code constant on each scan. This change adds no free list field and does not complete #723.
+Contract **3.18.0** adds `loads_from` for a direct Python `importlib.import_module` call
+(AD-906). Use it instead of `loads`. Give the module and line of the call as usual.
+Use the exact call text and one `{}` segment in the template:
+
+```json
+{"constant": "app.registry:STAGE_NAMES", "template": "app.{}.interface",
+ "call": "importlib.import_module(f'app.{name}.interface')"}
+```
+
+The scan reads the stable module-level tuple `STAGE_NAMES` on every run.
+It expands each literal member to one exact module name. It does not execute source code.
+A missing tuple, a changed call, or a missing target leaves the rule `UNKNOWN`.
+The contract still claims that all calls use only those targets and that the declared
+`changes` are complete. The rule's qualified PASS names the binding and source line.
 
 ```json
 {"id": "DOOR-FORMULA", "module": "app.calc", "door": "eval", "scope": "Formula.value",
