@@ -188,6 +188,7 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         .out
         .method_calls
         .extend(methods.into_iter().map(|name| MethodCall {
+            bound_name: false,
             name,
             site: site.clone(),
             scope: scope.clone(),

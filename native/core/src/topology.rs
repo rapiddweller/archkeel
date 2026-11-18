@@ -155,7 +155,7 @@ fn package_rows(graph: &Graph) -> Vec<Value> {
                 edges
                     .iter()
                     .filter(|edge| edge.source() == name)
-                    .map(Edge::target)
+                    .map(|edge| edge.target())
                     .collect(),
             );
             let measure = graph.package_measure(id);

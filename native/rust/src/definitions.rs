@@ -185,6 +185,8 @@ pub(crate) struct MethodCall {
     pub site: Site,
     pub scope: Vec<String>,
     pub path: bool,
+    /// The written type is already covered by its exact import route.
+    pub bound_name: bool,
     /// The arguments of `x.m(..)`, or `None` when the scan does not know them (a macro, a path).
     pub arity: Option<usize>,
     /// The receiver is the plain `self` of a method of an `impl` block with an exact type.
