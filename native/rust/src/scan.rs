@@ -184,6 +184,7 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
             bind(&mut self.walker, name);
         }
         define_item(&mut self.walker, item);
+        self.walker.out.has_static |= matches!(item, Item::Static(_));
         if let Item::Impl(found) = item {
             impl_block(&mut self.walker, found);
             self.walker
