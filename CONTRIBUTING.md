@@ -47,8 +47,9 @@ Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-an
 
 Each CI run (a push to `main`) runs the fast tests, one area in each job (`make fast-test AREA=...`).
 The PR gate selects areas from changed paths with the rules of `tests/areas.py`. A native or CLI
-source change selects every area and runs its main-tier tests. A native change also runs the Rust
-workspace tests. Changes to the Makefile, area table or PR workflow run the same tests. Other changes
+source change runs the main-tier tests of its selected areas in parallel. A native report change
+selects the CLI and report areas. Other native and CLI changes select every area. A native change
+also runs `native-check`. Changes to the gate run all areas and the native check. Other changes
 keep the PR-tier selection. A path that no rule names selects every area.
 The slow files of `SLOW_FILES` in
 `tests/areas.py` (scaling, memory, large scans) carry the marker `slow` and run only in the nightly Full run.

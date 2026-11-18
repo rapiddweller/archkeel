@@ -4,13 +4,12 @@
 """AD-674: the PR tier selects test areas from the changed paths, and no area may run empty."""
 
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
-from areas import AREAS, SLOW_FILES, area_of, areas_of_change
+from areas import AREAS, SLOW_FILES, area_of, areas_of_change, parallel_areas, rust_checks
 
 ROOT = Path(__file__).parents[1]
 
@@ -30,7 +29,6 @@ def test_a_source_change_selects_the_areas_that_it_can_reach() -> None:
     for path in (
         "native/python/src/lib.rs",
         "native/core/src/main.rs",
-        "native/report/src/html.rs",
         "native/model/src/direction.rs",
         "native/eval/src/scoped_requires_tests.rs",
         "src/archkeel/cli/native_scan.py",
@@ -38,6 +36,60 @@ def test_a_source_change_selects_the_areas_that_it_can_reach() -> None:
         ".github/workflows/pr-gate.yml",
     ):
         assert areas_of_change([path]) == list(AREAS)
+    assert areas_of_change(["native/report/src/html.rs"]) == ["CLI and core", "reports"]
+
+
+def test_parallel_jobs_follow_the_changed_paths() -> None:
+    assert parallel_areas(["docs/readme.md"]) == []
+    assert not rust_checks(["docs/readme.md"])
+    assert parallel_areas(["native/report/src/html.rs"]) == ["CLI and core", "reports"]
+    assert rust_checks(["native/report/assets/explorer/explorer.html"])
+    assert "collectors" in parallel_areas(["native/model/src/direction.rs"])
+    assert "CLI and core" in parallel_areas(["native/collect/src/lib.rs"])
+    assert parallel_areas(["Makefile"]) == list(AREAS)
+    assert rust_checks(["Makefile"])
+
+
+def test_job_selector_reports_empty_and_rejects_unknown_areas(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from tools import select_areas
+
+    monkeypatch.setattr(select_areas, "changed", lambda base: ["docs/readme.md"])
+    assert select_areas.main(["--job", "reports", "base"]) == 0
+    assert capsys.readouterr().out == "no matching paths\n"
+    with pytest.raises(ValueError, match="unknown test area"):
+        select_areas.main(["--job", "missing", "base"])
+
+
+def test_pr_and_main_share_jobs_and_the_required_gate_needs_them() -> None:
+    workflows = ROOT / ".github/workflows"
+    main = (workflows / "ci.yml").read_text()
+    pr = (workflows / "pr-gate.yml").read_text()
+    shared = (workflows / "area-checks.yml").read_text()
+    assert "uses: ./.github/workflows/area-checks.yml" in main
+    assert "uses: ./.github/workflows/area-checks.yml" in pr
+    assert "name: PR gate\n    needs: [base, area-checks]\n    if: always()" in pr
+    assert shared.count("python3 tools/select_areas.py --job") == 2
+
+
+def test_pr_aggregate_refuses_failed_or_skipped_jobs() -> None:
+    workflow = (ROOT / ".github/workflows/pr-gate.yml").read_text()
+    script = workflow.split("      - name: Require every check\n", 1)[1].split(
+        "        run: |\n", 1
+    )[1]
+    for results, expected in (
+        ("success success", 0),
+        ("success failure", 1),
+        ("success skipped", 1),
+    ):
+        done = subprocess.run(
+            ["bash", "-c", script],
+            env={**os.environ, "RESULTS": results},
+            capture_output=True,
+            check=False,
+        )
+        assert done.returncode == expected
 
 
 def test_the_main_failures_are_in_the_fast_selection() -> None:
@@ -70,57 +122,6 @@ def test_the_main_failures_are_in_the_fast_selection() -> None:
         "test_requires_receipt_distinguishes_matching_and_wrong_ports",
     ):
         assert name in done.stdout
-
-
-@pytest.mark.parametrize(
-    ("path", "tier", "rust"),
-    [
-        ("native/report/src/html.rs", "fast", True),
-        ("native/collect/src/lib.rs", "fast", True),
-        ("src/archkeel/cli/native_scan.py", "fast", False),
-        ("Makefile", "fast", True),
-        (".github/workflows/pr-gate.yml", "fast", True),
-        ("tests/areas.py", "fast", True),
-        ("docs/readme.md", "pr", False),
-    ],
-)
-def test_gate_runs_extra_tests_only_for_relevant_paths(
-    tmp_path: Path, path: str, tier: str, rust: bool
-) -> None:
-    git = tmp_path / "git"
-    git.write_text(f"#!/bin/sh\nprintf '%s\\n' '{path}'\n")
-    git.chmod(0o755)
-    uv = tmp_path / "uv"
-    uv.write_text('#!/bin/sh\necho "--area reports"\n')
-    uv.chmod(0o755)
-    recorded = tmp_path / "recorded"
-    test = tmp_path / "test"
-    test.write_text(f'#!/bin/sh\nprintf "%s" "$*" > "{recorded}"\n')
-    test.chmod(0o755)
-    nested = tmp_path / "make"
-    called = tmp_path / "called"
-    nested.write_text(f'#!/bin/sh\nprintf "%s" "$*" > "{called}"\n')
-    nested.chmod(0o755)
-    overrides = tmp_path / "Makefile"
-    overrides.write_text(f"include {ROOT / 'Makefile'}\ncore browser-runtime-install:\n\t@:\n")
-    subprocess.run(
-        [
-            shutil.which("make"),
-            "-f",
-            str(overrides),
-            "pr-selected-test",
-            f"UV={uv}",
-            f"MAKE={nested}",
-            f"FAST_TEST={test}",
-        ],
-        cwd=ROOT,
-        env={**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    assert f"--tier {tier}" in recorded.read_text()
-    assert called.exists() is rust
 
 
 def test_every_slow_file_is_in_an_area() -> None:
