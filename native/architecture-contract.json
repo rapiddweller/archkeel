@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
-  "schema_version": "3.16.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.19.schema.json",
+  "schema_version": "3.19.0",
   "components": [
     {
       "id": "COMP-NATIVE-FACTS",
@@ -911,8 +911,10 @@
         "native.archkeel_model.limits:undecided_kind",
         "native.archkeel_model.limits:word",
         "native.archkeel_model.pair_gaps:Pairs",
+        "native.archkeel_model.pair_gaps:Reads",
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
+        "native.archkeel_model.pair_gaps:sides_match",
         "native.archkeel_model.roots:Roots",
         "native.archkeel_model.rule_kinds:undecided_rule",
         "native.archkeel_model.selection:dependency_sides",
@@ -7883,10 +7885,12 @@
       "source": "native.archkeel_store",
       "target": "native",
       "target_symbol": "Profile",
+      "source_symbol_only": true,
       "include_type_checking": true,
-      "rationale": "Cut A: `store` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "rationale": "Cut A: `store` must not name `Profile` in source, either directly or through a name route. Inferred receiver types and execution alone do not count (AD-924).",
       "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md",
+        "docs/architecture/decisions/ad-924-the-native-profile-rules-check-source-names.md"
       ],
       "decided_by": "architect"
     },
@@ -7896,10 +7900,12 @@
       "source": "native.archkeel_model",
       "target": "native",
       "target_symbol": "Profile",
+      "source_symbol_only": true,
       "include_type_checking": true,
-      "rationale": "Cut A: `model` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "rationale": "Cut A: `model` must not name `Profile` in source, either directly or through a name route. Inferred receiver types and execution alone do not count (AD-924).",
       "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md",
+        "docs/architecture/decisions/ad-924-the-native-profile-rules-check-source-names.md"
       ],
       "decided_by": "architect"
     },
@@ -7909,10 +7915,12 @@
       "source": "native.archkeel_eval",
       "target": "native",
       "target_symbol": "Profile",
+      "source_symbol_only": true,
       "include_type_checking": true,
-      "rationale": "Cut A: `eval` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "rationale": "Cut A: `eval` must not name `Profile` in source, either directly or through a name route. Inferred receiver types and execution alone do not count (AD-924).",
       "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md",
+        "docs/architecture/decisions/ad-924-the-native-profile-rules-check-source-names.md"
       ],
       "decided_by": "architect"
     },
@@ -7922,10 +7930,12 @@
       "source": "native.archkeel_report",
       "target": "native",
       "target_symbol": "Profile",
+      "source_symbol_only": true,
       "include_type_checking": true,
-      "rationale": "Cut A: `report` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "rationale": "Cut A: `report` must not name `Profile` in source, either directly or through a name route. Inferred receiver types and execution alone do not count (AD-924).",
       "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md",
+        "docs/architecture/decisions/ad-924-the-native-profile-rules-check-source-names.md"
       ],
       "decided_by": "architect"
     },
@@ -7935,10 +7945,12 @@
       "source": "native.archkeel_core",
       "target": "native",
       "target_symbol": "Profile",
+      "source_symbol_only": true,
       "include_type_checking": true,
-      "rationale": "Cut A: `core` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "rationale": "Cut A: `core` must not name `Profile` in source, either directly or through a name route. Inferred receiver types and execution alone do not count (AD-924).",
       "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md",
+        "docs/architecture/decisions/ad-924-the-native-profile-rules-check-source-names.md"
       ],
       "decided_by": "architect"
     },

@@ -78,6 +78,7 @@ def files_of_the_package() -> None:
         "architecture-contract-3.16.schema.json",
         "architecture-contract-3.17.schema.json",
         "architecture-contract-3.18.schema.json",
+        "architecture-contract-3.19.schema.json",
         "architecture-ir-decoded-2.9.schema.json",
         "architecture-ir-python-decoded-2.9.schema.json",
         "architecture-ir-decoded-2.10.schema.json",

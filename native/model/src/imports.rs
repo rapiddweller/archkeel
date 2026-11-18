@@ -58,6 +58,7 @@ pub struct Import {
     pub(crate) under_type_checking: bool,
     pub(crate) symbol: Option<String>,
     pub(crate) symbols_known: bool,
+    pub(crate) inferred_receiver: bool,
     pub(crate) call_form: bool,
     pub(crate) published: Published,
     pub(crate) relative: bool,
@@ -297,6 +298,7 @@ pub(crate) fn split(facts: &Facts, declared: impl Fn(&str) -> bool) -> Split {
             under_type_checking: data.under_type_checking,
             symbol: data.symbol.clone(),
             symbols_known: data.symbols_known,
+            inferred_receiver: data.inferred_receiver,
             call_form: matches!(record.data, ImportFact::DynamicImport(_)),
             call_by_name: matches!(record.data, ImportFact::DynamicImport(_))
                 && data.specifier.is_none(),

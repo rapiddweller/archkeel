@@ -23,6 +23,7 @@ pub(crate) fn forbidden_dependency(raw: &Json, label: &str) -> Parsed<ForbiddenD
         &["source", "target", "include_type_checking"],
         &[
             "target_symbol",
+            "source_symbol_only",
             "allowed_sources",
             "source_match",
             "target_match",
@@ -39,6 +40,20 @@ pub(crate) fn forbidden_dependency(raw: &Json, label: &str) -> Parsed<ForbiddenD
         }
     };
     let target_symbol = target_symbol(item, label)?;
+    let source_symbol_only = match field(item, "source_symbol_only") {
+        None | Some(Json::Bool(false)) => false,
+        Some(Json::Bool(true)) if target_symbol.is_some() => true,
+        Some(Json::Bool(true)) => {
+            return Err(invalid(format!(
+                "{label}.source_symbol_only needs target_symbol"
+            )));
+        }
+        Some(_) => {
+            return Err(invalid(format!(
+                "{label}.source_symbol_only must be a boolean"
+            )));
+        }
+    };
     let source = selector_name(item, "source", label)?;
     let target = selector_name(item, "target", label)?;
     let source_match = selector_word(item, "source_match", label)?;
@@ -50,6 +65,7 @@ pub(crate) fn forbidden_dependency(raw: &Json, label: &str) -> Parsed<ForbiddenD
         target: Selector(target),
         include_type_checking,
         target_symbol,
+        source_symbol_only,
         allowed_sources: listed_strings(item, "allowed_sources", label)?,
         source_match: source_match.unwrap_or(SelectorMatch::Prefix),
         target_match: target_match.unwrap_or(SelectorMatch::Prefix),

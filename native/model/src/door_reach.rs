@@ -478,6 +478,7 @@ fn declared(
         under_type_checking: false,
         symbol: None,
         symbols_known: false,
+        inferred_receiver: false,
         call_form: true,
         call_by_name: true,
         published: Published {

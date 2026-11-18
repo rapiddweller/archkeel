@@ -32,6 +32,7 @@ fn import(id: &str, from: (&str, &str), to: (&str, &str), type_checking: bool) -
         under_type_checking: type_checking,
         symbol: None,
         symbols_known: true,
+        inferred_receiver: false,
         call_form: false,
         relative: false,
         resolved: Resolved::Local,

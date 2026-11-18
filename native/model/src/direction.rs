@@ -42,8 +42,7 @@ pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'
     let allowed = |module: &str| rule.allowed_sources().iter().any(|a| a.as_text() == module);
     model
         .graph()
-        .imports()
-        .iter()
+        .imports_for_symbol_rule(*rule.source_symbol_only())
         .filter(|import| {
             model.selects(import.source_module())
                 && sources.matches(import.source_module())

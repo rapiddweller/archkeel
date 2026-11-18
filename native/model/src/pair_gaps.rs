@@ -73,6 +73,8 @@ pub(crate) enum Reads<'r> {
     /// The edges from the source side to the target side (`forbidden_dependency`). An end that
     /// no one component owns can be on either side.
     Sides([Selection<'r>; 2]),
+    /// The written symbol routes between the two sides, not inferred types or execution.
+    SourceNames([Selection<'r>; 2]),
     /// The edges that touch a member scope (`sibling_isolation`).
     Members(Vec<&'r str>),
     /// Named uses and publication routes, not execution of an impl.
@@ -87,6 +89,9 @@ pub(crate) enum Reads<'r> {
 /// reads every edge.
 pub(crate) fn reads<'r>(rule: &'r Rule, components: &'r [Component], rules: &[Rule]) -> Reads<'r> {
     match rule {
+        Rule::ForbiddenDependency(rule) if *rule.source_symbol_only() => {
+            Reads::SourceNames(dependency_sides(rule, components))
+        }
         Rule::ForbiddenDependency(rule) => Reads::Sides(dependency_sides(rule, components)),
         Rule::SiblingIsolation(rule) => {
             Reads::Members(rule.members().iter().map(|m| m.as_text()).collect())
@@ -144,8 +149,10 @@ impl PairGap {
                     self.target_external
                 }
             }
-            Reads::Sides([sources, targets]) => {
-                (sources.matches(a) || !self.owned[0]) && (targets.matches(b) || !self.owned[1])
+            Reads::Sides(sides) => sides_match(sides, [a, b], self.owned),
+            Reads::SourceNames(sides) => {
+                (!self.execution || self.owned != [true; 2])
+                    && sides_match(sides, [a, b], self.owned)
             }
             Reads::Members(members) => members
                 .iter()
@@ -155,6 +162,10 @@ impl PairGap {
             Reads::Every => true,
         }
     }
+}
+
+pub(crate) fn sides_match(sides: &[Selection<'_>; 2], ends: [&str; 2], owned: [bool; 2]) -> bool {
+    (sides[0].matches(ends[0]) || !owned[0]) && (sides[1].matches(ends[1]) || !owned[1])
 }
 
 /// The pair gaps of a run: the drop rule of the host decides which it keeps.

@@ -171,6 +171,21 @@ fn defaults_are_typed_and_left_out_of_the_canonical_bytes() -> Result<(), String
 }
 
 #[test]
+fn source_symbol_only_needs_the_new_schema_and_a_target_symbol() {
+    let sides = r#", "source": "p.a", "target": "p.b", "include_type_checking": true"#;
+    let option = r#", "source_symbol_only": true"#;
+    let symbol = r#", "target_symbol": "Profile""#;
+    for (version, fields, valid) in [
+        ("3.18.0", format!("{sides}{symbol}{option}"), false),
+        ("3.19.0", format!("{sides}{option}"), false),
+        ("3.19.0", format!("{sides}{symbol}{option}"), true),
+    ] {
+        let text = contract(version, &rule("forbidden_dependency", &fields));
+        assert_eq!(read_contract(&text).is_ok(), valid, "{text}");
+    }
+}
+
+#[test]
 fn python_white_space_and_identifiers_are_read_as_python_reads_them() {
     let blank = contract("2.1.0", &rule("complete_requires", "")).replace("Why.", "\\u001c");
     assert_eq!(kind_of(&blank), Some(ErrorKind::Invalid));

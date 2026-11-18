@@ -7,6 +7,8 @@
 //! of its reading and the scan proof of the model. `scope_order.rs` reads these in its one order;
 //! `scope.rs` keeps the brand and the proof.
 
+use std::collections::HashSet;
+
 use archkeel_contract::{kind_of, CycleLevel, Rule};
 
 use crate::causes::{Cause, Held, Part};
@@ -15,7 +17,7 @@ use crate::direction;
 use crate::dropped_gaps;
 use crate::model::Model;
 use crate::ownership::{in_scope, owner_of};
-use crate::pair_gaps::reads;
+use crate::pair_gaps::{reads, sides_match, Reads};
 use crate::reason::{Reason, Unsupported};
 use crate::receipts::{GapScope, ScanProof};
 use crate::roots::Roots;
@@ -68,11 +70,15 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
         })
         .filter(|gap| gap.holds(&reading))
         .map(|gap| (gap.source.as_str(), gap.target.as_str()));
-    let named = matches!(rule, Rule::InterfaceBoundary(_))
-        .then(|| open_sites(model))
+    let named = matches!(reading, Reads::Interface | Reads::SourceNames(_))
+        .then(|| open_sites(model, &reading))
         .into_iter()
         .flatten();
-    if let Some(held) = Held::of(held.chain(named)) {
+    let mut seen = HashSet::new();
+    let distinct = held
+        .chain(named)
+        .filter(|pair| !matches!(reading, Reads::SourceNames(_)) || seen.insert(*pair));
+    if let Some(held) = Held::of(distinct) {
         return Err(Reason::NotComplete(Cause::PairGaps(held)));
     }
     let dropped = pairs
@@ -88,7 +94,10 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
 }
 
 /// An observed module edge does not prove the publication of a separate name.
-fn open_sites(model: &Model) -> impl Iterator<Item = (&str, &str)> {
+fn open_sites<'m>(
+    model: &'m Model,
+    reading: &'m Reads<'_>,
+) -> impl Iterator<Item = (&'m str, &'m str)> {
     let components = model.components();
     model
         .graph()
@@ -99,9 +108,20 @@ fn open_sites(model: &Model) -> impl Iterator<Item = (&str, &str)> {
             if !model.selects(source) {
                 return None;
             }
-            let from = owner_of(components, source)?;
-            let to = owner_of(components, target)?;
-            if from == to || components.get(to)?.public().is_none() {
+            let owners = [owner_of(components, source), owner_of(components, target)];
+            let relevant = match reading {
+                Reads::Interface => {
+                    let [Some(from), Some(to)] = owners else {
+                        return None;
+                    };
+                    from != to && components.get(to)?.public().is_some()
+                }
+                Reads::SourceNames(sides) => {
+                    sides_match(sides, [source, target], owners.map(|owner| owner.is_some()))
+                }
+                _ => false,
+            };
+            if !relevant {
                 return None;
             }
             Some((source.as_str(), target.as_str()))

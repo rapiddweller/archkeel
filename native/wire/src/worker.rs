@@ -24,7 +24,7 @@ enum Answer {
     Refused(String),
 }
 
-/// A private transfer preserves dispatch flags that the public record encoding omits.
+/// A private transfer preserves facts that the public record encoding omits.
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Packet {
@@ -32,6 +32,7 @@ struct Packet {
     limits: ProfileLimits,
     premise: String,
     dispatch: BTreeSet<FactId>,
+    inferred_receivers: BTreeSet<FactId>,
 }
 impl Packet {
     /// Take the assembled facts before applying the private producer statements.
@@ -49,6 +50,18 @@ impl Packet {
             .filter(|g| g.data.data().dispatch)
             .map(|g| g.id.clone())
             .collect();
+        let inferred_receivers = reply
+            .facts
+            .sections
+            .iter()
+            .filter_map(|section| match section {
+                Section::Imports(imports) => Some(imports),
+                _ => None,
+            })
+            .flatten()
+            .filter(|record| record.data.data().inferred_receiver)
+            .map(|record| record.id.clone())
+            .collect();
         Ok(Self {
             limits: reply
                 .facts
@@ -62,6 +75,7 @@ impl Packet {
                 .ok_or("worker omitted scope premise")?,
             reply,
             dispatch,
+            inferred_receivers,
         })
     }
     /// Recover the two views of each gap and the original Rust scope statements.
@@ -71,12 +85,21 @@ impl Packet {
             limits,
             premise,
             dispatch,
+            mut inferred_receivers,
         } = self;
         restore(&mut reply.facts.coverage.gaps, &dispatch)?;
         for s in &mut reply.facts.sections {
-            if let Section::Unknowns(gaps) = s {
-                restore(gaps, &dispatch)?;
+            match s {
+                Section::Unknowns(gaps) => restore(gaps, &dispatch)?,
+                Section::Imports(imports) => imports
+                    .iter_mut()
+                    .filter(|record| inferred_receivers.remove(&record.id))
+                    .for_each(|record| record.data.data_mut().inferred_receiver = true),
+                _ => {}
             }
+        }
+        if !inferred_receivers.is_empty() {
+            return Err("unbound worker receiver".into());
         }
         reply.facts.profile_limits = Some(limits);
         reply.facts.scope_premise = Some(premise);

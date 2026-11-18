@@ -53,6 +53,7 @@ pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
         under_type_checking: false,
         symbol: None,
         symbols_known: true,
+        inferred_receiver: false,
         call_form: false,
         relative: false,
         resolved: Resolved::Local,

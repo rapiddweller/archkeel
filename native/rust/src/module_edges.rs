@@ -460,6 +460,7 @@ fn module_record(
                 .map_or("", |frame| frame.module.package()),
         ),
         symbol: if glob { None } else { edge.symbol.clone() },
+        inferred_receiver: matches!(reference.via, Via::Method),
         binding,
         specifier: Some(reference.path.clone()),
         relative_level: edge.level,
