@@ -44,6 +44,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_main_build.py",
         "test_make_self_check.py",
         "test_ci_budget.py",
+        "test_phase_timings.py",
         "test_ci_daily.py",
         "test_gallery_publication.py",
         "test_merge_check.py",
@@ -92,6 +93,7 @@ SLOW_FILES = frozenset(
         "test_collector_native_syntax_scaling.py",
         "test_cli_native_core_scan_large.py",
         "test_cli_native_core_scan_rust.py",
+        "test_cli_phase_timings_reference.py",
     }
 )
 

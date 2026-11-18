@@ -1,0 +1,769 @@
+{
+  "schema_version": "3.14.0",
+  "components": [
+    {
+      "id": "COMP-ALGEBRAS",
+      "label": "algebras",
+      "role": "component",
+      "packages": [
+        "sympy.algebras"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-ASSUMPTIONS",
+      "label": "assumptions",
+      "role": "component",
+      "packages": [
+        "sympy.assumptions"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-BENCHMARKS",
+      "label": "benchmarks",
+      "role": "component",
+      "packages": [
+        "sympy.benchmarks"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-CALCULUS",
+      "label": "calculus",
+      "role": "component",
+      "packages": [
+        "sympy.calculus"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-CATEGORIES",
+      "label": "categories",
+      "role": "component",
+      "packages": [
+        "sympy.categories"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-CODEGEN",
+      "label": "codegen",
+      "role": "component",
+      "packages": [
+        "sympy.codegen"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-COMBINATORICS",
+      "label": "combinatorics",
+      "role": "component",
+      "packages": [
+        "sympy.combinatorics"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-CONCRETE",
+      "label": "concrete",
+      "role": "component",
+      "packages": [
+        "sympy.concrete"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-CORE",
+      "label": "core",
+      "role": "component",
+      "packages": [
+        "sympy.core"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-CRYPTO",
+      "label": "crypto",
+      "role": "component",
+      "packages": [
+        "sympy.crypto"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-DIFFGEOM",
+      "label": "diffgeom",
+      "role": "component",
+      "packages": [
+        "sympy.diffgeom"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-DISCRETE",
+      "label": "discrete",
+      "role": "component",
+      "packages": [
+        "sympy.discrete"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-EXTERNAL",
+      "label": "external",
+      "role": "component",
+      "packages": [
+        "sympy.external"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-FUNCTIONS",
+      "label": "functions",
+      "role": "component",
+      "packages": [
+        "sympy.functions"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-GEOMETRY",
+      "label": "geometry",
+      "role": "component",
+      "packages": [
+        "sympy.geometry"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-HOLONOMIC",
+      "label": "holonomic",
+      "role": "component",
+      "packages": [
+        "sympy.holonomic"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-INTEGRALS",
+      "label": "integrals",
+      "role": "component",
+      "packages": [
+        "sympy.integrals"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-INTERACTIVE",
+      "label": "interactive",
+      "role": "component",
+      "packages": [
+        "sympy.interactive"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-LIEALGEBRAS",
+      "label": "liealgebras",
+      "role": "component",
+      "packages": [
+        "sympy.liealgebras"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-LOGIC",
+      "label": "logic",
+      "role": "component",
+      "packages": [
+        "sympy.logic"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-MATRICES",
+      "label": "matrices",
+      "role": "component",
+      "packages": [
+        "sympy.matrices"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-MULTIPLEDISPATCH",
+      "label": "multipledispatch",
+      "role": "component",
+      "packages": [
+        "sympy.multipledispatch"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-NTHEORY",
+      "label": "ntheory",
+      "role": "component",
+      "packages": [
+        "sympy.ntheory"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-PARSING",
+      "label": "parsing",
+      "role": "component",
+      "packages": [
+        "sympy.parsing"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-PHYSICS",
+      "label": "physics",
+      "role": "component",
+      "packages": [
+        "sympy.physics"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-PLOTTING",
+      "label": "plotting",
+      "role": "component",
+      "packages": [
+        "sympy.plotting"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-POLYS",
+      "label": "polys",
+      "role": "component",
+      "packages": [
+        "sympy.polys"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-PRINTING",
+      "label": "printing",
+      "role": "component",
+      "packages": [
+        "sympy.printing"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-SANDBOX",
+      "label": "sandbox",
+      "role": "component",
+      "packages": [
+        "sympy.sandbox"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-SERIES",
+      "label": "series",
+      "role": "component",
+      "packages": [
+        "sympy.series"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-SETS",
+      "label": "sets",
+      "role": "component",
+      "packages": [
+        "sympy.sets"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-SIMPLIFY",
+      "label": "simplify",
+      "role": "component",
+      "packages": [
+        "sympy.simplify"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-SOLVERS",
+      "label": "solvers",
+      "role": "component",
+      "packages": [
+        "sympy.solvers"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-STATS",
+      "label": "stats",
+      "role": "component",
+      "packages": [
+        "sympy.stats"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-STRATEGIES",
+      "label": "strategies",
+      "role": "component",
+      "packages": [
+        "sympy.strategies"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-TENSOR",
+      "label": "tensor",
+      "role": "component",
+      "packages": [
+        "sympy.tensor"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-TESTING",
+      "label": "testing",
+      "role": "component",
+      "packages": [
+        "sympy.testing"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-UNIFY",
+      "label": "unify",
+      "role": "component",
+      "packages": [
+        "sympy.unify"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-UTILITIES",
+      "label": "utilities",
+      "role": "component",
+      "packages": [
+        "sympy.utilities"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-VECTOR",
+      "label": "vector",
+      "role": "component",
+      "packages": [
+        "sympy.vector"
+      ],
+      "exact_modules": [],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    },
+    {
+      "id": "COMP-ROOT",
+      "label": "root",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "sympy",
+        "sympy.abc",
+        "sympy.conftest",
+        "sympy.galgebra",
+        "sympy.release",
+        "sympy.this"
+      ],
+      "responsibilities": [
+        "TODO"
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect",
+      "public": []
+    }
+  ],
+  "rules": [
+    {
+      "id": "ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "sympy",
+      "rationale": "TODO: say why this rule holds.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMPONENT-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "TODO: say why this rule holds.",
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ],
+      "decided_by": "architect"
+    }
+  ]
+}
