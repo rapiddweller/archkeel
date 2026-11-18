@@ -74,13 +74,15 @@ pr-native-lint:
 pr-selected-test: core browser-runtime-install
 	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") || exit $$?; \
 	paths="$$(git diff --name-only --no-renames "$(PR_BASE)...HEAD")" || exit $$?; \
+	native_tests=; \
+	if printf '%s\n' "$$paths" | grep -Eq '^(native/|Makefile$$|tests/areas[.]py$$|[.]github/workflows/pr-gate[.]yml$$)'; then native_tests=1; fi; \
 	echo "areas: $$areas"; \
-	if printf '%s\n' "$$paths" | grep -Eq '^(native/|src/archkeel/cli/)'; then \
+	if [ -n "$$native_tests" ]; then $(MAKE) native-test || exit $$?; fi; \
+	if [ -n "$$native_tests" ] || printf '%s\n' "$$paths" | grep -q '^src/archkeel/cli/'; then \
 		eval "$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $$areas" || exit $$?; \
 	else \
 		eval "$(FAST_TEST) --tier pr -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas" || exit $$?; \
-	fi; \
-	if printf '%s\n' "$$paths" | grep -q '^native/'; then $(MAKE) native-test; fi
+	fi
 
 # Checks a pull request before its merge: make merge-check PR=<number> (tools/merge_check.py).
 merge-check:

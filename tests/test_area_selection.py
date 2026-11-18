@@ -34,6 +34,8 @@ def test_a_source_change_selects_the_areas_that_it_can_reach() -> None:
         "native/model/src/direction.rs",
         "native/eval/src/scoped_requires_tests.rs",
         "src/archkeel/cli/native_scan.py",
+        "Makefile",
+        ".github/workflows/pr-gate.yml",
     ):
         assert areas_of_change([path]) == list(AREAS)
 
@@ -65,7 +67,7 @@ def test_the_main_failures_are_in_the_fast_selection() -> None:
         "test_collect_hands_core_no_value_of_a_collector_type",
         "test_release_scan_at_64_mib_keeps_a_full_frame_under_300_mib",
         "test_native_static_page_stays_below_the_review_size_budget",
-        "test_requires_receipt_distinguishes_unrestricted_and_restricted_targets",
+        "test_requires_receipt_distinguishes_matching_and_wrong_ports",
     ):
         assert name in done.stdout
 
@@ -76,6 +78,9 @@ def test_the_main_failures_are_in_the_fast_selection() -> None:
         ("native/report/src/html.rs", "fast", True),
         ("native/collect/src/lib.rs", "fast", True),
         ("src/archkeel/cli/native_scan.py", "fast", False),
+        ("Makefile", "fast", True),
+        (".github/workflows/pr-gate.yml", "fast", True),
+        ("tests/areas.py", "fast", True),
         ("docs/readme.md", "pr", False),
     ],
 )

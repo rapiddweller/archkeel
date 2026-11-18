@@ -1,8 +1,9 @@
-# AD-924: The PR gate runs main tests of the selected areas
+# AD-928: The PR gate runs main tests of the selected areas
 
 The PR gate runs the same Python test selection as main for a change under `native/` or
 `src/archkeel/cli/`. Each such change selects every area. A native change also runs the Rust
-workspace tests through the same target as `native-check`. Other changes keep the PR selection.
+workspace tests through the same target as `native-check`. Changes to the Makefile, area table or
+PR workflow run the same tests. Other changes keep the PR selection.
 
 The core connects the native crates, the CLI and the collectors. A path-to-one-area rule missed
 the collector regression in #1880. The PR-only exclusions missed the report size test in #1860
