@@ -143,7 +143,7 @@ impl ViolationDetail {
                 target: cycle.members.first().cloned(),
                 cause: "dependency cycle",
                 evidence: cycle.evidence.clone(),
-                possible: cycle.path.iter().any(|step| step.possible),
+                possible: IntoIterator::into_iter(&cycle.path).any(|step| step.possible),
                 misplaced_class_fact: None,
                 members: Some(cycle.members.clone()),
                 path: Some(

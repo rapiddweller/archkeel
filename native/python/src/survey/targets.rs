@@ -58,7 +58,8 @@ pub(super) fn hazard_gap(
         data.door = Some(archkeel_facts::data::DoorSite {
             form,
             line: u32::try_from(module.location(&site.range).line).unwrap_or(0),
-            scope: Some(site.scope),
+            line_only: false,
+            scope: Some(site.scope).filter(|scope| !scope.is_empty()),
             binding: site.binding,
         });
     }

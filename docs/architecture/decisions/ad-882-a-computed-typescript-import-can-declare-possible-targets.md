@@ -8,7 +8,7 @@ state its scope for a dependency check.
 
 **Decision.** Mark a computed runtime `import()` as a `loader` door. Name the site by its module
 and line in `declarations.door_reach`. Keep the gap unless the declaration matches and applies.
-The collector states no scope for this call. A scope selector needs a scope stated by the collector.
+The collector marks this site as line-only. A scope selector does not match it.
 The contract gives an upper bound, not a list of modules that loaded. Its `loads` entries use
 the same qualified module prefixes as other door declarations.
 

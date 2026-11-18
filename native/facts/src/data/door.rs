@@ -84,8 +84,11 @@ pub struct DoorSite {
     pub form: DoorForm,
     /// The line of the site in the file of the module, counted from 1.
     pub line: u32,
-    /// The dotted names of the classes and functions that hold the site. Empty text means module
-    /// level. An absent scope cannot match a scope selector.
+    /// True when the collector can identify the site by line but cannot state its scope.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub line_only: bool,
+    /// The dotted names of the classes and functions that hold the site, outermost first. The
+    /// module level has none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
     /// The name that an import statement binds to the door in its module, when the site is such

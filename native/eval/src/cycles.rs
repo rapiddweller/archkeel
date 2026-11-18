@@ -107,7 +107,7 @@ fn cyclic(
 ) -> Violation {
     let mut parts = vec![Part::Text(rule)];
     parts.extend(members.iter().map(|member| Part::Text(member)));
-    let (facts, evidence) = cited(imports.iter().copied());
+    let (facts, evidence, _) = cited(imports.iter().copied());
     Violation::Cycle(Box::new(Cyclic {
         id: stable_id("VIO", &parts),
         rule: rule.to_owned(),
@@ -120,15 +120,18 @@ fn cyclic(
 }
 
 /// The sorted ids of some imports and the sorted evidence of them, with each repeat.
-fn cited<'a>(imports: impl Iterator<Item = &'a Import>) -> (Vec<String>, Vec<String>) {
+fn cited<'a>(imports: impl Iterator<Item = &'a Import>) -> (Vec<String>, Vec<String>, bool) {
     let (mut facts, mut evidence) = (Vec::new(), Vec::new());
+    let mut declared_only = true;
     for import in imports {
+        declared_only &= import.declared();
         facts.push(import.id().to_owned());
         evidence.extend(import.evidence().iter().cloned());
     }
     facts.sort();
     evidence.sort();
-    (facts, evidence)
+    let possible = declared_only && !Vec::is_empty(&facts);
+    (facts, evidence, possible)
 }
 
 /// The ordered path through a cycle, from the links between its members (AD-484). The model finds
@@ -162,12 +165,10 @@ fn steps(model: &Model, links: &[Link], by_label: bool) -> Vec<CycleStep> {
     cycle_path(&members, links)
         .into_iter()
         .map(|step| {
-            let cited_imports = || step.imports.iter().filter_map(|&i| imports.get(i));
-            let possible = cited_imports().all(Import::declared);
-            let (facts, evidence) =
-                cited(cited_imports().filter(|import| import.declared() == possible));
+            let (facts, evidence, possible) =
+                cited(step.imports.iter().filter_map(|&i| imports.get(i)));
             CycleStep {
-                possible: possible && !facts.is_empty(),
+                possible,
                 from_component: component_of(&step.from),
                 to_component: component_of(&step.to),
                 from: step.from,

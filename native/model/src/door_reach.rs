@@ -18,7 +18,7 @@
 //!   declarations, a word that names no form, a reach outside the scan). A problem is never
 //!   applied: its door keeps `every_module`, and the core reports the problem.
 //!
-//! The file reads words and module names only; it knows no language.
+//! This file matches collector site metadata. It does not read source code.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -290,7 +290,7 @@ fn door(gap: &archkeel_facts::Record<archkeel_facts::GapFact>) -> Option<Door<'_
         module: data.module.as_ref()?.as_str(),
         form: site.form,
         line: site.line,
-        scope: site.scope.as_deref(),
+        scope: (!site.line_only).then(|| site.scope.as_deref().unwrap_or("")),
         effect: data.effect.as_ref()?,
         evidence: gap
             .evidence_ids

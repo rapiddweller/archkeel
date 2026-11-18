@@ -1172,6 +1172,7 @@
     "field data::door::DoorSite.binding: Option<String>",
     "field data::door::DoorSite.form: DoorForm",
     "field data::door::DoorSite.line: u32",
+    "field data::door::DoorSite.line_only: bool",
     "field data::door::DoorSite.scope: Option<String>",
     "field data::gap_data::GapData.annotation: Option<String>",
     "field data::gap_data::GapData.attribute: Option<String>",

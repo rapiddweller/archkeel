@@ -112,6 +112,7 @@ impl Collection<'_> {
             data.door = Some(DoorSite {
                 form: DoorForm::Loader,
                 line,
+                line_only: true,
                 scope: None,
                 binding: None,
             });
