@@ -20,7 +20,7 @@ use crate::definitions::{Access, Form, Member, MethodCall};
 use crate::impl_globs::depends;
 use crate::impl_globs::once_gap;
 use crate::modules::inside;
-use crate::modules::TypeOf;
+use crate::modules::{Index, TypeOf};
 use crate::scan::Via;
 use crate::site::Site;
 use crate::tree::Module;
@@ -33,17 +33,65 @@ pub(super) struct Pending {
     pub(super) site: Site,
     pub(super) target: String,
     pub(super) reason: String,
+    pub(super) erased: bool,
 }
 
-/// Give each pending gap whose target its source can reach.
-pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
+/// Keep known origins first. An erased value can also come from shared storage or unread code.
+pub(super) fn settle(
+    builder: &mut Builder,
+    open: Vec<Pending>,
+    index: &Index<'_>,
+    modules: &[Module],
+) {
+    let mut open = settle_pending(builder, open, index, &BTreeSet::new());
+    let mut ingress = builder.opaque_values.clone();
+    ingress.extend(
+        modules
+            .iter()
+            .filter(|module| module.scan.has_static)
+            .map(|module| module.module.clone()),
+    );
+    if ingress.is_empty() {
+        return;
+    }
+    let waiting = open.len();
+    for home in modules {
+        let Some(found) = home.scan.orphans.impls.iter().find(|found| found.may_drop) else {
+            continue;
+        };
+        let target = &home.module;
+        for caller in modules.iter().filter(|caller| caller.module != *target) {
+            open.push(Pending {
+                source: caller.module.clone(),
+                rel: home.rel.clone(),
+                site: found.site.clone(),
+                target: target.clone(),
+                reason: format!("An unproved value origin may run a destructor in {target}"),
+                erased: true,
+            });
+        }
+    }
+    if open.len() != waiting {
+        drop(settle_pending(builder, open, index, &ingress));
+    }
+}
+
+fn settle_pending(
+    builder: &mut Builder,
+    mut open: Vec<Pending>,
+    index: &Index<'_>,
+    ingress: &BTreeSet<String>,
+) -> Vec<Pending> {
     while !open.is_empty() {
         let graph = Graph::of(builder);
         let mut reach: BTreeMap<String, Reach> = BTreeMap::new();
         let (ready, waiting): (Vec<_>, Vec<_>) = open.into_iter().partition(|pending| {
             let found = reach
                 .entry(pending.source.clone())
-                .or_insert_with(|| graph.reach(&pending.source));
+                .or_insert_with(|| graph.reach(&pending.source, index, ingress));
+            if pending.erased {
+                return found.any || found.ingress;
+            }
             // A type of an inline module of the file is reached through that module.
             let below = format!("{}.", pending.target);
             found.any
@@ -51,7 +99,7 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
                     .any(|module| *module == pending.target || module.starts_with(&below))
         });
         if ready.is_empty() {
-            return;
+            return waiting;
         }
         // The stored pair keeps any earlier gap that can also hide a lexical path.
         for pending in &ready {
@@ -61,6 +109,7 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
         }
         open = waiting;
     }
+    open
 }
 
 /// A member of an inherent `impl` block: in `Members::foreign` a block that is not in the file of
@@ -128,6 +177,7 @@ pub(super) fn own_candidates(
                 site: call.site.clone(),
                 target,
                 reason,
+                erased: false,
             }
         })
         .collect()
@@ -169,6 +219,7 @@ pub(super) fn aliases(module: &Module) -> impl Iterator<Item = &str> {
 /// What a module reaches: each module, or any module.
 struct Reach {
     any: bool,
+    ingress: bool,
     modules: BTreeSet<String>,
 }
 
@@ -214,13 +265,19 @@ impl Graph {
         }
     }
 
-    fn reach(&self, source: &str) -> Reach {
+    fn reach(&self, source: &str, index: &Index<'_>, ingress: &BTreeSet<String>) -> Reach {
         let mut modules = BTreeSet::new();
+        let mut incoming = false;
         let mut queue = VecDeque::from([source.to_owned()]);
         while let Some(module) = queue.pop_front() {
             if self.anywhere || self.open.contains(&module) {
-                return Reach { any: true, modules };
+                return Reach {
+                    any: true,
+                    ingress: incoming,
+                    modules,
+                };
             }
+            incoming |= ingress.contains(index.file_of(&module).unwrap_or(&module));
             let next = self.next.get(&module).into_iter().flatten();
             for target in next.filter(|target| modules.insert((*target).clone())) {
                 queue.push_back(target.clone());
@@ -228,6 +285,7 @@ impl Graph {
         }
         Reach {
             any: false,
+            ingress: incoming,
             modules,
         }
     }
