@@ -4,11 +4,14 @@
 """The measurement and the spread of `tools/phase_timings.py` (#659), without the network."""
 
 import json
+import os
 import sys
 import threading
 from pathlib import Path
 
 import pytest
+from core_support import HONEST, ROOT, case_root
+from test_cli_phase_timings_reference import reference_command
 from test_report_gallery_sources import _upstream
 
 from tools import phase_timings
@@ -36,6 +39,30 @@ def test_the_receipt_sets_no_limit_and_the_table_says_so() -> None:
     table = phase_timings.markdown(receipt)
     assert "| cli_wall_seconds | 3.000 s | 3.000 s | 3.000 s | 0% |" in table
     assert "| peak_rss_bytes | 100.000 MiB |" in table and "No limit is set" in table
+    receipt["environment"]["command"] = "report"
+    assert "Phase timings (report)" in phase_timings.markdown(receipt)
+
+
+def test_reference_report_writes_distinct_pages_and_measures_render(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """The nightly command asks the real core for an HTML page, not just a report frame."""
+    env = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
+    frames = []
+    with case_root(HONEST) as root:
+        for number in (1, 2):
+            timings = tmp_path / f"run-{number}.timings.json"
+            output = tmp_path / f"run-{number}.stdout.json"
+            run = phase_timings.measure(
+                reference_command(release_core, "report", root, timings), timings, output, env
+            )
+            assert run.exit_code == 0
+            assert run.phases["render"] > 0
+            assert timings.with_suffix(".html").read_bytes().startswith(b"<!doctype html>")
+            frames.append(output.read_bytes())
+        validate = reference_command(release_core, "validate", root, tmp_path / "validate.json")
+        assert "--output" not in validate
+    assert frames[0] == frames[1], "the different page names do not change the JSON frame"
 
 
 def test_one_run_separates_the_wall_time_of_the_command_from_the_core_and_the_memory(

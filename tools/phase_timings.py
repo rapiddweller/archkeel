@@ -116,8 +116,10 @@ def summary(
 def markdown(receipt: Mapping[str, Any]) -> str:
     """A table of the spread for the job summary of a CI run."""
     pin = receipt["pin"]
+    command = receipt["environment"].get("command")
+    label = f" ({command})" if command else ""
     lines = [
-        f"### Phase timings: {pin['name']} {pin['ref']} (`{pin['commit'][:12]}`), "
+        f"### Phase timings{label}: {pin['name']} {pin['ref']} (`{pin['commit'][:12]}`), "
         f"{len(receipt['runs'])} runs",
         "",
         "| figure | min | median | max | spread |",
