@@ -219,8 +219,8 @@ fn a_name_that_is_not_utf8_is_a_gap() {
     std::fs::write(lib.join(OsStr::from_bytes(b"c\xfe.dart")), "").unwrap();
     let found = run(&tree, &["lib"]).unwrap();
     let expected = [
-        ("lib/c\u{fffd}.dart", "SnapshotError"),
-        ("lib/x\u{fffd}", "SnapshotError"),
+        ("lib/c\\xfe.dart", "SnapshotError"),
+        ("lib/x\\xff", "SnapshotError"),
     ];
     assert_eq!(problems(&found), expected);
 }

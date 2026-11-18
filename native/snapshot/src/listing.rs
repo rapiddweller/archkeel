@@ -116,7 +116,8 @@ impl Snapshot {
             let name = match entry.file_name().into_string() {
                 Ok(name) => name,
                 Err(raw) => {
-                    let child = join(rel, &raw.to_string_lossy());
+                    let name = raw.as_encoded_bytes().escape_ascii().to_string();
+                    let child = join(rel, &name);
                     self.problems
                         .insert(format!("Source name is not UTF-8: {child}"));
                     complete = false;
