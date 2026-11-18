@@ -8,8 +8,9 @@ leave a rule with a PASS that has no proof of registry identity.
 
 **Decision.** Inspect Cargo configuration below cache markers. Keep the existing snapshot and
 outside-settings boundary. Do not infer a build start directory from a manifest or a directory
-name. A directory link that can hide configuration or an incomplete walk withholds the registry
-identity proof. Cache markers still affect the separate source walk and work survey.
+name. A directory alias adds no uncertainty when the same walk checks its real directory.
+A `.cargo` link, an alias outside the walk, or an incomplete walk withholds registry identity.
+Cache markers still affect the separate source walk and work survey.
 
 **Limit.** The Cargo walk keeps its depth limit of 128 and entry budget of one million.
 A snapshot listing stops on the first entry above one million and returns no partial list.
@@ -22,5 +23,6 @@ a cache convention, not the Cargo configuration that applies. Skip any directory
 Cargo can start inside it, and an ordinary directory can have that name.
 
 **Tests.** The registry tests compare configurations with absent, invalid and valid cache tags.
-They also cover a nested link and an unreadable directory. The snapshot test rejects an over-limit
-listing. The Core test checks the rule and the premise for a nested `paths` override.
+They also cover directory aliases, an external link and an unreadable directory.
+The snapshot test rejects an over-limit listing. The Core test checks the rule and the premise
+for a nested `paths` override.

@@ -76,6 +76,16 @@ fn a_listing_over_the_limit_does_not_return_partial_entries() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn a_listing_cannot_classify_a_link_loop_as_a_file() {
+    let tree = Tree::new(&[("lib/a", "")]);
+    std::os::unix::fs::symlink("loop", tree.root.join("lib/loop")).unwrap();
+    let mut snapshot = Snapshot::new(&tree.path());
+    assert_eq!(snapshot.listing("lib"), None);
+    assert_eq!(problems(&snapshot), ["Unreadable link target: lib/loop"]);
+}
+
 #[test]
 fn a_path_outside_the_snapshot_has_no_listing() {
     let tree = Tree::new(&[("lib/a.dart", "")]);

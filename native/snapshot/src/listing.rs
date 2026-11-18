@@ -16,7 +16,7 @@
 //! the Python collector does, so a file that changes into a link is not read.
 
 use std::fs::{self, File, Metadata};
-use std::io::Read;
+use std::io::{ErrorKind, Read};
 
 use archkeel_facts::envelope::Role;
 use archkeel_facts::identity::sha256_hex;
@@ -121,9 +121,19 @@ impl Snapshot {
                 }
             };
             let kind = match entry.file_type() {
-                Ok(kind) if kind.is_symlink() => Entry::Link {
-                    to_directory: fs::metadata(entry.path()).is_ok_and(|target| target.is_dir()),
-                },
+                Ok(kind) if kind.is_symlink() => {
+                    let to_directory = match fs::metadata(entry.path()) {
+                        Ok(target) => target.is_dir(),
+                        Err(error) if error.kind() == ErrorKind::NotFound => false,
+                        Err(_) => {
+                            let child = join(rel, &name);
+                            self.problems
+                                .insert(format!("Unreadable link target: {child}"));
+                            return None;
+                        }
+                    };
+                    Entry::Link { to_directory }
+                }
                 Ok(kind) if kind.is_dir() => Entry::Directory,
                 Ok(kind) if kind.is_file() => Entry::File,
                 Ok(_) => Entry::Other,

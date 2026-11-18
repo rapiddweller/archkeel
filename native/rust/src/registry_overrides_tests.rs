@@ -154,6 +154,28 @@ fn a_link_below_a_cache_tag_withholds_proof_without_reading_its_target() {
         found.all.expect("the link withholds proof").rel,
         "target/debug/nested"
     );
+    assert!(!clean);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_directory_alias_is_covered_only_when_its_real_path_is_walked() {
+    use std::os::unix::fs::symlink;
+
+    let tree = Tree::new(&[
+        ("cache/CACHEDIR.TAG", CACHE_TAG),
+        ("cache/lib/.cargo/config.toml", "[build]\njobs = 1\n"),
+        ("node_modules/local/.cargo/config.toml", REPLACED),
+    ]);
+    symlink("lib", tree.root.join("cache/lib64")).unwrap();
+    assert_eq!(every(&tree), (false, true));
+
+    symlink("../node_modules/local", tree.root.join("cache/local")).unwrap();
+    let (found, clean) = scan(&tree);
+    assert_eq!(
+        found.all.expect("the target is not walked").rel,
+        "cache/local"
+    );
     assert!(clean);
 }
 

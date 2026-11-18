@@ -97,7 +97,7 @@ pub(crate) fn configs(snapshot: &mut Snapshot) -> Overrides {
                 Entry::Directory if !SKIPPED.contains(&String::as_str(&name)) => {
                     pending.push((rel, depth + 1));
                 }
-                Entry::Link { to_directory: true } => {
+                Entry::Link { to_directory: true } if !covered_link(snapshot, &rel) => {
                     found.every(hidden(&rel, "is a link"));
                 }
                 _ => (),
@@ -105,6 +105,13 @@ pub(crate) fn configs(snapshot: &mut Snapshot) -> Overrides {
         }
     }
     found
+}
+
+fn covered_link(snapshot: &mut Snapshot, rel: &str) -> bool {
+    // The walk visits the real directory itself, so the alias cannot hide a configuration.
+    snapshot
+        .real(rel)
+        .is_some_and(|real| !real.split('/').any(|name| SKIPPED.contains(&name)))
 }
 
 fn config_file(snapshot: &mut Snapshot, rel: &str, found: &mut Overrides) {
