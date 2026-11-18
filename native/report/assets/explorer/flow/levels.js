@@ -138,6 +138,16 @@
     return content;
   }
 
+  function atlasInventory(node, inventoryComplete) {
+    if (node.module) {
+      return node.module.symbols == null ? "" : REPORT_SCENE.countLabel(node.module.symbols, "observed symbol");
+    }
+    const component = node.component, counts = [REPORT_SCENE.countLabel(component.observed_modules, "module")];
+    if (component.observed_symbols != null) counts.push(REPORT_SCENE.countLabel(component.observed_symbols, "symbol"));
+    if (component.symbols_complete !== inventoryComplete) counts.push(component.symbols_complete ? "complete" : "partial");
+    return counts.join(" · ");
+  }
+
   async function renderAtlas() {
     const level = atlasLevel(), content = atlasContentPane(level);
     const scene = content === "modules" ? REPORT_SCENE.atlasModuleScene(level, S.view) : REPORT_SCENE.atlasScene(level, S.view);
@@ -168,8 +178,11 @@
       : S.view === "target"
       ? `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "component")} · ${REPORT_SCENE.countLabel(scene.declared.length, "dependency", "dependencies")} · agent-authored contract entries (authorship only): ${agentComponents}/${scene.nodes.length} components, ${agentEdges}/${scene.declared.length} dependencies`
       : `Current level: ${REPORT_SCENE.countLabel(observed.length, "observed dependency", "observed dependencies")} · ${REPORT_SCENE.countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import")} · ${S.view === "diff" ? "recorded failures highlighted; unproven permission UNKNOWN" : "source facts"}`;
+    const inventoryComplete = atlasGlobalSymbolsComplete();
     cardHeights.clear(); scene.nodes.forEach((node) => {
-      cardHeights.set(node.id, scene.moduleOverview ? 144 : 178);
+      node.inventory = S.view === "target" ? "" : atlasInventory(node, inventoryComplete);
+      node.inventoryLines = wrapText(node.inventory, CARD.w - 32, `11px ${monoFontFamily}`).length;
+      cardHeights.set(node.id, (scene.moduleOverview ? 144 : 178) + (node.inventoryLines - 1) * 14);
     }); CARD.h = Math.max(144, ...cardHeights.values());
     const generation = layoutGeneration;
     if (!scene.nodes.length) {
@@ -277,11 +290,8 @@
         }
         if (S.view !== "target") {
           if (node.component) group.dataset.assessmentStatus = node.component.status;
-          const weight = el("text", { class: "atlas-weight", x: "16", y: "129" });
-          const inventoryComplete = atlasGlobalSymbolsComplete();
-          weight.textContent = node.module ? (node.module.symbols == null ? "" : `${node.module.symbols} observed symbols`)
-            : `${node.component.observed_modules} mod${node.component.observed_symbols == null ? "" : ` · ${node.component.observed_symbols} sym`}${node.component.symbols_complete === inventoryComplete ? "" : node.component.symbols_complete ? " · complete" : " · partial"}`;
-          group.appendChild(weight);
+          if (node.inventory) group.appendChild(createWrappedText(node.inventory,
+            { class: "atlas-weight", x: "16", y: "129" }, CARD.w - 32, `11px ${monoFontFamily}`, 14));
         }
         if (S.view !== "target" && !scene.moduleOverview && node.component) {
           const findingCount = atlasComponentFindingCount(node.id);
@@ -291,7 +301,7 @@
             ...(findingCount ? [["atlas-finding-chip", `${REPORT_SCENE.countLabel(findingCount, "finding")} inside`]] : []),
             ...(chipText ? chipText.split(" · ") : []).flatMap((part) => wrapText(part, CARD.w - 32, `11px ${sansFontFamily}`))
               .map((line) => ["atlas-deviation-chip", line])];
-          const top = Math.max(143, Math.min(151, 179 - lines.length * 14));
+          const top = Math.max(143, Math.min(151, 179 - lines.length * 14)) + (node.inventoryLines - 1) * 14;
           lines.forEach(([kind, line], index) => {
             const chip = el("text", { class: kind, x: "16", y: String(top + index * 14) });
             chip.textContent = line;

@@ -59,9 +59,18 @@ fn the_unknown_rules_are_grouped_by_cause_and_the_largest_cause_comes_first() {
     let second = section.find("7 gaps between two modules").unwrap();
     assert!(first < second, "the cause with two rules is first");
     let code = |id: &str| format!("<span class=\"rp-code\">{id}</span>");
-    assert!(section.contains(&format!("Holds {}, {}", code("A"), code("B"))));
+    assert!(section.contains(&format!(
+        "Holds {} (complete requires), {} (complete requires)",
+        code("A"),
+        code("B")
+    )));
     // A rule is named once, in the card of its cause.
-    assert_eq!(section.matches(&format!("Holds {}<", code("C"))).count(), 1);
+    assert_eq!(
+        section
+            .matches(&format!("Holds {} (forbidden dependency)<", code("C")))
+            .count(),
+        1
+    );
     assert!(section.contains("Where: 3 of 3 components, 3 gaps in all"));
     assert!(section.contains("Where: 2 of 7 between two modules"));
     assert!(section.contains("the core says &lt;b&gt;"));
@@ -442,7 +451,7 @@ fn a_rule_row_that_the_baseline_accepts_says_accepted_and_the_others_do_not() {
             .count(),
         1
     );
-    assert!(page.contains(">A</span> <span class=\"caption rp-acc\">(accepted"));
+    assert!(page.contains(">A</span> (complete requires) <span class=\"caption rp-acc\">(accepted"));
     assert!(!document(&unknown_frame()).contains("still UNKNOWN"));
 }
 

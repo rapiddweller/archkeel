@@ -92,6 +92,17 @@ fn a_level_whose_names_share_no_prefix_is_shown_whole() {
         .all(|c| c["parent_id"].is_null() && !c["label"].as_str().unwrap().contains(" to ")));
 }
 
+#[test]
+fn architecture_links_to_a_gap_with_no_component() {
+    let frame = json!({
+        "status": "UNKNOWN",
+        "topology": components(3, &[(0, 1)]),
+        "unsupported": {"rules": {"hygiene:a": "missing rationale"}}
+    });
+    assert!(document(&frame)
+        .contains("See <a href=\"#unknown\">Unknown</a> for 1 gap with no component."));
+}
+
 /// The status of each component of the Explorer data, by its id.
 fn statuses(data: &Value) -> Vec<(String, String)> {
     data["atlas"]["components"]
@@ -172,10 +183,7 @@ fn a_layer_sheet_aggregates_its_member_components() {
         .iter()
         .map(|t| t.as_str().unwrap())
         .collect();
-    assert_eq!(
-        said[0],
-        "This box groups 2 components of layer L1 (layer 1 of 2)."
-    );
+    assert_eq!(said[0], "2 components in this layer (1 of 2).");
     assert_eq!(said[1..], ["A: Reads the files", "B: Keeps the replies"]);
     assert_eq!(
         layer["not_responsible_for"].as_array().unwrap().len(),
