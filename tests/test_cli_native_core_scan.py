@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The release uses the Rust worker and the linked TypeScript collector without test features."""
+"""The release uses both workers without test features."""
 
 from __future__ import annotations
 
@@ -14,10 +14,8 @@ import pytest
 NATIVE = Path(__file__).resolve().parents[1] / "native"
 
 
-@pytest.mark.parametrize(("collector", "linked"), [("typescript", True), ("rust", False)])
-def test_the_release_uses_the_collector_without_its_test_feature(
-    collector: str, linked: bool
-) -> None:
+@pytest.mark.parametrize("collector", ["typescript", "rust"])
+def test_the_release_uses_the_collector_without_its_test_feature(collector: str) -> None:
     cargo = shutil.which("cargo")
     if cargo is None:
         pytest.skip("cargo is not installed")
@@ -29,7 +27,7 @@ def test_the_release_uses_the_collector_without_its_test_feature(
         text=True,
         check=True,
     ).stdout
-    assert ("archkeel-core" in tree) == linked
+    assert "archkeel-core" not in tree
     assert 'feature "dump"' not in tree
     hook = (NATIVE / "hatch_build.py").read_text()
     assert '"auditable", "build", "--release", "--locked", "--target-dir"' in hook
