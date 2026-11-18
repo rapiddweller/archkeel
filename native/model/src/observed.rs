@@ -56,6 +56,7 @@ pub(crate) struct Observed {
     pub(crate) profile_limits: Option<ProfileLimits>,
     /// The linked collector's stated assumption (AD-540), absent for a wire reply.
     pub(crate) scope_premise: Option<&'static str>,
+    pub(crate) excluded_sources: Vec<String>,
     /// Each pair's source, target, dispatch flag and execution-only flag.
     pub(crate) pair_gaps: Vec<(String, String, bool, bool)>,
     pub(crate) named_sites: BTreeSet<(String, String)>,
@@ -184,6 +185,7 @@ pub(crate) fn observed(
             })
             .collect(),
         scope_premise: facts.scope_premise,
+        excluded_sources: facts.excluded_sources.clone(),
         pair_gaps,
         effect_gaps: gap_class::effect_gaps(&facts.coverage, classes),
         git_unknown: facts.source.git_head == "unknown"

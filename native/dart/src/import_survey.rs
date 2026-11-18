@@ -58,6 +58,8 @@ pub(crate) struct PartOwner {
 /// The typed result of the survey. `unknowns` and `coverage.gaps` hold the same records.
 #[derive(Debug)]
 pub(crate) struct Survey {
+    /// The selected test sources that the request leaves out.
+    pub excluded: Vec<String>,
     /// Sorted by path: the selected sources and the `pubspec.yaml`.
     pub inputs: Vec<Input>,
     /// The glob of each scan root.
@@ -92,14 +94,26 @@ pub(crate) struct Survey {
 
 /// The survey of `request`. An error is a refusal of the whole request, never a partial survey.
 pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
-    if request.excludes_test_sources() {
-        return Err("the Dart import survey does not support exclude_test_sources".to_owned());
-    }
     let roots = scan_roots(&request.scope.roots);
     let mut snapshot = Snapshot::open_root(&request.snapshot.root)?;
-    let found = discover(&mut snapshot, &request.scope.namespace, &roots)?;
+    let found = discover(
+        &mut snapshot,
+        &request.scope.namespace,
+        &roots,
+        request.excludes_test_sources(),
+    )?;
     let mut gaps = Gaps::default();
     discovery_gaps(&found, &mut gaps.evidence, &mut gaps.records);
+    let sources: &[crate::discover::Source] = &found.sources;
+    let excluded: &[String] = &found.excluded;
+    if sources.is_empty() && !excluded.is_empty() {
+        gaps.plain(
+            (".", 1),
+            archkeel_facts::vocab::ExceptionName::SelectedRootError,
+            "test exclusion leaves no selected Dart source",
+            None,
+        );
+    }
     let root = &request.snapshot.root;
     let own = (found.package_name.as_str(), found.package_dir.as_str());
     let config = config::config_gaps(&mut snapshot, root, own, &mut gaps);
@@ -138,6 +152,7 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
     // AD-468: the selected sources that the survey read; a part counts as a parsed file.
     let read = selected.len();
     Ok(Survey {
+        excluded: found.excluded,
         inputs,
         // AD-468: the scope label of a root is `<root>/**`, as the model binds it to the roots.
         scope: roots.iter().map(|root| format!("{root}/**")).collect(),

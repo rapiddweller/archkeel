@@ -99,6 +99,7 @@ pub fn typed_reply(
         publication_surface: LimitSupport::Supported,
     });
     reply.facts.scope_premise = Some(VALID_PREMISE);
+    reply.facts.excluded_sources = found.excluded;
     // The wire counts a parsed file for each module; a part is a parsed file too (AD-468).
     reply.facts.coverage.files_parsed = parsed;
     reply.facts.owned_files = parts

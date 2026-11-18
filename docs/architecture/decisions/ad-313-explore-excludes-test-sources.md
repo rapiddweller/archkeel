@@ -12,7 +12,7 @@ complete observation of that import. Test names are classified by exact conventi
 **Reason.** Implementation Explore should describe implementation code. Treating known tests as
 implementation changes ownership and can hide the production structure.
 
-**Limit.** Dart test exclusion is not implemented. The collector does not yet report counts and
+**Limit.** AD-884 adds Dart test exclusion as an explicit scan option. The original collector did not report counts and
 reasons for intentionally excluded files. Unrecognized test naming remains in scope. This decision
 does not close issue #874 until Explore and Studio expose the applied exclusions and their limits.
 Programmatic Explore with a V1–V8 external collector fails at the V9 protocol boundary. CLI Explore

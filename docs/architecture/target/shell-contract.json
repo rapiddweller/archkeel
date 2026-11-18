@@ -661,6 +661,7 @@
         "archkeel.cli.core_json:RequestMismatch",
         "archkeel.cli.core_json:as_object",
         "archkeel.cli.core_json:as_text",
+        "archkeel.cli.core_json:as_text_list",
         "archkeel.cli.core_json:as_texts",
         "archkeel.cli.core_json:as_count",
         "archkeel.cli.core_json:check_measures"

@@ -120,6 +120,13 @@ def as_texts(value: object, where: str) -> dict[str, str]:
     return {key: as_text(item, f"{where}.{key}") for key, item in as_object(value, where).items()}
 
 
+def as_text_list(value: object, where: str) -> tuple[str, ...]:
+    """A list of texts, else `CoreError`."""
+    if not isinstance(value, list):
+        raise CoreError(f"the core frame field {where} is not a list")
+    return tuple(as_text(item, where) for item in value)
+
+
 def as_count(value: object, where: str) -> int:
     """A non-negative integer that is no boolean, else `CoreError`."""
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:

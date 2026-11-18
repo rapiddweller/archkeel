@@ -31,6 +31,7 @@ from .core_json import CoreError as CoreError
 from .core_json import CoreExit, as_count, as_object, as_text, as_texts, check_measures
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
+from .core_json import as_text_list as _as_text_list
 from .core_output import read_html
 from .core_schema import check_frame, check_refusal
 from .core_topology import Topology, frame_topology, require_topology
@@ -210,6 +211,7 @@ class CoreFrame:
     measures: Mapping[str, int] | None = None
     # AD-540: the one assumption that the collector states for its proofs, when it states one.
     premise: str | None = None
+    excluded_sources: tuple[str, ...] = ()
     # AD-664, AD-764: the applied door declarations; each PASS under a premise, and its words.
     doors: tuple[DoorRow, ...] = ()
     premises: Premises = Premises({}, None)
@@ -429,11 +431,8 @@ def read_frame(
         raise CoreError(f"the core exits with {exit_code}{signal}")
     frame = _document(stdout)
     require_topology(frame, request)
-    _word(
-        _FrameProtocol,
-        frame.get("protocol", None if require_protocol else FRAME_PROTOCOL),
-        "protocol",
-    )
+    default_protocol = None if require_protocol else FRAME_PROTOCOL
+    _word(_FrameProtocol, frame.get("protocol", default_protocol), "protocol")
     status = _word(Status, frame["status"], "status")
     rules = _rules(frame)
     counts = as_object(frame["violations"], "violations")
@@ -491,6 +490,7 @@ def read_frame(
         baseline=read_baseline(frame["baseline"], status) if "baseline" in frame else None,
         measures=measures,
         premise=_premise(frame, scan, status),
+        excluded_sources=_as_text_list(frame.get("excluded_sources", []), "excluded_sources"),
         doors=read_doors(frame),
         premises=read_premises(frame, passing),
     )

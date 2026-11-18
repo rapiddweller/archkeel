@@ -36,7 +36,8 @@ def _collector_parts() -> set[str]:
 
 
 def test_every_part_that_the_collector_refuses_is_a_refused_part() -> None:
-    assert _collector_parts() == {part.value for part in _RefusedPart}
+    # Older collectors can still return the retired Dart scan refusal.
+    assert _collector_parts() | {_RefusedPart.SCAN.value} == {part.value for part in _RefusedPart}
 
 
 @pytest.mark.parametrize(
@@ -45,6 +46,7 @@ def test_every_part_that_the_collector_refuses_is_a_refused_part() -> None:
         ("config: cannot read archkeel.toml", _RefusedPart.CONFIG),
         ("Root: not a Git work tree", _RefusedPart.ROOT),
         ("git head: the shell names the commit a, and HEAD is b", _RefusedPart.GIT_HEAD),
+        ("scan: test exclusion is not supported", _RefusedPart.SCAN),
         ("work budget: more than 5 files", _RefusedPart.WORK_BUDGET),
         ("a message without a part", None),
         ("unknownpart: why", None),

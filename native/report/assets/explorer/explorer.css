@@ -343,7 +343,7 @@
   grid-template-rows: minmax(0, 1fr);
   height: 100%;
   min-height: 0;}
-.rp-explorer .flow[data-atlas][data-expanded] .flow-explore{display: none;}
+.rp-explorer .flow[data-atlas][data-expanded] .flow-map-column > .flow-explore{display: none;}
 .rp-explorer .flow[data-atlas][data-expanded] .flow-canvas{height: 100%;
   min-height: 0;}
 .rp-explorer .flow[data-atlas][data-expanded] .flow-inspector{height: 100%;

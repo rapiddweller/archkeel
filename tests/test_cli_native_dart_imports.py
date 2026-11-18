@@ -253,12 +253,85 @@ def test_the_gap_plants_cover_each_survey_gap_name() -> None:
     assert named == set(GAPS)
 
 
-def test_a_dart_test_exclusion_is_refused_by_name(release_core: Path, tmp_path: Path) -> None:
-    root = project(tmp_path, BASE, extra="exclude_test_sources = true\n")
-    done = command(release_core, root, "--json")
-    result = json.loads(done.stdout)
-    assert result["exit_code"] == 2
-    assert "exclude_test_sources is not supported for a Dart project" in json.dumps(result)
+@pytest.mark.parametrize("exclude", [False, True])
+def test_dart_test_scope_is_explicit_and_visible(
+    release_core: Path, tmp_path: Path, exclude: bool
+) -> None:
+    files = {
+        **BASE,
+        "lib/domain/model_test.dart": "import '../data/repo.dart';\n",
+        "lib/domain/latest.dart": "class Latest {}\n",
+        "lib/domain/test/helper.dart": "class Helper {}\n",
+    }
+    extra = "exclude_test_sources = true\n" if exclude else ""
+    root = project(tmp_path, files, extra=extra)
+    result = verdict(release_core, root)
+    assert rows(result)["FORBID"] == ("PASS" if exclude else "FAIL")
+    paths = result["frame"].get("excluded_sources", [])
+    expected = ["lib/domain/model_test.dart", "lib/domain/test/helper.dart"] if exclude else []
+    assert paths == expected
+    if exclude:
+        text = command(release_core, root, "--text").stdout
+        assert "Excluded test sources:" in text
+        assert all(path in text for path in paths)
+        page = root / "report.html"
+        report = command(release_core, root, "--output", str(page), verb="report")
+        assert report.returncode == 0, report.stdout + report.stderr
+        html = page.read_text()
+        assert "Excluded test sources:" in html
+        assert all(path in html for path in paths)
+
+
+def test_dart_import_into_excluded_test_is_unknown(release_core: Path, tmp_path: Path) -> None:
+    files = {
+        **BASE,
+        "lib/domain/model.dart": "import '../data/repo_test.dart';\nclass Model {}\n",
+        "lib/data/repo_test.dart": "class Repo {}\n",
+    }
+    root = project(tmp_path, files, extra="exclude_test_sources = true\n")
+    result = verdict(release_core, root)
+    assert rows(result)["FORBID"] == "UNKNOWN"
+    assert result["status"] == "UNKNOWN"
+    assert "lib/data/repo_test.dart" in json.dumps(result["frame"]["collection_gaps"])
+
+
+def test_excluded_invalid_and_colliding_paths_are_visible(
+    release_core: Path, tmp_path: Path
+) -> None:
+    files = {
+        **BASE,
+        "lib/domain/a-test.dart": "class A {}\n",
+        "lib/domain/a_test.dart": "class TestA {}\n",
+        "lib/domain/test/9helper.dart": "class Helper {}\n",
+    }
+    root = project(tmp_path, files, extra="exclude_test_sources = true\n")
+    result = verdict(release_core, root)
+    assert result["status"] == "PASS", result["frame"].get("collection_gaps")
+    assert result["frame"]["excluded_sources"] == [
+        "lib/domain/a_test.dart",
+        "lib/domain/test/9helper.dart",
+    ]
+    text = command(release_core, root, "--text").stdout
+    assert all(path in text for path in result["frame"]["excluded_sources"])
+
+
+def test_excluded_paths_with_the_same_name_keep_both_roots(
+    release_core: Path, tmp_path: Path
+) -> None:
+    files = {
+        **BASE,
+        "lib/test/9helper.dart": "",
+        "other/test/9helper.dart": "",
+    }
+    root = project(tmp_path, files, extra="exclude_test_sources = true\n")
+    config = root / "archkeel.toml"
+    config.write_text(config.read_text().replace('roots = ["lib"]', 'roots = ["lib", "other"]'))
+    result = verdict(release_core, root)
+    assert result["status"] == "PASS", result["frame"].get("collection_gaps")
+    paths = ["lib/test/9helper.dart", "other/test/9helper.dart"]
+    assert result["frame"]["excluded_sources"] == paths
+    text = command(release_core, root, "--text").stdout
+    assert all(path in text for path in paths)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="symbolic links need privileges on Windows")

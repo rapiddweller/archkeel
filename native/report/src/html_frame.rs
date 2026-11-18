@@ -128,6 +128,7 @@ pub(super) struct Frame {
     pub(super) accepted: std::collections::BTreeSet<String>,
     /// The assumption that the collector states for its proofs (AD-540), or empty.
     pub(super) premise: String,
+    pub(super) excluded_sources: Vec<String>,
     /// The call counts of the core (#1327), or `None` when it did not measure.
     pub(super) calls: Option<Calls>,
     /// Each PASS rule that rests on a premise of the contract, with its premises (AD-664, #1549).
@@ -189,6 +190,7 @@ impl Frame {
             scope_complete: frame["scope"].as_str() == Some("complete"),
             cause,
             premise: text(&frame["premise"]).unwrap_or_default(),
+            excluded_sources: field(frame, "excluded_sources"),
             calls: serde_json::from_value(frame["measures"].clone()).ok(),
             premises: field(frame, "premises"),
             assuming: text(&frame["assuming"]),
