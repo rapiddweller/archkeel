@@ -56,35 +56,6 @@
 .rp-explorer .flow-names{margin-top: var(--space-4);}
 .rp-explorer .flow-alternative details > summary,
 .rp-explorer .flow-names > summary{cursor: pointer;}
-.rp-explorer .flow-matrix-wrap{overflow-x: auto;
-  border: 1px solid var(--line);}
-.rp-explorer .flow-matrix{width: max-content;
-  min-width: 650px;
-  font-size: 12px;}
-.rp-explorer .flow-matrix th,
-.rp-explorer .flow-matrix td{height: 40px;
-  padding: 0;
-  border: 1px solid var(--line);
-  text-align: center;}
-.rp-explorer .flow-matrix th{min-width: 120px;
-  max-width: 180px;
-  padding: var(--space-1);
-  overflow-wrap: anywhere;
-  text-transform: none;}
-.rp-explorer .flow-matrix th[scope="row"]{position: sticky;
-  left: 0;
-  background: var(--surface-1);}
-.rp-explorer .flow-matrix td button{width: 100%;
-  height: 40px;
-  border: 0;
-  background: var(--surface-1);
-  color: var(--ink);
-  cursor: pointer;}
-.rp-explorer .flow-matrix td button[data-state="violation"]{color: var(--fail);}
-.rp-explorer .flow-matrix td button[data-state="undecided"]{color: var(--unknown);}
-.rp-explorer .flow-matrix td button[data-state="conforms"]{color: var(--accent-text);}
-.rp-explorer .flow-matrix td button:hover,
-.rp-explorer .flow-matrix td button[aria-pressed="true"]{box-shadow: inset 0 0 0 2px var(--accent);}
 .rp-explorer .flow-graph{display: block;
   width: 100%;
   height: 560px;

@@ -45,7 +45,7 @@
     if (nextView === S.view) { relayout(); return; }
     navigate();
     S.view = nextView;
-    if (nextView === "target") { S.cell = null; S.module = null; S.hint = null; }
+    if (nextView === "target") { S.cell = null; S.module = null; }
     const level = atlasLevel();
     if (S.selection && !level.component_ids.includes(S.selection.id)
         && !REPORT_SCENE.atlasModules(level, nextView).some((item) => item.id === S.selection.id)) S.selection = null;
@@ -142,7 +142,7 @@
     S.content = "modules";
     S.selection = { type: "node", id };
     S.module = S.view !== "target" && REPORT_SCENE.atlasModuleById(id) ? id : null;
-    S.cell = null; S.hint = null; S.allHints = false;
+    S.cell = null;
     setTargetDetails(true);
     positions = Object.create(null); render(); fit();
   }
@@ -164,6 +164,7 @@
     S.path = REPORT_SCENE.componentRoute(id).map((item) => ({ id: item.id, origin: "observed" }));
     S.content = content;
     S.selection = null;
-    S.module = null; S.cell = null; S.hint = null; S.allHints = false;
+    setTargetDetails(false);
+    S.module = null; S.cell = null;
     positions = Object.create(null); render(); fit(whole, { whole }); focusCurrentLevel();
   }

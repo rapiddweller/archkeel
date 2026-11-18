@@ -4,7 +4,6 @@
     canvas.hidden = true; alternative.hidden = false; setTargetDetails(true);
     filters.hidden = true; elementKindControl.hidden = true; legend.textContent = "";
     openSelectedButton.disabled = true;
-    root.querySelector(".flow-explore").hidden = true;
     root.dataset.view = S.view;
     viewButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.flowView === S.view)));
     flowHeading.textContent = "Requested scope unavailable";
@@ -360,7 +359,7 @@
       : S.view === "target" ? "Target edges · requires = declared permission · full rationale in tooltip and Details"
         : S.view === "diff" ? "Diff edges · red: undeclared · solid: permitted and used · dashed: allowed but unused"
           : "Directed dependencies · shared positions across views · counts are observed import sites";
-    atlasExplore(level); atlasSheet(level);
+    atlasSheet(level);
     if (pendingAtlasFindingHash || location.hash) openAtlasFindingHash(pendingAtlasFindingHash);
     updateOpenSelected(); sizeDiagram();
     const whole = pendingLayoutFitWhole;

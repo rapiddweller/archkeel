@@ -16,8 +16,8 @@
   const S = {
     view: DATA.initial_view || "diagram",
     path: [],
-    content: null, selection: null, cell: null, module: null, hint: null, allHints: false,
-    details: false, explore: false,
+    content: null, selection: null, cell: null, module: null,
+    details: false,
     perspective: "language", pinnedTag: null, drawer: null, overlay: null, pop: null,
     theme: document.documentElement.dataset.theme || "dark", expanded: null,
   };

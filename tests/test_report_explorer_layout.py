@@ -111,6 +111,7 @@ def test_mobile_navigation_and_details_do_not_overlap(
         })()""")
         page.evaluate("document.querySelector('#flow [data-browse-component]').scrollIntoView()")
         assert page.evaluate(f"({visible})('#flow [data-browse-component]')")
+        page.evaluate("document.querySelector('#flow .flow-inspector details').open = true")
         assert page.evaluate("""(() => {
           const e = document.querySelector('#flow .flow-inspector');
           e.scrollTop = e.scrollHeight;
@@ -243,6 +244,7 @@ def test_a_large_leaf_component_groups_its_modules_by_directory(site: str, page:
         f"document.querySelector('#flow [data-uml-id=\"{declared}\"]')"
         ".dispatchEvent(new MouseEvent('click', { bubbles: true }))"
     )
+    page.evaluate("document.querySelector('#flow .flow-inspector details').open = true")
     sheet = page.evaluate("document.querySelector('#flow .flow-inspector').innerText")
     assert "DIRECTORY FACT SHEET" in sheet.upper()
     assert "py-survey owns the modules in the contract" in sheet
