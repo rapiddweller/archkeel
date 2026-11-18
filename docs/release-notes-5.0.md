@@ -124,7 +124,8 @@ Measured with `uvx archkeel==4.0.1` and main `edef7a140` on the same plant unles
 | `validate` options `--against`, `--amendment`, `--write-amendment`, `--accept-new`, `--write-graph`, `--compact-open-decisions`, `--decided-by`, `--rationale` | available | refused by name, exit 2 | Keep 4.0.1 for these workflows. |
 | `report` options `--only`, `--rule`, `--component`, `--full`, `--input`, `--baseline` | available | refused by name, exit 2 | Use `report --output` (HTML) or `--json`. |
 | `init` options `--language`, `--namespace`, `--source`, `--force`, `--full`, `--tsconfig`, `--collector-argv`, `--collector-output-limit-bytes` | available | refused by name, exit 2 | Run `archkeel init`, then edit `archkeel.toml`. |
-| Saved `architecture.json`, interactive reports, amendments | available | not available | No replacement on the current development line. |
+| Saved `architecture.json`, focused reports, amendments | available | not available | No replacement on the current development line. |
+| Explorer and architecture view | Interactive report in 4.0.1 | `report --output` embeds the Explorer with As-Is, Target and Diff. The standalone `explore` command and Studio are unavailable. | Use `report --output` for the embedded Explorer. There is no standalone `explore` command or Studio drill on the current development line. |
 | Internal shell names (`archkeel.cli.*`) | public names | 35 names got a leading underscore ([#1438](https://github.com/rapiddweller/archkeel/pull/1438), owner decision) | They were never an API. Use the command. |
 | Baselines | available | `validate --baseline` and `validate --write-baseline` are available | Review a rewritten baseline before you commit it. |
 | Amendments | available | not available | Keep 4.0.1 for amendment workflows. |
