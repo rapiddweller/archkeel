@@ -13,7 +13,6 @@
 
 use std::collections::HashSet;
 
-use crate::module::Module;
 use ruff_python_ast::name::Name;
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprCall, ExprContext, Identifier, ModModule, Stmt};
@@ -81,41 +80,23 @@ impl ClassWrites {
     /// or `typing/__init__.py` in the directory of the repository, or in a directory of `roots`,
     /// where the modules of the scan are found.
     pub(super) fn add_path(&mut self, roots: &HashSet<String>, rel: &str) {
-        let before = rel
-            .strip_suffix("typing.py")
-            .or_else(|| rel.strip_suffix("typing/__init__.py"));
-        let shadows = before.is_some_and(|before| {
-            before.is_empty()
-                || before
-                    .strip_suffix('/')
-                    .is_some_and(|directory| roots.contains(directory))
-        });
-        self.typing_shadowed |= shadows;
+        for name in ["typing.py", "typing/__init__.py"] {
+            let Some(before) = str::strip_suffix(rel, name) else {
+                continue;
+            };
+            let directory: &str = str::strip_suffix(before, '/').unwrap_or(before);
+            let at_root = str::is_empty(directory) || HashSet::contains(roots, directory);
+            let named = str::is_empty(before) || str::ends_with(before, '/');
+            self.typing_shadowed |= at_root && named;
+        }
     }
 
     /// Nothing in the repository can replace the `Any` of the standard module `typing` (AD-880): no
     /// file shadows `typing`, and no store (a name, a computed name, `sys.modules`, a namespace)
     /// can change `Any`.
     pub(super) fn typing_unchanged(&self) -> bool {
-        !self.typing_shadowed && self.change_of("Any").is_none()
+        !self.typing_shadowed && Option::is_none(&ClassWrites::change_of(self, "Any"))
     }
-}
-
-/// The directories where the modules of the scan are found: the path before the module, `src` for
-/// `src/app/page.py` named `app.page`.
-pub(super) fn import_roots(modules: &[Module]) -> HashSet<String> {
-    let root = |module: &Module| {
-        let path = module.rel.as_str();
-        let stem = path
-            .strip_suffix("/__init__.py")
-            .or_else(|| path.strip_suffix(".py"))?;
-        let found = stem.strip_suffix(module.name.replace('.', "/").as_str())?;
-        let directory = found
-            .strip_suffix('/')
-            .or_else(|| found.is_empty().then_some(found));
-        directory.map(str::to_owned)
-    };
-    modules.iter().filter_map(root).collect()
 }
 
 /// True when repository code may change a name, including a store through a namespace.

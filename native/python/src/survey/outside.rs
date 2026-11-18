@@ -86,7 +86,7 @@ pub(super) fn written(
     let names: HashSet<String> = scan.iter().map(|module| module.name.clone()).collect();
     let selected: HashSet<&str> = selected.iter().map(String::as_str).collect();
     let mut files = walk(snapshot, &selected);
-    let roots = super::class_writes::import_roots(scan);
+    let roots = import_roots(scan);
     let paths = selected
         .iter()
         .copied()
@@ -121,6 +121,26 @@ pub(super) fn written(
     }
     found.extend(escaped(scan, outside, namespace));
     found
+}
+
+/// The directories where the modules of the scan are found: the path before the module, `src` for
+/// `src/app/page.py` named `app.page`.
+fn import_roots(modules: &[Module]) -> HashSet<String> {
+    let mut roots = HashSet::new();
+    for module in modules {
+        let path = String::as_str(&module.rel);
+        let stem =
+            str::strip_suffix(path, "/__init__.py").or_else(|| str::strip_suffix(path, ".py"));
+        let tail = module.name.replace('.', "/");
+        let Some(found) = stem.and_then(|stem| str::strip_suffix(stem, String::as_str(&tail)))
+        else {
+            continue;
+        };
+        if str::is_empty(found) || str::ends_with(found, '/') {
+            roots.insert(str::trim_end_matches(found, '/').to_owned());
+        }
+    }
+    roots
 }
 
 /// What the read of one Python file gives.
