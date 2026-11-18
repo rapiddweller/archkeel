@@ -95,15 +95,25 @@ def test_a_deep_link_opens_its_level_with_its_selection(site: str, page: Browser
     assert (state["scope"], state["selection"]) == ("PART:shell", "LAYER:PART:shell:process")
 
 
-def test_a_click_on_a_box_selects_it_without_opening_its_facts(site: str, page: Browser) -> None:
+def test_a_click_on_a_box_selects_it_and_opens_its_facts(site: str, page: Browser) -> None:
     page.open(f"{site}/system.html")
     page.evaluate(
         "document.querySelector('#flow [data-uml-id=\"PART:core\"]')"
         ".dispatchEvent(new MouseEvent('click', { bubbles: true }))"
     )
     state = page.state()
-    assert (state["selection"], state["details"]) == ("PART:core", False)
+    assert (state["selection"], state["details"]) == ("PART:core", True)
     assert "selected=PART%3Acore" in state["search"]
+
+
+def test_selection_opens_details_and_drilling_closes_them(site: str, page: Browser) -> None:
+    page.open(f"{site}/system.html")
+    page.evaluate("document.querySelector('#flow [data-uml-id=\"PART:shell\"]').focus()")
+    page.press(" ")
+    assert (page.state()["selection"], page.state()["details"]) == ("PART:shell", True)
+    page.evaluate("ArchkeelFlow.dispatch({type: 'openLevel', id: 'PART:shell'})")
+    page.settle()
+    assert (page.state()["scope"], page.state()["details"]) == ("PART:shell", False)
 
 
 def first_module(page: Browser) -> str:
@@ -122,7 +132,7 @@ def test_enter_on_a_module_selects_it_on_this_page(site: str, page: Browser) -> 
     assert (state["scope"], state["selection"], state["details"]) == (
         "SHELL-ARGUMENTS",
         module,
-        False,
+        True,
     )
     assert "Enter opens direct definitions" not in page.evaluate(
         "document.querySelector('#flow .flow-legend').textContent"

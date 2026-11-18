@@ -9,6 +9,7 @@
     navigate();
     const child = S.path.at(-1);
     S.path = S.path.slice(0, -1);
+    setTargetDetails(false);
     S.selection = { type: "node", id: child.id }; S.module = null; S.cell = null; S.content = null;
     routeNotice = null; positions = Object.create(null); render(); fit();
   }
@@ -18,6 +19,7 @@
 
   function goToDepth(depth) {
     navigate();
+    setTargetDetails(false);
     S.path = S.path.slice(0, depth); S.selection = null; routeNotice = null;
     S.module = null; S.cell = null; S.content = null; positions = Object.create(null); render(); fit();
   }

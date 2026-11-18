@@ -3,7 +3,7 @@
 The owner removed the Health check and the dependency matrix from the report. The diagram
 and its other controls remain. This decision replaces the matrix presentation in AD-889.
 
-The fact sheet opens on request. Drilling into a component does not open it. A selected
+The fact sheet opens on selection. Drilling into a component closes it. A selected
 component gives a short summary and folds its remaining details. The shortcut help dialog
 and its button and binding are removed. Other keyboard controls remain.
 
