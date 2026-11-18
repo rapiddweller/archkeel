@@ -225,9 +225,10 @@ of `report` changes no verdict, so the request has no baseline field.
 ([AD-406](decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md)).
 It carries the repository root, the configuration file, and the Git head and dirty state of the
 shell, and no reply. `archkeel-collect` reads the configuration and the contract and derives the
-collection request. For Rust it starts the executable beside the core and reads one private frame.
-The store validates the typed reply. The core checks the producer identity and code digest.
-The frame has a `collect` part: the derived request, which the shell compares with
+collection request. For Rust and TypeScript it starts the executable beside the core and reads
+one private frame. The component graph shows imports, not these process calls. The store validates
+the typed reply. The core checks the producer identity and code digest. The frame has a `collect`
+part: the derived request, which the shell compares with
 its own request field by field, or the refusal that names the part. Stage 1 stays on.
 
 `--self-test` compares what the core read: the rule ids and
@@ -342,7 +343,6 @@ flowchart LR
     n_53 --> n_4
     n_53 --> n_15
     n_53 --> n_30
-    n_53 --> n_19
     n_53 --> n_40
     n_53 --> n_36
     n_53 --> n_14
