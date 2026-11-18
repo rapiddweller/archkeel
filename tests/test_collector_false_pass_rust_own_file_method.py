@@ -209,3 +209,37 @@ def test_a_std_receiver_reaches_no_member_of_the_workspace(
     assert _real_target(root) == "2"
     found = statuses(validate(root, capsys))
     assert found.get("NO-A-TO-C") == "PASS", found
+
+
+@pytest.mark.parametrize("profile_first", (False, True))
+def test_same_call_text_keeps_both_proven_receivers(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], profile_first: bool
+) -> None:
+    clean = f"fn clean() -> {STR} {{ {{ let value = crate::d::clean(); value.label() }} }}\n"
+    profile = f"fn profile() -> {STR} {{ {{ let value = crate::d::profile(); value.label() }} }}\n"
+    calls = profile + clean if profile_first else clean + profile
+    files = {
+        SRC + "lib.rs": "pub mod a;\nmod c;\nmod d;\n",
+        SRC + "a.rs": calls + 'pub fn run() -> String { [clean(), profile()].join("/") }\n',
+        SRC + "c.rs": (
+            f'pub struct Clean;\nimpl Clean {{ pub fn label(&self) -> {STR} {{ "clean" }} }}\n'
+            "pub struct Profile;\n"
+            f'impl Profile {{ pub fn label(&self) -> {STR} {{ "profile" }} }}\n'
+        ),
+        SRC + "d.rs": (
+            "pub fn clean() -> &'static crate::c::Clean { &crate::c::Clean }\n"
+            "pub fn profile() -> &'static crate::c::Profile { &crate::c::Profile }\n"
+        ),
+    }
+    no_profile = rule(
+        "NO-PROFILE",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.c",
+        target_symbol="Profile",
+        include_type_checking=True,
+    )
+    root = repository(tmp_path, core_binary, files, rules=(*CRATE_RULES, no_profile))
+    assert _real_target(root) == "clean/profile"
+    found = statuses(validate(root, capsys))
+    assert found.get("NO-PROFILE") == "FAIL", found

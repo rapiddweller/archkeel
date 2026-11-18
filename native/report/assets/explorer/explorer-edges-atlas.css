@@ -258,107 +258,6 @@
   stroke-width:4px;
   stroke-linejoin:round}
 .rp-explorer .flow[data-atlas] .flow-graph .violation .atlas-edge-label{fill:var(--fail)}
-.rp-explorer .flow-explore{margin-top:var(--space-5);
-  padding:20px;
-  border:1px solid var(--line);
-  border-radius:var(--radius-md);
-  background:var(--surface-1);
-  min-width:0}
-.rp-explorer .flow-explore h3{margin:0 0 var(--space-2)}
-.rp-explorer .flow-explore p{margin:var(--space-2) 0;
-  color:var(--ink-muted)}
-.rp-explorer .atlas-explore-heading{display:flex;
-  flex-wrap:wrap;
-  gap:var(--space-2) 20px;
-  justify-content:space-between}
-.rp-explorer .atlas-explore-heading span{color:var(--ink-muted)}
-.rp-explorer .atlas-questions{list-style:none;
-  padding:0;
-  margin:var(--space-4) 0;
-  overflow-wrap:anywhere}
-.rp-explorer .atlas-questions>li{padding:var(--space-1) 0;
-  border-bottom:1px solid var(--line)}
-.rp-explorer .atlas-chip{display:inline-block;
-  background:var(--surface-2);
-  border:1px solid var(--line);
-  border-radius:var(--radius-sm);
-  padding:2px 6px;
-  font-size:11px}
-.rp-explorer .flow-explore button{background:transparent;
-  border:0;
-  color:var(--accent-text);
-  cursor:pointer;
-  padding:var(--space-1)}
-.rp-explorer .flow-explore textarea{width:100%;
-  min-height:150px;
-  color:var(--ink);
-  background:var(--surface-2);
-  border:1px solid var(--line)}
-.rp-explorer .atlas-matrix-dialog{width:min(1100px, calc(100vw - 32px));
-  max-width:none;
-  max-height:90dvh;
-  color:var(--ink);
-  background:var(--surface-1);
-  border:1px solid var(--line);
-  border-radius:var(--radius-md)}
-.rp-explorer .atlas-matrix-dialog::backdrop{background:color-mix(in srgb, var(--surface-0) 72%, transparent)}
-.rp-explorer .atlas-matrix-close{padding:var(--space-2);
-  color:var(--ink);
-  background:var(--surface-2);
-  border:1px solid var(--line);
-  cursor:pointer}
-.rp-explorer .atlas-matrix-grid{overflow:auto;
-  max-height:45dvh;
-  border:1px solid var(--line)}
-.rp-explorer .atlas-matrix-detail{overflow:auto;
-  max-height:28dvh;
-  overflow-wrap:anywhere}
-.rp-explorer .atlas-matrix-count{fill:var(--surface-0);
-  font:11px var(--font-sans)}
-.rp-explorer .atlas-matrix-lines{fill:none;
-  stroke:var(--line);
-  stroke-width:1}
-.rp-explorer .flow[data-atlas] .flow-matrix{overflow:auto;
-  min-width:0;
-  width:100%;
-  max-width:100%;
-  max-height:60vh;
-  margin-top:var(--space-3);
-  border:1px solid var(--line);
-  padding:var(--space-3)}
-.rp-explorer .flow-matrix svg{display:block;
-  max-width:none}
-.rp-explorer .matrix-readout{position:sticky;
-  top:0;
-  left:0;
-  z-index:1;
-  width:100%;
-  box-sizing:border-box;
-  padding:var(--space-2);
-  background:var(--surface-1);
-  color:var(--ink);
-  overflow-wrap:anywhere}
-.rp-explorer .matrix-block{fill:var(--surface-2);
-  stroke:var(--line);
-  stroke-width:1}
-.rp-explorer .matrix-label{fill:var(--ink-muted);
-  font:10px var(--font-mono);
-  cursor:pointer}
-.rp-explorer .matrix-group-label{fill:var(--ink);
-  font:9px var(--font-sans);}
-.rp-explorer .matrix-axis-heading{fill:var(--ink);
-  font:9px var(--font-sans);
-  font-weight:600;}
-.rp-explorer .matrix-cell{cursor:pointer;
-  fill:var(--ink-muted)}
-.rp-explorer .matrix-cell.fail{fill:var(--fail)}
-.rp-explorer .matrix-cell.pass{fill:var(--ink-muted)}
-.rp-explorer .matrix-cell.unknown{fill:var(--unknown)}
-.rp-explorer .matrix-cell.quiet{opacity:.3}
-.rp-explorer .matrix-cell.highlighted{stroke:var(--accent);
-  stroke-width:2;
-  opacity:1}
-.rp-explorer .atlas-coverage{font-size:12px}
 .rp-explorer .flow-element-index{max-height: 360px;
   overflow: auto;
   padding: var(--space-3);
@@ -377,15 +276,6 @@
   stroke: var(--surface-1);
   stroke-width: 4px;
   stroke-linejoin: round;}
-.rp-explorer .atlas-findings{margin: var(--space-2) 0 var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--line);
-  border-radius: 6px;}
-.rp-explorer .atlas-findings summary{cursor: pointer; color: var(--accent-text);}
-.rp-explorer .atlas-findings li{margin: 10px 0; overflow-wrap: anywhere;}
-.rp-explorer .atlas-finding-group{margin: 10px 0;}
-.rp-explorer .atlas-nested-annotation{margin: var(--space-1) 0; color: var(--ink-muted);}
-.rp-explorer .atlas-module-list a{overflow-wrap: anywhere;}
 .rp-explorer .atlas-rule-assessments,
 .rp-explorer .atlas-evidence{margin: var(--space-3) 0;
   padding: var(--space-2) var(--space-3);
@@ -394,12 +284,6 @@
 .rp-explorer .atlas-rule-status.fail{color: var(--fail);}
 .rp-explorer .atlas-rule-status.unknown{color: var(--unknown);}
 .rp-explorer .atlas-rule-status.pass{color: var(--ink-muted);}
-.rp-explorer .atlas-balance{margin: var(--space-2) 0 var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border-left: 3px solid var(--accent-text);
-  background: var(--surface-2);}
-.rp-explorer .atlas-balance p{margin: var(--space-1) 0; font: 12px var(--font-mono);}
-.rp-explorer .atlas-balance a{color: var(--accent-text);}
 .rp-explorer .atlas-source{margin-top:var(--space-5);
   overflow-wrap:anywhere}
 @media(max-width:900px){.rp-explorer .flow[data-atlas] .flow-layout{grid-template-columns:minmax(0,1fr)}
@@ -408,7 +292,6 @@
     max-height:none}
 .rp-explorer .flow[data-atlas] .flow-canvas{height:min(55dvh, 460px)}
 .rp-explorer .report-shell:has(.atlas-heading){width:calc(100% - 24px)}
-.rp-explorer .flow-explore{padding:var(--space-3)}
 .rp-explorer .flow[data-atlas] .flow-toolbar{padding:var(--space-2) 0}
 .rp-explorer .flow[data-atlas] .flow-inspector-content{max-height:none}
 .rp-explorer .flow[data-atlas] .flow-zoom-controls{flex-wrap:wrap}

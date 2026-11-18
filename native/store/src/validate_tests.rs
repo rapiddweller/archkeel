@@ -90,6 +90,31 @@ fn the_frozen_reply_passes() -> Result<(), String> {
 }
 
 #[test]
+fn replay_and_typed_ingestion_refuse_conflicting_selector_capabilities_in_either_order() {
+    for conflict in ["partial", "unsupported"] {
+        for statuses in [["supported", conflict], [conflict, "supported"]] {
+            let mut value = reply();
+            let capabilities = value["facts"]["capabilities"]["constructs"]
+                .as_array_mut()
+                .expect("construct capabilities");
+            capabilities
+                .extend(statuses.map(|status| json!({"name": "selector", "status": status})));
+            // Let the validation block register the conflict: it cannot override uniqueness.
+            let registered: Vec<_> = capabilities
+                .iter()
+                .map(|entry| json!({"name": entry["name"], "statuses": [entry["status"]]}))
+                .collect();
+            value["facts"]["validation"]["registered"][0]["constructs"] = json!(registered);
+            let error = crate::ingest_reply(&compressed(&value), LIMIT)
+                .err()
+                .unwrap_or_default();
+            assert_eq!(error, "duplicate construct capability", "{statuses:?}");
+            assert_eq!(typed_error_of(&value), error, "{statuses:?}");
+        }
+    }
+}
+
+#[test]
 fn a_changed_reply_fails_with_the_message_of_the_python_check() {
     type Change = fn(&mut Value);
     let cases: [(&str, Change); 8] = [

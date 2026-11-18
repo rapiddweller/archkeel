@@ -2777,7 +2777,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.constructs",
-        "A method call may reach the method construct_selectors of a type in its own file native.archkeel_facts.envelope_vocab"
+        "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
     },

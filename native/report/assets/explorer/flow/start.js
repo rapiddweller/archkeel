@@ -58,7 +58,6 @@
     },
     moduleHref: (module) => atlasModuleHref(module.id),
     openModule: (id) => dispatch({ type: "openModule", id }),
-    setExploreOpen: (open) => dispatch({ type: "setExplore", open }),
     openRule: (rule) => dispatch({ type: "openRule", rule }),
     state: () => ({ ...stateView(), viewMode: S.view, scene: renderedScene, zoom: transform.k }),
     toQuery, fromQuery,

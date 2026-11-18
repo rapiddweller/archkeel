@@ -6,11 +6,10 @@
 //! that the shell checks; one card shows the status, the counts and the next steps of the frame.
 
 use super::atlas_tree::DRAFT_WORD;
-use super::causes;
 use super::frame::Frame;
 use super::markup::{count, escape, status_icon};
 use super::places::Places;
-use super::status::{cause, run_word, Shown};
+use super::status::{run_word, Shown};
 use crate::head::{RuleVerdict, Status};
 
 fn title(frame: &Frame, places: &Places) -> String {
@@ -216,61 +215,17 @@ fn jobs(frame: &Frame, places: &Places) -> Vec<(usize, String)> {
             ),
         ));
     }
-    for cause in causes::grouped(frame) {
-        if cause.rules.is_empty() {
-            jobs.push((
-                cause.named,
-                format!(
-                    "Remove the cause that keeps the run open ({}): {}.",
-                    count(cause.named, "gap"),
-                    escape(&causes::title(&cause))
-                ),
-            ));
-        } else {
-            jobs.push((
-                cause.rules.len(),
-                format!(
-                    "Close the gaps behind {rules}: {}. <a href=\"#{}\" aria-label=\"Causes of {rules}\">Causes</a>.",
-                    escape(&causes::title(&cause)),
-                    causes::anchor(&cause),
-                    rules = count(cause.rules.len(), "unknown rule"),
-                ),
-            ));
-        }
-    }
-    // An open run and a frame without a status name their cause (AD-730).
-    let open = matches!(frame.status, Some(Status::Unknown) | None);
-    if jobs.is_empty() && open {
-        jobs.push((
-            1,
-            format!(
-                "Remove the cause that keeps the run open: {}",
-                escape(cause(frame))
-            ),
-        ));
-    }
     jobs.sort_by_key(|(size, _)| std::cmp::Reverse(*size));
     jobs
 }
 
 fn next(frame: &Frame, places: &Places) -> String {
     let mut steps = Vec::new();
-    if frame.status == Some(Status::Pass) {
-        steps.push("Nothing to do. Keep the contract and this report with the commit.".to_owned());
-    } else {
-        let all = jobs(frame, places);
-        steps.extend(all.iter().take(3).map(|(_, text)| text.clone()));
-        if all.len() > 3 {
-            steps.push(format!(
-                "{} more: <a href=\"#unknown\">see the causes</a>.",
-                count(all.len() - 3, "job")
-            ));
-        }
+    let all = jobs(frame, places);
+    steps.extend(all.iter().take(3).map(|(_, text)| text.clone()));
+    if steps.is_empty() {
+        return String::new();
     }
-    steps.push(
-        "Every row behind this page: <span class=\"rp-code\">archkeel report --topology --output report.json --format json</span>"
-            .to_owned(),
-    );
     let items: String = steps
         .iter()
         .map(|step| format!("<li class=\"body-sm\">{step}</li>"))
@@ -296,8 +251,7 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
             stat("Gaps with no rule", frame.named.len())
         }
     };
-    // One block: the status, one plain sentence, the counts and the next steps. A cause is named
-    // once, in the first step that closes it; the Unknown section holds its detail.
+    // The next steps name only observed violations and unwritten responsibilities.
     format!(
         "<div class=\"rp-head\"><h1>Verdict: {}</h1><section class=\"ak-verdict ak-verdict--{state}\" aria-label=\"Verdict\">\
 <div class=\"ak-verdict__main\"><span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\

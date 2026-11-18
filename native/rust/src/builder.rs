@@ -56,6 +56,8 @@ impl<'a> Origin<'a> {
     }
 }
 
+type ImportKey = (String, String, String, Option<(String, String)>);
+
 #[derive(Default)]
 pub(crate) struct Builder {
     pub(crate) gaps: BTreeMap<String, Record<GapFact>>,
@@ -65,7 +67,7 @@ pub(crate) struct Builder {
     pub(crate) imports: Vec<Record<ImportFact>>,
     pub(crate) symbols: Vec<Record<SymbolFact>>,
     pub(crate) targets: Vec<Target>,
-    pub(crate) seen: BTreeSet<(String, String, String)>,
+    pub(crate) seen: BTreeSet<ImportKey>,
     /// The manifests of the crates: each is a module that holds the declared dependencies.
     pub(crate) manifests: Vec<String>,
     /// A proof of the scan rests on a registry identity that `Cargo.lock` records (AD-774).

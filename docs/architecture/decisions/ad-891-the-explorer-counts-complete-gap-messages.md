@@ -1,5 +1,7 @@
 # AD-891: The Explorer counts complete gap messages
 
+AD-920 removes the global message list from the fact sheet. The gap-record download remains.
+
 The Explorer groups collection gap records by their complete recorded reason.
 It counts the records and the distinct messages separately from rule verdicts.
 It shows three frequent messages and lets the reader search and page through all messages.
