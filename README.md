@@ -131,7 +131,7 @@ ArchKeel needs Python 3.11+ and a Git repository with at least one commit.
 ### Install the latest main build (without Rust)
 
 This is a development build, not a release. It includes the Rust core for each supported platform.
-The first build stays available until a safe replacement process is in place.
+Each build that passes its tests replaces the previous set at the same link.
 
 ```bash
 pip install --pre --find-links https://github.com/rapiddweller/archkeel/releases/expanded_assets/main-build archkeel
