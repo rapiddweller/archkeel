@@ -76,7 +76,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
 # alias (`extern crate ... as`) or a renamed dependency is a record too. A new record fails the
 # test, and the row of `core` has to be decided again.
 COLLECT = "native.archkeel_collect"
-TS, RUST = "native.archkeel_typescript_collector", "native.archkeel_rust_collector"
+TS = "native.archkeel_typescript_collector"
 # AD-450: `BUILD` is the version and code digest text of the Python collector. It stays in collect.
 PY = "native.archkeel_python_collector"
 # AD-468: the Dart items return a `Reply`, a `Provenance` and text, all facts types.
@@ -86,10 +86,6 @@ COLLECT_TO_COLLECTORS = {
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-typescript-collector", TS),
     ("native.archkeel_collect.run", "archkeel_typescript_collector::provenance", TS),
     ("native.archkeel_collect.run", "archkeel_typescript_collector::typed_reply", TS),
-    ("native.archkeel_collect", "archkeel_rust_collector::TEST_FEATURES", RUST),
-    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-rust-collector", RUST),
-    ("native.archkeel_collect.run", "archkeel_rust_collector::provenance", RUST),
-    ("native.archkeel_collect.run", "archkeel_rust_collector::typed_reply", RUST),
     ("native.archkeel_collect", "archkeel_python_collector::TEST_FEATURES", PY),
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-python-collector", PY),
     ("native.archkeel_collect.run", "archkeel_python_collector::BUILD", PY),

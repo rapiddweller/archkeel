@@ -159,7 +159,11 @@ def input_measurement(root: Path, manifest: Path) -> dict:
                 "--nocapture",
             ],
             cwd=ROOT / "native",
-            env={**os.environ, "ARCHKEEL_SCAN_INPUT_ROOTS": str(manifest)},
+            env={
+                **os.environ,
+                "CARGO_TARGET_DIR": str(ROOT / "native/target/shell"),
+                "ARCHKEEL_SCAN_INPUT_ROOTS": str(manifest),
+            },
             capture_output=True,
             text=True,
             timeout=180,
@@ -176,6 +180,7 @@ def input_measurement(root: Path, manifest: Path) -> dict:
 
 
 @pytest.mark.parametrize("language", ["typescript", "rust"])
+@pytest.mark.usefixtures("built")  # The measurement helper needs the matching debug worker.
 def test_release_scan_at_64_mib_keeps_a_full_frame_under_300_mib(
     release_core: Path, tmp_path: Path, language: str
 ) -> None:
