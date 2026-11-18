@@ -212,6 +212,9 @@ html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel[open] .flow-legend
   background: var(--surface-1); color: var(--ink); border: 1px solid var(--line);
   border-radius: 14px; box-shadow: var(--shadow-pop); font: 13px var(--font-sans);
 }
+html.ak-canvas .rp-explorer .flow[data-expanded] .ak-drawer[aria-label="overview"]{
+  width: min(1000px, calc(100vw - 90px));
+}
 .rp-explorer .ak-drawer h2{ margin: 0 0 var(--space-3); font-size: 16px; }
 .rp-explorer .ak-drawer input[type="search"]{
   width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; margin-bottom: 10px;
