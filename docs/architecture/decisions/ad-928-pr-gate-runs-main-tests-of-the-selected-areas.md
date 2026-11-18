@@ -14,7 +14,9 @@ second dependency table that can become stale.
 We reject keeping the three-minute budget at the cost of these tests. On a local macOS host, the
 warm Rust workspace tests took 109 seconds. A cold report-only test took 18 seconds. Selecting
 all areas collects 5,571 main-tier Python tests instead of 2,391 PR-tier tests. These are local
-measurements, not a hosted gate duration. The hosted job keeps its 15-minute timeout pending measurement.
+measurements, not a hosted gate duration. Hosted run 44318829263 passed the Rust tests in 4:48.
+The Python tests reached 30 % in 9:05 before the 15-minute job timeout. The job allows 45 minutes
+until a full hosted run gives its actual duration.
 
 The gate does not run nightly slow tests or wheel tests. Changes outside native and CLI still rely
 on the existing path-to-area rules. The selected tests and the Rust workspace tests can expose
