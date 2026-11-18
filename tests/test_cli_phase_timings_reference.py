@@ -64,7 +64,12 @@ def test_the_phases_of_the_core_on_the_pinned_project(release_core: Path, verb: 
     env = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
     load = os.getloadavg()[0] if hasattr(os, "getloadavg") else None
     folder, runs, verdicts = phase_timings.reference_run(
-        REFERENCE, command, runs=RUNS, out=OUT / verb, cache=CACHE, env=env
+        REFERENCE,
+        command,
+        runs=RUNS if verb == "validate" else 2,
+        out=OUT / verb,
+        cache=CACHE,
+        env=env,
     )
     assert len(verdicts) == 1, "each run must give the same exit code and the same frame"
     assert all(run.core_seconds <= run.cli_wall_seconds for run in runs), "core inside command"

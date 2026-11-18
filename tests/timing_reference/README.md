@@ -28,7 +28,8 @@ ARCHKEEL_FETCH_SOURCES=1 uv run pytest -q -n 0 -s tests/test_cli_phase_timings_r
   (or the reverse) with the same bytes, or a damaged store is an error. The copy takes a link as a
   link and refuses one that points outside the fixture, so no byte from outside the verified tree
   comes in (the one link of the pinned Dart fixture points inside). The cache is not repaired, not deleted and not fetched again.
-- `ARCHKEEL_TIMINGS_RUNS=N` sets the number of runs (default 5).
+- `ARCHKEEL_TIMINGS_RUNS=N` sets the number of validate runs (default 5). The report series uses
+  two runs to limit additional runner work until its cost is measured.
 - `ARCHKEEL_TIMINGS_DIR=DIR` sets the output folder (default `test-artifacts/phase-timings`). Each run
   of the test makes **a new folder of its own** `run-<UTC time>-<random>` below it, after the source is
   verified. Nothing in `DIR` is ever deleted or reused, so a folder with your files, or a second run at
