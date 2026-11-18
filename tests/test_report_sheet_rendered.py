@@ -7,9 +7,11 @@ Each test loads the real system report of this repository and, where it needs a 
 does not have, plants it in the data that the page holds and reads the sheet that the page draws.
 """
 
+import hashlib
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from urllib.request import urlopen
 
 import pytest
 from explorer_support import Browser, browser, serve, write_pages
@@ -62,29 +64,14 @@ def test_original_gap_records_remain_downloadable_without_the_global_list(
     site: str, page: Browser
 ) -> None:
     page.open(f"{site}/system.html")
-    stored = page.evaluate(
-        """(() => {
-          const data = JSON.parse(document.getElementById('run-frame-data').textContent);
-          return {count: data.gaps.length, status: JSON.parse(data.frame_json).status};
-        })()"""
-    )
-    assert stored["count"] == page.evaluate("ArchkeelFlow.atlas.unknown_count")
-    assert stored["status"] == page.evaluate("ArchkeelFlow.atlas.status")
-    exported = page.evaluate(
-        """(async () => {
-          const create = URL.createObjectURL;
-          const click = HTMLAnchorElement.prototype.click;
-          let content;
-          URL.createObjectURL = blob => { content = blob.text(); return create(blob); };
-          HTMLAnchorElement.prototype.click = () => {};
-          document.querySelector('[data-download-frame]').click();
-          HTMLAnchorElement.prototype.click = click;
-          URL.createObjectURL = create;
-          const frame = JSON.parse(await content);
-          return {count: frame.collection_gaps.length, status: frame.status};
-        })()"""
-    )
-    assert exported == stored
+    href = page.evaluate("document.querySelector('#gap-records-file a').getAttribute('href')")
+    digest = page.evaluate("document.querySelector('#gap-records-file code').textContent")
+    with urlopen(f"{site}/{href}") as response:
+        content = response.read()
+    exported = json.loads(content)
+    assert hashlib.sha256(content).hexdigest() == digest
+    assert len(exported["collection_gaps"]) == page.evaluate("ArchkeelFlow.atlas.unknown_count")
+    assert exported["status"] == page.evaluate("ArchkeelFlow.atlas.status")
     assert not page.evaluate("!!document.querySelector('.atlas-evidence')")
 
 

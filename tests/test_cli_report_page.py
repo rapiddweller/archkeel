@@ -84,10 +84,12 @@ def markup(page: str) -> str:
     return re.sub(r"(<script[^>]*>).*?</script>", r"\1</script>", page, flags=re.S)
 
 
-def test_the_page_loads_nothing_and_links_only_inside_itself(self_page: str) -> None:
+def test_the_page_loads_nothing_and_links_to_its_gap_file(self_page: str) -> None:
     page = markup(self_page)
     assert "src=" not in page and "<link" not in page and "@import" not in page
-    assert not re.findall(r'href="(?!#)', page)
+    links = re.findall(r'href="(?!#)([^"]+)"', page)
+    assert len(links) == 1
+    assert re.fullmatch(r"archkeel-gaps-[0-9a-f]{64}\.json", links[0])
     # `url(#...)` names an SVG marker of the page itself.
     assert not re.findall(r"url\((?!data:|#)", page)
     assert "http://" not in page and "https://" not in page

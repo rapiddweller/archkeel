@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import errno
+import hashlib
 import html
 import json
 import os
@@ -94,7 +95,12 @@ def test_files_keep_the_frame_and_exit(
         page = re.sub(r"(<script[^>]*>).*?</script>", r"\1</script>", text, flags=re.S)
         assert "<footer" in page and "<pre" not in page
         assert page.count("<script>") == 1 and "src=" not in page
-        assert not re.findall(r'href="(?!#)', page)
+        links = re.findall(r'href="(?!#)([^"]+)"', page)
+        assert len(links) == (1 if 'id="gap-records-file"' in text else 0)
+        if 'id="gap-records-file"' in text:
+            content = (target.parent / links[0]).read_bytes()
+            assert json.loads(content) == found["frame"]
+            assert hashlib.sha256(content).hexdigest() in text
         # AD-510: each rule is on the page: a rule that fails in its block, an UNKNOWN rule in the
         # card of its cause, a rule that holds in the fold of its kind.
         for identifier in found["frame"]["rules"]:

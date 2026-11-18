@@ -9,8 +9,13 @@ A file that is not written keeps the frame of the run; the exit decision reads t
 
 from __future__ import annotations
 
+import hashlib
+import html
+import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Final
+from urllib.parse import quote
 
 from .core_arguments import Options
 from .core_baseline import BaselineResult, BaselineState
@@ -35,12 +40,17 @@ def _refuse_timings_target(options: Options, root: Path) -> None:
 
 
 def _deliver(
-    options: Options, frame: CoreFrame, stdout: bytes, root: Path, timings: bytes | None = None
+    options: Options,
+    frame: CoreFrame,
+    stdout: bytes,
+    root: Path,
+    document: Mapping[str, object],
+    timings: bytes | None = None,
 ) -> list[_Refusal]:
     """Write each requested file. Each file that was not written, in the order of the request."""
     failures: list[_Refusal] = []
     try:
-        _write_report(options, frame, stdout)
+        _write_report(options, frame, stdout, document)
     except OSError as error:
         message = f"cannot write report file {options.output}: {error}; no report file was written"
         failures.append((RefusalKind.IO_ERROR, message))
@@ -77,13 +87,41 @@ def _write_baseline(path: str, part: BaselineResult, root: Path) -> None:
         raise OSError(f"{path}: {error}") from error
 
 
-def _write_report(options: Options, frame: CoreFrame, stdout: bytes) -> None:
+_GAP_MARKER = '<section id="gap-records-file">Gap records file unavailable.</section>'
+
+
+def _gap_file(target: Path, document: Mapping[str, object], count: int) -> tuple[str, Path, bytes]:
+    """Name the same run's frame by the digest of its bytes."""
+    content = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    digest = hashlib.sha256(content).hexdigest()
+    path = target.with_name(f"archkeel-gaps-{digest}.json")
+    href = html.escape(quote(path.name), quote=True)
+    markup = (
+        '<section id="gap-records-file"><h2>Gap records</h2>'
+        f'<p><a href="{href}">Open gap records JSON</a> · {count} gap records</p>'
+        f'<p>SHA-256: <code class="rp-code">{digest}</code></p>'
+        "<p>Keep this file with the report. If the file is missing, the link cannot open it.</p>"
+        "</section>"
+    )
+    return markup, path, content
+
+
+def _write_report(
+    options: Options, frame: CoreFrame, stdout: bytes, document: Mapping[str, object]
+) -> None:
     if options.output is None:
         return
+    companion = None
     if options.format == "html":
         if frame.html is None:
             raise CoreError("the core frame lacks the requested HTML")
-        payload = frame.html.encode("utf-8")
+        page = frame.html
+        gaps = document.get("collection_gaps")
+        if _GAP_MARKER in page and isinstance(gaps, list):
+            markup, path, content = _gap_file(options.output, document, len(gaps))
+            page = page.replace(_GAP_MARKER, markup, 1)
+            companion = (path, content)
+        payload = page.encode("utf-8")
     else:
         payload = stdout
-    write_output(options.output, payload)
+    write_output(options.output, payload, companion=companion)

@@ -23,6 +23,8 @@ def test_report_keeps_the_diagram_without_removed_panels(
         "flow-explore",
         "Keyboard shortcuts",
         "data-gap-search",
+        "run-frame-data",
+        "data-download-frame",
     ):
         assert removed not in page
     for retained in (
@@ -30,7 +32,6 @@ def test_report_keeps_the_diagram_without_removed_panels(
         "data-flow-view",
         "flow-details-toggle",
         "Objects (O)",
-        "run-frame-data",
-        "data-download-frame",
+        'id="gap-records-file"',
     ):
         assert retained in page

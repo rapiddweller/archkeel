@@ -199,27 +199,21 @@ fn explorer_preserves_complete_gap_messages_and_their_record_counts() {
 }
 
 #[test]
-fn the_page_embeds_gap_records_without_exposing_script_closers() {
+fn the_page_marks_the_gap_file_without_exposing_script_closers() {
     let frame = json!({
         "status": "UNKNOWN", "topology": components(2, &[]),
         "collection_gaps": [{"kind": "collection_gap", "reason": "</script><script>alert(1)</script>"}]
     });
     let page = document(&frame);
-    assert!(page.contains("id=\"run-frame-data\""));
+    assert!(page.contains("id=\"gap-records-file\""));
+    assert!(!page.contains("id=\"run-frame-data\""));
     assert!(!page.contains("</script><script>alert(1)</script>"));
 }
 
 #[test]
-fn the_embedded_gap_records_keep_unusual_fields_and_large_integers() {
-    let gap = json!({"reason": "</script>", "extra": 18446744073709551615_u64});
-    let frame = json!({"self_test": {"collect": {"request": {"snapshot": {"large": 18446744073709551615_u64}}}}, "collection_gaps": [gap.clone()]});
-    let packed = super::super::pack_gap_records(frame.as_object().unwrap()).unwrap();
-    assert!(packed["frame_json"]
-        .as_str()
-        .unwrap()
-        .contains("18446744073709551615"));
-    let restored: Value = serde_json::from_str(packed["gaps"][0]["raw"].as_str().unwrap()).unwrap();
-    assert_eq!(restored, gap);
+fn a_frame_without_gap_records_names_no_file() {
+    let frame = json!({"status": "UNKNOWN", "topology": components(2, &[])});
+    assert!(!document(&frame).contains("id=\"gap-records-file\""));
 }
 
 // The Explorer names the result of the run in the words of its verdict (AD-764), not the 4.0.1
