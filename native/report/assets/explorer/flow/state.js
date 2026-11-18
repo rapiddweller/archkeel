@@ -54,8 +54,7 @@
         const level = atlasLevel();
         selectAtlasSheet(level, { hint: action.index, module: ATLAS.questions[action.index].module_ids[0], cell: null });
         root.dispatchEvent(new CustomEvent("archkeel:findings"));
-        atlasHighlightQuestion();
-        root.querySelector(".flow-explore .flow-matrix")?.focus();
+        root.querySelector(".flow-explore [data-open-matrix]")?.focus();
         break;
       }
       case "toggleAllHints": S.allHints = !S.allHints; atlasExplore(atlasLevel()); break;

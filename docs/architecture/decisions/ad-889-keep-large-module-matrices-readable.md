@@ -1,5 +1,7 @@
 # AD-889: Keep large module matrices readable
 
+AD-901 replaces the inline matrix and scrolling axis decisions below.
+
 The Health check matrix reduced large cells to 2.4 pixels and hid module labels.
 Expanded mode also hid the Health check because the same content had moved into a drawer.
 

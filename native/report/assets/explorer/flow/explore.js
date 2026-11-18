@@ -133,11 +133,8 @@
   }
 
   const MATRIX_LIMIT = 60;
-  let atlasExploreModules = [];
-
   function setAtlasExploreOpen(open) {
     S.explore = open;
-    if (open) atlasMatrix(atlasLevel(), atlasExploreModules);
   }
 
   function atlasExplore(level) {
@@ -148,7 +145,7 @@
     }
     const componentOrder = new Map(renderedScene.nodes.slice().sort((a, b) => positions[a.id].y - positions[b.id].y
       || positions[a.id].x - positions[b.id].x).map((node, index) => [node.id, index]));
-    const modules = atlasExploreModules = REPORT_SCENE.atlasModules(level, S.view)
+    const modules = REPORT_SCENE.atlasModules(level, S.view)
       .sort((a, b) => (componentOrder.get(a.component_id) ?? componentOrder.size) - (componentOrder.get(b.component_id) ?? componentOrder.size)
         || (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.name.localeCompare(b.name));
     const large = modules.length > MATRIX_LIMIT;
@@ -168,13 +165,9 @@
           <button type="button" data-show-question="${index}">${large ? "Show module details" : "Show in matrix"}</button> <button type="button" data-copy-question="${index}">Copy as question</button></li>`;
       }).join("") || '<li>No question candidates at this level.</li>'}</ul>
       ${level.questions.length > 5 ? `<button type="button" data-all-questions>${S.allHints ? "Show fewer" : `Show all ${level.questions.length} questions`}</button>` : ""}
-      ${large ? `<h3>Module dependencies</h3><p>This level has ${modules.length} modules. Open the matrix to see observed imports grouped by the existing hierarchy.</p>
+      <h3>Module dependencies</h3><p>This level has ${modules.length} modules. Open the matrix to see observed imports${large ? " grouped by the existing hierarchy" : ""}.</p>
       <p class="atlas-coverage">${esc(level.import_status)}: ${esc(level.import_reason)}</p>
-      <button type="button" data-open-matrix>Open dependency matrix</button>`
-      : `<h3>Module matrix</h3><p>Row imports column. Neutral: Core PASS · Red: Core FAIL · Amber: Core UNKNOWN.
-      Module permission is never inferred from a declared requires edge.</p>
-      <p class="atlas-coverage">${esc(level.import_status)}: ${esc(level.import_reason)}</p>
-      <div class="flow-matrix" role="region" aria-label="Module import matrix" tabindex="0"></div>`}
+      <button type="button" data-open-matrix>Open dependency matrix</button>
       <details class="atlas-module-list"><summary>Modules and UML · ${modules.length}</summary></details>`;
     if (!level.questions.length) {
       explore.querySelector(".atlas-explore-heading").remove();
@@ -186,12 +179,13 @@
       if (list.open && !list.querySelector("section")) list.insertAdjacentHTML("beforeend", atlasModuleList(level));
     });
     explore.querySelectorAll("[data-copy-question]").forEach((button) => button.onclick = () => copyAtlasQuestion(ATLAS.questions[Number(button.dataset.copyQuestion)], button));
-    explore.querySelectorAll("[data-show-question]").forEach((button) => button.onclick = () =>
-      dispatch({ type: "showHint", index: Number(button.dataset.showQuestion) }));
+    explore.querySelectorAll("[data-show-question]").forEach((button) => button.onclick = () => {
+      dispatch({ type: "showHint", index: Number(button.dataset.showQuestion) });
+      if (!large) atlasGroupedMatrix(level, modules);
+    });
     const more = explore.querySelector("[data-all-questions]");
     if (more) more.onclick = () => dispatch({ type: "toggleAllHints" });
-    if (large) explore.querySelector("[data-open-matrix]").onclick = () => atlasGroupedMatrix(level, modules);
-    if (S.explore) atlasMatrix(level, modules);
+    explore.querySelector("[data-open-matrix]").onclick = () => atlasGroupedMatrix(level, modules);
   }
 
   function atlasGroupedMatrix(level, modules) {
@@ -216,175 +210,72 @@
     dialog.className = "atlas-matrix-dialog";
     dialog.setAttribute("aria-label", "Dependency matrix");
     dialog.innerHTML = `<button type="button" class="atlas-matrix-close">Back to report</button>
-      <h2>Dependency matrix</h2><p>Rows import columns. Numbers count observed module relationships.
-      An empty position does not prove that an import is excluded. Select a number to see its module relationships.</p>
+      <h2>Dependency matrix</h2><p>Rows import columns.</p>
       <p>${esc(level.import_status)}: ${esc(level.import_reason)}</p>
+      <details><summary>Reading guide</summary>
+        <p>Numbers count observed module relationships. An empty position does not prove that an import is excluded.
+        Select a number to see its module relationships.</p>
+        <p>For one module relationship, red marks Core FAIL and amber marks Core UNKNOWN. Grouped cells show counts only.</p>
+      </details>
       <div class="atlas-matrix-grid" role="region" aria-label="Grouped dependencies" tabindex="0"></div>
-      <section class="atlas-matrix-detail" aria-live="polite"><p>Select an observed dependency.</p></section>`;
+      <section class="atlas-matrix-detail" hidden></section>`;
     root.appendChild(dialog);
     dialog.querySelector(".atlas-matrix-close").onclick = () => dialog.close();
     dialog.addEventListener("close", () => dialog.remove(), { once: true });
-    const grid = dialog.querySelector(".atlas-matrix-grid"), size = 26;
+    const grid = dialog.querySelector(".atlas-matrix-grid");
     if (nodes.length > MATRIX_LIMIT) {
       grid.textContent = `This level has ${nodes.length} groups. Go back and open a smaller component in the Explorer.`;
       dialog.querySelector(".atlas-matrix-detail").hidden = true;
       dialog.showModal();
       return;
     }
-    measureText.font = `10px ${monoFontFamily}`;
-    const margin = Math.min(180, Math.max(90, ...nodes.map((node) =>
-      measureText.measureText(node.label).width + 12)));
-    const matrix = el("svg", { role: "group", "aria-label": "Rows import columns",
-      width: String(margin + nodes.length * size + 8), height: String(margin + nodes.length * size + 8) });
-    grid.appendChild(matrix);
-    const end = margin + nodes.length * size;
-    const lines = Array.from({ length: nodes.length + 1 }, (_, index) => {
-      const at = margin + index * size;
-      return `M${at} ${margin}V${end} M${margin} ${at}H${end}`;
-    }).join(" ");
-    matrix.appendChild(el("path", { d: lines, class: "atlas-matrix-lines" }));
-    nodes.forEach((node, index) => {
-      const name = node.label.length > 25 ? `…${node.label.slice(-24)}` : node.label;
-      for (const column of [false, true]) {
-        const x = column ? margin + (index + .5) * size : margin - 6;
-        const y = column ? margin - 6 : margin + (index + .7) * size;
-        const label = el("text", { class: "matrix-label", x: String(x), y: String(y),
-          "text-anchor": column ? "start" : "end", ...(column ? { transform: `rotate(-90 ${x} ${y})` } : {}) });
-        label.textContent = name; label.appendChild(el("title")); label.lastChild.textContent = node.label;
-        matrix.appendChild(label);
+    const name = (node) => byModule.get(node.id)?.name || node.label;
+    const wrappedName = (node) => esc(name(node)).replace(/[._]/g, "$&<wbr>");
+    const heading = (node) => byModule.has(node.id)
+      ? `<button type="button" class="atlas-matrix-module" data-module="${esc(node.id)}">${wrappedName(node)}</button>`
+      : wrappedName(node);
+    const highlighted = new Set(S.hint === null ? [] : ATLAS.questions[S.hint].module_ids);
+    grid.innerHTML = `<table class="atlas-matrix-table"><thead><tr><th scope="col">Row imports column</th>
+      ${nodes.map((node, index) => `<th scope="col" data-column="${index}">${heading(node)}</th>`).join("")}</tr></thead>
+      <tbody>${nodes.map((node, row) => `<tr><th scope="row" data-row="${row}">${heading(node)}</th>
+        ${nodes.map((target, column) => {
+          const indexes = pairs.get(row)?.get(column);
+          const mark = indexes?.some((index) => highlighted.has(ATLAS.cells[index].source_id)
+            || highlighted.has(ATLAS.cells[index].target_id));
+          return indexes ? `<td><button type="button" class="matrix-cell${mark ? " highlighted" : ""}" data-row="${row}" data-column="${column}"
+            ${indexes.length === 1 ? `data-cell="${indexes[0]}"` : ""}
+            ${indexes.length === 1 ? `data-status="${esc(ATLAS.cells[indexes[0]].status)}"` : ""}
+            aria-label="${esc(name(node))} imports ${esc(name(target))}: ${REPORT_SCENE.countLabel(indexes.length, "module relationship")}">${indexes.length}</button></td>` : "<td></td>";
+        }).join("")}</tr>`).join("")}</tbody></table>`;
+    const detail = dialog.querySelector(".atlas-matrix-detail");
+    grid.addEventListener("click", (event) => {
+      const module = event.target.closest("button[data-module]");
+      if (module) {
+        dispatch({ type: "selectMatrix", cell: null, module: module.dataset.module });
+        dialog.close();
+        return;
       }
-    });
-    for (const [row, columns] of pairs) for (const [column, indexes] of columns) {
-      const x = margin + column * size, y = margin + row * size;
-      const cell = el("rect", { class: "matrix-cell", x: String(x), y: String(y),
-        width: String(size - 1), height: String(size - 1), tabindex: "0", role: "button",
-        "data-row": String(row), "data-column": String(column),
-        "aria-label": `${nodes[row].label} imports ${nodes[column].label}: ${REPORT_SCENE.countLabel(indexes.length, "module relationship")}` });
-      matrix.appendChild(cell);
-      const count = el("text", { class: "atlas-matrix-count", x: String(x + size / 2),
-        y: String(y + size / 2 + 4), "text-anchor": "middle", "pointer-events": "none" });
-      count.textContent = String(indexes.length); matrix.appendChild(count);
-    }
-    const select = (event) => {
-      const cell = event.target.closest("[data-row]");
+      const cell = event.target.closest("button[data-row]");
       if (!cell) return;
       const row = Number(cell.dataset.row), column = Number(cell.dataset.column);
       const indexes = pairs.get(row).get(column);
-      dialog.querySelector(".atlas-matrix-detail").innerHTML =
-        `<h3>${esc(nodes[row].label)} imports ${esc(nodes[column].label)}</h3><ul>${indexes.map((index) => {
+      detail.dataset.row = String(row); detail.dataset.column = String(column);
+      detail.innerHTML =
+        `<button type="button" class="atlas-matrix-back">Back to matrix</button>
+        <h3>${esc(name(nodes[row]))} imports ${esc(name(nodes[column]))}</h3><ul>${indexes.map((index) => {
           const item = ATLAS.cells[index], source = byModule.get(item.source_id), target = byModule.get(item.target_id);
           return `<li>${esc(source.name)} → ${esc(target.name)} · ${REPORT_SCENE.countLabel(item.import_sites, "site")} · Core ${esc(item.status)}</li>`;
         }).join("")}</ul>`;
-    };
-    matrix.addEventListener("click", select);
-    matrix.addEventListener("keydown", (event) => {
-      if (["Enter", " "].includes(event.key)) { event.preventDefault(); select(event); }
+      if (indexes.length === 1) dispatch({ type: "selectMatrix", cell: indexes[0], module: null });
+      grid.hidden = true; detail.hidden = false;
+      detail.querySelector(".atlas-matrix-back").onclick = () => {
+        detail.hidden = true; grid.hidden = false; cell.focus({ preventScroll: true });
+      };
+      detail.querySelector(".atlas-matrix-back").focus({ preventScroll: true });
+    });
+    grid.addEventListener("keydown", (event) => {
+      const cell = event.target.closest("button[data-row]");
+      if (cell && ["Enter", " "].includes(event.key)) { event.preventDefault(); cell.click(); }
     });
     dialog.showModal();
-  }
-
-  function atlasMatrixGeometry(matrix, modules) {
-    const n = modules.length, size = Math.max(12, Math.min(16, 720 / Math.max(1, n)));
-    const groups = [];
-    for (let start = 0; start < n;) {
-      let end = start + 1;
-      while (end < n && modules[end].component_id === modules[start].component_id) end++;
-      groups.push({ start, end, name: modules[start].component_id
-        ? `${REPORT_SCENE.atlasComponent(modules[start].component_id)?.label || "Component"} · inside` : "Root" });
-      start = end;
-    }
-    const probe = el("text", { class: "matrix-group-label" });
-    matrix.appendChild(probe);
-    measureText.font = getComputedStyle(probe).font;
-    const labelWidth = Math.max(120, ...groups.map((group, index) => {
-      const range = `${group.start + 1}–${group.end}`;
-      return Math.max(
-        measureText.measureText(`${index + 1}. ${group.name} · columns ${range}`).width,
-        measureText.measureText(`${index + 1}. ${group.name} · rows ${range}`).width,
-      );
-    }));
-    probe.setAttribute("class", "matrix-label");
-    measureText.font = getComputedStyle(probe).font;
-    const margin = Math.min(200, Math.max(154, ...modules.map((module) =>
-      measureText.measureText(module.name.split(".").slice(-2).join(".")).width + 12)));
-    probe.remove();
-    const bandHeight = 28 + groups.length * 14, gridTop = margin + 28;
-    matrix.setAttribute("width", String(Math.max(margin + n * size + 12, margin + labelWidth * 2 + 20)));
-    matrix.setAttribute("height", String(gridTop + n * size + bandHeight + 12));
-    return { size, groups, margin, labelWidth, gridTop };
-  }
-
-  function atlasMatrix(level, modules) {
-    const region = root.querySelector(".flow-matrix");
-    if (!region || region.firstChild) return;
-    const matrix = el("svg", {
-      role: "img", "aria-label": `${REPORT_SCENE.countLabel(modules.length, "module")}. A row imports a column.` });
-    region.appendChild(matrix);
-    const { size, groups, margin, labelWidth, gridTop } = atlasMatrixGeometry(matrix, modules);
-    const indexes = new Map(modules.map((module, index) => [module.id, index]));
-    const legendTop = gridTop + modules.length * size + 28;
-    const columnHeading = el("text", { class: "matrix-axis-heading", x: String(margin), y: String(legendTop) });
-    columnHeading.textContent = "Column groups · left to right"; matrix.appendChild(columnHeading);
-    const rowHeading = el("text", { class: "matrix-axis-heading", x: String(margin + labelWidth + 20), y: String(legendTop) });
-    rowHeading.textContent = "Row groups · top to bottom"; matrix.appendChild(rowHeading);
-    groups.forEach((group, index) => {
-      const y = String(legendTop + 14 + index * 14), range = `${group.start + 1}–${group.end}`;
-      for (const [axis, x] of [["column", margin], ["row", margin + labelWidth + 20]]) {
-        const label = el("text", { class: "matrix-group-label", "data-axis": axis, x: String(x), y });
-        label.textContent = `${index + 1}. ${group.name} · ${axis === "column" ? "columns" : "rows"} ${range}`;
-        matrix.appendChild(label);
-      }
-      matrix.appendChild(el("rect", { class: "matrix-block",
-        x: String(margin + group.start * size), y: String(gridTop + group.start * size),
-        width: String((group.end - group.start) * size), height: String((group.end - group.start) * size) }));
-    });
-    modules.forEach((module, index) => {
-      for (const column of [false, true]) {
-        const label = el("text", { class: "matrix-label", "data-module": module.id, tabindex: "0", role: "button",
-          x: String(column ? margin + (index + .5) * size : margin - 6),
-          y: String(column ? gridTop - 6 : gridTop + (index + .7) * size), "text-anchor": column ? "start" : "end",
-          ...(column ? { transform: `rotate(-90 ${margin + (index + .5) * size} ${gridTop - 6})` } : {}) });
-        const name = module.name.split(".").slice(-2).join(".");
-        label.textContent = name.length > 28 ? `…${name.slice(-27)}` : name;
-        label.appendChild(el("title")); label.lastChild.textContent = module.name;
-        matrix.appendChild(label);
-      }
-    });
-    for (const index of level.cells) {
-      const cell = ATLAS.cells[index], row = indexes.get(cell.source_id), column = indexes.get(cell.target_id);
-      if (row === undefined || column === undefined) continue;
-      const state = cell.status === "FAIL" ? "fail" : cell.status === "UNKNOWN" ? "unknown" : "pass";
-      const rect = el("rect", { class: `matrix-cell ${state}${S.view === "diff" && cell.status !== "FAIL" ? " quiet" : ""}`,
-        "data-cell": String(index), tabindex: "0", role: "button",
-        "aria-label": `${modules[row].name} imports ${modules[column].name}: ${REPORT_SCENE.countLabel(cell.import_sites, "site")}; Core ${cell.status}; permission ${cell.permission}`,
-        x: String(margin + column * size), y: String(gridTop + row * size), width: String(Math.max(2.4, size - 1)), height: String(Math.max(2.4, size - 1)) });
-      const title = el("title"); title.textContent = rect.getAttribute("aria-label"); rect.appendChild(title); matrix.appendChild(rect);
-    }
-    const readout = document.createElement("div");
-    readout.className = "matrix-readout";
-    readout.setAttribute("aria-live", "polite");
-    readout.textContent = matrix.querySelector(`[data-cell="${S.cell}"]`)?.getAttribute("aria-label")
-      || "Focus or select a cell to see its row and column.";
-    region.prepend(readout);
-    matrix.addEventListener("focusin", (event) => {
-      const cell = event.target.closest("[data-cell]");
-      if (cell) readout.textContent = cell.getAttribute("aria-label");
-    });
-    const choose = (event) => {
-      const cell = event.target.closest("[data-cell]"), module = event.target.closest("[data-module]");
-      if (!cell && !module) return;
-      if (cell) readout.textContent = cell.getAttribute("aria-label");
-      dispatch({ type: "selectMatrix", cell: cell ? Number(cell.dataset.cell) : null, module: module?.dataset.module || null });
-    };
-    matrix.addEventListener("click", choose);
-    matrix.addEventListener("keydown", (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); choose(event); } });
-    atlasHighlightQuestion();
-  }
-
-  function atlasHighlightQuestion() {
-    const highlighted = new Set(S.hint === null ? [] : ATLAS.questions[S.hint].module_ids);
-    root.querySelectorAll(".matrix-cell").forEach((rect) => {
-      const cell = ATLAS.cells[Number(rect.dataset.cell)];
-      rect.classList.toggle("highlighted", highlighted.has(cell.source_id) || highlighted.has(cell.target_id));
-    });
   }

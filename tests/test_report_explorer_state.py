@@ -215,6 +215,7 @@ def test_a_perspective_choice_is_kept_in_the_url(site: str, page: Browser) -> No
 def test_a_matrix_cell_selects_its_import_and_names_it_in_the_url(site: str, page: Browser) -> None:
     page.open(f"{site}/system.html?scope=PART%3Ashell")
     page.evaluate("document.querySelector('#flow .ak-rail [data-drawer=\"overview\"]').click()")
+    page.evaluate("document.querySelector('#flow [data-open-matrix]').click()")
     page.wait("!!document.querySelector('#flow .matrix-cell')")
     cell = page.evaluate(
         "(() => { const c = document.querySelector('#flow .matrix-cell');"

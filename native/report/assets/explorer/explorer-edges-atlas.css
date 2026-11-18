@@ -296,23 +296,79 @@
   border:1px solid var(--line)}
 .rp-explorer .atlas-matrix-dialog{width:min(1100px, calc(100vw - 32px));
   max-width:none;
-  max-height:90dvh;
+  height:min(820px, calc(100dvh - 32px));
+  max-height:calc(100dvh - 32px);
+  box-sizing:border-box;
+  overflow:hidden;
   color:var(--ink);
   background:var(--surface-1);
   border:1px solid var(--line);
   border-radius:var(--radius-md)}
+.rp-explorer .atlas-matrix-dialog[open]{display:flex;
+  flex-direction:column}
 .rp-explorer .atlas-matrix-dialog::backdrop{background:color-mix(in srgb, var(--surface-0) 72%, transparent)}
-.rp-explorer .atlas-matrix-close{padding:var(--space-2);
+.rp-explorer .atlas-matrix-close,
+.rp-explorer .atlas-matrix-back{align-self:flex-start;
+  padding:var(--space-2);
   color:var(--ink);
   background:var(--surface-2);
   border:1px solid var(--line);
   cursor:pointer}
 .rp-explorer .atlas-matrix-grid{overflow:auto;
-  max-height:45dvh;
+  flex:1;
+  min-height:0;
+  scroll-padding-left:156px;
   border:1px solid var(--line)}
 .rp-explorer .atlas-matrix-detail{overflow:auto;
-  max-height:28dvh;
+  flex:1;
+  min-height:0;
   overflow-wrap:anywhere}
+.rp-explorer .atlas-matrix-table{border-collapse:separate;
+  border-spacing:0;
+  table-layout:fixed;
+  width:max-content;
+  font:13px var(--font-sans)}
+.rp-explorer .atlas-matrix-table th,
+.rp-explorer .atlas-matrix-table td{box-sizing:border-box;
+  width:156px;
+  min-width:156px;
+  max-width:156px;
+  padding:var(--space-1);
+  border-right:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  overflow-wrap:anywhere}
+.rp-explorer .atlas-matrix-table th{position:sticky;
+  background:var(--surface-1);
+  color:var(--ink);
+  text-align:left;
+  text-transform:none}
+.rp-explorer .atlas-matrix-table thead th{top:0;
+  z-index:2}
+.rp-explorer .atlas-matrix-table tbody th{left:0;
+  z-index:1}
+.rp-explorer .atlas-matrix-table thead th:first-child{left:0;
+  z-index:3}
+.rp-explorer .atlas-matrix-table td button{width:100%;
+  min-height:44px;
+  color:var(--ink);
+  background:var(--surface-2);
+  border:1px solid var(--line);
+  cursor:pointer}
+.rp-explorer .atlas-matrix-table td button.highlighted{outline:2px solid var(--accent)}
+.rp-explorer .atlas-matrix-table td button[data-status="FAIL"]{color:var(--fail-text);
+  border-color:var(--fail)}
+.rp-explorer .atlas-matrix-table td button[data-status="UNKNOWN"]{color:var(--unknown-text);
+  border-color:var(--unknown)}
+.rp-explorer .atlas-matrix-module{width:100%;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--ink);
+  font:inherit;
+  font-weight:inherit;
+  text-align:left;
+  overflow-wrap:anywhere;
+  cursor:pointer}
 .rp-explorer .atlas-matrix-count{fill:var(--surface-0);
   font:11px var(--font-sans)}
 .rp-explorer .atlas-matrix-lines{fill:none;
