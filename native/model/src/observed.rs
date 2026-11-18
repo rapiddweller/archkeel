@@ -198,13 +198,7 @@ pub(crate) fn observed(
             .filter(|entry| entry.status != ConstructSupport::Unsupported)
             .map(|entry| entry.name.clone())
             .collect(),
-        construct_selectors: Kind::ConstructSelector.construct().is_some_and(|name| {
-            facts
-                .capabilities
-                .constructs
-                .iter()
-                .any(|entry| entry.name == name && entry.status == ConstructSupport::Supported)
-        }),
+        construct_selectors: construct_selectors(facts),
         symbol_feature: facts
             .capabilities
             .resolution_features
@@ -236,6 +230,16 @@ pub(crate) fn observed(
             })
             .collect(),
     }
+}
+
+fn construct_selectors(facts: &Facts) -> bool {
+    Kind::ConstructSelector.construct().is_some_and(|name| {
+        facts
+            .capabilities
+            .constructs
+            .iter()
+            .any(|entry| entry.name == name && entry.status == ConstructSupport::Supported)
+    })
 }
 
 // A wire marker alone cannot prove that the live collector made this claim.
