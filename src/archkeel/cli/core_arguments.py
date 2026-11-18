@@ -11,9 +11,11 @@ only: it starts no process, finds no binary and reads no frame.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections.abc import Sequence
 from enum import StrEnum
+from functools import partial
 from pathlib import Path, PurePosixPath
 from typing import Final, NoReturn
 
@@ -27,7 +29,7 @@ SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT, Command.INIT})
 RELEASED: Final = frozenset({Command.CHECK})
 # The options of the deleted Python shell that release 4.0.1 does not have.
 UNRELEASED_OPTIONS: Final = frozenset(
-    {"--collector-timeout-seconds", "--html", "--native-core", "--strict", "--timings"}
+    {"--collector-timeout-seconds", "--html", "--native-core", "--strict"}
 )
 # Each option of the deleted Python shell. The shell refuses it by name.
 REMOVED_OPTIONS: Final = frozenset(
@@ -52,7 +54,6 @@ REMOVED_OPTIONS: Final = frozenset(
         "--rationale",
         "--rule",
         "--strict",
-        "--timings",
         "--tsconfig",
         "--write-amendment",
         "--write-graph",
@@ -91,6 +92,7 @@ class Options(argparse.Namespace):
     action: str = ""
     agent: str = ""
     output: Path | None = None
+    timings: Path | None = None
     format: str = "html"
     baseline: str | None = None
     write_baseline: str | None = None
@@ -154,14 +156,25 @@ def command_of(argv: Sequence[str]) -> Command:
     return command
 
 
-def _output_path(value: str) -> Path:
+def _file_path(flag: str, value: str) -> Path:
     if value == "-":
-        raise argparse.ArgumentTypeError("standard output is not a file target; omit --output")
+        raise argparse.ArgumentTypeError(f"standard output is not a file target; omit {flag}")
     path = Path(value)
     if not value or not path.name:
+        raise argparse.ArgumentTypeError(f"{flag} must name a file, not an empty path or directory")
+    return path
+
+
+def _new_file_path(flag: str, value: str) -> Path:
+    """A file that does not exist: the option creates it and never replaces a file (#659)."""
+    path = _file_path(flag, value)
+    if os.path.lexists(path):
         raise argparse.ArgumentTypeError(
-            "--output must name a file, not an empty path or directory"
+            f"{flag} creates a new file and never replaces one, and {path} exists "
+            "(a link counts); use a new name for each run"
         )
+    if not path.resolve().parent.is_dir():
+        raise argparse.ArgumentTypeError(f"{flag}: the folder of {path} does not exist")
     return path
 
 
@@ -205,12 +218,13 @@ def parse(argv: Sequence[str]) -> Options:
             parser.add_argument("--config", default="archkeel.toml")
         if command in {Command.VALIDATE, Command.REPORT}:
             parser.add_argument("--no-init", action="store_true")
+            parser.add_argument("--timings", type=partial(_new_file_path, "--timings"))
         if command is Command.VALIDATE:
             parser.add_argument("--baseline", type=_baseline_path)
             parser.add_argument("--write-baseline", type=_baseline_path)
         if command is Command.REPORT:
             parser.add_argument("--topology", action="store_true")
-            parser.add_argument("--output", type=_output_path)
+            parser.add_argument("--output", type=partial(_file_path, "--output"))
             parser.add_argument("--format", choices=["html", "json"], default="html")
             parser.add_argument("--part-of", type=_document_path)
             parser.add_argument("--system-href")
@@ -235,6 +249,9 @@ def parse(argv: Sequence[str]) -> Options:
         )
     if any(arg == "--format" or arg.startswith("--format=") for arg in argv) and not options.output:
         raise ValueError("--format needs --output; no report file was written")
+    if options.timings is not None and options.output is not None:
+        if options.timings.resolve() == options.output.resolve():
+            raise ValueError("--output and --timings name the same file; use two names")
     if options.system_href is not None and options.part_of is None:
         raise ValueError("--system-href needs --part-of: name the system document of this part")
     if options.part_of is not None and (options.output is None or options.format != "html"):

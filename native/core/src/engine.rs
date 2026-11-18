@@ -141,6 +141,22 @@ impl Engine {
         }
     }
 
+    /// The ruling of a request: with the links of the edges to their rules when the request builds
+    /// the topology, else with no link.
+    pub(crate) fn ruled(
+        &mut self,
+        named: Named,
+        topology: bool,
+    ) -> Result<(Ruling, BTreeMap<String, BTreeSet<String>>), String> {
+        if topology {
+            return self.rule(named, true);
+        }
+        match self.answer(Request::Rules(named)) {
+            Answer::Rules(ruling) => (*ruling).map(|ruling| (ruling, BTreeMap::new())),
+            other => Err(format!("unexpected answer {other:?}")),
+        }
+    }
+
     /// The ruling of the report over the model and the gaps of the request and of the core.
     pub(crate) fn rule(
         &mut self,
