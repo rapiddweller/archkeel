@@ -65,7 +65,9 @@ fn marks(places: &Places) -> BTreeMap<&str, Vec<usize>> {
     let mut found: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
     for place in &places.shown {
         match &place.kind {
-            Kind::Import { source, .. } => found.entry(source).or_default().push(place.number),
+            Kind::Import { source, .. } | Kind::MisplacedClass { module: source, .. } => {
+                found.entry(source).or_default().push(place.number)
+            }
             Kind::Cycle(cycle) => {
                 let from: BTreeSet<&str> = cycle.path.iter().map(|s| s.from.as_str()).collect();
                 for module in from {

@@ -22,6 +22,12 @@ pub(super) struct Violated {
 
 #[derive(Clone, Debug)]
 pub(super) enum Kind {
+    /// A class whose definition lies outside the modules of its placement rule.
+    MisplacedClass {
+        module: String,
+        name: String,
+        evidence: Vec<String>,
+    },
     /// An import, or a module with a finding of its own (`target` is `None`).
     Import {
         source: String,
@@ -90,6 +96,7 @@ impl Group {
 impl Places {
     pub(super) fn of(frame: &Frame) -> Places {
         let mut imports = Grouped::new();
+        let mut classes: BTreeMap<(String, String), Group> = BTreeMap::new();
         let mut cycles: Vec<(CyclePath, Violated)> = Vec::new();
         for (rule, rows) in &frame.details {
             let listed = frame.explain.cycles.get(rule);
@@ -98,6 +105,17 @@ impl Places {
                     rule: rule.clone(),
                     cause: row.cause.clone(),
                 };
+                if frame.rules.get(rule).is_some_and(|(kind, _)| {
+                    kind == crate::kind::word(archkeel_contract::RuleKind::SymbolPlacement)
+                }) {
+                    if let Some(module) = &row.target {
+                        classes
+                            .entry((module.clone(), row.source.clone()))
+                            .or_default()
+                            .add(violated, &row.evidence);
+                        continue;
+                    }
+                }
                 // A cycle row has its closed path when the frame lists it; else it is one row.
                 let path =
                     listed.and_then(|found| found.items.iter().find(|item| item.index == index));
@@ -121,6 +139,16 @@ impl Places {
                 (kind, group.rules)
             })
             .collect();
+        all.extend(classes.into_iter().map(|((module, name), group)| {
+            (
+                Kind::MisplacedClass {
+                    module,
+                    name,
+                    evidence: group.evidence,
+                },
+                group.rules,
+            )
+        }));
         all.extend(
             cycles
                 .into_iter()
