@@ -14,6 +14,7 @@ fn kept(source: &str, target: &str, observed: bool, owned: [bool; 2], external: 
         observed,
         owned,
         target_external: external,
+        dispatch: false,
     }
 }
 
@@ -25,7 +26,7 @@ fn a_gap_with_an_end_outside_the_reply_holds_each_reading() {
     for reads in [
         Reads::NoEdge,
         Reads::Modules,
-        Reads::ExternalImports,
+        Reads::ExternalImports(None),
         Reads::Members(vec!["z"]),
         Reads::Every,
     ] {
@@ -43,8 +44,8 @@ fn a_reading_without_edges_is_never_held_by_a_proven_pair() {
 
 #[test]
 fn an_external_reading_is_held_only_by_a_gap_into_a_module_with_an_external_import() {
-    assert!(kept("a.x", "b.y", true, OWNED, true).holds(&Reads::ExternalImports));
-    assert!(!kept("a.x", "b.y", true, OWNED, false).holds(&Reads::ExternalImports));
+    assert!(kept("a.x", "b.y", true, OWNED, true).holds(&Reads::ExternalImports(None)));
+    assert!(!kept("a.x", "b.y", true, OWNED, false).holds(&Reads::ExternalImports(None)));
 }
 
 #[test]
@@ -89,4 +90,19 @@ fn the_walk_of_the_cycle_part_reaches_a_node_over_many_steps() {
         .collect();
     let last = names[names.len() - 1].as_str();
     assert!(super::reach(&chain, &["m0"].into()).contains(&(last, "m0")));
+}
+
+#[test]
+fn an_internal_dispatch_can_only_hold_an_external_rule_that_names_its_target() {
+    let mut dispatch = kept("a.x", "b.y", true, OWNED, true);
+    dispatch.dispatch = true;
+    assert!(!dispatch.holds(&Reads::ExternalImports(None)));
+    assert!(!dispatch.holds(&Reads::ExternalImports(Some("pkg"))));
+    assert!(dispatch.holds(&Reads::ExternalImports(Some("b"))));
+    assert!(dispatch.holds(&Reads::Every));
+
+    let lexical = kept("a.x", "b.y", true, OWNED, true);
+    assert!(lexical.holds(&Reads::ExternalImports(Some("pkg"))));
+    dispatch.observed = false;
+    assert!(dispatch.holds(&Reads::ExternalImports(None)));
 }

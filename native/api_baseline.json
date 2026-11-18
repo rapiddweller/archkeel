@@ -1170,6 +1170,7 @@
     "field data::gap_data::GapData.annotation: Option<String>",
     "field data::gap_data::GapData.attribute: Option<String>",
     "field data::gap_data::GapData.code: Option<ReasonCode>",
+    "field data::gap_data::GapData.dispatch: bool",
     "field data::gap_data::GapData.door: Option<DoorSite>",
     "field data::gap_data::GapData.effect: Option<GapEffect>",
     "field data::gap_data::GapData.file: Option<String>",

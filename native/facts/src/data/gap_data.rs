@@ -18,6 +18,9 @@ pub struct GapData {
     /// The closed code of the reason.
     #[serde(skip)]
     pub code: Option<ReasonCode>,
+    /// The gap is an unresolved dispatch to an internal module in a linked collector reply.
+    #[serde(skip)]
+    pub dispatch: bool,
     /// The reason as written.
     #[serde(default, skip_serializing_if = "crate::skip::omitted")]
     pub reason: Option<String>,

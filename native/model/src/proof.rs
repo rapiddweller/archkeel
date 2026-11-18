@@ -81,7 +81,7 @@ pub(crate) fn state(
     // every model: no rule reading of one mount can release a rule of any model.
     if mounts.is_some_and(|mounted| !mounted.is_empty()) {
         let gaps = observed.pair_gaps.iter();
-        if let Some(held) = Held::of(gaps.map(|(a, b)| (a.as_str(), b.as_str()))) {
+        if let Some(held) = Held::of(gaps.map(|(a, b, _)| (a.as_str(), b.as_str()))) {
             return cause(Cause::PairGaps(held));
         }
     }
