@@ -15,44 +15,8 @@ use serde_json::{Map, Value};
 #[path = "html.rs"]
 mod html;
 
-/// The canonical bytes of one engine frame. The field is private: only `Ruling::frame` makes one.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct EngineFrame {
-    bytes: Vec<u8>,
-}
-
-impl EngineFrame {
-    /// The bytes, to be written one time.
-    pub fn into_bytes(self) -> Vec<u8> {
-        self.bytes
-    }
-}
-
-/// Why the parts of the core give no frame.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum FrameError {
-    /// The parts are not a JSON object.
-    NotAnObject,
-    /// A part has a key that only the ruling writes.
-    RulingKey(String),
-    /// The bytes cannot be written.
-    Encode(String),
-}
-
-impl std::fmt::Display for FrameError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FrameError::NotAnObject => formatter.write_str("the parts of the frame are no object"),
-            FrameError::RulingKey(key) => {
-                write!(
-                    formatter,
-                    "the part {key} is a key that only the ruling writes"
-                )
-            }
-            FrameError::Encode(error) => formatter.write_str(error),
-        }
-    }
-}
+mod output;
+pub(crate) use output::{EngineFrame, FrameError};
 
 fn object(value: Result<Value, serde_json::Error>) -> Result<Map<String, Value>, FrameError> {
     match value.map_err(|error| FrameError::Encode(error.to_string()))? {
@@ -119,5 +83,5 @@ pub(crate) fn write<P: Serialize>(
     }
     let bytes = serde_json::to_vec(&Value::Object(frame))
         .map_err(|error| FrameError::Encode(error.to_string()))?;
-    Ok(EngineFrame { bytes })
+    Ok(output::frame(bytes))
 }

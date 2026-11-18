@@ -73,12 +73,14 @@ fn construct_absence_needs_the_receipt_and_a_complete_scope() -> Result<(), Stri
     let pass = run(json!({}), false, "partial", false)?;
     assert!(
         matches!(pass.decision().map(|d| d.verdict()), Some(Verdict::Unknown)),
-        "{pass:?}"
+        "{:?}",
+        pass.decision()
     );
     let gap = run(json!({}), false, "partial", true)?;
     assert!(
         matches!(gap.decision().map(|d| d.verdict()), Some(Verdict::Unknown)),
-        "{gap:?}"
+        "{:?}",
+        gap.decision()
     );
     let empty = run(json!({"source": "missing"}), false, "partial", false)?;
     assert!(
@@ -86,7 +88,8 @@ fn construct_absence_needs_the_receipt_and_a_complete_scope() -> Result<(), Stri
             empty.decision().map(|d| d.verdict()),
             Some(Verdict::Unknown)
         ),
-        "{empty:?}"
+        "{:?}",
+        empty.decision()
     );
     Ok(())
 }
@@ -97,7 +100,8 @@ fn construct_fail_comes_before_a_gap_and_exemptions_do_not_drop_neighbors() -> R
         let fail = run(json!({}), true, "partial", gap)?;
         assert!(
             matches!(fail.decision().map(|d| d.verdict()), Some(Verdict::Fail)),
-            "{fail:?}"
+            "{:?}",
+            fail.decision()
         );
         assert_eq!(fail.violations().len(), 1);
         let Some(crate::Violation::Construct(row)) = fail.violations().first() else {
@@ -118,7 +122,8 @@ fn construct_fail_comes_before_a_gap_and_exemptions_do_not_drop_neighbors() -> R
         let pass = run(json!({key: [OWNER]}), true, "partial", false)?;
         assert!(
             matches!(pass.decision().map(|d| d.verdict()), Some(Verdict::Unknown)),
-            "{pass:?}"
+            "{:?}",
+            pass.decision()
         );
         let fail = run(
             json!({key: [format!("{OWNER}.neighbor")]}),
@@ -128,7 +133,8 @@ fn construct_fail_comes_before_a_gap_and_exemptions_do_not_drop_neighbors() -> R
         )?;
         assert!(
             matches!(fail.decision().map(|d| d.verdict()), Some(Verdict::Fail)),
-            "{fail:?}"
+            "{:?}",
+            fail.decision()
         );
         let unknown = run(json!({key: [OWNER]}), true, "partial", true)?;
         assert!(
@@ -136,7 +142,8 @@ fn construct_fail_comes_before_a_gap_and_exemptions_do_not_drop_neighbors() -> R
                 unknown.decision().map(|d| d.verdict()),
                 Some(Verdict::Unknown)
             ),
-            "{unknown:?}"
+            "{:?}",
+            unknown.decision()
         );
     }
     Ok(())
@@ -151,7 +158,8 @@ fn a_partial_or_unsupported_inventory_never_proves_absence() -> Result<(), Strin
                 result.decision().map(|d| d.verdict()),
                 Some(Verdict::Unknown)
             ),
-            "{result:?}"
+            "{:?}",
+            result.decision()
         );
         assert!(result.decision().and_then(|d| d.reason()).is_some());
     }

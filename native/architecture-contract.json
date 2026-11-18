@@ -2061,7 +2061,8 @@
       "layer": "report",
       "packages": [],
       "exact_modules": [
-        "native.archkeel_report.engine_frame"
+        "native.archkeel_report.engine_frame",
+        "native.archkeel_report.engine_frame.output"
       ],
       "responsibilities": [
         "Write the bytes of one engine frame of the core (AD-388)."

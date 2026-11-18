@@ -76,7 +76,6 @@ pub use placement_row::PlacedClass;
 pub use violation::{Cited, ConstructViolation, CycleStep, Cyclic, Layered, Published, Violation};
 
 /// The result of one rule.
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Outcome {
     rule: String,
     kind: RuleKind,
