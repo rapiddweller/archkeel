@@ -19,12 +19,19 @@ ARCHKEEL_FETCH_SOURCES=1 uv run pytest -q -n 0 -s tests/test_cli_phase_timings_r
 ```
 
 - `ARCHKEEL_SOURCE_CACHE=DIR` keeps the checkout. With the checkout in `DIR` the run needs no network
-  (offline replay).
-- `ARCHKEEL_TIMINGS_RUNS=N` sets the number of runs (default 5). `ARCHKEEL_TIMINGS_DIR=DIR` sets the
-  output folder (default `test-artifacts/phase-timings`).
-- Each run writes its own file `run-N.timings.json` (the file of `--timings`, never replaced). The test
-  adds `summary.json` (the pin, the machine, each run and the spread) and `summary.md` (the table, also
-  written to the job summary of CI).
+  (offline replay). A cached checkout is **verified before use** (`tools/fixture_source.verify_checkout`):
+  the object store must be sound (`git fsck`, no borrowed objects, replacement refs ignored), `HEAD` must
+  be the pin, and the files of the folder must be exactly the files of that commit with the hash of
+  each blob. A wrong folder, another commit, a changed, added or deleted file, or a damaged store is an
+  error. The cache is not repaired, not deleted and not fetched again.
+- `ARCHKEEL_TIMINGS_RUNS=N` sets the number of runs (default 5).
+- `ARCHKEEL_TIMINGS_DIR=DIR` sets the output folder (default `test-artifacts/phase-timings`). Each run
+  of the test makes **a new folder of its own** `run-<UTC time>-<random>` below it, after the source is
+  verified. Nothing in `DIR` is ever deleted or reused, so a folder with your files, or a second run at
+  the same time, is safe.
+- The folder holds `run-N.timings.json` for each run (the file of `--timings`, which creates a new file
+  and never replaces one), `summary.json` (the pin, the machine, each run and the spread) and
+  `summary.md` (the table, also written to the job summary of CI). CI uploads the whole output folder.
 
 ## What is measured, and what is not
 
@@ -36,7 +43,9 @@ ARCHKEEL_FETCH_SOURCES=1 uv run pytest -q -n 0 -s tests/test_cli_phase_timings_r
 
 ## Not set yet
 
-- **No limit.** No budget per phase, no ratchet, no ratio. The spread of one laptop run (load about
+- **No limit.** No budget per phase, no ratchet, no ratio. The two time limits that exist are safety
+  limits against a hang, not budgets: 600 s for one core run (`native_scan.py`) and 40 minutes for a
+  Full job. The spread of one laptop run (load about
   9) was 8 to 16 % of the median for the wall time, and 1 % for the memory; small figures such as
   `outside_core_seconds` spread over 160 %. The spread on the CI runner is not known.
 - Open before a limit: how many nights give a stable spread, whether a limit uses the median or the

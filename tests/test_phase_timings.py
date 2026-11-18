@@ -5,11 +5,14 @@
 
 import json
 import sys
+import threading
 from pathlib import Path
 
 import pytest
+from test_report_gallery_sources import _upstream
 
 from tools import phase_timings
+from tools.fixture_source import SourceError
 from tools.phase_timings import PHASES, Run
 
 
@@ -57,3 +60,133 @@ def test_one_run_separates_the_wall_time_of_the_command_from_the_core_and_the_me
     assert run.cli_wall_seconds > 0
     assert run.peak_rss_bytes > 50 << 20, "the memory of the command, in bytes"
     assert json.loads(timings.read_text(encoding="utf-8"))["protocol"].endswith("-1")
+
+
+# The output folders and the pinned source of the reference run (#659, review of PR #1838).
+# A local repository stands in for the project; nothing here needs the network.
+LINE = {
+    "protocol": "archkeel-core-timings-1",
+    "clock": "monotonic",
+    "unit": "seconds",
+    "phases": {name: 0.001 for name in PHASES},
+    "core_seconds": 0.01,
+}
+STUB = (
+    "import json, sys\n"
+    "open(sys.argv[1], 'w').write(json.dumps(%r) + chr(10))\n"
+    "print('frame of ' + sys.argv[2])\n"
+)
+
+
+def _reference(tmp_path: Path) -> Path:
+    """A fixture folder of ours with the pin of a local repository."""
+    reference = tmp_path / "reference"
+    reference.mkdir()
+    (reference / "SOURCE.json").write_text(json.dumps(_upstream(tmp_path)), encoding="utf-8")
+    return reference
+
+
+def _command(root: Path, timings: Path) -> list[str]:
+    return [sys.executable, "-c", STUB % (LINE,), str(timings), str(root)]
+
+
+def _sentinel(folder: Path) -> Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "inner").mkdir(exist_ok=True)
+    (folder / "inner" / "deep.txt").write_text("keep\n")
+    (folder / "important.txt").write_text("keep\n")
+    return folder
+
+
+def _intact(folder: Path) -> bool:
+    return (folder / "important.txt").read_text() == "keep\n" and (
+        folder / "inner" / "deep.txt"
+    ).read_text() == "keep\n"
+
+
+def test_a_run_folder_is_new_and_nothing_in_the_output_folder_is_deleted(tmp_path: Path) -> None:
+    out = _sentinel(tmp_path / "out")
+    folders = [phase_timings.new_run_dir(out) for _ in range(3)]
+    assert len({*folders}) == 3 and all(folder.is_dir() for folder in folders)
+    assert _intact(out)
+    assert {path.name for path in out.iterdir()} == {
+        "important.txt",
+        "inner",
+        *(f.name for f in folders),
+    }
+
+
+def test_many_runs_at_once_get_folders_of_their_own(tmp_path: Path) -> None:
+    out, found = tmp_path / "out", []
+    threads = [
+        threading.Thread(target=lambda: found.append(phase_timings.new_run_dir(out)))
+        for _ in range(16)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert len({*found}) == 16 == len(list(out.iterdir()))
+
+
+def test_a_reference_run_keeps_one_folder_with_its_files_and_leaves_the_rest(
+    tmp_path: Path,
+) -> None:
+    reference, out = _reference(tmp_path), _sentinel(tmp_path / "out")
+    folder, runs, verdicts = phase_timings.reference_run(
+        reference, _command, runs=2, out=out, cache=tmp_path / "cache", env={}
+    )
+    assert _intact(out) and folder.parent == out and len(runs) == 2 and len(verdicts) == 1
+    assert sorted(path.name for path in folder.iterdir()) == [
+        "run-1.timings.json",
+        "run-2.timings.json",
+    ]
+
+
+def test_two_reference_runs_at_once_do_not_delete_each_other(tmp_path: Path) -> None:
+    reference, out = _reference(tmp_path), _sentinel(tmp_path / "out")
+    cache, folders, errors = tmp_path / "cache", [], []
+
+    def run() -> None:
+        try:
+            folders.append(
+                phase_timings.reference_run(
+                    reference, _command, runs=2, out=out, cache=cache, env={}
+                )[0]
+            )
+        except BaseException as error:  # noqa: BLE001 - the test reports it
+            errors.append(error)
+
+    threads = [threading.Thread(target=run) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert not errors, errors
+    assert len({*folders}) == 2 and _intact(out)
+    assert all(len(list(folder.iterdir())) == 2 for folder in folders)
+
+
+def test_a_failed_fetch_or_a_refused_cache_leaves_the_output_folder_as_it_was(
+    tmp_path: Path,
+) -> None:
+    reference, out = _reference(tmp_path), _sentinel(tmp_path / "out")
+    pinned = (reference / "SOURCE.json").read_text()
+    gone = {**json.loads(pinned), "commit": "0" * 40}
+    (reference / "SOURCE.json").write_text(json.dumps(gone))
+    with pytest.raises(SourceError):
+        phase_timings.reference_run(
+            reference, _command, runs=2, out=out, cache=tmp_path / "c1", env={}
+        )
+    assert _intact(out) and {path.name for path in out.iterdir()} == {"important.txt", "inner"}
+    # A cache with the right name and other bytes: refused, and out is untouched.
+    (reference / "SOURCE.json").write_text(pinned)
+    cache = tmp_path / "cache"
+    phase_timings.reference_run(
+        reference, _command, runs=2, out=tmp_path / "o2", cache=cache, env={}
+    )
+    (next(cache.iterdir()) / "pkg" / "a.py").write_text("x = 2\n")
+    before = {path.name for path in out.iterdir()}
+    with pytest.raises(SourceError, match="differs from the pinned commit"):
+        phase_timings.reference_run(reference, _command, runs=2, out=out, cache=cache, env={})
+    assert _intact(out) and {path.name for path in out.iterdir()} == before

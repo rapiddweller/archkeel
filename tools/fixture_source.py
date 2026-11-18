@@ -8,16 +8,20 @@ A fixture of a third-party project holds only our own files (contract, config, g
 never committed. `checkout` fetches that exact commit with a shallow Git fetch into a cache folder.
 A fetch that fails is an error and never a half result: the cache holds only a complete checkout
 (it is moved into place after the fetch), so a failed build can never publish a page with a
-silently missing project.
+silently missing project. A cached checkout is used only after `verify_checkout` shows that its
+bytes are the pinned commit.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
 import tempfile
+import uuid
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -71,9 +75,86 @@ def _fetch(spec: Mapping[str, Any], target: Path) -> None:
         raise SourceError(f"fetched {head.stdout.strip()}, the pin is {spec['commit']}")
 
 
+def _git_objects(git_dir: Path, *arguments: str) -> bytes:
+    """Git on the object store of a cached checkout: no replacement refs, and none of the GIT_*
+    variables that could point it at another store."""
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    done = subprocess.run(
+        ["git", "--no-replace-objects", "--git-dir", str(git_dir), *arguments],
+        capture_output=True,
+        timeout=TIMEOUT,
+        check=False,
+        env=env,
+    )
+    if done.returncode:
+        raise SourceError(
+            f"git {arguments[0]}: {done.stderr.decode(errors='replace').strip()[:200]}"
+        )
+    return done.stdout
+
+
+def _blob_id(data: bytes) -> str:
+    return hashlib.sha1(b"blob %d\0" % len(data) + data, usedforsecurity=False).hexdigest()
+
+
+def _tracked(git_dir: Path, commit: str) -> dict[str, str]:
+    """Each file of the commit, by path, with its blob id: read from the verified objects."""
+    found: dict[str, str] = {}
+    for entry in _git_objects(git_dir, "ls-tree", "-r", "-z", "--full-tree", commit).split(b"\0"):
+        if not entry:
+            continue
+        meta, _, path = entry.partition(b"\t")
+        _, kind, blob = meta.decode().split()
+        if kind != "blob":
+            raise SourceError(f"the pinned commit holds {kind} {path.decode(errors='replace')}")
+        found[path.decode()] = blob
+    return found
+
+
+def verify_checkout(ready: Path, commit: str) -> None:
+    """Refuse a cached checkout whose bytes are not the pinned commit (#659 review).
+
+    The folder name and `HEAD` prove nothing: a working file can be changed, added or ignored. So
+    the object store is checked (`git fsck` hashes each object; no alternates, no replacement refs),
+    the commit must be the pin, and the files of the folder must be exactly the files of that
+    commit, each with the content hash of its blob. A damaged or changed cache is an error: it is
+    not repaired, deleted or fetched again here."""
+    git_dir = ready / ".git"
+    if git_dir.is_symlink() or not git_dir.is_dir():
+        raise SourceError(f"{ready.name} is not a git checkout: no folder .git")
+    if (git_dir / "objects" / "info" / "alternates").exists():
+        raise SourceError(f"{ready.name} borrows objects from another store")
+    _git_objects(git_dir, "fsck", "--no-dangling", "--no-progress")
+    head = _git_objects(git_dir, "rev-parse", "--verify", "HEAD^{commit}").decode().strip()
+    if head != commit:
+        raise SourceError(f"{ready.name} is at {head}, the pin is {commit}")
+    expected = _tracked(git_dir, commit)
+    found: dict[str, bytes] = {}
+    for folder, names, files in os.walk(ready):
+        if Path(folder) == ready:
+            names[:] = [name for name in names if name != ".git"]
+        # A link to a folder is listed with the folders; it is a file of the commit.
+        for name in [*files, *(name for name in names if (Path(folder) / name).is_symlink())]:
+            path = Path(folder) / name
+            data = os.fsencode(os.readlink(path)) if path.is_symlink() else path.read_bytes()
+            found[path.relative_to(ready).as_posix()] = data
+    odd = sorted(set(found) ^ set(expected))
+    changed = sorted(
+        name for name in set(found) & set(expected) if _blob_id(found[name]) != expected[name]
+    )
+    if odd or changed:
+        names = [*odd, *changed][:5]
+        raise SourceError(
+            f"{ready.name} differs from the pinned commit ({len(odd)} added or missing, "
+            f"{len(changed)} changed), for example {', '.join(names)}"
+        )
+
+
 @contextmanager
 def checkout(spec: Mapping[str, Any], cache: Path | None = None) -> Iterator[Path]:
-    """The pinned commit as a folder. A cache folder keeps the checkout for the next build."""
+    """The pinned commit as a folder. A cache folder keeps the checkout for the next build. A
+    cached checkout is verified against the pin before use (`verify_checkout`), never silently
+    fixed."""
     slug = re.sub(r"[^A-Za-z0-9]+", "-", spec["repo"].split("//", 1)[-1]).strip("-")
     with tempfile.TemporaryDirectory(prefix="archkeel-source-") as scratch:
         if cache is not None:
@@ -90,11 +171,21 @@ def checkout(spec: Mapping[str, Any], cache: Path | None = None) -> Iterator[Pat
                 except (SourceError, OSError, subprocess.TimeoutExpired) as err:
                     error = SourceError(str(err))
                     continue
-                shutil.move(str(partial), ready)
+                # A new name in the cache folder, then one rename: two builds that fetch the same
+                # pin never put one folder into the other.
+                staging = home / f".{ready.name}.{uuid.uuid4().hex}"
+                shutil.move(str(partial), staging)
+                try:
+                    os.rename(staging, ready)
+                except OSError:
+                    shutil.rmtree(staging, ignore_errors=True)
+                    if not ready.is_dir():
+                        raise
                 error = None
                 break
             if error is not None:
                 raise error
+        verify_checkout(ready, spec["commit"])
         yield ready
 
 

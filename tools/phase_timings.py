@@ -19,18 +19,22 @@ runner first.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import statistics
 import subprocess
 import sys
-from collections.abc import Mapping, Sequence
+import tempfile
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic
 from typing import Any
 
 from archkeel.cli.core_output import read_timings
+from tools.fixture_tree import fixture_tree
 
 # `ru_maxrss` of the finished child: bytes on macOS, kibibytes elsewhere.
 _RSS_UNIT = 1 if sys.platform == "darwin" else 1024
@@ -125,3 +129,45 @@ def markdown(receipt: Mapping[str, Any]) -> str:
         lines.append(f"| {name} | {' | '.join(cells)} | {found['spread']:.0%} |")
     lines += ["", "No limit is set: " + receipt["limits"], ""]
     return "\n".join(lines)
+
+
+def new_run_dir(out: Path) -> Path:
+    """A new folder of its own below `out`, made in one step. Nothing in `out` is ever deleted or
+    reused, so a folder that a person named, or another run, stays as it is."""
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    return Path(tempfile.mkdtemp(prefix=f"run-{stamp}-", dir=out))
+
+
+def reference_run(
+    reference: Path,
+    command: Callable[[Path, Path], Sequence[str]],
+    *,
+    runs: int,
+    out: Path,
+    cache: Path | None,
+    env: Mapping[str, str],
+) -> tuple[Path, list[Run], set[tuple[int, str]]]:
+    """Fetch the pinned source of `reference`, scan it `runs` times with the command, and keep each
+    timings file in a new folder below `out`. The folder is made after the source is verified, so a
+    failed fetch leaves `out` as it was. Give the folder, the runs and the set of (exit code, frame
+    hash): one entry when every run gave the same verdict."""
+    done: list[Run] = []
+    verdicts: set[tuple[int, str]] = set()
+    with fixture_tree(reference, None, cache) as root:
+        folder = new_run_dir(out)
+        for number in range(1, runs + 1):
+            timings, stdout = folder / f"run-{number}.timings.json", folder / "frame.tmp"
+            run = measure(command(root, timings), timings, stdout, env)
+            verdicts.add((run.exit_code, hashlib.sha256(stdout.read_bytes()).hexdigest()))
+            stdout.unlink()  # the frame is large; its hash goes into the receipt
+            done.append(run)
+    return folder, done, verdicts
+
+
+def write_receipt(folder: Path, receipt: Mapping[str, Any]) -> str:
+    """`summary.json` and `summary.md` in the folder of the run; the table."""
+    (folder / "summary.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    table = markdown(receipt)
+    (folder / "summary.md").write_text(table, encoding="utf-8")
+    return table

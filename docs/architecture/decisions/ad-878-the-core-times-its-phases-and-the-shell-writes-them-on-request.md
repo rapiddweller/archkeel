@@ -42,7 +42,9 @@ the wall-clock seconds of the phases of the core. No other output changes.
 
 - **Nightly reference.** One test of the existing nightly scans a pinned public project (SymPy, a fixed
   commit) several times with `--timings`, keeps one file for each run and a table of the spread, and sets
-  no limit (`tests/timing_reference/README.md`, `tools/phase_timings.py`).
+  no limit (`tests/timing_reference/README.md`, `tools/phase_timings.py`). Each run writes into a new
+  folder of its own and deletes nothing; a cached source is used only when its bytes are the pinned
+  commit (`tools/fixture_source.verify_checkout`).
 
 **Rejected.** A `timings` key in the frame (frame schema and system join change, and a snapshot would
 hold seconds); a file written by the core (it is read-only); an environment switch or a global
