@@ -50,7 +50,7 @@ fn equal(request: &[u8]) {
     assert_eq!(limits.interface_boundary, LimitSupport::Supported);
     assert_eq!(limits.dependency_symbols, LimitSupport::Supported);
     let features = &mut stated.facts.capabilities.resolution_features;
-    assert_eq!(features.pop().as_deref(), Some("rust-item-routes-v1"));
+    assert_eq!(features.pop().as_deref(), Some("rust-item-routes-v2"));
     assert_eq!(
         serde_json::to_vec(&stated).unwrap(),
         serde_json::to_vec(binary.reply()).unwrap(),
@@ -200,6 +200,16 @@ fn the_table_of_the_rust_collector_registers_its_sections_and_binds_the_interfac
             status: ConstructSupport::Supported,
         });
     assert_eq!(refused(construct), not_registered);
+    let wire = serde_json::to_string(&reply)
+        .unwrap()
+        .replace("rust-item-routes-v2", "rust-item-routes-v1");
+    let mut legacy: archkeel_facts::envelope::Reply = serde_json::from_str(&wire).unwrap();
+    assert_eq!(refused(legacy.clone()), "");
+    legacy.facts.profile_limits = reply.facts.profile_limits;
+    assert_eq!(
+        refused(legacy),
+        "the interface statement does not cover separate named sites"
+    );
     let mut routes = reply;
     routes.facts.capabilities.resolution_features.pop();
     if let Some(limits) = routes.facts.profile_limits.as_mut() {
@@ -207,6 +217,6 @@ fn the_table_of_the_rust_collector_registers_its_sections_and_binds_the_interfac
     }
     assert_eq!(
         refused(routes),
-        "an interface statement holds exactly with the feature rust-item-routes-v1"
+        "an interface statement holds exactly with the feature rust-item-routes-v2"
     );
 }

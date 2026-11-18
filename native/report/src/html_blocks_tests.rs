@@ -60,7 +60,7 @@ fn the_unknown_rules_are_grouped_by_cause_and_the_largest_cause_comes_first() {
     assert!(first < second, "the cause with two rules is first");
     let code = |id: &str| format!("<span class=\"rp-code\">{id}</span>");
     assert!(section.contains(&format!(
-        "Holds {} (complete requires), {} (complete requires)",
+        "Holds {} (complete requires)<br>{} (complete requires)",
         code("A"),
         code("B")
     )));

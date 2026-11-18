@@ -42,6 +42,23 @@ fn joined(parts: &[Vec<u8>]) -> Value {
 }
 
 #[test]
+fn system_keeps_each_parts_rule_rationale() {
+    let part = |id: &str, text: &str| {
+        serde_json::to_vec(&json!({
+            "engine": "e", "protocol": "p", "status": "PASS", "scope": "complete",
+            "rules": {id: ["complete_requires", "PASS"]},
+            "rule_rationales": {id: text}
+        }))
+        .unwrap()
+    };
+    let frame = joined(&[part("A", "First reason."), part("B", "Second reason.")]);
+    assert_eq!(
+        frame["rule_rationales"],
+        json!({"A": "First reason.", "B": "Second reason."})
+    );
+}
+
+#[test]
 fn the_system_frame_keeps_the_premise_of_each_part_once() {
     let shell = "Code outside the scan roots, including test code, hands in no module object of the scan and writes no binding of a module or class of the scan.";
     let frame = joined(&[part("PASS", Some(shell)), part("PASS", None)]);
@@ -54,6 +71,23 @@ fn the_system_frame_keeps_the_premise_of_each_part_once() {
         (json!("a; b"), json!("FAIL"))
     );
     assert_eq!(joined(&[part("PASS", None)]).get("premise"), None);
+}
+
+#[test]
+fn the_system_keeps_exclusions_from_each_part() {
+    let make = |path: &str| {
+        serde_json::to_vec(&json!({
+            "engine": "e", "protocol": "p", "status": "PASS", "scope": "complete",
+            "excluded_sources": [path],
+        }))
+        .unwrap()
+    };
+    let frame = joined(&[make("one/test/a.dart"), make("two/test/b.dart")]);
+    assert_eq!(
+        frame["excluded_sources"],
+        json!(["one/test/a.dart", "two/test/b.dart"])
+    );
+    assert_eq!(frame["status"], "PASS");
 }
 
 fn part_with_scope(status: &str, scope: &Value) -> Vec<u8> {

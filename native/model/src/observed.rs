@@ -24,8 +24,10 @@ use std::collections::BTreeSet;
 
 use archkeel_facts::envelope::{
     ConstructSupport, Dirty, Facts, ProfileLimits, RequirementState, Role, Runtime as RuntimeFact,
+    TargetSource,
 };
 use archkeel_facts::profile_traits::{Layout, PairGapDrop};
+use archkeel_facts::vocab::ResolutionDimension;
 use archkeel_facts::{GapFact, Section};
 
 use crate::coverage::data_of;
@@ -54,8 +56,10 @@ pub(crate) struct Observed {
     pub(crate) profile_limits: Option<ProfileLimits>,
     /// The linked collector's stated assumption (AD-540), absent for a wire reply.
     pub(crate) scope_premise: Option<String>,
-    /// Each pair gap's source, target, and whether it can only be internal dispatch.
-    pub(crate) pair_gaps: Vec<(String, String, bool)>,
+    pub(crate) excluded_sources: Vec<String>,
+    /// Each pair's source, target, dispatch flag and execution-only flag.
+    pub(crate) pair_gaps: Vec<(String, String, bool, bool)>,
+    pub(crate) named_sites: BTreeSet<(String, String)>,
     /// Each gap that states its effect (AD-564).
     pub(crate) effect_gaps: Vec<EffectGap>,
     /// The host could not read the head or the state of the work tree.
@@ -119,7 +123,11 @@ impl Dynamic {
 }
 
 /// The scope facts of the facts of a reply.
-pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
+pub(crate) fn observed(
+    facts: &Facts,
+    classes: &[Class],
+    live_target: Option<TargetSource>,
+) -> Observed {
     // A gap between two modules that states an effect is not a pair gap (`gap_class::Class`).
     let pair_gaps = facts
         .coverage
@@ -133,17 +141,21 @@ pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
                 data.source_module.as_ref()?.as_str().to_owned(),
                 data.module.as_ref()?.as_str().to_owned(),
                 data.dispatch,
+                execution_only(&gap.data),
             ))
         })
         .collect();
-    let dynamic_imports = facts
-        .sections
-        .iter()
-        .filter_map(|section| match section {
-            Section::Unknowns(records) => Some(records),
-            _ => None,
-        })
-        .flatten()
+    let unknowns = || {
+        facts
+            .sections
+            .iter()
+            .filter_map(|section| match section {
+                Section::Unknowns(records) => Some(records),
+                _ => None,
+            })
+            .flatten()
+    };
+    let dynamic_imports = unknowns()
         .filter_map(|record| match &record.data {
             GapFact::DynamicImportLimit(data) => Some(Dynamic {
                 source: data.source_module.as_ref().map(|m| m.as_str().to_owned()),
@@ -158,21 +170,25 @@ pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
         .collect();
     Observed {
         profile_limits: facts.profile_limits,
+        named_sites: unknowns()
+            .filter_map(|gap| {
+                let GapFact::SourceResolutionGap(data) = &gap.data else {
+                    return None;
+                };
+                if data.resolution_dimension != Some(ResolutionDimension::Imports) {
+                    return None;
+                }
+                let (source, target) = (data.source_module.as_ref()?, data.module.as_ref()?);
+                (source != target).then(|| (source.as_str().to_owned(), target.as_str().to_owned()))
+            })
+            .collect(),
         scope_premise: facts.scope_premise.clone(),
+        excluded_sources: facts.excluded_sources.clone(),
         pair_gaps,
         effect_gaps: gap_class::effect_gaps(&facts.coverage, classes),
         git_unknown: facts.source.git_head == "unknown"
             || matches!(facts.source.dirty, Dirty::Unknown(_)),
-        runtime: if facts.profile_limits.is_some()
-            && facts.profile.selects_target_without_requirement()
-            && matches!(
-                facts.runtime.requirement_state,
-                RequirementState::MetadataMissing | RequirementState::RequirementMissing
-            ) {
-            Runtime::Satisfied
-        } else {
-            runtime(&facts.runtime)
-        },
+        runtime: reply_runtime(&facts.runtime, live_target),
         dynamic_imports,
         constructs: facts
             .capabilities
@@ -212,6 +228,29 @@ pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
                 )
             })
             .collect(),
+    }
+}
+
+// A wire marker alone cannot prove that the live collector made this claim.
+fn execution_only(gap: &GapFact) -> bool {
+    matches!(gap, GapFact::CollectionGap(data)
+        if data.dispatch && data.resolution_dimension == Some(ResolutionDimension::RuntimeEffects))
+}
+
+/// A verified live target from configuration or defaults needs no comparison against an absent
+/// project requirement. The target source in a saved reply cannot grant this exception.
+fn reply_runtime(reported: &RuntimeFact, live_target: Option<TargetSource>) -> Runtime {
+    match (reported, live_target) {
+        (
+            RuntimeFact {
+                required: None,
+                requirement_state:
+                    RequirementState::MetadataMissing | RequirementState::RequirementMissing,
+                ..
+            },
+            Some(TargetSource::Config | TargetSource::Default),
+        ) if release(&reported.version).is_some() => Runtime::Satisfied,
+        _ => runtime(reported),
     }
 }
 

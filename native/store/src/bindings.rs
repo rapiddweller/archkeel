@@ -11,8 +11,8 @@ use std::collections::{HashMap, HashSet};
 use archkeel_facts::envelope::{Evidence, Facts, FileFact, OwnedFile, Target};
 use archkeel_facts::fields::Named;
 use archkeel_facts::ids::EvidenceId;
-use archkeel_facts::vocab::Status;
-use archkeel_facts::{FactData, Record, Section};
+use archkeel_facts::vocab::{ResolutionDimension, Status};
+use archkeel_facts::{FactData, GapFact, Record, Section};
 
 use crate::stored::{visit, Visitor};
 use crate::validate::unique;
@@ -55,6 +55,40 @@ impl Visitor for Bound<'_, '_, '_> {
 }
 
 impl<'a> Modules<'a> {
+    pub(crate) fn pair_site(&self, gap: &Record<GapFact>) -> Result<(), String> {
+        let (data, execution) = match &gap.data {
+            GapFact::SourceResolutionGap(data)
+                if data.resolution_dimension == Some(ResolutionDimension::Imports) =>
+            {
+                (data, false)
+            }
+            GapFact::CollectionGap(data)
+                if data.resolution_dimension == Some(ResolutionDimension::RuntimeEffects) =>
+            {
+                (data, true)
+            }
+            _ => return Err("pair site has no resolution dimension".to_owned()),
+        };
+        let endpoints = data.source_module.as_ref().zip(data.module.as_ref());
+        let bound = endpoints.is_some_and(|(source, target)| {
+            let (witness, peer) = if execution {
+                (target, source)
+            } else {
+                (source, target)
+            };
+            source != target
+                && gap.subjects == [source.as_str()]
+                && self.files.contains_key(peer.as_str())
+                && matches!(&gap.evidence_ids[..], [id] if self.files.get(witness.as_str())
+                    .is_some_and(|file| self.file(id.as_str()) == Some(file.rel_path.as_str())))
+        });
+        if bound && data.effect.is_none() && gap.fact_ids.is_empty() {
+            Ok(())
+        } else {
+            Err("pair site needs two observed modules and evidence at its site".to_owned())
+        }
+    }
+
     pub(crate) fn of(facts: &'a Facts) -> Result<Self, String> {
         let paths = facts.files.iter().map(|file| file.rel_path.as_str());
         unique(paths, "module path")?;

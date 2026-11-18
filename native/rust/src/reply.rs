@@ -21,7 +21,7 @@ use archkeel_snapshot::Snapshot;
 const SECTIONS: [&str; 3] = ["imports", "symbols", "unknowns"];
 const FEATURES: [&str; 1] = ["rust-crate-edges"];
 /// The feature of the linked reply: each import names its item and its route (AD-604).
-const ROUTES_FEATURE: &str = "rust-item-routes-v1";
+const ROUTES_FEATURE: &str = "rust-item-routes-v2";
 /// The basis of the route proofs (AD-608, #1779): a compile error rules out a second binding of
 /// a name, so the scan reads code that rustc accepts. Every typed reply states it.
 const COMPILE_PREMISE: &str = "the Rust code compiles (rustc accepts it)";
@@ -55,6 +55,7 @@ pub(crate) struct Collected {
     pub imports: Vec<Record<ImportFact>>,
     pub symbols: Vec<Record<SymbolFact>>,
     pub gaps: Vec<Record<GapFact>>,
+    named_sites: Vec<Record<GapFact>>,
     pub selected_files: Vec<String>,
     pub files_read: usize,
     pub evidence: Vec<Evidence>,
@@ -103,6 +104,7 @@ impl Collected {
             imports,
             symbols,
             gaps,
+            named_sites,
             selected_files,
             files_read,
             evidence,
@@ -113,6 +115,7 @@ impl Collected {
             Records {
                 imports,
                 symbols,
+                named_sites,
                 tail: Tail {
                     measures: None,
                     selected_files,
@@ -128,6 +131,7 @@ impl Collected {
 struct Records {
     imports: Vec<Record<ImportFact>>,
     symbols: Vec<Record<SymbolFact>>,
+    named_sites: Vec<Record<GapFact>>,
     tail: Tail,
 }
 
@@ -136,11 +140,14 @@ impl Records {
         let Self {
             imports,
             symbols,
+            named_sites,
             tail,
         } = self;
         writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
         writer.write_typed_section::<SymbolFact>(|emit| symbols.iter().for_each(emit))?;
-        writer.write_typed_section::<GapFact>(|emit| tail.gaps.iter().for_each(emit))?;
+        writer.write_typed_section::<GapFact>(|emit| {
+            tail.gaps.iter().chain(&named_sites).for_each(emit);
+        })?;
         Ok(tail)
     }
 }
@@ -180,6 +187,7 @@ impl Builder {
             imports,
             symbols,
             gaps: self.gaps.into_values().collect(),
+            named_sites: self.named_sites.into_values().collect(),
             selected_files: selected,
             files_read: walked.modules.len() + self.manifests.len(),
             evidence: self.evidence.into_values().collect(),

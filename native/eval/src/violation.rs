@@ -254,12 +254,13 @@ pub struct Cyclic {
 /// One step of the path of a cycle: two members and the imports that make the step.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CycleStep {
+    /// True when this step has no support other than declared possible imports.
+    pub possible: bool,
     /// The importing side of the edge.
     pub from: String,
     /// The target of the import as written.
     pub to: String,
-    /// The one component that owns each end of a module step; the id of the member of a
-    /// component step. `None` for a module without exactly one owner.
+    /// The owner of `from`, or `None` when the module has no unique owner.
     pub from_component: Option<String>,
     /// The component of the target, when it has one.
     pub to_component: Option<String>,
@@ -297,6 +298,8 @@ pub struct Layered {
 /// The import record that a violation cites.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Cited {
+    /// True when the dependency is possible by declaration, not observed.
+    pub possible: bool,
     /// The import that the violation cites.
     pub import: String,
     /// The module that holds the import.
@@ -312,6 +315,7 @@ impl Cited {
     fn of(rule: &str, import: &Import) -> (String, String, Self) {
         let id = stable_id("VIO", &[Part::Text(rule), Part::Text(import.id())]);
         let cited = Cited {
+            possible: import.declared(),
             import: import.id().to_owned(),
             source_module: import.source_module().to_owned(),
             target_module: import.target_module().to_owned(),

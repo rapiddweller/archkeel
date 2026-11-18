@@ -111,6 +111,12 @@
       ],
       "description": "The one assumption that the collector states for its proofs (AD-540). The word of `scope`\nstays `complete`: the shell reads it."
     },
+    "excluded_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "measures": {
       "anyOf": [
         {
@@ -140,6 +146,12 @@
           "type": "null"
         }
       ]
+    },
+    "rule_rationales": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "engine": {
       "type": "string"
@@ -329,6 +341,10 @@
             "type": "string"
           }
         },
+        "possible": {
+          "type": "boolean",
+          "description": "True for a possible dependency supplied by a declaration."
+        },
         "misplaced_class_fact": {
           "type": [
             "string",
@@ -385,6 +401,9 @@
             "string",
             "null"
           ]
+        },
+        "possible": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -453,6 +472,13 @@
             "type": "string"
           },
           "description": "The declared module prefixes that the door may import."
+        },
+        "possible_loads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The scanned targets of the possible dependency edges, not observed imports."
         },
         "changes": {
           "type": "array",
@@ -1169,6 +1195,9 @@
     "Step": {
       "type": "object",
       "properties": {
+        "possible": {
+          "type": "boolean"
+        },
         "from": {
           "type": "string"
         },

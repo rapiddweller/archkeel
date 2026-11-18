@@ -47,6 +47,11 @@ a component that owns a crate root lists such a name only at the root, so anothe
 deeper path fails. A method call passes through a root entry of its type. `model-barrier` and `core`
 list no name, because no other component uses them.
 
+An unresolved named receiver holds the interface even beside a known module edge
+([AD-898](decisions/ad-898-a-known-module-edge-does-not-prove-a-second-named-use.md)).
+A pair that leaves only impl execution unknown still holds dependency checks, but not the
+named interface ([AD-900](decisions/ad-900-a-proven-execution-pair-does-not-hide-a-named-use.md)).
+
 The core chain is core -> report -> eval -> model -> contract, store and facts
 ([AD-382](decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md)).
 The `NATIVE-NO-*-TO-*` rules forbid each upward direction also when a `requires` entry allows it.

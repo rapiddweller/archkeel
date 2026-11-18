@@ -89,16 +89,23 @@ def test_an_unknown_run_names_the_gaps_of_each_rule_and_the_rules_of_each_gap(
     assert (other["kind"], other["total"], other["gaps"]) == ("other", 0, [])
     by_gap = {gap["id"]: gap for gap in holds["gaps"]}
     total = holds["gaps_total"]
-    assert total > 0 and holds["gaps_holding"] == len(by_gap) == total
+    # The computed import has its own effect. The whole-scope gaps already hold the rules.
+    whole = total - 1
+    assert holds["gaps_holding"] == len(by_gap) == whole > 20
+    assert {gap["reason"] for gap in frame["collection_gaps"]} - {
+        gap["reason"] for gap in by_gap.values()
+    } == {"Computed dynamic_import cannot be resolved"}
     for rule in gapped:
         held = holds["rules"][rule]
-        assert (held["kind"], held["total"], held["truncated"]) == ("coverage_gaps", total, True)
+        assert (held["kind"], held["total"], held["truncated"]) == ("coverage_gaps", whole, True)
         assert len(held["gaps"]) == 20 and held["cause"] == frame["unknown_kinds"][rule]
         # Both directions agree: a gap that a rule lists lists that rule.
         assert all(rule in by_gap[gap]["rules"] for gap in held["gaps"])
     assert all(sorted(gap["rules"]) == gapped for gap in by_gap.values())
     assert all(gap["rules_total"] == 5 and not gap["truncated"] for gap in by_gap.values())
-    assert frame["scope"].endswith(f"{total} coverage gaps")
+    assert frame["scope"].endswith(
+        f"{total} coverage gaps; {whole} of them leave the whole scope unknown"
+    )
 
 
 LIB = "mod a;\nmod b;\nmod c;\n"

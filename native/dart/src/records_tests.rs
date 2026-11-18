@@ -23,6 +23,7 @@ fn source(rel_path: &str, module: &str, content: &str) -> Source {
 
 fn discovery(sources: Vec<Source>, problems: Vec<Problem>) -> Discovery {
     Discovery {
+        excluded: Vec::new(),
         sources,
         package_name: "shop".to_owned(),
         package_dir: String::new(),

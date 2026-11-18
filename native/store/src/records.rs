@@ -14,8 +14,10 @@ use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::envelope::{ConstructSupport, Facts};
 use archkeel_facts::ids::EvidenceId;
-use archkeel_facts::vocab::{EvidenceClass, InventoryStatus, MemberKind, Status};
-use archkeel_facts::{FactData, Record, Section};
+use archkeel_facts::vocab::{
+    EvidenceClass, InventoryStatus, MemberKind, ResolutionDimension, Status,
+};
+use archkeel_facts::{FactData, GapFact, IntoSection, Record, Section};
 
 use crate::bindings::Modules;
 use crate::stored::{visit, Visitor};
@@ -281,6 +283,13 @@ impl Pass<'_> {
     }
 
     fn gaps(&self, sections: &[Section]) -> Result<(), String> {
+        let named_routes = crate::validation::named_routes(self.facts);
+        if named_routes {
+            let sites = sections.iter().filter_map(GapFact::records).flatten();
+            for gap in sites.filter(|gap| matches!(gap.data, GapFact::SourceResolutionGap(_))) {
+                self.modules.pair_site(gap)?;
+            }
+        }
         for gap in &self.facts.coverage.gaps {
             let view = View::new(gap);
             envelope_class(&Section::Unknowns(Vec::new()), view.evidence_class)?;
@@ -292,9 +301,16 @@ impl Pass<'_> {
             if !same {
                 return Err("coverage gap must reference its source UNKNOWN record".to_owned());
             }
-            let effects = self.envelope.features.contains(SCRIPT_FEATURE);
-            self.modules
-                .effect_gap(&view, sections, &self.places, effects)?;
+            if named_routes
+                && matches!(&gap.data, GapFact::CollectionGap(data)
+                if data.resolution_dimension == Some(ResolutionDimension::RuntimeEffects))
+            {
+                self.modules.pair_site(gap)?;
+            } else {
+                let effects = self.envelope.features.contains(SCRIPT_FEATURE);
+                self.modules
+                    .effect_gap(&view, sections, &self.places, effects)?;
+            }
         }
         Ok(())
     }

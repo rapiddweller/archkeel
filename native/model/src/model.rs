@@ -219,6 +219,11 @@ impl Model {
         self.graph().observed().scope_premise.as_deref()
     }
 
+    /// The paths intentionally excluded from the source scope.
+    pub fn excluded_sources(&self) -> &[String] {
+        &self.graph().observed().excluded_sources
+    }
+
     /// True for the model of an inside contract.
     pub fn is_mount(&self) -> bool {
         self.domain.is_some()

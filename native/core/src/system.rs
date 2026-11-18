@@ -16,8 +16,9 @@ use serde_json::{json, Map, Value};
 use crate::dual_run::{InterfaceRow, PartRow, SystemFrame};
 
 /// The keys whose maps of all parts the system frame holds; a key that two parts use refuses it.
-const RULE_MAPS: [&str; 6] = [
+const RULE_MAPS: [&str; 7] = [
     "rules",
+    "rule_rationales",
     "explained",
     "violations",
     "details",
@@ -63,6 +64,13 @@ pub(crate) fn join(
     frame.insert("gaps".to_owned(), Value::Array(gaps));
     let rows = frames.iter().flat_map(|part| list(part, "collection_gaps"));
     frame.insert("collection_gaps".to_owned(), Value::Array(rows.collect()));
+    let excluded: Vec<Value> = frames
+        .iter()
+        .flat_map(|part| list(part, "excluded_sources"))
+        .collect();
+    if !excluded.is_empty() {
+        frame.insert("excluded_sources".to_owned(), Value::Array(excluded));
+    }
     join_premises(&frames, &mut frame)?;
     let ids: Vec<&str> = system.parts.iter().map(|part| part.id.as_str()).collect();
     let scope = scope(&ids, &typed, status)?;

@@ -6,6 +6,11 @@
 // requirement whose every clause the core reads can give a satisfied runtime (AD-472).
 
 use super::*;
+use crate::edges::tests::golden;
+use crate::{Graph, Producer, Settings};
+use archkeel_facts::envelope::{LimitSupport, Reply};
+use archkeel_facts::ids::{FactId, ModuleName};
+use archkeel_facts::Record;
 
 fn checked(required: Option<&str>, version: &str) -> Runtime {
     runtime(&RuntimeFact {
@@ -54,4 +59,96 @@ fn a_clause_that_the_core_does_not_read_gives_an_unread_runtime() {
         );
     }
     assert_eq!(checked(Some(">=3.9"), "3.14.0rc1"), Runtime::Unread);
+}
+
+#[test]
+fn a_missing_requirement_needs_a_bound_producer_and_a_selected_target(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut reply = golden().ok_or("the golden reply")?;
+    let facts = &mut reply.facts;
+    facts.runtime.requirement_state = RequirementState::RequirementMissing;
+    facts.profile_limits = Some(ProfileLimits {
+        dependency_symbols: LimitSupport::Supported,
+        interface_boundary: LimitSupport::Supported,
+        publication_surface: LimitSupport::Unsupported,
+    });
+    let read = |reply: &Reply, producer: Producer| {
+        let settings = Settings::new("shop".into(), reply.facts.profile.as_str().into(), vec![])
+            .with_producer(producer);
+        Graph::recorded(&reply.facts, settings)
+            .map(|graph| graph.observed().runtime)
+            .map_err(|reason| reason.to_string())
+    };
+    for source in [TargetSource::Config, TargetSource::Default] {
+        reply.facts.runtime.target_source = Some(source);
+        assert_eq!(read(&reply, Producer::Trusted)?, Runtime::Satisfied);
+        assert_eq!(read(&reply, Producer::External)?, Runtime::Unread);
+    }
+    let mut wrong_adapter = reply.clone();
+    wrong_adapter.facts.adapter.name = "other".to_owned();
+    assert_eq!(read(&wrong_adapter, Producer::Trusted)?, Runtime::Unread);
+
+    let wire: Reply = serde_json::from_slice(&serde_json::to_vec(&reply)?)?;
+    assert_eq!(
+        wire.facts.runtime.target_source,
+        Some(TargetSource::Default)
+    );
+    assert_eq!(read(&wire, Producer::Trusted)?, Runtime::Unread);
+    for source in [
+        None,
+        Some(TargetSource::Requirement),
+        Some(TargetSource::Legacy),
+    ] {
+        reply.facts.runtime.target_source = source;
+        assert_eq!(read(&reply, Producer::Trusted)?, Runtime::Unread);
+    }
+    reply.facts.runtime.target_source = Some(TargetSource::Config);
+    reply.facts.runtime.required = Some(">=3.99".into());
+    assert_eq!(read(&reply, Producer::Trusted)?, Runtime::Unread);
+    reply.facts.runtime.requirement_state = RequirementState::Declared;
+    assert_eq!(read(&reply, Producer::Trusted)?, Runtime::Mismatch);
+    reply.facts.runtime.requirement_state = RequirementState::MetadataMissing;
+    reply.facts.runtime.required = None;
+    reply.facts.runtime.version = "invalid".into();
+    assert_eq!(read(&reply, Producer::Trusted)?, Runtime::Unread);
+    Ok(())
+}
+
+#[test]
+fn an_execution_only_pair_needs_the_marker_and_live_dispatch(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let reply = golden().ok_or("the golden reply")?;
+    for (dispatch, marker, only_execution) in [
+        (false, false, false),
+        (false, true, false),
+        (true, false, false),
+        (true, true, true),
+    ] {
+        let mut facts = reply.facts.clone();
+        let mut gap = GapFact::collection("unread pair", "shop.target");
+        let GapFact::CollectionGap(data) = &mut gap else {
+            return Err("expected a collection gap".into());
+        };
+        data.source_module = Some(ModuleName::new("shop.source"));
+        data.dispatch = dispatch;
+        data.resolution_dimension = marker.then_some(ResolutionDimension::RuntimeEffects);
+        facts.coverage.gaps = vec![Record::unknown(
+            FactId::new("gap"),
+            "unread pair",
+            None,
+            "shop.source",
+            gap,
+        )];
+        let pairs = observed(&facts, &[Class::Pair], None).pair_gaps;
+        assert_eq!(
+            pairs,
+            vec![(
+                "shop.source".to_owned(),
+                "shop.target".to_owned(),
+                dispatch,
+                only_execution
+            )]
+        );
+    }
+    Ok(())
 }

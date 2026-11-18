@@ -31,6 +31,7 @@ class ViolationDetail:
     evidence: tuple[str, ...]
     members: tuple[str, ...] | None = None
     path: tuple[PathStep, ...] | None = None
+    possible: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +80,7 @@ def read_details(value: object) -> dict[str, tuple[ViolationDetail, ...]]:
                     _strings(item["evidence"], "detail.evidence"),
                     None if members is None else _strings(members, "detail.members"),
                     _path(item["path"]) if "path" in item else None,
+                    item.get("possible") is True,
                 )
             )
         result[rule] = tuple(details)

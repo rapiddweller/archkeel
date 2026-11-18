@@ -66,7 +66,7 @@ impl Builder {
             .chain(call.scope.iter().map(String::as_str))
             .collect::<Vec<_>>()
             .join(".");
-        self.pair_gap(&reason, &evidence, (&source, ""), false);
+        self.pair_gap(&reason, &evidence, (&source, ""), None);
         self.impl_home(module, call);
     }
 

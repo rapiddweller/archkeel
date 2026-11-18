@@ -58,13 +58,24 @@ fn title(frame: &Frame, places: &Places) -> String {
 /// The assumption that the collector states for its proofs, as one line under the verdict note
 /// (AD-540). The core states it for the run; this page names no language.
 fn premise(frame: &Frame) -> String {
-    if frame.premise.is_empty() {
-        return String::new();
+    let assumption = if frame.premise.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<p class=\"body-sm ak-verdict__note\">Stated assumption: {}</p>",
+            escape(&frame.premise)
+        )
+    };
+    if frame.excluded_sources.is_empty() {
+        return assumption;
     }
-    format!(
-        "<p class=\"body-sm ak-verdict__note\">Stated assumption: {}</p>",
-        escape(&frame.premise)
-    )
+    let paths = frame
+        .excluded_sources
+        .iter()
+        .map(|path| escape(path))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{assumption}<p class=\"body-sm ak-verdict__note\">Excluded test sources: {paths}</p>")
 }
 
 /// The premises of the contract (AD-664, #1549): a PASS under one is never a plain PASS.

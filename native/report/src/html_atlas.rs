@@ -37,6 +37,7 @@ fn findings(frame: &Frame, places: &Places, names: &Names<'_>, refs: &mut Refs) 
                 source,
                 target,
                 evidence,
+                ..
             } => (
                 vec![source.clone()],
                 target.as_ref().map(|t| (source.clone(), t.clone())),

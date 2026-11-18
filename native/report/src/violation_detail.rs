@@ -16,6 +16,9 @@ pub(crate) struct ViolationDetail {
     target: Option<String>,
     cause: &'static str,
     evidence: Vec<String>,
+    /// True for a possible dependency supplied by a declaration.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    possible: bool,
     /// The class fact of a placement violation: source names the class and target its module.
     #[serde(skip_serializing_if = "Option::is_none")]
     misplaced_class_fact: Option<String>,
@@ -36,6 +39,8 @@ pub(crate) struct PathStep {
     to: String,
     imports: usize,
     evidence: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    possible: bool,
 }
 
 impl PathStep {
@@ -45,6 +50,7 @@ impl PathStep {
             to: step.to.clone(),
             imports: Vec::len(&step.imports),
             evidence: step.evidence.first().cloned(),
+            possible: step.possible,
         }
     }
 }
@@ -61,6 +67,7 @@ fn detail(
         target,
         cause,
         evidence: evidence.to_vec(),
+        possible: false,
         misplaced_class_fact: None,
         members: None,
         path: None,
@@ -77,12 +84,14 @@ impl ViolationDetail {
     }
 
     fn cited(cause: &'static str, cited: &Cited) -> Self {
-        detail(
+        let mut row = detail(
             cited.source_module.clone(),
             Some(cited.target_module.clone()),
             cause,
             &cited.evidence,
-        )
+        );
+        row.possible = cited.possible;
+        row
     }
 
     /// The evidence of one differing assessment of a UML target row (AD-494).
@@ -134,6 +143,7 @@ impl ViolationDetail {
                 target: cycle.members.first().cloned(),
                 cause: "dependency cycle",
                 evidence: cycle.evidence.clone(),
+                possible: IntoIterator::into_iter(&cycle.path).any(|step| step.possible),
                 misplaced_class_fact: None,
                 members: Some(cycle.members.clone()),
                 path: Some(
@@ -162,6 +172,7 @@ impl ViolationDetail {
                 &row.evidence,
             ),
             Violation::SymbolPlacement(row) => Self {
+                possible: false,
                 misplaced_class_fact: Some(row.fact_id.clone()),
                 ..detail(
                     row.name.clone(),
@@ -200,6 +211,7 @@ mod tests {
             id: "VIO-1".to_owned(),
             rule: "INTERFACE".to_owned(),
             cited: Cited {
+                possible: false,
                 import: "IMP-1".to_owned(),
                 source_module: "app.client".to_owned(),
                 target_module: "app.impl".to_owned(),
@@ -213,6 +225,7 @@ mod tests {
 
     fn step(from: &str, to: &str, evidence: &[&str]) -> archkeel_eval::CycleStep {
         archkeel_eval::CycleStep {
+            possible: false,
             from: from.to_owned(),
             to: to.to_owned(),
             from_component: None,

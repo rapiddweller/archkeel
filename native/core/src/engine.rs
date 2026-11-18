@@ -99,9 +99,9 @@ impl Engine {
             .derived
             .as_ref()
             .and_then(|derived| derived.graph().ok())
-            .map(|graph| graph.coverage_gaps().to_vec())
+            .map(Graph::coverage_gaps)
             .unwrap_or_default();
-        ruling.explain(&gaps)
+        ruling.explain(gaps)
     }
 
     pub(crate) fn answer(&mut self, request: Request) -> Answer {

@@ -6,6 +6,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from test_cli_core_only_scan import command
 from test_cli_native_python_imports import BASE, RULE, component, project
 
@@ -78,15 +79,32 @@ def test_python_target_mismatch_keeps_the_gap_and_names_both_versions(
     assert "Python 3.12" in done.stdout and ">=3.13,<3.14" in done.stdout
 
 
+@pytest.mark.parametrize("metadata", [None, "[project]\n"])
 def test_python_target_defaults_when_no_requirement_exists(
-    release_core: Path, tmp_path: Path
+    release_core: Path, tmp_path: Path, metadata: str | None
 ) -> None:
     """An absent requirement uses the named default, not a fictional interpreter."""
-    root = target_project(tmp_path)
-    (root / "pyproject.toml").write_text("[project]\n")
+    root = target_project(tmp_path / "project")
+    if metadata is None:
+        (root / "pyproject.toml").rename(tmp_path / "saved-pyproject.toml")
+    else:
+        (root / "pyproject.toml").write_text(metadata)
     done = command(release_core, root, "--text")
     assert done.returncode == 0, done.stdout
     assert "Python 3.14" in done.stdout and "collector default" in done.stdout
+
+
+@pytest.mark.parametrize("requirement", ["''", '"invalid"'])
+def test_a_configured_python_target_does_not_forgive_an_invalid_requirement(
+    release_core: Path, tmp_path: Path, requirement: str
+) -> None:
+    root = target_project(tmp_path)
+    config = root / "archkeel.toml"
+    config.write_text(config.read_text() + 'python = "3.13"\n')
+    (root / "pyproject.toml").write_text(f"[project]\nrequires-python = {requirement}\n")
+    done = command(release_core, root, "--json")
+    assert done.returncode == 2, done.stdout
+    assert json.loads(done.stdout)["status"] == "UNKNOWN", done.stdout
 
 
 def test_a_range_below_3_11_that_reaches_it_is_read_as_3_11_and_says_so(

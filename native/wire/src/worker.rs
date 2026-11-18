@@ -38,6 +38,7 @@ impl Packet {
     fn new(mut reply: Reply) -> Result<Self, String> {
         let gaps = &reply.facts.coverage.gaps;
         if gaps.iter().any(|g| g.data.data().code.is_some())
+            || !reply.facts.excluded_sources.is_empty()
             || !reply.facts.owned_files.is_empty()
             || reply.facts.standard.is_some()
         {

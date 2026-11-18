@@ -24,6 +24,7 @@ fn import(id: &str, from: (&str, &str), to: (&str, &str), type_checking: bool) -
             ..Published::default()
         },
         id: id.to_owned(),
+        declared: false,
         source_module: from.0.to_owned(),
         target_module: to.0.to_owned(),
         source_package: from.1.to_owned(),
@@ -147,7 +148,7 @@ fn the_edge_id_is_the_stable_id_of_the_reference_engine() {
 }
 
 /// The typed facts of the frozen H-typescript reply (AD-343).
-fn golden() -> Option<Reply> {
+pub(crate) fn golden() -> Option<Reply> {
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../tests/golden/typescript/h-typescript.json.gz"

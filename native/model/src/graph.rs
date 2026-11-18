@@ -29,7 +29,7 @@ use crate::modules::{self, Module, Package};
 use crate::needs::Needs;
 use crate::observed::{self, Observed};
 use crate::reason::Reason;
-use crate::settings::Settings;
+use crate::settings::{Producer, Settings};
 use crate::topology::{self, Measure};
 
 /// The reply part of the model of one run.
@@ -127,7 +127,11 @@ impl Graph {
             modules.iter().map(|(_, module)| module.name()).collect();
         let classes = gap_class::classes(&facts.coverage, |name| names.contains(name));
         let whole = classes.iter().filter(|c| **c == Class::Whole).count();
-        let mut observed = observed::observed(facts, &classes);
+        let live_target = match settings.producer() {
+            Producer::Trusted if facts.profile_limits.is_some() => facts.runtime.target_source,
+            Producer::Trusted | Producer::External => None,
+        };
+        let mut observed = observed::observed(facts, &classes, live_target);
         observed.effect_gaps = door_reach::narrowed(&doors, observed.effect_gaps);
         let gaps = crate::gaps::coverage_gaps(&facts.coverage, &classes);
         drop(names);

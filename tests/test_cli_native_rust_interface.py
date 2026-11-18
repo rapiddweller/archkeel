@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import subprocess
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ from rust_repository import (
     CRATE_RULES,
     claims,
     component,
+    report,
     repository,
     rule,
     statuses,
@@ -324,3 +326,125 @@ def test_the_core_decides_interface_boundary_from_the_item_of_each_import(
             "INTERFACE: native.app -> native.base_crate:make: import outside the public interface"
             in claims(result)
         )
+
+
+@pytest.mark.parametrize(
+    ("body", "status"),
+    [
+        ("base_crate::extra::allowed();", "PASS"),
+        ("value.touch(); base_crate::extra::allowed();", "FAIL"),
+        ("let r = if true { value } else { value }; r.touch();", "UNKNOWN"),
+        (
+            "let r = if true { value } else { value }; r.touch(); base_crate::extra::allowed();",
+            "UNKNOWN",
+        ),
+        (
+            "base_crate::extra::allowed(); let r = if true { value } else { value }; r.touch();",
+            "UNKNOWN",
+        ),
+    ],
+    ids=["allowed", "exact-unlisted", "unread", "unread-first", "listed-first"],
+)
+def test_a_listed_import_does_not_prove_a_different_method(
+    release_core: Path, tmp_path: Path, body: str, status: str
+) -> None:
+    base = {
+        **component("base", "base_crate"),
+        "packages": [],
+        "exact_modules": ["native.base_crate", "native.base_crate.cargo_toml"],
+        "public": ["native.base_crate:Tool"],
+    }
+    extra = {
+        **component("extra", "base_crate.extra", ("base",)),
+        "public": ["native.base_crate.extra:allowed"],
+    }
+    app = component("app", "app", ("base", "extra"))
+    files = {
+        "crates/base/src/lib.rs": "pub mod extra;\npub struct Tool;\n",
+        "crates/base/src/extra.rs": (
+            "impl crate::Tool { pub fn touch(&self) {} }\npub fn allowed() {}\n"
+        ),
+        "crates/app/src/lib.rs": f"pub fn run(value: &base_crate::Tool) {{ {body} }}\n",
+    }
+    found, messages = _run(tmp_path, release_core, files, (base, extra, app))
+    assert found == status, messages
+    if status == "FAIL":
+        assert VIOLATION.format("native.base_crate.extra:Tool") in messages
+
+
+@pytest.mark.parametrize(
+    ("return_type", "body", "status"),
+    [
+        ("impl Sized", "drop(base_crate::make());", "PASS"),
+        ("impl Sized", "base_crate::hidden::secret(); drop(base_crate::make());", "FAIL"),
+        (
+            "hidden::Hidden",
+            "let r = if true { base_crate::make() } else { base_crate::make() }; r.touch();",
+            "UNKNOWN",
+        ),
+    ],
+    ids=["execution-only", "unlisted-name", "mixed-method-and-execution"],
+)
+def test_impl_execution_does_not_hide_an_unread_named_use(
+    release_core: Path, tmp_path: Path, return_type: str, body: str, status: str
+) -> None:
+    base = {
+        **component("base", "base_crate", ("hidden",)),
+        "packages": [],
+        "exact_modules": ["native.base_crate", "native.base_crate.cargo_toml"],
+        "public": ["native.base_crate:make"],
+    }
+    hidden = {
+        **component("hidden", "base_crate.hidden"),
+        "public": ["native.base_crate.hidden:make", "native.base_crate.hidden:Hidden"],
+    }
+    app = component("app", "app", ("base", "hidden"))
+    files = {
+        "crates/base/src/lib.rs": (
+            f"pub mod hidden;\npub fn make() -> {return_type} {{ hidden::make() }}\n"
+        ),
+        "crates/base/src/hidden.rs": (
+            "pub struct Hidden;\n"
+            "impl Drop for Hidden { fn drop(&mut self) {} }\n"
+            "impl Hidden { pub fn touch(&self) {} }\n"
+            "pub fn make() -> Hidden { Hidden }\n"
+            "pub fn secret() {}\n"
+        ),
+        "crates/app/src/lib.rs": f"pub fn run() {{ {body} }}\n",
+    }
+    found, messages = _run(tmp_path, release_core, files, (base, hidden, app))
+    assert found == status, messages
+
+
+@pytest.mark.parametrize("separator", [" ", "\n    "], ids=["same-line", "separate-lines"])
+def test_a_glob_keeps_both_trait_call_positions(
+    release_core: Path, tmp_path: Path, separator: str
+) -> None:
+    child = "crates/app/src/child.rs"
+    source = (
+        "use super::*;\nuse crate::api::allowed;\n"
+        f"pub fn run(value: u8) {{ allowed(); value.touch();{separator}value.touch(); }}\n"
+    )
+    repository(
+        tmp_path,
+        release_core,
+        {
+            "crates/app/src/lib.rs": "pub mod api;\nmod child;\nuse api::Touch;\n",
+            "crates/app/src/api.rs": (
+                "pub trait Touch { fn touch(&self) {} }\n"
+                "impl Touch for u8 {}\npub fn allowed() {}\n"
+            ),
+            child: source,
+        },
+    )
+    _rustc_accepts(tmp_path)
+    locations = report(tmp_path)["frame"]["locations"]
+    expected = {}
+    for line, text in enumerate(source.splitlines(), 1):
+        for column in range(len(text)):
+            if text.startswith("touch()", column):
+                identity = f"{child}\x1f{line}\x1f{line}\x1f{column}"
+                evidence = f"EVD-{sha256(identity.encode()).hexdigest()[:16]}"
+                expected[evidence] = {"path": child, "line": line}
+    assert len(expected) == 2
+    assert {evidence: locations.get(evidence) for evidence in expected} == expected

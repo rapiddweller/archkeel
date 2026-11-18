@@ -26,7 +26,7 @@ macro_rules! row {
 row! {
     pub(super),
     Location { path: String, line: i64 }
-    Detail { source: String, target: Option<String>, cause: String, evidence: Vec<String>, misplaced_class_fact: Option<String> }
+    Detail { source: String, target: Option<String>, cause: String, evidence: Vec<String>, misplaced_class_fact: Option<String>, possible: bool, members: Vec<String> }
     Component { id: String, name: String, parent: Option<String>, packages: Vec<String>, layer: Option<String>, public: Vec<String>, responsibilities: Vec<String>, forbidden_responsibilities: Vec<String>, planned_public: Vec<String>, provenance: Vec<String> }
     Module { name: String, path: String, component: Option<String>, language: String }
     Edge { source: String, target: String, resolution: String, count: usize, evidence: Vec<Location>, evidence_total: usize, rules: Vec<String> }
@@ -35,8 +35,8 @@ row! {
     LayerOrder { rule: String, layers: Vec<String>, part: Option<String> }
     Topology { complete: bool, total: Totals, components: Vec<Component>, modules: Vec<Module>, edges: Vec<Edge>, component_edges: Vec<Edge>, requires: Vec<Require>, layers: Vec<LayerOrder> }
     Shape { direction: String, source: Vec<String>, target: Vec<String> }
-    Step { from: String, to: String, from_component: Option<String>, to_component: Option<String>, evidence: Vec<String>, evidence_total: usize }
-    CyclePath { index: usize, members: Vec<String>, path: Vec<Step>, steps_total: usize, truncated: bool }
+    Step { from: String, to: String, from_component: Option<String>, to_component: Option<String>, evidence: Vec<String>, evidence_total: usize, possible: bool }
+    CyclePath { index: usize, members: Vec<String>, path: Vec<Step>, steps_total: usize, truncated: bool, possible: bool }
     Cycles { total: usize, items: Vec<CyclePath> }
     Pair { source: String, target: String }
     RuleHolds { kind: String, pairs: Vec<Pair>, total: usize, unnamed_imports: usize }
@@ -96,6 +96,7 @@ pub(super) struct Frame {
     pub(super) status: Option<Status>,
     /// Each rule row: its kind and its verdict.
     pub(super) rules: BTreeMap<String, (String, RuleVerdict)>,
+    pub(super) rule_rationales: BTreeMap<String, String>,
     pub(super) details: BTreeMap<String, Vec<Detail>>,
     pub(super) locations: BTreeMap<String, Location>,
     pub(super) topology: Option<Topology>,
@@ -127,6 +128,7 @@ pub(super) struct Frame {
     pub(super) accepted: std::collections::BTreeSet<String>,
     /// The assumption that the collector states for its proofs (AD-540), or empty.
     pub(super) premise: String,
+    pub(super) excluded_sources: Vec<String>,
     /// The call counts of the core (#1327), or `None` when it did not measure.
     pub(super) calls: Option<Calls>,
     /// Each PASS rule that rests on a premise of the contract, with its premises (AD-664, #1549).
@@ -188,11 +190,13 @@ impl Frame {
             scope_complete: frame["scope"].as_str() == Some("complete"),
             cause,
             premise: text(&frame["premise"]).unwrap_or_default(),
+            excluded_sources: field(frame, "excluded_sources"),
             calls: serde_json::from_value(frame["measures"].clone()).ok(),
             premises: field(frame, "premises"),
             assuming: text(&frame["assuming"]),
             status: serde_json::from_value(frame["status"].clone()).ok(),
             rules: field(frame, "rules"),
+            rule_rationales: field(frame, "rule_rationales"),
             details: field(frame, "details"),
             locations: field(frame, "locations"),
             topology: serde_json::from_value(frame["topology"].clone()).ok(),

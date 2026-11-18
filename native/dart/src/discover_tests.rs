@@ -15,7 +15,7 @@ const PUBSPEC: &str = "name: shop\nenvironment:\n  sdk: ^3.0.0\n";
 
 fn run(tree: &Tree, roots: &[&str]) -> Result<Discovery, String> {
     let roots: Vec<String> = roots.iter().map(|root| (*root).to_owned()).collect();
-    discover(&mut Snapshot::new(&tree.path()), "shop", &roots)
+    discover(&mut Snapshot::new(&tree.path()), "shop", &roots, false)
 }
 
 fn problems(found: &Discovery) -> Vec<(&str, &str)> {
@@ -193,7 +193,7 @@ fn each_problem_of_the_snapshot_is_a_typed_gap() {
     snapshot
         .problems
         .insert("Source name is not UTF-8: lib/x\u{fffd}".to_owned());
-    let found = discover(&mut snapshot, "shop", &["lib".to_owned()]).unwrap();
+    let found = discover(&mut snapshot, "shop", &["lib".to_owned()], false).unwrap();
     assert_eq!(
         found.problems,
         [problem(

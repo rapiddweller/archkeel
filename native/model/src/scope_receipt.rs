@@ -44,9 +44,37 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
         .kept
         .iter()
         .filter(|gap| reads_pair(gap.observed, gap.dispatch))
+        .filter(|gap| {
+            if !matches!(rule, Rule::CompleteRequires(_)) || !gap.observed {
+                return true;
+            }
+            let components = model.components();
+            let owners = [
+                owner_of(components, &gap.source),
+                owner_of(components, &gap.target),
+            ];
+            let [Some(source), Some(target)] = owners else {
+                return true;
+            };
+            if source == target {
+                return false;
+            }
+            let Some((source, target)) = components.get(source).zip(components.get(target)) else {
+                return true;
+            };
+            !source
+                .requires()
+                .iter()
+                .flatten()
+                .any(|entry| entry.component() == target.label() && entry.through() == &Vec::new())
+        })
         .filter(|gap| gap.holds(&reading))
         .map(|gap| (gap.source.as_str(), gap.target.as_str()));
-    if let Some(held) = Held::of(held) {
+    let named = matches!(rule, Rule::InterfaceBoundary(_))
+        .then(|| open_sites(model))
+        .into_iter()
+        .flatten();
+    if let Some(held) = Held::of(held.chain(named)) {
         return Err(Reason::NotComplete(Cause::PairGaps(held)));
     }
     let dropped = pairs
@@ -59,6 +87,27 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
         Some(held) => Err(Reason::NotComplete(Cause::AllowedPairGaps(held))),
         None => Ok(GapScope::of()),
     }
+}
+
+/// An observed module edge does not prove the publication of a separate name.
+fn open_sites(model: &Model) -> impl Iterator<Item = (&str, &str)> {
+    let components = model.components();
+    model
+        .graph()
+        .observed()
+        .named_sites
+        .iter()
+        .filter_map(|(source, target)| {
+            if !model.selects(source) {
+                return None;
+            }
+            let from = owner_of(components, source)?;
+            let to = owner_of(components, target)?;
+            if from == to || components.get(to)?.public().is_none() {
+                return None;
+            }
+            Some((source.as_str(), target.as_str()))
+        })
 }
 
 /// The scan proof of the model: the bound roots and the module files of the reply.

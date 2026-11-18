@@ -46,6 +46,8 @@ pub(crate) struct Source {
 /// The sources, the package identity and the problems of one request.
 #[derive(Debug)]
 pub(crate) struct Discovery {
+    /// The recognized test paths that the request leaves out.
+    pub(crate) excluded: Vec<String>,
     /// Each package file of `PACKAGE_FILES` that the walk saw below a scan root (AD-454).
     pub(crate) package_files: Vec<String>,
     /// Sorted by path.
@@ -68,11 +70,16 @@ const NOT_REGULAR: &str = "input is outside snapshot or not a regular file";
 
 struct Walk<'a> {
     snapshot: &'a mut Snapshot,
-    namespace: &'a str,
     seen: BTreeSet<String>,
-    sources: Vec<Source>,
+    sources: Vec<Pending>,
     problems: Vec<Problem>,
     package_files: Vec<String>,
+}
+
+struct Pending {
+    root: String,
+    rel_path: String,
+    content: Vec<u8>,
 }
 
 /// Read each selected `.dart` file once. An error is a failure of the whole collection, as a
@@ -81,10 +88,10 @@ pub(crate) fn discover(
     snapshot: &mut Snapshot,
     namespace: &str,
     roots: &[String],
+    exclude_tests: bool,
 ) -> Result<Discovery, String> {
     let mut walk = Walk {
         snapshot,
-        namespace,
         seen: BTreeSet::new(),
         sources: Vec::new(),
         problems: Vec::new(),
@@ -97,11 +104,44 @@ pub(crate) fn discover(
     let (pubspec, pubspec_digest) = read_pubspec(walk.snapshot, &package_dir)?;
     let Walk {
         snapshot,
-        mut sources,
+        sources: pending,
         mut problems,
         package_files,
         ..
     } = walk;
+    let mut sources = Vec::new();
+    let mut excluded = Vec::new();
+    for source in pending {
+        if exclude_tests
+            && test_source(&source.rel_path, &source.root, &package_dir, &package_files)
+        {
+            excluded.push(source.rel_path);
+            continue;
+        }
+        let relative = if source.root == "." {
+            String::as_str(&source.rel_path)
+        } else {
+            source
+                .rel_path
+                .strip_prefix(&source.root)
+                .and_then(|rest| rest.strip_prefix('/'))
+                .unwrap_or(&source.rel_path)
+        };
+        let Some(short) = dart_module_name(relative) else {
+            problems.push(problem(
+                &source.rel_path,
+                ExceptionName::DartModuleError,
+                "path is not a Dart module identifier",
+            ));
+            continue;
+        };
+        sources.push(Source {
+            rel_path: source.rel_path,
+            module: format!("{namespace}.{short}"),
+            content: source.content,
+            digest: String::new(),
+        });
+    }
     if pubspec_digest.is_none() {
         problems.push(problem(
             "pubspec.yaml",
@@ -112,6 +152,7 @@ pub(crate) fn discover(
     collisions(&sources, &mut problems);
     problems.extend(snapshot_problems(snapshot));
     sources.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
+    excluded.sort();
     let digests: BTreeMap<String, String> = snapshot
         .inputs()
         .into_iter()
@@ -123,6 +164,7 @@ pub(crate) fn discover(
         }
     }
     Ok(Discovery {
+        excluded,
         sources,
         package_name: pubspec.name.unwrap_or_default(),
         package_dir,
@@ -256,24 +298,10 @@ impl Walk<'_> {
             }
             return;
         };
-        let relative = if root == "." {
-            rel
-        } else {
-            rel.strip_prefix(root)
-                .and_then(|rest| rest.strip_prefix('/'))
-                .unwrap_or(rel)
-        };
-        let Some(short) = dart_module_name(relative) else {
-            let message = "path is not a Dart module identifier";
-            self.problems
-                .push(problem(rel, ExceptionName::DartModuleError, message));
-            return;
-        };
-        self.sources.push(Source {
+        self.sources.push(Pending {
+            root: root.to_owned(),
             rel_path: rel.to_owned(),
-            module: format!("{}.{short}", self.namespace),
             content,
-            digest: String::new(),
         });
     }
 }
@@ -284,6 +312,43 @@ fn child(directory: &str, name: &str) -> String {
     } else {
         format!("{directory}/{name}")
     }
+}
+
+fn test_source(path: &str, root: &str, package_dir: &str, package_files: &[String]) -> bool {
+    let relative = if root == "." {
+        Some(path)
+    } else {
+        path.strip_prefix(root).and_then(|s| s.strip_prefix('/'))
+    };
+    let Some(relative) = relative else {
+        return false;
+    };
+    relative.ends_with("_test.dart")
+        || relative
+            .rsplit_once('/')
+            .is_some_and(|(parent, _)| test_directory(parent, root, package_files))
+        || root != package_dir
+            && root
+                .rsplit('/')
+                .next()
+                .is_some_and(|part| matches!(part, "test" | "tests"))
+            && !package_files.contains(&format!("{root}/pubspec.yaml"))
+}
+
+fn test_directory(parent: &str, root: &str, package_files: &[String]) -> bool {
+    let mut directory: String = if root == "." {
+        String::new()
+    } else {
+        root.to_owned()
+    };
+    parent.split('/').any(|part| {
+        if !directory.is_empty() {
+            directory.push('/');
+        }
+        directory.push_str(part);
+        matches!(part, "test" | "tests")
+            && !package_files.contains(&format!("{directory}/pubspec.yaml"))
+    })
 }
 
 fn excluded_or_link(rel: &str, name: &str, entry: Entry) -> Option<Problem> {

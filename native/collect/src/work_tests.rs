@@ -145,7 +145,7 @@ fn a_rust_project_just_below_both_bounds_keeps_every_fact() {
             .resolution_features
             .pop()
             .as_deref(),
-        Some("rust-item-routes-v1")
+        Some("rust-item-routes-v2")
     );
     assert_eq!(
         serde_json::to_vec(before.reply()).unwrap(),

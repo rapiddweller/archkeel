@@ -49,6 +49,7 @@ fn an_applied_declaration_names_its_site() {
         form: DoorForm::Loader,
         line: 12,
         loads: Vec::new(),
+        possible_loads: Vec::new(),
         changes: Vec::new(),
         effect: None,
         stated: GapEffect::EveryModule,

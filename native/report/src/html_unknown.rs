@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use super::cases::Names;
 use super::causes::{anchor, grouped, hygiene, title, Cause};
 use super::frame::Frame;
-use super::markup::{count, escape, status_icon};
+use super::markup::{count, escape, escape_literal, status_icon};
 use super::status::{cause, Shown};
 use crate::head::{RuleVerdict, Status};
 
@@ -191,7 +191,17 @@ fn rule_id(frame: &Frame, id: &str) -> String {
     let kind = frame.rules.get(id).map_or_else(String::new, |(kind, _)| {
         format!(" ({})", escape(&kind.replace('_', " ")))
     });
-    format!("<span class=\"rp-code\">{}</span>{kind}{mark}", escape(id))
+    let rationale = frame
+        .rule_rationales
+        .get(id)
+        .filter(|text| !text.trim().is_empty())
+        .map_or_else(String::new, |text| {
+            format!(" &#8212; {}", escape_literal(text))
+        });
+    format!(
+        "<span class=\"rp-code\">{}</span>{kind}{rationale}{mark}",
+        escape(id)
+    )
 }
 
 /// The members of a family of hygiene gaps: what each points at, and the one message they share.
@@ -254,7 +264,7 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
             .collect();
         html.push_str(&format!(
             "<p class=\"body-sm rp-at\">Holds {}</p>",
-            ids.join(", ")
+            ids.join("<br>")
         ));
         let more = held.saturating_sub(MAX_IDS);
         if more > 0 {
@@ -268,12 +278,12 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
                 .collect();
             let tail = match held.saturating_sub(MAX_LISTED_IDS) {
                 0 => String::new(),
-                n => format!(", and {n} more in the JSON"),
+                n => format!("<br>and {n} more in the JSON"),
             };
             html.push_str(&format!(
                 "<details class=\"rp-fold\"><summary class=\"caption rp-at\">+{more} more</summary>\
 <p class=\"rp-fold__body body-sm\">{}{tail}</p></details>",
-                rest.join(", ")
+                rest.join("<br>")
             ));
         }
     }
@@ -394,6 +404,19 @@ mod tests {
         let rendered = page(&frame);
         assert!(rendered
             .contains("Holds <span class=\"rp-code\">RULE-A</span> (external dependency scope)"));
+    }
+
+    #[test]
+    fn a_cause_shows_the_contract_rationale_without_interpreting_html() {
+        let frame = json!({
+            "status": "UNKNOWN",
+            "rules": {"RULE-A": ["complete_requires", "UNKNOWN"]},
+            "rule_rationales": {"RULE-A": "Keep literal _x2f_ distinct from / & <raw>."},
+            "explained": {"RULE-A": "proof is open"}
+        });
+        let rendered = page(&frame);
+        assert!(rendered.contains("Keep literal _x2f_ distinct from / &amp; &lt;raw&gt;."));
+        assert!(!rendered.contains("Keep literal _x2f_ distinct from / & <raw>."));
     }
 
     #[test]
