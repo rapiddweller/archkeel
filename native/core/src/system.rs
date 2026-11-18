@@ -16,8 +16,9 @@ use serde_json::{json, Map, Value};
 use crate::dual_run::{InterfaceRow, PartRow, SystemFrame};
 
 /// The keys whose maps of all parts the system frame holds; a key that two parts use refuses it.
-const RULE_MAPS: [&str; 6] = [
+const RULE_MAPS: [&str; 7] = [
     "rules",
+    "rule_rationales",
     "explained",
     "violations",
     "details",

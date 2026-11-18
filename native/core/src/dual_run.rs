@@ -273,6 +273,9 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
         measures,
         topology,
         explain,
+        rule_rationales: engine
+            .usable()
+            .map_or_else(BTreeMap::new, |contract| contract.rationales()),
         contract_digest,
         collection_gaps,
         gaps,

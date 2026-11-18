@@ -33,6 +33,8 @@ pub(crate) struct Parts {
     pub(super) topology: Option<crate::topology_projection::Topology>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) explain: Option<archkeel_report::Explain>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub(super) rule_rationales: BTreeMap<String, String>,
     pub(super) engine: &'static str,
     pub(super) sections: BTreeMap<&'static str, Vec<SectionRow>>,
     pub(super) unsupported: UnsupportedParts,
@@ -384,6 +386,7 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
         measures: None,
         topology: None,
         explain: None,
+        rule_rationales: BTreeMap::new(),
         engine: ENGINE,
         sections: BTreeMap::new(),
         locations: BTreeMap::new(),

@@ -46,6 +46,12 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
         Some(&reply),
         &["metrics", "evidence", "violations"],
     ));
+    let contract: Value = serde_json::from_str(NATIVE_CONTRACT).unwrap();
+    let rule = contract["rules"].as_array().unwrap().first().unwrap();
+    assert_eq!(
+        got["rule_rationales"][rule["id"].as_str().unwrap()],
+        rule["rationale"]
+    );
     // The native contract names modules outside the namespace `shop` of the H-typescript reply:
     // the reference engine refuses such a contract, so the scope is not complete and each
     // decided rule is UNKNOWN with its reason (AD-378, AD-450).
