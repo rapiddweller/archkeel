@@ -80,7 +80,7 @@ fn main() -> ExitCode {
             |input| check::answer(input).map_err(Into::into),
             REPLY_REQUEST_LIMIT,
         ),
-        [kind] if kind == "scan" => (scan::answer, SCAN_REQUEST_LIMIT),
+        [kind] if kind == "scan" => (scan_answer, SCAN_REQUEST_LIMIT),
         _ => {
             eprintln!("usage: archkeel-core scan  (a JSON request on stdin, AD-406)");
             return ExitCode::from(2);
@@ -102,6 +102,12 @@ fn main() -> ExitCode {
         eprintln!("{message}");
     }
     ExitCode::from(code)
+}
+
+fn scan_answer(input: &[u8]) -> Result<dual_run::Answered, refusal::Error> {
+    let started = std::cell::OnceCell::new();
+    let now = || started.get_or_init(std::time::Instant::now).elapsed();
+    scan::answer(input, &now)
 }
 
 /// Why a request was not read.

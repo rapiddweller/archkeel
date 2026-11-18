@@ -278,6 +278,23 @@ pub(crate) struct Phases {
 }
 
 impl Phases {
+    /// The evaluation and rendering phases between the supplied monotonic times.
+    pub(crate) fn evaluation(
+        start: Option<Duration>,
+        render: Option<Duration>,
+        end: Option<Duration>,
+    ) -> Phases {
+        Phases {
+            evaluate: render
+                .zip(start)
+                .map_or(Duration::ZERO, |(end, start)| end - start),
+            render: end
+                .zip(render)
+                .map_or(Duration::ZERO, |(end, start)| end - start),
+            ..Phases::default()
+        }
+    }
+
     /// The sum of two parts of one run.
     pub(crate) fn plus(self, other: Phases) -> Phases {
         Phases {

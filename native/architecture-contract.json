@@ -3015,7 +3015,8 @@
             "native.archkeel_collect:System",
             "native.archkeel_collect:SystemPart",
             "native.archkeel_collect:read_system",
-            "native.archkeel_collect:scan"
+            "native.archkeel_collect:scan",
+            "native.archkeel_collect:scan_with_clock"
           ]
         },
         {
@@ -3158,7 +3159,8 @@
         "native.archkeel_collect:SystemPart",
         "native.archkeel_collect:check",
         "native.archkeel_collect:read_system",
-        "native.archkeel_collect:scan"
+        "native.archkeel_collect:scan",
+        "native.archkeel_collect:scan_with_clock"
       ],
       "decided_by": "architect"
     },

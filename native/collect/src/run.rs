@@ -11,7 +11,7 @@
 //! release build `panic = "abort"` ends the whole core process, as a stack overflow does; the
 //! shell then sees a dead core and the run has no verdict (exit 2), never a PASS.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::refusal::{refused, Refusal, RefusalKind};
 use archkeel_facts::envelope::{Facts, Profile, Reply};
@@ -24,20 +24,23 @@ const STACK_BYTES: usize = 256 << 20;
 /// The typed reply of the request bytes, validated by the store, or why there is none.
 #[cfg(test)]
 pub(crate) fn collect(profile: Profile, request: &[u8]) -> Result<Ingested, Refusal> {
-    collect_timed(profile, request).map(|(ingested, _, _)| ingested)
+    collect_timed(profile, request, None).map(|(ingested, _, _)| ingested)
 }
 
 /// The typed reply, and the time of the collector and of the validation of its reply (#659).
 pub(crate) fn collect_timed(
     profile: Profile,
     request: &[u8],
+    clock: Option<&dyn Fn() -> Duration>,
 ) -> Result<(Ingested, Duration, Duration), Refusal> {
     let request = request.to_vec();
-    let started = Instant::now();
+    let started = clock.map(|now| now());
     let reply =
         isolated(move || reply_of(profile, &request))?.map_err(|why| refused("collector", why))?;
-    let collected = started.elapsed();
-    let validating = Instant::now();
+    let collected = clock
+        .zip(started)
+        .map_or(Duration::ZERO, |(now, start)| now() - start);
+    let validating = clock.map(|now| now());
     let ingested = archkeel_store::ingest_typed(reply).map_err(|reason| {
         refused(
             "collector",
@@ -50,7 +53,13 @@ pub(crate) fn collect_timed(
             format!("the store refuses the reply of the collector: {reason}"),
         )
     })?;
-    Ok((ingested, collected, validating.elapsed()))
+    Ok((
+        ingested,
+        collected,
+        clock
+            .zip(validating)
+            .map_or(Duration::ZERO, |(now, start)| now() - start),
+    ))
 }
 
 /// The checks that only the collector of the profile of a reply knows (AD-688). They run after

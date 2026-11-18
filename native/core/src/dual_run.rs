@@ -11,7 +11,7 @@
 //! the file count of the reply), so the harness can prove the round trip.
 
 use std::collections::BTreeMap;
-use std::time::Instant;
+use std::time::Duration;
 
 #[cfg(any(test, feature = "harness"))]
 use archkeel_model::Producer;
@@ -99,30 +99,34 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             })?;
     let producer = producer(request.collector_argv.as_ref());
     let (profile, standard_library) = (request.profile, request.standard_library);
-    run(Run {
-        topology: false,
-        case: request.case,
-        path,
-        contract: contract.into_bytes(),
-        insides: insides(request.insides)?,
-        reply: ReplyInput::bytes(request.reply.map(|bytes| hex(&bytes.hex)).transpose()?),
-        sections: request::sections(&request.sections)?,
-        namespace: request.namespace,
-        roots: request.roots,
-        baseline: request.baseline.is_some(),
-        accept: None,
-        report: true,
-        html: false,
-        part_of: None,
-        base: None,
-        trust: Box::new(move |namespace, _| Trust {
-            settings: Settings::new(namespace, profile, standard_library).with_producer(producer),
-            gap: None,
-        }),
-        collect: None,
-        documents: None,
-        sdk_libraries: Vec::new(),
-    })
+    run(
+        Run {
+            topology: false,
+            case: request.case,
+            path,
+            contract: contract.into_bytes(),
+            insides: insides(request.insides)?,
+            reply: ReplyInput::bytes(request.reply.map(|bytes| hex(&bytes.hex)).transpose()?),
+            sections: request::sections(&request.sections)?,
+            namespace: request.namespace,
+            roots: request.roots,
+            baseline: request.baseline.is_some(),
+            accept: None,
+            report: true,
+            html: false,
+            part_of: None,
+            base: None,
+            trust: Box::new(move |namespace, _| Trust {
+                settings: Settings::new(namespace, profile, standard_library)
+                    .with_producer(producer),
+                gap: None,
+            }),
+            collect: None,
+            documents: None,
+            sdk_libraries: Vec::new(),
+        },
+        None,
+    )
 }
 
 /// The reply of a run: none, the bytes of a request, or the reply of the collector that the core
@@ -201,8 +205,8 @@ pub(crate) struct Trust {
 
 /// The one engine path of each request kind: the reply, the settings, the contract, the rows and
 /// the ruling, in this order, and the frame.
-pub(crate) fn run(run: Run) -> Result<Answered, String> {
-    let evaluating = Instant::now();
+pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answered, String> {
+    let evaluating = clock.map(|now| now());
     let mut engine = Engine::default();
     let reply = ingest(&mut engine, run.reply)?;
     let input = ContractInput {
@@ -288,17 +292,13 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         },
         locations,
     };
-    let rendering = Instant::now();
+    let rendering = clock.map(|now| now());
     let frame = ruling
         .with_html(run.html)
         .frame(&parts)
         .map_err(|error| format!("{}: an inconsistent frame: {error}", run.case))?
         .into_bytes();
-    let timings = Phases {
-        evaluate: rendering - evaluating,
-        render: rendering.elapsed(),
-        ..Phases::default()
-    };
+    let timings = Phases::evaluation(evaluating, rendering, clock.map(|now| now()));
     Ok(Answered {
         frame,
         names_a_gap,
