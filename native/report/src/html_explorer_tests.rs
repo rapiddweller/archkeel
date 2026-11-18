@@ -19,11 +19,23 @@ fn every_script_hash_is_the_hash_of_its_embedded_bytes() {
 
 /// The files that draw: the local style of the report and each Explorer asset except the vendored
 /// ELK layout, which draws nothing.
-const FILES: [(&str, &str); 22] = [
+const FILES: [(&str, &str); 25] = [
     ("report.css", include_str!("../assets/report.css")),
     (
         "explorer.css",
         include_str!("../assets/explorer/explorer.css"),
+    ),
+    (
+        "explorer-diagram.css",
+        include_str!("../assets/explorer/explorer-diagram.css"),
+    ),
+    (
+        "explorer-edges-atlas.css",
+        include_str!("../assets/explorer/explorer-edges-atlas.css"),
+    ),
+    (
+        "explorer-canvas.css",
+        include_str!("../assets/explorer/explorer-canvas.css"),
     ),
     (
         "explorer-theme.css",
@@ -240,8 +252,7 @@ fn selectors(css: &str) -> Vec<String> {
 
 #[test]
 fn every_explorer_rule_stays_inside_the_explorer() {
-    let css = include_str!("../assets/explorer/explorer.css");
-    let loose: Vec<String> = selectors(css)
+    let loose: Vec<String> = selectors(super::explorer::RULES)
         .into_iter()
         .filter(|s| !s.contains(".rp-explorer") && s != "from" && s != "to")
         .collect();
@@ -253,7 +264,7 @@ fn every_explorer_rule_stays_inside_the_explorer() {
 
 #[test]
 fn explorer_spacing_and_radius_that_a_token_names_use_the_token() {
-    let css = include_str!("../assets/explorer/explorer.css");
+    let css = super::explorer::RULES;
     for declaration in css.split([';', '{', '}']) {
         let Some((property, value)) = declaration.split_once(':') else {
             continue;

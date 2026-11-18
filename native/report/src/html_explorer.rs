@@ -9,7 +9,12 @@
 use serde_json::Value;
 
 const SECTION: &str = include_str!("../assets/explorer/explorer.html");
-const RULES: &str = include_str!("../assets/explorer/explorer.css");
+pub(super) const RULES: &str = concat!(
+    include_str!("../assets/explorer/explorer.css"),
+    include_str!("../assets/explorer/explorer-diagram.css"),
+    include_str!("../assets/explorer/explorer-edges-atlas.css"),
+    include_str!("../assets/explorer/explorer-canvas.css"),
+);
 const THEME: &str = include_str!("../assets/explorer/explorer-theme.css");
 
 /// The embedded scripts and the hashes computed from their bytes at build time.

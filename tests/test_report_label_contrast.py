@@ -177,6 +177,16 @@ def test_report_and_explorer_label_token_pairs_meet_aa_in_both_themes() -> None:
     all_pairs = set(PAIRS)
     for relative, pairs in CSS_PAIRS.items():
         css = (ROOT / relative).read_text(encoding="utf-8")
+        if relative.endswith("/explorer.css"):
+            folder = ROOT / "native/report/assets/explorer"
+            css += "".join(
+                (folder / name).read_text(encoding="utf-8")
+                for name in (
+                    "explorer-diagram.css",
+                    "explorer-edges-atlas.css",
+                    "explorer-canvas.css",
+                )
+            )
         all_pairs.update(pairs)
         for foreground, background in pairs:
             assert foreground in css and background in css, (
@@ -217,7 +227,7 @@ def test_report_and_explorer_label_token_pairs_meet_aa_in_both_themes() -> None:
 
 
 def test_language_badges_share_the_token_style_on_nodes_chips_and_legend() -> None:
-    css = (ROOT / "native/report/assets/explorer/explorer.css").read_text(encoding="utf-8")
+    css = (ROOT / "native/report/assets/explorer/explorer-canvas.css").read_text(encoding="utf-8")
     canvas = (ROOT / "native/report/assets/explorer/report-canvas.js").read_text(encoding="utf-8")
     presentation = (ROOT / "native/report/assets/explorer/report-presentation.js").read_text(
         encoding="utf-8"

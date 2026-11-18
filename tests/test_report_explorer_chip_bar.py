@@ -6,7 +6,7 @@
 import re
 from pathlib import Path
 
-CSS = Path(__file__).resolve().parents[1] / "native/report/assets/explorer/explorer.css"
+CSS = Path(__file__).resolve().parents[1] / "native/report/assets/explorer/explorer-canvas.css"
 
 
 def _rule(selector: str) -> str:
