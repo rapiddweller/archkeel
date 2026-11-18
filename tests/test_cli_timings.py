@@ -9,7 +9,7 @@ from pathlib import Path
 from core_support import HONEST, SUFFIX, case_root
 from test_cli_core_only_scan import command
 
-PHASES = ["prepare", "collect", "validate", "evaluate", "render"]
+PHASES = ["prepare", "collect", "validate", "evaluate", "render", "join"]
 
 
 def _timings(path: Path) -> dict[str, object]:
@@ -32,8 +32,9 @@ def test_validate_writes_the_phases_and_the_output_stays_the_same(
     assert timed.stdout == plain.stdout and timed.stderr == plain.stderr == ""
     document = _timings(target)
     seconds = list(document["phases"].values())
-    assert all(isinstance(time, float) and time > 0 for time in seconds)
-    assert sum(seconds) <= document["core_seconds"]
+    assert all(isinstance(time, float) and time >= 0 for time in seconds)
+    assert document["phases"]["join"] == 0, "one configuration has no system join"
+    assert sum(seconds) <= document["core_seconds"] + 1e-5
 
 
 def test_report_writes_the_page_and_the_phases(built: Path, tmp_path: Path) -> None:

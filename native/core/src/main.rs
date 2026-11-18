@@ -148,8 +148,13 @@ fn respond_with<E: From<String>>(
             Ok(()) => {
                 // The seconds of the phases go to standard error, only when the request asked
                 // for them (#659). The frame on standard output is the same.
-                if let Some(phases) = answered.timings {
-                    eprintln!("{}", dual_run::Phases::line(&phases));
+                if answered.timings_asked {
+                    let line = answered
+                        .timings
+                        .map_or_else(dual_run::Phases::refused_line, |phases| {
+                            dual_run::Phases::line(&phases)
+                        });
+                    eprintln!("{line}");
                 }
                 (if answered.names_a_gap { NAMES_A_GAP } else { 0 }, None)
             }

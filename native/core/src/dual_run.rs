@@ -314,6 +314,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         frame,
         names_a_gap,
         timings: Some(timings),
+        timings_asked: false,
     })
 }
 

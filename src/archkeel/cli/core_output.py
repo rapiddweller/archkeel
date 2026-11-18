@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import secrets
@@ -38,21 +39,55 @@ def read_html(
 
 
 _TIMINGS_PROTOCOL: Final = "archkeel-core-timings-1"
+_PHASES: Final = ("prepare", "collect", "validate", "evaluate", "render", "join")
+# The core writes each phase with six decimals, so the rounded phases can exceed the rounded total
+# by a few millionths of a second.
+_ROUNDING: Final = 1e-5
+
+
+def _seconds(value: object, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise CoreError(f"the core timings value {name} is not a number")
+    if not math.isfinite(value) or value < 0:
+        raise CoreError(
+            f"the core timings value {name} is not a finite number of seconds, 0 or more"
+        )
+    return float(value)
 
 
 def read_timings(stderr: bytes) -> bytes | None:
-    """The timings document that the core wrote as the last line of its standard error, or `None`
-    when it wrote none: a refused scan has no phases (#659)."""
+    """The one timings line that the core wrote on standard error for a request that asked (#659).
+
+    A refused scan, in whole or in a part of a system run, has the line `refused` and no seconds:
+    the result is `None` and no file is written. A missing line, more than one line, another
+    protocol, a missing or unknown field or a number that is not finite and not negative is a
+    `CoreError`: a successful run that was asked for its timings must give them.
+    """
     lines = stderr.strip().splitlines()
-    if not lines:
-        return None
+    if len(lines) != 1:
+        found = "none" if not lines else f"{len(lines)} lines"
+        raise CoreError(
+            f"the core must write one timings line when it is asked for them; found {found}"
+        )
     try:
-        document = json.loads(lines[-1])
+        document = json.loads(lines[0])
     except ValueError as error:
         raise CoreError("the core timings line is not JSON") from error
     if not isinstance(document, dict) or document.get("protocol") != _TIMINGS_PROTOCOL:
         raise CoreError("the core timings line has another protocol")
-    return lines[-1] + b"\n"
+    if set(document) == {"protocol", "refused"} and document["refused"] is True:
+        return None
+    if set(document) != {"protocol", "clock", "unit", "phases", "core_seconds"}:
+        raise CoreError("the core timings line has other fields than the protocol names")
+    if (document["clock"], document["unit"]) != ("monotonic", "seconds"):
+        raise CoreError("the core timings are not monotonic seconds")
+    phases = document["phases"]
+    if not isinstance(phases, dict) or list(phases) != list(_PHASES):
+        raise CoreError("the core timings do not hold the phases in order: " + ", ".join(_PHASES))
+    total = sum(_seconds(phases[name], name) for name in _PHASES)
+    if total > _seconds(document["core_seconds"], "core_seconds") + _ROUNDING:
+        raise CoreError("the core timings phases sum to more than the time of the core")
+    return lines[0] + b"\n"
 
 
 def _parent(path: Path) -> int:

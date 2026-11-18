@@ -243,17 +243,22 @@ pub(super) fn refusals(
 pub(crate) struct Answered {
     pub(crate) frame: Vec<u8>,
     pub(crate) names_a_gap: bool,
-    /// The seconds of the phases, for a request that asks for them (#659). Not part of the frame.
+    /// The seconds of the phases (#659). `None` when a scan was refused, in whole or in a part of a
+    /// system run. Not part of the frame.
     pub(crate) timings: Option<Phases>,
+    /// The request asked for the timings: the core then writes one timings line on standard error.
+    pub(crate) timings_asked: bool,
 }
 
 // The wall-clock seconds of the phases of one scan (#659, AD-878): `prepare` (configuration, Git
 // state, survey, inside contracts, provenance documents), `collect` (the linked collector),
 // `validate` (the store validates the reply once), `evaluate` (rules, topology, explaining rows)
-// and `render` (the frame bytes, with the page when one is asked for). The collector hands its
-// typed reply to the core in the same process (AD-406), so there is no encode or decode step. The
-// seconds leave the core on standard error as one JSON line, only when the scan request sets
-// `timings`; the frame does not change. The phases of the parts of a system run are summed.
+// and `render` (the frame bytes, with the page when one is asked for). A system run adds `join`:
+// the frames of the parts become one frame, with the page of the system. The collector hands its
+// typed reply to the core in the same process (AD-406), so there is no encode or decode step. When
+// the scan request sets `timings`, the core writes exactly one JSON line to standard error: the
+// seconds, or `refused` for a scan that was refused in whole or in a part. The frame does not
+// change. The phases of the parts of a system run are summed.
 /// The protocol word of the timings line.
 const PROTOCOL: &str = "archkeel-core-timings-1";
 
@@ -265,7 +270,10 @@ pub(crate) struct Phases {
     pub(crate) validate: Duration,
     pub(crate) evaluate: Duration,
     pub(crate) render: Duration,
-    /// The time of the whole scan in the core: the phases and the rest that no phase measures.
+    /// The join of the frames of the parts of a system run; zero for one configuration.
+    pub(crate) join: Duration,
+    /// The time from the read request to the end of the frame in the core, not the time of the CLI:
+    /// the phases and the rest that no phase measures.
     pub(crate) wall: Duration,
 }
 
@@ -278,6 +286,7 @@ impl Phases {
             validate: self.validate + other.validate,
             evaluate: self.evaluate + other.evaluate,
             render: self.render + other.render,
+            join: self.join + other.join,
             wall: self.wall + other.wall,
         }
     }
@@ -287,15 +296,21 @@ impl Phases {
         let seconds = |time: Duration| format!("{:.6}", time.as_secs_f64());
         format!(
             "{{\"protocol\":\"{PROTOCOL}\",\"clock\":\"monotonic\",\"unit\":\"seconds\",\
-\"phases\":{{\"prepare\":{},\"collect\":{},\"validate\":{},\"evaluate\":{},\"render\":{}}},\
+\"phases\":{{\"prepare\":{},\"collect\":{},\"validate\":{},\"evaluate\":{},\"render\":{},\"join\":{}}},\
 \"core_seconds\":{}}}",
             seconds(self.prepare),
             seconds(self.collect),
             seconds(self.validate),
             seconds(self.evaluate),
             seconds(self.render),
+            seconds(self.join),
             seconds(self.wall),
         )
+    }
+
+    /// The timings line of a scan that was refused in whole or in a part: no seconds.
+    pub(crate) fn refused_line() -> String {
+        format!("{{\"protocol\":\"{PROTOCOL}\",\"refused\":true}}")
     }
 }
 
@@ -382,16 +397,17 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
         frame,
         names_a_gap: true,
         timings: None,
+        timings_asked: false,
     })
 }
 
 #[cfg(test)]
+#[path = "phases_tests.rs"]
+mod phases_tests;
+
+#[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
-    use serde_json::Value;
-
-    use super::{evidence_id, locations, Phases};
+    use super::{evidence_id, locations};
 
     #[test]
     fn a_contract_location_has_the_citation_and_line_of_its_settings() {
@@ -405,46 +421,6 @@ mod tests {
             assert!(locations(None, "elsewhere.json", bytes, &settings).is_empty());
             assert!(locations(None, "contract.json", b"[]", &settings).is_empty());
         }
-    }
-
-    fn each(seconds: u64) -> Phases {
-        let time = Duration::from_secs(seconds);
-        Phases {
-            prepare: time,
-            collect: time,
-            validate: time,
-            evaluate: time,
-            render: time,
-            wall: time * 6,
-        }
-    }
-
-    #[test]
-    fn the_timings_line_is_one_json_document_with_the_phases_in_the_order_of_the_run() {
-        let line = Phases::line(&each(2));
-        let document: Value = serde_json::from_str(&line).unwrap();
-        assert_eq!(document["protocol"], "archkeel-core-timings-1");
-        assert_eq!(document["clock"], "monotonic");
-        assert_eq!(document["unit"], "seconds");
-        assert_eq!(document["core_seconds"], 12.0);
-        let names: Vec<&str> = document["phases"]
-            .as_object()
-            .unwrap()
-            .keys()
-            .map(String::as_str)
-            .collect();
-        assert_eq!(
-            names,
-            ["prepare", "collect", "validate", "evaluate", "render"]
-        );
-        assert!(line.find("prepare") < line.find("render"));
-    }
-
-    #[test]
-    fn the_phases_of_the_parts_of_a_system_run_are_summed() {
-        let sum = Phases::plus(each(1), each(2));
-        assert_eq!(sum.collect, Duration::from_secs(3));
-        assert_eq!(sum.wall, Duration::from_secs(18));
     }
 }
 

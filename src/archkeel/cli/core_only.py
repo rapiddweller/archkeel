@@ -336,8 +336,8 @@ def _scan(
     if collected is not None and _NO_CONFIG in collected.reason:
         # The core names the cause; the way forward is the shell's to name (#1314).
         collected = replace(collected, reason=_config_reason(options, project, collected.reason))
-    timings = read_timings(sink[0]) if sink else None
-    failures = _deliver(options, frame, stdout, root, timings)
+    timings = read_timings(sink[0]) if options.timings is not None else None
+    failures = _deliver(options, frame, stdout, root, timings, document)
     outcome = outcome_of(frame, delivered=not failures)
     code = exit_for(outcome, frame, baseline=baseline)
     result = (

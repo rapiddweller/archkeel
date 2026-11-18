@@ -93,13 +93,11 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
     let started = Instant::now();
     let request: ScanRequest = crate::decode::decode(input, PROTOCOL)?;
     let mut answered = of_request(&request)?;
-    answered.timings = answered
-        .timings
-        .filter(|_| request.timings)
-        .map(|phases| Phases {
-            wall: started.elapsed(),
-            ..phases
-        });
+    answered.timings_asked = request.timings;
+    answered.timings = answered.timings.map(|phases| Phases {
+        wall: started.elapsed(),
+        ..phases
+    });
     Ok(answered)
 }
 
@@ -142,7 +140,8 @@ fn system_run(
         topology: request.topology || request.html,
         ..request.clone()
     };
-    let (mut frames, mut names_a_gap, mut timings) = (Vec::new(), false, Phases::default());
+    // A part that the core refused has no timings, so the system has none: never a partial sum.
+    let (mut frames, mut names_a_gap, mut timings) = (Vec::new(), false, Some(Phases::default()));
     for part in &system.parts {
         let part_identity = Identity {
             config: &part.config,
@@ -150,16 +149,21 @@ fn system_run(
         };
         let answered = one(&part_request, &part_identity)?;
         names_a_gap |= answered.names_a_gap;
-        timings = Phases::plus(timings, answered.timings.unwrap_or_default());
+        timings = timings
+            .zip(answered.timings)
+            .map(|(sum, part)| Phases::plus(sum, part));
         frames.push(answered.frame);
     }
     let joining = Instant::now();
     let frame = crate::system::join(system, &frames, (request.html, request.topology))?;
-    timings.render += joining.elapsed();
     Ok(Answered {
         frame,
         names_a_gap,
-        timings: Some(timings),
+        timings: timings.map(|sum| Phases {
+            join: joining.elapsed(),
+            ..sum
+        }),
+        timings_asked: false,
     })
 }
 
