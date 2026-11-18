@@ -43,16 +43,17 @@
       const values = data.strings;
       const rows = data.gaps.map((row) => {
         if (!Array.isArray(row)) return row.raw;
-        const gap = {kind: values[row[0]], reason: values[row[1]],
-          subjects: row[2].map((index) => values[index]), evidence: row[3].map((index) => values[index])};
-        if (row.length === 5) gap.detail = values[row[4]];
+        const list = (items) => (Array.isArray(items) ? items : [items]).map((index) => values[index]);
+        const gap = {kind: data.kind, reason: values[row[0]],
+          subjects: list(row[1]), evidence: list(row[2])};
+        if (row.length === 4) gap.detail = values[row[3]];
         return JSON.stringify(gap);
       });
       text = `${text.slice(0, -1)}${text === "{}" ? "" : ","}"collection_gaps":[${rows.join(",")}]}`;
     }
     const url = URL.createObjectURL(new Blob([text], {type: "application/json"}));
     const anchor = document.createElement("a");
-    anchor.href = url; anchor.download = "archkeel-run-frame.json"; anchor.click();
+    anchor.href = url; anchor.download = "archkeel-gap-records.json"; anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   if (NAV) {

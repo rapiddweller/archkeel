@@ -67,8 +67,8 @@ pub(super) fn render(frame: &Map<String, Value>) -> Result<Value, serde_json::Er
     };
     let mut page = shell::start(&subject);
     page.push_str(&verdict::section(&view, &places));
-    if view.topology.is_some() {
-        let packed = pack_frame(frame)?;
+    if view.topology.is_some() && frame.get("collection_gaps").is_some_and(Value::is_array) {
+        let packed = pack_gap_records(frame)?;
         page.push_str(&format!(
             "<script type=\"application/json\" id=\"run-frame-data\">{}</script>",
             serde_json::to_string(&packed)?.replace('<', "\\u003c")
@@ -95,26 +95,68 @@ fn intern<'a>(
     })
 }
 
-fn pack_frame(frame: &Map<String, Value>) -> Result<Value, serde_json::Error> {
-    let mut rest = frame.clone();
-    let Some(Value::Array(gaps)) = rest.remove("collection_gaps") else {
-        return Ok(json!({"frame_json": serde_json::to_string(frame)?}));
+fn packed_list(values: Vec<usize>) -> Value {
+    if let [single] = values.as_slice() {
+        json!(single)
+    } else {
+        json!(values)
+    }
+}
+
+fn pack_gap_records(frame: &Map<String, Value>) -> Result<Value, serde_json::Error> {
+    let Some(Value::Array(gaps)) = frame.get("collection_gaps") else {
+        return Ok(json!({"frame_json": "{}"}));
     };
+    let mut rest = Map::new();
+    for key in ["engine", "status", "contract_digest"] {
+        if let Some(value) = frame.get(key) {
+            rest.insert(key.to_owned(), value.clone());
+        }
+    }
+    if let Some(snapshot) = frame
+        .get("self_test")
+        .and_then(|value| value.get("collect"))
+        .and_then(|value| value.get("request"))
+        .and_then(|value| value.get("snapshot"))
+    {
+        rest.insert("snapshot".to_owned(), snapshot.clone());
+    }
+    let mut locations = Map::new();
+    if let Some(all) = frame.get("locations").and_then(Value::as_object) {
+        let evidence = gaps.iter().flat_map(|gap| {
+            gap.get("evidence")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+        });
+        for item in evidence {
+            if let Some((id, location)) = item.as_str().and_then(|id| all.get(id).map(|v| (id, v)))
+            {
+                locations.insert(id.to_owned(), location.clone());
+            }
+        }
+    }
+    rest.insert("locations".to_owned(), Value::Object(locations));
     let mut strings = Vec::new();
     let mut ids = BTreeMap::new();
     let mut rows = Vec::new();
-    for gap in &gaps {
+    let default_kind = gaps
+        .iter()
+        .find_map(|gap| gap.get("kind").and_then(Value::as_str))
+        .unwrap_or_default();
+    for gap in gaps {
         let Some(object) = gap.as_object() else {
             rows.push(json!({"raw": serde_json::to_string(gap)?}));
             continue;
         };
         let fields = ["kind", "reason", "subjects", "evidence", "detail"];
-        if object.keys().any(|key| !fields.contains(&key.as_str())) {
+        if object.keys().any(|key| !fields.contains(&key.as_str()))
+            || object.get("kind").and_then(Value::as_str) != Some(default_kind)
+        {
             rows.push(json!({"raw": serde_json::to_string(gap)?}));
             continue;
         }
-        let (Some(kind), Some(reason), Some(subjects), Some(evidence)) = (
-            object.get("kind").and_then(Value::as_str),
+        let (Some(reason), Some(subjects), Some(evidence)) = (
             object.get("reason").and_then(Value::as_str),
             object.get("subjects").and_then(Value::as_array),
             object.get("evidence").and_then(Value::as_array),
@@ -139,23 +181,28 @@ fn pack_frame(frame: &Map<String, Value>) -> Result<Value, serde_json::Error> {
             continue;
         }
         let mut row = vec![
-            json!(intern(kind, &mut ids, &mut strings)),
             json!(intern(reason, &mut ids, &mut strings)),
-            json!(subjects
-                .iter()
-                .map(|text| intern(text, &mut ids, &mut strings))
-                .collect::<Vec<_>>()),
-            json!(evidence
-                .iter()
-                .map(|text| intern(text, &mut ids, &mut strings))
-                .collect::<Vec<_>>()),
+            packed_list(
+                subjects
+                    .iter()
+                    .map(|text| intern(text, &mut ids, &mut strings))
+                    .collect(),
+            ),
+            packed_list(
+                evidence
+                    .iter()
+                    .map(|text| intern(text, &mut ids, &mut strings))
+                    .collect(),
+            ),
         ];
         if let Some(detail) = object.get("detail").and_then(Value::as_str) {
             row.push(json!(intern(detail, &mut ids, &mut strings)));
         }
         rows.push(Value::Array(row));
     }
-    Ok(json!({"frame_json": serde_json::to_string(&rest)?, "strings": strings, "gaps": rows}))
+    Ok(
+        json!({"frame_json": serde_json::to_string(&rest)?, "kind": default_kind, "strings": strings, "gaps": rows}),
+    )
 }
 
 #[cfg(test)]

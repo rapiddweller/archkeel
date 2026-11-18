@@ -7,8 +7,9 @@ One recorded location or subject is an example, not the complete evidence for th
 The page does not infer causes or rule relationships from message text.
 It shows whole-scan gap counts per UNKNOWN rule from the typed holds, without summing them.
 
-The standalone page embeds the complete frame from that same run.
-The reader can download it without another scan.
+The standalone page embeds every gap record from that same run and its referenced locations.
+The reader can download these records without another scan.
+The download is not the complete run frame.
 An older payload can contain shortened reasons and no frame; the page does not reconstruct them.
 
 The alternative of grouping on a colon loses qualified names and changes the reason.

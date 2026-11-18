@@ -199,7 +199,7 @@ fn explorer_preserves_complete_gap_messages_and_their_record_counts() {
 }
 
 #[test]
-fn the_page_embeds_the_frame_without_exposing_script_closers() {
+fn the_page_embeds_gap_records_without_exposing_script_closers() {
     let frame = json!({
         "status": "UNKNOWN", "topology": components(2, &[]),
         "collection_gaps": [{"kind": "collection_gap", "reason": "</script><script>alert(1)</script>"}]
@@ -210,10 +210,10 @@ fn the_page_embeds_the_frame_without_exposing_script_closers() {
 }
 
 #[test]
-fn the_embedded_frame_keeps_unusual_gap_fields_and_large_integers() {
+fn the_embedded_gap_records_keep_unusual_fields_and_large_integers() {
     let gap = json!({"reason": "</script>", "extra": 18446744073709551615_u64});
-    let frame = json!({"large": 18446744073709551615_u64, "collection_gaps": [gap.clone()]});
-    let packed = super::super::pack_frame(frame.as_object().unwrap()).unwrap();
+    let frame = json!({"self_test": {"collect": {"request": {"snapshot": {"large": 18446744073709551615_u64}}}}, "collection_gaps": [gap.clone()]});
+    let packed = super::super::pack_gap_records(frame.as_object().unwrap()).unwrap();
     assert!(packed["frame_json"]
         .as_str()
         .unwrap()
