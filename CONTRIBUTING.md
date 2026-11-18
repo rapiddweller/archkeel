@@ -1,5 +1,7 @@
 # Contributing to Archkeel
 
+Documentation changes keep the PR test selection.
+
 Thank you for helping. This page lists what a pull request needs to pass the local gate and review. CI runs on `main` only (AD-348).
 
 ## Set up
