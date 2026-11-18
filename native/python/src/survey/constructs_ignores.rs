@@ -8,6 +8,11 @@ use std::{collections::BTreeMap, ops::Range};
 
 use archkeel_facts::data::SignalData;
 use archkeel_facts::vocab::Signal;
+use ruff_python_ast::Expr;
+
+pub(super) fn member_call(expr: &Expr) -> bool {
+    matches!(expr, Expr::Call(call) if matches!(&*call.func, Expr::Attribute(attr) if matches!(&*attr.value, Expr::Name(_))))
+}
 
 pub(super) fn data(owner: &str, line: i64, tag: String, statement: String) -> SignalData {
     SignalData {
@@ -65,7 +70,10 @@ impl Comments {
         end: usize,
     ) -> Option<(String, String)> {
         let statement = text.get(start..end)?;
-        let (base, member) = statement.strip_suffix("()")?.split_once('.')?;
+        if statement.contains(['\n', '\r']) || !statement.ends_with(')') {
+            return None;
+        }
+        let (base, member) = statement.split_once('(')?.0.split_once('.')?;
         if !identifier(base) || !identifier(member) {
             return None;
         }

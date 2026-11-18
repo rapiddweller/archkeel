@@ -18,7 +18,16 @@ from test_cli_python_profile_limits import CONSTRUCT, Plant, scanned
         ("def check(item):\n    item.close()  # type: ignore[attr-defined]\n", "FAIL"),
         ("def check(item):\n    item.close()  #type:ignore[attr-defined]\n", "FAIL"),
         ("def check(item):\r    item.close()  # type: ignore[attr-defined]\r", "FAIL"),
-        ("def check(item):\n    item.close(1)  # type: ignore[attr-defined]\n", "UNKNOWN"),
+        ("def check(item):\n    item.close(1)  # type: ignore[attr-defined]\n", "FAIL"),
+        ("def check(item):\n    item.close(key='x')  # type: ignore[attr-defined]\n", "FAIL"),
+        (
+            "def check(item):\n    item.close(\n        1)  # type: ignore[attr-defined]\n",
+            "UNKNOWN",
+        ),
+        (
+            "def check(item):\n    item.close(1) + other()  # type: ignore[attr-defined]\n",
+            "UNKNOWN",
+        ),
         ("def check(item):\n    item.one(); item.two()  # type: ignore[attr-defined]\n", "UNKNOWN"),
         ("# type: ignore[attr-defined]\ndef check():\n    return 1\n", "UNKNOWN"),
     ],
@@ -34,8 +43,9 @@ def test_type_ignore_is_a_comment_not_string_text(
 
 
 @pytest.mark.parametrize(("tag", "expected"), [("[attr-defined]", "PASS"), ("[other]", "FAIL")])
+@pytest.mark.parametrize("statement", ["item.close()", "item.close(1, key='x')"])
 def test_a_type_ignore_allowance_matches_the_exact_site(
-    release_core: Path, tmp_path: Path, tag: str, expected: str
+    release_core: Path, tmp_path: Path, tag: str, expected: str, statement: str
 ) -> None:
     rule = {
         **CONSTRUCT,
@@ -45,12 +55,12 @@ def test_a_type_ignore_allowance_matches_the_exact_site(
             {
                 "qualified_name": "app.client.page.check",
                 "line": 2,
-                "statement": "item.close()",
+                "statement": statement,
                 "tag": "[attr-defined]",
             }
         ],
     }
-    source = f"def check(item):\n    item.close()  # type: ignore{tag}\n"
+    source = f"def check(item):\n    {statement}  # type: ignore{tag}\n"
     result = scanned(
         release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
     )
