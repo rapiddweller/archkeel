@@ -304,7 +304,12 @@ def test_a_wheel_with_a_missing_or_wrong_typescript_worker_refuses(
             hashlib.sha256(ts.read_bytes()).hexdigest(), encoding="ascii"
         )
     with case_root("fixture/H-typescript") as root:
-        refusal = changed.refusal(root)
+        done = changed.validate(root)
+    result = json.loads(done.stdout)
+    assert done.returncode == result["exit_code"] == 2
+    assert result["status"] == "UNKNOWN"
+    assert not result.get("frame", {}).get("rules")
+    refusal = result["refusal"]
     if worker == "missing":
         assert refusal["kind"] == "core_binary_not_found"
     else:
