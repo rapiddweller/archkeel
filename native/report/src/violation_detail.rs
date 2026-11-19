@@ -104,6 +104,23 @@ impl ViolationDetail {
         )
     }
 
+    fn cycle(cycle: &archkeel_eval::Cyclic) -> Self {
+        Self {
+            source: cycle.members.join(" -> "),
+            target: cycle.members.first().cloned(),
+            cause: "dependency cycle",
+            evidence: cycle.evidence.clone(),
+            possible: IntoIterator::into_iter(&cycle.path).any(|step| step.possible),
+            misplaced_class_fact: None,
+            members: Some(cycle.members.clone()),
+            path: Some(
+                IntoIterator::into_iter(&cycle.path)
+                    .map(PathStep::of)
+                    .collect(),
+            ),
+        }
+    }
+
     pub(crate) fn of(violation: &Violation) -> Self {
         match violation {
             Violation::Forbidden { cited, .. } => Self::cited("forbidden dependency", cited),
@@ -138,20 +155,7 @@ impl ViolationDetail {
                 "dependency violates layer order",
                 std::slice::from_ref(&layer.evidence),
             ),
-            Violation::Cycle(cycle) => Self {
-                source: cycle.members.join(" -> "),
-                target: cycle.members.first().cloned(),
-                cause: "dependency cycle",
-                evidence: cycle.evidence.clone(),
-                possible: IntoIterator::into_iter(&cycle.path).any(|step| step.possible),
-                misplaced_class_fact: None,
-                members: Some(cycle.members.clone()),
-                path: Some(
-                    IntoIterator::into_iter(&cycle.path)
-                        .map(PathStep::of)
-                        .collect(),
-                ),
-            },
+            Violation::Cycle(cycle) => Self::cycle(cycle),
             Violation::Construct(row) => detail(
                 format!("{} ({})", row.owner, row.construct),
                 None,
@@ -180,6 +184,18 @@ impl ViolationDetail {
                 let target = Some(target.clone());
                 detail(source.clone(), target, "call outside its owner", evidence)
             }
+            Violation::ForbiddenArgument {
+                source,
+                target,
+                parameter,
+                evidence,
+                ..
+            } => detail(
+                source.clone(),
+                Some(format!("{target}.{parameter}")),
+                "written string literal passed to restricted parameter",
+                evidence,
+            ),
             Violation::SymbolPlacement(row) => Self {
                 possible: false,
                 misplaced_class_fact: Some(row.fact_id.clone()),

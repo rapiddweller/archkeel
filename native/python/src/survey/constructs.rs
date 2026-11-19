@@ -17,6 +17,7 @@ use std::collections::HashSet;
 
 use super::binders::{named_call, Binders};
 use super::class_writes::ClassWrites;
+use super::declared::placeholder as declarations;
 use super::support::{Construct, Support};
 use crate::module::{EvidenceMap, Location, Module};
 
@@ -26,32 +27,37 @@ mod ignores;
 mod placeholder;
 
 pub(super) fn collect(
-    modules: &[Module],
-    binders: &[Binders],
-    imports: &[Record<ImportFact>],
+    (modules, binders, imports): (&[Module], &[Binders], &[Record<ImportFact>]),
     sets: (&HashSet<String>, &HashSet<String>),
-    (writes, hazard_free): (&ClassWrites, bool),
+    (writes, hazard_free, all_inputs_read): (&ClassWrites, bool, bool),
+    stdlib: &HashSet<&str>,
     evidence: &mut EvidenceMap,
 ) -> Findings {
     // AD-880: no site of the scan changes the import system or runs a door, and no write replaces `typing`.
     let typing_unchanged = hazard_free && writes.typing_unchanged();
+    let protocol_unchanged = hazard_free
+        && all_inputs_read
+        && declarations::standard_protocol(modules, imports, stdlib, writes);
     let mut records = Vec::new();
     let mut signals = Vec::new();
     let mut support = Support::start();
-    let by_module = super::declared::placeholder::by_module(imports);
+    let by_module = declarations::by_module(imports);
     for (module, binders) in modules.iter().zip(binders) {
         let source_imports = by_module
             .get(module.name.as_str())
             .map_or(&[][..], Vec::as_slice);
-        let withheld =
-            super::declared::placeholder::withheld(module, binders, source_imports, sets);
+        let decisions =
+            declarations::decisions(module, binders, source_imports, sets, protocol_unchanged);
         let mut found = one(module, binders, typing_unchanged, evidence);
-        found
-            .records
-            .extend(placeholder::collect(module, evidence, &withheld));
+        let (placeholders, coverage) = placeholder::collect(module, evidence, &decisions);
+        found.records.extend(placeholders);
+        found.support.observe_placeholder(coverage);
         records.extend(found.records);
         signals.extend(found.signals);
         support.meet(&found.support);
+    }
+    if !all_inputs_read {
+        support.downgrade(Construct::Placeholder);
     }
     Findings {
         records,

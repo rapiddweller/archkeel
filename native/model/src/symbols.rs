@@ -59,6 +59,7 @@ pub(crate) struct Entity {
     pub(crate) signature: Option<Signature>,
     pub(crate) annotation: Option<String>,
     pub(crate) inferred_builtin_type: Option<(String, BTreeMap<String, String>)>,
+    pub(crate) inferred_type: Option<String>,
     pub(crate) modifiers: Vec<ModifierKind>,
     /// The definition lies under control flow (`definition_contexts`).
     pub(crate) conditional: bool,
@@ -251,6 +252,7 @@ impl Entity {
             signature: None,
             annotation: None,
             inferred_builtin_type: None,
+            inferred_type: None,
             modifiers: Vec::new(),
             conditional: false,
             initializer: None,

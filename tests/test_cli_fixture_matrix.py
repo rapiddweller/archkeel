@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 from core_support import run
+from test_cli_native_python_imports import verdict
 
 from archkeel.cli import core_only
 from tools import fixture_source
@@ -78,6 +79,18 @@ def test_the_release_core_gives_the_pinned_result(
     found = summarize(envelope)
     assert found == entry["expect"], "the core result changed: update fixtures/matrix.json"
     assert code == entry["expect"]["exit"]
+
+
+def test_shop_repository_owns_the_package_entry_point(release_core: Path) -> None:
+    rule = "store:STORE-REQUIRES-COMPLETE"
+    shop = FIXTURES / "F-architecture"
+    assert verdict(release_core, shop)["frame"]["rules"][rule][1] == "PASS"
+    edit = {"path": "shop/store/__init__.py", "append": "\nfrom shop.store.sqlite import vacuum\n"}
+    with fixture_tree(shop, [edit]) as root:
+        frame = verdict(release_core, root)["frame"]
+    assert frame["rules"][rule][1] == "FAIL"
+    [finding] = frame["details"][rule]
+    assert (finding["source"], finding["target"]) == ("shop.store", "shop.store.sqlite")
 
 
 @pytest.mark.parametrize(

@@ -41,7 +41,11 @@ pub fn matches<'a>(
     Ok(found)
 }
 
-pub(crate) fn receipt(model: &Model, rule: &ForbiddenConstruct) -> Result<(), Reason> {
+pub(crate) fn receipt<'a>(
+    model: &Model,
+    rule: &'a ForbiddenConstruct,
+) -> Result<Option<&'a str>, Reason> {
+    let mut needs_premise = false;
     let inventory = model.graph().constructs();
     let mut work = Work(4_000_000);
     let modules = model.graph().modules().len();
@@ -71,7 +75,7 @@ pub(crate) fn receipt(model: &Model, rule: &ForbiddenConstruct) -> Result<(), Re
         let name = word(construct);
         let signal = archkeel_facts::vocab::Signal::ALL
             .iter()
-            .any(|s| s.construct() == Some(name.as_str()));
+            .any(|s| s.construct() == Some(String::as_str(&name)));
         let measured = if signal {
             inventory.signals_measured
         } else {
@@ -89,13 +93,16 @@ pub(crate) fn receipt(model: &Model, rule: &ForbiddenConstruct) -> Result<(), Re
             support,
             Some((_, ConstructSupport::Supported | ConstructSupport::Decided))
         ) {
-            return Err(Cause::Receipt("construct absence is not completely observed").into());
+            if name != "placeholder_body" || !inventory.placeholder_under_premise {
+                return Err(Cause::Receipt("construct absence is not completely observed").into());
+            }
+            needs_premise = true;
         }
     }
     if rule.selector().is_some() {
         selector_receipt(inventory, model, rule, &mut work)?;
     }
-    Ok(())
+    Ok(needs_premise.then(|| rule.source().as_text()))
 }
 
 fn matching(rule: &ForbiddenConstruct, site: &ConstructSite) -> Option<bool> {

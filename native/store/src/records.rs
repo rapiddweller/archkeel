@@ -62,7 +62,7 @@ pub(crate) fn direct_calls(facts: &Facts) -> Result<(), String> {
 }
 
 fn call_link(
-    (site, function, import): &DirectCall,
+    (site, function, import, _): &DirectCall,
     (calls, symbols, imports): (&Index<CallFact>, &Index<SymbolFact>, &Index<ImportFact>),
 ) -> Option<()> {
     let CallFact::Calls(call) = calls.get(site)? else {

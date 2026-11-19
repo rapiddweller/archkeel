@@ -27,6 +27,7 @@ pub(crate) fn add(links: &mut Links, outcome: &Outcome) {
             | Violation::Construct(_)
             | Violation::BoundaryType(_)
             | Violation::CallOwner { .. }
+            | Violation::ForbiddenArgument { .. }
             | Violation::UnusedPublic(_)
             | Violation::SymbolPlacement(_) => &[],
         };

@@ -241,10 +241,8 @@ fn field_members<'t>(
         );
         member.annotation = annotation_before(node, name_node, source);
         member.r#static = words.r#static;
-        member.plain_static_string = static_const
-            && whole
-            && expression.is_some_and(|item| item.kind() == "string_literal")
-            && value.as_deref().is_some_and(|text| !text.contains('$'));
+        member.static_string_literal =
+            static_const && whole && expression.is_some_and(|item| item.kind() == "string_literal");
         member.literal.clone_from(&value);
         member.initializer = value;
         member.constant = words.constant;

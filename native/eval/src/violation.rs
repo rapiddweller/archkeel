@@ -152,6 +152,23 @@ pub enum Violation {
         /// The source evidence of the call.
         evidence: Vec<String>,
     },
+    /// A written literal bound to a restricted formal.
+    ForbiddenArgument {
+        /// The identity of the violation.
+        id: String,
+        /// The rule that prohibits the call.
+        rule: String,
+        /// The identity of the call fact.
+        fact: String,
+        /// The lexical scope of the call.
+        source: String,
+        /// The exact target of the call.
+        target: String,
+        /// The selected formal parameter.
+        parameter: String,
+        /// The source evidence of the call.
+        evidence: Vec<String>,
+    },
 }
 
 /// A public item that no other component uses (AD-670).
@@ -415,7 +432,6 @@ impl Violation {
             target_component,
         }
     }
-
     /// The id of the violation record.
     pub(crate) fn private_import(rule: &str, components: [&str; 2], import: &Import) -> Self {
         let (id, rule, cited) = Cited::of(rule, import);
@@ -429,7 +445,6 @@ impl Violation {
             symbol: import.symbol().map(str::to_owned),
         }
     }
-
     /// A publication outside the public interface (AD-608). Its id is apart from the id of an
     /// import violation of the same record, which the record can also be.
     pub(crate) fn publication(rule: &str, component: &str, name: &str, import: &Import) -> Self {
@@ -446,32 +461,10 @@ impl Violation {
             component: component.to_owned(),
         }))
     }
-
-    /// The id of the violation record.
-    pub(crate) fn boundary(rule: &str, position: &archkeel_model::Position) -> Self {
-        let id = stable_id("VIO", &[Part::Text(rule), Part::Text(&position.subject)]);
-        let reasons = position
-            .leaves
-            .iter()
-            .map(|leaf| format!("{} is {}", leaf.text, leaf.why))
-            .collect();
-        Violation::BoundaryType(Box::new(BoundaryViolation {
-            id,
-            rule: rule.to_owned(),
-            subject: position.subject.clone(),
-            qualified_name: position.qualified_name.clone(),
-            position: position.position.clone(),
-            text: position.text.clone(),
-            reasons,
-            evidence: position.evidence.clone(),
-        }))
-    }
-
     /// The id of the violation record, whatever its kind.
     pub fn id(&self) -> &str {
         self.head()[0]
     }
-
     /// The rule of the violation.
     pub fn rule(&self) -> &str {
         self.head()[1]
@@ -488,6 +481,7 @@ impl Violation {
             | Violation::Unrequired { id, rule, .. }
             | Violation::PrivateImport { id, rule, .. }
             | Violation::CallOwner { id, rule, .. } => [id, rule],
+            Violation::ForbiddenArgument { id, rule, .. } => [id, rule],
             Violation::Publication(found) => [&found.id, &found.rule],
             Violation::OuterLayer(layered) => [&layered.id, &layered.rule],
             Violation::Cycle(cyclic) => [&cyclic.id, &cyclic.rule],

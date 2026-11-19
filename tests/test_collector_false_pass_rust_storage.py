@@ -154,7 +154,16 @@ def test_destructor_origin_controls(
 
 @pytest.mark.parametrize(
     "case",
-    ["stored", "atomic-handle", "table-handle", "opaque-store", "different-trait", "no-read"],
+    [
+        "stored",
+        "stored-named",
+        "stored-unread",
+        "atomic-handle",
+        "table-handle",
+        "opaque-store",
+        "different-trait",
+        "no-read",
+    ],
 )
 def test_drop_from_sibling_storage(tmp_path: Path, release_core: Path, case: str) -> None:
     home = """
@@ -197,6 +206,19 @@ def test_drop_from_sibling_storage(tmp_path: Path, release_core: Path, case: str
     }
     if case == "opaque-store":
         files["slot.rs"] = HOOK_STORE
+    if case == "stored-named":
+        files["b.rs"] += "pub fn secret() {}"
+        files["a.rs"] = "pub fn run() { let _v = crate::slot::take(); crate::b::secret(); }"
+    if case == "stored-unread":
+        files["b.rs"] += "impl Y { pub fn touch(&self) {} }"
+        files["a.rs"] = """
+            trait Touch { fn touch(&self) {} }
+            impl Touch for u8 {}
+            pub fn run() {
+                let _v = crate::slot::take();
+                (if true { 1u8 } else { 2u8 }).touch();
+            }
+        """
     if case in {"atomic-handle", "table-handle"}:
         carrier = (
             """
@@ -241,12 +263,26 @@ def test_drop_from_sibling_storage(tmp_path: Path, release_core: Path, case: str
         ("b", ["native.app.b"], ("slot", "a")),
         ("slot", ["native.app.slot"], ()),
     ):
-        parts.append({**component(label, "app", needs), "packages": [], "exact_modules": modules})
+        ports = {
+            "a": ["native.app.a:run"],
+            "b": ["native.app.b:drive"],
+            "slot": ["native.app.slot:set", "native.app.slot:take"],
+        }
+        parts.append(
+            {
+                **component(label, "app", needs),
+                "packages": [],
+                "exact_modules": modules,
+                "public": ports.get(label, []),
+            }
+        )
     rules = (
         *CRATE_RULES,
+        rule("INTERFACE", "interface_boundary"),
         rule("MODULE-CYCLE", "no_component_cycles", level="module"),
-        {**NO_A_TO_B, "target_match": "exact"},
     )
+    if case != "stored-named":
+        rules += ({**NO_A_TO_B, "target_match": "exact"},)
     root = repository(tmp_path / "repo", release_core, _app(files), tuple(parts), rules)
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
@@ -258,7 +294,11 @@ def test_drop_from_sibling_storage(tmp_path: Path, release_core: Path, case: str
     result = validate(root)
     actual = statuses(result)
     assert actual["ASSIGNED"] == "PASS"
-    results = {key: actual[key] for key in ("NO-A-TO-B", "MODULE-CYCLE", "NO-CYCLES")}
+    interface = {"stored": "PASS", "stored-named": "FAIL", "stored-unread": "UNKNOWN"}
+    if case in interface:
+        assert actual["INTERFACE"] == interface[case], result["frame"]["explained"]
+    checked = ("NO-A-TO-B", "MODULE-CYCLE", "NO-CYCLES")
+    results = {key: actual[key] for key in checked if key in actual}
     if runs_drop:
         assert set(results.values()) <= {"UNKNOWN", "FAIL"}, results
         pair = {"source": "native.app.a", "target": "native.app.b"}

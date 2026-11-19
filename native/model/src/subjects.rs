@@ -92,11 +92,11 @@ pub(crate) fn check(rule: &Rule, components: &[Component], names: &Names<'_>) ->
         | Rule::LayerOrder(_)
         | Rule::NoComponentCycles(_)
         | Rule::InterfaceBoundary(_)
-        | Rule::CallOwner(_) => Vec::new(),
+        | Rule::CallOwner(_)
+        | Rule::ForbiddenCallArgument(_) => Vec::new(),
         // The profile-limited kinds: the scope state stops at their limit before this check
         // (`limits.rs`); a kind here never reaches a PASS.
-        Rule::ForbiddenCallArgument(_)
-        | Rule::CatalogArgument(_)
+        Rule::CatalogArgument(_)
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
         | Rule::SourceOwnership(_)

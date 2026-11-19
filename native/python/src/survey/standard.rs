@@ -87,6 +87,7 @@ pub(super) fn facts(
         }
     }
     StandardFacts {
+        placeholder_under_premise: false,
         types,
         changed: changes,
         wrapped,

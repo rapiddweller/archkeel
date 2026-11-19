@@ -147,7 +147,7 @@ fn infer_field_types(resolver: &Resolver<'_>, symbols: &mut [Record<SymbolFact>]
             fields
                 .entry(String::as_str(&member.name))
                 .and_modify(|proof| *proof = false)
-                .or_insert(member.plain_static_string && member.annotation.is_none());
+                .or_insert(member.static_string_literal && member.annotation.is_none());
         }
         let visible =
             |name: &str| Vec::is_empty(&resolver.local(module, name)) && !fields.contains_key(name);
@@ -276,9 +276,23 @@ fn open_reason(
 /// `evidence_ids`, and no rule reads them, so the form drops both keys. A top-level function
 /// has no method kind.
 fn typed(output: Output) -> Result<Collected, String> {
+    let mut calls: Vec<Record<CallFact>> = decode(&output.calls, "call")?;
+    for (record, original) in calls.iter_mut().zip(&output.calls) {
+        let CallFact::Call(data) = &mut record.data else {
+            return Err("a Dart call decoded as another kind".to_owned());
+        };
+        for (binding, evidence) in data
+            .result_bindings
+            .iter_mut()
+            .flatten()
+            .zip(&original.data.result_bindings)
+        {
+            binding.inferred_type.clone_from(&evidence.inferred_type);
+        }
+    }
     Ok(Collected {
         symbols: decode(&output.symbols, "symbol")?,
-        calls: decode(&output.calls, "call")?,
+        calls,
         references: decode(&output.references, "reference")?,
         evidence: output.evidence,
     })

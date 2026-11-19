@@ -140,6 +140,7 @@ pub(crate) fn rows(outcomes: &[Outcome], rule: &str) -> Vec<String> {
         Violation::UnusedPublic(row) => row.name.clone(),
         Violation::SymbolPlacement(row) => row.name.clone(),
         Violation::CallOwner { source, .. } => source.clone(),
+        Violation::ForbiddenArgument { source, .. } => source.clone(),
     };
     find(outcomes, rule).map_or_else(Vec::new, |o| o.violations().iter().map(cite).collect())
 }

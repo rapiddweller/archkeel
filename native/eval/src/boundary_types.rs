@@ -28,3 +28,31 @@ pub(crate) fn check(
     rows.sort_by(|a, b| a.id().cmp(b.id()));
     Ok(rows)
 }
+
+impl Violation {
+    /// The id of the violation record.
+    pub(crate) fn boundary(rule: &str, position: &archkeel_model::Position) -> Self {
+        let id = archkeel_facts::identity::stable_id(
+            "VIO",
+            &[
+                archkeel_facts::identity::Part::Text(rule),
+                archkeel_facts::identity::Part::Text(&position.subject),
+            ],
+        );
+        let reasons = position
+            .leaves
+            .iter()
+            .map(|leaf| format!("{} is {}", leaf.text, leaf.why))
+            .collect();
+        Violation::BoundaryType(Box::new(crate::violation::BoundaryViolation {
+            id,
+            rule: rule.to_owned(),
+            subject: position.subject.clone(),
+            qualified_name: position.qualified_name.clone(),
+            position: position.position.clone(),
+            text: position.text.clone(),
+            reasons,
+            evidence: position.evidence.clone(),
+        }))
+    }
+}

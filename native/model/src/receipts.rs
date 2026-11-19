@@ -15,13 +15,19 @@
 //! the coverage has no gap and no failure (`evaluate.py:1229`): that is the scope state and the
 //! gap scope, which `Scope::complete` checks first.
 
-use archkeel_contract::{CycleLevel, Lifecycle, NoComponentCycles, Rule, RuleKind};
+use archkeel_contract::{
+    CallOwner, CycleLevel, ForbiddenCallArgument, Lifecycle, NoComponentCycles, Rule, RuleKind,
+};
+use archkeel_facts::envelope::WrittenActual;
+use archkeel_facts::nested::Parameter;
 
 use crate::brand::Brand;
 use crate::causes::{Cause, Part};
+use crate::graph::{CallInventory, ExactCall, Graph};
 use crate::model::Model;
+use crate::modules::Module;
 use crate::ownership::{claims, in_scope};
-use crate::reason::Reason;
+use crate::reason::{Reason, Unsupported};
 use crate::roots::Roots;
 
 /// The proof that no kept pair gap can change what one rule of the model of `'id` reads.
@@ -283,3 +289,158 @@ mod tests;
 #[cfg(test)]
 #[path = "receipts_mount_tests.rs"]
 mod mount_tests;
+
+pub(crate) fn live_calls<'m>(
+    model: &'m Model,
+    rule: &CallOwner,
+) -> Result<&'m CallInventory, Reason> {
+    let graph = Model::graph(model);
+    let scope = CallOwner::source(rule).as_text();
+    let modules = Graph::modules(graph);
+    let inventory = Graph::exact_calls(graph)
+        .ok_or(Reason::Unsupported(Unsupported::Rule(RuleKind::CallOwner)))?;
+    let selected = modules
+        .iter()
+        .any(|(id, module)| model.holds(id) && in_scope(Module::name(module), scope));
+    let body = inventory.targets.contains(scope)
+        && inventory.bodies.contains_key(scope)
+        && scope.rsplit_once('.').is_some_and(|(owner, _)| {
+            modules
+                .iter()
+                .any(|(id, module)| model.holds(id) && Module::name(module) == owner)
+        });
+    if !selected && !body {
+        return Err(Reason::Unsupported(Unsupported::Rule(RuleKind::CallOwner)));
+    }
+    Ok(inventory)
+}
+
+pub(crate) fn call_allowed(rule: &CallOwner, module: &str, caller: &str) -> bool {
+    rule.allowed_sources()
+        .iter()
+        .any(|source| in_scope(caller, source.as_text()))
+        || rule
+            .exact_sources()
+            .iter()
+            .any(|source| source.as_text() == module || source.as_text() == caller)
+}
+
+fn argument_calls<'m>(
+    model: &'m Model,
+    rule: &ForbiddenCallArgument,
+) -> Result<(&'m CallInventory, Vec<&'m ExactCall>), Reason> {
+    let graph = Model::graph(model);
+    let inventory = Graph::exact_calls(graph).ok_or(Reason::Unsupported(Unsupported::Rule(
+        RuleKind::ForbiddenCallArgument,
+    )))?;
+    let source = archkeel_contract::Selector::as_text(ForbiddenCallArgument::source(rule));
+    let selected = Model::source_modules(model, source);
+    if selected.is_empty() {
+        return Err(Reason::NoSubjects);
+    }
+    let modules = Graph::modules(graph);
+    let names: std::collections::HashSet<&str> = selected
+        .into_iter()
+        .filter_map(|id| crate::ids::Table::get(modules, id).map(Module::name))
+        .collect();
+    let target = archkeel_contract::Selector::as_text(ForbiddenCallArgument::target(rule));
+    let calls = inventory
+        .calls
+        .iter()
+        .filter(|(_, module, _, callee, _)| {
+            names.contains(String::as_str(module)) && callee == target
+        })
+        .collect();
+    Ok((inventory, calls))
+}
+
+/// Calls whose explicit string literal binds to the selected formal.
+pub fn forbidden_argument_violations<'m>(
+    model: &'m Model,
+    rule: &ForbiddenCallArgument,
+) -> Result<Vec<&'m ExactCall>, Reason> {
+    let (inventory, calls) = argument_calls(model, rule)?;
+    Ok(calls
+        .into_iter()
+        .filter(|call| argument_binds(inventory, rule, call) == Some(true))
+        .collect())
+}
+
+pub(crate) fn argument_receipt(model: &Model, rule: &ForbiddenCallArgument) -> Result<(), Reason> {
+    let (inventory, calls) = argument_calls(model, rule)?;
+    let graph = Model::graph(model);
+    let selected = Model::source_modules(
+        model,
+        archkeel_contract::Selector::as_text(ForbiddenCallArgument::source(rule)),
+    );
+    let modules = Graph::modules(graph);
+    let complete = selected.iter().all(|id| {
+        crate::ids::Table::get(modules, *id).is_some_and(|module| {
+            !Module::blank(module) && inventory.complete.contains(Module::name(module))
+        })
+    });
+    let target = std::collections::HashMap::get(
+        &inventory.formals,
+        archkeel_contract::Selector::as_text(ForbiddenCallArgument::target(rule)),
+    );
+    if complete
+        && target.is_some_and(|formals| supports_arguments(formals, rule.parameter()))
+        && calls
+            .iter()
+            .all(|call| argument_binds(inventory, rule, call).is_some())
+    {
+        Ok(())
+    } else {
+        Err(Cause::Receipt("call arguments need complete calls and proved bindings").into())
+    }
+}
+
+fn argument_binds(
+    inventory: &CallInventory,
+    rule: &ForbiddenCallArgument,
+    call: &ExactCall,
+) -> Option<bool> {
+    let args = std::collections::HashMap::get(&inventory.actuals, &call.0)?;
+    let params = std::collections::HashMap::get(&inventory.formals, &call.3)?;
+    bind_actuals(params, args, rule.parameter())
+}
+
+fn bind_actuals(params: &[Parameter], args: &[WrittenActual], name: &str) -> Option<bool> {
+    if !supports_arguments(params, name) {
+        return None;
+    }
+    let mut remaining = params.iter().filter(|param| param.kind != "keyword_only");
+    let mut bound = std::collections::HashSet::new();
+    let mut literal = false;
+    for (keyword, is_literal) in args {
+        let formal = if let Some(keyword) = keyword {
+            params
+                .iter()
+                .find(|param| param.name == *keyword && param.kind != "positional_only")
+        } else {
+            remaining.next()
+        }?;
+        if !bound.insert(String::as_str(&formal.name)) {
+            return None;
+        }
+        literal |= formal.name == name && *is_literal;
+    }
+    if params
+        .iter()
+        .any(|param| param.default.is_none() && !bound.contains(String::as_str(&param.name)))
+    {
+        return None;
+    }
+    Some(literal)
+}
+
+fn supports_arguments(params: &[Parameter], name: &str) -> bool {
+    params.iter().any(|param| param.name == name)
+        && params.iter().all(|param| {
+            param.default_known
+                && matches!(
+                    String::as_str(&param.kind),
+                    "positional_only" | "positional" | "keyword_only"
+                )
+        })
+}

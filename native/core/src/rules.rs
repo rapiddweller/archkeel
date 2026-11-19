@@ -39,7 +39,7 @@ fn decided(kind: RuleKind) -> bool {
         RuleKind::SourceOwnership => false,
         RuleKind::BoundedNumericOperand => false,
         RuleKind::CallOwner => true,
-        RuleKind::ForbiddenCallArgument => false,
+        RuleKind::ForbiddenCallArgument => true,
         RuleKind::CatalogArgument => false,
         RuleKind::CatalogUse => false,
         RuleKind::ForbiddenEffectUnderCondition => false,

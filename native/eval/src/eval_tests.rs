@@ -129,6 +129,7 @@ fn name(violation: &Violation) -> String {
         Violation::UnusedPublic(row) => format!("{}:{}", row.module, row.name),
         Violation::SymbolPlacement(row) => row.name.clone(),
         Violation::CallOwner { source, .. } => source.clone(),
+        Violation::ForbiddenArgument { source, .. } => source.clone(),
     }
 }
 

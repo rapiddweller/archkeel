@@ -126,7 +126,12 @@ impl Usable {
                 .chain(
                     kinds
                         .contains(&RuleKind::CallOwner)
-                        .then_some(Need::CallOwner),
+                        .then_some(Need::CallOwner)
+                        .or_else(|| {
+                            kinds
+                                .contains(&RuleKind::ForbiddenCallArgument)
+                                .then_some(Need::CallOwner)
+                        }),
                 ),
         )
         .with_doors(doors)

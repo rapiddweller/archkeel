@@ -40,7 +40,20 @@ from tools.fixture_tree import fixture_tree
             "UNKNOWN",
         ),
         ("static const path = '/' == '/';", "", "String", "UNKNOWN"),
-        ("static const path = '$stem/item';", "const stem = '/';", "String", "UNKNOWN"),
+        ("static const path = '$stem/item';", "const stem = '/';", "String", "PASS"),
+        ("static const path = '$stem/item';", "const stem = '/';", "int", "FAIL"),
+        ("static const path = r'$stem/item';", "", "String", "PASS"),
+        (r"static const path = '\$stem/item';", "", "String", "PASS"),
+        ("static const path = '${1 + 2}';", "", "String", "PASS"),
+        ("static const path = '$stem/item' == '/item';", "const stem = '/';", "String", "UNKNOWN"),
+        ("static const path = '$stem/item'.length;", "const stem = '/';", "String", "UNKNOWN"),
+        ("static final path = '$stem/item'.isEmpty;", "var stem = '/';", "String", "UNKNOWN"),
+        (
+            "static const path = '$stem/item';",
+            "class String {}\nconst stem = '/';",
+            "String",
+            "UNKNOWN",
+        ),
         ("static final path = f();", "String f() => '/';", "String", "UNKNOWN"),
     ],
 )
@@ -85,10 +98,47 @@ def test_dart_literal_type(
         [detail] = frame["details"][RULE]
         cause = (
             "inferred type differs"
-            if declaration == "static const path = '/';"
+            if declaration.startswith("static const path = ")
             else "annotation differs"
         )
         assert detail["cause"] == cause
         assert [frame["locations"][site] for site in detail["evidence"]] == [
             {"path": "lib/models.dart", "line": 3}
         ]
+
+
+@pytest.mark.parametrize(
+    ("source", "target", "expected"),
+    [
+        ("class Item {}\nvoid build() { final item = Item(); }", "Item", "PASS"),
+        ("class Item {}\nvoid build() { final item = Item(); }", "Object", "UNKNOWN"),
+        ("class Item<T> {}\nvoid build() { final item = Item<int>(); }", "Item<int>", "UNKNOWN"),
+        ("class Item {}\nvoid build() { final Object item = Item(); }", "Item", "FAIL"),
+    ],
+)
+def test_dart_constructor_type(
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    source: str,
+    target: str,
+    expected: str,
+) -> None:
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    for relative in ("docs/target.md", "pubspec.yaml", "archkeel.toml"):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((ROOT / relative).read_bytes())
+    lib = tmp_path / "lib"
+    lib.mkdir()
+    (lib / "models.dart").write_text(source)
+    contract = json.loads((ROOT / "architecture-contract.json").read_bytes())
+    uml = contract["declarations"]["uml"]
+    _, owner, local = uml["entities"]
+    owner.update(kind="function", qualified_name="catalog.models.build")
+    local.update(kind="binding", qualified_name="catalog.models.build.item", annotation=target)
+    uml["scopes"] = []
+    (tmp_path / "architecture-contract.json").write_text(json.dumps(contract))
+    with fixture_tree(tmp_path) as root:
+        _, result = run("report", "--root", str(root))
+    assert result["frame"]["rules"][RULE][1] == expected

@@ -97,7 +97,7 @@ pub(crate) fn details(wanted: &Entity, actual: &symbols::Entity) -> Vec<Assessed
     result
 }
 
-/// Compare the written annotation first. Without one, require both builtin identities.
+/// Compare the written annotation first. Without one, use linked evidence of the type.
 fn annotation(
     expected: &str,
     actual: &symbols::Entity,
@@ -112,6 +112,10 @@ fn annotation(
                 format!("{} annotation {recorded}", actual.name),
             )
         };
+    }
+    // The local constructor proof binds only its written type spelling.
+    if actual.inferred_type.as_deref() == Some(expected) {
+        return Assessed::Pass;
     }
     match actual
         .inferred_builtin_type

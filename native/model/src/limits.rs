@@ -39,7 +39,6 @@ use crate::observed::Observed;
 const UNDECIDED_KINDS: &[RuleKind] = &[
     RuleKind::BoundedNumericOperand,
     RuleKind::ProtocolDeclarations,
-    RuleKind::ForbiddenCallArgument,
     RuleKind::CatalogArgument,
     RuleKind::CatalogUse,
     RuleKind::SourceOwnership,
@@ -186,6 +185,7 @@ fn reads(rule: &Rule) -> Reads {
         Rule::UnusedPublic(_) => Reads::Published,
         Rule::SymbolPlacement(_) => Reads::Placement,
         Rule::CallOwner(_)
+        | Rule::ForbiddenCallArgument(_)
         | Rule::ForbiddenDependency(_)
         | Rule::AllowedDependency(_)
         | Rule::ExternalDependencyScope(_)

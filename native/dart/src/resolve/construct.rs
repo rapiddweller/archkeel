@@ -9,6 +9,8 @@
 
 use super::{Bound, Resolver};
 use crate::collection::types::{BindingKind, Resolution};
+use crate::import_survey::binding::visible;
+use crate::import_survey::index::Kind;
 use crate::syntax::{MemberKind, Modifier, Site, SiteKind, Visibility};
 
 /// The resolution of one construction (`ConstructionResolution`).
@@ -31,6 +33,55 @@ fn built(status: Resolution, bound: Option<Bound>, reason: Option<&'static str>)
 type Constructed = (String, Option<String>, Vec<Bound>);
 
 impl Resolver<'_> {
+    /// Infer the static type of a direct, unprefixed, nongeneric generative constructor call.
+    pub(crate) fn inferred_constructor_type(
+        &self,
+        at: usize,
+        site: &Site,
+        built: &Built,
+    ) -> Option<String> {
+        if built.status != Resolution::Resolved
+            || site.kind != SiteKind::Call
+            || site.receiver.is_some()
+            || site.computed
+            || !self.parsed(at)?.complete
+            || self.index.kinds.get(at) != Some(&Kind::Library)
+            || !self.parts_complete(at)
+        {
+            return None;
+        }
+        let name = site.name.as_deref()?;
+        let module = self.module_for(at)?;
+        let bindings = self.in_library(module, name);
+        let [bound] = bindings.as_slice() else {
+            return None;
+        };
+        if bound.module != module && !self.has_direct_type_import(module, name, &bound.module) {
+            return None;
+        }
+        let declaration = self.by_identity(&bound.module, &bound.id)?;
+        let definition = declaration.definition;
+        (bound.kind == BindingKind::Class && Vec::is_empty(&definition.type_parameters))
+            .then(|| name.to_owned())
+    }
+
+    fn has_direct_type_import(&self, module: &str, name: &str, owner: &str) -> bool {
+        let mut imports = self
+            .imports
+            .get(module)
+            .into_iter()
+            .flatten()
+            .filter(|(_, directive)| directive.prefix.is_none() && visible(directive, name));
+        imports
+            .clone()
+            .all(|(_, directive)| Vec::is_empty(&directive.alternatives))
+            && imports.any(|(at, directive)| {
+                self.targets(*at, directive)
+                    .iter()
+                    .any(|target| target.at.is_some() && target.module == owner)
+            })
+    }
+
     /// The constructor that `site` of the file at `at` reaches (`resolve_construction`).
     pub(crate) fn construction(&self, at: usize, site: &Site) -> Built {
         if !matches!(site.kind, SiteKind::Call | SiteKind::Creation)

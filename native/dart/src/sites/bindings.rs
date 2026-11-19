@@ -90,6 +90,9 @@ impl<'t> Binder<'_, 't> {
                 site.initializer = local_initializer(child, source);
                 site.initializer_source = self.canonical_local_initializer(child);
                 site.assignment_annotation = annotation_before(child, name, source);
+                site.inferred_final_local =
+                    source.decode(child.start_byte(), name.start_byte()).trim() == "final"
+                        && simple_function_body(node);
                 Some(site)
             })
             .collect()
@@ -135,6 +138,20 @@ impl<'t> Binder<'_, 't> {
         }
         sites
     }
+}
+
+fn simple_function_body(declaration: Node<'_>) -> bool {
+    let Some(block) = declaration.parent().filter(|node| node.kind() == "block") else {
+        return false;
+    };
+    let Some(body) = block.parent().filter(|node| node.kind() == "function_body") else {
+        return false;
+    };
+    body.parent().is_some_and(|node| node.kind() == "program")
+        && body.prev_named_sibling().is_some_and(|signature| {
+            signature.kind() == "function_signature"
+                && named(signature, "type_parameters").is_none()
+        })
 }
 
 /// `_local_initializer`: the value and the text of each selector after it.

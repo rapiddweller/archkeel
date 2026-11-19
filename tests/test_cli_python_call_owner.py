@@ -206,3 +206,43 @@ def test_decorator_application_counts_as_an_open_call(
         frame = verdict(release_core, root, "report")["frame"]
     assert frame["rules"].get(RULE) == ["call_owner", "UNKNOWN"], frame
     assert frame["measures"]["calls_total"] == calls
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("return True", "PASS"),
+        ("return purge(None)", "FAIL"),
+        ("return callback(None)", "UNKNOWN"),
+        ("def inner(): return purge(None)\n    return inner()", "UNKNOWN"),
+    ],
+)
+def test_call_owner_selects_a_function_body(release_core: Path, body: str, expected: str) -> None:
+    with fixture_tree(DEMO) as root:
+        _policy(root, source="sample.report.run")
+        (root / "sample/report.py").write_text(
+            "from sample.maintenance import purge\n\ndef run(callback=None):\n    " + body + "\n",
+            encoding="utf-8",
+        )
+        frame = verdict(release_core, root, "report")["frame"]
+    assert frame["rules"].get(RULE) == ["call_owner", expected], frame
+
+
+def test_function_scope_requires_the_selected_body_and_target(release_core: Path) -> None:
+    with fixture_tree(DEMO) as root:
+        _policy(root, source="sample.report.absent")
+        frame = verdict(release_core, root, "report")["frame"]
+        assert frame["status"] == "UNKNOWN" and RULE in frame["unsupported"]["rules"], frame
+        _policy(root, source="sample.report.summarize", target="sample.maintenance.absent")
+        frame = verdict(release_core, root, "report")["frame"]
+        assert frame["rules"].get(RULE) == ["call_owner", "UNKNOWN"], frame
+
+
+def test_function_scope_ignores_calls_in_other_bodies(release_core: Path) -> None:
+    with fixture_tree(DEMO) as root:
+        _policy(root, source="sample.report.run")
+        (root / "sample/report.py").write_text(
+            "def other(callback): return callback()\n\ndef run(): return True\n", encoding="utf-8"
+        )
+        frame = verdict(release_core, root, "report")["frame"]
+    assert frame["rules"].get(RULE) == ["call_owner", "PASS"], frame

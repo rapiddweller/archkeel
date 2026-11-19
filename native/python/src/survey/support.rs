@@ -80,9 +80,24 @@ impl Seen {
     }
 }
 
+/// The interpretation of a written placeholder candidate.
+#[derive(Clone, Copy)]
+pub(crate) enum PlaceholderDecision {
+    Declaration,
+    Unread,
+}
+
+/// How much the placeholder walk can decide.
+#[derive(Clone, Copy)]
+pub(crate) enum PlaceholderCoverage {
+    Complete,
+    UsesProtocol,
+    Incomplete,
+}
+
 /// The support of each construct, keyed by construct.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Support(BTreeMap<Construct, Seen>);
+pub(crate) struct Support(BTreeMap<Construct, Seen>, bool);
 
 impl Support {
     /// The support before a module is read. A typing signal is never seen completely: an
@@ -90,19 +105,20 @@ impl Support {
     /// from any text, so these two start partial.
     pub(crate) fn start() -> Support {
         let seen = |c: Construct| match c {
-            Construct::AnyAnnotation
-            | Construct::DynamicImport
-            | Construct::Cast
-            | Construct::Placeholder => Seen::Partial,
+            Construct::AnyAnnotation | Construct::DynamicImport | Construct::Cast => Seen::Partial,
             Construct::Assert
             | Construct::BroadExcept
             | Construct::DunderDict
             | Construct::Vars
             | Construct::StringLiteralCompare
             | Construct::Getattr
-            | Construct::TypeIgnore => Seen::Supported,
+            | Construct::TypeIgnore
+            | Construct::Placeholder => Seen::Supported,
         };
-        Support(Construct::ALL.iter().map(|c| (*c, seen(*c))).collect())
+        Support(
+            Construct::ALL.iter().map(|c| (*c, seen(*c))).collect(),
+            false,
+        )
     }
 
     /// A form that can hide a site of the construct.
@@ -110,8 +126,23 @@ impl Support {
         self.0.insert(construct, Seen::Partial);
     }
 
+    /// Add the placeholder evidence of a source module.
+    pub(crate) fn observe_placeholder(&mut self, coverage: PlaceholderCoverage) {
+        match coverage {
+            PlaceholderCoverage::Complete => {}
+            PlaceholderCoverage::UsesProtocol => self.1 = true,
+            PlaceholderCoverage::Incomplete => Self::downgrade(self, Construct::Placeholder),
+        }
+    }
+
+    /// True when the placeholder inventory is complete under a stable standard library.
+    pub(crate) fn placeholder_under_premise(&self) -> bool {
+        self.1 && self.of(Construct::Placeholder) == Seen::Supported
+    }
+
     /// The support of two parts together: each construct is the worse of the two.
     pub(crate) fn meet(&mut self, other: &Support) {
+        self.1 |= other.1;
         for (construct, seen) in &other.0 {
             let mine = self.0.entry(*construct).or_insert(*seen);
             *mine = (*mine).max(*seen);
@@ -127,7 +158,14 @@ impl Support {
     pub(crate) fn reply(&self) -> Vec<(&'static str, &'static str)> {
         Construct::ALL
             .iter()
-            .map(|c| (c.word(), self.of(*c).word()))
+            .map(|c| {
+                let seen = if self.1 && *c == Construct::Placeholder {
+                    Seen::Partial
+                } else {
+                    self.of(*c)
+                };
+                (c.word(), seen.word())
+            })
             .collect()
     }
 }

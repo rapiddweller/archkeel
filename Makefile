@@ -188,7 +188,7 @@ self-validate: self-validate-native self-validate-shell self-validate-system
 # shown, not pinned: the gaps of the scripts stay visible until a change removes them.
 browser-architecture-check: core browser-runtime-install
 	@mkdir -p test-artifacts/validation
-	@$(UV) run --locked archkeel validate --config docs/architecture/browser.toml --json > test-artifacts/validation/browser.json || true
+	@$(UV) run --locked archkeel validate --config docs/architecture/browser.toml --json > test-artifacts/validation/browser.json || test $$? -eq 2
 	@$(UV) run --locked python -c "import json, collections; f = json.load(open('test-artifacts/validation/browser.json'))['frame']; print('browser:', f['status'], dict(collections.Counter(v[1] for v in f['rules'].values()))); print('gaps:', len(f['collection_gaps'])); [print(f'  {n} {r}') for r, n in collections.Counter(g['reason'].split(':')[0] for g in f['collection_gaps']).most_common()]"
 
 # AD-462: one report pair for each run of fixtures/matrix.json, in test-artifacts/gallery. The
@@ -229,7 +229,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py \
 	native/hatch_build.py
 
 lint:

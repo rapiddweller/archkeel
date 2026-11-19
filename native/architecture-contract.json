@@ -69,6 +69,7 @@
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:TargetSource",
         "native.archkeel_facts.envelope:Validation",
+        "native.archkeel_facts.envelope:WrittenActual",
         "native.archkeel_facts.envelope:source_digest",
         "native.archkeel_facts.envelope:test_features",
         "native.archkeel_facts.fields:Fields",
@@ -336,6 +337,7 @@
         "native.archkeel_contract:Entity",
         "native.archkeel_contract:EntityKind",
         "native.archkeel_contract:ExternalDependencyScope",
+        "native.archkeel_contract:ForbiddenCallArgument",
         "native.archkeel_contract:ForbiddenConstruct",
         "native.archkeel_contract:ForbiddenDependency",
         "native.archkeel_contract:InterfaceBoundary",
@@ -572,6 +574,7 @@
         "native.archkeel_model:cycles_of_components",
         "native.archkeel_model:facade_types",
         "native.archkeel_model:forbidden",
+        "native.archkeel_model:forbidden_argument_violations",
         "native.archkeel_model:gap_kind",
         "native.archkeel_model:in_scope",
         "native.archkeel_model:interface_crossings",
@@ -1169,12 +1172,14 @@
           "through": [
             "native.archkeel_contract:CallOwner",
             "native.archkeel_contract:CycleLevel",
+            "native.archkeel_contract:ForbiddenCallArgument",
             "native.archkeel_contract:Lifecycle",
             "native.archkeel_contract:NoComponentCycles",
             "native.archkeel_contract:PREMISE_NAMES",
             "native.archkeel_contract:PremiseName",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
+            "native.archkeel_contract:Selector",
             "native.archkeel_contract:SymbolPlacement",
             "native.archkeel_contract:assumption_words",
             "native.archkeel_contract:declared_premises",
@@ -1188,6 +1193,8 @@
           "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment).",
           "through": [
             "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope:WrittenActual",
+            "native.archkeel_facts.nested:Parameter",
             "native.archkeel_facts.profile_traits"
           ]
         },
@@ -1255,6 +1262,7 @@
         "native.archkeel_model.premises:of_kind_word",
         "native.archkeel_model.premises:premise_words",
         "native.archkeel_model.premises:rule_premises",
+        "native.archkeel_model.receipts:forbidden_argument_violations",
         "native.archkeel_model.run:Model",
         "native.archkeel_model.run:ModelTree",
         "native.archkeel_model.run:RunGap",
@@ -1491,8 +1499,7 @@
           "through": [
             "native.archkeel_model:Import",
             "native.archkeel_model:Module",
-            "native.archkeel_model:ModuleId",
-            "native.archkeel_model:Position"
+            "native.archkeel_model:ModuleId"
           ]
         },
         {
@@ -1520,6 +1527,7 @@
       ],
       "public": [
         "native.archkeel_eval.placement_row:PlacedClass",
+        "native.archkeel_eval.violation:BoundaryViolation",
         "native.archkeel_eval.violation:Cited",
         "native.archkeel_eval.violation:ConstructViolation",
         "native.archkeel_eval.violation:CycleStep",
@@ -1570,6 +1578,7 @@
             "native.archkeel_model:Link",
             "native.archkeel_model:Model",
             "native.archkeel_model:Part",
+            "native.archkeel_model:Position",
             "native.archkeel_model:PublicItem",
             "native.archkeel_model:Reason",
             "native.archkeel_model:Resolved",

@@ -86,6 +86,18 @@ pub fn rule_premises(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
 /// The declared premises that `rule` rests on: `standard_library_unchanged` for each position or
 /// entry of a `boundary_types` rule that it allows (AD-782).
 fn declared(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
+    if let Rule::ForbiddenConstruct(rule) = rule {
+        let Ok(Some(subject)) = crate::construct_match::receipt(model, rule) else {
+            return Vec::new();
+        };
+        if Model::declares_premise(model, PremiseName::StandardLibraryUnchanged) {
+            return vec![UsedPremise {
+                kind: PremiseKind::Declared(PremiseName::StandardLibraryUnchanged),
+                subject: str::to_owned(subject),
+            }];
+        }
+        return Vec::new();
+    }
     let Rule::BoundaryTypes(rule) = rule else {
         return Vec::new();
     };

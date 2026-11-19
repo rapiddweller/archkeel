@@ -2786,6 +2786,74 @@
             "data"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "forbidden_call_argument"
+            },
+            "data": {
+              "$ref": "#/$defs/ForbiddenCallArgument"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -3367,6 +3435,26 @@
       "required": [
         "source",
         "construct"
+      ]
+    },
+    "ForbiddenCallArgument": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_scope": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "parameter": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_scope",
+        "target",
+        "parameter"
       ]
     },
     "UnsupportedParts": {

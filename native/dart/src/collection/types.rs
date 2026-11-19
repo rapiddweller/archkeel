@@ -116,6 +116,8 @@ crate::syntax::value! { pub(crate) SitesAnswer {
 
 crate::syntax::value! { pub(crate) Construction {
     status: Resolution, binding: Option<Binding>, reason: Option<String>,
+    #[serde(skip)]
+    inferred_type: Option<String>,
 }
 }
 
@@ -157,6 +159,8 @@ pub(crate) struct SiteData {
 
 #[derive(Serialize)]
 pub(crate) struct ConstructionData {
+    #[serde(skip)]
+    pub(crate) inferred_type: Option<String>,
     pub(crate) status: Status,
     pub(crate) targets: Vec<String>,
     pub(crate) candidates_truncated: bool,
@@ -165,6 +169,8 @@ pub(crate) struct ConstructionData {
 
 #[derive(Serialize)]
 pub(crate) struct ResultBinding {
+    #[serde(skip)]
+    pub(crate) inferred_type: Option<String>,
     pub(crate) id: String,
     pub(crate) name: String,
     pub(crate) target_kind: &'static str,

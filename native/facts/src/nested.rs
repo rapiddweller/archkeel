@@ -301,6 +301,9 @@ pub struct ResultBinding {
     #[serde(deserialize_with = "crate::nullable::required")]
     #[schemars(required)]
     pub annotation: Option<String>,
+    /// The static type spelling proven by the linked collector for an untyped local.
+    #[serde(skip)]
+    pub inferred_type: Option<String>,
     /// The places where the binding is defined.
     pub definition_contexts: Vec<DefinitionContext>,
     /// The ids of the evidence records that back the value.
