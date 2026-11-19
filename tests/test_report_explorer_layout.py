@@ -9,13 +9,12 @@ stacked boxes got an edge that ran around the upper box (issue 1489); the first 
 drill was drawn at 40 percent, too small to read (issue 1490).
 """
 
-import re
 import time
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from explorer_support import Browser, browser, serve, write_pages
+from explorer_support import Browser, browser, serve, shell_layer_frames, write_pages
 
 PAGES = {"system": (None, "docs/architecture/architecture-system.json")}
 CORE = "PART%3Acore"
@@ -470,25 +469,7 @@ def test_a_layer_of_one_component_draws_no_frame_around_that_component(
     # several. The box of a layer that holds one component is that component: the Modules view drew
     # two nested frames with the same label and the same stereotype for it. A layer of several
     # components is a real parent and keeps its frame.
-    import urllib.request  # noqa: PLC0415
-
-    # The shell now exceeds the default card budget. This fixture exercises the ungrouped view.
-    report = urllib.request.urlopen(f"{site}/system.html").read().decode()  # noqa: S310
-    report, replacements = re.subn(r'("module_box_limit":)\d+', r"\g<1>100", report, count=1)
-    assert replacements == 1
-    (tmp_path / "system.html").write_text(report)
-    with serve(tmp_path) as fixture:
-        page.open(f"{fixture}/system.html?scope=PART%3Ashell&content=modules")
-        frames = {
-            frame["id"]: frame
-            for frame in page.evaluate(
-                "[...document.querySelectorAll('#flow svg .uml-frame')].map((g) => {"
-                " const r = g.querySelector('.target-frame').getBoundingClientRect();"
-                " return { id: g.dataset.umlId, label: g.dataset.label,"
-                " box: [r.left, r.top, r.right, r.bottom] }; })"
-            )
-        }
-
+    frames = shell_layer_frames(site, page, tmp_path)
     assert frames, page.state()
 
     def inside(inner: str, outer: str) -> bool:

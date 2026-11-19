@@ -56,6 +56,9 @@ fn explorer_projects_the_same_scan_without_changing_its_ruling() {
         .as_array()
         .unwrap()
         .iter()
-        .any(|i| i["kind"] == "attribute" && i["definition_ids"][0] == attr["definition_id"]));
+        .any(|i| i["kind"] == "attribute"
+            && i["status"] == "complete"
+            && i.get("reason") == Some(&Value::Null)
+            && i["definition_ids"][0] == attr["definition_id"]));
     assert!(!part["files"].as_array().unwrap().is_empty());
 }

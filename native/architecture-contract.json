@@ -2886,6 +2886,8 @@
             "native.archkeel_facts.nullable:Nullable",
             "native.archkeel_facts.request",
             "native.archkeel_facts.vocab:EvidenceClass",
+            "native.archkeel_facts.vocab:InventoryStatus",
+            "native.archkeel_facts.vocab:MemberKind",
             "native.archkeel_facts.vocab:MethodKind",
             "native.archkeel_facts.vocab:Status",
             "native.archkeel_facts:CallFact",

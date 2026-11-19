@@ -132,7 +132,11 @@ function paintCards() {
     plate.append(element("h3", name), grid);
     cards.append(plate);
   }
-  if (!state.items.length) cards.append(element("p", "No elements in this scope."));
+  if (!state.items.length) {
+    const isModule = !state.search && state.ancestors.at(-1)?.kind === "module";
+    cards.append(element("p", isModule ? "No symbol records for this module. Open source to inspect its declarations."
+      : "No indexed elements in this scope."));
+  }
   get("more").hidden = !state.cursor;
   drawArrows();
 }

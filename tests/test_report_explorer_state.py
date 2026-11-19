@@ -438,6 +438,14 @@ def test_the_explorer_names_the_result_and_no_observation(site: str, page: Brows
     page.open(f"{site}/part.html")
     status = page.evaluate("document.querySelector('#flow .ak-run-status').textContent")
     assert status == "Result: PASS assuming 2 stated external users"
+    premises = page.evaluate(
+        "[...document.querySelectorAll('.rp-ev li')].find((row) => "
+        "row.querySelector('.rp-code')?.textContent === 'SHELL-PUBLIC-HAS-A-USER').textContent"
+    )
+    assert set(premises.removeprefix("SHELL-PUBLIC-HAS-A-USER ").split(", ")) == {
+        "archkeel.cli:main",
+        "archkeel.explorer_mcp:main",
+    }
     assert "bservation" not in page.evaluate("document.getElementById('flow').innerText")
 
 

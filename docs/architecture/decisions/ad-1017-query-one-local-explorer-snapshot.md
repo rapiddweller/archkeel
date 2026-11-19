@@ -22,3 +22,7 @@ exercises real repositories and reports its coverage.
 
 The query component owns `explorer_symbols.py`. It groups methods and properties by
 collector definition IDs. Member coverage comes from each class inventory.
+
+`cli/core_explorer.py` serves the whiteboard. `explorer_store.py` publishes snapshots.
+`explorer_queries.py` reads them. `explorer_mcp.py` exposes these reads over stdio.
+`explorer_boundaries.py` records source hints for cross-language navigation.

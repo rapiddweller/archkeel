@@ -78,26 +78,44 @@ def measure(cli: Path, root: Path, config: str, runs: int = 10) -> dict[str, Any
                 "--no-open",
                 "--json",
             ]
+            stderr = tempfile.TemporaryFile(mode="w+t")
             process = subprocess.Popen(
                 command,
                 cwd=root,
                 env=env,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=stderr,
                 text=True,
             )
             try:
                 assert process.stdout is not None
                 ready, _, _ = select.select([process.stdout], [], [], 300)
                 if not ready:
-                    return {"error": "Explorer startup timed out", "completed": len(starts)}
+                    stderr.seek(0)
+                    return {
+                        "error": "Explorer startup timed out",
+                        "completed": len(starts),
+                        "stderr": stderr.read(8192),
+                    }
                 line = process.stdout.readline()
                 try:
                     launch = json.loads(line)
                 except ValueError:
-                    return {"error": "Explorer startup refused", "completed": len(starts)}
+                    stderr.seek(0)
+                    return {
+                        "error": "Explorer startup refused",
+                        "completed": len(starts),
+                        "stdout": line[:8192],
+                        "stderr": stderr.read(8192),
+                    }
                 if "url" not in launch or "snapshot" not in launch:
-                    return {"error": "Explorer did not start", "completed": len(starts)}
+                    stderr.seek(0)
+                    return {
+                        "error": "Explorer did not start",
+                        "completed": len(starts),
+                        "refusal": launch.get("refusal"),
+                        "stderr": stderr.read(8192),
+                    }
                 starts.append(round(time.monotonic() - started, 4))
                 snapshot = Path(launch["snapshot"])
                 snapshots.append(
@@ -123,6 +141,7 @@ def measure(cli: Path, root: Path, config: str, runs: int = 10) -> dict[str, Any
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
+                stderr.close()
     return {
         "startup_seconds": starts,
         "query_ms": queries,

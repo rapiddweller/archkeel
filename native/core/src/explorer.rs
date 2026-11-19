@@ -10,7 +10,7 @@ use archkeel_facts::envelope::{Facts, Target};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::nested::MemberInventory;
 use archkeel_facts::nullable::Nullable;
-use archkeel_facts::vocab::{EvidenceClass, MethodKind, Status};
+use archkeel_facts::vocab::{EvidenceClass, InventoryStatus, MemberKind, MethodKind, Status};
 use archkeel_facts::{CallFact, FactData, ImportFact, Record, Section, SymbolFact};
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -36,20 +36,19 @@ struct Symbol {
     id: FactId,
     kind: String,
     evidence_class: &'static str,
+    evidence_ids: Vec<EvidenceId>,
     module: Option<String>,
     qualified_name: Option<String>,
-
     lexical_parent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    attributes: Option<Vec<Attribute>>,
     method_kind: Option<MethodKind>,
     accessor_kind: Option<String>,
     property_operation: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     property_names: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    attributes: Option<Vec<Attribute>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    member_inventories: Option<Vec<MemberInventory>>,
-    evidence_ids: Vec<EvidenceId>,
+    member_inventories: Option<Vec<Inventory>>,
 }
 
 #[derive(Serialize, JsonSchema)]
@@ -60,6 +59,25 @@ struct Attribute {
     #[serde(rename = "static", skip_serializing_if = "Option::is_none")]
     is_static: Option<bool>,
     evidence_ids: Vec<EvidenceId>,
+}
+
+#[derive(Serialize, JsonSchema)]
+struct Inventory {
+    definition_ids: Vec<FactId>,
+    kind: MemberKind,
+    reason: Option<String>,
+    schema_version: String,
+    status: InventoryStatus,
+}
+
+fn inventory(data: &MemberInventory) -> Inventory {
+    Inventory {
+        definition_ids: data.definition_ids.clone(),
+        kind: data.kind,
+        reason: data.reason.clone(),
+        schema_version: data.schema_version.clone(),
+        status: data.status,
+    }
 }
 
 fn symbol(row: &Record<SymbolFact>) -> Symbol {
@@ -97,7 +115,7 @@ fn symbol(row: &Record<SymbolFact>) -> Symbol {
                 })
                 .collect()
         }),
-        member_inventories: class.map(|c| c.member_inventories.clone()),
+        member_inventories: class.map(|c| c.member_inventories.iter().map(inventory).collect()),
         evidence_ids: row.evidence_ids.clone(),
     }
 }

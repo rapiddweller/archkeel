@@ -648,6 +648,12 @@
         "evidence_class": {
           "type": "string"
         },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
         "module": {
           "type": [
             "string",
@@ -665,6 +671,15 @@
             "string",
             "null"
           ]
+        },
+        "attributes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Attribute"
+          }
         },
         "method_kind": {
           "anyOf": [
@@ -697,28 +712,13 @@
             "type": "string"
           }
         },
-        "attributes": {
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "$ref": "#/$defs/Attribute"
-          }
-        },
         "member_inventories": {
           "type": [
             "array",
             "null"
           ],
           "items": {
-            "$ref": "#/$defs/MemberInventory"
-          }
-        },
-        "evidence_ids": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/EvidenceId"
+            "$ref": "#/$defs/Inventory"
           }
         }
       },
@@ -726,13 +726,13 @@
         "id",
         "kind",
         "evidence_class",
+        "evidence_ids",
         "module",
         "qualified_name",
         "lexical_parent_id",
         "method_kind",
         "accessor_kind",
-        "property_operation",
-        "evidence_ids"
+        "property_operation"
       ],
       "additionalProperties": false
     },
@@ -740,35 +740,9 @@
       "type": "string",
       "description": "The id of a source record (`PREFIX-` and 16 hex digits, `identity::stable_id`)."
     },
-    "MethodKind": {
-      "oneOf": [
-        {
-          "type": "string",
-          "const": "instance",
-          "description": "A method of an instance."
-        },
-        {
-          "type": "string",
-          "const": "static",
-          "description": "A static method."
-        },
-        {
-          "type": "string",
-          "const": "class",
-          "description": "A class method."
-        },
-        {
-          "type": "string",
-          "const": "constructor",
-          "description": "A constructor."
-        },
-        {
-          "type": "string",
-          "const": "factory",
-          "description": "A factory."
-        }
-      ],
-      "description": "The kind of a method."
+    "EvidenceId": {
+      "type": "string",
+      "description": "The id of one cited source location (`EVD-…`, `identity::evidence_id`)."
     },
     "Attribute": {
       "type": "object",
@@ -806,36 +780,59 @@
       ],
       "additionalProperties": false
     },
-    "EvidenceId": {
-      "type": "string",
-      "description": "The id of one cited source location (`EVD-…`, `identity::evidence_id`)."
+    "MethodKind": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "instance",
+          "description": "A method of an instance."
+        },
+        {
+          "type": "string",
+          "const": "static",
+          "description": "A static method."
+        },
+        {
+          "type": "string",
+          "const": "class",
+          "description": "A class method."
+        },
+        {
+          "type": "string",
+          "const": "constructor",
+          "description": "A constructor."
+        },
+        {
+          "type": "string",
+          "const": "factory",
+          "description": "A factory."
+        }
+      ],
+      "description": "The kind of a method."
     },
-    "MemberInventory": {
+    "Inventory": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "definition_ids": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/FactId"
-          },
-          "description": "The ids of the symbols that define the members."
+          }
         },
         "kind": {
-          "$ref": "#/$defs/MemberKind",
-          "description": "The kind of the members."
+          "$ref": "#/$defs/MemberKind"
         },
         "reason": {
-          "type": "string",
-          "description": "Why the collector does not prove it."
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "schema_version": {
-          "type": "string",
-          "description": "The version of the inventory format."
+          "type": "string"
         },
         "status": {
-          "$ref": "#/$defs/InventoryStatus",
-          "description": "Whether the inventory is complete."
+          "$ref": "#/$defs/InventoryStatus"
         }
       },
       "required": [
@@ -845,7 +842,7 @@
         "schema_version",
         "status"
       ],
-      "description": "The inventory of the members of one kind that a class has, and whether it is complete."
+      "additionalProperties": false
     },
     "MemberKind": {
       "oneOf": [

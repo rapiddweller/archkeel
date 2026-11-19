@@ -4,11 +4,7 @@
 It supersedes the stage-1 parts of AD-399 and AD-406 and the opt-in switch of AD-422.
 AD-422 stays the record of the core-only path: frame, exit table, lookup and refusals.
 
-[AD-1017](ad-1017-query-one-local-explorer-snapshot.md) adds the local Explorer.
-`cli/core_explorer.py` serves the whiteboard. `explorer_store.py` publishes snapshots.
-`explorer_queries.py` reads them. `explorer_mcp.py` exposes the same reads over stdio.
-`explorer_boundaries.py` records source hints for cross-language navigation.
-The Rust core continues to decide rule verdicts.
+[AD-1017](ad-1017-query-one-local-explorer-snapshot.md) adds the Explorer modules to the Python shell.
 
 **Decision.**
 1. Delete the Python core: `archkeel.ir`, `archkeel.check`, `archkeel.analyzer`, and each module,
