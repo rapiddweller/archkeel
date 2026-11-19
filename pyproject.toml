@@ -30,6 +30,12 @@ Issues = "https://github.com/rapiddweller/archkeel/issues"
 
 [project.scripts]
 archkeel = "archkeel.cli:main"
+archkeel-mcp = "archkeel.explorer_mcp:main"
+
+[project.optional-dependencies]
+mcp = [
+    "fastmcp==4.2.0",
+]
 
 [build-system]
 # Hatchling maps the single schema/ source into wheels; the custom hook only bundles the binary.
@@ -65,6 +71,7 @@ path = "native/hatch_build.py"
 
 [tool.hatch.build.targets.wheel.force-include]
 "schema" = "archkeel/schema"
+"native/report/assets/tokens.css" = "archkeel/cli/assets/explorer-tokens.css"
 "skills/archkeel/SKILL.md" = "archkeel/cli/assets/SKILL.md"
 
 [tool.hatch.build.targets.sdist]
@@ -75,7 +82,7 @@ path = "native/hatch_build.py"
 # tarball carries it rather than leaning on the description hatchling froze into PKG-INFO.
 # The wheel hook is a build input; the native sources are not, so an sdist never runs cargo.
 # A wheel from the sdist needs a prebuilt core in ARCHKEEL_BUNDLE_NATIVE (AD-436).
-only-include = ["src", "schema", "README.md", "skills", "native/hatch_build.py"]
+only-include = ["src", "schema", "README.md", "skills", "native/hatch_build.py", "native/report/assets/tokens.css"]
 
 [dependency-groups]
 # Pytest runs the tests, Ruff checks style, and MyPy checks the types of the shell and the tools.
@@ -124,3 +131,8 @@ select = ["E", "F", "I", "UP", "B", "ARG", "RUF059", "D100", "D101", "D102", "D1
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+# The optional MCP distribution is installed only when the mcp extra is selected.
+[[tool.mypy.overrides]]
+module = "fastmcp"
+ignore_missing_imports = true

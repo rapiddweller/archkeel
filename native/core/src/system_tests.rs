@@ -224,3 +224,15 @@ fn a_system_that_names_its_whole_contract_lists_only_that_gap_row() {
         vec![("R1".to_owned(), "open".to_owned())]
     );
 }
+
+#[test]
+fn explorer_preserves_part_identity() {
+    let mut row: Value = serde_json::from_slice(&part("PASS", None)).unwrap();
+    row["explorer"] = json!([{"part":null,"calls":null}]);
+    let bytes = serde_json::to_vec(&row).unwrap();
+    let frame = joined(&[bytes.clone(), bytes]);
+    assert_eq!(
+        frame["explorer"],
+        json!([{"part":"p0","calls":null},{"part":"p1","calls":null}])
+    );
+}

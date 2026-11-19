@@ -117,6 +117,12 @@
         "type": "string"
       }
     },
+    "explorer": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExplorerPart"
+      }
+    },
     "measures": {
       "anyOf": [
         {
@@ -556,6 +562,279 @@
         "schema"
       ],
       "description": "One interface between two parts of a system frame: a crossing that is no import.",
+      "additionalProperties": false
+    },
+    "ExplorerPart": {
+      "type": "object",
+      "properties": {
+        "part": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "language": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/File"
+          }
+        },
+        "symbols": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Symbol"
+          }
+        },
+        "calls": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Call"
+          }
+        },
+        "imports": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Import"
+          }
+        }
+      },
+      "required": [
+        "part",
+        "language",
+        "files",
+        "symbols",
+        "calls",
+        "imports"
+      ],
+      "additionalProperties": false
+    },
+    "File": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "module",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "Symbol": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "qualified_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "evidence_class",
+        "module",
+        "qualified_name",
+        "evidence_ids"
+      ],
+      "additionalProperties": false
+    },
+    "FactId": {
+      "type": "string",
+      "description": "The id of a source record (`PREFIX-` and 16 hex digits, `identity::stable_id`)."
+    },
+    "EvidenceId": {
+      "type": "string",
+      "description": "The id of one cited source location (`EVD-…`, `identity::evidence_id`)."
+    },
+    "Call": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "source_module": {
+          "type": "string"
+        },
+        "source_scope": {
+          "type": "string"
+        },
+        "source_definition_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_definition_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expression": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "candidates_truncated": {
+          "type": "boolean"
+        },
+        "candidate_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "evidence_class",
+        "source_module",
+        "source_scope",
+        "source_definition_id",
+        "target_definition_id",
+        "expression",
+        "targets",
+        "status",
+        "reason",
+        "candidates_truncated",
+        "candidate_count",
+        "evidence_ids"
+      ],
+      "additionalProperties": false
+    },
+    "Import": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "source_module": {
+          "type": "string"
+        },
+        "target_module": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "specifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inferred_receiver": {
+          "type": "boolean"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "evidence_class",
+        "source_module",
+        "target_module",
+        "symbol",
+        "specifier",
+        "inferred_receiver",
+        "resolution",
+        "reason",
+        "evidence_ids"
+      ],
       "additionalProperties": false
     },
     "Measures": {

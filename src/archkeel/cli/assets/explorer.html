@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArchKeel Explorer</title>
+<link rel="stylesheet" href="/report.css">
+<link rel="stylesheet" href="/explorer.css">
+<script src="/explorer.js" defer></script>
+</head>
+<body>
+<header class="bar"><strong>ArchKeel <span>/</span> Explorer</strong><nav aria-label="Views">
+<button type="button" id="map">Architecture</button>
+<button type="button" id="story">Story</button>
+<a id="native-report" href="/report" hidden>Native report</a>
+<button type="button" id="theme" aria-label="Switch to light theme">☼</button>
+</nav></header>
+<main>
+<header class="heading"><div><h1>Architecture whiteboard</h1><p id="coverage" aria-live="polite">Loading snapshot…</p></div>
+<form id="search-form"><label for="search">Search structure</label><input id="search" type="search" required maxlength="180"><button>Search</button></form></header>
+<p id="notice" role="status"></p>
+<div class="workspace">
+<nav id="breadcrumbs" aria-label="Current scope"></nav>
+<div class="body-grid">
+<section class="work-area"><div id="viewport" tabindex="0" aria-label="Scrollable architecture canvas"><div id="canvas">
+<svg id="arrows" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z"/></marker></defs><g></g></svg>
+<div id="cards"></div><button type="button" id="more" hidden>More elements</button>
+</div></div>
+<div class="view-tools" role="group" aria-label="Canvas zoom">
+<button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+<output id="zoom-level">100%</output>
+<button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+<button type="button" id="zoom-fit">Fit</button>
+</div></section>
+<aside id="details" aria-label="Selection details" tabindex="-1"></aside>
+</div></div>
+</main>
+</body>
+</html>

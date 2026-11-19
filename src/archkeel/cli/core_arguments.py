@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Read the command line of the shell into typed options (AD-596).
 
-The shell serves `validate`, `report`, `init` and `skill`. This part owns the options and the
-refusal of each command or option of the deleted Python shell by name. It reads the arguments
+The shell serves `validate`, `report`, `explore`, `init` and `skill`. It owns the options and
+the refusal of each command or option of the deleted Python shell. It reads the arguments
 only: it starts no process, finds no binary and reads no frame.
 """
 
@@ -24,7 +24,7 @@ from .core_frame import CoreCommand as Command
 
 RELEASE: Final = "4.0.1"
 _LINE: Final = "not available in ArchKeel 5.0 yet"
-SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT, Command.INIT})
+SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT, Command.EXPLORE, Command.INIT})
 # Release 4.0.1 has `check`. No release has the other refused commands.
 RELEASED: Final = frozenset({Command.CHECK})
 # The options of the deleted Python shell that release 4.0.1 does not have.
@@ -99,6 +99,9 @@ class Options(argparse.Namespace):
     no_init: bool = False
     part_of: str | None = None
     system_href: str | None = None
+    port: int = 0
+    no_open: bool = False
+    explorer: bool = False
 
 
 class Parser(argparse.ArgumentParser):
@@ -137,7 +140,7 @@ def output_mode(argv: Sequence[str]) -> OutputMode:
     if "--text" in argv:
         return OutputMode.TEXT
     to_file = any(arg == "--output" or arg.startswith("--output=") for arg in argv)
-    if (argv and argv[0] == Command.INIT) or to_file or sys.stdout.isatty():
+    if (argv and argv[0] in {Command.INIT, Command.EXPLORE}) or to_file or sys.stdout.isatty():
         return OutputMode.TEXT
     return OutputMode.JSON
 
@@ -198,15 +201,25 @@ def _document_path(value: str) -> str:
     return path.as_posix()
 
 
+def _port(value: str) -> int:
+    if not value.isascii() or not value.isdecimal() or len(value) > 5 or int(value) > 65535:
+        raise argparse.ArgumentTypeError("port must be an integer from 0 to 65535")
+    return int(value)
+
+
 def parse(argv: Sequence[str]) -> Options:
     """The options of a served command. Each other argument is refused by name."""
     command = command_of(argv)
     parser = Parser(prog=f"archkeel {command}", add_help=False, allow_abbrev=False)
     parser.add_argument("--root", type=Path)
     form = parser.add_mutually_exclusive_group()
-    for flag in ("json", "text", "summary") if command is not Command.SKILL else ("json", "text"):
+    for flag in (
+        ("json", "text")
+        if command in {Command.SKILL, Command.EXPLORE}
+        else ("json", "text", "summary")
+    ):
         form.add_argument(f"--{flag}", action="store_true")
-    if command is not Command.SKILL:
+    if command not in {Command.SKILL, Command.EXPLORE}:
         parser.add_argument("--all", action="store_true")
         parser.add_argument("--verbose", action="store_true")
     if command is Command.SKILL:
@@ -216,6 +229,9 @@ def parse(argv: Sequence[str]) -> Options:
         parser.add_argument("--core-only", action="store_true")
         if command is not Command.INIT:
             parser.add_argument("--config", default="archkeel.toml")
+        if command is Command.EXPLORE:
+            parser.add_argument("--port", type=_port, default=0)
+            parser.add_argument("--no-open", action="store_true")
         if command in {Command.VALIDATE, Command.REPORT}:
             parser.add_argument("--no-init", action="store_true")
             parser.add_argument("--timings", type=partial(_new_file_path, "--timings"))

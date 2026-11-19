@@ -1,20 +1,12 @@
 ---
 name: explore
-description: Not available on this development line. Use when the owner asks to open the codebase map or Studio, to say so and to offer the static report.
+description: Open the local architecture Explorer for a repository and inspect source evidence.
 ---
 
-# Explore the codebase
+Run `archkeel explore` from the project. Use `--config PATH` to select its scan or system
+document. Read the local address from the command output. Keep the process running while
+the owner uses the whiteboard. Use `--no-open` when a browser cannot open automatically.
 
-The `explore` command and Studio are not available on this development line: the shell refuses
-them with exit 2. No release has them. A new static overview of the core may return later.
-
-Do not start Studio and do not run `explore`. A refusal is not a result.
-
-For a picture of the architecture today:
-
-1. Run `archkeel report --topology --output report.html` in the repository. It writes one static HTML
-   page from the Rust core. Add `--config PATH` when the contract is not `archkeel.toml`.
-2. Tell the owner the verdict of the run. UNKNOWN is not PASS.
-3. For the full report of release 4.0.1, use that release.
-
-For the checks of this line, use the `archkeel` skill.
+Read the snapshot identity and coverage before describing a connection. Select an import
+to inspect its source location. Report unresolved targets and missing evidence explicitly.
+For an installed release that refuses the command, use `archkeel report --topology`.

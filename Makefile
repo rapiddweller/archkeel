@@ -279,3 +279,8 @@ plugin-release:
 # The pinned TypeScript compiler: the standard-library catalog check and the compiler check read it.
 browser-runtime-install:
 	npm ci --prefix tools/browser-runtime --ignore-scripts --no-audit --no-fund
+
+.PHONY: explorer-corpus
+explorer-corpus: core
+	@test -n "$(WORKSPACE)" && test -n "$(OUTPUT)" || { echo "Set WORKSPACE and OUTPUT"; exit 2; }
+	$(UV) run --locked python -m tools.explorer_corpus --workspace "$(WORKSPACE)" --output "$(OUTPUT)" --archkeel "$(CURDIR)" --compass "$(CURDIR)/fixtures/J-compass"

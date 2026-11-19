@@ -1,0 +1,54 @@
+# Local architecture Explorer
+
+Run the local checkout against the ArchKeel system.
+
+```sh
+uv run archkeel explore --config docs/architecture/architecture-system.json
+```
+
+Keep the terminal open while you use the browser. Use `--no-open` to print the local
+address. Select a component, its module and an import to read the source evidence.
+Each result includes its snapshot identity and the coverage of the scan.
+The native report retains its own layout and rule verdicts.
+
+## Connect an agent
+
+Install the optional MCP dependency with `uv sync --extra mcp`. Configure a local
+stdio server in the MCP client. Supply the snapshot path from the Explorer and the
+absolute path of the scanned repository.
+
+```sh
+archkeel-mcp --snapshot /absolute/path/to/snapshot.sqlite3 --root /absolute/path/to/repository
+```
+
+The server provides overview, children, search, relations, evidence, source and story.
+A source request takes a reference from the index. It checks the file content before
+returning the excerpt. A call step describes static analysis. Runtime dispatch and
+deployment bindings require separate evidence.
+
+## Measure a local corpus
+
+```sh
+make explorer-corpus WORKSPACE=/path/to/checkouts OUTPUT=/private/local/results
+```
+
+The output can contain private repository paths and source information. Keep it local.
+Check the revision, working tree state and scan configuration when comparing results.
+
+## Query a snapshot
+
+The browser uses GET requests under `/api/v1/`. The MCP tools use the same operation
+names and element IDs. Every response identifies the snapshot and its coverage.
+
+| Operation | Input | Result |
+| --- | --- | --- |
+| overview, children | parent (default system), cursor, limit | Elements with ID, name, kind and parent |
+| search | text, cursor, limit | Matching elements |
+| relations | element, direction, optional kind, cursor, limit | Directed edges with resolution and evidence |
+| evidence | relation | Evidence references and source locations |
+| source | reference, limit | Checked lines of the file. HTTP returns 409 if the file changed |
+| story | ID of a call edge | One static call step with its evidence, or UNKNOWN |
+
+Lists use a stable ID cursor. Pass the returned `next_cursor` to get the next page.
+Coverage applies to the selected scan. A null collector section means that this build
+does not supply that fact type. An empty section means the collector supplied zero rows.

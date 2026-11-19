@@ -110,7 +110,7 @@ is the only engine. The Python engine is deleted.
   PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
 - Rust, TypeScript, Python and Dart projects run through the core. What each decides: see the
   [known limits](docs/known-limits.md#supported-projects-on-main).
-- `init` drafts `archkeel.toml` and a contract for a Python project ([guide](docs/onboarding.md)). `check`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
+- `init` drafts `archkeel.toml` and a contract for a Python project ([guide](docs/onboarding.md)). `check`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
   Interactive reports, `architecture.json` and focused reports are not available.
   `validate --baseline FILE` accepts each listed UNKNOWN and keeps exit code 2. Under a baseline, only that
   verdict exits 2: a refusal or a file that was not written exits 1. See the [reference](docs/reference.md#baselines).
@@ -122,7 +122,7 @@ is the only engine. The Python engine is deleted.
   core (AD-476), but the last release is 4.0.1. Use the latest main build or run a source checkout.
   A package without the core refuses each run with `core_binary_not_found`. There is no Python fallback.
 - Release 4.0.1 has `check`, a larger `init` and full reports for Python, Dart and TypeScript projects.
-  No release has Studio or `explore`. See the [state of `main`](docs/reference.md#state-of-main).
+  This checkout adds [the local Explorer](docs/explorer.md). See the [state of `main`](docs/reference.md#state-of-main).
 
 ## Install
 

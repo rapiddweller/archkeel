@@ -91,6 +91,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         });
     dual_run::run(
         Run {
+            explorer: false,
             topology: false,
             case: "check".to_owned(),
             path: request.contract.path,

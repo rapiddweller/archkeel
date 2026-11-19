@@ -99,6 +99,23 @@ examples:
   archkeel report --output report.html
   archkeel report --json --topology
 """
+_EXPLORE: Final = """\
+usage: archkeel explore [--root PATH] [--config PATH] [--port PORT] [--no-open]
+                        [--json | --text]
+
+Open the architecture whiteboard and native report for the same local snapshot.
+Without a contract configuration, the whiteboard shows observed source and layout groups.
+The Explorer binds to 127.0.0.1 and reads a snapshot of the repository.
+Press Ctrl-C to stop the server.
+
+  --root PATH    Read the project at PATH.
+  --config PATH  Select a project configuration or system document.
+  --port PORT    Use this local port. Default: choose a free port.
+  --no-open      Print the local URL without opening a browser.
+  --json         Print one JSON object with the local URL.
+
+The command exits 0 after the Explorer stops, or 2 if it cannot start.
+"""
 _SKILL: Final = """\
 usage: archkeel skill install {{claude,codex}} [--root PATH] [--json]
 
@@ -145,10 +162,11 @@ each run; this command line prints the result.
 commands:
   validate   Check the contract: PASS, FAIL or UNKNOWN. `archkeel validate --help` lists options.
   report     Print the same result as a report; with --output, write an HTML page.
+  explore    Open the local architecture whiteboard and report.
   init       Draft archkeel.toml and a first contract from the folder layout.
   skill      Install the agent skill: archkeel skill install {{claude,codex}}
 
-not available yet (exit 2): check (use release {release}); explore, guide, story, view, studio
+not available yet (exit 2): check (use release {release}); guide, story, view, studio
 (no release has them).
 
 {output}
@@ -169,6 +187,8 @@ def help_for(command: Command | None) -> str:
         return _VALIDATE.format(**fields)
     if command is Command.REPORT:
         return _REPORT.format(**fields)
+    if command is Command.EXPLORE:
+        return _EXPLORE
     if command is Command.SKILL:
         return _SKILL.format()
     if command is Command.INIT:

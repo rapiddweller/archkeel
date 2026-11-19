@@ -2810,6 +2810,7 @@
       "layer": "core",
       "packages": [
         "native.archkeel_core.dual_run",
+        "native.archkeel_core.explorer",
         "native.archkeel_core.section_rows"
       ],
       "responsibilities": [
@@ -2821,7 +2822,8 @@
       "provenance": [
         "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
         "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md",
-        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md",
+        "docs/architecture/decisions/ad-1017-query-one-local-explorer-snapshot.md"
       ],
       "requires": [
         {
@@ -2871,10 +2873,24 @@
         },
         {
           "component": "facts",
-          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422), and name the request type that the self-test of a scan echoes, so that the frame schema states it (AD-600).",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422), and name the request type that the self-test of a scan echoes, so that the frame schema states it (AD-600). The Explorer projects validated source records and their evidence for navigation (AD-1017).",
           "through": [
+            "native.archkeel_facts.envelope:Facts",
+            "native.archkeel_facts.envelope:Target",
             "native.archkeel_facts.identity",
-            "native.archkeel_facts.request"
+            "native.archkeel_facts.ids:EvidenceId",
+            "native.archkeel_facts.ids:FactId",
+            "native.archkeel_facts.ids:ModuleName",
+            "native.archkeel_facts.ids:PackageName",
+            "native.archkeel_facts.nullable:Nullable",
+            "native.archkeel_facts.request",
+            "native.archkeel_facts.vocab:EvidenceClass",
+            "native.archkeel_facts.vocab:Status",
+            "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:FactData",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:Section"
           ]
         },
         {

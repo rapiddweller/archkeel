@@ -19,8 +19,8 @@ from archkeel.cli.core_arguments import NotOnThisLine, parse
 
 ROOT = Path(__file__).parents[1]
 SKILLS = sorted(ROOT.glob("skills/*/SKILL.md"))
-SERVED = {"validate", "report", "init", "skill"}
-REFUSED = {"check", "explore", "guide", "story", "view", "studio"}
+SERVED = {"validate", "report", "init", "skill", "explore"}
+REFUSED = {"check", "guide", "story", "view", "studio"}
 SITE = "https://github.com/rapiddweller/archkeel/"
 LINK = re.compile(r"\]\(([^)\s]+)\)")
 COMMAND = re.compile(r"\barchkeel ([a-z][a-z-]*)")
@@ -66,7 +66,7 @@ def test_each_command_line_of_a_skill_is_accepted_by_the_real_parser(path: Path)
 def test_the_parser_check_fails_on_an_unknown_option_a_refusal_and_a_bad_form() -> None:
     assert _problems("`archkeel report --bogus`")
     assert _problems("`archkeel validate --root`")
-    assert _problems("`archkeel explore`")
+    assert _problems("`archkeel studio`")
     assert _problems("`archkeel report --output r.json --format yaml`")
     good = "`archkeel report --output r.json --format json` `archkeel validate [--root PATH]`"
     assert _problems(good) == []

@@ -37,7 +37,7 @@ raise SystemExit(code)
 """
 
 
-REFUSED = ("check", "explore", "guide", "story", "view", "studio")
+REFUSED = ("check", "guide", "story", "view", "studio")
 
 
 def shell(*arguments: str) -> subprocess.CompletedProcess[str]:

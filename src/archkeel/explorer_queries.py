@@ -1,0 +1,395 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""Indexed views of the topology emitted by the core."""
+
+import hashlib
+import json
+import sqlite3
+from collections import defaultdict
+from collections.abc import Callable, Iterable, Iterator
+from pathlib import Path
+
+from .explorer_boundaries import boundary_rows
+from .explorer_store import open_snapshot
+
+_SCHEMA = (
+    "CREATE TABLE element(id TEXT PRIMARY KEY,name TEXT,kind TEXT,parent TEXT,body TEXT)",
+    "CREATE INDEX children_order ON element(parent,id)",
+    "CREATE TABLE relation(id TEXT PRIMARY KEY,source TEXT,target TEXT,kind TEXT,body TEXT)",
+    "CREATE INDEX outbound ON relation(source,id)",
+    "CREATE INDEX inbound ON relation(target,id)",
+    "CREATE TABLE location(id TEXT PRIMARY KEY,path TEXT,line INTEGER,digest TEXT)",
+    "CREATE TABLE analysis(root TEXT,coverage TEXT)",
+)
+
+
+def _source_path(root: Path, name: str) -> Path:
+    relative = Path(name)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError("source outside scan root")
+    path = root / relative
+    if path.resolve() != root.resolve() / relative or not path.is_file():
+        raise ValueError("source unavailable")
+    return path
+
+
+Row = dict[str, object]
+
+
+def _object(value: object) -> Row:
+    if not isinstance(value, dict):
+        raise ValueError("expected an Explorer record")
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _records(value: object) -> Iterator[Row]:
+    if value is None:
+        return
+    if not isinstance(value, list):
+        raise ValueError("expected an Explorer record list")
+    for row in value:
+        yield _object(row)
+
+
+def _strings(row: Row, field: str) -> list[str]:
+    value = row[field]
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"invalid {field}")
+    return list(value)
+
+
+def _fact_locations(record: Row, locations: Row) -> list[Row]:
+    return [_object(locations[key]) for key in _strings(record, "evidence_ids") if key in locations]
+
+
+def _rows(topology: Row, section: str) -> Iterator[Row]:
+    for part in _records(topology.get("explorer")):
+        yield from _records(part.get(section))
+
+
+def _calls(part: Row, locations: Row, symbols: dict[str, list[str]]) -> Iterator[Row]:
+    for data in _records(part.get("calls")):
+        targets = _strings(data, "targets")
+        candidates = [symbol for name in targets for symbol in symbols.get(name, [])]
+        origin = data.get("source_definition_id") or data["source_module"]
+        target = data.get("target_definition_id")
+        if target is None and len(candidates) == 1 and len(targets) == 1:
+            target = candidates[0]
+        exact = (
+            target is not None
+            and data["status"] == "resolved"
+            and data.get("candidate_count", len(targets)) == 1
+            and not data["candidates_truncated"]
+            and data.get("evidence_class", "FACT") == "FACT"
+        )
+        yield {
+            "id": data["id"],
+            "source": origin,
+            "target": target if exact else None,
+            "kind": "call",
+            "expression": data["expression"],
+            "reason": data.get("reason"),
+            "candidates": candidates,
+            "resolution": "resolved" if exact else "unresolved",
+            "evidence": _fact_locations(data, locations),
+        }
+
+
+def _imports(topology: Row) -> Iterator[Row]:
+    for row in _rows(topology, "imports"):
+        yield dict(
+            row,
+            source=row["source_module"],
+            target=row.get("target_module"),
+            evidence=_fact_locations(row, _object(topology.get("locations", {}))),
+        )
+
+
+_AddElement = Callable[[str, str, str, str, Row], None]
+_Reference = Callable[[str, int], str]
+
+
+def _coverage(connection: sqlite3.Connection, topology: Row, root: Path) -> None:
+    coverage = {
+        k: topology.get(k)
+        for k in ("complete", "truncated", "total", "gaps", "verdict", "observed_only")
+    }
+    coverage["parts"] = [
+        {
+            "part": part.get("part"),
+            "language": part.get("language"),
+            "facts": {
+                key: None if part.get(key) is None else sum(1 for _ in _records(part[key]))
+                for key in ("symbols", "calls", "imports")
+            },
+        }
+        for part in _records(topology.get("explorer"))
+    ]
+    connection.execute(
+        "INSERT INTO analysis VALUES (?,?)", (str(root.resolve()), json.dumps(coverage))
+    )
+
+
+def _elements(topology: Row, element: _AddElement, reference: _Reference) -> None:
+    languages = {
+        "PART:" + _text(part, "part"): part.get("language")
+        for part in _records(topology.get("explorer"))
+        if part.get("part")
+    }
+    for row in _records(topology["components"]):
+        element(
+            _text(row, "id"),
+            _text(row, "name"),
+            "component",
+            _text(row, "parent") if row["parent"] else "system",
+            dict(row, language=languages.get(_text(row, "id"), row.get("language"))),
+        )
+    for row in _records(topology["modules"]):
+        element(
+            _text(row, "name"),
+            _text(row, "name"),
+            "module",
+            _text(row, "component") if row["component"] else "system",
+            dict(row, source=reference(_text(row, "path"), 1)),
+        )
+    modules = {_text(row, "name") for row in _records(topology["modules"])}
+    for part in _records(topology.get("explorer")):
+        for file in _records(part.get("files")):
+            module = _text(file, "module")
+            if module not in modules:
+                element(
+                    module,
+                    module,
+                    "module",
+                    "system",
+                    {
+                        "path": file["path"],
+                        "source": reference(_text(file, "path"), 1),
+                        "language": part.get("language"),
+                        "ownership": "unknown",
+                    },
+                )
+                modules.add(module)
+
+
+def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list[Iterator[Row]]:
+    calls: list[Iterator[Row]] = []
+    for part in _records(topology.get("explorer")):
+        symbols: dict[str, list[str]] = defaultdict(list)
+        for row in _records(part.get("symbols")):
+            data = row
+            name = data.get("qualified_name")
+            if not isinstance(name, str) or not data.get("module"):
+                continue
+            symbols[name].append(_text(row, "id"))
+            refs = _fact_locations(row, _object(topology.get("locations", {})))
+            anchor = (
+                reference(_text(refs[0], "path"), _number(refs[0], "line", 1, 2**31 - 1))
+                if refs
+                else None
+            )
+            element(
+                _text(row, "id"),
+                name,
+                _text(row, "kind"),
+                _text(data, "module"),
+                {"source": anchor},
+            )
+
+        calls.append(_calls(part, _object(topology.get("locations", {})), symbols))
+    return calls
+
+
+def populate(connection: sqlite3.Connection, topology: Row, root: Path) -> None:
+    """Project the same scan as the report and retain its coverage and truncation."""
+    if topology.get("version") != 1:
+        raise ValueError("unsupported topology version")
+    for statement in _SCHEMA:
+        connection.execute(statement)
+    _coverage(connection, topology, root)
+    digests: dict[str, str | None] = {}
+
+    def reference(name: str, line: int) -> str:
+        if name not in digests:
+            try:
+                with _source_path(root, name).open("rb") as stream:
+                    digests[name] = hashlib.file_digest(stream, "sha256").hexdigest()
+            except (OSError, ValueError):
+                digests[name] = None
+        key = hashlib.sha256(json.dumps([name, line]).encode()).hexdigest()
+        connection.execute(
+            "INSERT OR IGNORE INTO location VALUES (?,?,?,?)", (key, name, line, digests[name])
+        )
+        return key
+
+    def element(key: str, name: str, kind: str, parent: str, row: Row) -> None:
+        body = dict(row, id=key, name=name, kind=kind, parent=parent)
+        connection.execute(
+            "INSERT INTO element VALUES (?,?,?,?,?)", (key, name, kind, parent, json.dumps(body))
+        )
+
+    _elements(topology, element, reference)
+    calls = _symbols(topology, element, reference)
+    _relations(connection, topology, root, calls, reference)
+
+
+def _relations(
+    connection: sqlite3.Connection,
+    topology: Row,
+    root: Path,
+    calls: list[Iterator[Row]],
+    reference: Callable[[str, int], str],
+) -> None:
+    interfaces = (
+        dict(row, source="PART:" + _text(row, "source"), target="PART:" + _text(row, "target"))
+        for row in _records(topology.get("interfaces"))
+    )
+    sections: tuple[tuple[str, Iterable[Row]], ...] = (
+        ("call", (row for group in calls for row in group)),
+        ("import_site", _imports(topology)),
+        ("boundary", boundary_rows(root, list(_records(topology["modules"])))),
+        ("interface", interfaces),
+        ("import", _records(topology["edges"])),
+        ("import", _records(topology.get("component_edges"))),
+        ("requires", _records(topology.get("requires"))),
+    )
+    for kind, rows in sections:
+        for row in rows:
+            relation_kind = row["kind"] if kind == "boundary" else kind
+            if kind == "import_site" and row.get("inferred_receiver"):
+                relation_kind = "inferred_receiver"
+            key = row.get("id") or json.dumps([kind, row["source"], row["target"]])
+            refs = [
+                dict(
+                    loc, reference=reference(_text(loc, "path"), _number(loc, "line", 1, 2**31 - 1))
+                )
+                for loc in _records(row.get("evidence"))
+            ]
+            body = dict(
+                row,
+                id=key,
+                kind=relation_kind,
+                evidence=refs,
+                resolution=row.get("resolution", "declared"),
+            )
+            if kind == "call":
+                for end in ("source", "target"):
+                    label = connection.execute(
+                        "SELECT name,parent FROM element WHERE id=?", (row[end],)
+                    ).fetchone()
+                    if label:
+                        body[end + "_name"], body[end + "_owner"] = label
+            connection.execute(
+                "INSERT INTO relation VALUES (?,?,?,?,?)",
+                (key, row["source"], row["target"], relation_kind, json.dumps(body)),
+            )
+
+
+def _text(args: Row, name: str, default: str | None = None) -> str:
+    value = args.get(name, default)
+    if not isinstance(value, str) or len(value) > 4096:
+        raise ValueError(f"invalid {name}")
+    return value
+
+
+def _number(args: Row, name: str, default: int, maximum: int) -> int:
+    value = args.get(name, default)
+    if isinstance(value, str) and value.isascii() and value.isdecimal() and len(value) <= 10:
+        value = int(value)
+    if type(value) is not int or not 1 <= value <= maximum:
+        raise ValueError(f"invalid {name}")
+    return value
+
+
+def _source(db: sqlite3.Connection, root: Path, args: Row) -> Row:
+    row = db.execute(
+        "SELECT path,line,digest FROM location WHERE id=?", (_text(args, "reference"),)
+    ).fetchone()
+    if row is None:
+        raise ValueError("unknown source reference")
+    name, anchor, digest = row
+    start = _number(args, "start", max(1, anchor - 3), 2**31 - 1)
+    count = _number(args, "limit", 24, 120)
+    if not digest:
+        raise ValueError("source unavailable at scan time")
+    hasher = hashlib.sha256()
+    lines = []
+    index = 1
+    fragment = bytearray()
+    with _source_path(root, name).open("rb") as stream:
+        while chunk := stream.readline(65536):
+            hasher.update(chunk)
+            if start <= index < start + count:
+                fragment.extend(chunk[: 4096 - len(fragment)])
+            if chunk.endswith(b"\n"):
+                if start <= index < start + count:
+                    lines.append(fragment.decode("utf-8", errors="replace").rstrip("\r\n"))
+                fragment.clear()
+                index += 1
+        if fragment:
+            lines.append(fragment.decode("utf-8", errors="replace"))
+    if hasher.hexdigest() != digest:
+        raise ValueError("source changed since scan")
+    return {"path": name, "start": start, "line": anchor, "lines": lines}
+
+
+def query(path: Path, root: Path, operation: str, args: Row) -> Row:
+    """Serve one bounded operation against an immutable published database."""
+    with open_snapshot(path) as db:
+        saved_root, coverage = db.execute("SELECT root,coverage FROM analysis").fetchone()
+        if Path(saved_root) != root.resolve():
+            raise ValueError("snapshot belongs to another repository")
+        result = {"snapshot": path.stem, "coverage": json.loads(coverage)}
+        if operation == "source":
+            return result | _source(db, root, args)
+        if operation == "evidence":
+            row = db.execute(
+                "SELECT body FROM relation WHERE id=?", (_text(args, "relation"),)
+            ).fetchone()
+            if not row:
+                raise ValueError("unknown relation")
+            body = json.loads(row[0])
+            return result | {"items": body["evidence"], "relation": body, "next_cursor": None}
+        if operation == "story":
+            row = db.execute(
+                "SELECT body FROM relation WHERE id=? AND kind='call'", (_text(args, "id"),)
+            ).fetchone()
+            if not row:
+                return result | {
+                    "status": "UNKNOWN",
+                    "reason": "No call evidence for this step",
+                    "items": [],
+                }
+            hop = json.loads(row[0])
+            return result | {"status": hop["resolution"], "items": [hop]}
+        table = "element"
+        if operation in {"overview", "children"}:
+            where, params = "parent=?", [_text(args, "parent", "system")]
+        elif operation == "search":
+            where, params = "instr(lower(name),lower(?))>0", [_text(args, "text")]
+        elif operation == "relations":
+            table = "relation"
+            direction = _text(args, "direction", "both")
+            elem = _text(args, "element")
+            if direction == "both":
+                where, params = "(source=? OR target=?)", [elem, elem]
+            elif direction in {"in", "out"}:
+                where, params = ("target=?" if direction == "in" else "source=?"), [elem]
+            else:
+                raise ValueError("invalid direction")
+            if "kind" in args:
+                where += " AND kind=?"
+                params.append(_text(args, "kind"))
+        else:
+            raise ValueError("unknown operation")
+        limit = _number(args, "limit", 50, 200)
+        cursor = _text(args, "cursor", "")
+        rows = db.execute(
+            f"SELECT id,body FROM {table} WHERE {where} AND id>? ORDER BY id LIMIT ?",
+            (*params, cursor, limit + 1),
+        ).fetchall()
+        return result | {
+            "items": [json.loads(r[1]) for r in rows[:limit]],
+            "next_cursor": rows[limit - 1][0] if len(rows) > limit else None,
+        }

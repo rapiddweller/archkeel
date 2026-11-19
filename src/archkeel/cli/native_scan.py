@@ -70,6 +70,70 @@ def identity(root: Path) -> tuple[str, bool] | None:
     return heads[0], any(not line.startswith("# ") for line in lines)
 
 
+def tracked_and_unignored(root: Path) -> set[Path]:
+    """Name fingerprint inputs without running Git hooks or filesystem monitors."""
+    command = [
+        _GIT,
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "-C",
+        str(root),
+        "ls-files",
+        "--cached",
+        "--others",
+        "--exclude-standard",
+        "-z",
+    ]
+    environment = {key: os.environ[key] for key in _GIT_ENVIRONMENT if key in os.environ}
+    try:
+        done = subprocess.run(
+            command, env=environment, capture_output=True, check=False, timeout=_TIMEOUT_SECONDS
+        )
+    except subprocess.TimeoutExpired as error:
+        raise CoreError("Git did not list the snapshot files in time") from error
+    if done.returncode or len(done.stdout) > 16 << 20:
+        raise CoreError("Git could not list the snapshot files within the Explorer limit")
+    return {Path(os.fsdecode(name)) for name in done.stdout.split(b"\0") if name}
+
+
+def prepare_disposable_git(root: Path) -> None:
+    """Commit the files of a disposable scan copy without system config or Git hooks."""
+    if (root / ".git").exists():
+        raise CoreError("the disposable scan copy already has Git metadata")
+    env = {key: os.environ[key] for key in _GIT_ENVIRONMENT if key in os.environ}
+    env |= {"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull}
+    for args in (
+        ("init", "--template=", "--quiet"),
+        ("add", "--force", "--all"),
+        (
+            "-c",
+            "user.name=ArchKeel Explorer",
+            "-c",
+            "user.email=explorer@localhost",
+            "-c",
+            "commit.gpgSign=false",
+            "commit",
+            "--no-verify",
+            "--quiet",
+            "-m",
+            "Explorer copy",
+        ),
+    ):
+        try:
+            done = subprocess.run(
+                [_GIT, "--no-optional-locks", "-C", str(root), *args],
+                env=env,
+                capture_output=True,
+                check=False,
+                timeout=_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise CoreError("Git did not prepare the disposable copy in time") from error
+        if done.returncode:
+            raise CoreError("Git could not prepare the disposable Explorer copy")
+
+
 def ignored_by(root: Path, paths: Sequence[str]) -> dict[str, str]:
     """For each path that a Git ignore rule covers: `FILE:LINE` of the rule (`git check-ignore`).
 
