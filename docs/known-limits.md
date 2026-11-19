@@ -78,7 +78,7 @@ the last two were fixed after it and are checked on main at `157dc8851`:
   `tests/test_collector_false_pass_ts_lookup.py`; a value that is only tested keeps its PASS.
 
 Main supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
-The linked Python collector also proves direct function calls for `call_owner` (AD-998).
+The linked Python collector also proves direct function calls for `call_owner` (AD-1002).
 An open import route keeps call identity unproved. An unrelated open call does not hide a proven violation.
 A dynamic import, an import-system change and the other gaps of AD-450 can hold rules that read them.
 A contract can declare the reach of an `eval`, `exec`, `compile`, unpickler, loader or `__import__`

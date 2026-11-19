@@ -56,7 +56,7 @@ reads direct names bound to stable top-level functions in the scan. It selects
 modules or packages as sources. It reports a witnessed forbidden call even when
 another call stays open. Unproved calls outside exempt modules withhold PASS.
 It does not decide receiver calls, computed targets, external providers, or saved
-replies. See [AD-998](architecture/decisions/ad-998-call-ownership-checks-direct-function-witnesses.md).
+replies. See [AD-1002](architecture/decisions/ad-1002-call-ownership-checks-direct-function-witnesses.md).
 Earlier call binding forms are described in [AD-241](architecture/decisions/ad-241-call-ownership-policy.md)
 and [AD-252](architecture/decisions/ad-252-bounded-call-identity.md).
 
