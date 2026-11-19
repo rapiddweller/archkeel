@@ -190,7 +190,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
             self.owner.push_str(name);
         }
         match stmt {
-            Stmt::Expr(node) if ignores::member_call(&node.value) => self.type_ignore(stmt),
+            Stmt::Expr(node) if ignores::supported_call(&node.value) => self.type_ignore(stmt),
             Stmt::Assign(_) | Stmt::Return(_) => self.type_ignore(stmt),
             Stmt::FunctionDef(node) => {
                 if let Some(annotation) = &node.returns {

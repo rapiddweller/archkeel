@@ -14,6 +14,15 @@ from test_cli_python_profile_limits import CONSTRUCT, Plant, scanned
     ("source", "expected"),
     [
         ("def check():\n    return 1\n", "PASS"),
+        ("def check(item):\n    run(item)\n", "PASS"),
+        ('def check(item):\n    run("# type: ignore[call-arg]")\n', "PASS"),
+        ("def check(item):\n    run(item)  # type: ignore[call-arg]\n", "FAIL"),
+        ("def check(run):\n    run(1)  # type: ignore[call-arg]\n", "FAIL"),
+        ("def check(item):\n    run(\n        item)  # type: ignore[call-arg]\n", "UNKNOWN"),
+        ("def check(item):\n    run(item); run(item)  # type: ignore[call-arg]\n", "UNKNOWN"),
+        ("def check(item):\n    factory()(item)  # type: ignore[call-arg]\n", "UNKNOWN"),
+        ("def check(item):\n    rün(item)  # type: ignore[call-arg]\n", "UNKNOWN"),
+        ("def check(item):\n    run (item)  # type: ignore[call-arg]\n", "UNKNOWN"),
         ('def check():\n    return "# type: ignore[attr-defined]"\n', "PASS"),
         ("def check(item):\n    item.close()  # type: ignore[attr-defined]\n", "FAIL"),
         ("def check(item):\n    item.close()  #type:ignore[attr-defined]\n", "FAIL"),
@@ -80,6 +89,7 @@ def test_type_ignore_is_a_comment_not_string_text(
     [
         "item.close()",
         "item.close(1, key='x')",
+        "run(item, key='x')",
         "value = item",
         "value: int = item",
         "value: int",
