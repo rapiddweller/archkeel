@@ -10,6 +10,7 @@ Never weaken a pinned verdict to make this test pass.
 
 from __future__ import annotations
 
+import json
 import os
 import tomllib
 from contextlib import nullcontext
@@ -166,6 +167,72 @@ def test_review_demo_identifies_the_forbidden_import(
         and frame["locations"][evidence]["line"] == 8
         for evidence in detail["evidence"]
     )
+
+
+@pytest.mark.parametrize(
+    ("name", "rule", "reason"),
+    [
+        (
+            "M-interface-open-route",
+            "INTERFACE-BOUNDARY",
+            "incomplete scope: interface_boundary: unproven publication route",
+        ),
+        (
+            "M-requires-open-symbol",
+            "REQUIRES-COMPLETE",
+            "incomplete scope: the rule left 1 imports undecided",
+        ),
+    ],
+)
+def test_review_demo_keeps_an_open_binding_unknown(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str, rule: str, reason: str
+) -> None:
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    entry = next(run for run in RUNS if run["name"] == name)
+    source = FIXTURES / entry["root"]
+    contract = json.loads((source / "architecture-contract.json").read_text())
+    entry_component = next(c for c in contract["components"] if c["id"] == "entry")
+    pricing = next(c for c in contract["components"] if c["id"] == "pricing")
+    assert pricing["public"] == ["orders.pricing:price"]
+    assert any(r["through"] == ["orders.pricing:price"] for r in entry_component["requires"])
+    _, baseline = run("report", "--root", str(source))
+    assert baseline["frame"]["rules"][rule][1] == "PASS"
+    with fixture_tree(source, entry["plant"]["edits"], CACHE) as root:
+        api = (root / "orders/api.py").read_text()
+        if name == "M-interface-open-route":
+            assert "from orders.pricing import price, mystery" in api
+            facade = (root / "orders/pricing/__init__.py").read_text()
+            assert "from orders.pricing.tax import Vat as mystery" in facade
+            assert "from orders.pricing.base import Line as mystery" in facade
+        else:
+            assert "import orders.pricing as pricing\nvalue = pricing\n" in api
+        _, result = run("report", "--root", str(root), "--topology")
+    frame = result["frame"]
+    assert frame["rules"][rule][1] == "UNKNOWN"
+    assert frame["explained"][rule] == reason
+    assert frame["collection_gaps"] == []
+    assert frame["explain"]["holds"]["rules"][rule]["kind"] == "other"
+    [edge] = [
+        edge
+        for edge in frame["topology"]["edges"]
+        if edge["source"] == "orders.api" and edge["target"] == "orders.pricing"
+    ]
+    assert edge["resolution"] == "resolved"
+    if name == "M-requires-open-symbol":
+        assert {"path": "orders/api.py", "line": 21} in edge["evidence"]
+    else:
+        assert {"path": "orders/api.py", "line": 7} in edge["evidence"]
+        assert frame["rules"]["REQUIRES-COMPLETE"][1] == "FAIL"
+        [detail] = frame["details"]["REQUIRES-COMPLETE"]
+        assert (detail["source"], detail["target"], detail["cause"]) == (
+            "orders.api",
+            "orders.pricing",
+            "undeclared component dependency",
+        )
+        assert any(
+            frame["locations"][evidence] == {"path": "orders/api.py", "line": 7}
+            for evidence in detail["evidence"]
+        )
 
 
 def test_the_scope_line_counts_the_gaps_that_the_report_lists(
