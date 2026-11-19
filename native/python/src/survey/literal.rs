@@ -7,7 +7,8 @@
 //! Exactly two forms are a static edge:
 //!
 //! - `importlib.import_module("a.b")`, when each binding of `importlib` in the module is a plain
-//!   `import importlib` (no alias, no submodule import, no other binding);
+//!   `import importlib` (no alias, no submodule import, no other binding), and there is no
+//!   visible write to that loader in the scan;
 //! - `__import__("a.b")`, when the module binds `__import__` nowhere.
 //!
 //! The call has exactly one argument and no keyword: a plain string literal with an absolute dotted
@@ -16,11 +17,11 @@
 //! alias, value or attribute use stays a `dynamic_import` gap (`hazards.rs`). A target that is
 //! itself a hazard keeps its named gap as well as the edge.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use archkeel_facts::identity::{evidence_id, is_identifier};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprCall, ModModule, Stmt};
+use ruff_python_ast::{Expr, ExprCall, ExprContext, ModModule, Stmt};
 
 use super::binders::Binders;
 use crate::module::Module;
@@ -33,6 +34,11 @@ pub(super) struct Proof {
 }
 
 impl Proof {
+    pub(super) fn without_replaced_loader(mut self, replaced: bool) -> Self {
+        self.importlib &= !replaced;
+        self
+    }
+
     /// A direct `importlib.import_module` reference with the loader binding proved.
     pub(super) fn loader(&self, function: &Expr) -> bool {
         self.importlib
@@ -71,6 +77,112 @@ impl Proof {
         let dotted = !text.value.is_implicit_concatenated() && name.split('.').all(is_identifier);
         dotted.then(|| name.to_owned())
     }
+}
+
+/// A visible write to `importlib.import_module`, through an import binding or its alias.
+pub(super) fn replaces_loader(
+    tree: &ModModule,
+    imports: &HashMap<String, Vec<String>>,
+    binders: &Binders,
+) -> bool {
+    if !imports
+        .values()
+        .flatten()
+        .any(|origin| origin == "importlib")
+    {
+        return false;
+    }
+    let mut walk = LoaderWrites {
+        imports,
+        binders,
+        found: false,
+    };
+    walk.visit_body(&tree.body);
+    walk.found
+}
+
+struct LoaderWrites<'a> {
+    imports: &'a HashMap<String, Vec<String>>,
+    binders: &'a Binders,
+    found: bool,
+}
+
+impl LoaderWrites<'_> {
+    fn imported(&self, expr: &Expr, origin: &str) -> bool {
+        matches!(expr, Expr::Name(name) if HashMap::get(self.imports, name.id.as_str())
+            .is_some_and(|origins| origins.iter().any(|item| item == origin)))
+    }
+
+    fn builtin(&self, expr: &Expr, name: &str) -> bool {
+        matches!(expr, Expr::Name(node) if node.id.as_str() == name && self.binders.builtin_visible(name))
+    }
+
+    fn call(&self, call: &ExprCall) -> bool {
+        let arguments = &call.arguments;
+        let [first, rest @ ..] = &*arguments.args else {
+            return false;
+        };
+        let bound_writer = match &*call.func {
+            Expr::Attribute(attr)
+                if matches!(attr.attr.as_str(), "__setattr__" | "__delattr__") =>
+            {
+                if self.imported(&attr.value, "importlib") {
+                    return loader_key(first);
+                }
+                self.builtin(&attr.value, "object")
+            }
+            Expr::Attribute(attr) => {
+                matches!(attr.attr.as_str(), "setattr" | "delattr")
+                    && self.imported(&attr.value, "builtins")
+            }
+            func => {
+                self.builtin(func, "setattr")
+                    || self.builtin(func, "delattr")
+                    || self.imported(func, "builtins.setattr")
+                    || self.imported(func, "builtins.delattr")
+            }
+        };
+        bound_writer && self.imported(first, "importlib") && rest.first().is_some_and(loader_key)
+    }
+
+    fn dictionary(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Attribute(attr) => {
+                attr.attr.as_str() == "__dict__" && self.imported(&attr.value, "importlib")
+            }
+            Expr::Call(call) => {
+                self.builtin(&call.func, "vars")
+                    && matches!(&*call.arguments.args, [module] if self.imported(module, "importlib"))
+            }
+            _ => false,
+        }
+    }
+}
+
+impl<'a> Visitor<'a> for LoaderWrites<'_> {
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        self.found |= match expr {
+            Expr::Attribute(node) => {
+                node.ctx != ExprContext::Load
+                    && node.attr.as_str() == "import_module"
+                    && self.imported(&node.value, "importlib")
+            }
+            Expr::Subscript(node) => {
+                node.ctx != ExprContext::Load
+                    && loader_key(&node.slice)
+                    && self.dictionary(&node.value)
+            }
+            Expr::Call(node) => self.call(node),
+            _ => false,
+        };
+        if !self.found {
+            visitor::walk_expr(self, expr);
+        }
+    }
+}
+
+fn loader_key(expr: &Expr) -> bool {
+    matches!(expr, Expr::StringLiteral(node) if node.value.to_str() == "import_module")
 }
 
 /// The number of plain `import importlib` statements of a module.
