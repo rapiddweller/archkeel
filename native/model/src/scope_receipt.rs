@@ -373,7 +373,6 @@ pub(crate) fn dynamic_import(model: &Model, rule: &Rule) -> bool {
 }
 
 /// The source module of a dynamic import limit and its type-only flag.
-#[derive(Clone, Copy)]
 struct Source<'a> {
     module: &'a str,
     type_only: bool,
