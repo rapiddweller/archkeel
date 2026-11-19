@@ -35,6 +35,7 @@ pub(crate) struct Constructs {
     pub(crate) constructs_measured: bool,
     pub(crate) signals_measured: bool,
     pub(crate) placeholder_under_premise: bool,
+    pub(crate) any_annotation_under_premise: bool,
 }
 
 /// One matched site and whether its selected identity is proven.
@@ -67,6 +68,9 @@ impl Constructs {
             capabilities: Vec::new(),
             constructs_measured: false,
             signals_measured: false,
+            any_annotation_under_premise: trusted
+                && Option::as_ref(&facts.standard)
+                    .is_some_and(|standard| standard.any_annotation_under_premise),
             placeholder_under_premise: trusted
                 && Option::as_ref(&facts.standard)
                     .is_some_and(|standard| standard.placeholder_under_premise),

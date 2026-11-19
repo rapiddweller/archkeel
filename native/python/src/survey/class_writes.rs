@@ -107,6 +107,33 @@ impl ClassWrites {
         self.typing_holds("Any")
     }
 
+    /// True when no store can change the standard class forms that the Any inventory admits.
+    pub(super) fn annotation_classes_unchanged(&self) -> bool {
+        [
+            "TYPE_CHECKING",
+            "__bases__",
+            "__build_class__",
+            "__call__",
+            "__class__",
+            "__class_getitem__",
+            "__closure__",
+            "__code__",
+            "__defaults__",
+            "__globals__",
+            "__init_subclass__",
+            "__kwdefaults__",
+            "__mro_entries__",
+            "__new__",
+            "__prepare__",
+            "_TypedDictMeta",
+            "_add_slots",
+            "_process_class",
+            "EnumType",
+        ]
+        .into_iter()
+        .all(|name| self.change_of(name).is_none())
+    }
+
     /// True when no observed file shadows typing or can write this attribute of it.
     pub(super) fn typing_holds(&self, name: &str) -> bool {
         !self.shadows("typing") && Option::is_none(&ClassWrites::change_of(self, name))

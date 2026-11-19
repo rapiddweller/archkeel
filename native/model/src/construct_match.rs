@@ -93,7 +93,12 @@ pub(crate) fn receipt<'a>(
             support,
             Some((_, ConstructSupport::Supported | ConstructSupport::Decided))
         ) {
-            if name != "placeholder_body" || !inventory.placeholder_under_premise {
+            let conditional = match name.as_str() {
+                "placeholder_body" => inventory.placeholder_under_premise,
+                "any_annotation" => inventory.any_annotation_under_premise,
+                _ => false,
+            };
+            if !conditional {
                 return Err(Cause::Receipt("construct absence is not completely observed").into());
             }
             needs_premise = true;

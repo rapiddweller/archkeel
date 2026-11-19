@@ -2,11 +2,10 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 //! The import survey of one request (`collect.collect`, phase `imports`).
-//! It records parsed modules, static imports, file facts, evidence, targets, UNKNOWNs and coverage.
-//!
 //! The `stable_bindings` of a file fact are `source._stable_direct_module_bindings` (`stable`).
 use crate::discover;
 use crate::module::{EvidenceMap, Module};
+use crate::parse::comments;
 use crate::requirement::Prepared;
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Role, Target};
 #[cfg(feature = "dump")]
@@ -342,6 +341,10 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
             })
             .collect(),
     );
+    let any_annotation_under_premise = constructs.protocol_unchanged
+        && coverage.full_scope
+        && opaque_surface.is_empty()
+        && typing_count::any_complete((modules, &binders), &writes, comments);
     Ok(Survey {
         function_call_counts,
         excluded_sources: scope.excluded,
@@ -366,6 +369,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
             .filter(|input| selected.contains(input.path.as_str()))
             .collect(),
         standard: archkeel_facts::standard::StandardFacts {
+            any_annotation_under_premise,
             protocol_unchanged: constructs.protocol_unchanged,
             protocol_members: symbols.protocol_members,
             ..standard::facts(
@@ -382,7 +386,6 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     })
 }
 
-/// The symbol facts of a survey: the declarations and the sites of the functions among them.
 struct Symbols {
     records: Vec<Record<SymbolFact>>,
     /// The forms of the decorated definitions (AD-782).

@@ -87,6 +87,7 @@ pub(super) fn facts(
         }
     }
     StandardFacts {
+        any_annotation_under_premise: false,
         placeholder_under_premise: false,
         protocol_unchanged: false,
         protocol_members: BTreeMap::new(),
