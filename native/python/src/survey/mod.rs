@@ -15,9 +15,7 @@ use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Role, Target
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::sections::SignalFact;
-use archkeel_facts::{
-    CallFact, ConstructFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact,
-};
+use archkeel_facts::{ConstructFact, GapFact, ImportFact, Record, SymbolFact};
 use archkeel_snapshot::Snapshot;
 use binders::Binders;
 use excluded::Excluded;
@@ -101,8 +99,7 @@ pub(crate) struct Survey {
     pub standard: archkeel_facts::standard::StandardFacts,
     /// The symbol declarations that the modules bind once (AD-518), and their sites (AD-520).
     pub symbols: Vec<Record<SymbolFact>>,
-    pub calls: Vec<Record<CallFact>>,
-    pub references: Vec<Record<ReferenceFact>>,
+    pub sites: declared::Sites,
     pub constructs: Vec<Record<ConstructFact>>,
     pub signals: Vec<Record<SignalFact>>,
     /// What the survey sees of each written construct (AD-737).
@@ -242,7 +239,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     let viewed = lazy_cover::viewed(&imports, &sources);
     let symbols = declarations(
         (modules, &binders),
-        &viewed,
+        (&viewed, &imports),
         (&sole_binders, &ambiguous),
         (&writes, lazy_314),
         &mut evidence,
@@ -321,7 +318,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         &sole_binders,
         &ambiguous,
         &symbols.records,
-        &symbols.dead_sites,
+        &symbols.sites.dead,
     );
     let mut coverage = Coverage::of(
         (parsed.files_read as usize, modules.len()),
@@ -336,7 +333,8 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
             .iter()
             .zip(&binders)
             .map(|(module, binders)| {
-                let mut row = call_count::count(module, binders, &symbols.calls, &count_context);
+                let mut row =
+                    call_count::count(module, binders, &symbols.sites.calls, &count_context);
                 (row.typing_positions, row.untyped_private_accesses) =
                     typing_count::count(module, binders);
                 row
@@ -371,8 +369,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
             (symbols.wrapped, symbols.positions),
         ),
         symbols: symbols.records,
-        calls: symbols.calls,
-        references: symbols.references,
+        sites: symbols.sites,
         signals: constructs.signals,
         support: constructs.support,
         constructs: constructs.records,
@@ -386,9 +383,7 @@ struct Symbols {
     wrapped: std::collections::BTreeMap<String, archkeel_facts::standard::Wrapped>,
     /// The standard library names of each written position (#1718).
     positions: standard::Positions,
-    calls: Vec<Record<CallFact>>,
-    references: Vec<Record<ReferenceFact>>,
-    dead_sites: HashSet<String>,
+    sites: declared::Sites,
 }
 
 /// AD-518, AD-520: the declarations of each module that `admitted` keeps, then their sites. A
@@ -396,7 +391,7 @@ struct Symbols {
 /// it is absent for the model.
 fn declarations(
     (modules, binders): (&[Module], &[Binders]),
-    imports: &[Record<ImportFact>],
+    (imports, written): (&[Record<ImportFact>], &[Record<ImportFact>]),
     sets: (&HashSet<String>, &HashSet<String>),
     (writes, lazy_314): (&class_writes::ClassWrites, bool),
     evidence: &mut EvidenceMap,
@@ -416,7 +411,7 @@ fn declarations(
             found.push(item);
         }
     }
-    let context = declared::Context::collect(&found, imports, sets);
+    let context = declared::Context::collect(&found, (imports, written), sets);
     let lazy = lazy_314.then_some(writes);
     declared::attach_shapes(&mut found, (modules, binders), imports, sets, lazy);
     let forms = (lazy, writes);
@@ -424,26 +419,30 @@ fn declarations(
         declared::shape_standard::positions(&found, (modules, binders), imports, sets);
     let read = (modules, binders);
     let wrapped = declared::wrapped::forms(&found, read, imports, sets, (forms, &mut positions));
-    let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
+    let mut sites = declared::Sites {
+        calls: Vec::new(),
+        references: Vec::new(),
+        dead: HashSet::new(),
+        direct: Vec::new(),
+    };
     for item in &found {
-        let (more, other, dead) = declared::site_records(
+        let more = declared::site_records(
             (&modules[item.index], &binders[item.index]),
             item,
             &context,
             evidence,
         );
-        calls.extend(more);
-        references.extend(other);
-        dead_sites.extend(dead);
+        sites.calls.extend(more.calls);
+        sites.references.extend(more.references);
+        sites.dead.extend(more.dead);
+        sites.direct.extend(more.direct);
     }
     let records = found.into_iter().flat_map(|item| item.records).collect();
     Symbols {
         records,
         wrapped,
         positions,
-        calls,
-        references,
-        dead_sites,
+        sites,
     }
 }
 

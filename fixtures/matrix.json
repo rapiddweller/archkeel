@@ -128,7 +128,7 @@
     "python-newer-syntax-demo": {
       "language": "python",
       "runs": [
-      {"name": "python-newer-syntax-demo", "section": "clean", "intent": "PASS", "blocked_by": [619], "about": "An exact type-ignore permission and a call_owner rule.", "root": "python-newer-syntax-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
+      {"name": "python-newer-syntax-demo", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "The exact type-ignore permission passes. The report calls the maintenance-only function inside a generator at sample/report.py:9, so call_owner fails.", "root": "python-newer-syntax-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 1, "FAIL": 1, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "python-stdlib-demo": {

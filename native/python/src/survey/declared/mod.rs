@@ -55,7 +55,7 @@ mod wrapped_read;
 
 pub(crate) use found::{Decorated, Found, Source};
 pub(crate) use shapes::{attach as attach_shapes, collection_names, FORMS};
-pub(crate) use sites::{site_records, Context};
+pub(crate) use sites::{site_records, Context, Sites};
 
 pub(in crate::survey) use escapes::{all as scan_escapes, Escapes};
 

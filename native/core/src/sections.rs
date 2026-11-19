@@ -3,12 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The `Sections` request: the rows of each requested section, or the reason that it has none.
-//!
-//! `violations` holds the rows of the rule kinds that `archkeel-eval` decides, sorted by id as
-//! the reference engine sorts the section. A row of another kind is not in it: the harness compares a rule
-//! section per family (AD-360 point 5), and the rules of that kind are named unsupported.
-//! The sections of slice S3 come from the reply part of the model (`topology.rs`): they need no
-//! contract, so their reason is the reason of the reply part.
+//! The evaluator gives the violations, sorted by id (AD-360). Topology rows need no contract.
 
 use std::collections::BTreeMap;
 
@@ -88,6 +83,10 @@ fn violation_rows(outcomes: &[Outcome]) -> Vec<Value> {
 }
 
 /// The 2.9 row of a violation (`classified` in `ir/source_records.py`).
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep all record kinds in one exhaustive match"
+)]
 fn row(violation: &Violation) -> Value {
     match violation {
         Violation::Unassigned {
@@ -174,6 +173,21 @@ fn row(violation: &Violation) -> Value {
                    "annotation": found.text, "reasons": found.reasons}),
         ),
         Violation::SymbolPlacement(found) => placement_record(found),
+        Violation::CallOwner {
+            id,
+            rule,
+            fact,
+            source,
+            target,
+            evidence,
+        } => record(
+            [id, rule, fact],
+            evidence,
+            ["calls", "call_owner"],
+            &[source, target],
+            format!("{source} invokes {target} outside its owner"),
+            json!({"source_scope": source, "target": target}),
+        ),
         Violation::UnusedPublic(found) => {
             let item = format!("{}:{}", found.module, found.name);
             let data = json!({"module": found.module, "name": found.name, "item_kind": found.kind});
@@ -341,14 +355,14 @@ fn direction_record(violation: &Violation) -> Value {
         | Violation::OuterLayer(_)
         | Violation::Construct(_)
         | Violation::BoundaryType(_)
+        | Violation::CallOwner { .. }
         | Violation::SymbolPlacement(_)
         | Violation::UnusedPublic(_)
         | Violation::Cycle(_) => row(violation),
     }
 }
 
-/// A `layer_order` record: it cites the receipt of its rule, the contract file and the
-/// provenance of its source component.
+/// Cite the rule receipt, contract file and source component provenance.
 fn layer_record(layered: &Layered) -> Value {
     let Layered {
         id,
@@ -448,8 +462,7 @@ fn import_record(ids: [&str; 2], cited: &Cited, kind: &str, title: String, data:
     )
 }
 
-/// A violation record: `[id, rule, cited record]`, the evidence of the cited record (sorted),
-/// `[area, kind]` and the subjects.
+/// Build a violation record with its cited fact, evidence, area, kind and subjects.
 fn record(
     ids: [&str; 3],
     evidence: &[String],

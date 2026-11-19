@@ -2,22 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The violations of the S1 rule kinds, with the ids of the records of the reference engine.
-//!
-//! Reference engine: the `classified(...)` calls of `check/evaluation/rules.py` `_assignment_violations`,
-//! `_external_dependency_violations` and `_external_completeness_violations`
-//! (`stable_id("VIO", rule.id, import record id)`),
-//! (`stable_id("VIO", rule.id, module record id)`) and `_root_layout_violations`
-//! (`stable_id("VIO", rule.id, child)`). The cited record is a module record: its id is
-//! `stable_id("MOD", name)` and its evidence is the evidence id of the file.
-//!
-//! Slice S5 (AD-380): `_dependency_violations` (`rules.py:99`), `_sibling_violations`
-//! (`rules.py:1387`) and `requires_violations` (`rules.py:1877`) cite one import;
-//! `_layer_order_violations` (`rules.py:2008`) cites the receipt of the rule and the contract file.
-//!
-//! Slice S7 (AD-384): `_component_cycle_violations` and `_module_cycle_violations` cite the
-//! imports between two members of a cycle.
-
+//! Evaluated violations and their stable identities, facts and source evidence.
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_model::{Import, Module, ModuleId};
 
@@ -152,6 +137,21 @@ pub enum Violation {
     UnusedPublic(Box<UnusedItem>),
     /// A proven class declared outside the permitted modules.
     SymbolPlacement(Box<crate::placement_row::PlacedClass>),
+    /// A proved function call outside its permitted scope.
+    CallOwner {
+        /// The identity of the violation.
+        id: String,
+        /// The rule that prohibits the call.
+        rule: String,
+        /// The identity of the call fact.
+        fact: String,
+        /// The lexical scope of the call.
+        source: String,
+        /// The exact target of the call.
+        target: String,
+        /// The source evidence of the call.
+        evidence: Vec<String>,
+    },
 }
 
 /// A public item that no other component uses (AD-670).
@@ -477,7 +477,6 @@ impl Violation {
         self.head()[1]
     }
 
-    /// The id and the rule.
     fn head(&self) -> [&str; 2] {
         match self {
             Violation::Unassigned { id, rule, .. }
@@ -487,7 +486,8 @@ impl Violation {
             | Violation::Forbidden { id, rule, .. }
             | Violation::Peer { id, rule, .. }
             | Violation::Unrequired { id, rule, .. }
-            | Violation::PrivateImport { id, rule, .. } => [id, rule],
+            | Violation::PrivateImport { id, rule, .. }
+            | Violation::CallOwner { id, rule, .. } => [id, rule],
             Violation::Publication(found) => [&found.id, &found.rule],
             Violation::OuterLayer(layered) => [&layered.id, &layered.rule],
             Violation::Cycle(cyclic) => [&cyclic.id, &cyclic.rule],

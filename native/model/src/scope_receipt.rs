@@ -9,13 +9,15 @@
 
 use std::collections::HashSet;
 
-use archkeel_contract::{kind_of, CycleLevel, Rule};
+use archkeel_contract::{kind_of, CallOwner, CycleLevel, Rule, RuleKind};
 
 use crate::causes::{Cause, Held, Part};
 use crate::coverage::Incomplete;
 use crate::direction;
 use crate::dropped_gaps;
+use crate::graph::{CallInventory, ExactCall, Graph};
 use crate::model::Model;
+use crate::modules::Module;
 use crate::ownership::{in_scope, owner_of};
 use crate::pair_gaps::{reads, sides_match, Reads};
 use crate::reason::{Reason, Unsupported};
@@ -215,10 +217,13 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         }
         // AD-670: an item that another component may use without a proven import holds it back.
         Rule::UnusedPublic(rule) => crate::published::receipt(model, rule)?,
+        Rule::CallOwner(rule) => {
+            call_owner_receipt(model, rule)?;
+            true
+        }
         // Each kind that no slice decides: its slice states its receipt here (AD-378). A
         // permission declaration (`allowed_dependency`) has no verdict, so it has no receipt.
-        other @ (Rule::CallOwner(_)
-        | Rule::ForbiddenCallArgument(_)
+        other @ (Rule::ForbiddenCallArgument(_)
         | Rule::CatalogArgument(_)
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
@@ -236,6 +241,75 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
     } else {
         Err(Reason::NoSubjects)
     }
+}
+
+/// The proved calls that break this rule, even if another call is open.
+pub fn call_owner_violations<'m>(
+    model: &'m Model,
+    rule: &CallOwner,
+) -> Result<Vec<&'m ExactCall>, Reason> {
+    let (calls, _, _) = live_calls(model, rule)?;
+    let scope = CallOwner::source(rule).as_text();
+    let target = CallOwner::target(rule).as_text();
+    Ok(calls
+        .iter()
+        .filter(|(_, module, caller, callee, _)| {
+            model.selects(module)
+                && in_scope(module, scope)
+                && callee == target
+                && !call_allowed(rule, module, caller)
+        })
+        .collect())
+}
+
+fn live_calls<'m>(model: &'m Model, rule: &CallOwner) -> Result<&'m CallInventory, Reason> {
+    let graph = Model::graph(model);
+    let scope = CallOwner::source(rule).as_text();
+    let modules = Graph::modules(graph);
+    let selected = modules
+        .iter()
+        .any(|(id, module)| model.holds(id) && in_scope(Module::name(module), scope));
+    if !selected {
+        return Err(Reason::Unsupported(Unsupported::Rule(RuleKind::CallOwner)));
+    }
+    Graph::exact_calls(graph).ok_or(Reason::Unsupported(Unsupported::Rule(RuleKind::CallOwner)))
+}
+
+fn call_allowed(rule: &CallOwner, module: &str, caller: &str) -> bool {
+    rule.allowed_sources()
+        .iter()
+        .any(|source| in_scope(caller, source.as_text()))
+        || rule
+            .exact_sources()
+            .iter()
+            .any(|source| source.as_text() == module || source.as_text() == caller)
+}
+
+fn call_owner_receipt(model: &Model, rule: &CallOwner) -> Result<(), Reason> {
+    let (_, targets, complete) = live_calls(model, rule)?;
+    if !targets.contains(CallOwner::target(rule).as_text()) {
+        return Err(Cause::Receipt("call ownership needs an exact target declaration").into());
+    }
+    let graph = Model::graph(model);
+    let scope = CallOwner::source(rule).as_text();
+    let mut nonempty = false;
+    let modules = Graph::modules(graph);
+    for (id, module) in modules.iter() {
+        let name = Module::name(module);
+        if !model.holds(id) || !in_scope(name, scope) {
+            continue;
+        }
+        nonempty |= !Module::blank(module);
+        if !call_allowed(rule, name, name) && !complete.contains(name) {
+            return Err(
+                Cause::Receipt("call ownership: a selected call has no exact target").into(),
+            );
+        }
+    }
+    if !nonempty {
+        return Err(Reason::NoSubjects);
+    }
+    Ok(())
 }
 
 fn placement_receipt(

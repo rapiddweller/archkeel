@@ -46,6 +46,7 @@
         "native.archkeel_facts.envelope:Capabilities",
         "native.archkeel_facts.envelope:ConstructSupport",
         "native.archkeel_facts.envelope:Coverage",
+        "native.archkeel_facts.envelope:DirectCall",
         "native.archkeel_facts.envelope:Dirty",
         "native.archkeel_facts.envelope:Evidence",
         "native.archkeel_facts.envelope:Facts",
@@ -322,6 +323,7 @@
         "native.archkeel_contract:BoundaryAllowance",
         "native.archkeel_contract:BoundaryTypes",
         "native.archkeel_contract:BudgetName",
+        "native.archkeel_contract:CallOwner",
         "native.archkeel_contract:CompleteRequires",
         "native.archkeel_contract:CompletenessMode",
         "native.archkeel_contract:Component",
@@ -498,6 +500,7 @@
             "native.archkeel_model.receipts",
             "native.archkeel_model.run",
             "native.archkeel_model.scope",
+            "native.archkeel_model.scope_receipt",
             "native.archkeel_model.verdict"
           ]
         },
@@ -521,6 +524,7 @@
         "native.archkeel_model:DoorProblem",
         "native.archkeel_model:Doors",
         "native.archkeel_model:Edge",
+        "native.archkeel_model:ExactCall",
         "native.archkeel_model:Graph",
         "native.archkeel_model:Hygiene",
         "native.archkeel_model:Import",
@@ -559,6 +563,7 @@
         "native.archkeel_model:UsedPremise",
         "native.archkeel_model:Verdict",
         "native.archkeel_model:boundary_reading",
+        "native.archkeel_model:call_owner_violations",
         "native.archkeel_model:claims",
         "native.archkeel_model:compare_uml_tree",
         "native.archkeel_model:construct_matches",
@@ -792,6 +797,8 @@
         "native.archkeel_model.edges:Edge",
         "native.archkeel_model.edges:Level",
         "native.archkeel_model.gaps:CoverageGap",
+        "native.archkeel_model.graph:CallInventory",
+        "native.archkeel_model.graph:ExactCall",
         "native.archkeel_model.graph:Graph",
         "native.archkeel_model.imports:Import",
         "native.archkeel_model.imports:Resolved",
@@ -1160,6 +1167,7 @@
           "component": "contract",
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
+            "native.archkeel_contract:CallOwner",
             "native.archkeel_contract:CycleLevel",
             "native.archkeel_contract:Lifecycle",
             "native.archkeel_contract:NoComponentCycles",
@@ -1201,6 +1209,7 @@
           "through": [
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph",
+            "native.archkeel_model.modules",
             "native.archkeel_model.ownership",
             "native.archkeel_model.published_items",
             "native.archkeel_model.settings"
@@ -1253,6 +1262,7 @@
         "native.archkeel_model.scope:Model",
         "native.archkeel_model.scope:uml_pass",
         "native.archkeel_model.scope:uml_run",
+        "native.archkeel_model.scope_receipt:call_owner_violations",
         "native.archkeel_model.verdict:Decision",
         "native.archkeel_model.verdict:Verdict"
       ],
