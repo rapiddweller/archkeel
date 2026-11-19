@@ -12,6 +12,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from core_support import NATIVE
 from corpus_support import commit_tree
 from rust_repository import CRATE_RULES, component, repository, rule, statuses, validate
 
@@ -45,16 +46,27 @@ def _app(files: dict[str, str]) -> dict[str, str]:
 
 
 def _rustc_asserts(tmp_path: Path, root: Path, expression: str) -> None:
+    rustc = ["rustc", "--edition=2021"]
+    library = tmp_path / "libprobe.rlib"
     subprocess.run(
-        ["rustc", "--crate-name", "probe", "--crate-type", "rlib", root / "crates/app/src/lib.rs"],
-        cwd=tmp_path,
+        [
+            *rustc,
+            "--crate-name",
+            "probe",
+            "--crate-type",
+            "rlib",
+            root / "crates/app/src/lib.rs",
+            "-o",
+            library,
+        ],
+        cwd=NATIVE,
         check=True,
     )
     exe = tmp_path / ("witness.exe" if os.name == "nt" else "witness")
     subprocess.run(
-        ["rustc", "--extern", "probe=libprobe.rlib", "-", "-o", exe],
+        [*rustc, "--extern", f"probe={library}", "-", "-o", exe],
         input=f"extern crate probe; fn main() {{ assert!({expression}); }}",
-        cwd=tmp_path,
+        cwd=NATIVE,
         text=True,
         check=True,
     )
@@ -62,11 +74,13 @@ def _rustc_asserts(tmp_path: Path, root: Path, expression: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("case", "status"), [("allowed", "PASS"), ("observed", "FAIL"), ("opaque", "UNKNOWN")]
+    ("case", "status"),
+    [("allowed", "PASS"), ("named-import", "FAIL"), ("opaque-hold", "UNKNOWN")],
 )
 def test_destructor_origin_controls(
     tmp_path: Path, release_core: Path, case: str, status: str
 ) -> None:
+    """Check a named import and a conservative hold, not a collector proof of value flow."""
     files = {
         "lib.rs": "pub mod a; pub mod b; mod slot;",
         "b.rs": """
@@ -96,13 +110,13 @@ def test_destructor_origin_controls(
                 hit
             }
         """
-    elif case == "observed":
+    elif case == "named-import":
         files["slot.rs"] = ""
         files["a.rs"] = """
             pub fn run() -> bool {
                 let (hit, guard) = crate::b::make();
-                drop(guard);
-                hit.load(std::sync::atomic::Ordering::SeqCst)
+                std::mem::forget(guard);
+                !hit.load(std::sync::atomic::Ordering::SeqCst)
             }
         """
     else:
@@ -123,11 +137,11 @@ def test_destructor_origin_controls(
     result = validate(root)
     frame = result["frame"]
     assert statuses(result)["NO-A-TO-B"] == status, frame["explained"]
-    if case == "observed":
+    if case == "named-import":
         assert [(row["source"], row["target"]) for row in frame["details"]["NO-A-TO-B"]] == [
             ("native.app.a", "native.app.b")
         ]
-    elif case == "opaque":
+    elif case == "opaque-hold":
         assert {"source": "native.app.a", "target": "native.app.b"} in frame["explain"]["holds"][
             "rules"
         ]["NO-A-TO-B"]["pairs"]
