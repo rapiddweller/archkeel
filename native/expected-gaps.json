@@ -83672,6 +83672,21 @@
     ],
     [
       "collection_gap",
+      "native.archkeel_typescript_collector.definitions.arrow",
+      "A trait impl in native.archkeel_typescript_collector.source may run in code that reaches native.archkeel_typescript_collector.source without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.definitions.arrow",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.definitions.arrow",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
       "native.archkeel_typescript_collector.discover",
       "A trait impl in native.archkeel_snapshot.snapshot.listing may run in code that reaches native.archkeel_snapshot.snapshot.listing without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],

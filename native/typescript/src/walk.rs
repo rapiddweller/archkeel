@@ -46,6 +46,8 @@ pub(crate) struct Syntax {
     pub(crate) module_exports: Vec<ExportBinding>,
     pub(crate) type_exports: TypeExports,
     pub rebound_names: Vec<String>,
+    pub written_root_names: HashSet<String>,
+    pub ambiguous_root_names: HashSet<String>,
     pub ambient_globals: Named,
     pub ambient_top_level: Named,
     /// What kind of file this is for the script analysis (`file_mode.rs`).
@@ -408,26 +410,22 @@ impl<'a, 't> Walk<'a, 't> {
         for item in &self.imports {
             self.frames.bind(ROOT, item.local.clone());
         }
-        // Only an import reads the writes of the file.
         let mut memo = HashMap::new();
         let shadowed = self.frames.shadowed_root_names();
-        let written: HashSet<String> = if self.imports.is_empty() {
-            HashSet::new()
-        } else {
-            self.writes
-                .iter()
-                .map(|(target, frame)| (cx.text(*target), *frame))
-                .filter(|(name, frame)| {
-                    // Only the root frame decides. A name that it does not bind is not written
-                    // there. A name that no other frame binds has the root as its nearest binding
-                    // at any depth. Only a shadowed name needs the climb.
-                    self.frames.count(ROOT, name) > 0
-                        && (!shadowed.contains(name.as_str())
-                            || self.frames.bound_scope_memo(&mut memo, *frame, name) == Some(ROOT))
-                })
-                .map(|(name, _)| name)
-                .collect()
-        };
+        let written: HashSet<String> = self
+            .writes
+            .iter()
+            .map(|(target, frame)| (cx.text(*target), *frame))
+            .filter(|(name, frame)| {
+                // Only the root frame decides. A name that it does not bind is not written
+                // there. A name that no other frame binds has the root as its nearest binding
+                // at any depth. Only a shadowed name needs the climb.
+                self.frames.count(ROOT, name) > 0
+                    && (!shadowed.contains(name.as_str())
+                        || self.frames.bound_scope_memo(&mut memo, *frame, name) == Some(ROOT))
+            })
+            .map(|(name, _)| name)
+            .collect();
         let blurred = self.frames.is_ambiguous(ROOT);
         let mut import_bindings = self.imports;
         for item in &mut import_bindings {
@@ -444,6 +442,12 @@ impl<'a, 't> Walk<'a, 't> {
         self.sites
             .finish(&self.frames, cx.source.data, mode.is_script());
         let (mut definitions, scopes) = self.defs.finish(&imported, &exports);
+        let ambiguous_root_names = self
+            .frames
+            .sorted_names(ROOT)
+            .into_iter()
+            .filter(|name| blurred || self.frames.count(ROOT, name) != 1)
+            .collect();
         let typed = suffix.is_some_and(|s| {
             matches!(
                 s.source_kind(),
@@ -458,6 +462,8 @@ impl<'a, 't> Walk<'a, 't> {
             scopes,
             import_bindings,
             rebound_names: self.rebound.into_iter().collect(),
+            written_root_names: written,
+            ambiguous_root_names,
             ambient_globals,
             ambient_top_level,
             mode,

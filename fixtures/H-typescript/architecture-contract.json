@@ -505,7 +505,7 @@
         },
         {
           "id": "main",
-          "kind": "constant",
+          "kind": "function",
           "qualified_name": "shop.src.main_x2e_ts.main",
           "language": "typescript",
           "presence": "planned",
@@ -518,9 +518,8 @@
             "basis": "declared"
           },
           "responsibilities": [
-            "Expose the function-valued application entry point; its arrow body is not independently observed."
-          ],
-          "annotation": "() => Promise<string>"
+            "Expose the application entry point."
+          ]
         }
       ],
       "relationships": [

@@ -364,10 +364,11 @@ fn hoisting_ts_has_the_syntax_of_the_python_parser() {
 }
 
 #[test]
-fn rebound_ts_has_the_syntax_of_the_python_parser() {
+fn rebound_names_exclude_writes_inside_a_named_arrow() {
     let got = facts("rebound.ts", "reassigned = 1;\nreassigned += 2;\nfunction f() { inside = 1; }\nconst arrow = () => { inner2 = 2; };\n[pa, pb] = [1, 2];\nclass K { m() { viaMethod = 1; } }\nlet last: number; last = 9;\n");
     let want = [
         "D f function None 3:1 ex=False vis=None top=True st=False ab=False as=False dec=False mc=False ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
+        "D arrow function None 4:15 ex=False vis=None top=True st=False ab=False as=False dec=False mc=False ov=False sc=False ann=None ret=None pl=None:None P[] B[] M[]",
         "D K class None 6:1 ex=False vis=None top=True st=False ab=False as=False dec=False mc=True ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
         "D m method K 6:11 ex=False vis=None top=False st=False ab=False as=False dec=False mc=False ov=False sc=True ann=None ret=None pl=6:1 P[] B[] M[]",
         "R last,reassigned",

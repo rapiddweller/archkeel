@@ -28,14 +28,14 @@
   "rest": {
     "counts": {
       "candidate_evidence": 0,
-      "evidence": 2493,
+      "evidence": 2521,
       "files": 16,
       "imports": 228,
       "inputs": 17,
       "type_shapes": 0,
       "uncertain_reexports": 0
     },
-    "sha256": "86bb20b9f99067116afa09595955578654c95bad42d0089e520d6cff6bfe1b5b"
+    "sha256": "285c77705b2ce4b4aff31b2d860da64608bed4290745013a724c5988d8df7147"
   },
   "sections": {
     "bindings": {
@@ -50,14 +50,14 @@
         "calls": 282
       },
       "records": 282,
-      "sha256": "b682cac3d8f20772d6034bc151decedc2833eb71c845c514c41af84e15b6f6a0"
+      "sha256": "bca0d5e20285a65ce3006586563a01fd227ac22bfe3dfb0d752a15c2c62da4b0"
     },
     "constructs": {
       "kinds": {
         "string_literal_compare": 6
       },
       "records": 6,
-      "sha256": "7bf2d5a9add0e55f9cdd96bf4235b4147be0bcc99d51ae99355c7c9ffc708486"
+      "sha256": "04bd59f2180a336110035835a17d1ee0949155a5b847eab41007d0435fbb7287"
     },
     "imports": {
       "kinds": {
@@ -73,16 +73,16 @@
         "references": 1992
       },
       "records": 1992,
-      "sha256": "2c6854dc37a612c3af0bfef4688786f168667f98f7ed3c0aea642b636f9406dc"
+      "sha256": "4bafe8ae8e831599174409c3e1c2226ce8f56fb6e28fde259ebb010c7ec959b5"
     },
     "symbols": {
       "kinds": {
         "constant": 7,
-        "function": 79,
+        "function": 107,
         "type_alias": 19
       },
-      "records": 105,
-      "sha256": "dc6d80026aeef65273d70cc4332d63ccc48903163a69b2d5e2e120626a2f4a21"
+      "records": 133,
+      "sha256": "4ce13b740f784807257a6b0dfb53e46d72c025d70738b0dd154ac0cccafd30f8"
     },
     "unknowns": {
       "kinds": {
@@ -92,6 +92,6 @@
       "sha256": "265a2bc5c381e497a01d54ce7cb61f9dbd3122702d38b3533cd29287e2521b08"
     }
   },
-  "sha256": "325ada35fa890ee37806a0ba4aa1507a1a4428e547b8b86f48ef795ce18762f8",
-  "sha256_at_3": "25fab462a40b882b6c4d2131dd07d751b9c3fbc488cb6c625e79bc0618b77cbe"
+  "sha256": "9401101f5648154aa29376b1f5681a3b74520952c0863ee86f2ee363ad8efbc7",
+  "sha256_at_3": "fb19b8cedaf205313402136f075f0f65df878f48e79d8bf390c3463dd3bb8df5"
 }
