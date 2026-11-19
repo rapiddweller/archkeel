@@ -15,7 +15,7 @@ statuses: 1 with a FAIL, else 2 with an UNKNOWN or a gap, else 0.
 Ratchet (AD-672): a pin may only shrink. Growth is a gap, a violation, an UNKNOWN reason, or a
 rule that is new and not PASS or has a worse status (PASS < UNKNOWN < FAIL) than before. Growth
 enters only through the growth file next to the pin (`--growth`): one entry with a `reason` for
-each grown item. A growing gap needs one entry per occurrence in the new pin (AD-943).
+each grown item. A growing gap needs a new entry for each new occurrence (AD-944).
 `--write` refuses growth that the growth file does not list, and
 `--base-ref <ref>` fails when the pin has growth against its version at `<ref>` that the growth
 file does not list. The lead raises the ratchet and logs the reason in the decision log.
@@ -26,6 +26,8 @@ Run: `python tools/native_expected.py <result.json> <expected-gaps.json> [--writ
 keeps the issue of each violation that the old file pins; a new violation gets no issue, and the
 gate fails until a person writes one in. The gate checks only that a positive issue number is
 present; it does not call the network, so it does not check that the issue exists or is open.
+For gap growth, pass `--growth <growth-file> --base-ref <committed-ref>`. Commit an intermediate
+pin before assessing growth after a separate shrink.
 """
 
 from __future__ import annotations
@@ -252,7 +254,7 @@ def stale(pin: dict[str, Any], listed: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def unlisted(
-    grown: list[list[str]], listed: dict[str, Any], pin: dict[str, Any] | None = None
+    grown: list[list[str]], listed: dict[str, Any], previous: dict[str, Any] | None = None
 ) -> list[str]:
     """The grown items that the growth file lists without a reason or does not list at all."""
     reasons = Counter(
@@ -260,14 +262,18 @@ def unlisted(
         for item in listed.get("raised") or ()
         if len(str(item.get("reason") or "").strip()) >= 10
     )
-    gaps = Counter(("gap", *map(str, gap)) for gap in (pin or {}).get("gaps") or ())
+    old_reasons = Counter(
+        tuple(map(str, item.get("entry") or ()))
+        for item in (previous or {}).get("raised") or ()
+        if len(str(item.get("reason") or "").strip()) >= 10
+    )
+    for entry, count in old_reasons.items():
+        if entry and entry[0] == "gap":
+            reasons[entry] = max(0, reasons[entry] - count)
     missing = []
     for item in grown:
         entry = tuple(item)
-        if entry[0] == "gap" and pin is not None:
-            if reasons[entry] < gaps[entry]:
-                missing.append(f"growth without a reason in the growth file: {item}")
-        elif reasons[entry] == 0:
+        if reasons[entry] == 0:
             missing.append(f"growth without a reason in the growth file: {item}")
         else:
             reasons[entry] -= 1
@@ -285,7 +291,13 @@ def _fork_point(ref: str) -> str:
 
 
 def _git_show(ref: str, path: Path) -> dict[str, Any] | None:
-    ref = _fork_point(ref)
+    if path.is_absolute():
+        root = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False
+        )
+        if root.returncode != 0 or not path.is_relative_to(Path(root.stdout.strip())):
+            return None
+        path = path.relative_to(Path(root.stdout.strip()))
     shown = subprocess.run(
         ["git", "show", f"{ref}:{path.as_posix()}"], capture_output=True, text=True, check=False
     )
@@ -302,12 +314,35 @@ def main(argv: list[str]) -> int:
     old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     growth_path = Path(_option(argv, "--growth") or "")
     listed = json.loads(growth_path.read_text(encoding="utf-8")) if growth_path.is_file() else {}
+    base = _option(argv, "--base-ref")
     if "--write" in argv:
         if "refusal" in result:
             print(f"refused: {result['refusal']}", file=sys.stderr)
             return 1
         new = written(result, old)
-        refused = unlisted(growth(new, old), listed, new)
+        grown = growth(new, old)
+        gap_growth = [item for item in grown if item[0] == "gap"]
+        previous: dict[str, Any] = {}
+        if gap_growth:
+            ref = _fork_point(base) if base else None
+            before = _git_show(ref, path) if ref else None
+            prior = _git_show(ref, growth_path) if ref and growth_path.is_file() else None
+            if before is None or prior is None:
+                print(
+                    "--write refused: provide --base-ref with committed pin and growth files",
+                    file=sys.stderr,
+                )
+                return 1
+            old_gaps = Counter(tuple(gap) for gap in old.get("gaps") or ())
+            base_gaps = Counter(tuple(gap) for gap in before.get("gaps") or ())
+            if any(old_gaps[tuple(item[1:])] != base_gaps[tuple(item[1:])] for item in gap_growth):
+                print(
+                    "--write refused: commit the intermediate pin and use it as --base-ref",
+                    file=sys.stderr,
+                )
+                return 1
+            previous = prior
+        refused = unlisted(grown, listed, previous)
         for line in refused:
             print(line, file=sys.stderr)
         if refused:
@@ -335,12 +370,19 @@ def main(argv: list[str]) -> int:
         f"stale growth entry (its finding is gone; run --write): {i['entry']}"
         for i in stale(old, listed)
     ]
-    base = _option(argv, "--base-ref")
     if base:
-        if (before := _git_show(base, path)) is None:
+        ref = _fork_point(base)
+        if (before := _git_show(ref, path)) is None:
             print(f"ratchet: base {base} unavailable, skipped", file=sys.stderr)
         else:
-            found += unlisted(growth(old, before), listed, old)
+            grown = growth(old, before)
+            prior = _git_show(ref, growth_path) if growth_path.is_file() else None
+            if prior is None and any(item[0] == "gap" for item in grown):
+                found.append(
+                    "ratchet: base growth file unavailable; provide a committed growth file"
+                )
+            else:
+                found += unlisted(grown, listed, prior)
     for line in found:
         print(line, file=sys.stderr)
     print(summary(result, str(old.get("name", "native"))))
