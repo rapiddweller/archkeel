@@ -23,6 +23,7 @@ import json
 import subprocess
 import sys
 import time
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -51,14 +52,14 @@ class Changes:
     """What the pull request changes: its files, its labels and the entries of the ratchet files.
 
     `files` holds `{filename, status, additions, deletions}` of the pull request API. `entries`
-    maps a ratchet file to (entries at the merge base, entries at the head).
+    maps a ratchet file to the count of entries removed since the merge base.
     """
 
     files: list[dict] = field(default_factory=list)
     labels: set[str] = field(default_factory=set)
     # Removed files whose lines went to an added file (a rename that GitHub did not detect).
     moved: set[str] = field(default_factory=set)
-    entries: dict[str, tuple[int, int]] = field(default_factory=dict)
+    entries: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -158,12 +159,12 @@ def deletions(changes: Changes) -> list[tuple[str, str]]:
                 f"only the lead sets '{DELETION_LABEL}' after owner approval",
             )
         )
-    for path, (before, after) in sorted(changes.entries.items()):
-        if before - after > RATCHET_REMOVAL_LIMIT and RATCHET_LABEL not in changes.labels:
+    for path, removed_entries in sorted(changes.entries.items()):
+        if removed_entries > RATCHET_REMOVAL_LIMIT and RATCHET_LABEL not in changes.labels:
             found.append(
                 (
                     "ratchet_removal_unapproved",
-                    f"{path} loses {before - after} entries (limit {RATCHET_REMOVAL_LIMIT}): "
+                    f"{path} loses {removed_entries} entries (limit {RATCHET_REMOVAL_LIMIT}): "
                     f"only the lead sets the label '{RATCHET_LABEL}'",
                 )
             )
@@ -195,10 +196,26 @@ def moved_files(
     return moved
 
 
-def entry_count(text: str) -> int:
-    """The entries of a ratchet file: gaps, violations, rules, unknown reasons, raised items."""
-    document = json.loads(text)
-    return sum(len(v) for k, v in document.items() if isinstance(v, (list, dict)))
+def entry_counts(text: str) -> Counter[tuple[str, ...]]:
+    """Count ratchet entries by identity, including repeated gaps."""
+    counts: Counter[tuple[str, ...]] = Counter()
+    for section, values in json.loads(text).items():
+        if isinstance(values, dict):
+            counts.update((section, str(key)) for key in values)
+        elif isinstance(values, list):
+            for value in values:
+                if section == "gaps":
+                    key = tuple(map(str, value))
+                elif section == "raised" and isinstance(value, dict):
+                    key = tuple(map(str, value["entry"]))
+                elif section == "violations":
+                    key = tuple(
+                        str(value[field]) for field in ("rule", "source", "target", "cause")
+                    )
+                else:
+                    key = (json.dumps(value, sort_keys=True),)
+                counts[(section, *key)] += 1
+    return counts
 
 
 def read_changes(run: Gh, number: str, pr: dict) -> Changes:
@@ -233,10 +250,9 @@ def read_changes(run: Gh, number: str, pr: dict) -> Changes:
     )
 
     for path in touched:
-        changes.entries[path] = (
-            entry_count(content(path, base)),
-            entry_count(content(path, pr["headRefOid"])),
-        )
+        before = entry_counts(content(path, base))
+        after = entry_counts(content(path, pr["headRefOid"]))
+        changes.entries[path] = sum((before - after).values())
     return changes
 
 
