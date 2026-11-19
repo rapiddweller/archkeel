@@ -43,6 +43,7 @@ mod globals_read;
 mod globals_uses;
 mod guard;
 mod hazards;
+mod hazards_names;
 mod imports;
 mod layout;
 mod lazy;

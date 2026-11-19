@@ -40,11 +40,6 @@ pub(super) fn above(name: &str) -> bool {
     doors().chain(STATE).any(|entry| entry.starts_with(&prefix))
 }
 
-/// True for an attribute in a write or a delete.
-pub(super) fn store(expr: &ruff_python_ast::Expr) -> bool {
-    matches!(expr, ruff_python_ast::Expr::Attribute(node) if node.ctx != ruff_python_ast::ExprContext::Load)
-}
-
 /// The first hazard on a qualified attribute chain.
 pub(super) fn first_hazard(origin: String, attributes: &[&str]) -> Option<(&'static str, String)> {
     let mut name = origin;
