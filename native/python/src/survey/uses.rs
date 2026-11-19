@@ -75,7 +75,7 @@ fn escaped_with(
         .iter()
         .map(|module| super::binders::Binders::of(&module.tree))
         .collect();
-    let (_, sites) = super::hazards::split(modules, &binders, None);
+    let (_, sites) = super::hazards::split(modules, &binders, (None, false));
     let mut scan = Scan {
         modules: modules.iter().map(|module| module.name.as_str()).collect(),
         hazardous: sites

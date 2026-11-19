@@ -253,6 +253,41 @@ fn a_loader_write_in_another_scanned_module_withholds_the_literal_edge() {
 }
 
 #[test]
+fn a_shadowed_writer_or_receiver_does_not_withhold_the_edge() {
+    for source in [
+        "import importlib as loader\ndef f(loader):\n    loader.import_module = other\n",
+        "import importlib as loader\ndef f():\n    import other as loader\n    loader.import_module = other\n",
+        "from builtins import setattr as put\nimport importlib as loader\ndef f(put):\n    put(loader, 'import_module', other)\n",
+        "import importlib as loader\nalias = loader\ndef f(alias):\n    alias.import_module = other\n",
+        "import importlib as loader\ndef f(loader):\n    alias = loader\n    alias.import_module = other\n",
+        "from builtins import setattr as put\nimport importlib as loader\nf = lambda put: put(loader, 'import_module', other)\n",
+        "from builtins import setattr as put\nimport importlib as loader\n[put(loader, 'import_module', other) for put in callbacks]\n",
+    ] {
+        let found = client(
+            "import importlib\nimportlib.import_module('app.service')\n",
+            source,
+        );
+        assert!(kinds(&found).contains(&"local"), "{source}");
+    }
+}
+
+#[test]
+fn a_possible_write_in_the_imports_own_scope_still_withholds_the_edge() {
+    for source in [
+        "import importlib as loader\ndef f():\n    loader.import_module = other\n",
+        "def f():\n    import importlib as loader\n    loader.import_module = other\n",
+        "import importlib as loader\ndef f(flag):\n    import importlib as local\n    if flag:\n        local = other\n    local.import_module = other\n",
+    ] {
+        let found = client(
+            "import importlib\nimportlib.import_module('app.service')\n",
+            source,
+        );
+        assert!(!kinds(&found).contains(&"local"), "{source}");
+        assert!(reasons(&found).iter().any(|reason| reason.starts_with("dynamic_import")), "{source}");
+    }
+}
+
+#[test]
 fn a_replaced_importlib_loader_does_not_withhold_the_builtin_import() {
     let found = client(
         "import importlib\nimportlib.import_module = other\n__import__('app.service')\n",

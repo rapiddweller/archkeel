@@ -169,7 +169,6 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         namespace,
         &mut writes,
     );
-    // #1523: on Python 3.14 a method annotation reads a class namespace that a store can change.
     let settings = &request.resolver;
     let lazy_314 = crate::requirement::lazy_annotations(&mut snapshot, settings, minor.number());
     for module in &parsed.modules {
@@ -182,8 +181,8 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         .collect();
     let mut evidence = EvidenceMap::new();
     let lazy = lazy::find(modules, &binders, namespace);
-    // AD-472: a proven literal import call is an import record; each other site is a gap.
-    let (literals, mut hazards) = hazards::split(modules, &binders, Some(&lazy));
+    let replaced = module_uses::replaces_literal_loader(modules, &binders);
+    let (literals, mut hazards) = hazards::split(modules, &binders, (Some(&lazy), replaced));
     let candidates = hazards.iter().map(|(index, site)| {
         (site.kind == hazards::DYNAMIC && site.detail == "code").then_some((*index, site.range))
     });

@@ -461,7 +461,11 @@ mod inert_tests;
 pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
 
 /// The sites that the lazy import proof covers (`lazy.rs`) are no hazard when `lazy` is given.
-pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy]>) -> Split {
+pub(super) fn split(
+    modules: &[Module],
+    binders: &[Binders],
+    (lazy, replaced): (Option<&[Lazy]>, bool),
+) -> Split {
     let (mut literals, mut found) = (Vec::new(), Vec::new());
     let items: Vec<_> = modules
         .iter()
@@ -470,10 +474,6 @@ pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy
         .collect();
     let proved = reflect::proved(&items, &[&BUILTIN_DOORS, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
-    let replaced = items
-        .iter()
-        .zip(binders)
-        .any(|((tree, _, imports), binders)| literal::replaces_loader(tree, imports, binders));
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let proof = literal::Proof::of(&module.tree, binders).without_replaced_loader(replaced);
         let covered = lazy.map(|all| &all[index]);
