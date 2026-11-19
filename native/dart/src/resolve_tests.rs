@@ -123,12 +123,23 @@ fn an_inventory_is_partial_when_a_form_outside_the_body_can_add_members() {
         ("lib/mixed.dart", "mixin M {}\nclass Mixed with M {}\n"),
         (
             "lib/parted.dart",
-            "part 'parted_part.dart';\nclass Parted {}\n",
+            "part 'parted_part.dart';\nclass Parted {}\nclass Extended {}\n",
         ),
-        ("lib/parted_part.dart", "part of 'parted.dart';\n"),
         (
-            "lib/extended.dart",
-            "class Extended {}\nextension E on Extended {\n  void x() {}\n}\n",
+            "lib/parted_part.dart",
+            "part of 'parted.dart';\nextension E on Extended { void x() {} }\n",
+        ),
+        (
+            "lib/unread.dart",
+            "part 'unread_part.dart';\nclass Unread {}\n",
+        ),
+        (
+            "lib/augmented.dart",
+            "part 'augment_part.dart';\nclass Augmented {}\n",
+        ),
+        (
+            "lib/augment_part.dart",
+            "part of 'augmented.dart';\naugment class Augmented { void added() {} }\n",
         ),
         // An extension type wraps its representation and adds no member to it.
         (
@@ -153,12 +164,20 @@ fn an_inventory_is_partial_when_a_form_outside_the_body_can_add_members() {
         "{:?}",
         status("shop.mixed.Mixed")
     );
-    assert!(
-        status("shop.parted.Parted").1.contains("part"),
-        "{:?}",
-        status("shop.parted.Parted")
+    assert_eq!(
+        status("shop.parted.Parted"),
+        ("complete".to_owned(), String::new())
     );
-    assert_eq!(status("shop.extended.Extended").0, "partial");
+    for qualified in ["shop.unread.Unread", "shop.augmented.Augmented"] {
+        assert_eq!(
+            status(qualified),
+            (
+                "partial".to_owned(),
+                "not every part of the library was read".to_owned()
+            )
+        );
+    }
+    assert_eq!(status("shop.parted.Extended").0, "partial");
 }
 
 /// The store checks that a symbol name is the last segment of its qualified name (AD-796).

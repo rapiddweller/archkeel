@@ -8,8 +8,7 @@
 //! records of the survey (AD-749).
 //!
 //! A class inventory is complete only when no form can add a member that the class body does
-//! not show (AD-796, the #1532 review): a mixin application, a part of the library, an
-//! extension or an augmentation makes it partial, and the reason names the form.
+//! not show (AD-796): a mixin application, an unread part or an extension makes it partial.
 
 use std::collections::BTreeSet;
 
@@ -102,19 +101,24 @@ pub(crate) fn collect(
         dirty: request.snapshot.dirty.clone(),
     };
     let mut output = crate::collection::build(&input);
-    bound_inventories(&mut output, &resolver, owners);
+    bound_inventories(&mut output, &resolver);
     typed(output)
 }
 
 /// Make partial each class inventory that a form outside the class body can extend.
-fn bound_inventories(output: &mut Output, resolver: &Resolver<'_>, owners: &Owners) {
-    let libraries_with_parts: BTreeSet<&str> = owners
-        .values()
-        .filter_map(|library| resolver.module_for(*library))
+fn bound_inventories(output: &mut Output, resolver: &Resolver<'_>) {
+    let libraries_with_unread_parts: BTreeSet<&str> = resolver
+        .index
+        .kinds
+        .iter()
+        .enumerate()
+        .filter(|(at, kind)| **kind == Kind::Library && !resolver.parts_complete(*at))
+        .filter_map(|(at, _)| resolver.module_for(at))
         .collect();
     let extended: BTreeSet<String> = extended_types(resolver);
     for symbol in &mut output.symbols {
-        let Some(reason) = open_reason(symbol, resolver, &libraries_with_parts, &extended) else {
+        let Some(reason) = open_reason(symbol, resolver, &libraries_with_unread_parts, &extended)
+        else {
             continue;
         };
         if let Detail::Class {
@@ -156,7 +160,7 @@ fn extended_types(resolver: &Resolver<'_>) -> BTreeSet<String> {
 fn open_reason(
     symbol: &Symbol,
     resolver: &Resolver<'_>,
-    libraries_with_parts: &BTreeSet<&str>,
+    libraries_with_unread_parts: &BTreeSet<&str>,
     extended: &BTreeSet<String>,
 ) -> Option<&'static str> {
     if !matches!(
@@ -177,8 +181,8 @@ fn open_reason(
     if !Vec::is_empty(&decl.definition.with_types) {
         return Some("a mixin application adds members that the class body does not show");
     }
-    if libraries_with_parts.contains(module) {
-        return Some("a part of the library can add members that the class body does not show");
+    if libraries_with_unread_parts.contains(module) {
+        return Some("not every part of the library was read");
     }
     if extended.contains(name) || extended.contains("") {
         return Some("an extension adds members that the class body does not show");

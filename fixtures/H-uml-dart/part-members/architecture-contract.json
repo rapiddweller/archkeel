@@ -1,0 +1,66 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "catalog",
+      "label": "catalog",
+      "role": "component",
+      "packages": ["catalog"],
+      "namespace": "catalog",
+      "public": ["catalog.models"],
+      "responsibilities": ["Own the catalog model."],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/target.md"],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.1.0",
+      "entities": [
+        {
+          "id": "models",
+          "kind": "module",
+          "qualified_name": "catalog.models",
+          "parent_id": "catalog",
+          "responsibilities": ["Own the catalog model."],
+          "language": "dart",
+          "presence": "planned",
+          "provenance": ["docs/target.md"]
+        },
+        {
+          "id": "catalog-model",
+          "kind": "mixin",
+          "qualified_name": "catalog.models.CatalogModel",
+          "responsibilities": ["Provide the catalog refresh method."],
+          "parent_id": "models",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": ["docs/target.md"]
+        },
+        {
+          "id": "refresh",
+          "kind": "method",
+          "qualified_name": "catalog.models.CatalogModel.refresh",
+          "responsibilities": ["Refresh the catalog."],
+          "parent_id": "catalog-model",
+          "language": "dart",
+          "presence": "planned",
+          "provenance": ["docs/target.md"]
+        }
+      ],
+      "relationships": [],
+      "scopes": [
+        {
+          "scope_id": "catalog-model",
+          "mode": "closed",
+          "entity_kinds": ["method"],
+          "relationship_kinds": [],
+          "rationale": "The target lists every method of the mixin.",
+          "provenance": ["docs/target.md"]
+        }
+      ]
+    }
+  }
+}

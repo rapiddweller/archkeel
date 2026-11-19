@@ -46,7 +46,9 @@
     "H-uml-dart": {
       "language": "dart",
       "runs": [
-      {"name": "H-uml-dart", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "A Dart UML target with four inside contracts.", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 5, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "H-uml-dart", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "A Dart UML target with four inside contracts.", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 5, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}},
+      {"name": "H-uml-dart-part-members", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "A closed UML scope lists every method of a mixin that a Dart library declares in a part.", "root": "H-uml-dart/part-members", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}},
+      {"name": "H-uml-dart-plant-part-member", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "An extra method in a Dart part: CatalogModel defines reset, which its closed UML scope does not list.", "plant": {"where": "lib/model_members.dart", "line": "void reset() {}", "rule": "UML-TARGET-a2e40c5592b1b06a", "source": "catalog-model", "target": "catalog.models.CatalogModel.reset", "edits": [{"path": "lib/model_members.dart", "old": "  void refresh() {}\n", "new": "  void refresh() {}\n  void reset() {}\n"}]}, "root": "H-uml-dart/part-members", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 0, "FAIL": 1, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-typescript": {
@@ -64,7 +66,7 @@
     "J-compass": {
       "language": "dart",
       "runs": [
-      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1762], "about": "Real project: the Flutter samples compass_app at 5541c59 (BSD-3-Clause). The pub workspace layout of flutter/samples: the app under compass_app/app, 37 pubspec files. All six requires rules PASS; the UML row stays UNKNOWN on 35 assessments: freezed part files make class inventories partial, the target draws static methods without static, and some calls are unresolved (#1762).", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1762], "about": "The Flutter samples Compass app at 5541c59 (BSD-3-Clause), with all 37 pubspec files in the upstream workspace layout. All six requires rules PASS. The UML target has 24 undecided assessments: static methods drawn without static, unrecorded annotations, and unresolved calls (#1762).", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "K-python-realworld": {
