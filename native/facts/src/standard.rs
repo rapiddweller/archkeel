@@ -23,6 +23,8 @@ pub type ProtocolMembers = Vec<(String, String, TypeShape, String)>;
 pub struct StandardFacts {
     /// True when the linked placeholder survey needs an unchanged standard library.
     pub placeholder_under_premise: bool,
+    /// True when the linked Any inventory needs an unchanged standard library.
+    pub any_annotation_under_premise: bool,
     /// The repository leaves the standard Protocol constructor unchanged.
     pub protocol_unchanged: bool,
     /// The linked member inventory and whether every class body was read, by module.
