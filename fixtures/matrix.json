@@ -34,6 +34,13 @@
       {"name": "H-typescript-plant-domain-data", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "A forbidden dependency between two layers: The domain layer imports the data layer, which the contract forbids.", "plant": {"where": "src/domain/order.ts", "line": "import { local } from \"../data/local\";", "rule": "DOMAIN-NO-DATA", "source": "shop.src.domain.order.ts", "target": "shop.src.data.local.ts", "edits": [{"path": "src/domain/order.ts", "append": "\nimport { local } from \"../data/local\";\n"}]}, "root": "H-typescript", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 5, "FAIL": 4, "UNKNOWN": 1}, "scope": "complete", "gaps": {"closed_world.observed_forbidden": 1, "graph.drift": 1}, "refusal": null}}
       ]
     },
+    "H-typescript-checkout": {
+      "language": "typescript",
+      "runs": [
+      {"name": "H-typescript-checkout", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "The checkout domain owns the order type. The HTTP adapter imports it to convert a request into an order.", "root": "H-typescript-checkout", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 0, "DECLARATION": 1}, "scope": "complete", "gaps": {}, "refusal": null}},
+      {"name": "H-typescript-checkout-plant-http-type", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "The domain takes the order ID type from the HTTP payload. The type-only import adds no runtime code but breaks the boundary.", "plant": {"where": "src/domain/order.ts", "line": "import type { OrderPayload } from \"../http/order\";", "rule": "CHECKOUT-DOMAIN-NO-HTTP", "source": "checkout.src.domain.order.ts", "target": "checkout.src.http.order.ts", "edits": [{"path": "src/domain/order.ts", "old": "export interface Order {\n  readonly id: string;", "new": "import type { OrderPayload } from \"../http/order\";\n\nexport interface Order {\n  readonly id: OrderPayload[\"id\"];"}]}, "root": "H-typescript-checkout", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 0, "FAIL": 1, "UNKNOWN": 0, "DECLARATION": 1}, "scope": "complete", "gaps": {"closed_world.observed_forbidden": 1, "graph.drift": 1}, "refusal": null}}
+      ]
+    },
     "H-uml": {
       "language": "python",
       "runs": [
