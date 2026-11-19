@@ -22,12 +22,12 @@ macro_rules! vocabulary {
 
 /// A value of the syntax: the dump writes its fields in the order of the Python dataclass.
 macro_rules! value {
-    ($(#[$meta:meta])* $vis:vis $name:ident { $($field:ident: $kind:ty),+ $(,)? }) => {
+    ($(#[$meta:meta])* $vis:vis $name:ident { $($(#[$field_meta:meta])* $field:ident: $kind:ty),+ $(,)? }) => {
         $(#[$meta])*
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
         #[serde(deny_unknown_fields)]
         $vis struct $name {
-            $($vis $field: $kind),+
+            $($(#[$field_meta])* $vis $field: $kind),+
         }
     };
 }
@@ -294,6 +294,8 @@ value! {
         kind: DirectiveKind,
         span: Span,
         target: Option<String>,
+        #[serde(skip)]
+        part_owner_is_uri: bool,
         prefix: Option<String>,
         deferred: bool,
         show: Vec<String>,
@@ -309,6 +311,7 @@ impl Directive {
             kind,
             span,
             target,
+            part_owner_is_uri: false,
             prefix: None,
             deferred: false,
             show: Vec::new(),

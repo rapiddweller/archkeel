@@ -182,6 +182,32 @@ impl<'a> Resolver<'a> {
         self.modules.get(at).copied().flatten()
     }
 
+    /// A plain part adds declarations to a library, not members to a declaration.
+    /// Only certify parts that the survey owns and the full parser reads.
+    pub(crate) fn parts_complete(&self, library: usize) -> bool {
+        let claims = |syntax: &Syntax| {
+            syntax
+                .directives
+                .iter()
+                .filter(|directive| directive.kind == DirectiveKind::Part)
+                .count()
+        };
+        let Some(parsed) = &self.syntax[library] else {
+            return false;
+        };
+        let declared = claims(parsed);
+        let Some(parts) = self.parts.get(&library) else {
+            return declared == 0;
+        };
+        // The survey assigns an owner only for a part with exactly one claim.
+        declared == Vec::len(parts)
+            && parts.iter().all(|part| {
+                self.syntax[*part]
+                    .as_ref()
+                    .is_some_and(|syntax| syntax.complete && claims(syntax) == 0)
+            })
+    }
+
     /// The path of the source at `at`.
     pub(crate) fn rel(&self, at: usize) -> &'a str {
         String::as_str(&self.index.sources[at].rel_path)
