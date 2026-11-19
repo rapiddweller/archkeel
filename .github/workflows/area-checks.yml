@@ -26,8 +26,8 @@ jobs:
           - reports
           - self-check and CI
     runs-on: ubuntu-24.04
-    # Main keeps the measured hang guard. PR checks must finish within the 15-minute target.
-    timeout-minutes: ${{ inputs.base != '' && 15 || 40 }}
+    # The native collector suite reached 91% before its 15-minute PR cutoff in run 44550424848.
+    timeout-minutes: ${{ inputs.base != '' && (matrix.area == 'native collectors' && 20 || 15) || 40 }}
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
