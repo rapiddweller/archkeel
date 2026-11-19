@@ -99,3 +99,60 @@ def test_call_step_uses_the_collectors_evidence(tmp_path: Path) -> None:
     assert result["status"] == "unresolved"
     assert result["items"][0]["target"] is None
     assert result["items"][0]["evidence"][0]["line"] == 1
+
+
+def test_class_members_use_definition_ids_and_keep_inventory_coverage(tmp_path: Path) -> None:
+    (tmp_path / "m.py").write_text("class A:\n    x: int\n    def work(self): pass\n")
+    symbol = {"module": "m", "evidence_ids": ["class"]}
+    a = dict(
+        symbol,
+        id="a",
+        kind="class",
+        qualified_name="m.A",
+        attributes=[
+            {"definition_id": "ax", "name": "x", "annotation": "int", "evidence_ids": ["field"]}
+        ],
+        member_inventories=[
+            {"kind": "attribute", "status": "complete", "definition_ids": ["ax"]},
+            {"kind": "method", "status": "partial", "definition_ids": ["aw"]},
+        ],
+    )
+    symbols = [
+        a,
+        dict(
+            symbol,
+            id="aw",
+            kind="function",
+            qualified_name="m.A.work",
+            lexical_parent_id="a",
+            method_kind="instance",
+        ),
+        dict(symbol, id="b", kind="class", qualified_name="m.B"),
+        dict(symbol, id="bw", kind="method", qualified_name="m.B.work", lexical_parent_id="b"),
+    ]
+    topology = {
+        "version": 1,
+        "components": [],
+        "modules": [],
+        "edges": [],
+        "locations": {"class": {"path": "m.py", "line": 1}, "field": {"path": "m.py", "line": 2}},
+        "explorer": [
+            {"language": "python", "symbols": symbols, "files": [{"module": "m", "path": "m.py"}]}
+        ],
+    }
+    path = tmp_path / "cache" / "sample.sqlite"
+    publish_snapshot(
+        path,
+        SnapshotIdentity("r", "c", "s"),
+        lambda db: populate(db, topology, tmp_path),
+        "partial",
+    )
+    classes = query(path, tmp_path, "children", {"parent": "m"})["items"]
+    assert [(row["id"], row["member_coverage"]) for row in classes] == [
+        ("a", {"method": "partial", "property": "complete"}),
+        ("b", {"method": "unknown", "property": "unknown"}),
+    ]
+    method, prop = query(path, tmp_path, "children", {"parent": "a"})["items"]
+    assert (method["id"], method["kind"], method["method_kind"]) == ("aw", "method", "instance")
+    assert (prop["id"], prop["kind"], prop["annotation"]) == ("ax", "property", "int")
+    assert query(path, tmp_path, "source", {"reference": prop["source"]})["line"] == 2

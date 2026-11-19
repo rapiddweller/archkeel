@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .explorer_boundaries import boundary_rows
 from .explorer_store import open_snapshot
+from .explorer_symbols import _symbol_rows
 
 _SCHEMA = (
     "CREATE TABLE element(id TEXT PRIMARY KEY,name TEXT,kind TEXT,parent TEXT,body TEXT)",
@@ -177,10 +178,9 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
     calls: list[Iterator[Row]] = []
     for part in _records(topology.get("explorer")):
         symbols: dict[str, list[str]] = defaultdict(list)
-        for row in _records(part.get("symbols")):
-            data = row
-            name = data.get("qualified_name")
-            if not isinstance(name, str) or not data.get("module"):
+        for row in _symbol_rows(list(_records(part.get("symbols")))):
+            name = row.get("qualified_name")
+            if not isinstance(name, str) or not row.get("module"):
                 continue
             symbols[name].append(_text(row, "id"))
             refs = _fact_locations(row, _object(topology.get("locations", {})))
@@ -193,8 +193,8 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
                 _text(row, "id"),
                 name,
                 _text(row, "kind"),
-                _text(data, "module"),
-                {"source": anchor},
+                _text(row, "parent"),
+                _object(row["body"]) | {"source": anchor, "language": part.get("language")},
             )
 
         calls.append(_calls(part, _object(topology.get("locations", {})), symbols))

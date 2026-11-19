@@ -842,7 +842,8 @@
       "layer": "decoding",
       "packages": [],
       "exact_modules": [
-        "archkeel.explorer_queries"
+        "archkeel.explorer_queries",
+        "archkeel.explorer_symbols"
       ],
       "responsibilities": [
         "Project the native topology and answer bounded queries about one snapshot."

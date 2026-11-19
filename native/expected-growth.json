@@ -163844,15 +163844,6 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.explorer",
-        "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-      ],
-      "reason": "AD-1017: trait dispatch through the Explorer frame or a validated source record is not resolved by the Rust collector."
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_core.explorer",
         "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "AD-1017: trait dispatch through the Explorer frame or a validated source record is not resolved by the Rust collector."

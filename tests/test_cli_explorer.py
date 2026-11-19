@@ -65,6 +65,8 @@ def test_explorer_http_is_read_only(monkeypatch: pytest.MonkeyPatch, tmp_path: P
             code, body = request("/")
             assert code == 200 and b'src="/explorer-story.js"' in body
             assert request("/explorer-story.js")[0] == 200
+            assert b'src="/explorer-uml.js"' in body
+            assert request("/explorer-uml.js")[0] == 200
             assert request("/report")[0] == 200
             assert request("/report.css")[0] == 200
             assert b"--surface-0:" in request("/report.css")[1]

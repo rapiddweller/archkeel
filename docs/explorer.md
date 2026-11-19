@@ -9,7 +9,9 @@ uv run archkeel explore --config docs/architecture/architecture-system.json
 Keep the terminal open while you use the browser. Use `--no-open` to print the local
 address. Select a component, its module and an import to read the source evidence.
 Each result includes its snapshot identity and the coverage of the scan.
-The native report retains its own layout and rule verdicts.
+Open a class to inspect its methods and properties. A class card shows a preview of
+each group. Each group reports its own collector coverage. A partial inventory can
+contain known members. The native report retains its own layout and rule verdicts.
 
 ## Connect an agent
 

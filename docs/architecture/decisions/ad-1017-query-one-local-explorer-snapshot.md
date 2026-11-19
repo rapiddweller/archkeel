@@ -19,3 +19,6 @@ visible. A process start or matching URL alone cannot establish the remote endpo
 **Checks.** Explorer storage tests cover reuse, interrupted publication and bounded
 storage. Query tests check paging, evidence and changed source. The corpus harness
 exercises real repositories and reports its coverage.
+
+The query component owns `explorer_symbols.py`. It groups methods and properties by
+collector definition IDs. Member coverage comes from each class inventory.

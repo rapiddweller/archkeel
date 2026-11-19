@@ -135,52 +135,6 @@ async function readEdges() {
   }
 }
 
-function displayGroup(item) {
-  if (item.kind === "module" && !state.search && state.ancestors.at(-1)?.kind === "component") {
-    const separator = item.name.lastIndexOf(".");
-    if (separator > 0) return item.name.slice(0, separator);
-  }
-  if (item.kind === "component") return item.id.startsWith("PART:") ? "System parts" : "Components";
-  const kinds = { module: "Modules", class: "Classes", function: "Functions", method: "Methods" };
-  return kinds[item.kind] ?? "Other symbols";
-}
-
-function paintCards() {
-  cards.replaceChildren();
-  const groups = new Map();
-  for (const item of state.items) {
-    known.set(item.id, item);
-    const language = ["rust", "python", "typescript", "dart"].includes(item.language) ? item.language : "";
-    const card = button("", () => select(item), "card " + language);
-    card.dataset.element = item.id;
-    card.setAttribute("aria-pressed", String(item.id === state.selected));
-    card.append(element("span", [item.kind, language].filter(Boolean).join(" · ")),
-      element("strong", item.name));
-    card.addEventListener("dblclick", () => open(item).catch(showError));
-    card.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      open(item).catch(showError);
-    });
-    const group = displayGroup(item);
-    if (!groups.has(group)) groups.set(group, []);
-    groups.get(group).push(card);
-  }
-  if (groups.size === 1) cards.append(...groups.values().next().value);
-  if (groups.size > 1) {
-    for (const [name, children] of groups) {
-      const plate = element("section", "", "plate");
-      const grid = element("div", "", "plate-grid");
-      grid.append(...children);
-      plate.append(element("h3", name), grid);
-      cards.append(plate);
-    }
-  }
-  if (state.items.length === 0) cards.append(element("p", "No elements in this scope."));
-  get("more").hidden = !state.cursor;
-  drawArrows();
-}
-
 function selectionHeading(title, kind) {
   details.replaceChildren(element("p", kind, "meta"), element("h2", title));
 }
@@ -201,8 +155,15 @@ async function showScope(ancestors, query = null) {
   get("story").setAttribute("aria-pressed", "false");
   selectionHeading(query ? "Search results" : current.name, query ? "Search" : current.kind);
   details.append(element("p", "Select an element or open it with Enter or a double-click."));
+  if (current.kind === "class") {
+    const coverage = current.member_coverage ?? {};
+    for (const [kind, label] of [["property", "Properties"], ["method", "Methods"]]) {
+      const status = coverage[kind] ?? (current.members_complete ? "complete" : "unknown");
+      details.append(element("p", label + " · " + status + " coverage", "meta"));
+    }
+  }
   if (current.source) {
-    details.append(button("Open module source", () => showSource(current.source), "detail-btn"));
+    details.append(button("Open source", () => showSource(current.source), "detail-btn"));
   }
   paintCards();
   const response = query
@@ -217,7 +178,7 @@ async function showScope(ancestors, query = null) {
 }
 
 async function open(item) {
-  if (item.kind === "component" || item.kind === "module") {
+  if (canOpenScope(item)) {
     await showScope([...state.ancestors, item]);
   } else if (item.source) {
     await showSource(item.source);
@@ -232,7 +193,7 @@ async function select(item) {
   }
   selectionHeading(item.name, item.kind);
   if (item.path) details.append(element("p", item.path, "meta"));
-  if (item.kind === "component" || item.kind === "module") {
+  if (canOpenScope(item)) {
     details.append(button("Open " + item.kind, () => open(item), "detail-btn"));
   }
   if (item.source) details.append(button("Open source", () => showSource(item.source), "detail-btn"));

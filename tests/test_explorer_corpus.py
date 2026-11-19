@@ -81,3 +81,39 @@ def test_missing_wrong_or_refused_probe_fails() -> None:
             "launch": {"stable_snapshot": True},
         }
     )
+
+
+def test_cluster_check_compares_sql_with_api(tmp_path: Path, monkeypatch) -> None:
+    import io
+    import sqlite3
+
+    from tools.explorer_launch import check_clusters
+
+    snapshot = tmp_path / "snapshot.sqlite3"
+    with sqlite3.connect(snapshot) as db:
+        db.execute("CREATE TABLE analysis(root TEXT,coverage TEXT)")
+        db.execute(
+            "INSERT INTO analysis VALUES (?,?)", ("root", '{"parts":[{"language":"python"}]}')
+        )
+        db.execute("CREATE TABLE element(id TEXT,kind TEXT,parent TEXT,body TEXT)")
+        db.execute(
+            "INSERT INTO element VALUES (?,?,?,?)", ("class", "class", "module", '{"source":"a"}')
+        )
+        db.execute(
+            "INSERT INTO element VALUES (?,?,?,?)",
+            ("method", "method", "class", '{"source":"b","language":"python"}'),
+        )
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *_args, **_kwargs: io.BytesIO(
+            b'{"items":[{"id":"method","parent":"class","kind":"method"}],"next_cursor":null}'
+        ),
+    )
+    assert check_clusters(snapshot, "http://localhost/") == {"python": "PASS"}
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *_args, **_kwargs: io.BytesIO(b'{"items":[],"next_cursor":null}'),
+    )
+    assert check_clusters(snapshot, "http://localhost/") == {
+        "python": "FAIL: SQL member absent from API"
+    }

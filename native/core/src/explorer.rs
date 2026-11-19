@@ -8,9 +8,10 @@ use std::collections::HashMap;
 
 use archkeel_facts::envelope::{Facts, Target};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
+use archkeel_facts::nested::MemberInventory;
 use archkeel_facts::nullable::Nullable;
-use archkeel_facts::vocab::{EvidenceClass, Status};
-use archkeel_facts::{CallFact, FactData, ImportFact, Record, Section};
+use archkeel_facts::vocab::{EvidenceClass, MethodKind, Status};
+use archkeel_facts::{CallFact, FactData, ImportFact, Record, Section, SymbolFact};
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -37,7 +38,68 @@ struct Symbol {
     evidence_class: &'static str,
     module: Option<String>,
     qualified_name: Option<String>,
+
+    lexical_parent_id: Option<String>,
+    method_kind: Option<MethodKind>,
+    accessor_kind: Option<String>,
+    property_operation: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    property_names: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    attributes: Option<Vec<Attribute>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    member_inventories: Option<Vec<MemberInventory>>,
     evidence_ids: Vec<EvidenceId>,
+}
+
+#[derive(Serialize, JsonSchema)]
+struct Attribute {
+    definition_id: FactId,
+    name: String,
+    annotation: Option<String>,
+    #[serde(rename = "static", skip_serializing_if = "Option::is_none")]
+    is_static: Option<bool>,
+    evidence_ids: Vec<EvidenceId>,
+}
+
+fn symbol(row: &Record<SymbolFact>) -> Symbol {
+    let fields = FactData::fields(&row.data);
+    let method = match &row.data {
+        SymbolFact::Method(method) | SymbolFact::Function(method) => Some(method),
+        _ => None,
+    };
+    let class = match &row.data {
+        SymbolFact::Class(class) => Some(class),
+        _ => None,
+    };
+    Symbol {
+        id: row.id.clone(),
+        kind: FactData::wire_kind(&row.data).to_owned(),
+        evidence_class: EvidenceClass::as_str(row.evidence_class),
+        module: fields.module.flatten().map(str::to_owned),
+        qualified_name: fields.qualified_name.map(str::to_owned),
+        lexical_parent_id: fields.lexical_parent_id.map(str::to_owned),
+        method_kind: method.and_then(|m| m.method_kind),
+        accessor_kind: method.and_then(|m| m.accessor_kind.clone()),
+        property_operation: method
+            .and_then(|m| m.property_binding.as_ref())
+            .map(|p| p.operation.clone()),
+        property_names: class.and_then(|c| c.property_members.clone()),
+        attributes: class.map(|c| {
+            c.attribute_declarations
+                .iter()
+                .map(|attr| Attribute {
+                    definition_id: attr.definition_id.clone(),
+                    name: attr.name.clone(),
+                    annotation: attr.annotation.clone(),
+                    is_static: attr.is_static,
+                    evidence_ids: attr.evidence_ids.clone(),
+                })
+                .collect()
+        }),
+        member_inventories: class.map(|c| c.member_inventories.clone()),
+        evidence_ids: row.evidence_ids.clone(),
+    }
 }
 
 #[derive(Serialize, JsonSchema)]
@@ -163,21 +225,7 @@ fn project(facts: &Facts, language: &'static str) -> ExplorerPart {
     for section in &facts.sections {
         match section {
             Section::Symbols(rows) => {
-                part.symbols = Some(
-                    rows.iter()
-                        .map(|row| {
-                            let fields = row.data.fields();
-                            Symbol {
-                                id: row.id.clone(),
-                                kind: FactData::wire_kind(&row.data).to_owned(),
-                                evidence_class: EvidenceClass::as_str(row.evidence_class),
-                                module: fields.module.flatten().map(str::to_owned),
-                                qualified_name: fields.qualified_name.map(str::to_owned),
-                                evidence_ids: row.evidence_ids.clone(),
-                            }
-                        })
-                        .collect(),
-                )
+                part.symbols = Some(rows.iter().map(symbol).collect());
             }
             Section::Calls(rows) => {
                 part.calls = Some(

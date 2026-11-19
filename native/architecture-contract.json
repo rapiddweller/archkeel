@@ -2882,15 +2882,18 @@
             "native.archkeel_facts.ids:FactId",
             "native.archkeel_facts.ids:ModuleName",
             "native.archkeel_facts.ids:PackageName",
+            "native.archkeel_facts.nested:MemberInventory",
             "native.archkeel_facts.nullable:Nullable",
             "native.archkeel_facts.request",
             "native.archkeel_facts.vocab:EvidenceClass",
+            "native.archkeel_facts.vocab:MethodKind",
             "native.archkeel_facts.vocab:Status",
             "native.archkeel_facts:CallFact",
             "native.archkeel_facts:FactData",
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
-            "native.archkeel_facts:Section"
+            "native.archkeel_facts:Section",
+            "native.archkeel_facts:SymbolFact"
           ]
         },
         {

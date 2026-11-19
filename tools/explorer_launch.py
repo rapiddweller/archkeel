@@ -7,9 +7,11 @@ import json
 import os
 import select
 import signal
+import sqlite3
 import subprocess
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -20,11 +22,48 @@ except ImportError:
     resource = None  # type: ignore[assignment]
 
 
+def check_clusters(snapshot: Path, url: str) -> dict[str, str]:
+    """Compare one sourced class member per language with the children API."""
+    with sqlite3.connect(f"{snapshot.as_uri()}?mode=ro", uri=True) as db:
+        coverage = json.loads(db.execute("SELECT coverage FROM analysis").fetchone()[0])
+        languages = {part["language"] for part in coverage.get("parts", []) if part.get("language")}
+        rows = db.execute(
+            "SELECT json_extract(child.body,'$.language'),child.parent,child.id,child.kind "
+            "FROM element child JOIN element owner ON child.parent=owner.id "
+            "WHERE owner.kind='class' AND child.kind IN ('method','property') "
+            "AND json_extract(child.body,'$.source') IS NOT NULL "
+            "AND json_extract(owner.body,'$.source') IS NOT NULL ORDER BY child.id"
+        )
+        examples: dict[str, tuple[str, str, str]] = {}
+        for language, owner, child, kind in rows:
+            if language and language not in examples:
+                examples[language] = (owner, child, kind)
+    results = dict.fromkeys(languages, "UNKNOWN: no sourced class member")
+    for language, (owner, child, kind) in examples.items():
+        cursor = ""
+        while True:
+            args = urllib.parse.urlencode({"parent": owner, "limit": 200, "cursor": cursor})
+            with urllib.request.urlopen(url + "api/children?" + args, timeout=30) as response:
+                payload = json.load(response)
+            if any(
+                item.get("id") == child and item.get("parent") == owner and item.get("kind") == kind
+                for item in payload["items"]
+            ):
+                results[language] = "PASS"
+                break
+            cursor = payload.get("next_cursor")
+            if cursor is None:
+                results[language] = "FAIL: SQL member absent from API"
+                break
+    return results
+
+
 def measure(cli: Path, root: Path, config: str, runs: int = 10) -> dict[str, Any]:
     """Record startup, one bounded query and cache identity for each launch."""
     starts: list[float] = []
     queries: list[float] = []
     snapshots = []
+    clusters: dict[str, str] = {}
     with tempfile.TemporaryDirectory(prefix="archkeel-cache-") as cache:
         env = dict(os.environ, XDG_CACHE_HOME=cache)
         for _ in range(runs):
@@ -72,7 +111,9 @@ def measure(cli: Path, root: Path, config: str, runs: int = 10) -> dict[str, Any
                 if not isinstance(payload.get("items"), list):
                     return {"error": "Explorer query refused", "completed": len(queries)}
                 queries.append(round((time.monotonic() - started) * 1000, 3))
-            except (OSError, ValueError) as error:
+                if not clusters:
+                    clusters = check_clusters(snapshot, launch["url"])
+            except (OSError, ValueError, sqlite3.Error) as error:
                 return {"error": type(error).__name__, "completed": len(starts)}
             finally:
                 if process.poll() is None:
@@ -87,6 +128,7 @@ def measure(cli: Path, root: Path, config: str, runs: int = 10) -> dict[str, Any
         "query_ms": queries,
         "snapshot_bytes": snapshots[0][2],
         "stable_snapshot": len(set(snapshots)) == 1,
+        "class_members": clusters,
         "snapshot_versions": [
             {"key": Path(path).stem, "mtime_ns": stamp, "bytes": size}
             for path, stamp, size in snapshots

@@ -18,6 +18,9 @@ fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
     crate::scan_answer(input)
 }
 
+#[path = "scan_explorer_tests.rs"]
+mod explorer_tests;
+
 #[path = "scan_attribute_tests.rs"]
 mod attribute_review;
 
@@ -455,31 +458,4 @@ fn the_in_process_trust_refuses_a_reply_of_another_profile_with_the_adapter_of_t
     );
     let gap = in_process("archkeel-typescript-imports")("shop".to_owned(), Some(&foreign)).gap;
     assert!(gap.is_some_and(|gap| gap.starts_with(PRODUCER_NOT_VERIFIED)));
-}
-
-#[test]
-fn explorer_projects_the_same_scan_without_changing_its_ruling() {
-    let root = repository("explorer-facts");
-    let mut request = request(&root);
-    let (expected, expected_gap) = frame(&request);
-    assert!(expected.get("explorer").is_none());
-    request["explorer"] = json!(true);
-    let (mut detailed, actual_gap) = frame(&request);
-    let parts = detailed
-        .as_object_mut()
-        .unwrap()
-        .remove("explorer")
-        .unwrap();
-    assert_eq!((detailed.clone(), actual_gap), (expected, expected_gap));
-    let part = &parts[0];
-    assert_eq!(part["language"], "typescript");
-    assert!(part["part"].is_null());
-    let imports = part["imports"].as_array().unwrap();
-    assert!(imports.iter().any(|row| row["resolution"] == "local"));
-    for row in imports {
-        for id in row["evidence_ids"].as_array().unwrap() {
-            assert!(detailed["locations"][id.as_str().unwrap()]["path"].is_string());
-        }
-    }
-    assert!(!part["files"].as_array().unwrap().is_empty());
 }

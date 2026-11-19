@@ -288,6 +288,10 @@ def failed(result: dict[str, Any]) -> bool:
         or checks.get("wrong_targets")
         or "error" in (result.get("launch") or {})
         or not (result.get("launch") or {}).get("stable_snapshot", False)
+        or any(
+            value.startswith("FAIL")
+            for value in (result.get("launch") or {}).get("class_members", {}).values()
+        )
     )
 
 

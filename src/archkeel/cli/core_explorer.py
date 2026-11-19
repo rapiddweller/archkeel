@@ -41,6 +41,7 @@ _ASSETS = Path(__file__).with_name("assets")
 _ROUTES = {
     "/": ("explorer.html", "text/html; charset=utf-8"),
     "/explorer.js": ("explorer.js", "text/javascript; charset=utf-8"),
+    "/explorer-uml.js": ("explorer-uml.js", "text/javascript; charset=utf-8"),
     "/explorer-story.js": ("explorer-story.js", "text/javascript; charset=utf-8"),
     "/explorer.css": ("explorer.css", "text/css; charset=utf-8"),
 }

@@ -55,6 +55,7 @@ SHELL = frozenset(
         "explorer_mcp.py",
         "explorer_queries.py",
         "explorer_store.py",
+        "explorer_symbols.py",
     )
 )
 
