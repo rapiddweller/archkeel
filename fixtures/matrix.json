@@ -73,7 +73,7 @@
     "J-compass": {
       "language": "dart",
       "runs": [
-      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1762], "about": "The Flutter samples Compass app at 5541c59 (BSD-3-Clause), with all 37 pubspec files in the upstream workspace layout. All six requires rules PASS. The UML target has 24 undecided assessments: static methods drawn without static, unrecorded annotations, and unresolved calls (#1762).", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1762], "about": "The Flutter samples Compass app at 5541c59 (BSD-3-Clause), with all 37 pubspec files in the upstream workspace layout. All six requires rules PASS. The UML target has 18 undecided assessments: a static method drawn without static, unrecorded annotations, and unresolved call relationships (#1762).", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "K-python-realworld": {

@@ -10,7 +10,7 @@
 //! kinds of the contract. A record that 4.0.1 refuses (`ValueError`) makes the table broken, and
 //! a broken table decides nothing (`Symbols::broken`).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use archkeel_contract::{EntityKind, ModifierKind, ParameterKind, RelationshipKind};
 use archkeel_contract::{ResolutionKind, VisibilityBasis, VisibilityKind};
@@ -58,6 +58,7 @@ pub(crate) struct Entity {
     pub(crate) visibility: Visibility,
     pub(crate) signature: Option<Signature>,
     pub(crate) annotation: Option<String>,
+    pub(crate) inferred_builtin_type: Option<(String, BTreeMap<String, String>)>,
     pub(crate) modifiers: Vec<ModifierKind>,
     /// The definition lies under control flow (`definition_contexts`).
     pub(crate) conditional: bool,
@@ -249,6 +250,7 @@ impl Entity {
             visibility: visibility(None, None),
             signature: None,
             annotation: None,
+            inferred_builtin_type: None,
             modifiers: Vec::new(),
             conditional: false,
             initializer: None,
@@ -447,6 +449,7 @@ fn attributes(record: &Record<SymbolFact>, data: &ClassData, owner: &Entity) -> 
             member.parent = Some(owner.id.clone());
             member.visibility = visibility(Some(&field.visibility), None);
             member.annotation = field.annotation.clone();
+            member.inferred_builtin_type = field.inferred_builtin_type.clone();
             if field.is_static == Some(true) && !literal {
                 member.modifiers.push(ModifierKind::Static);
             }

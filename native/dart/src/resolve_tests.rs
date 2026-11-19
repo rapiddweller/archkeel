@@ -114,6 +114,35 @@ fn a_field_formal_takes_the_type_of_its_field() {
 }
 
 #[test]
+fn an_inferred_type_of_a_literal_is_not_a_written_annotation_or_a_wire_fact() {
+    let found = symbols(&[(
+        "lib/routes.dart",
+        "class Routes { static const path = '/'; }",
+    )]);
+    let field = found
+        .symbols
+        .iter()
+        .find_map(|symbol| match &symbol.data {
+            archkeel_facts::SymbolFact::Class(data) => data.attribute_declarations.first(),
+            _ => None,
+        })
+        .expect("the field has a symbol");
+    assert_eq!(field.annotation, None);
+    let (actual, names) = field
+        .inferred_builtin_type
+        .as_ref()
+        .expect("the literal proof");
+    assert_eq!(actual, "dart.core.String");
+    assert_eq!(names.get("String"), Some(actual));
+    assert_eq!(names.get("int").map(String::as_str), Some("dart.core.int"));
+    let mut wire = serde_json::to_value(field).expect("the wire field");
+    assert!(wire.get("inferred_builtin_type").is_none());
+    wire["inferred_builtin_type"] =
+        serde_json::json!(["dart.core.String", {"String":"dart.core.String"}]);
+    assert!(serde_json::from_value::<archkeel_facts::nested::AttributeDeclaration>(wire).is_err());
+}
+
+#[test]
 fn an_inventory_is_partial_when_a_form_outside_the_body_can_add_members() {
     let found = symbols(&[
         (

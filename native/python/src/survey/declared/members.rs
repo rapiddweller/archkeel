@@ -211,6 +211,7 @@ fn declaration(
         decorators: None,
         definition_id: FactId::new(id),
         evidence_ids: vec![EvidenceId::new(scan.evidence(statement))],
+        inferred_builtin_type: None,
         literal_value: None,
         name: name.to_owned(),
         is_static: matches!(statement, Stmt::Assign(_)).then_some(true),
