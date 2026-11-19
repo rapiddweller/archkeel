@@ -166474,7 +166474,7 @@
         "native.archkeel_facts.sections.section_facts",
         "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
       ],
-      "reason": "AD-944: The section macro has a private source file. The collector keeps its possible destructor route; it does not hold the module cycle rule."
+      "reason": "AD-970: The section macro has a private source file. The collector keeps its possible destructor route; it does not hold the module cycle rule."
     },
     {
       "entry": [
@@ -166483,7 +166483,7 @@
         "native.archkeel_facts.sections.section_facts",
         "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
       ],
-      "reason": "AD-944: The section macro has a private source file. The collector keeps its possible destructor route; it does not hold the module cycle rule."
+      "reason": "AD-970: The section macro has a private source file. The collector keeps its possible destructor route; it does not hold the module cycle rule."
     }
   ]
 }

@@ -1,4 +1,4 @@
-# AD-944 The sections module owns its fact macro
+# AD-970 The sections module owns its fact macro
 
 **Decision.** Keep `section_facts!` private to `sections`. Resolve the types in
 its expansion through the names in that module. Leave the data and vocabulary
