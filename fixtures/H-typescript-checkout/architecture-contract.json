@@ -1,0 +1,46 @@
+{
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "domain",
+      "label": "domain",
+      "role": "component",
+      "packages": ["checkout.src.domain"],
+      "responsibilities": ["Own checkout types without an HTTP dependency."],
+      "forbidden_responsibilities": [],
+      "provenance": ["README.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "http",
+      "label": "http",
+      "role": "component",
+      "packages": ["checkout.src.http"],
+      "responsibilities": ["Convert HTTP request payloads to domain orders."],
+      "forbidden_responsibilities": [],
+      "provenance": ["README.md"],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [
+    {
+      "id": "CHECKOUT-DOMAIN-NO-HTTP",
+      "kind": "forbidden_dependency",
+      "source": "checkout.src.domain",
+      "target": "checkout.src.http",
+      "include_type_checking": true,
+      "rationale": "An HTTP request change must not determine a domain type.",
+      "provenance": ["README.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CHECKOUT-HTTP-USES-DOMAIN",
+      "kind": "allowed_dependency",
+      "source": "checkout.src.http",
+      "target": "checkout.src.domain",
+      "rationale": "Convert the request to the order type that checkout owns.",
+      "provenance": ["README.md"],
+      "decided_by": "architect"
+    }
+  ]
+}
