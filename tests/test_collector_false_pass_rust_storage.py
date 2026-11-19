@@ -25,9 +25,117 @@ NO_A_TO_B = rule(
     include_type_checking=True,
 )
 
+HOOK_STORE = """
+    use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
+    static READY: AtomicBool = AtomicBool::new(false);
+    pub fn set(v: Box<dyn Send>) {
+        let payload = Mutex::new(v);
+        std::panic::set_hook(Box::new(move |_| { let _ = &payload; }));
+        READY.store(true, Ordering::Release);
+    }
+    pub fn take() -> Box<dyn Send> {
+        assert!(READY.swap(false, Ordering::AcqRel));
+        Box::new(std::panic::take_hook())
+    }
+"""
+
 
 def _app(files: dict[str, str]) -> dict[str, str]:
     return {f"crates/app/src/{name}": text for name, text in files.items()}
+
+
+def _rustc_asserts(tmp_path: Path, root: Path, expression: str) -> None:
+    subprocess.run(
+        ["rustc", "--crate-name", "probe", "--crate-type", "rlib", root / "crates/app/src/lib.rs"],
+        cwd=tmp_path,
+        check=True,
+    )
+    exe = tmp_path / ("witness.exe" if os.name == "nt" else "witness")
+    subprocess.run(
+        ["rustc", "--extern", "probe=libprobe.rlib", "-", "-o", exe],
+        input=f"extern crate probe; fn main() {{ assert!({expression}); }}",
+        cwd=tmp_path,
+        text=True,
+        check=True,
+    )
+    subprocess.run([exe], check=True)
+
+
+@pytest.mark.parametrize(
+    ("case", "status"), [("allowed", "PASS"), ("observed", "FAIL"), ("opaque", "UNKNOWN")]
+)
+def test_destructor_origin_controls(
+    tmp_path: Path, release_core: Path, case: str, status: str
+) -> None:
+    files = {
+        "lib.rs": "pub mod a; pub mod b; mod slot;",
+        "b.rs": """
+            use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+            pub struct Guard(Arc<AtomicBool>);
+            impl Drop for Guard {
+                fn drop(&mut self) { self.0.store(true, Ordering::SeqCst); }
+            }
+            pub fn make() -> (Arc<AtomicBool>, Guard) {
+                let hit = Arc::new(AtomicBool::new(false));
+                (hit.clone(), Guard(hit))
+            }
+        """,
+    }
+    entry = "probe::a::run()"
+    if case == "allowed":
+        files["slot.rs"] = """
+            pub struct Guard<'a>(pub &'a mut bool);
+            impl Drop for Guard<'_> {
+                fn drop(&mut self) { *self.0 = true; }
+            }
+        """
+        files["a.rs"] = """
+            pub fn run() -> bool {
+                let mut hit = false;
+                { let _guard = crate::slot::Guard(&mut hit); }
+                hit
+            }
+        """
+    elif case == "observed":
+        files["slot.rs"] = ""
+        files["a.rs"] = """
+            pub fn run() -> bool {
+                let (hit, guard) = crate::b::make();
+                drop(guard);
+                hit.load(std::sync::atomic::Ordering::SeqCst)
+            }
+        """
+    else:
+        files["slot.rs"] = HOOK_STORE
+        files["a.rs"] = "pub fn run() { let _guard = crate::slot::take(); }"
+        files["b.rs"] += """
+            pub fn drive() -> bool {
+                let (hit, guard) = make();
+                crate::slot::set(Box::new(guard));
+                assert!(!hit.load(Ordering::SeqCst));
+                crate::a::run();
+                hit.load(Ordering::SeqCst)
+            }
+        """
+        entry = "probe::b::drive()"
+    root = repository(tmp_path / "repo", release_core, _app(files), rules=(NO_A_TO_B,))
+    _rustc_asserts(tmp_path, root, entry)
+    result = validate(root)
+    frame = result["frame"]
+    assert statuses(result)["NO-A-TO-B"] == status, frame["explained"]
+    if case == "observed":
+        assert [(row["source"], row["target"]) for row in frame["details"]["NO-A-TO-B"]] == [
+            ("native.app.a", "native.app.b")
+        ]
+    elif case == "opaque":
+        assert {"source": "native.app.a", "target": "native.app.b"} in frame["explain"]["holds"][
+            "rules"
+        ]["NO-A-TO-B"]["pairs"]
+        assert any(
+            gap["subjects"] == ["native.app.a"]
+            and gap["reason"] == "An unproved value origin may run a destructor in native.app.b"
+            for gap in frame["collection_gaps"]
+        )
 
 
 @pytest.mark.parametrize(
@@ -74,19 +182,7 @@ def test_drop_from_sibling_storage(tmp_path: Path, release_core: Path, case: str
         else "pub fn run() {}",
     }
     if case == "opaque-store":
-        files["slot.rs"] = """
-            use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
-            static READY: AtomicBool = AtomicBool::new(false);
-            pub fn set(v: Box<dyn Send>) {
-                let payload = Mutex::new(v);
-                std::panic::set_hook(Box::new(move |_| { let _ = &payload; }));
-                READY.store(true, Ordering::Release);
-            }
-            pub fn take() -> Box<dyn Send> {
-                assert!(READY.swap(false, Ordering::AcqRel));
-                Box::new(std::panic::take_hook())
-            }
-        """
+        files["slot.rs"] = HOOK_STORE
     if case in {"atomic-handle", "table-handle"}:
         carrier = (
             """
@@ -143,22 +239,8 @@ def test_drop_from_sibling_storage(tmp_path: Path, release_core: Path, case: str
     contract["schema_version"] = "3.4.0"
     path.write_text(json.dumps(contract))
     commit_tree(root)
-    subprocess.run(
-        ["rustc", "--crate-name", "probe", "--crate-type", "rlib", root / "crates/app/src/lib.rs"],
-        cwd=tmp_path,
-        check=True,
-    )
-    exe = tmp_path / ("witness.exe" if os.name == "nt" else "witness")
     runs_drop = case not in {"different-trait", "no-read"}
-    expected = "true" if runs_drop else "false"
-    subprocess.run(
-        ["rustc", "--extern", "probe=libprobe.rlib", "-", "-o", exe],
-        input=f"extern crate probe; fn main() {{ assert_eq!(probe::b::drive(), {expected}); }}",
-        cwd=tmp_path,
-        text=True,
-        check=True,
-    )
-    subprocess.run([exe], check=True)
+    _rustc_asserts(tmp_path, root, f"probe::b::drive() == {str(runs_drop).lower()}")
     result = validate(root)
     actual = statuses(result)
     assert actual["ASSIGNED"] == "PASS"
