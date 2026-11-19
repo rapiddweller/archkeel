@@ -69,3 +69,19 @@ pub(crate) struct Entry<'t> {
     /// An `arguments` node whose call has a wrapper of a script as its callee.
     pub wrapped_call: bool,
 }
+
+impl Entry<'_> {
+    /// The kind of the ancestor `up` levels above the node: 1 is the parent.
+    pub(crate) fn ancestor_kind(stack: &[Self], up: usize) -> Option<K> {
+        stack.len().checked_sub(up).map(|at| stack[at].kind)
+    }
+
+    /// A declaration that sits at the top of the file, or in an `export` at the top of the file.
+    pub(crate) fn top_of_file(stack: &[Self], up: usize) -> bool {
+        match Self::ancestor_kind(stack, up) {
+            Some(K::Program) => true,
+            Some(K::ExportStatement) => Self::ancestor_kind(stack, up + 1) == Some(K::Program),
+            _ => false,
+        }
+    }
+}

@@ -23,6 +23,7 @@ pub(crate) struct Kept {
     pub has_error: bool,
     /// The definitions and their parent scope indices.
     pub definitions: Vec<Definition>,
+    pub anonymous_default: Option<Box<Definition>>,
     /// The span of each written string and the qualified name of the definition that holds it.
     pub comparisons: Vec<(Span, Option<String>)>,
     /// The names that each import statement binds, by the line and column of the statement.
@@ -85,6 +86,7 @@ impl Kept {
         kept.rebound = syntax.rebound_names.iter().cloned().collect();
         kept.patched = std::mem::take(&mut syntax.patched);
         kept.type_exports = std::mem::take(&mut syntax.type_exports);
+        kept.anonymous_default = syntax.anonymous_default.take();
         kept.sites = std::mem::take(&mut syntax.sites);
         kept.record_refusal = crate::site_charge::over(&kept.sites.sites);
         if kept.record_refusal.is_some() {
@@ -139,6 +141,7 @@ impl Kept {
             module,
             has_error,
             definitions,
+            anonymous_default: None,
             comparisons,
             bindings,
             exports,
