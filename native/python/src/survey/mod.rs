@@ -182,8 +182,8 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         .collect();
     let mut evidence = EvidenceMap::new();
     let lazy = lazy::find(modules, &binders, namespace);
-    // AD-472: a proven literal import call is an import record; each other site is a gap.
-    let (literals, mut hazards) = hazards::split(modules, &binders, Some(&lazy));
+    let local_literals = parsed.gaps.is_empty() && found.is_empty() && writes.importlib_unchanged();
+    let (literals, mut hazards) = hazards::split(modules, &binders, Some(&lazy), local_literals);
     let candidates = hazards.iter().map(|(index, site)| {
         (site.kind == hazards::DYNAMIC && site.detail == "code").then_some((*index, site.range))
     });

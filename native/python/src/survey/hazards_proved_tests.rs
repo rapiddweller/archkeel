@@ -18,7 +18,7 @@ fn kinds_of(source: &str) -> Vec<&'static str> {
         source.to_owned(),
         tree,
     )];
-    let (_, found) = split(&modules, &binders, None);
+    let (_, found) = split(&modules, &binders, None, false);
     found.iter().map(|(_, site)| site.kind).collect()
 }
 
@@ -171,7 +171,7 @@ fn a_class_attribute_named_code_keeps_the_dynamic_import_gap() {
             .iter()
             .map(|module| Binders::of(&module.tree))
             .collect();
-        let (_, found) = split(&modules, &binders, None);
+        let (_, found) = split(&modules, &binders, None, false);
         assert!(
             found
                 .iter()

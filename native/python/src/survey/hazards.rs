@@ -47,8 +47,7 @@ pub(super) mod reflect;
 /// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
 pub(super) const LITERAL: &str = "literal_import";
 
-/// One site: its gap, a short text and its range. A door site has its form, the dotted names of
-/// the classes and functions that hold it, and the name that an import statement binds (AD-664).
+/// A hazard or a proven import site. Door sites also carry scope and binding (AD-664).
 pub(super) struct Site {
     pub kind: &'static str,
     pub detail: String,
@@ -426,8 +425,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
         }
         match expr {
             Expr::Lambda(node) => self.lambda(node),
-            // AD-472: only the callee of a proven literal call is exempt; its one argument is a
-            // string literal, so nothing below the call is left to read.
+            // A proven argument is a string literal or a read of its local binding.
             Expr::Call(call) => self.call(expr, call),
             Expr::Subscript(_) if reflect::code(expr, &self.bound) => {
                 self.push(DYNAMIC, "code", expr);
@@ -459,12 +457,15 @@ mod tests;
 #[path = "hazards_inert_tests.rs"]
 mod inert_tests;
 
-/// The proven literal import calls of the modules, and their hazard sites, each with the index
-/// of its module.
+/// Proven imports and hazards, each keyed by its module index.
 pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
 
-/// The sites that the lazy import proof covers (`lazy.rs`) are no hazard when `lazy` is given.
-pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy]>) -> Split {
+pub(super) fn split(
+    modules: &[Module],
+    binders: &[Binders],
+    lazy: Option<&[Lazy]>,
+    local: bool,
+) -> Split {
     let (mut literals, mut found) = (Vec::new(), Vec::new());
     let items: Vec<_> = modules
         .iter()
@@ -474,7 +475,8 @@ pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy
     let proved = reflect::proved(&items, &[&BUILTIN_DOORS, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
-        let proof = literal::Proof::of(&module.tree, binders);
+        let mut proof = literal::Proof::of(&module.tree, binders);
+        proof.prove_local(&module.tree, local);
         let covered = lazy.map(|all| &all[index]);
         for (range, target) in covered.iter().flat_map(|item| &item.targets) {
             literals.push((index, *range, target.clone()));

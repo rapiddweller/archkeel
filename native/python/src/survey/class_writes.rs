@@ -31,6 +31,7 @@ pub(crate) struct ClassWrites {
     namespace: bool,
     /// A file of the repository can be the module `typing` for an `import typing` (AD-880).
     typing_shadowed: bool,
+    importlib_shadowed: bool,
 }
 
 /// The methods of a mapping that change it.
@@ -76,19 +77,17 @@ impl ClassWrites {
 }
 
 impl ClassWrites {
-    /// Note a file that `import typing` can find before the standard module (AD-880): `typing.py`
-    /// or `typing/__init__.py` in the directory of the repository, or in a directory of `roots`,
-    /// where the modules of the scan are found.
+    /// Note a file that can shadow a standard module at the repository or import root.
     pub(super) fn add_path(&mut self, roots: &HashSet<String>, rel: &str) {
-        for name in ["typing.py", "typing/__init__.py"] {
-            let Some(before) = str::strip_suffix(rel, name) else {
-                continue;
-            };
-            let directory: &str = str::strip_suffix(before, '/').unwrap_or(before);
-            let at_root = str::is_empty(directory) || HashSet::contains(roots, directory);
-            let named = str::is_empty(before) || str::ends_with(before, '/');
-            self.typing_shadowed |= at_root && named;
-        }
+        self.typing_shadowed |= shadows(roots, rel, ["typing.py", "typing/__init__.py"]);
+        self.importlib_shadowed |= shadows(roots, rel, ["importlib.py", "importlib/__init__.py"]);
+    }
+
+    pub(super) fn importlib_unchanged(&self) -> bool {
+        !self.importlib_shadowed
+            && !["importlib", "import_module", "__class__", "__import__"]
+                .into_iter()
+                .any(|name| may_write(self, name))
     }
 
     /// Nothing in the repository can replace the `Any` of the standard module `typing` (AD-880): no
@@ -97,6 +96,18 @@ impl ClassWrites {
     pub(super) fn typing_unchanged(&self) -> bool {
         !self.typing_shadowed && Option::is_none(&ClassWrites::change_of(self, "Any"))
     }
+}
+
+fn shadows(roots: &HashSet<String>, rel: &str, paths: [&str; 2]) -> bool {
+    paths.into_iter().any(|name| {
+        let Some(before) = str::strip_suffix(rel, name) else {
+            return false;
+        };
+        let directory: &str = str::strip_suffix(before, '/').unwrap_or(before);
+        let at_root = str::is_empty(directory) || HashSet::contains(roots, directory);
+        let named = str::is_empty(before) || str::ends_with(before, '/');
+        at_root && named
+    })
 }
 
 /// True when repository code may change a name, including a store through a namespace.

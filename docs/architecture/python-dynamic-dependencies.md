@@ -6,6 +6,10 @@ names with a literal `package` are supported. Python code is parsed, never impor
 The call site and source evidence back each added import fact.
 Call IDs distinguish nested calls even when their source evidence spans coincide.
 
+The native collector also proves one adjacent local literal assignment
+before a return from `importlib.import_module(name)`. The function must follow
+a direct module import of `importlib`. See [AD-971](decisions/ad-971-prove-an-import-target-from-an-adjacent-local-literal.md).
+
 A loader needs a unique stable lexical import/builtin binding. Native member-escape
 syntax and lexical binding owners invalidate visibly mutated or escaped loader
 objects across the scanned snapshot. A module that exposes its namespace (`eval`, `exec`)
