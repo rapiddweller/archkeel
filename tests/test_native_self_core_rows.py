@@ -69,6 +69,21 @@ def test_the_core_decides_each_rule_of_the_self_contract(
         assert 0 < int(found.group(1)) <= len(expected["gaps"])
 
 
+def test_typescript_flow_has_no_open_crossing_into_the_script_index(
+    checked: tuple[int, dict[str, Any]],
+) -> None:
+    frame = checked[1]["frame"]
+    assert [
+        gap
+        for gap in frame["collection_gaps"]
+        if gap["subjects"] == ["native.archkeel_typescript_collector.collect"]
+        and any(
+            frame["locations"][site]["path"] == "native/typescript/src/script_index.rs"
+            for site in gap["evidence"]
+        )
+    ] == []
+
+
 def test_a_planted_report_cycle_fails_the_native_component_rule(
     tmp_path: Path, frozen_root: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

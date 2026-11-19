@@ -79783,11 +79783,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -80173,11 +80168,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.bin_archkeel_typescript_collector",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.bin_archkeel_typescript_collector",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -80469,11 +80459,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.bound_names",
       "A trait impl in native.archkeel_typescript_collector.script_declarations may run in code that reaches native.archkeel_typescript_collector.script_declarations without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.bound_names",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -80809,11 +80794,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.class_data",
       "A trait impl in native.archkeel_typescript_collector.script_declarations may run in code that reaches native.archkeel_typescript_collector.script_declarations without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.class_data",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -81138,11 +81118,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.collect",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -81483,11 +81458,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.collect.import_record",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect.import_record",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -81764,11 +81734,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.collect.import_target",
       "A trait impl in native.archkeel_typescript_collector.script_environment may run in code that reaches native.archkeel_typescript_collector.script_environment without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect.import_target",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -82064,11 +82029,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.collect.imports",
       "A trait impl in native.archkeel_typescript_collector.script_environment may run in code that reaches native.archkeel_typescript_collector.script_environment without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect.imports",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -82369,11 +82329,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.collect.package_closure",
       "A trait impl in native.archkeel_typescript_collector.script_environment may run in code that reaches native.archkeel_typescript_collector.script_environment without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect.package_closure",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -82699,11 +82654,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.collect.script_run",
       "A trait impl in native.archkeel_typescript_collector.script_environment may run in code that reaches native.archkeel_typescript_collector.script_environment without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect.script_run",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -83099,11 +83049,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.collection",
       "A trait impl in native.archkeel_typescript_collector.script_declarations may run in code that reaches native.archkeel_typescript_collector.script_declarations without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collection",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -83533,11 +83478,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.construct_records",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.construct_records",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -83929,11 +83869,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.dump",
       "A trait impl in native.archkeel_typescript_collector.script_environment may run in code that reaches native.archkeel_typescript_collector.script_environment without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.dump",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -84423,11 +84358,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.kept_script",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept_script",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -84723,11 +84653,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.parse",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.parse",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -84979,11 +84904,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.records",
       "A trait impl in native.archkeel_typescript_collector.script_declarations may run in code that reaches native.archkeel_typescript_collector.script_declarations without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.records",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -85254,11 +85174,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.records_lists",
       "A trait impl in native.archkeel_typescript_collector.script_declarations may run in code that reaches native.archkeel_typescript_collector.script_declarations without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.records_lists",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -85698,11 +85613,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.resolution",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.resolution",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -86073,11 +85983,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -86249,11 +86154,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_alias",
       "A trait impl in native.archkeel_typescript_collector.scan may run in code that reaches native.archkeel_typescript_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_alias",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -86453,11 +86353,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_code",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_code",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -86634,11 +86529,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_declarations",
       "A trait impl in native.archkeel_typescript_collector.scope may run in code that reaches native.archkeel_typescript_collector.scope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declarations",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -87073,11 +86963,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_depend",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_depend",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -87363,11 +87248,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_deps",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_deps",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -87534,11 +87414,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_dom",
       "A trait impl in native.archkeel_typescript_collector.scope may run in code that reaches native.archkeel_typescript_collector.scope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_dom",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -87898,11 +87773,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_factory",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_factory",
       "A trait impl in native.archkeel_typescript_collector.script_refs may run in code that reaches native.archkeel_typescript_collector.script_refs without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -88094,11 +87964,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_forms",
       "A trait impl in native.archkeel_typescript_collector.scope may run in code that reaches native.archkeel_typescript_collector.scope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_forms",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -88368,11 +88233,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_global",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_global",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -88549,11 +88409,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_host",
       "A trait impl in native.archkeel_typescript_collector.scope may run in code that reaches native.archkeel_typescript_collector.scope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_host",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -88773,11 +88628,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_keys",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_keys",
       "A trait impl in native.archkeel_typescript_collector.script_refs may run in code that reaches native.archkeel_typescript_collector.script_refs without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -88959,11 +88809,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_lookup",
       "A trait impl in native.archkeel_typescript_collector.scope may run in code that reaches native.archkeel_typescript_collector.scope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_lookup",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -89173,11 +89018,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_namespace",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_namespace",
       "A trait impl in native.archkeel_typescript_collector.script_refs may run in code that reaches native.archkeel_typescript_collector.script_refs without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -89349,11 +89189,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_numeric",
       "A trait impl in native.archkeel_typescript_collector.scope may run in code that reaches native.archkeel_typescript_collector.scope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_numeric",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -89604,11 +89439,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_outside",
       "A trait impl in native.archkeel_typescript_collector.script_declarations may run in code that reaches native.archkeel_typescript_collector.script_declarations without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_outside",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -89868,11 +89698,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_outside_detector",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_outside_detector",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -90094,11 +89919,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_patch",
       "A trait impl in native.archkeel_typescript_collector.scope may run in code that reaches native.archkeel_typescript_collector.scope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_patch",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -90329,11 +90149,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_project",
       "A trait impl in native.archkeel_typescript_collector.script_declarations may run in code that reaches native.archkeel_typescript_collector.script_declarations without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_project",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -90623,11 +90438,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_proof",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_proof",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -90813,11 +90623,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_prototype",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_prototype",
       "A trait impl in native.archkeel_typescript_collector.script_refs may run in code that reaches native.archkeel_typescript_collector.script_refs without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -90994,11 +90799,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_publish",
       "A trait impl in native.archkeel_typescript_collector.scan may run in code that reaches native.archkeel_typescript_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_publish",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -91309,11 +91109,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_reflective",
       "A trait impl in native.archkeel_typescript_collector.scope may run in code that reaches native.archkeel_typescript_collector.scope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_reflective",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -91654,11 +91449,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_state",
       "A trait impl in native.archkeel_typescript_collector.script_environment may run in code that reaches native.archkeel_typescript_collector.script_environment without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_state",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -92108,11 +91898,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_vendor",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_vendor",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -92304,11 +92089,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_window",
       "A trait impl in native.archkeel_typescript_collector.scan may run in code that reaches native.archkeel_typescript_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_window",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -92833,11 +92613,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.site_records",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.site_records",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -93203,11 +92978,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.symbol_table",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.symbol_table",
       "A trait impl in native.archkeel_typescript_collector.script_lookup may run in code that reaches native.archkeel_typescript_collector.script_lookup without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -93464,11 +93234,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.symbols",
       "A trait impl in native.archkeel_typescript_collector.script_declarations may run in code that reaches native.archkeel_typescript_collector.script_declarations without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.symbols",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -94004,11 +93769,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.umd_publication",
       "A trait impl in native.archkeel_typescript_collector.scan may run in code that reaches native.archkeel_typescript_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.umd_publication",
-      "A trait impl in native.archkeel_typescript_collector.script_index may run in code that reaches native.archkeel_typescript_collector.script_index without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
