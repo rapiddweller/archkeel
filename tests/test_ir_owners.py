@@ -30,6 +30,7 @@ SHELL = frozenset(
         "cli/core_doors.py",
         "cli/core_baseline.py",
         "cli/core_explain.py",
+        "cli/core_explorer.py",
         "cli/core_exit.py",
         "cli/core_frame.py",
         "cli/core_help.py",
@@ -50,6 +51,10 @@ SHELL = frozenset(
         "cli/core_output.py",
         "cli/native_scan.py",
         "cli/skill.py",
+        "explorer_boundaries.py",
+        "explorer_mcp.py",
+        "explorer_queries.py",
+        "explorer_store.py",
     )
 )
 

@@ -437,7 +437,7 @@ def test_the_explorer_names_the_result_and_no_observation(site: str, page: Brows
     # "Observation" was a 4.0.1 word: next to PASS it read like a contradiction.
     page.open(f"{site}/part.html")
     status = page.evaluate("document.querySelector('#flow .ak-run-status').textContent")
-    assert status == "Result: PASS assuming 1 stated external user"
+    assert status == "Result: PASS assuming 2 stated external users"
     assert "bservation" not in page.evaluate("document.getElementById('flow').innerText")
 
 

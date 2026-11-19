@@ -465,7 +465,7 @@ def test_every_chip_line_stays_inside_its_box(site: str, page: Browser) -> None:
 def test_a_layer_of_one_component_draws_no_frame_around_that_component(
     site: str, page: Browser
 ) -> None:
-    # The shell part has layers of one component (`entry`, `commands`, `frame`) and layers of
+    # The shell part has layers of one component (`commands`, `frame`) and layers of
     # several. The box of a layer that holds one component is that component: the Modules view drew
     # two nested frames with the same label and the same stereotype for it. A layer of several
     # components is a real parent and keeps its frame.
@@ -484,9 +484,11 @@ def test_a_layer_of_one_component_draws_no_frame_around_that_component(
         (a, b, c, d), (e, f, g, h) = frames[inner]["box"], frames[outer]["box"]
         return e <= a and f <= b and c <= g and d <= h
 
-    for single in ("entry", "commands", "frame"):
+    for single in ("commands", "frame"):
         assert f"LAYER:PART:shell:{single}" not in frames
         assert f"SHELL-{single.upper()}" in frames
+    assert inside("SHELL-ENTRY", "LAYER:PART:shell:entry")
+    assert inside("SHELL-EXPLORER-MCP", "LAYER:PART:shell:entry")
     assert inside("SHELL-JSON", "LAYER:PART:shell:foundation")
     assert inside("SHELL-GAPS", "LAYER:PART:shell:present")
     nested = [
