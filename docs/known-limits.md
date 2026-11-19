@@ -91,7 +91,7 @@ that gives the dict back is not seen (AD-530).
 Python construct rules stay UNKNOWN when the collector cannot prove that it sees every site.
 For `type_ignore`, a single-line `name(...)` or `name.method(...)` call, assignment to one name,
 annotated name, or return with a value can carry an exact trailing comment. Other unread type comments
-keep the rule UNKNOWN (AD-780, AD-868, AD-872, AD-908, AD-942, AD-960). `interface_boundary` and symbol-level
+keep the rule UNKNOWN (AD-780, AD-868, AD-872, AD-908, AD-942, AD-990). `interface_boundary` and symbol-level
 `through` ports are decided from the publication route of each named import (AD-504); the hygiene
 checks `interface.*` prove a use of a `public` entry from the imports and name `interface.usage_unknown`
 where only a declared facade signature could reach it (AD-514). A Dart project gets PASS or FAIL

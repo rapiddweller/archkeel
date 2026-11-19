@@ -1,4 +1,4 @@
-# AD-960: Type-ignore sites include direct calls
+# AD-990: Type-ignore sites include direct calls
 
 ## Status
 
