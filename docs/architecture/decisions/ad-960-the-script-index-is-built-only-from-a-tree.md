@@ -1,4 +1,4 @@
-# AD-944 The script index is built only from a tree
+# AD-960 The script index is built only from a tree
 
 **Decision.** Initialize the three empty collections inside `DeclIndex::new`.
 Do not provide a separate `Default` implementation.
