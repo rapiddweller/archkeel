@@ -273,3 +273,27 @@ def test_collect_hands_core_no_value_of_a_collector_type(
         if _crate(data["source_module"]) == COLLECT and _crate(data["target_module"]) in collectors
     }
     assert found == COLLECT_TO_COLLECTORS
+
+
+def test_a_globals_return_edge_fails_the_native_module_rule(
+    tmp_path: Path, frozen_root: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = shutil.copytree(frozen_root, tmp_path / "planted")
+    with (root / "native/python/src/survey/globals_uses.rs").open("a", encoding="utf-8") as source:
+        source.write(
+            "\n#[allow(dead_code)]\n"
+            "fn planted_read(modules: &[crate::module::Module]) {\n"
+            "    drop(super::globals_read::inert_reads(modules));\n"
+            "}\n"
+        )
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    code, result = run("validate", "--root", str(root), "--config", "native/archkeel.toml")
+    frame = result["frame"]
+    rule = "NATIVE-NO-MODULE-CYCLES"
+    assert (code, frame["rules"][rule][1]) == (1, "FAIL")
+    assert frame["rules"]["NATIVE-NO-COMPONENT-CYCLES"][1] == "PASS"
+    prefix = "native.archkeel_python_collector.survey."
+    read, uses = prefix + "globals_read", prefix + "globals_uses"
+    [cycle] = frame["explain"]["cycles"][rule]["items"]
+    assert {(step["from"], step["to"]) for step in cycle["path"]} == {(read, uses), (uses, read)}
+    assert all(step["evidence"] and not step.get("possible") for step in cycle["path"])

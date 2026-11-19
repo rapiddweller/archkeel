@@ -25,11 +25,11 @@ use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
 
-use bind::{bindings, imported};
-use names::{
-    above, first_hazard, store, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
+use super::hazards_names::{
+    above, first_hazard, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
 };
-pub(super) use names::{hazard, DYNAMIC, IMPORT_SYSTEM};
+pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM};
+use bind::{bindings, imported};
 
 #[path = "hazards_bind.rs"]
 mod bind;
@@ -39,8 +39,6 @@ mod comprehension;
 mod door;
 #[path = "hazards_inert.rs"]
 mod inert;
-#[path = "hazards_names.rs"]
-pub(super) mod names;
 #[path = "hazards_reflect.rs"]
 pub(super) mod reflect;
 
@@ -295,7 +293,8 @@ impl Walk<'_> {
         }
         attributes.reverse();
         ranges.reverse();
-        if !store(expr)
+        let store = matches!(expr, Expr::Attribute(node) if node.ctx != ExprContext::Load);
+        if !store
             && matches!(base, Expr::Name(name) if inert::read(&self.inert_modules, name.id.as_str(), &attributes))
         {
             return;
@@ -315,7 +314,7 @@ impl Walk<'_> {
             } else {
                 DYNAMIC
             };
-            if *name != "__path__" || store(expr) {
+            if *name != "__path__" || store {
                 return self.push(kind, name, expr);
             }
         }
