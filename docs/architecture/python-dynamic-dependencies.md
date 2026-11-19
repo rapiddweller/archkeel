@@ -5,6 +5,8 @@ builtin `__import__` calls. Import aliases, keyword `name`, and relative importl
 names with a literal `package` are supported. Python code is parsed, never imported.
 The call site and source evidence back each added import fact.
 Call IDs distinguish nested calls even when their source evidence spans coincide.
+The native collector withholds the direct `importlib.import_module` edge when it
+sees a write to that loader in the scan ([AD-972](decisions/ad-972-withhold-literal-imports-through-a-replaced-loader.md)).
 
 A loader needs a unique stable lexical import/builtin binding. Native member-escape
 syntax and lexical binding owners invalidate visibly mutated or escaped loader

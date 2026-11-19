@@ -45,8 +45,7 @@ pub(super) mod reflect;
 /// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
 pub(super) const LITERAL: &str = "literal_import";
 
-/// One site: its gap, a short text and its range. A door site has its form, the dotted names of
-/// the classes and functions that hold it, and the name that an import statement binds (AD-664).
+/// A hazard or a proven import site. Door sites also carry scope and binding (AD-664).
 pub(super) struct Site {
     pub kind: &'static str,
     pub detail: String,
@@ -458,8 +457,7 @@ mod tests;
 #[path = "hazards_inert_tests.rs"]
 mod inert_tests;
 
-/// The proven literal import calls of the modules, and their hazard sites, each with the index
-/// of its module.
+/// Proven imports and hazards, each keyed by its module index.
 pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
 
 /// The sites that the lazy import proof covers (`lazy.rs`) are no hazard when `lazy` is given.
@@ -472,8 +470,12 @@ pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy
         .collect();
     let proved = reflect::proved(&items, &[&BUILTIN_DOORS, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
+    let replaced = items
+        .iter()
+        .zip(binders)
+        .any(|((tree, _, imports), binders)| literal::replaces_loader(tree, imports, binders));
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
-        let proof = literal::Proof::of(&module.tree, binders);
+        let proof = literal::Proof::of(&module.tree, binders).without_replaced_loader(replaced);
         let covered = lazy.map(|all| &all[index]);
         for (range, target) in covered.iter().flat_map(|item| &item.targets) {
             literals.push((index, *range, target.clone()));
