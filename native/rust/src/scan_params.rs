@@ -27,7 +27,7 @@ use syn::{
     Attribute, FnArg, GenericArgument, GenericParam, Item, Pat, PathArguments, Signature, Type,
 };
 
-use super::bodies::{Binder, Bodies};
+use super::bodies::Bodies;
 use super::chains::{chain_of, destructure, Names};
 use super::sites::ClosureSites;
 use super::written_types::{with_self, written};
@@ -188,14 +188,18 @@ impl Params {
             macros: self.macros.clone(),
         }
     }
-}
-
-impl Binder for Params {
-    fn typed(&self, name: &str, ty: &syn::Type) -> Option<ReceiverChain> {
+    /// The chain of a typed local of the body, if its type is known.
+    pub(super) fn typed(&self, name: &str, ty: &syn::Type) -> Option<ReceiverChain> {
         self.body_type(ty).map(|ty| self.typed_root(name, ty))
     }
 
-    fn bind_at(&mut self, name: String, origin: ReceiverChain, sites: BTreeSet<(usize, usize)>) {
+    /// Bind a name at the given receiver sites.
+    pub(super) fn bind_at(
+        &mut self,
+        name: String,
+        origin: ReceiverChain,
+        sites: BTreeSet<(usize, usize)>,
+    ) {
         let binding = Binding {
             receiver: None,
             origin: Some(origin),

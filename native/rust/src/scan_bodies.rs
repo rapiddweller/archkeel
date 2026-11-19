@@ -17,6 +17,7 @@ use syn::visit::{self, Visit};
 use syn::{Expr, Item, Pat, Stmt};
 
 use super::chains::{chain_of, destructure, Names};
+use super::params::Params;
 use super::sites::ClosureSites;
 use crate::definitions::{ReceiverChain, Root};
 use crate::tokens::plain;
@@ -37,14 +38,6 @@ const ADAPTERS: [&str; 13] = [
     "max_by_key",
     "min_by_key",
 ];
-
-/// The bindings of a `fn` that a body adds to.
-pub(super) trait Binder: Names {
-    /// Bind a name to its chain at the receiver sites of its body.
-    fn bind_at(&mut self, name: String, origin: ReceiverChain, sites: BTreeSet<(usize, usize)>);
-    /// The chain of a typed local of the body, or `None` when an item or a macro may hide its type.
-    fn typed(&self, name: &str, ty: &syn::Type) -> Option<ReceiverChain>;
-}
 
 /// The initializer (if any) of a statement that is a `let` of `name`, or `None` for another one.
 fn shadow<'s>(statement: &'s Stmt, name: &str) -> Option<Option<&'s Expr>> {
@@ -80,7 +73,7 @@ fn let_sites(rest: &[Stmt], name: &str) -> ClosureSites {
 
 /// The walk over the body of a `fn`, without nested items.
 pub(super) struct Bodies<'a> {
-    pub(super) binder: &'a mut dyn Binder,
+    pub(super) binder: &'a mut Params,
     /// The names that a `use` or a macro call of the `fn` may bind.
     pub(super) tainted: &'a BTreeSet<String>,
     /// How many times the `fn` binds each name.
@@ -167,8 +160,7 @@ impl Bodies<'_> {
 
     /// The chain of a matched value.
     fn value(&self, expr: &Expr) -> Option<ReceiverChain> {
-        let names: &dyn Names = &*self.binder;
-        chain_of(expr, names)
+        chain_of(expr, self.binder)
     }
 
     /// The element of the iterator of `of` for an adapter or `for`.

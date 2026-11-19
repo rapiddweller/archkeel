@@ -16,6 +16,7 @@ use ruff_python_parser::{parse_unchecked, Mode, ParseErrorType, ParseOptions};
 use ruff_text_size::Ranged;
 
 use self::depth::depth;
+pub(crate) use self::limits::ParseFailure;
 use self::limits::{scan, Problem, MAX_AST_DEPTH};
 use self::stack::MAX_STACK;
 use crate::source::Lines;
@@ -42,24 +43,6 @@ mod stack;
 mod stringcheck;
 #[path = "work.rs"]
 pub(crate) mod work;
-
-/// Why a file has no tree: the class name of the Python exception, its line and its message.
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct ParseFailure {
-    pub exception: ExceptionName,
-    pub line: usize,
-    pub message: String,
-}
-
-impl From<Problem> for ParseFailure {
-    fn from(problem: Problem) -> Self {
-        Self {
-            exception: problem.exception,
-            line: problem.line,
-            message: problem.message,
-        }
-    }
-}
 
 const NULL_BYTES: &str = "source code string cannot contain null bytes";
 

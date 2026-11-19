@@ -307,7 +307,7 @@ fn a_scope_with_only_excluded_tests_is_not_complete() {
     let found =
         survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
             .unwrap();
-    assert!(!found.coverage.full_scope, "{found:?}");
+    assert!(!found.coverage.full_scope, "{:?}", found.coverage);
 }
 
 #[cfg(unix)]

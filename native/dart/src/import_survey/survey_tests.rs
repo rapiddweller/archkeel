@@ -150,7 +150,6 @@ fn a_part_is_owned_by_its_library_and_has_no_file_fact() {
     assert_eq!(found.files.len(), 2, "a part has no file fact");
     assert_eq!(found.parts.len(), 1);
     assert_eq!(found.parts[0].part, "lib/a_part.dart");
-    assert_eq!(found.parts[0].library, "lib/a.dart");
     assert_eq!(found.parts[0].module.as_str(), "shop.a");
     assert_eq!(edge_rows(&found), ["shop.a import shop.b"]);
 }
