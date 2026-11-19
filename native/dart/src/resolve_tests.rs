@@ -123,7 +123,7 @@ fn an_inventory_is_partial_when_a_form_outside_the_body_can_add_members() {
         ("lib/mixed.dart", "mixin M {}\nclass Mixed with M {}\n"),
         (
             "lib/parted.dart",
-            "part 'parted_part.dart';\nclass Parted {}\nclass Extended {}\n",
+            "part 'parted_part.dart';\nclass Parted {}\nclass Extended {}\nclass Derived extends Extended {}\n",
         ),
         (
             "lib/parted_part.dart",
@@ -178,6 +178,7 @@ fn an_inventory_is_partial_when_a_form_outside_the_body_can_add_members() {
         );
     }
     assert_eq!(status("shop.parted.Extended").0, "partial");
+    assert_eq!(status("shop.parted.Derived").0, "partial");
 }
 
 /// The store checks that a symbol name is the last segment of its qualified name (AD-796).

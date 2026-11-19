@@ -115,10 +115,14 @@ fn bound_inventories(output: &mut Output, resolver: &Resolver<'_>) {
         .filter(|(at, kind)| **kind == Kind::Library && !resolver.parts_complete(*at))
         .filter_map(|(at, _)| resolver.module_for(at))
         .collect();
-    let extended: BTreeSet<String> = extended_types(resolver);
+    let extended = extended_types(resolver);
     for symbol in &mut output.symbols {
-        let Some(reason) = open_reason(symbol, resolver, &libraries_with_unread_parts, &extended)
-        else {
+        let Some(reason) = open_reason(
+            symbol,
+            resolver,
+            &libraries_with_unread_parts,
+            extended.as_ref(),
+        ) else {
             continue;
         };
         if let Detail::Class {
@@ -134,23 +138,28 @@ fn bound_inventories(output: &mut Output, resolver: &Resolver<'_>) {
     }
 }
 
-/// The names of the types that a project extension names as its `on` type. An extension type is
-/// a type of its own: it adds no member to the type that it wraps.
-fn extended_types(resolver: &Resolver<'_>) -> BTreeSet<String> {
-    let extensions = resolver
+/// The types named directly by a project extension. An unproven receiver may name any type.
+fn extended_types<'a>(resolver: &Resolver<'a>) -> Option<BTreeSet<(&'a str, &'a str)>> {
+    resolver
         .syntax
         .iter()
-        .flatten()
-        .flat_map(|parsed| &parsed.definitions)
-        .filter(|item| item.kind == DefinitionKind::Extension);
-    // An extension whose `on` type is not a simple name may extend any class: the empty name.
-    extensions
-        .map(|item| {
-            let on = item
-                .extends
-                .first()
-                .and_then(|text| crate::resolve::types::nominal(text));
-            on.map_or_else(String::new, |(_, name)| name.to_owned())
+        .enumerate()
+        .filter_map(|(at, parsed)| parsed.as_ref().map(|syntax| (at, syntax)))
+        .flat_map(|(at, parsed)| parsed.definitions.iter().map(move |item| (at, item)))
+        .filter(|(_, item)| item.kind == DefinitionKind::Extension)
+        .map(|(at, item)| {
+            let module = resolver.module_for(at)?;
+            let (None, name) = crate::resolve::types::nominal(item.extends.first()?)? else {
+                return None;
+            };
+            if item.type_parameters.iter().any(|param| param == name) {
+                return None;
+            }
+            let declarations = resolver.local(module, name);
+            let [decl] = declarations.as_slice() else {
+                return None;
+            };
+            class_like(decl.definition.kind).then_some((module, name))
         })
         .collect()
 }
@@ -161,7 +170,7 @@ fn open_reason(
     symbol: &Symbol,
     resolver: &Resolver<'_>,
     libraries_with_unread_parts: &BTreeSet<&str>,
-    extended: &BTreeSet<String>,
+    extended: Option<&BTreeSet<(&str, &str)>>,
 ) -> Option<&'static str> {
     if !matches!(
         symbol.data.detail,
@@ -184,10 +193,20 @@ fn open_reason(
     if libraries_with_unread_parts.contains(module) {
         return Some("not every part of the library was read");
     }
-    if extended.contains(name) || extended.contains("") {
-        return Some("an extension adds members that the class body does not show");
+    match extended {
+        None => Some("the receiver of an extension is not proven"),
+        Some(types) if types.contains(&(module, name)) => {
+            Some("an extension adds members that the class body does not show")
+        }
+        Some(types)
+            if !BTreeSet::is_empty(types)
+                && (!Vec::is_empty(&decl.definition.extends)
+                    || !Vec::is_empty(&decl.definition.implements)) =>
+        {
+            Some("a base type may be the receiver of an extension")
+        }
+        Some(_) => None,
     }
-    None
 }
 
 /// The records as typed facts: the collection writes the record form of release 4.0.1, which
