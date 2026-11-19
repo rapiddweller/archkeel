@@ -184,12 +184,143 @@ def test_growth_needs_an_entry_with_a_reason() -> None:
     assert unlisted(grown, {"raised": [{"entry": grown[0], "reason": reason}]}) == []
 
 
-def test_write_refuses_a_new_unknown_and_takes_a_listed_one(tmp_path: Path) -> None:
+@pytest.mark.parametrize("previous_approvals", [0, 1])
+def test_duplicate_gap_growth_requires_new_approvals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, previous_approvals: int
+) -> None:
+    result, pin, listed = tmp_path / "r.json", tmp_path / "p.json", tmp_path / "g.json"
+    entry = {"entry": ["gap", *PIN], "reason": "Approved collector gap occurrence"}
+    pin.write_text(json.dumps(PINNED))
+    listed.write_text(json.dumps({"raised": [entry] * previous_approvals}))
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+    for command in (["init", "-q"], ["add", "p.json", "g.json"], ["commit", "-qm", "base"]):
+        subprocess.run([*git, *command], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.chdir(tmp_path)
+    result.write_text(json.dumps(_result([GAP])))
+    run = [str(result), "p.json", "--growth", "g.json", "--base-ref", "HEAD"]
+    assert main(run) == 0
+    result.write_text(json.dumps(_result([GAP, GAP, GAP])))
+    listed.write_text(json.dumps({"raised": [entry] * (previous_approvals + 1)}))
+    assert main([*run, "--write"]) == 1
+    assert json.loads(pin.read_text()) == PINNED
+    assert (
+        main(
+            [
+                str(result),
+                str(pin),
+                "--growth",
+                str(listed),
+                "--base-ref",
+                "missing-ref",
+                "--write",
+            ]
+        )
+        == 1
+    )
+    listed.write_text(json.dumps({"raised": [entry] * (previous_approvals + 2)}))
+    assert main([*run, "--write"]) == 0
+    assert len(json.loads(pin.read_text())["gaps"]) == 3
+    assert main(run) == 0
+
+
+def test_gap_approval_is_removed_with_its_occurrence_and_cannot_return(tmp_path: Path) -> None:
+    result, pin, listed = tmp_path / "r.json", tmp_path / "p.json", tmp_path / "g.json"
+    entry = {"entry": ["gap", *PIN], "reason": "Approved collector gap occurrence"}
+    pin.write_text(json.dumps({**PINNED, "gaps": [PIN, PIN]}))
+    listed.write_text(json.dumps({"raised": [entry, entry]}))
+    result.write_text(json.dumps(_result([GAP])))
+    run = [str(result), str(pin), "--growth", str(listed)]
+    assert main([*run, "--write"]) == 0
+    assert json.loads(listed.read_text())["raised"] == [entry]
+    result.write_text(json.dumps(_result([GAP, GAP])))
+    assert main([*run, "--write"]) == 1
+    result.write_text(json.dumps(_result([])))
+    assert main([*run, "--write"]) == 0
+    assert json.loads(listed.read_text())["raised"] == []
+    result.write_text(json.dumps(_result([GAP])))
+    assert main([*run, "--write"]) == 1
+
+
+def test_committed_shrink_needs_a_new_approval_for_return(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result, pin, listed = tmp_path / "r.json", tmp_path / "p.json", tmp_path / "g.json"
+    entry = {"entry": ["gap", *PIN], "reason": "Approved collector gap occurrence"}
+    pin.write_text(json.dumps(PINNED))
+    listed.write_text(json.dumps({"raised": [entry]}))
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+
+    def run(*args: str) -> None:
+        subprocess.run([*git, *args], cwd=tmp_path, check=True, capture_output=True)
+
+    run("init", "-q")
+    run("add", "p.json", "g.json")
+    run("commit", "-qm", "base")
+    monkeypatch.chdir(tmp_path)
+    result.write_text(json.dumps(_result([])))
+    args = [str(result), "p.json", "--growth", "g.json", "--base-ref", "HEAD"]
+    assert main([*args, "--write"]) == 0
+    result.write_text(json.dumps(_result([GAP])))
+    listed.write_text(json.dumps({"raised": [entry]}))
+    assert main([*args, "--write"]) == 1
+    assert json.loads(pin.read_text())["gaps"] == []
+    listed.write_text(json.dumps({"raised": []}))
+    run("add", "p.json", "g.json")
+    run("commit", "-qm", "shrink")
+    result.write_text(json.dumps(_result([GAP])))
+    assert main([*args, "--write"]) == 1
+    listed.write_text(json.dumps({"raised": [entry]}))
+    assert main([*args, "--write"]) == 0
+
+
+def test_write_requires_a_trustworthy_base_before_gap_growth(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    result, pin, listed = tmp_path / "r.json", tmp_path / "p.json", tmp_path / "g.json"
+    entry = {"entry": ["gap", *PIN], "reason": "Approved collector gap occurrence"}
+    pin.write_text(json.dumps(PINNED))
+    listed.write_text(json.dumps({"raised": [entry, entry]}))
+    result.write_text(json.dumps(_result([GAP, GAP, GAP])))
+    assert main([str(result), str(pin), "--growth", str(listed), "--write"]) == 1
+    assert "--base-ref" in capsys.readouterr().err
+    assert json.loads(pin.read_text()) == PINNED
+
+
+def test_base_check_does_not_reuse_an_existing_gap_approval(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+    pin, listed, result = tmp_path / "pin.json", tmp_path / "growth.json", tmp_path / "r.json"
+    entry = {"entry": ["gap", *PIN], "reason": "Approved collector gap occurrence"}
+    pin.write_text(json.dumps(PINNED))
+    listed.write_text(json.dumps({"raised": [entry]}))
+    for command in (
+        ["init", "-q"],
+        ["add", "pin.json", "growth.json"],
+        ["commit", "-q", "-m", "base"],
+    ):
+        subprocess.run([*git, *command], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.chdir(tmp_path)
+    pin.write_text(json.dumps({**PINNED, "gaps": [PIN, PIN, PIN]}))
+    result.write_text(json.dumps(_result([GAP, GAP, GAP])))
+    run = [str(result), "pin.json", "--growth", str(listed), "--base-ref", "HEAD"]
+    assert main(run) == 1
+    listed.write_text(json.dumps({"raised": [entry, entry, entry]}))
+    assert main(run) == 0
+
+
+def test_write_refuses_a_new_unknown_and_takes_a_listed_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     result, pin, listed = tmp_path / "r.json", tmp_path / "p.json", tmp_path / "g.json"
     result.write_text(json.dumps(_result([GAP])))
     pin.write_text(json.dumps(CLEAN))
     listed.write_text('{"raised": []}')
-    run = [str(result), str(pin), "--write", "--growth", str(listed)]
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+    for command in (["init", "-q"], ["add", "p.json", "g.json"], ["commit", "-qm", "base"]):
+        subprocess.run([*git, *command], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.chdir(tmp_path)
+    run = [str(result), "p.json", "--write", "--growth", "g.json", "--base-ref", "HEAD"]
     assert main(run) == 1 and json.loads(pin.read_text()) == CLEAN
     entry = ["gap", "collection_gap", "a", "r"]
     items = [entry, ["rule", "R", "UNKNOWN"], ["unknown", "R", "scope_incomplete"]]
@@ -212,7 +343,12 @@ def test_a_pin_that_grew_against_its_base_fails_until_its_growth_has_a_reason(
     git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
     pin, listed, result = tmp_path / "pin.json", tmp_path / "growth.json", tmp_path / "r.json"
     pin.write_text(json.dumps(CLEAN))
-    for command in (["init", "-q"], ["add", "pin.json"], ["commit", "-q", "-m", "base"]):
+    listed.write_text('{"raised": []}')
+    for command in (
+        ["init", "-q"],
+        ["add", "pin.json", "growth.json"],
+        ["commit", "-q", "-m", "base"],
+    ):
         subprocess.run([*git, *command], cwd=tmp_path, check=True, capture_output=True)
     monkeypatch.chdir(tmp_path)
     pin.write_text(json.dumps(PINNED))
