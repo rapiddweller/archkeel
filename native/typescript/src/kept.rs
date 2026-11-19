@@ -64,7 +64,7 @@ impl Kept {
             .comparisons
             .iter()
             .map(|item| {
-                let scope = item.scope.map(|at| syntax.scopes.qualified(at));
+                let scope = item.scope.map(|at| Scopes::qualified(&syntax.scopes, at));
                 (item.span.clone(), scope)
             })
             .collect();

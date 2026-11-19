@@ -18,6 +18,7 @@ use archkeel_facts::{BindingFact, CallFact, Record, ReferenceFact};
 use archkeel_wire::stream::TypedEmit;
 
 use crate::cited::Cited;
+use crate::definitions::Scopes;
 use crate::kept::{Kept, Pending};
 use crate::resolution::{Imports, Resolved, Resolver};
 use crate::script_records::SiteKey;
@@ -159,7 +160,7 @@ struct Place<'a> {
 
 impl<'a> Place<'a> {
     fn of(table: &SymbolTable, kept: &'a Kept, rel: &'a str, site: &Site) -> Self {
-        let described = site.scope.and_then(|at| kept.scopes.describe(at));
+        let described = site.scope.and_then(|at| Scopes::describe(&kept.scopes, at));
         let module = kept.module.as_str();
         let scope = match &described {
             Some(description) if !description.qualified_name.is_empty() => {

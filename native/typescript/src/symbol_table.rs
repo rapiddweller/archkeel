@@ -16,7 +16,7 @@ use std::rc::Rc;
 
 use archkeel_facts::identity::{package_of, stable_id, Part};
 
-use crate::definitions::{Definition, DefinitionKind};
+use crate::definitions::{Definition, DefinitionKind, Scopes};
 use crate::kept::Pending;
 
 /// One definition with its file, module, qualified name and `TSDEF` id.
@@ -123,7 +123,9 @@ impl<'a> SymbolTable<'a> {
                 .patched
                 .extend(kept.patched.iter().map(String::as_str));
             for definition in &kept.definitions {
-                let parent = definition.parent.map(|at| kept.scopes.qualified(at));
+                let parent = definition
+                    .parent
+                    .map(|at| Scopes::qualified(&kept.scopes, at));
                 table.add(rel, &kept.module, definition, parent.as_deref());
             }
         }

@@ -92683,11 +92683,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.site_records",
-      "A method call may reach the method describe of a type in its own file native.archkeel_typescript_collector.definitions"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.site_records",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
