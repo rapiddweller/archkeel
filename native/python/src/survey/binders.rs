@@ -18,6 +18,22 @@ use ruff_python_ast::{
 
 const ALL: &str = "__all__";
 
+pub(super) fn named_call(
+    func: &Expr,
+    names: &HashSet<String>,
+    modules: &HashSet<String>,
+    attr: &str,
+) -> bool {
+    match func {
+        Expr::Name(name) => names.contains(name.id.as_str()),
+        Expr::Attribute(node) => {
+            node.attr.as_str() == attr
+                && matches!(&*node.value, Expr::Name(name) if modules.contains(name.id.as_str()))
+        }
+        _ => false,
+    }
+}
+
 /// The binder facts of one module.
 pub(crate) struct Binders {
     /// How often each name is bound anywhere in the module (`source._bound_names`).

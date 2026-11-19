@@ -15,7 +15,7 @@ use ruff_python_ast::{CmpOp, ExceptHandler, Expr, Parameter, Stmt};
 use ruff_text_size::Ranged;
 use std::collections::HashSet;
 
-use super::binders::Binders;
+use super::binders::{named_call, Binders};
 use super::class_writes::ClassWrites;
 use super::support::{Construct, Support};
 use crate::module::{EvidenceMap, Location, Module};
@@ -197,7 +197,10 @@ impl<'a> Visitor<'a> for Walk<'_> {
                     self.annotation(annotation);
                 }
             }
-            Stmt::AnnAssign(node) => self.annotation(&node.annotation),
+            Stmt::AnnAssign(node) => {
+                self.type_ignore(stmt);
+                self.annotation(&node.annotation);
+            }
             _ => {}
         }
         visitor::walk_stmt(self, stmt);
@@ -290,17 +293,6 @@ impl<'a> Visitor<'a> for Walk<'_> {
             }
         }
         visitor::walk_expr(self, expr);
-    }
-}
-
-fn named_call(func: &Expr, names: &HashSet<String>, modules: &HashSet<String>, attr: &str) -> bool {
-    match func {
-        Expr::Name(name) => names.contains(name.id.as_str()),
-        Expr::Attribute(node) => {
-            node.attr.as_str() == attr
-                && matches!(&*node.value, Expr::Name(name) if modules.contains(name.id.as_str()))
-        }
-        _ => false,
     }
 }
 
