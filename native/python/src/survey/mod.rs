@@ -2,9 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The import survey of one request (`collect.collect` in the phase `imports`): the parsed
-//! modules, their static imports, their file facts, the evidence, the import targets, the
-//! UNKNOWN records and the coverage.
+//! The import survey of one request (`collect.collect`, phase `imports`).
+//! It records parsed modules, static imports, file facts, evidence, targets, UNKNOWNs and coverage.
 //!
 //! The `stable_bindings` of a file fact are `source._stable_direct_module_bindings` (`stable`).
 
