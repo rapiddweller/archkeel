@@ -25,4 +25,4 @@ Do not match the last member alone. Two calls can name the same member on differ
 `tests/test_cli_python_type_ignore.py` uses copies of the newer-syntax demo.
 An exact allowance passes its rule. A different statement or tag fails it.
 Multiline and computed calls stay UNKNOWN. A string is not a comment.
-The call-owner rule stays unported in all copies.
+The call-owner rule still fails at `sample/report.py:9` in all copies.

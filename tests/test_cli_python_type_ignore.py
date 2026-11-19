@@ -167,7 +167,12 @@ def test_newer_syntax_demo_requires_an_exact_written_ignore(
     frame = result["frame"]
     assert rows(result)["CONSTRUCT-EXACT-TYPE-IGNORE"] == expected, frame
     assert frame["self_test"]["reply"]["files"] == 4
-    assert [(gap["kind"], gap["subject"]) for gap in frame["gaps"]] == [
-        ("rule_kind_not_ported", "CALL-PURGE-MAINTENANCE-ONLY")
+    assert frame["gaps"] == []
+    call_rule = "CALL-PURGE-MAINTENANCE-ONLY"
+    assert frame["rules"][call_rule] == ["call_owner", "FAIL"]
+    [detail] = frame["details"][call_rule]
+    assert detail["target"] == "sample.maintenance.purge"
+    assert {"path": "sample/report.py", "line": 9} in [
+        frame["locations"][site] for site in detail["evidence"]
     ]
-    assert result["exit_code"] == (1 if expected == "FAIL" else 2)
+    assert result["exit_code"] == 1
