@@ -51,7 +51,7 @@ def _exact(label: str, needs: tuple[str, ...], *modules: str) -> dict[str, Any]:
     return {**component(label, label, needs), "packages": [], "exact_modules": list(modules)}
 
 
-def _check(result: dict[str, Any], executes: bool, allow_callback: bool) -> None:
+def _check(result: dict[str, Any], selects_impl: bool, allow_callback: bool) -> None:
     verdict = statuses(result)["REQUIRES"]
     frame = result["frame"]
     if not allow_callback:
@@ -66,7 +66,7 @@ def _check(result: dict[str, Any], executes: bool, allow_callback: bool) -> None
             )
             for row in frame["details"]["REQUIRES"]
         ), frame["details"]
-    elif executes:
+    elif selects_impl:
         assert verdict in {"UNKNOWN", "FAIL"}, frame["rules"]
         if verdict == "UNKNOWN":
             holds = frame["explain"]["holds"]["rules"]["REQUIRES"]
@@ -76,26 +76,31 @@ def _check(result: dict[str, Any], executes: bool, allow_callback: bool) -> None
             assert any(row["source"] == PRODUCER and row["target"] == SKIP for row in rows), rows
     else:
         assert verdict in {"PASS", "UNKNOWN"}, frame["rules"]
+        if verdict == "UNKNOWN":
+            hold = frame["explain"]["holds"]["rules"]["REQUIRES"]
+            assert hold["kind"] == "pair_gaps" and hold["pairs"], hold
 
 
 def test_requires_keeps_evidence_for_a_serialization_hook(
     tmp_path: Path, release_core: Path
 ) -> None:
     cases = (
-        ("construct", "", "", False, True),
-        ("write", 'assert_eq!(serde_json::to_string(&value).unwrap(), "{}");', "", True, True),
+        ("construct", "", False, False, True),
+        ("write", 'assert_eq!(serde_json::to_string(&value).unwrap(), "{}");', True, False, True),
+        # Here the producer selects the Present impl, not the generated serializer.
         (
             "private-bound",
-            "assert!(record::encode_field(&value.field));",
-            PRIVATE_BOUND,
+            "assert!(record::encode_field::<Option<u8>>(&value.field));",
+            True,
             True,
             True,
         ),
-        ("named-callback", "", "", False, False),
+        ("named-callback", "", False, False, False),
     )
-    lock = None
-    for name, call, extra, executes, allow_callback in cases:
+    lock = Path(__file__).with_name("rust_serde_dispatch.lock").read_text(encoding="utf-8")
+    for name, call, executes, selects_impl, allow_callback in cases:
         files = {
+            "crates/Cargo.lock": lock,
             "crates/base/Cargo.toml": BASE
             + '[dependencies]\nserde = { version = "1", features = ["derive"] }\n',
             "crates/base/src/lib.rs": (
@@ -104,7 +109,7 @@ def test_requires_keeps_evidence_for_a_serialization_hook(
                 "    skip::HIT.swap(false, std::sync::atomic::Ordering::Relaxed)\n"
                 "}\n"
             ),
-            RECORD_FILE: RECORD_SOURCE + extra,
+            RECORD_FILE: RECORD_SOURCE + (PRIVATE_BOUND if selects_impl else ""),
             "crates/base/src/skip.rs": SKIP_SOURCE,
             "crates/app/Cargo.toml": APP + 'serde_json = "1"\n',
             "crates/app/src/lib.rs": "pub mod producer;",
@@ -139,17 +144,18 @@ def test_requires_keeps_evidence_for_a_serialization_hook(
         root = repository(
             tmp_path / name, release_core, files, parts, (rule("REQUIRES", "complete_requires"),)
         )
-        _check(validate(root), executes, allow_callback)
+        _check(validate(root), selects_impl, allow_callback)
 
-        # The manifests are identical, so only the first witness needs to resolve dependencies.
-        lock_path = root / "crates/Cargo.lock"
-        if lock is not None:
-            lock_path.write_bytes(lock)
-        command = ["cargo", "run", "--quiet", "--manifest-path", str(root / "crates/Cargo.toml")]
-        if lock is not None:
-            command += ["--locked", "--offline"]
         witness = subprocess.run(
-            command,
+            [
+                "cargo",
+                "run",
+                "--quiet",
+                "--locked",
+                "--offline",
+                "--manifest-path",
+                str(root / "crates/Cargo.toml"),
+            ],
             cwd=Path(__file__).resolve().parents[1] / "native",
             env={**os.environ, "CARGO_TARGET_DIR": str(tmp_path / "target")},
             capture_output=True,
@@ -157,5 +163,3 @@ def test_requires_keeps_evidence_for_a_serialization_hook(
             check=False,
         )
         assert witness.returncode == 0, (name, witness.stderr)
-        if lock is None:
-            lock = lock_path.read_bytes()
