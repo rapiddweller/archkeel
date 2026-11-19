@@ -79,6 +79,95 @@ def test_the_release_core_gives_the_pinned_result(
     assert code == entry["expect"]["exit"]
 
 
+@pytest.mark.parametrize(
+    ("name", "status"),
+    [
+        ("M-module-acyclic", "PASS"),
+        ("M-module-cycle", "FAIL"),
+        ("M-module-possible-cycle", "UNKNOWN"),
+    ],
+)
+def test_module_cycle_demo_explains_its_rule(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str, status: str
+) -> None:
+    """The reverse import closes the cycle; an unreadable loader can hide that import."""
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    entry = next(run for run in RUNS if run["name"] == name)
+    source = FIXTURES / entry["root"]
+    edits = entry.get("plant", {}).get("edits")
+    with fixture_tree(source, edits, CACHE) if edits else nullcontext(source) as root:
+        assert "from app import b\n" in (root / "app/a.py").read_text()
+        _, envelope = run("report", "--root", str(root))
+    frame = envelope["frame"]
+    assert frame["rules"]["NO-MODULE-CYCLES"][1] == status
+    if status == "FAIL":
+        [cycle] = frame["explain"]["cycles"]["NO-MODULE-CYCLES"]["items"]
+        assert {(step["from"], step["to"]) for step in cycle["path"]} == {
+            ("app.a", "app.b"),
+            ("app.b", "app.a"),
+        }
+        for step in cycle["path"]:
+            sites = {
+                (frame["locations"][evidence]["path"], frame["locations"][evidence]["line"])
+                for evidence in step["evidence"]
+            }
+            expected = {
+                ("app.a", "app.b"): ("app/a.py", 5),
+                ("app.b", "app.a"): ("app/b.py", 5),
+            }
+            assert expected[step["from"], step["to"]] in sites
+    if status == "UNKNOWN":
+        hold = frame["explain"]["holds"]["rules"]["NO-MODULE-CYCLES"]
+        assert hold["kind"] == "scoped_gaps" and hold["pairs"] == []
+        [gap] = frame["collection_gaps"]
+        assert gap["subjects"] == ["app.b"]
+        assert gap["reason"] == "dynamic_import: __import__"
+        assert {
+            (frame["locations"][evidence]["path"], frame["locations"][evidence]["line"])
+            for evidence in gap["evidence"]
+        } == {("app/b.py", 2)}
+
+
+@pytest.mark.parametrize(
+    ("name", "rule", "target", "cause"),
+    [
+        (
+            "M-plant-interface",
+            "INTERFACE-BOUNDARY",
+            "orders.pricing.tax:Vat",
+            "import outside the public interface",
+        ),
+        (
+            "M-plant-requires",
+            "REQUIRES-COMPLETE",
+            "orders.storage",
+            "undeclared component dependency",
+        ),
+    ],
+)
+def test_review_demo_identifies_the_forbidden_import(
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    rule: str,
+    target: str,
+    cause: str,
+) -> None:
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    entry = next(run for run in RUNS if run["name"] == name)
+    with fixture_tree(FIXTURES / entry["root"], entry["plant"]["edits"], CACHE) as root:
+        _, envelope = run("report", "--root", str(root))
+    frame = envelope["frame"]
+    assert frame["rules"][rule][1] == "FAIL"
+    [detail] = frame["details"][rule]
+    assert (detail["source"], detail["target"], detail["cause"]) == ("orders.api", target, cause)
+    assert any(
+        frame["locations"][evidence]["path"] == "orders/api.py"
+        and frame["locations"][evidence]["line"] == 8
+        for evidence in detail["evidence"]
+    )
+
+
 def test_the_scope_line_counts_the_gaps_that_the_report_lists(
     release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
