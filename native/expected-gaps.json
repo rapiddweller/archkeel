@@ -56,7 +56,7 @@
     "NATIVE-NO-MODEL-TO-REPORT": "PASS",
     "NATIVE-NO-MODEL-TO-RUST": "PASS",
     "NATIVE-NO-MODEL-TO-TYPESCRIPT": "PASS",
-    "NATIVE-NO-MODULE-CYCLES": "FAIL",
+    "NATIVE-NO-MODULE-CYCLES": "UNKNOWN",
     "NATIVE-NO-PYTHON-TO-COLLECT": "PASS",
     "NATIVE-NO-PYTHON-TO-CORE": "PASS",
     "NATIVE-NO-PYTHON-TO-EVAL": "PASS",
@@ -96,6 +96,7 @@
   },
   "unknown": {
     "NATIVE-INTERFACE-BOUNDARY": "scope_incomplete",
+    "NATIVE-NO-MODULE-CYCLES": "scope_incomplete",
     "NATIVE-REQUIRES-COMPLETE": "scope_incomplete"
   },
   "gaps": [
@@ -77782,16 +77783,6 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.scan.receivers",
-      "A trait impl in native.archkeel_rust_collector.scan.receivers.bodies may run in code that reaches native.archkeel_rust_collector.scan.receivers.bodies without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.scan.receivers",
-      "A trait impl in native.archkeel_rust_collector.scan.receivers.params.bound may run in code that reaches native.archkeel_rust_collector.scan.receivers.params.bound without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.scan.receivers",
       "A trait impl in native.archkeel_rust_collector.scan.receivers.sites may run in code that reaches native.archkeel_rust_collector.scan.receivers.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -77862,11 +77853,6 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.scan.receivers.bodies",
-      "A trait impl in native.archkeel_rust_collector.scan.receivers.params.bound may run in code that reaches native.archkeel_rust_collector.scan.receivers.params.bound without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.scan.receivers.bodies",
       "A trait impl in native.archkeel_rust_collector.scan.state may run in code that reaches native.archkeel_rust_collector.scan.state without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -77943,6 +77929,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.scan.receivers.params",
       "A trait impl in native.archkeel_rust_collector.scan.receivers may run in code that reaches native.archkeel_rust_collector.scan.receivers without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.receivers.params",
+      "A trait impl in native.archkeel_rust_collector.scan.receivers.bodies may run in code that reaches native.archkeel_rust_collector.scan.receivers.bodies without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -94655,13 +94646,5 @@
       "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
     ]
   ],
-  "violations": [
-    {
-      "rule": "NATIVE-NO-MODULE-CYCLES",
-      "source": "native.archkeel_rust_collector.scan.receivers.bodies -> native.archkeel_rust_collector.scan.receivers.params",
-      "target": "native.archkeel_rust_collector.scan.receivers.bodies",
-      "cause": "dependency cycle",
-      "issue": 1899
-    }
-  ]
+  "violations": []
 }

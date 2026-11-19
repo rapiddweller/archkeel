@@ -17,6 +17,7 @@ use syn::visit::{self, Visit};
 use syn::{Expr, Item, Pat, Stmt};
 
 use super::chains::{chain_of, destructure, Names};
+use super::params::bound::Bound;
 use super::params::Params;
 use super::sites::ClosureSites;
 use crate::definitions::{ReceiverChain, Root};
@@ -71,15 +72,26 @@ fn let_sites(rest: &[Stmt], name: &str) -> ClosureSites {
     sites
 }
 
+/// Extend the bindings with those of the function body.
+pub(super) fn extend(block: &syn::Block, params: &mut Params, bound: &Bound) {
+    Bodies {
+        binder: params,
+        tainted: &bound.tainted,
+        counts: &bound.counts,
+        depth: 0,
+    }
+    .visit_block(block);
+}
+
 /// The walk over the body of a `fn`, without nested items.
-pub(super) struct Bodies<'a> {
-    pub(super) binder: &'a mut Params,
+struct Bodies<'a> {
+    binder: &'a mut Params,
     /// The names that a `use` or a macro call of the `fn` may bind.
-    pub(super) tainted: &'a BTreeSet<String>,
+    tainted: &'a BTreeSet<String>,
     /// How many times the `fn` binds each name.
-    pub(super) counts: &'a BTreeMap<String, usize>,
+    counts: &'a BTreeMap<String, usize>,
     /// The depth of the blocks of the walk: 0 outside the body of the `fn`.
-    pub(super) depth: usize,
+    depth: usize,
 }
 
 impl Bodies<'_> {

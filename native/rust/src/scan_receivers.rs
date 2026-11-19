@@ -18,6 +18,7 @@ use syn::{
 
 use crate::definitions::{OnSelf, ReceiverChain, Root, SelfKind, Written};
 use crate::tokens::{plain, LINTS};
+use params::bound::Bound;
 pub(in crate::scan) use params::item_name;
 pub(in crate::scan) use params::typed as written_type;
 use params::{plain_path, Params};
@@ -209,6 +210,19 @@ mod sites;
 #[path = "scan_bodies.rs"]
 mod bodies;
 
+fn read_bindings(
+    (sig, block): (&Signature, &syn::Block),
+    scope: (&[String], &[String]),
+    (this, self_type): (Option<ReceiverChain>, Option<Vec<String>>),
+) -> Params {
+    let Some(bound) = Bound::read(sig, block, inert) else {
+        return Params::bare(this);
+    };
+    let mut params = params::read((sig, block), scope, &bound, (this, self_type));
+    bodies::extend(block, &mut params, &bound);
+    params
+}
+
 /// The stack of frames of the walk, and the depth of the inline modules that a `cfg` or another
 /// attribute may remove.
 #[derive(Debug, Default)]
@@ -256,7 +270,7 @@ impl Selves {
         let proved = inert(&item.attrs) && !self.gated() && blocks == 0;
         let found = proved.then(|| {
             let bodies = (&item.sig, &*item.block);
-            params::read(bodies, (&[], scope), inert, (None, None))
+            read_bindings(bodies, (&[], scope), (None, None))
         });
         self.frames.push(Frame::Opaque(found.unwrap_or_default()));
     }
@@ -287,12 +301,7 @@ impl Selves {
         });
         let this = on_self.as_ref().and_then(this_chain);
         let found = match proved {
-            true => params::read(
-                (sig, &item.block),
-                (&outer, scope),
-                inert,
-                (this, self_type),
-            ),
+            true => read_bindings((sig, &item.block), (&outer, scope), (this, self_type)),
             false => Params::bare(this),
         };
         self.frames.push(Frame::Method(on_self, kept, found));

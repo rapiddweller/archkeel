@@ -8750,6 +8750,14 @@
     {
       "entry": [
         "rule",
+        "NATIVE-NO-MODULE-CYCLES",
+        "UNKNOWN"
+      ],
+      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
+    },
+    {
+      "entry": [
+        "rule",
         "NATIVE-REQUIRES-COMPLETE",
         "UNKNOWN"
       ],
@@ -8759,6 +8767,14 @@
       "entry": [
         "unknown",
         "NATIVE-INTERFACE-BOUNDARY",
+        "scope_incomplete"
+      ],
+      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
+    },
+    {
+      "entry": [
+        "unknown",
+        "NATIVE-NO-MODULE-CYCLES",
         "scope_incomplete"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
@@ -132247,24 +132263,6 @@
         "gap",
         "collection_gap",
         "native.archkeel_rust_collector.scan.receivers",
-        "A trait impl in native.archkeel_rust_collector.scan.receivers.bodies may run in code that reaches native.archkeel_rust_collector.scan.receivers.bodies without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-      ],
-      "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_rust_collector.scan.receivers",
-        "A trait impl in native.archkeel_rust_collector.scan.receivers.params.bound may run in code that reaches native.archkeel_rust_collector.scan.receivers.params.bound without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-      ],
-      "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_rust_collector.scan.receivers",
         "A trait impl in native.archkeel_rust_collector.scan.receivers.sites may run in code that reaches native.archkeel_rust_collector.scan.receivers.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -132365,15 +132363,6 @@
         "collection_gap",
         "native.archkeel_rust_collector.scan.receivers.bodies",
         "A trait impl in native.archkeel_rust_collector.scan.receivers may run in code that reaches native.archkeel_rust_collector.scan.receivers without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-      ],
-      "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_rust_collector.scan.receivers.bodies",
-        "A trait impl in native.archkeel_rust_collector.scan.receivers.params.bound may run in code that reaches native.archkeel_rust_collector.scan.receivers.params.bound without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -170233,21 +170222,12 @@
     },
     {
       "entry": [
-        "violation",
-        "NATIVE-NO-MODULE-CYCLES",
-        "native.archkeel_rust_collector.scan.receivers.bodies -> native.archkeel_rust_collector.scan.receivers.params",
-        "native.archkeel_rust_collector.scan.receivers.bodies",
-        "dependency cycle"
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.scan.receivers.params",
+        "A trait impl in native.archkeel_rust_collector.scan.receivers.bodies may run in code that reaches native.archkeel_rust_collector.scan.receivers.bodies without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
-      "reason": "AD-941: The body walker already calls the sole Params implementation. The scan now cites both observed module edges. Track removal in #1899."
-    },
-    {
-      "entry": [
-        "rule",
-        "NATIVE-NO-MODULE-CYCLES",
-        "FAIL"
-      ],
-      "reason": "AD-941: The body walker already calls the sole Params implementation. The scan now cites both observed module edges. Track removal in #1899."
+      "reason": "AD-941: The observed params-to-bodies call is gone. Keep the possible return edge for the body visitor until the collector can prove it unreachable."
     }
   ]
 }
