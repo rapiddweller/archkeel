@@ -70,12 +70,12 @@ fn classifier<'t>(
     source: &Source<'_>,
     work: &Work<'t>,
 ) -> Result<Definition, Gap> {
-    let name_node =
-        named(node, "name").or_else(|| first_named_of(node, &["identifier", "type_identifier"]));
+    let head = named(node, "mixin_application_class").unwrap_or(node);
+    let name_node = classifier_name(head);
     let name = name_node.map(|item| source.text(item)).unwrap_or_default();
     let kind = classifier_kind(node);
     let mut definition = Definition::new(name, kind, source.span(node));
-    relations(node, source, &mut definition);
+    relations(head, source, &mut definition);
     let body = named(node, "body").or_else(|| first_named_of(node, &["class_body", "enum_body"]));
     if let Some(body) = body {
         if node.kind() == "enum_declaration" {
@@ -96,6 +96,17 @@ fn classifier<'t>(
         .map(|(modifier, _)| modifier)
         .collect();
     Ok(definition)
+}
+
+/// A legacy typedef puts its return type before the name, and its parameters in child nodes.
+fn classifier_name(node: Node<'_>) -> Option<Node<'_>> {
+    if node.kind() == "type_alias" && named(node, "formal_parameter_list").is_some() {
+        return named_children(node)
+            .into_iter()
+            .rev()
+            .find(|child| child.kind() == "type_identifier");
+    }
+    named(node, "name").or_else(|| first_named_of(node, &["identifier", "type_identifier"]))
 }
 
 /// The enum literals of `_classifier_members`: the name and the span of each constant.
@@ -133,7 +144,8 @@ fn classifier_kind(node: Node<'_>) -> DefinitionKind {
 /// `_classifier_relations`: extends (one at most), with, implements and the type parameters. An
 /// extension writes its `on` type as its one `extends` entry (AD-796).
 fn relations(node: Node<'_>, source: &Source<'_>, definition: &mut Definition) {
-    let superclass = named(node, "superclass");
+    let application = named(node, "mixin_application");
+    let superclass = named(node, "superclass").or(application);
     definition.extends = type_children(superclass, source);
     definition.extends.truncate(1);
     if node.kind() == "extension_declaration" {
@@ -141,7 +153,8 @@ fn relations(node: Node<'_>, source: &Source<'_>, definition: &mut Definition) {
     }
     let mixins = named_in(superclass, "mixins").or_else(|| named(node, "mixins"));
     definition.with_types = type_children(mixins, source);
-    definition.implements = type_children(named(node, "interfaces"), source);
+    let interfaces = named_in(application, "interfaces").or_else(|| named(node, "interfaces"));
+    definition.implements = type_children(interfaces, source);
     definition.type_parameters = named_all(named(node, "type_parameters"), "type_parameter")
         .into_iter()
         .filter_map(|child| named_children(child).first().map(|item| source.text(*item)))

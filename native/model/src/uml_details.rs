@@ -81,36 +81,50 @@ pub(crate) fn details(wanted: &Entity, actual: &symbols::Entity) -> Vec<Assessed
             Assessed::Unknown("modifiers are not proven".to_owned())
         });
     }
-    let syntax = [
-        (
-            "annotation",
-            wanted.annotation(),
-            actual.annotation.as_ref(),
-        ),
-        (
-            "initializer",
-            wanted.initializer(),
-            actual.initializer.as_ref(),
-        ),
-    ];
-    for (label, expected, recorded) in syntax {
-        let Some(expected) = expected else {
-            continue;
-        };
-        result.push(match recorded {
-            None => Assessed::Unknown(format!("{label} is not recorded")),
+    if let Some(expected) = wanted.annotation() {
+        result.push(annotation(expected, actual, fail));
+    }
+    if let Some(expected) = wanted.initializer() {
+        result.push(match actual.initializer.as_ref() {
+            None => Assessed::Unknown("initializer is not recorded".to_owned()),
             Some(recorded) if recorded == expected => Assessed::Pass,
             Some(recorded) => fail(
-                if label == "annotation" {
-                    "annotation differs"
-                } else {
-                    "initializer syntax differs"
-                },
-                format!("{} {label} {recorded}", actual.name),
+                "initializer syntax differs",
+                format!("{} initializer {recorded}", actual.name),
             ),
         });
     }
     result
+}
+
+/// Compare the written annotation first. Without one, require both builtin identities.
+fn annotation(
+    expected: &str,
+    actual: &symbols::Entity,
+    fail: impl Fn(&'static str, String) -> Assessed,
+) -> Assessed {
+    if let Some(recorded) = actual.annotation.as_ref() {
+        return if recorded == expected {
+            Assessed::Pass
+        } else {
+            fail(
+                "annotation differs",
+                format!("{} annotation {recorded}", actual.name),
+            )
+        };
+    }
+    match actual
+        .inferred_builtin_type
+        .as_ref()
+        .and_then(|(inferred, names)| names.get(expected).map(|target| (inferred, target)))
+    {
+        Some((inferred, target)) if inferred == target => Assessed::Pass,
+        Some((inferred, _)) => fail(
+            "inferred type differs",
+            format!("{} inferred type {inferred}", actual.name),
+        ),
+        None => Assessed::Unknown("annotation is not recorded".to_owned()),
+    }
 }
 
 /// `_signature`: `Ok(true)` when it matches, `Ok(false)` when it is not decided, else the cause

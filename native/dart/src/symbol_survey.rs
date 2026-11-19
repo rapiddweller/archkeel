@@ -10,7 +10,7 @@
 //! A class inventory is complete only when no form can add a member that the class body does
 //! not show (AD-796): a mixin application, an unread part or an extension makes it partial.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::envelope::{Evidence, Input as Digest};
 use archkeel_facts::ids::ModuleName;
@@ -24,7 +24,10 @@ use crate::discover::{scan_roots, Discovery};
 use crate::import_survey::index::{Index, Kind, Owners};
 use crate::parse::DartParser;
 use crate::resolve::{class_like, Resolver};
-use crate::syntax::{DefinitionKind, MemberKind, Syntax};
+use crate::syntax::{DefinitionKind, DirectiveKind, MemberKind, Syntax};
+
+const CORE_STRING: (&str, &str) = ("String", "dart.core.String");
+const CORE_INT: (&str, &str) = ("int", "dart.core.int");
 
 /// The symbol, call and reference records of a survey and the evidence that they cite.
 #[derive(Debug, Default)]
@@ -102,7 +105,66 @@ pub(crate) fn collect(
     };
     let mut output = crate::collection::build(&input);
     bound_inventories(&mut output, &resolver);
-    typed(output)
+    let mut collected = typed(output)?;
+    infer_field_types(&resolver, &mut collected.symbols);
+    Ok(collected)
+}
+
+/// A literal proves a field type only where a target name can also bind to `dart:core`.
+fn infer_field_types(resolver: &Resolver<'_>, symbols: &mut [Record<SymbolFact>]) {
+    for record in symbols {
+        let SymbolFact::Class(data) = &mut record.data else {
+            continue;
+        };
+        let module = ModuleName::as_str(&data.module);
+        let resolved = resolver.local(module, &data.name);
+        let [owner] = resolved.as_slice() else {
+            continue;
+        };
+        let Some(syntax) = &resolver.syntax[owner.at] else {
+            continue;
+        };
+        let decl = owner.definition;
+        if !syntax.complete
+            || syntax
+                .definitions
+                .iter()
+                .any(|item| String::is_empty(&item.name))
+            || syntax
+                .directives
+                .iter()
+                .any(|item| item.kind != DirectiveKind::Library)
+            || decl.kind != DefinitionKind::Class
+            || !Vec::is_empty(&decl.type_parameters)
+            || !Vec::is_empty(&decl.extends)
+            || !Vec::is_empty(&decl.with_types)
+            || !Vec::is_empty(&decl.implements)
+        {
+            continue;
+        }
+        let mut fields = BTreeMap::new();
+        for member in &decl.members {
+            fields
+                .entry(String::as_str(&member.name))
+                .and_modify(|proof| *proof = false)
+                .or_insert(member.plain_static_string && member.annotation.is_none());
+        }
+        let visible =
+            |name: &str| Vec::is_empty(&resolver.local(module, name)) && !fields.contains_key(name);
+        if !visible(CORE_STRING.0) {
+            continue;
+        }
+        let names: BTreeMap<_, _> = [CORE_STRING, CORE_INT]
+            .into_iter()
+            .filter(|(name, _)| visible(name))
+            .map(|(name, identity)| (name.to_owned(), identity.to_owned()))
+            .collect();
+        for attr in &mut data.attribute_declarations {
+            if attr.annotation.is_none() && fields.get(String::as_str(&attr.name)) == Some(&true) {
+                attr.inferred_builtin_type = Some((CORE_STRING.1.to_owned(), names.clone()));
+            }
+        }
+    }
 }
 
 /// Make partial each class inventory that a form outside the class body can extend.

@@ -1556,6 +1556,7 @@
     "field nested::AttributeDeclaration.decorators: Option<Vec<String>>",
     "field nested::AttributeDeclaration.definition_id: FactId",
     "field nested::AttributeDeclaration.evidence_ids: Vec<EvidenceId>",
+    "field nested::AttributeDeclaration.inferred_builtin_type: Option<(String,BTreeMap<String,String>)>",
     "field nested::AttributeDeclaration.is_static: Option<bool>",
     "field nested::AttributeDeclaration.literal_value: Option<String>",
     "field nested::AttributeDeclaration.name: String",

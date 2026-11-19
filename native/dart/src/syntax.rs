@@ -202,6 +202,8 @@ value! {
         parameters: Vec<Parameter>,
         initializer: Option<String>,
         literal: Option<String>,
+        #[serde(skip)]
+        plain_static_string: bool,
         constructor_initializers: Vec<String>,
         redirect: Option<String>,
         factory: bool,
@@ -226,6 +228,7 @@ impl Member {
             parameters: Vec::new(),
             initializer: None,
             literal: None,
+            plain_static_string: false,
             constructor_initializers: Vec::new(),
             redirect: None,
             factory: false,
