@@ -12,7 +12,7 @@
 //! of the import; one that only other bindings bind is another value; one that both bind may be
 //! either. A comprehension binds its targets.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Comprehension, ExceptHandler, Expr, Parameters, Pattern, Stmt};
@@ -29,8 +29,9 @@ pub(super) enum Kind {
 #[derive(Debug)]
 pub(super) struct Scope {
     kind: Kind,
-    imported: HashSet<String>,
+    imported: HashMap<String, Vec<String>>,
     other: HashSet<String>,
+    aliases: HashMap<String, Vec<String>>,
     global: HashSet<String>,
     nonlocal: HashSet<String>,
 }
@@ -61,12 +62,13 @@ impl Scope {
         binds.scope(kind)
     }
 
-    /// The scope of a lambda: its parameters.
-    pub(super) fn lambda(parameters: Option<&Parameters>) -> Self {
+    /// The scope of a lambda: its parameters and its assignment expressions.
+    pub(super) fn lambda(parameters: Option<&Parameters>, body: &Expr) -> Self {
         let mut binds = Binds::default();
         binds
             .other
             .extend(parameters.into_iter().flat_map(parameter_names));
+        binds.visit_expr(body);
         binds.scope(Kind::Function)
     }
 
@@ -80,7 +82,7 @@ impl Scope {
     }
 
     fn decide(&self, name: &str) -> Resolved {
-        match (self.imported.contains(name), self.other.contains(name)) {
+        match (self.imported.contains_key(name), self.other.contains(name)) {
             (true, false) => Resolved::Imported,
             (false, true) if self.kind == Kind::Class => Resolved::Either,
             (false, true) => Resolved::Value,
@@ -89,30 +91,97 @@ impl Scope {
     }
 
     fn binds(&self, name: &str) -> bool {
-        self.imported.contains(name) || self.other.contains(name)
+        self.imported.contains_key(name) || self.other.contains(name)
+    }
+}
+
+/// Visit a definition's header in the current scope and return its body scope.
+pub(super) fn definition<'a>(
+    walk: &mut impl Visitor<'a>,
+    stmt: &'a Stmt,
+) -> Option<(Scope, &'a [Stmt])> {
+    match stmt {
+        Stmt::FunctionDef(node) => {
+            for decorator in &node.decorator_list {
+                walk.visit_decorator(decorator);
+            }
+            walk.visit_parameters(&node.parameters);
+            if let Some(returns) = &node.returns {
+                walk.visit_annotation(returns);
+            }
+            let scope = Scope::of(Kind::Function, &node.body, Some(&node.parameters));
+            Some((scope, &node.body))
+        }
+        Stmt::ClassDef(node) => {
+            for decorator in &node.decorator_list {
+                walk.visit_decorator(decorator);
+            }
+            if let Some(arguments) = &node.arguments {
+                walk.visit_arguments(arguments);
+            }
+            let scope = Scope::of(Kind::Class, &node.body, None);
+            Some((scope, &node.body))
+        }
+        _ => None,
     }
 }
 
 /// What `name` reads in the innermost scope of `stack`; `stack[0]` is the module.
 pub(super) fn resolve(stack: &[Scope], name: &str) -> Resolved {
+    owner(stack, name).map_or(Resolved::Unbound, |at| stack[at].decide(name))
+}
+
+/// An import origin in the name's own scope, also through one assignment alias.
+pub(super) fn may_read_import(stack: &[Scope], name: &str, origin: &str) -> bool {
+    let Some(at) = owner(stack, name) else {
+        return false;
+    };
+    let scope = &stack[at];
+    scope.imports(name, origin)
+        || alias_reads_import(stack, at, name, origin)
+        // Class bodies can read the module binding before their own store.
+        || (scope.kind == Kind::Class
+            && stack.first().is_some_and(|module| module.imports(name, origin)))
+}
+
+fn alias_reads_import(stack: &[Scope], at: usize, name: &str, origin: &str) -> bool {
+    let defining_scopes = &stack[..=at];
+    stack[at]
+        .aliases
+        .get(name)
+        .into_iter()
+        .flatten()
+        .any(|source| {
+            owner(defining_scopes, source)
+                .is_some_and(|alias_at| defining_scopes[alias_at].imports(source, origin))
+        })
+}
+
+impl Scope {
+    fn imports(&self, name: &str, origin: &str) -> bool {
+        self.imported
+            .get(name)
+            .is_some_and(|origins| origins.iter().any(|found| found == origin))
+    }
+}
+
+fn owner(stack: &[Scope], name: &str) -> Option<usize> {
     let innermost = stack.len().saturating_sub(1);
     for (at, scope) in stack.iter().enumerate().rev() {
         if scope.kind == Kind::Class && at != innermost {
             continue;
         }
-        if scope.kind == Kind::Function && scope.global.contains(name) {
-            return stack
-                .first()
-                .map_or(Resolved::Unbound, |module| module.decide(name));
+        if scope.global.contains(name) {
+            return Some(0);
         }
-        if scope.kind == Kind::Function && scope.nonlocal.contains(name) {
+        if scope.nonlocal.contains(name) {
             continue;
         }
         if scope.binds(name) {
-            return scope.decide(name);
+            return Some(at);
         }
     }
-    Resolved::Unbound
+    None
 }
 
 fn parameter_names(parameters: &Parameters) -> impl Iterator<Item = String> + '_ {
@@ -129,8 +198,9 @@ fn parameter_names(parameters: &Parameters) -> impl Iterator<Item = String> + '_
 /// The names that the statements of one scope bind; a nested scope is not read.
 #[derive(Default)]
 struct Binds {
-    imported: HashSet<String>,
+    imported: HashMap<String, Vec<String>>,
     other: HashSet<String>,
+    aliases: HashMap<String, Vec<String>>,
     global: HashSet<String>,
     nonlocal: HashSet<String>,
 }
@@ -141,8 +211,18 @@ impl Binds {
             kind,
             imported: self.imported,
             other: self.other,
+            aliases: self.aliases,
             global: self.global,
             nonlocal: self.nonlocal,
+        }
+    }
+
+    fn alias(&mut self, target: &Expr, value: &Expr) {
+        if let (Expr::Name(target), Expr::Name(value)) = (target, value) {
+            self.aliases
+                .entry(target.id.to_string())
+                .or_default()
+                .push(value.id.to_string());
         }
     }
 }
@@ -154,18 +234,39 @@ impl<'a> Visitor<'a> for Binds {
             Stmt::ClassDef(node) => drop(self.other.insert(node.name.to_string())),
             Stmt::Import(node) => {
                 for alias in &node.names {
-                    let name = alias.asname.as_ref().map_or_else(
-                        || alias.name.split('.').next().unwrap_or_default().to_owned(),
-                        ToString::to_string,
-                    );
-                    self.imported.insert(name);
+                    let full = alias.name.as_str();
+                    let first = full.split('.').next().unwrap_or(full);
+                    let (name, origin) = alias
+                        .asname
+                        .as_ref()
+                        .map_or((first, first), |name| (name.as_str(), full));
+                    self.imported
+                        .entry(name.to_owned())
+                        .or_default()
+                        .push(origin.to_owned());
                 }
             }
             Stmt::ImportFrom(node) => {
+                let module = node.module.as_ref().filter(|_| node.level == 0);
                 for alias in &node.names {
                     let name = alias.asname.as_ref().unwrap_or(&alias.name);
-                    self.imported.insert(name.to_string());
+                    let origins = self.imported.entry(name.to_string()).or_default();
+                    origins.extend(
+                        module.map(|module| format!("{}.{}", module.as_str(), alias.name.as_str())),
+                    );
                 }
+            }
+            Stmt::Assign(node) => {
+                for target in &node.targets {
+                    self.alias(target, &node.value);
+                }
+                visitor::walk_stmt(self, stmt);
+            }
+            Stmt::AnnAssign(node) => {
+                if let Some(value) = &node.value {
+                    self.alias(&node.target, value);
+                }
+                visitor::walk_stmt(self, stmt);
             }
             Stmt::Global(node) => self
                 .global
@@ -181,6 +282,10 @@ impl<'a> Visitor<'a> for Binds {
     fn visit_expr(&mut self, expr: &'a Expr) {
         match expr {
             Expr::Name(node) if !node.ctx.is_load() => drop(self.other.insert(node.id.to_string())),
+            Expr::Named(node) => {
+                self.alias(&node.target, &node.value);
+                visitor::walk_expr(self, expr);
+            }
             // A lambda is a scope of its own.
             Expr::Lambda(_) => {}
             // A comprehension binds its targets; a walrus in it binds in this scope.

@@ -56,6 +56,7 @@ pub(crate) struct Binders {
     /// the survey cannot read (AD-504).
     pub all_unread: bool,
     pub logic_free: bool,
+    pub imports_importlib: bool,
 }
 
 impl Binders {
@@ -88,6 +89,7 @@ impl Binders {
             all_literal,
             all_unread: !all_literal && (walk.all_imported || walk.all_names > 0),
             logic_free: logic_free(&tree.body),
+            imports_importlib: walk.imports_importlib,
         }
     }
 
@@ -175,6 +177,7 @@ struct Walk {
     all_names: usize,
     /// An import names `__all__` as its name or its alias.
     all_imported: bool,
+    imports_importlib: bool,
 }
 
 impl Walk {
@@ -203,6 +206,10 @@ impl<'a> Visitor<'a> for Walk {
             }
             Stmt::TypeAlias(node) => self.type_params(node.type_params.as_deref()),
             Stmt::Import(node) => {
+                self.imports_importlib |= node
+                    .names
+                    .iter()
+                    .any(|alias| first_part(alias.name.as_str()) == "importlib");
                 self.typing_module_imports(&node.names);
                 self.imports(&node.names, stmt);
             }

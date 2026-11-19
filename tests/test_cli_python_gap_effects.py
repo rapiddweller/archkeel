@@ -83,6 +83,27 @@ def files_pass(**more: str) -> dict[str, str]:
     return {**dict.fromkeys(ON_FILES, "PASS"), **more}
 
 
+def test_a_shadowed_loader_write_keeps_the_forbidden_literal_edge(
+    release_core: Path, tmp_path: Path
+) -> None:
+    path = "src/app/client/page.py"
+    files = {
+        **FILES,
+        path: "import importlib\nimportlib.import_module('app.service.secret')\n",
+        "src/app/service/patch.py": (
+            "import importlib as loader\n"
+            "def replace(loader, other):\n"
+            "    loader.import_module = other\n"
+        ),
+    }
+    result = verdict(release_core, project(tmp_path, files, contract_rules=RULES))
+    rule = "CLIENT-NO-SECRET"
+    assert rows(result)[rule] == "FAIL", result
+    frame = result["frame"]
+    sites = [frame["locations"][e] for d in frame["details"][rule] for e in d["evidence"]]
+    assert {"path": path, "line": 2} in sites, frame
+
+
 PLANTS = {
     "clean": Plant({}, dict.fromkeys([rule["id"] for rule in RULES], "PASS")),
     # A star import imports each submodule that `__all__` names. The code of the client module is
