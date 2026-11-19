@@ -234,7 +234,7 @@ fn sites_of(text: &str) -> (Vec<archkeel_facts::Record<archkeel_facts::CallFact>
     let mut evidence = EvidenceMap::new();
     let found = records(&module, &binders, escapes, None, &mut evidence);
     let none = std::collections::HashSet::new();
-    let context = Context::collect(std::slice::from_ref(&found), &[], (&none, &none));
+    let context = Context::collect(std::slice::from_ref(&found), (&[], &[]), (&none, &none));
     let sites = site_records((&module, &binders), &found, &context, &mut evidence);
     (sites.calls, sites.references.len())
 }

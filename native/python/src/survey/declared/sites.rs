@@ -12,7 +12,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::data::{CallData, ReferenceData};
+use archkeel_facts::data::{CallData, ImportData, ReferenceData};
 use archkeel_facts::envelope::DirectCall;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::{
@@ -64,7 +64,7 @@ impl Context {
     /// (`sole` and `ambiguous` are the sets of the survey).
     pub(crate) fn collect(
         found: &[Found<'_>],
-        records: &[Record<ImportFact>],
+        (records, written): (&[Record<ImportFact>], &[Record<ImportFact>]),
         (sole, ambiguous): (&HashSet<String>, &HashSet<String>),
     ) -> Self {
         let mut symbols = HashMap::new();
@@ -87,7 +87,8 @@ impl Context {
             }
         }
         let mut imports = HashMap::<String, HashMap<String, _>>::new();
-        for record in records {
+        // AD-654 keeps import order when it substitutes the provider in the view.
+        for (record, original) in records.iter().zip(written) {
             let data = record.data.data();
             let id = record.id.as_str();
             let (Some(symbol), Some(binding)) = (&data.symbol, &data.binding) else {
@@ -103,11 +104,7 @@ impl Context {
                     binding.clone(),
                     (
                         format!("{}.{symbol}", data.target_module.as_str()),
-                        (matches!(&record.data, ImportFact::Import(_))
-                            && data.module_level_import
-                            && data.symbols_known
-                            && data.source_binding_unique == Some(true))
-                        .then(|| record.id.clone()),
+                        direct_import(original, data),
                     ),
                 );
         }
@@ -131,6 +128,18 @@ impl Context {
         let (target, _) = self.imports.get(module)?.get(name)?;
         Some((target.clone(), self.symbols.get(target)?))
     }
+}
+
+fn direct_import(original: &Record<ImportFact>, view: &ImportData) -> Option<FactId> {
+    let ImportFact::Import(data) = &original.data else {
+        return None;
+    };
+    (data.module_level_import
+        && data.symbols_known
+        && data.source_binding_unique == Some(true)
+        && data.target_module == view.target_module
+        && data.symbol == view.symbol)
+        .then(|| original.id.clone())
 }
 
 pub(crate) struct Sites {

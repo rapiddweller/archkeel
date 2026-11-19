@@ -239,7 +239,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     let viewed = lazy_cover::viewed(&imports, &sources);
     let symbols = declarations(
         (modules, &binders),
-        &viewed,
+        (&viewed, &imports),
         (&sole_binders, &ambiguous),
         (&writes, lazy_314),
         &mut evidence,
@@ -391,7 +391,7 @@ struct Symbols {
 /// it is absent for the model.
 fn declarations(
     (modules, binders): (&[Module], &[Binders]),
-    imports: &[Record<ImportFact>],
+    (imports, written): (&[Record<ImportFact>], &[Record<ImportFact>]),
     sets: (&HashSet<String>, &HashSet<String>),
     (writes, lazy_314): (&class_writes::ClassWrites, bool),
     evidence: &mut EvidenceMap,
@@ -411,7 +411,7 @@ fn declarations(
             found.push(item);
         }
     }
-    let context = declared::Context::collect(&found, imports, sets);
+    let context = declared::Context::collect(&found, (imports, written), sets);
     let lazy = lazy_314.then_some(writes);
     declared::attach_shapes(&mut found, (modules, binders), imports, sets, lazy);
     let forms = (lazy, writes);

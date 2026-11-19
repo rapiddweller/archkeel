@@ -255,7 +255,7 @@ pub fn call_owner_violations<'m>(
         .iter()
         .filter(|(_, module, caller, callee, _)| {
             model.selects(module)
-                && in_scope(caller, scope)
+                && in_scope(module, scope)
                 && callee == target
                 && !call_allowed(rule, module, caller)
         })

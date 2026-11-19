@@ -13,12 +13,11 @@ use archkeel_facts::nullable::Nullable;
 use archkeel_facts::vocab::Status;
 use archkeel_facts::{CallFact, FactData, ImportFact, Record, SymbolFact};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::Expr;
+use ruff_python_ast::{Decorator, Expr};
 
 use super::binders::Binders;
 use crate::module::Module;
 
-/// Bindings that the survey proves once, and symbols with records.
 #[derive(Default)]
 pub(super) struct Context {
     imports: HashMap<String, HashMap<String, (String, bool, bool)>>,
@@ -124,6 +123,13 @@ struct Calls<'a> {
 }
 
 impl<'a> Visitor<'a> for Calls<'_> {
+    fn visit_decorator(&mut self, decorator: &'a Decorator) {
+        // Evaluating the expression and applying its result are separate calls.
+        self.row.calls_total += 1;
+        self.unresolved(&decorator.expression);
+        visitor::walk_decorator(self, decorator);
+    }
+
     fn visit_expr(&mut self, expr: &'a Expr) {
         if let Expr::Call(call) = expr {
             self.row.calls_total += 1;
@@ -351,8 +357,19 @@ fn builtin(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::count;
+    use super::{count, FileMeasures};
     use crate::survey::binders::Binders;
+    use crate::survey::Survey;
+
+    fn measured<'a>(survey: &'a Survey, module: &str) -> &'a FileMeasures {
+        survey
+            .coverage
+            .measures
+            .iter()
+            .flatten()
+            .find(|row| row.module.as_str() == module)
+            .unwrap()
+    }
 
     #[test]
     fn counts_nested_decorated_and_dynamic_calls() {
@@ -362,11 +379,11 @@ mod tests {
         );
         let binders = Binders::of(&module.tree);
         let row = count(&module, &binders, &[], &super::Context::default());
-        assert_eq!(row.calls_total, 7);
-        assert_eq!(row.calls_unresolved, 7);
+        assert_eq!(row.calls_total, 8);
+        assert_eq!(row.calls_unresolved, 8);
         assert_eq!(row.unresolved_self, 1);
         assert_eq!(row.unresolved_attribute, 1);
-        assert_eq!(row.unresolved_dynamic, 1);
+        assert_eq!(row.unresolved_dynamic, 2);
     }
 
     #[test]
@@ -389,11 +406,7 @@ mod tests {
         reverse.reverse();
         let second = crate::survey::targets::tests::surveyed(&reverse);
         assert_eq!(first.coverage.measures, second.coverage.measures);
-        let rows = first.coverage.measures.unwrap();
-        let row = rows
-            .iter()
-            .find(|row| row.module.as_str() == "app.two")
-            .unwrap();
+        let row = measured(&first, "app.two");
         assert_eq!(
             (
                 row.calls_total,
@@ -436,11 +449,7 @@ mod tests {
                 "import app.one as mod\nfrom app.one import make\nimport json\ndef f(value):\n    make()\n    mod.make()\n    json.dumps({})\n    len(value)\n    value.method()\n    self.method()\n    value[0]()\n    factory()()\n",
             ),
         ]);
-        let rows = found.coverage.measures.unwrap();
-        let row = rows
-            .iter()
-            .find(|row| row.module.as_str() == "app.two")
-            .unwrap();
+        let row = measured(&found, "app.two");
         assert_eq!(
             (
                 row.calls_total,
@@ -471,11 +480,7 @@ mod tests {
                 "class C:\n    def __new__(cls):\n        pass\ndef f():\n    return C()\n",
             ),
         ]);
-        let rows = found.coverage.measures.unwrap();
-        let row = rows
-            .iter()
-            .find(|row| row.module.as_str() == "app.one")
-            .unwrap();
+        let row = measured(&found, "app.one");
         assert_eq!((row.calls_total, row.calls_partial), (1, 1));
     }
 
@@ -489,11 +494,7 @@ mod tests {
                 "from app.one import make\nimport app.one as mod\ndef f():\n    if False:\n        make()\n        mod.make()\n        len([])\n",
             ),
         ]);
-        let rows = found.coverage.measures.unwrap();
-        let row = rows
-            .iter()
-            .find(|row| row.module.as_str() == "app.two")
-            .unwrap();
+        let row = measured(&found, "app.two");
         assert_eq!((row.calls_resolved, row.calls_unresolved), (0, 3));
     }
 }
