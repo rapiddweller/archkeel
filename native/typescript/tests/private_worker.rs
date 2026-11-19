@@ -37,7 +37,7 @@ fn private_worker_preserves_the_typed_reply_of_the_reference_project() {
             bundler: false,
         },
     };
-    assert_worker_matches(&request, false);
+    assert_worker_matches(&request, false).unwrap();
 }
 
 #[test]
@@ -64,16 +64,18 @@ fn private_worker_preserves_excluded_test_sources() {
             bundler: false,
         },
     };
-    assert_worker_matches(&request, true);
+    assert_worker_matches(&request, true).unwrap();
 }
 
-fn assert_worker_matches(request: &TypeScriptRequest, excluded: bool) {
+fn assert_worker_matches(
+    request: &TypeScriptRequest,
+    excluded: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let expected = archkeel_typescript_collector::typed_reply(
         request,
         archkeel_typescript_collector::provenance(),
         Version::V9,
-    )
-    .unwrap();
+    )?;
     assert!(expected.facts.profile_limits.is_some());
     assert!(expected.facts.scope_premise.is_some());
     assert!(!expected.facts.sections.is_empty());
@@ -86,9 +88,8 @@ fn assert_worker_matches(request: &TypeScriptRequest, excluded: bool) {
         .arg(RUST_WORKER_V1)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let stdin = worker.stdin.as_mut().unwrap();
+        .spawn()?;
+    let stdin = worker.stdin.as_mut().ok_or("worker stdin is unavailable")?;
     serde_json::to_writer(
         &mut *stdin,
         &serde_json::json!({
@@ -100,13 +101,11 @@ fn assert_worker_matches(request: &TypeScriptRequest, excluded: bool) {
                 "tsconfig": request.resolver.tsconfig,
             },
         }),
-    )
-    .unwrap();
-    stdin.write_all(b"\n").unwrap();
-    stdin.flush().unwrap();
-    let actual = read_rust_v1(worker.stdout.take().unwrap())
-        .unwrap()
-        .unwrap();
-    assert!(worker.wait().unwrap().success());
+    )?;
+    stdin.write_all(b"\n")?;
+    stdin.flush()?;
+    let actual = read_rust_v1(worker.stdout.take().ok_or("worker stdout is unavailable")?)??;
+    assert!(worker.wait()?.success());
     assert_eq!(actual, expected);
+    Ok(())
 }
