@@ -127,6 +127,10 @@ fn infer_field_types(resolver: &Resolver<'_>, symbols: &mut [Record<SymbolFact>]
         let decl = owner.definition;
         if !syntax.complete
             || syntax
+                .definitions
+                .iter()
+                .any(|item| String::is_empty(&item.name))
+            || syntax
                 .directives
                 .iter()
                 .any(|item| item.kind != DirectiveKind::Library)

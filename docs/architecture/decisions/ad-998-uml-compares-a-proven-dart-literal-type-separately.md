@@ -15,6 +15,8 @@ identity of the target name. A target name with no proven binding stays UNKNOWN.
 must have no imports, exports or parts. The class must have no type parameters or explicit bases.
 A declaration that hides a builtin name blocks its use. Interpolation and other expressions
 stay UNKNOWN. The in-process receipt does not change the published wire schema.
+The parser reads the binding name of a legacy typedef and a named mixin application.
+If a declaration has no proven name, the proof stops for that library.
 
 **Rejected.** Store the inferred type as written syntax, or infer from a leading quote. A
 boolean comparison can start with a string literal.

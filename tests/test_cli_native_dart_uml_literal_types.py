@@ -23,6 +23,15 @@ from tools.fixture_tree import fixture_tree
         ("static const Object path = '/';", "", "Object", "PASS"),
         ("static const path = '/';", "class String {}", "String", "UNKNOWN"),
         ("static const path = '/';", "class int {}", "int", "UNKNOWN"),
+        ("static const path = '/';", "typedef Object String();", "String", "UNKNOWN"),
+        (
+            "static const path = '/';",
+            "class Base {}\nmixin M {}\nclass String = Base with M;",
+            "String",
+            "UNKNOWN",
+        ),
+        ("static const path = '/';", "typedef Object int();", "int", "UNKNOWN"),
+        ("static const path = '/';", "typedef String Callback();", "String", "PASS"),
         ("static const path = '/';", "import 'dart:core' hide String;", "String", "UNKNOWN"),
         (
             "static const path = '/';",

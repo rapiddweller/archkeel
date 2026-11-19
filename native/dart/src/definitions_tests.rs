@@ -30,6 +30,36 @@ fn work_of(text: &str) -> u64 {
 }
 
 #[test]
+fn a_legacy_typedef_names_its_alias_not_its_return_type() {
+    let (found, _) = walked(
+        "typedef Object String();\ntypedef int Callback<T>();\ntypedef Alias = String Function();",
+        u64::MAX,
+    );
+    let declarations = found.unwrap();
+    let names: Vec<_> = declarations.iter().map(|item| item.name.as_str()).collect();
+    assert_eq!(names, ["String", "Callback", "Alias"]);
+    assert_eq!(declarations[0].alias, None);
+    assert_eq!(declarations[1].type_parameters, ["T"]);
+    assert_eq!(declarations[2].alias.as_deref(), Some("String Function()"));
+}
+
+#[test]
+fn a_named_mixin_application_keeps_its_name_and_bases() {
+    let (found, _) = walked(
+        "class String<T> = Base<T> with M<T> implements I;",
+        u64::MAX,
+    );
+    let declarations = found.unwrap();
+    assert_eq!(declarations.len(), 1);
+    let class = &declarations[0];
+    assert_eq!(class.name, "String");
+    assert_eq!(class.type_parameters, ["T"]);
+    assert_eq!(class.extends, ["Base<T>"]);
+    assert_eq!(class.with_types, ["M<T>"]);
+    assert_eq!(class.implements, ["I"]);
+}
+
+#[test]
 fn each_walk_and_each_scan_of_the_definitions_counts_its_work() {
     // A class with members, a declaration with two items, parameters with a default and a
     // function type, an annotation before a member, and top-level variables and functions.
