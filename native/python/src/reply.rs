@@ -134,11 +134,13 @@ pub(crate) fn typed(
         &survey.sources,
     );
     let standard = std::mem::take(&mut survey.standard);
+    let excluded_sources = std::mem::take(&mut survey.excluded_sources);
     let (head, records) = parts(prepared, survey, build)?;
     let mut reply = assemble(reply_version(request.protocol_version), head, |writer| {
         records.produce(writer)
     })?;
     reply.facts.standard = Some(standard);
+    reply.facts.excluded_sources = excluded_sources;
     let features = &mut reply.facts.capabilities.resolution_features;
     features.push(ROUTES_FEATURE.to_owned());
     Ok(reply)

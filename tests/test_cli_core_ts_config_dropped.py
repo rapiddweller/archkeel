@@ -447,6 +447,30 @@ def test_a_file_that_is_not_project_source_is_no_gap(control: str) -> None:
     assert (code, envelope["status"]) == (0, "PASS"), envelope
 
 
+def test_test_scope_reports_paths_and_preserves_governance() -> None:
+    files = {
+        "src/b/t.test.ts": IMPORT,
+        "src/b/latest.ts": "export const latest = 1;\n",
+    }
+    code, included = _validate(files)
+    assert (code, included["status"]) == (1, "FAIL")
+    assert not included["frame"].get("excluded_sources")
+    code, excluded = _validate(files, "exclude_test_sources = true\n")
+    assert (code, excluded["status"]) == (0, "PASS")
+    assert excluded["frame"]["excluded_sources"] == ["src/b/t.test.ts"]
+
+
+def test_production_import_into_excluded_test_is_unknown() -> None:
+    files = {
+        "src/b/t.test.ts": "export const t = 1;\n",
+        "src/b/cross.ts": "import { t } from './t.test';\nexport const c = t;\n",
+    }
+    code, result = _validate(files, "exclude_test_sources = true\n")
+    assert (code, result["status"]) == (2, "UNKNOWN")
+    assert result["frame"]["excluded_sources"] == ["src/b/t.test.ts"]
+    assert "excluded test" in json.dumps(result).lower()
+
+
 def test_a_dropped_file_that_a_selected_file_imports_is_read_and_its_import_fails() -> None:
     files = {
         "tsconfig.json": _tsconfig({**SRC, "exclude": ["src/b/hidden.ts"]}),

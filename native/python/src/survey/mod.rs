@@ -8,8 +8,8 @@
 //!
 //! The `stable_bindings` of a file fact are `source._stable_direct_module_bindings` (`stable`).
 
-use std::collections::HashSet;
-
+use crate::discover;
+use crate::module::{EvidenceMap, Module};
 use crate::requirement::Prepared;
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Role, Target};
 #[cfg(feature = "dump")]
@@ -20,12 +20,10 @@ use archkeel_facts::{
     CallFact, ConstructFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact,
 };
 use archkeel_snapshot::Snapshot;
-
-use crate::discover;
-use crate::module::{EvidenceMap, Module};
 use binders::Binders;
 use excluded::Excluded;
 use parse_files::parse_unshadowed;
+use std::collections::HashSet;
 
 pub(crate) mod binders;
 pub(crate) mod bound;
@@ -79,6 +77,7 @@ mod value;
 mod walks;
 
 pub(crate) struct Survey {
+    pub excluded_sources: Vec<String>,
     pub files: Vec<FileFact>,
     pub imports: Vec<Record<ImportFact>>,
     pub targets: Vec<Target>,
@@ -346,6 +345,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
             .collect(),
     );
     Ok(Survey {
+        excluded_sources: scope.excluded,
         targets: resolved.targets,
         files,
         imports,
