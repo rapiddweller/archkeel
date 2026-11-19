@@ -233,6 +233,10 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             crate::receipts::argument_receipt(model, rule)?;
             true
         }
+        Rule::ProtocolDeclarations(rule) => {
+            crate::gap_effects::protocol_receipt(model, rule)?;
+            true
+        }
         // Each kind that no slice decides: its slice states its receipt here (AD-378). A
         // permission declaration (`allowed_dependency`) has no verdict, so it has no receipt.
         other @ (Rule::CatalogArgument(_)
@@ -241,8 +245,7 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         | Rule::AllowedDependency(_)
         | Rule::SourceOwnership(_)
         | Rule::NoComponentCycles(_)
-        | Rule::BoundedNumericOperand(_)
-        | Rule::ProtocolDeclarations(_)) => {
+        | Rule::BoundedNumericOperand(_)) => {
             // `receipts::cycle` gives the receipt of `no_component_cycles` (slice S7).
             return Err(Reason::Unsupported(Unsupported::Rule(kind_of(other))));
         }

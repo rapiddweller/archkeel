@@ -115,6 +115,8 @@ pub enum Violation {
     Construct(Box<ConstructViolation>),
     /// `boundary_types`: a written type of a public position that breaks the rule (AD-550).
     BoundaryType(Box<BoundaryViolation>),
+    /// A selected member does not name the canonical protocol.
+    ProtocolDeclaration(Box<BoundaryViolation>),
     /// An import outside the target component's public interface.
     PrivateImport {
         /// The id of the violation record.
@@ -486,7 +488,9 @@ impl Violation {
             Violation::OuterLayer(layered) => [&layered.id, &layered.rule],
             Violation::Cycle(cyclic) => [&cyclic.id, &cyclic.rule],
             Violation::Construct(row) => [&row.id, &row.rule],
-            Violation::BoundaryType(row) => [&row.id, &row.rule],
+            Violation::BoundaryType(row) | Violation::ProtocolDeclaration(row) => {
+                [&row.id, &row.rule]
+            }
             Violation::UnusedPublic(row) => [&row.id, &row.rule],
             Violation::SymbolPlacement(row) => [&row.id, &row.rule],
         }

@@ -155,7 +155,7 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         Rule::CatalogArgument(_) => unported(kind),
         Rule::CatalogUse(_) => unported(kind),
         Rule::ForbiddenEffectUnderCondition(_) => unported(kind), // S15
-        Rule::ProtocolDeclarations(_) => unported(kind),          // S16
+        Rule::ProtocolDeclarations(rule) => boundary_types::protocol(id, rule, model),
         Rule::BoundaryTypes(rule) => boundary_types::check(id, rule, model), // AD-550
         Rule::UnusedPublic(rule) => Ok(unused_public::check(id, rule, model)), // AD-670
     };

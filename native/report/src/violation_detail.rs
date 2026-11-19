@@ -121,6 +121,15 @@ impl ViolationDetail {
         }
     }
 
+    fn outside_root(root: &str, child: &str, evidence: &String) -> Self {
+        detail(
+            root.to_owned(),
+            Some(child.to_owned()),
+            "child outside root layout",
+            std::slice::from_ref(evidence),
+        )
+    }
+
     pub(crate) fn of(violation: &Violation) -> Self {
         match violation {
             Violation::Forbidden { cited, .. } => Self::cited("forbidden dependency", cited),
@@ -143,12 +152,7 @@ impl ViolationDetail {
                 child,
                 evidence,
                 ..
-            } => detail(
-                root.clone(),
-                Some(child.clone()),
-                "child outside root layout",
-                std::slice::from_ref(evidence),
-            ),
+            } => Self::outside_root(root, child, evidence),
             Violation::OuterLayer(layer) => detail(
                 layer.source_component.clone(),
                 Some(layer.target_component.clone()),
@@ -162,12 +166,18 @@ impl ViolationDetail {
                 "forbidden construct",
                 &row.evidence,
             ),
-            Violation::BoundaryType(row) => detail(
-                row.subject.clone(),
-                Some(row.text.clone()),
-                "written type outside the boundary types",
-                &row.evidence,
-            ),
+            Violation::ProtocolDeclaration(row) | Violation::BoundaryType(row) => {
+                let (target, cause) = match violation {
+                    Violation::ProtocolDeclaration(_) => {
+                        (None, "member does not name the canonical Protocol")
+                    }
+                    _ => (
+                        Some(row.text.clone()),
+                        "written type outside the boundary types",
+                    ),
+                };
+                detail(row.subject.clone(), target, cause, &row.evidence)
+            }
             // AD-670: the source is the module, the target the item in the form `module:name`.
             Violation::UnusedPublic(row) => detail(
                 row.module.clone(),

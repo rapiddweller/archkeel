@@ -136,7 +136,7 @@ pub(crate) fn rows(outcomes: &[Outcome], rule: &str) -> Vec<String> {
         Violation::OuterLayer(layered) => layered.id.clone(),
         Violation::Cycle(..) => "cycle".to_owned(),
         Violation::Construct(row) => row.owner.clone(),
-        Violation::BoundaryType(row) => row.subject.clone(),
+        Violation::BoundaryType(row) | Violation::ProtocolDeclaration(row) => row.subject.clone(),
         Violation::UnusedPublic(row) => row.name.clone(),
         Violation::SymbolPlacement(row) => row.name.clone(),
         Violation::CallOwner { source, .. } => source.clone(),

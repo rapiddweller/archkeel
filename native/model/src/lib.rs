@@ -76,6 +76,7 @@ mod edges;
 mod gap_class;
 mod gap_effects;
 mod premises;
+pub use gap_effects::protocol_violations;
 pub use premises::{
     kind_word, of_kind_word, premise_words, rule_premises, PremiseKind, UsedPremise,
 };

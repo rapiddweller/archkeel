@@ -35708,11 +35708,6 @@
     [
       "collection_gap",
       "native.archkeel_model",
-      "A trait impl in native.archkeel_model.gap_effects may run in code that reaches native.archkeel_model.gap_effects without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model",
       "A trait impl in native.archkeel_model.limits may run in code that reaches native.archkeel_model.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -39213,22 +39208,7 @@
     [
       "collection_gap",
       "native.archkeel_model.gap_effects",
-      "A trait impl in native.archkeel_facts.standard may run in code that reaches native.archkeel_facts.standard without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.gap_effects",
       "A trait impl in native.archkeel_facts.type_shape may run in code that reaches native.archkeel_facts.type_shape without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.gap_effects",
-      "A trait impl in native.archkeel_model.boundary_facts may run in code that reaches native.archkeel_model.boundary_facts without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.gap_effects",
-      "A trait impl in native.archkeel_model.causes may run in code that reaches native.archkeel_model.causes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -39263,11 +39243,6 @@
     [
       "collection_gap",
       "native.archkeel_model.gap_effects",
-      "A trait impl in native.archkeel_model.modules may run in code that reaches native.archkeel_model.modules without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.gap_effects",
       "A trait impl in native.archkeel_model.needs may run in code that reaches native.archkeel_model.needs without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -39294,11 +39269,6 @@
       "collection_gap",
       "native.archkeel_model.gap_effects",
       "A trait impl in native.archkeel_model.published_items may run in code that reaches native.archkeel_model.published_items without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.gap_effects",
-      "A trait impl in native.archkeel_model.reason may run in code that reaches native.archkeel_model.reason without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -56218,11 +56188,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.survey.declared.shape_standard",
-      "A trait impl in native.archkeel_facts.standard may run in code that reaches native.archkeel_facts.standard without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.declared.shape_standard",
       "A trait impl in native.archkeel_python_collector.module.builtin_roles may run in code that reaches native.archkeel_python_collector.module.builtin_roles without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -56233,17 +56198,7 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.survey.declared.shape_standard",
-      "A trait impl in native.archkeel_python_collector.survey.bound may run in code that reaches native.archkeel_python_collector.survey.bound without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.declared.shape_standard",
       "A trait impl in native.archkeel_python_collector.survey.bound_kind may run in code that reaches native.archkeel_python_collector.survey.bound_kind without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.declared.shape_standard",
-      "A trait impl in native.archkeel_python_collector.survey.class_writes may run in code that reaches native.archkeel_python_collector.survey.class_writes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",

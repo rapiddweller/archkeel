@@ -365,11 +365,15 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
             .into_iter()
             .filter(|input| selected.contains(input.path.as_str()))
             .collect(),
-        standard: standard::facts(
-            &writes,
-            (&declared::collection_names(), &declared::FORMS),
-            (symbols.wrapped, symbols.positions),
-        ),
+        standard: archkeel_facts::standard::StandardFacts {
+            protocol_unchanged: constructs.protocol_unchanged,
+            protocol_members: symbols.protocol_members,
+            ..standard::facts(
+                &writes,
+                (&declared::collection_names(), &declared::FORMS),
+                (symbols.wrapped, symbols.positions),
+            )
+        },
         symbols: symbols.records,
         sites: symbols.sites,
         signals: constructs.signals,
@@ -386,6 +390,8 @@ struct Symbols {
     /// The standard library names of each written position (#1718).
     positions: standard::Positions,
     sites: declared::Sites,
+    protocol_members:
+        std::collections::BTreeMap<String, (bool, archkeel_facts::standard::ProtocolMembers)>,
 }
 
 /// AD-518, AD-520: the declarations of each module that `admitted` keeps, then their sites. A
@@ -439,29 +445,20 @@ fn declarations(
         sites.dead.extend(more.dead);
         sites.direct.extend(more.direct);
     }
+    let protocol_members = declared::shape_standard::protocol_positions(
+        &found,
+        read,
+        imports,
+        sets,
+        (evidence, writes, lazy_314),
+    );
     let records = found.into_iter().flat_map(|item| item.records).collect();
     Symbols {
         records,
         wrapped,
         positions,
         sites,
-    }
-}
-
-/// AD-708: a whole-module import whose module object escapes gives names that the scan does not
-/// read, so it is no proof of its names.
-fn unread_names(records: &mut [Record<ImportFact>], escaped: &HashSet<(String, String)>) {
-    for record in records {
-        let ImportFact::Import(data) = &mut record.data else {
-            continue;
-        };
-        let key = (data.source_module.as_str().to_owned(), data.binding.clone());
-        let (source, Some(binding)) = key else {
-            continue;
-        };
-        if data.symbol.is_none() && escaped.contains(&(source, binding)) {
-            data.symbols_known = false;
-        }
+        protocol_members,
     }
 }
 
@@ -490,7 +487,7 @@ fn collect(
         let found = module_uses::find(modules, binders, &first.records);
         let mut collected =
             imports::collect_all(modules, binders, namespace, evidence, set, &found.uses);
-        unread_names(&mut collected.records, &found.escaped);
+        module_uses::unread_names(&mut collected.records, &found.escaped);
         let before = sources.len();
         uses::settled(modules, &collected.records, sources);
         if sources.len() == before {

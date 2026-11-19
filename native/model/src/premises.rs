@@ -98,6 +98,12 @@ fn declared(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
         }
         return Vec::new();
     }
+    if let Rule::ProtocolDeclarations(rule) = rule {
+        return vec![UsedPremise {
+            kind: PremiseKind::Declared(PremiseName::StandardLibraryUnchanged),
+            subject: rule.protocol().as_text().to_owned(),
+        }];
+    }
     let Rule::BoundaryTypes(rule) = rule else {
         return Vec::new();
     };

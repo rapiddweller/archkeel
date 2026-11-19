@@ -155,6 +155,14 @@ fn row(violation: &Violation) -> Value {
         Violation::OuterLayer(layered) => layer_record(layered),
         Violation::Cycle(cyclic) => cycle_record(cyclic),
         Violation::Construct(row) => archkeel_report::construct_row(row),
+        Violation::ProtocolDeclaration(row) => record(
+            [&row.id, &row.rule, &row.id],
+            &row.evidence,
+            ["source", "protocol_declarations"],
+            &[&row.qualified_name, &row.subject],
+            format!("{} does not name the canonical Protocol", row.subject),
+            json!({"member": row.subject, "annotation": row.text}),
+        ),
         Violation::BoundaryType(found) => record(
             [&found.id, &found.rule, &found.id],
             &found.evidence,

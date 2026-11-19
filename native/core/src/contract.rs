@@ -105,7 +105,8 @@ impl Usable {
             .map(archkeel_contract::kind_of)
             .chain(self.inside.iter().map(|(_, kind)| *kind))
             .collect();
-        let boundary = kinds.contains(&RuleKind::BoundaryTypes);
+        let boundary = kinds.contains(&RuleKind::BoundaryTypes)
+            || kinds.contains(&RuleKind::ProtocolDeclarations);
         let interface = kinds.contains(&RuleKind::InterfaceBoundary);
         let published = kinds.contains(&RuleKind::UnusedPublic);
         let placement = kinds.contains(&RuleKind::SymbolPlacement);

@@ -29,6 +29,26 @@ use super::guard::Guard;
 use super::module_scopes::{definition, may_read_import, resolve, Kind, Resolved, Scope};
 use crate::module::Module;
 
+/// AD-708: a whole-module import whose module object escapes gives names that the scan does not
+/// read, so it is no proof of its names.
+pub(super) fn unread_names(
+    records: &mut [Record<ImportFact>],
+    escaped: &HashSet<(String, String)>,
+) {
+    for record in records {
+        let ImportFact::Import(data) = &mut record.data else {
+            continue;
+        };
+        let key = (data.source_module.as_str().to_owned(), data.binding.clone());
+        let (source, Some(binding)) = key else {
+            continue;
+        };
+        if data.symbol.is_none() && escaped.contains(&(source, binding)) {
+            data.symbols_known = false;
+        }
+    }
+}
+
 /// The attributes of a module that are its namespace.
 const NAMESPACE: [&str; 4] = ["__dict__", "__all__", "__setattr__", "__delattr__"];
 

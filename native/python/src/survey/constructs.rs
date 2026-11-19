@@ -63,14 +63,15 @@ pub(super) fn collect(
         records,
         signals,
         support,
+        protocol_unchanged,
     }
 }
 
 pub(super) struct Findings {
     pub records: Vec<Record<ConstructFact>>,
     pub signals: Vec<Record<SignalFact>>,
-    /// What the survey sees of each construct (AD-737).
     pub support: Support,
+    pub protocol_unchanged: bool,
 }
 
 fn one(
@@ -147,6 +148,7 @@ fn one(
         records: walk.records,
         signals: walk.signals,
         support: walk.support,
+        protocol_unchanged: false,
     }
 }
 

@@ -154,3 +154,11 @@ fn a_wire_reply_cannot_supply_live_call_arguments() {
     });
     assert!(error.contains("unknown field `direct_calls`"), "{error}");
 }
+
+#[test]
+fn a_wire_reply_cannot_supply_live_protocol_members() {
+    let error = error_after(|reply| {
+        reply["facts"]["standard"] = json!({"protocol_unchanged": true, "protocol_members": {}});
+    });
+    assert!(error.contains("unknown field `standard`"), "{error}");
+}
