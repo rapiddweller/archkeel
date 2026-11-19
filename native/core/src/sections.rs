@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 
 //! The `Sections` request: the rows of each requested section, or the reason that it has none.
-//!
 //! The evaluator gives the violations, sorted by id (AD-360). Topology rows need no contract.
 
 use std::collections::BTreeMap;
@@ -84,7 +83,10 @@ fn violation_rows(outcomes: &[Outcome]) -> Vec<Value> {
 }
 
 /// The 2.9 row of a violation (`classified` in `ir/source_records.py`).
-#[expect(clippy::too_many_lines, reason = "keep all record kinds in one exhaustive match")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep all record kinds in one exhaustive match"
+)]
 fn row(violation: &Violation) -> Value {
     match violation {
         Violation::Unassigned {
@@ -360,8 +362,7 @@ fn direction_record(violation: &Violation) -> Value {
     }
 }
 
-/// A `layer_order` record: it cites the receipt of its rule, the contract file and the
-/// provenance of its source component.
+/// Cite the rule receipt, contract file and source component provenance.
 fn layer_record(layered: &Layered) -> Value {
     let Layered {
         id,
@@ -461,8 +462,7 @@ fn import_record(ids: [&str; 2], cited: &Cited, kind: &str, title: String, data:
     )
 }
 
-/// A violation record: `[id, rule, cited record]`, the evidence of the cited record (sorted),
-/// `[area, kind]` and the subjects.
+/// Build a violation record with its cited fact, evidence, area, kind and subjects.
 fn record(
     ids: [&str; 3],
     evidence: &[String],
