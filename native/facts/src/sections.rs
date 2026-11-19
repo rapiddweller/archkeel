@@ -18,8 +18,12 @@ use crate::data::{
     NumericOperandData, PlaceholderData, PlainConstructData, ReferenceData, SelectorData,
     SignalData, SourceRoleData, UnusedBindingData, ValueData,
 };
+use crate::fields::{Fields, Project};
 use crate::record::{FactData, Record};
 use crate::vocab::{ExceptionName, Kind};
+
+#[macro_use]
+mod section_facts;
 
 /// The data of a section: it gives the section that holds its records.
 pub trait IntoSection: FactData {
@@ -302,8 +306,8 @@ impl FactData for GapFact {
         }
     }
 
-    fn fields(&self) -> crate::fields::Fields<'_> {
-        crate::fields::Project::fields(self.data())
+    fn fields(&self) -> Fields<'_> {
+        Project::fields(self.data())
     }
 
     fn serialize_data<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
