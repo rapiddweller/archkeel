@@ -128,6 +128,31 @@ def test_routing_the_body_walk_through_params_restores_the_module_cycle(
     assert all(step["evidence"] and not step.get("possible") for step in cycle["path"])
 
 
+def test_a_facts_data_dependency_on_sections_fails_the_native_module_rule(
+    tmp_path: Path, frozen_root: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = shutil.copytree(frozen_root, tmp_path / "planted")
+    with (root / "native/facts/src/data/mod.rs").open("a", encoding="utf-8") as source:
+        source.write(
+            "\n#[allow(dead_code)]\n"
+            "fn planted_gap(fact: crate::sections::GapFact) -> crate::sections::GapFact {\n"
+            "    fact\n"
+            "}\n"
+        )
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    code, result = run("validate", "--root", str(root), "--config", "native/archkeel.toml")
+    frame = result["frame"]
+    rule = "NATIVE-NO-MODULE-CYCLES"
+    assert (code, frame["rules"][rule][1]) == (1, "FAIL")
+    data, sections = "native.archkeel_facts.data", "native.archkeel_facts.sections"
+    [cycle] = frame["explain"]["cycles"][rule]["items"]
+    assert {(step["from"], step["to"]) for step in cycle["path"]} == {
+        (data, sections),
+        (sections, data),
+    }
+    assert all(step["evidence"] and not step.get("possible") for step in cycle["path"])
+
+
 # Review B2 and B3 of #1121: `core` reaches the collector crates only through `archkeel_collect`.
 # The scan lists no method in the file of its type and no trait method as a candidate (open
 # classes, docs/known-limits.md), so a value of a collector type in `core` could reach one without
@@ -189,6 +214,21 @@ def test_the_receiver_scan_starts_the_body_walk_without_a_return_edge(
     assert (receivers, bodies) in edges
     assert (bodies, params) in edges
     assert (params, bodies) not in edges
+
+
+def test_the_section_macro_has_no_path_from_the_shared_fact_macros(
+    import_records: list[dict[str, Any]],
+) -> None:
+    facts = "native.archkeel_facts"
+    edges = {(row["source_module"], row["target_module"]) for row in import_records}
+    assert (f"{facts}.data.sites", f"{facts}.macros") in edges
+    assert (f"{facts}.sections", f"{facts}.sections.section_facts") in edges
+    assert not {
+        target
+        for source, target in edges
+        if source == f"{facts}.macros"
+        and target in {f"{facts}.fields", f"{facts}.record", f"{facts}.sections"}
+    }
 
 
 def test_snapshot_io_does_not_depend_on_collector_facts(
