@@ -1720,6 +1720,7 @@
     "field request::Snapshot.root: String",
     "field request::TypeScriptSettings.bundler: bool",
     "field request::TypeScriptSettings.tsconfig: String",
+    "field standard::StandardFacts.any_annotation_under_premise: bool",
     "field standard::StandardFacts.changed: BTreeMap<String,String>",
     "field standard::StandardFacts.placeholder_under_premise: bool",
     "field standard::StandardFacts.positions: BTreeMap<String,BTreeSet<String>>",
