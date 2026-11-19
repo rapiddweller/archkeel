@@ -222,6 +222,17 @@ def test_review_demo_keeps_an_open_binding_unknown(
         assert {"path": "orders/api.py", "line": 21} in edge["evidence"]
     else:
         assert {"path": "orders/api.py", "line": 7} in edge["evidence"]
+        assert frame["rules"]["REQUIRES-COMPLETE"][1] == "FAIL"
+        [detail] = frame["details"]["REQUIRES-COMPLETE"]
+        assert (detail["source"], detail["target"], detail["cause"]) == (
+            "orders.api",
+            "orders.pricing",
+            "undeclared component dependency",
+        )
+        assert any(
+            frame["locations"][evidence] == {"path": "orders/api.py", "line": 7}
+            for evidence in detail["evidence"]
+        )
 
 
 def test_the_scope_line_counts_the_gaps_that_the_report_lists(
