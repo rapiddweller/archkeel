@@ -8,8 +8,8 @@
 //! `collect._inner_facts` builds before it makes any record: the id of each definition
 //! (`ids`), the definitions that share a qualified name (`by_qualified`) and the id of a definition
 //! by its qualified name and position (`scope_ids`). The entries are in
-//! the order of the Python lists: files in the order that the walk parsed them, then the definitions
-//! of a file by line and column. An index is an entry number, so a lookup costs one hash.
+//! file order. The lexical definitions of a file are in source order, then the export-only
+//! definition follows them. An index is an entry number, so a lookup costs one hash.
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -26,6 +26,8 @@ pub(crate) struct Entry<'a> {
     pub rel: &'a str,
     pub module: &'a str,
     pub definition: &'a Definition,
+    /// A published identity that the lexical resolver must not use.
+    pub export_only: bool,
     pub written: bool,
     /// `module.parent.name`, or `module.name` for a definition without a parent.
     pub qualified: Rc<str>,
@@ -132,9 +134,15 @@ impl<'a> SymbolTable<'a> {
                     &kept.module,
                     definition,
                     parent.as_deref(),
-                    kept.written_root_names.contains(&definition.name),
-                    kept.ambiguous_root_names.contains(&definition.name),
+                    (
+                        kept.written_root_names.contains(&definition.name),
+                        kept.ambiguous_root_names.contains(&definition.name),
+                    ),
+                    false,
                 );
+            }
+            if let Some(definition) = &kept.anonymous_default {
+                table.add(rel, &kept.module, definition, None, (false, false), true);
             }
         }
         table
@@ -147,8 +155,8 @@ impl<'a> SymbolTable<'a> {
         module: &'a str,
         definition: &'a Definition,
         parent: Option<&str>,
-        written: bool,
-        ambiguous: bool,
+        (written, ambiguous): (bool, bool),
+        export_only: bool,
     ) {
         // One copy of the name: the indexes and the entry share it, and a deep nest has names as
         // long as its depth.
@@ -199,15 +207,18 @@ impl<'a> SymbolTable<'a> {
             self.members.insert(at, names.collect());
         }
         let name = definition.name.as_str();
-        push_named(&mut self.named, module, name, at);
-        if definition.top_level {
-            push_named(&mut self.top_named, module, name, at);
+        if !export_only {
+            push_named(&mut self.named, module, name, at);
+            if definition.top_level {
+                push_named(&mut self.top_named, module, name, at);
+            }
         }
         self.entries.push(Entry {
             at,
             rel,
             module,
             definition,
+            export_only,
             written,
             qualified,
             id,
