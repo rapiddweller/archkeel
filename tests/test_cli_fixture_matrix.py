@@ -96,7 +96,7 @@ def test_module_cycle_demo_explains_its_rule(
     source = FIXTURES / entry["root"]
     edits = entry.get("plant", {}).get("edits")
     with fixture_tree(source, edits, CACHE) if edits else nullcontext(source) as root:
-        assert (root / "app/a.py").read_text().startswith("from app import b\n")
+        assert "from app import b\n" in (root / "app/a.py").read_text()
         _, envelope = run("report", "--root", str(root))
     frame = envelope["frame"]
     assert frame["rules"]["NO-MODULE-CYCLES"][1] == status
@@ -106,15 +106,26 @@ def test_module_cycle_demo_explains_its_rule(
             ("app.a", "app.b"),
             ("app.b", "app.a"),
         }
-        sites = {
-            (frame["locations"][evidence]["path"], frame["locations"][evidence]["line"])
-            for step in cycle["path"]
-            for evidence in step["evidence"]
-        }
-        assert {("app/a.py", 1), ("app/b.py", 1)} <= sites
+        for step in cycle["path"]:
+            sites = {
+                (frame["locations"][evidence]["path"], frame["locations"][evidence]["line"])
+                for evidence in step["evidence"]
+            }
+            expected = {
+                ("app.a", "app.b"): ("app/a.py", 5),
+                ("app.b", "app.a"): ("app/b.py", 5),
+            }
+            assert expected[step["from"], step["to"]] in sites
     if status == "UNKNOWN":
-        assert frame["explain"]["holds"]["rules"]["NO-MODULE-CYCLES"]["kind"] == "scoped_gaps"
-        assert any("import" in gap["reason"].lower() for gap in frame["collection_gaps"])
+        hold = frame["explain"]["holds"]["rules"]["NO-MODULE-CYCLES"]
+        assert hold["kind"] == "scoped_gaps" and hold["pairs"] == []
+        [gap] = frame["collection_gaps"]
+        assert gap["subjects"] == ["app.b"]
+        assert gap["reason"] == "dynamic_import: __import__"
+        assert {
+            (frame["locations"][evidence]["path"], frame["locations"][evidence]["line"])
+            for evidence in gap["evidence"]
+        } == {("app/b.py", 2)}
 
 
 @pytest.mark.parametrize(
