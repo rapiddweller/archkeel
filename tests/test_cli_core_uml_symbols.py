@@ -77,7 +77,7 @@ def test_a_direct_anonymous_default_is_a_written_function(
         scopes=[] if listed else [scope("one", ["function"], [])],
     )
     files = {
-        "src/a/one.ts": "export default function (): number { return 1; }\n",
+        "src/a/one.ts": "export default\nfunction (): number { return 1; }\n",
         "src/b/t.ts": "export const t = 1;\n",
     }
     done = command(release_core, project(tmp_path, files, uml, None), "--json")
@@ -92,7 +92,7 @@ def test_a_direct_anonymous_default_is_a_written_function(
             f"{ONE}.default",
             "closed scope holds an unlisted definition",
         )
-        assert {"path": "src/a/one.ts", "line": 1} in [
+        assert {"path": "src/a/one.ts", "line": 2} in [
             frame["locations"][identity] for identity in detail["evidence"]
         ]
 
