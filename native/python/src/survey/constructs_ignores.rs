@@ -11,8 +11,14 @@ use archkeel_facts::vocab::Signal;
 use ruff_python_ast::{Expr, Stmt};
 
 pub(super) fn supported_call(expr: &Expr) -> bool {
-    matches!(expr, Expr::Call(call) if matches!(&*call.func, Expr::Name(_))
-        || matches!(&*call.func, Expr::Attribute(attr) if matches!(&*attr.value, Expr::Name(_))))
+    let Expr::Call(call) = expr else {
+        return false;
+    };
+    let mut target = call.func.as_ref();
+    while let Expr::Attribute(attribute) = target {
+        target = attribute.value.as_ref();
+    }
+    matches!(target, Expr::Name(_))
 }
 
 pub(super) fn data(owner: &str, line: i64, tag: String, statement: String) -> SignalData {
@@ -81,11 +87,7 @@ impl Comments {
             Stmt::Return(node) if node.value.is_some() => {}
             Stmt::Expr(_) => {
                 let name = statement.strip_suffix(')')?.split_once('(')?.0;
-                let valid = match name.split_once('.') {
-                    Some((base, member)) => identifier(base) && identifier(member),
-                    None => identifier(name),
-                };
-                if !valid {
+                if !name.split('.').all(identifier) {
                     return None;
                 }
             }
