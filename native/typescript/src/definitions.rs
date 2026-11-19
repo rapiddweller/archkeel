@@ -22,6 +22,9 @@ use crate::source::Span;
 use crate::tree::cx::Cx;
 use crate::tree::nodes::{children, named_children};
 
+#[path = "definitions_arrow.rs"]
+mod arrow;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum DefinitionKind {
     Class,
@@ -173,6 +176,17 @@ impl Defs {
         stack: &[Entry],
         seen: u8,
     ) -> Option<u32> {
+        if kind == K::ArrowFunction {
+            let name = arrow::name(cx, node, stack, seen, top_of_file(stack, 3))?;
+            let place = place_of(stack);
+            let named = (name.clone(), DefinitionKind::Function);
+            let mut definition = Self::build(cx, node, named, None, (stack, &place));
+            definition.exported = ancestor_kind(stack, 3) == Some(K::ExportStatement);
+            definition.top_level = true;
+            definition.overload_signature = false;
+            definition.signature_complete = false;
+            return Some(self.add_scope(name, None, definition));
+        }
         let found = definition_kind(kind)?;
         if node.has_error() || seen & (ERROR_ABOVE | INSIDE_NAMESPACE | IN_UNMODELED_BLOCK) != 0 {
             return None;
@@ -193,14 +207,18 @@ impl Defs {
         let owner = stack.last().and_then(|entry| entry.scope);
         let parent = owner.and_then(|at| self.scopes.0.get(at as usize).map(|scope| (at, scope)));
         let definition = Self::build(cx, node, (name.clone(), found), parent, (stack, &place));
+        Some(self.add_scope(name, owner, definition))
+    }
+
+    fn add_scope(&mut self, name: String, parent: Option<u32>, definition: Definition) -> u32 {
         self.scopes.0.push(Scope {
             name,
-            parent: owner,
+            parent,
             line: definition.span.line,
             column: definition.span.column,
         });
         self.found.push(definition);
-        Some((self.scopes.0.len() - 1) as u32)
+        (self.scopes.0.len() - 1) as u32
     }
 
     /// `_definition`.

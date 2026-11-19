@@ -19,7 +19,7 @@ from test_cli_core_uml_compare import project
 from uml_symbol_patterns import PATTERN_CAUSES, PATTERN_PLANTS, WRONG_RELEASE_PATTERNS
 from uml_symbol_plants import CAUSES as BASE_CAUSES
 from uml_symbol_plants import PLANTS as BASE_PLANTS
-from uml_symbol_plants import ROW
+from uml_symbol_plants import ROW, edge, referenced, target
 from uml_symbol_review import COUNTS, REVIEW_CAUSES, REVIEW_PLANTS, STRICTER, WRONG_RELEASE_PASS
 
 PLANTS = {**BASE_PLANTS, **REVIEW_PLANTS, **PATTERN_PLANTS}
@@ -39,6 +39,29 @@ def test_the_difference_between_the_release_rows_and_the_core_rows_is_counted() 
     fails = {n for n, p in PLANTS.items() if (p[2], p[3]) == ("FAIL", "UNKNOWN")}
     assert (equal, len(passes), len(fails), len(PLANTS)) == COUNTS
     assert (WRONG_RELEASE_PASS | WRONG_RELEASE_PATTERNS) <= passes
+
+
+@pytest.mark.parametrize(("callee", "expected"), [("request", "PASS"), ("handler", "UNKNOWN")])
+def test_a_const_arrow_call_reaches_the_model_but_jsx_registration_does_not(
+    core_binary: Path, tmp_path: Path, callee: str, expected: str
+) -> None:
+    module = "app.src.a.one_x2e_tsx"
+    entities = [
+        {**referenced(name, "function", name), "qualified_name": f"{module}.{name}"}
+        for name in ("Button", callee)
+    ]
+    uml = target(entities, relationships=[edge("calls", "Button", callee)])
+    files = {
+        "src/a/one.tsx": (
+            "function request() {}\n"
+            "function handler() { request(); }\n"
+            "export const Button = () => { request(); return <button onClick={handler} />; };\n"
+        )
+    }
+    done = command(core_binary, project(tmp_path, files, uml, None), "--json")
+    result = json.loads(done.stdout)
+    assert "refusal" not in result, result
+    assert result["frame"]["rules"][ROW] == ["uml_target", expected], result["frame"]
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))

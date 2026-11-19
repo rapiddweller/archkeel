@@ -63,11 +63,11 @@ def _entity(contract: dict[str, Any], identity: str) -> dict[str, Any]:
 
 
 # AD-494 and AD-512: the core compares the module, import and symbol assessments of a
-# TypeScript target. It leaves exactly the assessments undecided that release 4.0.1 leaves
-# undecided (9 and 3), so the row stays UNKNOWN by its count.
+# TypeScript target. The main arrow and its call to page are now observed. The other seven
+# assessments of H-typescript remain undecided; H-uml-typescript retains three.
 @pytest.mark.parametrize(
     ("name", "passes", "undecided"),
-    [("H-typescript", 9, 9), ("H-uml-typescript", 0, 3)],
+    [("H-typescript", 9, 7), ("H-uml-typescript", 0, 3)],
 )
 def test_the_uml_target_is_an_unknown_row_with_its_reason_and_not_a_gap(
     tmp_path: Path, name: str, passes: int, undecided: int

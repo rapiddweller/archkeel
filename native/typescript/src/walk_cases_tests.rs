@@ -182,12 +182,13 @@ fn broken_ts_has_the_syntax_of_the_python_parser() {
 }
 
 #[test]
-fn tsx_tsx_has_the_syntax_of_the_python_parser() {
+fn tsx_includes_a_module_arrow_definition() {
     let got = facts(
         "tsx.tsx",
         "export const View = (p: P) => <div>{p.x}</div>;\nfunction Comp() { return <A />; }\n",
     );
     let want = [
+        "D View function None 1:21 ex=True vis=public top=True st=False ab=False as=False dec=False mc=False ov=False sc=False ann=None ret=None pl=None:None P[p:P:False:False:None] B[] M[]",
         "D Comp function None 2:1 ex=False vis=private top=True st=False ab=False as=False dec=False mc=False ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
         "X View 1:14 1:1",
         "R ",

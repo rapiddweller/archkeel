@@ -7447,6 +7447,33 @@
       "entry": [
         "gap",
         "collection_gap",
+        "native.archkeel_typescript_collector.definitions.arrow",
+        "A trait impl in native.archkeel_typescript_collector.source may run in code that reaches native.archkeel_typescript_collector.source without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-950 adds the arrow binding helper. The collector cannot exclude this trait call."
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.definitions.arrow",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+      ],
+      "reason": "AD-950 adds the arrow binding helper. The collector cannot prove the origin of this value."
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.definitions.arrow",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+      ],
+      "reason": "AD-950 adds the arrow binding helper. The collector cannot prove the origin of this value."
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
         "native.archkeel_typescript_collector.dump",
         "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
       ],
