@@ -41,6 +41,7 @@ def check_clusters(snapshot: Path, url: str) -> dict[str, str]:
     results = dict.fromkeys(languages, "UNKNOWN: no sourced class member")
     for language, (owner, child, kind) in examples.items():
         cursor = ""
+        seen = {cursor}
         while True:
             args = urllib.parse.urlencode({"parent": owner, "limit": 200, "cursor": cursor})
             with urllib.request.urlopen(url + "api/children?" + args, timeout=30) as response:
@@ -55,6 +56,10 @@ def check_clusters(snapshot: Path, url: str) -> dict[str, str]:
             if cursor is None:
                 results[language] = "FAIL: SQL member absent from API"
                 break
+            if cursor in seen:
+                results[language] = "FAIL: API cursor did not advance"
+                break
+            seen.add(cursor)
     return results
 
 

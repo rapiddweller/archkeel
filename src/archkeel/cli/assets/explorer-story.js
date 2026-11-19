@@ -57,7 +57,7 @@ async function showStory(id, index = -1, follow = false) {
     cards.replaceChildren();
     viewport.scrollTo(0, 0);
   }
-  get("more").hidden = true;
+  get("previous").hidden = get("more").hidden = true;
   drawArrows();
   selectionHeading("Follow a call", "Story");
   if (!id) {

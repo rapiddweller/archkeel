@@ -10,6 +10,7 @@ const state = {
   ancestors: [system], items: [], cursor: null, selected: null, edges: [], request: 0,
   hops: [], storyIndex: -1, zoom: 1,
 };
+const pageTrails = new Map();
 const known = new Map([[system.id, system]]);
 function element(tag, text, className) {
   const result = document.createElement(tag);
@@ -129,6 +130,14 @@ async function readEdges() {
     for (const edge of reply.items) if (visible.has(edge.target)) edges.set(edge.id, edge);
   }
   state.edges = [...edges.values()];
+  const plate = cards.querySelector(".plate");
+  if (plate && state.ancestors.at(-1).id === "system" && !state.search) {
+    for (const edge of state.edges.filter((edge) => edge.kind === "interface" && edge.title)) {
+      const endpoints = label(edge.source) + " → " + label(edge.target);
+      plate.append(button(endpoints + " · " + edge.title + " · " + relationLabel(edge),
+        () => showEvidence(edge), "system-interface"));
+    }
+  }
   drawArrows();
   if (replies.some((reply) => reply.next_cursor)) {
     notice.textContent = "Some dependencies exceed the canvas limit. Select an element to browse its connections.";
@@ -141,6 +150,9 @@ function selectionHeading(title, kind) {
 
 async function showScope(ancestors, query = null) {
   const request = ++state.request;
+  if (query || state.search) pageTrails.clear();
+  const active = new Set(ancestors.map((item) => item.id));
+  for (const id of pageTrails.keys()) if (!active.has(id)) pageTrails.delete(id);
   state.ancestors = ancestors;
   state.selected = null;
   state.items = [];
@@ -165,10 +177,15 @@ async function showScope(ancestors, query = null) {
   if (current.source) {
     details.append(button("Open source", () => showSource(current.source), "detail-btn"));
   }
-  paintCards();
+  const trail = pageTrails.get(current.id) ?? [""];
+  pageTrails.set(current.id, trail);
+  cards.replaceChildren(element("p", "Loading elements…"));
+  drawArrows();
+  get("previous").hidden = get("more").hidden = true;
+  const cursor = trail.at(-1);
   const response = query
-    ? await api("search", { text: query, limit: 12 })
-    : await api(current.id === "system" ? "overview" : "children", { parent: current.id, limit: 12 });
+    ? await api("search", { text: query, limit: 12, cursor })
+    : await api(current.id === "system" ? "overview" : "children", { parent: current.id, limit: 12, cursor });
   if (request !== state.request) return;
   updateCoverage(response);
   state.items = response.items;
@@ -271,7 +288,7 @@ async function showSource(reference, start) {
     source.append(button("Next lines", () => showSource(reference, result.start + 32)));
   }
   cards.replaceChildren(source);
-  get("more").hidden = true;
+  get("previous").hidden = get("more").hidden = true;
   selectionHeading(result.path, "Source");
   details.append(element("p", "Lines from the indexed source reference."));
   const step = state.hops[state.storyIndex];
@@ -335,21 +352,24 @@ get("search-form").addEventListener("submit", (event) => {
   const query = get("search").value.trim();
   if (query) showScope([system], query).catch(showError);
 });
-get("more").addEventListener("click", async () => {
-  try {
-    const request = state.request;
-    const operation = state.search ? "search" : "children";
-    const args = state.search ? { text: state.search } : { parent: state.ancestors.at(-1).id };
-    const result = await api(operation, { ...args, cursor: state.cursor, limit: 12 });
-    if (request !== state.request) return;
-    state.items = result.items;
-    state.cursor = result.next_cursor;
-    paintCards();
-    await readEdges();
-  } catch (error) {
-    showError(error);
-  }
-});
+async function changePage(forward) {
+  const scope = state.ancestors.at(-1).id;
+  const trail = pageTrails.get(scope);
+  if (!trail || (forward ? !state.cursor : trail.length < 2)) return;
+  const next = forward ? [...trail, state.cursor] : trail.slice(0, -1);
+  const request = ++state.request;
+  const args = state.search ? { text: state.search } : { parent: scope };
+  const result = await api(state.search ? "search" : "children", { ...args, cursor: next.at(-1), limit: 12 });
+  if (request !== state.request) return;
+  pageTrails.set(scope, next);
+  state.items = result.items;
+  state.cursor = result.next_cursor;
+  paintCards();
+  viewport.scrollTo(0, 0);
+  await readEdges();
+}
+get("more").addEventListener("click", () => changePage(true).catch(showError));
+get("previous").addEventListener("click", () => changePage(false).catch(showError));
 get("theme").addEventListener("click", () => {
   const dark = document.documentElement.dataset.theme === "dark";
   document.documentElement.dataset.theme = dark ? "light" : "dark";

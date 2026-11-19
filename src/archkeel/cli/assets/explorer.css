@@ -47,7 +47,7 @@ main { max-width: 1412px; padding: 22px 16px; margin: auto; }
 .card span, .meta { font-size: 11px; color: var(--ink-muted); }
 .card.python { border-top-color: var(--lang-python); }.card.rust { border-top-color: var(--lang-rust); }
 .card.typescript { border-top-color: var(--lang-typescript); }.card.dart { border-top-color: var(--lang-dart); }
-#more { margin-top: 18px; }
+#more, #previous { margin-top: 18px; }
 #details { padding: 16px; background: var(--surface-1); border-left: 1px solid var(--line); overflow-wrap: anywhere; }
 #details p { margin-block: 5px; }
 .detail-btn { display: block; width: 100%; margin-top: 6px; text-align: left; }
@@ -85,3 +85,6 @@ pre .marked { background: var(--accent-subtle); }
 .uml-compartment .uml-member-note { margin-top: 3px; font: 11px/1.4 var(--font-sans); }
 
 .uml-compartment .uml-member-note.unknown { color: var(--unknown-text); }
+
+.uml-head .uml-purpose { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; margin-top: 7px; color: var(--ink); font: 400 12px/1.45 var(--font-sans); }
+.system-interface { margin-top: 12px; text-align: left; }

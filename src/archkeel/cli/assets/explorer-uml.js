@@ -96,6 +96,8 @@ function umlCard(item) {
     element("strong", umlTitle(item), "uml-name"));
   card.title = item.name;
   if (Object.hasOwn(umlGlyphs, item.kind)) head.append(umlGlyph(item.kind));
+  const purpose = item.kind === "component" && item.responsibilities?.[0];
+  if (purpose) head.append(element("span", purpose, "uml-purpose"));
   card.append(head);
   if (item.kind === "class") {
     const compartments = ["Properties", "Methods"].map(umlCompartment);
@@ -137,6 +139,7 @@ function paintCards() {
     cards.append(element("p", isModule ? "No symbol records for this module. Open source to inspect its declarations."
       : "No indexed elements in this scope."));
   }
+  get("previous").hidden = (pageTrails.get(state.ancestors.at(-1).id)?.length ?? 0) <= 1;
   get("more").hidden = !state.cursor;
   drawArrows();
 }
