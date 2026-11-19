@@ -26,6 +26,7 @@ pub(crate) struct Entry<'a> {
     pub rel: &'a str,
     pub module: &'a str,
     pub definition: &'a Definition,
+    pub written: bool,
     /// `module.parent.name`, or `module.name` for a definition without a parent.
     pub qualified: Rc<str>,
     pub id: String,
@@ -89,6 +90,7 @@ pub(crate) struct SymbolTable<'a> {
     pub entries: Vec<Entry<'a>>,
     ids: HashMap<(&'a str, i64, i64), usize>,
     by_qualified: HashMap<Rc<str>, Vec<usize>>,
+    ambiguous: HashSet<Rc<str>>,
     /// How many of the definitions of a qualified name are a class or an interface.
     classifiers: HashMap<Rc<str>, usize>,
     classes: HashMap<Rc<str>, usize>,
@@ -107,6 +109,7 @@ impl<'a> SymbolTable<'a> {
             entries: Vec::new(),
             ids: HashMap::new(),
             by_qualified: HashMap::new(),
+            ambiguous: HashSet::new(),
             classifiers: HashMap::new(),
             classes: HashMap::new(),
             top_named: HashMap::new(),
@@ -124,7 +127,14 @@ impl<'a> SymbolTable<'a> {
                 .extend(kept.patched.iter().map(String::as_str));
             for definition in &kept.definitions {
                 let parent = definition.parent.map(|at| kept.scopes.qualified(at));
-                table.add(rel, &kept.module, definition, parent.as_deref());
+                table.add(
+                    rel,
+                    &kept.module,
+                    definition,
+                    parent.as_deref(),
+                    kept.written_root_names.contains(&definition.name),
+                    kept.ambiguous_root_names.contains(&definition.name),
+                );
             }
         }
         table
@@ -137,6 +147,8 @@ impl<'a> SymbolTable<'a> {
         module: &'a str,
         definition: &'a Definition,
         parent: Option<&str>,
+        written: bool,
+        ambiguous: bool,
     ) {
         // One copy of the name: the indexes and the entry share it, and a deep nest has names as
         // long as its depth.
@@ -145,6 +157,9 @@ impl<'a> SymbolTable<'a> {
             None => format!("{module}.{}", definition.name),
         }
         .into();
+        if ambiguous {
+            self.ambiguous.insert(Rc::clone(&qualified));
+        }
         let (line, column) = (definition.span.line, definition.span.column);
         let parts = [
             Part::Text(rel),
@@ -193,6 +208,7 @@ impl<'a> SymbolTable<'a> {
             rel,
             module,
             definition,
+            written,
             qualified,
             id,
         });
@@ -213,6 +229,10 @@ impl<'a> SymbolTable<'a> {
     /// squared, when each of them asks.
     pub(crate) fn count(&self, qualified: &str) -> usize {
         self.by_qualified.get(qualified).map_or(0, Vec::len)
+    }
+
+    pub(crate) fn ambiguous(&self, qualified: &str) -> bool {
+        self.ambiguous.contains(qualified)
     }
 
     /// The definitions of a qualified name that are a class or an interface (`classifier_targets`).

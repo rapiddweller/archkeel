@@ -36,6 +36,8 @@ pub(crate) struct Kept {
     pub scopes: Scopes,
     /// The names that the module assigns outside every function (`rebound_names`).
     pub rebound: HashSet<String>,
+    pub written_root_names: HashSet<String>,
+    pub ambiguous_root_names: HashSet<String>,
     /// The text that the byte ranges of the sites point into.
     pub text: Vec<u8>,
     /// The question "does a scope hide this name" for the sites of the file.
@@ -77,6 +79,8 @@ impl Kept {
             &syntax.module_exports,
         );
         kept.rebound = syntax.rebound_names.iter().cloned().collect();
+        kept.written_root_names = std::mem::take(&mut syntax.written_root_names);
+        kept.ambiguous_root_names = std::mem::take(&mut syntax.ambiguous_root_names);
         kept.patched = std::mem::take(&mut syntax.patched);
         kept.type_exports = std::mem::take(&mut syntax.type_exports);
         kept.sites = std::mem::take(&mut syntax.sites);
@@ -139,6 +143,8 @@ impl Kept {
             sites: Sites::default(),
             scopes: Scopes::default(),
             rebound: HashSet::new(),
+            written_root_names: HashSet::new(),
+            ambiguous_root_names: HashSet::new(),
             text: Vec::new(),
             shadow: NameIndex::default(),
             script: ScriptFile::default(),

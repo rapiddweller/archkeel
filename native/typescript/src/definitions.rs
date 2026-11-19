@@ -22,6 +22,9 @@ use crate::source::Span;
 use crate::tree::cx::Cx;
 use crate::tree::nodes::{children, named_children};
 
+#[path = "definitions_arrow.rs"]
+mod arrow;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum DefinitionKind {
     Class,
@@ -173,6 +176,9 @@ impl Defs {
         stack: &[Entry],
         seen: u8,
     ) -> Option<u32> {
+        if kind == K::ArrowFunction {
+            return self.arrow(cx, node, stack, seen);
+        }
         let found = definition_kind(kind)?;
         if node.has_error() || seen & (ERROR_ABOVE | INSIDE_NAMESPACE | IN_UNMODELED_BLOCK) != 0 {
             return None;
