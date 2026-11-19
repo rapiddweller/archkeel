@@ -184,6 +184,60 @@ def test_growth_needs_an_entry_with_a_reason() -> None:
     assert unlisted(grown, {"raised": [{"entry": grown[0], "reason": reason}]}) == []
 
 
+def test_duplicate_gap_growth_requires_a_reason_for_each_occurrence(tmp_path: Path) -> None:
+    result, pin, listed = tmp_path / "r.json", tmp_path / "p.json", tmp_path / "g.json"
+    entry = {"entry": ["gap", *PIN], "reason": "Approved collector gap occurrence"}
+    pin.write_text(json.dumps(PINNED))
+    result.write_text(json.dumps(_result([GAP, GAP, GAP])))
+    listed.write_text(json.dumps({"raised": [entry]}))
+    run = [str(result), str(pin), "--growth", str(listed)]
+    assert main([*run, "--write"]) == 1
+    assert json.loads(pin.read_text()) == PINNED
+    listed.write_text(json.dumps({"raised": [entry, entry]}))
+    assert main([*run, "--write"]) == 1
+    listed.write_text(json.dumps({"raised": [entry, entry, entry]}))
+    assert main([*run, "--write"]) == 0
+    assert len(json.loads(pin.read_text())["gaps"]) == 3
+    assert main(run) == 0
+
+
+def test_gap_approval_is_removed_with_its_occurrence_and_cannot_return(tmp_path: Path) -> None:
+    result, pin, listed = tmp_path / "r.json", tmp_path / "p.json", tmp_path / "g.json"
+    entry = {"entry": ["gap", *PIN], "reason": "Approved collector gap occurrence"}
+    pin.write_text(json.dumps({**PINNED, "gaps": [PIN, PIN]}))
+    listed.write_text(json.dumps({"raised": [entry, entry]}))
+    result.write_text(json.dumps(_result([GAP])))
+    run = [str(result), str(pin), "--growth", str(listed)]
+    assert main([*run, "--write"]) == 0
+    assert json.loads(listed.read_text())["raised"] == [entry]
+    result.write_text(json.dumps(_result([GAP, GAP])))
+    assert main([*run, "--write"]) == 1
+    result.write_text(json.dumps(_result([])))
+    assert main([*run, "--write"]) == 0
+    assert json.loads(listed.read_text())["raised"] == []
+    result.write_text(json.dumps(_result([GAP])))
+    assert main([*run, "--write"]) == 1
+
+
+def test_base_check_does_not_reuse_an_existing_gap_approval(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+    pin, listed, result = tmp_path / "pin.json", tmp_path / "growth.json", tmp_path / "r.json"
+    entry = {"entry": ["gap", *PIN], "reason": "Approved collector gap occurrence"}
+    pin.write_text(json.dumps(PINNED))
+    listed.write_text(json.dumps({"raised": [entry]}))
+    for command in (["init", "-q"], ["add", "pin.json"], ["commit", "-q", "-m", "base"]):
+        subprocess.run([*git, *command], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.chdir(tmp_path)
+    pin.write_text(json.dumps({**PINNED, "gaps": [PIN, PIN, PIN]}))
+    result.write_text(json.dumps(_result([GAP, GAP, GAP])))
+    run = [str(result), "pin.json", "--growth", str(listed), "--base-ref", "HEAD"]
+    assert main(run) == 1
+    listed.write_text(json.dumps({"raised": [entry, entry, entry]}))
+    assert main(run) == 0
+
+
 def test_write_refuses_a_new_unknown_and_takes_a_listed_one(tmp_path: Path) -> None:
     result, pin, listed = tmp_path / "r.json", tmp_path / "p.json", tmp_path / "g.json"
     result.write_text(json.dumps(_result([GAP])))

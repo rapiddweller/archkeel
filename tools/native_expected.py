@@ -15,7 +15,8 @@ statuses: 1 with a FAIL, else 2 with an UNKNOWN or a gap, else 0.
 Ratchet (AD-672): a pin may only shrink. Growth is a gap, a violation, an UNKNOWN reason, or a
 rule that is new and not PASS or has a worse status (PASS < UNKNOWN < FAIL) than before. Growth
 enters only through the growth file next to the pin (`--growth`): one entry with a `reason` for
-each grown item. `--write` refuses growth that the growth file does not list, and
+each grown item. A growing gap needs one entry per occurrence in the new pin (AD-943).
+`--write` refuses growth that the growth file does not list, and
 `--base-ref <ref>` fails when the pin has growth against its version at `<ref>` that the growth
 file does not list. The lead raises the ratchet and logs the reason in the decision log.
 AD-733: an entry whose finding is gone is stale; check mode fails on it, `--write` drops it, and a
@@ -239,24 +240,38 @@ def tokens(pin: dict[str, Any]) -> set[tuple[str, ...]]:
 def stale(pin: dict[str, Any], listed: dict[str, Any]) -> list[dict[str, Any]]:
     """The growth entries whose finding the pin no longer holds (AD-733)."""
     live = tokens(pin)
-    return [
-        item
-        for item in listed.get("raised") or ()
-        if tuple(map(str, item.get("entry") or ())) not in live
-    ]
+    gaps = Counter(("gap", *map(str, gap)) for gap in pin.get("gaps") or ())
+    gone = []
+    for item in listed.get("raised") or ():
+        entry = tuple(map(str, item.get("entry") or ()))
+        if entry not in live or (entry[0] == "gap" and gaps[entry] == 0):
+            gone.append(item)
+        elif entry[0] == "gap":
+            gaps[entry] -= 1
+    return gone
 
 
-def unlisted(grown: list[list[str]], listed: dict[str, Any]) -> list[str]:
+def unlisted(
+    grown: list[list[str]], listed: dict[str, Any], pin: dict[str, Any] | None = None
+) -> list[str]:
     """The grown items that the growth file lists without a reason or does not list at all."""
-    reasons = {
-        tuple(map(str, item.get("entry") or ())): str(item.get("reason") or "").strip()
+    reasons = Counter(
+        tuple(map(str, item.get("entry") or ()))
         for item in listed.get("raised") or ()
-    }
-    return [
-        f"growth without a reason in the growth file: {item}"
-        for item in grown
-        if len(reasons.get(tuple(item), "")) < 10
-    ]
+        if len(str(item.get("reason") or "").strip()) >= 10
+    )
+    gaps = Counter(("gap", *map(str, gap)) for gap in (pin or {}).get("gaps") or ())
+    missing = []
+    for item in grown:
+        entry = tuple(item)
+        if entry[0] == "gap" and pin is not None:
+            if reasons[entry] < gaps[entry]:
+                missing.append(f"growth without a reason in the growth file: {item}")
+        elif reasons[entry] == 0:
+            missing.append(f"growth without a reason in the growth file: {item}")
+        else:
+            reasons[entry] -= 1
+    return missing
 
 
 def _fork_point(ref: str) -> str:
@@ -292,7 +307,7 @@ def main(argv: list[str]) -> int:
             print(f"refused: {result['refusal']}", file=sys.stderr)
             return 1
         new = written(result, old)
-        refused = unlisted(growth(new, old), listed)
+        refused = unlisted(growth(new, old), listed, new)
         for line in refused:
             print(line, file=sys.stderr)
         if refused:
@@ -302,7 +317,9 @@ def main(argv: list[str]) -> int:
             return 1
         path.write_text(json.dumps(new, indent=2) + "\n", encoding="utf-8")
         if growth_path.is_file() and (gone := stale(new, listed)):
-            kept = [item for item in listed["raised"] if item not in gone]
+            kept = list(listed["raised"])
+            for item in gone:
+                kept.remove(item)
             growth_path.write_text(
                 json.dumps({**listed, "raised": kept}, indent=2) + "\n", encoding="utf-8"
             )
@@ -323,7 +340,7 @@ def main(argv: list[str]) -> int:
         if (before := _git_show(base, path)) is None:
             print(f"ratchet: base {base} unavailable, skipped", file=sys.stderr)
         else:
-            found += unlisted(growth(old, before), listed)
+            found += unlisted(growth(old, before), listed, old)
     for line in found:
         print(line, file=sys.stderr)
     print(summary(result, str(old.get("name", "native"))))
