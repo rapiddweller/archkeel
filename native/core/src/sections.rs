@@ -84,10 +84,7 @@ fn violation_rows(outcomes: &[Outcome]) -> Vec<Value> {
 }
 
 /// The 2.9 row of a violation (`classified` in `ir/source_records.py`).
-#[expect(
-    clippy::too_many_lines,
-    reason = "one exhaustive match keeps each record kind visible"
-)]
+#[expect(clippy::too_many_lines, reason = "keep all record kinds in one exhaustive match")]
 fn row(violation: &Violation) -> Value {
     match violation {
         Violation::Unassigned {
