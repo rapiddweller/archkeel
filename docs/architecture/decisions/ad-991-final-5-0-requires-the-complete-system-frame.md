@@ -20,6 +20,10 @@ The exit code and badge do not prove the complete set of rule decisions.
 
 ## Limits
 
+GitHub runs the workflow from the tagged commit. A tag at an older commit can use the old
+publisher without this check. The release owner must establish an external control before release.
+This decision does not establish that control.
+
 The release check rejects a system rule or an inside contract.
 Neither occurs in this system today. Extend the identity check before adding either.
 Before the final release, compare FastAPI and bazel_worker with 4.0.1.

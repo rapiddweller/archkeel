@@ -51,13 +51,13 @@ jobs:
         with:
           pattern: native-wheel-*
           merge-multiple: true
-          path: native-wheels/
+          path: build/native-wheels/
 
       - name: Add the platform wheels that full verification built and ran
         run: |
           set -euo pipefail
           shopt -s nullglob
-          wheels=(native-wheels/*.whl)
+          wheels=(build/native-wheels/*.whl)
           sdists=(dist/*.tar.gz)
           [[ ${#wheels[@]} -eq 6 && ${#sdists[@]} -eq 1 ]] || {
             echo "Release requires six platform wheels and one sdist" >&2

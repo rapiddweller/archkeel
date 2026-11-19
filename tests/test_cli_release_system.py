@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from archkeel.cli.native_scan import identity
 from tools import release_system
 
 
@@ -77,6 +78,38 @@ def test_complete_evidence(evidence):
     assert check(evidence) == []
 
 
+def test_a_real_dirty_checkout_is_refused(evidence):
+    root, wheel, result = evidence
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-qm",
+            "init",
+        ],
+        cwd=root,
+        check=True,
+    )
+    clean = identity(root)
+    assert clean is not None and clean[1] is False
+    snapshot = result["frame"]["self_test"]["collect"]["request"]["snapshot"]
+    snapshot["git_head"] = clean[0]
+    assert release_system.check(result, root, "system.json", wheel, clean[0]) == []
+    (root / "untracked-source.py").write_text("pass\n")
+    dirty = identity(root)
+    assert dirty == (clean[0], True)
+    snapshot["dirty"] = dirty[1]
+    assert release_system.check(result, root, "system.json", wheel, clean[0]) == [
+        "snapshot differs"
+    ]
+
+
 @pytest.mark.parametrize(
     "change",
     [
@@ -87,6 +120,7 @@ def test_complete_evidence(evidence):
         "unknown",
         "fail",
         "commit",
+        "dirty",
         "contract",
         "core",
     ],
@@ -107,6 +141,8 @@ def test_bad_evidence_is_refused(evidence, change):
         frame["rules"]["one"][1] = change.upper()
     elif change == "commit":
         frame["self_test"]["collect"]["request"]["snapshot"]["git_head"] = "b" * 40
+    elif change == "dirty":
+        frame["self_test"]["collect"]["request"]["snapshot"]["dirty"] = True
     elif change == "contract":
         (root / "one.json").write_text("{}")
     else:
