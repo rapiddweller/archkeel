@@ -77,10 +77,12 @@ impl Kept {
             comparisons,
             &syntax.import_bindings,
             &syntax.module_exports,
+            (
+                std::mem::take(&mut syntax.written_root_names),
+                std::mem::take(&mut syntax.ambiguous_root_names),
+            ),
         );
         kept.rebound = syntax.rebound_names.iter().cloned().collect();
-        kept.written_root_names = std::mem::take(&mut syntax.written_root_names);
-        kept.ambiguous_root_names = std::mem::take(&mut syntax.ambiguous_root_names);
         kept.patched = std::mem::take(&mut syntax.patched);
         kept.type_exports = std::mem::take(&mut syntax.type_exports);
         kept.sites = std::mem::take(&mut syntax.sites);
@@ -114,6 +116,7 @@ impl Kept {
         comparisons: Vec<(Span, Option<String>)>,
         import_bindings: &[ImportBinding],
         module_exports: &[ExportBinding],
+        root_names: (HashSet<String>, HashSet<String>),
     ) -> Self {
         let mut bindings: HashMap<(i64, i64), Vec<ImportBinding>> = HashMap::new();
         for binding in import_bindings {
@@ -143,8 +146,8 @@ impl Kept {
             sites: Sites::default(),
             scopes: Scopes::default(),
             rebound: HashSet::new(),
-            written_root_names: HashSet::new(),
-            ambiguous_root_names: HashSet::new(),
+            written_root_names: root_names.0,
+            ambiguous_root_names: root_names.1,
             text: Vec::new(),
             shadow: NameIndex::default(),
             script: ScriptFile::default(),

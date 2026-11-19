@@ -26,3 +26,8 @@ slice. This decision does not prove runtime execution.
 **Check.** The TypeScript site tests cover direct calls, shadows, writes,
 duplicate bindings and JSX registration. The UML test checks the model edge
 and the missing handler call through the native core and collector.
+
+**Self-observation.** The arrow binding helper reads a syntax node through `Cx`
+and returns an owned name. The Rust collector cannot exclude a trait call in
+`source` or a destructor from the two snapshot modules on this path. The three
+collection gaps remain explicit; the affected native rules stay UNKNOWN.
