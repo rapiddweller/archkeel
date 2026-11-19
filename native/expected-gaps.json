@@ -29073,11 +29073,6 @@
     [
       "collection_gap",
       "native.archkeel_eval",
-      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval",
       "A trait impl in native.archkeel_facts.measures may run in code that reaches native.archkeel_facts.measures without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -44438,11 +44433,6 @@
     [
       "collection_gap",
       "native.archkeel_model.scope_receipt",
-      "A method call may reach the method name of a type in its own file native.archkeel_model.modules"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.scope_receipt",
       "A method call may reach the method name of a type in its own file native.archkeel_model.section"
     ],
     [
@@ -56894,11 +56884,6 @@
       "collection_gap",
       "native.archkeel_python_collector.survey.declared.sites",
       "A trait impl in native.archkeel_facts.data.symbols may run in code that reaches native.archkeel_facts.data.symbols without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.survey.declared.sites",
-      "A trait impl in native.archkeel_facts.envelope may run in code that reaches native.archkeel_facts.envelope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -77434,11 +77419,6 @@
       "collection_gap",
       "native.archkeel_store.records",
       "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_store.records",
-      "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",

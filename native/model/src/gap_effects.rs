@@ -213,7 +213,7 @@ fn reads(model: &Model, rule: &Rule, module: Option<&str>) -> ReadSet {
         Rule::BoundaryTypes(_) => ReadSet::BOTH,
         // AD-670: a use of a public name can come from any import of any module.
         Rule::UnusedPublic(_) => ReadSet::BOTH,
-        Rule::SymbolPlacement(_) => ReadSet::BOTH,
+        Rule::SymbolPlacement(_) | Rule::CallOwner(_) => ReadSet::BOTH,
         // A kind that no slice decides: its slice states what it reads here (fail closed).
         undecided_rule!() => ReadSet::BOTH,
     }

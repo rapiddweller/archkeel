@@ -135,12 +135,18 @@ pub(crate) fn typed(
     );
     let standard = std::mem::take(&mut survey.standard);
     let excluded_sources = std::mem::take(&mut survey.excluded_sources);
+    let direct_calls = if survey.coverage.full_scope {
+        std::mem::take(&mut survey.sites.direct)
+    } else {
+        Vec::new()
+    };
     let (head, records) = parts(prepared, survey, build)?;
     let mut reply = assemble(reply_version(request.protocol_version), head, |writer| {
         records.produce(writer)
     })?;
     reply.facts.standard = Some(standard);
     reply.facts.excluded_sources = excluded_sources;
+    reply.facts.direct_calls = Some(direct_calls);
     let features = &mut reply.facts.capabilities.resolution_features;
     features.push(ROUTES_FEATURE.to_owned());
     Ok(reply)
@@ -232,8 +238,8 @@ fn parts(
         imports: survey.imports,
         unknowns: survey.unknowns,
         symbols: survey.symbols,
-        calls: survey.calls,
-        references: survey.references,
+        calls: survey.sites.calls,
+        references: survey.sites.references,
         constructs: survey.constructs,
         signals: survey.signals,
         coverage: survey.coverage,

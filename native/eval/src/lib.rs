@@ -144,7 +144,7 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         Rule::SymbolPlacement(rule) => placement::check(id, rule, model),
         Rule::SourceOwnership(_) => unported(kind),
         Rule::BoundedNumericOperand(_) => unported(kind),
-        Rule::CallOwner(_) => unported(kind),             // S13
+        Rule::CallOwner(rule) => call_owner(id, rule, model),
         Rule::ForbiddenCallArgument(_) => unported(kind), // S14
         Rule::CatalogArgument(_) => unported(kind),
         Rule::CatalogUse(_) => unported(kind),
@@ -164,6 +164,39 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         decision = Decision::unknown(Part::ForeignRule.into());
     }
     outcome_of(id, kind, Some(decision), violations)
+}
+
+fn call_owner(
+    id: &str,
+    rule: &archkeel_contract::CallOwner,
+    model: &Model,
+) -> Result<Vec<Violation>, Reason> {
+    use archkeel_facts::identity::{stable_id, Part as IdentityPart};
+    use archkeel_facts::ids::{EvidenceId, FactId};
+    let calls: Vec<&archkeel_model::ExactCall> =
+        archkeel_model::call_owner_violations(model, rule)?;
+    let mut violations: Vec<_> = calls
+        .into_iter()
+        .map(|(site, _, source, target, evidence)| Violation::CallOwner {
+            id: stable_id(
+                "VIO",
+                &[
+                    IdentityPart::Text(id),
+                    IdentityPart::Text(FactId::as_str(site)),
+                ],
+            ),
+            rule: id.to_owned(),
+            fact: FactId::as_str(site).to_owned(),
+            source: String::clone(source),
+            target: String::clone(target),
+            evidence: evidence
+                .iter()
+                .map(|item| EvidenceId::as_str(item).to_owned())
+                .collect(),
+        })
+        .collect();
+    violations.sort_by(|a, b| Violation::id(a).cmp(Violation::id(b)));
+    Ok(violations)
 }
 
 /// The reason of a kind that no slice decides yet.

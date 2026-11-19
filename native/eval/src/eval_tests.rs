@@ -128,6 +128,7 @@ fn name(violation: &Violation) -> String {
         Violation::BoundaryType(row) => row.subject.clone(),
         Violation::UnusedPublic(row) => format!("{}:{}", row.module, row.name),
         Violation::SymbolPlacement(row) => row.name.clone(),
+        Violation::CallOwner { source, .. } => source.clone(),
     }
 }
 

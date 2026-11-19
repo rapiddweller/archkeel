@@ -171,6 +171,15 @@ impl ViolationDetail {
                 "public name that no other component uses",
                 &row.evidence,
             ),
+            Violation::CallOwner {
+                source,
+                target,
+                evidence,
+                ..
+            } => {
+                let target = Some(target.clone());
+                detail(source.clone(), target, "call outside its owner", evidence)
+            }
             Violation::SymbolPlacement(row) => Self {
                 possible: false,
                 misplaced_class_fact: Some(row.fact_id.clone()),

@@ -4,10 +4,7 @@
 
 //! The envelope of a protocol 11 reply: every part of `facts` outside the sections (AD-346).
 //!
-//! Each object is closed: an unknown key is a decode error. Parts only the Python collector fills (`state`,
-//! `type_shapes`, `uncertain_reexports`, `candidate_evidence`, `provider_bindings` and
-//! `provider_sources`) are `NoEntries`: a reply with an entry in one of them is a decode error,
-//! because no reader of these types exists yet. A value is never dropped without a check.
+//! Each object is closed: an unknown key is a decode error.
 
 pub use crate::envelope_vocab::{
     ConstructSupport, Profile, ProtocolVersion, RequirementState, Role, SectionName,
@@ -25,6 +22,9 @@ use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use crate::measures::FileMeasures;
 use crate::record::Record;
 use crate::sections::{GapFact, Section};
+
+/// A live call site, its exact function declaration and its import, if not local.
+pub type DirectCall = (FactId, FactId, Option<FactId>);
 
 /// A closed object of the envelope: an unknown key is a decode error.
 macro_rules! object {
@@ -89,8 +89,10 @@ object! {
         /// The linked collector's scope statements. Wire replies carry no live authority.
         #[serde(skip)]
         pub profile_limits: Option<ProfileLimits>,
-        /// The linked collector's one stated assumption of its proofs, shown with the verdict
-        /// (AD-540). It is no proof and replaces no gap. Wire replies carry none.
+        /// Exact calls from the linked producer, never from a saved reply.
+        #[serde(skip)]
+        pub direct_calls: Option<Vec<DirectCall>>,
+        /// The premise of the linked proof, shown with the verdict (AD-540).
         #[serde(skip)]
         pub scope_premise: Option<String>,
         /// Paths intentionally excluded from the linked collector's source scope.
@@ -100,9 +102,7 @@ object! {
         /// carry none.
         #[serde(skip)]
         pub owned_files: Vec<OwnedFile>,
-        /// The linked collector's statements about the standard library of its language, read
-        /// only under the contract premise `standard_library_unchanged` (AD-782). Wire replies
-        /// carry none.
+        /// The linked producer's facts for `standard_library_unchanged` (AD-782).
         #[serde(skip)]
         pub standard: Option<StandardFacts>,
         /// The adapter that wrote the reply.

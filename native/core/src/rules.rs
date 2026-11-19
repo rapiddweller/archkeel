@@ -38,7 +38,7 @@ fn decided(kind: RuleKind) -> bool {
         RuleKind::SymbolPlacement => true,
         RuleKind::SourceOwnership => false,
         RuleKind::BoundedNumericOperand => false,
-        RuleKind::CallOwner => false,
+        RuleKind::CallOwner => true,
         RuleKind::ForbiddenCallArgument => false,
         RuleKind::CatalogArgument => false,
         RuleKind::CatalogUse => false,

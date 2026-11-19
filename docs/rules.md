@@ -51,15 +51,13 @@ children. This proves dependency intent, not runtime loading or a public value A
 See [supported forms and limits](architecture/python-dynamic-dependencies.md).
 
 `call_owner` names `source`, a canonical `target`, and optional `allowed_sources`
-(scope prefixes) / `exact_sources` (module or function). It proves plain top-level
-functions, plain parameter annotations, uniquely stored typed fields, stable
-default construction, and single-base inherited method origins. Selected native
-identities are import-bound `random.random`, `random.Random` methods,
-`datetime.datetime.now`, and `secrets.token_hex`. An unrelated same-named method
-is allowed. Unproven calls withhold PASS, including empty candidate lists. Missing
-sources or target declarations remain UNKNOWN. Mutations, ambiguous providers and
-unbound saved receipts cannot certify it. This is a declared static boundary, not
-runtime type conformance. See [AD-241](architecture/decisions/ad-241-call-ownership-policy.md)
+(scope prefixes) or `exact_sources` (module or function). The native Python path
+reads direct names bound to stable top-level functions in the scan. It selects
+modules or packages as sources. It reports a witnessed forbidden call even when
+another call stays open. Unproved calls outside exempt modules withhold PASS.
+It does not decide receiver calls, computed targets, external providers, or saved
+replies. See [AD-998](architecture/decisions/ad-998-call-ownership-checks-direct-function-witnesses.md).
+Earlier call binding forms are described in [AD-241](architecture/decisions/ad-241-call-ownership-policy.md)
 and [AD-252](architecture/decisions/ad-252-bounded-call-identity.md).
 
 `bounded_numeric_operand` selects an owned `source`, `form` (`binary`,

@@ -83,5 +83,6 @@ fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Store, String> {
     validate::envelope(&reply.facts, &names)?;
     validation::check(&reply.facts)?;
     records::records(&reply.facts, &validate::index(&reply.facts))?;
+    records::direct_calls(&reply.facts)?;
     Ok(Store::new(reply))
 }
