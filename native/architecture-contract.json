@@ -69,6 +69,7 @@
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:TargetSource",
         "native.archkeel_facts.envelope:Validation",
+        "native.archkeel_facts.envelope:WrittenActual",
         "native.archkeel_facts.envelope:source_digest",
         "native.archkeel_facts.envelope:test_features",
         "native.archkeel_facts.fields:Fields",
@@ -114,6 +115,7 @@
         "native.archkeel_facts.request:RustRequest",
         "native.archkeel_facts.request:TypeScriptRequest",
         "native.archkeel_facts.sections:SignalFact",
+        "native.archkeel_facts.standard:ProtocolMembers",
         "native.archkeel_facts.standard:StandardFacts",
         "native.archkeel_facts.standard:Wrapped",
         "native.archkeel_facts.standard:WrappedSlot",
@@ -336,6 +338,7 @@
         "native.archkeel_contract:Entity",
         "native.archkeel_contract:EntityKind",
         "native.archkeel_contract:ExternalDependencyScope",
+        "native.archkeel_contract:ForbiddenCallArgument",
         "native.archkeel_contract:ForbiddenConstruct",
         "native.archkeel_contract:ForbiddenDependency",
         "native.archkeel_contract:InterfaceBoundary",
@@ -349,6 +352,10 @@
         "native.archkeel_contract:ParsedContract",
         "native.archkeel_contract:PremiseName",
         "native.archkeel_contract:PresenceKind",
+        "native.archkeel_contract:ProtocolDeclarations",
+        "native.archkeel_contract:ProtocolRole",
+        "native.archkeel_contract:ProtocolSelector",
+        "native.archkeel_contract:ProtocolVisibility",
         "native.archkeel_contract:PublicItemKind",
         "native.archkeel_contract:Relationship",
         "native.archkeel_contract:RelationshipKind",
@@ -572,6 +579,7 @@
         "native.archkeel_model:cycles_of_components",
         "native.archkeel_model:facade_types",
         "native.archkeel_model:forbidden",
+        "native.archkeel_model:forbidden_argument_violations",
         "native.archkeel_model:gap_kind",
         "native.archkeel_model:in_scope",
         "native.archkeel_model:interface_crossings",
@@ -582,6 +590,7 @@
         "native.archkeel_model:peers",
         "native.archkeel_model:placement_violations",
         "native.archkeel_model:premise_words",
+        "native.archkeel_model:protocol_violations",
         "native.archkeel_model:publishes",
         "native.archkeel_model:rule_premises",
         "native.archkeel_model:shape",
@@ -1169,12 +1178,18 @@
           "through": [
             "native.archkeel_contract:CallOwner",
             "native.archkeel_contract:CycleLevel",
+            "native.archkeel_contract:ForbiddenCallArgument",
             "native.archkeel_contract:Lifecycle",
             "native.archkeel_contract:NoComponentCycles",
             "native.archkeel_contract:PREMISE_NAMES",
             "native.archkeel_contract:PremiseName",
+            "native.archkeel_contract:ProtocolDeclarations",
+            "native.archkeel_contract:ProtocolRole",
+            "native.archkeel_contract:ProtocolSelector",
+            "native.archkeel_contract:ProtocolVisibility",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
+            "native.archkeel_contract:Selector",
             "native.archkeel_contract:SymbolPlacement",
             "native.archkeel_contract:assumption_words",
             "native.archkeel_contract:declared_premises",
@@ -1188,7 +1203,10 @@
           "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment).",
           "through": [
             "native.archkeel_facts.data",
-            "native.archkeel_facts.profile_traits"
+            "native.archkeel_facts.envelope:WrittenActual",
+            "native.archkeel_facts.nested:Parameter",
+            "native.archkeel_facts.profile_traits",
+            "native.archkeel_facts.standard:ProtocolMembers"
           ]
         },
         {
@@ -1207,6 +1225,7 @@
           "component": "model-graph",
           "rationale": "Read the modules, owners, imports, edges and symbols of the reply, and the namespace, roots and contract evidence of its settings.",
           "through": [
+            "native.archkeel_model.boundary_facts:BoundaryFacts",
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph",
             "native.archkeel_model.modules",
@@ -1249,12 +1268,14 @@
         }
       ],
       "public": [
+        "native.archkeel_model.gap_effects:protocol_violations",
         "native.archkeel_model.premises:PremiseKind",
         "native.archkeel_model.premises:UsedPremise",
         "native.archkeel_model.premises:kind_word",
         "native.archkeel_model.premises:of_kind_word",
         "native.archkeel_model.premises:premise_words",
         "native.archkeel_model.premises:rule_premises",
+        "native.archkeel_model.receipts:forbidden_argument_violations",
         "native.archkeel_model.run:Model",
         "native.archkeel_model.run:ModelTree",
         "native.archkeel_model.run:RunGap",
@@ -1491,8 +1512,7 @@
           "through": [
             "native.archkeel_model:Import",
             "native.archkeel_model:Module",
-            "native.archkeel_model:ModuleId",
-            "native.archkeel_model:Position"
+            "native.archkeel_model:ModuleId"
           ]
         },
         {
@@ -1520,6 +1540,7 @@
       ],
       "public": [
         "native.archkeel_eval.placement_row:PlacedClass",
+        "native.archkeel_eval.violation:BoundaryViolation",
         "native.archkeel_eval.violation:Cited",
         "native.archkeel_eval.violation:ConstructViolation",
         "native.archkeel_eval.violation:CycleStep",
@@ -1570,6 +1591,7 @@
             "native.archkeel_model:Link",
             "native.archkeel_model:Model",
             "native.archkeel_model:Part",
+            "native.archkeel_model:Position",
             "native.archkeel_model:PublicItem",
             "native.archkeel_model:Reason",
             "native.archkeel_model:Resolved",
@@ -1586,6 +1608,7 @@
             "native.archkeel_model:interface_publications",
             "native.archkeel_model:peers",
             "native.archkeel_model:placement_violations",
+            "native.archkeel_model:protocol_violations",
             "native.archkeel_model:unused_public"
           ]
         },
@@ -1603,6 +1626,7 @@
             "native.archkeel_contract:InterfaceBoundary",
             "native.archkeel_contract:LayerOrder",
             "native.archkeel_contract:NoComponentCycles",
+            "native.archkeel_contract:ProtocolDeclarations",
             "native.archkeel_contract:RootLayout",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:SiblingIsolation",
@@ -1648,6 +1672,7 @@
       "public": [
         "native.archkeel_eval.assignment:check",
         "native.archkeel_eval.boundary_types:check",
+        "native.archkeel_eval.boundary_types:protocol",
         "native.archkeel_eval.constructs:check",
         "native.archkeel_eval.cycles:check",
         "native.archkeel_eval.direction:forbidden",

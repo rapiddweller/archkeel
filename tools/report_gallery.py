@@ -41,11 +41,10 @@ from typing import Any
 from tools import fixture_source
 from tools.fixture_source import SourceError
 from tools.fixture_tree import fixture_tree, needs_copy
+from tools.report_capabilities import page as capabilities_page
 from tools.report_gallery_page import STATUSES, index
 from tools.report_product import (
-    Contract,
     Part,
-    contract_of,
     part_of,
     system,
 )
@@ -72,9 +71,6 @@ def self_runs(system: System) -> tuple[dict[str, str], ...]:
 
 
 SELF_RUNS = self_runs(load())
-# The other own contracts: one line on the product page each, no report file of their own. None
-# today: the browser assets and the Studio UI returned to history (AD-582).
-OTHER_RUNS: tuple[dict[str, str], ...] = ()
 # Shields endpoint colours (design-system palette): pass, fail and unknown. No result is grey.
 COLORS = {"PASS": "46bfd0", "FAIL": "f2606b", "UNKNOWN": "ecb64a"}
 
@@ -159,6 +155,7 @@ def _reports(
         )
         envelope = json.loads(done.stdout)
         row["summary"] = summarize(envelope)
+        row["frame"] = envelope.get("frame") or {}
         # A PASS that holds only under premises of the contract says so (AD-736): the card shows it.
         row["assuming"] = (envelope.get("frame") or {}).get("assuming")
         subprocess.run(
@@ -275,12 +272,11 @@ def system_badge(parts: Sequence[Part]) -> dict[str, Any]:
 
 
 def _topology_envelope(
-    cli: Sequence[str], run: Mapping[str, Any], topology: bool = True
+    cli: Sequence[str], run: Mapping[str, Any]
 ) -> tuple[dict[str, Any] | None, str]:
-    """The envelope of a run, with the topology unless told otherwise. Its file is thrown away."""
+    """Read the topology of a system part for the product page."""
     with tempfile.TemporaryDirectory() as folder:
-        arguments = [*command(cli, run, Path(folder) / "t.json", "json"), "--json"]
-        arguments += ["--topology"] if topology else []
+        arguments = [*command(cli, run, Path(folder) / "t.json", "json"), "--json", "--topology"]
         try:
             done = subprocess.run(
                 arguments,
@@ -295,11 +291,17 @@ def _topology_envelope(
             return None, f"{type(err).__name__}: {err}"[:300]
 
 
-def build_other(cli: Sequence[str], entry: Mapping[str, str]) -> Contract:
-    """The line of one other contract. The CLI writes its file into a folder that is thrown away."""
-    run = {"name": "other", "command": "report", "root_path": ".", "config": entry["config"]}
-    envelope, problem = _topology_envelope(cli, run, topology=False)
-    return contract_of(envelope, entry["title"], problem)
+def build_browser(cli: Sequence[str], out: Path) -> dict[str, Any]:
+    """The Explorer has its own contract outside the system document."""
+    folder = out / "own"
+    folder.mkdir()
+    run = {
+        "name": "Report Explorer",
+        "command": "report",
+        "root_path": ".",
+        "config": "docs/architecture/browser.toml",
+    }
+    return _reports(cli, run, folder, "browser", "own/")
 
 
 def nav(
@@ -440,10 +442,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         document = str(args.system.resolve().relative_to(ROOT.resolve()))
     except ValueError:
         document = None
+    # Generated HTML contains inline scripts. Scan the Explorer before writing those reports.
+    browser = build_browser(cli, args.out)
     self_rows = [build_self(cli, entry, args.out, document) for entry in self_runs(system)]
     rows = [build_run(cli, run, args.out, args.source_cache) for run in showcase_runs(args.matrix)]
     built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    others = [build_other(cli, entry) for entry in OTHER_RUNS]
     parts: list[Part] = [row["part"] for row in self_rows]
     system_row = build_system(cli, system, args.system, args.out)
     (args.out / "self" / "badge.json").write_text(
@@ -451,9 +454,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     (args.out / "showcase").mkdir()
     (args.out / "showcase" / "index.html").write_text(index(rows, sha, built_at, parts))
-    failed = [row["run"]["name"] for row in [*self_rows, *rows] if "error" in row]
+    checked = [*self_rows, browser, *rows]
+    (args.out / "capabilities.html").write_text(capabilities_page([*self_rows, browser], rows))
+    failed = [row["run"]["name"] for row in checked if "error" in row]
     failed += [part.key for part in parts if part.error and part.key not in failed]
-    failed += [item.title for item in others if item.error]
+    if browser.get("summary", {}).get("refusal"):
+        failed.append(browser["run"]["name"])
     if "error" in system_row or not (args.out / "index.html").is_file():
         failed.append("system")
     if failed:

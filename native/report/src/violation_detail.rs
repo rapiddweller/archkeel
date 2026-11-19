@@ -104,6 +104,32 @@ impl ViolationDetail {
         )
     }
 
+    fn cycle(cycle: &archkeel_eval::Cyclic) -> Self {
+        Self {
+            source: cycle.members.join(" -> "),
+            target: cycle.members.first().cloned(),
+            cause: "dependency cycle",
+            evidence: cycle.evidence.clone(),
+            possible: IntoIterator::into_iter(&cycle.path).any(|step| step.possible),
+            misplaced_class_fact: None,
+            members: Some(cycle.members.clone()),
+            path: Some(
+                IntoIterator::into_iter(&cycle.path)
+                    .map(PathStep::of)
+                    .collect(),
+            ),
+        }
+    }
+
+    fn outside_root(root: &str, child: &str, evidence: &String) -> Self {
+        detail(
+            root.to_owned(),
+            Some(child.to_owned()),
+            "child outside root layout",
+            std::slice::from_ref(evidence),
+        )
+    }
+
     pub(crate) fn of(violation: &Violation) -> Self {
         match violation {
             Violation::Forbidden { cited, .. } => Self::cited("forbidden dependency", cited),
@@ -126,44 +152,32 @@ impl ViolationDetail {
                 child,
                 evidence,
                 ..
-            } => detail(
-                root.clone(),
-                Some(child.clone()),
-                "child outside root layout",
-                std::slice::from_ref(evidence),
-            ),
+            } => Self::outside_root(root, child, evidence),
             Violation::OuterLayer(layer) => detail(
                 layer.source_component.clone(),
                 Some(layer.target_component.clone()),
                 "dependency violates layer order",
                 std::slice::from_ref(&layer.evidence),
             ),
-            Violation::Cycle(cycle) => Self {
-                source: cycle.members.join(" -> "),
-                target: cycle.members.first().cloned(),
-                cause: "dependency cycle",
-                evidence: cycle.evidence.clone(),
-                possible: IntoIterator::into_iter(&cycle.path).any(|step| step.possible),
-                misplaced_class_fact: None,
-                members: Some(cycle.members.clone()),
-                path: Some(
-                    IntoIterator::into_iter(&cycle.path)
-                        .map(PathStep::of)
-                        .collect(),
-                ),
-            },
+            Violation::Cycle(cycle) => Self::cycle(cycle),
             Violation::Construct(row) => detail(
                 format!("{} ({})", row.owner, row.construct),
                 None,
                 "forbidden construct",
                 &row.evidence,
             ),
-            Violation::BoundaryType(row) => detail(
-                row.subject.clone(),
-                Some(row.text.clone()),
-                "written type outside the boundary types",
-                &row.evidence,
-            ),
+            Violation::ProtocolDeclaration(row) | Violation::BoundaryType(row) => {
+                let (target, cause) = match violation {
+                    Violation::ProtocolDeclaration(_) => {
+                        (None, "member does not name the canonical Protocol")
+                    }
+                    _ => (
+                        Some(row.text.clone()),
+                        "written type outside the boundary types",
+                    ),
+                };
+                detail(row.subject.clone(), target, cause, &row.evidence)
+            }
             // AD-670: the source is the module, the target the item in the form `module:name`.
             Violation::UnusedPublic(row) => detail(
                 row.module.clone(),
@@ -180,6 +194,18 @@ impl ViolationDetail {
                 let target = Some(target.clone());
                 detail(source.clone(), target, "call outside its owner", evidence)
             }
+            Violation::ForbiddenArgument {
+                source,
+                target,
+                parameter,
+                evidence,
+                ..
+            } => detail(
+                source.clone(),
+                Some(format!("{target}.{parameter}")),
+                "written string literal passed to restricted parameter",
+                evidence,
+            ),
             Violation::SymbolPlacement(row) => Self {
                 possible: false,
                 misplaced_class_fact: Some(row.fact_id.clone()),

@@ -60,7 +60,6 @@ pub(crate) fn package_for(module: &str) -> String {
 }
 
 /// A selected module that a package in the same directory shadows.
-#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Shadowed {
     pub file: String,
     pub module: String,

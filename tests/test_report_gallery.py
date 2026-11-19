@@ -112,6 +112,9 @@ def test_the_showcase_lists_every_matrix_entry_with_commit_and_time(tmp_path: Pa
     captions = re.findall(r'<p class="caption">(\d+) runs?</p>', page)
     # The self-check is one more card, the anchor of the real projects.
     assert sum(map(int, captions)) == len(names) + 1
+    capabilities = (out / "capabilities.html").read_text()
+    assert 'href="own/browser.html"' in capabilities
+    assert (out / "own/browser.json").is_file()
 
 
 def test_a_run_with_showcase_false_is_not_listed_but_stays_in_the_table(tmp_path: Path) -> None:

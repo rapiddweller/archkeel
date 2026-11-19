@@ -15,9 +15,6 @@ class OptionKey(StrEnum):
     RETIRED = "retired"
 
 
-_OPTION_VALUES = {"page_size": "25", "retired": ""}
-
-
 def read_option(key: str) -> str:
     """Read the value of one option key through the application-facing adapter."""
-    return _OPTION_VALUES[key]
+    return {"page_size": "25", "retired": ""}[key]

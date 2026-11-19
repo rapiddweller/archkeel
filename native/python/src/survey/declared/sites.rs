@@ -181,7 +181,7 @@ pub(crate) fn site_records(
             if *dead {
                 dead_sites.extend(record.evidence_ids.iter().map(|id| id.as_str().to_owned()));
             } else if let Expr::Name(name) = call.func.as_ref() {
-                direct.extend(reading.direct_call(name.id.as_str(), &record.id));
+                direct.extend(reading.direct_call(name.id.as_str(), &record.id, call));
             }
             calls.push(record);
         }
@@ -198,6 +198,22 @@ pub(crate) fn site_records(
     }
 }
 
+fn written_actuals(call: &ExprCall) -> Option<Vec<archkeel_facts::envelope::WrittenActual>> {
+    let arguments = &call.arguments;
+    let positional = arguments.args.iter().map(|expr| {
+        (!matches!(expr, Expr::Starred(_)))
+            .then_some((None, matches!(expr, Expr::StringLiteral(_))))
+    });
+    let keywords = arguments.keywords.iter().map(|argument| {
+        let keyword = argument.arg.as_ref()?.as_str().to_owned();
+        Some((
+            Some(keyword),
+            matches!(argument.value, Expr::StringLiteral(_)),
+        ))
+    });
+    positional.chain(keywords).collect()
+}
+
 /// What the sites of one source read.
 struct Reading<'a> {
     context: &'a Context,
@@ -207,7 +223,7 @@ struct Reading<'a> {
 }
 
 impl Reading<'_> {
-    fn direct_call(&self, name: &str, site: &FactId) -> Option<DirectCall> {
+    fn direct_call(&self, name: &str, site: &FactId, call: &ExprCall) -> Option<DirectCall> {
         let (target, symbol) = self.lookup(name, self.hidden)?;
         let function = symbol.direct_function.as_ref()?;
         let import = if target == format!("{}.{name}", self.module) {
@@ -216,7 +232,12 @@ impl Reading<'_> {
             let (_, import) = self.context.imports.get(self.module)?.get(name)?;
             Some(import.as_ref()?.clone())
         };
-        Some((site.clone(), function.clone(), import))
+        Some((
+            site.clone(),
+            function.clone(),
+            import,
+            written_actuals(call),
+        ))
     }
 
     /// The symbol that `name` means here. In a method a name that starts with `__` and does not
@@ -338,6 +359,7 @@ fn result(reader: &mut Reader<'_, '_>, reading: &Reading<'_>, item: &Stored<'_>)
     );
     ResultBinding {
         annotation: item.annotation.clone(),
+        inferred_type: None,
         definition_contexts: Vec::new(),
         evidence_ids: vec![EvidenceId::new(reader.evidence(item.statement))],
         id: FactId::new(id),

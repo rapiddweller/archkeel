@@ -1,12 +1,10 @@
 // Archkeel
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
-
 //! The import survey of one request (`collect.collect`, phase `imports`).
 //! It records parsed modules, static imports, file facts, evidence, targets, UNKNOWNs and coverage.
 //!
 //! The `stable_bindings` of a file fact are `source._stable_direct_module_bindings` (`stable`).
-
 use crate::discover;
 use crate::module::{EvidenceMap, Module};
 use crate::requirement::Prepared;
@@ -21,7 +19,6 @@ use binders::Binders;
 use excluded::Excluded;
 use parse_files::parse_unshadowed;
 use std::collections::HashSet;
-
 pub(crate) mod binders;
 pub(crate) mod bound;
 pub(crate) mod bound_kind;
@@ -73,7 +70,6 @@ mod uses_scan;
 mod uses_typing_guard;
 mod value;
 mod walks;
-
 pub(crate) struct Survey {
     pub excluded_sources: Vec<String>,
     pub files: Vec<FileFact>,
@@ -100,12 +96,12 @@ pub(crate) struct Survey {
     /// The symbol declarations that the modules bind once (AD-518), and their sites (AD-520).
     pub symbols: Vec<Record<SymbolFact>>,
     pub sites: declared::Sites,
+    pub function_call_counts: Vec<(String, u64)>,
     pub constructs: Vec<Record<ConstructFact>>,
     pub signals: Vec<Record<SignalFact>>,
     /// What the survey sees of each written construct (AD-737).
     pub support: support::Support,
 }
-
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
 /// the definition table, AD-377).
 #[cfg(feature = "dump")]
@@ -115,7 +111,6 @@ pub(crate) struct Modules {
     pub binders: Vec<Binders>,
     pub gaps: Vec<Record<GapFact>>,
 }
-
 #[cfg(feature = "dump")]
 pub(crate) fn modules(prepared: &Prepared) -> Result<Modules, String> {
     let request: &PythonRequest = &prepared.request;
@@ -219,12 +214,17 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
     let scan = pathscope::Scan::new(modules, &imports, roots, namespace);
     let (hazards, listings) = pathscope::settle(hazards, &scan, &mut snapshot);
+    let stdlib: HashSet<&str> = interpreter
+        .stdlib_module_names
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let read = parsed.gaps.is_empty() && found.is_empty();
     let constructs = constructs::collect(
-        modules,
-        &binders,
-        &imports,
+        (modules, &binders, &imports),
         (&sole_binders, &ambiguous),
-        (&writes, hazards.is_empty()),
+        (&writes, hazards.is_empty(), read),
+        &stdlib,
         &mut evidence,
     );
     let mut opaque_surface: HashSet<String> = modules
@@ -287,11 +287,6 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         let bindings = package_body::package_bindings(modules);
         unknowns.extend(excluded.gaps(&imports, &bindings, scope.selected.is_empty()));
     }
-    let stdlib: HashSet<&str> = interpreter
-        .stdlib_module_names
-        .iter()
-        .map(String::as_str)
-        .collect();
     let resolved = targets::resolve(&imports, &files, &stdlib, namespace, &collected.ambiguous);
     let mut sites = resolved.gaps;
     for (index, site) in hazards {
@@ -328,13 +323,19 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     // A selected module that did not parse keeps the scope from being full, gap or not.
     coverage.full_scope =
         Coverage::is_full(unknowns.len(), scope.selected.len().abs_diff(modules.len()));
+    let mut function_call_counts = Vec::new();
     coverage.measures = Some(
         modules
             .iter()
             .zip(&binders)
             .map(|(module, binders)| {
-                let mut row =
-                    call_count::count(module, binders, &symbols.sites.calls, &count_context);
+                let mut row = call_count::count(
+                    module,
+                    binders,
+                    &symbols.sites.calls,
+                    &count_context,
+                    &mut function_call_counts,
+                );
                 (row.typing_positions, row.untyped_private_accesses) =
                     typing_count::count(module, binders);
                 row
@@ -342,6 +343,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
             .collect(),
     );
     Ok(Survey {
+        function_call_counts,
         excluded_sources: scope.excluded,
         targets: resolved.targets,
         files,
@@ -363,11 +365,15 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
             .into_iter()
             .filter(|input| selected.contains(input.path.as_str()))
             .collect(),
-        standard: standard::facts(
-            &writes,
-            (&declared::collection_names(), &declared::FORMS),
-            (symbols.wrapped, symbols.positions),
-        ),
+        standard: archkeel_facts::standard::StandardFacts {
+            protocol_unchanged: constructs.protocol_unchanged,
+            protocol_members: symbols.protocol_members,
+            ..standard::facts(
+                &writes,
+                (&declared::collection_names(), &declared::FORMS),
+                (symbols.wrapped, symbols.positions),
+            )
+        },
         symbols: symbols.records,
         sites: symbols.sites,
         signals: constructs.signals,
@@ -384,6 +390,8 @@ struct Symbols {
     /// The standard library names of each written position (#1718).
     positions: standard::Positions,
     sites: declared::Sites,
+    protocol_members:
+        std::collections::BTreeMap<String, (bool, archkeel_facts::standard::ProtocolMembers)>,
 }
 
 /// AD-518, AD-520: the declarations of each module that `admitted` keeps, then their sites. A
@@ -437,29 +445,20 @@ fn declarations(
         sites.dead.extend(more.dead);
         sites.direct.extend(more.direct);
     }
+    let protocol_members = declared::shape_standard::protocol_positions(
+        &found,
+        read,
+        imports,
+        sets,
+        (evidence, writes, lazy_314),
+    );
     let records = found.into_iter().flat_map(|item| item.records).collect();
     Symbols {
         records,
         wrapped,
         positions,
         sites,
-    }
-}
-
-/// AD-708: a whole-module import whose module object escapes gives names that the scan does not
-/// read, so it is no proof of its names.
-fn unread_names(records: &mut [Record<ImportFact>], escaped: &HashSet<(String, String)>) {
-    for record in records {
-        let ImportFact::Import(data) = &mut record.data else {
-            continue;
-        };
-        let key = (data.source_module.as_str().to_owned(), data.binding.clone());
-        let (source, Some(binding)) = key else {
-            continue;
-        };
-        if data.symbol.is_none() && escaped.contains(&(source, binding)) {
-            data.symbols_known = false;
-        }
+        protocol_members,
     }
 }
 
@@ -488,7 +487,7 @@ fn collect(
         let found = module_uses::find(modules, binders, &first.records);
         let mut collected =
             imports::collect_all(modules, binders, namespace, evidence, set, &found.uses);
-        unread_names(&mut collected.records, &found.escaped);
+        module_uses::unread_names(&mut collected.records, &found.escaped);
         let before = sources.len();
         uses::settled(modules, &collected.records, sources);
         if sources.len() == before {

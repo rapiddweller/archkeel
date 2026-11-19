@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use archkeel_facts::envelope::Facts;
 use archkeel_facts::standard::{StandardFacts, Wrapped};
-use archkeel_facts::type_shape::TypeShape;
+use archkeel_facts::type_shape::{Binding, TypeShape};
 use archkeel_facts::vocab::{ClassKind, MethodKind};
 use archkeel_facts::{FactData, ImportFact, Record, Section, SymbolFact};
 
@@ -199,6 +199,42 @@ impl BoundaryFacts {
             .filter(|(_, (count, _))| *count == 1)
             .filter_map(|(key, (_, route))| Some((key, route?)))
             .collect();
+    }
+
+    pub(crate) fn canonical_protocol(&self, target: &str) -> bool {
+        self.standard.protocol_unchanged
+            && matches!(self.entry(target), Some(Entry::Class(class))
+        if class.kind == Some(ClassKind::Protocol)
+            && class.bases == ["typing.Protocol"]
+            && class.members.as_ref().is_some_and(|members| !IntoIterator::into_iter(Vec::as_slice(members)).any(|name| name == "_is_protocol")))
+            && target
+                .rsplit_once('.')
+                .is_some_and(|(module, _)| self.standard.protocol_members.contains_key(module))
+    }
+
+    pub(crate) fn protocol_member(&self, shape: &TypeShape, protocol: &str) -> Option<bool> {
+        match shape {
+            TypeShape::Named {
+                binding: Binding::Defined { target } | Binding::Imported { target },
+                ..
+            } => match self.origin_of(target) {
+                Origin::Defined(name, Entry::Class(_)) => Some(name == protocol),
+                _ => None,
+            },
+            TypeShape::Unannotated {}
+            | TypeShape::Nothing {}
+            | TypeShape::Primitive { .. }
+            | TypeShape::Dynamic { .. } => Some(false),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn annotation_text(shape: &TypeShape) -> String {
+        TypeShape::text(shape).to_owned()
+    }
+
+    pub(crate) fn standard(&self) -> &StandardFacts {
+        &self.standard
     }
 
     /// The entry of a qualified name.

@@ -145,3 +145,20 @@ fn typed_profile_statements_must_match_the_symbol_capability() {
         "profile symbol statement does not match its capability"
     );
 }
+
+#[test]
+fn a_wire_reply_cannot_supply_live_call_arguments() {
+    let error = error_after(|reply| {
+        reply["facts"]["direct_calls"] =
+            json!([["SITE-archived", "SYM-archived", null, [[null, false]]]]);
+    });
+    assert!(error.contains("unknown field `direct_calls`"), "{error}");
+}
+
+#[test]
+fn a_wire_reply_cannot_supply_live_protocol_members() {
+    let error = error_after(|reply| {
+        reply["facts"]["standard"] = json!({"protocol_unchanged": true, "protocol_members": {}});
+    });
+    assert!(error.contains("unknown field `standard`"), "{error}");
+}

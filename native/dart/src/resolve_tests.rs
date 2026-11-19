@@ -143,6 +143,38 @@ fn an_inferred_type_of_a_literal_is_not_a_written_annotation_or_a_wire_fact() {
 }
 
 #[test]
+fn an_untyped_final_local_infers_only_a_direct_nongeneric_constructor() {
+    let found = symbols(&[
+        ("lib/model.dart", "class Item {} class Box<T> {} typedef Alias = Item; class Factory { factory Factory() => _Impl(); } class _Impl implements Factory {}"),
+        ("lib/another.dart", "class Item {}"),
+        ("lib/main.dart", "import 'model.dart'; void main() { final plain = Item(); final alias = Alias(); final generic = Box<int>(); final factory = Factory(); final Item written = Item(); var mutable = Item(); } void shadowed(Item Function() Item) { final hidden = Item(); }"),
+        ("lib/ambiguous.dart", "import 'model.dart'; import 'another.dart'; void probe() { final ambiguous = Item(); }"),
+        ("lib/conditional.dart", "import 'model.dart' if (dart.library.io) 'missing.dart'; void probe() { final conditional = Item(); }"),
+        ("lib/barrel.dart", "export 'model.dart';"),
+        ("lib/reexport.dart", "import 'barrel.dart'; void probe() { final reexported = Item(); }"),
+    ]);
+    let mut proofs = Vec::new();
+    for record in &found.calls {
+        let archkeel_facts::CallFact::Call(data) = &record.data else {
+            continue;
+        };
+        for binding in data.result_bindings.iter().flatten() {
+            if let Some(inferred) = &binding.inferred_type {
+                assert_eq!(binding.annotation, None);
+                let mut wire = serde_json::to_value(binding).unwrap();
+                assert!(wire.get("inferred_type").is_none());
+                wire["inferred_type"] = serde_json::json!("Item");
+                assert!(
+                    serde_json::from_value::<archkeel_facts::nested::ResultBinding>(wire).is_err()
+                );
+                proofs.push((binding.name.as_str(), inferred.as_str()));
+            }
+        }
+    }
+    assert_eq!(proofs, [("plain", "Item")]);
+}
+
+#[test]
 fn an_inventory_is_partial_when_a_form_outside_the_body_can_add_members() {
     let found = symbols(&[
         (

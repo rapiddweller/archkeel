@@ -49,4 +49,4 @@ graph TD
     n_3 --> n_4
 ```
 
-Target bundle SHA-256: `4f6fb239818ff66ae963ce5a4ffe43d319b6d21cbeaf76d262d9cbf670a33a67`
+Target bundle SHA-256: `91c6be0e90e3d119e476aaccc3ede7d5ff69c390965a16bc3c77761333ae6397` (root contract bytes followed by the mounted contract bytes in path order).

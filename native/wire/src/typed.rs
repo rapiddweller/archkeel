@@ -78,6 +78,7 @@ pub fn assemble(
             validation,
             profile_limits: None,
             direct_calls: None,
+            function_call_counts: None,
             scope_premise: None,
             excluded_sources: Vec::new(),
             owned_files: Vec::new(),

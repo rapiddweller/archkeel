@@ -38,8 +38,6 @@ use crate::observed::Observed;
 /// The rule kinds that no store-accepted profile decides (`unsupported_rules`).
 const UNDECIDED_KINDS: &[RuleKind] = &[
     RuleKind::BoundedNumericOperand,
-    RuleKind::ProtocolDeclarations,
-    RuleKind::ForbiddenCallArgument,
     RuleKind::CatalogArgument,
     RuleKind::CatalogUse,
     RuleKind::SourceOwnership,
@@ -182,10 +180,11 @@ fn reads(rule: &Rule) -> Reads {
         Rule::ForbiddenDependency(rule) if rule.target_symbol().is_some() => Reads::OwnSymbol,
         Rule::CompleteRequires(_) => Reads::Ports,
         undecided_rule!() => Reads::Undecided,
-        Rule::BoundaryTypes(_) => Reads::Shapes,
+        Rule::BoundaryTypes(_) | Rule::ProtocolDeclarations(_) => Reads::Shapes,
         Rule::UnusedPublic(_) => Reads::Published,
         Rule::SymbolPlacement(_) => Reads::Placement,
         Rule::CallOwner(_)
+        | Rule::ForbiddenCallArgument(_)
         | Rule::ForbiddenDependency(_)
         | Rule::AllowedDependency(_)
         | Rule::ExternalDependencyScope(_)

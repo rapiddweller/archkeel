@@ -9,18 +9,19 @@
 
 use std::collections::HashSet;
 
-use archkeel_contract::{kind_of, CallOwner, CycleLevel, Rule, RuleKind};
+use archkeel_contract::{kind_of, CallOwner, CycleLevel, PremiseName, Rule};
 
 use crate::causes::{Cause, Held, Part};
 use crate::coverage::Incomplete;
 use crate::direction;
 use crate::dropped_gaps;
-use crate::graph::{CallInventory, ExactCall, Graph};
+use crate::graph::{ExactCall, Graph};
 use crate::model::Model;
 use crate::modules::Module;
 use crate::ownership::{in_scope, owner_of};
 use crate::pair_gaps::{reads, sides_match, Reads};
 use crate::reason::{Reason, Unsupported};
+use crate::receipts::{call_allowed, live_calls};
 use crate::receipts::{GapScope, ScanProof};
 use crate::roots::Roots;
 use crate::selection;
@@ -167,7 +168,14 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         Rule::ExternalDependencyScope(_) => observed().next().is_some(),
         Rule::InterfaceBoundary(_) => observed().next().is_some(),
         Rule::ForbiddenConstruct(rule) => {
-            crate::construct_match::receipt(model, rule)?;
+            if Option::is_some(&crate::construct_match::receipt(model, rule)?)
+                && !archkeel_contract::declared_premises(model.contract())
+                    .contains(&PremiseName::StandardLibraryUnchanged)
+            {
+                return Err(Reason::NotComplete(Cause::Receipt(
+                    "Protocol declarations need standard_library_unchanged",
+                )));
+            }
             true
         }
         // Slice S5 (AD-380), `_rule_evaluation_facts_for_rule`.
@@ -221,17 +229,23 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             call_owner_receipt(model, rule)?;
             true
         }
+        Rule::ForbiddenCallArgument(rule) => {
+            crate::receipts::argument_receipt(model, rule)?;
+            true
+        }
+        Rule::ProtocolDeclarations(rule) => {
+            crate::gap_effects::protocol_receipt(model, rule)?;
+            true
+        }
         // Each kind that no slice decides: its slice states its receipt here (AD-378). A
         // permission declaration (`allowed_dependency`) has no verdict, so it has no receipt.
-        other @ (Rule::ForbiddenCallArgument(_)
-        | Rule::CatalogArgument(_)
+        other @ (Rule::CatalogArgument(_)
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
         | Rule::AllowedDependency(_)
         | Rule::SourceOwnership(_)
         | Rule::NoComponentCycles(_)
-        | Rule::BoundedNumericOperand(_)
-        | Rule::ProtocolDeclarations(_)) => {
+        | Rule::BoundedNumericOperand(_)) => {
             // `receipts::cycle` gives the receipt of `no_component_cycles` (slice S7).
             return Err(Reason::Unsupported(Unsupported::Rule(kind_of(other))));
         }
@@ -248,46 +262,33 @@ pub fn call_owner_violations<'m>(
     model: &'m Model,
     rule: &CallOwner,
 ) -> Result<Vec<&'m ExactCall>, Reason> {
-    let (calls, _, _) = live_calls(model, rule)?;
+    let inventory = live_calls(model, rule)?;
     let scope = CallOwner::source(rule).as_text();
     let target = CallOwner::target(rule).as_text();
-    Ok(calls
+    let module_scope = Graph::modules(Model::graph(model))
+        .iter()
+        .any(|(id, module)| model.holds(id) && in_scope(Module::name(module), scope));
+    Ok(inventory
+        .calls
         .iter()
         .filter(|(_, module, caller, callee, _)| {
             model.selects(module)
-                && in_scope(module, scope)
+                && (in_scope(module, scope)
+                    || (!module_scope
+                        && inventory.bodies.contains_key(scope)
+                        && in_scope(caller, scope)))
                 && callee == target
                 && !call_allowed(rule, module, caller)
         })
         .collect())
 }
 
-fn live_calls<'m>(model: &'m Model, rule: &CallOwner) -> Result<&'m CallInventory, Reason> {
-    let graph = Model::graph(model);
-    let scope = CallOwner::source(rule).as_text();
-    let modules = Graph::modules(graph);
-    let selected = modules
-        .iter()
-        .any(|(id, module)| model.holds(id) && in_scope(Module::name(module), scope));
-    if !selected {
-        return Err(Reason::Unsupported(Unsupported::Rule(RuleKind::CallOwner)));
-    }
-    Graph::exact_calls(graph).ok_or(Reason::Unsupported(Unsupported::Rule(RuleKind::CallOwner)))
-}
-
-fn call_allowed(rule: &CallOwner, module: &str, caller: &str) -> bool {
-    rule.allowed_sources()
-        .iter()
-        .any(|source| in_scope(caller, source.as_text()))
-        || rule
-            .exact_sources()
-            .iter()
-            .any(|source| source.as_text() == module || source.as_text() == caller)
-}
-
 fn call_owner_receipt(model: &Model, rule: &CallOwner) -> Result<(), Reason> {
-    let (_, targets, complete) = live_calls(model, rule)?;
-    if !targets.contains(CallOwner::target(rule).as_text()) {
+    let inventory = live_calls(model, rule)?;
+    if !inventory
+        .targets
+        .contains(CallOwner::target(rule).as_text())
+    {
         return Err(Cause::Receipt("call ownership needs an exact target declaration").into());
     }
     let graph = Model::graph(model);
@@ -300,14 +301,32 @@ fn call_owner_receipt(model: &Model, rule: &CallOwner) -> Result<(), Reason> {
             continue;
         }
         nonempty |= !Module::blank(module);
-        if !call_allowed(rule, name, name) && !complete.contains(name) {
+        if !call_allowed(rule, name, name) && !inventory.complete.contains(name) {
             return Err(
                 Cause::Receipt("call ownership: a selected call has no exact target").into(),
             );
         }
     }
     if !nonempty {
-        return Err(Reason::NoSubjects);
+        if modules
+            .iter()
+            .any(|(id, module)| model.holds(id) && in_scope(Module::name(module), scope))
+        {
+            return Err(Reason::NoSubjects);
+        }
+        let Some(total) = std::collections::HashMap::get(&inventory.bodies, scope) else {
+            return Err(Reason::NoSubjects);
+        };
+        let found = inventory
+            .calls
+            .iter()
+            .filter(|(_, _, caller, _, _)| caller == scope)
+            .count();
+        if u64::try_from(found).ok() != Some(*total) {
+            return Err(
+                Cause::Receipt("call ownership: a selected call has no exact target").into(),
+            );
+        }
     }
     Ok(())
 }

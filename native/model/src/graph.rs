@@ -149,6 +149,7 @@ impl Graph {
         observed.effect_gaps = door_reach::narrowed(&doors, observed.effect_gaps);
         let gaps = crate::gaps::coverage_gaps(&facts.coverage, &classes);
         drop(names);
+        let constructs = Constructs::derive(facts, settings.producer() == Producer::Trusted)?;
         Ok(Graph {
             symbol_counts: symbol_counts(facts, &modules),
             modules,
@@ -176,7 +177,7 @@ impl Graph {
             cycles,
             observed,
             builtins: builtins(facts),
-            constructs: Constructs::derive(facts)?,
+            constructs,
             symbols: None,
             boundary: None,
             placement: None,
@@ -326,11 +327,19 @@ impl Graph {
 /// The call site, module, lexical scope, target and evidence.
 pub type ExactCall = (FactId, String, String, String, Vec<EvidenceId>);
 
-pub(crate) type CallInventory = (Vec<ExactCall>, HashSet<String>, HashSet<String>);
+#[derive(Debug)]
+pub(crate) struct CallInventory {
+    pub(crate) calls: Vec<ExactCall>,
+    pub(crate) targets: HashSet<String>,
+    pub(crate) complete: HashSet<String>,
+    pub(crate) bodies: HashMap<String, u64>,
+    pub(crate) actuals: HashMap<FactId, Vec<archkeel_facts::envelope::WrittenActual>>,
+    pub(crate) formals: HashMap<String, Vec<archkeel_facts::nested::Parameter>>,
+}
 
 fn direct_calls(facts: &Facts) -> Option<CallInventory> {
     let live = facts.direct_calls.as_ref()?;
-    let sites: HashSet<&FactId> = live.iter().map(|(site, _, _)| site).collect();
+    let sites: HashSet<&FactId> = live.iter().map(|(site, _, _, _)| site).collect();
     let mut calls = Vec::new();
     let mut counts: HashMap<&ModuleName, u64> = HashMap::new();
     let rows = facts.sections.iter().filter_map(|section| match section {
@@ -357,7 +366,46 @@ fn direct_calls(facts: &Facts) -> Option<CallInventory> {
         let count = counts.get(&row.module).copied().unwrap_or(0);
         (count == row.calls_total).then(|| ModuleName::as_str(&row.module).to_owned())
     });
-    Some((calls, direct_targets(facts), complete.collect()))
+    let bodies = facts
+        .function_call_counts
+        .iter()
+        .flatten()
+        .cloned()
+        .collect();
+    Some(CallInventory {
+        calls,
+        targets: direct_targets(facts),
+        complete: complete.collect(),
+        bodies,
+        actuals: live
+            .iter()
+            .filter_map(|(site, _, _, arguments)| Some((site.clone(), arguments.as_ref()?.clone())))
+            .collect(),
+        formals: direct_formals(facts),
+    })
+}
+
+fn direct_formals(facts: &Facts) -> HashMap<String, Vec<archkeel_facts::nested::Parameter>> {
+    facts
+        .sections
+        .iter()
+        .filter_map(|section| match section {
+            Section::Symbols(rows) => Some(rows),
+            _ => None,
+        })
+        .flatten()
+        .filter_map(|row| match &row.data {
+            SymbolFact::Function(function)
+                if function.source_binding_unique == Some(true)
+                    && Vec::is_empty(&function.decorators)
+                    && function.lexical_parent_id.is_none()
+                    && function.signature_complete == Some(true) =>
+            {
+                Some((function.qualified_name.clone(), function.parameters.clone()))
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 fn direct_targets(facts: &Facts) -> HashSet<String> {

@@ -63,6 +63,21 @@ fn the_reply_lists_each_construct_once_in_its_order() {
     );
 }
 
+#[test]
+fn a_protocol_receipt_does_not_claim_unconditional_support_on_the_wire() {
+    let mut conditional = Support::start();
+    conditional.observe_placeholder(super::PlaceholderCoverage::UsesProtocol);
+    assert!(conditional.placeholder_under_premise());
+    assert_eq!(
+        conditional.reply().last(),
+        Some(&("placeholder_body", "partial"))
+    );
+    let mut unread = Support::start();
+    unread.downgrade(Construct::Placeholder);
+    conditional.meet(&unread);
+    assert!(!conditional.placeholder_under_premise());
+}
+
 /// The support of the survey of a project with a clean module and one module with this source.
 fn support(source: &str) -> Support {
     surveyed(&[
