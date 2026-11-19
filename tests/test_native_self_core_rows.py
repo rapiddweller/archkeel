@@ -200,9 +200,9 @@ def _crate(module: str) -> str:
 
 
 @pytest.fixture(scope="module")
-def import_records(built: Path, checked: tuple[int, dict[str, Any]]) -> list[dict[str, Any]]:
+def rust_facts(built: Path, checked: tuple[int, dict[str, Any]]) -> dict[str, Any]:
     # The core states the request that it sent to its collector; the Rust collector of the same
-    # build answers it again here, so the test reads the import records themselves.
+    # build answers it again here, so the tests can read the source records.
     request = checked[1]["frame"]["self_test"]["collect"]["request"]
     done = subprocess.run(
         [str(built / f"archkeel-rust-collector{SUFFIX}")],
@@ -211,13 +211,37 @@ def import_records(built: Path, checked: tuple[int, dict[str, Any]]) -> list[dic
         check=False,
     )
     assert done.returncode == 0, done.stderr.decode(errors="replace")
-    reply = json.loads(zlib.decompress(done.stdout))
+    return json.loads(zlib.decompress(done.stdout))["facts"]
+
+
+@pytest.fixture(scope="module")
+def import_records(rust_facts: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         record["data"]
-        for section in reply["facts"]["sections"]
+        for section in rust_facts["sections"]
         if section["name"] == "imports"
         for record in section["records"]
     ]
+
+
+def test_anonymous_default_keeps_the_known_tree_context_route(
+    import_records: list[dict[str, Any]], rust_facts: dict[str, Any]
+) -> None:
+    ts = "native.archkeel_typescript_collector"
+    source, target = f"{ts}.definitions.arrow", f"{ts}.tree.cx"
+    assert any(
+        (row["source_module"], row["target_module"], row["specifier"], row["symbol"])
+        == (source, target, "cx.k", "Cx")
+        for row in import_records
+    )
+    assert not any(
+        record["kind"] == "source_resolution_gap"
+        and record["data"].get("resolution_dimension") == "imports"
+        and (record["data"].get("source_module"), record["data"].get("module")) == (source, target)
+        for section in rust_facts["sections"]
+        if section["name"] == "unknowns"
+        for record in section["records"]
+    )
 
 
 def test_the_receiver_scan_starts_the_body_walk_without_a_return_edge(

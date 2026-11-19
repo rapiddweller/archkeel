@@ -53,10 +53,9 @@ pub(super) fn anonymous_default<'t>(cx: &Cx, top: &[Node<'t>]) -> Option<Node<'t
     let function = cx
         .field(export, F::Value)
         .or_else(|| cx.field(export, F::Declaration))?;
-    (matches!(
-        cx.k(function),
-        K::FunctionExpression | K::FunctionDeclaration
-    ) && cx.field(function, F::Name).is_none()
+    let kind = cx.k(function);
+    (matches!(kind, K::FunctionExpression | K::FunctionDeclaration)
+        && cx.field(function, F::Name).is_none()
         && cx.field(function, F::Body).is_some())
     .then_some(function)
 }
