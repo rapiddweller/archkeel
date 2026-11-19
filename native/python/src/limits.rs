@@ -41,6 +41,24 @@ pub(crate) struct Problem {
     pub offset: usize,
 }
 
+/// Why a file has no tree: the class name of the Python exception, its line and its message.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ParseFailure {
+    pub exception: ExceptionName,
+    pub line: usize,
+    pub message: String,
+}
+
+impl From<Problem> for ParseFailure {
+    fn from(problem: Problem) -> Self {
+        Self {
+            exception: problem.exception,
+            line: problem.line,
+            message: problem.message,
+        }
+    }
+}
+
 /// What the scan found: the first tokenizer error, the first error that the CPython parser gives
 /// and ruff does not, the stack bound, and the innermost bracket that is open at the end of the
 /// file (its character and its line).

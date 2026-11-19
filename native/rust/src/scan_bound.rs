@@ -10,29 +10,48 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use proc_macro2::{TokenStream, TokenTree};
 use syn::visit::{self, Visit};
-use syn::{Attribute, Item};
+use syn::{Attribute, Block, Item, Signature};
 
 use crate::std_macros;
 use crate::tokens::plain;
 
 /// How the body and the signature bind names.
-pub(super) struct Bound {
+pub(in crate::scan::receivers) struct Bound {
     /// Whether each attribute is inert: a `cfg` or an unknown attribute on a statement, an
     /// expression, an arm or a block can remove the code around a call (AD-524).
-    pub(super) inert: fn(&[Attribute]) -> bool,
+    inert: fn(&[Attribute]) -> bool,
     /// A non-inert attribute is somewhere in the `fn`.
-    pub(super) gated: bool,
+    gated: bool,
     /// A macro call can pass a nested macro call through to its expansion.
-    pub(super) nested_macro: bool,
+    nested_macro: bool,
     /// The macros that the `fn` calls and that are no silent macro of `std`.
     pub(super) macros: BTreeSet<String>,
     /// How many times each name is bound by a pattern or an item.
-    pub(super) counts: BTreeMap<String, usize>,
+    pub(in crate::scan::receivers) counts: BTreeMap<String, usize>,
     /// Names that a `use` or a macro call may bind.
-    pub(super) tainted: BTreeSet<String>,
+    pub(in crate::scan::receivers) tainted: BTreeSet<String>,
 }
 
 impl Bound {
+    /// Read the bindings only when attributes and nested macros leave the function known.
+    pub(in crate::scan::receivers) fn read(
+        sig: &Signature,
+        block: &Block,
+        inert: fn(&[Attribute]) -> bool,
+    ) -> Option<Self> {
+        let mut bound = Self {
+            inert,
+            gated: false,
+            nested_macro: false,
+            macros: BTreeSet::new(),
+            counts: BTreeMap::new(),
+            tainted: BTreeSet::new(),
+        };
+        bound.visit_signature(sig);
+        bound.visit_block(block);
+        (!bound.gated && !bound.nested_macro).then_some(bound)
+    }
+
     fn count(&mut self, name: String) {
         *self.counts.entry(name).or_default() += 1;
     }

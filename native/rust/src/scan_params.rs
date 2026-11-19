@@ -23,11 +23,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use syn::visit::{self, Visit};
-use syn::{
-    Attribute, FnArg, GenericArgument, GenericParam, Item, Pat, PathArguments, Signature, Type,
-};
+use syn::{FnArg, GenericArgument, GenericParam, Item, Pat, PathArguments, Signature, Type};
 
-use super::bodies::{Binder, Bodies};
 use super::chains::{chain_of, destructure, Names};
 use super::sites::ClosureSites;
 use super::written_types::{with_self, written};
@@ -38,7 +35,7 @@ use bound::Bound;
 
 /// How a `fn` binds names.
 #[path = "scan_bound.rs"]
-mod bound;
+pub(super) mod bound;
 
 /// Whether a generic argument binds a type or a const: a lifetime does not change which
 /// inherent methods a type has.
@@ -188,14 +185,18 @@ impl Params {
             macros: self.macros.clone(),
         }
     }
-}
-
-impl Binder for Params {
-    fn typed(&self, name: &str, ty: &syn::Type) -> Option<ReceiverChain> {
+    /// The chain of a typed local of the body, if its type is known.
+    pub(super) fn typed(&self, name: &str, ty: &syn::Type) -> Option<ReceiverChain> {
         self.body_type(ty).map(|ty| self.typed_root(name, ty))
     }
 
-    fn bind_at(&mut self, name: String, origin: ReceiverChain, sites: BTreeSet<(usize, usize)>) {
+    /// Bind a name at the given receiver sites.
+    pub(super) fn bind_at(
+        &mut self,
+        name: String,
+        origin: ReceiverChain,
+        sites: BTreeSet<(usize, usize)>,
+    ) {
         let binding = Binding {
             receiver: None,
             origin: Some(origin),
@@ -252,22 +253,9 @@ pub(in crate::scan) fn typed(ty: &Type) -> Option<(Vec<String>, SelfKind)> {
 pub(super) fn read(
     (sig, block): (&Signature, &syn::Block),
     (outer, scope): (&[String], &[String]),
-    inert: fn(&[Attribute]) -> bool,
+    bound: &Bound,
     (this, self_type): (Option<ReceiverChain>, Option<Vec<String>>),
 ) -> Params {
-    let mut bound = Bound {
-        inert,
-        gated: false,
-        nested_macro: false,
-        macros: BTreeSet::new(),
-        counts: BTreeMap::new(),
-        tainted: BTreeSet::new(),
-    };
-    bound.visit_signature(sig);
-    bound.visit_block(block);
-    if bound.gated || bound.nested_macro {
-        return Params::bare(this);
-    }
     let mut hidden: BTreeSet<String> = outer.iter().cloned().collect();
     hidden.extend(sig.generics.params.iter().filter_map(generic_name));
     let mut hide: BTreeSet<String> = hidden.clone();
@@ -289,11 +277,11 @@ pub(super) fn read(
             let ty = with_self(written(&param.ty, &hidden), params.self_type.as_deref());
             let origin = params.typed_root("", ty);
             let place = (None, None);
-            parts(&param.pat, &origin, (&bound, scope, place), &mut params);
+            parts(&param.pat, &origin, (bound, scope, place), &mut params);
             continue;
         };
         let name = plain(&pattern.ident);
-        if !plain_ident(pattern) || !param.attrs.is_empty() || !once(&bound, &name) {
+        if !plain_ident(pattern) || !param.attrs.is_empty() || !once(bound, &name) {
             continue;
         }
         let typed = typed(&param.ty)
@@ -301,22 +289,15 @@ pub(super) fn read(
         // A signature names the items of the module: an item of the body hides none of it.
         let ty = with_self(written(&param.ty, &hidden), params.self_type.as_deref());
         let origin = Some(params.typed_root(&name, ty));
-        let binding = Binding::new(&name, typed, origin, (scope, &bound), (None, None));
+        let binding = Binding::new(&name, typed, origin, (scope, bound), (None, None));
         params.bind(name, binding);
     }
-    read_locals(block, &bound, (&hidden, scope), &mut params);
+    read_locals(block, bound, (&hidden, scope), &mut params);
     Closures {
-        bound: &bound,
+        bound,
         hidden: &hidden,
         scope,
         params: &mut params,
-    }
-    .visit_block(block);
-    Bodies {
-        binder: &mut params,
-        tainted: &bound.tainted,
-        counts: &bound.counts,
-        depth: 0,
     }
     .visit_block(block);
     params
@@ -457,13 +438,13 @@ impl<'ast> Visit<'ast> for Closures<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::read;
+    use super::super::read_bindings;
 
     #[test]
     fn a_closure_binding_proves_only_receiver_sites_in_its_body() {
         let text = "fn f() { let _c = |s: &crate::c::S| s.m(); s.m(); }";
         let item: syn::ItemFn = syn::parse_str(text).unwrap();
-        let found = read((&item.sig, &item.block), (&[], &[]), |_| true, (None, None));
+        let found = read_bindings((&item.sig, &item.block), (&[], &[]), (None, None));
         let first = text.find("s.m()").unwrap();
         let last = text.rfind("s.m()").unwrap();
         assert!(found.get("s", (1, first)).is_some());

@@ -94,6 +94,40 @@ def test_a_planted_report_cycle_fails_the_native_component_rule(
     assert all(step["evidence"] and not step.get("possible") for step in cycle["path"])
 
 
+def test_routing_the_body_walk_through_params_restores_the_module_cycle(
+    tmp_path: Path, frozen_root: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = shutil.copytree(frozen_root, tmp_path / "planted")
+    rust = root / "native/rust/src"
+    orchestration = rust / "scan_receivers.rs"
+    text = orchestration.read_text(encoding="utf-8")
+    call = "bodies::extend(block, &mut params, &bound);"
+    assert text.count(call) == 1
+    orchestration.write_text(
+        text.replace(call, "params::extend_body(block, &mut params, &bound);"), encoding="utf-8"
+    )
+    with (rust / "scan_params.rs").open("a", encoding="utf-8") as source:
+        source.write(
+            "\npub(super) fn extend_body("
+            "block: &syn::Block, params: &mut Params, bound: &Bound) {\n"
+            "    super::bodies::extend(block, params, bound);\n"
+            "}\n"
+        )
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    code, result = run("validate", "--root", str(root), "--config", "native/archkeel.toml")
+    frame = result["frame"]
+    rule = "NATIVE-NO-MODULE-CYCLES"
+    assert (code, frame["rules"][rule][1]) == (1, "FAIL")
+    assert frame["rules"]["NATIVE-NO-COMPONENT-CYCLES"][1] == "PASS"
+    prefix = "native.archkeel_rust_collector.scan.receivers."
+    [cycle] = frame["explain"]["cycles"][rule]["items"]
+    assert {(step["from"], step["to"]) for step in cycle["path"]} == {
+        (prefix + "bodies", prefix + "params"),
+        (prefix + "params", prefix + "bodies"),
+    }
+    assert all(step["evidence"] and not step.get("possible") for step in cycle["path"])
+
+
 # Review B2 and B3 of #1121: `core` reaches the collector crates only through `archkeel_collect`.
 # The scan lists no method in the file of its type and no trait method as a candidate (open
 # classes, docs/known-limits.md), so a value of a collector type in `core` could reach one without
@@ -144,6 +178,17 @@ def import_records(built: Path, checked: tuple[int, dict[str, Any]]) -> list[dic
         if section["name"] == "imports"
         for record in section["records"]
     ]
+
+
+def test_the_receiver_scan_starts_the_body_walk_without_a_return_edge(
+    import_records: list[dict[str, Any]],
+) -> None:
+    receivers = "native.archkeel_rust_collector.scan.receivers"
+    params, bodies = f"{receivers}.params", f"{receivers}.bodies"
+    edges = {(row["source_module"], row["target_module"]) for row in import_records}
+    assert (receivers, bodies) in edges
+    assert (bodies, params) in edges
+    assert (params, bodies) not in edges
 
 
 def test_snapshot_io_does_not_depend_on_collector_facts(

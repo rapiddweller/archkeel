@@ -43,12 +43,9 @@ use names::{GapName, Gaps, NamedGap, Place};
 use budget::PARSE_BUDGET_BYTES;
 
 /// The owner of one part file: the library whose module holds the edges of the part.
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PartOwner {
     /// The path of the part file.
     pub part: String,
-    /// The path of the library that the part belongs to.
-    pub library: String,
     /// The module that holds the edges of the part.
     pub module: ModuleName,
     /// The module that the path of the part would name if it were a library.
@@ -56,7 +53,6 @@ pub(crate) struct PartOwner {
 }
 
 /// The typed result of the survey. `unknowns` and `coverage.gaps` hold the same records.
-#[derive(Debug)]
 pub(crate) struct Survey {
     /// The selected test sources that the request leaves out.
     pub excluded: Vec<String>,
@@ -134,7 +130,6 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
         .iter()
         .map(|(part, library)| PartOwner {
             part: found.sources[*part].rel_path.clone(),
-            library: found.sources[*library].rel_path.clone(),
             module: ModuleName::new(&found.sources[*library].module),
             part_module: ModuleName::new(&found.sources[*part].module),
         })
