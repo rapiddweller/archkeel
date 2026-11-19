@@ -10,6 +10,7 @@ use std::process::{Command, Stdio};
 
 use archkeel_facts::envelope::Dirty;
 use archkeel_facts::request::{Scope, Snapshot, TypeScriptRequest, TypeScriptSettings};
+use archkeel_snapshot::test_tree::Tree;
 use archkeel_wire::protocol::Version;
 use archkeel_wire::worker::{read_rust_v1, RUST_WORKER_V1};
 
@@ -36,8 +37,39 @@ fn private_worker_preserves_the_typed_reply_of_the_reference_project() {
             bundler: false,
         },
     };
+    assert_worker_matches(&request, false);
+}
+
+#[test]
+fn private_worker_preserves_excluded_test_sources() {
+    let tree = Tree::new(&[
+        ("tsconfig.json", "{}"),
+        ("src/latest.ts", ""),
+        ("src/a.test.ts", ""),
+    ]);
+    let request = TypeScriptRequest {
+        protocol_version: Version::V9,
+        snapshot: Snapshot {
+            root: tree.path(),
+            git_head: "a".repeat(40),
+            dirty: Dirty::Known(false),
+        },
+        scope: Scope {
+            roots: vec!["src".to_owned()],
+            namespace: "shop".to_owned(),
+            exclude_test_sources: Some(true),
+        },
+        resolver: TypeScriptSettings {
+            tsconfig: "tsconfig.json".to_owned(),
+            bundler: false,
+        },
+    };
+    assert_worker_matches(&request, true);
+}
+
+fn assert_worker_matches(request: &TypeScriptRequest, excluded: bool) {
     let expected = archkeel_typescript_collector::typed_reply(
-        &request,
+        request,
         archkeel_typescript_collector::provenance(),
         Version::V9,
     )
@@ -46,6 +78,9 @@ fn private_worker_preserves_the_typed_reply_of_the_reference_project() {
     assert!(expected.facts.scope_premise.is_some());
     assert!(!expected.facts.sections.is_empty());
     assert!(!expected.facts.evidence.is_empty());
+    if excluded {
+        assert_eq!(expected.facts.excluded_sources, ["src/a.test.ts"]);
+    }
 
     let mut worker = Command::new(env!("CARGO_BIN_EXE_archkeel-typescript-collector"))
         .arg(RUST_WORKER_V1)

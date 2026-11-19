@@ -34,6 +34,7 @@ impl SectionSink for Lists {
 /// The facts with every section in a list, and the ids that the records cite. This runs the
 /// producer of the reply, so what a test sees is what the reply holds.
 pub(crate) fn listed(facts: Facts, pending: &Pending) -> Result<(Facts, Vec<String>), String> {
+    let excluded_sources = facts.excluded_sources.clone();
     let (head, plan) = plan(facts, pending, true);
     let mut lists = Lists::default();
     let (tail, touched) = plan.write(&mut lists).map_err(|error| error.to_string())?;
@@ -49,6 +50,7 @@ pub(crate) fn listed(facts: Facts, pending: &Pending) -> Result<(Facts, Vec<Stri
         files: head.files,
         imports: head.imports,
         selected_files: tail.selected_files,
+        excluded_sources,
         files_read: tail.files_read,
         gaps: tail.gaps,
         evidence: tail.evidence,

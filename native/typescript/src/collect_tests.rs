@@ -71,6 +71,22 @@ fn a_production_file_beside_the_tests_removes_the_gap() {
     assert!(titles(&facts).is_empty());
 }
 
+#[test]
+fn linked_reply_names_excluded_tests_and_keeps_production_names() {
+    let tree = Tree::new(&[
+        ("tsconfig.json", "{}"),
+        ("src/latest.ts", ""),
+        ("src/a.test.ts", ""),
+        ("src/tests/helper.ts", ""),
+    ]);
+    let reply = crate::typed_reply(&request(&tree, true), provenance(), Version::V9).unwrap();
+    assert_eq!(
+        reply.facts.excluded_sources,
+        ["src/a.test.ts", "src/tests/helper.ts"]
+    );
+    assert_eq!(reply.facts.coverage.selected_files, ["src/latest.ts"]);
+}
+
 // Consumer: a source file over the size limit. Its gap is UNKNOWN for that file only. The other
 // files are still collected.
 #[test]

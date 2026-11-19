@@ -89,13 +89,13 @@ struct Packet {
     dispatch: BTreeSet<FactId>,
     inferred_receivers: BTreeSet<FactId>,
     name_free_gaps: BTreeSet<FactId>,
+    excluded_sources: Vec<String>,
 }
 impl Packet {
     /// Take the assembled facts before applying the private producer statements.
     fn new(mut reply: Reply) -> Result<Self, String> {
         let gaps = &reply.facts.coverage.gaps;
         if gaps.iter().any(|g| g.data.data().code.is_some())
-            || !reply.facts.excluded_sources.is_empty()
             || !reply.facts.owned_files.is_empty()
             || reply.facts.standard.is_some()
         {
@@ -133,6 +133,7 @@ impl Packet {
             .filter(|gap| gap.data.data().no_name_route)
             .map(|gap| gap.id.clone())
             .collect();
+        let excluded_sources = std::mem::take(&mut reply.facts.excluded_sources);
         Ok(Self {
             limits: reply
                 .facts
@@ -148,6 +149,7 @@ impl Packet {
             dispatch,
             inferred_receivers,
             name_free_gaps,
+            excluded_sources,
         })
     }
     /// Recover the two views of each gap and the original scope statements.
@@ -159,6 +161,7 @@ impl Packet {
             dispatch,
             mut inferred_receivers,
             name_free_gaps,
+            excluded_sources,
         } = self;
         restore(&mut reply.facts.coverage.gaps, &dispatch)?;
         restore_names(&mut reply.facts.coverage.gaps, &name_free_gaps)?;
@@ -184,6 +187,7 @@ impl Packet {
         }
         reply.facts.profile_limits = Some(limits);
         reply.facts.scope_premise = Some(premise);
+        reply.facts.excluded_sources = excluded_sources;
         Ok(reply)
     }
 }

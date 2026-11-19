@@ -111,6 +111,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         bundler,
         queue: Vec::new(),
         queued: HashSet::new(),
+        excluded: Default::default(),
         gaps: BTreeMap::new(),
         reach: reach.into_iter().collect(),
         evidence: BTreeMap::new(),
@@ -132,6 +133,11 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         .cloned()
         .collect();
     collection.queued = collection.queue.iter().cloned().collect();
+    for rel in &listed {
+        if collection.excluded_test(rel) {
+            collection.excluded.insert(rel.clone());
+        }
+    }
     if request.excludes_test_sources() && !listed.is_empty() && collection.queue.is_empty() {
         collection
             .snapshot
@@ -207,6 +213,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         files,
         imports: collection.targets,
         selected_files,
+        excluded_sources: collection.excluded.into_iter().collect(),
         files_read: collection.read,
         gaps,
         evidence: collection.evidence.into_values().collect(),
@@ -223,7 +230,11 @@ impl Collection<'_> {
         let roots = self.roots.clone();
         let reach = std::mem::take(&mut self.reach);
         for rel in crate::unselected::project_sources(&mut self.snapshot, &roots, &reach) {
-            if self.queued.contains(&rel) || self.excluded_test(&rel) {
+            if self.queued.contains(&rel) {
+                continue;
+            }
+            if self.excluded_test(&rel) {
+                self.excluded.insert(rel);
                 continue;
             }
             let module = module_identity(self.namespace, &rel).unwrap_or_default();

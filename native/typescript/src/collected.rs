@@ -28,6 +28,7 @@ pub(crate) struct Facts {
     /// The resolved target of each import record, in the order of the walk.
     pub imports: Vec<Target>,
     pub selected_files: Vec<String>,
+    pub excluded_sources: Vec<String>,
     pub files_read: usize,
     /// Coverage gaps. The collection is complete only when there is none.
     pub gaps: Vec<Record<GapFact>>,

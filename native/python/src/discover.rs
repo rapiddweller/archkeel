@@ -48,6 +48,7 @@ impl Unseen {
 /// The selected files of the roots, sorted by their parts, and what the walk cannot see.
 pub(crate) struct Scope {
     pub selected: Vec<String>,
+    pub excluded: Vec<String>,
     pub unseen: Vec<Unseen>,
     /// The stub and compiled module files below the roots: the survey cannot read them as
     /// source, and Python can import them (AD-450).
@@ -85,6 +86,13 @@ pub(crate) fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bo
             hidden(snapshot, &directory, exclude_tests, &mut unseen);
         }
     }
+    let mut excluded: Vec<String> = found
+        .iter()
+        .filter(|rel| exclude_tests && keep(snapshot, rel, false) && !keep(snapshot, rel, true))
+        .cloned()
+        .collect();
+    excluded.sort();
+    excluded.dedup();
     found.retain(|rel| keep(snapshot, rel, exclude_tests));
     found.extend(unseen.iter().filter_map(|item| match item {
         Unseen::Missing(rel) => Some(rel.clone()),
@@ -105,6 +113,7 @@ pub(crate) fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bo
     linked.sort();
     Scope {
         selected: found,
+        excluded,
         unseen,
         foreign,
         linked,

@@ -55,6 +55,55 @@ const SHOP: [(&str, &str); 3] = [
 ];
 
 #[test]
+fn linked_reply_names_excluded_tests_but_keeps_production_names() {
+    let tree = Tree::new(&[
+        ("src/app/latest.py", ""),
+        ("src/app/test_api.py", ""),
+        ("src/app/tests/helper.py", ""),
+    ]);
+    let mut request = request(&tree.path());
+    request.scope.exclude_test_sources = Some(true);
+    let prepared = Prepared::of(&request).unwrap();
+    let survey = crate::survey::survey(&prepared).unwrap();
+    let reply = typed(&prepared, survey, &BUILD).unwrap();
+    assert_eq!(
+        reply.facts.excluded_sources,
+        ["src/app/test_api.py", "src/app/tests/helper.py"]
+    );
+    assert_eq!(reply.facts.coverage.selected_files, ["src/app/latest.py"]);
+}
+
+#[test]
+fn test_scope_is_explicit_and_crossing_into_it_is_unknown() {
+    let tree = Tree::new(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/client.py", "import app.test_api\n"),
+        ("src/app/test_api.py", ""),
+    ]);
+    let mut request = request(&tree.path());
+    let prepared = Prepared::of(&request).unwrap();
+    let included = typed(&prepared, crate::survey::survey(&prepared).unwrap(), &BUILD).unwrap();
+    assert!(included.facts.excluded_sources.is_empty());
+    assert!(included
+        .facts
+        .coverage
+        .selected_files
+        .contains(&"src/app/test_api.py".into()));
+
+    request.scope.exclude_test_sources = Some(true);
+    let prepared = Prepared::of(&request).unwrap();
+    let excluded = typed(&prepared, crate::survey::survey(&prepared).unwrap(), &BUILD).unwrap();
+    assert_eq!(excluded.facts.excluded_sources, ["src/app/test_api.py"]);
+    assert!(!excluded.facts.coverage.full_scope);
+    assert!(excluded
+        .facts
+        .coverage
+        .gaps
+        .iter()
+        .any(|gap| gap.title.contains("excluded test")));
+}
+
+#[test]
 fn the_reply_declares_only_the_sections_of_the_import_survey() {
     let (reply, _) = decoded(&SHOP);
     let capabilities = &reply.facts.capabilities;
