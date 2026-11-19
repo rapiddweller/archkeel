@@ -9,6 +9,7 @@ stacked boxes got an edge that ran around the upper box (issue 1489); the first 
 drill was drawn at 40 percent, too small to read (issue 1490).
 """
 
+import re
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -463,28 +464,39 @@ def test_every_chip_line_stays_inside_its_box(site: str, page: Browser) -> None:
 
 
 def test_a_layer_of_one_component_draws_no_frame_around_that_component(
-    site: str, page: Browser
+    site: str, page: Browser, tmp_path: Path
 ) -> None:
     # The shell part has layers of one component (`commands`, `frame`) and layers of
     # several. The box of a layer that holds one component is that component: the Modules view drew
     # two nested frames with the same label and the same stereotype for it. A layer of several
     # components is a real parent and keeps its frame.
-    page.open(f"{site}/system.html?scope=PART%3Ashell&content=modules")
-    frames = {
-        frame["id"]: frame
-        for frame in page.evaluate(
-            "[...document.querySelectorAll('#flow svg .uml-frame')].map((g) => {"
-            " const r = g.querySelector('.target-frame').getBoundingClientRect();"
-            " return { id: g.dataset.umlId, label: g.dataset.label,"
-            " box: [r.left, r.top, r.right, r.bottom] }; })"
-        )
-    }
+    import urllib.request  # noqa: PLC0415
+
+    # The shell now exceeds the default card budget. This fixture exercises the ungrouped view.
+    report = urllib.request.urlopen(f"{site}/system.html").read().decode()  # noqa: S310
+    report, replacements = re.subn(r'("module_box_limit":)\d+', r"\g<1>100", report, count=1)
+    assert replacements == 1
+    (tmp_path / "system.html").write_text(report)
+    with serve(tmp_path) as fixture:
+        page.open(f"{fixture}/system.html?scope=PART%3Ashell&content=modules")
+        frames = {
+            frame["id"]: frame
+            for frame in page.evaluate(
+                "[...document.querySelectorAll('#flow svg .uml-frame')].map((g) => {"
+                " const r = g.querySelector('.target-frame').getBoundingClientRect();"
+                " return { id: g.dataset.umlId, label: g.dataset.label,"
+                " box: [r.left, r.top, r.right, r.bottom] }; })"
+            )
+        }
+
+    assert frames, page.state()
 
     def inside(inner: str, outer: str) -> bool:
         (a, b, c, d), (e, f, g, h) = frames[inner]["box"], frames[outer]["box"]
         return e <= a and f <= b and c <= g and d <= h
 
-    for single in ("commands", "frame"):
+    single_layers = ("commands", "frame")
+    for single in single_layers:
         assert f"LAYER:PART:shell:{single}" not in frames
         assert f"SHELL-{single.upper()}" in frames
     assert inside("SHELL-ENTRY", "LAYER:PART:shell:entry")
@@ -496,6 +508,7 @@ def test_a_layer_of_one_component_draws_no_frame_around_that_component(
         for inner in frames
         for outer in frames
         if inner != outer
+        and frames[inner]["label"] in single_layers
         and frames[inner]["label"] == frames[outer]["label"]
         and inside(inner, outer)
     ]
