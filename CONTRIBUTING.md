@@ -92,6 +92,11 @@ aggregate would count as passed.
 | Full: All Full checks passed | same as above | none: it needs every Full job |
 | Release: Full, build, publish and gallery refresh | each version tag | `make build plugin-release VERSION=<version>` |
 
+The final 5.0.0 release also checks the complete system frame with its candidate wheel
+([AD-991](docs/architecture/decisions/ad-991-final-5-0-requires-the-complete-system-frame.md)).
+Every declared rule must be present once and read PASS. The frame keeps each premise.
+Before release, compare FastAPI and bazel_worker with 4.0.1. These comparisons are separate.
+
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. The main tier runs `make fast-test`;
 Full runs all tests, on `main` nightly, by dispatch, or when a release calls it. No PR runs Full. Full covers changes to these paths, and a PR that changes them gets no run before its merge:
