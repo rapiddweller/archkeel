@@ -416,6 +416,50 @@ def test_impl_execution_does_not_hide_an_unread_named_use(
     assert found == status, messages
 
 
+@pytest.mark.parametrize(
+    ("receiver", "publish_scopes", "expected"),
+    [
+        ("Scopes::qualified(&kept.scopes, at)", True, "PASS"),
+        ("Scopes::qualified(&kept.scopes, at)", False, "FAIL"),
+        ("kept.scopes.qualified(at)", True, "UNKNOWN"),
+    ],
+    ids=["listed-type", "unlisted-type", "open-receiver"],
+)
+def test_a_scope_read_uses_the_written_receiver_type_when_present(
+    tmp_path: Path, release_core: Path, receiver: str, publish_scopes: bool, expected: str
+) -> None:
+    public = ["native.app.scope_store:Kept"]
+    if publish_scopes:
+        public.append("native.app.scope_store:Scopes")
+    store = {**component("scope-store", "app.scope_store"), "public": public}
+    app = {
+        **component("app", "app", ("base", "scope-store")),
+        "packages": [],
+        "exact_modules": ["native.app", "native.app.cargo_toml"],
+    }
+    files = {
+        "crates/app/src/scope_store.rs": (
+            "pub struct Kept { pub scopes: Scopes }\n"
+            "pub struct Scopes;\n"
+            "impl Scopes { pub fn qualified(&self, at: u32) -> u32 { at } }\n"
+        ),
+        "crates/app/src/lib.rs": (
+            "pub mod scope_store;\n"
+            "use crate::scope_store::Scopes;\n"
+            "pub fn run(kept: &scope_store::Kept, site: Option<u32>) -> Option<u32> {\n"
+            "    let kept = if site.is_some() { kept } else { kept };\n"
+            f"    site.map(|at| {receiver})\n"
+            "}\n"
+        ),
+    }
+    status, found = _run(
+        tmp_path, release_core, files, (component("base", "base_crate"), store, app)
+    )
+    assert status == expected, found
+    if expected == "FAIL":
+        assert VIOLATION.format("native.app.scope_store:Scopes") in found
+
+
 @pytest.mark.parametrize("separator", [" ", "\n    "], ids=["same-line", "separate-lines"])
 def test_a_glob_keeps_both_trait_call_positions(
     release_core: Path, tmp_path: Path, separator: str
