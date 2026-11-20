@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 from core_support import ROOT
-from test_cli_native_python_imports import verdict
+from test_cli_native_python_imports import RULE as RULE_HEAD
+from test_cli_native_python_imports import component, project, verdict
 
 from tools.fixture_tree import fixture_tree
 
@@ -278,7 +279,7 @@ def call_owner_project(
         },
         contract_rules=[
             {
-                **RULE,
+                **RULE_HEAD,
                 "id": "OWN-PAGE",
                 "kind": "call_owner",
                 "source": "app",
@@ -374,7 +375,11 @@ def test_call_owner_matches_lexical_prefixes_and_exact_callers(
 ) -> None:
     direct = "from app.service import Store as Local\n\ndef run():\n    return Local().page()\n"
     root = call_owner_project(tmp_path, STORE, direct, "app.service.Store.page", **allowance)
-    assert verdict(release_core, root)["frame"]["rules"]["OWN-PAGE"] == ["call_owner", expected]
+    frame = verdict(release_core, root)["frame"]
+    if expected == "UNKNOWN":
+        assert frame["status"] == "UNKNOWN" and "OWN-PAGE" in frame["unsupported"]["rules"], frame
+    else:
+        assert frame["rules"]["OWN-PAGE"] == ["call_owner", expected]
 
 
 def test_a_proved_other_method_does_not_match_the_target(

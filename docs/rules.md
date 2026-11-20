@@ -2,7 +2,8 @@
 
 > **State of `main`.** The contract format on this page is current. The Rust core decides each rule
 > ([AD-432](architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md)). A rule kind without a port in the core is UNKNOWN with the gap
-> `rule_kind_not_ported`, never PASS. Baselines, amendments and `check` are not on `main`.
+> `rule_kind_not_ported`, never PASS. See [baselines](reference.md#baselines) for the current workflow.
+> The core line refuses amendments and `check`.
 
 Choose policy from observable evidence. [The contract schema](../schema/architecture-contract.schema.json)
 owns fields and versions; [valid examples](../tests/contracts/valid/) show accepted
@@ -51,12 +52,13 @@ children. This proves dependency intent, not runtime loading or a public value A
 See [supported forms and limits](architecture/python-dynamic-dependencies.md).
 
 `call_owner` names `source`, a canonical `target`, and optional `allowed_sources`
-(scope prefixes) or `exact_sources` (module or function). The native Python path
-reads direct names bound to stable top-level functions in the scan. It selects
-modules or packages as sources. It reports a witnessed forbidden call even when
-another call stays open. Unproved calls outside exempt modules withhold PASS.
-It does not decide receiver calls, computed targets, external providers, or saved
-replies. See [AD-1002](architecture/decisions/ad-1002-call-ownership-checks-direct-function-witnesses.md).
+(scope prefixes) or `exact_sources` (module or function). Native Python checks
+direct calls to stable top-level functions and no-argument calls on freshly
+constructed instances of plain classes. It reports a proved forbidden call
+even when another call stays open. Incomplete call counts withhold PASS.
+Computed targets, injected receivers, external providers and saved replies
+remain outside this proof. See [AD-1002](architecture/decisions/ad-1002-call-ownership-checks-direct-function-witnesses.md)
+and [AD-1027](architecture/decisions/ad-1027-call-ownership-uses-live-constructor-witnesses.md).
 Earlier call binding forms are described in [AD-241](architecture/decisions/ad-241-call-ownership-policy.md)
 and [AD-252](architecture/decisions/ad-252-bounded-call-identity.md).
 

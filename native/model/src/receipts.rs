@@ -143,10 +143,9 @@ pub(crate) fn cycle(
             let ScanProof { brand: _, roots } = scan?;
             let namespace = model.graph().settings().namespace();
             let inside = !roots.files().is_empty()
-                && roots
-                    .files()
-                    .iter()
-                    .all(|(name, file)| in_scope(name, namespace) && roots.under(file));
+                && roots.files().iter().all(|(name, file)| {
+                    (namespace.is_empty() || in_scope(name, namespace)) && roots.under(file)
+                });
             if !inside {
                 return Err(Cause::Receipt(
                     "a module lies outside the namespace or the scan roots",

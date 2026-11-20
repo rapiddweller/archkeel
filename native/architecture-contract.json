@@ -38,6 +38,8 @@
         "native.archkeel_facts.data:SelectorData",
         "native.archkeel_facts.data:SignalData",
         "native.archkeel_facts.data:ValueData",
+        "native.archkeel_facts.envelope.constructed_call:ConstructedCall",
+        "native.archkeel_facts.envelope.constructed_call:ConstructedCalls",
         "native.archkeel_facts.envelope.validation:InterfaceNeed",
         "native.archkeel_facts.envelope.validation:Registered",
         "native.archkeel_facts.envelope.validation:library_family",
@@ -45,6 +47,8 @@
         "native.archkeel_facts.envelope:Adapter",
         "native.archkeel_facts.envelope:Capabilities",
         "native.archkeel_facts.envelope:ConstructSupport",
+        "native.archkeel_facts.envelope:ConstructedCall",
+        "native.archkeel_facts.envelope:ConstructedCalls",
         "native.archkeel_facts.envelope:Coverage",
         "native.archkeel_facts.envelope:DirectCall",
         "native.archkeel_facts.envelope:Dirty",
@@ -65,6 +69,7 @@
         "native.archkeel_facts.envelope:Runtime",
         "native.archkeel_facts.envelope:SectionName",
         "native.archkeel_facts.envelope:Source",
+        "native.archkeel_facts.envelope:SourceCallCandidate",
         "native.archkeel_facts.envelope:State",
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:TargetSource",
@@ -271,7 +276,9 @@
         }
       ],
       "public": [
+        "native.archkeel_store:CallOwners",
         "native.archkeel_store:Ingested",
+        "native.archkeel_store:OwnedCall",
         "native.archkeel_store:ingest_reply",
         "native.archkeel_store:ingest_typed",
         "native.archkeel_store:sdk_libraries",
@@ -740,6 +747,7 @@
           "component": "store",
           "rationale": "Read the records of the validated reply in their typed form (AD-359).",
           "through": [
+            "native.archkeel_store:CallOwners",
             "native.archkeel_store:Ingested",
             "native.archkeel_store:standard_library"
           ]
@@ -2810,6 +2818,7 @@
       "layer": "core",
       "packages": [
         "native.archkeel_core.dual_run",
+        "native.archkeel_core.explorer",
         "native.archkeel_core.section_rows"
       ],
       "responsibilities": [
@@ -2821,7 +2830,8 @@
       "provenance": [
         "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
         "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md",
-        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md",
+        "docs/architecture/decisions/ad-1017-query-one-local-explorer-snapshot.md"
       ],
       "requires": [
         {
@@ -2871,10 +2881,30 @@
         },
         {
           "component": "facts",
-          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422), and name the request type that the self-test of a scan echoes, so that the frame schema states it (AD-600).",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422), and name the request type that the self-test of a scan echoes, so that the frame schema states it (AD-600). The Explorer projects validated source records and their evidence for navigation (AD-1017).",
           "through": [
+            "native.archkeel_facts.envelope:Facts",
+            "native.archkeel_facts.envelope:SourceCallCandidate",
+            "native.archkeel_facts.envelope:Target",
             "native.archkeel_facts.identity",
-            "native.archkeel_facts.request"
+            "native.archkeel_facts.ids:EvidenceId",
+            "native.archkeel_facts.ids:FactId",
+            "native.archkeel_facts.ids:ModuleName",
+            "native.archkeel_facts.ids:PackageName",
+            "native.archkeel_facts.nested:MemberInventory",
+            "native.archkeel_facts.nullable:Nullable",
+            "native.archkeel_facts.request",
+            "native.archkeel_facts.vocab:EvidenceClass",
+            "native.archkeel_facts.vocab:InventoryStatus",
+            "native.archkeel_facts.vocab:MemberKind",
+            "native.archkeel_facts.vocab:MethodKind",
+            "native.archkeel_facts.vocab:Status",
+            "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:FactData",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:Section",
+            "native.archkeel_facts:SymbolFact"
           ]
         },
         {
@@ -3048,7 +3078,8 @@
             "native.archkeel_collect:SystemPart",
             "native.archkeel_collect:read_system",
             "native.archkeel_collect:scan",
-            "native.archkeel_collect:scan_with_clock"
+            "native.archkeel_collect:scan_with_clock",
+            "native.archkeel_collect:scan_with_options"
           ]
         },
         {
@@ -3178,7 +3209,8 @@
         "native.archkeel_collect:check",
         "native.archkeel_collect:read_system",
         "native.archkeel_collect:scan",
-        "native.archkeel_collect:scan_with_clock"
+        "native.archkeel_collect:scan_with_clock",
+        "native.archkeel_collect:scan_with_options"
       ],
       "decided_by": "architect"
     },
@@ -5862,9 +5894,13 @@
         "native.archkeel_python_collector.discover:oversized",
         "native.archkeel_python_collector.discover:scope",
         "native.archkeel_python_collector.names:Shadowed",
+        "native.archkeel_python_collector.names:below_root",
+        "native.archkeel_python_collector.names:importable_path",
         "native.archkeel_python_collector.names:module_for",
         "native.archkeel_python_collector.names:package_for",
-        "native.archkeel_python_collector.names:shadowed"
+        "native.archkeel_python_collector.names:scoped",
+        "native.archkeel_python_collector.names:shadowed",
+        "native.archkeel_python_collector.names:shadowed_in"
       ],
       "decided_by": "architect"
     },
@@ -5907,6 +5943,7 @@
         }
       ],
       "public": [
+        "native.archkeel_python_collector.inputs:PYPROJECT",
         "native.archkeel_python_collector.inputs:inputs",
         "native.archkeel_python_collector.inputs:with_listings",
         "native.archkeel_python_collector.requirement:Prepared",
@@ -6011,8 +6048,9 @@
         },
         {
           "component": "py-inputs",
-          "rationale": "Read the request with its selected target (AD-753).",
+          "rationale": "Read the request with its selected target (AD-753) and cite the manifest when its import roots conflict.",
           "through": [
+            "native.archkeel_python_collector.inputs:PYPROJECT",
             "native.archkeel_python_collector.requirement:Prepared"
           ]
         },
@@ -6477,7 +6515,8 @@
         "native.archkeel_python_collector:BUILD",
         "native.archkeel_python_collector:TEST_FEATURES",
         "native.archkeel_python_collector:check",
-        "native.archkeel_python_collector:typed_reply"
+        "native.archkeel_python_collector:typed_reply",
+        "native.archkeel_python_collector:typed_reply_with_navigation"
       ],
       "decided_by": "architect"
     },
@@ -6986,6 +7025,7 @@
         "native.archkeel_python_collector.parse.depth",
         "native.archkeel_python_collector.survey.binders",
         "native.archkeel_python_collector.survey.call_count",
+        "native.archkeel_python_collector.survey.call_navigation",
         "native.archkeel_python_collector.survey.constructs",
         "native.archkeel_python_collector.survey.typing_count",
         "native.archkeel_python_collector.survey.guard",
@@ -7110,6 +7150,7 @@
         "native.archkeel_python_collector.symbols.sites",
         "native.archkeel_python_collector.survey.hazards",
         "native.archkeel_python_collector.survey.typing_count",
+        "native.archkeel_python_collector.survey.call_navigation",
         "native.archkeel_python_collector.survey.constructs",
         "native.archkeel_python_collector.survey.imports",
         "native.archkeel_python_collector.survey.bound",

@@ -28,6 +28,51 @@ pub(crate) fn module_for(rel: &str, namespace: &str, minor: PyMinor) -> Option<S
     Some(parts[start..].join("."))
 }
 
+/// A Python name below an import root, or an existing namespace-relative name.
+pub(crate) fn scoped(
+    rel: &str,
+    namespace: &str,
+    roots: &[String],
+    minor: PyMinor,
+) -> Option<String> {
+    if !namespace.is_empty() {
+        return module_for(rel, namespace, minor);
+    }
+    let path = roots.iter().find_map(|root| below_root(rel, root))?;
+    let (directory, leaf) = path.rsplit_once('/').unwrap_or(("", path));
+    let stem = without_suffix(leaf, minor)?;
+    if directory.is_empty() {
+        Some(stem.to_owned())
+    } else if stem == "__init__" {
+        Some(directory.replace('/', "."))
+    } else {
+        Some(format!("{}.{}", directory.replace('/', "."), stem))
+    }
+}
+
+pub(crate) fn below_root<'a>(rel: &'a str, root: &str) -> Option<&'a str> {
+    if root == "." {
+        Some(rel)
+    } else {
+        rel.strip_prefix(root.trim_start_matches("./").trim_end_matches('/'))?
+            .strip_prefix('/')
+    }
+}
+
+/// The source path of an importable module or package must match its dotted name.
+pub(crate) fn importable_path(rel: &str, module: &str) -> bool {
+    let Some(stem) = rel.strip_suffix(".py") else {
+        return false;
+    };
+    let matches = |path: &str| {
+        let mut components = path.rsplit('/');
+        module.rsplit('.').all(|name| {
+            archkeel_facts::identity::is_identifier(name) && components.next() == Some(name)
+        })
+    };
+    matches(stem) || stem.strip_suffix("/__init__").is_some_and(matches)
+}
+
 /// The name without its suffix, as `PurePath.with_suffix("")` of Python 3.`minor` gives it, or
 /// `None` for its `ValueError`. Up to 3.13 the suffix starts at the last dot that is neither the
 /// first nor the last character, and 3.13 refuses the stem `.`; 3.14 splits as
@@ -103,10 +148,20 @@ fn repr(text: &str) -> String {
 const SHADOWED_KIND: &str = "ShadowedModule";
 
 /// The selected modules that a package in the same directory shadows, in selection order.
+#[cfg(any(test, feature = "dump"))]
 pub(crate) fn shadowed(selected: &[String], namespace: &str, minor: PyMinor) -> Vec<Shadowed> {
+    shadowed_in(selected, namespace, &[], minor)
+}
+
+pub(crate) fn shadowed_in(
+    selected: &[String],
+    namespace: &str,
+    roots: &[String],
+    minor: PyMinor,
+) -> Vec<Shadowed> {
     let named: Vec<(&String, String)> = selected
         .iter()
-        .filter_map(|rel| module_for(rel, namespace, minor).map(|module| (rel, module)))
+        .filter_map(|rel| scoped(rel, namespace, roots, minor).map(|module| (rel, module)))
         .collect();
     let packages: HashSet<&str> = named
         .iter()

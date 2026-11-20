@@ -15,15 +15,15 @@ use crate::survey::Survey;
 
 /// The survey of a tree with the roots `roots` and the namespace `app`.
 pub(crate) fn surveyed_in(files: &[(&str, &str)], roots: &[&str], namespace: &str) -> Survey {
-    survey_of(&Tree::new(files), roots, namespace)
+    survey_of(&Tree::new(files), roots, namespace, false)
 }
 
 /// The survey of an existing tree with the roots `src` and the namespace `app`.
 pub(crate) fn surveyed_at(tree: &Tree) -> Survey {
-    survey_of(tree, &["src"], "app")
+    survey_of(tree, &["src"], "app", false)
 }
 
-fn survey_of(tree: &Tree, roots: &[&str], namespace: &str) -> Survey {
+pub(crate) fn survey_of(tree: &Tree, roots: &[&str], namespace: &str, navigation: bool) -> Survey {
     let raw = json!({
         "protocol_version": "10.0.0",
         "snapshot": {"root": tree.path(), "git_head": "a".repeat(40), "dirty": false},
@@ -33,7 +33,9 @@ fn survey_of(tree: &Tree, roots: &[&str], namespace: &str) -> Survey {
             "builtin_module_names": []}},
     });
     let request = decode_python(raw.to_string().as_bytes()).unwrap();
-    crate::survey::survey(&crate::requirement::Prepared::of(&request).unwrap()).unwrap()
+    let mut prepared = crate::requirement::Prepared::of(&request).unwrap();
+    prepared.navigation = navigation;
+    crate::survey::survey(&prepared).unwrap()
 }
 
 pub(crate) fn surveyed(files: &[(&str, &str)]) -> Survey {
@@ -334,4 +336,62 @@ fn a_literal_call_record_is_a_runtime_edge_also_under_a_guard() {
         let data = call.expect("the call is an import record").data.data();
         assert!(!data.under_type_checking, "{source}");
     }
+}
+
+#[test]
+fn source_roots_keep_python_names_and_resolve_siblings() {
+    let found = surveyed_in(
+        &[
+            ("backend/__init__.py", ""),
+            ("backend/worker/__init__.py", ""),
+            ("backend/worker/task.py", "from shared import helper\nfrom . import support\nimport requests.adapters\nimport src.shared\n"),
+            ("backend/worker/support.py", ""),
+            ("backend/shared/__init__.py", ""),
+            ("backend/shared/helper.py", ""),
+        ],
+        &["backend"],
+        "",
+    );
+    let mut classes = kinds(&found);
+    classes.sort_unstable();
+    assert_eq!(classes, ["external", "external", "local", "local"]);
+    assert!(reasons(&found).is_empty(), "{:?}", reasons(&found));
+    assert!(found.targets.iter().any(|target| matches!(
+        target,
+        Target::Local { module, file, .. }
+            if module.as_str() == "shared.helper" && file == "backend/shared/helper.py"
+    )));
+}
+
+#[test]
+fn ambiguous_source_root_providers_leave_a_gap() {
+    for provider in ["", "def invalid(:\n"] {
+        let found = surveyed_in(
+            &[
+                ("a/worker.py", "import shared.helper\n"),
+                ("a/shared/__init__.py", ""),
+                ("a/shared/helper.py", ""),
+                ("b/shared/__init__.py", provider),
+            ],
+            &["a", "b"],
+            "",
+        );
+        assert_eq!(kinds(&found), ["unresolved"]);
+        assert!(reasons(&found)
+            .iter()
+            .any(|reason| reason.contains("duplicate_module")));
+    }
+}
+
+#[test]
+fn a_dotted_script_file_is_not_a_python_import_provider() {
+    let found = surveyed_in(
+        &[
+            ("src/app.py", "import lib.values\n"),
+            ("src/lib.values.py", ""),
+        ],
+        &["src"],
+        "",
+    );
+    assert_eq!(kinds(&found), ["external"]);
 }

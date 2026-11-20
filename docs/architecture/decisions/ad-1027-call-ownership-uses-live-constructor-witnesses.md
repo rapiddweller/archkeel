@@ -1,6 +1,6 @@
-# AD-904: Call ownership uses live constructor witnesses
+# AD-1027: Call ownership uses live constructor witnesses
 
-**Status:** Proposed. First #613 slice for #619. This does not change Rust dependencies (#1571).
+**Status:** Accepted. First #613 slice for #619.
 
 **Decision.** The linked Python survey connects an existing construction site, one direct
 method declaration and the call site. For a local receiver, it also connects the sole assignment.
@@ -9,7 +9,7 @@ It accepts only `return C().m()` and `value = C(); return value.m()` with no cal
 `C` is a unique source class with no bases, decorators, allocation or lookup hooks.
 Existing namespace and write checks can withhold the witness.
 
-**Admission.** The store checks the types and identities of the source, allocation, member and
+**Admission.** Explorer navigation candidates have no authority. The store checks the types and identities of the source, allocation, member and
 owner records. It checks the direct import, the receiver expression, the assignment when present,
 and the order and file of the evidence. A candidate list alone does not meet these checks.
 The linked producer supplies the witness in memory. Wire replies cannot supply that authority.
@@ -19,8 +19,7 @@ The store still refuses the historical, unchecked `call_binding` field.
 PASS needs an observed target and a nonempty selected source. For each relevant module not
 fully exempt, the written call count must equal the number of distinct, validated call sites.
 The existing scope proof still holds gaps and missing inputs. An unexamined or ambiguous
-call cannot certify PASS. For a lexical selector narrower than a module, the module count
-can conservatively hold a PASS. This is a policy on written calls, not on all runtime dispatch.
+call cannot certify PASS. A function-body selector uses its own written call count. This is a policy on written calls, not on all runtime dispatch.
 
 **Limits.** No injected or stored instance fields, inheritance, custom allocation, native
 providers or general flow analysis. No saved replay verdict. The released 4.0.1 call graph

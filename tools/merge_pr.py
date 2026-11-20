@@ -182,13 +182,27 @@ def moved_files(
     new: Callable[[str], str],
 ) -> set[str]:
     """The removed files whose lines went to an added file: half of them or more (a rename)."""
+    if not removed or not added:
+        return set()
+
+    def text_lines(read: Callable[[str], str], path: str) -> list[str]:
+        try:
+            content = read(path)
+        except UnicodeDecodeError:
+            return []
+        if "\0" in content:
+            return []
+        return [line for line in content.splitlines() if line.strip()]
+
+    old_lines = {
+        path: lines for path in removed[:MOVED_CANDIDATES] if (lines := text_lines(old, path))
+    }
+    if not old_lines:
+        return set()
+    fresh = [set(text_lines(new, path)) for path in added[:MOVED_CANDIDATES]]
     moved: set[str] = set()
-    fresh = {path: set(new(path).splitlines()) for path in added[:MOVED_CANDIDATES]}
-    for path in removed[:MOVED_CANDIDATES]:
-        lines = [line for line in old(path).splitlines() if line.strip()]
-        if not lines:
-            continue
-        for lines_after in fresh.values():
+    for path, lines in old_lines.items():
+        for lines_after in fresh:
             kept = sum(1 for line in lines if line in lines_after)
             if kept / len(lines) >= MOVED_SHARE:
                 moved.add(path)
@@ -231,8 +245,16 @@ def read_changes(run: Gh, number: str, pr: dict) -> Changes:
     labels = json.loads(run("pr", "view", number, "--json", "labels"))["labels"]
     changes = Changes(files=files, labels={item["name"] for item in labels})
     touched = [item["filename"] for item in files if item["filename"] in RATCHET_FILES]
-    removed = [item["filename"] for item in files if item.get("status") == "removed"]
-    added = [item["filename"] for item in files if item.get("status") == "added"]
+    removed = [
+        item["filename"]
+        for item in files
+        if item.get("status") == "removed" and item.get("deletions", 0) > 0
+    ]
+    added = [
+        item["filename"]
+        for item in files
+        if item.get("status") == "added" and item.get("additions", 0) > 0
+    ]
     if not touched and not (removed and added):
         return changes
     compare = f"repos/{{owner}}/{{repo}}/compare/{pr['baseRefName']}...{pr['headRefOid']}"

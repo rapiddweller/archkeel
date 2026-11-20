@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Admission of linked constructor and method witnesses (AD-904).
+//! Admission of linked constructor and method witnesses (AD-1027).
 
 use std::collections::{HashMap, HashSet};
 
@@ -69,7 +69,12 @@ pub(crate) fn validate(facts: &Facts) -> Result<Option<CallOwners>, String> {
         }
     }
     let mut calls = Vec::with_capacity(witnesses.calls.len());
-    let mut seen = HashSet::new();
+    let mut seen: HashSet<&FactId> = facts
+        .direct_calls
+        .iter()
+        .flatten()
+        .map(|(site, ..)| site)
+        .collect();
     let mut counts = HashMap::<String, u64>::new();
     for witness in &witnesses.calls {
         if !methods.contains(&witness.method)

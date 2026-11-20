@@ -168,3 +168,18 @@ fn a_proven_dead_site_does_not_gain_an_import_proof() {
     let row = measured(&found, "app.two");
     assert_eq!((row.calls_resolved, row.calls_unresolved), (0, 3));
 }
+
+#[test]
+fn builtin_methods_require_a_literal_receiver_and_a_known_method() {
+    let found = crate::survey::targets::tests::surveyed(&[
+        ("src/app/__init__.py", ""),
+        (
+            "src/app/literals.py",
+            "def f(x):\n    ','.join(x)\n    [].count(x)\n    (1,).index(x)\n    {}.items()\n    {1}.pop()\n    x.join(x)\n    [].join(x)\n    f'{x}'.strip()\n",
+        ),
+    ]);
+    let row = measured(&found, "app.literals");
+    assert_eq!(row.calls_builtin, 5);
+    assert_eq!(row.unresolved_attribute, 3);
+    assert_eq!(row.calls_resolved, 0);
+}

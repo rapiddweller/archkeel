@@ -7,20 +7,25 @@ Every false-PASS fix PR updates its row in this file in the same PR.
 What each language decides on main. The README quotes this block, and `tests/test_readme_showcase.py` keeps the two equal.
 
 <!-- tiers:start -->
-Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule has its receipt from the package map of the survey (AD-800), and every other rule of both is UNKNOWN.
+ArchKeel collects source evidence for Rust, TypeScript, Python and Dart.
+Rule coverage depends on the language and the available evidence.
+Python and Dart support import and interface boundary checks.
+Python also checks direct function calls for `call_owner`.
+Dart checks cycles when the package map is complete.
+Unsupported or unproved cases remain UNKNOWN.
+Python and Dart can check named imports against a declared `interface_boundary`.
 <!-- tiers:end -->
 
 The details follow.
 
-### Release-blocking collector audit
+### Collector audit at `323f09881`
 
 The 2026-11-17 audit uses the core built from `323f09881`. Each plant is synthetic.
 Run `make core`, then `uv run --locked archkeel validate --config <plant>/archkeel.toml --json`.
 The issues below contain the fixture files and exact output. Each reported false PASS exits 0.
-Documentation does not accept these defects. They block the 5.0.0 release.
+The issues record follow-up work for these findings.
 
-| Class | Plant | Result at `323f09881` | Active issue |
+| Class | Plant | Result at `323f09881` | Follow-up issue |
 |---|---|---|---|
 | Rust field receiver | `p.f.m()`: an inherent method in the file of its type, called through a public field of a typed parameter; no edge and no gap (AD-418) | false PASS | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
 | TypeScript DOM code | an `open` result, `document.open`, or a dynamic link and click | false PASS | [#1526](https://github.com/rapiddweller/archkeel/issues/1526) |
@@ -172,19 +177,25 @@ The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
 The colocated digest detects file changes. It does not protect against an attacker with install-write access.
-Python and Dart descriptions below apply to 4.0.1, not main.
-Sections that name `check`, `explore`, baselines or the Python engine describe the engine before AD-432.
+Sections about the Python engine and its `check` command describe release 4.0.1.
+See the [CLI reference](reference.md) for current commands and baselines.
 
 ## The core path on main
 
+- Studio auto-detects one standalone root-level Python script with an identifier as its filename
+  when no other supported area is found. Multiple standalone scripts need an explicit scan or
+  a supported [Python project layout](onboarding.md).
 - No release carries the core binary. A platform wheel of `main` carries it (`make native-wheel`),
   and a build without the core refuses. Run `main` from a source checkout after `make core`.
 - The core decides on Windows since AD-442, and the installed Windows wheel must equal the core of
   the checkout. A release from `main` is open (AD-476): it publishes the sdist and the six platform
   wheels that Full builds and runs. The Windows wheel writes no report file (see `report --output`).
-- `init` is served (AD-626, AD-638): Python packages, a Cargo workspace or a `package.json` workspace; folder layout only, every decision a `TODO`; `validate` and `report` run it when `archkeel.toml` is missing, and a run that may not write stops (no in-memory configuration). `check`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
-  `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
-  reports, amendments and `--write-graph` are refused by option name. `--baseline` and
+- `init` drafts a contract from the folder layout of Python packages, a Cargo workspace or a
+  `package.json` workspace (AD-626, AD-638). Each decision is a `TODO`. `validate` and `report`
+  run `init` when `archkeel.toml` is missing and writing is allowed.
+- `studio` opens the local Explorer. Existing scripts can use `explore`. Interactive, saved and
+  focused reports, `architecture.json`, amendments and `--write-graph` are refused by option name.
+  `--baseline` and
   `--write-baseline` are served ([reference](reference.md#baselines)).
 - `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
@@ -658,8 +669,7 @@ A member `source`, `view`, `currentTarget` or a window name is a window, and a m
 An exemption for data that the file makes is follow-up work: a literal can carry an event or a prototype.
 A markup literal is text only when it holds no handler, code element, URL attribute, style, code
 scheme, `&` or `\\`.
-The browser Explorer and Studio assets, and their self-check contracts, are removed (AD-582). They return
-with the port of `explore` and Studio to the core (5.1).
+AD-582 removed the former browser and Studio assets. The local Explorer now has its own assets.
 The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
 the file, where the Python collector reads the file and can give FAIL. The two collectors give
 the same facts only for files under the limit.

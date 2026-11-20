@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The direct instance method of a fresh Python object (AD-904).
+//! The direct instance method of a fresh Python object (AD-1027).
 
 use std::collections::{HashMap, HashSet};
 

@@ -119,6 +119,7 @@ impl Module {
     /// `module.path.name == "__init__.py"`.
     pub(crate) fn is_init(&self) -> bool {
         self.rel.rsplit('/').next() == Some("__init__.py")
+            && (self.name != "__init__" || self.rel.ends_with("__init__/__init__.py"))
     }
 
     /// The line, the end line and the column of a statement.

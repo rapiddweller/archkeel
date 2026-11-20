@@ -15,7 +15,7 @@ use toml::{Table, Value};
 
 /// The fields that `[scan]` must have and may have (`_REQUIRED_SCAN`, `_OPTIONAL_SCAN`).
 const REQUIRED: [&str; 3] = ["roots", "namespace", "contract"];
-const OPTIONAL: [&str; 9] = [
+const OPTIONAL: [&str; 10] = [
     "language",
     "tsconfig",
     "collector_argv",
@@ -24,6 +24,7 @@ const OPTIONAL: [&str; 9] = [
     "bundler",
     "exclude_test_sources",
     "python",
+    "import_roots_ambiguous",
     // AD-776: the folder of the scan root, from the folder of this file. The shell reads it.
     "root",
 ];
@@ -54,6 +55,7 @@ pub(crate) struct Config {
     pub bundler: bool,
     pub exclude_test_sources: bool,
     pub python: Option<String>,
+    pub import_roots_ambiguous: bool,
 }
 
 fn invalid(text: &str) -> Refused {
@@ -76,7 +78,7 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         return Err(invalid(
             "[scan] requires roots, namespace, and contract; language, tsconfig, \
              collector_argv, collector_output_limit_bytes, collector_timeout_seconds, \
-             bundler, exclude_test_sources, python and root are optional",
+             bundler, exclude_test_sources, python, import_roots_ambiguous and root are optional",
         ));
     }
     stated_root(scan)?;
@@ -107,7 +109,8 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
     }
     collector_limits(scan)?;
     let roots = roots(scan)?;
-    let namespace = namespace(scan)?;
+    let namespace = namespace(scan, language == "python")?;
+    let import_roots_ambiguous = ambiguous_roots(scan, language, &namespace)?;
     let contract = posix(&safe_path(
         scan.get("contract").unwrap_or(&Value::Boolean(false)),
         "scan.contract",
@@ -150,7 +153,24 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         bundler,
         exclude_test_sources,
         python,
+        import_roots_ambiguous,
     })
+}
+
+fn ambiguous_roots(scan: &Table, language: &str, namespace: &str) -> Result<bool, Refused> {
+    let ambiguous = flag(
+        scan,
+        "import_roots_ambiguous",
+        "scan.import_roots_ambiguous must be a boolean",
+    )?;
+    if scan.contains_key("import_roots_ambiguous")
+        && (language != "python" || !namespace.is_empty())
+    {
+        return Err(invalid(
+            "scan.import_roots_ambiguous needs Python import roots",
+        ));
+    }
+    Ok(ambiguous)
 }
 
 /// `_language_settings`: absent means Python (AD-97).
@@ -237,7 +257,7 @@ fn is_parent(parent: &str, child: &str) -> bool {
 }
 
 /// `_NAMESPACE`: an ASCII dotted namespace.
-fn namespace(scan: &Table) -> Result<String, Refused> {
+fn namespace(scan: &Table, python: bool) -> Result<String, Refused> {
     let message = "scan.namespace must be an ASCII dotted namespace";
     let Some(Value::String(text)) = scan.get("namespace") else {
         return Err(invalid(message));
@@ -249,7 +269,7 @@ fn namespace(scan: &Table) -> Result<String, Refused> {
             .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
             && characters.all(|next| next.is_ascii_alphanumeric() || next == '_')
     };
-    if text.split('.').all(part) {
+    if (python && text.is_empty()) || text.split('.').all(part) {
         Ok(text.clone())
     } else {
         Err(invalid(message))

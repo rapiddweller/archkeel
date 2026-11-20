@@ -49,6 +49,7 @@ def test_the_explorer_starts_at_the_system_level(site: str, page: Browser) -> No
     assert page.evaluate("ArchkeelFlow.state().scene.nodes.map((n) => n.id)") == [
         "PART:shell",
         "PART:core",
+        "PART:studio",
     ]
 
 
@@ -68,7 +69,7 @@ def test_toolbar_controls_precede_the_canvas_in_tab_order(site: str, page: Brows
 def test_the_content_switch_names_parts_at_system_root(site: str, page: Browser) -> None:
     page.open(f"{site}/system.html")
     label = "document.querySelector('.atlas-content-choice [data-content=components]').textContent"
-    assert page.evaluate(label) == "Parts (2)"
+    assert page.evaluate(label) == "Parts (3)"
     page.evaluate("ArchkeelFlow.openComponent('PART:shell')")
     page.settle()
     assert page.evaluate(label).startswith("Components (")
@@ -437,7 +438,15 @@ def test_the_explorer_names_the_result_and_no_observation(site: str, page: Brows
     # "Observation" was a 4.0.1 word: next to PASS it read like a contradiction.
     page.open(f"{site}/part.html")
     status = page.evaluate("document.querySelector('#flow .ak-run-status').textContent")
-    assert status == "Result: PASS assuming 1 stated external user"
+    assert status == "Result: PASS assuming 2 stated external users"
+    premises = page.evaluate(
+        "[...document.querySelectorAll('.rp-ev li')].find((row) => "
+        "row.querySelector('.rp-code')?.textContent === 'SHELL-PUBLIC-HAS-A-USER').textContent"
+    )
+    assert set(premises.removeprefix("SHELL-PUBLIC-HAS-A-USER ").split(", ")) == {
+        "archkeel.cli:main",
+        "archkeel.explorer_mcp:main",
+    }
     assert "bservation" not in page.evaluate("document.getElementById('flow').innerText")
 
 

@@ -1,20 +1,21 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The layout of large and stacked levels of the Explorer, in a headless Chrome.
-
-The self report holds a part with more than 600 modules ("Rust core"). Its Modules view took
-three seconds of ELK work and then showed an empty corner of a 50000 px sheet (issue 1488); two
-stacked boxes got an edge that ran around the upper box (issue 1489); the first view after a
-drill was drawn at 40 percent, too small to read (issue 1490).
-"""
+"""Check grouping, edge routing and readable zoom in large Explorer layouts."""
 
 import time
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from explorer_support import Browser, browser, serve, write_pages
+from explorer_support import (
+    Browser,
+    browser,
+    serve,
+    shell_layer_components,
+    shell_layer_frames,
+    write_pages,
+)
 
 PAGES = {"system": (None, "docs/architecture/architecture-system.json")}
 CORE = "PART%3Acore"
@@ -463,30 +464,26 @@ def test_every_chip_line_stays_inside_its_box(site: str, page: Browser) -> None:
 
 
 def test_a_layer_of_one_component_draws_no_frame_around_that_component(
-    site: str, page: Browser
+    site: str, page: Browser, tmp_path: Path
 ) -> None:
-    # The shell part has layers of one component (`entry`, `commands`, `frame`) and layers of
-    # several. The box of a layer that holds one component is that component: the Modules view drew
-    # two nested frames with the same label and the same stereotype for it. A layer of several
-    # components is a real parent and keeps its frame.
-    page.open(f"{site}/system.html?scope=PART%3Ashell&content=modules")
-    frames = {
-        frame["id"]: frame
-        for frame in page.evaluate(
-            "[...document.querySelectorAll('#flow svg .uml-frame')].map((g) => {"
-            " const r = g.querySelector('.target-frame').getBoundingClientRect();"
-            " return { id: g.dataset.umlId, label: g.dataset.label,"
-            " box: [r.left, r.top, r.right, r.bottom] }; })"
-        )
-    }
+    # A layer with one component uses its component frame; a layer with several keeps a frame.
+    frames = shell_layer_frames(site, page, tmp_path)
+    assert frames, page.state()
 
     def inside(inner: str, outer: str) -> bool:
         (a, b, c, d), (e, f, g, h) = frames[inner]["box"], frames[outer]["box"]
         return e <= a and f <= b and c <= g and d <= h
 
-    for single in ("entry", "commands", "frame"):
+    layers = shell_layer_components()
+    single_layers = [layer for layer, members in layers.items() if len(members) == 1]
+    assert single_layers
+    for single in single_layers:
         assert f"LAYER:PART:shell:{single}" not in frames
-        assert f"SHELL-{single.upper()}" in frames
+        assert layers[single][0] in frames
+    assert len(layers["frame"]) > 1
+    assert "LAYER:PART:shell:frame" in frames
+    assert inside("SHELL-ENTRY", "LAYER:PART:shell:entry")
+    assert inside("SHELL-EXPLORER-MCP", "LAYER:PART:shell:entry")
     assert inside("SHELL-JSON", "LAYER:PART:shell:foundation")
     assert inside("SHELL-GAPS", "LAYER:PART:shell:present")
     nested = [
@@ -494,6 +491,7 @@ def test_a_layer_of_one_component_draws_no_frame_around_that_component(
         for inner in frames
         for outer in frames
         if inner != outer
+        and frames[inner]["label"] in single_layers
         and frames[inner]["label"] == frames[outer]["label"]
         and inside(inner, outer)
     ]

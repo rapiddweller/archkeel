@@ -20,6 +20,8 @@ run `make core` to build the core binary first.
   topology. `--output PATH` writes one static HTML page; `--output PATH --format json` writes the
   frame instead: `archkeel report --output report.json --format json`. Without `--output`, the
   format option is refused. No file is written by default. The parent of `PATH` must exist.
+- `archkeel studio [PATH | --root PATH]` opens the local Explorer. Existing scripts can use
+  `archkeel explore`. Without a contract it shows observed source and preserves UNKNOWN.
 - `archkeel skill install claude` or `archkeel skill install codex` writes this skill file.
 - `archkeel init` drafts `archkeel.toml` and a contract from the folder layout (Python packages, a
   Cargo workspace, a package.json workspace). `validate` and `report` do it by themselves when
@@ -27,16 +29,19 @@ run `make core` to build the core binary first.
   nothing). Every decision in the draft is a `TODO`: the first verdict is UNKNOWN and lists them. Ask
   the owner for each decision; never fill one in alone. The walk is in `docs/onboarding.md`.
 
-`check`, `explore`, `guide`, `story`, `view` and `studio` are refused with exit 2 and the
-reason `not available on this development line`. Release 4.0.1 has `check`; no release
-has the other four. Saved reports, `architecture.json`, amendments, `--component` and
+Release 4.0.1 has `check`. Saved reports, `architecture.json`, amendments, `--component` and
 `--write-graph` are refused by option name. A refusal is not a result: never report PASS after one,
 and never run a refused command in a loop. Tell the owner and use release 4.0.1 when they need it.
 
 ## Which projects get a verdict
 
-Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule has its receipt from the package map of the survey (AD-800), and every other rule of both is UNKNOWN.
+ArchKeel collects source evidence for Rust, TypeScript, Python and Dart.
+Rule coverage depends on the language and the available evidence.
+Python and Dart support import and interface boundary checks.
+Python also checks direct function calls for `call_owner`.
+Dart checks cycles when the package map is complete.
+Unsupported or unproved cases remain UNKNOWN.
+Python and Dart can check named imports against a declared `interface_boundary`.
 
 Do not report PASS for a supported subset of a project. Per-language limits are in
 [known limits](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).

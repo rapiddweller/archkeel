@@ -205,9 +205,11 @@ impl Settings {
     /// (`evaluate_source` raises a protocol error for the same files).
     pub(crate) fn admits(&self, module: &str, package: &str) -> Result<(), Refusal> {
         let namespace = self.namespace.as_str();
-        let inside = in_scope(module, namespace)
-            && in_scope(module, package)
-            && (in_scope(package, namespace) || in_scope(namespace, package));
+        let import_roots = namespace.is_empty() && self.roots.is_some();
+        let inside = in_scope(module, package)
+            && (import_roots
+                || (in_scope(module, namespace)
+                    && (in_scope(package, namespace) || in_scope(namespace, package))));
         if inside {
             Ok(())
         } else {

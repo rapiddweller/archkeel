@@ -1,4 +1,4 @@
 interface:
   display_name: "ArchKeel Explore"
-  short_description: "Not available on this line; writes the static report instead"
-  default_prompt: "Use $explore to say that Studio is not available here and to write the static report of this repository."
+  short_description: "Open the local architecture Explorer"
+  default_prompt: "Use $explore to open the local architecture Explorer for this repository."

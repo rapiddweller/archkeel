@@ -136,6 +136,9 @@ fn edges(imports: &[Import], level: Level, modules: &HashSet<&str>, namespace: &
             Level::Package => (import.source_package(), import.target_package()),
         };
         let inside = match level {
+            _ if namespace.is_empty() => {
+                matches!(import.resolved(), crate::imports::Resolved::Local)
+            }
             Level::Module => modules.contains(target),
             Level::Package => in_scope(target, namespace),
         };

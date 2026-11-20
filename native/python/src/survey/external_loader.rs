@@ -25,9 +25,12 @@ pub(super) type Site = (usize, TextRange, String);
 
 /// The calls of each module whose callee comes from a module outside the scan and the standard
 /// library, with a string that names another module of the scan.
-pub(super) fn find(modules: &[Module], stdlib: &HashSet<&str>, namespace: &str) -> Vec<Site> {
+pub(super) fn find(
+    modules: &[Module],
+    stdlib: &HashSet<&str>,
+    project: &HashSet<String>,
+) -> Vec<Site> {
     let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
-    let project = namespace.split('.').next().unwrap_or(namespace);
     let mut found = Vec::new();
     for (index, module) in modules.iter().enumerate() {
         let mut walk = Walk {
@@ -59,14 +62,14 @@ pub(super) fn find(modules: &[Module], stdlib: &HashSet<&str>, namespace: &str) 
 /// scope of the file: a local name of the same spelling can only add a gap.
 struct Binds<'s> {
     stdlib: &'s HashSet<&'s str>,
-    project: &'s str,
+    project: &'s HashSet<String>,
     found: &'s mut HashMap<String, ()>,
 }
 
 impl Binds<'_> {
     fn external(&self, origin: &str) -> bool {
         let top = origin.split('.').next().unwrap_or(origin);
-        !top.is_empty() && top != self.project && !self.stdlib.contains(top)
+        !top.is_empty() && !self.project.contains(top) && !self.stdlib.contains(top)
     }
 }
 

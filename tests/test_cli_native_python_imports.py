@@ -100,8 +100,8 @@ def project(
     return root
 
 
-def verdict(binary: Path, root: Path, verb: str = "validate") -> dict[str, Any]:
-    done = command(binary, root, "--json", verb=verb)
+def verdict(binary: Path, root: Path, verb: str = "validate", *flags: str) -> dict[str, Any]:
+    done = command(binary, root, "--json", *flags, verb=verb)
     result = json.loads(done.stdout)
     assert "refusal" not in result, (result, done.stderr)
     assert done.returncode == result["exit_code"], result

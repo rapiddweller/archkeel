@@ -1,0 +1,178 @@
+{
+  "schema_version": "1.2.0",
+  "title": "archkeel report — Write an HTML report",
+  "snapshot": {
+    "source_digest": "3e0128bf8fa92b4306d87e144737ed1f5fa64c35bb6be3bee881eee03d57f883",
+    "contract_digest": "fcfcf956f613dbd4c6a0957d30b6bb6f060a32679e0370de2a6be56a6acc9598"
+  },
+  "nodes": [
+    "archkeel.cli.core_only.run",
+    "archkeel.cli.core_only._decide",
+    "archkeel.cli.core_only._scan",
+    "archkeel.cli.core_only._exchange_scan",
+    "archkeel.cli.native_scan.exchange",
+    "native.archkeel_core.main",
+    "native.archkeel_core.scan_answer",
+    "native.archkeel_core.scan.answer",
+    "native.archkeel_core.scan.of_request",
+    "native.archkeel_core.scan.one",
+    "native.archkeel_core.scan.decide",
+    "native.archkeel_core.dual_run.run",
+    "native.archkeel_report.ruling.Ruling.frame",
+    "archkeel.cli.core_frame.read_frame",
+    "archkeel.cli.core_delivery._deliver",
+    "archkeel.cli.core_delivery._write_report",
+    "archkeel.cli.core_output.write_output"
+  ],
+  "story": {
+    "id": "report-html",
+    "title": "archkeel report — Write an HTML report",
+    "chapters": [
+      {
+        "id": "request",
+        "title": "Ask for an HTML report"
+      },
+      {
+        "id": "render",
+        "title": "Decide and render the same run"
+      },
+      {
+        "id": "deliver",
+        "title": "Deliver the checked report"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "node": "archkeel.cli.core_only.run",
+      "title": "Enter Report",
+      "note": "Use report with an output path to request a standalone HTML page.",
+      "chapter": "request"
+    },
+    {
+      "node": "archkeel.cli.core_only._decide",
+      "title": "Prepare the project",
+      "note": "Use the selected contract and the same decision path as validation.",
+      "chapter": "request"
+    },
+    {
+      "node": "archkeel.cli.core_only._scan",
+      "title": "Request the report",
+      "note": "The report request asks the core for HTML and its topology.",
+      "chapter": "request"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Prepare the scan",
+      "note": "Send the scan request and keep the response bytes for delivery.",
+      "chapter": "request"
+    },
+    {
+      "node": "archkeel.cli.native_scan.exchange",
+      "title": "Send the request",
+      "note": "Pass the request to the Rust child. The process target is not a resolved call.",
+      "chapter": "request"
+    },
+    {
+      "node": "native.archkeel_core.main",
+      "title": "Read the report request",
+      "note": "The child receives a scan request on standard input. Rust function definitions are indexed, but their calls are not.",
+      "transition": "process_request",
+      "chapter": "render"
+    },
+    {
+      "node": "native.archkeel_core.scan_answer",
+      "title": "Dispatch the scan",
+      "note": "Select the scan handler.",
+      "chapter": "render"
+    },
+    {
+      "node": "native.archkeel_core.scan.answer",
+      "title": "Read the HTML flag",
+      "note": "Decode the scan request, which carries the HTML and topology choices.",
+      "chapter": "render"
+    },
+    {
+      "node": "native.archkeel_core.scan.of_request",
+      "title": "Choose a scan",
+      "note": "Use the configuration to select the part to scan.",
+      "chapter": "render"
+    },
+    {
+      "node": "native.archkeel_core.scan.one",
+      "title": "Collect the part",
+      "note": "Collect the configured source scope before building the report.",
+      "chapter": "render"
+    },
+    {
+      "node": "native.archkeel_core.scan.decide",
+      "title": "Supply contract and facts",
+      "note": "Bind the scanned reply and provenance to the run. Carry through the HTML request.",
+      "chapter": "render"
+    },
+    {
+      "node": "native.archkeel_core.dual_run.run",
+      "title": "Keep the ruling and its evidence",
+      "note": "Compute the ruling and the topology before formatting its frame.",
+      "chapter": "render"
+    },
+    {
+      "node": "native.archkeel_report.ruling.Ruling.frame",
+      "title": "Render HTML in the frame",
+      "note": "The report crate formats the same ruling as HTML. Report formatting does not decide rules.",
+      "chapter": "render"
+    },
+    {
+      "node": "archkeel.cli.native_scan.exchange",
+      "title": "Receive the frame",
+      "note": "The shell receives the frame on standard output. This process response is not a resolved call.",
+      "transition": "process_response",
+      "chapter": "deliver"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Return to the wrapper",
+      "note": "Return the response bytes for frame validation.",
+      "transition": "return",
+      "chapter": "deliver"
+    },
+    {
+      "node": "archkeel.cli.core_frame.read_frame",
+      "title": "Check the response",
+      "note": "Check the frame protocol and request binding before exposing the result.",
+      "chapter": "deliver"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Return the checked response",
+      "note": "Return the checked frame and its bytes.",
+      "transition": "return",
+      "chapter": "deliver"
+    },
+    {
+      "node": "archkeel.cli.core_only._scan",
+      "title": "Deliver the result",
+      "note": "Pass the checked frame to file delivery.",
+      "transition": "return",
+      "chapter": "deliver"
+    },
+    {
+      "node": "archkeel.cli.core_delivery._deliver",
+      "title": "Write the requested file",
+      "note": "Ask the report writer to deliver the requested HTML file.",
+      "chapter": "deliver"
+    },
+    {
+      "node": "archkeel.cli.core_delivery._write_report",
+      "title": "Extract the HTML",
+      "note": "Read HTML from the frame. Attach gap records separately when the page calls for them.",
+      "chapter": "deliver"
+    },
+    {
+      "node": "archkeel.cli.core_output.write_output",
+      "title": "Publish the report",
+      "note": "Write temporary bytes and replace the destination atomically. The page shows the run's verdict and its available evidence.",
+      "chapter": "deliver"
+    }
+  ]
+}

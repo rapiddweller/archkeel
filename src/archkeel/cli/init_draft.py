@@ -32,6 +32,7 @@ from .init_areas import (
     _dart_layout,
     _folders,
     _python_layouts,
+    _python_one_script,
     _rust_layout,
 )
 from .init_binding import _binding, _uses
@@ -101,9 +102,11 @@ def _discover(repo: Path) -> tuple[list[Area], str]:
     return areas, why
 
 
-def _detect(repo: Path) -> list[Area]:
+def _detect(repo: Path, *, observed: bool) -> list[Area]:
     """The areas of the repository, or `NothingToDraft` when it has none."""
     areas, why = _discover(repo)
+    if not areas and observed and (layout := _python_one_script(repo)):
+        return [Area(".", layout)]
     if not areas:
         raise NothingToDraft(
             why
@@ -192,7 +195,7 @@ def _rule(identifier: str, kind: str, page: str, **fields: str) -> dict[str, obj
 
 
 def _toml(layout: Layout, contract: str) -> str:
-    roots = ", ".join(f'"{root}"' for root in layout.roots)
+    roots = ", ".join(json.dumps(root, ensure_ascii=False) for root in layout.roots)
     return (
         f'[scan]\nlanguage = "{layout.language}"\nnamespace = "{layout.namespace}"\n'
         f'roots = [{roots}]\ncontract = "{contract}"\n{layout.extra}'
@@ -206,11 +209,25 @@ def _unit(layout: Layout, folder: str, prefix: str) -> tuple[list[File], tuple[s
     parts = [part for part in layout.parts if part.packages or part.modules]
     labels = tuple(part.label for part in parts)
     ids = (f"{prefix}-ASSIGNMENT-COMPLETE", f"{prefix}-COMPONENT-NO-CYCLES")
+    sources = (
+        (layout.namespace,)
+        if layout.namespace
+        else tuple(name for part in parts for name in (*part.packages, *part.modules))
+    )
+    assignment = [
+        _rule(
+            ids[0].strip("-") if len(sources) == 1 else f"{ids[0].strip('-')}-{index}",
+            "complete_assignment",
+            page,
+            source=source,
+        )
+        for index, source in enumerate(sources, 1)
+    ]
     document = {
         "schema_version": _SCHEMA,
         "components": [_component(part, prefix, page) for part in parts],
         "rules": [
-            _rule(ids[0].strip("-"), "complete_assignment", page, source=layout.namespace),
+            *assignment,
             _rule(ids[1].strip("-"), "no_component_cycles", page),
         ],
     }
@@ -297,12 +314,12 @@ def _bindings(repo: Path, areas: list[Area], ids: list[str]) -> list[dict[str, s
     return found
 
 
-def _system(repo: Path, areas: list[Area]) -> Draft:
+def _system(repo: Path, areas: list[Area], folder: str = _FOLDER) -> Draft:
     ids = _unique_ids(areas)
     files: list[File] = []
     parts, names = [], []
     for area, identifier in zip(areas, ids, strict=True):
-        unit, labels = _unit(area.layout, f"{_FOLDER}/{identifier}", _slug(identifier))
+        unit, labels = _unit(area.layout, f"{folder}/{identifier}", _slug(identifier))
         files += unit
         names += [f"{identifier}/{label}" for label in labels]
         title = _title_of(area, identifier)
@@ -338,7 +355,8 @@ def _system(repo: Path, areas: list[Area]) -> Draft:
         "interfaces": interfaces,
         "rules": [],
     }
-    files.insert(0, File(SYSTEM, json.dumps(system, indent=2) + "\n"))
+    entry = f"{folder}/{Path(SYSTEM).name}"
+    files.insert(0, File(entry, json.dumps(system, indent=2) + "\n"))
     languages = ", ".join(sorted({a.layout.language for a in areas}))
     note = " ".join(dict.fromkeys(a.layout.note for a in areas if a.layout.note))
     return Draft(
@@ -349,20 +367,27 @@ def _system(repo: Path, areas: list[Area]) -> Draft:
         note,
         tuple(_title_of(a, i) for a, i in zip(areas, ids, strict=True)),
         tuple(str(i["id"]) for i in interfaces),
-        SYSTEM,
+        entry,
         stated,
     )
 
 
-def draft(root: Path) -> Draft:
+def draft(root: Path, *, scan_folder: str = "") -> Draft:
     """Draft the files for the layout of `root`, or raise `NothingToDraft`."""
-    areas = _detect(root)
+    areas = _detect(root, observed=bool(scan_folder))
     if len(areas) > 1:
-        return _system(root, areas)
+        return _system(root, areas, scan_folder or _FOLDER)
     layout = areas[0].layout
-    files, labels = _unit(layout, "", "")
+    files, labels = _unit(layout, scan_folder, "")
     # One scan at the root keeps the plain names of the rules and components.
-    return Draft(tuple(files), layout.language, layout.namespace, labels, layout.note)
+    return Draft(
+        tuple(files),
+        layout.language,
+        layout.namespace or areas[0].label,
+        labels,
+        layout.note,
+        entry=files[0].path,
+    )
 
 
 def _blocked(root: Path, item: File) -> bool:

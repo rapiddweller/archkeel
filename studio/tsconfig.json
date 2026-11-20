@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noEmitOnError": true,
+    "newLine": "lf",
+    "verbatimModuleSyntax": true,
+    "rootDir": "src",
+    "outDir": "../src/archkeel/cli/assets"
+  },
+  "include": ["src/**/*.ts"]
+}
