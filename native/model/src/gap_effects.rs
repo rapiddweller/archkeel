@@ -13,8 +13,16 @@
 
 use std::collections::BTreeSet;
 
-use archkeel_contract::{CycleLevel, Rule};
+use archkeel_contract::{
+    CycleLevel, PremiseName, ProtocolDeclarations, ProtocolRole, ProtocolSelector,
+    ProtocolVisibility, Rule, RuleKind,
+};
 use archkeel_facts::data::GapEffect;
+use archkeel_facts::standard::ProtocolMembers;
+
+use crate::boundary_facts::BoundaryFacts;
+use crate::causes::Cause;
+use crate::reason::{Reason, Unsupported};
 
 use crate::door_reach::Applied;
 use crate::gap_class::{Doubt, Scoped};
@@ -210,10 +218,12 @@ fn reads(model: &Model, rule: &Rule, module: Option<&str>) -> ReadSet {
             }
         }
         // AD-550 reads the written types of each module, and a type name through its imports.
-        Rule::BoundaryTypes(_) => ReadSet::BOTH,
+        Rule::BoundaryTypes(_) | Rule::ProtocolDeclarations(_) => ReadSet::BOTH,
         // AD-670: a use of a public name can come from any import of any module.
         Rule::UnusedPublic(_) => ReadSet::BOTH,
-        Rule::SymbolPlacement(_) => ReadSet::BOTH,
+        Rule::SymbolPlacement(_) | Rule::CallOwner(_) | Rule::ForbiddenCallArgument(_) => {
+            ReadSet::BOTH
+        }
         // A kind that no slice decides: its slice states what it reads here (fail closed).
         undecided_rule!() => ReadSet::BOTH,
     }
@@ -231,3 +241,116 @@ fn sourced(model: &Model, source: &str, module: &str) -> bool {
 #[cfg(test)]
 #[path = "gap_effects_tests.rs"]
 mod tests;
+
+/// A member whose written type differs from the canonical Protocol.
+pub struct ProtocolMemberViolation {
+    /// The class that declares the member.
+    pub owner: String,
+    /// The name of the member.
+    pub name: String,
+    /// Its written annotation.
+    pub text: String,
+    /// The source evidence of the member.
+    pub evidence: String,
+}
+
+/// The selected member positions that name a different type.
+pub fn protocol_violations(
+    model: &Model,
+    rule: &ProtocolDeclarations,
+) -> Result<Vec<ProtocolMemberViolation>, Reason> {
+    let (rows, _) = read_protocol(model, rule)?;
+    Ok(rows
+        .into_iter()
+        .map(|(owner, name, shape, evidence)| ProtocolMemberViolation {
+            owner,
+            name,
+            text: BoundaryFacts::annotation_text(&shape),
+            evidence,
+        })
+        .collect())
+}
+
+pub(crate) fn protocol_receipt(model: &Model, rule: &ProtocolDeclarations) -> Result<(), Reason> {
+    let (_, complete) = read_protocol(model, rule)?;
+    if complete {
+        Ok(())
+    } else {
+        Err(Cause::Receipt("protocol declaration inventory or binding is incomplete").into())
+    }
+}
+
+fn read_protocol(
+    model: &Model,
+    rule: &ProtocolDeclarations,
+) -> Result<(ProtocolMembers, bool), Reason> {
+    let graph = model.graph();
+    let facts = graph
+        .boundary()
+        .ok_or(Reason::Unsupported(Unsupported::Rule(
+            RuleKind::ProtocolDeclarations,
+        )))?;
+    let target = rule.protocol().as_text();
+    let standard = facts.standard();
+    if !BoundaryFacts::canonical_protocol(facts, target)
+        || !archkeel_contract::declared_premises(model.contract())
+            .contains(&PremiseName::StandardLibraryUnchanged)
+    {
+        return Err(Cause::Receipt(
+            "canonical Protocol needs the unchanged standard library proof",
+        )
+        .into());
+    }
+    let modules = Model::source_modules(model, ProtocolDeclarations::source(rule).as_text());
+    let selected: Vec<&(bool, ProtocolMembers)> = IntoIterator::into_iter(Vec::as_slice(&modules))
+        .filter_map(|id| {
+            let module = graph.modules().get(*id)?;
+            standard
+                .protocol_members
+                .get(crate::modules::Module::name(module))
+        })
+        .collect();
+    let mut rows = Vec::new();
+    let mut complete = !modules.is_empty()
+        && selected.len() == modules.len()
+        && IntoIterator::into_iter(Vec::as_slice(&selected)).all(|(closed, _)| *closed);
+    for selector in rule.selectors() {
+        complete &= read_selector(facts, target, &selected, selector, &mut rows);
+    }
+    rows.sort_by(|left, right| (&left.0, &left.1).cmp(&(&right.0, &right.1)));
+    rows.dedup_by(|left, right| left.0 == right.0 && left.1 == right.1);
+    Ok((rows, complete))
+}
+
+fn read_selector(
+    facts: &BoundaryFacts,
+    target: &str,
+    selected: &[&(bool, ProtocolMembers)],
+    selector: &ProtocolSelector,
+    rows: &mut ProtocolMembers,
+) -> bool {
+    if *selector.role() != ProtocolRole::Member || *selector.optional() {
+        return false;
+    }
+    let matches = IntoIterator::into_iter(selected)
+        .flat_map(|(_, members)| Vec::as_slice(members))
+        .filter(|(owner, name, _, _)| {
+            name == ProtocolSelector::name(selector)
+                && (*selector.visibility() != ProtocolVisibility::Public
+                    || (!name.starts_with('_')
+                        && owner
+                            .rsplit('.')
+                            .next()
+                            .is_some_and(|class| !class.starts_with('_'))))
+        });
+    let (mut seen, mut complete) = (false, true);
+    for member in matches {
+        seen = true;
+        match BoundaryFacts::protocol_member(facts, &member.2, target) {
+            Some(true) => {}
+            None => complete = false,
+            Some(false) => Vec::push(rows, member.clone()),
+        }
+    }
+    seen && complete
+}

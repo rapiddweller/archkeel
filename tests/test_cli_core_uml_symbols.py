@@ -15,11 +15,11 @@ from pathlib import Path
 
 import pytest
 from test_cli_core_only_scan import command
-from test_cli_core_uml_compare import project
+from test_cli_core_uml_compare import ONE, module, project, scope
 from uml_symbol_patterns import PATTERN_CAUSES, PATTERN_PLANTS, WRONG_RELEASE_PATTERNS
 from uml_symbol_plants import CAUSES as BASE_CAUSES
 from uml_symbol_plants import PLANTS as BASE_PLANTS
-from uml_symbol_plants import ROW, edge, referenced, target
+from uml_symbol_plants import ROW, edge, referenced, sym, target
 from uml_symbol_review import COUNTS, REVIEW_CAUSES, REVIEW_PLANTS, STRICTER, WRONG_RELEASE_PASS
 
 PLANTS = {**BASE_PLANTS, **REVIEW_PLANTS, **PATTERN_PLANTS}
@@ -62,6 +62,39 @@ def test_a_const_arrow_call_reaches_the_model_but_jsx_registration_does_not(
     result = json.loads(done.stdout)
     assert "refusal" not in result, result
     assert result["frame"]["rules"][ROW] == ["uml_target", expected], result["frame"]
+
+
+@pytest.mark.parametrize("listed", [True, False])
+def test_a_direct_anonymous_default_is_a_written_function(
+    release_core: Path, tmp_path: Path, listed: bool
+) -> None:
+    entities = [module("one", ONE)]
+    if listed:
+        entities.append(sym("default-export", "function", "default"))
+    uml = target(
+        entities,
+        relationships=[],
+        scopes=[] if listed else [scope("one", ["function"], [])],
+    )
+    files = {
+        "src/a/one.ts": "export default\nfunction (): number { return 1; }\n",
+        "src/b/t.ts": "export const t = 1;\n",
+    }
+    done = command(release_core, project(tmp_path, files, uml, None), "--json")
+    frame = json.loads(done.stdout)["frame"]
+    assert frame["scope"] == "complete" and frame["collection_gaps"] == []
+    assert frame["rules"][ROW] == ["uml_target", "PASS" if listed else "FAIL"]
+    assert done.returncode == (0 if listed else 1)
+    if not listed:
+        [detail] = frame["details"][ROW]
+        assert (detail["source"], detail["target"], detail["cause"]) == (
+            "one",
+            f"{ONE}.default",
+            "closed scope holds an unlisted definition",
+        )
+        assert {"path": "src/a/one.ts", "line": 2} in [
+            frame["locations"][identity] for identity in detail["evidence"]
+        ]
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))

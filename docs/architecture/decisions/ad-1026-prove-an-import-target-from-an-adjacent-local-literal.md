@@ -1,4 +1,4 @@
-# AD-971 Prove an import target from an adjacent local literal
+# AD-1026 Prove an import target from an adjacent local literal
 
 **Decision.** Reuse the literal import path for one local name. A top-level
 function after a direct `import importlib` can assign an absolute dotted string

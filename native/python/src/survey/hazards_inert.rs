@@ -45,7 +45,7 @@ pub(super) fn modules(
                     && (matches!(
                         origin.as_str(),
                         "pickle" | "dill" | "importlib.metadata" | "importlib.abc"
-                    ) || super::names::hazard(origin).is_some()
+                    ) || crate::survey::hazards_names::hazard(origin).is_some()
                         && origin
                             .rsplit_once('.')
                             .is_some_and(|(module, attr)| attribute(module, attr))) =>

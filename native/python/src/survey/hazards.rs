@@ -25,11 +25,11 @@ use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
 
-use bind::{bindings, imported};
-use names::{
-    above, first_hazard, store, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
+use super::hazards_names::{
+    above, first_hazard, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
 };
-pub(super) use names::{hazard, DYNAMIC, IMPORT_SYSTEM};
+pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM};
+use bind::{bindings, imported};
 
 #[path = "hazards_bind.rs"]
 mod bind;
@@ -39,8 +39,6 @@ mod comprehension;
 mod door;
 #[path = "hazards_inert.rs"]
 mod inert;
-#[path = "hazards_names.rs"]
-pub(super) mod names;
 #[path = "hazards_reflect.rs"]
 pub(super) mod reflect;
 
@@ -294,7 +292,8 @@ impl Walk<'_> {
         }
         attributes.reverse();
         ranges.reverse();
-        if !store(expr)
+        let store = matches!(expr, Expr::Attribute(node) if node.ctx != ExprContext::Load);
+        if !store
             && matches!(base, Expr::Name(name) if inert::read(&self.inert_modules, name.id.as_str(), &attributes))
         {
             return;
@@ -314,7 +313,7 @@ impl Walk<'_> {
             } else {
                 DYNAMIC
             };
-            if *name != "__path__" || store(expr) {
+            if *name != "__path__" || store {
                 return self.push(kind, name, expr);
             }
         }
@@ -425,7 +424,8 @@ impl<'a> Visitor<'a> for Walk<'_> {
         }
         match expr {
             Expr::Lambda(node) => self.lambda(node),
-            // A proven argument is a string literal or a read of its local binding.
+            // AD-472: only the callee of a proven literal call is exempt; its one argument is a
+            // string literal, so nothing below the call is left to read.
             Expr::Call(call) => self.call(expr, call),
             Expr::Subscript(_) if reflect::code(expr, &self.bound) => {
                 self.push(DYNAMIC, "code", expr);
@@ -460,11 +460,12 @@ mod inert_tests;
 /// Proven imports and hazards, each keyed by its module index.
 pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
 
+/// The sites that the lazy import proof covers (`lazy.rs`) are no hazard when `lazy` is given.
 pub(super) fn split(
     modules: &[Module],
     binders: &[Binders],
-    lazy: Option<&[Lazy]>,
-    local: bool,
+    (lazy, replaced): (Option<&[Lazy]>, bool),
+    local_literals: bool,
 ) -> Split {
     let (mut literals, mut found) = (Vec::new(), Vec::new());
     let items: Vec<_> = modules
@@ -475,8 +476,8 @@ pub(super) fn split(
     let proved = reflect::proved(&items, &[&BUILTIN_DOORS, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
-        let mut proof = literal::Proof::of(&module.tree, binders);
-        proof.prove_local(&module.tree, local);
+        let mut proof = literal::Proof::of(&module.tree, binders).without_replaced_loader(replaced);
+        proof.prove_local(&module.tree, local_literals);
         let covered = lazy.map(|all| &all[index]);
         for (range, target) in covered.iter().flat_map(|item| &item.targets) {
             literals.push((index, *range, target.clone()));

@@ -1,18 +1,12 @@
 // Archkeel
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
-
 //! The envelope of a protocol 11 reply: every part of `facts` outside the sections (AD-346).
 //!
-//! Each object is closed: an unknown key is a decode error. Parts only the Python collector fills (`state`,
-//! `type_shapes`, `uncertain_reexports`, `candidate_evidence`, `provider_bindings` and
-//! `provider_sources`) are `NoEntries`: a reply with an entry in one of them is a decode error,
-//! because no reader of these types exists yet. A value is never dropped without a check.
-
+//! Each object is closed: an unknown key is a decode error.
 pub use crate::envelope_vocab::{
     ConstructSupport, Profile, ProtocolVersion, RequirementState, Role, SectionName,
 };
-
 use crate::standard::StandardFacts;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
@@ -25,6 +19,11 @@ use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use crate::measures::FileMeasures;
 use crate::record::Record;
 use crate::sections::{GapFact, Section};
+
+/// One explicit actual: an optional keyword and whether the source writes a string literal.
+pub type WrittenActual = (Option<String>, bool);
+/// A live call site, its exact declaration, optional import and actuals when bindable.
+pub type DirectCall = (FactId, FactId, Option<FactId>, Option<Vec<WrittenActual>>);
 
 /// A closed object of the envelope: an unknown key is a decode error.
 macro_rules! object {
@@ -89,20 +88,22 @@ object! {
         /// The linked collector's scope statements. Wire replies carry no live authority.
         #[serde(skip)]
         pub profile_limits: Option<ProfileLimits>,
-        /// The linked collector's one stated assumption of its proofs, shown with the verdict
-        /// (AD-540). It is no proof and replaces no gap. Wire replies carry none.
+        /// Exact calls from the linked producer, never from a saved reply.
+        #[serde(skip)]
+        pub direct_calls: Option<Vec<DirectCall>>,
+        /// Call counts for complete lexical bodies from the linked producer only.
+        #[serde(skip)]
+        pub function_call_counts: Option<Vec<(String, u64)>>,
+        /// The premise of the linked proof, shown with the verdict (AD-540).
         #[serde(skip)]
         pub scope_premise: Option<String>,
         /// Paths intentionally excluded from the linked collector's source scope.
         #[serde(skip)]
         pub excluded_sources: Vec<String>,
-        /// The linked collector's files that belong to another module (AD-468). Wire replies
-        /// carry none.
+        /// Files that the linked collector assigns to another module (AD-468).
         #[serde(skip)]
         pub owned_files: Vec<OwnedFile>,
-        /// The linked collector's statements about the standard library of its language, read
-        /// only under the contract premise `standard_library_unchanged` (AD-782). Wire replies
-        /// carry none.
+        /// The linked producer's facts for `standard_library_unchanged` (AD-782).
         #[serde(skip)]
         pub standard: Option<StandardFacts>,
         /// The adapter that wrote the reply.
@@ -492,9 +493,8 @@ mod tests;
 
 /// The test features of a linked collector, refused by `archkeel-collect` (AD-406).
 pub const fn test_features(dump: bool) -> &'static [&'static str] {
-    if dump {
-        &["dump"]
-    } else {
-        &[]
+    match dump {
+        true => &["dump"],
+        false => &[],
     }
 }

@@ -17,11 +17,11 @@ use crate::syntax::{Directive, DirectiveKind};
 
 /// The owner of each part that has one. The claims of the libraries are read first.
 pub(crate) fn owners(snapshot: &mut Snapshot, index: &Index<'_>, gaps: &mut Gaps) -> Owners {
-    let mut claims: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    let mut claims: BTreeMap<usize, Vec<(usize, &Directive)>> = BTreeMap::new();
     for library in libraries(index) {
         for directive in directives(index, library, DirectiveKind::Part) {
             if let Some(part) = claimed(snapshot, index, library, directive, gaps) {
-                claims.entry(part).or_default().push(library);
+                claims.entry(part).or_default().push((library, directive));
             }
         }
     }
@@ -30,34 +30,54 @@ pub(crate) fn owners(snapshot: &mut Snapshot, index: &Index<'_>, gaps: &mut Gaps
         if *kind != Kind::Part {
             continue;
         }
-        let rel = &index.sources[part].rel_path;
-        match claims.get(&part).map(Vec::as_slice) {
-            Some([library]) if names(snapshot, index, part, *library) => {
+        let source = &index.sources[part];
+        let declared: Vec<&Directive> = directives(index, part, DirectiveKind::PartOf).collect();
+        let claimants: &[(usize, &Directive)] = claims.get(&part).map_or(&[], Vec::as_slice);
+        let (name, message) = match claimants {
+            [(library, _)] if names(index, part, *library, &declared) => {
                 owners.insert(part, *library);
+                continue;
             }
-            Some([library]) => {
-                let message = format!(
+            [(library, _)] => (
+                GapName::PartUnowned,
+                format!(
                     "the part of directive does not name the library {} that claims it",
                     index.sources[*library].rel_path
-                );
-                gaps.named(GapName::PartUnowned, Place::File(rel), &message);
-            }
-            Some(libraries) if libraries.len() > 1 => {
+                ),
+            ),
+            libraries if libraries.len() > 1 => {
                 let paths: Vec<&str> = libraries
                     .iter()
-                    .map(|at| index.sources[*at].rel_path.as_str())
+                    .map(|(at, _)| index.sources[*at].rel_path.as_str())
                     .collect();
-                let message = format!(
-                    "more than one library claims the part: {}",
-                    paths.join(", ")
-                );
-                gaps.named(GapName::PartConflict, Place::File(rel), &message);
+                (
+                    GapName::PartConflict,
+                    format!(
+                        "more than one directive claims the part: {}",
+                        paths.join(", ")
+                    ),
+                )
             }
-            _ => {
-                let message = "no selected library claims the part with a part directive";
-                gaps.named(GapName::PartUnowned, Place::File(rel), message);
-            }
-        }
+            _ => (
+                GapName::PartUnowned,
+                "no selected library claims the part with a part directive".to_owned(),
+            ),
+        };
+        let site = declared
+            .first()
+            .map_or(Place::File(&source.rel_path), |owner| {
+                Place::Span(source, &owner.span)
+            });
+        let related = declared
+            .iter()
+            .skip(1)
+            .map(|owner| (source, &owner.span))
+            .chain(
+                claimants
+                    .iter()
+                    .map(|(at, directive)| (&index.sources[*at], &directive.span)),
+            );
+        gaps.named_with_related(name, site, &message, related);
     }
     owners
 }
@@ -137,29 +157,23 @@ pub(crate) fn missing(rel: &str) -> String {
     }
 }
 
-/// The one `part of` of `part` names `library`: its URI gives the library, or its text equals
-/// the name of the one `library` directive of the library.
-fn names(snapshot: &mut Snapshot, index: &Index<'_>, part: usize, library: usize) -> bool {
-    let owners: Vec<&Directive> = directives(index, part, DirectiveKind::PartOf).collect();
-    let [owner] = owners.as_slice() else {
+/// The one `part of` of `part` names `library` in the syntax that the directive uses.
+fn names(index: &Index<'_>, part: usize, library: usize, owners: &[&Directive]) -> bool {
+    let [owner] = owners else {
         return false;
     };
     let Some(text) = owner.target.as_deref() else {
         return false;
     };
-    let source = &index.sources[part];
-    if let Uri::Local(rel) = index.classify(&source.rel_path, text) {
-        if matches!(index.locate(snapshot, &rel), Located::Source(at) if at == library) {
-            return true;
-        }
+    if owner.part_owner_is_uri {
+        let source = &index.sources[part];
+        let Uri::Local(rel) = index.classify(&source.rel_path, text) else {
+            return false;
+        };
+        return index.by_rel.get(rel.as_str()) == Some(&library);
     }
     let declared: Vec<&str> = directives(index, library, DirectiveKind::Library)
         .filter_map(|directive| directive.target.as_deref())
         .collect();
-    matches!(declared.as_slice(), [name] if library_name(name) == library_name(text))
-}
-
-/// The dotted name of a `library` or `part of` directive without white space.
-fn library_name(text: &str) -> String {
-    text.chars().filter(|c| !c.is_whitespace()).collect()
+    matches!(declared.as_slice(), [name] if *name == text)
 }

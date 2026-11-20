@@ -9,13 +9,10 @@
 /// A pattern of each `archkeel_contract::Rule` kind that no slice decides.
 macro_rules! undecided_rule {
     () => {
-        archkeel_contract::Rule::CallOwner(_)
-            | archkeel_contract::Rule::ForbiddenCallArgument(_)
-            | archkeel_contract::Rule::CatalogArgument(_)
+        archkeel_contract::Rule::CatalogArgument(_)
             | archkeel_contract::Rule::CatalogUse(_)
             | archkeel_contract::Rule::ForbiddenEffectUnderCondition(_)
             | archkeel_contract::Rule::SourceOwnership(_)
             | archkeel_contract::Rule::BoundedNumericOperand(_)
-            | archkeel_contract::Rule::ProtocolDeclarations(_)
     };
 }

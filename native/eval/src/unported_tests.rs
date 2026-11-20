@@ -25,9 +25,9 @@ fn ported(kind: K) -> bool {
         | K::CatalogArgument
         | K::CatalogUse
         | K::ForbiddenEffectUnderCondition
-        | K::ProtocolDeclarations
         | K::BoundaryTypes => false,
-        K::SymbolPlacement
+        K::ProtocolDeclarations
+        | K::SymbolPlacement
         | K::LayerOrder
         | K::NoComponentCycles
         | K::ForbiddenConstruct
@@ -82,6 +82,6 @@ fn each_kind_that_no_slice_decides_is_unknown_by_name() {
         assert_eq!(outcome.decision(), Some(&expected), "{kind:?}");
         assert!(outcome.violations().is_empty(), "{kind:?}");
     }
-    // The contract holds the 10 kinds, so a kind that moves to `ported` or leaves it shows here.
-    assert_eq!(seen, 9);
+    // The contract holds the unported kinds, so a kind that moves to `ported` or leaves it shows here.
+    assert_eq!(seen, 8);
 }

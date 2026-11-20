@@ -76,6 +76,7 @@ mod edges;
 mod gap_class;
 mod gap_effects;
 mod premises;
+pub use gap_effects::protocol_violations;
 pub use premises::{
     kind_word, of_kind_word, premise_words, rule_premises, PremiseKind, UsedPremise,
 };
@@ -124,13 +125,15 @@ mod verdict;
 pub use coverage::Incomplete;
 pub use cycles::Cycle;
 pub use edges::{Edge, Level};
-pub use graph::Graph;
+pub use graph::{ExactCall, Graph};
 pub use ids::{ComponentId, ModuleId};
 pub use imports::{Import, Resolved};
 pub use model::Model;
 pub use modules::Module;
 pub use ownership::{claims, in_scope};
 pub use reason::{Hygiene, Input, Reason, UmlGap, Unsupported};
+pub use receipts::forbidden_argument_violations;
+pub use scope_receipt::call_owner_violations;
 pub use section::Section;
 pub use settings::{Producer, Settings};
 pub use uml::{UmlDiff, UmlOutcome, UmlTarget};

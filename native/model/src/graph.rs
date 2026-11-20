@@ -10,12 +10,12 @@
 //! The macro bodies are typed rows of the split (`MacroBody`): the fan counts of the modules
 //! read them while the graph is derived, and nothing reads them after.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::envelope::{Facts, Target};
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
 use archkeel_facts::profile_traits::AnalysisCapabilities;
-use archkeel_facts::FactData;
-use archkeel_facts::Section;
+use archkeel_facts::{CallFact, FactData, Section, SymbolFact};
 use archkeel_store::Ingested;
 
 use crate::constructs::Constructs;
@@ -63,6 +63,7 @@ pub struct Graph {
     /// shapes (AD-550).
     boundary: Option<crate::boundary_facts::BoundaryFacts>,
     placement: Option<Vec<crate::placement_facts::Class>>,
+    exact_calls: Option<CallInventory>,
     /// The declared reach of the door sites (AD-664).
     doors: Doors,
 }
@@ -82,6 +83,7 @@ impl Graph {
         needs: &Needs,
     ) -> Result<Graph, Reason> {
         let facts = admitted(reply, &settings)?;
+        let live = settings.producer() == Producer::Trusted;
         let mut graph = Self::from_facts(
             facts,
             reply.analysis_capabilities(),
@@ -103,6 +105,9 @@ impl Graph {
         }
         if needs.placement() && graph.observed.analysis.symbol_facts {
             graph.placement = Some(crate::placement_facts::classes(facts));
+        }
+        if live && needs.call_owner() {
+            graph.exact_calls = direct_calls(facts);
         }
         Ok(graph)
     }
@@ -144,6 +149,7 @@ impl Graph {
         observed.effect_gaps = door_reach::narrowed(&doors, observed.effect_gaps);
         let gaps = crate::gaps::coverage_gaps(&facts.coverage, &classes);
         drop(names);
+        let constructs = Constructs::derive(facts, settings.producer() == Producer::Trusted)?;
         Ok(Graph {
             symbol_counts: symbol_counts(facts, &modules),
             modules,
@@ -171,10 +177,11 @@ impl Graph {
             cycles,
             observed,
             builtins: builtins(facts),
-            constructs: Constructs::derive(facts)?,
+            constructs,
             symbols: None,
             boundary: None,
             placement: None,
+            exact_calls: None,
             doors,
         })
     }
@@ -188,6 +195,10 @@ impl Graph {
     /// The declared reach of the door sites, matched to the doors of the reply (AD-664).
     pub fn doors(&self) -> &Doors {
         &self.doors
+    }
+
+    pub(crate) fn exact_calls(&self) -> Option<&CallInventory> {
+        self.exact_calls.as_ref()
     }
 
     /// The modules of the reply, in the order of the reply.
@@ -313,6 +324,109 @@ impl Graph {
 }
 
 /// The names of the builtin import targets (`BuiltinTarget.name`).
+/// The call site, module, lexical scope, target and evidence.
+pub type ExactCall = (FactId, String, String, String, Vec<EvidenceId>);
+
+#[derive(Debug)]
+pub(crate) struct CallInventory {
+    pub(crate) calls: Vec<ExactCall>,
+    pub(crate) targets: HashSet<String>,
+    pub(crate) complete: HashSet<String>,
+    pub(crate) bodies: HashMap<String, u64>,
+    pub(crate) actuals: HashMap<FactId, Vec<archkeel_facts::envelope::WrittenActual>>,
+    pub(crate) formals: HashMap<String, Vec<archkeel_facts::nested::Parameter>>,
+}
+
+fn direct_calls(facts: &Facts) -> Option<CallInventory> {
+    let live = facts.direct_calls.as_ref()?;
+    let sites: HashSet<&FactId> = live.iter().map(|(site, _, _, _)| site).collect();
+    let mut calls = Vec::new();
+    let mut counts: HashMap<&ModuleName, u64> = HashMap::new();
+    let rows = facts.sections.iter().filter_map(|section| match section {
+        Section::Calls(rows) => Some(rows),
+        _ => None,
+    });
+    for row in rows.flatten().filter(|row| sites.contains(&row.id)) {
+        let CallFact::Calls(call) = &row.data else {
+            continue;
+        };
+        let [target] = Vec::as_slice(&call.targets) else {
+            continue;
+        };
+        *counts.entry(&call.source_module).or_default() += 1;
+        calls.push((
+            row.id.clone(),
+            ModuleName::as_str(&call.source_module).to_owned(),
+            call.source_scope.clone(),
+            target.clone(),
+            row.evidence_ids.clone(),
+        ));
+    }
+    let complete = facts.coverage.measures.iter().flatten().filter_map(|row| {
+        let count = counts.get(&row.module).copied().unwrap_or(0);
+        (count == row.calls_total).then(|| ModuleName::as_str(&row.module).to_owned())
+    });
+    let bodies = facts
+        .function_call_counts
+        .iter()
+        .flatten()
+        .cloned()
+        .collect();
+    Some(CallInventory {
+        calls,
+        targets: direct_targets(facts),
+        complete: complete.collect(),
+        bodies,
+        actuals: live
+            .iter()
+            .filter_map(|(site, _, _, arguments)| Some((site.clone(), arguments.as_ref()?.clone())))
+            .collect(),
+        formals: direct_formals(facts),
+    })
+}
+
+fn direct_formals(facts: &Facts) -> HashMap<String, Vec<archkeel_facts::nested::Parameter>> {
+    facts
+        .sections
+        .iter()
+        .filter_map(|section| match section {
+            Section::Symbols(rows) => Some(rows),
+            _ => None,
+        })
+        .flatten()
+        .filter_map(|row| match &row.data {
+            SymbolFact::Function(function)
+                if function.source_binding_unique == Some(true)
+                    && Vec::is_empty(&function.decorators)
+                    && function.lexical_parent_id.is_none()
+                    && function.signature_complete == Some(true) =>
+            {
+                Some((function.qualified_name.clone(), function.parameters.clone()))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn direct_targets(facts: &Facts) -> HashSet<String> {
+    let rows = facts.sections.iter().filter_map(|section| match section {
+        Section::Symbols(rows) => Some(rows),
+        _ => None,
+    });
+    rows.flatten()
+        .filter_map(|row| match &row.data {
+            SymbolFact::Function(function)
+                if function.source_binding_unique == Some(true)
+                    && Vec::is_empty(&function.decorators)
+                    && function.lexical_parent_id.is_none() =>
+            {
+                Some(function.qualified_name.clone())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
 fn builtins(facts: &Facts) -> Vec<String> {
     facts
         .imports

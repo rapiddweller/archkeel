@@ -105,7 +105,8 @@ impl Usable {
             .map(archkeel_contract::kind_of)
             .chain(self.inside.iter().map(|(_, kind)| *kind))
             .collect();
-        let boundary = kinds.contains(&RuleKind::BoundaryTypes);
+        let boundary = kinds.contains(&RuleKind::BoundaryTypes)
+            || kinds.contains(&RuleKind::ProtocolDeclarations);
         let interface = kinds.contains(&RuleKind::InterfaceBoundary);
         let published = kinds.contains(&RuleKind::UnusedPublic);
         let placement = kinds.contains(&RuleKind::SymbolPlacement);
@@ -122,7 +123,17 @@ impl Usable {
                 .chain(boundary.then_some(Need::BoundaryTypes))
                 .chain(interface.then_some(Need::InterfaceBoundary))
                 .chain(published.then_some(Need::UnusedPublic))
-                .chain(placement.then_some(Need::SymbolPlacement)),
+                .chain(placement.then_some(Need::SymbolPlacement))
+                .chain(
+                    kinds
+                        .contains(&RuleKind::CallOwner)
+                        .then_some(Need::CallOwner)
+                        .or_else(|| {
+                            kinds
+                                .contains(&RuleKind::ForbiddenCallArgument)
+                                .then_some(Need::CallOwner)
+                        }),
+                ),
         )
         .with_doors(doors)
     }

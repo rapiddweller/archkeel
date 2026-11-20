@@ -40,6 +40,7 @@ use crate::tree::nodes::named_children;
 #[derive(Default)]
 pub(crate) struct Syntax {
     pub definitions: Vec<Definition>,
+    pub(crate) anonymous_default: Option<Box<Definition>>,
     /// The parents of the definitions: `parent_name` gives the qualified name of a definition.
     pub scopes: Scopes,
     pub import_bindings: Vec<ImportBinding>,
@@ -455,10 +456,16 @@ impl<'a, 't> Walk<'a, 't> {
             )
         });
         self.additions.close(&mut definitions, module_file && typed);
+        let anonymous_default = if typed && !mode.is_declaration() && !root.has_error() {
+            Defs::anonymous_default(&cx, &top)
+        } else {
+            None
+        };
         Syntax {
             module_exports: export_bindings(&cx, (root, &top), &self.frames),
             type_exports: type_exports(&cx, root, &top, &self.frames),
             definitions,
+            anonymous_default,
             scopes,
             import_bindings,
             rebound_names: self.rebound.into_iter().collect(),

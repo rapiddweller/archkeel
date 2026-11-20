@@ -21,13 +21,33 @@ use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::{ImportFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprContext, Stmt};
+use ruff_python_ast::{Comprehension, Expr, ExprCall, ExprContext, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::{first_part, Binders};
 use super::guard::Guard;
-use super::module_scopes::{resolve, Kind, Resolved, Scope};
+use super::module_scopes::{definition, may_read_import, resolve, Kind, Resolved, Scope};
 use crate::module::Module;
+
+/// AD-708: a whole-module import whose module object escapes gives names that the scan does not
+/// read, so it is no proof of its names.
+pub(super) fn unread_names(
+    records: &mut [Record<ImportFact>],
+    escaped: &HashSet<(String, String)>,
+) {
+    for record in records {
+        let ImportFact::Import(data) = &mut record.data else {
+            continue;
+        };
+        let key = (data.source_module.as_str().to_owned(), data.binding.clone());
+        let (source, Some(binding)) = key else {
+            continue;
+        };
+        if data.symbol.is_none() && escaped.contains(&(source, binding)) {
+            data.symbols_known = false;
+        }
+    }
+}
 
 /// The attributes of a module that are its namespace.
 const NAMESPACE: [&str; 4] = ["__dict__", "__all__", "__setattr__", "__delattr__"];
@@ -212,29 +232,8 @@ enum Bound<'m> {
 
 impl<'a> Visitor<'a> for Walk<'_, '_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        match stmt {
-            Stmt::FunctionDef(node) => {
-                for decorator in &node.decorator_list {
-                    self.visit_decorator(decorator);
-                }
-                self.visit_parameters(&node.parameters);
-                if let Some(returns) = &node.returns {
-                    self.visit_annotation(returns);
-                }
-                let scope = Scope::of(Kind::Function, &node.body, Some(&node.parameters));
-                return self.scoped(scope, |walk| walk.visit_body(&node.body));
-            }
-            Stmt::ClassDef(node) => {
-                for decorator in &node.decorator_list {
-                    self.visit_decorator(decorator);
-                }
-                if let Some(arguments) = &node.arguments {
-                    self.visit_arguments(arguments);
-                }
-                let scope = Scope::of(Kind::Class, &node.body, None);
-                return self.scoped(scope, |walk| walk.visit_body(&node.body));
-            }
-            _ => {}
+        if let Some((scope, body)) = definition(self, stmt) {
+            return self.scoped(scope, |walk| walk.visit_body(body));
         }
         let Stmt::If(node) = stmt else {
             return visitor::walk_stmt(self, stmt);
@@ -269,7 +268,7 @@ impl<'a> Visitor<'a> for Walk<'_, '_> {
                 if let Some(parameters) = &node.parameters {
                     self.visit_parameters(parameters);
                 }
-                let scope = Scope::lambda(node.parameters.as_deref());
+                let scope = Scope::lambda(node.parameters.as_deref(), &node.body);
                 return self.scoped(scope, |walk| walk.visit_expr(&node.body));
             }
             Expr::ListComp(node) => Scope::comprehension(&node.generators),
@@ -280,6 +279,167 @@ impl<'a> Visitor<'a> for Walk<'_, '_> {
         };
         self.scoped(scope, |walk| visitor::walk_expr(walk, expr));
     }
+}
+
+/// A visible write to `importlib.import_module`, through an import binding or its alias.
+pub(super) fn replaces_literal_loader(modules: &[Module], binders: &[Binders]) -> bool {
+    modules.iter().zip(binders).any(|(module, binders)| {
+        if !binders.imports_importlib {
+            return false;
+        }
+        let tree = &module.tree;
+        let mut walk = LoaderWrites {
+            binders,
+            scopes: vec![Scope::of(Kind::Module, &tree.body, None)],
+            found: false,
+        };
+        walk.visit_body(&tree.body);
+        walk.found
+    })
+}
+
+struct LoaderWrites<'a> {
+    binders: &'a Binders,
+    scopes: Vec<Scope>,
+    found: bool,
+}
+
+impl LoaderWrites<'_> {
+    fn imported(&self, expr: &Expr, origin: &str) -> bool {
+        matches!(expr, Expr::Name(name) if may_read_import(&self.scopes, name.id.as_str(), origin))
+    }
+
+    fn builtin(&self, expr: &Expr, name: &str) -> bool {
+        matches!(expr, Expr::Name(node) if node.id.as_str() == name
+            && self.binders.count(name).is_some()
+            && resolve(&self.scopes, name) == Resolved::Unbound)
+    }
+
+    fn call(&self, call: &ExprCall) -> bool {
+        let arguments = &call.arguments;
+        let [first, rest @ ..] = &*arguments.args else {
+            return false;
+        };
+        let bound_writer = match &*call.func {
+            Expr::Attribute(attr)
+                if matches!(attr.attr.as_str(), "__setattr__" | "__delattr__") =>
+            {
+                if self.imported(&attr.value, "importlib") {
+                    return loader_key(first);
+                }
+                self.builtin(&attr.value, "object")
+            }
+            Expr::Attribute(attr) => {
+                matches!(attr.attr.as_str(), "setattr" | "delattr")
+                    && self.imported(&attr.value, "builtins")
+            }
+            func => {
+                self.builtin(func, "setattr")
+                    || self.builtin(func, "delattr")
+                    || self.imported(func, "builtins.setattr")
+                    || self.imported(func, "builtins.delattr")
+            }
+        };
+        bound_writer && self.imported(first, "importlib") && rest.first().is_some_and(loader_key)
+    }
+
+    fn dictionary(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Attribute(attr) => {
+                attr.attr.as_str() == "__dict__" && self.imported(&attr.value, "importlib")
+            }
+            Expr::Call(call) => {
+                self.builtin(&call.func, "vars")
+                    && matches!(&*call.arguments.args, [module] if self.imported(module, "importlib"))
+            }
+            _ => false,
+        }
+    }
+
+    fn scoped(&mut self, scope: Scope, walk: impl FnOnce(&mut Self)) {
+        self.scopes.push(scope);
+        walk(self);
+        self.scopes.pop();
+    }
+
+    fn comprehension<'a>(
+        &mut self,
+        generators: &'a [Comprehension],
+        values: [Option<&'a Expr>; 2],
+    ) {
+        let Some((first, rest)) = generators.split_first() else {
+            return;
+        };
+        self.visit_expr(&first.iter);
+        self.scoped(Scope::comprehension(generators), |walk| {
+            walk.visit_expr(&first.target);
+            for test in &first.ifs {
+                walk.visit_expr(test);
+            }
+            for generator in rest {
+                walk.visit_comprehension(generator);
+            }
+            for value in values.into_iter().flatten() {
+                walk.visit_expr(value);
+            }
+        });
+    }
+}
+
+impl<'a> Visitor<'a> for LoaderWrites<'_> {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if self.found {
+            return;
+        }
+        if let Some((scope, body)) = definition(self, stmt) {
+            self.scoped(scope, |walk| walk.visit_body(body));
+        } else {
+            visitor::walk_stmt(self, stmt);
+        }
+    }
+
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        if self.found {
+            return;
+        }
+        self.found |= match expr {
+            Expr::Attribute(node) => {
+                node.ctx != ExprContext::Load
+                    && node.attr.as_str() == "import_module"
+                    && self.imported(&node.value, "importlib")
+            }
+            Expr::Subscript(node) => {
+                node.ctx != ExprContext::Load
+                    && loader_key(&node.slice)
+                    && self.dictionary(&node.value)
+            }
+            Expr::Call(node) => self.call(node),
+            _ => false,
+        };
+        if self.found {
+            return;
+        }
+        match expr {
+            Expr::Lambda(node) => {
+                if let Some(parameters) = &node.parameters {
+                    self.visit_parameters(parameters);
+                }
+                let scope = Scope::lambda(node.parameters.as_deref(), &node.body);
+                self.scoped(scope, |walk| walk.visit_expr(&node.body));
+            }
+            Expr::ListComp(node) => self.comprehension(&node.generators, [Some(&node.elt), None]),
+            Expr::SetComp(node) => self.comprehension(&node.generators, [Some(&node.elt), None]),
+            Expr::Generator(node) => self.comprehension(&node.generators, [Some(&node.elt), None]),
+            Expr::DictComp(node) => {
+                self.comprehension(&node.generators, [node.key.as_deref(), Some(&node.value)])
+            }
+            _ => visitor::walk_expr(self, expr),
+        }
+    }
+}
+
+fn loader_key(expr: &Expr) -> bool {
+    matches!(expr, Expr::StringLiteral(node) if node.value.to_str() == "import_module")
 }
 
 #[cfg(test)]

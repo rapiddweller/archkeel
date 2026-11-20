@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 use archkeel_facts::data::GapEffect;
 use archkeel_facts::envelope::Evidence;
-use archkeel_facts::ids::{FactId, ModuleName};
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
 use archkeel_facts::vocab::ExceptionName;
 use archkeel_facts::GapFact;
 use archkeel_facts::Record;
@@ -159,6 +159,17 @@ impl Gaps {
 
     /// A named gap at `span` of `source`, or at line 1 of `rel` when there is no span.
     pub(crate) fn named(&mut self, name: GapName, at: Place<'_>, message: &str) {
+        self.named_with_related(name, at, message, std::iter::empty());
+    }
+
+    /// A named gap with the source spans that contribute to its cause.
+    pub(crate) fn named_with_related<'a>(
+        &mut self,
+        name: GapName,
+        at: Place<'_>,
+        message: &str,
+        related: impl Iterator<Item = (&'a Source, &'a Span)>,
+    ) {
         let text = format!("{}: {message}", name.as_str());
         let (rel, line, cited, module) = match at {
             Place::Span(source, span) => (
@@ -173,6 +184,9 @@ impl Gaps {
         if let GapFact::ExceptionGap { data, .. } = &mut record.data {
             data.effect = name.effect(module);
         }
+        record.evidence_ids.extend(
+            related.map(|(source, span)| EvidenceId::new(cite(&mut self.evidence, source, span))),
+        );
         self.named.entry(id.clone()).or_insert(name);
         self.records.entry(id).or_insert(record);
     }

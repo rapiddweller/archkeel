@@ -59,6 +59,28 @@ fn call(found: &Records, expression: &str) -> Plain {
 }
 
 #[test]
+fn the_anonymous_export_identity_does_not_resolve_calls_through_a_default_import() {
+    let found = run(&[
+        (
+            "src/a.ts",
+            "export default function (): number { return 1; }",
+        ),
+        (
+            "src/b.ts",
+            "import run from './a';\n\
+             export function direct() { return run(); }\n\
+             export function shadow(run: () => number) { return run(); }\n",
+        ),
+    ]);
+    let calls = plains(&found.calls);
+    assert_eq!(calls.len(), 2);
+    for call in calls {
+        assert_eq!(call.title, "run");
+        assert_eq!(call.data["targets"], serde_json::json!([]));
+    }
+}
+
+#[test]
 fn const_arrow_is_a_callable_scope_but_jsx_registration_is_not_a_call() {
     let found = run(&[(
         "src/a.tsx",

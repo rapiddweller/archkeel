@@ -8,6 +8,7 @@ interpreter ships as `typing.Any`. A true `typing.Any` that the survey cannot pr
 (a named gap), never PASS. Each plant runs in CPython first, then against the release core.
 """
 
+import json
 import subprocess
 import sys
 import typing
@@ -15,8 +16,11 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
-from test_cli_native_python_imports import rows
+from core_support import ROOT
+from test_cli_native_python_imports import rows, verdict
 from test_cli_python_profile_limits import CONSTRUCT, Plant, scanned
+
+from tools.fixture_tree import fixture_tree
 
 PAGE = "src/app/client/page.py"
 FAIL = "FAIL"
@@ -178,6 +182,19 @@ CASES = {
     "local-class-then-star": Case(
         page("class Any: pass\nfrom typing import *\nx: Any = None\n"), UNKNOWN, True
     ),
+    "aliased-any-in-container": Case(
+        page("from typing import Any as Opaque\nx: list[Opaque]\n"),
+        UNKNOWN,
+        True,
+        probe=f"{PROBE}.__args__[0]",
+    ),
+    "quoted-any-in-container": Case(
+        page("from typing import Any\nx: list['Any']\n"),
+        UNKNOWN,
+        True,
+        before="import typing; ",
+        probe="typing.get_type_hints(p)['x'].__args__[0]",
+    ),
     "typing-extensions-import": Case(
         page("from typing_extensions import Any\nx: Any = None\n"), UNKNOWN, True
     ),
@@ -224,3 +241,74 @@ def test_a_name_without_a_binder_is_unknown(release_core: Path, tmp_path: Path) 
     source = "from __future__ import annotations\nx: Any = None\n"
     result = scanned(release_core, tmp_path, Plant({PAGE: source}, [rule], [], {}, {}))
     assert rows(result)["NO-ANY"] == UNKNOWN, result["frame"]["explained"]
+
+
+SHOP = ROOT / "fixtures/F-architecture"
+SHOP_RULE = "CONSTRUCT-NO-ANY"
+
+
+@pytest.mark.parametrize("premise", [True, False])
+def test_shop_any_annotation_inventory_is_complete(release_core: Path, premise: bool) -> None:
+    with fixture_tree(SHOP) as root:
+        if not premise:
+            path = root / "architecture-contract.json"
+            contract = json.loads(path.read_text())
+            del contract["declarations"]["premises"]
+            path.write_text(json.dumps(contract))
+        frame = verdict(release_core, root, "report")["frame"]
+    status = "PASS" if premise else "UNKNOWN"
+    assert frame["rules"][SHOP_RULE] == ["forbidden_construct", status]
+    if premise:
+        assert frame["premises"][SHOP_RULE][0]["kind"] == "standard_library_unchanged"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from typing import Any as Opaque\nx: list[Opaque]\n",
+        "from typing import Any\nx: list['Any']\n",
+        "from typing import Any\nAlias = Any\nx: Alias\n",
+        "x: choose_a_type()\n",
+        "x = None  # type: Missing\n",
+        "from lib import Opaque\nx: Opaque\n",
+        "class X(metaclass=meta): pass\nx: X\n",
+        "import pathlib\npathlib.Path = str\n",
+        "from dataclasses import dataclass\nimport typing as t\n"
+        "def replace(**options): return lambda cls: getattr(t, 'Any')\n"
+        "dataclass.__code__ = replace.__code__\n"
+        "@dataclass(frozen=True, slots=True)\nclass Impostor: pass\nx: Impostor\n",
+        "int = choose_a_type()\n",
+        "class list: pass\n",
+    ],
+)
+def test_shop_keeps_an_unresolved_annotation_unknown(release_core: Path, source: str) -> None:
+    with fixture_tree(SHOP) as root:
+        path = root / "shop/cli/main.py"
+        path.write_text(path.read_text() + "\n" + source)
+        frame = verdict(release_core, root, "report")["frame"]
+    assert frame["rules"][SHOP_RULE] == ["forbidden_construct", "UNKNOWN"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'import typing\nclass __doc__: pass\nclass C:\n    "typing.Any"\n    x: __doc__\n',
+        "import typing\nclass _C__x: pass\nclass C:\n    __x = 'typing.Any'\n    x: _C__x\n",
+    ],
+    ids=["implicit-docstring", "private-name-mangling"],
+)
+def test_implicit_class_binding_cannot_borrow_a_module_type(
+    release_core: Path, tmp_path: Path, source: str
+) -> None:
+    probe = Case(
+        page(source),
+        UNKNOWN,
+        True,
+        before="import typing; ",
+        probe="typing.get_type_hints(p.C)['x']",
+    )
+    assert cpython_says_typing_any(tmp_path, probe)
+    with fixture_tree(SHOP) as root:
+        (root / "shop/cli/docprobe.py").write_text(source)
+        frame = verdict(release_core, root, "report")["frame"]
+    assert frame["rules"][SHOP_RULE] == ["forbidden_construct", "UNKNOWN"]

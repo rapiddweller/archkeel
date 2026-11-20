@@ -60,6 +60,43 @@ fn named<'a>(list: &'a [Plain], name: &str) -> &'a Plain {
 }
 
 #[test]
+fn an_anonymous_default_function_has_an_export_identity_not_a_lexical_binding() {
+    let list = symbols("export default function (value: number): number { return value; }\n");
+    let function = named(&list, "default");
+    assert_eq!(function.kind, "function");
+    assert_eq!(function.data["qualified_name"], "shop.src.a_x2e_ts.default");
+    assert_eq!(function.data["source_binding_unique"], false);
+    assert_eq!(function.data["returns"], "number");
+}
+
+#[test]
+fn a_named_default_and_a_private_function_keep_their_written_names() {
+    for (source, visibility) in [
+        ("export default function run() {}\n", "public"),
+        ("function run() {}\nexport {};\n", "private"),
+        ("function run() {}\nexport default run;\n", "unknown"),
+    ] {
+        let list = symbols(source);
+        assert_eq!(list.len(), 1);
+        let function = named(&list, "run");
+        assert_eq!(function.data["source_binding_unique"], true);
+        assert_eq!(function.data["visibility_detail"]["kind"], visibility);
+    }
+}
+
+#[test]
+fn competing_routes_do_not_prove_a_default_function() {
+    for source in [
+        "export default function () {}\nexport default function other() {}\n",
+        "export default function () {}\nfunction other() {}\nexport { other as default };",
+    ] {
+        assert!(symbols(source)
+            .iter()
+            .all(|item| item.data["name"] != "default"));
+    }
+}
+
+#[test]
 fn a_class_has_its_id_its_inventories_its_bases_and_its_methods() {
     let list = symbols(
         "interface I { a: number }\nclass B {}\n\

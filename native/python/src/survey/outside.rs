@@ -90,7 +90,7 @@ pub(super) fn written(
     let paths = selected
         .iter()
         .copied()
-        .chain(files.python.iter().map(String::as_str));
+        .chain(files.python.iter().chain(&files.native).map(String::as_str));
     paths.for_each(|rel| writes.add_path(&roots, rel));
     let mut outside = Vec::new();
     for rel in &files.python {
@@ -109,7 +109,7 @@ pub(super) fn written(
         .iter()
         .map(|module| Binders::of(&module.tree))
         .collect();
-    let (literals, hazards) = super::hazards::split(&outside, &binders, None, false);
+    let (literals, hazards) = super::hazards::split(&outside, &binders, (None, false), false);
     for (_, _, target) in &literals {
         found.extend(native::reached(target, &names));
     }

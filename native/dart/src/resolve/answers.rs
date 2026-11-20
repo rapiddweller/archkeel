@@ -142,6 +142,7 @@ impl Resolver<'_> {
                 status: built.status,
                 binding: built.bound.as_ref().map(|item| self.binding(item)),
                 reason: built.reason.map(str::to_owned),
+                inferred_type: self.inferred_constructor_type(at, site, &built),
             },
         }
     }

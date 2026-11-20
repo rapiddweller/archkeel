@@ -282,7 +282,11 @@ def test_main_reads_the_files_and_the_labels_and_refuses_an_unapproved_deletion(
 
 def test_main_counts_the_entries_of_a_ratchet_file_at_the_merge_base_and_at_the_head() -> None:
     fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
-    fake.changed = [_file("native/expected-growth.json", add=0, delete=6)]
+    fake.changed = [
+        _file("native/expected-growth.json", add=0, delete=6),
+        _file("diagram.png", "added"),
+        _file("notes.md", "added", add=5),
+    ]
     fake.contents = {
         "base": json.dumps({"raised": list(range(80))}),
         "head": json.dumps({"raised": list(range(20))}),
@@ -290,6 +294,8 @@ def test_main_counts_the_entries_of_a_ratchet_file_at_the_merge_base_and_at_the_
     assert main(["7", "--json"], fake) == 1 and not fake.merged()
     fake.labels = ["ratchet-lead"]
     assert main(["7"], fake) == 0
+    assert not any("/contents/diagram.png" in " ".join(call) for call in fake.calls)
+    assert not any("/contents/notes.md" in " ".join(call) for call in fake.calls)
 
 
 @pytest.mark.parametrize("path", ["native/expected-gaps.json", "native/expected-growth.json"])
@@ -394,14 +400,27 @@ def test_a_removed_file_whose_lines_went_to_an_added_file_is_a_move() -> None:
     assert decide(PR, ["PR gate"], GREEN, changes).verdict == "MERGE"
 
 
+@pytest.mark.parametrize("old", [" \n", "\0line"])
+def test_move_search_skips_added_reads_when_removed_content_has_no_text_lines(old: str) -> None:
+    moved = moved_files(
+        ["old"], ["new"], lambda _path: old, lambda _path: pytest.fail("read added file")
+    )
+    assert moved == set()
+
+
 def test_main_treats_a_removed_and_added_pair_with_the_same_lines_as_a_rename() -> None:
     fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
-    fake.changed = [_file("a.rs", "removed", 0, 519), _file("b.rs", "added", 540, 0)]
+    fake.changed = [
+        _file("a.rs", "removed", 0, 519),
+        _file("b.rs", "added", 540, 0),
+        _file("diagram.png", "added"),
+    ]
     fake.contents = {
         "base": "\n".join(f"line {i}" for i in range(50)),
         "head": "\n".join(f"line {i}" for i in range(60)),
     }
     assert main(["7"], fake) == 0
+    assert not any("/contents/diagram.png" in " ".join(call) for call in fake.calls)
 
 
 def test_a_real_deletion_still_refuses_and_the_message_never_prints_a_negative_net() -> None:

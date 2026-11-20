@@ -15,9 +15,20 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::type_shape::TypeShape;
 use crate::vocab::MethodKind;
 
+/// The owner, name, type and evidence of the written members of a closed module.
+pub type ProtocolMembers = Vec<(String, String, TypeShape, String)>;
+
 /// The statements of one reply about the standard library.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct StandardFacts {
+    /// True when the linked placeholder survey needs an unchanged standard library.
+    pub placeholder_under_premise: bool,
+    /// True when the linked Any inventory needs an unchanged standard library.
+    pub any_annotation_under_premise: bool,
+    /// The repository leaves the standard Protocol constructor unchanged.
+    pub protocol_unchanged: bool,
+    /// The linked member inventory and whether every class body was read, by module.
+    pub protocol_members: BTreeMap<String, (bool, ProtocolMembers)>,
     /// Each type of the standard library that the collector names by its qualified name: a value
     /// type, a collection or a marker that holds no data. A name of the standard library that is
     /// not here stays a type outside the scan.

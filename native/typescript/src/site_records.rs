@@ -373,6 +373,7 @@ fn result_binding(
     let evidence = cited.cite(place.rel, span);
     vec![ResultBinding {
         annotation: site.assignment_annotation.clone(),
+        inferred_type: None,
         definition_contexts: Vec::new(),
         evidence_ids: vec![EvidenceId::new(evidence)],
         id: FactId::new(id),

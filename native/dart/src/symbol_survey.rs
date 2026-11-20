@@ -8,10 +8,9 @@
 //! records of the survey (AD-749).
 //!
 //! A class inventory is complete only when no form can add a member that the class body does
-//! not show (AD-796, the #1532 review): a mixin application, a part of the library, an
-//! extension or an augmentation makes it partial, and the reason names the form.
+//! not show (AD-796): a mixin application, an unread part or an extension makes it partial.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::envelope::{Evidence, Input as Digest};
 use archkeel_facts::ids::ModuleName;
@@ -25,7 +24,10 @@ use crate::discover::{scan_roots, Discovery};
 use crate::import_survey::index::{Index, Kind, Owners};
 use crate::parse::DartParser;
 use crate::resolve::{class_like, Resolver};
-use crate::syntax::{DefinitionKind, MemberKind, Syntax};
+use crate::syntax::{DefinitionKind, DirectiveKind, MemberKind, Syntax};
+
+const CORE_STRING: (&str, &str) = ("String", "dart.core.String");
+const CORE_INT: (&str, &str) = ("int", "dart.core.int");
 
 /// The symbol, call and reference records of a survey and the evidence that they cite.
 #[derive(Debug, Default)]
@@ -102,19 +104,87 @@ pub(crate) fn collect(
         dirty: request.snapshot.dirty.clone(),
     };
     let mut output = crate::collection::build(&input);
-    bound_inventories(&mut output, &resolver, owners);
-    typed(output)
+    bound_inventories(&mut output, &resolver);
+    let mut collected = typed(output)?;
+    infer_field_types(&resolver, &mut collected.symbols);
+    Ok(collected)
+}
+
+/// A literal proves a field type only where a target name can also bind to `dart:core`.
+fn infer_field_types(resolver: &Resolver<'_>, symbols: &mut [Record<SymbolFact>]) {
+    for record in symbols {
+        let SymbolFact::Class(data) = &mut record.data else {
+            continue;
+        };
+        let module = ModuleName::as_str(&data.module);
+        let resolved = resolver.local(module, &data.name);
+        let [owner] = resolved.as_slice() else {
+            continue;
+        };
+        let Some(syntax) = &resolver.syntax[owner.at] else {
+            continue;
+        };
+        let decl = owner.definition;
+        if !syntax.complete
+            || syntax
+                .definitions
+                .iter()
+                .any(|item| String::is_empty(&item.name))
+            || syntax
+                .directives
+                .iter()
+                .any(|item| item.kind != DirectiveKind::Library)
+            || decl.kind != DefinitionKind::Class
+            || !Vec::is_empty(&decl.type_parameters)
+            || !Vec::is_empty(&decl.extends)
+            || !Vec::is_empty(&decl.with_types)
+            || !Vec::is_empty(&decl.implements)
+        {
+            continue;
+        }
+        let mut fields = BTreeMap::new();
+        for member in &decl.members {
+            fields
+                .entry(String::as_str(&member.name))
+                .and_modify(|proof| *proof = false)
+                .or_insert(member.static_string_literal && member.annotation.is_none());
+        }
+        let visible =
+            |name: &str| Vec::is_empty(&resolver.local(module, name)) && !fields.contains_key(name);
+        if !visible(CORE_STRING.0) {
+            continue;
+        }
+        let names: BTreeMap<_, _> = [CORE_STRING, CORE_INT]
+            .into_iter()
+            .filter(|(name, _)| visible(name))
+            .map(|(name, identity)| (name.to_owned(), identity.to_owned()))
+            .collect();
+        for attr in &mut data.attribute_declarations {
+            if attr.annotation.is_none() && fields.get(String::as_str(&attr.name)) == Some(&true) {
+                attr.inferred_builtin_type = Some((CORE_STRING.1.to_owned(), names.clone()));
+            }
+        }
+    }
 }
 
 /// Make partial each class inventory that a form outside the class body can extend.
-fn bound_inventories(output: &mut Output, resolver: &Resolver<'_>, owners: &Owners) {
-    let libraries_with_parts: BTreeSet<&str> = owners
-        .values()
-        .filter_map(|library| resolver.module_for(*library))
+fn bound_inventories(output: &mut Output, resolver: &Resolver<'_>) {
+    let libraries_with_unread_parts: BTreeSet<&str> = resolver
+        .index
+        .kinds
+        .iter()
+        .enumerate()
+        .filter(|(at, kind)| **kind == Kind::Library && !resolver.parts_complete(*at))
+        .filter_map(|(at, _)| resolver.module_for(at))
         .collect();
-    let extended: BTreeSet<String> = extended_types(resolver);
+    let extended = extended_types(resolver);
     for symbol in &mut output.symbols {
-        let Some(reason) = open_reason(symbol, resolver, &libraries_with_parts, &extended) else {
+        let Some(reason) = open_reason(
+            symbol,
+            resolver,
+            &libraries_with_unread_parts,
+            extended.as_ref(),
+        ) else {
             continue;
         };
         if let Detail::Class {
@@ -130,23 +200,28 @@ fn bound_inventories(output: &mut Output, resolver: &Resolver<'_>, owners: &Owne
     }
 }
 
-/// The names of the types that a project extension names as its `on` type. An extension type is
-/// a type of its own: it adds no member to the type that it wraps.
-fn extended_types(resolver: &Resolver<'_>) -> BTreeSet<String> {
-    let extensions = resolver
+/// The types named directly by a project extension. An unproven receiver may name any type.
+fn extended_types<'a>(resolver: &Resolver<'a>) -> Option<BTreeSet<(&'a str, &'a str)>> {
+    resolver
         .syntax
         .iter()
-        .flatten()
-        .flat_map(|parsed| &parsed.definitions)
-        .filter(|item| item.kind == DefinitionKind::Extension);
-    // An extension whose `on` type is not a simple name may extend any class: the empty name.
-    extensions
-        .map(|item| {
-            let on = item
-                .extends
-                .first()
-                .and_then(|text| crate::resolve::types::nominal(text));
-            on.map_or_else(String::new, |(_, name)| name.to_owned())
+        .enumerate()
+        .filter_map(|(at, parsed)| parsed.as_ref().map(|syntax| (at, syntax)))
+        .flat_map(|(at, parsed)| parsed.definitions.iter().map(move |item| (at, item)))
+        .filter(|(_, item)| item.kind == DefinitionKind::Extension)
+        .map(|(at, item)| {
+            let module = resolver.module_for(at)?;
+            let (None, name) = crate::resolve::types::nominal(item.extends.first()?)? else {
+                return None;
+            };
+            if item.type_parameters.iter().any(|param| param == name) {
+                return None;
+            }
+            let declarations = resolver.local(module, name);
+            let [decl] = declarations.as_slice() else {
+                return None;
+            };
+            class_like(decl.definition.kind).then_some((module, name))
         })
         .collect()
 }
@@ -156,8 +231,8 @@ fn extended_types(resolver: &Resolver<'_>) -> BTreeSet<String> {
 fn open_reason(
     symbol: &Symbol,
     resolver: &Resolver<'_>,
-    libraries_with_parts: &BTreeSet<&str>,
-    extended: &BTreeSet<String>,
+    libraries_with_unread_parts: &BTreeSet<&str>,
+    extended: Option<&BTreeSet<(&str, &str)>>,
 ) -> Option<&'static str> {
     if !matches!(
         symbol.data.detail,
@@ -177,13 +252,23 @@ fn open_reason(
     if !Vec::is_empty(&decl.definition.with_types) {
         return Some("a mixin application adds members that the class body does not show");
     }
-    if libraries_with_parts.contains(module) {
-        return Some("a part of the library can add members that the class body does not show");
+    if libraries_with_unread_parts.contains(module) {
+        return Some("not every part of the library was read");
     }
-    if extended.contains(name) || extended.contains("") {
-        return Some("an extension adds members that the class body does not show");
+    match extended {
+        None => Some("the receiver of an extension is not proven"),
+        Some(types) if types.contains(&(module, name)) => {
+            Some("an extension adds members that the class body does not show")
+        }
+        Some(types)
+            if !BTreeSet::is_empty(types)
+                && (!Vec::is_empty(&decl.definition.extends)
+                    || !Vec::is_empty(&decl.definition.implements)) =>
+        {
+            Some("a base type may be the receiver of an extension")
+        }
+        Some(_) => None,
     }
-    None
 }
 
 /// The records as typed facts: the collection writes the record form of release 4.0.1, which
@@ -191,9 +276,23 @@ fn open_reason(
 /// `evidence_ids`, and no rule reads them, so the form drops both keys. A top-level function
 /// has no method kind.
 fn typed(output: Output) -> Result<Collected, String> {
+    let mut calls: Vec<Record<CallFact>> = decode(&output.calls, "call")?;
+    for (record, original) in calls.iter_mut().zip(&output.calls) {
+        let CallFact::Call(data) = &mut record.data else {
+            return Err("a Dart call decoded as another kind".to_owned());
+        };
+        for (binding, evidence) in data
+            .result_bindings
+            .iter_mut()
+            .flatten()
+            .zip(&original.data.result_bindings)
+        {
+            binding.inferred_type.clone_from(&evidence.inferred_type);
+        }
+    }
     Ok(Collected {
         symbols: decode(&output.symbols, "symbol")?,
-        calls: decode(&output.calls, "call")?,
+        calls,
         references: decode(&output.references, "reference")?,
         evidence: output.evidence,
     })

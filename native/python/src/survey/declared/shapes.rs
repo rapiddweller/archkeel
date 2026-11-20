@@ -16,7 +16,8 @@ use std::collections::{HashMap, HashSet};
 use archkeel_facts::ids::ModuleName;
 use archkeel_facts::type_shape::{Binding, Family, TypeShape, Unreadable};
 use archkeel_facts::{ImportFact, Record, SymbolFact};
-use ruff_python_ast::{Expr, Number, Operator, UnaryOp};
+use ruff_python_ast::visitor::{self, Visitor};
+use ruff_python_ast::{Expr, Number, Operator, Stmt, UnaryOp};
 
 use super::found::{Found, Source};
 use super::scope::type_names;
@@ -467,3 +468,22 @@ pub(crate) fn attach(
 #[cfg(test)]
 #[path = "shapes_tests.rs"]
 mod tests;
+
+#[derive(Default)]
+struct ClassWalk(bool);
+
+impl<'a> Visitor<'a> for ClassWalk {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if matches!(stmt, Stmt::ClassDef(_)) {
+            self.0 = true;
+        } else {
+            visitor::walk_stmt(self, stmt);
+        }
+    }
+}
+
+pub(super) fn no_nested_classes(body: &[Stmt]) -> bool {
+    let mut walk = ClassWalk::default();
+    walk.visit_body(body);
+    !walk.0
+}

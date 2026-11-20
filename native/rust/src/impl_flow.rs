@@ -191,7 +191,7 @@ fn settle_pending(
             let can_name = named
                 .get(pair.0)
                 .is_some_and(|targets| targets.contains(pair.1));
-            let dimension = if pending.execution && !pending.erased && !can_name {
+            let dimension = if pending.execution && !can_name {
                 ResolutionDimension::RuntimeEffects
             } else {
                 ResolutionDimension::Imports
@@ -397,7 +397,7 @@ impl Graph {
 mod tests {
     use super::*;
 
-    fn proofs(causes: &[bool]) -> (Option<ResolutionDimension>, bool) {
+    fn proofs(causes: &[bool], erased: bool) -> (Option<ResolutionDimension>, bool) {
         let mut builder = Builder::default();
         builder.gap("unread caller", None, "src");
         let pending = causes
@@ -410,7 +410,7 @@ mod tests {
                 reason: format!("candidate {execution}"),
                 execution,
                 no_name_route: execution,
-                erased: false,
+                erased: erased && execution,
             })
             .collect();
         let root = archkeel_snapshot::test_tree::Tree::new(&[]);
@@ -433,15 +433,25 @@ mod tests {
     #[test]
     fn a_named_cause_stays_open_before_or_after_an_execution_cause() {
         assert_eq!(
-            proofs(&[true]),
+            proofs(&[true], false),
             (Some(ResolutionDimension::RuntimeEffects), true)
         );
         assert_eq!(
-            proofs(&[true, true]),
+            proofs(&[true, true], false),
             (Some(ResolutionDimension::RuntimeEffects), true)
         );
-        assert_eq!(proofs(&[true, false]), (None, false));
-        assert_eq!(proofs(&[false, true]), (None, false));
-        assert_eq!(proofs(&[true, false, true]), (None, false));
+        assert_eq!(proofs(&[true, false], false), (None, false));
+        assert_eq!(proofs(&[false, true], false), (None, false));
+        assert_eq!(proofs(&[true, false, true], false), (None, false));
+    }
+
+    #[test]
+    fn an_erased_destructor_is_execution_unless_the_pair_has_a_named_cause() {
+        assert_eq!(
+            proofs(&[true], true),
+            (Some(ResolutionDimension::RuntimeEffects), true)
+        );
+        assert_eq!(proofs(&[true, false], true), (None, false));
+        assert_eq!(proofs(&[false, true], true), (None, false));
     }
 }

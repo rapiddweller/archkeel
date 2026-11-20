@@ -87,7 +87,7 @@ fn validation(version: &str) -> Validation {
     registered.push(all.clone());
     all = all.with_construct(Construct::TypeIgnore.word(), &either);
     registered.push(all.clone());
-    registered.push(all.with_construct(Construct::Placeholder.word(), &partial));
+    registered.push(all.with_construct(Construct::Placeholder.word(), &either));
     Validation {
         registered,
         interface: InterfaceNeed::Feature(ROUTES_FEATURE.to_owned()),
@@ -133,14 +133,28 @@ pub(crate) fn typed(
         (&survey.sole_binders, &survey.ambiguous),
         &survey.sources,
     );
-    let standard = std::mem::take(&mut survey.standard);
+    let mut standard = std::mem::take(&mut survey.standard);
+    standard.placeholder_under_premise =
+        survey.coverage.full_scope && survey.support.placeholder_under_premise();
     let excluded_sources = std::mem::take(&mut survey.excluded_sources);
+    let direct_calls = if survey.coverage.full_scope {
+        std::mem::take(&mut survey.sites.direct)
+    } else {
+        Vec::new()
+    };
+    let function_call_counts = if survey.coverage.full_scope {
+        std::mem::take(&mut survey.function_call_counts)
+    } else {
+        Vec::new()
+    };
     let (head, records) = parts(prepared, survey, build)?;
     let mut reply = assemble(reply_version(request.protocol_version), head, |writer| {
         records.produce(writer)
     })?;
     reply.facts.standard = Some(standard);
     reply.facts.excluded_sources = excluded_sources;
+    reply.facts.direct_calls = Some(direct_calls);
+    reply.facts.function_call_counts = Some(function_call_counts);
     let features = &mut reply.facts.capabilities.resolution_features;
     features.push(ROUTES_FEATURE.to_owned());
     Ok(reply)
@@ -232,8 +246,8 @@ fn parts(
         imports: survey.imports,
         unknowns: survey.unknowns,
         symbols: survey.symbols,
-        calls: survey.calls,
-        references: survey.references,
+        calls: survey.sites.calls,
+        references: survey.sites.references,
         constructs: survey.constructs,
         signals: survey.signals,
         coverage: survey.coverage,

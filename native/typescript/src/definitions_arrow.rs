@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Identify the binding of a module-level const arrow.
+//! Identify module-level callables that have no written function declaration name.
 
 use tree_sitter::Node;
 
@@ -38,4 +38,24 @@ pub(super) fn name(cx: &Cx, node: Node, stack: &[Entry], seen: u8, top: bool) ->
         return None;
     }
     Some(name)
+}
+
+/// The direct anonymous default function, when no other route can reserve its export name.
+pub(super) fn anonymous_default<'t>(cx: &Cx, top: &[Node<'t>]) -> Option<Node<'t>> {
+    let mut routes = top.iter().copied().filter(|node| {
+        cx.k(*node) == K::ExportStatement
+            && (cx.has_child(*node, K::Default) || cx.field(*node, F::Declaration).is_none())
+    });
+    let export = routes.next()?;
+    if !cx.has_child(export, K::Default) || routes.next().is_some() {
+        return None;
+    }
+    let function = cx
+        .field(export, F::Value)
+        .or_else(|| cx.field(export, F::Declaration))?;
+    let kind = cx.k(function);
+    (matches!(kind, K::FunctionExpression | K::FunctionDeclaration)
+        && cx.field(function, F::Name).is_none()
+        && cx.field(function, F::Body).is_some())
+    .then_some(function)
 }

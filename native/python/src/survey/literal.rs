@@ -7,11 +7,12 @@
 //! Two loader forms can give a static edge:
 //!
 //! - `importlib.import_module("a.b")`, when each binding of `importlib` in the module is a plain
-//!   `import importlib` (no alias, no submodule import, no other binding);
+//!   `import importlib` (no alias, no submodule import, no other binding), and there is no
+//!   visible write to that loader in the scan;
 //! - `__import__("a.b")`, when the module binds `__import__` nowhere.
 //!
 //! The call has exactly one argument and no keyword: a plain string literal with an absolute dotted
-//! name, or the adjacent local assignment of AD-971. A module that calls `globals`, `vars` or
+//! name, or the adjacent local assignment of AD-1026. A module that calls `globals`, `vars` or
 //! `locals` proves nothing. `from importlib import
 //! import_module` stays a door: its import statement is a reference to the door. Any other call,
 //! alias, value or attribute use stays a `dynamic_import` gap (`hazards.rs`). A target that is
@@ -35,6 +36,11 @@ pub(super) struct Proof {
 }
 
 impl Proof {
+    pub(super) fn without_replaced_loader(mut self, replaced: bool) -> Self {
+        self.importlib &= !replaced;
+        self
+    }
+
     /// A direct `importlib.import_module` reference with the loader binding proved.
     pub(super) fn loader(&self, function: &Expr) -> bool {
         self.importlib

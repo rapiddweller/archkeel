@@ -16,8 +16,9 @@ warm Rust workspace tests took 109 seconds. A cold report-only test took 18 seco
 all areas collects 5,571 main-tier Python tests instead of 2,391 PR-tier tests. These are local
 measurements, not a hosted gate duration. Hosted run 44318829263 passed the Rust tests in 4:48.
 The serial Python tests reached 30 % in 9:05 before the 15-minute job timeout. Each parallel
-PR job has a 15-minute hang guard. The shared main jobs retain their existing 30- and 40-minute
-hang guards. The total hosted wall time remains to be measured.
+PR job has a 15-minute hang guard. Run 44550424848 reached 91% of the native collector
+suite before that cutoff without a test failure, so that area has a 20-minute guard.
+The shared main jobs retain their existing 30- and 40-minute hang guards.
 
 The gate does not run nightly slow tests or wheel tests. Changes outside native and CLI still rely
 on the existing path-to-area rules. The selected tests and the Rust workspace tests can expose

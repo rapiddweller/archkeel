@@ -210,6 +210,10 @@ impl Builder<'_> {
                 .unwrap_or((scope, scope_id));
         }
         let module = self.file(rel)?.module.clone();
+        let inferred_type = construction
+            .as_ref()
+            .and_then(|item| item.inferred_type.as_ref());
+        let result_bindings = self.result_bindings(site, bindings, inferred_type)?;
         let data = SiteData {
             source_scope: scope.clone(),
             source_definition_id: scope_id,
@@ -240,7 +244,7 @@ impl Builder<'_> {
                 })
             },
             construction,
-            result_bindings: self.result_bindings(site, bindings)?,
+            result_bindings,
         };
 
         let cited = self.cite(rel, &site.span)?;
@@ -281,7 +285,12 @@ impl Builder<'_> {
         Ok(None)
     }
 
-    fn result_bindings(&self, site: &Site, bindings: &[Bound]) -> Result<Vec<ResultBinding>, Stop> {
+    fn result_bindings(
+        &self,
+        site: &Site,
+        bindings: &[Bound],
+        inferred_type: Option<&String>,
+    ) -> Result<Vec<ResultBinding>, Stop> {
         let mut matching = Vec::new();
         for binding in bindings {
             self.decl.work.copies(&binding.site.initializer)?;
@@ -293,6 +302,9 @@ impl Builder<'_> {
             }
             self.decl.work.text(&binding.name)?;
             matching.push(ResultBinding {
+                inferred_type: inferred_type
+                    .filter(|_| binding.site.inferred_final_local)
+                    .cloned(),
                 id: binding.id.clone(),
                 name: binding.name.clone(),
                 target_kind: "name",

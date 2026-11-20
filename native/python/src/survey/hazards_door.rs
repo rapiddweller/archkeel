@@ -13,7 +13,7 @@
 
 use archkeel_facts::data::DoorForm;
 
-use super::names::DYNAMIC;
+use crate::survey::hazards_names::DYNAMIC;
 
 /// The functions of an unpickler: each imports the module that its bytes name.
 const UNPICKLE: [&str; 11] = [

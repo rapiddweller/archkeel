@@ -128,7 +128,7 @@ fn metadata(table: &SymbolTable, cited: &mut Cited, entry: &Entry) -> Core {
             spelling: definition.name.clone(),
         },
         symbol_category: category(definition.kind),
-        source_binding_unique: table.count(&entry.qualified) == 1,
+        source_binding_unique: !entry.export_only && table.count(&entry.qualified) == 1,
         decorators,
         decorator_evidence_ids,
         signature_complete: definition.signature_complete,

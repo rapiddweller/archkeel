@@ -70,6 +70,8 @@ mod construct_tests;
 mod layout_citation_tests;
 
 use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
+use archkeel_facts::identity::{stable_id, Part as IdentityPart};
+use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_model::{Decision, Model, ModelTree, Part, Reason, Unsupported, Verdict};
 
 pub use placement_row::PlacedClass;
@@ -144,12 +146,16 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         Rule::SymbolPlacement(rule) => placement::check(id, rule, model),
         Rule::SourceOwnership(_) => unported(kind),
         Rule::BoundedNumericOperand(_) => unported(kind),
-        Rule::CallOwner(_) => unported(kind),             // S13
-        Rule::ForbiddenCallArgument(_) => unported(kind), // S14
+        Rule::CallOwner(rule) => archkeel_model::call_owner_violations(model, rule)
+            .map(|calls| call_violations(id, calls, None)),
+        Rule::ForbiddenCallArgument(rule) => {
+            archkeel_model::forbidden_argument_violations(model, rule)
+                .map(|calls| call_violations(id, calls, Some(rule.parameter())))
+        }
         Rule::CatalogArgument(_) => unported(kind),
         Rule::CatalogUse(_) => unported(kind),
         Rule::ForbiddenEffectUnderCondition(_) => unported(kind), // S15
-        Rule::ProtocolDeclarations(_) => unported(kind),          // S16
+        Rule::ProtocolDeclarations(rule) => boundary_types::protocol(id, rule, model),
         Rule::BoundaryTypes(rule) => boundary_types::check(id, rule, model), // AD-550
         Rule::UnusedPublic(rule) => Ok(unused_public::check(id, rule, model)), // AD-670
     };
@@ -164,6 +170,49 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         decision = Decision::unknown(Part::ForeignRule.into());
     }
     outcome_of(id, kind, Some(decision), violations)
+}
+
+fn call_violations(
+    rule: &str,
+    calls: Vec<&archkeel_model::ExactCall>,
+    parameter: Option<&str>,
+) -> Vec<Violation> {
+    let mut violations: Vec<_> = calls
+        .into_iter()
+        .map(|(site, _, source, target, evidence)| {
+            let fact = FactId::as_str(site);
+            let id = stable_id("VIO", &[IdentityPart::Text(rule), IdentityPart::Text(fact)]);
+            let rule = rule.to_owned();
+            let fact = fact.to_owned();
+            let source = String::clone(source);
+            let target = String::clone(target);
+            let evidence = evidence
+                .iter()
+                .map(|item| EvidenceId::as_str(item).to_owned())
+                .collect();
+            match parameter {
+                Some(parameter) => Violation::ForbiddenArgument {
+                    id,
+                    rule,
+                    fact,
+                    source,
+                    target,
+                    evidence,
+                    parameter: parameter.to_owned(),
+                },
+                None => Violation::CallOwner {
+                    id,
+                    rule,
+                    fact,
+                    source,
+                    target,
+                    evidence,
+                },
+            }
+        })
+        .collect();
+    violations.sort_by(|a, b| Violation::id(a).cmp(Violation::id(b)));
+    violations
 }
 
 /// The reason of a kind that no slice decides yet.

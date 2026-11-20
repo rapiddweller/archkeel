@@ -92,18 +92,18 @@ pub(crate) fn check(rule: &Rule, components: &[Component], names: &Names<'_>) ->
         | Rule::LayerOrder(_)
         | Rule::NoComponentCycles(_)
         | Rule::InterfaceBoundary(_)
-        | Rule::CallOwner(_) => Vec::new(),
+        | Rule::CallOwner(_)
+        | Rule::ForbiddenCallArgument(_) => Vec::new(),
         // The profile-limited kinds: the scope state stops at their limit before this check
         // (`limits.rs`); a kind here never reaches a PASS.
-        Rule::ForbiddenCallArgument(_)
-        | Rule::CatalogArgument(_)
+        Rule::CatalogArgument(_)
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
         | Rule::SourceOwnership(_)
-        | Rule::BoundedNumericOperand(_)
-        | Rule::ProtocolDeclarations(_) => return Subjects::Unread,
+        | Rule::BoundedNumericOperand(_) => return Subjects::Unread,
         // AD-550: the facade modules below `source` are the subjects of the rule.
         Rule::BoundaryTypes(rule) => vec![vec![rule.source().as_text()]],
+        Rule::ProtocolDeclarations(rule) => vec![vec![rule.source().as_text()]],
         Rule::SymbolPlacement(rule) => vec![vec![rule.source().as_text()]],
         // AD-670: the modules below `source` hold the public items of the rule.
         Rule::UnusedPublic(rule) => vec![vec![rule.source().as_text()]],

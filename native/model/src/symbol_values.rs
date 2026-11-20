@@ -104,6 +104,7 @@ fn binding(
     );
     value.parent = Some(source.to_owned());
     value.annotation = annotation;
+    value.inferred_type.clone_from(&site.inferred_type);
     value.conditional = conditional;
     value.initializer = Some(site.initializer.clone());
     Some(value)
