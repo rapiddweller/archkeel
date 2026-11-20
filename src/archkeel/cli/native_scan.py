@@ -166,7 +166,12 @@ def ignored_by(root: Path, paths: Sequence[str]) -> dict[str, str]:
 
 
 def exchange(
-    binary: str, kind: str, request: bytes, stderr_sink: list[bytes] | None = None
+    binary: str,
+    kind: str,
+    request: bytes,
+    stderr_sink: list[bytes] | None = None,
+    *,
+    arguments: tuple[str, ...] = (),
 ) -> tuple[bytes, int]:
     """Run the core with one encoded request and a time limit, and give its standard output and exit
     code. Exit 2 (no frame) is a `CoreError`. A caller that wants the standard error of a run that
@@ -174,7 +179,7 @@ def exchange(
     try:
         with _progress(Path.cwd().name) if kind == "scan" else _quiet():
             done = subprocess.run(
-                [binary, kind],
+                [binary, kind, *arguments],
                 input=request,
                 capture_output=True,
                 check=False,

@@ -77,6 +77,7 @@ def _calls(
     locations: Row,
     symbols: dict[str, list[str]],
     declarations: dict[str, list[Row]],
+    bindings: Row,
 ) -> Iterator[Row]:
     for data in _records(part.get("calls")):
         targets = _strings(data, "targets")
@@ -98,7 +99,7 @@ def _calls(
         if exact and isinstance(target, str):
             evidence = [dict(loc, role="call_site") for loc in evidence]
             evidence.extend(dict(loc, role="declaration") for loc in declarations.get(target, []))
-        yield {
+        relation: Row = {
             "id": data["id"],
             "source": origin,
             "target": target if exact else None,
@@ -109,6 +110,17 @@ def _calls(
             "resolution": "resolved" if exact else "unresolved",
             "evidence": evidence,
         }
+        scip = bindings.get(_text(data, "id")) if not exact else None
+        if scip is not None:
+            binding = _object(scip)
+            relation["scip_binding"] = dict(
+                provenance="scip",
+                target=_key("definition", _text(binding, "target_definition_id")),
+            )
+            evidence.append(
+                {"path": binding["path"], "line": binding["line"], "role": "scip_declaration"}
+            )
+        yield relation
 
 
 def _source_calls(topology: Row) -> Iterator[Row]:
@@ -170,6 +182,8 @@ def _coverage(connection: sqlite3.Connection, topology: Row, root: Path) -> None
         for k in ("complete", "truncated", "total", "gaps", "verdict", "observed_only")
     }
     coverage["parts"] = [_part_coverage(part) for part in _records(topology.get("explorer"))]
+    if "scip" in topology:
+        coverage["scip"] = topology["scip"]
     packages = {
         _text(row, "target_module")
         for row in _rows(topology, "imports")
@@ -231,6 +245,7 @@ def _elements(topology: Row, element: _AddElement, reference: _Reference) -> Non
 
 
 def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list[Iterator[Row]]:
+    bindings = _object(topology.get("scip_bindings", {}))
     calls: list[Iterator[Row]] = []
     locations = _object(topology.get("locations", {}))
     for part in _records(topology.get("explorer")):
@@ -256,7 +271,7 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
                 _key(_text(row, "parent_domain"), _text(row, "parent")),
                 _object(row["body"]) | {"source": anchor, "language": part.get("language")},
             )
-        calls.append(_calls(part, locations, symbols, declarations))
+        calls.append(_calls(part, locations, symbols, declarations, bindings))
     return calls
 
 

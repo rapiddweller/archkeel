@@ -101,7 +101,7 @@ examples:
 """
 _EXPLORE: Final = """\
 usage: archkeel explore [PATH | --root PATH] [--config PATH] [--port PORT] [--no-open]
-                        [--json | --text]
+                        [--scip PATH] [--json | --text]
 
 Open the architecture whiteboard and native report for the same local snapshot.
 `explore` is a compatibility alias. PATH and --root select the repository; use only one.
@@ -113,6 +113,7 @@ Press Ctrl-C to stop the server.
   --config PATH  Select a project configuration or system document.
   --port PORT    Use this local port. Default: choose a free port.
   --no-open      Print the local URL without opening a browser.
+  --scip PATH  Attach Rust SCIP declaration evidence using PATH.manifest.json.
   --json         Print one JSON object with the local URL.
 
 The command exits 0 after the Explorer stops, or 2 if it cannot start.

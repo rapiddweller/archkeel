@@ -342,8 +342,10 @@ def _exchange_scan(
     started_ns = time_ns()
     payload = json.dumps(request).encode()
     # #659: the seconds of the phases come on standard error, only when the user asked for them.
-    asked = {"stderr_sink": sink} if options.timings is not None else {}
-    stdout, status_code = exchange(str(binary), "scan", payload, **asked)
+    if options.timings is None:
+        stdout, status_code = exchange(str(binary), "scan", payload)
+    else:
+        stdout, status_code = exchange(str(binary), "scan", payload, stderr_sink=sink)
     frame = read_frame(
         stdout,
         status_code,

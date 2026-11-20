@@ -165530,6 +165530,105 @@
         "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "AD-1032: the call scan visits syntax through syn and the native self-scan retains possible trait dispatch (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector",
+        "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-1036: possible trait dispatch recorded at native/rust/src/scip_evidence/syntax.rs:130 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector",
+        "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.wire may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.wire without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-1036: possible trait dispatch recorded at native/rust/src/scip_evidence/wire.rs:99 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence",
+        "A trait impl in native.archkeel_snapshot.snapshot.listing may run in code that reaches native.archkeel_snapshot.snapshot.listing without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-1036: possible trait dispatch recorded at native/snapshot/src/listing.rs:27 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+      ],
+      "reason": "AD-1036: possible destructor recorded at native/snapshot/src/test_tree.rs:43 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
+        "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-1036: possible trait dispatch recorded at native/rust/src/scip_evidence.rs:308 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
+        "A trait impl in native.archkeel_snapshot.snapshot may run in code that reaches native.archkeel_snapshot.snapshot without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-1036: possible trait dispatch recorded at native/snapshot/src/snapshot.rs:25 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
+        "A trait impl in native.archkeel_snapshot.snapshot.listing may run in code that reaches native.archkeel_snapshot.snapshot.listing without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-1036: possible trait dispatch recorded at native/snapshot/src/listing.rs:27 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
+        "A trait impl in native.archkeel_snapshot.work may run in code that reaches native.archkeel_snapshot.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "AD-1036: possible trait dispatch recorded at native/snapshot/src/work.rs:39 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+      ],
+      "reason": "AD-1036: possible destructor recorded at native/snapshot/src/test_tree.rs:43 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.wire",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+      ],
+      "reason": "AD-1036: possible destructor recorded at native/snapshot/src/test_tree.rs:43 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.wire",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+      ],
+      "reason": "AD-1036: possible destructor recorded at native/snapshot/src/work.rs:92 in the opt-in adapter's source reach (lead approval 2026-11-20)"
     }
   ]
 }

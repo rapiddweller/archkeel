@@ -40,12 +40,14 @@ export interface StudioEdge {
   count?: number;
   evidence?: { path: string; line: number; role?: string }[];
   evidence_total?: number;
+  scip_binding?: { provenance: "scip"; target: string };
 }
 
 export interface StudioCoverage {
   parts?: { part?: string; language?: string; files_indexed?: number | null; files_with_symbols?: number | null; facts?: { calls?: number | null }; files_with_calls?: number | null }[];
   total?: Record<string, number>;
   observed_only?: boolean;
+  scip?: { provenance: "scip"; matched_calls: number; eligible_calls: number };
   truncated?: boolean;
   complete?: boolean;
   external_imports?: { total: number; packages: string[] };

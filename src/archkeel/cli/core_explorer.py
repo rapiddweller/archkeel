@@ -29,6 +29,7 @@ from .core_binding import ProjectRoot
 from .core_exit import Outcome, envelope, exit_for
 from .core_explorer_http import _ExplorerServer
 from .core_explorer_identity import _file_digest, _fingerprint
+from .core_explorer_scip import ScipIndex, enrich
 from .core_frame import CoreError, CoreFrame, GapKind
 from .core_json import as_object, as_text
 from .init_draft import draft, write_missing
@@ -76,6 +77,7 @@ def _publish(
     scan: Callable[[ProjectRoot], tuple[bytes, CoreFrame]],
     *,
     observed: bool,
+    scip: ScipIndex | None,
 ) -> None:
     stdout, frame = _observed_scan(project, digests, scan) if observed else scan(project)
     refused = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
@@ -133,16 +135,29 @@ def _publish(
                 for row in rows
             ]
 
+    if scip is not None:
+        enrich(scip, binary, project.path, digests, topology)
+
     def build(connection: sqlite3.Connection) -> None:
         display = topology | {
             "verdict": None if observed else frame.status.value,
             "observed_only": observed,
         }
         populate(connection, display, project.path)
-        if _fingerprint(project, binary)[0] != snapshot:
+        if _current_identity(project, binary, scip) != snapshot:
             raise CoreError("the project changed during the Explorer scan; run explore again")
 
     publish_snapshot(path, snapshot, build, coverage)
+
+
+def _current_identity(
+    project: ProjectRoot, binary: Path, scip: ScipIndex | None
+) -> SnapshotIdentity:
+    identity, _ = _fingerprint(project, binary)
+    if scip is None:
+        return identity
+    scip.confirm()
+    return scip.bind(identity)
 
 
 def launch(
@@ -154,7 +169,10 @@ def launch(
     render_report: Callable[[], tuple[str, tuple[str, bytes]]] | None,
 ) -> int:
     """Use a matching snapshot or publish a new one, then start the local Explorer."""
+    scip = ScipIndex.read(options.scip_index) if options.scip_index is not None else None
     snapshot, digests = _fingerprint(project, binary)
+    if scip is not None:
+        snapshot = scip.bind(snapshot)
     default = Path.home() / ".cache"
     cache = Path(os.environ.get("XDG_CACHE_HOME") or default) / "archkeel" / "explorer"
     cache = cache.resolve()
@@ -165,11 +183,18 @@ def launch(
         with repository_writer(path):
             if not path.exists():
                 _publish(
-                    path, project, binary, snapshot, digests, scan, observed=render_report is None
+                    path,
+                    project,
+                    binary,
+                    snapshot,
+                    digests,
+                    scan,
+                    observed=render_report is None,
+                    scip=scip,
                 )
 
     def confirm_snapshot() -> None:
-        if _fingerprint(project, binary)[0] != snapshot:
+        if _current_identity(project, binary, scip) != snapshot:
             raise CoreError("the project changed after the Explorer scan; run explore again")
 
     cached_report: tuple[str, tuple[str, bytes]] | None = None

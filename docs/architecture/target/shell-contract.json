@@ -782,6 +782,7 @@
         "archkeel.cli.core_explorer",
         "archkeel.cli.core_explorer_http",
         "archkeel.cli.core_explorer_identity",
+        "archkeel.cli.core_explorer_scip",
         "archkeel.explorer_agent"
       ],
       "responsibilities": [
