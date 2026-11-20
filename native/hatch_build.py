@@ -37,8 +37,9 @@ LINUX = re.compile(r"(manylinux_\d+_\d+_(?:x86_64|aarch64)|musllinux_\d+_\d+_x86
 SUPPORTED = "macOS x86_64 and arm64, manylinux x86_64 and aarch64, musllinux x86_64, win_amd64"
 NO_CORE = (
     f"A wheel of archkeel must carry the core binary {BINARY}, and this build has none. "
-    f"From a checkout run `make build` (it writes the wheel to dist/), or set {REQUEST}=1 "
-    f"(needs cargo and cargo-auditable) or {REQUEST} to the absolute path of a prebuilt core. "
+    "Run `git clone https://github.com/rapiddweller/archkeel.git`, then "
+    "`cd archkeel && make build` to build a wheel in dist/. "
+    f"On a supported host, set {REQUEST} to the absolute path of a prebuilt core. "
     f"Platform wheels exist for {SUPPORTED}."
 )
 
