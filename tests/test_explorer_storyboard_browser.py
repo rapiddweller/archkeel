@@ -15,8 +15,9 @@ def test_story_lanes_evidence_play_and_reduced_motion(tmp_path: Path, monkeypatc
     steps = [
         {
             "node": "app.first",
-            "lane": "app",
+            "lane": "archkeel.cli.core_output",
             "function": "first",
+            "defined_at": {"path": "src/archkeel/cli/core_delivery.py", "line": 116},
             "note": "Start the flow.",
             "status": "proven",
             "external": [
@@ -79,7 +80,27 @@ def test_story_lanes_evidence_play_and_reduced_motion(tmp_path: Path, monkeypatc
                     assert page.evaluate(
                         "[...document.querySelectorAll('.story-lane-headings strong')]"
                         ".map(x=>x.textContent)"
-                    ) == ["app", "store"]
+                    ) == ["archkeel.cli.core_output", "store"]
+                    assert page.evaluate(
+                        """(() => {
+                          const chunks = (node) => [...node.childNodes]
+                            .filter(part => part.nodeType === Node.TEXT_NODE);
+                          const lane = document.querySelector('.story-lane-headings strong.active');
+                          const file = document.querySelector('.story-step-title');
+                          const laneParts = chunks(lane);
+                          const fileParts = chunks(file);
+                          const fits = (part) => {
+                            const range = new Range();
+                            range.selectNodeContents(part);
+                            return range.getClientRects().length === 1;
+                          };
+                          return laneParts.map(part => part.data).join('|') ===
+                              'archkeel.|cli.|core_output' &&
+                            fileParts.map(part => part.data).join('|') ===
+                              'core_delivery.|py:116' &&
+                            [laneParts.at(-1), fileParts.at(-1)].every(fits);
+                        })()"""
+                    )
                     assert page.evaluate(
                         "[...document.querySelectorAll('.story-node strong')].map(x=>x.textContent)"
                     ) == ["first", "save"]

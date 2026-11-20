@@ -3,13 +3,13 @@ import type { MapResponse, StudioEdge, StudioItem } from "./studio-model.js";
 import { known, pageTrails, state, system } from "./studio-state.js";
 import { label, open, relationLabel, select, showAggregates, showEvidence } from "./explorer.js";
 import { showScope } from "./explorer-navigation.js";
-import { bindMapLayouts, inspector, layoutMap, mapPage, mapPosition, mapRoutes, placeMapLabel, showMapLayoutControls, zoomMap } from "./explorer-map-layout.js";
+import { bindMapLayouts, bindMapPanes, inspector, layoutMap, mapPage, mapPosition, mapRoutes, placeMapLabel, showMapLayoutControls, showMapPanes, structure, zoomMap } from "./explorer-map-layout.js";
 import type { MapLayout, MapScene } from "./explorer-map-layout.js";
 import { storyChat } from "./explorer-story.js";
 import { markTreeSelection, paintStructure, treeMapAnchor } from "./explorer-tree.js";
 import { canOpenScope, itemKind, paintCards, umlCard } from "./explorer-uml.js";
 
-export const mapView: { mode: "components" | "modules"; response: MapResponse | null; scene: MapScene | null; treeOpen: boolean; focused: { id: string; edges: (StudioEdge & {target: string})[] } | null } = { mode: "components", response: null, scene: null, treeOpen: false, focused: null };
+export const mapView: { mode: "components" | "modules"; response: MapResponse | null; scene: MapScene | null; focused: { id: string; edges: (StudioEdge & {target: string})[] } | null } = { mode: "components", response: null, scene: null, focused: null };
 export const mapCardWidth = 224;
 
 export function derivedMapGroup(item: StudioItem | undefined) {
@@ -25,11 +25,6 @@ export function mapSearchArgs(parent: string, text: string) {
     ? { text, parent } : { text };
 }
 
-function structure(open: boolean) {
-  get("structure-pane").hidden = !open;
-  get("structure-toggle").setAttribute("aria-pressed", String(open));
-}
-
 export function setStoryLink(id: string | null) {
   const url = new URL(location.href);
   if (id) url.searchParams.set("story", id);
@@ -43,10 +38,7 @@ export function setMapControls(active: boolean) {
   get("map-modes").hidden = true;
   get("map-components").setAttribute("aria-pressed", String(mapView.mode === "components"));
   get("map-modules").setAttribute("aria-pressed", String(mapView.mode === "modules"));
-  if (!active) {
-    structure(false);
-    inspector(true);
-  } else structure(mapView.treeOpen);
+  showMapPanes(active);
 }
 
 export function setMapTree(current: StudioItem, response: { items: StudioItem[] }, query: string | null) {
@@ -353,19 +345,7 @@ export async function showMapResponse(response: MapResponse, request: number, pr
 
 export function bindMap() {
   bindMapLayouts();
-  mapView.treeOpen = matchMedia("(min-width: 1100px)").matches;
-  structure(mapView.treeOpen);
-  inspector(false);
-  get("structure-toggle").addEventListener("click", () => {
-    mapView.treeOpen = get("structure-pane").hidden;
-    structure(mapView.treeOpen);
-    zoomMap(0);
-  });
-  get("inspector-toggle").addEventListener("click", () => {
-    inspector(details.hidden);
-    if (!details.hidden) details.focus({ preventScroll: true });
-    zoomMap(0);
-  });
+  bindMapPanes();
   for (const mode of (["components", "modules"] as const)) {
     get("map-" + mode).addEventListener("click", () => {
       if (mapView.mode === mode) return;

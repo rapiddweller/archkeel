@@ -30,6 +30,16 @@ def test_studio_canvas_fills_the_workspace_in_both_modes(
     }
     monkeypatch.setattr(core_explorer_http, "list_stories", lambda *args: [story])
     monkeypatch.setattr(core_explorer_http, "read_story", lambda *args: story)
+    real_query = core_explorer_http.query
+
+    def counted_query(path, root, operation, args):
+        response = real_query(path, root, operation, args)
+        if operation == "map" and response["items"]:
+            response.update(module_overview=True, module_total=42)
+            response["items"][0].update(recorded_calls=3_456_789, unresolved_calls=1_234_567)
+        return response
+
+    monkeypatch.setattr(core_explorer_http, "query", counted_query)
     topology = {
         "version": 1,
         "components": [
@@ -58,6 +68,34 @@ def test_studio_canvas_fills_the_workspace_in_both_modes(
                     page.wait(
                         f"document.querySelectorAll('.map-plane .uml-card').length === {components}"
                     )
+                    assert page.evaluate(_BADGE_FITS)
+                    assert page.evaluate("document.getElementById('notice').textContent")
+                    page.evaluate("document.querySelector('.map-plane .uml-card').click()")
+                    page.wait("!document.getElementById('details').hidden")
+                    assert page.evaluate(_MEASURE)["workspace"] == [0, 1440, 900]
+                    page.evaluate("document.getElementById('inspector-toggle').click()")
+                    page.send(
+                        "Emulation.setDeviceMetricsOverride",
+                        width=390,
+                        height=844,
+                        deviceScaleFactor=1,
+                        mobile=False,
+                    )
+                    page.wait("document.getElementById('structure-pane').hidden")
+                    page.send("Page.reload")
+                    page.wait(
+                        f"document.querySelectorAll('.map-plane .uml-card').length === {components}"
+                    )
+                    assert page.evaluate(_MOBILE_DEFAULTS)
+                    page.send(
+                        "Emulation.setDeviceMetricsOverride",
+                        width=1440,
+                        height=900,
+                        deviceScaleFactor=1,
+                        mobile=False,
+                    )
+                    page.wait("!document.getElementById('structure-pane').hidden")
+                    page.evaluate("document.getElementById('structure-toggle').click()")
                     for pane, toggle in (
                         ("structure-pane", "structure-toggle"),
                         ("details", "inspector-toggle"),
@@ -78,8 +116,12 @@ def test_studio_canvas_fills_the_workspace_in_both_modes(
                         )
                         page.wait(f"innerWidth === {size[0]} && innerHeight === {size[1]}")
                         measurements.append(("map", size, page.evaluate(_MEASURE)))
+                    assert page.evaluate("!document.getElementById('structure-pane').hidden")
+                    assert page.evaluate("!document.getElementById('details').hidden")
+                    page.evaluate("document.getElementById('inspector-toggle').click()")
                     page.evaluate("document.getElementById('story').click()")
                     page.wait("document.querySelector('.story-library button') !== null")
+                    page.evaluate("document.getElementById('notice').textContent = 'Status'")
                     measurements.append(("library", (390, 844), page.evaluate(_MEASURE)))
                     page.evaluate("document.querySelector('.story-library button').click()")
                     page.wait(f"document.querySelectorAll('.story-node').length === {steps}")
@@ -97,6 +139,7 @@ def test_studio_canvas_fills_the_workspace_in_both_modes(
                     page.wait(
                         f"document.querySelectorAll('.map-plane .uml-card').length === {components}"
                     )
+                    assert page.evaluate("document.getElementById('details').hidden")
                     measurements.append(("returned", (3440, 1440), page.evaluate(_MEASURE)))
                     for mode, (width, height), geometry in measurements:
                         assert geometry["workspace"] == [0, width, height], (mode, geometry)
@@ -152,4 +195,25 @@ _MEASURE = """(() => {
     controls: visible('#story-controls'),
     arrowKey: [left, 0, right],
   };
+})()"""
+
+
+_MOBILE_DEFAULTS = """(() => {
+  if (!document.getElementById('structure-pane').hidden ||
+      !document.getElementById('details').hidden) return false;
+  return ['structure-toggle', 'inspector-toggle'].every((id) => {
+    const rect = document.getElementById(id).getBoundingClientRect();
+    return rect.width > 0 && rect.left >= 0 && rect.right <= innerWidth &&
+      document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)?.id === id;
+  });
+})()"""
+
+_BADGE_FITS = """(() => {
+  const badge = document.querySelector('.uml-head .map-call-count');
+  const text = new Range();
+  text.selectNodeContents(badge);
+  const card = badge.closest('.uml-card').getBoundingClientRect();
+  const {right, bottom} = text.getBoundingClientRect();
+  return right <= card.right && bottom <= card.bottom &&
+    text.getBoundingClientRect().height > parseFloat(getComputedStyle(badge).lineHeight);
 })()"""

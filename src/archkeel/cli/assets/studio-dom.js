@@ -39,4 +39,5 @@ export function breakPath(node, text) {
     for (const part of text.split(/(?<=[./])/))
         node.append(part, document.createElement("wbr"));
     node.title = text;
+    return node;
 }

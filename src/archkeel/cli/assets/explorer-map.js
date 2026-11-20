@@ -2,11 +2,11 @@ import { breakPath, button, cards, details, element, get, notice, showError, svg
 import { known, pageTrails, state, system } from "./studio-state.js";
 import { label, open, relationLabel, select, showAggregates, showEvidence } from "./explorer.js";
 import { showScope } from "./explorer-navigation.js";
-import { bindMapLayouts, inspector, layoutMap, mapPage, mapPosition, mapRoutes, placeMapLabel, showMapLayoutControls, zoomMap } from "./explorer-map-layout.js";
+import { bindMapLayouts, bindMapPanes, inspector, layoutMap, mapPage, mapPosition, mapRoutes, placeMapLabel, showMapLayoutControls, showMapPanes, structure, zoomMap } from "./explorer-map-layout.js";
 import { storyChat } from "./explorer-story.js";
 import { markTreeSelection, paintStructure, treeMapAnchor } from "./explorer-tree.js";
 import { canOpenScope, itemKind, paintCards, umlCard } from "./explorer-uml.js";
-export const mapView = { mode: "components", response: null, scene: null, treeOpen: false, focused: null };
+export const mapView = { mode: "components", response: null, scene: null, focused: null };
 export const mapCardWidth = 224;
 export function derivedMapGroup(item) {
     return !!item && ["layer", "directory", "file_group"].includes(item.kind);
@@ -17,10 +17,6 @@ export function mapScope(item, query) {
 export function mapSearchArgs(parent, text) {
     return mapView.response?.scope_truncated && mapView.response.parent === parent
         ? { text, parent } : { text };
-}
-function structure(open) {
-    get("structure-pane").hidden = !open;
-    get("structure-toggle").setAttribute("aria-pressed", String(open));
 }
 export function setStoryLink(id) {
     const url = new URL(location.href);
@@ -37,12 +33,7 @@ export function setMapControls(active) {
     get("map-modes").hidden = true;
     get("map-components").setAttribute("aria-pressed", String(mapView.mode === "components"));
     get("map-modules").setAttribute("aria-pressed", String(mapView.mode === "modules"));
-    if (!active) {
-        structure(false);
-        inspector(true);
-    }
-    else
-        structure(mapView.treeOpen);
+    showMapPanes(active);
 }
 export function setMapTree(current, response, query) {
     if (query)
@@ -364,20 +355,7 @@ export async function showMapResponse(response, request, preparedLayout) {
 }
 export function bindMap() {
     bindMapLayouts();
-    mapView.treeOpen = matchMedia("(min-width: 1100px)").matches;
-    structure(mapView.treeOpen);
-    inspector(false);
-    get("structure-toggle").addEventListener("click", () => {
-        mapView.treeOpen = get("structure-pane").hidden;
-        structure(mapView.treeOpen);
-        zoomMap(0);
-    });
-    get("inspector-toggle").addEventListener("click", () => {
-        inspector(details.hidden);
-        if (!details.hidden)
-            details.focus({ preventScroll: true });
-        zoomMap(0);
-    });
+    bindMapPanes();
     for (const mode of ["components", "modules"]) {
         get("map-" + mode).addEventListener("click", () => {
             if (mapView.mode === mode)

@@ -1,5 +1,5 @@
 import { api, draftStory } from "./studio-api.js";
-import { button, cards, details, element, get, notice, showError, viewport } from "./studio-dom.js";
+import { breakPath, button, cards, details, element, get, notice, showError, viewport } from "./studio-dom.js";
 import { state, known } from "./studio-state.js";
 import { drawArrows, label, selectionHeading, showEvidence, showSource } from "./explorer.js";
 import { setMapControls, setStoryLink } from "./explorer-map.js";
@@ -87,7 +87,7 @@ function paintStory() {
     const timeline = element("div", "", "story-timeline");
     const activeLane = steps[state.storyIndex].lane ?? "Owner unknown";
     for (const [index, lane] of lanes.entries()) {
-        const laneName = element("strong", lane, lane === activeLane ? "active" : "");
+        const laneName = breakPath(element("strong", "", lane === activeLane ? "active" : ""), lane);
         heading.append(laneName);
         const rail = element("div", "", lane === activeLane ? "story-rail active" : "story-rail");
         rail.style.gridColumn = String(index + 1);
@@ -128,7 +128,7 @@ function paintStory() {
         else {
             const site = step.defined_at;
             if (site?.path) {
-                node.append(element("span", site.path.split("/").at(-1) + (site.line ? ":" + site.line : ""), "story-step-title"));
+                node.append(breakPath(element("span", "", "story-step-title"), site.path.split("/").at(-1) + (site.line ? ":" + site.line : "")));
             }
             if (step.note)
                 node.append(element("span", step.note, "story-narration"));
@@ -211,15 +211,15 @@ function sourceSite(site) {
         return element("p", "No indexed source location.", "meta");
     const text = site.line ? path + ":" + site.line : path;
     const reference = site.reference;
-    return reference ? button(text, () => showSource(reference), "detail-btn")
-        : element("p", text, "meta");
+    return breakPath(reference ? button("", () => showSource(reference), "detail-btn")
+        : element("p", "", "meta"), text);
 }
 function paintCheckedStep(step, story) {
     if (step.note)
         storyBox("Story · Author claim", [element("p", step.note)]);
     const evidence = [proof(step)];
     if (step.name)
-        evidence.push(element("p", step.name, "story-symbol"));
+        evidence.push(breakPath(element("p", "", "story-symbol"), step.name));
     if (step.reason)
         evidence.push(element("p", step.reason));
     if (step.defined_at)

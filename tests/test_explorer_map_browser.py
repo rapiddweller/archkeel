@@ -275,10 +275,19 @@ def test_expanded_group_highlights_relations(tmp_path: Path) -> None:
                 assert "Package group" in page.evaluate(
                     "document.querySelector('#structure-tree').textContent"
                 )
-                page.evaluate(
-                    "document.querySelector('[data-element=a]').dispatchEvent("
-                    "new MouseEvent('dblclick', {bubbles:true}))"
+                box = page.evaluate(
+                    "(() => { const r = document.querySelector('[data-element=a]')"
+                    ".getBoundingClientRect(); return {x:r.x+r.width/2, y:r.y+r.height/2}; })()"
                 )
+                for count in (1, 2):
+                    for kind in ("mousePressed", "mouseReleased"):
+                        page.send(
+                            "Input.dispatchMouseEvent",
+                            type=kind,
+                            button="left",
+                            clickCount=count,
+                            **box,
+                        )
                 page.wait("document.querySelector('.map-group-title') !== null")
                 assert "Package group · includes descendants" in page.evaluate(
                     "document.getElementById('details').textContent"

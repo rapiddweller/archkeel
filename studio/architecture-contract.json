@@ -274,6 +274,7 @@
         {
           "component": "dom",
           "through": [
+            "studio.studio.src.studio_x2d_dom_x2e_ts:breakPath",
             "studio.studio.src.studio_x2d_dom_x2e_ts:button",
             "studio.studio.src.studio_x2d_dom_x2e_ts:cards",
             "studio.studio.src.studio_x2d_dom_x2e_ts:details",

@@ -19,7 +19,7 @@ body:has(#map[aria-pressed="true"]) .heading h1 { font-size: 17px; letter-spacin
 body:has(#map[aria-pressed="true"]) #overview { margin: 0; font-size: 12px; }
 body:has(#map[aria-pressed="true"]) #notice { font-size: 12px; padding-inline: 5px; }
 body:has(#map[aria-pressed="true"]) .workspace {
-  display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; position: relative;
+  display: grid; grid-template-rows: auto minmax(0, 1fr); grid-row: 3; min-height: 0; position: relative;
   border-radius: 0;
 }
 body:has(#map[aria-pressed="true"]) .canvas-toolbar {
@@ -47,11 +47,6 @@ body:has(#map[aria-pressed="true"]) .view-tools {
 }
 body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20px 56px; }
 #canvas:has(.map-plane) { display: grid; align-content: center; overflow: visible; }
-@media (min-width: 861px) {
-  body:has(#map[aria-pressed="true"]) .body-grid:has(#details:not([hidden])) #canvas:has(.map-plane) {
-    padding-inline-end: calc(20px + var(--inspector-width));
-  }
-}
 #canvas:has(.map-plane):is([data-zoom]) { zoom: 1; min-width: 0; }
 #cards:has(.map-plane) { display: block; }
 .map-plane { position: relative; margin: auto; isolation: isolate; }
@@ -69,7 +64,7 @@ body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20
 .map-unknown { color: var(--unknown-text); font: 10px/1.4 var(--font-mono); }
 .map-call-count { color: var(--ink-muted); font: 10px/1.4 var(--font-mono); white-space: nowrap; }
 .map-call-count .unknown { display: inline; }
-.uml-head .map-call-count { margin-top: 4px; }
+.uml-head .map-call-count { margin-top: 4px; white-space: normal; overflow-wrap: anywhere; }
 .map-group-title .map-call-count { margin-left: auto; }
 .map-plane [aria-pressed="true"] { box-shadow: 0 0 0 1px var(--accent), var(--shadow-pop); }
 .map-plane .map-context { outline: 1px dashed var(--accent); outline-offset: 2px; }
@@ -164,11 +159,8 @@ body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20
 .tree-message button { font-size: inherit; padding: 2px 5px; }
 #more, #previous { margin-top: 0; }
 @media (max-width: 860px) {
-  body:has(#map[aria-pressed="true"]) .canvas-toolbar {
-    flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; white-space: nowrap;
-  }
-  .canvas-toolbar > *, .architecture-actions > * { flex-shrink: 0; }
-  .architecture-actions { flex-wrap: nowrap; }
+  body:has(#map[aria-pressed="true"]) .canvas-toolbar,
+  .architecture-actions { justify-content: flex-start; }
   body:has(#map[aria-pressed="true"]) #structure-pane,
   body:has(#map[aria-pressed="true"]) #details {
     position: absolute; inset-block: 0; z-index: 8; width: min(82vw, 340px);

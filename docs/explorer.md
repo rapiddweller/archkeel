@@ -35,7 +35,12 @@ contain known members. The native report retains its own layout and rule verdict
 
 ## Play a story
 
-Open **Story**. To draft a story, install the Codex CLI and sign in with `codex login`.
+Open **Story**. The ArchKeel checkout includes six examples you can play immediately.
+They follow validation to its exit code, report generation to its HTML file, initialization to the
+contract files, skill installation to the agent instructions, Studio startup to the browser map,
+and an MCP client request to the returned map.
+
+To draft a story, install the Codex CLI and sign in with `codex login`.
 Enter the flow you want to follow. The model proposes an ordered story
 from snapshot facts. Studio checks each step and saves the story under
 `.archkeel/stories/<id>.story.json`. Select **Play** once to follow the calls.

@@ -55,7 +55,7 @@ function mapGraph(parent, response, mode) {
             height: (item.kind === "component" && item.responsibilities?.length ? 120 : 87)
                 + (Number.isInteger(item.module_count) ? 25 : 0)
                 + (item.kind === "component" && item.public?.length ? 36 : 0)
-                + ((item.unresolved_calls ?? 0) > 0 ? 23 : 0),
+                + ((item.unresolved_calls ?? 0) > 0 ? 37 : 0),
         });
     }
     // A stable subset guides dense placement. Every measured edge remains available for focus.
@@ -196,7 +196,7 @@ export function zoomMap(delta, whole = false) {
     const plane = cards.querySelector(".map-plane");
     if (!plane)
         return false;
-    const inset = parseFloat(getComputedStyle(canvas).paddingInlineEnd);
+    const inset = parseFloat(getComputedStyle(canvas).paddingInlineEnd) + (details.hidden ? 0 : details.clientWidth);
     const canvasFit = (viewport.clientWidth - inset - 26) / plane.offsetWidth;
     const scale = delta
         ? Math.max(.12, Math.min(2.4, (parseFloat(plane.style.zoom) || 1) * (delta > 0 ? 1.2 : 1 / 1.2)))
@@ -212,6 +212,47 @@ export function zoomMap(delta, whole = false) {
 export function mapPage(current, cursor, focus) {
     const view = current.id === "system" ? "components" : "hierarchy";
     return api("map", { parent: current.id, view, cursor, focus, limit: 36 });
+}
+const wideMap = matchMedia("(min-width: 1100px)");
+let treeOpen = null;
+let mapInspectorOpen = false;
+export function structure(open) {
+    get("structure-pane").hidden = !open;
+    get("structure-toggle").setAttribute("aria-pressed", String(open));
+}
+export function showMapPanes(active) {
+    if (!active) {
+        if (get("map").getAttribute("aria-pressed") === "true")
+            mapInspectorOpen = !details.hidden;
+        structure(false);
+        inspector(true);
+    }
+    else {
+        structure(treeOpen ?? wideMap.matches);
+        if (get("story").getAttribute("aria-pressed") === "true")
+            inspector(mapInspectorOpen);
+    }
+}
+export function bindMapPanes() {
+    structure(wideMap.matches);
+    inspector(false);
+    wideMap.addEventListener("change", () => {
+        if (treeOpen === null && !state.search && get("map").getAttribute("aria-pressed") === "true") {
+            structure(wideMap.matches);
+            zoomMap(0);
+        }
+    });
+    get("structure-toggle").addEventListener("click", () => {
+        treeOpen = get("structure-pane").hidden;
+        structure(treeOpen);
+        zoomMap(0);
+    });
+    get("inspector-toggle").addEventListener("click", () => {
+        inspector(details.hidden);
+        if (!details.hidden)
+            details.focus({ preventScroll: true });
+        zoomMap(0);
+    });
 }
 export function inspector(open) {
     details.hidden = !open;
