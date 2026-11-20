@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.2.0",
+  "title": "archkeel skill install — Install instructions for the agent",
+  "snapshot": {
+    "source_digest": "48f30ed0abb5470966318c70e935ca59417827354c4c8d77d093a6bc4d8fc95c",
+    "contract_digest": "fcfcf956f613dbd4c6a0957d30b6bb6f060a32679e0370de2a6be56a6acc9598"
+  },
+  "nodes": [
+    "archkeel.cli.main",
+    "archkeel.cli.core_only.run",
+    "archkeel.cli.core_only._install_skill",
+    "archkeel.cli.skill.install_skill",
+    "archkeel.cli.skill._skill_text"
+  ],
+  "story": {
+    "id": "install-agent-skill",
+    "title": "archkeel skill install — Install instructions for the agent",
+    "chapters": [
+      {
+        "id": "enter",
+        "title": "Choose the agent"
+      },
+      {
+        "id": "install",
+        "title": "Write its instructions"
+      },
+      {
+        "id": "finish",
+        "title": "Report the installed path"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "node": "archkeel.cli.main",
+      "title": "Start the command",
+      "note": "Run archkeel skill install codex in the repository. The claude option follows the same installer.",
+      "chapter": "enter"
+    },
+    {
+      "node": "archkeel.cli.core_only.run",
+      "title": "Read the arguments",
+      "note": "The dispatcher selects the skill installer and the output mode.",
+      "chapter": "enter"
+    },
+    {
+      "node": "archkeel.cli.core_only._install_skill",
+      "title": "Choose the repository",
+      "note": "The command passes the repository root and selected agent to the installer.",
+      "chapter": "install"
+    },
+    {
+      "node": "archkeel.cli.skill.install_skill",
+      "title": "Prepare the destination",
+      "note": "Codex reads .agents/skills/archkeel/SKILL.md. Claude uses .claude/skills/archkeel/SKILL.md.",
+      "chapter": "install"
+    },
+    {
+      "node": "archkeel.cli.skill._skill_text",
+      "title": "Read the bundled instructions",
+      "note": "Read the packaged skill so the instructions match the installed CLI.",
+      "chapter": "install"
+    },
+    {
+      "node": "archkeel.cli.skill.install_skill",
+      "title": "Write SKILL.md",
+      "note": "The installer writes the skill and returns its path.",
+      "chapter": "install",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.cli.core_only._install_skill",
+      "title": "Show the installed path",
+      "note": "The CLI prints the path and exits successfully. JSON mode returns the same path in the result.",
+      "chapter": "finish",
+      "transition": "return"
+    }
+  ]
+}

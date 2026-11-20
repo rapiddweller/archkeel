@@ -1,9 +1,9 @@
 {
   "schema_version": "1.2.0",
-  "title": "How Explore builds a cold snapshot",
+  "title": "archkeel studio — From a cold scan to the browser map",
   "snapshot": {
-    "source_digest": "e35f361681392a61fb2c62c7140976397fb61f0c6732bf88ffd4a6ff70f969ef",
-    "contract_digest": "d6c663e702176afbfd38382ae492791b20198ba74ee6e9054eafcbc44ca16358"
+    "source_digest": "48f30ed0abb5470966318c70e935ca59417827354c4c8d77d093a6bc4d8fc95c",
+    "contract_digest": "fcfcf956f613dbd4c6a0957d30b6bb6f060a32679e0370de2a6be56a6acc9598"
   },
   "nodes": [
     "archkeel.cli.core_only._explore",
@@ -16,11 +16,12 @@
     "native.archkeel_core.scan.answer",
     "archkeel.cli.core_frame.read_frame",
     "archkeel.explorer_store.publish_snapshot",
-    "archkeel.explorer_store._build"
+    "archkeel.explorer_store._build",
+    "studio.studio.src.explorer_x2d_navigation_x2e_ts.showScope"
   ],
   "story": {
     "id": "explore-cold-cache",
-    "title": "How Explore builds a cold snapshot",
+    "title": "archkeel studio — From a cold scan to the browser map",
     "chapters": [
       {
         "id": "start",
@@ -41,6 +42,10 @@
       {
         "id": "build",
         "title": "Write the snapshot"
+      },
+      {
+        "id": "serve",
+        "title": "Open the architecture map"
       }
     ]
   },
@@ -153,6 +158,20 @@
       "title": "Write the database",
       "note": "The builder opens a temporary SQLite database and writes its snapshot transaction. The SQLite binding remains unknown.",
       "chapter": "build"
+    },
+    {
+      "node": "archkeel.cli.core_explorer.launch",
+      "title": "Serve Studio on localhost",
+      "note": "After the snapshot is published, the launcher verifies its identity, starts the HTTP server and prints its local address.",
+      "chapter": "serve",
+      "claim": true
+    },
+    {
+      "node": "studio.studio.src.explorer_x2d_navigation_x2e_ts.showScope",
+      "title": "Display the architecture map",
+      "note": "The browser opens the system scope, requests the map and renders the returned groups. The browser request is a separate event.",
+      "chapter": "serve",
+      "claim": true
     }
   ]
 }

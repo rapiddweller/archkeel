@@ -1,0 +1,164 @@
+{
+  "schema_version": "1.2.0",
+  "title": "archkeel validate — From source files to an exit code",
+  "snapshot": {
+    "source_digest": "48f30ed0abb5470966318c70e935ca59417827354c4c8d77d093a6bc4d8fc95c",
+    "contract_digest": "fcfcf956f613dbd4c6a0957d30b6bb6f060a32679e0370de2a6be56a6acc9598"
+  },
+  "nodes": [
+    "archkeel.cli.core_only.run",
+    "archkeel.cli.core_only._decide",
+    "archkeel.cli.core_only._scan",
+    "archkeel.cli.core_only._exchange_scan",
+    "archkeel.cli.native_scan.exchange",
+    "native.archkeel_core.main",
+    "native.archkeel_core.scan_answer",
+    "native.archkeel_core.scan.answer",
+    "native.archkeel_core.scan.of_request",
+    "native.archkeel_core.scan.one",
+    "native.archkeel_core.scan.decide",
+    "native.archkeel_core.dual_run.run",
+    "archkeel.cli.core_frame.read_frame",
+    "archkeel.cli.core_exit.exit_for"
+  ],
+  "story": {
+    "id": "validate-verdict",
+    "title": "archkeel validate — From source files to an exit code",
+    "chapters": [
+      {
+        "id": "request",
+        "title": "Prepare the validation request"
+      },
+      {
+        "id": "core",
+        "title": "Collect facts and decide rules"
+      },
+      {
+        "id": "result",
+        "title": "Return the result"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "node": "archkeel.cli.core_only.run",
+      "title": "Enter Validate",
+      "note": "The command parser routes validation to the decision path.",
+      "chapter": "request"
+    },
+    {
+      "node": "archkeel.cli.core_only._decide",
+      "title": "Select the configuration",
+      "note": "Resolve the project root and configuration. Locate the core before any first-run draft can write files.",
+      "chapter": "request"
+    },
+    {
+      "node": "archkeel.cli.core_only._scan",
+      "title": "Start the scan",
+      "note": "Scan with the selected configuration after the draft check.",
+      "chapter": "request"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Bind the scan request",
+      "note": "Serialize the request and confirm the core binary immediately before invoking it.",
+      "chapter": "request"
+    },
+    {
+      "node": "archkeel.cli.native_scan.exchange",
+      "title": "Send the request",
+      "note": "Pass the scan request to the child process on standard input.",
+      "chapter": "request"
+    },
+    {
+      "node": "native.archkeel_core.main",
+      "title": "Read the request",
+      "note": "The core reads a bounded scan request. The snapshot does not record the process target or Rust calls.",
+      "transition": "process_request",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.scan_answer",
+      "title": "Dispatch the scan",
+      "note": "The scan entry calls the scan handler.",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.scan.answer",
+      "title": "Decode the request",
+      "note": "Decode the protocol fields before choosing the run.",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.scan.of_request",
+      "title": "Choose a scan",
+      "note": "An individual scan uses one configuration. A system document follows its separate system path.",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.scan.one",
+      "title": "Collect the configured scope",
+      "note": "Run the collector and pass a completed collection to evaluation.",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.scan.decide",
+      "title": "Bind facts to the contract",
+      "note": "Bind the reply to the scanned roots and provenance before evaluating the contract.",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.dual_run.run",
+      "title": "Build the ruling",
+      "note": "Combine rule decisions and coverage gaps in one frame. A gap can leave a rule UNKNOWN.",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.scan.decide",
+      "title": "Return the ruling",
+      "note": "The Rust result returns through the scan path. The snapshot does not observe runtime returns.",
+      "transition": "return",
+      "chapter": "result"
+    },
+    {
+      "node": "archkeel.cli.native_scan.exchange",
+      "title": "Receive the frame",
+      "note": "Capture the child process output and exit status. The transport is a process boundary.",
+      "transition": "process_response",
+      "chapter": "result"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Return to the shell",
+      "note": "Hand the captured bytes and exit status to the wrapper.",
+      "transition": "return",
+      "chapter": "result"
+    },
+    {
+      "node": "archkeel.cli.core_frame.read_frame",
+      "title": "Check the frame",
+      "note": "Check its protocol, verdict and request binding before delivery.",
+      "chapter": "result"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Return the checked frame",
+      "note": "Return the checked frame to the scan wrapper.",
+      "transition": "return",
+      "chapter": "result"
+    },
+    {
+      "node": "archkeel.cli.core_only._scan",
+      "title": "Finish validation",
+      "note": "Build the CLI result from the frame, including gaps and outcomes.",
+      "transition": "return",
+      "chapter": "result"
+    },
+    {
+      "node": "archkeel.cli.core_exit.exit_for",
+      "title": "Set the exit status",
+      "note": "A normal validation returns 0 for PASS, 1 for FAIL or 2 for UNKNOWN. JSON also names command or collection refusals.",
+      "chapter": "result"
+    }
+  ]
+}

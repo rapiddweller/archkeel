@@ -1,0 +1,71 @@
+{
+  "schema_version": "1.2.0",
+  "title": "archkeel-mcp — Answer a client’s map request",
+  "snapshot": {
+    "source_digest": "48f30ed0abb5470966318c70e935ca59417827354c4c8d77d093a6bc4d8fc95c",
+    "contract_digest": "fcfcf956f613dbd4c6a0957d30b6bb6f060a32679e0370de2a6be56a6acc9598"
+  },
+  "nodes": [
+    "archkeel.explorer_mcp.main",
+    "archkeel.explorer_queries.query",
+    "archkeel.explorer_mcp._query_tools"
+  ],
+  "story": {
+    "id": "query-studio-over-mcp",
+    "title": "archkeel-mcp — Answer a client’s map request",
+    "chapters": [
+      {
+        "id": "bind",
+        "title": "Bind the client to a snapshot"
+      },
+      {
+        "id": "listen",
+        "title": "Start the stdio service"
+      },
+      {
+        "id": "answer",
+        "title": "Answer the map request"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "node": "archkeel.explorer_mcp.main",
+      "title": "Start archkeel-mcp",
+      "note": "The client launches archkeel-mcp with the repository root and snapshot path printed by Studio.",
+      "chapter": "bind"
+    },
+    {
+      "node": "archkeel.explorer_queries.query",
+      "title": "Check the snapshot",
+      "note": "An overview query verifies the saved repository root before the service accepts requests.",
+      "chapter": "bind"
+    },
+    {
+      "node": "archkeel.explorer_mcp.main",
+      "title": "Create the MCP server",
+      "note": "After the check succeeds, the process creates the local MCP server.",
+      "chapter": "bind",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.explorer_mcp._query_tools",
+      "title": "Register the map tool",
+      "note": "The map tool accepts a parent, view and optional focus. It uses the same query as the Studio canvas.",
+      "chapter": "listen"
+    },
+    {
+      "node": "archkeel.explorer_mcp.main",
+      "title": "Listen on standard input",
+      "note": "The entry point registers the story tools and starts the stdio transport.",
+      "chapter": "listen",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.explorer_queries.query",
+      "title": "Return the system map",
+      "note": "A client calls map. Its registered callback reads the stored hierarchy and returns items, edges, snapshot identity and coverage to the client. The callback dispatch crosses the MCP library.",
+      "chapter": "answer"
+    }
+  ]
+}
