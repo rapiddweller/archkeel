@@ -239,7 +239,7 @@ impl<'a> Index<'a> {
             && owner.source_binding_unique
             && owner.lexical_parent_id.is_none()
             && Vec::is_empty(&owner.base_declarations)
-            && member.parent.as_deref() == Some(owner.qualified_name.as_str())
+            && member.parent.as_deref() == Some(String::as_str(&owner.qualified_name))
             && member.module == owner.module
             && member.qualified_name == format!("{}.{}", owner.qualified_name, member.name)
             && owner.qualified_name

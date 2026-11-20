@@ -12,7 +12,7 @@ use archkeel_facts::nullable::Nullable;
 use archkeel_facts::vocab::{MethodKind, Status};
 use archkeel_facts::{CallFact, ImportFact, Record, SymbolFact};
 use ruff_python_ast::name::Name;
-use ruff_python_ast::{Expr, ExprCall, Identifier, Stmt, StmtFunctionDef};
+use ruff_python_ast::{Arguments, Expr, ExprCall, Identifier, Stmt, StmtFunctionDef};
 
 use super::found::Found;
 use crate::module::Module;
@@ -237,8 +237,8 @@ fn pair(source: &StmtFunctionDef) -> Option<(&ExprCall, &ExprCall, Option<&str>,
         }
         _ => return None,
     };
-    (method.arguments.is_empty()
-        && constructor.arguments.is_empty()
+    (Arguments::is_empty(&method.arguments)
+        && Arguments::is_empty(&constructor.arguments)
         && matches!(&*constructor.func, Expr::Name(_)))
     .then_some((method, constructor, local, Identifier::as_str(&member.attr)))
 }
