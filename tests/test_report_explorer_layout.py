@@ -1,22 +1,21 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The layout of large and stacked levels of the Explorer, in a headless Chrome.
+"""Check grouping, edge routing and readable zoom in large Explorer layouts."""
 
-The self report holds a part with more than 600 modules ("Rust core"). Its Modules view took
-three seconds of ELK work and then showed an empty corner of a 50000 px sheet (issue 1488); two
-stacked boxes got an edge that ran around the upper box (issue 1489); the first view after a
-drill was drawn at 40 percent, too small to read (issue 1490).
-"""
-
-import json
 import time
-from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from explorer_support import Browser, browser, serve, shell_layer_frames, write_pages
+from explorer_support import (
+    Browser,
+    browser,
+    serve,
+    shell_layer_components,
+    shell_layer_frames,
+    write_pages,
+)
 
 PAGES = {"system": (None, "docs/architecture/architecture-system.json")}
 CORE = "PART%3Acore"
@@ -475,15 +474,7 @@ def test_a_layer_of_one_component_draws_no_frame_around_that_component(
         (a, b, c, d), (e, f, g, h) = frames[inner]["box"], frames[outer]["box"]
         return e <= a and f <= b and c <= g and d <= h
 
-    contract = json.loads(
-        (
-            Path(__file__).resolve().parents[1] / "docs/architecture/target/shell-contract.json"
-        ).read_text()
-    )
-    layers: dict[str, list[str]] = defaultdict(list)
-    for component in contract["components"]:
-        if component.get("layer"):
-            layers[component["layer"]].append(component["id"])
+    layers = shell_layer_components()
     single_layers = [layer for layer, members in layers.items() if len(members) == 1]
     assert single_layers
     for single in single_layers:
