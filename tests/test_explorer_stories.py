@@ -13,9 +13,11 @@ from archkeel.explorer_store import SnapshotIdentity, publish_snapshot
 from archkeel.explorer_stories import list_stories, read_story, save_story
 
 
-def snapshot(root: Path, target: Path) -> None:
+def snapshot(
+    root: Path, target: Path, text: str = "def a():\n    b()\ndef b():\n    pass\n"
+) -> None:
     source = root / "app.py"
-    source.write_text("def a():\n    b()\ndef b():\n    pass\n")
+    source.write_text(text)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
 
     def populate(db):
@@ -305,3 +307,73 @@ def test_external_hint_excludes_known_local_shadow(tmp_path: Path) -> None:
             ("shadow", "a", "b", "call", json.dumps(call)),
         )
     assert save_story(tmp_path, db, spec())["steps"][0]["external"] == []
+
+
+def test_return_checks_inverse_call_without_claiming_runtime_return(tmp_path: Path) -> None:
+    import jsonschema
+
+    db = tmp_path / "snapshot.sqlite3"
+    snapshot(tmp_path, db)
+    body = spec()
+    body["steps"] = [{"node": "app.b"}, {"node": "app.a", "transition": "return"}]
+    result = save_story(tmp_path, db, body)
+    step = result["steps"][1]
+    assert step["transition"] == "return"
+    assert step["status"] == "unknown"
+    assert step["evidence"][0]["line"] == 2
+    assert "runtime return" in step["reason"]
+    schema = json.loads((Path(__file__).parents[1] / "schema/view-spec.schema.json").read_text())
+    jsonschema.validate(body, schema)
+    old = {
+        "schema_version": "1.1.0",
+        "title": "Old",
+        "snapshot": body["snapshot"],
+        "nodes": body["nodes"],
+        "steps": [{"node": "app.b", "transition": "return"}],
+    }
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(old, schema)
+
+
+def test_process_request_and_response_remain_unknown_with_stdio_source(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "snapshot.sqlite3"
+    snapshot(
+        tmp_path,
+        db,
+        "def a():\n    subprocess.run([], input=b'', capture_output=True)\ndef b():\n    pass\n",
+    )
+    with sqlite3.connect(db) as connection:
+        body = {
+            "expression": "subprocess.run",
+            "resolution": "unresolved",
+            "evidence": [{"reference": "call"}],
+        }
+        connection.execute(
+            "INSERT INTO relation VALUES (?,?,?,?,?)",
+            ("process", "a", None, "call", json.dumps(body)),
+        )
+    body = spec()
+    body["steps"] = [
+        {"node": "app.a"},
+        {"node": "app.b", "transition": "process_request"},
+        {"node": "app.a", "transition": "process_response"},
+    ]
+    steps = save_story(tmp_path, db, body)["steps"]
+    assert [step["status"] for step in steps] == ["proven", "unknown", "unknown"]
+    assert [step["transition"] for step in steps] == ["call", "process_request", "process_response"]
+    assert steps[1]["evidence"][0]["line"] == steps[2]["evidence"][0]["line"] == 2
+
+
+def test_pipe_direction_does_not_guess_from_a_plain_subprocess_call(tmp_path: Path) -> None:
+    from archkeel.explorer_stories import _pipe_site
+
+    path = tmp_path / "script.py"
+    path.write_text("subprocess.run(command)\n")
+    site = {"path": "script.py", "line": 1}
+    assert not _pipe_site(tmp_path, site, "process_request")
+    assert not _pipe_site(tmp_path, site, "process_response")
+    path.write_text("subprocess.run(command, input=None, capture_output=False)\n")
+    assert not _pipe_site(tmp_path, site, "process_request")
+    assert not _pipe_site(tmp_path, site, "process_response")

@@ -1,7 +1,8 @@
 :root { --map-inspector-width: clamp(255px, 23vw, 360px); }
 .canvas-toolbar { min-width: 0; }
-.architecture-actions, #map-modes { display: flex; align-items: center; gap: 4px; }
-#map-modes[hidden], #structure-pane[hidden], #details[hidden] { display: none; }
+.architecture-actions, #map-modes, #map-layouts { display: flex; align-items: center; gap: 4px; }
+#map-modes[hidden], #map-layouts[hidden], #structure-pane[hidden], #details[hidden] { display: none; }
+#map-layouts { padding-inline-start: 5px; border-inline-start: 1px solid var(--line-strong); }
 body:has(#story[aria-pressed="true"]) .architecture-actions { display: none; }
 
 body:has(#map[aria-pressed="true"]) {
@@ -54,6 +55,7 @@ body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20
 .map-plane { position: relative; margin: auto; isolation: isolate; }
 .map-plane .card, .map-group { position: absolute; }
 .map-plane .card { z-index: 3; overflow: hidden; text-wrap: pretty; }
+.map-plane .map-collapsed { border-style: dashed; }
 .map-plane .uml-head .uml-name { overflow-wrap: anywhere; }
 .map-plane .uml-head .uml-purpose { -webkit-line-clamp: 3; }
 .map-plane .map-card-path { margin-top: 4px; font-size: 10px; overflow-wrap: anywhere; }
@@ -64,6 +66,7 @@ body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20
 }
 .map-unknown { color: var(--unknown-text); font: 10px/1.4 var(--font-mono); }
 .map-call-count { color: var(--ink-muted); font: 10px/1.4 var(--font-mono); white-space: nowrap; }
+.map-call-count .unknown { display: inline; }
 .uml-head .map-call-count { margin-top: 4px; }
 .map-group-title .map-call-count { margin-left: auto; }
 .map-plane [aria-pressed="true"] { box-shadow: 0 0 0 1px var(--accent), var(--shadow-pop); }
@@ -159,6 +162,11 @@ body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20
 .tree-message button { font-size: inherit; padding: 2px 5px; }
 #more, #previous { margin-top: 0; }
 @media (max-width: 860px) {
+  body:has(#map[aria-pressed="true"]) .canvas-toolbar {
+    flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; white-space: nowrap;
+  }
+  .canvas-toolbar > *, .architecture-actions > * { flex-shrink: 0; }
+  .architecture-actions { flex-wrap: nowrap; }
   body:has(#map[aria-pressed="true"]) #structure-pane,
   body:has(#map[aria-pressed="true"]) #details {
     position: absolute; inset-block: 0; z-index: 8; width: min(82vw, 340px);

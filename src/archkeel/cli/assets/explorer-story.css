@@ -5,6 +5,15 @@ body:has(#story[aria-pressed="true"]) .view-tools { display: none; }
 #cards:has(.story-board), #cards:has(.story-library) { display: block; }
 .story-scroll-hint { margin: 0 0 6px; color: var(--ink-muted); font: 12px/1.4 var(--font-sans); }
 .story-board { min-width: max(100%, calc(var(--story-lanes) * 172px)); padding-inline: 2px; }
+.story-stage { position: relative; display: flex; align-items: flex-start; gap: 12px; }
+.story-flow { flex: 1; min-width: calc(var(--story-lanes) * 172px); }
+.story-external-rail { position: sticky; top: 10px; flex: 0 0 170px; }
+.story-external-rail h3 { margin: 0 0 12px; color: var(--ink-muted); font: 650 11px/1.4 var(--font-mono); }
+.story-external-card { margin-bottom: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); color: var(--ink-muted); }
+.story-external-card strong, .story-external-card span { display: block; }
+.story-external-card strong { color: var(--ink); font-size: 12px; }
+.story-external-card span { margin-top: 5px; font: 11px/1.4 var(--font-mono); }
+.story-external-card.active { border-color: var(--accent); background: var(--accent-subtle); }
 .story-lane-headings, .story-timeline {
   display: grid; grid-template-columns: repeat(var(--story-lanes), minmax(0, 1fr)); gap: 20px 8px;
 }
@@ -104,11 +113,64 @@ body:has(#story[aria-pressed="true"]) .view-tools { display: none; }
 }
 .story-routes g.future { opacity: .25; }
 .story-moving-marker { fill: var(--accent) !important; stroke: var(--surface-0); stroke-width: 2; }
-.story-node.future { opacity: .9; }
+ .story-node:not([aria-current="step"]) { opacity: .7; }
 .story-step-title, .story-narration { display: block; margin-top: 4px; }
-.story-step-title { color: var(--ink); font-weight: 650; }
-.story-narration { color: var(--ink-muted); font: 12px/1.45 var(--font-sans); }
+.story-step-title { color: var(--ink-muted); font-size: 11px; }
+.story-narration { color: var(--ink-muted); font: 12px/1.4 var(--font-sans); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
 .story-system { display: inline-block; margin: 5px 4px 0 0; padding: 2px 6px; border: 1px solid var(--line); border-radius: 5px; }
 @media (prefers-reduced-motion: reduce) { .story-moving-marker { display: none; } }
 
 .story-system.unknown { color: var(--unknown-text); border-style: dashed; }
+
+body:has(#story[aria-pressed="true"]) { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; overflow: hidden; }
+body:has(#story[aria-pressed="true"]) .bar { min-height: 48px; padding: 6px 14px; }
+body:has(#story[aria-pressed="true"]) main { display: grid; grid-template-rows: auto auto minmax(0, 1fr); width: 100%; max-width: none; min-height: 0; padding: 8px 10px 10px; margin: 0; }
+body:has(#story[aria-pressed="true"]) .heading { margin: 0 4px 7px; justify-content: start; gap: 12px; }
+body:has(#story[aria-pressed="true"]) .heading h1 { font-size: 17px; letter-spacing: 0; }
+body:has(#story[aria-pressed="true"]) #notice { font-size: 12px; padding-inline: 5px; }
+body:has(#story[aria-pressed="true"]) .workspace { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; position: relative; }
+body:has(#story[aria-pressed="true"]) .canvas-toolbar { display: flex; align-items: center; padding: 6px; min-height: 46px; background: var(--surface-1); border-bottom: 1px solid var(--line); }
+body:has(#story[aria-pressed="true"]) #breadcrumbs { min-height: 34px; border: 0; padding: 0 8px; }
+body:has(#story[aria-pressed="true"]) .body-grid { min-height: 0; }
+body:has(#story[aria-pressed="true"]) .work-area { min-height: 0; }
+body:has(#story[aria-pressed="true"]) #viewport { max-height: none; min-height: 0; }
+body:has(#story[aria-pressed="true"]) #canvas { min-height: 100%; }
+body:has(#story[aria-pressed="true"]) #details { overflow: auto; min-height: 0; }
+@media (max-width: 740px) {
+  body:has(#story[aria-pressed="true"]) .body-grid { display: grid; grid-template-rows: minmax(0, 1fr); position: relative; }
+  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) .body-grid { display: grid; }
+  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #viewport { max-height: none; }
+  body:has(#story[aria-pressed="true"]) #details { position: absolute; inset: auto 0 0; height: 35%; z-index: 8; order: initial; box-shadow: var(--shadow-pop); }
+  body:has(#story[aria-pressed="true"]) .bar { gap: 4px; }
+  body:has(#story[aria-pressed="true"]) .bar strong { font-size: 14px; }
+  body:has(#story[aria-pressed="true"]) .bar nav { gap: 4px; }
+  body:has(#story[aria-pressed="true"]) .bar button, body:has(#story[aria-pressed="true"]) .bar a { font-size: 12px; padding: 4px 6px; }
+}
+
+.story-external-routes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; overflow: visible; }
+.story-external-routes path { fill: none; stroke: var(--pass); stroke-width: 2; }
+.story-external-routes circle { fill: var(--pass); }
+.story-external-routes .unknown path { stroke: var(--unknown); stroke-dasharray: 3 5; }
+.story-external-routes .unknown circle { fill: var(--unknown); }
+
+.story-route-label { fill: currentColor; font: 650 10px var(--font-mono); paint-order: stroke; stroke: var(--surface-0); stroke-width: 4px; stroke-linejoin: round; }
+#notice:not(:empty) { position: fixed; z-index: 30; top: 54px; left: 50%; transform: translateX(-50%); max-width: min(90vw, 700px); padding: 8px 12px; border: 1px solid var(--unknown); border-radius: 8px; background: var(--surface-1); box-shadow: var(--shadow-pop); }
+#notice button { margin-inline-start: 8px; }
+
+.story-external-label { fill: var(--ink); font: 650 10px var(--font-mono); paint-order: stroke; stroke: var(--surface-0); stroke-width: 4px; stroke-linejoin: round; }
+@media (max-width: 740px) {
+  body:has(#map[aria-pressed="true"]) .bar { gap: 4px; }
+  body:has(#map[aria-pressed="true"]) .bar strong { font-size: 14px; }
+  body:has(#map[aria-pressed="true"]) .bar nav { gap: 4px; }
+  body:has(#map[aria-pressed="true"]) .bar button, body:has(#map[aria-pressed="true"]) .bar a { font-size: 12px; padding: 4px 6px; }
+  body:has(#map[aria-pressed="true"]) .heading { flex-wrap: nowrap; min-width: 0; }
+  body:has(#map[aria-pressed="true"]) .heading h1 { flex: none; }
+  body:has(#map[aria-pressed="true"]) #overview { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+body:has(#story[aria-pressed="true"]) #story-controls { position: absolute; z-index: 9; inset: auto 0 0; background: var(--surface-1); }
+body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #canvas { padding-bottom: 76px; }
+body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #details { padding-bottom: 76px; }
+@media (max-width: 740px) {
+  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #canvas,
+  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #details { padding-bottom: 110px; }
+}

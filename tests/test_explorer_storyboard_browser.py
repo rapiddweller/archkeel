@@ -25,6 +25,8 @@ def test_story_lanes_evidence_play_and_reduced_motion(tmp_path: Path, monkeypatc
                     "label": "SQLite",
                     "status": "observed_call",
                     "binding": "unknown",
+                    "direction": "writes",
+                    "direction_evidence": [{"path": "app.py", "line": 1}],
                     "reason": "Static call only.",
                     "evidence": [{"path": "app.py", "line": 1}],
                 }
@@ -36,6 +38,7 @@ def test_story_lanes_evidence_play_and_reduced_motion(tmp_path: Path, monkeypatc
             "function": "save",
             "note": "Save the result.",
             "status": "unknown",
+            "transition": "process_request",
             "external": [{"system": "redis", "status": "claim", "evidence": []}],
         },
     ]
@@ -83,6 +86,27 @@ def test_story_lanes_evidence_play_and_reduced_motion(tmp_path: Path, monkeypatc
                         "[...document.querySelectorAll('.story-node strong')].map(x=>x.textContent)"
                     ) == ["first", "save"]
                     assert page.evaluate("document.querySelectorAll('.story-system').length") == 1
+                    assert (
+                        page.evaluate(
+                            "getComputedStyle(document.querySelectorAll('.story-node')[1]).visibility"
+                        )
+                        == "hidden"
+                    )
+                    assert (
+                        page.evaluate("document.querySelectorAll('.story-routes path').length") == 0
+                    )
+                    assert "Writes · static" in page.evaluate(
+                        "document.querySelector('.story-external-rail').innerText"
+                    )
+                    assert (
+                        page.evaluate(
+                            "document.querySelectorAll('.story-external-routes path').length"
+                        )
+                        == 1
+                    )
+                    assert "Writes · static" in page.evaluate(
+                        "document.querySelector('.story-external-label').textContent"
+                    )
                     assert "SQLite · binding unknown" in page.evaluate(
                         "document.querySelector('.story-system').textContent"
                     )
@@ -105,6 +129,15 @@ def test_story_lanes_evidence_play_and_reduced_motion(tmp_path: Path, monkeypatc
                         "document.getElementById('story-position').textContent.includes('2 / 2')"
                     )
                     assert page.evaluate("document.querySelectorAll('animateMotion').length") == 0
+                    assert (
+                        page.evaluate("document.querySelectorAll('.story-routes path').length") == 1
+                    )
+                    assert (
+                        page.evaluate(
+                            "getComputedStyle(document.querySelectorAll('.story-node')[1]).visibility"
+                        )
+                        == "visible"
+                    )
                     assert "redis · Claim" in page.evaluate(
                         "document.getElementById('details').innerText"
                     )
@@ -120,5 +153,113 @@ def test_story_lanes_evidence_play_and_reduced_motion(tmp_path: Path, monkeypatc
                     )
                     assert page.evaluate("document.querySelectorAll('animateMotion').length") == 1
             finally:
+                server.shutdown()
+                running.result(timeout=5)
+
+
+def test_failed_switch_keeps_previous_view_and_retry_succeeds(tmp_path: Path, monkeypatch) -> None:
+    attempts = []
+
+    def stories(*args):
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise ValueError("story storage unavailable")
+        return [{"id": "example", "title": "Example"}]
+
+    def query(path, root, operation, args):
+        return {
+            "coverage": {},
+            "items": [{"id": "part", "name": "Part", "kind": "component", "parent": "system"}],
+            "groups": [],
+            "edges": [],
+            "total": 1,
+            "next_cursor": None,
+            "edge_total": 0,
+            "edges_truncated": False,
+        }
+
+    monkeypatch.setattr(core_explorer_http, "list_stories", stories)
+    monkeypatch.setattr(core_explorer_http, "query", query)
+    with core_explorer_http._ExplorerServer(tmp_path / "db", tmp_path, None, 0) as server:
+        with ThreadPoolExecutor() as pool:
+            running = pool.submit(server.serve_forever)
+            try:
+                with browser(tmp_path / "profile") as page:
+                    page.send("Page.navigate", url=f"http://127.0.0.1:{server.server_port}/")
+                    page.wait("document.querySelector('.map-plane') !== null")
+                    page.evaluate("document.getElementById('story').click()")
+                    page.wait("document.querySelector('#notice button') !== null")
+                    assert "story storage unavailable" in page.evaluate(
+                        "document.getElementById('notice').innerText"
+                    )
+                    assert page.evaluate("document.querySelector('.map-plane') !== null")
+                    assert (
+                        page.evaluate("document.getElementById('map').getAttribute('aria-pressed')")
+                        == "true"
+                    )
+                    page.evaluate("document.querySelector('#notice button').click()")
+                    page.wait("document.querySelector('.story-library button') !== null")
+                    assert (
+                        page.evaluate(
+                            "document.getElementById('story').getAttribute('aria-pressed')"
+                        )
+                        == "true"
+                    )
+                    assert page.evaluate("document.getElementById('notice').innerText") == ""
+            finally:
+                server.shutdown()
+                running.result(timeout=5)
+
+
+def test_late_story_response_does_not_replace_newer_architecture(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from threading import Event
+
+    entered, release, finished = Event(), Event(), Event()
+
+    def stories(*args):
+        entered.set()
+        release.wait(5)
+        finished.set()
+        return [{"id": "example", "title": "Example"}]
+
+    monkeypatch.setattr(core_explorer_http, "list_stories", stories)
+    monkeypatch.setattr(
+        core_explorer_http,
+        "query",
+        lambda *args: {
+            "coverage": {},
+            "items": [],
+            "groups": [],
+            "edges": [],
+            "total": 0,
+            "next_cursor": None,
+            "edge_total": 0,
+            "edges_truncated": False,
+        },
+    )
+    with core_explorer_http._ExplorerServer(tmp_path / "db", tmp_path, None, 0) as server:
+        with ThreadPoolExecutor() as pool:
+            running = pool.submit(server.serve_forever)
+            try:
+                with browser(tmp_path / "profile") as page:
+                    page.send("Page.navigate", url=f"http://127.0.0.1:{server.server_port}/")
+                    page.wait(
+                        "document.getElementById('map').getAttribute('aria-pressed') === 'true'"
+                    )
+                    page.evaluate("document.getElementById('story').click()")
+                    assert entered.wait(3)
+                    page.evaluate("document.getElementById('map').click()")
+                    release.set()
+                    assert finished.wait(3)
+                    page.evaluate("new Promise(resolve => setTimeout(resolve, 100))")
+                    assert (
+                        page.evaluate("document.getElementById('map').getAttribute('aria-pressed')")
+                        == "true"
+                    )
+                    assert page.evaluate("document.querySelector('.story-library') === null")
+            finally:
+                release.set()
                 server.shutdown()
                 running.result(timeout=5)

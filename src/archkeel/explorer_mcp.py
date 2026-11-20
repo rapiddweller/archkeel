@@ -28,9 +28,11 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
         """List one page of children in the selected scope."""
         return query(path, root, "children", {"parent": parent, "cursor": cursor, "limit": limit})
 
-    def search(text: str, cursor: str = "", limit: int = 50) -> Row:
-        """Find elements by name in the pinned scan."""
-        return query(path, root, "search", {"text": text, "cursor": cursor, "limit": limit})
+    def search(text: str, cursor: str = "", limit: int = 50, parent: str = "") -> Row:
+        """Find elements by name, or find modules within a map branch."""
+        return query(
+            path, root, "search", {"text": text, "cursor": cursor, "limit": limit, "parent": parent}
+        )
 
     def relations(
         element: str, direction: str = "both", cursor: str = "", limit: int = 50, kind: str = ""

@@ -2,13 +2,19 @@
   "schema_version": "1.2.0",
   "title": "How Explore builds a cold snapshot",
   "snapshot": {
-    "source_digest": "6066c1a83f0a11ee61e24ad80b71acdfbf335b59a92029dcb29958b6a760d452",
+    "source_digest": "e35f361681392a61fb2c62c7140976397fb61f0c6732bf88ffd4a6ff70f969ef",
     "contract_digest": "d6c663e702176afbfd38382ae492791b20198ba74ee6e9054eafcbc44ca16358"
   },
   "nodes": [
     "archkeel.cli.core_only._explore",
     "archkeel.cli.core_explorer.launch",
     "archkeel.cli.core_explorer._publish",
+    "archkeel.cli.core_only._exchange_scan",
+    "archkeel.cli.native_scan.exchange",
+    "native.archkeel_core.main",
+    "native.archkeel_core.scan_answer",
+    "native.archkeel_core.scan.answer",
+    "archkeel.cli.core_frame.read_frame",
     "archkeel.explorer_store.publish_snapshot",
     "archkeel.explorer_store._build"
   ],
@@ -21,8 +27,20 @@
         "title": "Enter Explore"
       },
       {
+        "id": "request",
+        "title": "Send the request"
+      },
+      {
+        "id": "core",
+        "title": "Run the Rust core"
+      },
+      {
+        "id": "return",
+        "title": "Return and validate the frame"
+      },
+      {
         "id": "build",
-        "title": "Build the cold snapshot"
+        "title": "Write the snapshot"
       }
     ]
   },
@@ -30,31 +48,110 @@
     {
       "node": "archkeel.cli.core_only._explore",
       "title": "Explore command",
-      "note": "The explore command selects the project and prepares the scan.",
+      "note": "Select the project and prepare a scan.",
       "chapter": "start"
     },
     {
       "node": "archkeel.cli.core_explorer.launch",
       "title": "Choose the cold path",
-      "note": "On a cold cache, the launcher requests a snapshot build. The static call link from the command is unresolved.",
+      "note": "A missing matching snapshot selects the cold build path. The call binding from the command remains unresolved.",
       "chapter": "start"
     },
     {
       "node": "archkeel.cli.core_explorer._publish",
+      "title": "Prepare the scan",
+      "note": "The publisher requests a fresh scan before preparing the snapshot.",
+      "chapter": "start"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Prepare the core request",
+      "note": "The scan callback serializes the request and asks the native core for a frame. The callback binding is unresolved.",
+      "chapter": "request"
+    },
+    {
+      "node": "archkeel.cli.native_scan.exchange",
+      "title": "Start the core process",
+      "note": "The shell runs the core with the scan request on standard input and captures its output.",
+      "chapter": "request"
+    },
+    {
+      "node": "native.archkeel_core.main",
+      "title": "Read the request",
+      "note": "The Rust child selects the scan request and reads the request bytes from standard input. The cross-process binding is not resolved.",
+      "chapter": "request",
+      "transition": "process_request"
+    },
+    {
+      "node": "native.archkeel_core.scan_answer",
+      "title": "Dispatch the scan",
+      "note": "The scan entry delegates the request to the core scan implementation.",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.scan.answer",
+      "title": "Collect and evaluate",
+      "note": "The core runs collection and evaluation, and prepares a frame for its caller.",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.scan_answer",
+      "title": "Return the scan result",
+      "note": "The scan result returns to the scan entry. This is a return, not a reverse call.",
+      "chapter": "return",
+      "transition": "return"
+    },
+    {
+      "node": "native.archkeel_core.main",
+      "title": "Write the frame",
+      "note": "The core writes the frame to standard output. The return path is not observed at runtime.",
+      "chapter": "return",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.cli.native_scan.exchange",
+      "title": "Receive the frame",
+      "note": "The shell receives the child process output and exit code. The process response is not resolved as a call edge.",
+      "chapter": "return",
+      "transition": "process_response"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Return to the scan",
+      "note": "The exchange returns the captured frame bytes to the scan wrapper.",
+      "chapter": "return",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.cli.core_frame.read_frame",
+      "title": "Validate the frame",
+      "note": "The scan wrapper reads the frame and checks its protocol and request binding.",
+      "chapter": "return"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Return the checked frame",
+      "note": "The frame reader returns to the wrapper. A static call does not prove a runtime return.",
+      "chapter": "return",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.cli.core_explorer._publish",
       "title": "Prepare the snapshot",
-      "note": "The publisher prepares the observed topology and submits it for storage.",
-      "chapter": "build"
+      "note": "The scan callback returns the frame to the publisher. Its dynamic binding is unresolved.",
+      "chapter": "build",
+      "transition": "return"
     },
     {
       "node": "archkeel.explorer_store.publish_snapshot",
       "title": "Publish the snapshot",
-      "note": "Snapshot publication builds a database when no matching snapshot exists.",
+      "note": "The publisher builds a database when no matching snapshot exists.",
       "chapter": "build"
     },
     {
       "node": "archkeel.explorer_store._build",
-      "title": "Build the database",
-      "note": "The builder opens the temporary SQLite database and writes the snapshot transaction. The call binding is unresolved.",
+      "title": "Write the database",
+      "note": "The builder opens a temporary SQLite database and writes its snapshot transaction. The SQLite binding remains unknown.",
       "chapter": "build"
     }
   ]

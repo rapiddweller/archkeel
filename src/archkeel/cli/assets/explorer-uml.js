@@ -21,7 +21,7 @@ function umlGlyph(kind) {
 }
 
 function canOpenScope(item) {
-  return ["component", "module", "class"].includes(item.kind);
+  return ["component", "layer", "directory", "module", "class"].includes(item.kind);
 }
 
 function displayGroup(item) {

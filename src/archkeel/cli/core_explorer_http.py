@@ -23,9 +23,11 @@ _ASSETS = Path(__file__).with_name("assets")
 _ROUTES = {
     "/": ("explorer.html", "text/html; charset=utf-8"),
     "/explorer.js": ("explorer.js", "text/javascript; charset=utf-8"),
+    "/explorer-navigation.js": ("explorer-navigation.js", "text/javascript; charset=utf-8"),
     "/explorer-uml.js": ("explorer-uml.js", "text/javascript; charset=utf-8"),
     "/explorer-tree.js": ("explorer-tree.js", "text/javascript; charset=utf-8"),
     "/explorer-story.js": ("explorer-story.js", "text/javascript; charset=utf-8"),
+    "/explorer-story-loading.js": ("explorer-story-loading.js", "text/javascript; charset=utf-8"),
     "/explorer-story-routes.js": ("explorer-story-routes.js", "text/javascript; charset=utf-8"),
     "/explorer-story.css": ("explorer-story.css", "text/css; charset=utf-8"),
     "/explorer-map.js": ("explorer-map.js", "text/javascript; charset=utf-8"),
@@ -64,6 +66,17 @@ class _ExplorerServer(ThreadingHTTPServer):
         if not tokens.is_file():
             tokens = _ASSETS.parents[3] / "native/report/assets/tokens.css"
         self.css = tokens.read_bytes()
+        # A running server must serve the client that matches its query protocol.
+        self.assets: dict[str, tuple[bytes, str]] = {}
+        for route, (file, content) in _ROUTES.items():
+            asset = _ASSETS / file
+            if not asset.is_file() and file in {
+                "report-layout.js",
+                "report-placement.js",
+                "elkjs-0.12.0.bundled.js",
+            }:
+                asset = _ASSETS.parents[3] / "native/report/assets/explorer" / file
+            self.assets[route] = asset.read_bytes(), content
         super().__init__(("127.0.0.1", port), _Browse)
 
 
@@ -168,23 +181,10 @@ class _Browse(BaseHTTPRequestHandler):
             if url.netloc or url.scheme or len(self.path) > 4096:
                 raise ValueError("invalid request")
             operation = url.path.removeprefix("/api/").removeprefix("v1/")
-            if url.path in _ROUTES:
-                file, content = _ROUTES[url.path]
-                asset = _ASSETS / file
-                if (
-                    file in {"report-layout.js", "report-placement.js", "elkjs-0.12.0.bundled.js"}
-                    and not asset.is_file()
-                ):
-                    asset = _ASSETS.parents[3] / "native/report/assets/explorer" / file
-                self._reply(200, asset.read_bytes(), content)
+            if url.path in self.server.assets:
+                self._reply(200, *self.server.assets[url.path])
             elif url.path == "/api/v1/stories":
-                args = parse_qsl(url.query, keep_blank_values=True, strict_parsing=True)
-                if not args:
-                    self._json(200, {"items": list_stories(self.server.root, self.server.snapshot)})
-                elif len(args) == 1 and args[0][0] == "id":
-                    self._json(200, read_story(self.server.root, self.server.snapshot, args[0][1]))
-                else:
-                    raise ValueError("invalid story request")
+                self._stories(parse_qsl(url.query, keep_blank_values=True, strict_parsing=True))
             elif url.path == "/report":
                 self._native_report()
             elif url.path.startswith("/archkeel-gaps-") and url.path.endswith(".json"):
@@ -199,6 +199,23 @@ class _Browse(BaseHTTPRequestHandler):
             self._reply(400, b"Invalid Explorer request.")
         except (OSError, CoreError):
             self._reply(409, b"The report is unavailable for this snapshot. Restart the Explorer.")
+
+    def _stories(self, args: list[tuple[str, str]]) -> None:
+        try:
+            if not args:
+                result: dict[str, object] = {
+                    "items": list_stories(self.server.root, self.server.snapshot)
+                }
+            elif len(args) == 1 and args[0][0] == "id":
+                result = read_story(self.server.root, self.server.snapshot, args[0][1])
+            else:
+                raise ValueError("invalid story request")
+        except ValueError as error:
+            self._reply(400, f"Story: {error}.".encode())
+        except (OSError, sqlite3.Error):
+            self._reply(409, b"Studio could not read the story or its snapshot.")
+        else:
+            self._json(200, result)
 
     def _native_report(self) -> None:
         if self.server.report is None:
@@ -237,7 +254,11 @@ class _Browse(BaseHTTPRequestHandler):
             if operation == "source":
                 reason = str(error) if isinstance(error, ValueError) else "source cannot be read"
                 self._reply(409, f"Snapshot source unavailable: {reason}.".encode())
+            elif isinstance(error, ValueError):
+                self._reply(400, f"Explorer {operation}: {error}.".encode())
             else:
-                self._reply(400, b"The requested Explorer data is unavailable.")
+                self._reply(
+                    409, b"Studio could not read the snapshot. Restart Studio to scan again."
+                )
             return
         self._reply(200, json.dumps(result).encode(), "application/json; charset=utf-8")

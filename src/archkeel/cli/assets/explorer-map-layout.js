@@ -1,11 +1,14 @@
 "use strict";
 
-function mapGraph(parent, response) {
+let mapLayout = "groups";
+let layoutSwitch = 0;
+
+function mapGraph(parent, response, mode) {
   const { items, groups = [], edges } = response;
   const included = new Set([...items, ...groups].map((node) => node.id));
   const graphEdges = edges.filter((edge) => included.has(edge.source) && included.has(edge.target)
     && edge.source !== edge.target);
-  const compact = graphEdges.length > 16;
+  const compact = !graphEdges.length || mode === "groups" && (groups.length > 0 || items.length > 2);
   const graphRoot = "map-root";
   const children = new Map();
   const width = viewport.clientWidth || 1200;
@@ -13,10 +16,11 @@ function mapGraph(parent, response) {
   const aspect = String(Math.max(1.2, Math.min(3, width / height * 1.45)));
   const options = {
     "elk.algorithm": !compact && graphEdges.length ? "layered" : "rectpacking",
-    "elk.direction": "RIGHT", "elk.hierarchyHandling": "INCLUDE_CHILDREN",
+    "elk.direction": mode === "down" ? "DOWN" : "RIGHT", "elk.hierarchyHandling": "INCLUDE_CHILDREN",
     "elk.edgeRouting": "ORTHOGONAL", "elk.padding": "[top=38,left=38,bottom=36,right=38]",
     "elk.separateConnectedComponents": "true", "elk.spacing.nodeNode": "40",
     "elk.layered.spacing.nodeNodeBetweenLayers": "94",
+    "elk.rectpacking.widthApproximation.targetWidth": String(Math.max(760, Math.floor(width * .88))),
     "elk.aspectRatio": aspect,
   };
   const nodeId = (id) => "node:" + id;
@@ -30,7 +34,10 @@ function mapGraph(parent, response) {
     if (!children.has(id)) children.set(id, []);
     append(group.parent, {
       id, children: children.get(id), width: mapCardWidth, height: 64,
-      layoutOptions: { "elk.padding": "[top=52,left=22,bottom=22,right=22]", "elk.aspectRatio": "1.6" },
+      layoutOptions: {
+        "elk.padding": "[top=52,left=22,bottom=22,right=22]", "elk.aspectRatio": "1.6",
+        "elk.rectpacking.widthApproximation.targetWidth": group.kind === "layer" ? "640" : "495",
+      },
     });
   }
   for (const item of items) {
@@ -42,7 +49,8 @@ function mapGraph(parent, response) {
         + (item.unresolved_calls > 0 ? 23 : 0),
     });
   }
-  const represented = (compact ? [] : graphEdges).map((edge) => {
+  // A stable subset guides dense placement. Every measured edge remains available for focus.
+  const represented = (compact ? [] : placementEdges(graphEdges)).map((edge) => {
     const link = { id: edge.id, sources: [nodeId(edge.source)], targets: [nodeId(edge.target)] };
     const text = mapEdgeName(edge);
     link.labels = [{ id: "label:" + edge.id, text, width: Math.min(225, text.length * 7 + 16), height: 26 }];
@@ -58,8 +66,20 @@ function mapGraph(parent, response) {
   };
 }
 
-async function layoutMap(response) {
-  const { graph, expected, edges } = mapGraph(response.parent, response);
+function placementEdges(edges) {
+  if (edges.length <= 28) return edges;
+  const degree = new Map();
+  return [...edges].sort((a, b) => (b.count ?? 1) - (a.count ?? 1) || a.id.localeCompare(b.id))
+    .filter((edge) => {
+      const count = degree.get(edge.source) ?? 0;
+      if (count === 2) return false;
+      degree.set(edge.source, count + 1);
+      return true;
+    }).slice(0, 28);
+}
+
+async function layoutMap(response, mode = mapLayout) {
+  const { graph, expected, edges } = mapGraph(response.parent, response, mode);
   const placement = globalThis.ArchkeelReportPlacement;
   const model = await placement.layout(graph);
   const graphNodes = [];
@@ -72,7 +92,7 @@ async function layoutMap(response) {
 }
 
 function mapRoutes(layout, edges) {
-  if (!edges.length || layout.routes.size) return layout.routes;
+  if (edges.every((edge) => layout.routes.has(edge.id))) return layout.routes;
   const withoutPrefix = (id) => id.slice(5);
   const positions = Object.fromEntries(Object.entries(layout.positions).map(([id, at]) =>
     [withoutPrefix(id), at]));
@@ -86,4 +106,70 @@ function mapRoutes(layout, edges) {
     frames, cardWidth: mapCardWidth, gap: 24, laneGap: 18, rowGap: 34,
   });
   return new Map(result.map((route) => [route.edgeId, route]));
+}
+
+function showMapLayoutControls(show) {
+  const controls = get("map-layouts");
+  controls.hidden = !show;
+  for (const button of controls.querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.mapLayout === mapLayout));
+  }
+}
+
+function bindMapLayouts() {
+  get("map-layouts").addEventListener("click", (event) => {
+    const mode = event.target.closest("button")?.dataset.mapLayout;
+    if (mode) switchMapLayout(mode).catch(showError);
+  });
+}
+
+async function switchMapLayout(mode) {
+  const previous = mapView.scene;
+  if (!previous?.plane.isConnected) return;
+  const ticket = ++layoutSwitch;
+  if (mode === mapLayout) return;
+  const request = state.request;
+  const response = mapView.response;
+  const result = await layoutMap(response, mode);
+  if (ticket !== layoutSwitch || previous !== mapView.scene || request !== state.request) return;
+  const active = [...previous.plane.querySelectorAll(".map-active-edge")].map((edge) => edge.dataset.mapEdge);
+  const scene = paintMapScene(result, response);
+  mapView.scene = scene;
+  mapLayout = mode;
+  showMapLayoutControls(true);
+  focusMap(state.selected);
+  for (const link of scene.plane.querySelectorAll(".map-edges [data-map-edge]")) {
+    if (active.includes(link.dataset.mapEdge)) link.classList.add("map-active-edge");
+  }
+  zoomMap(0);
+  panMapTo(treeMapAnchor(state.selected));
+}
+
+function panMapTo(card) {
+  if (!card) return;
+  const box = card.getBoundingClientRect();
+  const stage = viewport.getBoundingClientRect();
+  const freeWidth = Math.max(200, stage.width - details.clientWidth);
+  viewport.scrollBy(box.x - stage.x - (freeWidth - box.width) / 2,
+    box.y - stage.y - (stage.height - box.height) / 2);
+}
+function placeMapLabel(path, label, obstacles) {
+  const halfWidth = label.offsetWidth / 2;
+  const halfHeight = label.offsetHeight / 2;
+  const length = path.getTotalLength();
+  const candidates = [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8].map((fraction) => {
+    const { x, y } = path.getPointAtLength(length * fraction);
+    const box = { left: x - halfWidth, top: y - halfHeight,
+      right: x + halfWidth, bottom: y + halfHeight };
+    const overlaps = obstacles.filter((other) => box.left < other.right &&
+      box.right > other.left && box.top < other.bottom && box.bottom > other.top).length;
+    return { x, y, box, overlaps };
+  });
+  const at = candidates.reduce((best, next) => next.overlaps < best.overlaps ? next : best);
+  if (at.overlaps) {
+    label.remove();
+    return;
+  }
+  obstacles.push(at.box);
+  mapPosition(label, at.x, at.y);
 }

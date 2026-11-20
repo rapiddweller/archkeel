@@ -123,6 +123,7 @@ def test_explorer_queries_are_read_only(monkeypatch: pytest.MonkeyPatch, tmp_pat
                 response = client.getresponse()
                 return response.status, response.read()
 
+            monkeypatch.setattr(core_explorer_http, "_ASSETS", tmp_path / "after-upgrade")
             code, body = request("/")
             assert code == 200 and b'src="/explorer-story.js"' in body
             assert request("/explorer-story.js")[0] == 200

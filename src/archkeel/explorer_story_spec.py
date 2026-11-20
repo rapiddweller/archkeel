@@ -43,7 +43,9 @@ def _text(value: object) -> str:
 def _steps(steps: list[Any], nodes: list[Any], ids: list[str]) -> None:
     for index, raw in enumerate(steps):
         step = _object(
-            raw, {"node"}, {"note", "kind", "claim", "chapter", "title", "question", "external"}
+            raw,
+            {"node"},
+            {"note", "kind", "claim", "chapter", "title", "question", "external", "transition"},
         )
         if _text(step["node"]) not in nodes:
             raise ValueError("step node is not declared")
@@ -64,6 +66,15 @@ def _steps(steps: list[Any], nodes: list[Any], ids: list[str]) -> None:
             raise ValueError("invalid story relationship")
         if index == 0 and (step.get("kind") is not None or step.get("claim", False)):
             raise ValueError("first step has no relationship")
+        if step.get("transition", "call") not in (
+            "call",
+            "return",
+            "process_request",
+            "process_response",
+        ):
+            raise ValueError("invalid story transition")
+        if index == 0 and step.get("transition", "call") != "call":
+            raise ValueError("first step has no transition")
         external = step.get("external", [])
         if not isinstance(external, list):
             raise ValueError("invalid external systems")

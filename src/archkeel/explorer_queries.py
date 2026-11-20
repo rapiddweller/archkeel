@@ -11,7 +11,7 @@ from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
 from .explorer_boundaries import boundary_rows
-from .explorer_map import _map_view
+from .explorer_map import _map_search, _map_view
 from .explorer_source import _number, _source, _source_path
 from .explorer_store import open_snapshot
 from .explorer_symbols import _symbol_rows
@@ -331,7 +331,7 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
         if operation in {"overview", "children"}:
             where, params = "parent=?", [_text(args, "parent", "system")]
         elif operation == "search":
-            where, params = "instr(lower(name),lower(?))>0", [_text(args, "text")]
+            where, params = _map_search(db, _text(args, "text"), _text(args, "parent", ""))
         elif operation == "relations":
             table = "relation"
             direction = _text(args, "direction", "both")

@@ -63,7 +63,7 @@ function stopStoryPlayback() {
 
 function storyStatus() {
   const counts = new Map();
-  for (const step of state.hops.map(storyStep)) {
+  for (const step of state.hops.slice(0, state.storyIndex + 1).map(storyStep)) {
     counts.set(step.status, (counts.get(step.status) ?? 0) + 1);
   }
   return [...counts].map(([status, count]) => count + " " + (proofMarks[status]?.[1] ?? "Unknown").toLowerCase()).join(" · ");
@@ -74,6 +74,8 @@ function paintStory() {
   const entries = storyView.saved ? steps : [endpoint(state.hops[0], "source"), ...steps];
   const lanes = [...new Set(entries.map((step) => step.lane ?? "Owner unknown"))];
   const board = element("section", "", "story-board");
+  const stage = element("div", "", "story-stage");
+  const flow = element("div", "", "story-flow");
   board.setAttribute("aria-label", "Story lanes");
   board.style.setProperty("--story-lanes", lanes.length);
   const heading = element("div", "", "story-lane-headings");
@@ -88,8 +90,12 @@ function paintStory() {
   }
   const scrollHint = lanes.length > 1
     ? element("p", "Scroll sideways to see all modules.", "story-scroll-hint") : null;
-  if (scrollHint) board.append(scrollHint);
-  board.append(heading, timeline);
+  if (scrollHint) flow.append(scrollHint);
+  flow.append(heading, timeline);
+  stage.append(flow);
+  const externalRail = storyExternalRail(steps);
+  if (externalRail) stage.append(externalRail);
+  board.append(stage);
   svgStoryNode("svg", { class: "story-routes", "aria-hidden": "true" }, timeline);
 
   let currentChapter;
@@ -101,6 +107,7 @@ function paintStory() {
       currentChapter = step.chapter;
       const chapter = element("h3", chapters.get(currentChapter) ?? currentChapter, "story-chapter");
       chapter.style.gridRow = String(row++);
+      if (index > state.storyIndex) chapter.style.visibility = "hidden";
       timeline.append(chapter);
     }
     const name = step.function ?? step.name ?? step.expression ?? step.title;
@@ -111,7 +118,10 @@ function paintStory() {
     node.append(element("strong", name));
     if (index < 0) node.append(element("span", "Caller", "meta"));
     else {
-      if (step.title && step.title !== name) node.append(element("span", step.title, "story-step-title"));
+      if (step.defined_at?.path) {
+        const site = step.defined_at;
+        node.append(element("span", site.path.split("/").at(-1) + (site.line ? ":" + site.line : ""), "story-step-title"));
+      }
       if (step.note) node.append(element("span", step.note, "story-narration"));
       for (const system of step.external ?? []) {
         if (system.status !== "observed_call" || !system.evidence?.length) continue;
@@ -123,7 +133,7 @@ function paintStory() {
       }
       node.append(proof(step));
       if (index === state.storyIndex) node.setAttribute("aria-current", "step");
-      if (index > state.storyIndex) node.classList.add("future");
+      if (index > state.storyIndex) node.style.visibility = "hidden";
     }
     timeline.append(node);
   }
@@ -136,9 +146,16 @@ function paintStory() {
   paintStoryRoutes();
   const active = timeline.querySelector("[aria-current='step']").getBoundingClientRect();
   const frame = viewport.getBoundingClientRect();
+  const panel = details.getBoundingClientRect();
+  const overlaps = panel.left < frame.right && panel.right > frame.left && panel.top < frame.bottom;
+  const visibleHeight = overlaps ? Math.max(0, panel.top - frame.top) : frame.height;
+  const target = stage.querySelector(".story-external-card.active")?.getBoundingClientRect();
+  const bothFit = target && Math.max(active.right, target.right) - Math.min(active.left, target.left) <= frame.width;
+  const focusLeft = bothFit ? Math.min(active.left, target.left) : active.left;
+  const focusWidth = bothFit ? Math.max(active.right, target.right) - focusLeft : active.width;
   viewport.scrollTo({
-    top: top + active.top - frame.top - (frame.height - active.height) / 2,
-    left: left + active.left - frame.left - (frame.width - active.width) / 2,
+    top: top + active.top - frame.top - (visibleHeight - active.height) / 2,
+    left: left + focusLeft - frame.left - (frame.width - focusWidth) / 2,
     behavior: reducedStoryMotion() ? "auto" : "smooth",
   });
 }
@@ -193,7 +210,10 @@ function paintCheckedStep(step) {
       const text = (observed ? storySystemIcon(item.system) + " " : "? ") + label
         + (observed ? " · Static call" : " · Claim");
       return [element("p", text), element("p", item.reason ?? "Runtime use is not verified.", "meta"),
-        ...(observed ? item.evidence.map(sourceSite) : [])];
+        ...(observed ? item.evidence.map(sourceSite) : []),
+        ...(observed && item.direction_evidence?.length ? [element("p", storyDirection(item), "meta"),
+          element("p", item.direction_reason ?? "Static evidence; runtime execution is not verified.", "meta"),
+          ...item.direction_evidence.map(sourceSite)] : [])];
     });
     storyBox("External systems", systems);
   }
@@ -206,6 +226,8 @@ async function goToStoryStep(index) {
   const request = ++state.request;
   state.storyIndex = index;
   const step = storyStep(state.hops[index]);
+  const status = get("breadcrumbs").querySelector(".story-status");
+  if (status && storyView.saved) status.textContent = storyStatus();
   paintStory();
   showStoryControls();
   selectionHeading(step.title ?? step.function ?? step.name ?? step.expression, "Step " + (index + 1) + " / " + state.hops.length);
@@ -246,32 +268,6 @@ function openCheckedStory(story) {
   get("story-controls").hidden = true;
 }
 
-async function showStory(id, index = -1, follow = false) {
-  const request = storyMode();
-  stopStoryPlayback();
-  if (storyView.saved) state.hops = [];
-  storyView.saved = null;
-  setStoryLink(null);
-  storyHeading("Call sequence");
-  const result = await api("story", { id });
-  if (request !== state.request) return;
-  const [step] = result.items;
-  if (!step) {
-    cards.replaceChildren(element("p", result.reason ?? "No call evidence for this step.", "unknown"));
-    details.replaceChildren();
-    get("story-controls").hidden = true;
-    return;
-  }
-  if (follow) {
-    state.hops = [...state.hops.slice(0, state.storyIndex + 1), step];
-    index = state.hops.length - 1;
-  } else if (index < 0 || !state.hops.length) {
-    state.hops = [step];
-    index = 0;
-    viewport.scrollTo(0, 0);
-  }
-  return goToStoryStep(index);
-}
 
 function storyChat(story, selection = storyView.context) {
   const panel = element("details", "", "story-chat");
@@ -318,33 +314,7 @@ function storyChat(story, selection = storyView.context) {
   return panel;
 }
 
-async function showStories() {
-  storyView.context = state.selected ?? storyView.context;
-  const request = storyMode();
-  stopStoryPlayback();
-  setStoryLink(null);
-  storyHeading();
-  get("story-controls").hidden = true;
-  viewport.scrollTo(0, 0);
-  cards.replaceChildren(element("p", "Loading stories…"));
-  selectionHeading("Story library", "Story");
-  details.append(storyChat());
-  const { items } = await api("stories");
-  if (request !== state.request) return;
-  const list = element("section", "", "story-library");
-  if (!items.length) list.append(element("p", "No saved stories. Draft one with chat, or follow a call from Architecture."));
-  for (const item of items) {
-    list.append(button(item.title ?? item.id, () => loadStory(item.id), "detail-btn"));
-  }
-  cards.replaceChildren(list);
-}
 
-async function loadStory(id) {
-  const request = storyMode();
-  storyHeading("Loading story…");
-  const story = await api("stories", { id });
-  if (request === state.request) await openCheckedStory(story);
-}
 function reopenStory() {
   storyMode();
   storyHeading(storyView.saved?.title ?? "Call sequence");
@@ -368,6 +338,11 @@ function bindStory() {
   get("story-next").addEventListener("click", () => { stopStoryPlayback(); goToStoryStep(state.storyIndex + 1).catch(showError); });
   get("story-play").addEventListener("click", toggleStoryPlayback);
   new ResizeObserver(paintStoryRoutes).observe(cards);
+  let externalScrollTimer;
+  viewport.addEventListener("scroll", () => {
+    clearTimeout(externalScrollTimer);
+    externalScrollTimer = setTimeout(() => paintStoryExternal(true), 160);
+  }, { passive: true });
   document.addEventListener("keydown", (event) => {
     if (get("story-controls").hidden || event.target.closest("input, textarea, select, [contenteditable]")) return;
     if (event.key === " " && !event.target.closest("button, a, summary")) {

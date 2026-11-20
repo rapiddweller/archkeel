@@ -12,11 +12,13 @@
 <script src="/report-placement.js" defer></script>
 <script src="/report-layout.js" defer></script>
 <script src="/explorer-story-routes.js" defer></script>
+<script src="/explorer-story-loading.js" defer></script>
 <script src="/explorer-story.js" defer></script>
 <script src="/explorer-uml.js" defer></script>
 <script src="/explorer-map-layout.js" defer></script>
 <script src="/explorer-map.js" defer></script>
 <script src="/explorer-tree.js" defer></script>
+<script src="/explorer-navigation.js" defer></script>
 <script src="/explorer.js" defer></script>
 </head>
 <body>
@@ -36,6 +38,11 @@
 <div id="map-modes" role="group" aria-label="Architecture view" hidden>
 <button type="button" id="map-components" aria-pressed="true">Components</button>
 <button type="button" id="map-modules" aria-pressed="false">Modules</button>
+</div>
+<div id="map-layouts" role="group" aria-label="Map layout" hidden>
+<button type="button" data-map-layout="groups" aria-pressed="true" title="Pack the actual ownership groups">Groups</button>
+<button type="button" data-map-layout="right" aria-pressed="false" title="Place directed dependencies left to right">Flow →</button>
+<button type="button" data-map-layout="down" aria-pressed="false" title="Place directed dependencies top to bottom">Flow ↓</button>
 </div>
 <form id="search-form"><input id="search" aria-label="Search structure" placeholder="Search structure" type="search" required maxlength="180"><button>Search</button></form>
 <button type="button" id="structure-toggle" aria-controls="structure-pane" aria-pressed="false">Structure</button>

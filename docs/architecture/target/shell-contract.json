@@ -852,6 +852,7 @@
       "layer": "decoding",
       "packages": [],
       "exact_modules": [
+        "archkeel.explorer_hierarchy",
         "archkeel.explorer_map",
         "archkeel.explorer_queries",
         "archkeel.explorer_source",
@@ -974,7 +975,9 @@
       "packages": [],
       "exact_modules": [
         "archkeel.explorer_stories",
-        "archkeel.explorer_story_spec"
+        "archkeel.explorer_story_external",
+        "archkeel.explorer_story_spec",
+        "archkeel.explorer_story_sql"
       ],
       "responsibilities": [
         "Check story steps against source evidence and save the author's view specification."

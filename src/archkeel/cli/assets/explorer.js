@@ -25,10 +25,6 @@ function button(text, action, className) {
   return result;
 }
 
-function showError(error) {
-  notice.textContent = error.message;
-}
-
 async function api(operation, args = {}) {
   const response = await fetch("/api/v1/" + operation + "?" + new URLSearchParams(args));
   if (!response.ok) throw new Error(await response.text());
@@ -146,58 +142,7 @@ function selectionHeading(title, kind) {
   details.replaceChildren(element("p", kind, "meta"), element("h2", title));
 }
 
-async function showScope(ancestors, query = null) {
-  const request = ++state.request;
-  stopStoryPlayback();
-  setStoryLink(null);
-  get("story-controls").hidden = true;
-  get("view-title").textContent = "Architecture whiteboard";
-  if (query || state.search) pageTrails.clear();
-  const active = new Set(ancestors.map((item) => item.id));
-  for (const id of pageTrails.keys()) if (!active.has(id)) pageTrails.delete(id);
-  state.ancestors = ancestors;
-  state.selected = null;
-  state.items = [];
-  state.edges = [];
-  state.cursor = null;
-  state.search = query;
-  viewport.scrollTo(0, 0);
-  notice.textContent = "";
-  const current = ancestors.at(-1);
-  setMapControls(true, mapScope(current, query));
-  breadcrumbs();
-  get("map").setAttribute("aria-pressed", "true");
-  get("story").setAttribute("aria-pressed", "false");
-  selectionHeading(query ? "Search results" : current.name, query ? "Search" : current.kind);
-  details.append(element("p", "Select an element or open it with Enter or a double-click."));
-  if (current.kind === "class") {
-    const coverage = current.member_coverage ?? {};
-    for (const [kind, label] of [["property", "Properties"], ["method", "Methods"]]) {
-      const status = coverage[kind] ?? (current.members_complete ? "complete" : "unknown");
-      details.append(element("p", label + " · " + status + " coverage", "meta"));
-    }
-  }
-  if (current.source) {
-    details.append(button("Open source", () => showSource(current.source), "detail-btn"));
-  }
-  const trail = pageTrails.get(current.id) ?? [""];
-  pageTrails.set(current.id, trail);
-  cards.replaceChildren(element("p", "Loading elements…"));
-  drawArrows();
-  get("previous").hidden = get("more").hidden = true;
-  const cursor = trail.at(-1);
-  const useMap = mapScope(current, query);
-  const response = await (useMap ? mapPage(current, cursor)
-    : api(query ? "search" : "children", { ...(query ? { text: query } : { parent: current.id }), limit: 12, cursor }));
-  if (request !== state.request) return;
-  if (current.id === "system" && !query) updateOverview(response);
-  state.items = response.items;
-  state.cursor = response.next_cursor;
-  if (useMap) return showMapResponse(response, request);
-  setMapTree(current, response, query);
-  paintCards();
-  await readEdges();
-}
+
 async function open(item) {
   if (canOpenScope(item)) {
     await showScope(mapParents(item));
@@ -222,10 +167,8 @@ async function select(item) {
     details.append(button("Open " + item.kind, () => open(item), "detail-btn"));
   }
   if (item.source) details.append(button("Open source", () => showSource(item.source), "detail-btn"));
-  for (const responsibility of item.responsibilities ?? []) {
-    details.append(element("p", responsibility));
-  }
-  details.append(componentPublic(item), storyChat(null, item.id), mapConnections(item.id), element("h3", "Connections"));
+  appendSelectionNotes(item);
+  if (derivedMapGroup(item)) return;
   async function load(cursor = "") {
     const result = await api("relations", { element: item.id, limit: 30, cursor });
     if (state.request !== request) return;
@@ -250,7 +193,8 @@ async function showEvidence(edge) {
   if (request !== state.request) return;
   inspector(true);
   selectionHeading(relationDirection(edge), relationLabel(relation));
-  details.append(element("h3", edge.aggregate ? "Example call from " + edge.count + " recorded calls" : "Dependency evidence"));
+  const kind = edge.kind === "call" ? "call" : "import";
+  details.append(element("h3", edge.aggregate ? `Example ${kind} from ${edge.count} recorded ${kind}s` : "Dependency evidence"));
   if (relation.title) details.append(element("p", relation.title));
   if (relation.expression) details.append(element("p", relation.expression, "meta"));
   if (relation.reason) details.append(element("p", relation.reason, "unknown"));
@@ -361,7 +305,7 @@ get("map").addEventListener("click", () => showScope([system]).catch(showError))
 get("search-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const query = get("search").value.trim();
-  if (query) showScope([system], query).catch(showError);
+  if (query) showScope(mapSearchArgs(state.ancestors.at(-1).id, query).parent ? state.ancestors : [system], query).catch(showError);
 });
 async function changePage(forward) {
   const scope = state.ancestors.at(-1).id;
@@ -372,7 +316,7 @@ async function changePage(forward) {
   const current = state.ancestors.at(-1);
   const useMap = mapScope(current, state.search);
   const cursor = next.at(-1);
-  const args = state.search ? { text: state.search } : { parent: scope };
+  const args = state.search ? mapSearchArgs(scope, state.search) : { parent: scope };
   const result = await (useMap ? mapPage(current, cursor)
     : api(state.search ? "search" : "children", { ...args, cursor, limit: 12 }));
   if (request !== state.request) return;

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Store view-spec stories and check each step against the selected snapshot."""
 
+import ast
 import hashlib
 import json
 import os
@@ -15,6 +16,7 @@ from typing import Any
 
 from .cli.core_output import write_new_at
 from .explorer_store import open_snapshot
+from .explorer_story_external import _external
 from .explorer_story_spec import _ID, _validate
 
 _LIMIT = 1_000_000
@@ -116,86 +118,106 @@ def _module(db: Any, parent: str) -> tuple[str, str] | None:
     return None
 
 
-def _external(
-    db: Any, root: Path, module: str | None, function: str | None, claimed: list[dict[str, str]]
-) -> list[dict[str, Any]]:
-    systems = {
-        "sqlite3": ("relational_database", "SQLite"),
-        "redis": ("redis", "Redis"),
-        "psycopg": ("relational_database", "PostgreSQL"),
-        "psycopg2": ("relational_database", "PostgreSQL"),
-        "asyncpg": ("relational_database", "PostgreSQL"),
-    }
-    entries = {
-        "sqlite3": {"sqlite3.connect"},
-        "redis": {"redis.Redis", "redis.StrictRedis", "redis.from_url"},
-        "psycopg": {"psycopg.connect"},
-        "psycopg2": {"psycopg2.connect"},
-        "asyncpg": {"asyncpg.connect", "asyncpg.create_pool"},
-    }
-    rows: list[dict[str, Any]] = [
-        dict(
-            item,
-            label=item["system"],
-            status="claim",
-            evidence=[],
-            reason="Author claim; service use is not verified.",
-        )
-        for item in claimed
-    ]
-    if module is None or function is None:
-        return rows
-    imported = set()
-    for record in db.execute(
-        "SELECT body FROM relation WHERE kind='import' AND source=? ORDER BY id LIMIT 200",
-        (module,),
+def _call_evidence(db: Any, root: Path, source: str, target: str) -> list[dict[str, Any]]:
+    evidence: list[dict[str, Any]] = []
+    for relation in db.execute(
+        "SELECT body FROM relation WHERE source=? AND target=? AND kind='call'", (source, target)
     ):
-        data = json.loads(record[0])
-        target = data.get("target")
-        if data.get("resolution") != "external" or not isinstance(target, str):
+        data = json.loads(relation[0])
+        if data.get("resolution") != "resolved":
             continue
-        package = target.split(".", 1)[0]
-        if package not in systems:
+        sites = [_location(db, root, site.get("reference")) for site in data.get("evidence", [])]
+        if sites and all(sites):
+            evidence.extend(site for site in sites if site is not None)
+    return evidence
+
+
+def _pipe_site(root: Path, site: dict[str, Any], transition: str) -> bool:
+    try:
+        source = root / site["path"]
+        if source.stat().st_size > 2_000_000:
+            return False
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, SyntaxError):
+        return False
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or node.lineno != site["line"]:
             continue
-        evidence = [_location(db, root, site.get("reference")) for site in data.get("evidence", [])]
-        if evidence and all(evidence):
-            imported.add(package)
-    for record in db.execute(
-        "SELECT body FROM relation WHERE kind='call' AND source=? ORDER BY id LIMIT 200",
-        (function,),
-    ):
-        call = json.loads(record[0])
-        target = call.get("target")
-        if (
-            isinstance(target, str)
-            and db.execute("SELECT 1 FROM element WHERE id=?", (target,)).fetchone()
-        ):
+        if not isinstance(node.func, ast.Attribute) or node.func.attr != "run":
             continue
-        expression = call.get("expression")
-        if not isinstance(expression, str) or "." not in expression:
+        if not isinstance(node.func.value, ast.Name) or node.func.value.id != "subprocess":
             continue
-        package = expression.split(".", 1)[0]
-        if package not in imported or expression not in entries[package]:
-            continue
-        evidence = [_location(db, root, site.get("reference")) for site in call.get("evidence", [])]
-        if evidence and all(evidence):
-            system, label = systems[package]
-            resolved = call.get("resolution") == "external"
-            rows.append(
-                {
-                    "system": system,
-                    "label": label,
-                    "status": "observed_call",
-                    "binding": "external" if resolved else "unknown",
-                    "reason": (
-                        "Static call and import; runtime target is not verified."
-                        if resolved
-                        else "The call and import are visible, but the binding is unresolved."
-                    ),
-                    "evidence": evidence,
-                }
+        if transition == "process_request":
+            return any(
+                arg.arg == "input"
+                and not (isinstance(arg.value, ast.Constant) and arg.value.value is None)
+                for arg in node.keywords
             )
-    return rows
+        return any(
+            arg.arg == "capture_output"
+            and isinstance(arg.value, ast.Constant)
+            and arg.value.value is True
+            for arg in node.keywords
+        )
+    return False
+
+
+def _process_evidence(db: Any, root: Path, function: str, transition: str) -> list[dict[str, Any]]:
+    evidence: list[dict[str, Any]] = []
+    for relation in db.execute(
+        "SELECT body FROM relation WHERE source=? AND kind='call'", (function,)
+    ):
+        data = json.loads(relation[0])
+        if data.get("expression") != "subprocess.run":
+            continue
+        for item in data.get("evidence", []):
+            reference = item.get("reference")
+            if (site := _location(db, root, reference)) and _pipe_site(root, site, transition):
+                if _location(db, root, reference) is not None:
+                    evidence.append(site)
+    return evidence
+
+
+def _step_evidence(
+    db: Any,
+    root: Path,
+    step: dict[str, Any],
+    node: Any,
+    location: dict[str, Any] | None,
+    previous: str | None,
+    first: bool,
+) -> tuple[str, str, list[dict[str, Any]]]:
+    evidence: list[dict[str, Any]] = []
+    transition = step.get("transition", "call")
+    status, reason = "unknown", "Definition or call evidence is unavailable."
+    if node and location and previous is None and first:
+        status, reason = "proven", "The definition is present in the snapshot."
+    elif step.get("claim"):
+        status, reason = "claim", "The author claims this step."
+    elif transition == "return" and node and location and previous:
+        evidence = _call_evidence(db, root, node[0], previous)
+        reason = (
+            "The caller-to-callee call is recorded; the runtime return is not observed."
+            if evidence
+            else "The caller-to-callee call and runtime return are not verified."
+        )
+    elif transition in ("process_request", "process_response") and node and location and previous:
+        function = previous if transition == "process_request" else node[0]
+        evidence = _process_evidence(db, root, function, transition)
+        reason = (
+            "The source passes subprocess input; the process target and runtime are unverified."
+            if evidence and transition == "process_request"
+            else "The source captures subprocess output; its target and runtime are unverified."
+            if evidence
+            else "The subprocess boundary and runtime are not fully resolved."
+        )
+    elif step.get("kind") not in (None, "calls"):
+        reason = "This relationship kind is not checked by the Explorer."
+    elif node and location and previous and step.get("kind") in (None, "calls"):
+        evidence = _call_evidence(db, root, previous, node[0])
+        if evidence:
+            status, reason = "proven", "The snapshot records a resolved call."
+    return status, reason, evidence
 
 
 def _check(db: Any, root: Path, snapshot: Path, spec: dict[str, Any]) -> dict[str, Any]:
@@ -212,30 +234,10 @@ def _check(db: Any, root: Path, snapshot: Path, spec: dict[str, Any]) -> dict[st
         body = json.loads(node[2]) if node else {}
         location = _location(db, root, body.get("source"))
         module = _module(db, node[1]) if node else None
-        evidence: list[dict[str, Any] | None] = []
-        status, reason = "unknown", "Definition or call evidence is unavailable."
-        if node and location and previous is None and not checked:
-            status, reason = "proven", "The definition is present in the snapshot."
-        elif step.get("claim"):
-            status, reason = "claim", "The author claims this step."
-        elif step.get("kind") not in (None, "calls"):
-            reason = "This relationship kind is not checked by the Explorer."
-        elif node and location and previous and step.get("kind") in (None, "calls"):
-            relations = db.execute(
-                "SELECT body FROM relation WHERE source=? AND target=? AND kind='call'",
-                (previous, node[0]),
-            ).fetchall()
-            for relation in relations:
-                data = json.loads(relation[0])
-                if data.get("resolution") != "resolved":
-                    continue
-                sites = [
-                    _location(db, root, site.get("reference")) for site in data.get("evidence", [])
-                ]
-                if sites and all(sites):
-                    evidence.extend(sites)
-            if evidence:
-                status, reason = "proven", "The snapshot records a resolved call."
+        transition = step.get("transition", "call")
+        status, reason, evidence = _step_evidence(
+            db, root, step, node, location, previous, not checked
+        )
         checked.append(
             {
                 "node": step["node"],
@@ -243,6 +245,7 @@ def _check(db: Any, root: Path, snapshot: Path, spec: dict[str, Any]) -> dict[st
                 "note": step.get("note"),
                 "question": step.get("question"),
                 "text_status": "claim",
+                "transition": transition,
                 "chapter": step.get("chapter"),
                 "external": _external(
                     db,
@@ -250,6 +253,8 @@ def _check(db: Any, root: Path, snapshot: Path, spec: dict[str, Any]) -> dict[st
                     module[0] if module else None,
                     node[0] if node else None,
                     step.get("external", []),
+                    location,
+                    lambda ref: _location(db, root, ref),
                 ),
                 "lane": module[1] if module else None,
                 "function": step["node"].rsplit(".", 1)[-1],

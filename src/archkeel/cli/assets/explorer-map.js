@@ -3,8 +3,17 @@
 const mapView = { mode: "components", response: null, scene: null, treeOpen: false };
 const mapCardWidth = 224;
 
+function derivedMapGroup(item) {
+  return ["layer", "directory"].includes(item.kind);
+}
+
 function mapScope(item, query) {
-  return !query && ["system", "component"].includes(item.kind);
+  return !query && (["system", "component"].includes(item.kind) || derivedMapGroup(item));
+}
+
+function mapSearchArgs(parent, text) {
+  return mapView.response?.scope_truncated && mapView.response.parent === parent
+    ? { text, parent } : { text };
 }
 
 function inspector(open) {
@@ -26,7 +35,8 @@ function setStoryLink(id) {
 
 function setMapControls(active, overview = false) {
   get("structure-tree").replaceChildren();
-  get("map-modes").hidden = !overview;
+  showMapLayoutControls(false);
+  get("map-modes").hidden = !overview || derivedMapGroup(state.ancestors.at(-1));
   get("map-components").setAttribute("aria-pressed", String(mapView.mode === "components"));
   get("map-modules").setAttribute("aria-pressed", String(mapView.mode === "modules"));
   if (!active) {
@@ -93,6 +103,12 @@ function componentPublic(item) {
   return section;
 }
 
+function appendSelectionNotes(item) {
+  for (const responsibility of item.responsibilities ?? []) details.append(element("p", responsibility));
+  details.append(componentPublic(item), mapConnections(item.id));
+  if (!derivedMapGroup(item)) details.append(storyChat(null, item.id), element("h3", "Connections"));
+}
+
 function mapSvg(name, attributes, parent) {
   const item = document.createElementNS("http://www.w3.org/2000/svg", name);
   for (const [key, value] of Object.entries(attributes)) item.setAttribute(key, value);
@@ -109,12 +125,13 @@ function mapPosition(node, x, y, width, height) {
 
 function mapCard(item) {
   const card = umlCard(item);
+  if (item.collapsed) card.classList.add("map-collapsed");
   const head = card.querySelector(".uml-head");
   if (item.kind === "module" && item.path) {
     head.querySelector(".uml-name").textContent = item.path.split("/").at(-1);
     head.append(element("span", item.path, "map-card-path"));
   }
-  if (item.kind === "component" && Number.isInteger(item.module_count)) {
+  if (Number.isInteger(item.module_count)) {
     const mark = element("span", item.module_count.toLocaleString() + (item.module_count === 1 ? " module" : " modules"),
       "map-component-meta");
     head.append(mark);
@@ -149,13 +166,12 @@ function paintMapScene(layout, response) {
     const section = element("section", "", "map-group " + group.kind);
     section.setAttribute("aria-label", group.name);
     section.dataset.group = id;
-    const title = group.kind === "component" ? button("", () => select(group)) : element("span", "");
+    const title = button("", () => select(group));
     title.className = "map-group-title";
     title.title = group.name;
-    if (group.kind === "component") {
-      title.dataset.element = id;
-      title.addEventListener("dblclick", () => open(group).catch(showError));
-    }
+    title.dataset.element = id;
+    title.setAttribute("aria-pressed", String(id === state.selected));
+    title.addEventListener("dblclick", () => open(group).catch(showError));
     title.append(element("small", group.kind), element("strong", group.name));
     const unresolved = unknownCalls(group, true);
     if (unresolved) title.append(unresolved);
@@ -183,15 +199,19 @@ function paintMapScene(layout, response) {
 function openMapEvidence(edge) {
   const plane = mapView.scene?.plane;
   for (const link of plane?.querySelectorAll(".map-edges [data-map-edge]") ?? []) {
-    link.classList.toggle("map-active-edge", link.dataset.mapEdge === edge.id);
+    if (link.dataset.mapEdge === edge.id) link.classList.add("map-active-edge");
   }
   return showEvidence(edge);
 }
 
-function paintMapConnections(scene, edges) {
+function paintMapConnections(scene, edges, animate = false) {
   const { plane, svg, layout } = scene;
   for (const edge of plane.querySelectorAll("[data-map-edge]")) edge.remove();
   const routes = mapRoutes(layout, edges);
+  const obstacles = layout.graphNodes.filter((node) => !node.children).map(({ id, width, height }) => {
+    const { x, y } = layout.positions[id];
+    return { left: x, top: y, right: x + width, bottom: y + height };
+  });
   for (const edge of edges) {
     const route = routes.get(edge.id);
     const group = mapSvg("g", { "data-map-edge": edge.id }, svg);
@@ -200,20 +220,31 @@ function paintMapConnections(scene, edges) {
     const path = mapSvg("path", { d: route.d, class: style, "marker-end": "url(#map-arrow)" }, group);
     if (!uncertain && edge.resolution === "resolved") {
       mapSvg("path", { d: route.d, class: "map-pulse", pathLength: "1" }, group);
+      if (animate) group.classList.add("map-active-edge");
     }
     const label = button(mapEdgeName(edge), () => openMapEvidence(edge), "map-edge-label centered");
     if (uncertain) label.classList.add("map-unknown");
     label.title = relationDirection(edge) + " · " + relationLabel(edge);
     label.setAttribute("aria-label", mapEdgeName(edge) + " · " + label.title);
     label.dataset.mapEdge = edge.id;
-    const at = path.getPointAtLength(path.getTotalLength() / 2);
-    mapPosition(label, at.x, at.y);
     plane.append(label);
+    placeMapLabel(path, label, obstacles);
   }
 }
+function mapContains(scope, endpoint) {
+  const visited = new Set();
+  for (let id = endpoint; id && !visited.has(id); id = known.get(id)?.parent) {
+    if (scope === id) return true;
+    visited.add(id);
+  }
+  return false;
+}
+
 function focusedMapEdges(id) {
-  return (mapView.scene?.layout.edges ?? []).filter((edge) => edge.source === id || edge.target === id)
-    .sort((a, b) => (b.count ?? 1) - (a.count ?? 1)).slice(0, 6);
+  if (!id) return [];
+  return (mapView.scene?.layout.edges ?? [])
+    .filter((edge) => mapContains(id, edge.source) !== mapContains(id, edge.target))
+    .sort((a, b) => (b.count ?? 1) - (a.count ?? 1));
 }
 
 function mapConnections(id) {
@@ -222,8 +253,9 @@ function mapConnections(id) {
   if (!edges.length) return section;
   section.append(element("h3", "On this map"));
   for (const edge of edges) {
-    const arrow = edge.source === id ? "→ " : "← ";
-    section.append(button(arrow + relationDirection(edge, id) + " · " + mapEdgeName(edge),
+    const outbound = mapContains(id, edge.source);
+    const from = outbound ? edge.source : edge.target;
+    section.append(button((outbound ? "→ " : "← ") + relationDirection(edge, from) + " · " + mapEdgeName(edge),
       () => openMapEvidence(edge), "detail-btn"));
   }
   return section;
@@ -267,7 +299,7 @@ function focusMap(id) {
     node.classList.toggle("map-dim", Boolean(id && !neighbors.has(node.dataset.element ?? node.dataset.group)));
     node.classList.toggle("map-context", id !== selection && node.dataset.element === id);
   }
-  paintMapConnections(scene, edges.length <= 16 && !id ? edges : focused);
+  paintMapConnections(scene, edges.length <= 16 && !id ? edges : focused, Boolean(id));
 }
 
 function zoomMap(delta, whole = false) {
@@ -287,24 +319,28 @@ function zoomMap(delta, whole = false) {
 }
 
 function mapPage(current, cursor) {
-  return api("map", { parent: current.id, view: mapView.mode, cursor, limit: 36 });
+  const view = mapView.mode === "modules" || derivedMapGroup(current) ? "hierarchy" : "components";
+  return api("map", { parent: current.id, view, cursor, limit: 36 });
 }
 
-async function showMapResponse(response, request) {
+async function showMapResponse(response, request, preparedLayout = null) {
   mapView.response = response;
   for (const item of [...(response.groups ?? []), ...response.items]) known.set(item.id, item);
   if (!response.items.length) {
     paintStructure(response);
     return paintCards();
   }
-  const layout = await layoutMap(response);
+  const layout = preparedLayout ?? await layoutMap(response);
   if (request !== state.request) return;
   mapView.scene = paintMapScene(layout, response);
+  showMapLayoutControls(true);
   paintStructure(response);
   get("structure-toggle").disabled = false;
   get("inspector-toggle").disabled = false;
-  if (response.module_overview) {
-    notice.textContent = response.module_total.toLocaleString() + " indexed modules · Open a component to explore its modules.";
+  if (response.scope_truncated) {
+    notice.textContent = response.module_total.toLocaleString() + " indexed modules · Search this scope to find any module.";
+  } else if (response.module_overview) {
+    notice.textContent = response.module_total.toLocaleString() + " indexed modules · Open a group to explore its contents.";
   } else if (layout.edges.length > 16 || response.edges_truncated) {
     notice.textContent = "Select an element to highlight its dependencies.";
   }
@@ -315,6 +351,7 @@ async function showMapResponse(response, request) {
 }
 
 function bindMap() {
+  bindMapLayouts();
   mapView.treeOpen = matchMedia("(min-width: 1100px)").matches;
   structure(mapView.treeOpen);
   inspector(false);

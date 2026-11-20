@@ -56,13 +56,16 @@ SHELL = frozenset(
         "cli/story_model.py",
         "explorer_agent.py",
         "explorer_boundaries.py",
+        "explorer_hierarchy.py",
         "explorer_map.py",
         "explorer_mcp.py",
         "explorer_queries.py",
         "explorer_source.py",
         "explorer_store.py",
         "explorer_stories.py",
+        "explorer_story_external.py",
         "explorer_story_spec.py",
+        "explorer_story_sql.py",
         "explorer_symbols.py",
     )
 )

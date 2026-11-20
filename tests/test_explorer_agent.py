@@ -118,7 +118,7 @@ def test_mcp_registers_story_storage_without_starting_model(
     monkeypatch.setattr(
         sys, "argv", ["archkeel-mcp", "--snapshot", str(snapshot), "--root", str(tmp_path)]
     )
-    monkeypatch.setattr(explorer_mcp, "query", lambda *args: {})
+    monkeypatch.setattr(explorer_mcp, "query", lambda path, root, op, args: args)
     monkeypatch.setattr(explorer_mcp, "list_stories", lambda root, path: [{"id": "one"}])
     monkeypatch.setattr(explorer_mcp, "read_story", lambda root, path, id: {"id": id})
     monkeypatch.setattr(explorer_mcp, "save_story", lambda root, path, spec: {"saved": spec})
@@ -126,7 +126,8 @@ def test_mcp_registers_story_storage_without_starting_model(
     assert registered["stories"]() == [{"id": "one"}]
     assert registered["story_read"]("one") == {"id": "one"}
     assert registered["story_save"]({"title": "T"}) == {"saved": {"title": "T"}}
-    assert "map" in registered
+    assert registered["map"](view="hierarchy")["view"] == "hierarchy"
+    assert registered["search"]("display", parent="shell")["parent"] == "shell"
     assert "create_story" not in registered
 
 

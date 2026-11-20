@@ -141,6 +141,7 @@ def test_map_hierarchy_paging_and_unknown_calls(tmp_path: Path) -> None:
         {"name": f"a.extra{index}", "path": "src/a/main.py", "component": "A"}
         for index in range(36)
     )
+    topology["components"][2]["layer"] = "storage"
     dense_path = tmp_path / "cache" / "dense.sqlite"
     publish_snapshot(
         dense_path,
@@ -161,8 +162,48 @@ def test_map_hierarchy_paging_and_unknown_calls(tmp_path: Path) -> None:
     leaf = query(dense_path, tmp_path, "map", {"parent": "A", "view": "modules", "limit": 1})
     assert not leaf["module_overview"] and leaf["module_total"] == 38
     assert leaf["items"][0]["kind"] == "module" and leaf["next_cursor"] is not None
+    hierarchy = query(dense_path, tmp_path, "map", {"parent": "part", "view": "hierarchy"})
+    assert hierarchy["module_total"] == 39 and hierarchy["next_cursor"] is None
+    business = next(item for item in hierarchy["items"] if item["name"] == "business")
+    assert business["collapsed"] and business["module_count"] == 38
+    assert "storage" in {item["name"] for item in hierarchy["groups"]}
+    related = [edge for edge in hierarchy["edges"] if edge["source"] == business["id"]]
+    assert {(edge["kind"], edge["relation_id"]) for edge in related} == {
+        ("call", "call-site"),
+        ("import", "import"),
+    }
+    drill = query(dense_path, tmp_path, "map", {"parent": business["id"], "view": "hierarchy"})
+    assert drill["module_total"] == 38 and drill["next_cursor"] is None
+    assert [item["id"] for item in drill["items"]] == ["A"]
     with pytest.raises(ValueError, match="unknown map parent"):
         query(path, tmp_path, "map", {"parent": "made-up"})
+
+
+def test_large_flat_hierarchy_has_a_scoped_find_for_every_module(tmp_path: Path) -> None:
+    topology = {
+        "version": 1,
+        "components": [{"id": "one", "name": "Owner", "parent": None}],
+        "modules": [
+            {"name": f"app.m{i:04d}", "path": "src/same.py", "component": "one"}
+            for i in range(8200)
+        ],
+        "edges": [],
+    }
+    path = tmp_path / "cache" / "flat.sqlite"
+    publish_snapshot(
+        path,
+        SnapshotIdentity("rev", "contract", "flat"),
+        lambda db: populate(db, topology, tmp_path),
+        "UNKNOWN",
+    )
+    system = query(path, tmp_path, "map", {"view": "hierarchy"})
+    assert system["module_total"] == 8200 and not system["scope_truncated"]
+    assert [(item["id"], item["module_count"]) for item in system["items"]] == [("one", 8200)]
+    leaf = query(path, tmp_path, "map", {"parent": "one", "view": "hierarchy"})
+    assert leaf["scope_truncated"] and leaf["next_cursor"] is None
+    assert len(leaf["items"]) == 36
+    found = query(path, tmp_path, "search", {"parent": "one", "text": "m8199"})
+    assert [item["name"] for item in found["items"]] == ["app.m8199"]
 
 
 def test_system_modules_keeps_both_languages_before_leaf_paging(tmp_path: Path) -> None:

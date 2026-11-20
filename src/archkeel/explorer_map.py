@@ -5,68 +5,15 @@
 
 import json
 import sqlite3
-from pathlib import PurePosixPath
 from typing import Any
 
+from .explorer_hierarchy import _groups, _module_hierarchy, _scoped_module_filter
 
-def _groups(
-    db: sqlite3.Connection, parent: str, items: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    groups: dict[str, dict[str, Any]] = {}
-    pending = [item["parent"] for item in items if item["parent"] != parent]
-    while pending:
-        key = pending.pop()
-        if key == parent or key in groups:
-            continue
-        row = db.execute(
-            "SELECT body FROM element WHERE id=? AND kind='component'", (key,)
-        ).fetchone()
-        if row is None:
-            continue
-        group = json.loads(row[0])
-        groups[key] = group
-        pending.append(group["parent"])
-    owners: dict[str, list[dict[str, Any]]] = {}
-    for item in items:
-        if item["kind"] == "module" and isinstance(item.get("path"), str):
-            owners.setdefault(item["parent"], []).append(item)
-    for owner, modules in owners.items():
-        paths = [PurePosixPath(item["path"]).parent for item in modules]
-        if len(set(paths)) < 2:
-            continue
-        common = list(paths[0].parts)
-        for path in paths[1:]:
-            while tuple(common) != path.parts[: len(common)]:
-                common.pop()
-        for item, path in zip(modules, paths, strict=True):
-            current = owner
-            for index in range(len(common) + 1, len(path.parts) + 1):
-                folder = PurePosixPath(*path.parts[:index]).as_posix()
-                key = json.dumps(["directory", owner, folder], separators=(",", ":"))
-                groups.setdefault(
-                    key,
-                    {
-                        "id": key,
-                        "name": path.parts[index - 1],
-                        "kind": "directory",
-                        "parent": current,
-                        "owner": owner,
-                        "path": folder,
-                    },
-                )
-                current = key
-            item["parent"] = current
-    for item in [*groups.values(), *items]:
-        layer = item.get("layer")
-        if item.get("kind") != "component" or not isinstance(layer, str) or not layer:
-            continue
-        owner = item["parent"]
-        group_id = json.dumps(["layer", owner, layer], separators=(",", ":"))
-        groups.setdefault(
-            group_id, {"id": group_id, "name": layer, "kind": "layer", "parent": owner}
-        )
-        item["parent"] = group_id
-    return list(groups.values())
+
+def _map_search(db: sqlite3.Connection, text: str, parent: str) -> tuple[str, list[str]]:
+    if parent:
+        return _scoped_module_filter(db, parent, text)
+    return "instr(lower(name),lower(?))>0", [text]
 
 
 def _call_edges(db: sqlite3.Connection, visible: list[str]) -> tuple[list[dict[str, Any]], int]:
@@ -105,8 +52,62 @@ def _call_edges(db: sqlite3.Connection, visible: list[str]) -> tuple[list[dict[s
     return edges, rows[0][4] if rows else 0
 
 
+def _projected_edges(
+    db: sqlite3.Connection, visible: list[str], aliases: list[tuple[str, str]]
+) -> tuple[list[dict[str, Any]], int]:
+    sql = (
+        "WITH RECURSIVE descendants(visible,id,depth) AS ("
+        "SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]'),0 FROM json_each(?) UNION "
+        "SELECT descendants.visible,element.id,descendants.depth+1 FROM descendants "
+        "JOIN element ON element.parent=descendants.id WHERE descendants.depth<128), "
+        "nearest AS (SELECT visible,id,row_number() OVER "
+        "(PARTITION BY id ORDER BY depth,visible) AS rank FROM descendants), "
+        "owned_imports AS MATERIALIZED (SELECT DISTINCT "
+        "json_extract(s.body,'$.component') AS source,json_extract(t.body,'$.component') AS target "
+        "FROM relation JOIN element s ON s.id=relation.source AND s.kind='module' "
+        "JOIN element t ON t.id=relation.target AND t.kind='module' "
+        "WHERE relation.kind='import' AND json_extract(relation.body,'$.resolution')='resolved'), "
+        "sites AS (SELECT a.visible AS source,b.visible AS target,relation.id,relation.kind, "
+        "coalesce(json_extract(relation.body,'$.count'),1) AS weight, "
+        "CASE WHEN relation.kind='import' AND (s.kind!='module' OR t.kind!='module') "
+        "THEN 1 ELSE 0 END AS priority "
+        "FROM relation JOIN nearest a ON a.id=relation.source AND a.rank=1 "
+        "JOIN nearest b ON b.id=relation.target AND b.rank=1 "
+        "JOIN element s ON s.id=relation.source JOIN element t ON t.id=relation.target "
+        "LEFT JOIN owned_imports oi "
+        "ON relation.kind='import' AND oi.source=s.id AND oi.target=t.id "
+        "WHERE relation.kind IN ('import','call') AND a.visible!=b.visible "
+        "AND json_extract(relation.body,'$.resolution')='resolved' "
+        "AND oi.source IS NULL), "
+        "ranked AS (SELECT *,min(priority) OVER "
+        "(PARTITION BY kind,source,target) AS best FROM sites), "
+        "pairs AS (SELECT source,target,kind,sum(weight) AS count,min(id) AS evidence "
+        "FROM ranked WHERE priority=best GROUP BY source,target,kind) "
+        "SELECT source,target,kind,count,evidence,count(*) OVER () FROM pairs "
+        "ORDER BY source,target,kind LIMIT 10000"
+    )
+    seeds = json.dumps([*((item, item) for item in visible), *aliases])
+    rows = db.execute(sql, (seeds,)).fetchall()
+    return [
+        {
+            "id": evidence,
+            "relation_id": evidence,
+            "source": source,
+            "target": target,
+            "count": count,
+            "kind": kind,
+            "resolution": "resolved",
+            "aggregate": True,
+        }
+        for source, target, kind, count, evidence, _ in rows
+    ], rows[0][5] if rows else 0
+
+
 def _edges(
-    db: sqlite3.Connection, items: list[dict[str, Any]], groups: list[dict[str, Any]]
+    db: sqlite3.Connection,
+    items: list[dict[str, Any]],
+    groups: list[dict[str, Any]],
+    aliases: list[tuple[str, str]] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     visible = [
         item["id"] for item in [*items, *groups] if item["kind"] not in {"layer", "directory"}
@@ -137,6 +138,8 @@ def _edges(
             f"source IN ({marks}) AND (target IN ({marks}) OR target IS NULL) "
             "AND kind IN ('import','call','requires','interface')"
         )
+        if aliases is not None:
+            where += " AND (kind IN ('requires','interface') OR target IS NULL)"
         edge_total = db.execute(
             "SELECT count(*) FROM relation WHERE " + where, (*visible, *visible)
         ).fetchone()[0]
@@ -145,10 +148,14 @@ def _edges(
             (*visible, *visible),
         ).fetchall()
         edges = [json.loads(row[0]) for row in edge_rows]
-        if any(item["kind"] in {"module", "component"} for item in items):
+        if aliases is None and any(item["kind"] in {"module", "component"} for item in items):
             calls, call_total = _call_edges(db, visible)
             edge_total += call_total
             edges = calls + edges[: max(0, 500 - len(calls))]
+    if aliases is not None:
+        projected, observed_total = _projected_edges(db, visible, aliases)
+        edge_total += observed_total
+        edges.extend(projected)
     return edges, edge_total
 
 
@@ -176,6 +183,17 @@ def _map_view(
     db: sqlite3.Connection, parent: str, view: str, cursor: str, limit: int
 ) -> dict[str, object]:
     """Read a page of hierarchy and its measured relationships."""
+    if view == "hierarchy":
+        hierarchy, aliases = _module_hierarchy(db, parent)
+        items, groups = hierarchy["items"], hierarchy["groups"]
+        if hierarchy["coarse"]:
+            _count_modules(db, items)
+        edges, edge_total = _edges(db, items, groups, aliases)
+        return hierarchy | {
+            "edges": edges,
+            "edge_total": edge_total,
+            "edges_truncated": edge_total > len(edges),
+        }
     if view not in {"components", "modules"}:
         raise ValueError("invalid map view")
     scope = (

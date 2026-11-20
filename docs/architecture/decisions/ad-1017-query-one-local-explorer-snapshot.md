@@ -44,7 +44,8 @@ Map groups follow source directories, component ownership and declared layers.
 A call between two modules links to an observed symbol call. A call with no resolved
 target contributes to the source count and has no destination on the map.
 
-The Modules view pages parent components before listing their modules in large scopes.
+The Modules view groups children under their parent. A dense branch opens in its own scope.
+The browser and MCP can request the same hierarchy from the map query.
 The map counts each recorded call site once per ancestor and shows how many targets remain
 unresolved. Story lanes use the module of each function. A database badge links to a
 recorded connection expression. The badge states when the binding is unknown.

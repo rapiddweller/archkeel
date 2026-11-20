@@ -91,6 +91,16 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
                 page.wait(
                     "document.querySelector('#details h2')?.textContent === 'Entry imports Data'"
                 )
+                for mode, dimension in [("down", "Height"), ("right", "Width")]:
+                    control = f'document.querySelector("[data-map-layout={mode}]")'
+                    page.evaluate(control + ".click()")
+                    page.wait(control + ".getAttribute('aria-pressed') === 'true'")
+                    plane = "document.querySelector('.map-plane')"
+                    other = "Height" if dimension == "Width" else "Width"
+                    assert page.evaluate(f"{plane}.offset{dimension} > {plane}.offset{other}")
+                    assert page.evaluate("document.querySelector('#details h2').textContent") == (
+                        "Entry imports Data"
+                    )
                 pulse = "getComputedStyle(document.querySelector('.map-active-edge .map-pulse'))"
                 assert page.evaluate(pulse + ".animationName") == "map-direction"
                 page.send(

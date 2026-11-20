@@ -44,13 +44,7 @@ function markTreeSelection(id) {
 function pickTreeNode(item) {
   const card = treeMapAnchor(item.id);
   const result = select(item);
-  if (card) {
-    const box = card.getBoundingClientRect();
-    const stage = viewport.getBoundingClientRect();
-    const freeWidth = Math.max(200, stage.width - details.clientWidth);
-    viewport.scrollBy(box.x - stage.x - (freeWidth - box.width) / 2,
-      box.y - stage.y - (stage.height - box.height) / 2);
-  }
+  panMapTo(card);
   return result;
 }
 
@@ -73,8 +67,8 @@ function treeBranch(scope, item, name, type, description, row, branch, seeded, b
     branch.append(pending);
     try {
       const args = { parent: item.id, limit: 24, cursor };
-      const result = await (item.kind === "component"
-        ? api("map", { ...args, view: "components" })
+      const result = await (item.kind === "component" || derivedMapGroup(item)
+        ? api("map", { ...args, view: derivedMapGroup(item) ? "hierarchy" : "components" })
         : api("children", args));
       if (!branch.isConnected) return;
       loaded = true;
@@ -108,7 +102,7 @@ function treeBranch(scope, item, name, type, description, row, branch, seeded, b
     treeExpansion.set(prefix, expanded);
     toggle.setAttribute("aria-expanded", String(expanded));
     toggle.setAttribute("aria-label", (expanded ? "Collapse " : "Expand ") + caption);
-    if (expanded && !loaded && type !== "Layer" && type !== "Folder") return appendChildren();
+    if (expanded && !loaded) return appendChildren();
   }
 
   row.addEventListener("keydown", (event) => {
@@ -137,20 +131,17 @@ function treeItem(scope, item, byParent) {
   const li = element("li", "", "tree-item");
   li.dataset.treeItem = item.id;
   const row = element("div", "", "tree-row");
-  const selection = ["layer", "directory"].includes(item.kind) ? null : item;
   const filename = ["module", "file", "directory"].includes(item.kind) && item.path?.split("/").at(-1);
   const name = filename || item.display_name || item.name;
   const [type, outline] = treeTypes[item.kind] ?? ["Symbol", "M4 4h8v8H4z"];
   const hint = element("span", type + (item.path ? " · Source " + item.path : ""), "tree-kind-text");
   hint.id = "structure-type-" + ++treeDescription;
-  const action = selection ? button("", () => pickTreeNode(item), "tree-select") : element("span", "", "tree-select");
+  const action = button("", () => pickTreeNode(item), "tree-select");
   action.title = item.path ?? item.name;
   action.setAttribute("aria-describedby", hint.id);
-  if (selection) {
-    action.dataset.treeNode = item.id;
-    action.setAttribute("aria-pressed", String(state.selected === item.id));
-    action.addEventListener("dblclick", () => open(item).catch(showError));
-  }
+  action.dataset.treeNode = item.id;
+  action.setAttribute("aria-pressed", String(state.selected === item.id));
+  action.addEventListener("dblclick", () => open(item).catch(showError));
   treeGlyph(action, outline, "tree-type-glyph type-" + item.kind);
   action.append(element("span", name, "tree-node-name"));
   row.append(action, hint);
