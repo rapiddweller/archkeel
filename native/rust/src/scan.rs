@@ -69,6 +69,7 @@ pub(crate) fn scan(
         },
     };
     visitor.walker.out.gated_file = !receivers::module_inert(&file.attrs);
+    visitor.walker.out.calls = calls::read(&visitor.walker, &file);
     let safety = path_safety::read(&file, exclude_tests);
     visitor.walker.out.generic_paths = safety.generic_paths;
     visitor.walker.out.conditional_use = safety.conditional_use;
@@ -390,6 +391,9 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
 }
 
 /// The state of the scan: the facts and the walker that holds them.
+#[path = "scan_calls.rs"]
+mod calls;
+
 #[path = "scan_state.rs"]
 mod state;
 use state::{to_i64, Walker};

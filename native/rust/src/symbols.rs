@@ -30,7 +30,7 @@ struct Place {
 }
 
 /// The qualified name of a module item: the module, the inline modules and the name.
-fn item_name(module: &str, def: &Definition) -> String {
+pub(crate) fn item_name(module: &str, def: &Definition) -> String {
     let path = def.scope.iter().chain([&def.name]);
     path.fold(module.to_owned(), |id, part| format!("{id}.{part}"))
 }
@@ -139,7 +139,7 @@ fn fact(def: &Definition, header: Declared, methods: &[FactId]) -> SymbolFact {
     }
 }
 
-fn id(module: &str, qualified: &str, def: &Definition) -> String {
+pub(crate) fn id(module: &str, qualified: &str, def: &Definition) -> String {
     let site = &def.site;
     let parts = [
         Part::Text(module),

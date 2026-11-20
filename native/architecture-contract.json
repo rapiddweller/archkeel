@@ -5125,6 +5125,7 @@
         "native.archkeel_rust_collector.plant",
         "native.archkeel_rust_collector.scan",
         "native.archkeel_rust_collector.scan.attributes",
+        "native.archkeel_rust_collector.scan.calls",
         "native.archkeel_rust_collector.scan.define",
         "native.archkeel_rust_collector.scan.macros",
         "native.archkeel_rust_collector.scan.state",
@@ -5149,6 +5150,7 @@
         "native.archkeel_rust_collector.attrs.model:Proof",
         "native.archkeel_rust_collector.attrs.model:Usage",
         "native.archkeel_rust_collector.definitions:Access",
+        "native.archkeel_rust_collector.definitions:Call",
         "native.archkeel_rust_collector.definitions:Definition",
         "native.archkeel_rust_collector.definitions:Field",
         "native.archkeel_rust_collector.definitions:Form",
@@ -5346,6 +5348,7 @@
             "native.archkeel_facts.gap",
             "native.archkeel_facts.ids",
             "native.archkeel_facts.vocab",
+            "native.archkeel_facts:CallFact",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
@@ -5392,6 +5395,7 @@
       "role": "component",
       "layer": "collector",
       "packages": [
+        "native.archkeel_rust_collector.calls",
         "native.archkeel_rust_collector.declared",
         "native.archkeel_rust_collector.edges",
         "native.archkeel_rust_collector.edges_extracted",
@@ -5421,7 +5425,9 @@
             "native.archkeel_facts.identity",
             "native.archkeel_facts.ids",
             "native.archkeel_facts.nested",
+            "native.archkeel_facts.nullable",
             "native.archkeel_facts.vocab",
+            "native.archkeel_facts:CallFact",
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
             "native.archkeel_facts:SymbolFact"
@@ -5480,6 +5486,7 @@
         }
       ],
       "public": [
+        "native.archkeel_rust_collector.calls:Builder",
         "native.archkeel_rust_collector.declared:Builder",
         "native.archkeel_rust_collector.edges:Builder",
         "native.archkeel_rust_collector.edges_extracted:Builder",
@@ -5512,6 +5519,7 @@
           "through": [
             "native.archkeel_facts.envelope",
             "native.archkeel_facts.request",
+            "native.archkeel_facts:CallFact",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
@@ -5621,6 +5629,7 @@
           "component": "rs-edges",
           "rationale": "Call the builder methods that edges, declared, module_edges and impl_edges define (#953: an impl method of another module is a use of that module).",
           "through": [
+            "native.archkeel_rust_collector.calls",
             "native.archkeel_rust_collector.declared",
             "native.archkeel_rust_collector.edges",
             "native.archkeel_rust_collector.edges_extracted",

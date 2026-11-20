@@ -11,6 +11,7 @@
 mod attribute_gap_tests;
 mod attrs;
 mod builder;
+mod calls;
 mod collect;
 mod crates;
 mod declared;

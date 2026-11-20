@@ -5,6 +5,8 @@
 //! The definitions that the scan reads of a file (AD-351, slice 5b-4a): their form, name,
 //! visibility and holder. `scan_definitions.rs` fills them and `symbols.rs` writes the records.
 
+use std::collections::BTreeSet;
+
 use crate::site::Site;
 
 /// The form of a definition. A `mod` is a file fact, and `impl Trait for T` has no definition.
@@ -255,4 +257,21 @@ pub(crate) struct ReceiverChain {
     pub steps: Vec<Step>,
     /// The macros of the `fn` that are no silent macro of `std` (AD-524).
     pub macros: Vec<String>,
+}
+
+#[derive(Debug)]
+pub(crate) struct Call {
+    pub(crate) scope: Vec<String>,
+    pub(crate) owner: Option<String>,
+    pub(crate) path: Vec<String>,
+    pub(crate) expression: String,
+    pub(crate) site: Site,
+    pub(crate) end_column: i64,
+    pub(crate) reason: Option<&'static str>,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct Calls {
+    pub(crate) functions: BTreeSet<(Vec<String>, String)>,
+    pub(crate) sites: Vec<Call>,
 }

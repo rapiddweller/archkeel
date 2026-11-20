@@ -114,6 +114,12 @@
       {"name": "O-bazel-worker-realworld", "section": "real", "intent": "PASS", "blocked_by": [], "about": "Real project: the bazel_worker package of dart-lang/tools. The driver side and the worker side must not import each other.", "root": "O-bazel-worker-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 4, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
+    "P-rust-story": {
+      "language": "rust",
+      "runs": [
+      {"name": "P-rust-story", "showcase": false, "root": "P-rust-story", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}}
+      ]
+    },
     "golden-python": {
       "language": "python",
       "runs": [

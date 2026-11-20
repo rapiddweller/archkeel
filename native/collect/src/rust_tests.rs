@@ -154,7 +154,7 @@ fn deeply_nested_rust_gives_a_named_nesting_gap() {
 }
 
 /// The validation table of the Rust collector (AD-688; `evaluate.py:1055-1056`, AD-604): the
-/// sections `imports` and `unknowns`, optionally `symbols`, no construct capability, and an
+/// sections `imports` and `unknowns`, optionally `calls` and `symbols`, no construct capability, and an
 /// interface statement exactly with the routes feature.
 #[test]
 fn the_table_of_the_rust_collector_registers_its_sections_and_binds_the_interface() {

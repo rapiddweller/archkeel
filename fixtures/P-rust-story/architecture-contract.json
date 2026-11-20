@@ -1,0 +1,18 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "COMP-INVENTORY",
+      "label": "inventory",
+      "role": "component",
+      "packages": ["inventory"],
+      "public": ["inventory"],
+      "responsibilities": ["Check stock before reserving an item."],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/inventory.md"],
+      "requires": [],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": []
+}

@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.2.0",
+  "title": "Check one scan configuration",
+  "snapshot": {
+    "source_digest": "b8e0672ac3874422bf35b48a1be6035064422566f159159bf751252d2af3d146",
+    "contract_digest": "ec5fb35b800e02d972d233142c023aded4b3d256dade8054eae31cbecc293356"
+  },
+  "nodes": [
+    "native.archkeel_core.scan.answer",
+    "native.archkeel_core.scan.of_request",
+    "native.archkeel_core.scan.one",
+    "native.archkeel_core.scan.decide",
+    "native.archkeel_core.scan.tree",
+    "native.archkeel_core.contract.answer"
+  ],
+  "story": {
+    "id": "core-scan-request",
+    "title": "Check one scan configuration"
+  },
+  "steps": [
+    {
+      "node": "native.archkeel_core.scan.answer",
+      "title": "Receive the scan request",
+      "note": "The core receives the request bytes and the scan clock."
+    },
+    {
+      "node": "native.archkeel_core.scan.of_request",
+      "title": "Open the configured repository",
+      "note": "The core selects the scan path for the request."
+    },
+    {
+      "node": "native.archkeel_core.scan.one",
+      "title": "Collect one configuration",
+      "note": "A request for one configuration collects source facts and the contract."
+    },
+    {
+      "node": "native.archkeel_core.scan.decide",
+      "title": "Prepare the rule evaluation",
+      "note": "The core reads the contract and its provenance before evaluating the collected facts."
+    },
+    {
+      "node": "native.archkeel_core.scan.tree",
+      "title": "Read the contract tree",
+      "note": "The core follows any inside contracts."
+    },
+    {
+      "node": "native.archkeel_core.contract.answer",
+      "title": "Read the contract state",
+      "note": "The contract reader supplies the tree or reports missing input."
+    }
+  ]
+}

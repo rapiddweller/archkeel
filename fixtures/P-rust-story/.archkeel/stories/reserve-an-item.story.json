@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.2.0",
+  "title": "Reserve an item",
+  "snapshot": {
+    "source_digest": "d78ba77d582017c292e15d8c5a076379937e4c9413beb6cb862d644824fe6568",
+    "contract_digest": "cd93dc9e14ca5c3e6ec9f23b9ef6b80eab829718e3a412c984efacf06390bd6f"
+  },
+  "nodes": [
+    "inventory.inventory.reserve",
+    "inventory.inventory.reservation.request",
+    "inventory.inventory.reservation.can_reserve",
+    "inventory.inventory.stock.available",
+    "inventory.inventory.has_stock"
+  ],
+  "story": {
+    "id": "reserve-an-item",
+    "title": "Reserve an item"
+  },
+  "steps": [
+    {
+      "node": "inventory.inventory.reserve",
+      "title": "Accept a reservation request",
+      "note": "The public function receives the available stock count."
+    },
+    {
+      "node": "inventory.inventory.reservation.request",
+      "title": "Send the request to the reservation module",
+      "note": "The request enters the reservation module through a crate-relative path."
+    },
+    {
+      "node": "inventory.inventory.reservation.can_reserve",
+      "title": "Check whether the item can be reserved",
+      "note": "The reservation module calls its own check."
+    },
+    {
+      "node": "inventory.inventory.stock.available",
+      "title": "Check the stock count",
+      "note": "The import alias points to the stock function."
+    },
+    {
+      "node": "inventory.inventory.has_stock",
+      "title": "Apply the stock rule",
+      "note": "The parent module accepts a count greater than zero."
+    }
+  ]
+}

@@ -112,3 +112,13 @@ For Python source candidates, filter `relations` by `kind=source_call`. Each rec
 `resolution=candidate`. Its evidence identifies the `call_site` and the `declaration`.
 Coverage applies to the selected scan. A null collector section means that this build
 does not supply that fact type. An empty section means the collector supplied zero rows.
+
+## Follow a Rust scan request
+
+Run `uv run archkeel explore --config native/archkeel.toml` from the
+ArchKeel checkout. Open **Check one scan configuration** in Studio.
+The story follows direct Rust calls from the scan handler to the contract
+reader. Call coverage is partial. The collector leaves method dispatch,
+callbacks, and macro expansions unresolved.
+
+![A checked Rust core story in Studio](assets/explorer-rust-core-story.png)
