@@ -418,7 +418,7 @@ fn declarations(
     let read = (modules, binders);
     let wrapped = declared::wrapped::forms(&found, read, imports, sets, (forms, &mut positions));
     let methods = if closed_namespace {
-        declared::DirectMethods::of(&found, modules, writes, written)
+        declared::DirectMethods::for_survey(&found, modules, writes, written)
     } else {
         declared::DirectMethods::empty()
     };

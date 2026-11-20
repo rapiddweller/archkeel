@@ -66,7 +66,7 @@ pub(crate) fn validate(facts: &Facts) -> Result<Option<CallOwners>, String> {
             return Err(INVALID.to_owned());
         }
     }
-    let mut calls = Vec::with_capacity(witnesses.calls.len());
+    let mut calls = Vec::with_capacity(Vec::len(&witnesses.calls));
     let mut seen: HashSet<&FactId> = facts
         .direct_calls
         .iter()
@@ -183,8 +183,8 @@ impl<'a> Index<'a> {
         }
         let source = ModuleName::as_str(&outer.source_module);
         let provider = ModuleName::as_str(&owner.module);
-        let name = owner.name.as_str();
-        let spelling = inner.expression.as_str();
+        let name = String::as_str(&owner.name);
+        let spelling = String::as_str(&inner.expression);
         let origin = match &witness.import {
             None => source == provider && spelling == name,
             Some(id) => {

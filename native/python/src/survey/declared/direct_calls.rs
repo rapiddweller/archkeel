@@ -11,7 +11,8 @@ use archkeel_facts::ids::{FactId, ModuleName};
 use archkeel_facts::nullable::Nullable;
 use archkeel_facts::vocab::{MethodKind, Status};
 use archkeel_facts::{CallFact, ImportFact, Record, SymbolFact};
-use ruff_python_ast::{Expr, ExprCall, Stmt, StmtFunctionDef};
+use ruff_python_ast::name::Name;
+use ruff_python_ast::{Expr, ExprCall, Identifier, Stmt, StmtFunctionDef};
 
 use super::found::Found;
 use crate::module::Module;
@@ -30,7 +31,7 @@ impl DirectMethods {
         }
     }
 
-    pub(crate) fn of(
+    pub(crate) fn for_survey(
         found: &[Found<'_>],
         modules: &[Module],
         writes: &ClassWrites,
@@ -184,11 +185,11 @@ fn plain_class(stmt: &Stmt) -> Option<&str> {
     };
     (class.arguments.is_none()
         && class.type_params.is_none()
-        && Vec::is_empty(&class.decorator_list)
+        && matches!(&class.decorator_list[..], [])
         && class.body.iter().all(|stmt| match stmt {
             Stmt::FunctionDef(method) => {
-                !method.name.as_str().starts_with("__")
-                    && Vec::is_empty(&method.decorator_list)
+                !Identifier::as_str(&method.name).starts_with("__")
+                    && matches!(&method.decorator_list[..], [])
                     && method.type_params.is_none()
                     && method.returns.is_none()
                     && method
@@ -205,7 +206,7 @@ fn plain_class(stmt: &Stmt) -> Option<&str> {
             Stmt::Expr(stmt) => matches!(&*stmt.value, Expr::StringLiteral(_)),
             _ => false,
         }))
-    .then_some(class.name.as_str())
+    .then_some(Identifier::as_str(&class.name))
 }
 
 /// There is no user code between the two operations that can replace the receiver.
@@ -219,7 +220,7 @@ fn pair(source: &StmtFunctionDef) -> Option<(&ExprCall, &ExprCall, Option<&str>,
             let Expr::Call(call) = &*assign.value else {
                 return None;
             };
-            (returned, Some((local.id.as_str(), call)))
+            (returned, Some((Name::as_str(&local.id), call)))
         }
         _ => return None,
     };
@@ -231,7 +232,7 @@ fn pair(source: &StmtFunctionDef) -> Option<(&ExprCall, &ExprCall, Option<&str>,
     };
     let (constructor, local) = match (&*member.value, binding) {
         (Expr::Call(call), None) => (call, None),
-        (Expr::Name(receiver), Some((name, call))) if receiver.id.as_str() == name => {
+        (Expr::Name(receiver), Some((name, call))) if Name::as_str(&receiver.id) == name => {
             (call, Some(name))
         }
         _ => return None,
@@ -239,5 +240,5 @@ fn pair(source: &StmtFunctionDef) -> Option<(&ExprCall, &ExprCall, Option<&str>,
     (method.arguments.is_empty()
         && constructor.arguments.is_empty()
         && matches!(&*constructor.func, Expr::Name(_)))
-    .then_some((method, constructor, local, member.attr.as_str()))
+    .then_some((method, constructor, local, Identifier::as_str(&member.attr)))
 }

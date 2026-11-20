@@ -370,7 +370,8 @@ fn direct_calls(
     let mut constructors = HashSet::new();
     if let Some(owners) = constructed {
         targets.extend(owners.targets().iter().cloned());
-        for call in owners.calls() {
+        let witnessed: &[archkeel_store::OwnedCall] = owners.calls();
+        for call in witnessed {
             *counts.entry(&call.module).or_default() += 2;
             constructors.insert(call.site.clone());
             calls.push((

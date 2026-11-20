@@ -276,6 +276,7 @@
       "public": [
         "native.archkeel_store:CallOwners",
         "native.archkeel_store:Ingested",
+        "native.archkeel_store:OwnedCall",
         "native.archkeel_store:ingest_reply",
         "native.archkeel_store:ingest_typed",
         "native.archkeel_store:sdk_libraries",
@@ -747,6 +748,7 @@
             "native.archkeel_store.call_owners",
             "native.archkeel_store:CallOwners",
             "native.archkeel_store:Ingested",
+            "native.archkeel_store:OwnedCall",
             "native.archkeel_store:standard_library"
           ]
         },
