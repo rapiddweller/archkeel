@@ -81,9 +81,10 @@ class Created:
             out.append(_interfaces(self.result))
         if self.result.note:
             out.append(f"Note: {self.result.note}")
+        contracts = "contracts" if self.skipped() else "contract files above"
         out.append(
             "Review the open decisions, then run archkeel validate again. They are the TODO "
-            "entries of the contracts, one for each component without a written "
+            f"entries of the {contracts}, one for each component without a written "
             "responsibility; `archkeel validate --text` lists them. "
             f"Guide: {DOCUMENT}"
         )
