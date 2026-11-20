@@ -42,7 +42,7 @@ def _file_digest(file: Path, info: os.stat_result | None = None) -> str:
 
 def _fingerprint(project: ProjectRoot, binary: Path) -> tuple[SnapshotIdentity, dict[str, str]]:
     # Saving a checked story does not change the architecture that it describes.
-    inputs = ("--", ".", ":(exclude,glob,top).archkeel/stories/*.story.json")
+    inputs = ("--", ".", ":(exclude,glob).archkeel/stories/*.story.json")
     state = identity(project.path, pathspec=inputs)
     if state is None:
         raise CoreError("the Explorer needs a Git work tree with a commit")

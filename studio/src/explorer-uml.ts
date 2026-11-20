@@ -43,7 +43,7 @@ function displayGroup(item: StudioItem) {
     const separator = item.name.lastIndexOf(".");
     if (separator > 0) return "Modules · " + item.name.slice(0, separator);
   }
-  if (item.kind === "component") return item.id.startsWith("PART:") ? "System parts" : "Components";
+  if (item.kind === "component") return (item.system_part ?? item.id.startsWith("PART:")) ? "System parts" : "Components";
   const kinds: Record<string, string> = {
     module: "Modules", class: "Classes", interface: "Interfaces",
     function: "Functions", method: "Methods", property: "Properties",

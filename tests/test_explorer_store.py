@@ -41,13 +41,16 @@ def test_identity_reuse_and_format(tmp_path: Path) -> None:
         pass
 
 
-def test_previous_snapshot_stays_readable_after_projection_upgrade(tmp_path: Path) -> None:
+@pytest.mark.parametrize("version", [3, 4])
+def test_previous_snapshot_stays_readable_after_projection_upgrade(
+    tmp_path: Path, version: int
+) -> None:
     identity = SnapshotIdentity("rev", "policy", "source")
     path = cache_path(tmp_path, tmp_path, identity)
     publish_snapshot(path, identity, _populate, "UNKNOWN")
-    previous = path.with_name(identity.key(3) + ".sqlite3")
+    previous = path.with_name(identity.key(version) + ".sqlite3")
     with closing(sqlite3.connect(path)) as db:
-        db.execute("PRAGMA user_version=3")
+        db.execute(f"PRAGMA user_version={version}")
     path.rename(previous)
     assert previous != path
     with open_snapshot(previous, identity) as db:
@@ -57,7 +60,7 @@ def test_previous_snapshot_stays_readable_after_projection_upgrade(tmp_path: Pat
         )
     publish_snapshot(path, identity, _populate, "UNKNOWN")
     with open_snapshot(path, identity) as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 5
 
 
 def test_interrupted_build_and_concurrent_reuse(tmp_path: Path) -> None:

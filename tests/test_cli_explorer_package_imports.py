@@ -79,7 +79,8 @@ def test_follow_package_import_from_map_to_source(
                 (relation,) = [
                     r
                     for r in rows
-                    if r["source"] == f"{caller}.start" and r["target"] == f"{library}.values"
+                    if r["source_name"] == f"{caller}.start"
+                    and r["target_name"] == f"{library}.values"
                 ]
                 (site,) = both("evidence", relation=relation["id"])["items"]
                 excerpt = both("source", reference=site["reference"], start=2, limit=1)

@@ -23,7 +23,7 @@ def _imports(
         (module,),
     ):
         data = json.loads(record[0])
-        target = data.get("target")
+        target = data.get("target_name", data.get("target"))
         if data.get("resolution") != "external" or not isinstance(target, str):
             continue
         package = target.split(".", 1)[0]

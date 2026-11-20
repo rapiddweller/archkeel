@@ -91,6 +91,8 @@ Check the revision, working tree state and scan configuration when comparing res
 
 The browser uses GET requests under `/api/v1/`. The MCP tools use the same operation
 names and element IDs. Every response identifies the snapshot and its coverage.
+Use IDs from that snapshot as opaque values. A component and a file with the same name have
+different IDs. Previously published snapshots keep their IDs.
 
 | Operation | Input | Result |
 | --- | --- | --- |

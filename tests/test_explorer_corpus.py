@@ -79,15 +79,23 @@ def test_observed_import_follows_the_public_cursor(tmp_path: Path, monkeypatch) 
     file.parent.mkdir(parents=True)
     file.write_text(statement + "\n")
     edge = {
-        "source": source,
-        "target": target,
+        "source": "opaque-source",
+        "target": "opaque-target",
+        "source_name": source,
+        "target_name": target,
         "resolution": "local",
         "evidence": [{"path": name, "line": 1}],
     }
     pages = {"": ([], "next"), "next": ([edge], None)}
 
     def query(snapshot, root, operation, args):
-        assert operation == "relations" and args["element"] == source
+        if operation == "search":
+            assert args["text"] == source
+            return {
+                "items": [{"id": "opaque-source", "kind": "module", "name": source, "path": name}],
+                "next_cursor": None,
+            }
+        assert operation == "relations" and args["element"] == "opaque-source"
         items, following = pages[args["cursor"]]
         return {"items": items, "next_cursor": following}
 

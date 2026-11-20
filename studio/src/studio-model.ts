@@ -1,4 +1,5 @@
 export interface StudioItem {
+  system_part?: boolean;
   id: string;
   name: string;
   kind: string;
@@ -24,6 +25,8 @@ export interface StudioEdge {
   id: string;
   source: string;
   target: string | null;
+  source_name?: string | null;
+  target_name?: string | null;
   kind: string;
   resolution: string;
   title?: string;

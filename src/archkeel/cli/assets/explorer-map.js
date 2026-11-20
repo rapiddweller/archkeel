@@ -1,6 +1,6 @@
 import { breakPath, button, cards, details, element, get, notice, showError, svgElement } from "./studio-dom.js";
 import { known, pageTrails, state, system } from "./studio-state.js";
-import { label, open, relationLabel, select, showAggregates, showEvidence } from "./explorer.js";
+import { open, relationLabel, select, showAggregates, showEvidence } from "./explorer.js";
 import { showScope } from "./explorer-navigation.js";
 import { bindMapLayouts, bindMapPanes, inspector, layoutMap, mapPage, mapPosition, mapRoutes, placeMapLabel, showMapLayoutControls, showMapPanes, structure, zoomMap } from "./explorer-map-layout.js";
 import { storyChat } from "./explorer-story.js";
@@ -67,8 +67,8 @@ export function relationDirection(edge, current) {
         interface: ["declares an interface to", "declared interface from"],
     };
     const [outbound, inbound] = directions[edge.kind] ?? ["→", "←"];
-    const from = label(edge.source);
-    const to = edge.declaration ?? (edge.target ? label(edge.target) : "UNKNOWN target");
+    const from = known.get(edge.source)?.name ?? edge.source_name ?? edge.source;
+    const to = edge.declaration ?? (edge.target ? known.get(edge.target)?.name : undefined) ?? edge.target_name ?? edge.target ?? "UNKNOWN target";
     if (current === edge.target)
         return inbound + " " + from;
     if (current === edge.source)

@@ -13,8 +13,8 @@ from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-_FORMAT = 4
-_READABLE_FORMATS = {3, _FORMAT}
+_FORMAT = 5
+_READABLE_FORMATS = {3, 4, _FORMAT}
 _PAGE = 4096
 CACHE_BYTES = 1024**3
 _KEY = re.compile(r"[0-9a-f]{64}")

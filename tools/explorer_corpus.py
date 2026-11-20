@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -64,34 +65,53 @@ def git(root: Path, *args: str) -> str | None:
     return result.stdout.strip() if result.returncode == 0 else None
 
 
+def _query_items(
+    snapshot: Path, root: Path, operation: str, args: dict[str, object]
+) -> Iterator[dict[str, Any]]:
+    cursor = ""
+    while True:
+        result = query(snapshot, root, operation, args | {"cursor": cursor, "limit": 200})
+        items, following = result["items"], result["next_cursor"]
+        if not isinstance(items, list) or not isinstance(following, (str, type(None))):
+            raise ValueError("invalid Explorer page")
+        yield from items
+        if following is None:
+            return
+        if following <= cursor:
+            raise ValueError("Explorer cursor did not advance")
+        cursor = following
+
+
 def _observed_import(name: str, root: Path, snapshot: Path) -> dict[str, Any]:
     oracle = ORACLES.get(name)
     if oracle is None:
         return {"error": "no source oracle"}
-    edges: list[object] = []
-    cursor = ""
-    while True:
-        result = query(
-            snapshot,
-            root,
-            "relations",
-            {
-                "element": oracle[2],
-                "direction": "out",
-                "kind": "import_site",
-                "cursor": cursor,
-                "limit": 200,
-            },
+    path, _, source, _ = oracle
+    modules = _query_items(snapshot, root, "search", {"text": source})
+    element = next(
+        (
+            item["id"]
+            for item in modules
+            if item["kind"] == "module" and item["name"] == source and item.get("path") == path
+        ),
+        None,
+    )
+    edges = (
+        []
+        if element is None
+        else list(
+            _query_items(
+                snapshot,
+                root,
+                "relations",
+                {
+                    "element": element,
+                    "direction": "out",
+                    "kind": "import_site",
+                },
+            )
         )
-        items, following = result["items"], result["next_cursor"]
-        if not isinstance(items, list) or not isinstance(following, (str, type(None))):
-            return {"error": "invalid relations page"}
-        edges.extend(items)
-        if following is None:
-            break
-        if following <= cursor:
-            return {"error": "relation cursor did not advance"}
-        cursor = following
+    )
     return check_import(name, root, {"edges": edges})
 
 
@@ -258,16 +278,18 @@ def check_import(name: str, root: Path, topology: dict[str, Any] | None) -> dict
     anchored = [
         edge
         for edge in edges
-        if edge.get("source") == source
+        if edge.get("source_name", edge.get("source")) == source
         and any(
             site.get("path") == path and site.get("line") == line
             for site in edge.get("evidence", [])
         )
     ]
     found = any(
-        edge.get("target") == target and edge.get("resolution") == "local" for edge in anchored
+        edge.get("target_name", edge.get("target")) == target and edge.get("resolution") == "local"
+        for edge in anchored
     )
-    wrong = [edge.get("target") for edge in anchored if edge.get("target") != target]
+    targets = [edge.get("target_name", edge.get("target")) for edge in anchored]
+    wrong = [observed for observed in targets if observed != target]
     # A bounded topology cannot prove a missing edge or a negative import.
     return {
         "positive_import": "observed" if found else "not observed",
