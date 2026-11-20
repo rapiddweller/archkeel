@@ -92,16 +92,27 @@ def test_template_rejects_symlink(tmp_path: Path) -> None:
         explorer_agent._template(tmp_path)
 
 
-def test_mcp_registers_story_storage_without_starting_model(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+@pytest.mark.parametrize("transport_fails", [False, True])
+def test_mcp_registers_story_storage_and_holds_session_lease(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, transport_fails: bool
 ) -> None:
     import sys
     from types import SimpleNamespace
 
     from archkeel import explorer_mcp
+    from archkeel.explorer_queries import populate, query
+    from archkeel.explorer_store import SnapshotIdentity, cache_path, publish_snapshot
 
-    snapshot = tmp_path / "snapshot"
-    snapshot.touch()
+    active = SnapshotIdentity("old", "policy", "source")
+    replacement = SnapshotIdentity("new", "policy", "source")
+    snapshot = cache_path(tmp_path, tmp_path / "first", active)
+    other = cache_path(tmp_path, tmp_path / "second", replacement)
+
+    def build(db: sqlite3.Connection) -> None:
+        populate(db, {"version": 1, "components": [], "modules": [], "edges": []}, tmp_path)
+
+    publish_snapshot(snapshot, active, build, "UNKNOWN")
+    cap = snapshot.stat().st_size
     registered = {}
 
     class Server:
@@ -113,6 +124,12 @@ def test_mcp_registers_story_storage_without_starting_model(
 
         def run(self, transport: str) -> None:
             assert transport == "stdio"
+            assert query(snapshot, tmp_path, "overview", {})["items"] == []
+            with pytest.raises(ValueError, match="budget"):
+                publish_snapshot(other, replacement, build, "UNKNOWN", max_bytes=cap)
+            assert snapshot.exists() and not other.exists()
+            if transport_fails:
+                raise RuntimeError("transport failed")
 
     monkeypatch.setitem(sys.modules, "fastmcp", SimpleNamespace(FastMCP=Server))
     monkeypatch.setattr(
@@ -122,7 +139,13 @@ def test_mcp_registers_story_storage_without_starting_model(
     monkeypatch.setattr(explorer_mcp, "list_stories", lambda root, path: [{"id": "one"}])
     monkeypatch.setattr(explorer_mcp, "read_story", lambda root, path, id: {"id": id})
     monkeypatch.setattr(explorer_mcp, "save_story", lambda root, path, spec: {"saved": spec})
-    explorer_mcp.main()
+    if transport_fails:
+        with pytest.raises(RuntimeError, match="transport failed"):
+            explorer_mcp.main()
+    else:
+        explorer_mcp.main()
+    publish_snapshot(other, replacement, build, "UNKNOWN", max_bytes=cap)
+    assert other.exists() and not snapshot.exists()
     assert registered["stories"]() == [{"id": "one"}]
     assert registered["story_read"]("one") == {"id": "one"}
     assert registered["story_save"]({"title": "T"}) == {"saved": {"title": "T"}}

@@ -52,3 +52,7 @@ recorded connection expression. The badge states when the binding is unknown.
 
 The self-scan includes the Studio TypeScript sources as a third system part. The local server
 ships the JavaScript built from these sources. The build checks that the files match.
+
+Entering the Story library from Architecture uses the current selection. An empty selection
+starts a repository-wide draft. Returning within Story keeps the original draft context.
+The Story browser test checks the element sent to the drafting API on both paths.

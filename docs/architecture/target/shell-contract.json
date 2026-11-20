@@ -959,6 +959,10 @@
           "rationale": "Read indexed architecture views."
         },
         {
+          "component": "explorer-store",
+          "rationale": "Hold the snapshot lease for the MCP session."
+        },
+        {
           "component": "storyboard",
           "rationale": "Let an MCP client read and save a checked story."
         }

@@ -287,3 +287,88 @@ def test_late_story_response_does_not_replace_newer_architecture(
                 release.set()
                 server.shutdown()
                 running.result(timeout=5)
+
+
+def test_story_draft_uses_current_architecture_selection(tmp_path: Path, monkeypatch) -> None:
+    sent = []
+    story = {
+        "id": "example",
+        "title": "Example",
+        "chapters": [],
+        "coverage": {},
+        "steps": [{"node": "app.first", "lane": "app", "function": "first", "status": "claim"}],
+    }
+
+    def query(path, root, operation, args):
+        return {
+            "coverage": {},
+            "items": [{"id": "part", "name": "Part", "kind": "component", "parent": "system"}]
+            if operation == "map"
+            else [],
+            "groups": [],
+            "edges": [],
+            "total": 1,
+            "next_cursor": None,
+            "edge_total": 0,
+            "edges_truncated": False,
+        }
+
+    def draft(root, snapshot, prompt, element, story_id, *, confirm):
+        sent.append((prompt, element, story_id))
+        raise ValueError("captured")
+
+    monkeypatch.setattr(core_explorer_http, "query", query)
+    monkeypatch.setattr(
+        core_explorer_http, "list_stories", lambda *args: [{"id": "example", "title": "Example"}]
+    )
+    monkeypatch.setattr(core_explorer_http, "read_story", lambda *args: story)
+    monkeypatch.setattr(core_explorer_http, "_create_story", draft)
+    with core_explorer_http._ExplorerServer(tmp_path / "db", tmp_path, None, 0) as server:
+        with ThreadPoolExecutor() as pool:
+            running = pool.submit(server.serve_forever)
+            try:
+                with browser(tmp_path / "profile") as page:
+                    page.send("Page.navigate", url=f"http://127.0.0.1:{server.server_port}/")
+                    page.wait("document.querySelector('[data-element=part]') !== null")
+                    page.evaluate("document.querySelector('[data-element=part]').click()")
+                    page.wait("document.querySelector('#details h2')?.textContent === 'Part'")
+                    page.evaluate("document.getElementById('story').click()")
+                    page.wait("document.querySelector('.story-library button') !== null")
+                    page.evaluate("document.querySelector('.story-library button').click()")
+                    page.wait("document.querySelector('.story-node') !== null")
+                    page.evaluate("document.querySelector('#breadcrumbs button').click()")
+                    page.wait("document.querySelector('.story-library button') !== null")
+                    assert "Explain flow" in page.evaluate(
+                        "document.querySelector('#details summary').textContent"
+                    )
+                    page.evaluate("document.querySelector('#details summary').click()")
+                    page.evaluate("document.querySelector('#details textarea').value = 'scoped'")
+                    page.evaluate("document.querySelector('#details form').requestSubmit()")
+                    page.wait(
+                        "document.querySelector('#details [role=status]').textContent"
+                        " === 'captured'"
+                    )
+                    page.evaluate("document.getElementById('map').click()")
+                    page.wait("document.querySelector('[data-element=part]') !== null")
+                    assert (
+                        page.evaluate(
+                            "document.querySelector('[data-element=part]').getAttribute('aria-pressed')"
+                        )
+                        == "false"
+                    )
+                    page.evaluate("document.getElementById('story').click()")
+                    page.wait("document.querySelector('.story-library button') !== null")
+                    assert "Draft a story" in page.evaluate(
+                        "document.querySelector('#details summary').textContent"
+                    )
+                    page.evaluate("document.querySelector('#details summary').click()")
+                    page.evaluate("document.querySelector('#details textarea').value = 'unscoped'")
+                    page.evaluate("document.querySelector('#details form').requestSubmit()")
+                    page.wait(
+                        "document.querySelector('#details [role=status]').textContent"
+                        " === 'captured'"
+                    )
+                    assert sent == [("scoped", "part", ""), ("unscoped", "", "")]
+            finally:
+                server.shutdown()
+                running.result(timeout=5)

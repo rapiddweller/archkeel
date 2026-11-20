@@ -5,7 +5,8 @@ import { selectionHeading } from "./explorer.js";
 import { setStoryLink } from "./explorer-map.js";
 import { goToStoryStep, openCheckedStory, stopStoryPlayback, storyChat, storyHeading, storyMode, storyView, } from "./explorer-story.js";
 export async function showStories() {
-    const context = state.selected ?? storyView.context;
+    const context = get("map").getAttribute("aria-pressed") === "true"
+        ? state.selected : storyView.context;
     const request = ++state.request;
     stopStoryPlayback();
     let result;

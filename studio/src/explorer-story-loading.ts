@@ -9,7 +9,8 @@ import {
 import type { CallStoryHop, CheckedStory, StorySummary } from "./explorer-story-types.js";
 
 export async function showStories() {
-  const context = state.selected ?? storyView.context;
+  const context = get("map").getAttribute("aria-pressed") === "true"
+    ? state.selected : storyView.context;
   const request = ++state.request;
   stopStoryPlayback();
   let result;

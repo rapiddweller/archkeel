@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .explorer_queries import Row, query
+from .explorer_store import open_snapshot
 from .explorer_stories import list_stories, read_story, save_story
 
 
@@ -116,12 +117,12 @@ def main() -> None:
         parser.exit(2, "Install the MCP extra with uv sync --extra mcp.\n")
     path = session.snapshot.resolve(strict=True)
     root = session.root.resolve(strict=True)
-    query(path, root, "overview", {"limit": 1})
-    server = FastMCP("ArchKeel Explorer")
-
-    _query_tools(server, path, root)
-    _story_tools(server, path, root)
-    server.run(transport="stdio")
+    with open_snapshot(path):
+        query(path, root, "overview", {"limit": 1})
+        server = FastMCP("ArchKeel Explorer")
+        _query_tools(server, path, root)
+        _story_tools(server, path, root)
+        server.run(transport="stdio")
 
 
 if __name__ == "__main__":
