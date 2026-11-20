@@ -85,7 +85,7 @@ def test_scip_binding_keeps_the_native_call_open(tmp_path: Path, monkeypatch: py
 
     monkeypatch.setattr(core_explorer_scip, "exchange", exchange)
     frame = _frame()
-    core_explorer_scip.enrich(
+    core_explorer_scip._enrich(
         artifact, tmp_path / "archkeel-core", tmp_path, {"lib.rs": digest}, frame
     )
     database = tmp_path / "cache" / "view.sqlite3"
@@ -108,10 +108,10 @@ def test_scip_binding_keeps_the_native_call_open(tmp_path: Path, monkeypatch: py
         artifact.confirm()
 
     with pytest.raises(CoreError, match="source fingerprint"):
-        core_explorer_scip.enrich(artifact, tmp_path / "archkeel-core", tmp_path, {}, _frame())
+        core_explorer_scip._enrich(artifact, tmp_path / "archkeel-core", tmp_path, {}, _frame())
 
     reply["bindings"][0]["line"] = 1
     with pytest.raises(CoreError, match="outside the verified scan"):
-        core_explorer_scip.enrich(
+        core_explorer_scip._enrich(
             artifact, tmp_path / "archkeel-core", tmp_path, {"lib.rs": digest}, _frame()
         )

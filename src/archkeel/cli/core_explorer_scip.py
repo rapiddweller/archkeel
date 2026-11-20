@@ -147,7 +147,7 @@ def _bindings(
     return matches
 
 
-def enrich(
+def _enrich(
     artifact: ScipIndex, binary: Path, root: Path, digests: dict[str, str], topology: Row
 ) -> None:
     """Store only Rust-worker bindings that refer to this frame and fingerprint."""

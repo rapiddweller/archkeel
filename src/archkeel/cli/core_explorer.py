@@ -29,7 +29,7 @@ from .core_binding import ProjectRoot
 from .core_exit import Outcome, envelope, exit_for
 from .core_explorer_http import _ExplorerServer
 from .core_explorer_identity import _file_digest, _fingerprint
-from .core_explorer_scip import ScipIndex, enrich
+from .core_explorer_scip import ScipIndex, _enrich
 from .core_frame import CoreError, CoreFrame, GapKind
 from .core_json import as_object, as_text
 from .init_draft import draft, write_missing
@@ -136,7 +136,7 @@ def _publish(
             ]
 
     if scip is not None:
-        enrich(scip, binary, project.path, digests, topology)
+        _enrich(scip, binary, project.path, digests, topology)
 
     def build(connection: sqlite3.Connection) -> None:
         display = topology | {
