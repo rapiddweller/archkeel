@@ -11,7 +11,7 @@ use archkeel_facts::envelope::{ConstructedCall, Evidence, Facts};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
 use archkeel_facts::nullable::Nullable;
 use archkeel_facts::vocab::{ClassKind, MethodKind, Status};
-use archkeel_facts::{CallFact, Record, Section, SymbolFact};
+use archkeel_facts::{CallFact, ImportFact, Record, Section, SymbolFact};
 
 /// One validated call whose invoked method is a direct member of the constructed class.
 pub struct OwnedCall {
@@ -101,6 +101,13 @@ pub(crate) fn validate(facts: &Facts) -> Result<Option<CallOwners>, String> {
     Ok(Some(CallOwners { calls, targets }))
 }
 
+fn import_route(record: &Record<ImportFact>) -> Option<(&FactId, [&str; 4])> {
+    let ImportFact::Import(data) = &record.data else {
+        return None;
+    };
+    archkeel_facts::data::ImportData::direct_symbol_route(data).map(|path| (&record.id, path))
+}
+
 struct Index<'a> {
     calls: HashMap<&'a FactId, &'a Record<CallFact>>,
     symbols: HashMap<&'a FactId, &'a Record<SymbolFact>>,
@@ -131,13 +138,9 @@ impl<'a> Index<'a> {
             match section {
                 Section::Calls(rows) => index.calls.extend(rows.iter().map(|r| (&r.id, r))),
                 Section::Symbols(rows) => index.symbols.extend(rows.iter().map(|r| (&r.id, r))),
-                Section::Imports(rows) => index.imports.extend(rows.iter().filter_map(|record| {
-                    let archkeel_facts::ImportFact::Import(data) = &record.data else {
-                        return None;
-                    };
-                    archkeel_facts::data::ImportData::direct_symbol_route(data)
-                        .map(|path| (&record.id, path))
-                })),
+                Section::Imports(rows) => {
+                    index.imports.extend(rows.iter().filter_map(import_route))
+                }
                 _ => {}
             }
         }
