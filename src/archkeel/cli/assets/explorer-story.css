@@ -171,6 +171,6 @@ body:has(#story[aria-pressed="true"]) #story-controls { position: absolute; z-in
 body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #canvas { padding-bottom: 76px; }
 body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #details { padding-bottom: 76px; }
 @media (max-width: 740px) {
-  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #canvas,
+  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #canvas { padding-bottom: calc(35dvh + 110px); }
   body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #details { padding-bottom: 110px; }
 }

@@ -128,6 +128,11 @@ def test_story_lanes_evidence_play_and_reduced_motion(tmp_path: Path, monkeypatc
                     page.wait(
                         "document.getElementById('story-position').textContent.includes('2 / 2')"
                     )
+                    assert page.evaluate(
+                        "document.querySelector('.story-node[aria-current]')"
+                        ".getBoundingClientRect().bottom <= document.getElementById('details')"
+                        ".getBoundingClientRect().top + 1"
+                    )
                     assert page.evaluate("document.querySelectorAll('animateMotion').length") == 0
                     assert (
                         page.evaluate("document.querySelectorAll('.story-routes path').length") == 1
