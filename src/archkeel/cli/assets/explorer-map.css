@@ -77,7 +77,7 @@ body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20
 .map-plane .map-dim:focus-visible, .map-plane .map-dim:hover { opacity: 1; }
 .map-edges { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: visible; }
 .map-edges g path { fill: none; stroke: var(--line-strong); stroke-width: 1.5; }
-.map-edges marker path { fill: var(--line-strong); }
+.map-edges marker path { fill: var(--line-strong); fill: context-stroke; }
 .map-edges g :is(.declared, .candidate, .unresolved, .open) { stroke-dasharray: 5 4; }
 .map-edges g path.unknown { stroke: var(--unknown); stroke-dasharray: 2 5; }
 .map-edges g path.map-proven { stroke: var(--pass); }

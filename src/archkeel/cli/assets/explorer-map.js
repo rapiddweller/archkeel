@@ -56,6 +56,21 @@ function mapEdgeName(edge) {
   return edge.count > 1 ? name + " × " + edge.count.toLocaleString() : name;
 }
 
+function relationDirection(edge, current) {
+  const [outbound, inbound] = ({
+    call: ["calls", "called by"],
+    import: ["imports", "imported by"],
+    import_site: ["imports", "imported by"],
+    requires: ["requires", "required by"],
+    interface: ["declares an interface to", "declared interface from"],
+  })[edge.kind] ?? ["→", "←"];
+  const from = label(edge.source);
+  const to = edge.target ? label(edge.target) : "UNKNOWN target";
+  if (current === edge.target) return inbound + " " + from;
+  if (current === edge.source) return outbound + " " + to;
+  return from + " " + outbound + " " + to;
+}
+
 function unknownCalls(item, compact = false) {
   if (!(item.unresolved_calls > 0)) return null;
   const count = item.unresolved_calls.toLocaleString();
@@ -97,10 +112,10 @@ function paintMapScene(layout, response) {
   mapPosition(plane, 0, 0, layout.width, layout.height);
   const svg = mapSvg("svg", { class: "map-edges", width: layout.width, height: layout.height, "aria-hidden": "true" }, plane);
   const marker = mapSvg("marker", {
-    id: "map-arrow", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7",
-    markerHeight: "7", orient: "auto",
+    id: "map-arrow", viewBox: "0 0 13 11", refX: "13", refY: "5.5", markerWidth: "13",
+    markerHeight: "11", markerUnits: "userSpaceOnUse", orient: "auto",
   }, mapSvg("defs", {}, svg));
-  mapSvg("path", { d: "M0 0 L10 5 L0 10 Z" }, marker);
+  mapSvg("path", { d: "M0 0 L13 5.5 L0 11 Z" }, marker);
   const containers = new Map();
   const ensureContainer = (id) => {
     if (containers.has(id)) return containers.get(id);
@@ -154,7 +169,7 @@ function paintMapConnections(scene, edges) {
     mapSvg("path", { d: route.d, class: style, "marker-end": "url(#map-arrow)" }, group);
     const label = button(mapEdgeName(edge), () => showEvidence(edge), "map-edge-label");
     if (uncertain) label.classList.add("map-unknown");
-    label.title = known.get(edge.source)?.name + " → " + known.get(edge.target)?.name + " · " + relationLabel(edge);
+    label.title = relationDirection(edge) + " · " + relationLabel(edge);
     label.setAttribute("aria-label", mapEdgeName(edge) + " · " + label.title);
     label.dataset.mapEdge = edge.id;
     const at = layout.labels["label:" + edge.id];
@@ -217,9 +232,9 @@ function mapConnections(id) {
   if (!edges.length) return section;
   section.append(element("h3", "On this map"));
   for (const edge of edges) {
-    const other = label(edge.source === id ? edge.target : edge.source);
     const arrow = edge.source === id ? "→ " : "← ";
-    section.append(button(arrow + other + " · " + mapEdgeName(edge), () => showEvidence(edge), "detail-btn"));
+    section.append(button(arrow + relationDirection(edge, id) + " · " + mapEdgeName(edge),
+      () => showEvidence(edge), "detail-btn"));
   }
   return section;
 }

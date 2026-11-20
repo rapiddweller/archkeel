@@ -15,6 +15,9 @@ uv run archkeel explore --config docs/architecture/architecture-system.json
 Keep the terminal open while you use the browser. Use `--no-open` to print the local
 address. Choose **Components** or **Modules**. The map groups modules under their owners.
 Select an element to inspect its imports, calls and source evidence.
+Read each arrow from its source to its target. For an import, the source imports the
+target module. For a call, the source calls the target. An UNKNOWN call target has no
+arrow. These relations do not track argument values or return values.
 Each result includes its snapshot identity and the coverage of the scan.
 The System inspector lists up to 12 external packages resolved from observed imports.
 Open a class to inspect its methods and properties. A class card shows a preview of

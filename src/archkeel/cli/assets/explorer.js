@@ -113,7 +113,7 @@ function drawArrows() {
     if (blocked) route = `M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`;
     path.setAttribute("d", route);
     if (["declared", "candidate"].includes(edge.resolution)) path.classList.add("declared");
-    if (["unresolved", "open"].includes(edge.resolution)) path.classList.add("unknown");
+    if (["unresolved", "open"].includes(edge.resolution) || (edge.kind === "call" && edge.resolution !== "resolved")) path.classList.add("unknown");
     path.setAttribute("marker-end", "url(#arrow)");
     const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
     title.textContent = label(edge.source) + " → " + label(edge.target ?? "Unresolved target") + " · " + relationLabel(edge);
@@ -231,7 +231,7 @@ async function select(item) {
     if (state.request !== request) return;
     for (const edge of result.items) {
       details.append(button(label(edge.source) + " → " + label(edge.target ?? "Unresolved target") + " · " +
-        relationLabel(edge), () => showEvidence(edge), "detail-btn"));
+        relationLabel(edge), () => showEvidence(edge), edge.kind === "call" && edge.resolution !== "resolved" ? "detail-btn unknown" : "detail-btn"));
     }
     if (!cursor && !result.items.length) details.append(element("p", "No indexed connections."));
     if (result.next_cursor) {
@@ -249,7 +249,7 @@ async function showEvidence(edge) {
   const { items, relation } = await api("evidence", { relation: edge.id });
   if (request !== state.request) return;
   inspector(true);
-  selectionHeading(label(edge.source) + " → " + label(edge.target ?? "Unresolved target"), relationLabel(relation));
+  selectionHeading(relationDirection(edge), relationLabel(relation));
   details.append(element("h3", edge.aggregate ? "Example call from " + edge.count + " recorded calls" : "Dependency evidence"));
   if (relation.title) details.append(element("p", relation.title));
   if (relation.expression) details.append(element("p", relation.expression, "meta"));

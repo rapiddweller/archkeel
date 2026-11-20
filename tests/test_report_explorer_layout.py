@@ -9,7 +9,9 @@ stacked boxes got an edge that ran around the upper box (issue 1489); the first 
 drill was drawn at 40 percent, too small to read (issue 1490).
 """
 
+import json
 import time
+from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -465,10 +467,7 @@ def test_every_chip_line_stays_inside_its_box(site: str, page: Browser) -> None:
 def test_a_layer_of_one_component_draws_no_frame_around_that_component(
     site: str, page: Browser, tmp_path: Path
 ) -> None:
-    # The shell part has layers of one component (`commands`, `frame`) and layers of
-    # several. The box of a layer that holds one component is that component: the Modules view drew
-    # two nested frames with the same label and the same stereotype for it. A layer of several
-    # components is a real parent and keeps its frame.
+    # A layer with one component uses its component frame; a layer with several keeps a frame.
     frames = shell_layer_frames(site, page, tmp_path)
     assert frames, page.state()
 
@@ -476,10 +475,22 @@ def test_a_layer_of_one_component_draws_no_frame_around_that_component(
         (a, b, c, d), (e, f, g, h) = frames[inner]["box"], frames[outer]["box"]
         return e <= a and f <= b and c <= g and d <= h
 
-    single_layers = ("commands", "frame")
+    contract = json.loads(
+        (
+            Path(__file__).resolve().parents[1] / "docs/architecture/target/shell-contract.json"
+        ).read_text()
+    )
+    layers: dict[str, list[str]] = defaultdict(list)
+    for component in contract["components"]:
+        if component.get("layer"):
+            layers[component["layer"]].append(component["id"])
+    single_layers = [layer for layer, members in layers.items() if len(members) == 1]
+    assert single_layers
     for single in single_layers:
         assert f"LAYER:PART:shell:{single}" not in frames
-        assert f"SHELL-{single.upper()}" in frames
+        assert layers[single][0] in frames
+    assert len(layers["frame"]) > 1
+    assert "LAYER:PART:shell:frame" in frames
     assert inside("SHELL-ENTRY", "LAYER:PART:shell:entry")
     assert inside("SHELL-EXPLORER-MCP", "LAYER:PART:shell:entry")
     assert inside("SHELL-JSON", "LAYER:PART:shell:foundation")
