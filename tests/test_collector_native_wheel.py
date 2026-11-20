@@ -129,6 +129,9 @@ def test_without_a_request_the_hook_refuses_the_wheel(tmp_path: Path) -> None:
     data = _data()
     with pytest.raises(ValueError, match="must carry the core binary archkeel-core"):
         hook.bundle(tmp_path, VERSION, "", data)
+    assert "ARCHKEEL_BUNDLE_NATIVE=1" not in hook.NO_CORE
+    assert "git clone https://github.com/rapiddweller/archkeel.git" in hook.NO_CORE
+    assert "absolute path of a prebuilt core" in hook.NO_CORE
     assert data == _data()
 
 
