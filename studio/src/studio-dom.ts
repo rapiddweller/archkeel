@@ -40,3 +40,9 @@ export function svgElement<K extends keyof SVGElementTagNameMap>(name: K, attrib
   parent.append(item);
   return item;
 }
+
+export function breakPath(node: HTMLElement, text: string) {
+  node.replaceChildren();
+  for (const part of text.split(/(?<=[./])/)) node.append(part, document.createElement("wbr"));
+  node.title = text;
+}

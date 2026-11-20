@@ -1,6 +1,7 @@
-import { details, get, showError, viewport } from "./studio-dom.js";
+import { canvas, cards, details, get, showError, viewport } from "./studio-dom.js";
 import { state } from "./studio-state.js";
-import { focusMap, mapCardWidth, mapEdgeName, mapView, paintMapScene, zoomMap } from "./explorer-map.js";
+import { api } from "./studio-api.js";
+import { focusMap, mapCardWidth, mapEdgeName, mapView, paintMapScene } from "./explorer-map.js";
 import { treeMapAnchor } from "./explorer-tree.js";
 let mapLayout = "groups";
 let layoutSwitch = 0;
@@ -12,7 +13,7 @@ function mapGraph(parent, response, mode) {
     const compact = !graphEdges.length || mode === "groups" && (groups.length > 0 || items.length > 2);
     const graphRoot = "map-root";
     const children = new Map();
-    const width = viewport.clientWidth || 1200;
+    const width = Math.max(400, (viewport.clientWidth || 1200) - details.clientWidth - 80);
     const height = viewport.clientHeight || 700;
     const aspect = String(Math.max(1.2, Math.min(3, width / height * 1.45)));
     const options = {
@@ -21,7 +22,7 @@ function mapGraph(parent, response, mode) {
         "elk.edgeRouting": "ORTHOGONAL", "elk.padding": "[top=38,left=38,bottom=36,right=38]",
         "elk.separateConnectedComponents": "true", "elk.spacing.nodeNode": "40",
         "elk.layered.spacing.nodeNodeBetweenLayers": "94",
-        "elk.rectpacking.widthApproximation.targetWidth": String(Math.max(760, Math.floor(width * .88))),
+        "elk.rectpacking.widthApproximation.targetWidth": String(Math.max(400, Math.floor(width * .88))),
         "elk.aspectRatio": aspect,
     };
     const nodeId = (id) => "node:" + id;
@@ -42,8 +43,9 @@ function mapGraph(parent, response, mode) {
         append(group.parent, {
             id, children: groupChildren(id), width: mapCardWidth, height: 64,
             layoutOptions: {
-                "elk.padding": "[top=52,left=22,bottom=22,right=22]", "elk.aspectRatio": "1.6",
-                "elk.rectpacking.widthApproximation.targetWidth": group.kind === "layer" ? "640" : "495",
+                "elk.algorithm": "rectpacking",
+                "elk.padding": "[top=52,left=22,bottom=22,right=22]", "elk.aspectRatio": "0.8",
+                "elk.rectpacking.widthApproximation.targetWidth": "400",
             },
         });
     }
@@ -189,4 +191,29 @@ export function mapPosition(node, x, y, width, height) {
         node.style.width = width + "px";
     if (height)
         node.style.height = height + "px";
+}
+export function zoomMap(delta, whole = false) {
+    const plane = cards.querySelector(".map-plane");
+    if (!plane)
+        return false;
+    const inset = parseFloat(getComputedStyle(canvas).paddingInlineEnd);
+    const canvasFit = (viewport.clientWidth - inset - 26) / plane.offsetWidth;
+    const scale = delta
+        ? Math.max(.12, Math.min(2.4, (parseFloat(plane.style.zoom) || 1) * (delta > 0 ? 1.2 : 1 / 1.2)))
+        : Math.max(whole ? .12 : .78, Math.min(1.24, canvasFit, (viewport.clientHeight - 102) / plane.offsetHeight));
+    plane.style.zoom = String(scale);
+    get("zoom-level").textContent = Math.round(scale * 100) + "%";
+    get("zoom-in").disabled = scale >= 2.4;
+    get("zoom-out").disabled = scale <= .12;
+    if (!delta)
+        viewport.scrollTo(0, 0);
+    return true;
+}
+export function mapPage(current, cursor, focus) {
+    const view = current.id === "system" ? "components" : "hierarchy";
+    return api("map", { parent: current.id, view, cursor, focus, limit: 36 });
+}
+export function inspector(open) {
+    details.hidden = !open;
+    get("inspector-toggle").setAttribute("aria-pressed", String(open));
 }

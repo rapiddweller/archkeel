@@ -19,6 +19,7 @@
         "studio.studio.src.explorer_x2e_ts:relationLabel",
         "studio.studio.src.explorer_x2e_ts:select",
         "studio.studio.src.explorer_x2e_ts:selectionHeading",
+        "studio.studio.src.explorer_x2e_ts:showAggregates",
         "studio.studio.src.explorer_x2e_ts:showEvidence",
         "studio.studio.src.explorer_x2e_ts:showSource"
       ],
@@ -43,6 +44,7 @@
         {
           "component": "dom",
           "through": [
+            "studio.studio.src.studio_x2d_dom_x2e_ts:breakPath",
             "studio.studio.src.studio_x2d_dom_x2e_ts:button",
             "studio.studio.src.studio_x2d_dom_x2e_ts:canvas",
             "studio.studio.src.studio_x2d_dom_x2e_ts:cards",
@@ -58,24 +60,27 @@
         {
           "component": "map",
           "through": [
+            "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts:inspector",
             "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts:layoutMap",
+            "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts:mapPage",
+            "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts:zoomMap",
             "studio.studio.src.explorer_x2d_map_x2e_ts:appendSelectionNotes",
             "studio.studio.src.explorer_x2d_map_x2e_ts:bindMap",
             "studio.studio.src.explorer_x2d_map_x2e_ts:derivedMapGroup",
             "studio.studio.src.explorer_x2d_map_x2e_ts:focusMap",
-            "studio.studio.src.explorer_x2d_map_x2e_ts:inspector",
-            "studio.studio.src.explorer_x2d_map_x2e_ts:mapPage",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:loadMapFocus",
             "studio.studio.src.explorer_x2d_map_x2e_ts:mapParents",
             "studio.studio.src.explorer_x2d_map_x2e_ts:mapScope",
             "studio.studio.src.explorer_x2d_map_x2e_ts:mapSearchArgs",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:mapView",
             "studio.studio.src.explorer_x2d_map_x2e_ts:relationDirection",
             "studio.studio.src.explorer_x2d_map_x2e_ts:setMapControls",
             "studio.studio.src.explorer_x2d_map_x2e_ts:setMapTree",
             "studio.studio.src.explorer_x2d_map_x2e_ts:setStoryLink",
             "studio.studio.src.explorer_x2d_map_x2e_ts:showMapResponse",
             "studio.studio.src.explorer_x2d_map_x2e_ts:unknownCalls",
-            "studio.studio.src.explorer_x2d_map_x2e_ts:zoomMap",
             "studio.studio.src.explorer_x2d_uml_x2e_ts:canOpenScope",
+            "studio.studio.src.explorer_x2d_uml_x2e_ts:itemKind",
             "studio.studio.src.explorer_x2d_uml_x2e_ts:paintCards"
           ],
           "rationale": "Use the declared Studio boundary."
@@ -127,24 +132,27 @@
         "studio.studio.src.explorer_x2d_uml_x2e_ts"
       ],
       "public": [
+        "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts:inspector",
         "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts:layoutMap",
+        "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts:mapPage",
+        "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts:zoomMap",
         "studio.studio.src.explorer_x2d_map_x2e_ts:appendSelectionNotes",
         "studio.studio.src.explorer_x2d_map_x2e_ts:bindMap",
         "studio.studio.src.explorer_x2d_map_x2e_ts:derivedMapGroup",
         "studio.studio.src.explorer_x2d_map_x2e_ts:focusMap",
-        "studio.studio.src.explorer_x2d_map_x2e_ts:inspector",
-        "studio.studio.src.explorer_x2d_map_x2e_ts:mapPage",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:loadMapFocus",
         "studio.studio.src.explorer_x2d_map_x2e_ts:mapParents",
         "studio.studio.src.explorer_x2d_map_x2e_ts:mapScope",
         "studio.studio.src.explorer_x2d_map_x2e_ts:mapSearchArgs",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:mapView",
         "studio.studio.src.explorer_x2d_map_x2e_ts:relationDirection",
         "studio.studio.src.explorer_x2d_map_x2e_ts:setMapControls",
         "studio.studio.src.explorer_x2d_map_x2e_ts:setMapTree",
         "studio.studio.src.explorer_x2d_map_x2e_ts:setStoryLink",
         "studio.studio.src.explorer_x2d_map_x2e_ts:showMapResponse",
         "studio.studio.src.explorer_x2d_map_x2e_ts:unknownCalls",
-        "studio.studio.src.explorer_x2d_map_x2e_ts:zoomMap",
         "studio.studio.src.explorer_x2d_uml_x2e_ts:canOpenScope",
+        "studio.studio.src.explorer_x2d_uml_x2e_ts:itemKind",
         "studio.studio.src.explorer_x2d_uml_x2e_ts:paintCards"
       ],
       "responsibilities": [
@@ -168,6 +176,7 @@
         {
           "component": "dom",
           "through": [
+            "studio.studio.src.studio_x2d_dom_x2e_ts:breakPath",
             "studio.studio.src.studio_x2d_dom_x2e_ts:button",
             "studio.studio.src.studio_x2d_dom_x2e_ts:canvas",
             "studio.studio.src.studio_x2d_dom_x2e_ts:cards",
@@ -199,6 +208,7 @@
             "studio.studio.src.explorer_x2e_ts:open",
             "studio.studio.src.explorer_x2e_ts:relationLabel",
             "studio.studio.src.explorer_x2e_ts:select",
+            "studio.studio.src.explorer_x2e_ts:showAggregates",
             "studio.studio.src.explorer_x2e_ts:showEvidence"
           ],
           "rationale": "Use the declared Studio boundary."
@@ -436,6 +446,7 @@
         "studio.studio.src.studio_x2d_dom_x2e_ts"
       ],
       "public": [
+        "studio.studio.src.studio_x2d_dom_x2e_ts:breakPath",
         "studio.studio.src.studio_x2d_dom_x2e_ts:button",
         "studio.studio.src.studio_x2d_dom_x2e_ts:canvas",
         "studio.studio.src.studio_x2d_dom_x2e_ts:cards",

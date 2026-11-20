@@ -2,9 +2,9 @@ import { api } from "./studio-api.js";
 import { state, pageTrails } from "./studio-state.js";
 import { get, details, element, viewport, notice, button, showError } from "./studio-dom.js";
 import { breadcrumbs, readEdges, selectionHeading, showSource, updateOverview } from "./explorer.js";
-import { mapScope, mapPage, mapSearchArgs, setStoryLink, setMapControls, showMapResponse, setMapTree } from "./explorer-map.js";
-import { layoutMap } from "./explorer-map-layout.js";
-import { paintCards } from "./explorer-uml.js";
+import { mapScope, mapSearchArgs, setStoryLink, setMapControls, showMapResponse, setMapTree } from "./explorer-map.js";
+import { layoutMap, mapPage } from "./explorer-map-layout.js";
+import { itemKind, paintCards } from "./explorer-uml.js";
 import { stopStoryPlayback } from "./explorer-story.js";
 export { showError } from "./studio-dom.js";
 function isMap(response) {
@@ -42,19 +42,22 @@ export async function showScope(ancestors, query = null) {
     for (const id of pageTrails.keys())
         if (!active.has(id))
             pageTrails.delete(id);
+    const selection = current.id === state.ancestors.at(-1)?.id && query === state.search ? state.selected : null;
     state.ancestors = ancestors;
-    state.selected = null;
+    state.selected = selection;
     state.items = response.items;
     state.edges = [];
     state.cursor = response.next_cursor;
     state.search = query;
     viewport.scrollTo(0, 0);
     notice.textContent = "";
-    setMapControls(true, useMap);
+    setMapControls(true);
     breadcrumbs();
     get("map").setAttribute("aria-pressed", "true");
     get("story").setAttribute("aria-pressed", "false");
-    selectionHeading(query ? "Search results" : current.name, query ? "Search" : current.kind);
+    const kind = itemKind(current, response.coverage?.observed_only);
+    const group = ["component", "layer", "directory", "file_group"].includes(current.kind);
+    selectionHeading(query ? "Search results" : current.name, query ? "Search" : group ? kind + " · includes descendants" : kind);
     details.append(element("p", "Select an element or open it with Enter or a double-click."));
     if (current.kind === "class") {
         const coverage = current.member_coverage ?? {};

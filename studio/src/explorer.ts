@@ -1,16 +1,21 @@
 import { api, type Page } from "./studio-api.js";
 import type { StudioCoverage, StudioItem, StudioEdge } from "./studio-model.js";
 import { state, system, known } from "./studio-state.js";
-import { get, element, button, canvas, cards, details, viewport, notice, showError } from "./studio-dom.js";
+import { breakPath, get, element, button, canvas, cards, details, viewport, notice, showError } from "./studio-dom.js";
 import { showScope, changePage } from "./explorer-navigation.js";
-import { bindMap, derivedMapGroup, focusMap, inspector, mapParents, mapSearchArgs, appendSelectionNotes, relationDirection, unknownCalls, zoomMap } from "./explorer-map.js";
-import { canOpenScope } from "./explorer-uml.js";
+import { bindMap, derivedMapGroup, focusMap, mapParents, mapSearchArgs, mapView, loadMapFocus, appendSelectionNotes, relationDirection, unknownCalls } from "./explorer-map.js";
+import { inspector, zoomMap } from "./explorer-map-layout.js";
+import { canOpenScope, itemKind } from "./explorer-uml.js";
 import { bindStory, reopenStory, stopStoryPlayback } from "./explorer-story.js";
 import { loadStory, showStory } from "./explorer-story-loading.js";
 
 interface Evidence {
   items: {path: string; line: number; reference: string}[];
   relation: StudioEdge;
+  next_cursor: string | null;
+  total: number;
+  evidence_total: number;
+  evidence_truncated: boolean;
 }
 interface Source {
   path: string; lines: string[]; start: number; line: number;
@@ -59,7 +64,7 @@ export function label(id: string) {
   return known.get(id)?.name ?? id;
 }
 export function relationLabel(edge: StudioEdge) {
-  const kinds: Record<string, string> = { requires: "Requires", import: "Import", interface: "Interface", call: "Call" };
+  const kinds: Record<string, string> = { requires: "Requires", import: "Import", import_site: "Import", interface: "Interface", call: "Call" };
   const kind = kinds[edge.kind] ?? edge.kind;
   if (edge.kind === "call" && edge.resolution !== "resolved") return kind + " · UNKNOWN";
   const statuses: Record<string, string> = { unresolved: " · UNKNOWN", open: " · UNKNOWN", declared: " · Declared", candidate: " · Candidate" };
@@ -127,7 +132,9 @@ export async function readEdges() {
 }
 
 export function selectionHeading(title: string, kind: string) {
-  details.replaceChildren(element("p", kind, "meta"), element("h2", title));
+  const heading = element("h2", "");
+  breakPath(heading, title);
+  details.replaceChildren(element("p", kind, "meta"), heading);
 }
 
 
@@ -142,12 +149,25 @@ export async function select(item: StudioItem) {
   const request = ++state.request;
   state.selected = item.id;
   inspector(true);
+  await loadMapFocus(item);
+  if (request !== state.request) return;
   focusMap(item.id);
   for (const card of cards.querySelectorAll<HTMLElement>("[data-element]")) {
     card.setAttribute("aria-pressed", String(card.dataset.element === item.id));
   }
-  selectionHeading(item.name, item.kind);
-  if (item.path) details.append(element("p", item.path, "meta"));
+  const group = ["component", "layer", "directory", "file_group"].includes(item.kind);
+  const kind = itemKind(item, mapView.response?.coverage?.observed_only);
+  selectionHeading(item.name, group ? kind + " · includes descendants" : kind);
+  const coverage = mapView.response?.coverage;
+  const coverageNote = coverage?.complete === true && !coverage.truncated
+    ? "Snapshot coverage complete." : "Snapshot coverage incomplete or unknown; connections may be missing.";
+  details.append(element("p", coverageNote, "meta"));
+  if (mapView.response?.edges_truncated) details.append(element("p", "This map omits some connections.", "meta"));
+  if (item.path) {
+    const path = element("p", "", "meta");
+    breakPath(path, item.path);
+    details.append(path);
+  }
   const unresolved = unknownCalls(item);
   if (unresolved) details.append(unresolved, element("p", unresolved.title, "meta"));
   else if (Number.isInteger(item.recorded_calls)) details.append(element("p", item.recorded_calls ? item.recorded_calls.toLocaleString() + " calls have a resolved target." : "No call sites recorded in this scope.", "meta"));
@@ -161,8 +181,10 @@ export async function select(item: StudioItem) {
     const result = await api<Page<StudioEdge>>("relations", { element: item.id, limit: 30, cursor });
     if (state.request !== request) return;
     for (const edge of result.items) {
-      details.append(button(label(edge.source) + " → " + label(edge.target ?? "Unresolved target") + " · " +
-        relationLabel(edge), () => showEvidence(edge), edge.kind === "call" && edge.resolution !== "resolved" ? "detail-btn unknown" : "detail-btn"));
+      const text = label(edge.source) + " → " + label(edge.target ?? "Unresolved target") + " · " + relationLabel(edge);
+      const link = button(text, () => showEvidence(edge), edge.kind === "call" && edge.resolution !== "resolved" ? "detail-btn unknown" : "detail-btn");
+      breakPath(link, text);
+      details.append(link);
     }
     if (!cursor && !result.items.length) details.append(element("p", "No indexed connections."));
     if (result.next_cursor) {
@@ -175,14 +197,45 @@ export async function select(item: StudioItem) {
   }
   await load();
 }
-export async function showEvidence(edge: StudioEdge) {
+export async function showAggregates(edges: StudioEdge[], title: string) {
   const request = ++state.request;
-  const { items, relation } = await api<Evidence>("evidence", { relation: edge.id });
-  if (request !== state.request) return;
   inspector(true);
+  selectionHeading(title, "Relations");
+  for (const edge of edges) {
+    if (!edge.aggregate_id) {
+      const text = relationDirection(edge) + " · " + relationLabel(edge);
+      const link = button(text, () => showEvidence(edge), "detail-btn");
+      breakPath(link, text);
+      details.append(link);
+      continue;
+    }
+    let cursor: string | null = "";
+    do {
+      const result: Page<StudioEdge> = await api<Page<StudioEdge>>("relations", { aggregate: edge.aggregate_id, limit: 30, cursor });
+      if (request !== state.request) return;
+      if (!cursor && result.total !== undefined && result.count !== undefined && result.total !== result.count) {
+        details.append(element("p", result.total + " relations · " + result.count + " recorded sites", "meta"));
+      }
+      for (const relation of result.items) {
+        const text = relationDirection(relation) + " · " + relationLabel(relation);
+        const link = button(text, () => showEvidence(relation), "detail-btn");
+        breakPath(link, text);
+        details.append(link);
+      }
+      cursor = result.next_cursor;
+    } while (cursor);
+  }
+  details.focus({ preventScroll: true });
+}
+export async function showEvidence(edge: StudioEdge) {
+  if (edge.aggregate && edge.aggregate_id) return showAggregates([edge], relationDirection(edge));
+  const request = ++state.request;
+  inspector(true);
+  const result = await api<Evidence>("evidence", { relation: edge.id, limit: 30 });
+  if (request !== state.request) return;
+  const relation = result.relation;
   selectionHeading(relationDirection(edge), relationLabel(relation));
-  const kind = edge.kind === "call" ? "call" : "import";
-  details.append(element("h3", edge.aggregate ? `Example ${kind} from ${edge.count} recorded ${kind}s` : "Dependency evidence"));
+  details.append(element("h3", "Dependency evidence"));
   if (relation.title) details.append(element("p", relation.title));
   if (relation.expression) details.append(element("p", relation.expression, "meta"));
   if (relation.reason) details.append(element("p", relation.reason, "unknown"));
@@ -194,13 +247,27 @@ export async function showEvidence(edge: StudioEdge) {
   }
   if (relation.rationale) details.append(element("p", relation.rationale));
   if (relation.schema) details.append(element("p", relation.schema, "meta"));
-  if (relation.evidence_total !== undefined) {
-    details.append(element("p", items.length + " of " + relation.evidence_total + " source locations"));
+  if (result.total !== undefined) details.append(element("p", result.total + " indexed source locations"));
+  if (result.evidence_truncated) details.append(element("p", "Some source locations were not retained.", "unknown"));
+  async function appendEvidence(page: Evidence) {
+    if (!page.items.length && !page.next_cursor) details.append(element("p", "This relation has no indexed source location."));
+    for (const item of page.items) {
+      const text = item.path + ":" + item.line;
+      const link = button(text, () => showSource(item.reference), "detail-btn");
+      breakPath(link, text);
+      details.append(link);
+    }
+    if (page.next_cursor) {
+      const more = button("More source locations", async () => {
+        const next = await api<Evidence>("evidence", { relation: edge.id, limit: 30, cursor: page.next_cursor });
+        if (request !== state.request) return;
+        more.remove();
+        await appendEvidence(next);
+      }, "detail-btn");
+      details.append(more);
+    }
   }
-  if (!items.length) details.append(element("p", "This relation has no indexed source location."));
-  for (const item of items) {
-    details.append(button(item.path + ":" + item.line, () => showSource(item.reference), "detail-btn"));
-  }
+  await appendEvidence(result);
   details.focus({ preventScroll: true });
 }
 export async function showSource(reference: string, start?: number) {

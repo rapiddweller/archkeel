@@ -2,7 +2,7 @@
 
 Open a repository with `archkeel studio /path/to/repository`. `explore` is the same command.
 Omit the path to use the current repository, or use `--root PATH`. Do not combine both forms.
-Without a contract, the Explorer shows observed source and layout groups. It does not write a
+Without a contract, the Explorer shows observed source and package groups. It does not write a
 contract. A project-specific schema file or a gap-free scan is not required to open it. UNKNOWN and partial
 coverage remain visible; they do not become a PASS.
 
@@ -14,13 +14,15 @@ uv run archkeel explore --config docs/architecture/architecture-system.json
 ```
 
 Keep the terminal open while you use the browser. Use `--no-open` to print the local
-address. Choose **Components** or **Modules**. The module map shows small branches inside
-their parent frames. Open a larger branch to inspect its children. Select a module
+address. Open a group to inspect its children. The module map shows small branches inside
+their parent frames. Large branches stay closed until you open them. Select a module
 to follow its incoming and outgoing arrows. Choose **Groups** to see which modules
 belong together. Use a horizontal or vertical flow to follow a dependency.
 Read each arrow from its source to its target. For an import, the source imports the
 target module. For a call, the source calls the target. An UNKNOWN call target has no
 arrow. The unresolved count is part of the recorded call sites in that scope.
+Select a group edge to inspect its contributing relations. Select evidence to open
+the source line. Several sites can contribute to one relation between two modules.
 It can include built-ins, library calls and dynamic calls. A zero count of
 recorded sites does not establish call coverage. The arrows do not track values.
 Each result includes its snapshot identity and the coverage of the scan.
@@ -78,9 +80,10 @@ names and element IDs. Every response identifies the snapshot and its coverage.
 | Operation | Input | Result |
 | --- | --- | --- |
 | overview, children | parent (default system), cursor, limit | Elements with ID, name, kind and parent |
-| map | parent, view, cursor, limit | Use `hierarchy` for the module board. Use `components` or `modules` for a list with a cursor. |
+| map | parent, view, optional focus, cursor, limit | Use `hierarchy` for the module board. Focus a visible group to inspect its edges. Use `components` or `modules` for a list with a cursor. |
 | search | text, optional parent, cursor, limit | Matching elements, or matching modules within a branch |
-| relations | element, direction, optional kind, cursor, limit | Directed edges with resolution and evidence |
+| relations | element, direction, optional kind, cursor, limit | Directed edges with resolution, element status and evidence |
+| relations | aggregate ID from a map edge, cursor, limit | Source relations that contribute to the selected edge |
 | evidence | relation | Evidence references and source locations |
 | source | reference, limit | Checked lines of the file. HTTP returns 409 if the file changed |
 | story | ID of a call edge | One static call step with its evidence, or UNKNOWN |

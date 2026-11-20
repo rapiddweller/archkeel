@@ -17,6 +17,7 @@ export interface StudioItem {
   member_coverage?: Record<string, string>;
   members_complete?: boolean;
   annotation?: string;
+  open_target?: "map" | "source";
 }
 
 export interface StudioEdge {
@@ -31,6 +32,7 @@ export interface StudioEdge {
   rationale?: string;
   schema?: string;
   aggregate?: boolean;
+  aggregate_id?: string;
   count?: number;
   evidence_total?: number;
 }

@@ -34,3 +34,9 @@ export function svgElement(name, attributes, parent) {
     parent.append(item);
     return item;
 }
+export function breakPath(node, text) {
+    node.replaceChildren();
+    for (const part of text.split(/(?<=[./])/))
+        node.append(part, document.createElement("wbr"));
+    node.title = text;
+}

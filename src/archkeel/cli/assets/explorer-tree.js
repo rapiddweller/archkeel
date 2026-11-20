@@ -1,13 +1,14 @@
-import { button, cards, element, get, showError, svgElement } from "./studio-dom.js";
+import { breakPath, button, cards, element, get, showError, svgElement } from "./studio-dom.js";
 import { api } from "./studio-api.js";
 import { known, state } from "./studio-state.js";
 import { open, select } from "./explorer.js";
-import { derivedMapGroup } from "./explorer-map.js";
+import { derivedMapGroup, mapView } from "./explorer-map.js";
 import { panMapTo } from "./explorer-map-layout.js";
 import { canOpenScope } from "./explorer-uml.js";
 const treeTypes = {
     layer: ["Layer", "M2 5l6-3 6 3-6 3z M2 8l6 3 6-3 M2 11l6 3 6-3"],
     component: ["Component", "M5 2h9v12H5 M2 4h6v3H2z M2 9h6v3H2z"],
+    file_group: ["File group", "M1.5 4h5l2 2h6v7h-13z M1.5 4v-2h5l2 2h6v2"],
     directory: ["Folder", "M1.5 4h5l2 2h6v7h-13z M1.5 4v-2h5l2 2h6v2"],
     module: ["Module", "M3 2h7l3 3v9H3z M10 2v3h3 M5 8h6 M5 11h6"],
     file: ["File", "M3 2h7l3 3v9H3z M10 2v3h3"],
@@ -72,7 +73,7 @@ function treeBranch(scope, item, name, type, description, row, branch, seeded, b
         try {
             const args = { parent: item.id, limit: 24, cursor };
             const result = await (item.kind === "component" || derivedMapGroup(item)
-                ? api("map", { ...args, view: derivedMapGroup(item) ? "hierarchy" : "components" })
+                ? api("map", { ...args, view: "hierarchy" })
                 : api("children", args));
             if (!branch.isConnected)
                 return;
@@ -150,7 +151,9 @@ function treeItem(scope, item, byParent) {
     const row = element("div", "", "tree-row");
     const filename = ["module", "file", "directory"].includes(item.kind) && item.path?.split("/").at(-1);
     const name = filename || item.display_name || item.name;
-    const [type, outline] = treeTypes[item.kind] ?? ["Symbol", "M4 4h8v8H4z"];
+    const [baseType, outline] = treeTypes[item.kind] ?? ["Symbol", "M4 4h8v8H4z"];
+    const type = item.kind === "directory" || item.kind === "component" && mapView.response?.coverage?.observed_only
+        ? "Package group" : baseType;
     const hint = element("span", type + (item.path ? " · Source " + item.path : ""), "tree-kind-text");
     hint.id = "structure-type-" + ++treeDescription;
     const action = button("", () => pickTreeNode(item), "tree-select");
@@ -160,7 +163,9 @@ function treeItem(scope, item, byParent) {
     action.setAttribute("aria-pressed", String(state.selected === item.id));
     action.addEventListener("dblclick", () => open(item).catch(showError));
     treeGlyph(action, outline, "tree-type-glyph type-" + item.kind);
-    action.append(element("span", name, "tree-node-name"));
+    const nameNode = element("span", "", "tree-node-name");
+    breakPath(nameNode, name);
+    action.append(nameNode);
     row.append(action, hint);
     li.append(row);
     const seeded = byParent.get(item.id);

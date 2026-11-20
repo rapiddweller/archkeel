@@ -60,8 +60,7 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
             with browser(tmp_path / "profile", width=width, height=height) as page:
                 page.send("Page.navigate", url=f"http://127.0.0.1:{server.server_port}/")
                 page.wait("document.querySelector('.map-plane [data-element]') !== null")
-                page.evaluate("document.getElementById('map-modules').click()")
-                page.wait("document.getElementById('notice').textContent.includes('40 indexed')")
+                assert page.evaluate("document.getElementById('map-modes').hidden")
                 assert page.evaluate(
                     "document.querySelector('.map-plane .map-public-entry').title"
                 ) == ("app.entry.start")
@@ -91,6 +90,8 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
                 page.wait(
                     "document.querySelector('#details h2')?.textContent === 'Entry imports Data'"
                 )
+                page.evaluate("document.querySelector('[data-element=entry]').click()")
+                page.wait("document.querySelector('#details h2')?.textContent === 'Entry'")
                 for mode, dimension in [("down", "Height"), ("right", "Width")]:
                     control = f'document.querySelector("[data-map-layout={mode}]")'
                     page.evaluate(control + ".click()")
@@ -99,7 +100,13 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
                     other = "Height" if dimension == "Width" else "Width"
                     assert page.evaluate(f"{plane}.offset{dimension} > {plane}.offset{other}")
                     assert page.evaluate("document.querySelector('#details h2').textContent") == (
-                        "Entry imports Data"
+                        "Entry"
+                    )
+                    assert (
+                        page.evaluate(
+                            "document.querySelector('[data-element=entry]').getAttribute('aria-pressed')"
+                        )
+                        == "true"
                     )
                 pulse = "getComputedStyle(document.querySelector('.map-active-edge .map-pulse'))"
                 assert page.evaluate(pulse + ".animationName") == "map-direction"
@@ -111,11 +118,14 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
                 entry = "document.querySelector('#structure-tree [data-tree-node=entry]')"
                 direction = ".dispatchEvent(new KeyboardEvent('keydown',{key:%r,bubbles:true}))"
                 page.evaluate(entry + direction % "ArrowRight")
+                groups = "document.querySelectorAll('#structure-tree .type-file_group').length"
+                page.wait(groups + " === 2")
+                page.evaluate(
+                    "document.querySelector('#structure-tree .type-file_group')"
+                    ".closest('.tree-row').querySelector('.tree-disclosure').click()"
+                )
                 modules = "document.querySelectorAll('#structure-tree .type-module').length"
-                page.wait(modules + " === 24")
-                more = "document.querySelector('#structure-tree .tree-message button')"
-                page.evaluate(more + ".click()")
-                page.wait(modules + " === 40")
+                page.wait(modules + " === 36")
                 module = 'document.querySelector(`#structure-tree [data-tree-node="app.entry.0"]`)'
                 assert page.evaluate(module + ".title") == "entry0.py"
                 hint = page.evaluate(module + ".getAttribute('aria-describedby')")
@@ -139,6 +149,145 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
                 )
                 page.evaluate(entry + direction % "ArrowLeft")
                 assert page.evaluate(module + ".getClientRects().length") == 0
+        finally:
+            server.shutdown()
+            running.result(timeout=5)
+
+
+def test_group_connections_open_all_relations_and_evidence(tmp_path: Path) -> None:
+    snapshot = tmp_path / "cache" / "relations.sqlite"
+    topology = {
+        "version": 1,
+        "components": [
+            {"id": "a", "name": "A", "parent": None},
+            {"id": "b", "name": "B", "parent": None},
+        ],
+        "modules": [
+            {"name": "a.one", "path": "a/one.py", "component": "a"},
+            {"name": "a.two", "path": "a/two.py", "component": "a"},
+            {"name": "b.one", "path": "b/one.py", "component": "b"},
+        ],
+        "edges": [
+            {
+                "id": "first",
+                "source": "a.one",
+                "target": "b.one",
+                "resolution": "resolved",
+                "count": 1,
+            },
+            {
+                "id": "second",
+                "source": "a.two",
+                "target": "b.one",
+                "resolution": "resolved",
+                "count": 1,
+            },
+        ],
+    }
+    publish_snapshot(
+        snapshot,
+        SnapshotIdentity("rev", "contract", "source"),
+        lambda db: populate(db, topology, tmp_path),
+        "UNKNOWN",
+    )
+    with _ExplorerServer(snapshot, tmp_path, None, 0) as server, ThreadPoolExecutor() as pool:
+        running = pool.submit(server.serve_forever)
+        try:
+            with browser(tmp_path / "profile") as page:
+                page.send("Page.navigate", url=f"http://127.0.0.1:{server.server_port}/")
+                page.wait("document.querySelector('[data-element=a]') !== null")
+                page.evaluate("document.querySelector('[data-element=a]').click()")
+                page.wait(
+                    "document.querySelector('#details')?.textContent"
+                    ".includes('Outgoing Import × 2')"
+                )
+                page.evaluate(
+                    "[...document.querySelectorAll('#details button')]"
+                    ".find(b => b.textContent.includes('Outgoing Import × 2')).click()"
+                )
+                page.wait("document.querySelectorAll('#details .detail-btn').length === 2")
+                assert page.evaluate("document.querySelector('#details .detail-btn wbr') !== null")
+                assert "a.one" in page.evaluate("document.getElementById('details').textContent")
+                assert "a.two" in page.evaluate("document.getElementById('details').textContent")
+                page.evaluate("document.querySelector('#details .detail-btn').click()")
+                page.wait(
+                    "document.getElementById('details').textContent.includes('Dependency evidence')"
+                )
+                assert "no indexed source location" in page.evaluate(
+                    "document.getElementById('details').textContent"
+                )
+        finally:
+            server.shutdown()
+            running.result(timeout=5)
+
+
+def test_expanded_group_highlights_relations(tmp_path: Path) -> None:
+    snapshot = tmp_path / "cache" / "groups.sqlite"
+    topology = {
+        "version": 1,
+        "observed_only": True,
+        "components": [{"id": "a", "name": "A", "parent": None}],
+        "modules": [
+            {"name": "a.first.one", "path": "a/first/one.py", "component": "a"},
+            {"name": "a.first.two", "path": "a/first/two.py", "component": "a"},
+            {"name": "a.second.one", "path": "a/second/one.py", "component": "a"},
+        ],
+        "edges": [
+            {
+                "id": "one",
+                "source": "a.first.one",
+                "target": "a.second.one",
+                "resolution": "resolved",
+            },
+            {
+                "id": "two",
+                "source": "a.first.two",
+                "target": "a.second.one",
+                "resolution": "resolved",
+            },
+        ],
+    }
+    publish_snapshot(
+        snapshot,
+        SnapshotIdentity("rev", "contract", "source"),
+        lambda db: populate(db, topology, tmp_path),
+        "UNKNOWN",
+    )
+    with _ExplorerServer(snapshot, tmp_path, None, 0) as server, ThreadPoolExecutor() as pool:
+        running = pool.submit(server.serve_forever)
+        try:
+            with browser(tmp_path / "profile") as page:
+                page.send("Page.navigate", url=f"http://127.0.0.1:{server.server_port}/")
+                page.wait("document.querySelector('[data-element=a]') !== null")
+                assert (
+                    page.evaluate(
+                        "document.querySelector('[data-element=a] .uml-stereotype').textContent"
+                    )
+                    == "Package group"
+                )
+                assert "Package group" in page.evaluate(
+                    "document.querySelector('#structure-tree').textContent"
+                )
+                page.evaluate(
+                    "document.querySelector('[data-element=a]').dispatchEvent("
+                    "new MouseEvent('dblclick', {bubbles:true}))"
+                )
+                page.wait("document.querySelector('.map-group-title') !== null")
+                assert "Package group · includes descendants" in page.evaluate(
+                    "document.getElementById('details').textContent"
+                )
+                page.evaluate(
+                    "[...document.querySelectorAll('.map-group-title')]"
+                    ".find(b => b.textContent.includes('first')).click()"
+                )
+                page.wait(
+                    "document.querySelector('#details')?.textContent"
+                    ".includes('Outgoing Import × 2')"
+                )
+                assert (
+                    page.evaluate("document.querySelectorAll('.map-edges [data-map-edge]').length")
+                    > 0
+                )
         finally:
             server.shutdown()
             running.result(timeout=5)

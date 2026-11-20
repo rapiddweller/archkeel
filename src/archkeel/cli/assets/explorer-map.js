@@ -1,27 +1,22 @@
-import { button, canvas, cards, details, element, get, notice, showError, svgElement, viewport } from "./studio-dom.js";
-import { api } from "./studio-api.js";
+import { breakPath, button, cards, details, element, get, notice, showError, svgElement } from "./studio-dom.js";
 import { known, pageTrails, state, system } from "./studio-state.js";
-import { label, open, relationLabel, select, showEvidence } from "./explorer.js";
+import { label, open, relationLabel, select, showAggregates, showEvidence } from "./explorer.js";
 import { showScope } from "./explorer-navigation.js";
-import { bindMapLayouts, layoutMap, mapPosition, mapRoutes, placeMapLabel, showMapLayoutControls } from "./explorer-map-layout.js";
+import { bindMapLayouts, inspector, layoutMap, mapPage, mapPosition, mapRoutes, placeMapLabel, showMapLayoutControls, zoomMap } from "./explorer-map-layout.js";
 import { storyChat } from "./explorer-story.js";
 import { markTreeSelection, paintStructure, treeMapAnchor } from "./explorer-tree.js";
-import { canOpenScope, paintCards, umlCard } from "./explorer-uml.js";
-export const mapView = { mode: "components", response: null, scene: null, treeOpen: false };
+import { canOpenScope, itemKind, paintCards, umlCard } from "./explorer-uml.js";
+export const mapView = { mode: "components", response: null, scene: null, treeOpen: false, focused: null };
 export const mapCardWidth = 224;
 export function derivedMapGroup(item) {
-    return !!item && ["layer", "directory"].includes(item.kind);
+    return !!item && ["layer", "directory", "file_group"].includes(item.kind);
 }
 export function mapScope(item, query) {
-    return !query && (["system", "component"].includes(item.kind) || derivedMapGroup(item));
+    return !query && (["system", "component", "module"].includes(item.kind) || derivedMapGroup(item));
 }
 export function mapSearchArgs(parent, text) {
     return mapView.response?.scope_truncated && mapView.response.parent === parent
         ? { text, parent } : { text };
-}
-export function inspector(open) {
-    details.hidden = !open;
-    get("inspector-toggle").setAttribute("aria-pressed", String(open));
 }
 function structure(open) {
     get("structure-pane").hidden = !open;
@@ -36,10 +31,10 @@ export function setStoryLink(id) {
     if (url.href !== location.href)
         history.replaceState(null, "", url);
 }
-export function setMapControls(active, overview = false) {
+export function setMapControls(active) {
     get("structure-tree").replaceChildren();
     showMapLayoutControls(false);
-    get("map-modes").hidden = !overview || derivedMapGroup(state.ancestors.at(-1));
+    get("map-modes").hidden = true;
     get("map-components").setAttribute("aria-pressed", String(mapView.mode === "components"));
     get("map-modules").setAttribute("aria-pressed", String(mapView.mode === "modules"));
     if (!active) {
@@ -118,6 +113,12 @@ function mapCard(item) {
     const card = umlCard(item);
     if (item.collapsed)
         card.classList.add("map-collapsed");
+    if (derivedMapGroup(item) || item.kind === "component" && mapView.response?.coverage?.observed_only) {
+        const stereotype = card.querySelector(".uml-stereotype");
+        if (stereotype)
+            stereotype.textContent = itemKind(item, true);
+        card.setAttribute("aria-label", itemKind(item, true) + " · " + item.name);
+    }
     const head = card.querySelector(".uml-head");
     if (!head)
         throw new Error("The map card has no heading.");
@@ -125,7 +126,9 @@ function mapCard(item) {
         const name = head.querySelector(".uml-name");
         if (name)
             name.textContent = item.path.split("/").at(-1) ?? item.name;
-        head.append(element("span", item.path, "map-card-path"));
+        const path = element("span", "", "map-card-path");
+        breakPath(path, item.path);
+        head.append(path);
     }
     if (item.module_count !== undefined && Number.isInteger(item.module_count)) {
         const mark = element("span", item.module_count.toLocaleString() + (item.module_count === 1 ? " module" : " modules"), "map-component-meta");
@@ -171,7 +174,7 @@ export function paintMapScene(layout, response) {
         title.dataset.element = id;
         title.setAttribute("aria-pressed", String(id === state.selected));
         title.addEventListener("dblclick", () => open(group).catch(showError));
-        title.append(element("small", group.kind), element("strong", group.name));
+        title.append(element("small", itemKind(group, mapView.response?.coverage?.observed_only)), element("strong", group.name));
         const unresolved = unknownCalls(group, true);
         if (unresolved)
             title.append(unresolved);
@@ -249,7 +252,7 @@ function mapContains(scope, endpoint) {
 function focusedMapEdges(id) {
     if (!id)
         return [];
-    return (mapView.scene?.layout.edges ?? [])
+    return (mapView.focused?.id === id ? mapView.focused.edges : mapView.scene?.layout.edges ?? [])
         .filter((edge) => mapContains(id, edge.source) !== mapContains(id, edge.target))
         .sort((a, b) => (b.count ?? 1) - (a.count ?? 1));
 }
@@ -259,12 +262,27 @@ function mapConnections(id) {
     if (!edges.length)
         return section;
     section.append(element("h3", "On this map"));
+    const groups = new Map();
     for (const edge of edges) {
-        const outbound = mapContains(id, edge.source);
-        const from = outbound ? edge.source : edge.target;
-        section.append(button((outbound ? "→ " : "← ") + relationDirection(edge, from) + " · " + mapEdgeName(edge), () => openMapEvidence(edge), "detail-btn"));
+        const direction = mapContains(id, edge.source) ? "Outgoing" : "Incoming";
+        const key = direction + " " + relationLabel(edge);
+        groups.set(key, [...(groups.get(key) ?? []), edge]);
+    }
+    for (const [name, relations] of groups) {
+        const count = relations.reduce((total, edge) => total + (edge.count ?? 1), 0);
+        section.append(button(name + " × " + count.toLocaleString(), () => showAggregates(relations, name), "detail-btn"));
     }
     return section;
+}
+export async function loadMapFocus(item) {
+    mapView.focused = null;
+    if (!mapView.response?.groups.some((group) => group.id === item.id))
+        return;
+    const current = state.ancestors.at(-1);
+    const response = await mapPage(current, pageTrails.get(current.id)?.at(-1), item.id);
+    if (state.selected !== item.id)
+        return;
+    mapView.focused = { id: item.id, edges: response.edges.filter((edge) => !!edge.target) };
 }
 export function focusMap(id) {
     markTreeSelection(id);
@@ -311,29 +329,9 @@ export function focusMap(id) {
     }
     paintMapConnections(scene, edges.length <= 16 && !id ? edges : focused, Boolean(id));
 }
-export function zoomMap(delta, whole = false) {
-    const plane = cards.querySelector(".map-plane");
-    if (!plane)
-        return false;
-    const inset = parseFloat(getComputedStyle(canvas).paddingInlineEnd);
-    const canvasFit = (viewport.clientWidth - inset - 26) / plane.offsetWidth;
-    const scale = delta
-        ? Math.max(.12, Math.min(2.4, (parseFloat(plane.style.zoom) || 1) * (delta > 0 ? 1.2 : 1 / 1.2)))
-        : Math.max(whole ? .12 : .78, Math.min(1.24, canvasFit, (viewport.clientHeight - 102) / plane.offsetHeight));
-    plane.style.zoom = String(scale);
-    get("zoom-level").textContent = Math.round(scale * 100) + "%";
-    get("zoom-in").disabled = scale >= 2.4;
-    get("zoom-out").disabled = scale <= .12;
-    if (!delta)
-        viewport.scrollTo(0, 0);
-    return true;
-}
-export function mapPage(current, cursor) {
-    const view = mapView.mode === "modules" || derivedMapGroup(current) ? "hierarchy" : "components";
-    return api("map", { parent: current.id, view, cursor, limit: 36 });
-}
 export async function showMapResponse(response, request, preparedLayout) {
     mapView.response = response;
+    mapView.focused = null;
     for (const item of [...(response.groups ?? []), ...response.items])
         known.set(item.id, item);
     if (!response.items.length) {
@@ -357,7 +355,7 @@ export async function showMapResponse(response, request, preparedLayout) {
     else if (layout.edges.length > 16 || response.edges_truncated) {
         notice.textContent = "Select an element to highlight its dependencies.";
     }
-    focusMap(null);
+    focusMap(state.selected);
     zoomMap(0);
     get("previous").hidden = (pageTrails.get(response.parent)?.length ?? 0) <= 1;
     get("more").hidden = !response.next_cursor;

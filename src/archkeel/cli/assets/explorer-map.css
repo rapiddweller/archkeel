@@ -56,9 +56,9 @@ body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20
 .map-plane .card, .map-group { position: absolute; }
 .map-plane .card { z-index: 3; overflow: hidden; text-wrap: pretty; }
 .map-plane .map-collapsed { border-style: dashed; }
-.map-plane .uml-head .uml-name { overflow-wrap: anywhere; }
+.map-plane .uml-head .uml-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .map-plane .uml-head .uml-purpose { -webkit-line-clamp: 3; }
-.map-plane .map-card-path { margin-top: 4px; font-size: 10px; overflow-wrap: anywhere; }
+.map-plane .map-card-path { margin-top: 4px; font-size: 10px; overflow-wrap: normal; overflow: hidden; }
 .map-component-meta { margin-top: 5px; white-space: nowrap; }
 .map-plane .map-public-entry {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
@@ -87,7 +87,7 @@ body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20
   color: var(--ink-muted); font: 10px var(--font-mono);
 }
 .map-group-title strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.map-plane .map-dim { filter: saturate(.2); opacity: .23; }
+.map-plane .map-dim { filter: saturate(.2); opacity: .5; }
 .map-plane .map-group.map-dim { opacity: .35; }
 .map-plane .map-dim:focus-visible, .map-plane .map-dim:hover { opacity: 1; }
 .map-edges { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: visible; }
@@ -141,7 +141,7 @@ body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20
 .tree-row .tree-select[aria-pressed="true"] {
   border-color: var(--accent); color: var(--accent-text); background: var(--accent-subtle);
 }
-.tree-node-name { min-width: 0; overflow-wrap: anywhere; }
+.tree-node-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tree-row .tree-disclosure, .tree-leaf-dot {
   display: grid; place-items: center; flex: 0 0 21px; width: 21px; min-height: 29px;
   padding: 0; color: var(--ink-muted);

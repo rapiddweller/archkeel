@@ -20,8 +20,19 @@ function umlGlyph(outline) {
     svg.append(path);
     return svg;
 }
+export function itemKind(item, observed = false) {
+    if (item.kind === "component")
+        return observed ? "Package group" : "Component";
+    if (item.kind === "directory")
+        return "Package group";
+    if (item.kind === "file_group")
+        return "File group";
+    if (item.kind === "module")
+        return "File";
+    return item.kind;
+}
 export function canOpenScope(item) {
-    return ["component", "layer", "directory", "module", "class"].includes(item.kind);
+    return item.open_target ? item.open_target === "map" : ["component", "layer", "directory", "file_group", "module", "class"].includes(item.kind);
 }
 function displayGroup(item) {
     const current = state.ancestors.at(-1);

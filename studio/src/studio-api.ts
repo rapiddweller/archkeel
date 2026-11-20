@@ -4,6 +4,8 @@ import type { StudioCoverage } from "./studio-model.js";
 export interface Page<T> {
   items: T[];
   next_cursor: string | null;
+  total?: number;
+  count?: number;
   coverage?: StudioCoverage;
 }
 

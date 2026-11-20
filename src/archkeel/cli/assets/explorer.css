@@ -2,7 +2,7 @@
 body { margin: 0; background: var(--surface-0); color: var(--ink); font: 14px/1.5 var(--font-sans); }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: 31px; line-height: 1.2; letter-spacing: -.03em; }
-h2 { font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
+h2 { font-size: 20px; line-height: 1.2; overflow-wrap: normal; }
 h3 { font-size: 13px; margin-block: 14px 5px; }
 p, label, .muted { color: var(--ink-muted); }
 a { color: var(--accent-text); }
@@ -50,7 +50,7 @@ main { max-width: 1412px; padding: 22px 16px; margin: auto; }
 #more, #previous { margin-top: 18px; }
 #details { padding: 16px; background: var(--surface-1); border-left: 1px solid var(--line); overflow-wrap: anywhere; }
 #details p { margin-block: 5px; }
-.detail-btn { display: block; width: 100%; margin-top: 6px; text-align: left; }
+.detail-btn { display: block; width: 100%; margin-top: 6px; text-align: left; overflow-wrap: break-word; }
 .unknown { color: var(--unknown-text); }
 pre { margin: 10px 0; background: var(--surface-1); border: 1px solid var(--line); border-radius: 7px; overflow: auto; padding-block: 10px; }
 pre div { padding-inline: 9px; }
