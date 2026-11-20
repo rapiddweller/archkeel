@@ -1,11 +1,9 @@
-# ArchKeel 5.0 release notes (draft)
+# ArchKeel 5.0 migration notes
 
-> **Draft for the release owner (#716).** Do not publish as is. This draft does not approve an RC,
-> tag or release. The lead finalises the text at the final release gate. Each number below names
-> its source. A row marked **to confirm** needs a check on the release commit.
+> **Unreleased.** These notes compare 4.0.1 with the development line. The release commit,
+> release measurements and wheel set require verification before publication.
 
-These notes compare ArchKeel 4.0.1 with the current development line. They describe new behavior,
-breaking changes, migration steps, and known limits. They are not final release notes.
+These notes describe new behavior, breaking changes, migration steps and known limits.
 
 ## Summary
 
@@ -14,9 +12,9 @@ breaking changes, migration steps, and known limits. They are not final release 
   ([AD-432](architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md)).
   The Python package reads the options, starts the core and prints its result.
 - **Named uncertainty.** The core reports UNKNOWN when it detects incomplete evidence. This does
-  not prove that every PASS is sound. Open false-PASS issue
-  [#1811](https://github.com/rapiddweller/archkeel/issues/1811) has a compiled reproduction on
-  `main`.
+  not prove that every PASS is sound. The original reproduction for
+  [#1811](https://github.com/rapiddweller/archkeel/issues/1811) returned UNKNOWN on main
+  `47de0df9e`. This does not establish soundness for every ownership transfer.
 - **Exit codes follow the verdict.** Without a baseline, PASS exits 0, FAIL exits 1, and UNKNOWN
   or a refusal exits 2 for `validate` and `report`. With a baseline, exit 2 means every UNKNOWN is
   accepted; a refused run exits 1. This changes CI behavior (see
@@ -92,13 +90,10 @@ breaking changes, migration steps, and known limits. They are not final release 
 
 ### More UNKNOWN, and why
 
-Some cases that 4.0.1 could not see now produce a named UNKNOWN. This is not complete. A compiled
-reproduction for [#1811](https://github.com/rapiddweller/archkeel/issues/1811) still gives false
-PASS results for a forbidden dependency and two cycle rules on `main` `cef0d6f3a`. Independent
-review evidence is recorded in
-[#1824's review comment](https://github.com/rapiddweller/archkeel/pull/1824#issuecomment-6973117320).
-The proposed fix in [#1842](https://github.com/rapiddweller/archkeel/pull/1842) is a draft. It is
-not part of `main`.
+Some cases that 4.0.1 could not see now produce a named UNKNOWN. This is not complete.
+The original [#1811](https://github.com/rapiddweller/archkeel/issues/1811) witness returned
+UNKNOWN on main `47de0df9e`, with the affected dependency pair in each rule's evidence. The issue
+is closed. Its verification does not cover every Rust ownership transfer.
 
 The earlier plant and reference-project counts do not describe current `main`. The collectors and
 decision path changed after those runs. Do not use those counts as release evidence. Re-run the
@@ -136,31 +131,16 @@ Measured with `uvx archkeel==4.0.1` and main `edef7a140` on the same plant unles
 The previous timing table measured an earlier core and is not evidence for current `main`.
 Measure the same projects again on the release commit before publication.
 
-## Known limits and open false-PASS classes
+## Known limits and false-PASS checks
 
-The full list is [known limits](known-limits.md). A false PASS occurs when the code breaks a rule
-but the result is PASS. The table lists open, reproduced cases checked for this draft.
+A false PASS occurs when the code breaks a rule but the result is PASS. The original
+[#1811](https://github.com/rapiddweller/archkeel/issues/1811) witness returned UNKNOWN on main
+`47de0df9e`; the issue is closed. [#1571](https://github.com/rapiddweller/archkeel/issues/1571)
+is also closed. The release owner must check the current false-PASS audit and its reproductions on
+the release commit. The historical audit in [known limits](known-limits.md) names its measured
+commit; its issue statuses can change.
 
-| Class | Issue |
-|---|---|
-| Rust: dropping an erased value from a sibling store gives false PASS for a forbidden dependency and both cycle rules. Reproduced on `main` `cef0d6f3a`; see the compiled cases in [#1824's review](https://github.com/rapiddweller/archkeel/pull/1824#issuecomment-6973117320). | [#1811](https://github.com/rapiddweller/archkeel/issues/1811) |
-| Rust: a method in the file of its type, called through a field. The issue remains open; main has regression tests in `tests/test_collector_false_pass_rust_own_file_method.py`. | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
-
-Issue #1811 was open on GitHub when this draft was checked on 2026-11-18. Remove or update its
-row if the issue closes or its reproduction changes before release.
-The #1811 fix proposal in #1842 is a draft and does not change `main`. Before release, fix each
-reproduced false PASS in this table and retain its regression test. Do not treat an unresolved
-false PASS as accepted.
-
-These issues were in the earlier table and are closed on GitHub:
-[#1515](https://github.com/rapiddweller/archkeel/issues/1515),
-[#1516](https://github.com/rapiddweller/archkeel/issues/1516),
-[#1517](https://github.com/rapiddweller/archkeel/issues/1517),
-[#1518](https://github.com/rapiddweller/archkeel/issues/1518),
-[#1523](https://github.com/rapiddweller/archkeel/issues/1523),
-[#1529](https://github.com/rapiddweller/archkeel/issues/1529) and
-[#1674](https://github.com/rapiddweller/archkeel/issues/1674). Check issue status and reproductions
-again on the release commit.
+Before release, fix each reproduced false PASS and retain its regression test.
 
 Other limits of 5.0:
 
@@ -204,10 +184,9 @@ What a structural PASS means (not a premise, but a limit of the claim):
   does not prove a runtime value
   ([AD-748](architecture/decisions/ad-748-a-python-annotation-declares-a-uml-attribute.md)).
 
-## Open points for the release owner
+## Release checks
 
 - The version number and the release commit.
 - Measure again on the release commit: the reference table, the performance table and the
   false-PASS table.
 - Which platform wheels carry the core.
-- Whether `docs/release-notes-5.0.md` stays in the repository or becomes only the GitHub release text.
