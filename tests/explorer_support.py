@@ -57,11 +57,13 @@ def write_pages(
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(core_only, "locate_core", lambda: core)
         for name, (root, config, *more) in runs.items():
-            run(
+            output = folder / f"{name}.html"
+            code, result = run(
                 "report",
                 *("--root", str(ROOT / root if root else ROOT)),
-                *("--config", config, *more, "--output", str(folder / f"{name}.html")),
+                *("--config", config, *more, "--output", str(output)),
             )
+            assert output.is_file(), f"Report {output} was not written (exit {code}): {result}"
 
 
 class _Quiet(http.server.SimpleHTTPRequestHandler):
