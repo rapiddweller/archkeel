@@ -67,7 +67,9 @@ export function mapParents(item: StudioItem) {
 }
 
 export function mapEdgeName(edge: StudioEdge) {
-  const name = edge.title ?? relationLabel(edge);
+  const direction = relationDirection(edge);
+  const short = edge.resolution === "resolved" && ["import", "import_site", "call"].includes(edge.kind) && direction.length <= 32;
+  const name = edge.title ?? (short ? direction : relationLabel(edge));
   return edge.count && edge.count > 1 ? name + " × " + edge.count.toLocaleString() : name;
 }
 

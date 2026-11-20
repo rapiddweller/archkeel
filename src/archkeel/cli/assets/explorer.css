@@ -1,3 +1,4 @@
+:root { --inspector-width: clamp(255px, 23vw, 360px); }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--surface-0); color: var(--ink); font: 14px/1.5 var(--font-sans); }
 h1, h2, h3, p { margin: 0; }

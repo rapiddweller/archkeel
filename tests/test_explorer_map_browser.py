@@ -201,6 +201,9 @@ def test_group_connections_open_all_relations_and_evidence(tmp_path: Path) -> No
                     "document.querySelector('#details')?.textContent"
                     ".includes('Outgoing Import × 2')"
                 )
+                assert page.evaluate("document.querySelector('.map-edge-label').textContent") == (
+                    "A imports B × 2"
+                )
                 page.evaluate(
                     "[...document.querySelectorAll('#details button')]"
                     ".find(b => b.textContent.includes('Outgoing Import × 2')).click()"
@@ -231,6 +234,10 @@ def test_expanded_group_highlights_relations(tmp_path: Path) -> None:
             {"name": "a.first.one", "path": "a/first/one.py", "component": "a"},
             {"name": "a.first.two", "path": "a/first/two.py", "component": "a"},
             {"name": "a.second.one", "path": "a/second/one.py", "component": "a"},
+            *[
+                {"name": f"a.second.extra{i}", "path": f"a/second/extra{i}.py", "component": "a"}
+                for i in range(12)
+            ],
         ],
         "edges": [
             {
@@ -288,6 +295,45 @@ def test_expanded_group_highlights_relations(tmp_path: Path) -> None:
                     page.evaluate("document.querySelectorAll('.map-edges [data-map-edge]').length")
                     > 0
                 )
+                page.evaluate("document.querySelector('[data-element=\"a.first.one\"]').click()")
+                page.wait("document.querySelector('#details h2')?.textContent === 'a.first.one'")
+                for mode in ("right", "down", "groups"):
+                    control = f'document.querySelector("[data-map-layout={mode}]")'
+                    page.evaluate(control + ".click()")
+                    page.wait(
+                        control + ".getAttribute('aria-pressed') === 'true' || "
+                        "document.getElementById('notice').textContent.includes('Exception')"
+                    )
+                    assert page.evaluate(control + ".getAttribute('aria-pressed')") == "true"
+                    assert (
+                        page.evaluate(
+                            "document.querySelector('[data-element=\"a.first.one\"]')"
+                            ".getAttribute('aria-pressed')"
+                        )
+                        == "true"
+                    )
+                    assert (
+                        page.evaluate(
+                            "document.querySelectorAll('.map-edges [data-map-edge]').length"
+                        )
+                        > 0
+                    )
+                    assert page.evaluate("""(() => {
+                      const source = document.querySelector('[data-element="a.first.one"]');
+                      const target = [...document.querySelectorAll('.map-plane .uml-card')]
+                        .find(node => node.textContent.includes('second'));
+                      const path = document.querySelector(
+                        '.map-edges [data-map-edge] path[marker-end]');
+                      if (!source || !target || !path) return false;
+                      const point = at => path.getPointAtLength(at)
+                        .matrixTransform(path.getScreenCTM());
+                      const near = (p, rect) => Math.hypot(
+                        Math.max(rect.left - p.x, 0, p.x - rect.right),
+                        Math.max(rect.top - p.y, 0, p.y - rect.bottom)) < 5;
+                      return near(point(0), source.getBoundingClientRect()) &&
+                        near(point(path.getTotalLength()), target.getBoundingClientRect());
+                    })()""")
+
         finally:
             server.shutdown()
             running.result(timeout=5)

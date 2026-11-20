@@ -61,7 +61,9 @@ export function mapParents(item) {
     return [...state.ancestors, ...ancestors.filter(canOpenScope), item];
 }
 export function mapEdgeName(edge) {
-    const name = edge.title ?? relationLabel(edge);
+    const direction = relationDirection(edge);
+    const short = edge.resolution === "resolved" && ["import", "import_site", "call"].includes(edge.kind) && direction.length <= 32;
+    const name = edge.title ?? (short ? direction : relationLabel(edge));
     return edge.count && edge.count > 1 ? name + " × " + edge.count.toLocaleString() : name;
 }
 export function relationDirection(edge, current) {

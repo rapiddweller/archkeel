@@ -103,22 +103,34 @@ def _imports(topology: Row) -> Iterator[Row]:
         )
 
 
+def _part_coverage(part: Row) -> Row:
+    files = [(_text(row, "module"), _text(row, "path")) for row in _records(part.get("files"))]
+    facts: dict[str, int | None] = {}
+    summary: Row = {
+        "part": part.get("part"),
+        "language": part.get("language"),
+        "facts": facts,
+        "files_indexed": None if part.get("files") is None else len({path for _, path in files}),
+    }
+    for kind, module_key in (("symbols", "module"), ("calls", "source_module"), ("imports", "")):
+        rows = list(_records(part.get(kind)))
+        facts[kind] = None if part.get(kind) is None else len(rows)
+        if module_key:
+            modules = {name for row in rows if isinstance(name := row.get(module_key), str)}
+            summary["files_with_" + kind] = (
+                None
+                if facts[kind] is None or part.get("files") is None
+                else len({path for module, path in files if module in modules})
+            )
+    return summary
+
+
 def _coverage(connection: sqlite3.Connection, topology: Row, root: Path) -> None:
     coverage = {
         k: topology.get(k)
         for k in ("complete", "truncated", "total", "gaps", "verdict", "observed_only")
     }
-    coverage["parts"] = [
-        {
-            "part": part.get("part"),
-            "language": part.get("language"),
-            "facts": {
-                key: None if part.get(key) is None else sum(1 for _ in _records(part[key]))
-                for key in ("symbols", "calls", "imports")
-            },
-        }
-        for part in _records(topology.get("explorer"))
-    ]
+    coverage["parts"] = [_part_coverage(part) for part in _records(topology.get("explorer"))]
     packages = {
         _text(row, "target_module")
         for row in _rows(topology, "imports")

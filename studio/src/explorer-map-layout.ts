@@ -90,7 +90,7 @@ function mapGraph(parent: string, response: MapResponse, mode: LayoutMode) {
     append(group.parent, {
       id, children: groupChildren(id), width: mapCardWidth, height: 64,
       layoutOptions: {
-        "elk.algorithm": "rectpacking",
+        ...(compact ? { "elk.algorithm": "rectpacking" } : {}),
         "elk.padding": "[top=52,left=22,bottom=22,right=22]", "elk.aspectRatio": "0.8",
         "elk.rectpacking.widthApproximation.targetWidth": "400",
       },

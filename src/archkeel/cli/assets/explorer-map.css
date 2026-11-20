@@ -1,4 +1,5 @@
-:root { --map-inspector-width: clamp(255px, 23vw, 360px); }
+.arrow-key { margin-inline-start: auto; color: var(--ink-muted); font-size: 12px; }
+body:has(#story[aria-pressed="true"]) .arrow-key { display: none; }
 .canvas-toolbar { min-width: 0; }
 .architecture-actions, #map-modes, #map-layouts { display: flex; align-items: center; gap: 4px; }
 #map-modes[hidden], #map-layouts[hidden], #structure-pane[hidden], #details[hidden] { display: none; }
@@ -11,7 +12,7 @@ body:has(#map[aria-pressed="true"]) {
 body:has(#map[aria-pressed="true"]) .bar { min-height: 48px; padding: 6px 14px; }
 body:has(#map[aria-pressed="true"]) main {
   display: grid; grid-template-rows: auto auto minmax(0, 1fr); width: 100%; max-width: none; min-height: 0;
-  padding: 8px 10px 10px; margin: 0;
+  grid-template-columns: minmax(0, 1fr); padding: 8px 0 0; margin: 0;
 }
 body:has(#map[aria-pressed="true"]) .heading { margin: 0 4px 7px; justify-content: start; gap: 12px; }
 body:has(#map[aria-pressed="true"]) .heading h1 { font-size: 17px; letter-spacing: 0; }
@@ -19,6 +20,7 @@ body:has(#map[aria-pressed="true"]) #overview { margin: 0; font-size: 12px; }
 body:has(#map[aria-pressed="true"]) #notice { font-size: 12px; padding-inline: 5px; }
 body:has(#map[aria-pressed="true"]) .workspace {
   display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; position: relative;
+  border-radius: 0;
 }
 body:has(#map[aria-pressed="true"]) .canvas-toolbar {
   display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; align-items: center;
@@ -36,7 +38,7 @@ body:has(#map[aria-pressed="true"]) .body-grid {
 body:has(#map[aria-pressed="true"]) .work-area { grid-column: 2; grid-row: 1; min-height: 0; }
 body:has(#map[aria-pressed="true"]) #details {
   position: absolute; inset: 0 0 0 auto; z-index: 8;
-  width: var(--map-inspector-width); overflow: auto; box-shadow: var(--shadow-pop);
+  width: var(--inspector-width); overflow: auto; box-shadow: var(--shadow-pop);
 }
 body:has(#map[aria-pressed="true"]) #viewport { max-height: none; min-height: 0; }
 body:has(#map[aria-pressed="true"]) .view-tools {
@@ -46,8 +48,8 @@ body:has(#map[aria-pressed="true"]) .view-tools {
 body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20px 56px; }
 #canvas:has(.map-plane) { display: grid; align-content: center; overflow: visible; }
 @media (min-width: 861px) {
-  body:has(#map[aria-pressed="true"]) #canvas:has(.map-plane) {
-    padding-inline-end: calc(20px + var(--map-inspector-width));
+  body:has(#map[aria-pressed="true"]) .body-grid:has(#details:not([hidden])) #canvas:has(.map-plane) {
+    padding-inline-end: calc(20px + var(--inspector-width));
   }
 }
 #canvas:has(.map-plane):is([data-zoom]) { zoom: 1; min-width: 0; }
@@ -173,4 +175,14 @@ body:has(#map[aria-pressed="true"]) #canvas { min-height: 100%; padding: 28px 20
   }
   body:has(#map[aria-pressed="true"]) #structure-pane { left: 0; }
   body:has(#map[aria-pressed="true"]) #details { right: 0; }
+}
+@media (max-width: 740px) {
+  body:has(#map[aria-pressed="true"]) .bar { gap: 4px; }
+  body:has(#map[aria-pressed="true"]) .bar strong { font-size: 14px; }
+  body:has(#map[aria-pressed="true"]) .bar nav { gap: 4px; }
+  body:has(#map[aria-pressed="true"]) .bar button, body:has(#map[aria-pressed="true"]) .bar a { font-size: 12px; padding: 4px 6px; }
+  body:has(#map[aria-pressed="true"]) .heading { min-width: 0; column-gap: 8px; row-gap: 2px; }
+  body:has(#map[aria-pressed="true"]) .heading h1 { flex: none; }
+  body:has(#map[aria-pressed="true"]) #overview { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .arrow-key { flex: 0 0 100%; }
 }

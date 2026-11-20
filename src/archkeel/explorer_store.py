@@ -13,7 +13,8 @@ from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-_FORMAT = 3
+_FORMAT = 4
+_READABLE_FORMATS = {3, _FORMAT}
 _PAGE = 4096
 CACHE_BYTES = 1024**3
 _KEY = re.compile(r"[0-9a-f]{64}")
@@ -27,9 +28,9 @@ class SnapshotIdentity:
     contract: str
     source: str
 
-    def key(self) -> str:
+    def key(self, version: int = _FORMAT) -> str:
         """Return a versioned, portable cache key."""
-        fields = [_FORMAT, self.revision, self.contract, self.source]
+        fields = [version, self.revision, self.contract, self.source]
         return hashlib.sha256(json.dumps(fields).encode()).hexdigest()
 
 
@@ -77,7 +78,8 @@ def open_snapshot(
         uri = path.resolve().as_uri() + "?mode=ro&immutable=1"
         with closing(sqlite3.connect(uri, uri=True)) as connection:
             connection.row_factory = sqlite3.Row
-            if connection.execute("PRAGMA user_version").fetchone()[0] != _FORMAT:
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+            if version not in _READABLE_FORMATS:
                 raise ValueError("unsupported Explorer snapshot format")
             row = connection.execute(
                 "SELECT revision, contract, source, coverage FROM snapshot WHERE complete=1"
@@ -86,7 +88,7 @@ def open_snapshot(
                 raise ValueError("incomplete Explorer snapshot")
             actual = SnapshotIdentity(row["revision"], row["contract"], row["source"])
             if (identity is not None and identity != actual) or (
-                _KEY.fullmatch(path.stem) and path.stem != actual.key()
+                _KEY.fullmatch(path.stem) and path.stem != actual.key(version)
             ):
                 raise ValueError("Explorer snapshot identity mismatch")
             yield connection

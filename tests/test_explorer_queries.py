@@ -86,7 +86,7 @@ def test_call_step_uses_the_collectors_evidence(tmp_path: Path) -> None:
             {
                 "part": None,
                 "language": "typescript",
-                "files": [{"module": "m", "path": "f.ts"}],
+                "files": [{"module": "m", "path": "f.ts"}, {"module": "n", "path": "n.ts"}],
                 "symbols": [symbol],
                 "calls": [call],
             }
@@ -100,6 +100,14 @@ def test_call_step_uses_the_collectors_evidence(tmp_path: Path) -> None:
         "partial",
     )
     result = query(path, tmp_path, "story", {"id": "call"})
+    assert result["coverage"]["parts"][0] == {
+        "part": None,
+        "language": "typescript",
+        "facts": {"symbols": 1, "calls": 1, "imports": None},
+        "files_indexed": 2,
+        "files_with_symbols": 1,
+        "files_with_calls": 1,
+    }
     assert result["status"] == "unresolved"
     assert result["items"][0]["target"] is None
     assert result["items"][0]["evidence"][0]["line"] == 1
@@ -142,6 +150,9 @@ def test_overview_lists_only_proved_external_import_packages(tmp_path: Path) -> 
     )
     coverage = query(path, tmp_path, "overview", {})["coverage"]
     assert coverage["external_imports"] == {"packages": packages[:12], "total": 14}
+    assert coverage["parts"][0]["files_indexed"] is None
+    assert coverage["parts"][0]["files_with_symbols"] is None
+    assert coverage["parts"][0]["files_with_calls"] is None
 
 
 def test_class_members_use_definition_ids_and_keep_inventory_coverage(tmp_path: Path) -> None:

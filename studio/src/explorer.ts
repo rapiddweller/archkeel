@@ -35,6 +35,13 @@ export function updateOverview({ coverage = {} }: {coverage?: StudioCoverage}) {
   if (coverage.observed_only) details.append(element("p", "Observed structure grouped by layout."));
   if (coverage.truncated) details.append(element("p", "The snapshot retains a limited topology."));
   else if (coverage.complete === false) details.append(element("p", "The snapshot covers part of the system."));
+  for (const part of coverage.parts ?? []) {
+    if (part.files_indexed == null) continue;
+    const counts = [part.files_indexed + " indexed files"];
+    if (part.files_with_symbols != null) counts.push(part.files_with_symbols + " with symbol records");
+    if (part.files_with_calls != null) counts.push(part.files_with_calls + " with call records");
+    details.append(element("p", (part.part || part.language || "Scan") + " · " + counts.join(" · ")));
+  }
   const imports = coverage.external_imports;
   if (imports?.packages.length) {
     const remaining = imports.total - imports.packages.length;
@@ -214,7 +221,7 @@ export async function showAggregates(edges: StudioEdge[], title: string) {
       const result: Page<StudioEdge> = await api<Page<StudioEdge>>("relations", { aggregate: edge.aggregate_id, limit: 30, cursor });
       if (request !== state.request) return;
       if (!cursor && result.total !== undefined && result.count !== undefined && result.total !== result.count) {
-        details.append(element("p", result.total + " relations · " + result.count + " recorded sites", "meta"));
+        details.append(element("p", result.total + " relations · " + result.count + (edge.kind === "import" ? " recorded imports" : " recorded sites"), "meta"));
       }
       for (const relation of result.items) {
         const text = relationDirection(relation) + " · " + relationLabel(relation);
@@ -300,9 +307,8 @@ export async function showSource(reference: string, start?: number) {
   const step = state.hops[state.storyIndex];
   if (step && get("story").getAttribute("aria-pressed") === "true") {
     get("story-controls").hidden = true;
-    const back = reopenStory;
-    details.append(button("Back to Story", back, "detail-btn"));
-    get("breadcrumbs").replaceChildren(button("Story", back),
+    details.append(button("Back to Story", reopenStory, "detail-btn"));
+    get("breadcrumbs").replaceChildren(button("Story", reopenStory),
       element("span", "/", "muted"), element("strong", "Source"));
   } else {
     details.append(button("Back to scope", () => showScope(state.ancestors), "detail-btn"));

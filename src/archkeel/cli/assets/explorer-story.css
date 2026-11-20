@@ -104,10 +104,6 @@ body:has(#story[aria-pressed="true"]) .view-tools { display: none; }
 #story-play { color: var(--on-accent); background: var(--accent); border-color: var(--accent); font-weight: 650; }
 #story-play:hover { background: var(--accent-hover); }
 @media (max-width: 740px) {
-  .workspace:has(#story-controls:not([hidden])) { display: grid; }
-  .workspace:has(#story-controls:not([hidden])) .body-grid { display: contents; }
-  .workspace:has(#story-controls:not([hidden])) #details { order: 1; }
-  .workspace:has(#story-controls:not([hidden])) #viewport { max-height: 43vh; }
   #story-controls { justify-content: center; }
   #story-progress { flex-basis: 100%; }
 }
@@ -124,23 +120,26 @@ body:has(#story[aria-pressed="true"]) .view-tools { display: none; }
 
 body:has(#story[aria-pressed="true"]) { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; overflow: hidden; }
 body:has(#story[aria-pressed="true"]) .bar { min-height: 48px; padding: 6px 14px; }
-body:has(#story[aria-pressed="true"]) main { display: grid; grid-template-rows: auto auto minmax(0, 1fr); width: 100%; max-width: none; min-height: 0; padding: 8px 10px 10px; margin: 0; }
+body:has(#story[aria-pressed="true"]) main { display: grid; grid-template-rows: auto auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); width: 100%; max-width: none; min-height: 0; padding: 8px 0 0; margin: 0; }
 body:has(#story[aria-pressed="true"]) .heading { margin: 0 4px 7px; justify-content: start; gap: 12px; }
 body:has(#story[aria-pressed="true"]) .heading h1 { font-size: 17px; letter-spacing: 0; }
 body:has(#story[aria-pressed="true"]) #notice { font-size: 12px; padding-inline: 5px; }
-body:has(#story[aria-pressed="true"]) .workspace { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; position: relative; }
+body:has(#story[aria-pressed="true"]) .workspace { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; position: relative; border-radius: 0; }
 body:has(#story[aria-pressed="true"]) .canvas-toolbar { display: flex; align-items: center; padding: 6px; min-height: 46px; background: var(--surface-1); border-bottom: 1px solid var(--line); }
 body:has(#story[aria-pressed="true"]) #breadcrumbs { min-height: 34px; border: 0; padding: 0 8px; }
-body:has(#story[aria-pressed="true"]) .body-grid { min-height: 0; }
+body:has(#story[aria-pressed="true"]) .body-grid { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+@media (min-width: 741px) {
+  body:has(#story[aria-pressed="true"]) .body-grid:has(#details:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr) var(--inspector-width);
+  }
+}
 body:has(#story[aria-pressed="true"]) .work-area { min-height: 0; }
 body:has(#story[aria-pressed="true"]) #viewport { max-height: none; min-height: 0; }
 body:has(#story[aria-pressed="true"]) #canvas { min-height: 100%; }
 body:has(#story[aria-pressed="true"]) #details { overflow: auto; min-height: 0; }
 @media (max-width: 740px) {
   body:has(#story[aria-pressed="true"]) .body-grid { display: grid; grid-template-rows: minmax(0, 1fr); position: relative; }
-  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) .body-grid { display: grid; }
-  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #viewport { max-height: none; }
-  body:has(#story[aria-pressed="true"]) #details { position: absolute; inset: auto 0 0; height: 35%; z-index: 8; order: initial; box-shadow: var(--shadow-pop); }
+  body:has(#story[aria-pressed="true"]) #details { position: absolute; inset: auto 0 0; height: 35%; z-index: 8; box-shadow: var(--shadow-pop); }
   body:has(#story[aria-pressed="true"]) .bar { gap: 4px; }
   body:has(#story[aria-pressed="true"]) .bar strong { font-size: 14px; }
   body:has(#story[aria-pressed="true"]) .bar nav { gap: 4px; }
@@ -158,19 +157,7 @@ body:has(#story[aria-pressed="true"]) #details { overflow: auto; min-height: 0; 
 #notice button { margin-inline-start: 8px; }
 
 .story-external-label { fill: var(--ink); font: 650 10px var(--font-mono); paint-order: stroke; stroke: var(--surface-0); stroke-width: 4px; stroke-linejoin: round; }
+body:has(#story[aria-pressed="true"]) #story-controls { background: var(--surface-1); }
 @media (max-width: 740px) {
-  body:has(#map[aria-pressed="true"]) .bar { gap: 4px; }
-  body:has(#map[aria-pressed="true"]) .bar strong { font-size: 14px; }
-  body:has(#map[aria-pressed="true"]) .bar nav { gap: 4px; }
-  body:has(#map[aria-pressed="true"]) .bar button, body:has(#map[aria-pressed="true"]) .bar a { font-size: 12px; padding: 4px 6px; }
-  body:has(#map[aria-pressed="true"]) .heading { flex-wrap: nowrap; min-width: 0; }
-  body:has(#map[aria-pressed="true"]) .heading h1 { flex: none; }
-  body:has(#map[aria-pressed="true"]) #overview { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-}
-body:has(#story[aria-pressed="true"]) #story-controls { position: absolute; z-index: 9; inset: auto 0 0; background: var(--surface-1); }
-body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #canvas { padding-bottom: 76px; }
-body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #details { padding-bottom: 76px; }
-@media (max-width: 740px) {
-  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #canvas { padding-bottom: calc(35dvh + 110px); }
-  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #details { padding-bottom: 110px; }
+  body:has(#story[aria-pressed="true"]) .workspace:has(#story-controls:not([hidden])) #canvas { padding-bottom: 35dvh; }
 }

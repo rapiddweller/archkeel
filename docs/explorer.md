@@ -22,11 +22,13 @@ Read each arrow from its source to its target. For an import, the source imports
 target module. For a call, the source calls the target. An UNKNOWN call target has no
 arrow. The unresolved count is part of the recorded call sites in that scope.
 Select a group edge to inspect its contributing relations. Select evidence to open
-the source line. Several sites can contribute to one relation between two modules.
-It can include built-ins, library calls and dynamic calls. A zero count of
+the source line. Several imports can contribute to one relation between two modules. A source line
+can import more than one name. The import count can exceed the number of source lines.
+The unresolved call count can include built-ins, library calls and dynamic calls. A zero count of
 recorded sites does not establish call coverage. The arrows do not track values.
 Each result includes its snapshot identity and the coverage of the scan.
-The System inspector lists up to 12 external packages resolved from observed imports.
+The System inspector shows how many indexed files in each part have symbol or call records when those counts are available.
+It also lists up to 12 external packages resolved from observed imports.
 Open a class to inspect its methods and properties. A class card shows a preview of
 each group. Each group reports its own collector coverage. A partial inventory can
 contain known members. The native report retains its own layout and rule verdicts.

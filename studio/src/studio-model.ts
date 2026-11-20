@@ -38,7 +38,7 @@ export interface StudioEdge {
 }
 
 export interface StudioCoverage {
-  parts?: { language?: string }[];
+  parts?: { part?: string; language?: string; files_indexed?: number | null; files_with_symbols?: number | null; files_with_calls?: number | null }[];
   total?: Record<string, number>;
   observed_only?: boolean;
   truncated?: boolean;
