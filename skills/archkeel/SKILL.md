@@ -35,8 +35,13 @@ and never run a refused command in a loop. Tell the owner and use release 4.0.1 
 
 ## Which projects get a verdict
 
-Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule has its receipt from the package map of the survey (AD-800), and every other rule of both is UNKNOWN.
+ArchKeel collects source evidence for Rust, TypeScript, Python and Dart.
+Rule coverage depends on the language and the available evidence.
+Python and Dart support import and interface boundary checks.
+Python also checks direct function calls for `call_owner`.
+Dart checks cycles when the package map is complete.
+Unsupported or unproved cases remain UNKNOWN.
+Python and Dart can check named imports against a declared `interface_boundary`.
 
 Do not report PASS for a supported subset of a project. Per-language limits are in
 [known limits](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).

@@ -13,6 +13,7 @@ Python and Dart support import and interface boundary checks.
 Python also checks direct function calls for `call_owner`.
 Dart checks cycles when the package map is complete.
 Unsupported or unproved cases remain UNKNOWN.
+Python and Dart can check named imports against a declared `interface_boundary`.
 <!-- tiers:end -->
 
 The details follow.

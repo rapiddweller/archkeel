@@ -19,7 +19,8 @@ was unchanged.
 | 4.0.1, Python engine | 27.93 s | 27.88–28.25 s | PASS | PASS, exit 0 |
 | 5.0.0-dev, Rust core | 1.18 s | 1.17–1.19 s | PASS | UNKNOWN, exit 2 |
 
-The Rust core reported 59 collection gaps across the scan. The two commands therefore answer
+The Rust core reported 59 collection gaps across the scan. They include both a runtime
+`eval(expression, …)` and a false alarm on the string comparison `token == "__import__"`. The two commands therefore answer
 the same ownership question but report different overall coverage. This timing does not predict
 the cost of evaluating CE's full contract.
 
