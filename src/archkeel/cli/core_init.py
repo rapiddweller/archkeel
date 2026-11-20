@@ -48,10 +48,17 @@ class Created:
     files: tuple[str, ...]
     result: Draft
 
+    def skipped(self) -> list[str]:
+        """The draft files that the run did not write."""
+        return [file.path for file in self.result.files if file.path not in self.files]
+
     def lines(self) -> list[str]:
         """The one block that opens the output: what was written, why and the next step."""
         count = len(self.result.components)
-        if self.result.parts:
+        if self.skipped():
+            made = ", ".join(self.files)
+            layout = "mixed-language repository" if self.result.parts else _layout(self.result)
+        elif self.result.parts:
             made = (
                 f"a system document with {len(self.result.parts)} parts "
                 f"({', '.join(self.result.parts)}), each with a configuration and a contract "
@@ -68,13 +75,16 @@ class Created:
             f"ArchKeel created {made} from your {layout} layout.",
             f"Why: there was no {CONFIG}. Written: {', '.join(self.files)}. No file was replaced.",
         ]
-        if self.result.parts:
+        if self.skipped():
+            out.append(f"Skipped: {', '.join(self.skipped())}.")
+        if self.result.parts and not self.skipped():
             out.append(_interfaces(self.result))
         if self.result.note:
             out.append(f"Note: {self.result.note}")
+        contracts = "contracts" if self.skipped() else "contract files above"
         out.append(
             "Review the open decisions, then run archkeel validate again. They are the TODO "
-            "entries of the contract files above, one for each component without a written "
+            f"entries of the {contracts}, one for each component without a written "
             "responsibility; `archkeel validate --text` lists them. "
             f"Guide: {DOCUMENT}"
         )
@@ -85,6 +95,7 @@ class Created:
         return {
             "state": _InitState.CREATED,
             "written": list(self.files),
+            "skipped": self.skipped(),
             "components": list(self.result.components),
             "language": self.result.language,
             "parts": list(self.result.parts),
