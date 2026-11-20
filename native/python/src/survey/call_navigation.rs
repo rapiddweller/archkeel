@@ -7,10 +7,10 @@
 use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::envelope::{SourceCallCandidate, Target};
-use archkeel_facts::ids::{EvidenceId, ModuleName};
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
 use archkeel_facts::{vocab::Status, CallFact, ImportFact, Record};
 use ruff_python_ast::helpers::any_over_body;
-use ruff_python_ast::{Expr, ExprCall, Identifier, Stmt, StmtClassDef};
+use ruff_python_ast::{Expr, ExprAttribute, ExprCall, Identifier, Stmt, StmtClassDef};
 use ruff_text_size::Ranged;
 
 use super::binders::Binders;
@@ -24,7 +24,7 @@ pub(super) fn collect(
     modules: &[Module],
     binders: &[Binders],
     imports: &[Record<ImportFact>],
-    targets: &[Target],
+    (targets, ambiguous): (&[Target], &HashSet<String>),
     calls: &[Record<CallFact>],
     evidence: &mut EvidenceMap,
 ) -> Vec<SourceCallCandidate> {
@@ -54,23 +54,33 @@ pub(super) fn collect(
         })
         .collect();
     let mut bindings = Bindings::new();
+    let mut attributes = Attributes::new();
     for item in imports {
         let ImportFact::Import(data) = &item.data else {
             continue;
         };
-        let (Some(bound), Some(symbol)) = (&data.binding, &data.symbol) else {
+        let Some(symbol) = data.symbol.as_deref() else {
             continue;
         };
+        if data.under_type_checking
+            || local.get(&item.id) != Some(&&data.target_module)
+            || ambiguous.contains(FactId::as_str(&item.id))
+        {
+            continue;
+        }
         let source = ModuleName::as_str(&data.source_module);
         let provider = ModuleName::as_str(&data.target_module);
-        if data.module_level_import
-            && !data.under_type_checking
-            && local.get(&item.id) == Some(&&data.target_module)
-            && visible
-                .get(source)
-                .is_some_and(|names| names.contains(bound))
-        {
-            bindings.insert((source, bound), (provider, symbol));
+        if let Some(bound) = data.binding.as_deref() {
+            if data.module_level_import
+                && visible
+                    .get(source)
+                    .is_some_and(|names| names.contains(bound))
+            {
+                bindings.insert((source, bound), (provider, symbol));
+            }
+        } else if let Some(site) = item.evidence_ids.first() {
+            // The import collector already resolved this written attribute through its scope.
+            attributes.insert((EvidenceId::as_str(site), symbol), provider);
         }
     }
     let mut candidates = Vec::new();
@@ -79,6 +89,7 @@ pub(super) fn collect(
             module,
             definitions: &definitions,
             imports: &bindings,
+            attributes: &attributes,
             evidence,
             candidates: &mut candidates,
         };
@@ -109,11 +120,13 @@ pub(super) fn collect(
 }
 
 type Bindings<'m> = HashMap<(&'m str, &'m str), (&'m str, &'m str)>;
+type Attributes<'m> = HashMap<(&'m str, &'m str), &'m str>;
 
 struct Calls<'m, 'a> {
     module: &'m Module,
     definitions: &'a Declarations<'m>,
     imports: &'a Bindings<'m>,
+    attributes: &'a Attributes<'m>,
     evidence: &'a mut EvidenceMap,
     candidates: &'a mut Vec<SourceCallCandidate>,
 }
@@ -122,8 +135,10 @@ impl Calls<'_, '_> {
     fn names(&mut self) {
         any_over_body(&self.module.tree.body, |expr| {
             let Expr::Call(call) = expr else { return false };
-            if let Expr::Name(name) = &*call.func {
-                self.name(call, name);
+            match &*call.func {
+                Expr::Name(name) => self.name(call, name),
+                Expr::Attribute(attribute) => self.attribute(call, attribute),
+                _ => {}
             }
             false
         });
@@ -136,12 +151,27 @@ impl Calls<'_, '_> {
         }
         let own: (&str, &str) = (&self.module.name, name);
         let (provider, symbol) = self.imports.get(&own).copied().unwrap_or(own);
+        self.definition(call, name, provider, symbol);
+    }
+
+    fn attribute(&mut self, call: &ExprCall, node: &ExprAttribute) {
+        let site = self.module.evidence_id(node);
+        let symbol = Identifier::as_str(&node.attr);
+        if let (Some(&provider), Some(expression)) = (
+            self.attributes.get(&(site.as_str(), symbol)),
+            self.module.source_of(node),
+        ) {
+            self.definition(call, expression, provider, symbol);
+        }
+    }
+
+    fn definition(&mut self, call: &ExprCall, expression: &str, provider: &str, symbol: &str) {
         let Some(&(target_module, declaration)) = self.definitions.get(&(provider, symbol)) else {
             return;
         };
         self.emit(
             call,
-            name.to_owned(),
+            expression.to_owned(),
             target_module,
             format!("{provider}.{symbol}"),
             declaration,
@@ -275,6 +305,47 @@ mod tests {
                 .iter()
                 .any(|e| &e.id == id && e.file == file && e.line == line));
         }
+    }
+
+    #[test]
+    fn qualified_calls_use_the_scoped_module_import_route() {
+        let tree = Tree::new(&[
+            ("src/pkg/__init__.py", ""),
+            ("src/pkg/api.py", "class Output: pass\ndef parse(): pass\n"),
+            (
+                "src/pkg/client.py",
+                r"
+from . import api as endpoint
+import pkg.api
+def use():
+    endpoint.parse()
+    pkg.api.Output()
+    endpoint.missing()
+def shadow(endpoint):
+    endpoint.parse()
+def assigned():
+    endpoint = object()
+    endpoint.Output()
+def callback():
+    return endpoint.parse
+import json
+json.loads('0')
+",
+            ),
+        ]);
+        let found = survey_of(&tree, &["src"], "pkg", true);
+        let rows: Vec<_> = found
+            .source_call_candidates
+            .iter()
+            .map(|c| (c.expression.as_str(), c.target.as_str()))
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                ("endpoint.parse", "pkg.api.parse"),
+                ("pkg.api.Output", "pkg.api.Output")
+            ]
+        );
     }
 }
 

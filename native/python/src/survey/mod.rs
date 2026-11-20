@@ -328,7 +328,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
             modules,
             &binders,
             &imports,
-            &resolved.targets,
+            (&resolved.targets, &ambiguous),
             &symbols.sites.calls,
             &mut evidence,
         )

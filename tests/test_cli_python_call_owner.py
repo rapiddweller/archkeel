@@ -13,6 +13,12 @@ from core_support import ROOT
 from test_cli_native_python_imports import RULE as RULE_HEAD
 from test_cli_native_python_imports import component, project, verdict
 
+from archkeel.cli.core_arguments import Options
+from archkeel.cli.core_binding import ProjectRoot
+from archkeel.cli.core_frame import CoreCommand
+from archkeel.cli.core_only import _exchange_scan
+from archkeel.explorer_queries import populate, query
+from archkeel.explorer_store import SnapshotIdentity, publish_snapshot
 from tools.fixture_tree import fixture_tree
 
 DEMO = ROOT / "fixtures/python-newer-syntax-demo"
@@ -397,3 +403,79 @@ def test_a_reflective_write_withholds_call_identity(release_core: Path, tmp_path
     result = verdict(release_core, root)
     assert result["status"] == "UNKNOWN", result["frame"]
     assert not result["frame"]["violations"].get("OWN-PAGE")
+
+
+def test_explorer_links_function_constructor_and_proved_receiver_declarations(
+    release_core: Path, tmp_path: Path
+) -> None:
+    provider = STORE + "\ndef load(): return Store()\n"
+    caller = (
+        "from app.service import Store, load\n"
+        "from app import service\n"
+        "def direct(): return load()\n"
+        "def constructed(): return Store()\n"
+        "def fresh(): return Store().page()\n"
+        "def unknown(receiver): return receiver.page()\n"
+        "def qualified(): return service.load()\n"
+        "def shadowed(service): return service.load()\n"
+    )
+    root = call_owner_project(tmp_path, provider, caller, "app.service.Store.page")
+    project_root = ProjectRoot.of(root, None)
+    document = json.loads(
+        _exchange_scan(
+            Options(
+                command=CoreCommand.REPORT, config=project_root.config, topology=True, explorer=True
+            ),
+            project_root,
+            release_core,
+            [],
+        )[0]
+    )
+    assert document["rules"]["OWN-PAGE"] == ["call_owner", "FAIL"]
+    topology = dict(
+        document["topology"], explorer=document["explorer"], locations=document["locations"]
+    )
+    snapshot = tmp_path / "cache" / "explorer.sqlite"
+    publish_snapshot(
+        snapshot,
+        SnapshotIdentity("rev", "contract", "source"),
+        lambda db: populate(db, topology, root),
+        "complete",
+    )
+    part = document["explorer"][0]
+    for caller_name, expression, target_name, site_line, declaration_line in [
+        ("direct", "load", "load", 3, 5),
+        ("constructed", "Store", "Store", 4, 1),
+        ("fresh", "Store().page", "Store.page", 5, 2),
+    ]:
+        (source,) = query(snapshot, root, "search", {"text": f"app.client.{caller_name}"})["items"]
+        (call,) = [
+            row
+            for row in query(
+                snapshot,
+                root,
+                "relations",
+                {"element": source["id"], "direction": "out", "kind": "call"},
+            )["items"]
+            if row["expression"] == expression
+        ]
+        result = query(snapshot, root, "evidence", {"relation": call["id"]})
+        assert result["relation"]["resolution"] == "resolved"
+        assert result["relation"]["target_name"] == f"app.service.{target_name}"
+        assert [(loc["role"], loc["path"], loc["line"]) for loc in result["items"]] == [
+            ("call_site", "src/app/client.py", site_line),
+            ("declaration", "src/app/service.py", declaration_line),
+        ]
+        assert (
+            query(snapshot, root, "source", {"reference": result["items"][1]["reference"]})["line"]
+            == declaration_line
+        )
+
+    for expression in ("receiver.page", "service.load"):
+        rows = [row for row in part["calls"] if row["expression"] == expression]
+        assert rows and all(row["status"] == "unresolved" for row in rows)
+    assert [
+        (row["target"], document["locations"][row["call_evidence"]]["line"])
+        for row in part["source_call_candidates"]
+        if row["expression"] == "service.load"
+    ] == [("app.service.load", 7)]

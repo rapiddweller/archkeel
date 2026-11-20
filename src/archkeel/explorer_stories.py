@@ -126,7 +126,11 @@ def _call_evidence(db: Any, root: Path, source: str, target: str) -> list[dict[s
         data = json.loads(relation[0])
         if data.get("resolution") != "resolved":
             continue
-        sites = [_location(db, root, site.get("reference")) for site in data.get("evidence", [])]
+        sites = [
+            _location(db, root, site.get("reference"))
+            for site in data.get("evidence", [])
+            if site.get("role") != "declaration"
+        ]
         if sites and all(sites):
             evidence.extend(site for site in sites if site is not None)
     return evidence
