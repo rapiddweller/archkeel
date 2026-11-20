@@ -14,6 +14,8 @@
 #![deny(unreachable_pub)]
 
 mod bindings;
+mod call_owners;
+pub use call_owners::{CallOwners, OwnedCall};
 mod decode;
 mod features;
 mod record_identity;
@@ -39,12 +41,17 @@ use crate::stored::Store;
 
 /// A reply that the store decoded and validated once, for a library of the core (WP6, AD-363).
 /// The records stay in their typed form; nothing outside the store can make one.
-pub struct Ingested(Store);
+pub struct Ingested(Store, Option<CallOwners>);
 
 impl Ingested {
     /// The typed reply: the model reads its records through the types of `archkeel-facts`.
     pub fn reply(&self) -> &archkeel_facts::envelope::Reply {
         self.0.reply()
+    }
+
+    /// The validated linked constructor-to-method witnesses.
+    pub fn call_owners(&self) -> Option<&CallOwners> {
+        self.1.as_ref()
     }
 
     /// The fixed capabilities of this reply's validated profile.
@@ -55,24 +62,19 @@ impl Ingested {
 
 /// Decode and validate one compressed reply (protocol 11) for a library of the core.
 pub fn ingest_reply(payload: &[u8], inflate_limit: u64) -> Result<Ingested, String> {
-    ingest(payload, inflate_limit).map(Ingested)
+    validated(decode::reply(payload, inflate_limit)?)
 }
 
 /// Validate one typed reply of a collector that runs in the process of the core (AD-406). It is
 /// the second front door of the same validation: `validated` runs every check that a decoded
 /// reply gets, and nothing else makes an `Ingested`.
 pub fn ingest_typed(reply: archkeel_facts::envelope::Reply) -> Result<Ingested, String> {
-    validated(reply).map(Ingested)
-}
-
-/// Decode, validate and keep one reply in its typed form.
-fn ingest(payload: &[u8], inflate_limit: u64) -> Result<Store, String> {
-    validated(decode::reply(payload, inflate_limit)?)
+    validated(reply)
 }
 
 /// The one validation of a reply after its decode: the version, the envelope, the registered
 /// sets, the records and their bindings. Both front doors (`ingest_reply`, `ingest_typed`) end here.
-fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Store, String> {
+fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Ingested, String> {
     validate::invariants(&reply.facts)?;
     let names: Vec<&str> = reply
         .facts
@@ -84,5 +86,6 @@ fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Store, String> {
     validation::check(&reply.facts)?;
     records::records(&reply.facts, &validate::index(&reply.facts))?;
     records::direct_calls(&reply.facts)?;
-    Ok(Store::new(reply))
+    let owners = call_owners::validate(&reply.facts)?;
+    Ok(Ingested(Store::new(reply), owners))
 }

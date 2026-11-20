@@ -2,9 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The symbol declarations of a module (AD-518): one record for each class, function, method and
-//! class attribute that the module binds exactly once, in a form whose kind Python decides when
-//! the statement runs.
+//! Collect declarations for each class, function, method and class attribute bound once (AD-518).
 //! The reader writes nothing that it cannot prove. A name that another statement binds, a
 //! decorator that may replace the object, a base that may change the kind and a text that native
 //! cannot write give no record: the model then reads the name as absent, which decides nothing
@@ -36,6 +34,8 @@ use reader::{header, Reader, Unwritable};
 
 mod dataclass;
 mod decorated;
+mod direct_calls;
+pub(crate) use direct_calls::DirectMethods;
 mod escapes;
 mod found;
 mod kind;

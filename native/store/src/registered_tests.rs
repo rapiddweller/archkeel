@@ -8,7 +8,7 @@
 
 use serde_json::{json, Value};
 
-use crate::ingest;
+use crate::ingest_reply;
 use crate::validate::tests::{compressed, golden};
 
 /// One change of a reply.
@@ -19,7 +19,7 @@ const NOT_REGISTERED: &str = "source sections or resolution features are not reg
 fn error_after(change: impl FnOnce(&mut Value)) -> String {
     let mut value = golden("h-typescript");
     change(&mut value);
-    ingest(&compressed(&value), 1 << 30)
+    ingest_reply(&compressed(&value), 1 << 30)
         .err()
         .unwrap_or_default()
 }

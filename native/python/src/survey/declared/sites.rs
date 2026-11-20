@@ -12,8 +12,9 @@
 
 use std::collections::{HashMap, HashSet};
 
+use super::direct_calls::DirectMethods;
 use archkeel_facts::data::{CallData, ImportData, ReferenceData};
-use archkeel_facts::envelope::DirectCall;
+use archkeel_facts::envelope::{ConstructedCall, DirectCall};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::{
     ids::{EvidenceId, FactId, ModuleName},
@@ -147,13 +148,14 @@ pub(crate) struct Sites {
     pub references: Vec<Record<ReferenceFact>>,
     pub dead: HashSet<String>,
     pub direct: Vec<DirectCall>,
+    pub constructed: Vec<ConstructedCall>,
 }
 
 /// The sites of the sources of one module.
 pub(crate) fn site_records(
     (module, binders): (&Module, &Binders),
     found: &Found<'_>,
-    context: &Context,
+    (context, methods): (&Context, &DirectMethods),
     evidence: &mut EvidenceMap,
 ) -> Sites {
     let mut reader = Reader {
@@ -164,6 +166,7 @@ pub(crate) fn site_records(
     };
     let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
     let mut direct = Vec::new();
+    let mut constructed = Vec::new();
     for source in &found.sources {
         let params = scope::parameters(source.node);
         let mut hidden = Bound::of(&source.node.body).names();
@@ -176,6 +179,7 @@ pub(crate) fn site_records(
         };
         let uses = Uses::of(source.node);
         let stored = scope::stored(source.node, &reader, &params);
+        let start = calls.len();
         for (call, dead) in &uses.calls {
             let record = call_record(&mut reader, &reading, (call, *dead), &stored);
             if *dead {
@@ -185,6 +189,7 @@ pub(crate) fn site_records(
             }
             calls.push(record);
         }
+        constructed.extend(methods.witness(source.node, &calls[start..], &uses.calls));
         for (name, _) in uses.names.iter().filter(|(_, dead)| !dead) {
             references.extend(reference(&mut reader, &reading, name));
         }
@@ -195,6 +200,7 @@ pub(crate) fn site_records(
         references,
         dead: dead_sites,
         direct,
+        constructed,
     }
 }
 

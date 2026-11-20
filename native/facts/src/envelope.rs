@@ -1,9 +1,7 @@
 // Archkeel
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
-//! The envelope of a protocol 11 reply: every part of `facts` outside the sections (AD-346).
-//!
-//! Each object is closed: an unknown key is a decode error.
+//! The closed envelope of a protocol 11 reply (AD-346).
 pub use crate::envelope_vocab::{
     ConstructSupport, Profile, ProtocolVersion, RequirementState, Role, SectionName,
 };
@@ -19,7 +17,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::{collections::BTreeMap, fmt};
 
-pub use crate::nested::{DirectCall, SourceCallCandidate, WrittenActual};
+pub use crate::nested::{
+    ConstructedCall, ConstructedCalls, DirectCall, SourceCallCandidate, WrittenActual,
+};
 
 /// A closed object of the envelope: an unknown key is a decode error.
 macro_rules! object {
@@ -87,6 +87,9 @@ object! {
         /// Exact calls from the linked producer, never from a saved reply.
         #[serde(skip)]
         pub direct_calls: Option<Vec<DirectCall>>,
+        /// Live linked constructor-to-method witnesses (AD-1027).
+        #[serde(skip)]
+        pub constructed_calls: Option<ConstructedCalls>,
         /// Written calls linked to declarations for Explorer, independent of runtime resolution.
         #[serde(skip)]
         pub source_call_candidates: Vec<SourceCallCandidate>,
@@ -151,10 +154,7 @@ pub struct OwnedFile {
     pub owner: ModuleName,
 }
 
-// The keys of the objects below are in sorted order, as the Python reply has them (`sort_keys`).
-// The serde form writes them in the order of the declaration, so the compressed reply of a native
-// collector writes these types as they are. The order of `Facts` does not matter: the stream
-// writes its keys one by one.
+// Keep declaration order for serde to write the same sorted keys as the Python reply.
 object! {
     /// The adapter that wrote the reply.
     pub struct Adapter {

@@ -321,8 +321,9 @@ fn call_owner_receipt(model: &Model, rule: &CallOwner) -> Result<(), Reason> {
             .calls
             .iter()
             .filter(|(_, _, caller, _, _)| caller == scope)
-            .count();
-        if u64::try_from(found).ok() != Some(*total) {
+            .map(|(site, ..)| 1 + u64::from(inventory.constructors.contains(site)))
+            .sum::<u64>();
+        if found != *total {
             return Err(
                 Cause::Receipt("call ownership: a selected call has no exact target").into(),
             );

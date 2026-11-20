@@ -460,3 +460,27 @@ pub struct SourceCallCandidate {
     /// Location of the name in the class or function definition.
     pub declaration_evidence: EvidenceId,
 }
+
+/// The declarations and sites that the linked Python collector proves.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ConstructedCalls {
+    /// Direct methods of classes with default allocation and lookup.
+    pub targets: Vec<FactId>,
+    /// Calls on freshly constructed instances of those classes.
+    pub calls: Vec<ConstructedCall>,
+}
+
+/// The linked producer's witness for one call on a freshly constructed instance.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConstructedCall {
+    /// The method call site.
+    pub call: FactId,
+    /// The constructor call site in the same callable.
+    pub constructor: FactId,
+    /// The direct instance method of the constructed class.
+    pub method: FactId,
+    /// The single local result binding, when the call does not use the instance directly.
+    pub binding: Option<FactId>,
+    /// The direct import that binds the class in a different module.
+    pub import: Option<FactId>,
+}

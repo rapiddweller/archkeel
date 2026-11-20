@@ -107,7 +107,7 @@ impl Graph {
             graph.placement = Some(crate::placement_facts::classes(facts));
         }
         if live && needs.call_owner() {
-            graph.exact_calls = direct_calls(facts);
+            graph.exact_calls = direct_calls(facts, reply.call_owners());
         }
         Ok(graph)
     }
@@ -333,15 +333,19 @@ pub(crate) struct CallInventory {
     pub(crate) targets: HashSet<String>,
     pub(crate) complete: HashSet<String>,
     pub(crate) bodies: HashMap<String, u64>,
+    pub(crate) constructors: HashSet<FactId>,
     pub(crate) actuals: HashMap<FactId, Vec<archkeel_facts::envelope::WrittenActual>>,
     pub(crate) formals: HashMap<String, Vec<archkeel_facts::nested::Parameter>>,
 }
 
-fn direct_calls(facts: &Facts) -> Option<CallInventory> {
+fn direct_calls(
+    facts: &Facts,
+    constructed: Option<&archkeel_store::CallOwners>,
+) -> Option<CallInventory> {
     let live = facts.direct_calls.as_ref()?;
     let sites: HashSet<&FactId> = live.iter().map(|(site, _, _, _)| site).collect();
     let mut calls = Vec::new();
-    let mut counts: HashMap<&ModuleName, u64> = HashMap::new();
+    let mut counts: HashMap<&str, u64> = HashMap::new();
     let rows = facts.sections.iter().filter_map(|section| match section {
         Section::Calls(rows) => Some(rows),
         _ => None,
@@ -353,7 +357,7 @@ fn direct_calls(facts: &Facts) -> Option<CallInventory> {
         let [target] = Vec::as_slice(&call.targets) else {
             continue;
         };
-        *counts.entry(&call.source_module).or_default() += 1;
+        *counts.entry(call.source_module.as_str()).or_default() += 1;
         calls.push((
             row.id.clone(),
             ModuleName::as_str(&call.source_module).to_owned(),
@@ -362,8 +366,25 @@ fn direct_calls(facts: &Facts) -> Option<CallInventory> {
             row.evidence_ids.clone(),
         ));
     }
+    let mut targets = direct_targets(facts);
+    let mut constructors = HashSet::new();
+    if let Some(owners) = constructed {
+        targets.extend(owners.targets().iter().cloned());
+        let witnessed: &[archkeel_store::OwnedCall] = owners.calls();
+        for call in witnessed {
+            *counts.entry(&call.module).or_default() += 2;
+            constructors.insert(call.site.clone());
+            calls.push((
+                call.site.clone(),
+                call.module.clone(),
+                call.scope.clone(),
+                call.target.clone(),
+                call.evidence.clone(),
+            ));
+        }
+    }
     let complete = facts.coverage.measures.iter().flatten().filter_map(|row| {
-        let count = counts.get(&row.module).copied().unwrap_or(0);
+        let count = counts.get(row.module.as_str()).copied().unwrap_or(0);
         (count == row.calls_total).then(|| ModuleName::as_str(&row.module).to_owned())
     });
     let bodies = facts
@@ -374,7 +395,8 @@ fn direct_calls(facts: &Facts) -> Option<CallInventory> {
         .collect();
     Some(CallInventory {
         calls,
-        targets: direct_targets(facts),
+        targets,
+        constructors,
         complete: complete.collect(),
         bodies,
         actuals: live

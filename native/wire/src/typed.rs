@@ -78,6 +78,7 @@ pub fn assemble(
             validation,
             profile_limits: None,
             direct_calls: None,
+            constructed_calls: None,
             source_call_candidates: Vec::new(),
             function_call_counts: None,
             scope_premise: None,

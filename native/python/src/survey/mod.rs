@@ -7,7 +7,9 @@ use crate::discover;
 use crate::module::{EvidenceMap, Module};
 use crate::parse::comments;
 use crate::requirement::Prepared;
-use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Role, Target};
+use archkeel_facts::envelope::{
+    ConstructedCalls, Coverage, Evidence, FileFact, Input, Role, Target,
+};
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::sections::SignalFact;
@@ -87,9 +89,9 @@ pub(crate) struct Survey {
     pub ambiguous: HashSet<String>,
     pub parsed: Vec<Input>,
     pub standard: archkeel_facts::standard::StandardFacts,
-    /// The symbol declarations that the modules bind once (AD-518), and their sites (AD-520).
     pub symbols: Vec<Record<SymbolFact>>,
     pub sites: declared::Sites,
+    pub constructed: ConstructedCalls,
     pub function_call_counts: Vec<(String, u64)>,
     pub source_call_candidates: Vec<archkeel_facts::envelope::SourceCallCandidate>,
     pub constructs: Vec<Record<ConstructFact>>,
@@ -209,7 +211,11 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         (modules, &binders),
         (&viewed, &imports),
         (&sole_binders, &ambiguous),
-        (&writes, lazy_314),
+        (
+            &writes,
+            lazy_314,
+            hazards.is_empty() && read && scope.selected.len() == modules.len(),
+        ),
         &mut evidence,
         |index, module| {
             !hazards.iter().any(|(site, _)| *site == index)
@@ -365,6 +371,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         },
         symbols: symbols.records,
         sites: symbols.sites,
+        constructed: symbols.constructed,
         signals: constructs.signals,
         support: constructs.support,
         constructs: constructs.records,
@@ -376,18 +383,17 @@ struct Symbols {
     wrapped: std::collections::BTreeMap<String, archkeel_facts::standard::Wrapped>,
     positions: standard::Positions,
     sites: declared::Sites,
+    constructed: ConstructedCalls,
     protocol_members:
         std::collections::BTreeMap<String, (bool, archkeel_facts::standard::ProtocolMembers)>,
 }
 
-/// AD-518, AD-520: the declarations of each module that `admitted` keeps, then their sites. A
-/// module with a hazard site or a route that another module can write has none, and each name of
-/// it is absent for the model.
+/// Build declarations and sites only for admitted modules (AD-518, AD-520).
 fn declarations(
     (modules, binders): (&[Module], &[Binders]),
     (imports, written): (&[Record<ImportFact>], &[Record<ImportFact>]),
     sets: (&HashSet<String>, &HashSet<String>),
-    (writes, lazy_314): (&class_writes::ClassWrites, bool),
+    (writes, lazy_314, closed_namespace): (&class_writes::ClassWrites, bool, bool),
     evidence: &mut EvidenceMap,
     admitted: impl Fn(usize, &Module) -> bool,
 ) -> Symbols {
@@ -413,23 +419,30 @@ fn declarations(
         declared::shape_standard::positions(&found, (modules, binders), imports, sets);
     let read = (modules, binders);
     let wrapped = declared::wrapped::forms(&found, read, imports, sets, (forms, &mut positions));
+    let methods = if closed_namespace {
+        declared::DirectMethods::for_survey(&found, modules, writes, written)
+    } else {
+        declared::DirectMethods::empty()
+    };
     let mut sites = declared::Sites {
         calls: Vec::new(),
         references: Vec::new(),
         dead: HashSet::new(),
         direct: Vec::new(),
+        constructed: Vec::new(),
     };
     for item in &found {
         let more = declared::site_records(
             (&modules[item.index], &binders[item.index]),
             item,
-            &context,
+            (&context, &methods),
             evidence,
         );
         sites.calls.extend(more.calls);
         sites.references.extend(more.references);
         sites.dead.extend(more.dead);
         sites.direct.extend(more.direct);
+        sites.constructed.extend(more.constructed);
     }
     let protocol_members = declared::shape_standard::protocol_positions(
         &found,
@@ -439,7 +452,12 @@ fn declarations(
         (evidence, writes, lazy_314),
     );
     let records = found.into_iter().flat_map(|item| item.records).collect();
+    let constructed = ConstructedCalls {
+        targets: declared::DirectMethods::targets(&methods),
+        calls: std::mem::take(&mut sites.constructed),
+    };
     Symbols {
+        constructed,
         records,
         wrapped,
         positions,
@@ -448,12 +466,9 @@ fn declarations(
     }
 }
 
-/// The import records, after a first pass that names the modules that another module may change
-/// (`uses.rs`, AD-504): such a module may bind a name of its own to a package attribute that hides
-/// a submodule, so the second pass reads the written modules.
-///
-/// AD-654: the walk repeats until no escaped module loses the proof of its lazy keys, so the
-/// ambiguous records and the escaped modules read the same proven keys.
+/// Read written modules on the second pass because another module can shadow their submodules
+/// (AD-504). Repeat until the ambiguous records and escaped modules agree on the same proven
+/// lazy keys (AD-654).
 fn collect(
     (modules, binders): (&[Module], &[Binders]),
     namespace: &str,

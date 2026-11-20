@@ -143,6 +143,10 @@ pub(crate) fn typed(
     } else {
         Vec::new()
     };
+    let constructed_calls = survey
+        .coverage
+        .full_scope
+        .then(|| std::mem::take(&mut survey.constructed));
     let function_call_counts = if survey.coverage.full_scope {
         std::mem::take(&mut survey.function_call_counts)
     } else {
@@ -155,6 +159,7 @@ pub(crate) fn typed(
     reply.facts.standard = Some(standard);
     reply.facts.excluded_sources = excluded_sources;
     reply.facts.direct_calls = Some(direct_calls);
+    reply.facts.constructed_calls = constructed_calls;
     reply.facts.source_call_candidates = candidates;
     reply.facts.function_call_counts = Some(function_call_counts);
     let features = &mut reply.facts.capabilities.resolution_features;

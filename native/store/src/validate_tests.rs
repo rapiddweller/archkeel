@@ -12,7 +12,7 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use serde_json::{json, Value};
 
-use crate::ingest;
+use crate::ingest_reply;
 
 const LIMIT: u64 = 1 << 30;
 
@@ -56,7 +56,9 @@ pub(crate) fn compressed(value: &Value) -> Vec<u8> {
 
 /// The refusal of the byte door; the typed door (`ingest_typed`, AD-406) must give the same one.
 fn error_of(value: &Value) -> String {
-    let bytes = ingest(&compressed(value), LIMIT).err().unwrap_or_default();
+    let bytes = ingest_reply(&compressed(value), LIMIT)
+        .err()
+        .unwrap_or_default();
     assert_eq!(typed_error_of(value), bytes, "the two front doors differ");
     bytes
 }
@@ -84,7 +86,7 @@ fn records<'a>(value: &'a mut Value, name: &str) -> &'a mut Value {
 
 #[test]
 fn the_frozen_reply_passes() -> Result<(), String> {
-    let store = ingest(&compressed(&reply()), LIMIT)?;
+    let store = ingest_reply(&compressed(&reply()), LIMIT)?;
     assert!(!store.reply().facts.sections.is_empty());
     Ok(())
 }
@@ -204,13 +206,15 @@ fn a_duplicate_record_id_names_the_places_of_both_records() {
 #[test]
 fn the_store_reads_only_a_complete_compressed_reply() {
     let plain = reply().to_string().into_bytes();
-    let error = ingest(&plain, LIMIT).err().unwrap_or_default();
+    let error = ingest_reply(&plain, LIMIT).err().unwrap_or_default();
     assert!(error.contains("only the compressed replies"), "{error}");
     let mut trailing = compressed(&reply());
     trailing.push(b' ');
-    let error = ingest(&trailing, LIMIT).err().unwrap_or_default();
+    let error = ingest_reply(&trailing, LIMIT).err().unwrap_or_default();
     assert!(error.contains("trailing data"), "{error}");
-    let error = ingest(&compressed(&reply()), 100).err().unwrap_or_default();
+    let error = ingest_reply(&compressed(&reply()), 100)
+        .err()
+        .unwrap_or_default();
     assert!(error.contains("exceeds its 100 byte limit"), "{error}");
 }
 
@@ -220,7 +224,9 @@ fn a_reply_of_an_older_protocol_is_refused() {
     for old in ["8.0.0", "9.0.0", "10.0.0"] {
         let mut value = reply();
         value["protocol_version"] = json!(old);
-        let error = ingest(&compressed(&value), LIMIT).err().unwrap_or_default();
+        let error = ingest_reply(&compressed(&value), LIMIT)
+            .err()
+            .unwrap_or_default();
         assert!(
             error.contains(&format!("unknown variant `{old}`")),
             "{error}"
@@ -230,7 +236,9 @@ fn a_reply_of_an_older_protocol_is_refused() {
     value["facts"]
         .as_object_mut()
         .map(|facts| facts.remove("validation"));
-    let error = ingest(&compressed(&value), LIMIT).err().unwrap_or_default();
+    let error = ingest_reply(&compressed(&value), LIMIT)
+        .err()
+        .unwrap_or_default();
     assert!(error.contains("missing field `validation`"), "{error}");
 }
 
@@ -244,7 +252,9 @@ fn the_typed_door_accepts_the_frozen_reply_and_refuses_a_planted_record() {
     assert!(!refused.is_empty());
     assert_eq!(
         refused,
-        ingest(&compressed(&value), LIMIT).err().unwrap_or_default()
+        ingest_reply(&compressed(&value), LIMIT)
+            .err()
+            .unwrap_or_default()
     );
 }
 
@@ -298,7 +308,7 @@ fn each_decode_time_refusal_that_a_typed_value_can_hold_is_refused_by_both_doors
         let mut typed = decoded.clone();
         change(&mut typed);
         let bytes = compressed(&serde_json::to_value(&typed).unwrap());
-        let byte_door = ingest(&bytes, LIMIT).err().unwrap_or_default();
+        let byte_door = ingest_reply(&bytes, LIMIT).err().unwrap_or_default();
         let typed_door = crate::ingest_typed(typed).err().unwrap_or_default();
         assert_eq!(typed_door, reason);
         assert_eq!(byte_door, reason);

@@ -92,6 +92,47 @@ fn a_reply_of_the_snapshot_is_bound_to_it() {
 }
 
 #[test]
+fn a_live_call_witness_is_bound_and_an_archive_has_no_call_authority() {
+    use archkeel_facts::ids::FactId;
+    use archkeel_store::{ingest_typed, CallOwners, Ingested};
+
+    let tree = Tree::new(&[
+        ("pyproject.toml", "[project]\nrequires-python = \">=3.11\"\n"),
+        ("src/app/__init__.py", ""),
+        ("src/app/service.py", "class Store:\n    def page(self):\n        return 1\n"),
+        ("src/app/client.py", "from app.service import Store\n\ndef run():\n    store = Store()\n    return store.page()\n"),
+    ]);
+    let original = reply(&tree);
+    let live = ingest_typed(original.clone()).expect("the linked witness passes the store");
+    let owners = Ingested::call_owners(&live).expect("live call owners");
+    let calls = CallOwners::calls(owners);
+    assert_eq!(calls.len(), 1);
+    let call = &calls[0];
+    assert_eq!(call.scope, "app.client.run");
+    assert_eq!(call.target, "app.service.Store.page");
+    assert!(CallOwners::targets(owners).contains("app.service.Store.page"));
+
+    let bytes = serde_json::to_vec(&original).unwrap();
+    let archived = ingest_typed(serde_json::from_slice(&bytes).unwrap()).unwrap();
+    assert!(Ingested::call_owners(&archived).is_none());
+
+    let mut forged = original.clone();
+    let row = &mut forged.facts.constructed_calls.as_mut().unwrap().calls[0];
+    row.constructor = row.call.clone();
+    assert!(ingest_typed(forged)
+        .err()
+        .unwrap()
+        .contains("constructor-to-method"));
+
+    let mut forged = original;
+    forged.facts.constructed_calls.as_mut().unwrap().calls[0].binding = Some(FactId::new("other"));
+    assert!(ingest_typed(forged)
+        .err()
+        .unwrap()
+        .contains("constructor-to-method"));
+}
+
+#[test]
 fn a_planted_digest_or_a_changed_file_refuses_the_reply() {
     let tree = project();
     let root = root(&tree);
