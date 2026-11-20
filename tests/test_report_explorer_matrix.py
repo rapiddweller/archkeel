@@ -5,6 +5,8 @@
 
 from pathlib import Path
 
+import core_support
+import pytest
 from explorer_support import write_pages
 
 
@@ -35,3 +37,17 @@ def test_report_keeps_the_diagram_without_removed_panels(
         'id="gap-records-file"',
     ):
         assert retained in page
+
+
+def test_missing_report_shows_the_refusal(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(core_support, "run", lambda *_args: (2, {"error": "scan limit"}))
+    with pytest.raises(AssertionError, match="scan limit") as error:
+        write_pages(tmp_path / "core", tmp_path, {"system": (None, "config.json")})
+    assert str(tmp_path / "system.html") in str(error.value)
+
+
+@pytest.mark.parametrize("code", [1, 2])
+def test_existing_report_accepts_a_nonzero_verdict(monkeypatch, tmp_path: Path, code: int) -> None:
+    (tmp_path / "system.html").write_text("report")
+    monkeypatch.setattr(core_support, "run", lambda *_args: (code, {"status": "FAIL"}))
+    write_pages(tmp_path / "core", tmp_path, {"system": (None, "config.json")})
