@@ -89,26 +89,6 @@ make explorer-corpus WORKSPACE=/path/to/checkouts OUTPUT=/private/local/results
 The output can contain private repository paths and source information. Keep it local.
 Check the revision, working tree state and scan configuration when comparing results.
 
-## Attach a Rust SCIP index
-
-Use `archkeel explore --scip /path/to/index.scip` to inspect optional declaration evidence.
-Generate the index from the same source files with `rust-analyzer scip`. Supply
-`index.scip.manifest.json` beside the index with the following fields.
-
-| Field | Value |
-| --- | --- |
-| `version` | `1` |
-| `index_sha256` | SHA-256 of the index bytes |
-| `files` | Map of canonical project-relative paths to SHA-256 digests of their source bytes |
-
-Include every document in the index. Run the producer before Explorer starts.
-Explorer reads both files and checks the source digests against the scan.
-A different index or manifest gives a different Explorer snapshot.
-
-Open **Inspect unlinked calls** in the whiteboard. A matched call shows a **SCIP declaration**
-with a checked source link. HTTP and MCP return the same evidence with `provenance: "scip"`.
-The native call remains open. The optional index leaves native report results unchanged.
-
 ## Query a snapshot
 
 The browser uses GET requests under `/api/v1/`. The MCP tools use the same operation

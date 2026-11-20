@@ -29,7 +29,7 @@ from .core_binding import ProjectRoot
 from .core_exit import Outcome, envelope, exit_for
 from .core_explorer_http import _ExplorerServer
 from .core_explorer_identity import _file_digest, _fingerprint
-from .core_explorer_scip import ScipIndex, _enrich
+from .core_explorer_scip import ScipIndex, _store_resolution
 from .core_frame import CoreError, CoreFrame, GapKind
 from .core_json import as_object, as_text
 from .init_draft import draft, write_missing
@@ -135,15 +135,14 @@ def _publish(
                 for row in rows
             ]
 
-    if scip is not None:
-        _enrich(scip, binary, project.path, digests, topology)
-
     def build(connection: sqlite3.Connection) -> None:
         display = topology | {
             "verdict": None if observed else frame.status.value,
             "observed_only": observed,
         }
         populate(connection, display, project.path)
+        if scip is not None:
+            _store_resolution(connection, scip, binary, project.path, digests, topology)
         if _current_identity(project, binary, scip) != snapshot:
             raise CoreError("the project changed during the Explorer scan; run explore again")
 

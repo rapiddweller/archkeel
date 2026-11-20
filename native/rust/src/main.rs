@@ -46,7 +46,7 @@ fn run() -> Result<Vec<u8>, String> {
 
 fn main() -> ExitCode {
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("scip-evidence")) {
-        return finish(scip_evidence::run(STACK_BYTES));
+        return finish(scip_evidence::run(STACK_BYTES).map(|()| Vec::new()));
     }
     if let Some(exit) =
         archkeel_wire::worker::serve_v1(decode_rust, TEST_FEATURES, |request, version| {

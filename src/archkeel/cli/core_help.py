@@ -113,7 +113,7 @@ Press Ctrl-C to stop the server.
   --config PATH  Select a project configuration or system document.
   --port PORT    Use this local port. Default: choose a free port.
   --no-open      Print the local URL without opening a browser.
-  --scip PATH  Attach Rust SCIP declaration evidence using PATH.manifest.json.
+  --scip PATH  Store Rust call evidence from a SCIP index in the snapshot.
   --json         Print one JSON object with the local URL.
 
 The command exits 0 after the Explorer stops, or 2 if it cannot start.

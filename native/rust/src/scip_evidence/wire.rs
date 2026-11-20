@@ -105,6 +105,7 @@ pub(super) struct Occurrence<'a> {
     pub range: Option<Range>,
     pub symbol: &'a str,
     pub definition: bool,
+    pub reference: bool,
 }
 
 pub(super) fn occurrence(mut bytes: &[u8]) -> Result<Occurrence<'_>> {
@@ -112,9 +113,10 @@ pub(super) fn occurrence(mut bytes: &[u8]) -> Result<Occurrence<'_>> {
         range: None,
         symbol: "",
         definition: false,
+        reference: true,
     };
     let mut range = Vec::with_capacity(4);
-    let mut unsupported_range = false;
+    let mut typed = None;
     while !bytes.is_empty() {
         match field(&mut bytes)? {
             (1, Field::Bytes(mut values)) => {
@@ -127,28 +129,70 @@ pub(super) fn occurrence(mut bytes: &[u8]) -> Result<Occurrence<'_>> {
                 result.symbol = std::str::from_utf8(value).map_err(|error| error.to_string())?;
             }
             (2, Field::Bytes(_)) => return Err("SCIP symbol exceeds 1024 bytes".to_owned()),
-            (3, Field::Number(roles)) => result.definition = roles & 1 != 0,
-            (8 | 9, _) => unsupported_range = true,
+            (3, Field::Number(roles)) => {
+                result.definition = roles & 1 != 0 && roles & 0x50 == 0;
+                result.reference = roles & 0x53 == 0;
+            }
+            (kind @ (8 | 9), Field::Bytes(fields)) if typed.is_none() => {
+                typed = Some(typed_range(kind, fields)?);
+            }
+            (8 | 9, _) => return Err("duplicate or invalid SCIP typed range".to_owned()),
             _ => (),
         }
     }
-    if unsupported_range {
-        return Err("unsupported SCIP typed occurrence range".to_owned());
-    }
-    result.range = match range.as_slice() {
+    let legacy = match range.as_slice() {
         [line, start, end] => Some(Range([*line, *start, *line, *end])),
         &[a, b, c, d] => Some(Range([a, b, c, d])),
         [] => None,
         _ => return Err("invalid SCIP occurrence range".to_owned()),
     };
+    if typed.zip(legacy).is_some_and(|(a, b)| a != b) {
+        return Err("conflicting SCIP ranges".to_owned());
+    }
+    result.range = typed.or(legacy);
+    if let Some(Range([sl, sc, el, ec])) = result.range {
+        if (sl, sc) > (el, ec) {
+            return Err("reversed SCIP occurrence range".to_owned());
+        }
+    }
     Ok(result)
+}
+
+fn typed_range(kind: u64, mut input: &[u8]) -> Result<Range> {
+    let mut offsets = [0; 4];
+    let mut seen = [false; 4];
+    let fields = if kind == 8 { 3 } else { 4 };
+    while !input.is_empty() {
+        let (n, value) = field(&mut input)?;
+        if n > fields {
+            continue;
+        }
+        let i = usize::try_from(n - 1).map_err(|error| error.to_string())?;
+        let Field::Number(value) = value else {
+            return Err("SCIP typed position is not numeric".to_owned());
+        };
+        if std::mem::replace(&mut seen[i], true) {
+            return Err("duplicate SCIP typed position".to_owned());
+        }
+        offsets[i] = offset(value)?;
+    }
+    if kind == 8 {
+        offsets[3] = offsets[2];
+        offsets[2] = offsets[0];
+    }
+    Ok(Range(offsets))
+}
+
+fn offset(value: u64) -> Result<u32> {
+    let signed = i32::try_from(value).map_err(|error| error.to_string())?;
+    u32::try_from(signed).map_err(|error| error.to_string())
 }
 
 fn push_offset(range: &mut Vec<u32>, value: u64) -> Result<()> {
     if range.len() >= 4 {
         return Err("invalid SCIP occurrence range length".to_owned());
     }
-    range.push(u32::try_from(value).map_err(|error| error.to_string())?);
+    range.push(offset(value)?);
     Ok(())
 }
 
@@ -165,7 +209,10 @@ mod tests {
         assert!(parsed.definition);
         assert!(occurrence(&[10, 2, 1, 2]).is_err());
         assert!(occurrence(&[10, 5, 1, 2]).is_err());
-        assert!(occurrence(&[66, 0]).is_err());
+        let typed = occurrence(&[66, 6, 8, 1, 16, 3, 24, 9]).expect("typed range");
+        assert_eq!(typed.range, parsed.range);
+        assert!(occurrence(&[10, 3, 1, 3, 9, 66, 0]).is_err());
+        assert!(occurrence(&[10, 3, 1, 9, 3]).is_err());
     }
 
     #[test]

@@ -39,10 +39,6 @@ export function updateOverview({ coverage = {} }) {
             counts.push(part.files_with_calls + " with call records");
         details.append(element("p", (part.part || part.language || "Scan") + " · " + counts.join(" · ")));
     }
-    if (coverage.scip) {
-        details.append(element("p", "SCIP declaration evidence · " + coverage.scip.matched_calls.toLocaleString()
-            + " of " + coverage.scip.eligible_calls.toLocaleString() + " eligible unlinked call sites."));
-    }
     const imports = coverage.external_imports;
     if (imports?.packages.length) {
         const remaining = imports.total - imports.packages.length;
@@ -205,8 +201,6 @@ export async function select(item) {
                 link.append(breakPath(element("span", "", "meta"), site.path + ":" + site.line));
             if (edge.reason)
                 link.append(element("small", edge.reason));
-            if (edge.scip_binding)
-                link.append(element("small", "SCIP declaration"));
             details.append(link);
         }
         if (result.next_cursor) {
@@ -310,8 +304,7 @@ export async function showEvidence(edge) {
         if (!page.items.length && !page.next_cursor)
             details.append(element("p", "This relation has no indexed source location."));
         for (const item of page.items) {
-            const roles = { call_site: "Call site · ", declaration: "Declaration · ", scip_declaration: "SCIP declaration · " };
-            const role = item.role ? roles[item.role] ?? "" : "";
+            const role = item.role === "call_site" ? "Call site · " : item.role === "declaration" ? "Declaration · " : "";
             const text = role + item.path + ":" + item.line;
             const link = button(text, () => showSource(item.reference), "detail-btn");
             details.append(breakPath(link, text));

@@ -70133,6 +70133,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.bin_archkeel_rust_collector",
+      "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.bin_archkeel_rust_collector",
       "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -70332,8 +70337,43 @@
     ],
     [
       "collection_gap",
+      "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
+      "A trait impl in native.archkeel_facts.identity may run in code that reaches native.archkeel_facts.identity without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
+      "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
+      "A trait impl in native.archkeel_snapshot.snapshot may run in code that reaches native.archkeel_snapshot.snapshot without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
+      "A trait impl in native.archkeel_snapshot.snapshot.listing may run in code that reaches native.archkeel_snapshot.snapshot.listing without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
+      "A trait impl in native.archkeel_snapshot.work may run in code that reaches native.archkeel_snapshot.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
       "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
       "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
+      "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",

@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::identity::{evidence_id, stable_id, Part};
 use proc_macro2::Span;
-use scip_serde::Deserialize;
+use scip_serde::{Deserialize, Serialize};
 use syn::visit::{self, Visit};
 
 use super::wire::Range;
@@ -22,11 +22,20 @@ pub(super) struct CallSite {
     pub line: usize,
     pub module: String,
     pub expression: String,
+    #[serde(default)]
+    pub macro_call: bool,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, Serialize)]
+#[serde(crate = "scip_serde", rename_all = "snake_case")]
+pub(super) enum Dispatch {
+    Direct,
+    TraitDispatch,
 }
 
 pub(super) struct Source<'a> {
     pub calls: BTreeMap<Range, BTreeSet<&'a str>>,
-    pub definitions: BTreeMap<Range, (&'a str, String)>,
+    pub definitions: BTreeMap<Range, (&'a str, String, Dispatch)>,
 }
 
 pub(super) fn source<'a>(
@@ -85,7 +94,7 @@ impl Reader<'_, '_> {
         ]))
     }
 
-    fn declaration(&mut self, name: &syn::Ident) {
+    fn declaration(&mut self, name: &syn::Ident, dispatch: Dispatch) {
         let span = name.span();
         let s = span.start();
         let evidence = evidence_id(
@@ -95,7 +104,9 @@ impl Reader<'_, '_> {
             number(s.column),
         );
         if let (Some(range), Some(Some(id))) = (self.range(span), self.ids.get(&evidence)) {
-            self.data.definitions.insert(range, (id, evidence));
+            self.data
+                .definitions
+                .insert(range, (id, evidence, dispatch));
         }
     }
 
@@ -131,15 +142,23 @@ impl Reader<'_, '_> {
 
 impl<'ast> Visit<'ast> for Reader<'_, '_> {
     fn visit_item_fn(&mut self, function: &'ast syn::ItemFn) {
-        self.declaration(&function.sig.ident);
+        self.declaration(&function.sig.ident, Dispatch::Direct);
         visit::visit_item_fn(self, function);
     }
 
     fn visit_impl_item_fn(&mut self, method: &'ast syn::ImplItemFn) {
-        if !self.trait_impl {
-            self.declaration(&method.sig.ident);
-        }
+        let dispatch = if self.trait_impl {
+            Dispatch::TraitDispatch
+        } else {
+            Dispatch::Direct
+        };
+        self.declaration(&method.sig.ident, dispatch);
         visit::visit_impl_item_fn(self, method);
+    }
+
+    fn visit_trait_item_fn(&mut self, method: &'ast syn::TraitItemFn) {
+        self.declaration(&method.sig.ident, Dispatch::TraitDispatch);
+        visit::visit_trait_item_fn(self, method);
     }
 
     fn visit_item_impl(&mut self, implementation: &'ast syn::ItemImpl) {

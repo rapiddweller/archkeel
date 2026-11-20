@@ -4,12 +4,13 @@
 
 //! Prototype reader for explicitly supplied, source-bound SCIP files.
 
+mod bindings;
 mod syntax;
 mod wire;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
-use std::io::{BufReader, Read};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
 use archkeel_facts::identity::{inside, sha256_hex};
@@ -17,6 +18,7 @@ use archkeel_snapshot::Snapshot;
 use scip_serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use bindings::{record, Matches};
 use syntax::CallSite;
 use wire::Field;
 
@@ -40,6 +42,8 @@ struct Manifest {
 struct Request {
     calls: Vec<CallSite>,
     definitions: Vec<Definition>,
+    #[serde(default)]
+    local_packages: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -50,53 +54,44 @@ struct Definition {
     kind: String,
 }
 
-#[derive(Clone, Eq, PartialEq, Serialize)]
-#[serde(crate = "scip_serde")]
-struct Anchor {
-    target_definition_id: String,
-    evidence_id: String,
-    path: String,
-    line: u32,
-}
-
 #[derive(Serialize)]
 #[serde(crate = "scip_serde")]
-struct Binding<'a> {
-    call_id: &'a str,
-    #[serde(flatten)]
-    anchor: &'a Anchor,
-}
-
-#[derive(Serialize)]
-#[serde(crate = "scip_serde")]
-struct Reply<'a> {
+struct Header<'a> {
     index_sha256: String,
-    manifest_sha256: String,
-    manifest_files: &'a BTreeMap<String, String>,
-    bindings: Vec<Binding<'a>>,
+    manifest_sha256: Option<String>,
+    source_files: &'a BTreeMap<String, String>,
 }
 
 #[derive(Default)]
 struct Join<'a> {
     documents: BTreeSet<String>,
-    targets: BTreeMap<String, Option<Anchor>>,
-    references: BTreeMap<&'a str, Option<String>>,
+    matches: Matches<'a>,
     occurrences: usize,
 }
 
-pub(super) fn run(stack_bytes: usize) -> Result<Vec<u8>> {
+pub(super) fn run(stack_bytes: usize) -> Result<()> {
     let args = std::env::args().skip(2).collect::<Vec<_>>();
-    let [root, index, manifest] = args.as_slice() else {
-        return Err("usage: scip-evidence ROOT INDEX MANIFEST".to_owned());
+    let (root, index, manifest) = match args.as_slice() {
+        [root, index] => (root, index, None),
+        [root, index, manifest] => (root, index, Some(manifest.clone())),
+        _ => return Err("usage: scip-evidence ROOT INDEX [MANIFEST]".to_owned()),
     };
     let request = bounded_read(&mut std::io::stdin().lock(), REQUEST_LIMIT)?;
     let request: Request = serde_json::from_slice(&request).map_err(|e| e.to_string())?;
-    let (root, index, manifest) = (root.clone(), index.clone(), manifest.clone());
+    let (root, index) = (root.clone(), index.clone());
     std::thread::Builder::new()
         .stack_size(stack_bytes)
         .spawn(move || {
             archkeel_snapshot::work::bounded(|| {
-                join(&root, Path::new(&index), Path::new(&manifest), request)
+                let mut output = BufWriter::new(std::io::stdout().lock());
+                join(
+                    &root,
+                    Path::new(&index),
+                    manifest.as_deref().map(Path::new),
+                    request,
+                    &mut output,
+                )?;
+                output.flush().map_err(|error| error.to_string())
             })
             .map_err(|error| error.to_string())?
         })
@@ -125,32 +120,48 @@ fn regular(path: &Path, max: u64) -> Result<File> {
     File::open(path).map_err(|e| e.to_string())
 }
 
-fn source_bytes(snapshot: &mut Snapshot, path: &str, expected: &str) -> Result<Vec<u8>> {
+fn source_bytes(snapshot: &mut Snapshot, path: &str) -> Result<Vec<u8>> {
     if !inside(path) || snapshot.real(path).as_deref() != Some(path) {
         return Err(format!("invalid SCIP source path: {path}"));
     }
-    let bytes = snapshot
+    snapshot
         .read(path)
-        .ok_or_else(|| format!("unreadable SCIP source: {path}"))?;
-    if sha256_hex(&bytes) != expected {
-        return Err(format!("stale SCIP source: {path}"));
-    }
-    Ok(bytes)
+        .ok_or_else(|| format!("unreadable SCIP source: {path}"))
 }
 
-fn join(root: &str, index: &Path, manifest: &Path, request: Request) -> Result<Vec<u8>> {
-    let raw = bounded_read(&mut regular(manifest, MANIFEST_LIMIT)?, MANIFEST_LIMIT)?;
-    let manifest_sha256 = sha256_hex(&raw);
-    let manifest: Manifest = serde_json::from_slice(&raw).map_err(|error| error.to_string())?;
-    if manifest.version != 1 || manifest.files.len() > SOURCE_LIMIT || manifest.files.is_empty() {
+fn read_manifest(path: &Path) -> Result<(String, Manifest)> {
+    let raw = bounded_read(&mut regular(path, MANIFEST_LIMIT)?, MANIFEST_LIMIT)?;
+    let receipt: Manifest = serde_json::from_slice(&raw).map_err(|error| error.to_string())?;
+    if receipt.version != 1 || receipt.files.len() > SOURCE_LIMIT || receipt.files.is_empty() {
         return Err("unsupported SCIP manifest version or file count".to_owned());
     }
-    if request.calls.len() > 100_000 || request.definitions.len() > 100_000 {
+    Ok((sha256_hex(&raw), receipt))
+}
+
+fn join(
+    root: &str,
+    index: &Path,
+    manifest: Option<&Path>,
+    request: Request,
+    output: &mut impl Write,
+) -> Result<()> {
+    let receipt = manifest.map(read_manifest).transpose()?;
+    let mut source_files = receipt
+        .as_ref()
+        .map(|(_, m)| m.files.clone())
+        .unwrap_or_default();
+    if request.calls.len() > 100_000
+        || request.definitions.len() > 100_000
+        || request.local_packages.len() > SOURCE_LIMIT
+    {
         return Err("SCIP request exceeds its row limit".to_owned());
     }
     let mut snapshot = Snapshot::open_root(root)?;
-    for (path, digest) in &manifest.files {
-        source_bytes(&mut snapshot, path, digest)?;
+    for (path, digest) in &source_files {
+        let source = source_bytes(&mut snapshot, path)?;
+        if sha256_hex(&source) != *digest {
+            return Err(format!("stale SCIP source: {path}"));
+        }
     }
     let mut calls = BTreeMap::<String, BTreeMap<usize, Vec<CallSite>>>::new();
     for site in request.calls {
@@ -168,46 +179,48 @@ fn join(root: &str, index: &Path, manifest: &Path, request: Request) -> Result<V
         }
     }
     let mut result = Join::default();
+    result.matches.local_packages(request.local_packages);
     let mut index = DigestReader {
         source: BufReader::new(regular(index, INDEX_LIMIT)?).take(INDEX_LIMIT + 1),
         digest: Sha256::new(),
         size: 0,
     };
     wire::documents(&mut index, |bytes| {
-        result.document(bytes, &manifest, &mut snapshot, &calls, &declarations)
+        result.document(
+            bytes,
+            &mut source_files,
+            &mut snapshot,
+            &calls,
+            &declarations,
+        )
     })?;
     if index.size > INDEX_LIMIT || result.documents.is_empty() {
         return Err("SCIP index has no documents or exceeds its byte limit".to_owned());
     }
     let index_sha256 = format!("{:x}", index.digest.finalize());
-    if index_sha256 != manifest.index_sha256 {
+    if receipt
+        .as_ref()
+        .is_some_and(|(_, m)| m.index_sha256 != index_sha256)
+    {
         return Err("SCIP index digest does not match its manifest".to_owned());
     }
-    let bindings = result
-        .references
-        .iter()
-        .filter_map(|(call_id, symbol)| {
-            let anchor = result.targets.get(symbol.as_ref()?)?.as_ref()?;
-            Some(Binding { call_id, anchor })
-        })
-        .collect();
-    serde_json::to_vec(&Reply {
-        index_sha256,
-        manifest_sha256,
-        manifest_files: &manifest.files,
-        bindings,
-    })
-    .map_err(|error| error.to_string())
+    line(
+        output,
+        &Header {
+            index_sha256,
+            manifest_sha256: receipt.map(|(digest, _)| digest),
+            source_files: &source_files,
+        },
+    )?;
+    for call in calls.values().flat_map(BTreeMap::values).flatten() {
+        line(output, &result.matches.bind(call))?;
+    }
+    Ok(())
 }
 
-fn record<K: Ord, T: Eq>(map: &mut BTreeMap<K, Option<T>>, key: K, value: Option<T>) {
-    map.entry(key)
-        .and_modify(|prior| {
-            if *prior != value {
-                *prior = None;
-            }
-        })
-        .or_insert(value);
+fn line(output: &mut impl Write, value: &impl Serialize) -> Result<()> {
+    serde_json::to_writer(&mut *output, value).map_err(|error| error.to_string())?;
+    output.write_all(b"\n").map_err(|error| error.to_string())
 }
 
 fn doc_header(mut bytes: &[u8]) -> Result<(&str, Option<&[u8]>)> {
@@ -235,7 +248,7 @@ impl<'a> Join<'a> {
     fn document(
         &mut self,
         mut bytes: &[u8],
-        manifest: &Manifest,
+        source_files: &mut BTreeMap<String, String>,
         snapshot: &mut Snapshot,
         calls: &'a BTreeMap<String, BTreeMap<usize, Vec<CallSite>>>,
         declarations: &'a BTreeMap<String, Option<String>>,
@@ -244,13 +257,24 @@ impl<'a> Join<'a> {
         if !self.documents.insert(path.to_owned()) || self.documents.len() > SOURCE_LIMIT {
             return Err("duplicate SCIP document or document count exceeded".to_owned());
         }
-        let expected = manifest
-            .files
-            .get(path)
-            .ok_or_else(|| format!("unbound SCIP document: {path}"))?;
-        let source = source_bytes(snapshot, path, expected)?;
-        if embedded.is_some_and(|t| !t.is_empty() && t != source) {
-            return Err(format!("SCIP document text differs from source: {path}"));
+        let source = source_bytes(snapshot, path)?;
+        let digest = sha256_hex(&source);
+        let expected = source_files.get(path);
+        if expected.is_some_and(|known| known != &digest) {
+            return Err(format!("stale SCIP source: {path}"));
+        }
+        match embedded {
+            Some(text) if text != source => {
+                return Err(format!("SCIP document text differs from source: {path}"))
+            }
+            None if expected.is_none() => {
+                return Err(format!("unbound or stale SCIP document: {path}"))
+            }
+            _ => (),
+        }
+        source_files.insert(path.to_owned(), digest);
+        if source_files.len() > SOURCE_LIMIT {
+            return Err("SCIP source count exceeded".to_owned());
         }
         let text = std::str::from_utf8(&source).map_err(|error| error.to_string())?;
         let anchors = syntax::source(path, text, calls.get(path), declarations)?;
@@ -263,42 +287,9 @@ impl<'a> Join<'a> {
                 return Err("SCIP occurrence limit exceeded".to_owned());
             }
             let occurrence = wire::occurrence(payload)?;
-            self.occurrence(path, occurrence, &anchors);
+            self.matches.occurrence(path, occurrence, &anchors);
         }
         Ok(())
-    }
-
-    fn occurrence(
-        &mut self,
-        path: &str,
-        occurrence: wire::Occurrence<'_>,
-        anchors: &syntax::Source<'a>,
-    ) {
-        let Some(range) = occurrence.range else {
-            return;
-        };
-        if occurrence.symbol.is_empty() || occurrence.symbol.starts_with("local ") {
-            return;
-        }
-        if occurrence.definition {
-            let found = anchors
-                .definitions
-                .get(&range)
-                .map(|(id, evidence)| Anchor {
-                    target_definition_id: (*id).to_owned(),
-                    evidence_id: evidence.clone(),
-                    path: path.to_owned(),
-                    line: range.0[0].saturating_add(1),
-                });
-            record(&mut self.targets, occurrence.symbol.to_owned(), found);
-        } else if let Some(id) = anchors
-            .calls
-            .get(&range)
-            .filter(|ids| ids.len() == 1)
-            .and_then(BTreeSet::first)
-        {
-            record(&mut self.references, id, Some(occurrence.symbol.to_owned()));
-        }
     }
 }
 

@@ -1121,9 +1121,10 @@
       "dependency": "tomllib",
       "allowed_sources": [
         "archkeel.cli.core_binding",
+        "archkeel.cli.core_explorer_scip",
         "archkeel.cli.init_binding"
       ],
-      "rationale": "The binding part reads the scan configuration. The draft reads the build manifest to identify Python import roots.",
+      "rationale": "The binding part reads the scan configuration. The draft reads the build manifest to identify Python import roots. Optional SCIP ingestion reads verified Cargo package names.",
       "provenance": [
         "docs/architecture/decisions/ad-438-the-default-scan-reads-and-binds-every-inside-contract.md"
       ],

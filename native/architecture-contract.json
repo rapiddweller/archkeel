@@ -5660,6 +5660,7 @@
         "native.archkeel_rust_collector",
         "native.archkeel_rust_collector.bin_archkeel_rust_collector",
         "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
         "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
         "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.wire",
         "native.archkeel_rust_collector.build_script",
@@ -7284,6 +7285,7 @@
       "dependency": "serde",
       "allowed_sources": [
         "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
         "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
         "native.archkeel_rust_collector.cargo_toml",
         "native.archkeel_contract",
