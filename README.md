@@ -6,7 +6,7 @@
 
 **See what your code really does. Check it against what you decided.**
 
-Explore a repository in Studio. Follow an import or a call to the source line that supports it.
+Explore a repository in Studio. Follow an import or a call to its source line. Select **Inspect unlinked calls** to see where an invocation was found and why its target is open.
 Add an architecture contract to check which components may depend on each other.
 Developers can inspect the evidence in the browser, CI reads the exit code, and agents can query the same snapshot.
 

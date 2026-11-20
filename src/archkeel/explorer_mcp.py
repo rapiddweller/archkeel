@@ -49,8 +49,9 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
         limit: int = 50,
         kind: str = "",
         aggregate: str = "",
+        scope: str = "",
     ) -> Row:
-        """List an element’s relationships or a map aggregate’s contributing relations."""
+        """List edge evidence or use scope="unlinked_calls" for open calls across descendants."""
         return query(
             path,
             root,
@@ -61,6 +62,7 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
                 "cursor": cursor,
                 "limit": limit,
                 **({"kind": kind} if kind else {}),
+                **({"scope": scope} if scope else {}),
                 **({"aggregate": aggregate} if aggregate else {}),
             },
         )

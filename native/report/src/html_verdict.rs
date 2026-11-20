@@ -119,7 +119,7 @@ fn calls(frame: &Frame) -> String {
     };
     format!(
         "<p class=\"body-sm ak-verdict__note\">Calls: {} of {} resolved ({share}); {} partly resolved, {} builtin, {} outside the scan, {} unresolved.</p>\
-<p class=\"body-sm ak-verdict__note\">An unresolved call has no proven target and is no edge. A rule that reads calls cannot decide from it and stays UNKNOWN; a rule of imports does not read it.</p>",
+<p class=\"body-sm ak-verdict__note\">An unresolved call has no proven target and is no edge. A call rule with insufficient evidence stays UNKNOWN. A proven violation yields FAIL. Import rules use import evidence.</p>",
         found.calls_resolved,
         found.calls_total,
         found.calls_partial,

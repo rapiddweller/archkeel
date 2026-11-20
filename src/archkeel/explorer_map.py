@@ -120,6 +120,24 @@ def _visible(items: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[
     ]
 
 
+def _call_scope(db: sqlite3.Connection, element: str) -> tuple[str, list[str]]:
+    """Select call owners before applying relation pagination."""
+    if element == "system":
+        return "1", []
+    if db.execute("SELECT 1 FROM element WHERE id=?", (element,)).fetchone():
+        seed, args = "SELECT ?", [element]
+    else:
+        where, args = _scoped_module_filter(db, element, "")
+        seed = "SELECT id FROM element WHERE " + where
+    return (
+        "source IN (WITH RECURSIVE owners(id) AS ("
+        + seed
+        + " UNION SELECT element.id FROM element JOIN owners ON element.parent=owners.id)"
+        + " SELECT id FROM owners)",
+        args,
+    )
+
+
 def _edges(
     db: sqlite3.Connection,
     context: list[str | int],
@@ -130,6 +148,14 @@ def _edges(
     visible = _visible(items, groups)
     edges: list[dict[str, Any]] = []
     edge_total = 0
+    for item in [*items, *groups]:
+        if item["kind"] in {"layer", "directory", "file_group"}:
+            where, args = _call_scope(db, item["id"])
+            item["recorded_calls"], item["unresolved_calls"] = db.execute(
+                "SELECT count(*),count(*)-count(target) FROM relation WHERE kind='call' AND "
+                + where,
+                args,
+            ).fetchone()
     if visible:
         marks = ",".join("?" for _ in visible)
         counts = {

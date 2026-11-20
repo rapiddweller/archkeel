@@ -127,6 +127,12 @@ def test_map_hierarchy_paging_and_unknown_calls(tmp_path: Path) -> None:
     assert any(g["kind"] == "directory" and g["path"] == "src/a/sub" for g in modules["groups"])
     main = next(item for item in modules["items"] if item["id"] == "module:a.main")
     assert (main["unresolved_calls"], main["recorded_calls"]) == (1, 3)
+    for owner in (system_modules["items"][0]["id"], main["id"], root["groups"][0]["id"]):
+        open_calls = query(
+            path, tmp_path, "relations", {"scope": "unlinked_calls", "element": owner}
+        )
+        assert [site["expression"] for site in open_calls["items"]] == ["dynamic()"]
+    assert root["groups"][0]["unresolved_calls"] == 1
     assert system_modules["items"][0]["recorded_calls"] == 3
     assert any(e["id"] == "relation:module_import:import" for e in modules["edges"])
     projected = next(e for e in modules["edges"] if e.get("aggregate"))

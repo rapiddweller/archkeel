@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .explorer_boundaries import boundary_rows
 from .explorer_hierarchy import _element_status
-from .explorer_map import _aggregate_relations, _map_search, _map_view, _open_targets
+from .explorer_map import _aggregate_relations, _call_scope, _map_search, _map_view, _open_targets
 from .explorer_source import _number, _relation_evidence, _source, _source_path, _text
 from .explorer_store import open_snapshot
 from .explorer_symbols import _symbol_rows
@@ -405,7 +405,12 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
             direction = _text(args, "direction", "both")
             elem = _text(args, "element")
             result["element_status"] = _element_status(db, elem)
-            if direction == "both":
+            if args.get("scope") == "unlinked_calls":
+                where, params = (
+                    _call_scope(db, elem) if result["element_status"] == "known" else ("0", [])
+                )
+                where = "kind='call' AND target IS NULL AND " + where
+            elif direction == "both":
                 where, params = "(source=? OR target=?)", [elem, elem]
             elif direction in {"in", "out"}:
                 where, params = ("target=?" if direction == "in" else "source=?"), [elem]

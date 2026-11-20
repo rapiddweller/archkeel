@@ -24,18 +24,34 @@ def _cell(text: object) -> str:
     return f"<td>{html.escape(str(text))}</td>"
 
 
+def _collection(row: Mapping[str, Any]) -> str:
+    frame = row.get("frame") or {}
+    gaps = frame.get("collection_gaps")
+    return str(len(gaps)) if isinstance(gaps, list) else "unavailable"
+
+
 def _verdict(row: Mapping[str, Any]) -> str:
     summary = row.get("summary")
     if summary is None:
-        return f'<td colspan="5">no result: {html.escape(row["error"])}</td>'
+        return f'<td colspan="7">no result: {html.escape(row["error"])}</td>'
     if summary["refusal"]:
         reason = summary["refusal"]["message"]
         cause = html.escape(f"refused: {reason}")
-        return _cell(summary["status"]) + f'<td colspan="4">{cause}</td>'
+        return _cell(summary["status"]) + f'<td colspan="6">{cause}</td>'
     counts = summary["counts"]
+    measures = (row.get("frame") or {}).get("measures") or {}
+    calls = (
+        f"{measures['calls_unresolved']:,} / {measures['calls_total']:,}"
+        if "calls_total" in measures and "calls_unresolved" in measures
+        else "unavailable"
+    )
     gaps = ", ".join(f"{kind}: {number}" for kind, number in summary["gaps"].items()) or "none"
     return (
-        _cell(summary["status"]) + "".join(_cell(counts[name]) for name in STATUSES) + _cell(gaps)
+        _cell(summary["status"])
+        + "".join(_cell(counts[name]) for name in STATUSES)
+        + _cell(gaps)
+        + _cell(_collection(row))
+        + _cell(calls)
     )
 
 
@@ -74,7 +90,11 @@ SECTIONS = (
         "tool: the card says which cause holds the rule.",
     ),
 )
-HEAD = "<th>Verdict</th><th>PASS</th><th>FAIL</th><th>UNKNOWN</th><th>Gaps</th><th>Reports</th>"
+HEAD = (
+    "<th>Verdict</th><th>PASS</th><th>FAIL</th><th>Unknown rules</th>"
+    "<th>Report findings</th><th>Collection gaps</th>"
+    "<th>Core calls: unresolved / scanned</th><th>Reports</th>"
+)
 
 
 def _issue(number: int) -> str:
@@ -206,13 +226,14 @@ def _anchor(parts: Sequence[Part]) -> str:
     )
     if not parts or any(not part.decided for part in parts):
         line = intent_line(ANCHOR, None)
-        return f'<tr>{name}{about.format(line=line)}<td colspan="5">no result</td>{link}</tr>\n'
+        return f'<tr>{name}{about.format(line=line)}<td colspan="7">no result</td>{link}</tr>\n'
     verdict = system(parts)
     line = intent_line(ANCHOR, verdict.status)
     cells = "".join(_cell(verdict.counts[status]) for status in STATUSES)
     return (
         f"<tr>{name}{about.format(line=line)}{_cell(verdict.status)}{cells}"
-        f"{_cell(_part_gaps(parts))}{link}</tr>\n"
+        f"{_cell('See system report')}{_cell(_part_gaps(parts))}"
+        f"{_cell('See part reports')}{link}</tr>\n"
     )
 
 

@@ -35,7 +35,9 @@ The source identifies a possible binding. Python can select another target at ru
 
 The unresolved call count can include built-ins, library calls and dynamic calls. A zero count of
 recorded sites does not establish call coverage. The arrows do not track values.
-Each result includes its snapshot identity and the coverage of the scan.
+Select **Inspect unlinked calls** to list expressions, reasons and source locations in the selected branch. Agents get the same rows from the relations tool with `scope="unlinked_calls"`. Every result includes its snapshot identity and scan coverage.
+
+![Unlinked calls in the Adapters layer with expressions, source lines and reasons](assets/studio-unlinked-calls.png)
 The System inspector shows how many indexed files in each part have symbol or call records when those counts are available.
 It also lists up to 12 external packages resolved from observed imports.
 Open a class to inspect its methods and properties. A class card shows a preview of
