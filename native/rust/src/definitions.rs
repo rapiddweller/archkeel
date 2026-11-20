@@ -259,6 +259,14 @@ pub(crate) struct ReceiverChain {
     pub macros: Vec<String>,
 }
 
+/// The written endpoints of a plain self call within one inherent impl.
+#[derive(Debug)]
+pub(crate) struct SelfMethod {
+    pub(crate) type_name: String,
+    pub(crate) source: Site,
+    pub(crate) target: Site,
+}
+
 #[derive(Debug)]
 pub(crate) struct Call {
     pub(crate) scope: Vec<String>,
@@ -268,6 +276,7 @@ pub(crate) struct Call {
     pub(crate) site: Site,
     pub(crate) end_column: i64,
     pub(crate) reason: Option<&'static str>,
+    pub(crate) self_method: Option<SelfMethod>,
 }
 
 #[derive(Debug, Default)]

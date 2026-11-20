@@ -25,7 +25,7 @@
     {
       "node": "inventory.inventory.reservation.request",
       "title": "Send the request to the reservation module",
-      "note": "The request enters the reservation module through a crate-relative path."
+      "note": "The request enters the reservation module through a child module path."
     },
     {
       "node": "inventory.inventory.reservation.can_reserve",

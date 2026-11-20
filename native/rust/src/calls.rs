@@ -15,7 +15,7 @@ use archkeel_facts::{CallFact, Record, SymbolFact};
 
 use crate::builder::Builder;
 use crate::definitions::{Call, Definition, Form, Owner};
-use crate::scan::Via;
+use crate::scan::{Site, Via};
 use crate::symbols::{id, item_name};
 use crate::tree::Module;
 
@@ -23,6 +23,44 @@ struct Function<'a> {
     module: &'a Module,
     definition: &'a Definition,
     name: String,
+}
+
+fn inherent_methods<'a>(module: &'a Module, call: &Call) -> Option<(Function<'a>, Function<'a>)> {
+    let proof = call.self_method.as_ref()?;
+    if module.gated
+        || !module
+            .scan
+            .exact_items
+            .contains(&(call.scope.clone(), proof.type_name.clone()))
+    {
+        return None;
+    }
+    let mut types = module.scan.definitions.iter().filter(|definition| {
+        definition.owner == Owner::Module
+            && definition.scope == call.scope
+            && definition.name == proof.type_name
+            && matches!(definition.form, Form::Struct | Form::Enum | Form::Alias)
+    });
+    let ty = types.next()?;
+    if types.next().is_some() || !matches!(ty.form, Form::Struct | Form::Enum) {
+        return None;
+    }
+    let type_path = item_name(&module.module, ty);
+    let definition = |site: &Site| {
+        let def = module.scan.definitions.iter().find(|def| {
+            def.form == Form::Function
+                && def.receiver
+                && def.scope == call.scope
+                && def.site == *site
+                && matches!(&def.owner, Owner::Impl(Some(ty)) if ty == &proof.type_name)
+        })?;
+        Some(Function {
+            module,
+            definition: def,
+            name: format!("{type_path}.{}", def.name),
+        })
+    };
+    Some((definition(&proof.source)?, definition(&proof.target)?))
 }
 
 type Functions<'a> = BTreeMap<(usize, &'a str, String), Function<'a>>;
@@ -56,11 +94,23 @@ impl Builder {
 
     fn call(&mut self, module: &Module, call: &Call, functions: &Functions<'_>, uses: &Uses<'_>) {
         let scope = qualified(&module.module, &call.scope);
-        let owner = call.owner.as_ref().map(|name| format!("{scope}.{name}"));
-        let source = owner
+        let methods = inherent_methods(module, call);
+        let owner = methods
             .as_ref()
-            .and_then(|name| functions.get(&key(module, name.clone())));
-        let target = target(module, call, (&scope, source), (functions, uses));
+            .map(|(source, _)| source.name.clone())
+            .or_else(|| call.owner.as_ref().map(|name| format!("{scope}.{name}")));
+        let source = methods.as_ref().map(|(source, _)| source).or_else(|| {
+            owner
+                .as_ref()
+                .and_then(|name| functions.get(&key(module, name.clone())))
+        });
+        let target = match &methods {
+            Some((_, target)) => Ok(target),
+            None if call.self_method.is_some() => {
+                Err("The inherent impl has no unique local nominal type")
+            }
+            None => target(module, call, (&scope, source), (functions, uses)),
+        };
         let (status, targets, reason) = match target {
             Ok(found) => (Status::Resolved, vec![found.name.clone()], None),
             Err(reason) => (Status::Unresolved, Vec::new(), Some(reason.to_owned())),
@@ -208,8 +258,31 @@ fn target<'a, 'm>(
             .ok_or(missing)?;
         return functions.get(&key(module, alias)).ok_or(missing);
     }
-    let path = rooted(module, scope, &call.path).ok_or(missing)?;
+    let path = rooted(module, scope, &call.path)
+        .or_else(|| relative(module, scope, call, uses))
+        .ok_or(missing)?;
     functions.get(&key(module, path)).ok_or(missing)
+}
+
+fn relative(module: &Module, scope: &str, call: &Call, uses: &Uses<'_>) -> Option<String> {
+    let [head, rest @ ..] = Vec::as_slice(&call.path) else {
+        return None;
+    };
+    if matches!(String::as_str(head), "crate" | "self" | "super")
+        || module.scan.conditional_bindings.contains(head)
+        || module
+            .scan
+            .module_counts
+            .get(&(call.scope.clone(), head.clone()))
+            != Some(&1)
+    {
+        return None;
+    }
+    let prefix = match uses.get(&(Vec::as_slice(&call.scope), String::as_str(head))) {
+        Some(path) => rooted(module, scope, (*path)?)?,
+        None => format!("{scope}.{head}"),
+    };
+    Some(qualified(&prefix, rest))
 }
 
 fn direct_uses(module: &Module) -> Uses<'_> {
@@ -240,3 +313,7 @@ fn direct_uses(module: &Module) -> Uses<'_> {
 #[cfg(test)]
 #[path = "calls_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "self_method_tests.rs"]
+mod self_method_tests;
