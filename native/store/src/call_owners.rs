@@ -268,7 +268,10 @@ impl<'a> Index<'a> {
             return false;
         };
         if outer.file != inner.file
-            || self.files.get(inner_call.source_module.as_str()) != Some(&inner.file.as_str())
+            || self
+                .files
+                .get(ModuleName::as_str(&inner_call.source_module))
+                != Some(&String::as_str(&inner.file))
         {
             return false;
         }
