@@ -424,8 +424,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
         }
         match expr {
             Expr::Lambda(node) => self.lambda(node),
-            // AD-472: only the callee of a proven literal call is exempt; its one argument is a
-            // string literal, so nothing below the call is left to read.
+            // The proved call converts the loader use to an import edge.
             Expr::Call(call) => self.call(expr, call),
             Expr::Subscript(_) if reflect::code(expr, &self.bound) => {
                 self.push(DYNAMIC, "code", expr);
