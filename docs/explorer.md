@@ -16,16 +16,23 @@ uv run archkeel studio --config docs/architecture/architecture-system.json
 ```
 
 Keep the terminal open while you use the browser. Use `--no-open` to print the local
-address. Open a group to inspect its children. The module map shows small branches inside
-their parent frames. Large branches stay closed until you open them. Select a module
-to follow its incoming and outgoing arrows. Choose **Groups** to see which modules
-belong together. Use a horizontal or vertical flow to follow a dependency.
-Read each arrow from its source to its target. For an import, the source imports the
-target module. For a call, the source calls the target. An UNKNOWN call target has no
-arrow. The unresolved count is part of the recorded call sites in that scope.
-Select a group edge to inspect its contributing relations. Select evidence to open
-the source line. Several imports can contribute to one relation between two modules. A source line
-can import more than one name. The import count can exceed the number of source lines.
+address.
+
+## Follow a dependency to source
+
+1. Choose **Groups** to see the module hierarchy. Open a large group to see its children. Small branches appear inside their parent.
+2. Select a module to highlight its incoming and outgoing edges. Choose **Flow →** or **Flow ↓** to change the layout.
+3. Read the arrow toward its tip. `A → B` labelled **Import** means A imports B. **Call** means A calls B.
+4. Select an edge between two groups. The inspector lists the underlying relations. Select a source reference to open its file and line.
+
+A line can import several names. An import count can exceed the number of source lines.
+A call with an unknown target contributes to the unresolved count.
+For a Python call with a matching source declaration, Studio can show **Call target · Candidate**.
+Open its **Call site** and **Declaration** references to inspect both ends.
+The source identifies a possible binding. Python can select another target at runtime.
+
+<img src="assets/studio-call-candidate.png" alt="Studio links a call to IssueDefinition at task_errors.py line 11 to its class declaration at definition.py line 14." width="360">
+
 The unresolved call count can include built-ins, library calls and dynamic calls. A zero count of
 recorded sites does not establish call coverage. The arrows do not track values.
 Each result includes its snapshot identity and the coverage of the scan.
@@ -97,5 +104,7 @@ names and element IDs. Every response identifies the snapshot and its coverage.
 | story | ID of a call edge | One static call step with its evidence, or UNKNOWN |
 
 Lists use a stable ID cursor. Pass the returned `next_cursor` to get the next page.
+For Python source candidates, filter `relations` by `kind=source_call`. Each record has
+`resolution=candidate`. Its evidence identifies the `call_site` and the `declaration`.
 Coverage applies to the selected scan. A null collector section means that this build
 does not supply that fact type. An empty section means the collector supplied zero rows.

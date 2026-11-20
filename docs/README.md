@@ -12,6 +12,7 @@ this checkout. The Python engine documentation is at the
 | Use the CLI and read its exit codes | [Reference](reference.md) |
 | Define a constraint | [Rules](rules.md) |
 | Understand missing evidence | [Known limits](known-limits.md) |
+| Compare the Python engine and Rust core on DATAMIMIC CE | [CLI timing and call resolution](performance.md) |
 | Read what changed | [Release notes](../RELEASE_NOTES.md) |
 
 Reports check declared constraints. Read FAIL and UNKNOWN before accepting a change.

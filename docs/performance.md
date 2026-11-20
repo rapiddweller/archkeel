@@ -19,10 +19,56 @@ was unchanged.
 | 4.0.1, Python engine | 27.93 s | 27.88–28.25 s | PASS | PASS, exit 0 |
 | 5.0.0-dev, Rust core | 1.18 s | 1.17–1.19 s | PASS | UNKNOWN, exit 2 |
 
-The Rust core reported 59 collection gaps across the scan. They include both a runtime
-`eval(expression, …)` and a false alarm on the string comparison `token == "__import__"`. The two commands therefore answer
-the same ownership question but report different overall coverage. This timing does not predict
-the cost of evaluating CE's full contract.
+The Rust core reported 59 collection gaps, including a runtime `eval(expression, …)`
+and a comparison with `"__import__"`. The comparison is a gap in what the collector
+can prove. It does not establish that CE executed a dynamic import.
+
+### What the two builds resolve
+
+The input contains 748 class definitions, 3,169 function and method definitions
+(including 16 async definitions), and 3,408 import statements, counted from Python's AST.
+One import statement can name several targets. The timed reports do not supply a
+comparable count of resolved module-to-module import edges.
+
+| Call-site inventory reported by each build | 4.0.1 | 5.0.0-dev |
+| --- | ---: | ---: |
+| Total counted | 14,744 | 16,391 |
+| Reported as resolved | 11,140 | 0 |
+| Partially resolved | 2,187 | 0 |
+| Classified separately as builtin / external | No separate counts | 4,052 / 1,465 |
+| Unresolved | 1,417 | 10,874 |
+
+Python's AST contains 14,744 explicit call expressions. The Rust collector also counts
+1,647 implicit decorator applications. Together they account for all 16,391 sites.
+
+The 4.0.1 collector marked 11,140 sites as resolved. Of their target names, 4,594 start
+with `builtins.`, 4,917 start with `datamimic_ce.`, and 1,629 have another prefix.
+Within those 4,917 CE sites, 4,181 records include a source reference for the target. The other 736 lack that reference.
+Each number counts call sites. Several sites can point to the same definition.
+The Rust build reports builtin and external calls separately.
+
+Two calls in this CE revision illustrate the difference between a name and a definition.
+
+| Call in CE | What the source shows |
+| --- | --- |
+| [`IssueDefinition(...)`](https://github.com/rapiddweller/datamimic/blob/e1000a6eef55ae4d710c923116d6551f19436d53/datamimic_ce/errors/catalog/task_errors.py#L6-L12) | The import names a [class defined in CE](https://github.com/rapiddweller/datamimic/blob/e1000a6eef55ae4d710c923116d6551f19436d53/datamimic_ce/errors/catalog/definition.py#L14). |
+| [`logger.debug(...)`](https://github.com/rapiddweller/datamimic/blob/e1000a6eef55ae4d710c923116d6551f19436d53/datamimic_ce/engine/runtime/tasks/flow/commands/echo_task.py#L27) | 4.0.1 gives the target a CE name. CE obtains [`logger` from `logging.getLogger`](https://github.com/rapiddweller/datamimic/blob/e1000a6eef55ae4d710c923116d6551f19436d53/datamimic_ce/engine/runtime/logging.py#L84). The binding alone leaves the implementation of `debug` open. |
+
+### Follow-up on the same CE source
+
+A separate Studio scan linked **3,548 call sites to 1,183 candidate declarations**.
+Of those sites, **1,873** point into another module. **325** refer to methods on a receiver.
+All 3,548 matched the qualified target that 4.0.1 reported at the same explicit call.
+The declaration locations also matched definitions in CPython's AST.
+
+The updated collector classified 156 more sites as builtin calls, for **4,208 builtins**
+and **10,718 unresolved**. It still reported 59 collection gaps and zero proven internal calls.
+CE's installation check inspects `sys.modules` outside the production scan root.
+ArchKeel conservatively treats all 540 modules as exposed to possible writes.
+This describes an assumption about bindings. See the [CE installation check](https://github.com/rapiddweller/datamimic/blob/e1000a6eef55ae4d710c923116d6551f19436d53/script/check_installed_authoring.py#L114-L136).
+
+The Studio scan measures source navigation. The CLI timings above apply to the earlier
+development build at `858cb6905`.
 
 ## Smaller fixtures
 

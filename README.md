@@ -6,9 +6,9 @@
 
 **See what your code really does. Check it against what you decided.**
 
-ArchKeel maps imports and calls in your repository and checks it against the boundaries you declare
-in an architecture contract. Open a dependency to see its source. Run the same checks in CI to
-find out when a change crosses a boundary.
+Explore a repository in Studio. Follow an import or a call to the source line that supports it.
+Add an architecture contract to check which components may depend on each other.
+Developers can inspect the evidence in the browser, CI reads the exit code, and agents can query the same snapshot.
 
 [![CI](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml/badge.svg)](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml)
 [![ArchKeel self-check](https://img.shields.io/endpoint?url=https://rapiddweller.github.io/archkeel/self/badge.json&labelColor=141414)](https://rapiddweller.github.io/archkeel/self/index.html)
@@ -24,21 +24,21 @@ including the [Rust core](https://rapiddweller.github.io/archkeel/self/core.html
 or [browse the examples](https://rapiddweller.github.io/archkeel/showcase/index.html).
 These published reports follow `main`. The Studio pictures below come from this checkout.
 
-<img src="docs/assets/studio-architecture.png" alt="ArchKeel Studio showing the architecture of its own source, with the Python shell, Rust core and TypeScript Studio UI." width="100%">
+<img src="docs/assets/studio-architecture.png" alt="Studio shows ArchKeel’s Python shell, Rust core and TypeScript UI. The arrow from the shell to the core names their declared frame protocol." width="100%">
 
-[Try Studio](#quick-start) · [Install](#install) · [CLI reference](docs/reference.md) · [Connect an agent](docs/explorer.md#connect-an-agent)
+[Try Studio](#quick-start) · [Check a contract](#check-a-contract) · [Compare CLI performance](#performance) · [Connect an agent](docs/explorer.md#connect-an-agent)
 
 ## Why ArchKeel?
 
 | If you are… | Start with a question | Follow the evidence |
 | --- | --- | --- |
-| A developer | What depends on the module I am changing? | Select the module in Studio. Follow an incoming import back to the file and line. |
-| An architect | Does this dependency cross a boundary we agreed on? | Inspect the observed import, then check the declared rule with `archkeel validate`. |
-| A coding agent | Which source line supports this conclusion? | Query the same snapshot over MCP. Follow a relation to its evidence and read the source. |
+| A developer | What depends on the module I am changing? | Select the module and follow an incoming import to its file and line. [Studio walkthrough](docs/explorer.md#follow-a-dependency-to-source) |
+| An architect | Does this dependency cross an agreed boundary? | Inspect the import and check the declared rule with `archkeel validate`. [Contract guide](docs/onboarding.md) |
+| A coding agent | Which source line supports this conclusion? | Query the snapshot over MCP. Follow the relation to its evidence and read the source. [Snapshot queries](docs/explorer.md#query-a-snapshot) |
 
-An arrow `A → B` means **A imports B** or **A calls B**, according to the edge label.
-An import establishes a static dependency. A call with an unresolved target stays visible in the
-coverage counts. Neither establishes that a path ran in production.
+Read an import or call arrow from source to target. **A imports B** identifies a static
+dependency. **A calls B** identifies a call whose target the collector can prove.
+**A may call B** links a Python call site to a candidate declaration you can inspect.
 
 ## Quick start
 
@@ -56,7 +56,7 @@ own Git repository, replace `.` with its path. Studio can build a map without a 
 For a guided example, choose **Story** and play the MCP map request. Its module lanes follow
 the agent’s request from the MCP server into the snapshot query. Pause on a step to inspect its evidence.
 
-<img src="docs/assets/studio-story.png" alt="Studio story playback with module lanes, a selected step and its source evidence." width="100%">
+<img src="docs/assets/studio-story.png" alt="The final MCP story step, Return the system map, shows the call from explorer_queries.query to explorer_map._map_view and both source locations." width="100%">
 
 ## Check a contract
 
@@ -99,15 +99,15 @@ gets JSON. The Rust core decides the verdict. An LLM can propose a story or expl
 
 ## Performance
 
-On **DATAMIMIC Community Edition**, the median time for `archkeel validate` was **27.93 s**
-with 4.0.1 and **1.18 s** with the unreleased Rust core (23.7× as fast for this command).
-Both scanned all **540 Python files**
-in the production package and passed the benchmark's ownership rule. The overall verdicts differed:
-4.0.1 returned PASS, while the Rust core returned UNKNOWN and reported 59 collection gaps.
+**27.93 s → 1.18 s** median time to check package ownership on **DATAMIMIC Community Edition**.
+The 5.0 development build with the Rust core ran this command **23.7× as fast** as 4.0.1.
+Both scanned the same 540 Python files, with 3,169 function and method definitions and 748 class definitions.
 
 <img src="docs/assets/cli-validation-time.png" alt="DATAMIMIC CE median validation time: 27.93 seconds with ArchKeel 4.0.1, 1.18 seconds with the Rust-core development build." width="100%">
 
-[Benchmark contract, timings and reproduction steps](docs/performance.md)
+Both builds passed the ownership rule. The overall verdict was PASS in 4.0.1 and UNKNOWN in the Rust build, which reported 59 collection gaps.
+In a separate scan of the same CE source, Studio linked **3,548 call sites to 1,183 candidate declarations**.
+Each link opens the call and its possible target. [Call counts, source examples and reproduction steps](docs/performance.md)
 
 ## Install
 
