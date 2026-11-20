@@ -8,7 +8,8 @@
   "nodes": [
     "archkeel.explorer_mcp.main",
     "archkeel.explorer_queries.query",
-    "archkeel.explorer_mcp._query_tools"
+    "archkeel.explorer_mcp._query_tools",
+    "archkeel.explorer_map._map_view"
   ],
   "story": {
     "id": "query-studio-over-mcp",
@@ -63,9 +64,16 @@
     },
     {
       "node": "archkeel.explorer_queries.query",
+      "title": "Receive the client request",
+      "note": "After startup, the client calls map. FastMCP dispatches to the registered callback. The snapshot does not identify this callback dispatch.",
+      "chapter": "answer",
+      "claim": true
+    },
+    {
+      "node": "archkeel.explorer_map._map_view",
       "title": "Return the system map",
-      "note": "A client calls map. Its registered callback reads the stored hierarchy and returns items, edges, snapshot identity and coverage to the client. The callback dispatch crosses the MCP library.",
-      "chapter": "answer"
+      "chapter": "answer",
+      "note": "The query reads the requested hierarchy and groups its directed relationships. The client receives the items and edges together with the snapshot identity and scan coverage."
     }
   ]
 }
