@@ -62,14 +62,6 @@ pre .marked { background: var(--accent-subtle); }
 #canvas[data-zoom="125"] { min-width: 625px; zoom: 1.25; }
 #canvas[data-zoom="150"] { min-width: 690px; zoom: 1.5; }
 #canvas[data-zoom="75"] { zoom: .75; }
-#cards:has(.lanes) { display: block; }
-.lanes { width: 100%; border-spacing: 8px; text-align: left; }
-.lanes th, .lanes td { min-width: 150px; vertical-align: top; font-weight: 400; overflow-wrap: anywhere; }
-.lanes thead th { padding: 5px 8px; color: var(--ink-muted); font-size: 12px; font-weight: 650; }
-.lanes tbody td { padding: 8px; background: var(--surface-1); border: 1px solid var(--line); border-radius: 6px; }
-.lanes tbody td:empty { background: transparent; border-color: transparent; }
-.lanes tbody p + p { margin-top: 5px; }
-.lanes button { text-align: left; width: 100%; }
 .view-tools { display: flex; align-items: center; gap: 5px; padding: 6px 10px; background: var(--surface-1); border-top: 1px solid var(--line); }
 .view-tools output { color: var(--ink-muted); font-family: var(--font-mono); font-size: 12px; min-width: 37px; text-align: center; }
 .plate-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 205px), 1fr)); align-items: start; gap: 30px 24px; }

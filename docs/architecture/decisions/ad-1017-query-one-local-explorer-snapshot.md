@@ -32,3 +32,14 @@ copy of the Git working tree. Generated scanner inputs stay in that copy. The bo
 shows measured languages and counts. The inspector lists resolved external imports.
 The report serves its gap evidence on demand. It retains up to 64 MiB of rendered
 report and gap data in memory and renders larger reports again when requested.
+
+Studio chat uses the signed-in Codex CLI to propose a view spec from bounded snapshot
+facts. The storyboard checks each step before display (AD-291). The browser and MCP
+use the same story store. An explicit save creates a new file in `.archkeel/stories/`.
+A saved story can be shared. Saving one does not invalidate its source snapshot.
+An optional `.archkeel/templates/story.md` supplies narrative guidance.
+
+Studio uses the report's pinned ELK engine, box placement and relationship routing.
+Map groups follow source directories, component ownership and declared layers.
+A call between two modules links to an observed symbol call. A call with no resolved
+target contributes to the source count and has no destination on the map.

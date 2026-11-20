@@ -5,30 +5,24 @@
 
 import argparse
 from pathlib import Path
+from typing import Any
 
 from .explorer_queries import Row, query
+from .explorer_stories import list_stories, read_story, save_story
 
 
-def main() -> None:
-    """Bind a trusted snapshot and repository before the client connects."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--snapshot", required=True, type=Path)
-    parser.add_argument("--root", required=True, type=Path)
-    session = parser.parse_args()
-    try:
-        from fastmcp import FastMCP
-    except ModuleNotFoundError as error:
-        if error.name != "fastmcp":
-            raise
-        parser.exit(2, "Install the MCP extra with uv sync --extra mcp.\n")
-    path = session.snapshot.resolve(strict=True)
-    root = session.root.resolve(strict=True)
-    query(path, root, "overview", {"limit": 1})
-    server = FastMCP("ArchKeel Explorer")
-
+def _query_tools(server: Any, path: Path, root: Path) -> None:
     def overview(parent: str = "system", cursor: str = "", limit: int = 50) -> Row:
         """Show system parts, verdict and coverage for the pinned scan."""
         return query(path, root, "overview", {"parent": parent, "cursor": cursor, "limit": limit})
+
+    def map(
+        parent: str = "system", view: str = "components", cursor: str = "", limit: int = 50
+    ) -> Row:
+        """Show a bounded hierarchy and measured relationships."""
+        return query(
+            path, root, "map", {"parent": parent, "view": view, "cursor": cursor, "limit": limit}
+        )
 
     def children(parent: str = "system", cursor: str = "", limit: int = 50) -> Row:
         """List one page of children in the selected scope."""
@@ -70,8 +64,46 @@ def main() -> None:
         """Read checked story steps and their coverage."""
         return query(path, root, "story", {"id": id})
 
-    for operation in (overview, children, search, relations, evidence, source, story):
+    for operation in (overview, map, children, search, relations, evidence, source, story):
         server.tool(operation)
+
+
+def _story_tools(server: Any, path: Path, root: Path) -> None:
+    def stories() -> list[Row]:
+        """List saved stories checked against this snapshot."""
+        return list_stories(root, path)
+
+    def story_read(id: str) -> Row:
+        """Read and check a saved story against this snapshot."""
+        return read_story(root, path, id)
+
+    def story_save(spec: Row) -> Row:
+        """Save a story candidate and return its checked playback."""
+        return save_story(root, path, spec)
+
+    for operation in (stories, story_read, story_save):
+        server.tool(operation)
+
+
+def main() -> None:
+    """Bind a trusted snapshot and repository before the client connects."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--snapshot", required=True, type=Path)
+    parser.add_argument("--root", required=True, type=Path)
+    session = parser.parse_args()
+    try:
+        from fastmcp import FastMCP
+    except ModuleNotFoundError as error:
+        if error.name != "fastmcp":
+            raise
+        parser.exit(2, "Install the MCP extra with uv sync --extra mcp.\n")
+    path = session.snapshot.resolve(strict=True)
+    root = session.root.resolve(strict=True)
+    query(path, root, "overview", {"limit": 1})
+    server = FastMCP("ArchKeel Explorer")
+
+    _query_tools(server, path, root)
+    _story_tools(server, path, root)
     server.run(transport="stdio")
 
 

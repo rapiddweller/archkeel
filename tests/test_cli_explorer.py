@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from archkeel.cli import core_explorer, core_only
+from archkeel.cli import core_explorer, core_explorer_http, core_only
 from archkeel.cli.core_arguments import parse
 from archkeel.cli.core_frame import CoreCommand
 
@@ -90,7 +90,7 @@ def test_report_builds_gap_link_only_when_requested(
     assert not list(tmp_path.glob("archkeel-gaps-*.json"))
 
 
-def test_explorer_http_is_read_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_explorer_queries_are_read_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def query(
         path: Path, root: Path, operation: str, arguments: dict[str, object]
     ) -> dict[str, object]:
@@ -101,7 +101,7 @@ def test_explorer_http_is_read_only(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         assert operation == "children"
         return {"items": [arguments]}
 
-    monkeypatch.setattr(core_explorer, "query", query)
+    monkeypatch.setattr(core_explorer_http, "query", query)
     report = "<html><head><style>:root{--ink:black}</style></head><body>Report</body></html>"
     with (
         core_explorer._ExplorerServer(
@@ -141,7 +141,7 @@ def test_explorer_http_is_read_only(monkeypatch: pytest.MonkeyPatch, tmp_path: P
             assert request("/api/children", {"Host": "example.org"})[0] == 403
             assert request("/api/children", {"Origin": "https://example.org"})[0] == 403
             assert request("/api/children", {"Sec-Fetch-Site": "cross-site"})[0] == 403
-            assert request("/api/children", method="POST")[0] == 501
+            assert request("/api/children", method="POST")[0] == 405
             assert request("/api/anything")[0] == 404
         finally:
             server.shutdown()
@@ -168,7 +168,9 @@ def test_report_cache_is_bounded_and_checks_snapshot(
     class Server:
         server_port = 42
 
-        def __init__(self, path: object, root: object, report: object, port: object) -> None:
+        def __init__(
+            self, path: object, root: object, report: object, port: object, confirm: object
+        ) -> None:
             self.report = report
 
         def __enter__(self) -> "Server":

@@ -41,10 +41,12 @@ def _file_digest(file: Path, info: os.stat_result | None = None) -> str:
 
 
 def _fingerprint(project: ProjectRoot, binary: Path) -> tuple[SnapshotIdentity, dict[str, str]]:
-    state = identity(project.path)
+    # Saving a checked story does not change the architecture that it describes.
+    inputs = ("--", ".", ":(exclude,glob,top).archkeel/stories/*.story.json")
+    state = identity(project.path, pathspec=inputs)
     if state is None:
         raise CoreError("the Explorer needs a Git work tree with a commit")
-    files = tracked_and_unignored(project.path) | {Path(project.config)}
+    files = tracked_and_unignored(project.path, pathspec=inputs) | {Path(project.config)}
     digests: dict[str, str] = {}
     total = 0
     for name in sorted(files):

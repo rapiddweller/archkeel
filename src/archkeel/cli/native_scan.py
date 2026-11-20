@@ -36,7 +36,7 @@ _GIT_ENVIRONMENT: Final = ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "SystemRoot
 _OID: Final = "# branch.oid "
 
 
-def identity(root: Path) -> tuple[str, bool] | None:
+def identity(root: Path, *, pathspec: Sequence[str] = ()) -> tuple[str, bool] | None:
     """The commit of `HEAD` and the dirty state as the shell reads them, or `None`.
 
     `None` sends no claim: the core then refuses the repository itself and names the cause, or
@@ -55,6 +55,7 @@ def identity(root: Path) -> tuple[str, bool] | None:
         "--porcelain=v2",
         "--branch",
         "--untracked-files=normal",
+        *pathspec,
     ]
     environment = {key: os.environ[key] for key in _GIT_ENVIRONMENT if key in os.environ}
     try:
@@ -70,7 +71,7 @@ def identity(root: Path) -> tuple[str, bool] | None:
     return heads[0], any(not line.startswith("# ") for line in lines)
 
 
-def tracked_and_unignored(root: Path) -> set[Path]:
+def tracked_and_unignored(root: Path, *, pathspec: Sequence[str] = ()) -> set[Path]:
     """Name fingerprint inputs without running Git hooks or filesystem monitors."""
     command = [
         _GIT,
@@ -84,6 +85,7 @@ def tracked_and_unignored(root: Path) -> set[Path]:
         "--others",
         "--exclude-standard",
         "-z",
+        *pathspec,
     ]
     environment = {key: os.environ[key] for key in _GIT_ENVIRONMENT if key in os.environ}
     try:

@@ -393,7 +393,8 @@
       "layer": "process",
       "packages": [],
       "exact_modules": [
-        "archkeel.cli.native_scan"
+        "archkeel.cli.native_scan",
+        "archkeel.cli.story_model"
       ],
       "responsibilities": [
         "Build the scan request from the root and the Git state, start the core and return its bytes."
@@ -421,7 +422,8 @@
         "archkeel.cli.native_scan:identity",
         "archkeel.cli.native_scan:ignored_by",
         "archkeel.cli.native_scan:tracked_and_unignored",
-        "archkeel.cli.native_scan:prepare_disposable_git"
+        "archkeel.cli.native_scan:prepare_disposable_git",
+        "archkeel.cli.story_model:ask_story_model"
       ]
     },
     {
@@ -637,7 +639,8 @@
         "archkeel.cli.core_output:read_html",
         "archkeel.cli.core_output:read_timings",
         "archkeel.cli.core_output:write_new",
-        "archkeel.cli.core_output:write_output"
+        "archkeel.cli.core_output:write_output",
+        "archkeel.cli.core_output:write_new_at"
       ]
     },
     {
@@ -778,7 +781,9 @@
       "packages": [],
       "exact_modules": [
         "archkeel.cli.core_explorer",
-        "archkeel.cli.core_explorer_identity"
+        "archkeel.cli.core_explorer_http",
+        "archkeel.cli.core_explorer_identity",
+        "archkeel.explorer_agent"
       ],
       "responsibilities": [
         "Bind the local Explorer to a verified scan and serve its indexed views and report."
@@ -829,6 +834,10 @@
         {
           "component": "explorer-store",
           "rationale": "Publish and pin the named snapshot."
+        },
+        {
+          "component": "storyboard",
+          "rationale": "Load a saved story for playback in the browser."
         }
       ],
       "public": [
@@ -843,7 +852,9 @@
       "layer": "decoding",
       "packages": [],
       "exact_modules": [
+        "archkeel.explorer_map",
         "archkeel.explorer_queries",
+        "archkeel.explorer_source",
         "archkeel.explorer_symbols"
       ],
       "responsibilities": [
@@ -946,9 +957,49 @@
         {
           "component": "explorer-query",
           "rationale": "Read indexed architecture views."
+        },
+        {
+          "component": "storyboard",
+          "rationale": "Let an MCP client read and save a checked story."
         }
       ],
       "public": [],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-STORYBOARD",
+      "label": "storyboard",
+      "role": "component",
+      "layer": "frame",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.explorer_stories",
+        "archkeel.explorer_story_spec"
+      ],
+      "responsibilities": [
+        "Check story steps against source evidence and save the author's view specification."
+      ],
+      "forbidden_responsibilities": [
+        "Decide a rule verdict or ask a model."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "explorer-store",
+          "rationale": "Read the pinned snapshot."
+        },
+        {
+          "component": "output",
+          "rationale": "Publish a new story in its verified directory."
+        }
+      ],
+      "public": [
+        "archkeel.explorer_stories:list_stories",
+        "archkeel.explorer_stories:read_story",
+        "archkeel.explorer_stories:save_story"
+      ],
       "decided_by": "architect"
     }
   ],
@@ -1034,9 +1085,10 @@
       "kind": "external_dependency_scope",
       "dependency": "subprocess",
       "allowed_sources": [
-        "archkeel.cli.native_scan"
+        "archkeel.cli.native_scan",
+        "archkeel.cli.story_model"
       ],
-      "rationale": "Only the launch part starts a process: the core and Git.",
+      "rationale": "The launch component runs the native core, Git, and the signed-in model for a Studio story request.",
       "provenance": [
         "docs/architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md"
       ],

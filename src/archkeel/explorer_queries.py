@@ -11,6 +11,8 @@ from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
 from .explorer_boundaries import boundary_rows
+from .explorer_map import _map_view
+from .explorer_source import _number, _source, _source_path
 from .explorer_store import open_snapshot
 from .explorer_symbols import _symbol_rows
 
@@ -23,16 +25,6 @@ _SCHEMA = (
     "CREATE TABLE location(id TEXT PRIMARY KEY,path TEXT,line INTEGER,digest TEXT)",
     "CREATE TABLE analysis(root TEXT,coverage TEXT)",
 )
-
-
-def _source_path(root: Path, name: str) -> Path:
-    relative = Path(name)
-    if relative.is_absolute() or ".." in relative.parts:
-        raise ValueError("source outside scan root")
-    path = root / relative
-    if path.resolve() != root.resolve() / relative or not path.is_file():
-        raise ValueError("source unavailable")
-    return path
 
 
 Row = dict[str, object]
@@ -298,47 +290,6 @@ def _text(args: Row, name: str, default: str | None = None) -> str:
     return value
 
 
-def _number(args: Row, name: str, default: int, maximum: int) -> int:
-    value = args.get(name, default)
-    if isinstance(value, str) and value.isascii() and value.isdecimal() and len(value) <= 10:
-        value = int(value)
-    if type(value) is not int or not 1 <= value <= maximum:
-        raise ValueError(f"invalid {name}")
-    return value
-
-
-def _source(db: sqlite3.Connection, root: Path, args: Row) -> Row:
-    row = db.execute(
-        "SELECT path,line,digest FROM location WHERE id=?", (_text(args, "reference"),)
-    ).fetchone()
-    if row is None:
-        raise ValueError("unknown source reference")
-    name, anchor, digest = row
-    start = _number(args, "start", max(1, anchor - 3), 2**31 - 1)
-    count = _number(args, "limit", 24, 120)
-    if not digest:
-        raise ValueError("source unavailable at scan time")
-    hasher = hashlib.sha256()
-    lines = []
-    index = 1
-    fragment = bytearray()
-    with _source_path(root, name).open("rb") as stream:
-        while chunk := stream.readline(65536):
-            hasher.update(chunk)
-            if start <= index < start + count:
-                fragment.extend(chunk[: 4096 - len(fragment)])
-            if chunk.endswith(b"\n"):
-                if start <= index < start + count:
-                    lines.append(fragment.decode("utf-8", errors="replace").rstrip("\r\n"))
-                fragment.clear()
-                index += 1
-        if fragment:
-            lines.append(fragment.decode("utf-8", errors="replace"))
-    if hasher.hexdigest() != digest:
-        raise ValueError("source changed since scan")
-    return {"path": name, "start": start, "line": anchor, "lines": lines}
-
-
 def query(path: Path, root: Path, operation: str, args: Row) -> Row:
     """Serve one bounded operation against an immutable published database."""
     with open_snapshot(path) as db:
@@ -346,6 +297,14 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
         if Path(saved_root) != root.resolve():
             raise ValueError("snapshot belongs to another repository")
         result = {"snapshot": path.stem, "coverage": json.loads(coverage)}
+        if operation == "map":
+            return result | _map_view(
+                db,
+                _text(args, "parent", "system"),
+                _text(args, "view", "components"),
+                _text(args, "cursor", ""),
+                _number(args, "limit", 50, 200),
+            )
         if operation == "source":
             return result | _source(db, root, args)
         if operation == "evidence":

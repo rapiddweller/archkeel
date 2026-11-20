@@ -6,8 +6,15 @@
 <title>ArchKeel Explorer</title>
 <link rel="stylesheet" href="/report.css">
 <link rel="stylesheet" href="/explorer.css">
+<link rel="stylesheet" href="/explorer-story.css">
+<link rel="stylesheet" href="/explorer-map.css">
+<script src="/elkjs-0.12.0.bundled.js" defer></script>
+<script src="/report-placement.js" defer></script>
+<script src="/report-layout.js" defer></script>
 <script src="/explorer-story.js" defer></script>
 <script src="/explorer-uml.js" defer></script>
+<script src="/explorer-map-layout.js" defer></script>
+<script src="/explorer-map.js" defer></script>
 <script src="/explorer.js" defer></script>
 </head>
 <body>
@@ -18,23 +25,42 @@
 <button type="button" id="theme" aria-label="Switch to light theme">☼</button>
 </nav></header>
 <main>
-<header class="heading"><div><h1>Architecture whiteboard</h1><p id="overview" aria-live="polite">Loading snapshot…</p></div>
-<form id="search-form"><label for="search">Search structure</label><input id="search" type="search" required maxlength="180"><button>Search</button></form></header>
+<header class="heading"><h1 id="view-title">Architecture whiteboard</h1><p id="overview" aria-live="polite">Loading snapshot…</p></header>
 <p id="notice" role="status"></p>
 <div class="workspace">
+<div class="canvas-toolbar">
 <nav id="breadcrumbs" aria-label="Current scope"></nav>
+<div class="architecture-actions">
+<div id="map-modes" role="group" aria-label="Architecture view" hidden>
+<button type="button" id="map-components" aria-pressed="true">Components</button>
+<button type="button" id="map-modules" aria-pressed="false">Modules</button>
+</div>
+<form id="search-form"><input id="search" aria-label="Search structure" placeholder="Search structure" type="search" required maxlength="180"><button>Search</button></form>
+<button type="button" id="structure-toggle" aria-controls="structure-pane" aria-pressed="false">Structure</button>
+<button type="button" id="inspector-toggle" aria-controls="details" aria-pressed="false">Details</button>
+</div>
+</div>
 <div class="body-grid">
+<aside id="structure-pane" aria-label="Scope structure" hidden><h2>Structure</h2><div id="structure-tree"></div></aside>
 <section class="work-area"><div id="viewport" tabindex="0" aria-label="Scrollable architecture canvas"><div id="canvas">
 <svg id="arrows" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z"/></marker></defs><g></g></svg>
-<div id="cards"></div><button type="button" id="previous" hidden>Previous elements</button> <button type="button" id="more" hidden>More elements</button>
+<div id="cards"></div>
 </div></div>
 <div class="view-tools" role="group" aria-label="Canvas zoom">
 <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
 <output id="zoom-level">100%</output>
 <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
 <button type="button" id="zoom-fit">Fit</button>
+<button type="button" id="previous" hidden>Previous elements</button>
+<button type="button" id="more" hidden>More elements</button>
 </div></section>
 <aside id="details" aria-label="Selection details" tabindex="-1"></aside>
+</div>
+<div id="story-controls" aria-label="Story playback" role="group" hidden>
+<div id="story-progress" aria-label="Story steps"></div><output id="story-position"></output>
+<button type="button" id="story-back">← Back</button>
+<button type="button" id="story-play">Play story</button>
+<button type="button" id="story-next">Next →</button>
 </div></div>
 </main>
 </body>

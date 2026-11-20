@@ -72,6 +72,10 @@ path = "native/hatch_build.py"
 [tool.hatch.build.targets.wheel.force-include]
 "schema" = "archkeel/schema"
 "native/report/assets/tokens.css" = "archkeel/cli/assets/explorer-tokens.css"
+"native/report/assets/explorer/elkjs-0.12.0.bundled.js" = "archkeel/cli/assets/elkjs-0.12.0.bundled.js"
+"native/report/assets/explorer/report-layout.js" = "archkeel/cli/assets/report-layout.js"
+"native/report/assets/explorer/report-placement.js" = "archkeel/cli/assets/report-placement.js"
+"native/report/assets/explorer/ELKJS-LICENSE.md" = "archkeel/cli/assets/ELKJS-LICENSE.md"
 "skills/archkeel/SKILL.md" = "archkeel/cli/assets/SKILL.md"
 
 [tool.hatch.build.targets.sdist]
@@ -82,7 +86,14 @@ path = "native/hatch_build.py"
 # tarball carries it rather than leaning on the description hatchling froze into PKG-INFO.
 # The wheel hook is a build input; the native sources are not, so an sdist never runs cargo.
 # A wheel from the sdist needs a prebuilt core in ARCHKEEL_BUNDLE_NATIVE (AD-436).
-only-include = ["src", "schema", "README.md", "skills", "native/hatch_build.py", "native/report/assets/tokens.css"]
+only-include = [
+    "src", "schema", "README.md", "skills", "native/hatch_build.py",
+    "native/report/assets/tokens.css",
+    "native/report/assets/explorer/elkjs-0.12.0.bundled.js",
+    "native/report/assets/explorer/report-layout.js",
+    "native/report/assets/explorer/report-placement.js",
+    "native/report/assets/explorer/ELKJS-LICENSE.md",
+]
 
 [dependency-groups]
 # Pytest runs the tests, Ruff checks style, and MyPy checks the types of the shell and the tools.

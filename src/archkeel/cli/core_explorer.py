@@ -13,11 +13,9 @@ import sys
 import tempfile
 import webbrowser
 from collections.abc import Callable
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.parse import parse_qsl, urlsplit
 
-from archkeel.explorer_queries import populate, query
+from archkeel.explorer_queries import populate
 from archkeel.explorer_store import (
     SnapshotIdentity,
     cache_path,
@@ -29,148 +27,14 @@ from archkeel.explorer_store import (
 from .core_arguments import Options, OutputMode
 from .core_binding import ProjectRoot
 from .core_exit import Outcome, envelope, exit_for
+from .core_explorer_http import _ExplorerServer
 from .core_explorer_identity import _file_digest, _fingerprint
 from .core_frame import CoreError, CoreFrame, GapKind
 from .core_json import as_object, as_text
 from .init_draft import draft, write_missing
 from .native_scan import prepare_disposable_git
 
-_ASSETS = Path(__file__).with_name("assets")
 _REPORT_CACHE_BYTES = 64 << 20
-_ROUTES = {
-    "/": ("explorer.html", "text/html; charset=utf-8"),
-    "/explorer.js": ("explorer.js", "text/javascript; charset=utf-8"),
-    "/explorer-uml.js": ("explorer-uml.js", "text/javascript; charset=utf-8"),
-    "/explorer-story.js": ("explorer-story.js", "text/javascript; charset=utf-8"),
-    "/explorer.css": ("explorer.css", "text/css; charset=utf-8"),
-}
-_OPERATIONS = frozenset(
-    {"overview", "children", "search", "relations", "evidence", "source", "story"}
-)
-_CSP = (
-    "default-src 'none'; script-src 'self'; style-src 'self'; font-src data:; "
-    "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-)
-
-
-class _ExplorerServer(HTTPServer):
-    def __init__(
-        self,
-        path: Path,
-        root: Path,
-        report: Callable[[], tuple[str, tuple[str, bytes]]] | None,
-        port: int,
-    ) -> None:
-        self.snapshot = path
-        self.root = root
-        self.report = report
-        tokens = _ASSETS / "explorer-tokens.css"
-        if not tokens.is_file():
-            tokens = _ASSETS.parents[3] / "native/report/assets/tokens.css"
-        self.css = tokens.read_bytes()
-        super().__init__(("127.0.0.1", port), _Browse)
-
-
-class _Browse(BaseHTTPRequestHandler):
-    server: _ExplorerServer
-
-    def setup(self) -> None:
-        self.request.settimeout(5)
-        super().setup()
-
-    def log_message(self, format: str, *args: object) -> None:
-        """Keep source references and searches out of logs."""
-
-    def _reply(
-        self,
-        code: int,
-        body: bytes,
-        content: str = "text/plain; charset=utf-8",
-        *,
-        csp: str = _CSP,
-    ) -> None:
-        self.send_response(code)
-        self.send_header("Content-Type", content)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Content-Security-Policy", csp)
-        self.end_headers()
-        self.wfile.write(body)
-
-    def do_GET(self) -> None:
-        host = f"127.0.0.1:{self.server.server_port}"
-        if (
-            self.headers.get_all("Host") != [host]
-            or self.headers.get("Origin") not in {None, f"http://{host}"}
-            or self.headers.get("Sec-Fetch-Site") not in {None, "none", "same-origin"}
-        ):
-            self._reply(403, b"Open the Explorer from its local URL.")
-            return
-        try:
-            url = urlsplit(self.path)
-            if url.netloc or url.scheme or len(self.path) > 4096:
-                raise ValueError("invalid request")
-            operation = url.path.removeprefix("/api/").removeprefix("v1/")
-            if url.path in _ROUTES:
-                file, content = _ROUTES[url.path]
-                self._reply(200, (_ASSETS / file).read_bytes(), content)
-            elif url.path == "/report":
-                self._native_report()
-            elif url.path.startswith("/archkeel-gaps-") and url.path.endswith(".json"):
-                self._report_gaps(url.path)
-            elif url.path == "/report.css":
-                self._reply(200, self.server.css, "text/css; charset=utf-8")
-            elif url.path.startswith("/api/") and operation in _OPERATIONS:
-                self._api(operation, url.query)
-            else:
-                self._reply(404, b"Page not found.")
-        except ValueError:
-            self._reply(400, b"Invalid Explorer request.")
-        except (OSError, CoreError):
-            self._reply(409, b"The report is unavailable for this snapshot. Restart the Explorer.")
-
-    def _native_report(self) -> None:
-        if self.server.report is None:
-            self._reply(404, b"The observed-only snapshot has no architecture contract report.")
-            return
-        link = '<a class="ui" href="/">Open architecture whiteboard</a>'
-        page, _ = self.server.report()
-        page = page.replace("</header>", link + "</header>", 1)
-        self._reply(
-            200,
-            page.encode(),
-            "text/html; charset=utf-8",
-            csp="base-uri 'none'; frame-ancestors 'none'",
-        )
-
-    def _report_gaps(self, path: str) -> None:
-        if self.server.report is None:
-            self._reply(404, b"Page not found.")
-            return
-        _, (name, content) = self.server.report()
-        if path != "/" + name:
-            self._reply(404, b"Page not found.")
-            return
-        self._reply(200, content, "application/json; charset=utf-8")
-
-    def _api(self, operation: str, query_string: str) -> None:
-        pairs = parse_qsl(query_string, keep_blank_values=True, max_num_fields=12)
-        arguments: dict[str, object] = dict(pairs)
-        if len(arguments) != len(pairs):
-            raise ValueError("repeated argument")
-        try:
-            result = query(self.server.snapshot, self.server.root, operation, arguments)
-        except (OSError, ValueError, sqlite3.Error) as error:
-            if operation == "source":
-                reason = str(error) if isinstance(error, ValueError) else "source cannot be read"
-                self._reply(409, f"Snapshot source unavailable: {reason}.".encode())
-            else:
-                self._reply(400, b"The requested Explorer data is unavailable.")
-            return
-        self._reply(200, json.dumps(result).encode(), "application/json; charset=utf-8")
 
 
 def _observed_scan(
@@ -327,7 +191,7 @@ def launch(
     with (
         open_snapshot(path, snapshot),
         _ExplorerServer(
-            path, project.path, report if render_report else None, options.port
+            path, project.path, report if render_report else None, options.port, confirm_snapshot
         ) as server,
     ):
         confirm_snapshot()

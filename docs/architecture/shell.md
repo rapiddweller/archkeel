@@ -78,6 +78,7 @@ flowchart LR
     n_21["explorer-mcp"]
     n_22["explorer-query"]
     n_23["explorer-store"]
+    n_24["storyboard"]
     n_0 --> n_7
     n_1 --> n_11
     n_1 --> n_18
@@ -139,4 +140,8 @@ flowchart LR
     n_21 --> n_22
     n_22 --> n_19
     n_22 --> n_23
+    n_20 --> n_24
+    n_21 --> n_24
+    n_24 --> n_14
+    n_24 --> n_23
 ```
