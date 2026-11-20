@@ -152,6 +152,7 @@ def test_followup_sends_bounded_context_and_converts_chapters(
 
     def ask(prompt: str, root: Path) -> dict[str, object]:
         assert "secret" not in prompt
+        assert "in English" in prompt
         return {
             "title": "Follow",
             "steps": [

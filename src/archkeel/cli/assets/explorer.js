@@ -18,7 +18,6 @@ function element(tag, text, className) {
   if (className) result.className = className;
   return result;
 }
-
 function button(text, action, className) {
   const result = element("button", text, className);
   result.type = "button";
@@ -217,7 +216,8 @@ async function select(item) {
   selectionHeading(item.name, item.kind);
   if (item.path) details.append(element("p", item.path, "meta"));
   const unresolved = unknownCalls(item);
-  if (unresolved) details.append(unresolved);
+  if (unresolved) details.append(unresolved, element("p", unresolved.title, "meta"));
+  else if (Number.isInteger(item.recorded_calls)) details.append(element("p", item.recorded_calls ? item.recorded_calls.toLocaleString() + " calls have a resolved target." : "No call sites recorded in this scope.", "meta"));
   if (canOpenScope(item)) {
     details.append(button("Open " + item.kind, () => open(item), "detail-btn"));
   }
@@ -225,7 +225,7 @@ async function select(item) {
   for (const responsibility of item.responsibilities ?? []) {
     details.append(element("p", responsibility));
   }
-  details.append(storyChat(null, item.id), mapConnections(item.id), element("h3", "Connections"));
+  details.append(componentPublic(item), storyChat(null, item.id), mapConnections(item.id), element("h3", "Connections"));
   async function load(cursor = "") {
     const result = await api("relations", { element: item.id, limit: 30, cursor });
     if (state.request !== request) return;

@@ -115,21 +115,24 @@ def _edges(
     edge_total = 0
     if visible:
         marks = ",".join("?" for _ in visible)
-        unresolved = dict(
-            db.execute(
-                "WITH RECURSIVE ancestors(call_id, owner) AS ("
-                "SELECT id,source FROM relation WHERE kind='call' AND target IS NULL UNION "
-                "SELECT ancestors.call_id,element.parent FROM ancestors JOIN element "
-                "ON element.id=ancestors.owner WHERE element.parent IS NOT NULL "
+        counts = {
+            owner: (total, missing)
+            for owner, total, missing in db.execute(
+                "WITH RECURSIVE ancestors(call_id,owner,missing) AS ("
+                "SELECT id,source,target IS NULL OR "
+                "json_extract(body,'$.resolution') IS NOT 'resolved' "
+                "FROM relation WHERE kind='call' UNION "
+                "SELECT ancestors.call_id,element.parent,ancestors.missing FROM ancestors "
+                "JOIN element ON element.id=ancestors.owner WHERE element.parent IS NOT NULL "
                 "AND element.parent!='system') "
-                f"SELECT owner,count(*) FROM ancestors WHERE owner IN ({marks}) GROUP BY owner",
+                f"SELECT owner,count(*),sum(missing) FROM ancestors WHERE owner IN ({marks}) "
+                "GROUP BY owner",
                 visible,
-            ).fetchall()
-        )
+            )
+        }
         for item in [*items, *groups]:
-            if item["id"] in unresolved:
-                item["unresolved_calls"] = unresolved[item["id"]]
-        marks = ",".join("?" for _ in visible)
+            if item["id"] in visible:
+                item["recorded_calls"], item["unresolved_calls"] = counts.get(item["id"], (0, 0))
         where = (
             f"source IN ({marks}) AND (target IN ({marks}) OR target IS NULL) "
             "AND kind IN ('import','call','requires','interface')"
@@ -149,6 +152,26 @@ def _edges(
     return edges, edge_total
 
 
+def _count_modules(db: sqlite3.Connection, items: list[dict[str, Any]]) -> None:
+    owners = [item["id"] for item in items if item["kind"] == "component"]
+    if not owners:
+        return
+    marks = ",".join("?" for _ in owners)
+    counts = dict(
+        db.execute(
+            "WITH RECURSIVE children(owner,id,kind) AS ("
+            f"SELECT id,id,kind FROM element WHERE id IN ({marks}) UNION "
+            "SELECT children.owner,element.id,element.kind FROM children JOIN element "
+            "ON element.parent=children.id WHERE children.kind='component') "
+            "SELECT owner,count(*) FROM children WHERE kind='module' GROUP BY owner",
+            owners,
+        )
+    )
+    for item in items:
+        if item["kind"] == "component":
+            item["module_count"] = counts.get(item["id"], 0)
+
+
 def _map_view(
     db: sqlite3.Connection, parent: str, view: str, cursor: str, limit: int
 ) -> dict[str, object]:
@@ -162,6 +185,8 @@ def _map_view(
     )
     if parent != "system" and scope is None:
         raise ValueError("unknown map parent")
+    module_total = None
+    overview = False
     if view == "modules" and (scope is None or scope[0] == "component"):
         base = (
             "WITH RECURSIVE scope(id) AS (SELECT ? UNION SELECT element.id FROM element "
@@ -169,6 +194,13 @@ def _map_view(
             "SELECT id,body FROM element WHERE kind='module' AND parent IN (SELECT id FROM scope)"
         )
         params: tuple[object, ...] = (parent,)
+        module_total = db.execute("SELECT count(*) FROM (" + base + ")", params).fetchone()[0]
+        if (parent == "system" or module_total > 36) and db.execute(
+            "SELECT 1 FROM element WHERE parent=? AND kind='component' LIMIT 1", params
+        ).fetchone():
+            base = "SELECT id,body FROM element WHERE parent=? AND kind IN ('component','module')"
+            overview = True
+            limit = min(limit, 16)
     else:
         kinds = (
             ("component",)
@@ -181,16 +213,23 @@ def _map_view(
         if kinds == ("component",) and not db.execute(base + " LIMIT 1", params).fetchone():
             base = "SELECT id,body FROM element WHERE parent=? AND kind='module'"
             params = (parent,)
-    total = db.execute("SELECT count(*) FROM (" + base + ")", params).fetchone()[0]
+    total = (
+        module_total
+        if module_total is not None and not overview
+        else db.execute("SELECT count(*) FROM (" + base + ")", params).fetchone()[0]
+    )
     rows = db.execute(
         base + " AND id>? ORDER BY id LIMIT ?", (*params, cursor, limit + 1)
     ).fetchall()
     items = [json.loads(row[1]) for row in rows[:limit]]
+    _count_modules(db, items)
     groups = _groups(db, parent, items)
     edges, edge_total = _edges(db, items, groups)
     return {
         "parent": parent,
         "view": view,
+        "module_overview": overview,
+        "module_total": module_total,
         "items": items,
         "groups": groups,
         "edges": edges,

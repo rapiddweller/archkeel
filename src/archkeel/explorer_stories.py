@@ -103,20 +103,99 @@ def _location(db: Any, root: Path, reference: object) -> dict[str, Any] | None:
     return {"path": row[0], "line": row[1], "reference": reference}
 
 
-def _lane(db: Any, parent: str) -> str | None:
-    module = None
+def _module(db: Any, parent: str) -> tuple[str, str] | None:
     seen: set[str] = set()
     while parent and parent != "system" and parent not in seen and len(seen) < 32:
         seen.add(parent)
         row = db.execute("SELECT name,kind,parent FROM element WHERE id=?", (parent,)).fetchone()
         if row is None:
             break
-        if row[1] == "component":
-            return str(row[0])
         if row[1] == "module":
-            module = str(row[0])
+            return parent, str(row[0])
         parent = row[2]
-    return module
+    return None
+
+
+def _external(
+    db: Any, root: Path, module: str | None, function: str | None, claimed: list[dict[str, str]]
+) -> list[dict[str, Any]]:
+    systems = {
+        "sqlite3": ("relational_database", "SQLite"),
+        "redis": ("redis", "Redis"),
+        "psycopg": ("relational_database", "PostgreSQL"),
+        "psycopg2": ("relational_database", "PostgreSQL"),
+        "asyncpg": ("relational_database", "PostgreSQL"),
+    }
+    entries = {
+        "sqlite3": {"sqlite3.connect"},
+        "redis": {"redis.Redis", "redis.StrictRedis", "redis.from_url"},
+        "psycopg": {"psycopg.connect"},
+        "psycopg2": {"psycopg2.connect"},
+        "asyncpg": {"asyncpg.connect", "asyncpg.create_pool"},
+    }
+    rows: list[dict[str, Any]] = [
+        dict(
+            item,
+            label=item["system"],
+            status="claim",
+            evidence=[],
+            reason="Author claim; service use is not verified.",
+        )
+        for item in claimed
+    ]
+    if module is None or function is None:
+        return rows
+    imported = set()
+    for record in db.execute(
+        "SELECT body FROM relation WHERE kind='import' AND source=? ORDER BY id LIMIT 200",
+        (module,),
+    ):
+        data = json.loads(record[0])
+        target = data.get("target")
+        if data.get("resolution") != "external" or not isinstance(target, str):
+            continue
+        package = target.split(".", 1)[0]
+        if package not in systems:
+            continue
+        evidence = [_location(db, root, site.get("reference")) for site in data.get("evidence", [])]
+        if evidence and all(evidence):
+            imported.add(package)
+    for record in db.execute(
+        "SELECT body FROM relation WHERE kind='call' AND source=? ORDER BY id LIMIT 200",
+        (function,),
+    ):
+        call = json.loads(record[0])
+        target = call.get("target")
+        if (
+            isinstance(target, str)
+            and db.execute("SELECT 1 FROM element WHERE id=?", (target,)).fetchone()
+        ):
+            continue
+        expression = call.get("expression")
+        if not isinstance(expression, str) or "." not in expression:
+            continue
+        package = expression.split(".", 1)[0]
+        if package not in imported or expression not in entries[package]:
+            continue
+        evidence = [_location(db, root, site.get("reference")) for site in call.get("evidence", [])]
+        if evidence and all(evidence):
+            system, label = systems[package]
+            resolved = call.get("resolution") == "external"
+            rows.append(
+                {
+                    "system": system,
+                    "label": label,
+                    "status": "observed_call",
+                    "binding": "external" if resolved else "unknown",
+                    "reason": (
+                        "Static call and import; runtime target is not verified."
+                        if resolved
+                        else "The call and import are visible, but the binding is unresolved."
+                    ),
+                    "evidence": evidence,
+                }
+            )
+    return rows
 
 
 def _check(db: Any, root: Path, snapshot: Path, spec: dict[str, Any]) -> dict[str, Any]:
@@ -132,6 +211,7 @@ def _check(db: Any, root: Path, snapshot: Path, spec: dict[str, Any]) -> dict[st
         node = rows[0] if len(rows) == 1 else None
         body = json.loads(node[2]) if node else {}
         location = _location(db, root, body.get("source"))
+        module = _module(db, node[1]) if node else None
         evidence: list[dict[str, Any] | None] = []
         status, reason = "unknown", "Definition or call evidence is unavailable."
         if node and location and previous is None and not checked:
@@ -164,8 +244,15 @@ def _check(db: Any, root: Path, snapshot: Path, spec: dict[str, Any]) -> dict[st
                 "question": step.get("question"),
                 "text_status": "claim",
                 "chapter": step.get("chapter"),
-                "external": step.get("external", []),
-                "lane": _lane(db, node[1]) if node else None,
+                "external": _external(
+                    db,
+                    root,
+                    module[0] if module else None,
+                    node[0] if node else None,
+                    step.get("external", []),
+                ),
+                "lane": module[1] if module else None,
+                "function": step["node"].rsplit(".", 1)[-1],
                 "defined_at": location,
                 "status": status,
                 "reason": reason,

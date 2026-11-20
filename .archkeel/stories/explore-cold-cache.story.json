@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.2.0",
+  "title": "How Explore builds a cold snapshot",
+  "snapshot": {
+    "source_digest": "6066c1a83f0a11ee61e24ad80b71acdfbf335b59a92029dcb29958b6a760d452",
+    "contract_digest": "d6c663e702176afbfd38382ae492791b20198ba74ee6e9054eafcbc44ca16358"
+  },
+  "nodes": [
+    "archkeel.cli.core_only._explore",
+    "archkeel.cli.core_explorer.launch",
+    "archkeel.cli.core_explorer._publish",
+    "archkeel.explorer_store.publish_snapshot",
+    "archkeel.explorer_store._build"
+  ],
+  "story": {
+    "id": "explore-cold-cache",
+    "title": "How Explore builds a cold snapshot",
+    "chapters": [
+      {
+        "id": "start",
+        "title": "Enter Explore"
+      },
+      {
+        "id": "build",
+        "title": "Build the cold snapshot"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "node": "archkeel.cli.core_only._explore",
+      "title": "Explore command",
+      "note": "The explore command selects the project and prepares the scan.",
+      "chapter": "start"
+    },
+    {
+      "node": "archkeel.cli.core_explorer.launch",
+      "title": "Choose the cold path",
+      "note": "On a cold cache, the launcher requests a snapshot build. The static call link from the command is unresolved.",
+      "chapter": "start"
+    },
+    {
+      "node": "archkeel.cli.core_explorer._publish",
+      "title": "Prepare the snapshot",
+      "note": "The publisher prepares the observed topology and submits it for storage.",
+      "chapter": "build"
+    },
+    {
+      "node": "archkeel.explorer_store.publish_snapshot",
+      "title": "Publish the snapshot",
+      "note": "Snapshot publication builds a database when no matching snapshot exists.",
+      "chapter": "build"
+    },
+    {
+      "node": "archkeel.explorer_store._build",
+      "title": "Build the database",
+      "note": "The builder opens the temporary SQLite database and writes the snapshot transaction. The call binding is unresolved.",
+      "chapter": "build"
+    }
+  ]
+}

@@ -16,6 +16,12 @@ function endpoint(step, side) {
   };
 }
 
+function storySystemIcon(system) {
+  if (["relational_database", "mongodb", "redis", "postgresql", "sqlite"].includes(system)) return "⛁";
+  if (["kafka", "rabbitmq"].includes(system)) return "⇄";
+  return "◇";
+}
+
 function storyStep(step) {
   if (storyView.saved) return { ...step, name: step.node };
   const target = endpoint(step, "target");
@@ -63,47 +69,6 @@ function storyStatus() {
   return [...counts].map(([status, count]) => count + " " + (proofMarks[status]?.[1] ?? "Unknown").toLowerCase()).join(" · ");
 }
 
-function svgStoryNode(name, attributes, parent) {
-  const node = document.createElementNS("http://www.w3.org/2000/svg", name);
-  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
-  parent.append(node);
-  return node;
-}
-
-function paintStoryRoutes() {
-  const routes = cards.querySelector(".story-routes");
-  if (!routes) return;
-  const timeline = routes.parentNode;
-  const bounds = timeline.getBoundingClientRect();
-  const scale = bounds.width / timeline.offsetWidth || 1;
-  const nodes = [...timeline.querySelectorAll(".story-node")];
-  const positions = nodes.map((node) => {
-    const rect = node.getBoundingClientRect();
-    return {
-      left: (rect.left - bounds.left) / scale, right: (rect.right - bounds.left) / scale,
-      top: (rect.top - bounds.top) / scale, bottom: (rect.bottom - bounds.top) / scale,
-    };
-  });
-  routes.replaceChildren();
-  positions.forEach((next, index) => {
-    if (!index || index > state.storyIndex + Number(!storyView.saved)) return;
-    const status = storyStep(state.hops[index - Number(!storyView.saved)]).status;
-    const previous = positions[index - 1];
-    const x = (previous.left + previous.right) / 2;
-    const mid = (next.top + next.bottom) / 2;
-    const direction = Math.sign(next.left - previous.left);
-    const endX = direction === 0 ? x : direction > 0 ? next.left : next.right;
-    const endY = direction === 0 ? next.top : mid;
-    const d = direction === 0
-      ? `M${x} ${previous.bottom} V${endY}`
-      : `M${x} ${previous.bottom} V${mid - 10} Q${x} ${mid} ${x + direction * 10} ${mid} H${endX}`;
-    const current = index === state.storyIndex + Number(!storyView.saved);
-    const line = svgStoryNode("g", { class: (proofMarks[status] ? status : "unknown") + (current ? " now" : "") }, routes);
-    svgStoryNode("path", { d }, line);
-    svgStoryNode("circle", { cx: endX, cy: endY, r: 3.5 }, line);
-  });
-}
-
 function paintStory() {
   const steps = state.hops.map(storyStep);
   const entries = storyView.saved ? steps : [endpoint(state.hops[0], "source"), ...steps];
@@ -121,6 +86,9 @@ function paintStory() {
     rail.style.gridColumn = String(index + 1);
     timeline.append(rail);
   }
+  const scrollHint = lanes.length > 1
+    ? element("p", "Scroll sideways to see all modules.", "story-scroll-hint") : null;
+  if (scrollHint) board.append(scrollHint);
   board.append(heading, timeline);
   svgStoryNode("svg", { class: "story-routes", "aria-hidden": "true" }, timeline);
 
@@ -133,20 +101,29 @@ function paintStory() {
       currentChapter = step.chapter;
       const chapter = element("h3", chapters.get(currentChapter) ?? currentChapter, "story-chapter");
       chapter.style.gridRow = String(row++);
-      chapter.style.visibility = index > state.storyIndex ? "hidden" : "";
       timeline.append(chapter);
     }
-    const name = step.title ?? step.name ?? step.expression;
+    const name = step.function ?? step.name ?? step.expression ?? step.title;
     const node = index < 0 ? element("div", "", "story-node story-origin")
-      : button("", () => goToStoryStep(index), "story-node");
+      : button("", () => { stopStoryPlayback(); goToStoryStep(index).catch(showError); }, "story-node");
     node.style.gridColumn = String(lanes.indexOf(step.lane ?? "Owner unknown") + 1);
     node.style.gridRow = String(row++);
     node.append(element("strong", name));
     if (index < 0) node.append(element("span", "Caller", "meta"));
     else {
+      if (step.title && step.title !== name) node.append(element("span", step.title, "story-step-title"));
+      if (step.note) node.append(element("span", step.note, "story-narration"));
+      for (const system of step.external ?? []) {
+        if (system.status !== "observed_call" || !system.evidence?.length) continue;
+        const label = (system.label ?? system.system) + (system.binding === "unknown" ? " · binding unknown" : "");
+        const badge = element("span", storySystemIcon(system.system) + " " + label, "story-system");
+        if (system.binding === "unknown") badge.classList.add("unknown");
+        badge.title = system.reason ?? "Static call and import; runtime target is not verified.";
+        node.append(badge);
+      }
       node.append(proof(step));
       if (index === state.storyIndex) node.setAttribute("aria-current", "step");
-      node.style.visibility = index > state.storyIndex ? "hidden" : "";
+      if (index > state.storyIndex) node.classList.add("future");
     }
     timeline.append(node);
   }
@@ -154,15 +131,15 @@ function paintStory() {
   const top = viewport.scrollTop;
   const left = viewport.scrollLeft;
   cards.replaceChildren(board);
+  if (scrollHint) scrollHint.hidden = viewport.scrollWidth <= viewport.clientWidth;
   viewport.scrollTo(left, top);
   paintStoryRoutes();
-  if (reducedStoryMotion()) return;
   const active = timeline.querySelector("[aria-current='step']").getBoundingClientRect();
   const frame = viewport.getBoundingClientRect();
   viewport.scrollTo({
     top: top + active.top - frame.top - (frame.height - active.height) / 2,
     left: left + active.left - frame.left - (frame.width - active.width) / 2,
-    behavior: "smooth",
+    behavior: reducedStoryMotion() ? "auto" : "smooth",
   });
 }
 function showStoryControls() {
@@ -177,7 +154,7 @@ function showStoryControls() {
   progress.replaceChildren();
   state.hops.forEach((item, index) => {
     const step = storyStep(item);
-    const mark = button("", () => goToStoryStep(index));
+    const mark = button("", () => { stopStoryPlayback(); goToStoryStep(index).catch(showError); });
     mark.setAttribute("aria-label", "Step " + (index + 1) + " · " + (step.title ?? step.name ?? step.expression));
     mark.title = mark.getAttribute("aria-label");
     if (index === state.storyIndex) mark.setAttribute("aria-current", "step");
@@ -210,9 +187,13 @@ function paintCheckedStep(step) {
   for (const site of step.evidence ?? []) evidence.push(sourceSite(site));
   storyBox("Evidence", evidence);
   if (step.external?.length) {
-    const systems = step.external.map((item) => {
-      const text = [item.system, item.touched && "Observed touchpoint", item.direction && item.direction + " · Claim"];
-      return element("p", text.filter(Boolean).join(" · "));
+    const systems = step.external.flatMap((item) => {
+      const observed = item.status === "observed_call" && item.evidence?.length;
+      const label = (item.label ?? item.system) + (item.binding === "unknown" ? " · binding unknown" : "");
+      const text = (observed ? storySystemIcon(item.system) + " " : "? ") + label
+        + (observed ? " · Static call" : " · Claim");
+      return [element("p", text), element("p", item.reason ?? "Runtime use is not verified.", "meta"),
+        ...(observed ? item.evidence.map(sourceSite) : [])];
     });
     storyBox("External systems", systems);
   }
@@ -227,7 +208,7 @@ async function goToStoryStep(index) {
   const step = storyStep(state.hops[index]);
   paintStory();
   showStoryControls();
-  selectionHeading(step.title ?? step.name ?? step.expression, "Step " + (index + 1) + " / " + state.hops.length);
+  selectionHeading(step.title ?? step.function ?? step.name ?? step.expression, "Step " + (index + 1) + " / " + state.hops.length);
   if (storyView.saved) {
     paintCheckedStep(step);
     return;
@@ -383,8 +364,8 @@ function toggleStoryPlayback() {
 
 function bindStory() {
   get("story").addEventListener("click", () => showStories().catch(showError));
-  get("story-back").addEventListener("click", () => goToStoryStep(state.storyIndex - 1).catch(showError));
-  get("story-next").addEventListener("click", () => goToStoryStep(state.storyIndex + 1).catch(showError));
+  get("story-back").addEventListener("click", () => { stopStoryPlayback(); goToStoryStep(state.storyIndex - 1).catch(showError); });
+  get("story-next").addEventListener("click", () => { stopStoryPlayback(); goToStoryStep(state.storyIndex + 1).catch(showError); });
   get("story-play").addEventListener("click", toggleStoryPlayback);
   new ResizeObserver(paintStoryRoutes).observe(cards);
   document.addEventListener("keydown", (event) => {
@@ -394,6 +375,7 @@ function bindStory() {
       toggleStoryPlayback();
     } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
+      stopStoryPlayback();
       goToStoryStep(state.storyIndex + (event.key === "ArrowRight" ? 1 : -1)).catch(showError);
     }
   });

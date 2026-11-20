@@ -13,11 +13,14 @@ uv run archkeel explore --config docs/architecture/architecture-system.json
 ```
 
 Keep the terminal open while you use the browser. Use `--no-open` to print the local
-address. Choose **Components** or **Modules**. The map groups modules under their owners.
+address. Choose **Components** or **Modules**. In a large scope, start with the
+parent groups. Open a group to see its modules and their connections.
 Select an element to inspect its imports, calls and source evidence.
 Read each arrow from its source to its target. For an import, the source imports the
 target module. For a call, the source calls the target. An UNKNOWN call target has no
-arrow. These relations do not track argument values or return values.
+arrow. The unresolved count is part of the recorded call sites in that scope.
+It can include built-ins, library calls and dynamic calls. A zero count of
+recorded sites does not establish call coverage. The arrows do not track values.
 Each result includes its snapshot identity and the coverage of the scan.
 The System inspector lists up to 12 external packages resolved from observed imports.
 Open a class to inspect its methods and properties. A class card shows a preview of
@@ -29,8 +32,9 @@ contain known members. The native report retains its own layout and rule verdict
 Open **Story**. To draft a story, install the Codex CLI and sign in with `codex login`.
 Enter the flow you want to follow. The model proposes an ordered story
 from snapshot facts. Studio checks each step and saves the story under
-`.archkeel/stories/<id>.story.json`. Select **Play** to follow the calls across owner
-lanes. Select a step to read its explanation and source evidence. A follow-up creates
+`.archkeel/stories/<id>.story.json`. Select **Play** once to follow the calls.
+Each lane represents a module. Each step names the function. Pause on a step
+to read the explanation and open its source. A follow-up creates
 a separate story. Existing stories can be opened without a model connection.
 
 You can share stories and an optional narrative template at `.archkeel/templates/story.md`

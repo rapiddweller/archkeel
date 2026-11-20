@@ -25,6 +25,7 @@ function setStoryLink(id) {
 }
 
 function setMapControls(active, overview = false) {
+  get("structure-tree").replaceChildren();
   get("map-modes").hidden = !overview;
   get("map-components").setAttribute("aria-pressed", String(mapView.mode === "components"));
   get("map-modules").setAttribute("aria-pressed", String(mapView.mode === "modules"));
@@ -48,7 +49,7 @@ function mapParents(item) {
     ancestors.unshift(owner);
     owner = known.get(owner.parent);
   }
-  return [...state.ancestors, ...ancestors.filter((node) => node.kind === "component"), item];
+  return [...state.ancestors, ...ancestors.filter(canOpenScope), item];
 }
 
 function mapEdgeName(edge) {
@@ -72,12 +73,24 @@ function relationDirection(edge, current) {
 }
 
 function unknownCalls(item, compact = false) {
-  if (!(item.unresolved_calls > 0)) return null;
-  const count = item.unresolved_calls.toLocaleString();
-  const explanation = count + " calls · UNKNOWN target";
-  const badge = element("span", compact ? count + " UNKNOWN" : explanation, "map-unknown");
-  badge.title = explanation;
+  const total = item.recorded_calls;
+  if (!total || !item.unresolved_calls) return null;
+  const missing = item.unresolved_calls.toLocaleString();
+  const badge = element("span", "", "map-call-count");
+  badge.append(element("span", missing, "unknown"), " / " + total.toLocaleString() +
+    (compact ? " unresolved" : " calls unresolved"));
+  badge.title = (total - item.unresolved_calls).toLocaleString() + " calls have a resolved target. " +
+    missing + " calls have no verified target symbol. This includes built-ins and library calls when the scanner cannot link them to a symbol. Counts include child scopes.";
   return badge;
+}
+
+function componentPublic(item) {
+  const section = document.createDocumentFragment();
+  if (item.kind === "component" && item.public?.length) {
+    section.append(element("h3", "Declared public surface"));
+    for (const name of item.public) section.append(element("p", name, "meta"));
+  }
+  return section;
 }
 
 function mapSvg(name, attributes, parent) {
@@ -100,6 +113,16 @@ function mapCard(item) {
   if (item.kind === "module" && item.path) {
     head.querySelector(".uml-name").textContent = item.path.split("/").at(-1);
     head.append(element("span", item.path, "map-card-path"));
+  }
+  if (item.kind === "component" && Number.isInteger(item.module_count)) {
+    const mark = element("span", item.module_count.toLocaleString() + (item.module_count === 1 ? " module" : " modules"),
+      "map-component-meta");
+    head.append(mark);
+  }
+  if (item.kind === "component" && item.public?.length) {
+    const entry = element("span", "Public · " + item.public[0], "map-public-entry");
+    entry.title = item.public[0];
+    head.append(entry);
   }
   const unresolved = unknownCalls(item);
   if (unresolved) head.append(unresolved);
@@ -157,6 +180,14 @@ function paintMapScene(layout, response) {
   return { plane, svg, layout };
 }
 
+function openMapEvidence(edge) {
+  const plane = mapView.scene?.plane;
+  for (const link of plane?.querySelectorAll(".map-edges [data-map-edge]") ?? []) {
+    link.classList.toggle("map-active-edge", link.dataset.mapEdge === edge.id);
+  }
+  return showEvidence(edge);
+}
+
 function paintMapConnections(scene, edges) {
   const { plane, svg, layout } = scene;
   for (const edge of plane.querySelectorAll("[data-map-edge]")) edge.remove();
@@ -166,61 +197,20 @@ function paintMapConnections(scene, edges) {
     const group = mapSvg("g", { "data-map-edge": edge.id }, svg);
     const uncertain = edge.kind === "call" && edge.resolution !== "resolved";
     const style = uncertain ? "unknown" : edge.kind === "call" ? "map-proven" : edge.resolution;
-    mapSvg("path", { d: route.d, class: style, "marker-end": "url(#map-arrow)" }, group);
-    const label = button(mapEdgeName(edge), () => showEvidence(edge), "map-edge-label");
+    const path = mapSvg("path", { d: route.d, class: style, "marker-end": "url(#map-arrow)" }, group);
+    if (!uncertain && edge.resolution === "resolved") {
+      mapSvg("path", { d: route.d, class: "map-pulse", pathLength: "1" }, group);
+    }
+    const label = button(mapEdgeName(edge), () => openMapEvidence(edge), "map-edge-label centered");
     if (uncertain) label.classList.add("map-unknown");
     label.title = relationDirection(edge) + " · " + relationLabel(edge);
     label.setAttribute("aria-label", mapEdgeName(edge) + " · " + label.title);
     label.dataset.mapEdge = edge.id;
-    const at = layout.labels["label:" + edge.id];
-    mapPosition(label, at ? at.x : route.mid[0], at ? at.y : route.mid[1] - 12, at?.width);
-    if (!at) label.classList.add("centered");
+    const at = path.getPointAtLength(path.getTotalLength() / 2);
+    mapPosition(label, at.x, at.y);
     plane.append(label);
   }
 }
-function paintStructure(response) {
-  const byParent = new Map();
-  for (const item of [...(response.groups ?? []), ...response.items]) {
-    if (!byParent.has(item.parent)) byParent.set(item.parent, []);
-    byParent.get(item.parent).push(item);
-  }
-  const makeList = (items) => {
-    const list = element("ul", "");
-    for (const item of items) {
-      const li = element("li", "");
-      const nested = byParent.get(item.id);
-      const title = item.path?.split("/").at(-1) ?? item.name;
-      const action = ["layer", "directory"].includes(item.kind) ? element("span", title)
-        : button(title, () => {
-          const card = [...cards.querySelectorAll("[data-element]")].find((node) => node.dataset.element === item.id);
-          const result = select(item);
-          if (card) {
-            const box = card.getBoundingClientRect();
-            const stage = viewport.getBoundingClientRect();
-            const freeWidth = Math.max(200, stage.width - details.clientWidth);
-            viewport.scrollBy(box.x - stage.x - (freeWidth - box.width) / 2,
-              box.y - stage.y - (stage.height - box.height) / 2);
-          }
-          return result;
-        });
-      action.dataset.treeNode = item.id;
-      action.title = item.name;
-      if (action.tagName === "BUTTON") action.addEventListener("dblclick", () => open(item).catch(showError));
-      if (nested?.length) {
-        const subtree = element("details", "");
-        const head = element("summary", "");
-        subtree.open = true;
-        head.append(action);
-        subtree.append(head, makeList(nested));
-        li.append(subtree);
-      } else li.append(action);
-      list.append(li);
-    }
-    return list;
-  };
-  get("structure-tree").replaceChildren(makeList(byParent.get(response.parent) ?? []));
-}
-
 function focusedMapEdges(id) {
   return (mapView.scene?.layout.edges ?? []).filter((edge) => edge.source === id || edge.target === id)
     .sort((a, b) => (b.count ?? 1) - (a.count ?? 1)).slice(0, 6);
@@ -234,14 +224,17 @@ function mapConnections(id) {
   for (const edge of edges) {
     const arrow = edge.source === id ? "→ " : "← ";
     section.append(button(arrow + relationDirection(edge, id) + " · " + mapEdgeName(edge),
-      () => showEvidence(edge), "detail-btn"));
+      () => openMapEvidence(edge), "detail-btn"));
   }
   return section;
 }
 
 function focusMap(id) {
+  markTreeSelection(id);
   const plane = cards.querySelector(".map-plane");
   if (!plane) return;
+  const selection = id;
+  id = treeMapAnchor(id)?.dataset.element ?? null;
   const response = mapView.response;
   const scene = mapView.scene;
   const edges = scene.layout.edges;
@@ -272,17 +265,16 @@ function focusMap(id) {
   }
   for (const node of plane.querySelectorAll("[data-element], [data-group]")) {
     node.classList.toggle("map-dim", Boolean(id && !neighbors.has(node.dataset.element ?? node.dataset.group)));
+    node.classList.toggle("map-context", id !== selection && node.dataset.element === id);
   }
   paintMapConnections(scene, edges.length <= 16 && !id ? edges : focused);
-  for (const button of get("structure-tree").querySelectorAll("button[data-tree-node]")) {
-    button.setAttribute("aria-pressed", String(button.dataset.treeNode === id));
-  }
 }
 
 function zoomMap(delta, whole = false) {
   const plane = cards.querySelector(".map-plane");
   if (!plane) return false;
-  const canvasFit = (viewport.clientWidth - (details.hidden ? 0 : details.clientWidth) - 50) / plane.offsetWidth;
+  const inset = parseFloat(getComputedStyle(canvas).paddingInlineEnd);
+  const canvasFit = (viewport.clientWidth - inset - 26) / plane.offsetWidth;
   const scale = delta
     ? Math.max(.12, Math.min(2.4, (parseFloat(plane.style.zoom) || 1) * (delta > 0 ? 1.2 : 1 / 1.2)))
     : Math.max(whole ? .12 : .78, Math.min(1.24, canvasFit, (viewport.clientHeight - 102) / plane.offsetHeight));
@@ -301,14 +293,19 @@ function mapPage(current, cursor) {
 async function showMapResponse(response, request) {
   mapView.response = response;
   for (const item of [...(response.groups ?? []), ...response.items]) known.set(item.id, item);
-  paintStructure(response);
-  if (!response.items.length) return paintCards();
+  if (!response.items.length) {
+    paintStructure(response);
+    return paintCards();
+  }
   const layout = await layoutMap(response);
   if (request !== state.request) return;
   mapView.scene = paintMapScene(layout, response);
+  paintStructure(response);
   get("structure-toggle").disabled = false;
   get("inspector-toggle").disabled = false;
-  if (layout.edges.length > 16 || response.edges_truncated) {
+  if (response.module_overview) {
+    notice.textContent = response.module_total.toLocaleString() + " indexed modules · Open a component to explore its modules.";
+  } else if (layout.edges.length > 16 || response.edges_truncated) {
     notice.textContent = "Select an element to highlight its dependencies.";
   }
   focusMap(null);

@@ -71,7 +71,8 @@ def test_checked_story_revalidates_sources_and_never_overwrites(tmp_path: Path) 
     result = save_story(tmp_path, db, spec())
     assert [item["status"] for item in result["steps"]] == ["proven", "proven"]
     assert result["steps"][1]["evidence"][0]["line"] == 2
-    assert result["steps"][0]["lane"] == "Service"
+    assert result["steps"][0]["lane"] == "app"
+    assert result["steps"][0]["function"] == "a"
     assert list_stories(tmp_path, db)[0]["id"] == "example"
     with pytest.raises(FileExistsError):
         save_story(tmp_path, db, spec())
@@ -205,3 +206,102 @@ def test_list_does_not_recheck_source_content(
 
     monkeypatch.setattr("archkeel.explorer_stories._location", no_recheck)
     assert list_stories(tmp_path, db) == [{"id": "example", "title": "Story", "steps": 2}]
+
+
+def test_external_systems_need_current_external_import_evidence(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "snapshot.sqlite3"
+    snapshot(tmp_path, db)
+    with sqlite3.connect(db) as connection:
+        for target, resolution in (("sqlite3", "external"), ("redis", "local")):
+            body = {"target": target, "resolution": resolution, "evidence": [{"reference": "a"}]}
+            connection.execute(
+                "INSERT INTO relation VALUES (?,?,?,?,?)",
+                ("import-" + target, "app", target, "import", json.dumps(body)),
+            )
+        body = {
+            "expression": "sqlite3.connect",
+            "resolution": "external",
+            "evidence": [{"reference": "call"}],
+        }
+        connection.execute(
+            "INSERT INTO relation VALUES (?,?,?,?,?)",
+            ("external-call", "a", None, "call", json.dumps(body)),
+        )
+    result = save_story(tmp_path, db, spec())
+    external = result["steps"][0]["external"]
+    assert len(external) == 1
+    assert external[0]["label"] == "SQLite" and external[0]["status"] == "observed_call"
+    assert external[0]["evidence"][0]["line"] == 2
+    (tmp_path / "app.py").write_text("changed\n")
+    assert read_story(tmp_path, db, "example")["steps"][0]["external"] == []
+
+
+def test_external_import_without_call_does_not_prove_use(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "snapshot.sqlite3"
+    snapshot(tmp_path, db)
+    with sqlite3.connect(db) as connection:
+        body = {"target": "sqlite3", "resolution": "external", "evidence": [{"reference": "a"}]}
+        connection.execute(
+            "INSERT INTO relation VALUES (?,?,?,?,?)",
+            ("i", "app", "sqlite3", "import", json.dumps(body)),
+        )
+    assert save_story(tmp_path, db, spec())["steps"][0]["external"] == []
+
+
+def test_external_call_with_unresolved_binding_stays_unknown(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "snapshot.sqlite3"
+    snapshot(tmp_path, db)
+    with sqlite3.connect(db) as connection:
+        source = {"target": "sqlite3", "resolution": "external", "evidence": [{"reference": "a"}]}
+        call = {
+            "expression": "sqlite3.connect",
+            "resolution": "unresolved",
+            "evidence": [{"reference": "call"}],
+        }
+        other = {
+            "expression": "sqlite3.Error",
+            "resolution": "unresolved",
+            "evidence": [{"reference": "call"}],
+        }
+        for id, src, target, kind, body in (
+            ("i", "app", "sqlite3", "import", source),
+            ("c", "a", None, "call", call),
+            ("e", "a", None, "call", other),
+        ):
+            connection.execute(
+                "INSERT INTO relation VALUES (?,?,?,?,?)", (id, src, target, kind, json.dumps(body))
+            )
+    rows = save_story(tmp_path, db, spec())["steps"][0]["external"]
+    assert len(rows) == 1 and rows[0]["status"] == "observed_call"
+    assert rows[0]["binding"] == "unknown"
+    assert "binding is unresolved" in rows[0]["reason"]
+
+
+def test_external_hint_excludes_known_local_shadow(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "snapshot.sqlite3"
+    snapshot(tmp_path, db)
+    with sqlite3.connect(db) as connection:
+        source = {"target": "sqlite3", "resolution": "external", "evidence": [{"reference": "a"}]}
+        call = {
+            "target": "b",
+            "expression": "sqlite3.connect",
+            "resolution": "resolved",
+            "evidence": [{"reference": "call"}],
+        }
+        connection.execute(
+            "INSERT INTO relation VALUES (?,?,?,?,?)",
+            ("i", "app", "sqlite3", "import", json.dumps(source)),
+        )
+        connection.execute(
+            "INSERT INTO relation VALUES (?,?,?,?,?)",
+            ("shadow", "a", "b", "call", json.dumps(call)),
+        )
+    assert save_story(tmp_path, db, spec())["steps"][0]["external"] == []

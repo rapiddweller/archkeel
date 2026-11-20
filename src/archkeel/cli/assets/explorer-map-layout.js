@@ -14,9 +14,9 @@ function mapGraph(parent, response) {
   const options = {
     "elk.algorithm": !compact && graphEdges.length ? "layered" : "rectpacking",
     "elk.direction": "RIGHT", "elk.hierarchyHandling": "INCLUDE_CHILDREN",
-    "elk.edgeRouting": "ORTHOGONAL", "elk.padding": "[top=30,left=30,bottom=28,right=30]",
-    "elk.separateConnectedComponents": "true", "elk.spacing.nodeNode": "32",
-    "elk.layered.spacing.nodeNodeBetweenLayers": "76",
+    "elk.edgeRouting": "ORTHOGONAL", "elk.padding": "[top=38,left=38,bottom=36,right=38]",
+    "elk.separateConnectedComponents": "true", "elk.spacing.nodeNode": "40",
+    "elk.layered.spacing.nodeNodeBetweenLayers": "94",
     "elk.aspectRatio": aspect,
   };
   const nodeId = (id) => "node:" + id;
@@ -30,13 +30,15 @@ function mapGraph(parent, response) {
     if (!children.has(id)) children.set(id, []);
     append(group.parent, {
       id, children: children.get(id), width: mapCardWidth, height: 64,
-      layoutOptions: { "elk.padding": "[top=48,left=18,bottom=18,right=18]", "elk.aspectRatio": "1.6" },
+      layoutOptions: { "elk.padding": "[top=52,left=22,bottom=22,right=22]", "elk.aspectRatio": "1.6" },
     });
   }
   for (const item of items) {
     append(item.parent, {
       id: nodeId(item.id), width: mapCardWidth,
       height: (item.kind === "component" && item.responsibilities?.length ? 120 : 87)
+        + (Number.isInteger(item.module_count) ? 25 : 0)
+        + (item.kind === "component" && item.public?.length ? 36 : 0)
         + (item.unresolved_calls > 0 ? 23 : 0),
     });
   }
@@ -81,7 +83,7 @@ function mapRoutes(layout, edges) {
     [withoutPrefix(id), { width, height }]));
   const result = globalThis.ArchkeelReportLayout.routeUmlRelationships({
     positions, nodeSizes, edges: edges.map((edge) => ({ ...edge, relationshipKind: edge.kind === "call" ? "calls" : edge.kind })),
-    frames, cardWidth: mapCardWidth, gap: 20, laneGap: 16, rowGap: 26,
+    frames, cardWidth: mapCardWidth, gap: 24, laneGap: 18, rowGap: 34,
   });
   return new Map(result.map((route) => [route.edgeId, route]));
 }

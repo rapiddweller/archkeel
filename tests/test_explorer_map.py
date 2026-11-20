@@ -103,12 +103,15 @@ def test_map_hierarchy_paging_and_unknown_calls(tmp_path: Path) -> None:
     assert root["total"] == 2
     assert len([g for g in root["groups"] if g["kind"] == "layer"]) == 1
     assert {e["kind"] for e in root["edges"]} == {"import", "requires", "call"}
+    system_modules = query(path, tmp_path, "map", {"view": "modules"})
+    assert system_modules["module_overview"] and system_modules["module_total"] == 3
+    assert [(item["id"], item["module_count"]) for item in system_modules["items"]] == [("part", 3)]
     modules = query(path, tmp_path, "map", {"parent": "part", "view": "modules"})
     assert modules["total"] == 3
     assert any(g["kind"] == "directory" and g["path"] == "src/a/sub" for g in modules["groups"])
-    assert (
-        next(item for item in modules["items"] if item["id"] == "a.main")["unresolved_calls"] == 1
-    )
+    main = next(item for item in modules["items"] if item["id"] == "a.main")
+    assert (main["unresolved_calls"], main["recorded_calls"]) == (1, 2)
+    assert system_modules["items"][0]["recorded_calls"] == 2
     assert any(e["id"] == "import" for e in modules["edges"])
     projected = next(e for e in modules["edges"] if e.get("aggregate"))
     assert (projected["source"], projected["target"], projected["count"]) == (
@@ -134,5 +137,66 @@ def test_map_hierarchy_paging_and_unknown_calls(tmp_path: Path) -> None:
     functions = query(path, tmp_path, "map", {"parent": "a.main", "view": "modules"})
     assert functions["edges"][0]["target"] is None
     assert functions["edges"][0]["resolution"] == "unresolved"
+    topology["modules"].extend(
+        {"name": f"a.extra{index}", "path": "src/a/main.py", "component": "A"}
+        for index in range(36)
+    )
+    dense_path = tmp_path / "cache" / "dense.sqlite"
+    publish_snapshot(
+        dense_path,
+        SnapshotIdentity("rev", "contract", "dense"),
+        lambda db: populate(db, topology, tmp_path),
+        "UNKNOWN",
+    )
+    first = query(dense_path, tmp_path, "map", {"parent": "part", "view": "modules", "limit": 1})
+    assert first["module_overview"] and first["module_total"] == 39
+    assert first["items"][0]["module_count"] == 38 and first["next_cursor"] == "A"
+    second = query(
+        dense_path,
+        tmp_path,
+        "map",
+        {"parent": "part", "view": "modules", "limit": 1, "cursor": "A"},
+    )
+    assert second["items"][0]["id"] == "B" and second["next_cursor"] is None
+    leaf = query(dense_path, tmp_path, "map", {"parent": "A", "view": "modules", "limit": 1})
+    assert not leaf["module_overview"] and leaf["module_total"] == 38
+    assert leaf["items"][0]["kind"] == "module" and leaf["next_cursor"] is not None
     with pytest.raises(ValueError, match="unknown map parent"):
         query(path, tmp_path, "map", {"parent": "made-up"})
+
+
+def test_system_modules_keeps_both_languages_before_leaf_paging(tmp_path: Path) -> None:
+    parts = [("shell", "python", "py", 40), ("core", "rust", "rs", 2)]
+    topology = {
+        "version": 1,
+        "edges": [],
+        "components": [
+            {"id": owner, "name": owner, "language": lang, "parent": None}
+            for owner, lang, _, _ in parts
+        ],
+        "modules": [
+            {
+                "name": f"{lang}.module{index}",
+                "component": owner,
+                "language": lang,
+                "path": f"{owner}/module{index}.{ext}",
+            }
+            for owner, lang, ext, count in parts
+            for index in range(count)
+        ],
+    }
+    path = tmp_path / "cache" / "mixed.sqlite"
+    publish_snapshot(
+        path,
+        SnapshotIdentity("rev", "contract", "source"),
+        lambda db: populate(db, topology, tmp_path),
+        "UNKNOWN",
+    )
+    result = query(path, tmp_path, "map", {"parent": "system", "view": "modules"})
+    assert {item["id"]: item["module_count"] for item in result["items"]} == {
+        "shell": 40,
+        "core": 2,
+    }
+    assert result["next_cursor"] is None
+    rust = query(path, tmp_path, "map", {"parent": "core", "view": "modules"})
+    assert [item["name"] for item in rust["items"]] == ["rust.module0", "rust.module1"]
