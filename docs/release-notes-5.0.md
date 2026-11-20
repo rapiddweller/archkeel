@@ -20,22 +20,22 @@ These notes describe new behavior, breaking changes, migration steps and known l
   accepted; a refused run exits 1. This changes CI behavior (see
   [breaking changes](#breaking-changes-and-migration)).
 - **Some 4.0.1 features are not on the current development line** (`check`, amendments, saved
-  observations, focused reports, the standalone `explore` command, and Studio). The report still
-  includes its Explorer. Do not treat `main` as a released 5.0 build.
+  observations and focused reports). Studio and its `explore` alias are available in the
+  development checkout. Do not treat `main` as a released 5.0 build.
 
 ## What is new
 
 ### The Rust core and its language profiles
 
-- One core binary collects the facts of each language and decides each rule. There is no Python
-  fallback.
+- The Rust core decides each rule. It collects facts with linked collectors and a Rust worker.
+  There is no Python decision fallback.
 - **Rust is a new language profile.** ArchKeel checks Cargo workspaces and single crates.
 - TypeScript: each rule kind that the core has ported is decided.
 - Python and Dart: the rules that read the import graph are decided, and `interface_boundary`
   ([AD-504](architecture/decisions/ad-504-the-python-survey-writes-the-publication-route-of-each-named-import.md)).
-  A Dart cycle rule is also decided when the survey proves the package map is complete. Other
-  unported rule kinds are UNKNOWN. The current list is in
-  [known limits](known-limits.md#supported-projects-on-main).
+  Python also checks direct function calls for `call_owner`. Dart cycle rules are decided when the
+  survey proves the package map is complete. Unsupported or unproved cases are UNKNOWN.
+  The current list is in [known limits](known-limits.md#supported-projects-on-main).
 - Python target version: set `python = "3.13"` in `[scan]`, or ArchKeel takes the lowest version of
   `requires-python`. The collector supports Python 3.11 to 3.14 and runs no interpreter.
 
@@ -72,12 +72,14 @@ These notes describe new behavior, breaking changes, migration steps and known l
   `outcome` is one of `verdict`, `collect_refused`, `command_refused`, `delivery_failed` or
   `completed`. A refusal has the field `refusal` with `kind` and `message`.
 - **HTML report.** `report --output PATH` writes a static page from the same ruling. The page
-  includes the interactive Explorer and its architecture view: As-Is, Target and Diff. The
-  standalone `explore` command is not available on `main`. Studio is also unavailable, so this is
-  not a standalone Studio drill. See the [report reference](reference.md) and
-  [`html_arch.rs`](../native/report/src/html_arch.rs).
+  includes an interactive architecture view: As-Is, Target and Diff. See the
+  [report reference](reference.md) and [`html_arch.rs`](../native/report/src/html_arch.rs).
+- **Local Explorer.** `archkeel studio` opens the whiteboard and report on one local snapshot.
+  `explore` is an alias. Studio can inspect source and play checked stories. The optional MCP
+  server queries a pinned snapshot. See the [Explorer guide](explorer.md). Availability in a
+  published 5.0 artifact must be checked at release.
 - `report --topology` adds the components, modules, edges and declared structure to the JSON.
-  `report --format json` writes the core frame to a file.
+  `report --output PATH --format json` writes the core frame to a file.
 - **Cycles.** A cycle shows its closed path in import order, with one `file:line` for each step.
   The JSON row adds `path` and the sorted `members`
   ([AD-786](architecture/decisions/ad-786-a-cycle-row-names-its-closed-path-and-its-sorted-members.md)).
@@ -108,7 +110,8 @@ reference projects on the release commit before publication.
 
 ## Breaking changes and migration
 
-Measured with `uvx archkeel==4.0.1` and main `edef7a140` on the same plant unless a row says otherwise.
+The initial comparison used 4.0.1 and main `edef7a140` on the same plant. Command availability
+below was checked against the development checkout at `6b65c695b`. Recheck the release artifact.
 
 | What | 4.0.1 | 5.0 | What to do |
 |---|---|---|---|
@@ -117,19 +120,22 @@ Measured with `uvx archkeel==4.0.1` and main `edef7a140` on the same plant unles
 | JSON result | 4.0.1 result schema | `command`, `outcome`, `status`, `exit_code`, and a core frame when a run completes | Read `status` and `exit_code`; a refusal has no frame. |
 | `check` | available | refused, exit 2 | Keep 4.0.1 for `check`. |
 | `validate` options `--against`, `--amendment`, `--write-amendment`, `--accept-new`, `--write-graph`, `--compact-open-decisions`, `--decided-by`, `--rationale` | available | refused by name, exit 2 | Keep 4.0.1 for these workflows. |
-| `report` options `--only`, `--rule`, `--component`, `--full`, `--input`, `--baseline` | available | refused by name, exit 2 | Use `report --output` (HTML) or `--json`. |
-| `init` options `--language`, `--namespace`, `--source`, `--force`, `--full`, `--tsconfig`, `--collector-argv`, `--collector-output-limit-bytes` | available | refused by name, exit 2 | Run `archkeel init`, then edit `archkeel.toml`. |
+| `report` options `--only`, `--rule`, `--component`, `--full`, `--input` | available | refused by name, exit 2 | Use `report --output` (HTML) or `--json`. |
+| `report --baseline` | available | unsupported; exit 1 | Use `validate --baseline` for the baseline check. |
+| `init` options `--language`, `--namespace`, `--source`, `--force`, `--full`, `--tsconfig`, `--collector-argv`, `--collector-output-limit-bytes` | available | unsupported, exit 2 | Run `archkeel init`, then edit `archkeel.toml`. |
 | Saved `architecture.json`, focused reports, amendments | available | not available | No replacement on the current development line. |
-| Explorer and architecture view | Interactive report in 4.0.1 | `report --output` embeds the Explorer with As-Is, Target and Diff. The standalone `explore` command and Studio are unavailable. | Use `report --output` for the embedded Explorer. There is no standalone `explore` command or Studio drill on the current development line. |
-| Internal shell names (`archkeel.cli.*`) | public names | 35 names got a leading underscore ([#1438](https://github.com/rapiddweller/archkeel/pull/1438), owner decision) | They were never an API. Use the command. |
+| Explorer and architecture view | Interactive report | `report --output` embeds an architecture view. The development checkout also provides `studio` and its `explore` alias. | Use `report --output` for a report, or `studio` for the local Explorer. Verify the release artifact. |
 | Baselines | available | `validate --baseline` and `validate --write-baseline` are available | Review a rewritten baseline before you commit it. |
 | Amendments | available | not available | Keep 4.0.1 for amendment workflows. |
 | Installation of the core | — | release builds carry the core in platform wheels ([AD-436](architecture/decisions/ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md)) | Confirm the wheel set and version from the release workflow. `main` is a development build, not a release candidate. |
 
 ## Performance
 
-The previous timing table measured an earlier core and is not evidence for current `main`.
-Measure the same projects again on the release commit before publication.
+A [benchmark](performance.md) compared 4.0.1 with development build `858cb6905` on the
+same DATAMIMIC CE revision and one ownership rule. Median validation time was 27.93 s and
+1.18 s respectively. The rule passed in both; the overall development verdict was UNKNOWN.
+The builds collected different evidence. These results are not measurements of the release
+commit. Measure the release candidate again before publication.
 
 ## Known limits and false-PASS checks
 
@@ -144,13 +150,14 @@ Before release, fix each reproduced false PASS and retain its regression test.
 
 Other limits of 5.0:
 
-- Python and Dart decide only the import-graph rules and `interface_boundary`. Dart cycle rules
-  have a receipt when the survey proves the package map is complete.
+- Python and Dart support import and interface boundary checks. Python also checks direct
+  function calls for `call_owner`. Dart cycle rules need a complete package map. Unsupported
+  or unproved cases remain UNKNOWN.
 - Rust macros: a macro that the scan does not expand is a named gap. On `pydantic-core`, unexpanded
   macros can hold the assignment rule UNKNOWN. The historical count and its source commit are not
-  verified here, so this draft does not state a number.
-- `explore`, `guide`, `story`, `view` and `studio` are not on the current development line. The
-  report's embedded Explorer remains available.
+  verified here, so these notes do not state a number.
+- Studio and `explore` are available in the development checkout. The separate `guide`, `story`
+  and `view` CLI workflows are not available there; Studio can play checked stories.
 - File output (`report --output`) needs POSIX directory handles; other platforms refuse it.
 
 ## Premises that a PASS can rest on
@@ -177,8 +184,8 @@ verdict, so a PASS is never claimed without it.
 What a structural PASS means (not a premise, but a limit of the claim):
 
 - A closed class scope of a UML target passes only from a member inventory that the collector states
-  complete. For TypeScript the members are those that `tsc` gives the type; Python and Rust
-  inventories stay partial, so such a scope stays UNKNOWN there
+  complete. TypeScript uses the members that `tsc` gives the type. Python and Rust inventories
+  can remain partial, so such a scope can stay UNKNOWN there
   ([AD-747](architecture/decisions/ad-747-a-closed-class-scope-passes-from-a-complete-member-inventory.md)).
 - A bare Python class-body annotation can satisfy a UML attribute. It declares the attribute; it
   does not prove a runtime value
