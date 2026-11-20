@@ -155,9 +155,9 @@ struct Import {
     evidence_ids: Vec<EvidenceId>,
 }
 
-type RustMethods<'a> = HashMap<(&'a EvidenceId, &'a str), Option<&'a FactId>>;
+type MethodDeclarations<'a> = HashMap<(&'a EvidenceId, &'a str), Option<&'a FactId>>;
 
-fn rust_methods(sections: &[Section]) -> RustMethods<'_> {
+fn method_declarations(sections: &[Section]) -> MethodDeclarations<'_> {
     let mut methods = HashMap::new();
     for section in sections {
         let Section::Symbols(rows) = section else {
@@ -179,7 +179,10 @@ fn rust_methods(sections: &[Section]) -> RustMethods<'_> {
     methods
 }
 
-fn rust_method_target<'a>(row: &Record<CallFact>, methods: &RustMethods<'a>) -> Option<&'a FactId> {
+fn cited_method_target<'a>(
+    row: &Record<CallFact>,
+    methods: &MethodDeclarations<'a>,
+) -> Option<&'a FactId> {
     let CallFact::Calls(call) = &row.data else {
         return None;
     };
@@ -315,11 +318,7 @@ fn project(reply: &archkeel_store::Ingested) -> ExplorerPart {
         )
         .map(|(owner, witness)| (&owner.site, (owner, &witness.method)))
         .collect();
-    let methods = if language == "rust" {
-        rust_methods(&facts.sections)
-    } else {
-        HashMap::new()
-    };
+    let methods = method_declarations(&facts.sections);
     for section in &facts.sections {
         match section {
             Section::Symbols(rows) => {
@@ -334,7 +333,7 @@ fn project(reply: &archkeel_store::Ingested) -> ExplorerPart {
                                 direct
                                     .get(&row.id)
                                     .copied()
-                                    .or_else(|| rust_method_target(row, &methods)),
+                                    .or_else(|| cited_method_target(row, &methods)),
                                 constructed.get(&row.id).copied(),
                             )
                         })
