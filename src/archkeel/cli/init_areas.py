@@ -144,6 +144,18 @@ def _python_single(root: Path, package: Path, note: str) -> Layout:
     return Layout("python", namespace, (scan,), tuple(parts), _TESTS, note=note)
 
 
+def _python_one_script(root: Path) -> Layout | None:
+    scripts = [p for p in sorted(root.glob("*.py")) if not _is_test(Path(p.name))]
+    if len(scripts) > 1:
+        raise NothingToDraft(
+            "Multiple Python scripts in the repository root need a package layout."
+        )
+    if not scripts or not scripts[0].stem.isidentifier() or scripts[0].stem == "__init__":
+        return None
+    name = scripts[0].stem
+    return Layout("python", name, (".",), (Part("root", modules=(name,)),), _TESTS)
+
+
 def _python_scan(root: Path, base: Path, names: list[str], note: str) -> Layout:
     """The scan of a folder (`src`) that holds several packages: a component for each."""
     namespace = _name(base.name)

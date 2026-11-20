@@ -5,12 +5,10 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
 import sqlite3
-import stat
 import sys
 import tempfile
 import webbrowser
@@ -29,15 +27,16 @@ from archkeel.explorer_store import (
 )
 
 from .core_arguments import Options, OutputMode
-from .core_binary import collector_workers
 from .core_binding import ProjectRoot
 from .core_exit import Outcome, envelope, exit_for
+from .core_explorer_identity import _file_digest, _fingerprint
 from .core_frame import CoreError, CoreFrame, GapKind
 from .core_json import as_object, as_text
 from .init_draft import draft, write_missing
-from .native_scan import identity, prepare_disposable_git, tracked_and_unignored
+from .native_scan import prepare_disposable_git
 
 _ASSETS = Path(__file__).with_name("assets")
+_REPORT_CACHE_BYTES = 64 << 20
 _ROUTES = {
     "/": ("explorer.html", "text/html; charset=utf-8"),
     "/explorer.js": ("explorer.js", "text/javascript; charset=utf-8"),
@@ -55,7 +54,13 @@ _CSP = (
 
 
 class _ExplorerServer(HTTPServer):
-    def __init__(self, path: Path, root: Path, report: Callable[[], str] | None, port: int) -> None:
+    def __init__(
+        self,
+        path: Path,
+        root: Path,
+        report: Callable[[], tuple[str, tuple[str, bytes]]] | None,
+        port: int,
+    ) -> None:
         self.snapshot = path
         self.root = root
         self.report = report
@@ -114,6 +119,8 @@ class _Browse(BaseHTTPRequestHandler):
                 self._reply(200, (_ASSETS / file).read_bytes(), content)
             elif url.path == "/report":
                 self._native_report()
+            elif url.path.startswith("/archkeel-gaps-") and url.path.endswith(".json"):
+                self._report_gaps(url.path)
             elif url.path == "/report.css":
                 self._reply(200, self.server.css, "text/css; charset=utf-8")
             elif url.path.startswith("/api/") and operation in _OPERATIONS:
@@ -130,13 +137,24 @@ class _Browse(BaseHTTPRequestHandler):
             self._reply(404, b"The observed-only snapshot has no architecture contract report.")
             return
         link = '<a class="ui" href="/">Open architecture whiteboard</a>'
-        page = self.server.report().replace("</header>", link + "</header>", 1)
+        page, _ = self.server.report()
+        page = page.replace("</header>", link + "</header>", 1)
         self._reply(
             200,
             page.encode(),
             "text/html; charset=utf-8",
             csp="base-uri 'none'; frame-ancestors 'none'",
         )
+
+    def _report_gaps(self, path: str) -> None:
+        if self.server.report is None:
+            self._reply(404, b"Page not found.")
+            return
+        _, (name, content) = self.server.report()
+        if path != "/" + name:
+            self._reply(404, b"Page not found.")
+            return
+        self._reply(200, content, "application/json; charset=utf-8")
 
     def _api(self, operation: str, query_string: str) -> None:
         pairs = parse_qsl(query_string, keep_blank_values=True, max_num_fields=12)
@@ -155,66 +173,6 @@ class _Browse(BaseHTTPRequestHandler):
         self._reply(200, json.dumps(result).encode(), "application/json; charset=utf-8")
 
 
-def _file_digest(file: Path, info: os.stat_result | None = None) -> str:
-    expected = info or file.lstat()
-    flags = os.O_RDONLY
-    if sys.platform != "win32":
-        flags |= os.O_NOFOLLOW | os.O_NONBLOCK
-    descriptor = os.open(file, flags)
-    with os.fdopen(descriptor, "rb") as opened:
-        before = os.fstat(opened.fileno())
-        if not stat.S_ISREG(before.st_mode) or (
-            before.st_dev,
-            before.st_ino,
-            before.st_mtime_ns,
-            before.st_ctime_ns,
-        ) != (expected.st_dev, expected.st_ino, expected.st_mtime_ns, expected.st_ctime_ns):
-            raise CoreError("a fingerprint input was replaced or is not a regular file")
-        digest = hashlib.file_digest(opened, "sha256").hexdigest()
-        after = os.fstat(opened.fileno())
-        if (before.st_mtime_ns, before.st_ctime_ns) != (after.st_mtime_ns, after.st_ctime_ns):
-            raise CoreError("a fingerprint input changed during the read")
-        return digest
-
-
-def _fingerprint(project: ProjectRoot, binary: Path) -> tuple[SnapshotIdentity, dict[str, str]]:
-    state = identity(project.path)
-    if state is None:
-        raise CoreError("the Explorer needs a Git work tree with a commit")
-    files = tracked_and_unignored(project.path) | {Path(project.config)}
-    digests: dict[str, str] = {}
-    total = 0
-    for name in sorted(files):
-        file = project.path / name
-        if name.is_absolute() or ".." in name.parts:
-            raise CoreError("an Explorer snapshot path leaves the project root")
-        if file.parent.resolve() != file.parent:
-            raise CoreError("an Explorer snapshot path has a linked parent")
-        try:
-            info = file.lstat()
-        except FileNotFoundError:
-            digests[name.as_posix()] = "missing"
-            continue
-        if stat.S_ISLNK(info.st_mode):
-            digests[name.as_posix()] = "link:" + os.readlink(file)
-        elif stat.S_ISREG(info.st_mode):
-            total += info.st_size
-            if total > 2 << 30:
-                raise CoreError("the Explorer snapshot exceeds the 2 GiB fingerprint limit")
-            digests[name.as_posix()] = _file_digest(file, info)
-        elif stat.S_ISDIR(info.st_mode):
-            digests[name.as_posix()] = "directory"
-        else:
-            raise CoreError("the Explorer snapshot contains an unsupported file")
-    source = hashlib.sha256(json.dumps([state[1], digests], sort_keys=True).encode()).hexdigest()
-    executables = [
-        (_file_digest(path) if path.exists() else "missing")
-        for path in (binary, *collector_workers(binary))
-    ]
-    contract = hashlib.sha256(json.dumps([project.config, executables]).encode()).hexdigest()
-    return SnapshotIdentity(state[0], contract, source), digests
-
-
 def _observed_scan(
     project: ProjectRoot,
     digests: dict[str, str],
@@ -223,7 +181,8 @@ def _observed_scan(
     if Path(tempfile.gettempdir()).resolve().is_relative_to(project.path):
         raise CoreError("the Explorer temporary directory must be outside the project root")
     with tempfile.TemporaryDirectory(prefix="archkeel-observed-") as temporary:
-        copy = Path(temporary).resolve()
+        copy = Path(temporary).resolve() / project.path.name
+        copy.mkdir()
         for name, digest in digests.items():
             if len(digest) != 64:
                 continue  # Git paths that are missing, links or submodule directories.
@@ -234,10 +193,12 @@ def _observed_scan(
             shutil.copyfile(original, target)
             if _file_digest(target) != digest:
                 raise CoreError("a project file changed while copying the observed scan")
-        layout = draft(copy)
-        written = write_missing(copy, layout)
-        if len(written) != len(layout.files):
-            raise CoreError("existing architecture files require an explicit --config")
+        # Isolate scanner inputs from repository documentation with the same filenames.
+        folder = ".archkeel-observed"
+        while (copy / folder).exists():
+            folder += "_"
+        layout = draft(copy, scan_folder=folder)
+        write_missing(copy, layout)
         prepare_disposable_git(copy)
         return scan(ProjectRoot.of(copy, layout.entry))
 
@@ -326,7 +287,7 @@ def launch(
     project: ProjectRoot,
     binary: Path,
     scan: Callable[[ProjectRoot], tuple[bytes, CoreFrame]],
-    render_report: Callable[[], str | None] | None,
+    render_report: Callable[[], tuple[str, tuple[str, bytes]]] | None,
 ) -> int:
     """Use a matching snapshot or publish a new one, then start the local Explorer."""
     snapshot, digests = _fingerprint(project, binary)
@@ -347,13 +308,20 @@ def launch(
         if _fingerprint(project, binary)[0] != snapshot:
             raise CoreError("the project changed after the Explorer scan; run explore again")
 
-    def report() -> str:
+    cached_report: tuple[str, tuple[str, bytes]] | None = None
+
+    def report() -> tuple[str, tuple[str, bytes]]:
+        nonlocal cached_report
         confirm_snapshot()
-        page = render_report() if render_report is not None else None
-        confirm_snapshot()
-        if page is None:
+        if render_report is None:
             raise CoreError("the core did not give the native report")
-        return page
+        if cached_report is None:
+            result = render_report()
+            confirm_snapshot()
+            if len(result[0].encode("utf-8")) + len(result[1][1]) <= _REPORT_CACHE_BYTES:
+                cached_report = result
+            return result
+        return cached_report
 
     code = exit_for(Outcome.COMPLETED, None, baseline=False)
     with (

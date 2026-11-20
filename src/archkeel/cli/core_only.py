@@ -25,7 +25,7 @@ from .core_arguments import NotOnThisLine, Options, OutputMode, command_of, outp
 from .core_baseline import as_json as baseline_json
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
 from .core_binding import ProjectRoot, RootMode, resolve_root
-from .core_delivery import _deliver, _Refusal, _refuse_timings_target
+from .core_delivery import _deliver, _explorer_report, _Refusal, _refuse_timings_target
 from .core_exit import Outcome, envelope, exit_for, outcome_of, require_baseline_part
 from .core_frame import CoreCommand as Command
 from .core_frame import (
@@ -328,8 +328,8 @@ def _explore(options: Options, mode: OutputMode) -> int:
         )
         return _exchange_scan(report, target, binary, [])
 
-    render = (lambda: scan(project, html=True)[1].html) if configured else None
-    return launch(options, mode, project, binary, scan, render)
+    render_report = (lambda: _explorer_report(*scan(project, html=True))) if configured else None
+    return launch(options, mode, project, binary, scan, render_report)
 
 
 def _exchange_scan(

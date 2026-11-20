@@ -36,16 +36,26 @@ async function api(operation, args = {}) {
   return response.json();
 }
 
-function updateCoverage({ snapshot, coverage }) {
-  const facts = [
-    coverage.observed_only && "Observed only · Layout groups",
-    coverage.verdict && "Verdict " + coverage.verdict,
-    coverage.complete ? "Complete topology" : "Coverage UNKNOWN",
-    coverage.truncated && "Topology truncated",
-    "Snapshot " + snapshot.slice(0, 12),
-  ].filter(Boolean);
-  get("coverage").textContent = facts.join(" · ");
+function updateOverview({ coverage }) {
+  const displayNames = { python: "Python", rust: "Rust", dart: "Dart", typescript: "TypeScript", javascript: "JavaScript" };
+  const languages = new Set((coverage.parts ?? []).map((part) => part.language).filter(Boolean));
+  const facts = [...languages].sort().map((language) => displayNames[language] ?? language);
+  const summary = [facts.join(", ")].filter(Boolean);
+  for (const [key, noun] of [["components", coverage.observed_only ? "layout group" : "component"], ["modules", "module"]]) {
+    const count = coverage.total?.[key];
+    if (Number.isInteger(count)) summary.push(count.toLocaleString() + " " + noun + (count === 1 ? "" : "s"));
+  }
+  get("overview").textContent = summary.join(" · ");
   get("native-report").hidden = Boolean(coverage.observed_only);
+  if (coverage.observed_only) details.append(element("p", "Observed structure grouped by layout."));
+  if (coverage.truncated) details.append(element("p", "The snapshot retains a limited topology."));
+  else if (coverage.complete === false) details.append(element("p", "The snapshot covers part of the system."));
+  const imports = coverage.external_imports;
+  if (imports?.packages.length) {
+    const remaining = imports.total - imports.packages.length;
+    const names = imports.packages.join(", ") + (remaining ? " · " + remaining.toLocaleString() + " more" : "");
+    details.append(element("h3", "Observed external imports"), element("p", names));
+  }
 }
 
 function breadcrumbs(source = false) {
@@ -187,7 +197,7 @@ async function showScope(ancestors, query = null) {
     ? await api("search", { text: query, limit: 12, cursor })
     : await api(current.id === "system" ? "overview" : "children", { parent: current.id, limit: 12, cursor });
   if (request !== state.request) return;
-  updateCoverage(response);
+  if (current.id === "system" && !query) updateOverview(response);
   state.items = response.items;
   state.cursor = response.next_cursor;
   paintCards();

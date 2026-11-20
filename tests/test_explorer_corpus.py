@@ -54,21 +54,39 @@ def test_positive_import_requires_source_and_edge(tmp_path: Path) -> None:
     assert check_import("ce", tmp_path, topology)["positive_import"] == "source changed"
 
 
-def test_missing_config_is_drafted_only_in_copy(tmp_path: Path) -> None:
+def test_missing_config_uses_the_original_repository(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "source"
     root.mkdir()
     subprocess.run(["git", "init", "-q", str(root)], check=True)
-    (root / "sample.py").write_text("pass\n")
-    cli = tmp_path / "archkeel"
-    cli.write_text(
-        "#!/bin/sh\n"
-        'if [ "$1" = init ]; then touch archkeel.toml; exit 0; fi\n'
-        'printf \'%s\' \'{"status":"UNKNOWN","frame":{}}\'\n'
-    )
-    cli.chmod(0o755)
-    result = run("sample", root, None, tmp_path, cli)
-    assert result["disposable_copy"] is True
+
+    def launch(cli, target, config, *, probe):
+        assert target == root and config is None
+        return {"checks": probe(tmp_path / "unused"), "stable_snapshot": True}
+
+    monkeypatch.setattr("tools.explorer_corpus.measure", launch)
+    result = run("sample", root, None, tmp_path, tmp_path / "cli")
+    assert result["mode"] == "observed"
+    assert result["checks"] == {"error": "no source oracle"}
     assert not (root / "archkeel.toml").exists()
+
+
+def test_observed_import_follows_the_public_cursor(tmp_path: Path, monkeypatch) -> None:
+    from tools.explorer_corpus import ORACLES, _observed_import
+
+    name, statement, source, target = ORACLES["platform"]
+    file = tmp_path / name
+    file.parent.mkdir(parents=True)
+    file.write_text(statement + "\n")
+    edge = {"source": source, "target": target, "evidence": [{"path": name, "line": 1}]}
+    pages = {"": ([], "next"), "next": ([edge], None)}
+
+    def query(snapshot, root, operation, args):
+        assert operation == "relations" and args["element"] == source
+        items, following = pages[args["cursor"]]
+        return {"items": items, "next_cursor": following}
+
+    monkeypatch.setattr("tools.explorer_corpus.query", query)
+    assert _observed_import("platform", tmp_path, tmp_path / "db")["positive_import"] == "observed"
 
 
 def test_missing_wrong_or_refused_probe_fails() -> None:

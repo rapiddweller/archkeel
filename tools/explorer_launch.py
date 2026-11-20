@@ -13,6 +13,7 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -63,11 +64,19 @@ def check_clusters(snapshot: Path, url: str) -> dict[str, str]:
     return results
 
 
-def measure(cli: Path, root: Path, config: str, runs: int = 10) -> dict[str, Any]:
+def measure(
+    cli: Path,
+    root: Path,
+    config: str | None,
+    runs: int = 10,
+    *,
+    probe: Callable[[Path], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Record startup, one bounded query and cache identity for each launch."""
     starts: list[float] = []
     queries: list[float] = []
     snapshots = []
+    checks = {}
     clusters: dict[str, str] = {}
     with tempfile.TemporaryDirectory(prefix="archkeel-cache-") as cache:
         env = dict(os.environ, XDG_CACHE_HOME=cache)
@@ -78,8 +87,7 @@ def measure(cli: Path, root: Path, config: str, runs: int = 10) -> dict[str, Any
                 "explore",
                 "--root",
                 str(root),
-                "--config",
-                config,
+                *(["--config", config] if config else []),
                 "--no-open",
                 "--json",
             ]
@@ -134,6 +142,8 @@ def measure(cli: Path, root: Path, config: str, runs: int = 10) -> dict[str, Any
                 if not isinstance(payload.get("items"), list):
                     return {"error": "Explorer query refused", "completed": len(queries)}
                 queries.append(round((time.monotonic() - started) * 1000, 3))
+                if probe is not None and len(starts) == 1:
+                    checks = probe(snapshot)
                 if not clusters:
                     clusters = check_clusters(snapshot, launch["url"])
             except (OSError, ValueError, sqlite3.Error) as error:
@@ -148,6 +158,7 @@ def measure(cli: Path, root: Path, config: str, runs: int = 10) -> dict[str, Any
                     process.wait()
                 stderr.close()
     return {
+        **({"checks": checks} if probe else {}),
         "startup_seconds": starts,
         "query_ms": queries,
         "snapshot_bytes": snapshots[0][2],

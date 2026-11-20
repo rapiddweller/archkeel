@@ -137,8 +137,7 @@ file, directory or crate is named `util`, `utils`, `common`, `helper`, `helpers`
 
 ## Browser assets
 
-The Explorer and Studio browser assets are not in the tree: no 5.0 path loads them (AD-582). Git
-history keeps them. They come back when `explore` and Studio are ported to the core (5.1).
+The local Studio loads the packaged assets in `src/archkeel/cli/assets/` (AD-1017).
 `tools/browser-runtime` holds only the pinned TypeScript compiler that the standard-library
 catalog check reads.
 

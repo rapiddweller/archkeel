@@ -777,7 +777,8 @@
       "layer": "present",
       "packages": [],
       "exact_modules": [
-        "archkeel.cli.core_explorer"
+        "archkeel.cli.core_explorer",
+        "archkeel.cli.core_explorer_identity"
       ],
       "responsibilities": [
         "Bind the local Explorer to a verified scan and serve its indexed views and report."

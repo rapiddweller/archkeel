@@ -26,3 +26,9 @@ collector definition IDs. Member coverage comes from each class inventory.
 `cli/core_explorer.py` serves the whiteboard. `explorer_store.py` publishes snapshots.
 `explorer_queries.py` reads them. `explorer_mcp.py` exposes these reads over stdio.
 `explorer_boundaries.py` records source hints for cross-language navigation.
+
+With no Archkeel configuration, Studio uses the existing layout discovery in a private
+copy of the Git working tree. Generated scanner inputs stay in that copy. The board
+shows measured languages and counts. The inspector lists resolved external imports.
+The report serves its gap evidence on demand. It retains up to 64 MiB of rendered
+report and gap data in memory and renders larger reports again when requested.

@@ -177,12 +177,16 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 
 ## The core path on main
 
+- The observed Explorer cannot open several Python scripts directly in the repository root as one
+  scan. The Python collector requires its namespace in each source path. Use a package layout.
+  When no other supported area is detected, one root script with an identifier as its filename is
+  supported.
 - No release carries the core binary. A platform wheel of `main` carries it (`make native-wheel`),
   and a build without the core refuses. Run `main` from a source checkout after `make core`.
 - The core decides on Windows since AD-442, and the installed Windows wheel must equal the core of
   the checkout. A release from `main` is open (AD-476): it publishes the sdist and the six platform
   wheels that Full builds and runs. The Windows wheel writes no report file (see `report --output`).
-- `init` is served (AD-626, AD-638): Python packages, a Cargo workspace or a `package.json` workspace; folder layout only, every decision a `TODO`; `validate` and `report` run it when `archkeel.toml` is missing, and a run that may not write stops (no in-memory configuration). `check`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
+- `init` is served (AD-626, AD-638): Python packages, a Cargo workspace or a `package.json` workspace; folder layout only, every decision a `TODO`; `validate` and `report` run it when `archkeel.toml` is missing, and a run that may not write stops (no in-memory configuration). `explore` and its alias `studio` open the local Explorer. `check`, `guide`, `story` and `view` give the typed refusal
   `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
   reports, amendments and `--write-graph` are refused by option name. `--baseline` and
   `--write-baseline` are served ([reference](reference.md#baselines)).
@@ -658,8 +662,7 @@ A member `source`, `view`, `currentTarget` or a window name is a window, and a m
 An exemption for data that the file makes is follow-up work: a literal can carry an event or a prototype.
 A markup literal is text only when it holds no handler, code element, URL attribute, style, code
 scheme, `&` or `\\`.
-The browser Explorer and Studio assets, and their self-check contracts, are removed (AD-582). They return
-with the port of `explore` and Studio to the core (5.1).
+AD-582 removed the former browser and Studio assets. The local Explorer now has its own assets.
 The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
 the file, where the Python collector reads the file and can give FAIL. The two collectors give
 the same facts only for files under the limit.

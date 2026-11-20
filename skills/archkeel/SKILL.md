@@ -20,6 +20,9 @@ run `make core` to build the core binary first.
   topology. `--output PATH` writes one static HTML page; `--output PATH --format json` writes the
   frame instead: `archkeel report --output report.json --format json`. Without `--output`, the
   format option is refused. No file is written by default. The parent of `PATH` must exist.
+- `archkeel studio [PATH | --root PATH]` opens the local Explorer. `archkeel explore` is the same
+  command. Without a contract it shows observed source without writing a contract. A project schema or
+  gap-free scan is not required; UNKNOWN remains UNKNOWN.
 - `archkeel skill install claude` or `archkeel skill install codex` writes this skill file.
 - `archkeel init` drafts `archkeel.toml` and a contract from the folder layout (Python packages, a
   Cargo workspace, a package.json workspace). `validate` and `report` do it by themselves when
@@ -27,9 +30,9 @@ run `make core` to build the core binary first.
   nothing). Every decision in the draft is a `TODO`: the first verdict is UNKNOWN and lists them. Ask
   the owner for each decision; never fill one in alone. The walk is in `docs/onboarding.md`.
 
-`check`, `explore`, `guide`, `story`, `view` and `studio` are refused with exit 2 and the
+`check`, `guide`, `story` and `view` are refused with exit 2 and the
 reason `not available on this development line`. Release 4.0.1 has `check`; no release
-has the other four. Saved reports, `architecture.json`, amendments, `--component` and
+has the other three. Saved reports, `architecture.json`, amendments, `--component` and
 `--write-graph` are refused by option name. A refusal is not a result: never report PASS after one,
 and never run a refused command in a loop. Tell the owner and use release 4.0.1 when they need it.
 

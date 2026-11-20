@@ -11,8 +11,8 @@ The Python engine is deleted. The shell reads the arguments, starts the core and
 | `skill install claude\|codex` | Served by the shell. It writes the skill file. |
 | `init` | Served by the shell: drafts `archkeel.toml` and a contract from the folder layout ([guide](onboarding.md), AD-626, AD-638). `validate` and `report` do it when `archkeel.toml` is missing, unless `--no-init` or `ARCHKEEL_NO_INIT=1`. |
 | `check` | Typed refusal, exit 2. Release 4.0.1 has it. |
-| `explore` | Open the [local Explorer](explorer.md). |
-| `guide`, `story`, `view`, `studio` | Typed refusal, exit 2. No release has them. |
+| `explore`, `studio` | Open the [local Explorer](explorer.md); `studio` is an alias. |
+| `guide`, `story`, `view` | Typed refusal, exit 2. No release has them. |
 
 `main` supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A config without `language` selects the Python profile. There is no partial PASS.
@@ -21,8 +21,7 @@ Interactive reports, `architecture.json`, saved reports, focused reports, amendm
 `validate --baseline` and `validate --write-baseline` are on `main` ([baselines](#baselines)).
 
 Release 4.0.1 has the Python engine: `check`, `init`, full reports and baselines for Python,
-Dart and TypeScript projects. It has no Rust profile, `explore`, Studio, stories or views. The Explorer and Studio browser assets are
-not in the tree on `main` (AD-582); they return with the port of `explore` and Studio to the core (5.1).
+Dart and TypeScript projects. It has no Rust profile, `explore`, Studio, stories or views.
 Its documents are at the [tag 4.0.1](https://github.com/rapiddweller/archkeel/tree/4.0.1/docs).
 This page and [known limits](known-limits.md) describe `main`.
 

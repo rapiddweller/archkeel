@@ -100,10 +100,11 @@ examples:
   archkeel report --json --topology
 """
 _EXPLORE: Final = """\
-usage: archkeel explore [--root PATH] [--config PATH] [--port PORT] [--no-open]
+usage: archkeel explore [PATH | --root PATH] [--config PATH] [--port PORT] [--no-open]
                         [--json | --text]
 
 Open the architecture whiteboard and native report for the same local snapshot.
+`studio` is an alias for `explore`. PATH and --root select the repository; use only one.
 Without a contract configuration, the whiteboard shows observed source and layout groups.
 The Explorer binds to 127.0.0.1 and reads a snapshot of the repository.
 Press Ctrl-C to stop the server.
@@ -163,10 +164,11 @@ commands:
   validate   Check the contract: PASS, FAIL or UNKNOWN. `archkeel validate --help` lists options.
   report     Print the same result as a report; with --output, write an HTML page.
   explore    Open the local architecture whiteboard and report.
+  studio     Alias for explore.
   init       Draft archkeel.toml and a first contract from the folder layout.
   skill      Install the agent skill: archkeel skill install {{claude,codex}}
 
-not available yet (exit 2): check (use release {release}); guide, story, view, studio
+not available yet (exit 2): check (use release {release}); guide, story, view
 (no release has them).
 
 {output}
@@ -189,6 +191,8 @@ def help_for(command: Command | None) -> str:
         return _REPORT.format(**fields)
     if command is Command.EXPLORE:
         return _EXPLORE
+    if command is Command.STUDIO:
+        return _EXPLORE.replace("usage: archkeel explore", "usage: archkeel studio", 1)
     if command is Command.SKILL:
         return _SKILL.format()
     if command is Command.INIT:

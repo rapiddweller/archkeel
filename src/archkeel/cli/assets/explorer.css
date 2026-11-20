@@ -19,7 +19,7 @@ button[hidden] { display: none; }
 .bar strong span { color: var(--accent-text); margin-inline: 3px; }
 main { max-width: 1412px; padding: 22px 16px; margin: auto; }
 .heading { margin-bottom: 12px; }
-#coverage { margin-top: 5px; }
+#overview { margin-top: 5px; }
 #notice:not(:empty) { padding-bottom: 10px; color: var(--unknown-text); }
 .workspace { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; }
 #breadcrumbs { min-height: 43px; padding: 6px 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; background: var(--surface-1); border-bottom: 1px solid var(--line); }

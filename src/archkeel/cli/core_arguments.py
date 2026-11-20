@@ -79,6 +79,7 @@ class Options(argparse.Namespace):
 
     command: Command
     root: Path | None = None
+    project: Path | None = None
     config: str = "archkeel.toml"
     # AD-776: the command line names `--config`; a relative path is read from the current folder.
     config_given: bool = False
@@ -140,7 +141,11 @@ def output_mode(argv: Sequence[str]) -> OutputMode:
     if "--text" in argv:
         return OutputMode.TEXT
     to_file = any(arg == "--output" or arg.startswith("--output=") for arg in argv)
-    if (argv and argv[0] in {Command.INIT, Command.EXPLORE}) or to_file or sys.stdout.isatty():
+    if (
+        (argv and argv[0] in {Command.INIT, Command.EXPLORE, Command.STUDIO})
+        or to_file
+        or sys.stdout.isatty()
+    ):
         return OutputMode.TEXT
     return OutputMode.JSON
 
@@ -151,6 +156,8 @@ def command_of(argv: Sequence[str]) -> Command:
         command = Command(argv[0])
     except ValueError as error:
         raise ValueError(f"unknown command {argv[0]!r}; run archkeel --help") from error
+    if command is Command.STUDIO:
+        return Command.EXPLORE
     if command is Command.CHECK:
         names = "; ".join(_active_checks())
         raise NotOnThisLine(f"check is {_LINE}; {_remedy(True)}; not ported: {names}")
@@ -230,6 +237,7 @@ def parse(argv: Sequence[str]) -> Options:
         if command is not Command.INIT:
             parser.add_argument("--config", default="archkeel.toml")
         if command is Command.EXPLORE:
+            parser.add_argument("project", nargs="?", type=Path)
             parser.add_argument("--port", type=_port, default=0)
             parser.add_argument("--no-open", action="store_true")
         if command in {Command.VALIDATE, Command.REPORT}:
@@ -258,6 +266,10 @@ def parse(argv: Sequence[str]) -> Options:
             raise NotOnThisLine(f"{command} {name} is {_LINE}; {remedy}")
     if extra:
         raise ValueError(f"unknown arguments: {' '.join(extra)}; run archkeel --help")
+    if command is Command.EXPLORE and options.project is not None:
+        if options.root is not None:
+            raise ValueError("use either a project path or --root, not both")
+        options.root = options.project
     if options.baseline is not None and options.baseline == options.write_baseline:
         raise ValueError(
             "--baseline and --write-baseline name the same file; "

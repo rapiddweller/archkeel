@@ -36,6 +36,8 @@ def _source_path(root: Path, name: str) -> Path:
 
 
 Row = dict[str, object]
+_AddElement = Callable[[str, str, str, str, Row], None]
+_Reference = Callable[[str, int], str]
 
 
 def _object(value: object) -> Row:
@@ -98,17 +100,14 @@ def _calls(part: Row, locations: Row, symbols: dict[str, list[str]]) -> Iterator
 
 
 def _imports(topology: Row) -> Iterator[Row]:
+    locations = _object(topology.get("locations", {}))
     for row in _rows(topology, "imports"):
         yield dict(
             row,
             source=row["source_module"],
             target=row.get("target_module"),
-            evidence=_fact_locations(row, _object(topology.get("locations", {}))),
+            evidence=_fact_locations(row, locations),
         )
-
-
-_AddElement = Callable[[str, str, str, str, Row], None]
-_Reference = Callable[[str, int], str]
 
 
 def _coverage(connection: sqlite3.Connection, topology: Row, root: Path) -> None:
@@ -127,9 +126,16 @@ def _coverage(connection: sqlite3.Connection, topology: Row, root: Path) -> None
         }
         for part in _records(topology.get("explorer"))
     ]
-    connection.execute(
-        "INSERT INTO analysis VALUES (?,?)", (str(root.resolve()), json.dumps(coverage))
-    )
+    packages = {
+        _text(row, "target_module")
+        for row in _rows(topology, "imports")
+        if (row.get("resolution"), row.get("evidence_class")) == ("external", "FACT")
+        and not row.get("inferred_receiver")
+        and row.get("target_module")
+    }
+    coverage["external_imports"] = {"packages": sorted(packages)[:12], "total": len(packages)}
+    metadata = (str(root.resolve()), json.dumps(coverage))
+    connection.execute("INSERT INTO analysis VALUES (?,?)", metadata)
 
 
 def _elements(topology: Row, element: _AddElement, reference: _Reference) -> None:
@@ -176,6 +182,7 @@ def _elements(topology: Row, element: _AddElement, reference: _Reference) -> Non
 
 def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list[Iterator[Row]]:
     calls: list[Iterator[Row]] = []
+    locations = _object(topology.get("locations", {}))
     for part in _records(topology.get("explorer")):
         symbols: dict[str, list[str]] = defaultdict(list)
         for row in _symbol_rows(list(_records(part.get("symbols")))):
@@ -183,7 +190,7 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
             if not isinstance(name, str) or not row.get("module"):
                 continue
             symbols[name].append(_text(row, "id"))
-            refs = _fact_locations(row, _object(topology.get("locations", {})))
+            refs = _fact_locations(row, locations)
             anchor = (
                 reference(_text(refs[0], "path"), _number(refs[0], "line", 1, 2**31 - 1))
                 if refs
@@ -196,8 +203,7 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
                 _text(row, "parent"),
                 _object(row["body"]) | {"source": anchor, "language": part.get("language")},
             )
-
-        calls.append(_calls(part, _object(topology.get("locations", {})), symbols))
+        calls.append(_calls(part, locations, symbols))
     return calls
 
 
@@ -230,8 +236,7 @@ def populate(connection: sqlite3.Connection, topology: Row, root: Path) -> None:
         )
 
     _elements(topology, element, reference)
-    calls = _symbols(topology, element, reference)
-    _relations(connection, topology, root, calls, reference)
+    _relations(connection, topology, root, _symbols(topology, element, reference), reference)
 
 
 def _relations(
@@ -239,7 +244,7 @@ def _relations(
     topology: Row,
     root: Path,
     calls: list[Iterator[Row]],
-    reference: Callable[[str, int], str],
+    reference: _Reference,
 ) -> None:
     interfaces = (
         dict(row, source="PART:" + _text(row, "source"), target="PART:" + _text(row, "target"))

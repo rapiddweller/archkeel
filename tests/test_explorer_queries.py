@@ -101,6 +101,45 @@ def test_call_step_uses_the_collectors_evidence(tmp_path: Path) -> None:
     assert result["items"][0]["evidence"][0]["line"] == 1
 
 
+def test_overview_lists_only_proved_external_import_packages(tmp_path: Path) -> None:
+    packages = [f"package-{index:02}" for index in range(14)]
+    rows = [
+        {
+            "id": f"import-{index}",
+            "source_module": "m",
+            "target_module": package,
+            "resolution": "external",
+            "evidence_class": "FACT",
+            "evidence_ids": [],
+        }
+        for index, package in enumerate([*reversed(packages), packages[0]])
+    ]
+    for name, fields in (
+        ("local", {"resolution": "local"}),
+        ("builtin", {"resolution": "builtin"}),
+        ("unresolved", {"resolution": "unresolved"}),
+        ("unknown", {"evidence_class": "UNKNOWN"}),
+        ("receiver", {"inferred_receiver": True}),
+    ):
+        rows.append(dict(rows[0], id=name, target_module=name, **fields))
+    topology = {
+        "version": 1,
+        "components": [],
+        "modules": [],
+        "edges": [],
+        "explorer": [{"language": "typescript", "imports": rows}],
+    }
+    path = tmp_path / "cache" / "sample.sqlite"
+    publish_snapshot(
+        path,
+        SnapshotIdentity("r", "c", "s"),
+        lambda db: populate(db, topology, tmp_path),
+        "partial",
+    )
+    coverage = query(path, tmp_path, "overview", {})["coverage"]
+    assert coverage["external_imports"] == {"packages": packages[:12], "total": 14}
+
+
 def test_class_members_use_definition_ids_and_keep_inventory_coverage(tmp_path: Path) -> None:
     (tmp_path / "m.py").write_text("class A:\n    x: int\n    def work(self): pass\n")
     symbol = {"module": "m", "evidence_ids": ["class"]}

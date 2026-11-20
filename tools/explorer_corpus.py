@@ -6,13 +6,13 @@
 import argparse
 import json
 import os
-import shutil
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 from typing import Any
 
+from archkeel.cli.init_draft import SYSTEM
+from archkeel.explorer_queries import query
 from tools.explorer_launch import measure
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -59,11 +59,55 @@ def git(root: Path, *args: str) -> str | None:
     return result.stdout.strip() if result.returncode == 0 else None
 
 
+def _observed_import(name: str, root: Path, snapshot: Path) -> dict[str, Any]:
+    oracle = ORACLES.get(name)
+    if oracle is None:
+        return {"error": "no source oracle"}
+    edges: list[object] = []
+    cursor = ""
+    while True:
+        result = query(
+            snapshot,
+            root,
+            "relations",
+            {
+                "element": oracle[2],
+                "direction": "out",
+                "kind": "import_site",
+                "cursor": cursor,
+                "limit": 200,
+            },
+        )
+        items, following = result["items"], result["next_cursor"]
+        if not isinstance(items, list) or not isinstance(following, (str, type(None))):
+            return {"error": "invalid relations page"}
+        edges.extend(items)
+        if following is None:
+            break
+        if following <= cursor:
+            return {"error": "relation cursor did not advance"}
+        cursor = following
+    return check_import(name, root, {"edges": edges})
+
+
 def run(name: str, root: Path, config: str | None, output: Path, cli: Path) -> dict[str, Any]:
     if not root.is_dir():
         return {"name": name, "error": "repository unavailable"}
+    if config is None and not (root / "archkeel.toml").is_file() and (root / SYSTEM).is_file():
+        config = SYSTEM
     if config is None and not (root / "archkeel.toml").is_file():
-        return run_copy(name, root, output, cli)
+        observed_launch = measure(
+            cli, root, None, probe=lambda path: _observed_import(name, root, path)
+        )
+        dirty = git(root, "status", "--porcelain")
+        return {
+            "name": name,
+            "head": git(root, "rev-parse", "HEAD"),
+            "dirty": None if dirty is None else bool(dirty),
+            "mode": "observed",
+            "checks": observed_launch.pop("checks", {}),
+            "launch": observed_launch,
+        }
     command = [str(cli), "report", "--root", str(root), "--json", "--topology"]
     if config:
         command.extend(["--config", config])
@@ -182,82 +226,13 @@ def check_import(name: str, root: Path, topology: dict[str, Any] | None) -> dict
         )
     ]
     found = any(edge.get("target") == target for edge in anchored)
-    wrong = any(edge.get("target") != target for edge in anchored)
+    wrong = [edge.get("target") for edge in anchored if edge.get("target") != target]
     # A bounded topology cannot prove a missing edge or a negative import.
     return {
         "positive_import": "observed" if found else "not observed",
+        "wrong_targets": wrong,
         "negative_import": "wrong edge observed" if wrong else "UNKNOWN",
     }
-
-
-def run_copy(name: str, root: Path, output: Path, cli: Path) -> dict[str, Any]:
-    """Let the CLI draft a config in a disposable copy, never in the source tree."""
-    files = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "-co", "--exclude-standard", "-z"],
-        capture_output=True,
-        check=False,
-    )
-    if files.returncode:
-        return {"name": name, "error": "cannot list repository files"}
-    with tempfile.TemporaryDirectory(prefix="archkeel-corpus-") as directory:
-        copy = Path(directory)
-        for raw in files.stdout.split(b"\0"):
-            if not raw:
-                continue
-            relative = Path(raw.decode())
-            source = root / relative
-            if source.is_symlink():
-                continue
-            if source.is_file():
-                target = copy / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, target)
-        subprocess.run(["git", "init", "-q", str(copy)], check=True)
-        result = (
-            run(name, copy, None, output, cli)
-            if (copy / "archkeel.toml").exists()
-            else scan_copy(name, copy, output, cli)
-        )
-    dirty = git(root, "status", "--porcelain")
-    result["head"] = git(root, "rev-parse", "HEAD")
-    result["dirty"] = None if dirty is None else bool(dirty)
-    result["disposable_copy"] = True
-    return result
-
-
-def scan_copy(name: str, root: Path, output: Path, cli: Path) -> dict[str, Any]:
-    """Initialize a draft in the copy, then scan it if initialization succeeds."""
-    result = subprocess.run(
-        [str(cli), "init", "--root", str(root)],
-        cwd=root,
-        capture_output=True,
-        check=False,
-        timeout=300,
-    )
-    if result.returncode:
-        return {"name": name, "error": "draft initialization failed", "exit": result.returncode}
-    config = "archkeel.toml"
-    if not (root / config).exists():
-        config = "docs/architecture/architecture-system.json"
-    if not (root / config).exists():
-        return {"name": name, "error": "draft did not create a configuration"}
-    subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
-    subprocess.run(
-        [
-            "git",
-            "-c",
-            "user.name=Corpus",
-            "-c",
-            "user.email=corpus@example.invalid",
-            "commit",
-            "-qm",
-            "Snapshot",
-        ],
-        cwd=root,
-        check=True,
-        capture_output=True,
-    )
-    return run(name, root, config, output, cli)
 
 
 def main() -> int:
