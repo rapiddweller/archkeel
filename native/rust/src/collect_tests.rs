@@ -186,14 +186,17 @@ fn each_place_that_cannot_be_read_is_a_gap_with_its_line() {
             "The macro other::make! is no macro_rules! of the workspace: the scan does not read its expansion",
         ]
     );
-    let lines: Vec<_> = facts
+    let lines: BTreeSet<_> = facts
         .evidence
         .iter()
         .filter(|e| e.excerpt.contains("make!"))
         .map(|e| e.line)
         .collect();
-    assert_eq!(lines, [2]);
-    assert_eq!(facts.head.sections, ["imports", "symbols", "unknowns"]);
+    assert_eq!(lines, BTreeSet::from([2]));
+    assert_eq!(
+        facts.head.sections,
+        ["imports", "symbols", "unknowns", "calls"]
+    );
 }
 
 #[test]

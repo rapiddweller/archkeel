@@ -69883,6 +69883,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -70213,6 +70218,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.bin_archkeel_rust_collector",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.bin_archkeel_rust_collector",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -70453,6 +70463,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.builder",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.builder",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -70523,6 +70538,236 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.builder",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.data.door may run in code that reaches native.archkeel_facts.data.door without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.data.gap_data may run in code that reaches native.archkeel_facts.data.gap_data without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.data.gap_effect may run in code that reaches native.archkeel_facts.data.gap_effect without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.data.symbols may run in code that reaches native.archkeel_facts.data.symbols without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.envelope may run in code that reaches native.archkeel_facts.envelope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.envelope.limits may run in code that reaches native.archkeel_facts.envelope.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.envelope.target_source may run in code that reaches native.archkeel_facts.envelope.target_source without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.envelope.validation may run in code that reaches native.archkeel_facts.envelope.validation without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.fields may run in code that reaches native.archkeel_facts.fields without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.measures may run in code that reaches native.archkeel_facts.measures without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.standard may run in code that reaches native.archkeel_facts.standard without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_facts.type_shape may run in code that reaches native.archkeel_facts.type_shape without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.attrs.kinds may run in code that reaches native.archkeel_rust_collector.attrs.kinds without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.attrs.model may run in code that reaches native.archkeel_rust_collector.attrs.model without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.crates may run in code that reaches native.archkeel_rust_collector.crates without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.macro_items may run in code that reaches native.archkeel_rust_collector.macro_items without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.macro_public may run in code that reaches native.archkeel_rust_collector.macro_public without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.manifest may run in code that reaches native.archkeel_rust_collector.manifest without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.modules.alias may run in code that reaches native.archkeel_rust_collector.modules.alias without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.modules.outcome may run in code that reaches native.archkeel_rust_collector.modules.outcome without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.registry may run in code that reaches native.archkeel_rust_collector.registry without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.registry_overrides may run in code that reaches native.archkeel_rust_collector.registry_overrides without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.resolve may run in code that reaches native.archkeel_rust_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.routes may run in code that reaches native.archkeel_rust_collector.routes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.path_safety may run in code that reaches native.archkeel_rust_collector.scan.path_safety without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.receivers may run in code that reaches native.archkeel_rust_collector.scan.receivers without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.receivers.bodies may run in code that reaches native.archkeel_rust_collector.scan.receivers.bodies without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.receivers.params may run in code that reaches native.archkeel_rust_collector.scan.receivers.params without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.receivers.params.bound may run in code that reaches native.archkeel_rust_collector.scan.receivers.params.bound without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.receivers.sites may run in code that reaches native.archkeel_rust_collector.scan.receivers.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.state may run in code that reaches native.archkeel_rust_collector.scan.state without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.site may run in code that reaches native.archkeel_rust_collector.site without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.std_macros may run in code that reaches native.archkeel_rust_collector.std_macros without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.tokens may run in code that reaches native.archkeel_rust_collector.tokens without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_rust_collector.toml may run in code that reaches native.archkeel_rust_collector.toml without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_snapshot.snapshot may run in code that reaches native.archkeel_snapshot.snapshot without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_snapshot.snapshot.listing may run in code that reaches native.archkeel_snapshot.snapshot.listing without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
+      "A trait impl in native.archkeel_snapshot.work may run in code that reaches native.archkeel_snapshot.work without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.calls",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
     ],
     [
@@ -70689,6 +70934,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.collect",
       "A trait impl in native.archkeel_rust_collector.scan may run in code that reaches native.archkeel_rust_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.collect",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -70958,6 +71208,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.declared",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.declared",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -71032,6 +71287,16 @@
     ],
     [
       "collection_gap",
+      "native.archkeel_rust_collector.definitions",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.definitions",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
       "native.archkeel_rust_collector.derive_identity",
       "A method call may reach the method legacy of a type in its own file native.archkeel_rust_collector.manifest"
     ],
@@ -71064,6 +71329,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.derive_identity",
       "A trait impl in native.archkeel_rust_collector.resolve may run in code that reaches native.archkeel_rust_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.derive_identity",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -71189,6 +71459,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.derive_imports",
       "A trait impl in native.archkeel_rust_collector.registry_overrides may run in code that reaches native.archkeel_rust_collector.registry_overrides without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.derive_imports",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -71404,6 +71679,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.edges",
       "A trait impl in native.archkeel_rust_collector.routes may run in code that reaches native.archkeel_rust_collector.routes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.edges",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -71644,6 +71924,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.edges_extracted",
       "A trait impl in native.archkeel_rust_collector.scan may run in code that reaches native.archkeel_rust_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.edges_extracted",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -71883,6 +72168,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.impl_edges",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_edges",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -72109,6 +72399,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.impl_edges.flow",
       "A trait impl in native.archkeel_rust_collector.routes may run in code that reaches native.archkeel_rust_collector.routes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_edges.flow",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -72358,6 +72653,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.impl_edges.orphans",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_edges.orphans",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -72584,6 +72884,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.impl_edges.receivers",
       "A trait impl in native.archkeel_rust_collector.routes may run in code that reaches native.archkeel_rust_collector.routes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_edges.receivers",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -72819,6 +73124,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.impl_edges.scope",
       "A trait impl in native.archkeel_rust_collector.routes may run in code that reaches native.archkeel_rust_collector.routes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_edges.scope",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -73073,6 +73383,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.impl_edges.types",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_edges.types",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -73204,6 +73519,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.impl_edges.types.defs",
       "A trait impl in native.archkeel_rust_collector.resolve may run in code that reaches native.archkeel_rust_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_edges.types.defs",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -73468,6 +73788,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.impl_edges.types.paths",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_edges.types.paths",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -73549,6 +73874,16 @@
       "collection_gap",
       "native.archkeel_rust_collector.impl_edges.types.ty",
       "A trait impl in native.archkeel_rust_collector.site may run in code that reaches native.archkeel_rust_collector.site without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_edges.types.ty",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_edges.types.ty",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
     ],
     [
       "collection_gap",
@@ -73694,6 +74029,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.impl_globs",
       "A trait impl in native.archkeel_rust_collector.routes may run in code that reaches native.archkeel_rust_collector.routes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.impl_globs",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -73919,6 +74259,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.macro_identity",
       "A trait impl in native.archkeel_rust_collector.routes may run in code that reaches native.archkeel_rust_collector.routes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.macro_identity",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -74183,6 +74528,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.module_edges",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.module_edges",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -74294,6 +74644,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.modules",
       "A trait impl in native.archkeel_rust_collector.registry_overrides may run in code that reaches native.archkeel_rust_collector.registry_overrides without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.modules",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -74424,6 +74779,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.modules.alias",
       "A trait impl in native.archkeel_rust_collector.scan may run in code that reaches native.archkeel_rust_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.modules.alias",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -74573,6 +74933,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.modules.filled",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.modules.filled",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -74679,6 +75044,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.modules.state",
       "A trait impl in native.archkeel_rust_collector.registry_overrides may run in code that reaches native.archkeel_rust_collector.registry_overrides without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.modules.state",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -74794,6 +75164,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.modules.walk",
       "A trait impl in native.archkeel_rust_collector.registry_overrides may run in code that reaches native.archkeel_rust_collector.registry_overrides without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.modules.walk",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -75029,6 +75404,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.names",
       "A trait impl in native.archkeel_rust_collector.resolve may run in code that reaches native.archkeel_rust_collector.resolve without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.names",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -75323,6 +75703,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.reply",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.reply",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -75488,6 +75873,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.routes",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.routes",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -75633,6 +76023,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.scan.attributes",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.attributes",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -75687,6 +76082,81 @@
     ],
     [
       "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.attrs.kinds may run in code that reaches native.archkeel_rust_collector.attrs.kinds without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.attrs.model may run in code that reaches native.archkeel_rust_collector.attrs.model without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.macro_items may run in code that reaches native.archkeel_rust_collector.macro_items without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.macro_public may run in code that reaches native.archkeel_rust_collector.macro_public without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.scan may run in code that reaches native.archkeel_rust_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.path_safety may run in code that reaches native.archkeel_rust_collector.scan.path_safety without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.receivers.bodies may run in code that reaches native.archkeel_rust_collector.scan.receivers.bodies without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.receivers.params may run in code that reaches native.archkeel_rust_collector.scan.receivers.params without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.receivers.params.bound may run in code that reaches native.archkeel_rust_collector.scan.receivers.params.bound without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.scan.receivers.sites may run in code that reaches native.archkeel_rust_collector.scan.receivers.sites without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.site may run in code that reaches native.archkeel_rust_collector.site without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "A trait impl in native.archkeel_rust_collector.std_macros may run in code that reaches native.archkeel_rust_collector.std_macros without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.calls",
+      "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+    ],
+    [
+      "collection_gap",
       "native.archkeel_rust_collector.scan.define",
       "A trait impl in native.archkeel_rust_collector.macro_items may run in code that reaches native.archkeel_rust_collector.macro_items without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
@@ -75699,6 +76169,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.scan.define",
       "A trait impl in native.archkeel_rust_collector.scan may run in code that reaches native.archkeel_rust_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.define",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -75783,6 +76258,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.scan.extracted",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.extracted",
       "A trait impl in native.archkeel_rust_collector.scan.path_safety may run in code that reaches native.archkeel_rust_collector.scan.path_safety without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -75844,6 +76324,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.scan.macros",
       "A trait impl in native.archkeel_rust_collector.scan may run in code that reaches native.archkeel_rust_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.macros",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -75923,6 +76408,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.scan.path_safety",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.path_safety",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -75993,6 +76483,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.scan.receivers",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.receivers",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -76054,6 +76549,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.scan.receivers.bodies",
       "A trait impl in native.archkeel_rust_collector.scan may run in code that reaches native.archkeel_rust_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.receivers.bodies",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -76134,6 +76634,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.scan.receivers.params",
       "A trait impl in native.archkeel_rust_collector.scan may run in code that reaches native.archkeel_rust_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.receivers.params",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -76228,6 +76733,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.scan.state",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.state",
       "A trait impl in native.archkeel_rust_collector.scan.path_safety may run in code that reaches native.archkeel_rust_collector.scan.path_safety without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -76294,6 +76804,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.scan.use_items",
       "A trait impl in native.archkeel_rust_collector.scan may run in code that reaches native.archkeel_rust_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.scan.use_items",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -76508,6 +77023,11 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.symbols",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.symbols",
       "A trait impl in native.archkeel_rust_collector.scan.extracted may run in code that reaches native.archkeel_rust_collector.scan.extracted without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -76644,6 +77164,11 @@
       "collection_gap",
       "native.archkeel_rust_collector.tree",
       "A trait impl in native.archkeel_rust_collector.registry_overrides may run in code that reaches native.archkeel_rust_collector.registry_overrides without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.tree",
+      "A trait impl in native.archkeel_rust_collector.scan.calls may run in code that reaches native.archkeel_rust_collector.scan.calls without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",

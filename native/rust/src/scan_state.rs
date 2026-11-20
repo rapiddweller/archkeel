@@ -11,7 +11,9 @@ use proc_macro2::Span;
 
 use super::extracted::Tally;
 use super::receivers::Selves;
-use crate::definitions::{Definition, Field, Holder, ImplBlock, MethodCall, OnSelf, ReceiverChain};
+use crate::definitions::{
+    Calls, Definition, Field, Holder, ImplBlock, MethodCall, OnSelf, ReceiverChain,
+};
 use crate::plant;
 use crate::site::Site;
 use crate::tokens::Chain;
@@ -83,6 +85,7 @@ pub(crate) struct Child {
 #[derive(Debug, Default)]
 pub(crate) struct Scan {
     pub has_static: bool,
+    pub(crate) calls: Calls,
     pub references: Vec<Reference>,
     pub concerns: Vec<Concern>,
     pub children: Vec<Child>,

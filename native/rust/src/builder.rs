@@ -64,6 +64,7 @@ pub(crate) struct Builder {
     pub(crate) named_sites: BTreeMap<String, Record<GapFact>>,
     pub(crate) evidence: BTreeMap<String, Evidence>,
     pub(crate) files: Vec<FileFact>,
+    pub(crate) calls: Vec<Record<archkeel_facts::CallFact>>,
     pub(crate) imports: Vec<Record<ImportFact>>,
     pub(crate) symbols: Vec<Record<SymbolFact>>,
     pub(crate) targets: Vec<Target>,

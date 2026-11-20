@@ -22,7 +22,8 @@
 6. The kind `macro` is new in facts schema 9 (`Kind`, `SymbolCategory`, `SymbolFact::Macro`) and in
    the host (`EntityKind.MACRO`). Schema 9 is in no release tag (AD-349), so it may change.
 7. The Rust profile produces `symbols` as an optional section; references, bindings and calls stay
-   absent. `interface_boundary` stays unsupported (5b-4b).
+   absent in this slice. [AD-1032](ad-1032-prove-direct-local-rust-calls.md) adds partial calls.
+   `interface_boundary` stays unsupported (5b-4b).
 
 **Problem.** The report of `native/` showed modules and edges, but not which items a module offers.
 

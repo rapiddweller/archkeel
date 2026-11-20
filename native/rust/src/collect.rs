@@ -93,6 +93,7 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
     builder_ref.macro_calls(&workspace, &modules_index, &walked.modules);
     builder_ref.impl_members(&workspace, &modules_index, &walked.modules);
     builder_ref.check_extracted(&walked.modules);
+    builder_ref.calls(&walked.modules);
     let taken: BTreeSet<&str> = modules.values().copied().collect();
     builder_ref.declare_dependencies(&workspace, &request.scope.namespace, &taken, &mut source);
     let mut selected: Vec<String> = files

@@ -128,11 +128,11 @@ def test_a_run_with_showcase_false_is_not_listed_but_stays_in_the_table(tmp_path
     assert [run["name"] for run in report_gallery.load_runs(matrix)] == ["hidden-one", "shown-one"]
 
 
-def test_the_eight_runs_without_a_contract_rule_are_not_in_the_showcase() -> None:
-    hidden = {"E-runtime", "F-typescript-story"}
+def test_runs_without_a_contract_rule_are_not_in_the_showcase() -> None:
+    hidden = {"E-runtime", "F-typescript-story", "P-rust-story"}
     hidden |= {run["name"] for run in report_gallery.load_runs() if "golden-python" in run["name"]}
     shown = {run["name"] for run in report_gallery.showcase_runs()}
-    assert len(hidden) == 8 and not hidden & shown
+    assert len(hidden) == 9 and not hidden & shown
     assert hidden <= {run["name"] for run in report_gallery.load_runs()}
 
 

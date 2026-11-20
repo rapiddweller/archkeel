@@ -10,7 +10,7 @@ use archkeel_facts::envelope::{
     Validation,
 };
 use archkeel_facts::request::RustRequest;
-use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
+use archkeel_facts::{CallFact, GapFact, ImportFact, Record, SymbolFact};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 use archkeel_wire::typed::assemble;
@@ -19,7 +19,7 @@ use crate::builder::Builder;
 use crate::tree::Walked;
 use archkeel_snapshot::Snapshot;
 
-const SECTIONS: [&str; 3] = ["imports", "symbols", "unknowns"];
+const SECTIONS: [&str; 4] = ["imports", "symbols", "unknowns", "calls"];
 const FEATURES: [&str; 1] = ["rust-crate-edges"];
 /// The feature of the linked reply: each import names its item and its route (AD-604).
 const ROUTES_FEATURE: &str = "rust-item-routes-v2";
@@ -34,15 +34,15 @@ const COMPILE_PREMISE: &str = "the Rust code compiles (rustc accepts it)";
 const LOCK_PREMISE: &str = "the Rust code compiles (rustc accepts it); registry crates are built from the identity that Cargo.lock records; no outside source replacement";
 
 /// The validation table of the collector (AD-688; `evaluate.py:1055-1056`, `ir/profiles.py:227-252`):
-/// the sections `imports` and `unknowns` and optionally `symbols`, the crate edges and the routes
+/// the sections `imports` and `unknowns` and optionally `calls` and `symbols`, the crate edges and the routes
 /// as optional features, no construct capability. An interface statement holds exactly when the
 /// reply states the routes (AD-604). The standard library is `std`, `core` and `alloc`.
 fn validation() -> Validation {
-    use SectionName::{Imports, Symbols, Unknowns};
+    use SectionName::{Calls, Imports, Symbols, Unknowns};
     let features = [FEATURES[0], ROUTES_FEATURE];
     Validation {
         registered: vec![Registered::of(&[Imports, Unknowns], &[])
-            .with_optional_sections(&[Symbols])
+            .with_optional_sections(&[Calls, Symbols])
             .with_optional_features(&features)],
         interface: InterfaceNeed::Feature(ROUTES_FEATURE.to_owned()),
         standard_library: Profile::Rust.as_str().to_owned(),
@@ -53,6 +53,7 @@ fn validation() -> Validation {
 /// `encode` writes the gaps once: they are the section `unknowns` and the gaps of the coverage.
 pub(crate) struct Collected {
     pub head: Head,
+    pub calls: Vec<Record<CallFact>>,
     pub imports: Vec<Record<ImportFact>>,
     pub symbols: Vec<Record<SymbolFact>>,
     pub gaps: Vec<Record<GapFact>>,
@@ -102,6 +103,7 @@ impl Collected {
     fn parts(self) -> (Head, Records) {
         let Self {
             head,
+            calls,
             imports,
             symbols,
             gaps,
@@ -114,6 +116,7 @@ impl Collected {
         (
             head,
             Records {
+                calls,
                 imports,
                 symbols,
                 named_sites,
@@ -130,6 +133,7 @@ impl Collected {
 }
 
 struct Records {
+    calls: Vec<Record<CallFact>>,
     imports: Vec<Record<ImportFact>>,
     symbols: Vec<Record<SymbolFact>>,
     named_sites: Vec<Record<GapFact>>,
@@ -139,6 +143,7 @@ struct Records {
 impl Records {
     fn produce(self, writer: &mut impl SectionSink) -> std::io::Result<Tail> {
         let Self {
+            calls,
             imports,
             symbols,
             named_sites,
@@ -149,6 +154,7 @@ impl Records {
         writer.write_typed_section::<GapFact>(|emit| {
             tail.gaps.iter().chain(&named_sites).for_each(emit);
         })?;
+        writer.write_typed_section::<CallFact>(|emit| calls.iter().for_each(emit))?;
         Ok(tail)
     }
 }
@@ -189,6 +195,7 @@ impl Builder {
         };
         Collected {
             head,
+            calls: self.calls,
             imports,
             symbols,
             gaps: self.gaps.into_values().collect(),
