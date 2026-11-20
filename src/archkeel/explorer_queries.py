@@ -11,7 +11,7 @@ from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
 from .explorer_boundaries import boundary_rows
-from .explorer_hierarchy import _module_hierarchy
+from .explorer_hierarchy import _element_status
 from .explorer_map import _aggregate_relations, _map_search, _map_view, _open_targets
 from .explorer_source import _number, _relation_evidence, _source, _source_path, _text
 from .explorer_store import open_snapshot
@@ -315,18 +315,6 @@ def _relations(
                 "INSERT INTO relation VALUES (?,?,?,?,?)",
                 (key, row["source"], row["target"], relation_kind, json.dumps(body)),
             )
-
-
-def _element_status(db: sqlite3.Connection, element: str) -> str:
-    if element == "system" or db.execute("SELECT 1 FROM element WHERE id=?", (element,)).fetchone():
-        return "known"
-    if element.startswith("["):
-        try:
-            _module_hierarchy(db, element)
-        except ValueError:
-            return "unknown"
-        return "known"
-    return "unknown"
 
 
 def query(path: Path, root: Path, operation: str, args: Row) -> Row:

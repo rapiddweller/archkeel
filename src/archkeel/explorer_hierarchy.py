@@ -332,3 +332,15 @@ def _scoped_module_filter(db: sqlite3.Connection, parent: str, text: str) -> tup
         "(instr(lower(name),lower(?))>0 OR instr(lower(json_extract(body,'$.path')),lower(?))>0)"
     )
     return where, [*params, text, text]
+
+
+def _element_status(db: sqlite3.Connection, element: str) -> str:
+    if element == "system" or db.execute("SELECT 1 FROM element WHERE id=?", (element,)).fetchone():
+        return "known"
+    if element.startswith("["):
+        try:
+            _module_hierarchy(db, element)
+        except ValueError:
+            return "unknown"
+        return "known"
+    return "unknown"

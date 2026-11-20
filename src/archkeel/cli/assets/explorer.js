@@ -169,11 +169,8 @@ export async function select(item) {
     details.append(element("p", coverageNote, "meta"));
     if (mapView.response?.edges_truncated)
         details.append(element("p", "This map omits some connections.", "meta"));
-    if (item.path) {
-        const path = element("p", "", "meta");
-        breakPath(path, item.path);
-        details.append(path);
-    }
+    if (item.path)
+        details.append(breakPath(element("p", "", "meta"), item.path));
     const unresolved = unknownCalls(item);
     if (unresolved)
         details.append(unresolved, element("p", unresolved.title, "meta"));
@@ -195,8 +192,7 @@ export async function select(item) {
             const endpoints = edge.kind === "source_call" ? relationDirection(edge) : label(edge.source) + " → " + label(edge.target ?? "Unresolved target");
             const text = endpoints + " · " + relationLabel(edge);
             const link = button(text, () => showEvidence(edge), edge.kind === "call" && edge.resolution !== "resolved" ? "detail-btn unknown" : "detail-btn");
-            breakPath(link, text);
-            details.append(link);
+            details.append(breakPath(link, text));
         }
         if (!cursor && !result.items.length)
             details.append(element("p", "No indexed connections."));
@@ -218,8 +214,7 @@ export async function showAggregates(edges, title) {
         if (!edge.aggregate_id) {
             const text = relationDirection(edge) + " · " + relationLabel(edge);
             const link = button(text, () => showEvidence(edge), "detail-btn");
-            breakPath(link, text);
-            details.append(link);
+            details.append(breakPath(link, text));
             continue;
         }
         let cursor = "";
@@ -233,8 +228,7 @@ export async function showAggregates(edges, title) {
             for (const relation of result.items) {
                 const text = relationDirection(relation) + " · " + relationLabel(relation);
                 const link = button(text, () => showEvidence(relation), "detail-btn");
-                breakPath(link, text);
-                details.append(link);
+                details.append(breakPath(link, text));
             }
             cursor = result.next_cursor;
         } while (cursor);
@@ -281,8 +275,7 @@ export async function showEvidence(edge) {
             const role = item.role === "call_site" ? "Call site · " : item.role === "declaration" ? "Declaration · " : "";
             const text = role + item.path + ":" + item.line;
             const link = button(text, () => showSource(item.reference), "detail-btn");
-            breakPath(link, text);
-            details.append(link);
+            details.append(breakPath(link, text));
         }
         if (page.next_cursor) {
             const more = button("More source locations", async () => {

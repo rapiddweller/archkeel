@@ -170,11 +170,7 @@ export async function select(item: StudioItem) {
     ? "Snapshot coverage complete." : "Snapshot coverage incomplete or unknown; connections may be missing.";
   details.append(element("p", coverageNote, "meta"));
   if (mapView.response?.edges_truncated) details.append(element("p", "This map omits some connections.", "meta"));
-  if (item.path) {
-    const path = element("p", "", "meta");
-    breakPath(path, item.path);
-    details.append(path);
-  }
+  if (item.path) details.append(breakPath(element("p", "", "meta"), item.path));
   const unresolved = unknownCalls(item);
   if (unresolved) details.append(unresolved, element("p", unresolved.title, "meta"));
   else if (Number.isInteger(item.recorded_calls)) details.append(element("p", item.recorded_calls ? item.recorded_calls.toLocaleString() + " calls have a resolved target." : "No call sites recorded in this scope.", "meta"));
@@ -191,8 +187,7 @@ export async function select(item: StudioItem) {
       const endpoints = edge.kind === "source_call" ? relationDirection(edge) : label(edge.source) + " → " + label(edge.target ?? "Unresolved target");
       const text = endpoints + " · " + relationLabel(edge);
       const link = button(text, () => showEvidence(edge), edge.kind === "call" && edge.resolution !== "resolved" ? "detail-btn unknown" : "detail-btn");
-      breakPath(link, text);
-      details.append(link);
+      details.append(breakPath(link, text));
     }
     if (!cursor && !result.items.length) details.append(element("p", "No indexed connections."));
     if (result.next_cursor) {
@@ -213,8 +208,7 @@ export async function showAggregates(edges: StudioEdge[], title: string) {
     if (!edge.aggregate_id) {
       const text = relationDirection(edge) + " · " + relationLabel(edge);
       const link = button(text, () => showEvidence(edge), "detail-btn");
-      breakPath(link, text);
-      details.append(link);
+      details.append(breakPath(link, text));
       continue;
     }
     let cursor: string | null = "";
@@ -227,8 +221,7 @@ export async function showAggregates(edges: StudioEdge[], title: string) {
       for (const relation of result.items) {
         const text = relationDirection(relation) + " · " + relationLabel(relation);
         const link = button(text, () => showEvidence(relation), "detail-btn");
-        breakPath(link, text);
-        details.append(link);
+        details.append(breakPath(link, text));
       }
       cursor = result.next_cursor;
     } while (cursor);
@@ -264,8 +257,7 @@ export async function showEvidence(edge: StudioEdge) {
       const role = item.role === "call_site" ? "Call site · " : item.role === "declaration" ? "Declaration · " : "";
       const text = role + item.path + ":" + item.line;
       const link = button(text, () => showSource(item.reference), "detail-btn");
-      breakPath(link, text);
-      details.append(link);
+      details.append(breakPath(link, text));
     }
     if (page.next_cursor) {
       const more = button("More source locations", async () => {
