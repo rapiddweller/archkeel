@@ -460,9 +460,19 @@
   ],
   "rules": [
     {
+      "id": "STUDIO-ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "studio",
+      "rationale": "Each Studio module belongs to one component.",
+      "provenance": [
+        "studio/architecture.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "STUDIO-COMPLETE-REQUIRES",
       "kind": "complete_requires",
-      "rationale": "Every source module has one owner and uses only declared component dependencies.",
+      "rationale": "Studio components use their declared dependencies.",
       "provenance": [
         "studio/architecture.md"
       ],

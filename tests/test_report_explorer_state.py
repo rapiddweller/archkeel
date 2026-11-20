@@ -69,7 +69,7 @@ def test_toolbar_controls_precede_the_canvas_in_tab_order(site: str, page: Brows
 def test_the_content_switch_names_parts_at_system_root(site: str, page: Browser) -> None:
     page.open(f"{site}/system.html")
     label = "document.querySelector('.atlas-content-choice [data-content=components]').textContent"
-    assert page.evaluate(label) == "Parts (2)"
+    assert page.evaluate(label) == "Parts (3)"
     page.evaluate("ArchkeelFlow.openComponent('PART:shell')")
     page.settle()
     assert page.evaluate(label).startswith("Components (")
