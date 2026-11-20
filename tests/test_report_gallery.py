@@ -219,7 +219,7 @@ def test_the_entry_is_the_system_report_with_the_explorer_and_the_self_reports_k
     # The open page is marked in the navigation.
     assert 'href="self/index.html" aria-current="page">System</a>' in page
     assert "served-a" not in page
-    for name in ("core", "shell"):
+    for name in ("core", "shell", "studio"):
         assert f'href="self/{name}.html"' in page
         for ext in ("html", "json"):
             assert (out / "self" / f"{name}.{ext}").is_file()
@@ -274,11 +274,11 @@ def test_the_system_page_and_badge_sit_in_self_and_link_their_neighbours(tmp_pat
     page = (out / "self" / "index.html").read_text()
     assert json.dumps({"root": "<repo>"}) in page
     links = re.findall(r'href="([^"#]+)', page)
-    assert "core.html" in links and "shell.html" in links
+    assert {"core.html", "shell.html", "studio.html"} <= set(links)
     assert all((out / "self" / link).resolve().is_file() for link in links)
     badge = json.loads((out / "self" / "badge.json").read_text())
     assert badge["label"] == "ArchKeel self-check" and badge["color"] == "f2606b"
-    assert badge["message"] == "2 PASS · 2 FAIL · 0 UNKNOWN"
+    assert badge["message"] == "3 PASS · 3 FAIL · 0 UNKNOWN"
 
 
 def test_the_badge_of_the_system_has_no_result_when_a_part_has_none() -> None:

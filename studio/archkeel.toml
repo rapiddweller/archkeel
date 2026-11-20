@@ -1,0 +1,7 @@
+[scan]
+root = ".."
+language = "typescript"
+namespace = "studio"
+contract = "studio/architecture-contract.json"
+tsconfig = "studio/tsconfig.json"
+roots = ["studio/src"]

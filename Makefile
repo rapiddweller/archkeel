@@ -5,7 +5,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -18,7 +18,7 @@ ci-pr-check: pr-gate
 
 ci-pr-static: lint typecheck
 
-generated-check: browser-runtime-install
+generated-check: browser-runtime-install studio-ui-check
 	cd native && cargo test --locked -p archkeel-core the_committed_
 	cd native && cargo test --locked -p archkeel-facts the_committed_
 	cd native && cargo test --locked -p archkeel-report the_light_palette_matches_the_design_tokens
@@ -27,6 +27,12 @@ generated-check: browser-runtime-install
 
 browser-runtime-generate: browser-runtime-install
 	$(UV) run --locked python tools/browser_runtime.py
+
+studio-ui-generate: browser-runtime-install
+	$(UV) run --locked python tools/studio_ui.py
+
+studio-ui-check: browser-runtime-install
+	$(UV) run --locked python tools/studio_ui.py --check
 
 # AD-752: the index of the decision records is generated from the files, not committed.
 decision-index:
@@ -229,7 +235,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
 	native/hatch_build.py
 
 lint:

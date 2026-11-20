@@ -49,6 +49,7 @@ def test_the_explorer_starts_at_the_system_level(site: str, page: Browser) -> No
     assert page.evaluate("ArchkeelFlow.state().scene.nodes.map((n) => n.id)") == [
         "PART:shell",
         "PART:core",
+        "PART:studio",
     ]
 
 

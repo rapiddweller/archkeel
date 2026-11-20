@@ -22,6 +22,9 @@ from .core_frame import CoreError
 _ASSETS = Path(__file__).with_name("assets")
 _ROUTES = {
     "/": ("explorer.html", "text/html; charset=utf-8"),
+    "/studio-api.js": ("studio-api.js", "text/javascript; charset=utf-8"),
+    "/studio-dom.js": ("studio-dom.js", "text/javascript; charset=utf-8"),
+    "/studio-state.js": ("studio-state.js", "text/javascript; charset=utf-8"),
     "/explorer.js": ("explorer.js", "text/javascript; charset=utf-8"),
     "/explorer-navigation.js": ("explorer-navigation.js", "text/javascript; charset=utf-8"),
     "/explorer-uml.js": ("explorer-uml.js", "text/javascript; charset=utf-8"),

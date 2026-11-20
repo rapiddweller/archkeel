@@ -125,9 +125,9 @@ def test_explorer_queries_are_read_only(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
             monkeypatch.setattr(core_explorer_http, "_ASSETS", tmp_path / "after-upgrade")
             code, body = request("/")
-            assert code == 200 and b'src="/explorer-story.js"' in body
+            assert code == 200 and b'type="module" src="/explorer.js"' in body
             assert request("/explorer-story.js")[0] == 200
-            assert b'src="/explorer-uml.js"' in body
+            assert request("/studio-state.js")[0] == 200
             assert request("/explorer-uml.js")[0] == 200
             assert request("/report")[0] == 200
             assert request("/archkeel-gaps-test.json") == (200, b'{"collection_gaps":[]}')

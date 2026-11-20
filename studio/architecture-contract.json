@@ -1,0 +1,472 @@
+{
+  "schema_version": "3.16.0",
+  "components": [
+    {
+      "id": "STUDIO-NAVIGATION",
+      "label": "navigation",
+      "role": "component",
+      "layer": "presentation",
+      "packages": [],
+      "exact_modules": [
+        "studio.studio.src.explorer_x2e_ts",
+        "studio.studio.src.explorer_x2d_navigation_x2e_ts"
+      ],
+      "public": [
+        "studio.studio.src.explorer_x2d_navigation_x2e_ts:showScope",
+        "studio.studio.src.explorer_x2e_ts:drawArrows",
+        "studio.studio.src.explorer_x2e_ts:label",
+        "studio.studio.src.explorer_x2e_ts:open",
+        "studio.studio.src.explorer_x2e_ts:relationLabel",
+        "studio.studio.src.explorer_x2e_ts:select",
+        "studio.studio.src.explorer_x2e_ts:selectionHeading",
+        "studio.studio.src.explorer_x2e_ts:showEvidence",
+        "studio.studio.src.explorer_x2e_ts:showSource"
+      ],
+      "responsibilities": [
+        "Start Studio and navigate the system, selections and source."
+      ],
+      "forbidden_responsibilities": [
+        "Decide architecture rules or collect source facts."
+      ],
+      "provenance": [
+        "studio/architecture.md"
+      ],
+      "requires": [
+        {
+          "component": "api",
+          "through": [
+            "studio.studio.src.studio_x2d_api_x2e_ts:Page",
+            "studio.studio.src.studio_x2d_api_x2e_ts:api"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "dom",
+          "through": [
+            "studio.studio.src.studio_x2d_dom_x2e_ts:button",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:canvas",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:cards",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:details",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:element",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:get",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:notice",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:showError",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:viewport"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "map",
+          "through": [
+            "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts:layoutMap",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:appendSelectionNotes",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:bindMap",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:derivedMapGroup",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:focusMap",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:inspector",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:mapPage",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:mapParents",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:mapScope",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:mapSearchArgs",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:relationDirection",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:setMapControls",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:setMapTree",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:setStoryLink",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:showMapResponse",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:unknownCalls",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:zoomMap",
+            "studio.studio.src.explorer_x2d_uml_x2e_ts:canOpenScope",
+            "studio.studio.src.explorer_x2d_uml_x2e_ts:paintCards"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "model",
+          "through": [
+            "studio.studio.src.studio_x2d_model_x2e_ts:MapResponse",
+            "studio.studio.src.studio_x2d_model_x2e_ts:StudioCoverage",
+            "studio.studio.src.studio_x2d_model_x2e_ts:StudioEdge",
+            "studio.studio.src.studio_x2d_model_x2e_ts:StudioItem"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "state",
+          "through": [
+            "studio.studio.src.studio_x2d_state_x2e_ts:known",
+            "studio.studio.src.studio_x2d_state_x2e_ts:pageTrails",
+            "studio.studio.src.studio_x2d_state_x2e_ts:state",
+            "studio.studio.src.studio_x2d_state_x2e_ts:system"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "story",
+          "through": [
+            "studio.studio.src.explorer_x2d_story_x2d_loading_x2e_ts:loadStory",
+            "studio.studio.src.explorer_x2d_story_x2d_loading_x2e_ts:showStory",
+            "studio.studio.src.explorer_x2d_story_x2e_ts:bindStory",
+            "studio.studio.src.explorer_x2d_story_x2e_ts:reopenStory",
+            "studio.studio.src.explorer_x2d_story_x2e_ts:stopStoryPlayback"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STUDIO-MAP",
+      "label": "map",
+      "role": "component",
+      "layer": "presentation",
+      "packages": [],
+      "exact_modules": [
+        "studio.studio.src.explorer_x2d_map_x2e_ts",
+        "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts",
+        "studio.studio.src.explorer_x2d_tree_x2e_ts",
+        "studio.studio.src.explorer_x2d_uml_x2e_ts"
+      ],
+      "public": [
+        "studio.studio.src.explorer_x2d_map_x2d_layout_x2e_ts:layoutMap",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:appendSelectionNotes",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:bindMap",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:derivedMapGroup",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:focusMap",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:inspector",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:mapPage",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:mapParents",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:mapScope",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:mapSearchArgs",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:relationDirection",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:setMapControls",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:setMapTree",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:setStoryLink",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:showMapResponse",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:unknownCalls",
+        "studio.studio.src.explorer_x2d_map_x2e_ts:zoomMap",
+        "studio.studio.src.explorer_x2d_uml_x2e_ts:canOpenScope",
+        "studio.studio.src.explorer_x2d_uml_x2e_ts:paintCards"
+      ],
+      "responsibilities": [
+        "Present the system map, structure tree and UML views."
+      ],
+      "forbidden_responsibilities": [
+        "Decide architecture rules or collect source facts."
+      ],
+      "provenance": [
+        "studio/architecture.md"
+      ],
+      "requires": [
+        {
+          "component": "api",
+          "through": [
+            "studio.studio.src.studio_x2d_api_x2e_ts:Page",
+            "studio.studio.src.studio_x2d_api_x2e_ts:api"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "dom",
+          "through": [
+            "studio.studio.src.studio_x2d_dom_x2e_ts:button",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:canvas",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:cards",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:details",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:element",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:get",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:notice",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:showError",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:viewport"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "model",
+          "through": [
+            "studio.studio.src.studio_x2d_model_x2e_ts:MapResponse",
+            "studio.studio.src.studio_x2d_model_x2e_ts:StudioEdge",
+            "studio.studio.src.studio_x2d_model_x2e_ts:StudioItem"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "navigation",
+          "through": [
+            "studio.studio.src.explorer_x2d_navigation_x2e_ts:showScope",
+            "studio.studio.src.explorer_x2e_ts:drawArrows",
+            "studio.studio.src.explorer_x2e_ts:label",
+            "studio.studio.src.explorer_x2e_ts:open",
+            "studio.studio.src.explorer_x2e_ts:relationLabel",
+            "studio.studio.src.explorer_x2e_ts:select",
+            "studio.studio.src.explorer_x2e_ts:showEvidence"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "state",
+          "through": [
+            "studio.studio.src.studio_x2d_state_x2e_ts:known",
+            "studio.studio.src.studio_x2d_state_x2e_ts:pageTrails",
+            "studio.studio.src.studio_x2d_state_x2e_ts:state",
+            "studio.studio.src.studio_x2d_state_x2e_ts:system"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "story",
+          "through": [
+            "studio.studio.src.explorer_x2d_story_x2e_ts:storyChat"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STUDIO-STORY",
+      "label": "story",
+      "role": "component",
+      "layer": "presentation",
+      "packages": [],
+      "exact_modules": [
+        "studio.studio.src.explorer_x2d_story_x2e_ts",
+        "studio.studio.src.explorer_x2d_story_x2d_loading_x2e_ts",
+        "studio.studio.src.explorer_x2d_story_x2d_routes_x2e_ts"
+      ],
+      "public": [
+        "studio.studio.src.explorer_x2d_story_x2d_loading_x2e_ts:loadStory",
+        "studio.studio.src.explorer_x2d_story_x2d_loading_x2e_ts:showStory",
+        "studio.studio.src.explorer_x2d_story_x2e_ts:bindStory",
+        "studio.studio.src.explorer_x2d_story_x2e_ts:reopenStory",
+        "studio.studio.src.explorer_x2d_story_x2e_ts:stopStoryPlayback",
+        "studio.studio.src.explorer_x2d_story_x2e_ts:storyChat"
+      ],
+      "responsibilities": [
+        "Load, present and play checked stories."
+      ],
+      "forbidden_responsibilities": [
+        "Decide architecture rules or collect source facts."
+      ],
+      "provenance": [
+        "studio/architecture.md"
+      ],
+      "requires": [
+        {
+          "component": "api",
+          "through": [
+            "studio.studio.src.studio_x2d_api_x2e_ts:Page",
+            "studio.studio.src.studio_x2d_api_x2e_ts:api",
+            "studio.studio.src.studio_x2d_api_x2e_ts:draftStory"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "dom",
+          "through": [
+            "studio.studio.src.studio_x2d_dom_x2e_ts:button",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:cards",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:details",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:element",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:get",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:notice",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:showError",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:viewport"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "map",
+          "through": [
+            "studio.studio.src.explorer_x2d_map_x2e_ts:setMapControls",
+            "studio.studio.src.explorer_x2d_map_x2e_ts:setStoryLink"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "model",
+          "through": [
+            "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:CallStoryHop",
+            "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:CheckedStory",
+            "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StoryDisplayStep",
+            "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StoryExternal",
+            "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StoryHop",
+            "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StorySite",
+            "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StorySummary",
+            "studio.studio.src.studio_x2d_model_x2e_ts:StudioEdge"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "navigation",
+          "through": [
+            "studio.studio.src.explorer_x2e_ts:drawArrows",
+            "studio.studio.src.explorer_x2e_ts:label",
+            "studio.studio.src.explorer_x2e_ts:selectionHeading",
+            "studio.studio.src.explorer_x2e_ts:showEvidence",
+            "studio.studio.src.explorer_x2e_ts:showSource"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        },
+        {
+          "component": "state",
+          "through": [
+            "studio.studio.src.studio_x2d_state_x2e_ts:known",
+            "studio.studio.src.studio_x2d_state_x2e_ts:state"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STUDIO-STATE",
+      "label": "state",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "studio.studio.src.studio_x2d_state_x2e_ts"
+      ],
+      "public": [
+        "studio.studio.src.studio_x2d_state_x2e_ts:known",
+        "studio.studio.src.studio_x2d_state_x2e_ts:pageTrails",
+        "studio.studio.src.studio_x2d_state_x2e_ts:state",
+        "studio.studio.src.studio_x2d_state_x2e_ts:system"
+      ],
+      "responsibilities": [
+        "Hold the current navigation and selection state."
+      ],
+      "forbidden_responsibilities": [
+        "Decide architecture rules or collect source facts."
+      ],
+      "provenance": [
+        "studio/architecture.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "through": [
+            "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StoryHop",
+            "studio.studio.src.studio_x2d_model_x2e_ts:StudioEdge",
+            "studio.studio.src.studio_x2d_model_x2e_ts:StudioItem"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STUDIO-MODEL",
+      "label": "model",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "studio.studio.src.studio_x2d_model_x2e_ts",
+        "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts"
+      ],
+      "public": [
+        "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:CallStoryHop",
+        "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:CheckedStory",
+        "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StoryDisplayStep",
+        "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StoryExternal",
+        "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StoryHop",
+        "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StorySite",
+        "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:StorySummary",
+        "studio.studio.src.studio_x2d_model_x2e_ts:MapResponse",
+        "studio.studio.src.studio_x2d_model_x2e_ts:StudioCoverage",
+        "studio.studio.src.studio_x2d_model_x2e_ts:StudioEdge",
+        "studio.studio.src.studio_x2d_model_x2e_ts:StudioItem"
+      ],
+      "responsibilities": [
+        "Define the Studio model and story data."
+      ],
+      "forbidden_responsibilities": [
+        "Decide architecture rules or collect source facts."
+      ],
+      "provenance": [
+        "studio/architecture.md"
+      ],
+      "requires": [],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STUDIO-API",
+      "label": "api",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "studio.studio.src.studio_x2d_api_x2e_ts"
+      ],
+      "public": [
+        "studio.studio.src.studio_x2d_api_x2e_ts:Page",
+        "studio.studio.src.studio_x2d_api_x2e_ts:api",
+        "studio.studio.src.studio_x2d_api_x2e_ts:draftStory"
+      ],
+      "responsibilities": [
+        "Request data from the local Studio server."
+      ],
+      "forbidden_responsibilities": [
+        "Decide architecture rules or collect source facts."
+      ],
+      "provenance": [
+        "studio/architecture.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "through": [
+            "studio.studio.src.explorer_x2d_story_x2d_types_x2e_ts:CheckedStory",
+            "studio.studio.src.studio_x2d_model_x2e_ts:StudioCoverage"
+          ],
+          "rationale": "Use the declared Studio boundary."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STUDIO-DOM",
+      "label": "dom",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "studio.studio.src.studio_x2d_dom_x2e_ts"
+      ],
+      "public": [
+        "studio.studio.src.studio_x2d_dom_x2e_ts:button",
+        "studio.studio.src.studio_x2d_dom_x2e_ts:canvas",
+        "studio.studio.src.studio_x2d_dom_x2e_ts:cards",
+        "studio.studio.src.studio_x2d_dom_x2e_ts:details",
+        "studio.studio.src.studio_x2d_dom_x2e_ts:element",
+        "studio.studio.src.studio_x2d_dom_x2e_ts:get",
+        "studio.studio.src.studio_x2d_dom_x2e_ts:notice",
+        "studio.studio.src.studio_x2d_dom_x2e_ts:showError",
+        "studio.studio.src.studio_x2d_dom_x2e_ts:viewport"
+      ],
+      "responsibilities": [
+        "Create and access Studio page elements."
+      ],
+      "forbidden_responsibilities": [
+        "Decide architecture rules or collect source facts."
+      ],
+      "provenance": [
+        "studio/architecture.md"
+      ],
+      "requires": [],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [
+    {
+      "id": "STUDIO-COMPLETE-REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Every source module has one owner and uses only declared component dependencies.",
+      "provenance": [
+        "studio/architecture.md"
+      ],
+      "decided_by": "architect"
+    }
+  ]
+}

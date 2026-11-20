@@ -154,6 +154,7 @@ ALL = "all"
 TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
     ("tests/test_*.py", ()),
     ("native/report/*", ("CLI and core", "reports")),
+    ("studio/*", ("CLI and core", "reports", "self-check and CI")),
     ("native/*", ALL),
     ("src/archkeel/cli/*", ALL),
     ("src/*", ("CLI and core", "self-check and CI")),

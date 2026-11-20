@@ -88,6 +88,8 @@ path = "native/hatch_build.py"
 # A wheel from the sdist needs a prebuilt core in ARCHKEEL_BUNDLE_NATIVE (AD-436).
 only-include = [
     "src", "schema", "README.md", "skills", "native/hatch_build.py",
+    "studio",
+    "tools/studio_ui.py", "tools/browser-runtime/package.json", "tools/browser-runtime/package-lock.json",
     "native/report/assets/tokens.css",
     "native/report/assets/explorer/elkjs-0.12.0.bundled.js",
     "native/report/assets/explorer/report-layout.js",

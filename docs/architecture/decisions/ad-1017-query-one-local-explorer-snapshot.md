@@ -49,3 +49,6 @@ The browser and MCP can request the same hierarchy from the map query.
 The map counts each recorded call site once per ancestor and shows how many targets remain
 unresolved. Story lanes use the module of each function. A database badge links to a
 recorded connection expression. The badge states when the binding is unknown.
+
+The self-scan includes the Studio TypeScript sources as a third system part. The local server
+ships the JavaScript built from these sources. The build checks that the files match.

@@ -37,6 +37,21 @@
       "provides": [
         "The core frame protocol archkeel-core-frame-1: one frame for each request, with the schema schema/archkeel-core-frame-1.schema.json."
       ]
+    },
+    {
+      "id": "studio",
+      "title": "Studio UI",
+      "config": "studio/archkeel.toml",
+      "responsibilities": [
+        "Present the system model, navigation, diagrams and checked stories.",
+        "Request data and story actions from the local Studio server."
+      ],
+      "forbidden_responsibilities": [
+        "Collect source facts or decide architecture rules and verdicts."
+      ],
+      "provides": [
+        "The local Studio browser interface."
+      ]
     }
   ],
   "interfaces": [

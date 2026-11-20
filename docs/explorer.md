@@ -6,7 +6,8 @@ Without a contract, the Explorer shows observed source and layout groups. It doe
 contract. A project-specific schema file or a gap-free scan is not required to open it. UNKNOWN and partial
 coverage remain visible; they do not become a PASS.
 
-To open the local checkout against the ArchKeel system, run:
+The ArchKeel checkout defines three system parts. Select **Python shell**, **Rust core** or
+**Studio UI** to inspect its components and modules. To select this contract explicitly, run:
 
 ```sh
 uv run archkeel explore --config docs/architecture/architecture-system.json
