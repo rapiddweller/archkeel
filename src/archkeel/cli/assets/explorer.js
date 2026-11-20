@@ -189,7 +189,7 @@ export async function select(item) {
         if (state.request !== request)
             return;
         for (const edge of result.items) {
-            const endpoints = edge.kind === "source_call" ? relationDirection(edge) : label(edge.source) + " → " + label(edge.target ?? "Unresolved target");
+            const endpoints = relationDirection(edge);
             const text = endpoints + " · " + relationLabel(edge);
             const link = button(text, () => showEvidence(edge), edge.kind === "call" && edge.resolution !== "resolved" ? "detail-btn unknown" : "detail-btn");
             details.append(breakPath(link, text));

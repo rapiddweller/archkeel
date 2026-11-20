@@ -11,9 +11,12 @@ from threading import Barrier
 from types import SimpleNamespace
 
 import pytest
+from corpus_support import commit_tree
 
 from archkeel.cli import core_explorer, core_explorer_http, core_only
 from archkeel.cli.core_arguments import parse
+from archkeel.cli.core_binding import ProjectRoot
+from archkeel.cli.core_explorer_identity import _fingerprint
 from archkeel.cli.core_frame import CoreCommand
 
 
@@ -55,6 +58,29 @@ def test_explorer_does_not_draft_a_contract(
     assert core_only.run(["explore", "--root", str(tmp_path), "--json"]) == 2
     assert "Git work tree" in capsys.readouterr().out
     assert not list(tmp_path.iterdir())
+
+
+def test_fingerprint_uses_the_selected_project_directory(tmp_path: Path) -> None:
+    root = tmp_path / "nested" / "project"
+    stories = root / ".archkeel" / "stories"
+    stories.mkdir(parents=True)
+    (root / "archkeel.toml").write_text("")
+    source = root / "app.py"
+    source.write_text("value = 1\n")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside\n")
+    binary = tmp_path / "core"
+    binary.write_text("core")
+    commit_tree(tmp_path)
+
+    project = ProjectRoot.of(root, None)
+    original, files = _fingerprint(project, binary)
+    assert set(files) == {"app.py", "archkeel.toml"}
+    outside.write_text("changed\n")
+    (stories / "example.story.json").write_text("{}")
+    assert _fingerprint(project, binary) == (original, files)
+    source.write_text("value = 2\n")
+    assert _fingerprint(project, binary)[0] != original
 
 
 def test_report_builds_gap_link_only_when_requested(

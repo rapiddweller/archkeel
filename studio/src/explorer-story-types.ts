@@ -40,8 +40,6 @@ interface CheckedStep extends StoryDetails {
 }
 
 export interface CallStoryHop extends StudioEdge {
-  source_name?: string | null;
-  target_name?: string | null;
   source_owner?: string | null;
   target_owner?: string | null;
 }

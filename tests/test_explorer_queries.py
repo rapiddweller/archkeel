@@ -3,13 +3,15 @@
 # SPDX-License-Identifier: MIT
 """Explorer navigation and source evidence refer to the same scan."""
 
+import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
 
 from archkeel.explorer_queries import populate, query
-from archkeel.explorer_store import SnapshotIdentity, publish_snapshot
+from archkeel.explorer_store import SnapshotIdentity, cache_path, publish_snapshot
 
 
 def test_bounded_navigation_and_stale_evidence(tmp_path: Path) -> None:
@@ -41,15 +43,18 @@ def test_bounded_navigation_and_stale_evidence(tmp_path: Path) -> None:
     path = tmp_path / "cache" / "sample.sqlite"
     publish_snapshot(path, identity, write, "partial")
     page = query(path, tmp_path, "children", {"limit": 1})
-    assert page["coverage"]["truncated"] and page["items"][0]["id"] == "a"
+    assert page["coverage"]["truncated"] and page["items"][0]["id"] == "module:a"
     assert (
-        query(path, tmp_path, "children", {"cursor": page["next_cursor"]})["items"][0]["id"] == "b"
+        query(path, tmp_path, "children", {"cursor": page["next_cursor"]})["items"][0]["id"]
+        == "module:b"
     )
-    known = query(path, tmp_path, "relations", {"element": "a", "direction": "in"})
+    known = query(path, tmp_path, "relations", {"element": "module:a", "direction": "in"})
     missing = query(path, tmp_path, "relations", {"element": "missing"})
     assert known["element_status"] == "known" and known["items"] == []
     assert missing["element_status"] == "unknown" and missing["items"] == []
-    ref = query(path, tmp_path, "evidence", {"relation": "edge"})["items"][0]["reference"]
+    ref = query(path, tmp_path, "evidence", {"relation": "relation:module_import:edge"})["items"][
+        0
+    ]["reference"]
     assert query(path, tmp_path, "source", {"reference": ref})["lines"] == ["import b"]
     source.write_text("import c\n")
     with pytest.raises(ValueError, match="changed"):
@@ -99,7 +104,7 @@ def test_call_step_uses_the_collectors_evidence(tmp_path: Path) -> None:
         lambda db: populate(db, topology, tmp_path),
         "partial",
     )
-    result = query(path, tmp_path, "story", {"id": "call"})
+    result = query(path, tmp_path, "story", {"id": "relation:call:call"})
     assert result["coverage"]["parts"][0] == {
         "part": None,
         "language": "typescript",
@@ -201,14 +206,18 @@ def test_class_members_use_definition_ids_and_keep_inventory_coverage(tmp_path: 
         lambda db: populate(db, topology, tmp_path),
         "partial",
     )
-    classes = query(path, tmp_path, "children", {"parent": "m"})["items"]
+    classes = query(path, tmp_path, "children", {"parent": "module:m"})["items"]
     assert [(row["id"], row["member_coverage"]) for row in classes] == [
-        ("a", {"method": "partial", "property": "complete"}),
-        ("b", {"method": "unknown", "property": "unknown"}),
+        ("definition:a", {"method": "partial", "property": "complete"}),
+        ("definition:b", {"method": "unknown", "property": "unknown"}),
     ]
-    method, prop = query(path, tmp_path, "children", {"parent": "a"})["items"]
-    assert (method["id"], method["kind"], method["method_kind"]) == ("aw", "method", "instance")
-    assert (prop["id"], prop["kind"], prop["annotation"]) == ("ax", "property", "int")
+    method, prop = query(path, tmp_path, "children", {"parent": "definition:a"})["items"]
+    assert (method["id"], method["kind"], method["method_kind"]) == (
+        "definition:aw",
+        "method",
+        "instance",
+    )
+    assert (prop["id"], prop["kind"], prop["annotation"]) == ("definition:ax", "property", "int")
     assert query(path, tmp_path, "source", {"reference": prop["source"]})["line"] == 2
 
 
@@ -254,11 +263,18 @@ def test_import_evidence_pages_indexed_locations_beyond_the_report_sample(tmp_pa
         lambda db: populate(db, topology, tmp_path),
         "partial",
     )
-    first = query(path, tmp_path, "evidence", {"relation": "edge", "limit": 2})
+    first = query(
+        path, tmp_path, "evidence", {"relation": "relation:component_import:edge", "limit": 2}
+    )
     assert [row["line"] for row in first["items"]] == [1, 2]
     assert first["evidence_truncated"]
     assert (first["total"], first["evidence_total"]) == (3, 4)
-    page = query(path, tmp_path, "evidence", {"relation": "edge", "cursor": first["next_cursor"]})
+    page = query(
+        path,
+        tmp_path,
+        "evidence",
+        {"relation": "relation:component_import:edge", "cursor": first["next_cursor"]},
+    )
     assert [row["line"] for row in page["items"]] == [3]
     assert page["next_cursor"] is None
 
@@ -301,8 +317,8 @@ def test_source_candidate_links_both_sites_without_becoming_a_story_call(tmp_pat
     )
     (edge,) = query(path, tmp_path, "map", {"view": "modules"})["edges"]
     assert (edge["source"], edge["target"], edge["kind"], edge["resolution"]) == (
-        "entry",
-        "model",
+        "module:entry",
+        "module:model",
         "source_call",
         "candidate",
     )
@@ -315,3 +331,96 @@ def test_source_candidate_links_both_sites_without_becoming_a_story_call(tmp_pat
     ]
     assert query(path, tmp_path, "source", {"reference": locations[1]["reference"]})["line"] == 1
     assert query(path, tmp_path, "story", {"id": site["id"]})["status"] == "UNKNOWN"
+
+
+def test_snapshot_ids_separate_elements_and_relations_with_the_same_names(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text("def work(): pass\n")
+    identity = SnapshotIdentity("rev", "contract", "tree")
+    path = tmp_path / "snapshot.sqlite"
+    local_edge = {"id": "same", "source": "app", "target": "system", "resolution": "resolved"}
+    topology = {
+        "version": 1,
+        "components": [
+            {"id": "app", "name": "app", "parent": None},
+            {"id": "system", "name": "system", "parent": "app"},
+        ],
+        "modules": [
+            {"name": "app", "component": "app", "path": "app.py"},
+            {"name": "system", "component": "system", "path": "system.py"},
+        ],
+        "edges": [local_edge, dict(local_edge, id="external", resolution="external")],
+        "component_edges": [local_edge],
+        "explorer": [
+            {
+                "symbols": [
+                    {
+                        "id": "app",
+                        "kind": "function",
+                        "module": "app",
+                        "qualified_name": "app.work",
+                        "evidence_ids": [],
+                    }
+                ],
+                "calls": [
+                    {
+                        "id": "same",
+                        "source_module": "app",
+                        "source_definition_id": "app",
+                        "target_definition_id": "app",
+                        "expression": "work",
+                        "targets": ["app.work"],
+                        "status": "resolved",
+                        "candidates_truncated": False,
+                        "evidence_ids": [],
+                    }
+                ],
+            }
+        ],
+    }
+    publish_snapshot(path, identity, lambda db: populate(db, topology, tmp_path), "complete")
+
+    def read(operation: str, **args: object) -> dict[str, object]:
+        return query(path, tmp_path, operation, args)
+
+    (app,) = read("overview")["items"]
+    children = {item["kind"]: item for item in read("children", parent=app["id"])["items"]}
+    module, component = children["module"], children["component"]
+    (system_module,) = read("children", parent=component["id"])["items"]
+    (definition,) = read("children", parent=module["id"])["items"]
+    assert len({app["id"], module["id"], definition["id"], component["id"], "system"}) == 5
+    assert module["component"] == app["id"]
+    assert read("source", reference=module["source"])["lines"] == ["def work(): pass"]
+    (component_edge,) = read("relations", element=app["id"], direction="out")["items"]
+    assert component_edge["target"] == component["id"]
+    (module_edge,) = read("relations", element=system_module["id"], direction="in")["items"]
+    assert module_edge["source"] == module["id"]
+    outbound = read("relations", element=module["id"], direction="out")["items"]
+    external = next(edge for edge in outbound if edge["resolution"] == "external")
+    assert external["target_name"] == system_module["name"]
+    assert external["target"] != system_module["id"]
+    (call,) = read("relations", element=definition["id"], direction="out")["items"]
+    assert call["target"] == definition["id"]
+    assert call["candidates"] == [definition["id"]]
+    assert call["source_owner"] == module["id"]
+    assert read("story", id=call["id"])["items"] == [call]
+    assert read("story", id=module_edge["id"])["status"] == "UNKNOWN"
+    for edge in (module_edge, component_edge):
+        assert read("evidence", relation=edge["id"])["relation"] == edge
+    assert read("relations", element="app")["element_status"] == "unknown"
+
+
+def test_query_preserves_ids_in_a_legacy_snapshot(tmp_path: Path) -> None:
+    identity = SnapshotIdentity("rev", "contract", "tree")
+    current = cache_path(tmp_path / "cache", tmp_path, identity)
+    legacy = current.with_name(identity.key(4) + ".sqlite3")
+    topology = {"version": 1, "components": [], "modules": [], "edges": []}
+    publish_snapshot(current, identity, lambda db: populate(db, topology, tmp_path), "partial")
+    item = {"id": "app", "name": "app", "parent": "system", "kind": "module"}
+    with closing(sqlite3.connect(current)) as db, db:
+        db.execute("PRAGMA user_version=4")
+        db.execute(
+            "INSERT INTO element VALUES ('app','app','module','system',?)", (json.dumps(item),)
+        )
+    current.rename(legacy)
+    assert query(legacy, tmp_path, "overview", {})["items"] == [item]
+    assert query(legacy, tmp_path, "relations", {"element": "app"})["element_status"] == "known"

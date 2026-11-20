@@ -42,7 +42,7 @@ function displayGroup(item) {
             return "Modules · " + item.name.slice(0, separator);
     }
     if (item.kind === "component")
-        return item.id.startsWith("PART:") ? "System parts" : "Components";
+        return (item.system_part ?? item.id.startsWith("PART:")) ? "System parts" : "Components";
     const kinds = {
         module: "Modules", class: "Classes", interface: "Interfaces",
         function: "Functions", method: "Methods", property: "Properties",

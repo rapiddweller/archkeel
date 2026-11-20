@@ -90,7 +90,9 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
                 page.wait(
                     "document.querySelector('#details h2')?.textContent === 'Entry imports Data'"
                 )
-                page.evaluate("document.querySelector('[data-element=entry]').click()")
+                page.evaluate(
+                    "document.querySelector('[data-element=\"component:entry\"]').click()"
+                )
                 page.wait("document.querySelector('#details h2')?.textContent === 'Entry'")
                 for mode, dimension in [("down", "Height"), ("right", "Width")]:
                     control = f'document.querySelector("[data-map-layout={mode}]")'
@@ -104,7 +106,7 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
                     )
                     assert (
                         page.evaluate(
-                            "document.querySelector('[data-element=entry]').getAttribute('aria-pressed')"
+                            "document.querySelector('[data-element=\"component:entry\"]').getAttribute('aria-pressed')"
                         )
                         == "true"
                     )
@@ -115,7 +117,9 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
                     features=[{"name": "prefers-reduced-motion", "value": "reduce"}],
                 )
                 assert page.evaluate(pulse + ".display") == "none"
-                entry = "document.querySelector('#structure-tree [data-tree-node=entry]')"
+                entry = (
+                    "document.querySelector('#structure-tree [data-tree-node=\"component:entry\"]')"
+                )
                 direction = ".dispatchEvent(new KeyboardEvent('keydown',{key:%r,bubbles:true}))"
                 page.evaluate(entry + direction % "ArrowRight")
                 groups = "document.querySelectorAll('#structure-tree .type-file_group').length"
@@ -126,7 +130,10 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
                 )
                 modules = "document.querySelectorAll('#structure-tree .type-module').length"
                 page.wait(modules + " === 36")
-                module = 'document.querySelector(`#structure-tree [data-tree-node="app.entry.0"]`)'
+                module = (
+                    "document.querySelector(`#structure-tree "
+                    '[data-tree-node="module:app.entry.0"]`)'
+                )
                 assert page.evaluate(module + ".title") == "entry0.py"
                 hint = page.evaluate(module + ".getAttribute('aria-describedby')")
                 assert page.evaluate(f"document.getElementById({hint!r}).textContent") == (
@@ -141,7 +148,10 @@ def test_map_opens_owner_overview_and_animates_one_directed_edge(
                 page.evaluate(module + ".click()")
                 page.wait("document.querySelector('#details h2')?.textContent === 'app.entry.0'")
                 assert page.evaluate(module + ".getAttribute('aria-pressed')") == "true"
-                context = "document.querySelector('.map-plane [data-element=entry].map-context')"
+                context = (
+                    'document.querySelector(\'.map-plane [data-element="component:entry"]'
+                    ".map-context')"
+                )
                 assert page.evaluate(context + " !== null")
                 assert (
                     page.evaluate("document.getElementById('breadcrumbs').textContent.trim()")
@@ -195,8 +205,8 @@ def test_group_connections_open_all_relations_and_evidence(tmp_path: Path) -> No
         try:
             with browser(tmp_path / "profile") as page:
                 page.send("Page.navigate", url=f"http://127.0.0.1:{server.server_port}/")
-                page.wait("document.querySelector('[data-element=a]') !== null")
-                page.evaluate("document.querySelector('[data-element=a]').click()")
+                page.wait("document.querySelector('[data-element=\"component:a\"]') !== null")
+                page.evaluate("document.querySelector('[data-element=\"component:a\"]').click()")
                 page.wait(
                     "document.querySelector('#details')?.textContent"
                     ".includes('Outgoing Import × 2')"
@@ -265,10 +275,11 @@ def test_expanded_group_highlights_relations(tmp_path: Path) -> None:
         try:
             with browser(tmp_path / "profile") as page:
                 page.send("Page.navigate", url=f"http://127.0.0.1:{server.server_port}/")
-                page.wait("document.querySelector('[data-element=a]') !== null")
+                page.wait("document.querySelector('[data-element=\"component:a\"]') !== null")
                 assert (
                     page.evaluate(
-                        "document.querySelector('[data-element=a] .uml-stereotype').textContent"
+                        'document.querySelector(\'[data-element="component:a"] '
+                        ".uml-stereotype').textContent"
                     )
                     == "Package group"
                 )
@@ -276,7 +287,7 @@ def test_expanded_group_highlights_relations(tmp_path: Path) -> None:
                     "document.querySelector('#structure-tree').textContent"
                 )
                 box = page.evaluate(
-                    "(() => { const r = document.querySelector('[data-element=a]')"
+                    "(() => { const r = document.querySelector('[data-element=\"component:a\"]')"
                     ".getBoundingClientRect(); return {x:r.x+r.width/2, y:r.y+r.height/2}; })()"
                 )
                 for count in (1, 2):
@@ -304,7 +315,9 @@ def test_expanded_group_highlights_relations(tmp_path: Path) -> None:
                     page.evaluate("document.querySelectorAll('.map-edges [data-map-edge]').length")
                     > 0
                 )
-                page.evaluate("document.querySelector('[data-element=\"a.first.one\"]').click()")
+                page.evaluate(
+                    "document.querySelector('[data-element=\"module:a.first.one\"]').click()"
+                )
                 page.wait("document.querySelector('#details h2')?.textContent === 'a.first.one'")
                 for mode in ("right", "down", "groups"):
                     control = f'document.querySelector("[data-map-layout={mode}]")'
@@ -316,7 +329,7 @@ def test_expanded_group_highlights_relations(tmp_path: Path) -> None:
                     assert page.evaluate(control + ".getAttribute('aria-pressed')") == "true"
                     assert (
                         page.evaluate(
-                            "document.querySelector('[data-element=\"a.first.one\"]')"
+                            "document.querySelector('[data-element=\"module:a.first.one\"]')"
                             ".getAttribute('aria-pressed')"
                         )
                         == "true"
@@ -328,7 +341,7 @@ def test_expanded_group_highlights_relations(tmp_path: Path) -> None:
                         > 0
                     )
                     assert page.evaluate("""(() => {
-                      const source = document.querySelector('[data-element="a.first.one"]');
+                      const source = document.querySelector('[data-element="module:a.first.one"]');
                       const target = [...document.querySelectorAll('.map-plane .uml-card')]
                         .find(node => node.textContent.includes('second'));
                       const path = document.querySelector(

@@ -33,6 +33,14 @@ _AddElement = Callable[[str, str, str, str, Row], None]
 _Reference = Callable[[str, int], str]
 
 
+def _key(domain: str, value: str) -> str:
+    return f"{domain}:{value}"
+
+
+def _endpoint(domain: str, value: object) -> str | None:
+    return _key(domain, value) if isinstance(value, str) and value else None
+
+
 def _object(value: object) -> Row:
     if not isinstance(value, dict):
         raise ValueError("expected an Explorer record")
@@ -68,8 +76,10 @@ def _calls(part: Row, locations: Row, symbols: dict[str, list[str]]) -> Iterator
     for data in _records(part.get("calls")):
         targets = _strings(data, "targets")
         candidates = [symbol for name in targets for symbol in symbols.get(name, [])]
-        origin = data.get("source_definition_id") or data["source_module"]
-        target = data.get("target_definition_id")
+        origin = _endpoint("definition", data.get("source_definition_id")) or _key(
+            "module", _text(data, "source_module")
+        )
+        target = _endpoint("definition", data.get("target_definition_id"))
         if target is None and len(candidates) == 1 and len(targets) == 1:
             target = candidates[0]
         exact = (
@@ -170,20 +180,26 @@ def _elements(topology: Row, element: _AddElement, reference: _Reference) -> Non
         if part.get("part")
     }
     for row in _records(topology["components"]):
+        key = _text(row, "id")
         element(
-            _text(row, "id"),
+            _key("component", key),
             _text(row, "name"),
             "component",
-            _text(row, "parent") if row["parent"] else "system",
-            dict(row, language=languages.get(_text(row, "id"), row.get("language"))),
+            _endpoint("component", row["parent"]) or "system",
+            dict(
+                row,
+                language=languages.get(key, row.get("language")),
+                system_part=key.startswith("PART:"),
+            ),
         )
     for row in _records(topology["modules"]):
+        owner = _endpoint("component", row["component"])
         element(
-            _text(row, "name"),
+            _key("module", _text(row, "name")),
             _text(row, "name"),
             "module",
-            _text(row, "component") if row["component"] else "system",
-            dict(row, source=reference(_text(row, "path"), 1)),
+            owner or "system",
+            dict(row, component=owner, source=reference(_text(row, "path"), 1)),
         )
     modules = {_text(row, "name") for row in _records(topology["modules"])}
     for part in _records(topology.get("explorer")):
@@ -191,7 +207,7 @@ def _elements(topology: Row, element: _AddElement, reference: _Reference) -> Non
             module = _text(file, "module")
             if module not in modules:
                 element(
-                    module,
+                    _key("module", module),
                     module,
                     "module",
                     "system",
@@ -214,7 +230,8 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
             name = row.get("qualified_name")
             if not isinstance(name, str) or not row.get("module"):
                 continue
-            symbols[name].append(_text(row, "id"))
+            key = _key("definition", _text(row, "id"))
+            symbols[name].append(key)
             refs = _fact_locations(row, locations)
             anchor = (
                 reference(_text(refs[0], "path"), _number(refs[0], "line", 1, 2**31 - 1))
@@ -222,10 +239,10 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
                 else None
             )
             element(
-                _text(row, "id"),
+                key,
                 name,
                 _text(row, "kind"),
-                _text(row, "parent"),
+                _key(_text(row, "parent_domain"), _text(row, "parent")),
                 _object(row["body"]) | {"source": anchor, "language": part.get("language")},
             )
         calls.append(_calls(part, locations, symbols))
@@ -275,22 +292,40 @@ def _relations(
         dict(row, source="PART:" + _text(row, "source"), target="PART:" + _text(row, "target"))
         for row in _records(topology.get("interfaces"))
     )
-    sections: tuple[tuple[str, Iterable[Row]], ...] = (
-        ("call", (row for group in calls for row in group)),
-        ("source_call", _source_calls(topology)),
-        ("import_site", _imports(topology)),
-        ("boundary", boundary_rows(root, list(_records(topology["modules"])))),
-        ("interface", interfaces),
-        ("import", _records(topology["edges"])),
-        ("import", _records(topology.get("component_edges"))),
-        ("requires", _records(topology.get("requires"))),
+    sections: tuple[tuple[str, str, str | None, Iterable[Row]], ...] = (
+        ("call", "call", None, (row for group in calls for row in group)),
+        ("source_call", "source_call", "module", _source_calls(topology)),
+        ("import_site", "import_site", "module", _imports(topology)),
+        (
+            "boundary",
+            "boundary",
+            "module",
+            boundary_rows(root, list(_records(topology["modules"]))),
+        ),
+        ("interface", "interface", "component", interfaces),
+        ("module_import", "import", "module", _records(topology["edges"])),
+        ("component_import", "import", "component", _records(topology.get("component_edges"))),
+        ("requires", "requires", "component", _records(topology.get("requires"))),
     )
-    for kind, rows in sections:
+    for section, kind, domain, rows in sections:
         for row in rows:
             relation_kind = row["kind"] if kind == "boundary" else kind
             if kind == "import_site" and row.get("inferred_receiver"):
                 relation_kind = "inferred_receiver"
-            key = row.get("id") or json.dumps([kind, row["source"], row["target"]])
+            source, target = row["source"], row["target"]
+            source_name, target_name = source, target
+            if domain is not None:
+                source = _endpoint(domain, source)
+                if kind in {"import", "import_site"} and row.get("resolution") in {
+                    "external",
+                    "builtin",
+                    "unresolved",
+                }:
+                    target = _endpoint("open_module", target)
+                else:
+                    target = _endpoint(domain, target)
+            identity = row.get("id") or json.dumps([source, target])
+            key = _key("relation:" + section, str(identity))
             refs = [
                 dict(
                     loc, reference=reference(_text(loc, "path"), _number(loc, "line", 1, 2**31 - 1))
@@ -301,19 +336,23 @@ def _relations(
                 row,
                 id=key,
                 kind=relation_kind,
+                source=source,
+                target=target,
                 evidence=refs,
                 resolution=row.get("resolution", "declared"),
             )
+            if domain is not None:
+                body.update(source_name=source_name, target_name=target_name)
             if kind == "call":
                 for end in ("source", "target"):
                     label = connection.execute(
-                        "SELECT name,parent FROM element WHERE id=?", (row[end],)
+                        "SELECT name,parent FROM element WHERE id=?", (body[end],)
                     ).fetchone()
                     if label:
                         body[end + "_name"], body[end + "_owner"] = label
             connection.execute(
                 "INSERT INTO relation VALUES (?,?,?,?,?)",
-                (key, row["source"], row["target"], relation_kind, json.dumps(body)),
+                (key, source, target, relation_kind, json.dumps(body)),
             )
 
 

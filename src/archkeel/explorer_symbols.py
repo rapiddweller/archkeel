@@ -85,4 +85,10 @@ def _entry(row: _Row, parent: _Row | None, attr: _Row | None) -> _Row:
         )
     if isinstance(name, str):
         body["display_name"] = name.rsplit(".", 1)[-1]
-    return dict(row, kind=kind, parent=parent["id"] if parent else row.get("module"), body=body)
+    return dict(
+        row,
+        kind=kind,
+        parent=parent["id"] if parent else row.get("module"),
+        parent_domain="definition" if parent else "module",
+        body=body,
+    )
