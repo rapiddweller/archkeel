@@ -4,6 +4,8 @@
 It supersedes the stage-1 parts of AD-399 and AD-406 and the opt-in switch of AD-422.
 AD-422 stays the record of the core-only path: frame, exit table, lookup and refusals.
 
+[AD-1017](ad-1017-query-one-local-explorer-snapshot.md) adds the Explorer modules to the Python shell.
+
 **Decision.**
 1. Delete the Python core: `archkeel.ir`, `archkeel.check`, `archkeel.analyzer`, and each module,
    tool, fixture script and test that works only with them.

@@ -2,7 +2,8 @@
 
 > **State of `main`.** The contract format on this page is current. The Rust core decides each rule
 > ([AD-432](architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md)). A rule kind without a port in the core is UNKNOWN with the gap
-> `rule_kind_not_ported`, never PASS. Baselines, amendments and `check` are not on `main`.
+> `rule_kind_not_ported`, never PASS. See [baselines](reference.md#baselines) for the current workflow.
+> The core line refuses amendments and `check`.
 
 Choose policy from observable evidence. [The contract schema](../schema/architecture-contract.schema.json)
 owns fields and versions; [valid examples](../tests/contracts/valid/) show accepted

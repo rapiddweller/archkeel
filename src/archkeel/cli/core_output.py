@@ -181,6 +181,16 @@ def write_new(path: Path, payload: bytes) -> None:
     name, which fails when the name exists, also as a link, and when it appears during the write. It
     never replaces a file (`--timings`, #659)."""
     directory = _parent(path)
+    try:
+        write_new_at(directory, path.name, payload)
+    finally:
+        os.close(directory)
+
+
+def write_new_at(directory: int, name: str, payload: bytes) -> None:
+    """Publish a new file within the caller's open directory."""
+    if Path(name).name != name or name in ("", ".", ".."):
+        raise ValueError("expected a single file name")
     temporary = f".archkeel-{secrets.token_hex(16)}"
     created = False
     try:
@@ -195,10 +205,7 @@ def write_new(path: Path, payload: bytes) -> None:
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
-        os.link(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
+        os.link(temporary, name, src_dir_fd=directory, dst_dir_fd=directory)
     finally:
-        try:
-            if created:
-                os.unlink(temporary, dir_fd=directory)
-        finally:
-            os.close(directory)
+        if created:
+            os.unlink(temporary, dir_fd=directory)

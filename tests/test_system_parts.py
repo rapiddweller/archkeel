@@ -37,8 +37,9 @@ def test_the_document_has_the_shape_of_the_first_slice_of_the_system_contract() 
     assert [(p.language, p.subject) for p in system.parts] == [
         ("PYTHON", "Python shell (src/archkeel)"),
         ("RUST", "Rust core (native)"),
+        ("TYPESCRIPT", "Studio UI (studio/src)"),
     ]
-    assert system.name == "ArchKeel (Python shell + Rust core)"
+    assert system.name == "ArchKeel (Python shell + Rust core + Studio UI)"
 
 
 def test_no_tool_or_makefile_target_hard_wires_a_part() -> None:

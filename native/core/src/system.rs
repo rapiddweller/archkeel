@@ -45,6 +45,7 @@ pub(crate) fn join(
             first.get(key).cloned().unwrap_or(Value::Null),
         );
     }
+    join_explorer(system, &frames, &mut frame);
     let typed: Vec<PartFrame> = frames.iter().map(PartFrame::of).collect();
     let statuses: Vec<Option<Status>> = typed.iter().map(|part| part.status).collect();
     let status = system_status(&statuses);
@@ -122,6 +123,23 @@ pub(crate) fn join(
         frame.insert("html".to_owned(), page);
     }
     serde_json::to_vec(&frame).map_err(|error| error.to_string())
+}
+
+fn join_explorer(system: &System, frames: &[Map<String, Value>], frame: &mut Map<String, Value>) {
+    let explorer: Vec<_> = system
+        .parts
+        .iter()
+        .zip(frames)
+        .flat_map(|(part, frame)| {
+            list(frame, "explorer").map(|mut rows| {
+                rows["part"] = json!(part.id);
+                rows
+            })
+        })
+        .collect();
+    if !explorer.is_empty() {
+        frame.insert("explorer".to_owned(), Value::Array(explorer));
+    }
 }
 
 fn map<'a>(

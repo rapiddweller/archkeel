@@ -64,7 +64,7 @@ class RefusalKind(StrEnum):
 
 
 class CoreCommand(StrEnum):
-    """Each registered command. Only `validate`, `report` and `skill` run (AD-432)."""
+    """Each registered command, including commands that this line still refuses."""
 
     VALIDATE = "validate"
     REPORT = "report"
@@ -72,9 +72,6 @@ class CoreCommand(StrEnum):
     CHECK = "check"
     EXPLORE = "explore"
     INIT = "init"
-    GUIDE = "guide"
-    STORY = "story"
-    VIEW = "view"
     STUDIO = "studio"
 
 

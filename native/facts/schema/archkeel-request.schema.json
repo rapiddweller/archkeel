@@ -263,6 +263,10 @@
               "$ref": "#/$defs/PythonPhase",
               "description": "The phase of the Python collection."
             },
+            "import_roots_ambiguous": {
+              "const": true,
+              "description": "Conflicting build metadata leaves the runtime import roots unknown."
+            },
             "python": {
               "type": [
                 "string",

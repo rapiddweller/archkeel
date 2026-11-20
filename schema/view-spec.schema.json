@@ -194,6 +194,11 @@
                         "required": [
                           "external"
                         ]
+                      },
+                      {
+                        "required": [
+                          "transition"
+                        ]
                       }
                     ]
                   }
@@ -276,6 +281,9 @@
       "properties": {
         "node": {
           "type": "string"
+        },
+        "transition": {
+          "enum": ["call", "return", "process_request", "process_response"]
         },
         "note": {
           "anyOf": [

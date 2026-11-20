@@ -19,7 +19,8 @@ use archkeel_facts::vocab::ResolutionDimension;
 use archkeel_facts::{GapFact, ImportFact, Record};
 
 use super::binders::first_part;
-use super::effects::{self, AMBIGUOUS, BEYOND_TOP, NOT_FOUND, STAR};
+use super::effects::{self, AMBIGUOUS, AMBIGUOUS_ROOTS, BEYOND_TOP, NOT_FOUND, STAR};
+use crate::names::importable_path;
 
 /// The prefix of the target of a relative import that `resolve_name` refuses (`imports.rs`).
 const UNRESOLVED: &str = "<unresolved:";
@@ -71,14 +72,16 @@ pub(super) fn resolve(
     imports: &[Record<ImportFact>],
     files: &[FileFact],
     stdlib: &HashSet<&str>,
-    namespace: &str,
+    (project, root_relative, uncertain): (&HashSet<String>, bool, bool),
     ambiguous: &HashSet<String>,
 ) -> Resolved {
     let by_module: HashMap<&str, &str> = files
         .iter()
-        .map(|file| (file.module.as_str(), file.rel_path.as_str()))
+        .filter(|file| {
+            !root_relative || importable_path(String::as_str(&file.rel_path), file.module.as_str())
+        })
+        .map(|file| (file.module.as_str(), String::as_str(&file.rel_path)))
         .collect();
-    let project = first_part(namespace);
     let mut found = Resolved {
         targets: Vec::with_capacity(imports.len()),
         gaps: BTreeMap::new(),
@@ -99,7 +102,7 @@ pub(super) fn resolve(
             let name = symbol.map_or_else(|| module.to_owned(), |name| format!("{module}.{name}"));
             gap(AMBIGUOUS, &name);
         }
-        let in_project = first_part(module) == project;
+        let in_project = project.contains(first_part(module));
         if in_project && symbol == Some("*") {
             gap(STAR, module);
         }
@@ -111,6 +114,9 @@ pub(super) fn resolve(
         let target = if module.starts_with(UNRESOLVED) {
             gap(BEYOND_TOP, module);
             unresolved("relative import above the top package")
+        } else if uncertain && (in_project || !stdlib.contains(first_part(module))) {
+            gap(AMBIGUOUS_ROOTS, module);
+            unresolved("runtime Python import roots are ambiguous")
         } else if in_project {
             match by_module.get(module) {
                 Some(file) => Target::Local {

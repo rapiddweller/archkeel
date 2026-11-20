@@ -20,6 +20,7 @@ pub(crate) struct Prepared {
     pub request: PythonRequest,
     pub interpreter: Interpreter,
     pub source: TargetSource,
+    pub navigation: bool,
 }
 
 impl Prepared {
@@ -29,6 +30,7 @@ impl Prepared {
         let (interpreter, source) = target(&mut snapshot, &request.resolver)?;
         Ok(Self {
             request: request.clone(),
+            navigation: false,
             interpreter,
             source,
         })

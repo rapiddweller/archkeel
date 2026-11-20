@@ -46,10 +46,15 @@ def test_the_badges_are_few_in_two_rows_and_use_the_dark_label() -> None:
     assert "checks-Rust" not in top and "engine-Rust" not in top
 
 
-def test_the_state_of_main_follows_the_pitch() -> None:
-    assert README.index("**See it live.**") < README.index("## Why ArchKeel?")
-    assert README.index("## Why ArchKeel?") < README.index("## State of `main`")
-    assert README.index("## State of `main`") < README.index("## Install")
+def test_the_quick_start_leads_to_the_studio_shown_in_the_pictures() -> None:
+    quick_start = README.split("## Quick start", 1)[1].split("## Check a contract", 1)[0]
+    assert "make core" in quick_start and "uv run archkeel studio ." in quick_start
+    assert "Story" in quick_start
+    for name in ("studio-architecture.png", "studio-story.png"):
+        path = "docs/assets/" + name
+        assert f'src="{path}" alt="' in README
+        picture = ROOT / path
+        assert picture.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
 
 
 def test_each_link_to_the_site_names_a_path_that_the_gallery_writes(tmp_path: Path) -> None:
@@ -68,22 +73,6 @@ def test_each_link_to_the_site_names_a_path_that_the_gallery_writes(tmp_path: Pa
         assert (path or "index.html") in written, url
 
 
-def test_the_first_screen_orders_meaning_verdict_picture_and_start() -> None:
-    first = README.split("## Why ArchKeel?")[0]
-    order = [
-        "checks it against the boundaries you declare",
-        "**UNKNOWN is not a pass.**",
-        "docs/assets/archkeel-report.png",
-        "**What each language decides today.**",
-        "uv tool install git+https://github.com/rapiddweller/archkeel",
-    ]
-    positions = [first.index(text) for text in order]
-    assert positions == sorted(positions)
-    picture = ROOT / "docs/assets/archkeel-report.png"
-    assert picture.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
-    assert picture.stat().st_size <= 200_000
-
-
 def test_the_readme_pins_no_count_and_does_not_announce_an_unreleased_version() -> None:
     first = README.split("## Why ArchKeel?")[0]
     # The counts live in the generated badge and page. A fixed count here would go stale.
@@ -98,7 +87,7 @@ TIERS = re.compile(r"<!-- tiers:start -->\n(.*?)\n<!-- tiers:end -->", re.S)
 def test_the_language_tiers_of_the_readme_are_the_block_of_the_known_limits() -> None:
     limits = (ROOT / "docs/known-limits.md").read_text()
     (block,) = TIERS.findall(limits)
-    assert len(TIERS.findall(README)) >= 2
+    assert len(TIERS.findall(README)) == 1
     assert all(found == block for found in TIERS.findall(README))
     # Outside the block, the known limits say what the block says, so that one cannot change alone.
     body = TIERS.sub("", limits).replace("\n", " ")

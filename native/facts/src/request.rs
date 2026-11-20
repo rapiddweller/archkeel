@@ -120,6 +120,14 @@ pub struct DartSettings {}
 pub struct PythonSettings {
     /// The phase of the Python collection.
     pub phase: PythonPhase,
+    /// Conflicting build metadata leaves the runtime import roots unknown.
+    #[serde(
+        default,
+        skip_serializing_if = "is_false",
+        deserialize_with = "only_true"
+    )]
+    #[schemars(schema_with = "always_true")]
+    pub import_roots_ambiguous: bool,
     /// The configured target version, when the scan names one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub python: Option<String>,
@@ -243,6 +251,11 @@ impl Request {
             (false, true) => return Err("protocol 10.0.0 requires the Python resolver".into()),
             _ => {}
         }
+        if let Resolver::Python(settings) = &self.resolver {
+            if settings.import_roots_ambiguous && !self.scope.namespace.is_empty() {
+                return Err("import_roots_ambiguous needs Python import roots".into());
+            }
+        }
         self.resolver.check()
     }
 }
@@ -254,7 +267,7 @@ impl<R> Request<R> {
     /// Check the snapshot and the scope. The settings of a language check themselves.
     pub fn check(&self) -> Result<(), String> {
         self.snapshot.check()?;
-        self.scope.check(self.protocol_version.has_test_scope())
+        self.scope.check(self.protocol_version)
     }
 }
 
@@ -269,13 +282,15 @@ impl Snapshot {
 }
 
 impl Scope {
-    fn check(&self, test_scope: bool) -> Result<(), String> {
-        if self.exclude_test_sources.is_some() != test_scope {
+    fn check(&self, version: Version) -> Result<(), String> {
+        if self.exclude_test_sources.is_some() != version.has_test_scope() {
             return Err("scope fields mismatch".to_owned());
         }
-        text(&self.namespace, "scope.namespace")?;
-        if !self.namespace.split('.').all(is_identifier) {
-            return Err("scope.namespace must be a dotted namespace".to_owned());
+        if !self.namespace.is_empty() || !version.is_python() {
+            text(&self.namespace, "scope.namespace")?;
+            if !self.namespace.split('.').all(is_identifier) {
+                return Err("scope.namespace must be a dotted namespace".to_owned());
+            }
         }
         if self.roots.is_empty() {
             return Err("scope.roots must be a nonempty array".to_owned());

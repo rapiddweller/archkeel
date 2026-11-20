@@ -37,13 +37,21 @@ def _verify(bundled: Path) -> None:
         raise CoreError(f"the installed core binary digest does not match: {bundled}")
 
 
+def collector_workers(binary: Path) -> tuple[Path, ...]:
+    """The separately installed collectors that the core can start."""
+    return tuple(
+        binary.with_name(name + binary.suffix)
+        for name in ("archkeel-rust-collector", "archkeel-typescript-collector")
+    )
+
+
 def confirm(binary: Path) -> None:
     """Check a bundled core binary and both workers beside it again, immediately before the
     core starts. A checkout binary has no digest file and is not checked."""
     if binary.parent.name == "_native":
         _verify(binary)
-        for worker in ("archkeel-rust-collector", "archkeel-typescript-collector"):
-            _verify(binary.with_name(worker + binary.suffix))
+        for worker in collector_workers(binary):
+            _verify(worker)
 
 
 def locate_core(package: Path | None = None) -> Path:

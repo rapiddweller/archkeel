@@ -165,6 +165,9 @@ fn declaration_references(found: &mut Held, declarations: &Value) {
 
 /// The held references outside the namespace of the configuration (`reference.namespace`).
 pub(crate) fn namespace(contract: &Contract, namespace: &str, sdk: &[String]) -> Vec<Finding> {
+    if namespace.is_empty() {
+        return Vec::new();
+    }
     held(contract, sdk)
         .into_iter()
         .filter(|(_, value)| !in_scope(value.split(':').next().unwrap_or_default(), namespace))

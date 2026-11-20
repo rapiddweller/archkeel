@@ -12,15 +12,18 @@
 //! - A stub or compiled module file below a root: Python can import it, the survey cannot read it.
 //! - A directory or entry that the snapshot cannot read (#1043).
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use archkeel_facts::data::GapData;
 use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::vocab::Area;
 use archkeel_facts::{GapFact, Record};
 
+use super::effects::AMBIGUOUS_ROOTS;
 use super::failures::record;
-use crate::module::Module;
+use crate::module::{first_part, Module};
+use crate::names::{below_root, importable_path, scoped};
 
 pub(super) const DUPLICATE: &str = "duplicate_module";
 pub(super) const OUTSIDE_LAYOUT: &str = "module_outside_layout";
@@ -33,8 +36,31 @@ fn file_gap(rel: &str, reason: &str) -> Record<GapFact> {
     super::failures::file_gap(rel, reason, reason.to_owned())
 }
 
+pub(super) fn gaps(
+    modules: &mut Vec<Module>,
+    (selected, unsupported, links): (&[String], &[String], &[String]),
+    (namespace, roots): (&str, &[String]),
+    uncertain_manifest: Option<&str>,
+) -> Vec<Record<GapFact>> {
+    let mut found = if namespace.is_empty() {
+        ambiguous_roots(modules, selected, roots)
+    } else {
+        duplicates(modules)
+    };
+    if let Some(manifest) = uncertain_manifest {
+        found.push(file_gap(
+            manifest,
+            &format!("{AMBIGUOUS_ROOTS}: the available files do not establish the runtime Python import roots"),
+        ));
+    }
+    found.extend(outside(modules, roots));
+    found.extend(foreign(unsupported));
+    found.extend(linked(links));
+    found
+}
+
 /// Remove each module whose name another module has too, and give a gap for each such file.
-pub(super) fn duplicates(modules: &mut Vec<Module>) -> Vec<Record<GapFact>> {
+fn duplicates(modules: &mut Vec<Module>) -> Vec<Record<GapFact>> {
     let mut files: HashMap<String, Vec<String>> = HashMap::new();
     for module in modules.iter() {
         let paths = files.entry(module.name.clone()).or_default();
@@ -51,6 +77,61 @@ pub(super) fn duplicates(modules: &mut Vec<Module>) -> Vec<Record<GapFact>> {
             module.name,
             paths.join(", ")
         );
+        gaps.push(file_gap(&module.rel, &reason));
+        false
+    });
+    gaps
+}
+
+/// The first name of each package or module that the scan can supply, including failed reads.
+pub(super) fn project_names(
+    selected: &[String],
+    namespace: &str,
+    roots: &[String],
+    minor: PyMinor,
+) -> HashSet<String> {
+    if !namespace.is_empty() {
+        return HashSet::from([first_part(namespace).to_owned()]);
+    }
+    selected
+        .iter()
+        .filter_map(|path| {
+            scoped(path, namespace, roots, minor).filter(|name| importable_path(path, name))
+        })
+        .map(|name| first_part(&name).to_owned())
+        .collect()
+}
+
+/// A regular package or a module in one root can shadow all children of a package in another.
+fn ambiguous_roots(
+    modules: &mut Vec<Module>,
+    selected: &[String],
+    roots: &[String],
+) -> Vec<Record<GapFact>> {
+    let mut providers: HashMap<&str, BTreeSet<&str>> = HashMap::new();
+    for path in selected {
+        let Some((root, relative)) = roots
+            .iter()
+            .find_map(|root| below_root(path, root).map(|relative| (root, relative)))
+        else {
+            continue;
+        };
+        let top = relative
+            .split_once('/')
+            .map(|(top, _)| top)
+            .or_else(|| relative.strip_suffix(".py"));
+        if let Some(top) = top.filter(|top| archkeel_facts::identity::is_identifier(top)) {
+            providers.entry(top).or_default().insert(root);
+        }
+    }
+    let mut gaps = Vec::new();
+    modules.retain(|module| {
+        let top = first_part(&module.name);
+        let Some(found) = providers.get(top).filter(|found| found.len() > 1) else {
+            return true;
+        };
+        let directories = found.iter().copied().collect::<Vec<_>>().join(", ");
+        let reason = format!("{DUPLICATE}: {top} has providers in {directories}");
         gaps.push(file_gap(&module.rel, &reason));
         false
     });
@@ -110,7 +191,7 @@ pub(super) fn is_script(module: &Module) -> bool {
 
 /// A gap for each module that is not in the layout of any scan root. A script has no place in a
 /// layout, so it has no gap.
-pub(super) fn outside(modules: &[Module], roots: &[String]) -> Vec<Record<GapFact>> {
+fn outside(modules: &[Module], roots: &[String]) -> Vec<Record<GapFact>> {
     modules
         .iter()
         .filter(|module| !is_script(module))
@@ -132,7 +213,7 @@ pub(super) fn outside(modules: &[Module], roots: &[String]) -> Vec<Record<GapFac
 
 /// A gap for each linked directory below a root: Python imports its modules, the survey does not
 /// read them.
-pub(super) fn linked(directories: &[String]) -> Vec<Record<GapFact>> {
+fn linked(directories: &[String]) -> Vec<Record<GapFact>> {
     directories
         .iter()
         .map(|rel| file_gap(rel, &format!("{LINKED}: {rel}")))
@@ -140,7 +221,7 @@ pub(super) fn linked(directories: &[String]) -> Vec<Record<GapFact>> {
 }
 
 /// A gap for each stub or compiled module file.
-pub(super) fn foreign(files: &[String]) -> Vec<Record<GapFact>> {
+fn foreign(files: &[String]) -> Vec<Record<GapFact>> {
     files
         .iter()
         .map(|rel| file_gap(rel, &format!("{FOREIGN}: {rel}")))

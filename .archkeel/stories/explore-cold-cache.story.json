@@ -1,0 +1,177 @@
+{
+  "schema_version": "1.2.0",
+  "title": "archkeel studio — From a cold scan to the browser map",
+  "snapshot": {
+    "source_digest": "3e0128bf8fa92b4306d87e144737ed1f5fa64c35bb6be3bee881eee03d57f883",
+    "contract_digest": "fcfcf956f613dbd4c6a0957d30b6bb6f060a32679e0370de2a6be56a6acc9598"
+  },
+  "nodes": [
+    "archkeel.cli.core_only._explore",
+    "archkeel.cli.core_explorer.launch",
+    "archkeel.cli.core_explorer._publish",
+    "archkeel.cli.core_only._exchange_scan",
+    "archkeel.cli.native_scan.exchange",
+    "native.archkeel_core.main",
+    "native.archkeel_core.scan_answer",
+    "native.archkeel_core.scan.answer",
+    "archkeel.cli.core_frame.read_frame",
+    "archkeel.explorer_store.publish_snapshot",
+    "archkeel.explorer_store._build",
+    "studio.studio.src.explorer_x2d_navigation_x2e_ts.showScope"
+  ],
+  "story": {
+    "id": "explore-cold-cache",
+    "title": "archkeel studio — From a cold scan to the browser map",
+    "chapters": [
+      {
+        "id": "start",
+        "title": "Enter Explore"
+      },
+      {
+        "id": "request",
+        "title": "Send the request"
+      },
+      {
+        "id": "core",
+        "title": "Run the Rust core"
+      },
+      {
+        "id": "return",
+        "title": "Return and validate the frame"
+      },
+      {
+        "id": "build",
+        "title": "Write the snapshot"
+      },
+      {
+        "id": "serve",
+        "title": "Open the architecture map"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "node": "archkeel.cli.core_only._explore",
+      "title": "Explore command",
+      "note": "Select the project and prepare a scan.",
+      "chapter": "start"
+    },
+    {
+      "node": "archkeel.cli.core_explorer.launch",
+      "title": "Choose the cold path",
+      "note": "A missing matching snapshot selects the cold build path. The call binding from the command remains unresolved.",
+      "chapter": "start"
+    },
+    {
+      "node": "archkeel.cli.core_explorer._publish",
+      "title": "Prepare the scan",
+      "note": "The publisher requests a fresh scan before preparing the snapshot.",
+      "chapter": "start"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Prepare the core request",
+      "note": "The scan callback serializes the request and asks the native core for a frame. The callback binding is unresolved.",
+      "chapter": "request"
+    },
+    {
+      "node": "archkeel.cli.native_scan.exchange",
+      "title": "Start the core process",
+      "note": "The shell runs the core with the scan request on standard input and captures its output.",
+      "chapter": "request"
+    },
+    {
+      "node": "native.archkeel_core.main",
+      "title": "Read the request",
+      "note": "The Rust child selects the scan request and reads the request bytes from standard input. The cross-process binding is not resolved.",
+      "chapter": "request",
+      "transition": "process_request"
+    },
+    {
+      "node": "native.archkeel_core.scan_answer",
+      "title": "Dispatch the scan",
+      "note": "The scan entry delegates the request to the core scan implementation.",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.scan.answer",
+      "title": "Collect and evaluate",
+      "note": "The core runs collection and evaluation, and prepares a frame for its caller.",
+      "chapter": "core"
+    },
+    {
+      "node": "native.archkeel_core.scan_answer",
+      "title": "Return the scan result",
+      "note": "The scan result returns to the scan entry. This is a return, not a reverse call.",
+      "chapter": "return",
+      "transition": "return"
+    },
+    {
+      "node": "native.archkeel_core.main",
+      "title": "Write the frame",
+      "note": "The core writes the frame to standard output. The return path is not observed at runtime.",
+      "chapter": "return",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.cli.native_scan.exchange",
+      "title": "Receive the frame",
+      "note": "The shell receives the child process output and exit code. The process response is not resolved as a call edge.",
+      "chapter": "return",
+      "transition": "process_response"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Return to the scan",
+      "note": "The exchange returns the captured frame bytes to the scan wrapper.",
+      "chapter": "return",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.cli.core_frame.read_frame",
+      "title": "Validate the frame",
+      "note": "The scan wrapper reads the frame and checks its protocol and request binding.",
+      "chapter": "return"
+    },
+    {
+      "node": "archkeel.cli.core_only._exchange_scan",
+      "title": "Return the checked frame",
+      "note": "The frame reader returns to the wrapper. A static call does not prove a runtime return.",
+      "chapter": "return",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.cli.core_explorer._publish",
+      "title": "Prepare the snapshot",
+      "note": "The scan callback returns the frame to the publisher. Its dynamic binding is unresolved.",
+      "chapter": "build",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.explorer_store.publish_snapshot",
+      "title": "Publish the snapshot",
+      "note": "The publisher builds a database when no matching snapshot exists.",
+      "chapter": "build"
+    },
+    {
+      "node": "archkeel.explorer_store._build",
+      "title": "Write the database",
+      "note": "The builder opens a temporary SQLite database and writes its snapshot transaction. The SQLite binding remains unknown.",
+      "chapter": "build"
+    },
+    {
+      "node": "archkeel.cli.core_explorer.launch",
+      "title": "Serve Studio on localhost",
+      "note": "After the snapshot is published, the launcher verifies its identity, starts the HTTP server and prints its local address.",
+      "chapter": "serve",
+      "claim": true
+    },
+    {
+      "node": "studio.studio.src.explorer_x2d_navigation_x2e_ts.showScope",
+      "title": "Display the architecture map",
+      "note": "The browser opens the system scope, requests the map and renders the returned groups. The browser request is a separate event.",
+      "chapter": "serve",
+      "claim": true
+    }
+  ]
+}

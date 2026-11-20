@@ -28,7 +28,7 @@ def _is_production(relative: str) -> bool:
     parts = relative.split("/")
     return (
         _is_size_limited(relative)
-        and parts[0] in {"src", "native", "tools"}
+        and parts[0] in {"src", "native", "studio", "tools"}
         and not name.endswith("_tests.rs")
         and "tests" not in parts
     )
@@ -62,6 +62,7 @@ def test_a_production_file_that_this_branch_adds_has_at_most_400_lines() -> None
 
 def test_the_born_small_rule_picks_production_files_only() -> None:
     assert _is_production("native/core/src/new.rs") and _is_production("tools/new.py")
+    assert _is_production("studio/src/explorer.ts")
     assert not _is_production("native/core/src/new_tests.rs")
     assert not _is_production("tests/test_new.py") and not _is_production("native/core/tests/a.rs")
 

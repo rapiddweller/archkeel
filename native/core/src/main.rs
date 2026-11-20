@@ -23,6 +23,7 @@ mod contract;
 mod decode;
 mod dual_run;
 mod engine;
+mod explorer;
 mod gap_key;
 mod hygiene;
 mod hygiene_boundary;

@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.2.0",
+  "title": "archkeel-mcp — Answer a client’s map request",
+  "snapshot": {
+    "source_digest": "3e0128bf8fa92b4306d87e144737ed1f5fa64c35bb6be3bee881eee03d57f883",
+    "contract_digest": "fcfcf956f613dbd4c6a0957d30b6bb6f060a32679e0370de2a6be56a6acc9598"
+  },
+  "nodes": [
+    "archkeel.explorer_mcp.main",
+    "archkeel.explorer_queries.query",
+    "archkeel.explorer_mcp._query_tools",
+    "archkeel.explorer_map._map_view"
+  ],
+  "story": {
+    "id": "query-studio-over-mcp",
+    "title": "archkeel-mcp — Answer a client’s map request",
+    "chapters": [
+      {
+        "id": "bind",
+        "title": "Bind the client to a snapshot"
+      },
+      {
+        "id": "listen",
+        "title": "Start the stdio service"
+      },
+      {
+        "id": "answer",
+        "title": "Answer the map request"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "node": "archkeel.explorer_mcp.main",
+      "title": "Start archkeel-mcp",
+      "note": "The client launches archkeel-mcp with the repository root and snapshot path printed by Studio.",
+      "chapter": "bind"
+    },
+    {
+      "node": "archkeel.explorer_queries.query",
+      "title": "Check the snapshot",
+      "note": "An overview query verifies the saved repository root before the service accepts requests.",
+      "chapter": "bind"
+    },
+    {
+      "node": "archkeel.explorer_mcp.main",
+      "title": "Create the MCP server",
+      "note": "After the check succeeds, the process creates the local MCP server.",
+      "chapter": "bind",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.explorer_mcp._query_tools",
+      "title": "Register the map tool",
+      "note": "The map tool accepts a parent, view and optional focus. It uses the same query as the Studio canvas.",
+      "chapter": "listen"
+    },
+    {
+      "node": "archkeel.explorer_mcp.main",
+      "title": "Listen on standard input",
+      "note": "The entry point registers the story tools and starts the stdio transport.",
+      "chapter": "listen",
+      "transition": "return"
+    },
+    {
+      "node": "archkeel.explorer_queries.query",
+      "title": "Receive the client request",
+      "note": "After startup, the client calls map. FastMCP dispatches to the registered callback. The snapshot does not identify this callback dispatch.",
+      "chapter": "answer",
+      "claim": true
+    },
+    {
+      "node": "archkeel.explorer_map._map_view",
+      "title": "Return the system map",
+      "chapter": "answer",
+      "note": "The query reads the requested hierarchy and groups its directed relationships. The client receives the items and edges together with the snapshot identity and scan coverage."
+    }
+  ]
+}

@@ -20,6 +20,7 @@ from urllib.parse import quote
 from .core_arguments import Options
 from .core_baseline import BaselineResult, BaselineState
 from .core_frame import CoreError, CoreFrame, RefusalKind
+from .core_json import as_object
 from .core_output import write_new, write_output
 
 _Refusal = tuple[RefusalKind, str]
@@ -90,7 +91,13 @@ def _write_baseline(path: str, part: BaselineResult, root: Path) -> None:
 _GAP_MARKER = '<section id="gap-records-file">Gap records file unavailable.</section>'
 
 
-def _gap_file(target: Path, document: Mapping[str, object], count: int) -> tuple[str, Path, bytes]:
+def _gap_file(
+    target: Path,
+    document: Mapping[str, object],
+    count: int,
+    *,
+    note: str = "Keep this file with the report. If the file is missing, the link cannot open it.",
+) -> tuple[str, Path, bytes]:
     """Name the same run's frame by the digest of its bytes."""
     content = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     digest = hashlib.sha256(content).hexdigest()
@@ -100,7 +107,7 @@ def _gap_file(target: Path, document: Mapping[str, object], count: int) -> tuple
         '<section id="gap-records-file"><h2>Gap records</h2>'
         f'<p><a href="{href}">Open gap records JSON</a> · {count} gap records</p>'
         f'<p>SHA-256: <code class="rp-code">{digest}</code></p>'
-        "<p>Keep this file with the report. If the file is missing, the link cannot open it.</p>"
+        f"<p>{html.escape(note)}</p>"
         "</section>"
     )
     return markup, path, content
@@ -125,3 +132,20 @@ def _write_report(
     else:
         payload = stdout
     write_output(options.output, payload, companion=companion)
+
+
+def _explorer_report(stdout: bytes, frame: CoreFrame) -> tuple[str, tuple[str, bytes]]:
+    if frame.html is None:
+        raise CoreError("the core did not give the native report")
+    document = as_object(json.loads(stdout), "frame")
+    document.pop("html", None)
+    gaps = document.get("collection_gaps")
+    if not isinstance(gaps, list):
+        raise CoreError("the core frame has no collection gaps")
+    markup, path, content = _gap_file(
+        Path("report.html"),
+        document,
+        len(gaps),
+        note="This link is available while the Explorer is running.",
+    )
+    return frame.html.replace(_GAP_MARKER, markup, 1), (path.name, content)

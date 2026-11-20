@@ -35,8 +35,8 @@ An arrow points down only. The entry calls the commands, the commands call the o
 no part calls up. Rule `SHELL-REQUIRES-COMPLETE` allows only the arrows in the contract.
 `SHELL-NO-*-TO-FRAME` rules name the parts that must not reach the verdict reader.
 `SHELL-ONLY-*` rules give each standard-library door (process, arguments, configuration file,
-temporary file name, install layout, trace) one home. `SHELL-EXTERNAL-COMPLETE` forbids each
-third-party package, so no analysis library enters the shell.
+temporary file name, install layout, trace) an explicit owner. The shell uses the standard
+library. `SHELL-ONLY-EXPLORER-MCP-USES-FASTMCP` permits FastMCP in the optional MCP entry.
 
 The shell starts the core as a process. That is not an import, so no rule can name the edge
 from the shell to the core. `SHELL-ONLY-LAUNCH-STARTS-A-PROCESS` keeps it in one module.
@@ -73,6 +73,12 @@ flowchart LR
     n_16["skill"]
     n_17["text"]
     n_18["words"]
+    n_19["explorer-boundaries"]
+    n_20["explorer-host"]
+    n_21["explorer-mcp"]
+    n_22["explorer-query"]
+    n_23["explorer-store"]
+    n_24["storyboard"]
     n_0 --> n_7
     n_1 --> n_11
     n_1 --> n_18
@@ -91,6 +97,7 @@ flowchart LR
     n_3 --> n_16
     n_3 --> n_17
     n_3 --> n_18
+    n_3 --> n_20
     n_4 --> n_11
     n_4 --> n_15
     n_5 --> n_3
@@ -120,4 +127,22 @@ flowchart LR
     n_17 --> n_8
     n_17 --> n_11
     n_17 --> n_18
+    n_20 --> n_0
+    n_20 --> n_2
+    n_20 --> n_6
+    n_20 --> n_7
+    n_20 --> n_10
+    n_20 --> n_11
+    n_20 --> n_12
+    n_20 --> n_13
+    n_20 --> n_22
+    n_20 --> n_23
+    n_21 --> n_22
+    n_21 --> n_23
+    n_22 --> n_19
+    n_22 --> n_23
+    n_20 --> n_24
+    n_21 --> n_24
+    n_24 --> n_14
+    n_24 --> n_23
 ```

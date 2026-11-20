@@ -116,8 +116,8 @@ repository must be set to GitHub Actions. The gallery has two sections: ArchKeel
 (`self/index.html` and its shield endpoint `self/badge.json`; the weakest verdict of the parts of
 `docs/architecture/architecture-system.json`, an interim,
 [AD-522](docs/architecture/decisions/ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md)),
-with the reports of the Rust core and the Python shell (`self/core.html`, `self/shell.html`, with a
-shield endpoint file for each), and the fixture table. The README links these paths, so do not rename them. `fixtures/matrix.json` pins the
+with the reports of the Rust core, Python shell and Studio UI (one HTML file and a
+shield endpoint file for each part), and the fixture table. The README links these paths, so do not rename them. `fixtures/matrix.json` pins the
 result of the core for each fixture; a test fails when the result changes. Update the pin in the same change.
 The Python engine built the older gallery and its Pages workflow (`pages.yml`); AD-432 deleted both.
 The Windows wheel job builds and checks the wheel. It also runs the disk-root Rust tests and
@@ -137,10 +137,9 @@ file, directory or crate is named `util`, `utils`, `common`, `helper`, `helpers`
 
 ## Browser assets
 
-The Explorer and Studio browser assets are not in the tree: no 5.0 path loads them (AD-582). Git
-history keeps them. They come back when `explore` and Studio are ported to the core (5.1).
-`tools/browser-runtime` holds only the pinned TypeScript compiler that the standard-library
-catalog check reads.
+Edit the Studio TypeScript in `studio/src/`. Run `make studio-ui-generate` to build its
+ES modules in `src/archkeel/cli/assets/`. Run `make studio-ui-check` to compare the shipped
+files with the pinned compiler output. The installed Studio serves these files without Node.js.
 
 ## Inspect the native self-check
 
@@ -157,7 +156,8 @@ The full result is in ignored `test-artifacts/validation-native/result.json`.
 `make self-validate-shell` checks the Python shell of `src/archkeel` with the contract
 `docs/architecture/target/shell-contract.json` against the pinned rows of
 `docs/architecture/target/shell-expected.json` ([shell](docs/architecture/shell.md), AD-478).
-`make self-validate` runs both checks. The tools have no architecture contract.
+`make self-validate` runs both checks and the system check. The system check includes the Studio UI
+contract at `studio/architecture-contract.json`. The tools have no architecture contract.
 
 ## A behaviour change carries its decision
 

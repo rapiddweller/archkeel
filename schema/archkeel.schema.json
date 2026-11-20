@@ -34,8 +34,8 @@
         },
         "namespace": {
           "type": "string",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])",
-          "description": "ASCII dotted package prefix used for internal imports; for Dart, the pubspec name."
+          "pattern": "^(?:[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*)?(?![\\s\\S])",
+          "description": "ASCII dotted package prefix. Use an empty string for Python import roots. For Dart, use the pubspec name."
         },
         "language": {
           "enum": [
@@ -74,7 +74,7 @@
         "exclude_test_sources": {
           "type": "boolean",
           "default": false,
-          "description": "Leave recognized test sources out of the scan, so report and validate use the same test-free scope as explore (AD-313). Python and TypeScript only; Dart rejects true. Counts and verdicts then cover production code only, and the result carries a note."
+          "description": "Leave recognized test sources out of the scan. Each collector defines the test sources it recognizes."
         },
         "collector_output_limit_bytes": {
           "type": "integer",
@@ -98,6 +98,11 @@
             "pattern": "^[^\\u0000]+$"
           },
           "description": "Optional collector command and arguments as separate tokens; no shell parsing is applied."
+        },
+        "import_roots_ambiguous": {
+          "type": "boolean",
+          "default": false,
+          "description": "For Python with an empty namespace. Mark import roots as ambiguous so uncertain local targets stay unresolved."
         }
       },
       "allOf": [
@@ -127,6 +132,36 @@
                   ]
                 }
               ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "namespace": {
+                "const": ""
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "language": {
+                "const": "python"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "import_roots_ambiguous"
+            ]
+          },
+          "then": {
+            "properties": {
+              "namespace": {
+                "const": ""
+              }
             }
           }
         }

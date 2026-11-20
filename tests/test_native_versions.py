@@ -65,3 +65,30 @@ def test_the_schema_accepts_what_the_collector_accepts(version: str) -> None:
     assert validator.is_valid(value)
     value["resolver"]["bundler"] = True
     assert validator.is_valid(value)
+
+
+@pytest.mark.parametrize(
+    ("fields", "valid"),
+    [
+        ({"namespace": ""}, True),
+        ({"language": "python", "namespace": ""}, True),
+        ({"namespace": "", "import_roots_ambiguous": True}, True),
+        ({"language": "python", "namespace": "", "import_roots_ambiguous": False}, True),
+        ({"namespace": "", "import_roots_ambiguous": "yes"}, False),
+        ({"namespace": "app", "import_roots_ambiguous": False}, False),
+        ({"language": "dart", "namespace": ""}, False),
+        ({"language": "typescript", "namespace": ""}, False),
+        ({"language": "rust", "namespace": ""}, False),
+        ({"language": "typescript", "import_roots_ambiguous": True}, False),
+        ({"language": "python", "namespace": "app..invalid"}, False),
+        ({"language": "dart", "exclude_test_sources": True}, True),
+        ({"language": "rust", "exclude_test_sources": True}, True),
+    ],
+)
+def test_configuration_schema_matches_native_import_root_settings(
+    fields: dict[str, object], valid: bool
+) -> None:
+    path = Path(__file__).parents[1] / "schema/archkeel.schema.json"
+    validator = Draft202012Validator(json.loads(path.read_text(encoding="utf-8")))
+    scan = {"roots": ["src"], "namespace": "app", "contract": "c.json", **fields}
+    assert validator.is_valid({"scan": scan}) == valid

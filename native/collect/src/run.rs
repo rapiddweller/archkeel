@@ -25,7 +25,7 @@ const STACK_BYTES: usize = 256 << 20;
 /// The typed reply of the request bytes, validated by the store, or why there is none.
 #[cfg(test)]
 pub(crate) fn collect(profile: Profile, request: &[u8]) -> Result<Ingested, Refusal> {
-    collect_timed(profile, request, None).map(|(ingested, _, _)| ingested)
+    collect_timed(profile, request, None, false).map(|(ingested, _, _)| ingested)
 }
 
 /// The typed reply, and the time of the collector and of the validation of its reply (#659).
@@ -33,6 +33,7 @@ pub(crate) fn collect_timed(
     profile: Profile,
     request: &[u8],
     clock: Option<&dyn Fn() -> Duration>,
+    explorer: bool,
 ) -> Result<(Ingested, Duration, Duration), Refusal> {
     let started = clock.map(|now| now());
     let reply = match profile {
@@ -40,7 +41,7 @@ pub(crate) fn collect_timed(
         Profile::TypeScript => worker::read(Worker::TypeScript, request)?,
         Profile::Python | Profile::Dart => {
             let request = request.to_vec();
-            isolated(move || reply_of(profile, &request))?
+            isolated(move || linked_reply(profile, &request, explorer))?
                 .map_err(|why| refused("collector", why))?
         }
     };
@@ -116,13 +117,23 @@ pub(crate) fn isolated<T: Send + 'static>(
 }
 
 /// The typed reply without the store, for the comparison with the bytes of the binary.
+#[cfg(test)]
 pub(crate) fn reply_of(profile: Profile, request: &[u8]) -> Result<Reply, String> {
+    linked_reply(profile, request, false)
+}
+
+fn linked_reply(profile: Profile, request: &[u8], explorer: bool) -> Result<Reply, String> {
     archkeel_snapshot::work::bounded(|| match profile {
         Profile::Rust => worker::read(Worker::Rust, request).map_err(|e| e.to_string()),
         Profile::TypeScript => worker::read(Worker::TypeScript, request).map_err(|e| e.to_string()),
         Profile::Python => {
             let request = archkeel_wire::request::decode_python(request)?;
-            archkeel_python_collector::typed_reply(&request, &archkeel_python_collector::BUILD)
+            let build = &archkeel_python_collector::BUILD;
+            if explorer {
+                archkeel_python_collector::typed_reply_with_navigation(&request, build, true)
+            } else {
+                archkeel_python_collector::typed_reply(&request, build)
+            }
         }
         Profile::Dart => {
             let request = archkeel_wire::request::decode_dart(request)?;
