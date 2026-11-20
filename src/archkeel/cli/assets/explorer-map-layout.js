@@ -1,6 +1,6 @@
 import { details, get, showError, viewport } from "./studio-dom.js";
 import { state } from "./studio-state.js";
-import { focusMap, mapCardWidth, mapEdgeName, mapPosition, mapView, paintMapScene, zoomMap } from "./explorer-map.js";
+import { focusMap, mapCardWidth, mapEdgeName, mapView, paintMapScene, zoomMap } from "./explorer-map.js";
 import { treeMapAnchor } from "./explorer-tree.js";
 let mapLayout = "groups";
 let layoutSwitch = 0;
@@ -181,4 +181,12 @@ export function placeMapLabel(path, label, obstacles) {
     }
     obstacles.push(at.box);
     mapPosition(label, at.x, at.y);
+}
+export function mapPosition(node, x, y, width, height) {
+    node.style.left = x + "px";
+    node.style.top = y + "px";
+    if (width)
+        node.style.width = width + "px";
+    if (height)
+        node.style.height = height + "px";
 }

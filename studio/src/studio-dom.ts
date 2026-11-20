@@ -33,3 +33,10 @@ export function showError(error: unknown, retry?: () => unknown): void {
   notice.replaceChildren(element("span", error instanceof Error ? error.message : "The request failed."));
   if (retry) notice.append(" ", button("Retry", retry));
 }
+
+export function svgElement<K extends keyof SVGElementTagNameMap>(name: K, attributes: Record<string, string | number>, parent: Element) {
+  const item = document.createElementNS("http://www.w3.org/2000/svg", name);
+  for (const [key, value] of Object.entries(attributes)) item.setAttribute(key, String(value));
+  parent.append(item);
+  return item;
+}

@@ -1,9 +1,9 @@
-import { button, cards, element, get, showError } from "./studio-dom.js";
+import { button, cards, element, get, showError, svgElement } from "./studio-dom.js";
 import { api } from "./studio-api.js";
 import type { MapResponse, StudioItem } from "./studio-model.js";
 import { known, state } from "./studio-state.js";
 import { open, select } from "./explorer.js";
-import { derivedMapGroup, mapSvg } from "./explorer-map.js";
+import { derivedMapGroup } from "./explorer-map.js";
 import { panMapTo } from "./explorer-map-layout.js";
 import { canOpenScope } from "./explorer-uml.js";
 
@@ -26,8 +26,8 @@ const treeExpansion = new Map<string, boolean>();
 let treeDescription = 0;
 
 function treeGlyph(parent: HTMLElement, path: string, className: string) {
-  const svg = mapSvg("svg", { class: className, viewBox: "0 0 16 16", "aria-hidden": "true" }, parent);
-  mapSvg("path", { d: path }, svg);
+  const svg = svgElement("svg", { class: className, viewBox: "0 0 16 16", "aria-hidden": "true" }, parent);
+  svgElement("path", { d: path }, svg);
 }
 
 export function treeMapAnchor(id: string | null) {

@@ -71,9 +71,7 @@ def test_story_lanes_evidence_play_and_reduced_motion(tmp_path: Path, monkeypatc
                         features=[{"name": "prefers-reduced-motion", "value": "reduce"}],
                     )
                     page.send("Page.navigate", url=f"http://127.0.0.1:{server.server_port}/")
-                    page.wait(
-                        "document.getElementById('story') && document.readyState === 'complete'"
-                    )
+                    page.wait("document.querySelector('#story:enabled') !== null")
                     page.evaluate("document.getElementById('story').click()")
                     page.wait("document.querySelector('.story-library button') !== null")
                     page.evaluate("document.querySelector('.story-library button').click()")

@@ -347,7 +347,9 @@ function toggleStoryPlayback() {
 }
 
 export function bindStory() {
-  get("story").addEventListener("click", () => showStories().catch(showError));
+  const tab = get("story");
+  tab.addEventListener("click", () => showStories().catch(showError));
+  tab.disabled = false;
   get("story-back").addEventListener("click", () => { stopStoryPlayback(); goToStoryStep(state.storyIndex - 1).catch(showError); });
   get("story-next").addEventListener("click", () => { stopStoryPlayback(); goToStoryStep(state.storyIndex + 1).catch(showError); });
   get("story-play").addEventListener("click", toggleStoryPlayback);

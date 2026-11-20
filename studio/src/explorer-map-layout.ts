@@ -1,7 +1,7 @@
 import { details, get, showError, viewport } from "./studio-dom.js";
 import { state } from "./studio-state.js";
 import type { MapResponse, StudioEdge, StudioItem } from "./studio-model.js";
-import { focusMap, mapCardWidth, mapEdgeName, mapPosition, mapView, paintMapScene, zoomMap } from "./explorer-map.js";
+import { focusMap, mapCardWidth, mapEdgeName, mapView, paintMapScene, zoomMap } from "./explorer-map.js";
 import { treeMapAnchor } from "./explorer-tree.js";
 
 type LayoutMode = "groups" | "down" | "right";
@@ -227,4 +227,11 @@ export function placeMapLabel(path: SVGPathElement, label: HTMLButtonElement, ob
   }
   obstacles.push(at.box);
   mapPosition(label, at.x, at.y);
+}
+
+export function mapPosition(node: HTMLElement, x: number, y: number, width?: number, height?: number) {
+  node.style.left = x + "px";
+  node.style.top = y + "px";
+  if (width) node.style.width = width + "px";
+  if (height) node.style.height = height + "px";
 }

@@ -176,6 +176,7 @@
             "studio.studio.src.studio_x2d_dom_x2e_ts:get",
             "studio.studio.src.studio_x2d_dom_x2e_ts:notice",
             "studio.studio.src.studio_x2d_dom_x2e_ts:showError",
+            "studio.studio.src.studio_x2d_dom_x2e_ts:svgElement",
             "studio.studio.src.studio_x2d_dom_x2e_ts:viewport"
           ],
           "rationale": "Use the declared Studio boundary."
@@ -443,6 +444,7 @@
         "studio.studio.src.studio_x2d_dom_x2e_ts:get",
         "studio.studio.src.studio_x2d_dom_x2e_ts:notice",
         "studio.studio.src.studio_x2d_dom_x2e_ts:showError",
+        "studio.studio.src.studio_x2d_dom_x2e_ts:svgElement",
         "studio.studio.src.studio_x2d_dom_x2e_ts:viewport"
       ],
       "responsibilities": [

@@ -1,10 +1,10 @@
-import { button, canvas, cards, details, element, get, notice, showError, viewport } from "./studio-dom.js";
+import { button, canvas, cards, details, element, get, notice, showError, svgElement, viewport } from "./studio-dom.js";
 import { api } from "./studio-api.js";
 import type { MapResponse, StudioEdge, StudioItem } from "./studio-model.js";
 import { known, pageTrails, state, system } from "./studio-state.js";
 import { label, open, relationLabel, select, showEvidence } from "./explorer.js";
 import { showScope } from "./explorer-navigation.js";
-import { bindMapLayouts, layoutMap, mapRoutes, placeMapLabel, showMapLayoutControls } from "./explorer-map-layout.js";
+import { bindMapLayouts, layoutMap, mapPosition, mapRoutes, placeMapLabel, showMapLayoutControls } from "./explorer-map-layout.js";
 import type { MapLayout, MapScene } from "./explorer-map-layout.js";
 import { storyChat } from "./explorer-story.js";
 import { markTreeSelection, paintStructure, treeMapAnchor } from "./explorer-tree.js";
@@ -120,20 +120,6 @@ export function appendSelectionNotes(item: StudioItem) {
   if (!derivedMapGroup(item)) details.append(storyChat(null, item.id), element("h3", "Connections"));
 }
 
-export function mapSvg<K extends keyof SVGElementTagNameMap>(name: K, attributes: Record<string, string | number>, parent: Element) {
-  const item = document.createElementNS("http://www.w3.org/2000/svg", name);
-  for (const [key, value] of Object.entries(attributes)) item.setAttribute(key, String(value));
-  parent.append(item);
-  return item;
-}
-
-export function mapPosition(node: HTMLElement, x: number, y: number, width?: number, height?: number) {
-  node.style.left = x + "px";
-  node.style.top = y + "px";
-  if (width) node.style.width = width + "px";
-  if (height) node.style.height = height + "px";
-}
-
 function mapCard(item: StudioItem) {
   const card = umlCard(item);
   if (item.collapsed) card.classList.add("map-collapsed");
@@ -163,12 +149,12 @@ export function paintMapScene(layout: MapLayout, response: MapResponse): MapScen
   const plane = element("section", "", "map-plane");
   plane.setAttribute("aria-label", "Architecture graph");
   mapPosition(plane, 0, 0, layout.width, layout.height);
-  const svg = mapSvg("svg", { class: "map-edges", width: layout.width, height: layout.height, "aria-hidden": "true" }, plane);
-  const marker = mapSvg("marker", {
+  const svg = svgElement("svg", { class: "map-edges", width: layout.width, height: layout.height, "aria-hidden": "true" }, plane);
+  const marker = svgElement("marker", {
     id: "map-arrow", viewBox: "0 0 13 11", refX: "13", refY: "5.5", markerWidth: "13",
     markerHeight: "11", markerUnits: "userSpaceOnUse", orient: "auto",
-  }, mapSvg("defs", {}, svg));
-  mapSvg("path", { d: "M0 0 L13 5.5 L0 11 Z" }, marker);
+  }, svgElement("defs", {}, svg));
+  svgElement("path", { d: "M0 0 L13 5.5 L0 11 Z" }, marker);
   const containers = new Map<string, HTMLElement>();
   const ensureContainer = (id: string): HTMLElement => {
     const existing = containers.get(id);
@@ -231,12 +217,12 @@ function paintMapConnections(scene: MapScene, edges: MapLayout["edges"], animate
   for (const edge of edges) {
     const route = routes.get(edge.id);
     if (!route) throw new Error("The map edge has no route: " + edge.id);
-    const group = mapSvg("g", { "data-map-edge": edge.id }, svg);
+    const group = svgElement("g", { "data-map-edge": edge.id }, svg);
     const uncertain = edge.kind === "call" && edge.resolution !== "resolved";
     const style = uncertain ? "unknown" : edge.kind === "call" ? "map-proven" : edge.resolution;
-    const path = mapSvg("path", { d: route.d, class: style, "marker-end": "url(#map-arrow)" }, group);
+    const path = svgElement("path", { d: route.d, class: style, "marker-end": "url(#map-arrow)" }, group);
     if (!uncertain && edge.resolution === "resolved") {
-      mapSvg("path", { d: route.d, class: "map-pulse", pathLength: "1" }, group);
+      svgElement("path", { d: route.d, class: "map-pulse", pathLength: "1" }, group);
       if (animate) group.classList.add("map-active-edge");
     }
     const label = button(mapEdgeName(edge), () => openMapEvidence(edge), "map-edge-label centered");

@@ -27,3 +27,10 @@ export function showError(error, retry) {
     if (retry)
         notice.append(" ", button("Retry", retry));
 }
+export function svgElement(name, attributes, parent) {
+    const item = document.createElementNS("http://www.w3.org/2000/svg", name);
+    for (const [key, value] of Object.entries(attributes))
+        item.setAttribute(key, String(value));
+    parent.append(item);
+    return item;
+}
