@@ -424,8 +424,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
         }
         match expr {
             Expr::Lambda(node) => self.lambda(node),
-            // AD-472: only the callee of a proven literal call is exempt; its one argument is a
-            // string literal, so nothing below the call is left to read.
+            // The proved call converts the loader use to an import edge.
             Expr::Call(call) => self.call(expr, call),
             Expr::Subscript(_) if reflect::code(expr, &self.bound) => {
                 self.push(DYNAMIC, "code", expr);
@@ -465,6 +464,7 @@ pub(super) fn split(
     modules: &[Module],
     binders: &[Binders],
     (lazy, replaced): (Option<&[Lazy]>, bool),
+    local_literals: bool,
 ) -> Split {
     let (mut literals, mut found) = (Vec::new(), Vec::new());
     let items: Vec<_> = modules
@@ -475,7 +475,8 @@ pub(super) fn split(
     let proved = reflect::proved(&items, &[&BUILTIN_DOORS, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
-        let proof = literal::Proof::of(&module.tree, binders).without_replaced_loader(replaced);
+        let mut proof = literal::Proof::of(&module.tree, binders).without_replaced_loader(replaced);
+        proof.prove_local(&module.tree, local_literals);
         let covered = lazy.map(|all| &all[index]);
         for (range, target) in covered.iter().flat_map(|item| &item.targets) {
             literals.push((index, *range, target.clone()));

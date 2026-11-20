@@ -100,6 +100,14 @@ impl ClassWrites {
         HashSet::contains(&self.shadowed, module)
     }
 
+    /// True when the repository has no evidence of a change to the standard loader.
+    pub(super) fn importlib_unchanged(&self) -> bool {
+        !self.shadows("importlib")
+            && !["importlib", "import_module", "__class__", "__import__"]
+                .into_iter()
+                .any(|name| may_write(self, name))
+    }
+
     /// Nothing in the repository can replace the `Any` of the standard module `typing` (AD-880): no
     /// file shadows `typing`, and no store (a name, a computed name, `sys.modules`, a namespace)
     /// can change `Any`.

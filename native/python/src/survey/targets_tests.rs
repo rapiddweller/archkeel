@@ -321,6 +321,53 @@ fn unrelated_writes_and_open_doors_keep_the_literal_edge() {
 }
 
 #[test]
+fn a_local_literal_before_a_bound_loader_call_is_an_import() {
+    let found = client(
+        "import importlib\n\
+         def load():\n    name = (\n        'app.service'\n    )\n    return importlib.import_module(name)\n",
+        "",
+    );
+    assert_eq!(kinds(&found), ["builtin", "local"]);
+    assert!(found.unknowns.is_empty(), "{:?}", reasons(&found));
+}
+
+#[test]
+fn a_local_literal_with_an_unproven_path_or_loader_keeps_the_gap() {
+    for source in [
+        "import importlib\ndef outer():\n    name = 'app.service'\n    def load():\n        nonlocal name\n        return importlib.import_module(name)\n",
+        "import importlib\ndef outer():\n    name = 'app.service'\n    def load():\n        return importlib.import_module(name)\n",
+        "import importlib\ndef load(importlib):\n    name = 'app.service'\n    return importlib.import_module(name)\n",
+        "import importlib\ndef load(flag):\n    if flag:\n        name = 'app.service'\n    return importlib.import_module(name)\n",
+        "if flag:\n    import importlib\ndef load():\n    name = 'app.service'\n    return importlib.import_module(name)\n",
+        "import importlib\ndef load():\n    name = 'app.service'\n    intervene()\n    return importlib.import_module(name)\n",
+        "import importlib\ndef load():\n    name = 'app.service'\n    return importlib.import_module(name)\nimportlib.import_module = other\n",
+    ] {
+        let found = client(source, "");
+        assert!(!found.imports.iter().any(|record|
+            record.data.data().target_module.as_str() == "app.service"), "{source}");
+        assert!(reasons(&found).iter().any(|reason|
+            reason.starts_with("dynamic_import")), "{source}");
+    }
+}
+
+#[test]
+fn a_repository_file_that_shadows_importlib_keeps_the_gap() {
+    let found = surveyed(&[
+        ("src/importlib.py", "def import_module(name):\n    return None\n"),
+        ("src/app/__init__.py", ""),
+        ("src/app/client.py", "import importlib\ndef load():\n    name = 'app.service'\n    return importlib.import_module(name)\n"),
+        ("src/app/service.py", ""),
+    ]);
+    assert!(!found
+        .imports
+        .iter()
+        .any(|record| record.data.data().target_module.as_str() == "app.service"));
+    assert!(reasons(&found)
+        .iter()
+        .any(|reason| reason.starts_with("dynamic_import")));
+}
+
+#[test]
 fn a_literal_call_record_is_a_runtime_edge_also_under_a_guard() {
     // AD-472: the guard proof covers import statements only, so a literal call record is never
     // `under_type_checking`, also in the body of `if TYPE_CHECKING:` (the stricter reading).
