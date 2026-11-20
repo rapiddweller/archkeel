@@ -335,3 +335,61 @@ fn a_literal_call_record_is_a_runtime_edge_also_under_a_guard() {
         assert!(!data.under_type_checking, "{source}");
     }
 }
+
+#[test]
+fn source_roots_keep_python_names_and_resolve_siblings() {
+    let found = surveyed_in(
+        &[
+            ("backend/__init__.py", ""),
+            ("backend/worker/__init__.py", ""),
+            ("backend/worker/task.py", "from shared import helper\nfrom . import support\nimport requests.adapters\nimport src.shared\n"),
+            ("backend/worker/support.py", ""),
+            ("backend/shared/__init__.py", ""),
+            ("backend/shared/helper.py", ""),
+        ],
+        &["backend"],
+        "",
+    );
+    let mut classes = kinds(&found);
+    classes.sort_unstable();
+    assert_eq!(classes, ["external", "external", "local", "local"]);
+    assert!(reasons(&found).is_empty(), "{:?}", reasons(&found));
+    assert!(found.targets.iter().any(|target| matches!(
+        target,
+        Target::Local { module, file, .. }
+            if module.as_str() == "shared.helper" && file == "backend/shared/helper.py"
+    )));
+}
+
+#[test]
+fn ambiguous_source_root_providers_leave_a_gap() {
+    for provider in ["", "def invalid(:\n"] {
+        let found = surveyed_in(
+            &[
+                ("a/worker.py", "import shared.helper\n"),
+                ("a/shared/__init__.py", ""),
+                ("a/shared/helper.py", ""),
+                ("b/shared/__init__.py", provider),
+            ],
+            &["a", "b"],
+            "",
+        );
+        assert_eq!(kinds(&found), ["unresolved"]);
+        assert!(reasons(&found)
+            .iter()
+            .any(|reason| reason.contains("duplicate_module")));
+    }
+}
+
+#[test]
+fn a_dotted_script_file_is_not_a_python_import_provider() {
+    let found = surveyed_in(
+        &[
+            ("src/app.py", "import lib.values\n"),
+            ("src/lib.values.py", ""),
+        ],
+        &["src"],
+        "",
+    );
+    assert_eq!(kinds(&found), ["external"]);
+}

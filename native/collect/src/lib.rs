@@ -280,6 +280,9 @@ fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
     if config.bundler {
         resolver["bundler"] = Value::Bool(true);
     }
+    if config.import_roots_ambiguous {
+        resolver["import_roots_ambiguous"] = Value::Bool(true);
+    }
     json!({
         "protocol_version": version,
         "snapshot": {"root": identity.root, "git_head": identity.git_head, "dirty": identity.dirty},

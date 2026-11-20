@@ -45,6 +45,10 @@ def test_bounded_navigation_and_stale_evidence(tmp_path: Path) -> None:
     assert (
         query(path, tmp_path, "children", {"cursor": page["next_cursor"]})["items"][0]["id"] == "b"
     )
+    known = query(path, tmp_path, "relations", {"element": "a", "direction": "in"})
+    missing = query(path, tmp_path, "relations", {"element": "missing"})
+    assert known["element_status"] == "known" and known["items"] == []
+    assert missing["element_status"] == "unknown" and missing["items"] == []
     ref = query(path, tmp_path, "evidence", {"relation": "edge"})["items"][0]["reference"]
     assert query(path, tmp_path, "source", {"reference": ref})["lines"] == ["import b"]
     source.write_text("import c\n")
@@ -195,3 +199,54 @@ def test_class_members_use_definition_ids_and_keep_inventory_coverage(tmp_path: 
     assert (method["id"], method["kind"], method["method_kind"]) == ("aw", "method", "instance")
     assert (prop["id"], prop["kind"], prop["annotation"]) == ("ax", "property", "int")
     assert query(path, tmp_path, "source", {"reference": prop["source"]})["line"] == 2
+
+
+def test_import_evidence_pages_indexed_locations_beyond_the_report_sample(tmp_path: Path) -> None:
+    (tmp_path / "a.py").write_text("import b\nimport b\nimport b\n")
+    imports = [
+        {
+            "id": f"site-{line}",
+            "source_module": "a",
+            "target_module": "b",
+            "resolution": "local",
+            "evidence_class": "FACT",
+            "evidence_ids": [str(line)],
+        }
+        for line in range(1, 4)
+    ]
+    locations = {str(line): {"path": "a.py", "line": line} for line in range(1, 4)}
+    topology = {
+        "version": 1,
+        "components": [{"id": name, "name": name, "parent": None} for name in ("from", "to")],
+        "modules": [
+            {"name": "a", "component": "from", "path": "a.py"},
+            {"name": "b", "component": "to", "path": "b.py"},
+        ],
+        "edges": [],
+        "component_edges": [
+            {
+                "id": "edge",
+                "source": "from",
+                "target": "to",
+                "resolution": "resolved",
+                "evidence_total": 4,
+                "evidence": [locations["1"]],
+            }
+        ],
+        "locations": locations,
+        "explorer": [{"language": "python", "imports": imports}],
+    }
+    path = tmp_path / "cache" / "sample.sqlite"
+    publish_snapshot(
+        path,
+        SnapshotIdentity("rev", "contract", "tree"),
+        lambda db: populate(db, topology, tmp_path),
+        "partial",
+    )
+    first = query(path, tmp_path, "evidence", {"relation": "edge", "limit": 2})
+    assert [row["line"] for row in first["items"]] == [1, 2]
+    assert first["evidence_truncated"]
+    assert (first["total"], first["evidence_total"]) == (3, 4)
+    page = query(path, tmp_path, "evidence", {"relation": "edge", "cursor": first["next_cursor"]})
+    assert [row["line"] for row in page["items"]] == [3]
+    assert page["next_cursor"] is None

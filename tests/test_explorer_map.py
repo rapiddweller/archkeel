@@ -75,7 +75,7 @@ def test_map_hierarchy_paging_and_unknown_calls(tmp_path: Path) -> None:
                 "source": "a.main",
                 "target": "b.other",
                 "resolution": "resolved",
-                "count": 1,
+                "count": 3,
             }
         ],
         "component_edges": [
@@ -89,7 +89,11 @@ def test_map_hierarchy_paging_and_unknown_calls(tmp_path: Path) -> None:
         ],
         "requires": [{"source": "A", "target": "B"}],
         "explorer": [
-            {"language": "python", "symbols": [symbol, target_symbol], "calls": [call, resolved]}
+            {
+                "language": "python",
+                "symbols": [symbol, target_symbol],
+                "calls": [call, resolved, dict(resolved, id="second-call")],
+            }
         ],
     }
     path = tmp_path / "cache" / "sample.sqlite"
@@ -103,6 +107,13 @@ def test_map_hierarchy_paging_and_unknown_calls(tmp_path: Path) -> None:
     assert root["total"] == 2
     assert len([g for g in root["groups"] if g["kind"] == "layer"]) == 1
     assert {e["kind"] for e in root["edges"]} == {"import", "requires", "call"}
+    component_import = next(edge for edge in root["edges"] if edge["kind"] == "import")
+    assert (component_import["source"], component_import["target"]) == ("A", "B")
+    contributors = query(
+        path, tmp_path, "relations", {"aggregate": component_import["aggregate_id"]}
+    )
+    assert [row["id"] for row in contributors["items"]] == ["import"]
+    assert (contributors["total"], contributors["count"]) == (1, 3)
     system_modules = query(path, tmp_path, "map", {"view": "modules"})
     assert system_modules["module_overview"] and system_modules["module_total"] == 3
     assert [(item["id"], item["module_count"]) for item in system_modules["items"]] == [("part", 3)]
@@ -110,16 +121,31 @@ def test_map_hierarchy_paging_and_unknown_calls(tmp_path: Path) -> None:
     assert modules["total"] == 3
     assert any(g["kind"] == "directory" and g["path"] == "src/a/sub" for g in modules["groups"])
     main = next(item for item in modules["items"] if item["id"] == "a.main")
-    assert (main["unresolved_calls"], main["recorded_calls"]) == (1, 2)
-    assert system_modules["items"][0]["recorded_calls"] == 2
+    assert (main["unresolved_calls"], main["recorded_calls"]) == (1, 3)
+    assert system_modules["items"][0]["recorded_calls"] == 3
     assert any(e["id"] == "import" for e in modules["edges"])
     projected = next(e for e in modules["edges"] if e.get("aggregate"))
     assert (projected["source"], projected["target"], projected["count"]) == (
         "a.main",
         "b.other",
-        1,
+        2,
     )
     assert projected["relation_id"] == "call-site"
+    contributors = {"aggregate": projected["aggregate_id"], "limit": 1}
+    first_call = query(path, tmp_path, "relations", contributors)
+    assert [row["id"] for row in first_call["items"]] == ["call-site"]
+    assert first_call["total"] == 2
+    next_call = query(
+        path, tmp_path, "relations", contributors | {"cursor": first_call["next_cursor"]}
+    )
+    assert [row["id"] for row in next_call["items"]] == ["second-call"]
+    assert next_call["next_cursor"] is None
+    assert main["open_target"] == "map"
+    assert (
+        next(item for item in modules["items"] if item["id"] == "a.util")["open_target"] == "source"
+    )
+    symbol_map = query(path, tmp_path, "map", {"parent": "a.main", "view": "hierarchy"})
+    assert [item["id"] for item in symbol_map["items"]] == ["function"]
     assert (
         query(path, tmp_path, "evidence", {"relation": projected["relation_id"]})["relation"][
             "expression"
@@ -166,15 +192,32 @@ def test_map_hierarchy_paging_and_unknown_calls(tmp_path: Path) -> None:
     assert hierarchy["module_total"] == 39 and hierarchy["next_cursor"] is None
     business = next(item for item in hierarchy["items"] if item["name"] == "business")
     assert business["collapsed"] and business["module_count"] == 38
-    assert "storage" in {item["name"] for item in hierarchy["groups"]}
+    storage = next(item for item in hierarchy["groups"] if item["name"] == "storage")
+    focused = query(
+        dense_path,
+        tmp_path,
+        "map",
+        {"parent": "part", "view": "hierarchy", "focus": storage["id"]},
+    )
+    assert {edge["target"] for edge in focused["edges"]} == {storage["id"]}
+    focus_import = next(edge for edge in focused["edges"] if edge["kind"] == "import")
+    stored = query(dense_path, tmp_path, "relations", {"aggregate": focus_import["aggregate_id"]})
+    assert [row["id"] for row in stored["items"]] == ["import"]
     related = [edge for edge in hierarchy["edges"] if edge["source"] == business["id"]]
     assert {(edge["kind"], edge["relation_id"]) for edge in related} == {
         ("call", "call-site"),
         ("import", "import"),
     }
+    imported = next(edge for edge in related if edge["kind"] == "import")
+    contributors = query(dense_path, tmp_path, "relations", {"aggregate": imported["aggregate_id"]})
+    assert [(row["source"], row["target"]) for row in contributors["items"]] == [
+        ("a.main", "b.other")
+    ]
     drill = query(dense_path, tmp_path, "map", {"parent": business["id"], "view": "hierarchy"})
     assert drill["module_total"] == 38 and drill["next_cursor"] is None
     assert [item["id"] for item in drill["items"]] == ["A"]
+    root_shape = query(path, tmp_path, "map", {"parent": "part", "view": "hierarchy"})
+    assert {item["id"] for item in root_shape["items"]} == {"A", "B"}
     with pytest.raises(ValueError, match="unknown map parent"):
         query(path, tmp_path, "map", {"parent": "made-up"})
 
@@ -200,8 +243,17 @@ def test_large_flat_hierarchy_has_a_scoped_find_for_every_module(tmp_path: Path)
     assert system["module_total"] == 8200 and not system["scope_truncated"]
     assert [(item["id"], item["module_count"]) for item in system["items"]] == [("one", 8200)]
     leaf = query(path, tmp_path, "map", {"parent": "one", "view": "hierarchy"})
-    assert leaf["scope_truncated"] and leaf["next_cursor"] is None
+    assert not leaf["scope_truncated"] and leaf["next_cursor"] is None
     assert len(leaf["items"]) == 36
+    assert all(item["kind"] == "file_group" for item in leaf["items"])
+    assert sum(item["module_count"] for item in leaf["items"]) == 8200
+    last = leaf["items"][-1]
+    assert last["open_target"] == "map"
+    nested = query(path, tmp_path, "map", {"parent": last["id"], "view": "hierarchy"})
+    assert nested["items"][-1]["name"].endswith("m8199")
+    assert nested["next_cursor"] is None
+    from_group = query(path, tmp_path, "search", {"parent": last["id"], "text": "m8199"})
+    assert [item["name"] for item in from_group["items"]] == ["app.m8199"]
     found = query(path, tmp_path, "search", {"parent": "one", "text": "m8199"})
     assert [item["name"] for item in found["items"]] == ["app.m8199"]
 
@@ -241,3 +293,35 @@ def test_system_modules_keeps_both_languages_before_leaf_paging(tmp_path: Path) 
     assert result["next_cursor"] is None
     rust = query(path, tmp_path, "map", {"parent": "core", "view": "modules"})
     assert [item["name"] for item in rust["items"]] == ["rust.module0", "rust.module1"]
+
+
+def test_large_branch_uses_existing_directories_before_file_groups(tmp_path: Path) -> None:
+    topology = {
+        "version": 1,
+        "components": [{"id": "owner", "name": "Owner", "parent": None}],
+        "edges": [],
+        "modules": [
+            {
+                "name": f"app.part{directory:02}.file{index}",
+                "path": f"src/part{directory:02}/file{index}.py",
+                "component": "owner",
+            }
+            for directory in range(20)
+            for index in range(2)
+        ],
+    }
+    path = tmp_path / "cache" / "folders.sqlite"
+    publish_snapshot(
+        path,
+        SnapshotIdentity("rev", "contract", "folders"),
+        lambda db: populate(db, topology, tmp_path),
+        "UNKNOWN",
+    )
+    result = query(path, tmp_path, "map", {"parent": "owner", "view": "hierarchy"})
+    assert result["module_total"] == 40
+    assert len(result["items"]) == 36
+    assert {item["kind"] for item in result["items"]} == {"directory", "module"}
+    assert result["groups"]
+    collapsed = next(item for item in result["items"] if item["kind"] == "directory")
+    drill = query(path, tmp_path, "map", {"parent": collapsed["id"], "view": "hierarchy"})
+    assert len(drill["items"]) == collapsed["module_count"] == 2

@@ -1705,6 +1705,7 @@
     "field request::Interpreter.builtin_module_names: Vec<String>",
     "field request::Interpreter.stdlib_module_names: Vec<String>",
     "field request::Interpreter.version: PythonVersion",
+    "field request::PythonSettings.import_roots_ambiguous: bool",
     "field request::PythonSettings.interpreter: Option<Interpreter>",
     "field request::PythonSettings.phase: PythonPhase",
     "field request::PythonSettings.python: Option<String>",

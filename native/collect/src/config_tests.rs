@@ -29,6 +29,7 @@ fn a_typescript_scan_gives_its_settings_with_the_python_defaults() {
             bundler: false,
             exclude_test_sources: false,
             python: None,
+            import_roots_ambiguous: false,
         })
     );
     let set = typescript(

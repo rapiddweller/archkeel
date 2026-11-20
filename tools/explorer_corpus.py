@@ -24,7 +24,12 @@ REPOSITORIES = {
     "compass": ("archkeel/fixtures/J-compass", None),
 }
 ORACLES = {
-    "platform": ("src/alembic/env.py", "from alembic import context", "src.alembic.env", "alembic"),
+    "platform": (
+        "src/worker/services/migration/db/generate_utils.py",
+        "from shared.default.model_generation import BuilderMode",
+        "worker.services.migration.db.generate_utils",
+        "shared.default.model_generation",
+    ),
     "archkeel": (
         "native/build-support/src/lib.rs",
         "use sha2::",
@@ -149,6 +154,39 @@ def run(name: str, root: Path, config: str | None, output: Path, cli: Path) -> d
     }
 
 
+def _system_part_evidence(
+    sections: list[dict[str, Any]], locations: dict[str, Any]
+) -> dict[str, Any]:
+    expected = {
+        "shell": ("python", "src/archkeel/"),
+        "core": ("rust", "native/"),
+        "studio": ("typescript", "studio/src/"),
+    }
+    evidence: dict[str, Any] = {}
+    for section in sections:
+        part = section.get("part")
+        if part not in expected:
+            continue
+        language, path_prefix = expected[part]
+        if section.get("language") != language:
+            continue
+        evidence[part] = next(
+            (
+                location
+                for row in section.get("imports") or []
+                for key in row.get("evidence_ids", [])
+                if (location := locations.get(key))
+                and location["path"].startswith(path_prefix)
+                and location["line"] > 0
+            ),
+            None,
+        )
+    return {
+        "part_evidence": {part: location for part, location in evidence.items() if location},
+        "missing_part_evidence": [part for part in expected if not evidence.get(part)],
+    }
+
+
 def raw_scan(name: str, root: Path, config: str, output: Path) -> dict[str, Any]:
     oracle = ORACLES.get(name)
     if oracle is None:
@@ -202,6 +240,7 @@ def raw_scan(name: str, root: Path, config: str, output: Path) -> dict[str, Any]
         "collection_gaps": len(document.get("collection_gaps", [])),
         "seconds": round(time.monotonic() - started, 3),
         "bytes": len(result.stdout),
+        **(_system_part_evidence(sections, locations) if name == "archkeel" else {}),
     }
 
 
@@ -225,7 +264,9 @@ def check_import(name: str, root: Path, topology: dict[str, Any] | None) -> dict
             for site in edge.get("evidence", [])
         )
     ]
-    found = any(edge.get("target") == target for edge in anchored)
+    found = any(
+        edge.get("target") == target and edge.get("resolution") == "local" for edge in anchored
+    )
     wrong = [edge.get("target") for edge in anchored if edge.get("target") != target]
     # A bounded topology cannot prove a missing edge or a negative import.
     return {
@@ -261,6 +302,7 @@ def failed(result: dict[str, Any]) -> bool:
         or "error" in checks
         or checks.get("positive_import") != "observed"
         or checks.get("wrong_targets")
+        or checks.get("missing_part_evidence")
         or "error" in (result.get("launch") or {})
         or not (result.get("launch") or {}).get("stable_snapshot", False)
         or any(

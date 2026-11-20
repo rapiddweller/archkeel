@@ -20,7 +20,7 @@ use archkeel_snapshot::{Hidden, Snapshot};
 
 use super::failures::record;
 use crate::discover::is_test_source;
-use crate::names::module_for;
+use crate::names::{below_root, module_for, scoped};
 
 /// `NO_PRODUCTION_SOURCE`.
 const NO_PRODUCTION_SOURCE: &str = "No production source files in scope after the test exclusion";
@@ -75,7 +75,7 @@ impl Excluded {
         let (files, directories) = snapshot.entries(directory);
         for name in &directories {
             let rel = join(directory, name);
-            self.directory(snapshot, &rel, namespace);
+            self.directory(snapshot, (source_root, &rel), namespace);
             if !Snapshot::is_link(snapshot, &rel) {
                 pending.push(rel);
             }
@@ -100,14 +100,19 @@ impl Excluded {
         }
     }
 
-    fn directory(&mut self, snapshot: &mut Snapshot, rel: &str, namespace: &str) {
+    fn directory(
+        &mut self,
+        snapshot: &mut Snapshot,
+        (source_root, rel): (&str, &str),
+        namespace: &str,
+    ) {
         let Some(real) = snapshot.real(rel) else {
             return;
         };
         let init = format!("{rel}/__init__.py");
         if is_test_source(&init) || is_test_source(&format!("{real}/__init__.py")) {
             self.prefixes
-                .extend(module_for(&init, namespace, self.minor));
+                .extend(module_name(source_root, &init, namespace, self.minor));
         }
     }
 
@@ -170,10 +175,13 @@ impl Excluded {
 
 /// `_module_names`: the module name of a path, or its name under the source root.
 fn module_name(source_root: &str, path: &str, namespace: &str, minor: PyMinor) -> Option<String> {
+    if namespace.is_empty() {
+        return scoped(path, namespace, &[source_root.to_owned()], minor);
+    }
     if let Some(name) = module_for(path, namespace, minor) {
         return Some(name);
     }
-    let rest = path.strip_prefix(source_root)?.strip_prefix('/')?;
+    let rest = below_root(path, source_root)?;
     let mut parts: Vec<&str> = rest.split('/').collect();
     let last = parts.pop()?;
     // `with_suffix("")` keeps the name of a dot file such as `.py`.

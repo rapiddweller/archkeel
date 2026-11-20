@@ -7,7 +7,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from tools.explorer_corpus import check_import, failed, run
+from tools.explorer_corpus import check_import, failed, raw_scan, run
 
 
 def test_incomplete_topology_does_not_prove_absence(tmp_path: Path) -> None:
@@ -36,6 +36,7 @@ def test_positive_import_requires_source_and_edge(tmp_path: Path) -> None:
             {
                 "source": "datamimic_ce.authoring",
                 "target": "datamimic_ce.authoring.application.app",
+                "resolution": "local",
                 "evidence": [{"path": "datamimic_ce/authoring/__init__.py", "line": 1}],
             }
         ]
@@ -77,7 +78,12 @@ def test_observed_import_follows_the_public_cursor(tmp_path: Path, monkeypatch) 
     file = tmp_path / name
     file.parent.mkdir(parents=True)
     file.write_text(statement + "\n")
-    edge = {"source": source, "target": target, "evidence": [{"path": name, "line": 1}]}
+    edge = {
+        "source": source,
+        "target": target,
+        "resolution": "local",
+        "evidence": [{"path": name, "line": 1}],
+    }
     pages = {"": ([], "next"), "next": ([edge], None)}
 
     def query(snapshot, root, operation, args):
@@ -87,6 +93,10 @@ def test_observed_import_follows_the_public_cursor(tmp_path: Path, monkeypatch) 
 
     monkeypatch.setattr("tools.explorer_corpus.query", query)
     assert _observed_import("platform", tmp_path, tmp_path / "db")["positive_import"] == "observed"
+    edge["resolution"] = "external"
+    assert (
+        _observed_import("platform", tmp_path, tmp_path / "db")["positive_import"] == "not observed"
+    )
 
 
 def test_missing_wrong_or_refused_probe_fails() -> None:
@@ -135,3 +145,38 @@ def test_cluster_check_compares_sql_with_api(tmp_path: Path, monkeypatch) -> Non
     assert check_clusters(snapshot, "http://localhost/") == {
         "python": "FAIL: SQL member absent from API"
     }
+
+
+def test_self_scan_requires_evidence_in_every_system_part(tmp_path: Path, monkeypatch) -> None:
+    path = "native/build-support/src/lib.rs"
+    source = tmp_path / path
+    source.parent.mkdir(parents=True)
+    source.write_text("use sha2::Digest;\n")
+    part = {
+        "part": "core",
+        "language": "rust",
+        "imports": [{"target_module": "sha2", "evidence_ids": ["core"]}],
+    }
+    document = {
+        "explorer": [part, {"part": "shell", "language": "python", "imports": []}],
+        "locations": {
+            "core": {"path": path, "line": 1},
+            "shell": {"path": "src/archkeel/cli.py", "line": 3},
+            "studio": {"path": "studio/src/explorer.ts", "line": 5},
+        },
+    }
+    monkeypatch.setattr(
+        "tools.explorer_corpus.subprocess.run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0, json.dumps(document).encode()),
+    )
+    result = raw_scan("archkeel", tmp_path, "system.json", tmp_path)
+    assert result["positive_import"] == "observed"
+    assert result["missing_part_evidence"] == ["shell", "studio"]
+    outcome = {"checks": result, "launch": {"stable_snapshot": True}}
+    assert failed(outcome)
+    document["explorer"][1]["imports"].append({"evidence_ids": ["shell"]})
+    document["explorer"].append(
+        {"part": "studio", "language": "typescript", "imports": [{"evidence_ids": ["studio"]}]}
+    )
+    outcome["checks"] = raw_scan("archkeel", tmp_path, "system.json", tmp_path)
+    assert not failed(outcome)

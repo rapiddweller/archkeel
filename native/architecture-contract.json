@@ -5883,9 +5883,13 @@
         "native.archkeel_python_collector.discover:oversized",
         "native.archkeel_python_collector.discover:scope",
         "native.archkeel_python_collector.names:Shadowed",
+        "native.archkeel_python_collector.names:below_root",
+        "native.archkeel_python_collector.names:importable_path",
         "native.archkeel_python_collector.names:module_for",
         "native.archkeel_python_collector.names:package_for",
-        "native.archkeel_python_collector.names:shadowed"
+        "native.archkeel_python_collector.names:scoped",
+        "native.archkeel_python_collector.names:shadowed",
+        "native.archkeel_python_collector.names:shadowed_in"
       ],
       "decided_by": "architect"
     },
@@ -5928,6 +5932,7 @@
         }
       ],
       "public": [
+        "native.archkeel_python_collector.inputs:PYPROJECT",
         "native.archkeel_python_collector.inputs:inputs",
         "native.archkeel_python_collector.inputs:with_listings",
         "native.archkeel_python_collector.requirement:Prepared",
@@ -6032,8 +6037,9 @@
         },
         {
           "component": "py-inputs",
-          "rationale": "Read the request with its selected target (AD-753).",
+          "rationale": "Read the request with its selected target (AD-753) and cite the manifest when its import roots conflict.",
           "through": [
+            "native.archkeel_python_collector.inputs:PYPROJECT",
             "native.archkeel_python_collector.requirement:Prepared"
           ]
         },

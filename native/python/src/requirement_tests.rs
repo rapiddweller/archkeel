@@ -21,6 +21,7 @@ fn target_is_selected_inside_the_collector() {
     let mut snapshot = Snapshot::new(&tree.path());
     let mut settings = PythonSettings {
         phase: PythonPhase::Imports,
+        import_roots_ambiguous: false,
         python: None,
         interpreter: None,
     };
@@ -115,6 +116,7 @@ fn selected(requires: &str) -> Result<String, String> {
     )]);
     let settings = PythonSettings {
         phase: PythonPhase::Imports,
+        import_roots_ambiguous: false,
         python: None,
         interpreter: None,
     };
@@ -160,6 +162,7 @@ fn annotations_are_lazy_when_the_requirement_allows_python_3_14() {
         let tree = Tree::new(&files);
         let settings = PythonSettings {
             phase: PythonPhase::Imports,
+            import_roots_ambiguous: false,
             interpreter: None,
             python: python.map(ToOwned::to_owned),
         };

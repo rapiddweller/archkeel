@@ -4,7 +4,9 @@
 """Read a bounded source excerpt and verify it against the snapshot."""
 
 import hashlib
+import json
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 
 Row = dict[str, object]
@@ -20,13 +22,6 @@ def _source_path(root: Path, name: str) -> Path:
     return path
 
 
-def _reference(args: Row) -> str:
-    value = args.get("reference")
-    if not isinstance(value, str) or len(value) > 4096:
-        raise ValueError("invalid reference")
-    return value
-
-
 def _number(args: Row, name: str, default: int, maximum: int) -> int:
     value = args.get(name, default)
     if isinstance(value, str) and value.isascii() and value.isdecimal() and len(value) <= 10:
@@ -38,7 +33,7 @@ def _number(args: Row, name: str, default: int, maximum: int) -> int:
 
 def _source(db: sqlite3.Connection, root: Path, args: Row) -> Row:
     row = db.execute(
-        "SELECT path,line,digest FROM location WHERE id=?", (_reference(args),)
+        "SELECT path,line,digest FROM location WHERE id=?", (_text(args, "reference"),)
     ).fetchone()
     if row is None:
         raise ValueError("unknown source reference")
@@ -66,3 +61,57 @@ def _source(db: sqlite3.Connection, root: Path, args: Row) -> Row:
     if hasher.hexdigest() != digest:
         raise ValueError("source changed since scan")
     return {"path": name, "start": start, "line": anchor, "lines": lines}
+
+
+def _text(args: Row, name: str, default: str | None = None) -> str:
+    value = args.get(name, default)
+    if not isinstance(value, str) or len(value) > 4096:
+        raise ValueError(f"invalid {name}")
+    return value
+
+
+def _import_evidence(db: sqlite3.Connection, relation: Row) -> Iterator[Row]:
+    for row in db.execute(
+        "WITH inputs AS ("
+        "SELECT id FROM element WHERE id=? OR (kind='module' AND parent=?)"
+        "), outputs AS ("
+        "SELECT id FROM element WHERE id=? OR (kind='module' AND parent=?)"
+        ") "
+        "SELECT location.value FROM relation JOIN json_each(relation.body, '$.evidence') location "
+        "WHERE relation.source IN (SELECT id FROM inputs) "
+        "AND relation.target IN (SELECT id FROM outputs) "
+        "AND relation.kind='import_site' AND json_extract(relation.body,'$.resolution')='local' "
+        "AND json_extract(relation.body,'$.evidence_class')='FACT' "
+        "ORDER BY json_extract(location.value,'$.path'),json_extract(location.value,'$.line')",
+        (relation["source"], relation["source"], relation["target"], relation["target"]),
+    ):
+        yield json.loads(row[0])
+
+
+def _relation_evidence(db: sqlite3.Connection, args: Row) -> Row:
+    row = db.execute("SELECT body FROM relation WHERE id=?", (_text(args, "relation"),)).fetchone()
+    if not row:
+        raise ValueError("unknown relation")
+    body = json.loads(row[0])
+    items = body["evidence"]
+    total = body.get("evidence_total", len(items))
+    if body["kind"] == "import" and body["resolution"] == "resolved" and total > len(items):
+        locations = {item["reference"]: item for item in items}
+        for item in _import_evidence(db, body):
+            locations.setdefault(item["reference"], item)
+        items = sorted(locations.values(), key=lambda item: (item["path"], item["line"]))
+    cursor = _text(args, "cursor", "")
+    if cursor and not (cursor.isascii() and cursor.isdecimal()):
+        raise ValueError("invalid evidence cursor")
+    offset = int(cursor or "0")
+    limit = _number(args, "limit", 200, 200)
+    total = len(items)
+    evidence_total = max(total, body.get("evidence_total", total))
+    return {
+        "items": items[offset : offset + limit],
+        "relation": dict(body, evidence=items[offset : offset + limit]),
+        "total": total,
+        "evidence_total": evidence_total,
+        "evidence_truncated": evidence_total > total,
+        "next_cursor": str(offset + limit) if offset + limit < total else None,
+    }

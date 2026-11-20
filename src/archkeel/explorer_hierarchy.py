@@ -5,6 +5,7 @@
 
 import json
 import sqlite3
+from collections import defaultdict
 from pathlib import PurePosixPath
 from typing import Any, TypedDict
 
@@ -85,7 +86,7 @@ def _groups(
 
 
 def _hierarchy_branch(
-    parent: str, nodes: list[dict[str, Any]]
+    parent: str, nodes: list[dict[str, Any]], forced: set[str] | None = None
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[tuple[str, str]]]:
     children: dict[str, list[dict[str, Any]]] = {}
     for node in nodes:
@@ -105,7 +106,11 @@ def _hierarchy_branch(
             count = sum(child["kind"] == "module" for child in underneath)
             kind = node["kind"]
             threshold = 20 if kind == "layer" else 12
-            collapsed = max(len(underneath), count) > threshold
+            collapsed = bool(underneath) and (
+                kind == "component"
+                or max(len(underneath), count) > threshold
+                or (forced is not None and node["id"] in forced)
+            )
             if kind in {"layer", "directory", "component"}:
                 node["module_count"] = count
             if not underneath or collapsed:
@@ -122,6 +127,33 @@ def _hierarchy_branch(
 
     visit(parent)
     return items, groups, aliases
+
+
+def _grouped_branch(
+    parent: str, nodes: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[tuple[str, str]]]:
+    items, groups, aliases = _hierarchy_branch(parent, nodes)
+    if len(items) <= 36 or not groups:
+        return items, groups, aliases
+    parents = {group["id"]: group["parent"] for group in groups}
+    underneath: dict[str, set[str]] = {group["id"]: set() for group in groups}
+    for item in items:
+        owner = item["parent"]
+        while owner in parents:
+            underneath[owner].add(item["id"])
+            owner = parents[owner]
+    forced = set()
+    hidden: set[str] = set()
+    visible = len(items)
+    for owner, members in sorted(underneath.items(), key=lambda pair: -len(pair[1])):
+        newly_hidden = members - hidden
+        if len(newly_hidden) > 1:
+            forced.add(owner)
+            hidden.update(newly_hidden)
+            visible -= len(newly_hidden) - 1
+            if visible <= 36:
+                break
+    return _hierarchy_branch(parent, nodes, forced) if forced else (items, groups, aliases)
 
 
 def _scope_id(db: sqlite3.Connection, parent: str) -> tuple[str, str, str]:
@@ -176,66 +208,94 @@ def _scope_query(kind: str, owner: str, name: str) -> tuple[str, tuple[str, ...]
     )
 
 
-def _coarse_rows(
-    db: sqlite3.Connection, base: str, params: tuple[str, ...], owner: str, kind: str
-) -> tuple[list[dict[str, Any]], bool]:
-    rows = []
-    if kind != "directory":
-        rows = db.execute(
-            "SELECT body FROM (" + base + ") "
-            "WHERE kind='component' AND json_extract(body,'$.parent')=? ORDER BY id LIMIT 8193",
-            (*params, owner),
-        ).fetchall()
-    modules = db.execute(
-        "SELECT body FROM (" + base + ") WHERE kind='module' "
-        "AND json_extract(body,'$.parent')=? ORDER BY id LIMIT 37",
-        (*params, owner),
-    ).fetchall()
-    return [json.loads(row[0]) for row in [*rows[:8192], *modules[:36]]], len(rows) > 8192 or len(
-        modules
-    ) > 36
+def _range_scope(parent: str) -> tuple[str, str, str] | None:
+    if parent.startswith('["file_group",'):
+        value = json.loads(parent)
+        if (
+            len(value) == 4
+            and all(isinstance(item, str) for item in value)
+            and value[2] <= value[3]
+        ):
+            return value[1], value[2], value[3]
+        raise ValueError("unknown map parent")
+    return None
+
+
+def _bound_branch(
+    root: str, parent: str, items: list[dict[str, Any]], aliases: list[tuple[str, str]]
+) -> tuple[list[dict[str, Any]], list[tuple[str, str]]]:
+    if len(items) <= 36:
+        return items, aliases
+    aliases_by_item = defaultdict(list)
+    for group, member in aliases:
+        aliases_by_item[group].append(member)
+    ordered = sorted(items, key=lambda item: item["id"])
+    width = max(36, (len(ordered) + 35) // 36)
+    cards: list[dict[str, Any]] = []
+    connections: list[tuple[str, str]] = []
+    for start in range(0, len(ordered), width):
+        chunk = ordered[start : start + width]
+        first, last = chunk[0], chunk[-1]
+        key = json.dumps(["file_group", root, first["id"], last["id"]], separators=(",", ":"))
+        cards.append(
+            {
+                "id": key,
+                "name": f"{first['name']} – {last['name']}",
+                "kind": "file_group",
+                "parent": parent,
+                "collapsed": True,
+                "module_count": sum(_module_count(item) for item in chunk),
+            }
+        )
+        for item in chunk:
+            connections.extend(
+                (key, member) for member in aliases_by_item.get(item["id"], [item["id"]])
+            )
+    return cards, connections
+
+
+def _module_count(item: dict[str, Any]) -> int:
+    return 1 if item["kind"] == "module" else int(item.get("module_count", 0))
 
 
 def _module_hierarchy(
     db: sqlite3.Connection, parent: str
 ) -> tuple[_ModuleHierarchy, list[tuple[str, str]]]:
-    """Project the visible hierarchy rooted at an indexed parent or its real grouping."""
-    kind, owner, name = _scope_id(db, parent)
+    """Build the complete grouping before bounding the visible cards."""
+    narrowed = _range_scope(parent)
+    root = narrowed[0] if narrowed else parent
+    kind, owner, name = _scope_id(db, root)
     base, params = _scope_query(kind, owner, name)
-    size, module_total = db.execute(
-        "SELECT count(*),coalesce(sum(kind='module'),0) FROM (" + base + ")", params
-    ).fetchone()
-    if kind != "component" and not size:
+    scoped = [
+        json.loads(row[0])
+        for row in db.execute("SELECT body FROM (" + base + ") ORDER BY id", params)
+    ]
+    if kind != "component" and not scoped:
         raise ValueError("unknown map parent")
-    coarse = size > 8192
-    if coarse:
-        scoped, truncated = _coarse_rows(db, base, params, owner, kind)
-    else:
-        scoped = [
-            json.loads(row[0])
-            for row in db.execute("SELECT body FROM (" + base + ") ORDER BY id", params)
-        ]
-        truncated = False
     parents = {item["parent"] for item in scoped}
     leaves = [node for node in scoped if node["id"] not in parents]
     nodes = [*_groups(db, owner, leaves), *leaves]
     if kind == "directory":
         for node in nodes:
             if node["parent"] == owner:
-                node["parent"] = parent
-    elif kind == "layer" and not any(node["id"] == parent for node in nodes):
-        if not (coarse and truncated):
+                node["parent"] = root
+    items, groups, aliases = _grouped_branch(root, nodes)
+    if narrowed:
+        _, first, last = narrowed
+        items = [dict(item, parent=parent) for item in items if first <= item["id"] <= last]
+        if not items:
             raise ValueError("unknown map parent")
-        for node in nodes:
-            if node["parent"] == owner:
-                node["parent"] = parent
-    items, groups, aliases = _hierarchy_branch(parent, nodes)
-    if len(items) > 250 and not groups and all(item["kind"] == "module" for item in items):
-        items, truncated = items[:36], True
-    if coarse:
-        for item in items:
-            if item["kind"] == "component":
-                item["collapsed"] = True
+        visible = {item["id"] for item in items}
+        aliases = [(group, member) for group, member in aliases if group in visible]
+        groups = []
+    module_total = (
+        sum(_module_count(item) for item in items)
+        if narrowed
+        else sum(node["kind"] == "module" for node in scoped)
+    )
+    items, aliases = _bound_branch(root, parent, items, aliases)
+    if items and items[0]["kind"] == "file_group":
+        groups = []
     return {
         "parent": parent,
         "view": "hierarchy",
@@ -245,15 +305,28 @@ def _module_hierarchy(
         "groups": groups,
         "total": len(items),
         "next_cursor": None,
-        "coarse": coarse,
-        "scope_truncated": truncated,
+        "coarse": False,
+        "scope_truncated": False,
     }, aliases
 
 
 def _scoped_module_filter(db: sqlite3.Connection, parent: str, text: str) -> tuple[str, list[str]]:
     """Search every scoped module, including the ones outside a flat overview."""
-    kind, owner, name = _scope_id(db, parent)
-    base, params = _scope_query(kind, owner, name)
+    params: tuple[str, ...]
+    if _range_scope(parent) is not None:
+        layout, aliases = _module_hierarchy(db, parent)
+        seeds = [item["id"] for item in layout["items"] if item["kind"] in {"module", "component"}]
+        seeds.extend(member for _, member in aliases)
+        base = (
+            "WITH RECURSIVE scope(id) AS (SELECT value FROM json_each(?) UNION "
+            "SELECT element.id FROM element JOIN scope ON element.parent=scope.id "
+            "WHERE element.kind IN ('component','module')) "
+            "SELECT id,kind FROM element WHERE id IN (SELECT id FROM scope)"
+        )
+        params = (json.dumps(seeds),)
+    else:
+        kind, owner, name = _scope_id(db, parent)
+        base, params = _scope_query(kind, owner, name)
     where = (
         f"id IN (SELECT id FROM ({base}) WHERE kind='module') AND "
         "(instr(lower(name),lower(?))>0 OR instr(lower(json_extract(body,'$.path')),lower(?))>0)"

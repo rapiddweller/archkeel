@@ -11,8 +11,9 @@ from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
 from .explorer_boundaries import boundary_rows
-from .explorer_map import _map_search, _map_view
-from .explorer_source import _number, _source, _source_path
+from .explorer_hierarchy import _module_hierarchy
+from .explorer_map import _aggregate_relations, _map_search, _map_view, _open_targets
+from .explorer_source import _number, _relation_evidence, _source, _source_path, _text
 from .explorer_store import open_snapshot
 from .explorer_symbols import _symbol_rows
 
@@ -283,11 +284,16 @@ def _relations(
             )
 
 
-def _text(args: Row, name: str, default: str | None = None) -> str:
-    value = args.get(name, default)
-    if not isinstance(value, str) or len(value) > 4096:
-        raise ValueError(f"invalid {name}")
-    return value
+def _element_status(db: sqlite3.Connection, element: str) -> str:
+    if element == "system" or db.execute("SELECT 1 FROM element WHERE id=?", (element,)).fetchone():
+        return "known"
+    if element.startswith("["):
+        try:
+            _module_hierarchy(db, element)
+        except ValueError:
+            return "unknown"
+        return "known"
+    return "unknown"
 
 
 def query(path: Path, root: Path, operation: str, args: Row) -> Row:
@@ -304,17 +310,12 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
                 _text(args, "view", "components"),
                 _text(args, "cursor", ""),
                 _number(args, "limit", 50, 200),
+                _text(args, "focus", ""),
             )
         if operation == "source":
             return result | _source(db, root, args)
         if operation == "evidence":
-            row = db.execute(
-                "SELECT body FROM relation WHERE id=?", (_text(args, "relation"),)
-            ).fetchone()
-            if not row:
-                raise ValueError("unknown relation")
-            body = json.loads(row[0])
-            return result | {"items": body["evidence"], "relation": body, "next_cursor": None}
+            return result | _relation_evidence(db, args)
         if operation == "story":
             row = db.execute(
                 "SELECT body FROM relation WHERE id=? AND kind='call'", (_text(args, "id"),)
@@ -327,6 +328,13 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
                 }
             hop = json.loads(row[0])
             return result | {"status": hop["resolution"], "items": [hop]}
+        if operation == "relations" and "aggregate" in args:
+            return result | _aggregate_relations(
+                db,
+                _text(args, "aggregate"),
+                _text(args, "cursor", ""),
+                _number(args, "limit", 50, 200),
+            )
         table = "element"
         if operation in {"overview", "children"}:
             where, params = "parent=?", [_text(args, "parent", "system")]
@@ -336,6 +344,7 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
             table = "relation"
             direction = _text(args, "direction", "both")
             elem = _text(args, "element")
+            result["element_status"] = _element_status(db, elem)
             if direction == "both":
                 where, params = "(source=? OR target=?)", [elem, elem]
             elif direction in {"in", "out"}:
@@ -353,7 +362,10 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
             f"SELECT id,body FROM {table} WHERE {where} AND id>? ORDER BY id LIMIT ?",
             (*params, cursor, limit + 1),
         ).fetchall()
+        items = [json.loads(r[1]) for r in rows[:limit]]
+        if table == "element":
+            _open_targets(db, items)
         return result | {
-            "items": [json.loads(r[1]) for r in rows[:limit]],
+            "items": items,
             "next_cursor": rows[limit - 1][0] if len(rows) > limit else None,
         }

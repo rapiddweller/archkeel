@@ -76,7 +76,7 @@ def measure(
     starts: list[float] = []
     queries: list[float] = []
     snapshots = []
-    checks = {}
+    checks: dict[str, Any] = {}
     clusters: dict[str, str] = {}
     with tempfile.TemporaryDirectory(prefix="archkeel-cache-") as cache:
         env = dict(os.environ, XDG_CACHE_HOME=cache)
@@ -142,8 +142,11 @@ def measure(
                 if not isinstance(payload.get("items"), list):
                     return {"error": "Explorer query refused", "completed": len(queries)}
                 queries.append(round((time.monotonic() - started) * 1000, 3))
-                if probe is not None and len(starts) == 1:
-                    checks = probe(snapshot)
+                if probe is not None and len(starts) in {1, runs}:
+                    measured = probe(snapshot)
+                    if len(starts) > 1 and measured != checks:
+                        return {"error": "warm and cold evidence differ", "completed": len(starts)}
+                    checks = measured
                 if not clusters:
                     clusters = check_clusters(snapshot, launch["url"])
             except (OSError, ValueError, sqlite3.Error) as error:

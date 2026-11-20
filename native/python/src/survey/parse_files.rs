@@ -31,10 +31,10 @@ pub(super) struct Parsed {
 pub(super) fn parse_unshadowed(
     snapshot: &mut Snapshot,
     scope: &discover::Scope,
-    namespace: &str,
+    (namespace, roots): (&str, &[String]),
     minor: PyMinor,
 ) -> Parsed {
-    let shadowed = names::shadowed(&scope.selected, namespace, minor);
+    let shadowed = names::shadowed_in(&scope.selected, namespace, roots, minor);
     let skipped: HashSet<&str> = shadowed.iter().map(|item| item.file.as_str()).collect();
     let mut parsed = Parsed {
         modules: Vec::new(),
@@ -60,7 +60,7 @@ pub(super) fn parse_unshadowed(
             continue;
         };
         parsed.files_read += 1;
-        match parsed_module(rel, &raw, namespace, minor) {
+        match parsed_module(rel, &raw, (namespace, roots), minor) {
             Ok(module) => parsed.modules.push(module),
             Err(failure) => parsed.gaps.push(failures::failure(rel, &failure)),
         }
@@ -101,7 +101,7 @@ fn unread(snapshot: &mut Snapshot, rel: &str) -> Result<Failure, Unseen> {
 fn parsed_module(
     rel: &str,
     raw: &[u8],
-    namespace: &str,
+    (namespace, roots): (&str, &[String]),
     minor: PyMinor,
 ) -> Result<Module, Failure> {
     crate::source::declared_encoding(raw).map_err(|name| {
@@ -111,7 +111,7 @@ fn parsed_module(
     let decode_error = || early(ExceptionName::UnicodeDecodeError, "UnicodeDecodeError");
     let text = newlines(decode(raw).ok_or_else(decode_error)?);
     let tree = parse(&text, minor)?;
-    let name = names::module_for(rel, namespace, minor)
+    let name = names::scoped(rel, namespace, roots, minor)
         .ok_or_else(|| early(ExceptionName::ValueError, "ValueError"))?;
     Ok(Module::new(rel.to_owned(), name, text.into_owned(), tree))
 }

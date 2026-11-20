@@ -17,11 +17,18 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
         return query(path, root, "overview", {"parent": parent, "cursor": cursor, "limit": limit})
 
     def map(
-        parent: str = "system", view: str = "components", cursor: str = "", limit: int = 50
+        parent: str = "system",
+        view: str = "components",
+        cursor: str = "",
+        limit: int = 50,
+        focus: str = "",
     ) -> Row:
         """Show a bounded hierarchy and measured relationships."""
         return query(
-            path, root, "map", {"parent": parent, "view": view, "cursor": cursor, "limit": limit}
+            path,
+            root,
+            "map",
+            {"parent": parent, "view": view, "cursor": cursor, "limit": limit, "focus": focus},
         )
 
     def children(parent: str = "system", cursor: str = "", limit: int = 50) -> Row:
@@ -35,9 +42,14 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
         )
 
     def relations(
-        element: str, direction: str = "both", cursor: str = "", limit: int = 50, kind: str = ""
+        element: str = "",
+        direction: str = "both",
+        cursor: str = "",
+        limit: int = 50,
+        kind: str = "",
+        aggregate: str = "",
     ) -> Row:
-        """List incoming or outgoing architecture relationships."""
+        """List an element’s relationships or a map aggregate’s contributing relations."""
         return query(
             path,
             root,
@@ -48,12 +60,15 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
                 "cursor": cursor,
                 "limit": limit,
                 **({"kind": kind} if kind else {}),
+                **({"aggregate": aggregate} if aggregate else {}),
             },
         )
 
-    def evidence(relation: str) -> Row:
+    def evidence(relation: str, limit: int = 200, cursor: str = "") -> Row:
         """Read the evidence locations for one relationship."""
-        return query(path, root, "evidence", {"relation": relation})
+        return query(
+            path, root, "evidence", {"relation": relation, "limit": limit, "cursor": cursor}
+        )
 
     def source(reference: str, limit: int = 24, start: int | None = None) -> Row:
         """Read a bounded source excerpt at an evidence location."""

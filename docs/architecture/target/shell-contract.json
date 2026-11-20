@@ -1116,9 +1116,10 @@
       "kind": "external_dependency_scope",
       "dependency": "tomllib",
       "allowed_sources": [
-        "archkeel.cli.core_binding"
+        "archkeel.cli.core_binding",
+        "archkeel.cli.init_binding"
       ],
-      "rationale": "Only the binding part reads the configuration, to bind the frame to it.",
+      "rationale": "The binding part reads the scan configuration. The draft reads the build manifest to identify Python import roots.",
       "provenance": [
         "docs/architecture/decisions/ad-438-the-default-scan-reads-and-binds-every-inside-contract.md"
       ],

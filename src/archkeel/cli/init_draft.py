@@ -195,7 +195,7 @@ def _rule(identifier: str, kind: str, page: str, **fields: str) -> dict[str, obj
 
 
 def _toml(layout: Layout, contract: str) -> str:
-    roots = ", ".join(f'"{root}"' for root in layout.roots)
+    roots = ", ".join(json.dumps(root, ensure_ascii=False) for root in layout.roots)
     return (
         f'[scan]\nlanguage = "{layout.language}"\nnamespace = "{layout.namespace}"\n'
         f'roots = [{roots}]\ncontract = "{contract}"\n{layout.extra}'
@@ -209,11 +209,25 @@ def _unit(layout: Layout, folder: str, prefix: str) -> tuple[list[File], tuple[s
     parts = [part for part in layout.parts if part.packages or part.modules]
     labels = tuple(part.label for part in parts)
     ids = (f"{prefix}-ASSIGNMENT-COMPLETE", f"{prefix}-COMPONENT-NO-CYCLES")
+    sources = (
+        (layout.namespace,)
+        if layout.namespace
+        else tuple(name for part in parts for name in (*part.packages, *part.modules))
+    )
+    assignment = [
+        _rule(
+            ids[0].strip("-") if len(sources) == 1 else f"{ids[0].strip('-')}-{index}",
+            "complete_assignment",
+            page,
+            source=source,
+        )
+        for index, source in enumerate(sources, 1)
+    ]
     document = {
         "schema_version": _SCHEMA,
         "components": [_component(part, prefix, page) for part in parts],
         "rules": [
-            _rule(ids[0].strip("-"), "complete_assignment", page, source=layout.namespace),
+            *assignment,
             _rule(ids[1].strip("-"), "no_component_cycles", page),
         ],
     }
@@ -367,7 +381,12 @@ def draft(root: Path, *, scan_folder: str = "") -> Draft:
     files, labels = _unit(layout, scan_folder, "")
     # One scan at the root keeps the plain names of the rules and components.
     return Draft(
-        tuple(files), layout.language, layout.namespace, labels, layout.note, entry=files[0].path
+        tuple(files),
+        layout.language,
+        layout.namespace or areas[0].label,
+        labels,
+        layout.note,
+        entry=files[0].path,
     )
 
 

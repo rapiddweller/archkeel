@@ -368,7 +368,8 @@ impl Collector<'_, '_> {
         let module = self.module;
         let evidence_id = module.evidence(self.evidence, node);
         let Location { line, column, .. } = module.location(node);
-        let in_scope = b.target == self.namespace
+        let in_scope = self.names.contains(b.target)
+            || b.target == self.namespace
             || b.target
                 .strip_prefix(self.namespace)
                 .is_some_and(|rest| rest.starts_with('.'));

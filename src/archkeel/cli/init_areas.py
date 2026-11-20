@@ -20,7 +20,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Final
 
-from .init_binding import _table, _value
+from .init_binding import _python_import_settings, _table, _value
 
 DOCUMENT: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md"
 _IGNORED: Final = frozenset({".git", ".venv", "venv", "node_modules", "target", "build", "dist"})
@@ -107,39 +107,128 @@ def _members(root: Path, patterns: list[str], marker: str) -> list[Path]:
     return sorted(found)
 
 
-def _python_layouts(root: Path, folder: Path | None = None) -> list[Layout]:
-    """The Python scans of a project folder: one component for each subpackage of a top-level
-    package. A module name is the namespace and the path below the scan root, and the namespace
-    must be the name of that root, so a scan has one root folder.
-
-    Below `src` the folders that hold Python give one scan with one component each, or one scan
-    of the only folder. In a folder without `src` each top-level package (with `__init__.py`) is
-    its own scan. `root` is the repository; `folder` is the project folder below it."""
-    folder = folder or root
-    src = (folder / "src").is_dir()
-    base = folder / "src" if src else folder
-    found = (
-        _packages(base, root)
-        if src
-        else [p for p in _packages(base, root) if (p / "__init__.py").is_file()]
+def _regular_packages(folder: Path) -> tuple[Path, ...]:
+    return tuple(
+        path
+        for path in sorted(folder.iterdir())
+        if path.name.isidentifier()
+        and path.name not in _IGNORED
+        and not _is_test(Path(path.name, "__init__.py"))
+        and (path / "__init__.py").is_file()
     )
-    if not found:
-        where = base.relative_to(root).as_posix()
-        raise _refuse(f"no top-level Python package (a folder with __init__.py) in {where}")
+
+
+def _outer_import_roots(roots: set[Path], ambiguous: bool) -> tuple[tuple[Path, ...], bool]:
+    outer = {path for path in roots if not any(parent in roots for parent in path.parents)}
+    return tuple(sorted(outer)), ambiguous or outer != roots
+
+
+def _python_import_roots(folder: Path) -> tuple[tuple[Path, ...], bool]:
+    try:
+        paths, installed, ambiguous = _python_import_settings(folder / "pyproject.toml")
+    except (ValueError, OSError) as error:
+        raise _refuse(str(error)) from error
+    if paths is not None:
+        roots = set()
+        for name in paths:
+            relative = PurePosixPath(name)
+            path = folder / relative
+            if relative.is_absolute() or ".." in relative.parts or not path.is_dir():
+                raise _refuse(f"Python import root {name} is not a local directory")
+            if not path.resolve().is_relative_to(folder.resolve()):
+                raise _refuse(f"Python import root {name} leaves the project")
+            roots.add(path)
+        return _outer_import_roots(roots, ambiguous)
+    src = folder / "src"
+    if ambiguous:
+        return (src if src.is_dir() else folder,), True
+    wrappers = tuple(
+        child
+        for child in sorted(folder.iterdir())
+        if child.is_dir()
+        and child.name not in _IGNORED
+        and not child.name.startswith(".")
+        and not _is_test(Path(child.name, "__init__.py"))
+        and not any((child / name).is_file() for name in ("pyproject.toml", "setup.py"))
+    )
+    # A package-data key names an installed package, including its first import segment.
+    installed_at = {
+        base
+        for base in (folder, *wrappers)
+        if any(
+            name.isidentifier() and (base / name / "__init__.py").is_file() for name in installed
+        )
+    }
+    if installed_at:
+        return _outer_import_roots(installed_at, len(installed_at) > 1)
+    manifest = (folder / "pyproject.toml").is_file()
+    direct = _regular_packages(folder) if manifest else ()
+    if src.is_dir() and not (src / "__init__.py").is_file() and _has_python(src, folder):
+        return ((folder,), True) if direct else ((src,), False)
+    if not manifest:
+        return (), False
+    if len(direct) > 1:
+        return (folder,), False
+    if direct:
+        return (), False
+    candidates = tuple(path for path in wrappers if len(_regular_packages(path)) > 1)
+    return candidates, bool(candidates)
+
+
+def _python_layouts(root: Path, folder: Path | None = None) -> list[Layout]:
+    """A Python project has an import-root scan or one scan per top-level package."""
+    folder = folder or root
+    bases, ambiguous = _python_import_roots(folder)
     note = _python_note(folder)
-    if src and len(found) > 1:
-        layouts = [_python_scan(root, base, [p.name for p in found], note)]
+    if bases:
+        packages = {package.name for base in bases for package in _packages(base, root)}
+        modules = {
+            path.stem
+            for base in bases
+            for path in base.glob("*.py")
+            if path.stem not in packages and not _is_test(path.relative_to(root))
+        }
+        if not ambiguous and len(bases) == 1 and len(packages) == 1 and modules <= {"__init__"}:
+            layouts = [_python_single(root, bases[0] / next(iter(packages)), note)]
+        elif packages or modules:
+            parts = [Part(name, (name,)) for name in sorted(packages)]
+            if modules:
+                parts.append(Part(_loose_modules_label(packages), modules=tuple(sorted(modules))))
+            roots = tuple(base.relative_to(root).as_posix() for base in bases)
+            extra = _TESTS + ("import_roots_ambiguous = true\n" if ambiguous else "")
+            layouts = [Layout("python", "", roots, tuple(parts), extra, note=note)]
+        else:
+            raise _refuse("no top-level Python package or module in the import roots")
     else:
+        found = [p for p in _packages(folder, root) if (p / "__init__.py").is_file()]
+        if not found:
+            where = folder.relative_to(root).as_posix()
+            raise _refuse(f"no top-level Python package (a folder with __init__.py) in {where}")
         layouts = [_python_single(root, package, note) for package in found]
     project = folder.relative_to(root).as_posix() or "."
     return [replace(layout, project=project) for layout in layouts]
+
+
+def _loose_modules_label(packages: set[str]) -> str:
+    labels = {re.sub(r"_+", "_", _name(name)) for name in packages}
+    if "root" not in labels:
+        return "root"
+    index = 1
+    label = "modules"
+    while label in labels:
+        index += 1
+        label = f"modules_{index}"
+    return label
 
 
 def _python_single(root: Path, package: Path, note: str) -> Layout:
     """The scan of one package: a component for each folder in it that holds Python."""
     namespace = package.name
     parts = [Part(p.name, (f"{namespace}.{p.name}",)) for p in _packages(package, root)]
-    parts.append(Part("root", modules=_beside(namespace, package, {p.label for p in parts}, True)))
+    labels = {part.label for part in parts}
+    parts.append(
+        Part(_loose_modules_label(labels), modules=_beside(namespace, package, labels, True))
+    )
     scan = package.relative_to(root).as_posix()
     return Layout("python", namespace, (scan,), tuple(parts), _TESTS, note=note)
 
@@ -154,16 +243,6 @@ def _python_one_script(root: Path) -> Layout | None:
         return None
     name = scripts[0].stem
     return Layout("python", name, (".",), (Part("root", modules=(name,)),), _TESTS)
-
-
-def _python_scan(root: Path, base: Path, names: list[str], note: str) -> Layout:
-    """The scan of a folder (`src`) that holds several packages: a component for each."""
-    namespace = _name(base.name)
-    parts = [Part(name, (f"{namespace}.{name}",)) for name in names]
-    own = (base / "__init__.py").is_file()  # a package `src/__init__.py` is a module of the scan
-    parts.append(Part("root", modules=_beside(namespace, base, set(names), own)))
-    scan = base.relative_to(root).as_posix()
-    return Layout("python", namespace, (scan,), tuple(parts), _TESTS, note=note)
 
 
 def _beside(namespace: str, folder: Path, taken: set[str], itself: bool) -> tuple[str, ...]:
@@ -302,7 +381,11 @@ class Area:
     def label(self) -> str:
         """The part id before the names of several areas are made unique: the folder name, or for
         the root the name of the project (its namespace), not its language (#1709)."""
-        return _name(Path(self.folder).name) if self.folder != "." else self.layout.namespace
+        return (
+            _name(Path(self.folder).name)
+            if self.folder != "."
+            else self.layout.namespace or self.layout.language
+        )
 
 
 def _folders(repo: Path) -> list[Path]:
