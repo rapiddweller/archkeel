@@ -23,3 +23,7 @@ fixtures/python-newer-syntax-demo/sample/legacy.py -text
 tests/golden/**/sources/** text eol=lf
 fixtures/golden-python/** text eol=lf
 tests/golden/**/*.gz binary
+
+# Compare the Studio compiler output byte for byte on every platform.
+src/archkeel/cli/assets/explorer*.js text eol=lf
+src/archkeel/cli/assets/studio*.js text eol=lf

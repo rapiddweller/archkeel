@@ -117,6 +117,12 @@
         "type": "string"
       }
     },
+    "explorer": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExplorerPart"
+      }
+    },
     "measures": {
       "anyOf": [
         {
@@ -556,6 +562,513 @@
         "schema"
       ],
       "description": "One interface between two parts of a system frame: a crossing that is no import.",
+      "additionalProperties": false
+    },
+    "ExplorerPart": {
+      "type": "object",
+      "properties": {
+        "part": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "language": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/File"
+          }
+        },
+        "symbols": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Symbol"
+          }
+        },
+        "calls": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Call"
+          }
+        },
+        "imports": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Import"
+          }
+        },
+        "source_call_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceCallCandidate"
+          }
+        }
+      },
+      "required": [
+        "part",
+        "language",
+        "files",
+        "symbols",
+        "calls",
+        "imports"
+      ],
+      "additionalProperties": false
+    },
+    "File": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "module",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "Symbol": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "qualified_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lexical_parent_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attributes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Attribute"
+          }
+        },
+        "method_kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MethodKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accessor_kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "property_operation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "property_names": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "member_inventories": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Inventory"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "evidence_class",
+        "evidence_ids",
+        "module",
+        "qualified_name",
+        "lexical_parent_id",
+        "method_kind",
+        "accessor_kind",
+        "property_operation"
+      ],
+      "additionalProperties": false
+    },
+    "FactId": {
+      "type": "string",
+      "description": "The id of a source record (`PREFIX-` and 16 hex digits, `identity::stable_id`)."
+    },
+    "EvidenceId": {
+      "type": "string",
+      "description": "The id of one cited source location (`EVD-…`, `identity::evidence_id`)."
+    },
+    "Attribute": {
+      "type": "object",
+      "properties": {
+        "definition_id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "annotation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        }
+      },
+      "required": [
+        "definition_id",
+        "name",
+        "annotation",
+        "evidence_ids"
+      ],
+      "additionalProperties": false
+    },
+    "MethodKind": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "instance",
+          "description": "A method of an instance."
+        },
+        {
+          "type": "string",
+          "const": "static",
+          "description": "A static method."
+        },
+        {
+          "type": "string",
+          "const": "class",
+          "description": "A class method."
+        },
+        {
+          "type": "string",
+          "const": "constructor",
+          "description": "A constructor."
+        },
+        {
+          "type": "string",
+          "const": "factory",
+          "description": "A factory."
+        }
+      ],
+      "description": "The kind of a method."
+    },
+    "Inventory": {
+      "type": "object",
+      "properties": {
+        "definition_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "kind": {
+          "$ref": "#/$defs/MemberKind"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema_version": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/InventoryStatus"
+        }
+      },
+      "required": [
+        "definition_ids",
+        "kind",
+        "reason",
+        "schema_version",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "MemberKind": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "attribute",
+          "description": "The members are attributes."
+        },
+        {
+          "type": "string",
+          "const": "method",
+          "description": "The members are methods."
+        }
+      ],
+      "description": "The members that a member inventory lists (`facts.MemberKind`)."
+    },
+    "InventoryStatus": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "complete",
+          "description": "The inventory lists every member."
+        },
+        {
+          "type": "string",
+          "const": "partial",
+          "description": "The inventory may miss members."
+        }
+      ],
+      "description": "Whether a member inventory lists every member (`facts.InventoryStatus`)."
+    },
+    "Call": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "source_module": {
+          "type": "string"
+        },
+        "source_scope": {
+          "type": "string"
+        },
+        "source_definition_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_definition_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expression": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "candidates_truncated": {
+          "type": "boolean"
+        },
+        "candidate_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "evidence_class",
+        "source_module",
+        "source_scope",
+        "source_definition_id",
+        "target_definition_id",
+        "expression",
+        "targets",
+        "status",
+        "reason",
+        "candidates_truncated",
+        "candidate_count",
+        "evidence_ids"
+      ],
+      "additionalProperties": false
+    },
+    "Import": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "source_module": {
+          "type": "string"
+        },
+        "target_module": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "specifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inferred_receiver": {
+          "type": "boolean"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "evidence_class",
+        "source_module",
+        "target_module",
+        "symbol",
+        "specifier",
+        "inferred_receiver",
+        "resolution",
+        "reason",
+        "evidence_ids"
+      ],
+      "additionalProperties": false
+    },
+    "SourceCallCandidate": {
+      "type": "object",
+      "properties": {
+        "source_module": {
+          "type": "string",
+          "description": "Module containing the call."
+        },
+        "target_module": {
+          "type": "string",
+          "description": "Module containing the declaration."
+        },
+        "target": {
+          "type": "string",
+          "description": "Qualified declaration name."
+        },
+        "expression": {
+          "type": "string",
+          "description": "Written callee."
+        },
+        "call_evidence": {
+          "$ref": "#/$defs/EvidenceId",
+          "description": "Location of the callee at this call site."
+        },
+        "declaration_evidence": {
+          "$ref": "#/$defs/EvidenceId",
+          "description": "Location of the name in the class or function definition."
+        }
+      },
+      "required": [
+        "source_module",
+        "target_module",
+        "target",
+        "expression",
+        "call_evidence",
+        "declaration_evidence"
+      ],
+      "description": "A written callee and its matching declaration. These locations provide source navigation only.",
       "additionalProperties": false
     },
     "Measures": {
@@ -3912,6 +4425,10 @@
             "phase": {
               "$ref": "#/$defs/PythonPhase",
               "description": "The phase of the Python collection."
+            },
+            "import_roots_ambiguous": {
+              "const": true,
+              "description": "Conflicting build metadata leaves the runtime import roots unknown."
             },
             "python": {
               "type": [

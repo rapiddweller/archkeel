@@ -180,7 +180,9 @@ impl<'a> Visitor<'a> for Calls<'_> {
                 self.row.calls_resolved += 1;
             } else if imported == Some(true) {
                 self.row.calls_external += 1;
-            } else if matches!(&*call.func, Expr::Name(name) if builtin(name.id.as_str()) && self.binders.builtin_visible(name.id.as_str())) {
+            } else if literal_method(&call.func)
+                || matches!(&*call.func, Expr::Name(name) if builtin(name.id.as_str()) && self.binders.builtin_visible(name.id.as_str()))
+            {
                 self.row.calls_builtin += 1;
             } else {
                 self.unresolved(&call.func);
@@ -221,6 +223,35 @@ impl Calls<'_> {
             None
         }
     }
+}
+
+/// Public methods shared by the supported Python versions on exact builtin literals.
+/// Names, constructors and formatted strings can produce user-defined receiver types.
+fn literal_method(callee: &Expr) -> bool {
+    let Expr::Attribute(attr) = callee else {
+        return false;
+    };
+    let methods = match &*attr.value {
+        Expr::StringLiteral(_) => {
+            "capitalize casefold center count encode endswith expandtabs find \
+            format format_map index isalnum isalpha isascii isdecimal isdigit isidentifier islower \
+            isnumeric isprintable isspace istitle isupper join ljust lower lstrip maketrans \
+            partition removeprefix removesuffix replace rfind rindex rjust rpartition rsplit \
+            rstrip split splitlines startswith strip swapcase title translate upper zfill"
+        }
+        Expr::List(_) => "append clear copy count extend index insert pop remove reverse sort",
+        Expr::Tuple(_) => "count index",
+        Expr::Dict(_) => "clear copy fromkeys get items keys pop popitem setdefault update values",
+        Expr::Set(_) => {
+            "add clear copy difference difference_update discard intersection \
+            intersection_update isdisjoint issubset issuperset pop remove symmetric_difference \
+            symmetric_difference_update union update"
+        }
+        _ => return false,
+    };
+    methods
+        .split_ascii_whitespace()
+        .any(|name| name == attr.attr.as_str())
 }
 
 #[expect(

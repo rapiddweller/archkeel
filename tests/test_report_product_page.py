@@ -35,7 +35,7 @@ from tools.system_parts import load
 
 MAX_VISIBLE = 4_000
 NAME = load().name
-SHELL, CORE = report_gallery.SELF_RUNS
+SHELL, CORE = report_gallery.SELF_RUNS[:2]
 
 
 def _frame(*, cycles: int = 2, imports: int = 1, comps: int = 4, gaps: int = 1) -> dict[str, Any]:

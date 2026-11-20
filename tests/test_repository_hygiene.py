@@ -105,7 +105,7 @@ def _is_size_limited(relative: str) -> bool:
     top, _, rest = relative.partition("/")
     if relative in SIZE_LIMIT_EXEMPT:
         return False
-    if top == "src":
+    if top == "src" or relative.startswith("studio/src/"):
         return relative.endswith((*SCRIPT_SUFFIXES, ".ts", ".tsx", ".css"))
     if relative.startswith(REPORT_ASSETS):
         return relative.endswith((".js", ".css"))
@@ -181,6 +181,7 @@ def test_file_size_check_applies_the_ratchet(tmp_path: Path) -> None:
 def test_size_ratchet_stops_a_new_long_test_and_a_grown_script(tmp_path: Path) -> None:
     names = ("test_new.py", "flow.js")
     assert _is_size_limited("tests/test_new.py")
+    assert _is_size_limited("studio/src/explorer.ts")
     assert _is_size_limited("fixtures/capture_typescript_config_reference.cjs")
     (tmp_path / "test_new.py").write_text("x = 1\n" * 501, encoding="utf-8")
     (tmp_path / "flow.js").write_text("let x;\n" * 3603, encoding="utf-8")
@@ -264,8 +265,8 @@ def test_sdist_ships_library_and_build_inputs_only() -> None:
     """The sdist promises a runnable test suite only if it ships one that can run.
 
     It cannot: a tarball has no `.git` for the license-header check above, no pinned
-    interpreters for `fixtures/E-runtime`, no `tools/`, and none of the cross-test imports the
-    suite relies on. A shipped-but-untestable suite would be a second, weaker definition of
+    interpreters for `fixtures/E-runtime`, and none of the cross-test imports the suite relies on.
+    A shipped-but-untestable suite would be a second, weaker definition of
     "tests pass," so `only-include` carries what rebuilds the wheel (`src`, `schema` and the
     declared `README.md`) and distributors rebuild the test suite from the Git tag instead
     (docs/reference.md).
@@ -278,7 +279,15 @@ def test_sdist_ships_library_and_build_inputs_only() -> None:
     def is_test_input(entry: str) -> bool:
         return entry.partition("/")[0] in {"tests", "fixtures", "tools"}
 
-    shipped_test_inputs = [entry for entry in only_include if is_test_input(entry)]
+    studio_build_inputs = {
+        "tools/studio_ui.py",
+        "tools/browser-runtime/package.json",
+        "tools/browser-runtime/package-lock.json",
+    }
+    assert studio_build_inputs | {"studio"} <= set(only_include)
+    shipped_test_inputs = [
+        entry for entry in only_include if is_test_input(entry) and entry not in studio_build_inputs
+    ]
     assert shipped_test_inputs == [], (
         "the sdist must not ship a test suite or its fixtures: it cannot run from a tarball "
         f"(see docs/reference.md), so shipping it half-working is worse than not shipping it; "

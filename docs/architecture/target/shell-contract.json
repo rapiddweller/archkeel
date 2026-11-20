@@ -307,6 +307,10 @@
         {
           "component": "words",
           "rationale": "Read the plain words for a not-found message and its fix."
+        },
+        {
+          "component": "explorer-host",
+          "rationale": "Publish and open the local Explorer for the bound frame."
         }
       ],
       "decided_by": "architect",
@@ -345,8 +349,7 @@
         "archkeel.cli.core_arguments:output_mode",
         "archkeel.cli.core_arguments:command_of",
         "archkeel.cli.core_arguments:parse",
-        "archkeel.cli.core_arguments:RELEASE",
-        "archkeel.cli.core_arguments:RELEASED"
+        "archkeel.cli.core_arguments:RELEASE"
       ],
       "decided_by": "architect"
     },
@@ -378,6 +381,7 @@
       "public": [
         "archkeel.cli.core_binary:CoreBinaryNotFound",
         "archkeel.cli.core_binary:confirm",
+        "archkeel.cli.core_binary:collector_workers",
         "archkeel.cli.core_binary:locate_core"
       ]
     },
@@ -388,7 +392,8 @@
       "layer": "process",
       "packages": [],
       "exact_modules": [
-        "archkeel.cli.native_scan"
+        "archkeel.cli.native_scan",
+        "archkeel.cli.story_model"
       ],
       "responsibilities": [
         "Build the scan request from the root and the Git state, start the core and return its bytes."
@@ -414,7 +419,10 @@
         "archkeel.cli.native_scan:SCAN_PROTOCOL",
         "archkeel.cli.native_scan:exchange",
         "archkeel.cli.native_scan:identity",
-        "archkeel.cli.native_scan:ignored_by"
+        "archkeel.cli.native_scan:ignored_by",
+        "archkeel.cli.native_scan:tracked_and_unignored",
+        "archkeel.cli.native_scan:prepare_disposable_git",
+        "archkeel.cli.story_model:ask_story_model"
       ]
     },
     {
@@ -630,7 +638,8 @@
         "archkeel.cli.core_output:read_html",
         "archkeel.cli.core_output:read_timings",
         "archkeel.cli.core_output:write_new",
-        "archkeel.cli.core_output:write_output"
+        "archkeel.cli.core_output:write_output",
+        "archkeel.cli.core_output:write_new_at"
       ]
     },
     {
@@ -762,6 +771,242 @@
         "archkeel.cli.init_draft:draft",
         "archkeel.cli.init_draft:write_missing"
       ]
+    },
+    {
+      "id": "SHELL-EXPLORER-HOST",
+      "label": "explorer-host",
+      "role": "component",
+      "layer": "present",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_explorer",
+        "archkeel.cli.core_explorer_http",
+        "archkeel.cli.core_explorer_identity",
+        "archkeel.explorer_agent"
+      ],
+      "responsibilities": [
+        "Bind the local Explorer to a verified scan and serve its indexed views and report."
+      ],
+      "forbidden_responsibilities": [
+        "Collect architecture facts or decide a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "arguments",
+          "rationale": "Read the options of the Explorer command."
+        },
+        {
+          "component": "binding",
+          "rationale": "Read the root and the configuration of the scan."
+        },
+        {
+          "component": "exit",
+          "rationale": "Print the startup result."
+        },
+        {
+          "component": "frame",
+          "rationale": "Read the verified frame of the native core."
+        },
+        {
+          "component": "json",
+          "rationale": "Read the topology and the system declared by the frame."
+        },
+        {
+          "component": "launch",
+          "rationale": "Read the Git identity and names of fingerprint inputs."
+        },
+        {
+          "component": "locate",
+          "rationale": "Identify the workers whose binaries bind the snapshot."
+        },
+        {
+          "component": "init",
+          "rationale": "Discover source groups in a disposable copy without writing the repository."
+        },
+        {
+          "component": "explorer-query",
+          "rationale": "Project and query the indexed architecture views."
+        },
+        {
+          "component": "explorer-store",
+          "rationale": "Publish and pin the named snapshot."
+        },
+        {
+          "component": "storyboard",
+          "rationale": "Load a saved story for playback in the browser."
+        }
+      ],
+      "public": [
+        "archkeel.cli.core_explorer:launch"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-EXPLORER-QUERY",
+      "label": "explorer-query",
+      "role": "component",
+      "layer": "decoding",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.explorer_hierarchy",
+        "archkeel.explorer_map",
+        "archkeel.explorer_queries",
+        "archkeel.explorer_source",
+        "archkeel.explorer_symbols"
+      ],
+      "responsibilities": [
+        "Project the native topology and answer bounded queries about one snapshot."
+      ],
+      "forbidden_responsibilities": [
+        "Infer an architectural fact or determine a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "explorer-store",
+          "rationale": "Read a pinned snapshot."
+        },
+        {
+          "component": "explorer-boundaries",
+          "rationale": "Index candidate process and HTTP boundaries."
+        }
+      ],
+      "public": [
+        "archkeel.explorer_queries:Row",
+        "archkeel.explorer_queries:populate",
+        "archkeel.explorer_queries:query"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-EXPLORER-BOUNDARIES",
+      "label": "explorer-boundaries",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.explorer_boundaries"
+      ],
+      "responsibilities": [
+        "Record source evidence of open and candidate process and HTTP boundaries."
+      ],
+      "forbidden_responsibilities": [
+        "Prove a runtime connection or decide a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [],
+      "public": [
+        "archkeel.explorer_boundaries:boundary_rows"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-EXPLORER-STORE",
+      "label": "explorer-store",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.explorer_store"
+      ],
+      "responsibilities": [
+        "Publish, lease and evict immutable Explorer snapshots."
+      ],
+      "forbidden_responsibilities": [
+        "Interpret domain facts or decide a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [],
+      "public": [
+        "archkeel.explorer_store:SnapshotIdentity",
+        "archkeel.explorer_store:cache_path",
+        "archkeel.explorer_store:open_snapshot",
+        "archkeel.explorer_store:publish_snapshot",
+        "archkeel.explorer_store:repository_writer"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-EXPLORER-MCP",
+      "label": "explorer-mcp",
+      "role": "component",
+      "layer": "entry",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.explorer_mcp"
+      ],
+      "responsibilities": [
+        "Serve pinned snapshot queries to an MCP client over standard input and output."
+      ],
+      "forbidden_responsibilities": [
+        "Collect architecture facts, render a report or decide a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "explorer-query",
+          "rationale": "Read indexed architecture views."
+        },
+        {
+          "component": "explorer-store",
+          "rationale": "Hold the snapshot lease for the MCP session."
+        },
+        {
+          "component": "storyboard",
+          "rationale": "Let an MCP client read and save a checked story."
+        }
+      ],
+      "public": [],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-STORYBOARD",
+      "label": "storyboard",
+      "role": "component",
+      "layer": "frame",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.explorer_stories",
+        "archkeel.explorer_story_external",
+        "archkeel.explorer_story_spec",
+        "archkeel.explorer_story_sql"
+      ],
+      "responsibilities": [
+        "Check story steps against source evidence and save the author's view specification."
+      ],
+      "forbidden_responsibilities": [
+        "Decide a rule verdict or ask a model."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "explorer-store",
+          "rationale": "Read the pinned snapshot."
+        },
+        {
+          "component": "output",
+          "rationale": "Publish a new story in its verified directory."
+        }
+      ],
+      "public": [
+        "archkeel.explorer_stories:list_stories",
+        "archkeel.explorer_stories:read_story",
+        "archkeel.explorer_stories:save_story"
+      ],
+      "decided_by": "architect"
     }
   ],
   "rules": [
@@ -835,7 +1080,7 @@
       "id": "SHELL-EXTERNAL-COMPLETE",
       "kind": "complete_external_scope",
       "source": "archkeel",
-      "rationale": "The shell uses the standard library only: an import of a third-party package fails, so no analysis library enters the shell.",
+      "rationale": "The shell uses the standard library. The optional MCP entry has an explicit dependency rule.",
       "provenance": [
         "docs/architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md"
       ],
@@ -846,9 +1091,10 @@
       "kind": "external_dependency_scope",
       "dependency": "subprocess",
       "allowed_sources": [
-        "archkeel.cli.native_scan"
+        "archkeel.cli.native_scan",
+        "archkeel.cli.story_model"
       ],
-      "rationale": "Only the launch part starts a process: the core and Git.",
+      "rationale": "The launch component runs the native core, Git, and the signed-in model for a Studio story request.",
       "provenance": [
         "docs/architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md"
       ],
@@ -859,9 +1105,10 @@
       "kind": "external_dependency_scope",
       "dependency": "argparse",
       "allowed_sources": [
-        "archkeel.cli.core_arguments"
+        "archkeel.cli.core_arguments",
+        "archkeel.explorer_mcp"
       ],
-      "rationale": "Only the arguments part reads the command line.",
+      "rationale": "Only the command arguments and the optional MCP entry read command lines.",
       "provenance": [
         "docs/architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md"
       ],
@@ -872,9 +1119,10 @@
       "kind": "external_dependency_scope",
       "dependency": "tomllib",
       "allowed_sources": [
-        "archkeel.cli.core_binding"
+        "archkeel.cli.core_binding",
+        "archkeel.cli.init_binding"
       ],
-      "rationale": "Only the binding part reads the configuration, to bind the frame to it.",
+      "rationale": "The binding part reads the scan configuration. The draft reads the build manifest to identify Python import roots.",
       "provenance": [
         "docs/architecture/decisions/ad-438-the-default-scan-reads-and-binds-every-inside-contract.md"
       ],
@@ -1072,11 +1320,29 @@
           "symbol": "archkeel.cli:main",
           "consumer": "the console script archkeel ([project.scripts] in pyproject.toml)",
           "rationale": "The installed command calls main; no module of the scan imports it."
+        },
+        {
+          "symbol": "archkeel.explorer_mcp:main",
+          "consumer": "the optional console script archkeel-mcp ([project.scripts] in pyproject.toml)",
+          "rationale": "The installed MCP command calls main without importing it into the shell."
         }
       ],
       "rationale": "A module-level name without a leading underscore that no other component imports is a public surface without a need: give it a leading underscore or delete it (PEP 8, AD-670, owner decision).",
       "provenance": [
         "docs/architecture/decisions/ad-670-a-public-name-that-no-other-component-uses-is-a-violation.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-ONLY-EXPLORER-MCP-USES-FASTMCP",
+      "kind": "external_dependency_scope",
+      "dependency": "fastmcp",
+      "exact_sources": [
+        "archkeel.explorer_mcp"
+      ],
+      "rationale": "Only the optional MCP entry uses the MCP transport library.",
+      "provenance": [
+        "docs/architecture/shell.md"
       ],
       "decided_by": "architect"
     }

@@ -102,6 +102,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     run(
         Run {
             topology: false,
+            explorer: false,
             case: request.case,
             path,
             contract: contract.into_bytes(),
@@ -149,6 +150,7 @@ impl ReplyInput {
 /// What a request kind gives to the one engine path (`run`): the dual run of the harness
 /// (`answer`) or the check request of the shell (`check.rs`). The two kinds differ only here.
 pub(crate) struct Run {
+    pub(crate) explorer: bool,
     pub(crate) topology: bool,
     pub(crate) case: String,
     pub(crate) path: String,
@@ -226,10 +228,11 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
     });
     let namespace = run.namespace.clone();
     let trust = (run.trust)(run.namespace, engine.reply());
+    let explorer = crate::explorer::parts(engine.reply(), run.explorer && trust.gap.is_none());
     let settings = settings_of(trust.settings, &input, run.roots);
     let locations = frame_parts::locations(engine.reply(), &input.path, &input.bytes, &settings);
     let (collection_gaps, measures) = frame_parts::collection_metadata(engine.reply());
-    let contract_digest = Some(archkeel_facts::identity::sha256_hex(&input.bytes));
+    let contract_digest = archkeel_facts::identity::sha256_hex(&input.bytes);
     engine.answer(Request::Settings(settings));
     let path = input.path.clone();
     let contract = match engine.answer(Request::Contract(input)) {
@@ -257,7 +260,6 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
     let topology = run.topology.then(|| engine.topology(&ruling, &links));
     let explain = Some(engine.explain(&ruling));
     let (rows, sections) = crate::sections::split(rows);
-    let gaps = crate::baseline_frame::gap_rows(&ruling);
     let refused = frame_parts::refusals(&reply, &contract, &sections, report.as_ref().err());
     let baseline = run.accept.map(|input| {
         let seen =
@@ -270,15 +272,16 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
         || !matches!(reply, ReplyCheck::Files(_))
         || !matches!(contract, ContractState::Parsed(_));
     let parts = Parts {
+        explorer,
         measures,
         topology,
         explain,
         rule_rationales: engine
             .usable()
             .map_or_else(BTreeMap::new, |contract| contract.rationales()),
-        contract_digest,
+        contract_digest: Some(contract_digest),
         collection_gaps,
-        gaps,
+        gaps: crate::baseline_frame::gap_rows(&ruling),
         baseline,
         system: None,
         part_of: run.part_of,

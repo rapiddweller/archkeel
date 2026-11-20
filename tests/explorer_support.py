@@ -16,6 +16,7 @@ import functools
 import http.server
 import json
 import os
+import re
 import select
 import shutil
 import subprocess
@@ -278,3 +279,31 @@ def browser(profile: Path, **size: int) -> Iterator[Browser]:
         yield driven
     finally:
         driven.close()
+
+
+def shell_layer_components() -> dict[str, list[str]]:
+    path = Path(__file__).resolve().parents[1] / "docs/architecture/target/shell-contract.json"
+    layers: dict[str, list[str]] = {}
+    for component in json.loads(path.read_text())["components"]:
+        if layer := component.get("layer"):
+            layers.setdefault(layer, []).append(component["id"])
+    return layers
+
+
+def shell_layer_frames(site: str, page: Browser, folder: Path) -> dict[str, Any]:
+    """Read the shell's module frames with enough cards to exercise ungrouped layout."""
+    import urllib.request  # noqa: PLC0415
+
+    report = urllib.request.urlopen(f"{site}/system.html").read().decode()  # noqa: S310
+    report, replacements = re.subn(r'("module_box_limit":)\d+', r"\g<1>100", report, count=1)
+    assert replacements == 1
+    (folder / "system.html").write_text(report)
+    with serve(folder) as fixture:
+        page.open(f"{fixture}/system.html?scope=PART%3Ashell&content=modules")
+        frames = page.evaluate(
+            "[...document.querySelectorAll('#flow svg .uml-frame')].map((g) => {"
+            " const r = g.querySelector('.target-frame').getBoundingClientRect();"
+            " return { id: g.dataset.umlId, label: g.dataset.label,"
+            " box: [r.left, r.top, r.right, r.bottom] }; })"
+        )
+    return {frame["id"]: frame for frame in frames}

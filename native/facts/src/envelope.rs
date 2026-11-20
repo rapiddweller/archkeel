@@ -7,6 +7,11 @@
 pub use crate::envelope_vocab::{
     ConstructSupport, Profile, ProtocolVersion, RequirementState, Role, SectionName,
 };
+use crate::identity::sha256_hex;
+use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
+use crate::measures::FileMeasures;
+use crate::record::Record;
+use crate::sections::{GapFact, Section};
 use crate::standard::StandardFacts;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
@@ -14,16 +19,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::{collections::BTreeMap, fmt};
 
-use crate::identity::sha256_hex;
-use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
-use crate::measures::FileMeasures;
-use crate::record::Record;
-use crate::sections::{GapFact, Section};
-
-/// One explicit actual: an optional keyword and whether the source writes a string literal.
-pub type WrittenActual = (Option<String>, bool);
-/// A live call site, its exact declaration, optional import and actuals when bindable.
-pub type DirectCall = (FactId, FactId, Option<FactId>, Option<Vec<WrittenActual>>);
+pub use crate::nested::{DirectCall, SourceCallCandidate, WrittenActual};
 
 /// A closed object of the envelope: an unknown key is a decode error.
 macro_rules! object {
@@ -91,6 +87,9 @@ object! {
         /// Exact calls from the linked producer, never from a saved reply.
         #[serde(skip)]
         pub direct_calls: Option<Vec<DirectCall>>,
+        /// Written calls linked to declarations for Explorer, independent of runtime resolution.
+        #[serde(skip)]
+        pub source_call_candidates: Vec<SourceCallCandidate>,
         /// Call counts for complete lexical bodies from the linked producer only.
         #[serde(skip)]
         pub function_call_counts: Option<Vec<(String, u64)>>,

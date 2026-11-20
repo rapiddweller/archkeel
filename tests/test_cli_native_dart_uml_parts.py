@@ -3,12 +3,15 @@
 # SPDX-License-Identifier: MIT
 """The closed UML scope of a Dart mixin in a part file."""
 
+import json
+import subprocess
 from pathlib import Path
 
 import pytest
 from core_support import run
 
 from archkeel.cli import core_only
+from archkeel.cli.core_schema import check_frame
 from tools.fixture_tree import fixture_tree
 from tools.report_gallery import MATRIX, load_runs
 
@@ -119,3 +122,30 @@ def test_wrong_and_conflicting_part_owners_cite_each_directive(
         (frame["locations"][site]["path"], frame["locations"][site]["line"])
         for site in gap["evidence"]
     } == expected
+
+
+def test_explorer_accepts_a_complete_inventory_without_a_gap_reason(release_core: Path) -> None:
+    with fixture_tree(ROOT) as root:
+        request = {
+            "protocol": "archkeel-core-scan-1",
+            "root": str(root.resolve()),
+            "config": "archkeel.toml",
+            "explorer": True,
+        }
+        result = subprocess.run(
+            [release_core, "scan"],
+            input=json.dumps(request).encode(),
+            capture_output=True,
+            check=False,
+        )
+    assert result.returncode in (0, 3), result.stderr
+    frame = json.loads(result.stdout)
+    complete = [
+        item
+        for part in frame["explorer"]
+        for symbol in part["symbols"]
+        for item in symbol.get("member_inventories", [])
+        if item["status"] == "complete"
+    ]
+    assert complete and all(item["reason"] is None for item in complete)
+    check_frame(frame)

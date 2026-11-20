@@ -43,7 +43,9 @@ html.ak-canvas .rp-explorer .flow:not([data-expanded]) .flow-map-column { bottom
   html.ak-canvas .rp-explorer .ak-bar .atlas-content-choice { flex: 1 0 100%; overflow-x: visible; }
   .rp-explorer .ak-top-center { top: 104px; }
   .rp-explorer .ak-top-right, .rp-explorer .ak-rail { top: 150px; }
-  html.ak-canvas .rp-explorer .flow:not([data-expanded]) .ak-bottom-center { bottom: 62px; max-height: 108px; }
+  html.ak-canvas .rp-explorer .flow:not([data-expanded]) .ak-bottom-center {
+    box-sizing: border-box; bottom: 62px; max-height: 108px;
+  }
   html.ak-canvas .rp-explorer .flow .flow-map-column,
   html.ak-canvas .rp-explorer .flow:not([data-expanded]) .flow-map-column { top: 200px; bottom: 180px; }
   html.ak-canvas .rp-explorer .flow[data-details-open="true"] .flow-map-column,

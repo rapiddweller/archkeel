@@ -25,7 +25,7 @@ from .core_arguments import NotOnThisLine, Options, OutputMode, command_of, outp
 from .core_baseline import as_json as baseline_json
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
 from .core_binding import ProjectRoot, RootMode, resolve_root
-from .core_delivery import _deliver, _Refusal, _refuse_timings_target
+from .core_delivery import _deliver, _explorer_report, _Refusal, _refuse_timings_target
 from .core_exit import Outcome, envelope, exit_for, outcome_of, require_baseline_part
 from .core_frame import CoreCommand as Command
 from .core_frame import (
@@ -42,7 +42,7 @@ from .core_json import Gap, RequestMismatch
 from .core_output import read_timings
 from .core_text import header, refusal, render, summary
 from .core_words import NOT_FOUND_PREFIX, fix_for, plain
-from .init_draft import DOCUMENT
+from .init_draft import DOCUMENT, SYSTEM
 from .native_scan import SCAN_PROTOCOL, exchange, identity, ignored_by
 
 
@@ -59,7 +59,8 @@ def run(argv: Sequence[str]) -> int:
             print(f"archkeel {_version()}")
             return 0
         if {"-h", "--help"} & set(argv):
-            print(help_for(_command_or_none(argv)), end="")
+            command = _command_or_none(argv) or command_of(argv)
+            print(help_for(command), end="")
             return 0
         command_of(argv)
         options = parse(argv)
@@ -67,6 +68,8 @@ def run(argv: Sequence[str]) -> int:
             return _install_skill(options, mode)
         if options.command is Command.INIT:
             return _run_init(mode is OutputMode.JSON, ProjectRoot.top(options.root).path)
+        if options.command is Command.EXPLORE:
+            return _explore(options, mode)
         return _decide(options, mode)
     except (CoreError, OSError, ValueError) as error:
         output = any(arg == "--output" or arg.startswith("--output=") for arg in argv)
@@ -154,6 +157,8 @@ def _request(options: Options, project: ProjectRoot) -> dict[str, object]:
         request["topology"] = True
     if page:
         request["html"] = True
+    if options.explorer:
+        request["explorer"] = True
     if page and options.part_of is not None:
         link: dict[str, str] = {"document": options.part_of}
         if options.system_href is not None:
@@ -302,19 +307,41 @@ def _decide(options: Options, mode: OutputMode) -> int:
         )
 
 
-def _scan(
-    options: Options, project: ProjectRoot, binary: Path, created: Created | None, mode: OutputMode
-) -> int:
-    """Send the scan identity to the core and print the one frame that it gives."""
-    baseline = options.baseline is not None
-    root = project.path
-    _refuse_timings_target(options, root)
+def _explore(options: Options, mode: OutputMode) -> int:
+    from .core_explorer import launch
+
+    project = ProjectRoot.of(options.root, options.config if options.config_given else None)
+    configured = (project.path / project.config).is_file()
+    if not configured and not options.config_given and (project.path / SYSTEM).is_file():
+        configured = True
+        project = replace(project, config=SYSTEM)
+    if not configured and options.config_given:
+        raise ValueError("choose an existing Explorer configuration with --config")
+    binary = locate_core()
+
+    def scan(target: ProjectRoot, *, html: bool = False) -> tuple[bytes, CoreFrame]:
+        report = Options(
+            command=Command.REPORT,
+            config=target.config,
+            topology=True,
+            explorer=not html,
+            output=Path("report.html") if html else None,
+        )
+        return _exchange_scan(report, target, binary, [])
+
+    render_report = (lambda: _explorer_report(*scan(project, html=True))) if configured else None
+    return launch(options, mode, project, binary, scan, render_report)
+
+
+def _exchange_scan(
+    options: Options, project: ProjectRoot, binary: Path, sink: list[bytes]
+) -> tuple[bytes, CoreFrame]:
+    """Request and bind a core frame before delivery or publication."""
     request = _request(options, project)
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
     started_ns = time_ns()
     payload = json.dumps(request).encode()
     # #659: the seconds of the phases come on standard error, only when the user asked for them.
-    sink: list[bytes] = []
     asked = {"stderr_sink": sink} if options.timings is not None else {}
     stdout, status_code = exchange(str(binary), "scan", payload, **asked)
     frame = read_frame(
@@ -325,11 +352,23 @@ def _scan(
         request=request,
         started_ns=started_ns,
     )
+    return stdout, frame
+
+
+def _scan(
+    options: Options, project: ProjectRoot, binary: Path, created: Created | None, mode: OutputMode
+) -> int:
+    """Send the scan identity to the core and print the one frame that it gives."""
+    baseline = options.baseline is not None
+    root = project.path
+    _refuse_timings_target(options, root)
+    sink: list[bytes] = []
+    stdout, frame = _exchange_scan(options, project, binary, sink)
     document = json.loads(stdout)
     document.pop("html", None)
     if isinstance(document.get("baseline"), dict):
         document["baseline"].pop("file", None)  # the bytes are written, not printed
-    if "topology" in request and not options.topology:
+    if not options.topology:
         document.pop("topology", None)
         frame = replace(frame, topology=None)
     require_baseline_part(frame, asked=baseline or options.write_baseline is not None)

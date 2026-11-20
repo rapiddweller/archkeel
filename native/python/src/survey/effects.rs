@@ -33,6 +33,7 @@ use super::hazards;
 pub(super) const BEYOND_TOP: &str = "relative_import_beyond_top";
 pub(super) const NOT_FOUND: &str = "project_module_not_found";
 pub(super) const STAR: &str = "star_import";
+pub(super) const AMBIGUOUS_ROOTS: &str = "ambiguous_import_roots";
 pub(super) const AMBIGUOUS: &str = "reexport_ambiguity";
 
 /// The effect of a site that can run code that the scan cannot see.
@@ -41,7 +42,9 @@ const UNSEEN_CODE: GapEffect = GapEffect::EveryModule;
 /// The effect of the gap of kind `kind` at a site of `module`, if the collector can state one.
 pub(super) fn of(kind: &str, module: &str) -> Option<GapEffect> {
     match kind {
-        hazards::DYNAMIC | hazards::IMPORT_SYSTEM | BEYOND_TOP | NOT_FOUND => Some(UNSEEN_CODE),
+        hazards::DYNAMIC | hazards::IMPORT_SYSTEM | BEYOND_TOP | NOT_FOUND | AMBIGUOUS_ROOTS => {
+            Some(UNSEEN_CODE)
+        }
         STAR | AMBIGUOUS => Some(GapEffect::Modules {
             modules: vec![ModuleName::new(module)],
         }),

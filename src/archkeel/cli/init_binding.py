@@ -10,17 +10,17 @@ extension module, and the Python project names that distribution in `[project].d
 a uv source that is this folder (a workspace member or a path). A module name that the Python code
 imports, or a crate name that looks like a module, is never a binding. No source file is read.
 
-Only the binding part of the shell parses TOML (`SHELL-ONLY-BINDING-READS-CONFIGURATION`), so the
-draft reads each key in its plain form: `key = "text"`, `key = [..]` or `key = { .. }` on the lines
-of its `[table]`. Another form of a key reads as absent, so it can miss an interface and never
-make one.
+The draft reads each extension binding key in its plain form on the lines of its table.
+An unsupported form can leave the interface unknown.
 """
 
 from __future__ import annotations
 
 import re
+import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,57 @@ class _Binding:
     module: str
     distribution: str
     schema: str
+
+
+def _python_import_settings(file: Path) -> tuple[tuple[str, ...] | None, frozenset[str], bool]:
+    """Read the import roots and package names stated by a setuptools manifest."""
+    try:
+        with file.open("rb") as stream:
+            document = tomllib.load(stream)
+    except FileNotFoundError:
+        return None, frozenset(), False
+
+    def table(parent: Mapping[str, object], key: str) -> Mapping[str, object]:
+        item = parent.get(key, {})
+        if not isinstance(item, dict):
+            raise ValueError(f"{key} must be a table")
+        return item
+
+    settings = table(table(document, "tool"), "setuptools")
+    package_dir = table(settings, "package-dir")
+    if package_dir.keys() - {""}:
+        raise ValueError("named setuptools package-dir mappings need a manual scan")
+    mapped = package_dir.get("")
+    if mapped is not None and not isinstance(mapped, str):
+        raise ValueError("setuptools package-dir must name a directory")
+    packages = settings.get("packages")
+    find = table(packages, "find") if isinstance(packages, dict) else {}
+    where = find.get("where")
+    if where is not None and (
+        not isinstance(where, list)
+        or not where
+        or any(not isinstance(path, str) or not path for path in where)
+    ):
+        raise ValueError("setuptools find.where must name local directories")
+    roots = (
+        tuple(PurePosixPath(path).as_posix() for path in where) if isinstance(where, list) else None
+    )
+    # A checkout can contain packages that the distribution omits. The collector
+    # cannot use directory presence to prove a local import in that case.
+    restricted = (
+        isinstance(packages, list)
+        or "py-modules" in settings
+        or find.get("include", ["*"]) != ["*"]
+        or bool(find.get("exclude"))
+        or find.get("namespaces") is False
+    )
+    ambiguous = restricted
+    if mapped is not None:
+        stated = PurePosixPath(mapped).as_posix()
+        ambiguous = restricted or (roots is not None and set(roots) != {stated})
+        roots = tuple(sorted({stated, *(roots or ())}))
+    package_data = table(settings, "package-data")
+    return roots, frozenset(package.split(".")[0] for package in package_data), ambiguous
 
 
 def _text(path: Path) -> str:

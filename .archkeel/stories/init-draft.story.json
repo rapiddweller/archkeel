@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.2.0",
+  "title": "archkeel init — Draft the first contract",
+  "snapshot": {
+    "source_digest": "3e0128bf8fa92b4306d87e144737ed1f5fa64c35bb6be3bee881eee03d57f883",
+    "contract_digest": "fcfcf956f613dbd4c6a0957d30b6bb6f060a32679e0370de2a6be56a6acc9598"
+  },
+  "nodes": [
+    "archkeel.cli.core_only.run",
+    "archkeel.cli.core_init._run_init",
+    "archkeel.cli.init_draft.draft",
+    "archkeel.cli.init_draft._detect",
+    "archkeel.cli.init_draft._discover",
+    "archkeel.cli.init_draft.write_missing",
+    "archkeel.cli.core_exit.exit_for"
+  ],
+  "story": {
+    "id": "init-draft",
+    "title": "archkeel init — Draft the first contract",
+    "chapters": [
+      {
+        "id": "discover",
+        "title": "Read the project layout"
+      },
+      {
+        "id": "write",
+        "title": "Write missing files"
+      },
+      {
+        "id": "result",
+        "title": "Read the result"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "node": "archkeel.cli.core_only.run",
+      "title": "Enter Init",
+      "note": "Init opens the project root and chooses the draft command. It does not start the Rust scanner.",
+      "chapter": "discover"
+    },
+    {
+      "node": "archkeel.cli.core_init._run_init",
+      "title": "Request a draft",
+      "note": "Build a draft before writing any file.",
+      "chapter": "discover"
+    },
+    {
+      "node": "archkeel.cli.init_draft.draft",
+      "title": "Draft a configuration",
+      "note": "Describe an individual scan or a system of multiple language parts.",
+      "chapter": "discover"
+    },
+    {
+      "node": "archkeel.cli.init_draft._detect",
+      "title": "Find language areas",
+      "note": "Find the areas that the folder and manifest layout supports.",
+      "chapter": "discover"
+    },
+    {
+      "node": "archkeel.cli.init_draft._discover",
+      "title": "Inspect folders and manifests",
+      "note": "Check the supported language layouts. A draft gives no fact about code and does not follow imports.",
+      "chapter": "discover"
+    },
+    {
+      "node": "archkeel.cli.init_draft._detect",
+      "title": "Return the areas",
+      "note": "Return the discovered areas to the draft path. The runtime return is not observed.",
+      "transition": "return",
+      "chapter": "write"
+    },
+    {
+      "node": "archkeel.cli.init_draft.draft",
+      "title": "Return the draft",
+      "note": "Prepare the scan configuration, contract and provenance page. Leave responsibility and rationale decisions for their owners.",
+      "transition": "return",
+      "chapter": "write"
+    },
+    {
+      "node": "archkeel.cli.core_init._run_init",
+      "title": "Return to Init",
+      "note": "Once the draft returns, ask the writer to create its missing files.",
+      "transition": "return",
+      "chapter": "write"
+    },
+    {
+      "node": "archkeel.cli.init_draft.write_missing",
+      "title": "Create without replacing",
+      "note": "Create each file exclusively. An existing contract and its page stay in place.",
+      "chapter": "write"
+    },
+    {
+      "node": "archkeel.cli.core_init._run_init",
+      "title": "Report the files",
+      "note": "A successful run lists the new files and completes without a rule verdict. When every target exists, Init refuses to replace any.",
+      "transition": "return",
+      "chapter": "result"
+    },
+    {
+      "node": "archkeel.cli.core_exit.exit_for",
+      "title": "Finish without a verdict",
+      "note": "Exit 0 means the draft wrote files. Edit its TODOs and run Validate to get rule verdicts.",
+      "chapter": "result"
+    }
+  ]
+}

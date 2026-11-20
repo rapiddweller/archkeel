@@ -77,7 +77,7 @@ impl<'a> Visitor<'a> for Params {
 /// inside it, in source order. A site is `dead` under a constant-false test or after a statement
 /// that leaves the block: Python never runs it, so the survey never states it as met (AD-520).
 #[derive(Default)]
-pub(super) struct Uses<'a> {
+pub(in crate::survey) struct Uses<'a> {
     pub calls: Vec<(&'a ExprCall, bool)>,
     pub names: Vec<(&'a ExprName, bool)>,
     callees: HashSet<usize>,
@@ -85,7 +85,7 @@ pub(super) struct Uses<'a> {
 }
 
 impl<'a> Uses<'a> {
-    pub(super) fn of(node: &'a StmtFunctionDef) -> Self {
+    pub(in crate::survey) fn of(node: &'a StmtFunctionDef) -> Self {
         let mut found = Uses::default();
         found.visit_body(&node.body);
         found

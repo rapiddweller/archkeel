@@ -1,7 +1,7 @@
 # Onboard a project
 
 Follow this page in a new project that has no `archkeel.toml`. It takes five minutes and ends in
-a verdict. You need ArchKeel installed (`archkeel --version`) and a Git repository with a commit.
+a verdict. You need the native-core development build installed (`archkeel --version`) and a Git repository with a commit.
 
 ## 1. Run `validate`: the files are drafted for you
 
@@ -33,7 +33,16 @@ The draft reads the folder layout, not the code:
 | Cargo workspace (`[workspace] members`) | crate |
 | `package.json` with `workspaces` | workspace package |
 
-The modules beside the packages are the component `root`.
+Modules beside the packages go in a separate component, usually named `root`.
+
+For Python, a source directory can contain several importable packages. The draft reads
+the common setuptools `package-dir` mapping and `packages.find.where` in `pyproject.toml`.
+In a scan with `namespace = ""`, a module name starts below an import root. For example,
+`lib/shop/orders.py` under the root `lib` has the name `shop.orders`.
+A Python project with several regular packages next to its manifest uses their parent
+as the import root. If the same packages sit under another directory, the draft checks
+the packaging metadata. Competing import roots leave affected targets unresolved. A pytest search path
+alone does not establish the import path of the application.
 
 ### A mixed repository: a system
 

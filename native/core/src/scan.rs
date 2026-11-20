@@ -44,7 +44,6 @@ const MAX_BYTES: u64 = 64 << 20;
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ScanRequest {
-    // Checked before through `dual_run::decode`.
     #[serde(rename = "protocol")]
     _protocol: String,
     root: String,
@@ -61,6 +60,8 @@ struct ScanRequest {
     html: bool,
     #[serde(default)]
     topology: bool,
+    #[serde(default)]
+    explorer: bool,
     /// Give the seconds of the phases on standard error (#659). The frame does not change.
     #[serde(default)]
     timings: bool,
@@ -223,9 +224,10 @@ fn one(
         },
         _ => None,
     };
-    let scanned = match clock {
-        Some(now) => archkeel_collect::scan_with_clock(identity, MAX_BYTES, Some(now)),
-        None => archkeel_collect::scan(identity, MAX_BYTES),
+    let scanned = match (request.explorer, clock) {
+        (true, _) => archkeel_collect::scan_with_options(identity, MAX_BYTES, clock, true),
+        (false, Some(now)) => archkeel_collect::scan_with_clock(identity, MAX_BYTES, Some(now)),
+        (false, None) => archkeel_collect::scan(identity, MAX_BYTES),
     };
     match scanned {
         Ok(scanned) => {
@@ -249,13 +251,7 @@ fn one(
             let accept = baseline_input(&scanned, request.baseline.clone(), request.write_baseline);
             let (prepared, collected, validated) =
                 (scanned.prepared, scanned.collected, scanned.validated);
-            let answered = decide(
-                scanned,
-                (request.html, request.topology),
-                accept,
-                part_of,
-                clock,
-            )?;
+            let answered = decide(scanned, request, accept, part_of, clock)?;
             Ok(Answered {
                 timings: answered.timings.map(|phases| Phases {
                     prepare: phases.prepare + prepared,
@@ -276,7 +272,7 @@ fn one(
 /// The run of a scan that `archkeel-collect` completed.
 fn decide(
     scanned: Scanned,
-    (html, topology): (bool, bool),
+    options: &ScanRequest,
     accept: Option<baseline_frame::Input>,
     part_of: Option<dual_run::PartOf>,
     clock: Option<&dyn Fn() -> Duration>,
@@ -325,9 +321,10 @@ fn decide(
             baseline: false,
             accept,
             report: false,
-            html,
+            html: options.html,
             part_of,
-            topology,
+            topology: options.topology,
+            explorer: options.explorer,
             base: None,
             trust: in_process(collector),
             collect: Some(crate::dual_run::Collect::Derived {

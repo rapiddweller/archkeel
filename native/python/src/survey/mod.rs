@@ -8,7 +8,6 @@ use crate::module::{EvidenceMap, Module};
 use crate::parse::comments;
 use crate::requirement::Prepared;
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Role, Target};
-#[cfg(feature = "dump")]
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::sections::SignalFact;
@@ -22,6 +21,7 @@ pub(crate) mod binders;
 pub(crate) mod bound;
 pub(crate) mod bound_kind;
 mod call_count;
+mod call_navigation;
 mod class_writes;
 mod constructs;
 mod copy_local;
@@ -79,60 +79,25 @@ pub(crate) struct Survey {
     pub evidence: Vec<Evidence>,
     /// The modules whose `__all__` the survey cannot read (`routes`).
     pub opaque_surface: HashSet<String>,
-    /// The listing of each directory that a harmless `sys.path` write depends on (`syspath.rs`).
     pub listings: Vec<pathscope::Listing>,
-    /// The ids of the imports that are the one plain binder of their name (`bound.rs`).
     pub sole_binders: HashSet<String>,
-    /// The proven keys of the lazy modules (AD-654), for the routes.
     pub sources: lazy_cover::Sources,
     /// The ids of each `from pkg import name` where `pkg` binds `name` or can give it (AD-450):
     /// the name may be the attribute or the submodule, so no route is written for it.
     pub ambiguous: HashSet<String>,
-    /// The digest of each file that the survey read, from the bytes that it parsed.
     pub parsed: Vec<Input>,
-    /// What the survey states about the standard library, for the premise (AD-782).
     pub standard: archkeel_facts::standard::StandardFacts,
     /// The symbol declarations that the modules bind once (AD-518), and their sites (AD-520).
     pub symbols: Vec<Record<SymbolFact>>,
     pub sites: declared::Sites,
     pub function_call_counts: Vec<(String, u64)>,
+    pub source_call_candidates: Vec<archkeel_facts::envelope::SourceCallCandidate>,
     pub constructs: Vec<Record<ConstructFact>>,
     pub signals: Vec<Record<SignalFact>>,
-    /// What the survey sees of each written construct (AD-737).
     pub support: support::Support,
 }
-/// The parsed modules of a request and their binders, as the survey reads them (the dump of
-/// the definition table, AD-377).
 #[cfg(feature = "dump")]
-pub(crate) struct Modules {
-    pub minor: PyMinor,
-    pub modules: Vec<Module>,
-    pub binders: Vec<Binders>,
-    pub gaps: Vec<Record<GapFact>>,
-}
-#[cfg(feature = "dump")]
-pub(crate) fn modules(prepared: &Prepared) -> Result<Modules, String> {
-    let request: &PythonRequest = &prepared.request;
-    let mut snapshot = Snapshot::new(&request.snapshot.root);
-    let minor = prepared.interpreter.version.minor();
-    let scope = discover::scope(
-        &mut snapshot,
-        &request.scope.roots,
-        request.excludes_test_sources(),
-    );
-    let parsed = parse_unshadowed(&mut snapshot, &scope, &request.scope.namespace, minor);
-    let binders = parsed
-        .modules
-        .iter()
-        .map(|module| Binders::of(&module.tree))
-        .collect();
-    Ok(Modules {
-        minor,
-        modules: parsed.modules,
-        binders,
-        gaps: parsed.gaps,
-    })
-}
+pub(crate) use parse_files::{modules, Modules};
 
 #[expect(
     clippy::too_many_lines,
@@ -141,18 +106,22 @@ pub(crate) fn modules(prepared: &Prepared) -> Result<Modules, String> {
 pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     let request: &PythonRequest = &prepared.request;
     let interpreter = &prepared.interpreter;
-    let minor = interpreter.version.minor();
+    let minor: PyMinor = interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let namespace = &request.scope.namespace;
     let roots = &request.scope.roots;
     let exclude = request.excludes_test_sources();
     let scope = discover::scope(&mut snapshot, roots, exclude);
-    let mut parsed = parse_unshadowed(&mut snapshot, &scope, namespace, minor);
-    let mut found = layout::duplicates(&mut parsed.modules);
-    found.extend(layout::outside(&parsed.modules, roots));
-    found.extend(layout::foreign(&scope.foreign));
-    found.extend(layout::linked(&scope.linked));
-    // #1522: the modules that code of the repository outside the scan writes escape (AD-770).
+    let naming = (namespace.as_str(), roots.as_slice());
+    let mut parsed = parse_unshadowed(&mut snapshot, &scope, naming, minor);
+    let project = layout::project_names(&scope.selected, namespace, roots, minor);
+    let uncertain = request.resolver.import_roots_ambiguous;
+    let found = layout::gaps(
+        &mut parsed.modules,
+        (&scope.selected, &scope.foreign, &scope.linked),
+        naming,
+        uncertain.then_some(crate::inputs::PYPROJECT),
+    );
     let mut writes = class_writes::ClassWrites::default();
     let outside = outside::written(
         &mut snapshot,
@@ -193,7 +162,6 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     {
         hazards.clear();
     }
-    // AD-654: a module with a hazard site keeps no proven key.
     let names = modules.iter().map(|module| module.name.as_str());
     let mut sources = lazy_cover::by_module(names, &lazy);
     for (index, _) in &hazards {
@@ -234,7 +202,6 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         .collect();
     opaque_surface.extend(written);
     opaque_surface.extend(uses::settled(modules, &imports, &mut sources));
-    // AD-654: the symbol facts and the call count read a proven lazy key as its source.
     let viewed = lazy_cover::viewed(&imports, &sources);
     let symbols = declarations(
         (modules, &binders),
@@ -247,8 +214,6 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
                 && !opaque_surface.contains(&module.name)
         },
     );
-    // AD-550: another module can write a name of an escaped module, and a hazard site can rebind
-    // one, so no import of such a module is the one binder of its name.
     let withheld: HashSet<&str> = modules
         .iter()
         .enumerate()
@@ -286,7 +251,13 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         let bindings = package_body::package_bindings(modules);
         unknowns.extend(excluded.gaps(&imports, &bindings, scope.selected.is_empty()));
     }
-    let resolved = targets::resolve(&imports, &files, &stdlib, namespace, &collected.ambiguous);
+    let resolved = targets::resolve(
+        &imports,
+        &files,
+        &stdlib,
+        (&project, namespace.is_empty(), uncertain),
+        &collected.ambiguous,
+    );
     let mut sites = resolved.gaps;
     for (index, site) in hazards {
         let module = &modules[index];
@@ -294,14 +265,14 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         let (key, gap) = targets::hazard_gap(site, module, &id);
         sites.insert(key, gap);
     }
-    // #1519: a call of a value from outside the scan with a string that names a module of it.
-    for (index, range, target) in external_loader::find(modules, &stdlib, namespace) {
+    for (index, range, target) in external_loader::find(modules, &stdlib, &project) {
         let module = &modules[index];
         let id = module.evidence(&mut evidence, &range);
         let kind = external_loader::EXTERNAL_LOADER;
         let (key, gap) = targets::site_gap(kind, &target, &module.name, &id);
         sites.insert(key, gap);
     }
+    let unambiguous_layout = found.is_empty();
     unknowns.extend(found);
     unknowns.extend(sites.into_values());
     unknowns.extend(layout::problems(&snapshot.problems));
@@ -319,7 +290,6 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         scope.selected.clone(),
         unknowns.clone(),
     );
-    // A selected module that did not parse keeps the scope from being full, gap or not.
     coverage.full_scope =
         Coverage::is_full(unknowns.len(), scope.selected.len().abs_diff(modules.len()));
     let mut function_call_counts = Vec::new();
@@ -345,7 +315,20 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         && coverage.full_scope
         && opaque_surface.is_empty()
         && typing_count::any_complete((modules, &binders), &writes, comments);
+    let source_call_candidates = if prepared.navigation && !uncertain && unambiguous_layout {
+        call_navigation::collect(
+            modules,
+            &binders,
+            &imports,
+            &resolved.targets,
+            &symbols.sites.calls,
+            &mut evidence,
+        )
+    } else {
+        Vec::new()
+    };
     Ok(Survey {
+        source_call_candidates,
         function_call_counts,
         excluded_sources: scope.excluded,
         targets: resolved.targets,
@@ -388,9 +371,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
 
 struct Symbols {
     records: Vec<Record<SymbolFact>>,
-    /// The forms of the decorated definitions (AD-782).
     wrapped: std::collections::BTreeMap<String, archkeel_facts::standard::Wrapped>,
-    /// The standard library names of each written position (#1718).
     positions: standard::Positions,
     sites: declared::Sites,
     protocol_members:

@@ -12,6 +12,7 @@ from fnmatch import fnmatchcase
 AREAS: dict[str, tuple[str, ...]] = {
     "CLI and core": (
         "test_cli*.py",
+        "test_explorer_*.py",
         "test_native_core.py",
         "test_native_interface_boundary.py",
         "test_native_expected_gaps.py",
@@ -153,6 +154,7 @@ ALL = "all"
 TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
     ("tests/test_*.py", ()),
     ("native/report/*", ("CLI and core", "reports")),
+    ("studio/*", ("CLI and core", "reports", "self-check and CI")),
     ("native/*", ALL),
     ("src/archkeel/cli/*", ALL),
     ("src/*", ("CLI and core", "self-check and CI")),

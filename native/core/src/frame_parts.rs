@@ -28,6 +28,8 @@ pub(super) const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DI
 
 #[derive(Serialize, schemars::JsonSchema)]
 pub(crate) struct Parts {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(super) explorer: Vec<crate::explorer::ExplorerPart>,
     pub(super) measures: Option<archkeel_model::Measures>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) topology: Option<crate::topology_projection::Topology>,
@@ -385,6 +387,7 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
     let parts = Parts {
         measures: None,
         topology: None,
+        explorer: Vec::new(),
         explain: None,
         rule_rationales: BTreeMap::new(),
         engine: ENGINE,
