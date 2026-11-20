@@ -36,6 +36,8 @@ export function updateOverview({ coverage = {} }: {coverage?: StudioCoverage}) {
   if (coverage.truncated) details.append(element("p", "The snapshot retains a limited topology."));
   else if (coverage.complete === false) details.append(element("p", "The snapshot covers part of the system."));
   for (const part of coverage.parts ?? []) {
+    if (part.facts?.calls == null) details.append(element("p", (part.part || part.language || "Scan") + " · Call analysis unavailable."));
+    else if (part.language === "rust") details.append(element("p", "Rust · Direct calls to local functions."));
     if (part.files_indexed == null) continue;
     const counts = [part.files_indexed + " indexed files"];
     if (part.files_with_symbols != null) counts.push(part.files_with_symbols + " with symbol records");
@@ -167,13 +169,36 @@ export async function select(item: StudioItem) {
   selectionHeading(item.name, group ? kind + " · includes descendants" : kind);
   const coverage = mapView.response?.coverage;
   const coverageNote = coverage?.complete === true && !coverage.truncated
-    ? "Snapshot coverage complete." : "Snapshot coverage incomplete or unknown; connections may be missing.";
+    ? "Topology complete within the scan scope." : "Snapshot coverage incomplete or unknown; connections may be missing.";
   details.append(element("p", coverageNote, "meta"));
   if (mapView.response?.edges_truncated) details.append(element("p", "This map omits some connections.", "meta"));
   if (item.path) details.append(breakPath(element("p", "", "meta"), item.path));
+  const parts = (coverage?.parts ?? []).filter(part => !item.language || part.language === item.language);
+  const callsUnavailable = parts.length > 0 && parts.every(part => part.facts?.calls == null);
+  if (callsUnavailable) details.append(element("p", "Call analysis unavailable.", "meta"));
+  else if (item.language === "rust") details.append(element("p", "Direct calls to local functions", "meta"));
   const unresolved = unknownCalls(item);
-  if (unresolved) details.append(unresolved, element("p", unresolved.title, "meta"));
-  else if (Number.isInteger(item.recorded_calls)) details.append(element("p", item.recorded_calls ? item.recorded_calls.toLocaleString() + " calls have a resolved target." : "No call sites recorded in this scope.", "meta"));
+  if (unresolved) {
+    details.append(element("p", unresolved.title), button("Inspect unlinked calls", () => openCalls(), "detail-btn"));
+  }
+  else if (!callsUnavailable && Number.isInteger(item.recorded_calls)) details.append(element("p", item.recorded_calls ? item.recorded_calls.toLocaleString() + " calls have a resolved target." : "No call sites recorded in this scope.", "meta"));
+  async function openCalls(cursor = "") {
+    const result = await api<Page<StudioEdge>>("relations", {element: item.id, scope: "unlinked_calls", cursor, limit: 30});
+    if (state.request !== request) return;
+    if (!cursor) selectionHeading(item.name, "Unlinked call sites");
+    for (const edge of result.items) {
+      const site = edge.evidence?.[0];
+      const link = button("", () => showEvidence(edge), "detail-btn call-site");
+      link.append(element("strong", edge.expression ?? "Call"));
+      if (site) link.append(breakPath(element("span", "", "meta"), site.path + ":" + site.line));
+      if (edge.reason) link.append(element("small", edge.reason));
+      details.append(link);
+    }
+    if (result.next_cursor) {
+      const more = button("More call sites", () => { more.remove(); return openCalls(result.next_cursor!); }, "detail-btn");
+      details.append(more);
+    }
+  }
   if (canOpenScope(item)) {
     details.append(button("Open " + item.kind, () => open(item), "detail-btn"));
   }

@@ -252,8 +252,7 @@ A baseline of schema 1.0.0 to 1.3.0 comes from release 4.0.1. The text names tha
 command that writes it again (`archkeel validate --write-baseline <file>`), and says which parts the
 core does not read: the budgets `calls_unresolved`, `typing_positions` and `untyped_private_accesses`,
 and the amendment file of the project. The text and the page also show the call measure: how many
-calls the core resolved, with the percentage, and that an unresolved call is no edge, so a rule that
-reads calls stays UNKNOWN while a rule of imports does not read it.
+calls the core resolved, with the percentage, and how many targets remain open. A proven violation yields FAIL even if another call has an open target.
 
 `check` always refuses and names each check it cannot run: its expectation, lock, Git and host checks need #1103.
 No failure falls back to Python.

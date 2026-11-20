@@ -132,8 +132,8 @@ def read_collection_gaps(value: object) -> tuple[CollectionGap, ...]:
 
 
 _MEANING = (
-    "An unresolved call has no proven target and is no edge. A rule that reads calls cannot "
-    "decide from it and stays UNKNOWN; a rule of imports does not read it."
+    "An unresolved call has no proven target and is no edge. A call rule with insufficient "
+    "evidence stays UNKNOWN. A proven violation yields FAIL. Import rules use import evidence."
 )
 
 

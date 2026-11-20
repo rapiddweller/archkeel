@@ -187,6 +187,18 @@ def test_the_builder_refuses_a_directory_that_holds_files(tmp_path: Path) -> Non
     assert (out / "keep.txt").read_text() == "keep"
 
 
+def test_gallery_distinguishes_collection_gaps_from_rule_findings() -> None:
+    frame = {
+        "rules": {"A": ["rule", "UNKNOWN"]},
+        "collection_gaps": [{"kind": "source_resolution_gap"}],
+    }
+    summary = report_gallery.summarize(
+        {"exit_code": 2, "status": "UNKNOWN", "frame": frame, "gaps": []}
+    )
+    rendered = report_gallery_page._verdict({"frame": frame, "summary": summary})
+    assert rendered.endswith("<td>1</td><td>none</td><td>1</td><td>unavailable</td>")
+
+
 def test_dynamic_text_is_escaped_in_the_index() -> None:
     run = {"name": "x<y", "about": "a&b", "intent": "PASS", "blocked_by": [7]}
     row = {"run": run, "links": [("HTML", 'p"q/report.html')]}

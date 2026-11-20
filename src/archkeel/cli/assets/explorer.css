@@ -81,3 +81,6 @@ pre .marked { background: var(--accent-subtle); }
 
 .uml-head .uml-purpose { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; margin-top: 7px; color: var(--ink); font: 400 12px/1.45 var(--font-sans); }
 .system-interface { margin-top: 12px; text-align: left; }
+
+.call-site { display: grid; gap: 3px; }
+.call-site small { color: var(--ink-muted); }

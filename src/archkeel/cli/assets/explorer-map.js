@@ -83,9 +83,8 @@ export function unknownCalls(item, compact = false) {
     const missing = item.unresolved_calls.toLocaleString();
     const badge = element("span", "", "map-call-count");
     badge.append(element("span", missing, "unknown"), " / " + total.toLocaleString() +
-        (compact ? " unresolved" : " calls unresolved"));
-    badge.title = (total - item.unresolved_calls).toLocaleString() + " calls have a resolved target. " +
-        missing + " calls have no verified target symbol. This includes built-ins and library calls when the scanner cannot link them to a symbol. Counts include child scopes.";
+        (compact ? " unlinked" : " indexed calls unlinked"));
+    badge.title = missing + " of " + total.toLocaleString() + " indexed call sites have no linked target. Counts include child scopes.";
     return badge;
 }
 function componentPublic(item) {
