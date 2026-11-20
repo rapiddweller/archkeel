@@ -464,12 +464,9 @@ fn declarations(
     }
 }
 
-/// The import records, after a first pass that names the modules that another module may change
-/// (`uses.rs`, AD-504): such a module may bind a name of its own to a package attribute that hides
-/// a submodule, so the second pass reads the written modules.
-///
-/// AD-654: the walk repeats until no escaped module loses the proof of its lazy keys, so the
-/// ambiguous records and the escaped modules read the same proven keys.
+/// Read written modules on the second pass because another module can shadow their submodules
+/// (AD-504). Repeat until the ambiguous records and escaped modules agree on the same proven
+/// lazy keys (AD-654).
 fn collect(
     (modules, binders): (&[Module], &[Binders]),
     namespace: &str,
