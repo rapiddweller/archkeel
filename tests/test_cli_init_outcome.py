@@ -165,3 +165,34 @@ def test_a_folder_that_cannot_be_written_is_an_io_error_with_a_fix_that_fits(
     assert code == 2 and document["refusal"]["kind"] == "io_error"
     assert document["init"] == {"state": "cannot_write"}
     assert text.splitlines()[-1] == "Fix: allow writing in the project folder, then run again."
+
+
+def test_created_block_reports_only_written_files_and_names_skipped() -> None:
+    from archkeel.cli.core_init import Created
+    from archkeel.cli.init_draft import Draft, File
+
+    draft = Draft(
+        files=(File("system.json", ""), File("part.json", "")),
+        language="mixed",
+        namespace="app",
+        components=("app",),
+        parts=("part",),
+    )
+    created = Created(("system.json",), draft)
+    text = "\n".join(created.lines())
+    assert "each with a configuration and a contract draft" not in text
+    assert "Skipped: part.json" in text
+    assert created.as_json()["skipped"] == ["part.json"]
+
+
+def test_existing_contract_and_its_page_are_reported_as_skipped(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _repository(tmp_path / "p")
+    (root / "architecture-contract.json").write_text("existing")
+    _core_fails(monkeypatch, tmp_path)
+    _, out = _run(capsys, "validate", "--root", str(root), "--json")
+    init = json.loads(out)["init"]
+    assert init["written"] == ["archkeel.toml"]
+    assert init["skipped"] == ["architecture-contract.json", "docs/architecture/architecture.md"]
+    assert (root / "architecture-contract.json").read_text() == "existing"
