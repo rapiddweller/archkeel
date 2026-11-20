@@ -34,6 +34,9 @@ pub(super) fn bind_leaf(walker: &mut Walker<'_>, name: String, prefix: &[String]
 fn count(walker: &mut Walker<'_>, name: &str) {
     *walker.out.counts.entry(name.to_owned()).or_default() += 1;
     let key = (walker.inline.clone(), name.to_owned());
+    if walker.blocks() == 0 {
+        *walker.out.module_counts.entry(key.clone()).or_default() += 1;
+    }
     *walker.out.scoped_counts.entry(key).or_default() += 1;
 }
 

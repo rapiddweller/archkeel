@@ -155,6 +155,52 @@ struct Import {
     evidence_ids: Vec<EvidenceId>,
 }
 
+type MethodDeclarations<'a> = HashMap<(&'a EvidenceId, &'a str), Option<&'a FactId>>;
+
+fn method_declarations(sections: &[Section]) -> MethodDeclarations<'_> {
+    let mut methods = HashMap::new();
+    for section in sections {
+        let Section::Symbols(rows) = section else {
+            continue;
+        };
+        for row in rows {
+            let SymbolFact::Method(method) = &row.data else {
+                continue;
+            };
+            let [declaration] = row.evidence_ids.as_slice() else {
+                continue;
+            };
+            methods
+                .entry((declaration, String::as_str(&method.qualified_name)))
+                .and_modify(|target| *target = None)
+                .or_insert(Some(&row.id));
+        }
+    }
+    methods
+}
+
+fn cited_method_target<'a>(
+    row: &Record<CallFact>,
+    methods: &MethodDeclarations<'a>,
+) -> Option<&'a FactId> {
+    let CallFact::Calls(call) = &row.data else {
+        return None;
+    };
+    let [name] = call.targets.as_slice() else {
+        return None;
+    };
+    let [declaration] = call.target_evidence_ids.as_deref()? else {
+        return None;
+    };
+    if call.status != Status::Resolved || call.candidates_truncated || call.candidate_count != 1 {
+        return None;
+    }
+    methods
+        .get(&(declaration, String::as_str(name)))
+        .copied()
+        .flatten()
+}
+
 fn call(
     row: &Record<CallFact>,
     target: Option<&FactId>,
@@ -272,6 +318,7 @@ fn project(reply: &archkeel_store::Ingested) -> ExplorerPart {
         )
         .map(|(owner, witness)| (&owner.site, (owner, &witness.method)))
         .collect();
+    let methods = method_declarations(&facts.sections);
     for section in &facts.sections {
         match section {
             Section::Symbols(rows) => {
@@ -283,7 +330,10 @@ fn project(reply: &archkeel_store::Ingested) -> ExplorerPart {
                         .map(|row| {
                             call(
                                 row,
-                                direct.get(&row.id).copied(),
+                                direct
+                                    .get(&row.id)
+                                    .copied()
+                                    .or_else(|| cited_method_target(row, &methods)),
                                 constructed.get(&row.id).copied(),
                             )
                         })

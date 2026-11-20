@@ -6,7 +6,7 @@ mod reservation;
 mod stock;
 
 pub fn reserve(available: u32) -> bool {
-    crate::reservation::request(available)
+    reservation::request(available)
 }
 
 fn has_stock(available: u32) -> bool {

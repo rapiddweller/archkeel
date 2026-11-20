@@ -118,7 +118,8 @@ does not supply that fact type. An empty section means the collector supplied ze
 Run `uv run archkeel explore --config native/archkeel.toml` from the
 ArchKeel checkout. Open **Check one scan configuration** in Studio.
 The story follows direct Rust calls from the scan handler to the contract
-reader. Call coverage is partial. The collector leaves method dispatch,
-callbacks, and macro expansions unresolved.
+reader. Call coverage is partial. It includes proven relative module paths
+and some inherent calls on `self`. Trait dispatch, callbacks, and macro
+expansions remain unresolved.
 
 ![A checked Rust core story in Studio](assets/explorer-rust-core-story.png)

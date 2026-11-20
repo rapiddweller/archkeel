@@ -799,9 +799,12 @@ refuses with `core_binary_not_found`
 ### Rust: what the collector does not prove
 
 Explorer resolves direct calls between unconditional module functions in the
-same crate target. Calls through local values, methods and unread macro
-expansions stay unresolved. These call sites are a partial inventory
-([AD-1032](architecture/decisions/ad-1032-prove-direct-local-rust-calls.md)).
+same crate target, including proven relative module paths. It can also
+resolve a plain call on `self` when both methods share a proven inherent
+implementation. Calls through local values, trait dispatch, general receiver
+inference, and unread macro expansions stay unresolved. This is a partial
+inventory
+([AD-1033](architecture/decisions/ad-1033-prove-relative-rust-paths-and-inherent-self-calls.md)).
 
 - **Definitions** ([AD-351](architecture/decisions/ad-351-the-rust-collector-reports-definitions-and-never-invents-one.md)).
   A public module-level item that a module-level call of a `macro_rules!` of the workspace writes
