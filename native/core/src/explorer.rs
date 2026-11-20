@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use archkeel_facts::envelope::{Facts, SourceCallCandidate, Target};
+use archkeel_facts::envelope::{SourceCallCandidate, Target};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::nested::MemberInventory;
 use archkeel_facts::nullable::Nullable;
@@ -155,13 +155,17 @@ struct Import {
     evidence_ids: Vec<EvidenceId>,
 }
 
-fn call(row: &Record<CallFact>, target: Option<&FactId>) -> Call {
+fn call(
+    row: &Record<CallFact>,
+    target: Option<&FactId>,
+    owner: Option<(&archkeel_store::OwnedCall, &FactId)>,
+) -> Call {
     let (CallFact::Calls(d)
     | CallFact::Call(d)
     | CallFact::ResolvedCall(d)
     | CallFact::PartiallyResolvedCall(d)
     | CallFact::UnresolvedCall(d)) = &row.data;
-    Call {
+    let mut projected = Call {
         id: row.id.clone(),
         kind: FactData::wire_kind(&row.data).to_owned(),
         evidence_class: EvidenceClass::as_str(row.evidence_class),
@@ -179,7 +183,16 @@ fn call(row: &Record<CallFact>, target: Option<&FactId>) -> Call {
         candidates_truncated: d.candidates_truncated,
         candidate_count: d.candidate_count,
         evidence_ids: row.evidence_ids.clone(),
+    };
+    if let Some((owner, method)) = owner {
+        projected.target_definition_id = Some(method.clone());
+        projected.targets = vec![owner.target.clone()];
+        projected.status = Status::as_str(Status::Resolved);
+        projected.reason =
+            Some("method of a fresh instance with a validated construction".to_owned());
+        projected.candidate_count = 1;
     }
+    projected
 }
 
 fn import(row: &Record<ImportFact>, target: Option<&Target>) -> Import {
@@ -212,14 +225,12 @@ fn import(row: &Record<ImportFact>, target: Option<&Target>) -> Import {
 
 /// Project only collected sections. A missing section stays null even when another was read.
 pub(crate) fn parts(reply: Option<&archkeel_store::Ingested>, enabled: bool) -> Vec<ExplorerPart> {
-    reply
-        .filter(|_| enabled)
-        .map(|r| project(&r.reply().facts, r.analysis_capabilities().language))
-        .into_iter()
-        .collect()
+    reply.filter(|_| enabled).map(project).into_iter().collect()
 }
 
-fn project(facts: &Facts, language: &'static str) -> ExplorerPart {
+fn project(reply: &archkeel_store::Ingested) -> ExplorerPart {
+    let facts = &reply.reply().facts;
+    let language = reply.analysis_capabilities().language;
     let mut part = ExplorerPart {
         part: None,
         language,
@@ -243,6 +254,24 @@ fn project(facts: &Facts, language: &'static str) -> ExplorerPart {
         .flatten()
         .map(|(site, declaration, _, _)| (site, declaration))
         .collect();
+    let owners: &[archkeel_store::OwnedCall] = match reply.call_owners() {
+        Some(owners) => {
+            let owners: &archkeel_store::CallOwners = owners;
+            owners.calls()
+        }
+        None => &[],
+    };
+    // The store validates every witness and returns the calls in producer order.
+    let constructed: HashMap<_, _> = owners
+        .iter()
+        .zip(
+            facts
+                .constructed_calls
+                .iter()
+                .flat_map(|block| &block.calls),
+        )
+        .map(|(owner, witness)| (&owner.site, (owner, &witness.method)))
+        .collect();
     for section in &facts.sections {
         match section {
             Section::Symbols(rows) => {
@@ -251,7 +280,13 @@ fn project(facts: &Facts, language: &'static str) -> ExplorerPart {
             Section::Calls(rows) => {
                 part.calls = Some(
                     rows.iter()
-                        .map(|row| call(row, direct.get(&row.id).copied()))
+                        .map(|row| {
+                            call(
+                                row,
+                                direct.get(&row.id).copied(),
+                                constructed.get(&row.id).copied(),
+                            )
+                        })
                         .collect(),
                 )
             }

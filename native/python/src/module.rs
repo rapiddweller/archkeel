@@ -135,6 +135,16 @@ impl Module {
         }
     }
 
+    /// The stable identity of a location, without adding it to the evidence.
+    pub(crate) fn evidence_id(&self, node: &impl Ranged) -> String {
+        let Location {
+            line,
+            end_line,
+            column,
+        } = self.location(node);
+        evidence_id(&self.rel, line, end_line, column)
+    }
+
     /// `add_evidence`: file the location of a statement and return its id.
     pub(crate) fn evidence(&self, evidence: &mut EvidenceMap, node: &impl Ranged) -> String {
         let Location {

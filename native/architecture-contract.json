@@ -2874,9 +2874,12 @@
         },
         {
           "component": "store",
-          "rationale": "Validate the collector reply once before the model reads it (AD-346).",
+          "rationale": "Read validated collector records and fresh-receiver witnesses for Explorer (AD-1031).",
           "through": [
-            "native.archkeel_store:Ingested"
+            "native.archkeel_store.call_owners",
+            "native.archkeel_store:CallOwners",
+            "native.archkeel_store:Ingested",
+            "native.archkeel_store:OwnedCall"
           ]
         },
         {

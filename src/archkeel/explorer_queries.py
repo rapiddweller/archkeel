@@ -72,7 +72,12 @@ def _rows(topology: Row, section: str) -> Iterator[Row]:
         yield from _records(part.get(section))
 
 
-def _calls(part: Row, locations: Row, symbols: dict[str, list[str]]) -> Iterator[Row]:
+def _calls(
+    part: Row,
+    locations: Row,
+    symbols: dict[str, list[str]],
+    declarations: dict[str, list[Row]],
+) -> Iterator[Row]:
     for data in _records(part.get("calls")):
         targets = _strings(data, "targets")
         candidates = [symbol for name in targets for symbol in symbols.get(name, [])]
@@ -89,6 +94,10 @@ def _calls(part: Row, locations: Row, symbols: dict[str, list[str]]) -> Iterator
             and not data["candidates_truncated"]
             and data.get("evidence_class", "FACT") == "FACT"
         )
+        evidence = _fact_locations(data, locations)
+        if exact and isinstance(target, str):
+            evidence = [dict(loc, role="call_site") for loc in evidence]
+            evidence.extend(dict(loc, role="declaration") for loc in declarations.get(target, []))
         yield {
             "id": data["id"],
             "source": origin,
@@ -98,7 +107,7 @@ def _calls(part: Row, locations: Row, symbols: dict[str, list[str]]) -> Iterator
             "reason": data.get("reason"),
             "candidates": candidates,
             "resolution": "resolved" if exact else "unresolved",
-            "evidence": _fact_locations(data, locations),
+            "evidence": evidence,
         }
 
 
@@ -226,6 +235,7 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
     locations = _object(topology.get("locations", {}))
     for part in _records(topology.get("explorer")):
         symbols: dict[str, list[str]] = defaultdict(list)
+        declarations: dict[str, list[Row]] = {}
         for row in _symbol_rows(list(_records(part.get("symbols")))):
             name = row.get("qualified_name")
             if not isinstance(name, str) or not row.get("module"):
@@ -233,6 +243,7 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
             key = _key("definition", _text(row, "id"))
             symbols[name].append(key)
             refs = _fact_locations(row, locations)
+            declarations[key] = refs
             anchor = (
                 reference(_text(refs[0], "path"), _number(refs[0], "line", 1, 2**31 - 1))
                 if refs
@@ -245,7 +256,7 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
                 _key(_text(row, "parent_domain"), _text(row, "parent")),
                 _object(row["body"]) | {"source": anchor, "language": part.get("language")},
             )
-        calls.append(_calls(part, locations, symbols))
+        calls.append(_calls(part, locations, symbols, declarations))
     return calls
 
 
