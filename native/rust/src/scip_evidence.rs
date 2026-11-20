@@ -14,7 +14,7 @@ use std::path::Path;
 
 use archkeel_facts::identity::{inside, sha256_hex};
 use archkeel_snapshot::Snapshot;
-use serde::{Deserialize, Serialize};
+use scip_serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use syntax::CallSite;
@@ -28,7 +28,7 @@ const SOURCE_LIMIT: usize = 4096;
 const OCCURRENCE_LIMIT: usize = 512_000;
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(crate = "scip_serde", deny_unknown_fields)]
 struct Manifest {
     version: u32,
     index_sha256: String,
@@ -36,14 +36,14 @@ struct Manifest {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(crate = "scip_serde", deny_unknown_fields)]
 struct Request {
     calls: Vec<CallSite>,
     definitions: Vec<Definition>,
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(crate = "scip_serde", deny_unknown_fields)]
 struct Definition {
     id: String,
     evidence_id: String,
@@ -51,6 +51,7 @@ struct Definition {
 }
 
 #[derive(Clone, Eq, PartialEq, Serialize)]
+#[serde(crate = "scip_serde")]
 struct Anchor {
     target_definition_id: String,
     evidence_id: String,
@@ -59,6 +60,7 @@ struct Anchor {
 }
 
 #[derive(Serialize)]
+#[serde(crate = "scip_serde")]
 struct Binding<'a> {
     call_id: &'a str,
     #[serde(flatten)]
@@ -66,6 +68,7 @@ struct Binding<'a> {
 }
 
 #[derive(Serialize)]
+#[serde(crate = "scip_serde")]
 struct Reply<'a> {
     index_sha256: String,
     manifest_sha256: String,

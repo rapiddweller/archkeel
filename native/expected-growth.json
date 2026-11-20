@@ -165574,7 +165574,7 @@
         "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
         "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
-      "reason": "AD-1036: possible trait dispatch recorded at native/rust/src/scip_evidence.rs:308 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+      "reason": "AD-1036: possible trait dispatch recorded at native/rust/src/scip_evidence.rs:311 in the opt-in adapter's source reach (lead approval 2026-11-20)"
     },
     {
       "entry": [

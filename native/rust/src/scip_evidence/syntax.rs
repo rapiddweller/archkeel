@@ -8,14 +8,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::identity::{evidence_id, stable_id, Part};
 use proc_macro2::Span;
-use serde::Deserialize;
+use scip_serde::Deserialize;
 use syn::visit::{self, Visit};
 
 use super::wire::Range;
 type Result<T> = std::result::Result<T, String>;
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(crate = "scip_serde", deny_unknown_fields)]
 pub(super) struct CallSite {
     pub id: String,
     pub path: String,
