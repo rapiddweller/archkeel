@@ -169,6 +169,14 @@ def _bind_artifact(
     return artifact, artifact.bind(snapshot)
 
 
+def _cache_location(root: Path, snapshot: SnapshotIdentity) -> Path:
+    default = Path.home() / ".cache"
+    cache = (Path(os.environ.get("XDG_CACHE_HOME") or default) / "archkeel" / "explorer").resolve()
+    if cache.is_relative_to(root):
+        raise CoreError("the Explorer cache must be outside the project root")
+    return cache_path(cache, root, snapshot)
+
+
 def launch(
     options: Options,
     mode: OutputMode,
@@ -180,12 +188,7 @@ def launch(
     """Use a matching snapshot or publish a new one, then start the local Explorer."""
     snapshot, digests = _fingerprint(project, binary)
     scip, snapshot = _bind_artifact(options.scip_index, snapshot)
-    default = Path.home() / ".cache"
-    cache = Path(os.environ.get("XDG_CACHE_HOME") or default) / "archkeel" / "explorer"
-    cache = cache.resolve()
-    if cache.is_relative_to(project.path):
-        raise CoreError("the Explorer cache must be outside the project root")
-    path = cache_path(cache, project.path, snapshot)
+    path = _cache_location(project.path, snapshot)
     if not path.exists():
         with repository_writer(path):
             if not path.exists():
