@@ -115,3 +115,40 @@ fn parsed_module(
         .ok_or_else(|| early(ExceptionName::ValueError, "ValueError"))?;
     Ok(Module::new(rel.to_owned(), name, text.into_owned(), tree))
 }
+
+/// The parsed modules of a request and their binders, as the survey reads them (the dump of
+/// the definition table, AD-377).
+#[cfg(feature = "dump")]
+pub(crate) struct Modules {
+    pub minor: PyMinor,
+    pub modules: Vec<Module>,
+    pub binders: Vec<super::binders::Binders>,
+    pub gaps: Vec<Record<GapFact>>,
+}
+#[cfg(feature = "dump")]
+pub(crate) fn modules(prepared: &crate::requirement::Prepared) -> Result<Modules, String> {
+    let request: &archkeel_facts::request::PythonRequest = &prepared.request;
+    let mut snapshot = Snapshot::new(&request.snapshot.root);
+    let minor: PyMinor = prepared.interpreter.version.minor();
+    let scope = discover::scope(
+        &mut snapshot,
+        &request.scope.roots,
+        archkeel_facts::request::PythonRequest::excludes_test_sources(request),
+    );
+    let naming = (
+        String::as_str(&request.scope.namespace),
+        Vec::as_slice(&request.scope.roots),
+    );
+    let parsed = parse_unshadowed(&mut snapshot, &scope, naming, minor);
+    let binders = parsed
+        .modules
+        .iter()
+        .map(|module| super::binders::Binders::of(&module.tree))
+        .collect();
+    Ok(Modules {
+        minor,
+        modules: parsed.modules,
+        binders,
+        gaps: parsed.gaps,
+    })
+}

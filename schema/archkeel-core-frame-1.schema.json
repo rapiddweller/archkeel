@@ -608,6 +608,12 @@
           "items": {
             "$ref": "#/$defs/Import"
           }
+        },
+        "source_call_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceCallCandidate"
+          }
         }
       },
       "required": [
@@ -1024,6 +1030,45 @@
         "reason",
         "evidence_ids"
       ],
+      "additionalProperties": false
+    },
+    "SourceCallCandidate": {
+      "type": "object",
+      "properties": {
+        "source_module": {
+          "type": "string",
+          "description": "Module containing the call."
+        },
+        "target_module": {
+          "type": "string",
+          "description": "Module containing the declaration."
+        },
+        "target": {
+          "type": "string",
+          "description": "Qualified declaration name."
+        },
+        "expression": {
+          "type": "string",
+          "description": "Written callee."
+        },
+        "call_evidence": {
+          "$ref": "#/$defs/EvidenceId",
+          "description": "Location of the callee at this call site."
+        },
+        "declaration_evidence": {
+          "$ref": "#/$defs/EvidenceId",
+          "description": "Location of the name in the class or function definition."
+        }
+      },
+      "required": [
+        "source_module",
+        "target_module",
+        "target",
+        "expression",
+        "call_evidence",
+        "declaration_evidence"
+      ],
+      "description": "A written callee and its matching declaration. These locations provide source navigation only.",
       "additionalProperties": false
     },
     "Measures": {

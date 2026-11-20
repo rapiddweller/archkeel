@@ -261,3 +261,57 @@ def test_import_evidence_pages_indexed_locations_beyond_the_report_sample(tmp_pa
     page = query(path, tmp_path, "evidence", {"relation": "edge", "cursor": first["next_cursor"]})
     assert [row["line"] for row in page["items"]] == [3]
     assert page["next_cursor"] is None
+
+
+def test_source_candidate_links_both_sites_without_becoming_a_story_call(tmp_path: Path) -> None:
+    (tmp_path / "entry.py").write_text("from model import build\nbuild()\n")
+    (tmp_path / "model.py").write_text("def build(): pass\n")
+    parts = [{"name": m, "component": None, "path": m + ".py"} for m in ("entry", "model")]
+    topology = {
+        "version": 1,
+        "components": [],
+        "modules": parts,
+        "edges": [],
+        "locations": {
+            "site": {"path": "entry.py", "line": 2},
+            "decl": {"path": "model.py", "line": 1},
+        },
+        "explorer": [
+            {
+                "language": "python",
+                "source_call_candidates": [
+                    {
+                        "source_module": "entry",
+                        "target_module": "model",
+                        "target": "model.build",
+                        "expression": "build",
+                        "call_evidence": "site",
+                        "declaration_evidence": "decl",
+                    }
+                ],
+            }
+        ],
+    }
+    path = tmp_path / "cache" / "sample.sqlite"
+    publish_snapshot(
+        path,
+        SnapshotIdentity("rev", "contract", "tree"),
+        lambda db: populate(db, topology, tmp_path),
+        "partial",
+    )
+    (edge,) = query(path, tmp_path, "map", {"view": "modules"})["edges"]
+    assert (edge["source"], edge["target"], edge["kind"], edge["resolution"]) == (
+        "entry",
+        "model",
+        "source_call",
+        "candidate",
+    )
+    (site,) = query(path, tmp_path, "relations", {"aggregate": edge["aggregate_id"]})["items"]
+    assert site["declaration"] == "model.build"
+    locations = query(path, tmp_path, "evidence", {"relation": site["id"]})["items"]
+    assert [(loc["role"], loc["path"], loc["line"]) for loc in locations] == [
+        ("call_site", "entry.py", 2),
+        ("declaration", "model.py", 1),
+    ]
+    assert query(path, tmp_path, "source", {"reference": locations[1]["reference"]})["line"] == 1
+    assert query(path, tmp_path, "story", {"id": site["id"]})["status"] == "UNKNOWN"

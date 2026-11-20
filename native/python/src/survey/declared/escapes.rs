@@ -167,6 +167,21 @@ struct Walk<'a> {
     annotation: bool,
 }
 
+/// The name of the instance that `node` gets, when the method is proven.
+pub(in crate::survey) fn receiver(node: &StmtFunctionDef) -> Option<String> {
+    let first = node
+        .parameters
+        .posonlyargs
+        .iter()
+        .chain(&node.parameters.args)
+        .next()?;
+    let name = first.parameter.name.as_str();
+    let proven = node.decorator_list.is_empty()
+        && !NOT_INSTANCE.contains(&node.name.as_str())
+        && !Bound::of(&node.body).names().contains(name);
+    proven.then(|| name.to_owned())
+}
+
 impl Walk<'_> {
     /// A class with no keyword whose bases are builtin classes or classes of the module that are
     /// themselves plain: a method of it gets an instance, never a class.
@@ -183,21 +198,6 @@ impl Walk<'_> {
                 }
                 _ => false,
             })
-    }
-
-    /// The name of the instance that `node` gets, when the method is proven.
-    fn receiver(node: &StmtFunctionDef) -> Option<String> {
-        let first = node
-            .parameters
-            .posonlyargs
-            .iter()
-            .chain(&node.parameters.args)
-            .next()?;
-        let name = first.parameter.name.as_str();
-        let proven = node.decorator_list.is_empty()
-            && !NOT_INSTANCE.contains(&node.name.as_str())
-            && !Bound::of(&node.body).names().contains(name);
-        proven.then(|| name.to_owned())
     }
 
     fn annotated(&mut self, expr: &Expr) {
@@ -244,7 +244,7 @@ impl Walk<'_> {
         for statement in &node.body {
             match statement {
                 Stmt::FunctionDef(method) if plain => {
-                    let instance = Self::receiver(method);
+                    let instance = receiver(method);
                     self.function(method, instance);
                 }
                 other => self.visit_stmt(other),

@@ -92,6 +92,26 @@ def _calls(part: Row, locations: Row, symbols: dict[str, list[str]]) -> Iterator
         }
 
 
+def _source_calls(topology: Row) -> Iterator[Row]:
+    locations = _object(topology.get("locations", {}))
+    for part in _records(topology.get("explorer")):
+        for row in _records(part.get("source_call_candidates")):
+            site = _text(row, "call_evidence")
+            declaration = _text(row, "declaration_evidence")
+            yield {
+                "id": json.dumps(["source_call", part.get("part"), site, declaration]),
+                "source": _text(row, "source_module"),
+                "target": _text(row, "target_module"),
+                "expression": _text(row, "expression"),
+                "declaration": _text(row, "target"),
+                "resolution": "candidate",
+                "evidence": [
+                    dict(_object(locations.get(key)), role=role)
+                    for key, role in ((site, "call_site"), (declaration, "declaration"))
+                ],
+            }
+
+
 def _imports(topology: Row) -> Iterator[Row]:
     locations = _object(topology.get("locations", {}))
     for row in _rows(topology, "imports"):
@@ -257,6 +277,7 @@ def _relations(
     )
     sections: tuple[tuple[str, Iterable[Row]], ...] = (
         ("call", (row for group in calls for row in group)),
+        ("source_call", _source_calls(topology)),
         ("import_site", _imports(topology)),
         ("boundary", boundary_rows(root, list(_records(topology["modules"])))),
         ("interface", interfaces),

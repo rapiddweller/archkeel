@@ -137,6 +137,7 @@ pub(crate) fn typed(
     standard.placeholder_under_premise =
         survey.coverage.full_scope && survey.support.placeholder_under_premise();
     let excluded_sources = std::mem::take(&mut survey.excluded_sources);
+    let candidates = std::mem::take(&mut survey.source_call_candidates);
     let direct_calls = if survey.coverage.full_scope {
         std::mem::take(&mut survey.sites.direct)
     } else {
@@ -154,6 +155,7 @@ pub(crate) fn typed(
     reply.facts.standard = Some(standard);
     reply.facts.excluded_sources = excluded_sources;
     reply.facts.direct_calls = Some(direct_calls);
+    reply.facts.source_call_candidates = candidates;
     reply.facts.function_call_counts = Some(function_call_counts);
     let features = &mut reply.facts.capabilities.resolution_features;
     features.push(ROUTES_FEATURE.to_owned());

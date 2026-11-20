@@ -30,8 +30,9 @@ def _call_sites(visible: list[str]) -> str:
         "relation.kind,1 AS weight FROM relation "
         "JOIN nearest a ON a.id=relation.source AND a.rank=1 "
         "JOIN nearest b ON b.id=relation.target AND b.rank=1 "
-        "WHERE relation.kind='call' AND relation.target IS NOT NULL "
-        "AND json_extract(relation.body,'$.resolution')='resolved' AND a.visible!=b.visible "
+        "WHERE relation.target IS NOT NULL AND a.visible!=b.visible "
+        "AND (relation.kind='source_call' OR (relation.kind='call' AND "
+        "json_extract(relation.body,'$.resolution')='resolved')) "
         ") "
     )
 
@@ -58,8 +59,9 @@ def _projected_sites() -> str:
         "JOIN element s ON s.id=relation.source JOIN element t ON t.id=relation.target "
         "LEFT JOIN owned_imports oi "
         "ON relation.kind='import' AND oi.source=s.id AND oi.target=t.id "
-        "WHERE relation.kind IN ('import','call') AND a.visible!=b.visible "
-        "AND json_extract(relation.body,'$.resolution')='resolved' "
+        "WHERE a.visible!=b.visible AND (relation.kind='source_call' OR ("
+        "relation.kind IN ('import','call') "
+        "AND json_extract(relation.body,'$.resolution')='resolved')) "
         "AND oi.source IS NULL), "
         "ranked AS (SELECT *,min(priority) OVER "
         "(PARTITION BY kind,source,target) AS best FROM sites), "
@@ -103,7 +105,7 @@ def _projected(
             "target": target,
             "count": count,
             "kind": kind,
-            "resolution": "resolved",
+            "resolution": "candidate" if kind == "source_call" else "resolved",
             "aggregate": True,
         }
         for source, target, kind, count, evidence, _ in rows
@@ -325,7 +327,7 @@ def _aggregate_relations(
     parent, view, page, size, focus, source, target, kind = token
     if not all(isinstance(item, str) for item in (parent, view, page, focus, source, target, kind)):
         raise ValueError("invalid aggregate")
-    if not 1 <= size <= 200 or kind not in {"call", "import"}:
+    if not 1 <= size <= 200 or kind not in {"call", "import", "source_call"}:
         raise ValueError("invalid aggregate")
     layout, aliases = _map_layout(db, parent, view, page, size)
     visible, aliases = _focus_projection(layout, aliases, focus)

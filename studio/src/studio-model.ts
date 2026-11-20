@@ -28,12 +28,14 @@ export interface StudioEdge {
   resolution: string;
   title?: string;
   expression?: string;
+  declaration?: string;
   reason?: string;
   rationale?: string;
   schema?: string;
   aggregate?: boolean;
   aggregate_id?: string;
   count?: number;
+  evidence?: { path: string; line: number; role?: string }[];
   evidence_total?: number;
 }
 

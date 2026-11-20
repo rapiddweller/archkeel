@@ -8,7 +8,6 @@ use crate::module::{EvidenceMap, Module};
 use crate::parse::comments;
 use crate::requirement::Prepared;
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Role, Target};
-#[cfg(feature = "dump")]
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::sections::SignalFact;
@@ -22,6 +21,7 @@ pub(crate) mod binders;
 pub(crate) mod bound;
 pub(crate) mod bound_kind;
 mod call_count;
+mod call_navigation;
 mod class_writes;
 mod constructs;
 mod copy_local;
@@ -91,46 +91,13 @@ pub(crate) struct Survey {
     pub symbols: Vec<Record<SymbolFact>>,
     pub sites: declared::Sites,
     pub function_call_counts: Vec<(String, u64)>,
+    pub source_call_candidates: Vec<archkeel_facts::envelope::SourceCallCandidate>,
     pub constructs: Vec<Record<ConstructFact>>,
     pub signals: Vec<Record<SignalFact>>,
     pub support: support::Support,
 }
-/// The parsed modules of a request and their binders, as the survey reads them (the dump of
-/// the definition table, AD-377).
 #[cfg(feature = "dump")]
-pub(crate) struct Modules {
-    pub minor: PyMinor,
-    pub modules: Vec<Module>,
-    pub binders: Vec<Binders>,
-    pub gaps: Vec<Record<GapFact>>,
-}
-#[cfg(feature = "dump")]
-pub(crate) fn modules(prepared: &Prepared) -> Result<Modules, String> {
-    let request: &PythonRequest = &prepared.request;
-    let mut snapshot = Snapshot::new(&request.snapshot.root);
-    let minor = prepared.interpreter.version.minor();
-    let scope = discover::scope(
-        &mut snapshot,
-        &request.scope.roots,
-        request.excludes_test_sources(),
-    );
-    let naming = (
-        String::as_str(&request.scope.namespace),
-        Vec::as_slice(&request.scope.roots),
-    );
-    let parsed = parse_unshadowed(&mut snapshot, &scope, naming, minor);
-    let binders = parsed
-        .modules
-        .iter()
-        .map(|module| Binders::of(&module.tree))
-        .collect();
-    Ok(Modules {
-        minor,
-        modules: parsed.modules,
-        binders,
-        gaps: parsed.gaps,
-    })
-}
+pub(crate) use parse_files::{modules, Modules};
 
 #[expect(
     clippy::too_many_lines,
@@ -139,7 +106,7 @@ pub(crate) fn modules(prepared: &Prepared) -> Result<Modules, String> {
 pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     let request: &PythonRequest = &prepared.request;
     let interpreter = &prepared.interpreter;
-    let minor = interpreter.version.minor();
+    let minor: PyMinor = interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let namespace = &request.scope.namespace;
     let roots = &request.scope.roots;
@@ -305,6 +272,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         let (key, gap) = targets::site_gap(kind, &target, &module.name, &id);
         sites.insert(key, gap);
     }
+    let unambiguous_layout = found.is_empty();
     unknowns.extend(found);
     unknowns.extend(sites.into_values());
     unknowns.extend(layout::problems(&snapshot.problems));
@@ -347,7 +315,20 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         && coverage.full_scope
         && opaque_surface.is_empty()
         && typing_count::any_complete((modules, &binders), &writes, comments);
+    let source_call_candidates = if prepared.navigation && !uncertain && unambiguous_layout {
+        call_navigation::collect(
+            modules,
+            &binders,
+            &imports,
+            &resolved.targets,
+            &symbols.sites.calls,
+            &mut evidence,
+        )
+    } else {
+        Vec::new()
+    };
     Ok(Survey {
+        source_call_candidates,
         function_call_counts,
         excluded_sources: scope.excluded,
         targets: resolved.targets,

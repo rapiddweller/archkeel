@@ -68,6 +68,7 @@ export function mapEdgeName(edge: StudioEdge) {
 export function relationDirection(edge: StudioEdge, current?: string | null) {
   const directions: Record<string, [string, string]> = {
     call: ["calls", "called by"],
+    source_call: ["may call", "may be called by"],
     import: ["imports", "imported by"],
     import_site: ["imports", "imported by"],
     requires: ["requires", "required by"],
@@ -75,10 +76,11 @@ export function relationDirection(edge: StudioEdge, current?: string | null) {
   };
   const [outbound, inbound] = directions[edge.kind] ?? ["→", "←"];
   const from = label(edge.source);
-  const to = edge.target ? label(edge.target) : "UNKNOWN target";
+  const to = edge.declaration ?? (edge.target ? label(edge.target) : "UNKNOWN target");
   if (current === edge.target) return inbound + " " + from;
   if (current === edge.source) return outbound + " " + to;
-  return from + " " + outbound + " " + to;
+  const site = edge.kind === "source_call" ? edge.evidence?.find((item) => item.role === "call_site") : undefined;
+  return from + (site ? ":" + site.line : "") + " " + outbound + " " + to;
 }
 
 export function unknownCalls(item: StudioItem, compact = false) {

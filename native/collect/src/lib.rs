@@ -131,6 +131,16 @@ pub fn scan_with_clock(
     contract_budget: u64,
     clock: Option<&dyn Fn() -> Duration>,
 ) -> Result<Scanned, Refusal> {
+    scan_with_options(identity, contract_budget, clock, false)
+}
+
+/// Include navigation-only source candidates when the caller requests Explorer records.
+pub fn scan_with_options(
+    identity: &Identity<'_>,
+    contract_budget: u64,
+    clock: Option<&dyn Fn() -> Duration>,
+    explorer: bool,
+) -> Result<Scanned, Refusal> {
     let started = clock.map(|now| now());
     built(test_features())?;
     let root = root_of(identity)?;
@@ -169,7 +179,8 @@ pub fn scan_with_clock(
     let prepared = clock
         .zip(started)
         .map_or(Duration::ZERO, |(now, start)| now() - start);
-    let (reply, collected, validated) = run::collect_timed(config.profile, &bytes, clock)?;
+    let (reply, collected, validated) =
+        run::collect_timed(config.profile, &bytes, clock, explorer)?;
     let bound = match config.profile {
         Profile::Python => python::bound(&root, reply.reply()),
         Profile::Dart => dart::bound(&root, reply.reply()),

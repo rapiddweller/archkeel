@@ -438,3 +438,25 @@ pub struct EffectiveReturn {
     /// The wrapper type that the factory returns.
     pub wrapper: String,
 }
+
+/// One explicit actual: an optional keyword and whether the source writes a string literal.
+pub type WrittenActual = (Option<String>, bool);
+/// A live call site, its exact declaration, optional import and actuals when bindable.
+pub type DirectCall = (FactId, FactId, Option<FactId>, Option<Vec<WrittenActual>>);
+
+/// A written callee and its matching declaration. These locations provide source navigation only.
+#[derive(Clone, Debug, PartialEq, Serialize, JsonSchema)]
+pub struct SourceCallCandidate {
+    /// Module containing the call.
+    pub source_module: String,
+    /// Module containing the declaration.
+    pub target_module: String,
+    /// Qualified declaration name.
+    pub target: String,
+    /// Written callee.
+    pub expression: String,
+    /// Location of the callee at this call site.
+    pub call_evidence: EvidenceId,
+    /// Location of the name in the class or function definition.
+    pub declaration_evidence: EvidenceId,
+}

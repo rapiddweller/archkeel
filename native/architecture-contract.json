@@ -65,6 +65,7 @@
         "native.archkeel_facts.envelope:Runtime",
         "native.archkeel_facts.envelope:SectionName",
         "native.archkeel_facts.envelope:Source",
+        "native.archkeel_facts.envelope:SourceCallCandidate",
         "native.archkeel_facts.envelope:State",
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:TargetSource",
@@ -2876,6 +2877,7 @@
           "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422), and name the request type that the self-test of a scan echoes, so that the frame schema states it (AD-600). The Explorer projects validated source records and their evidence for navigation (AD-1017).",
           "through": [
             "native.archkeel_facts.envelope:Facts",
+            "native.archkeel_facts.envelope:SourceCallCandidate",
             "native.archkeel_facts.envelope:Target",
             "native.archkeel_facts.identity",
             "native.archkeel_facts.ids:EvidenceId",
@@ -3069,7 +3071,8 @@
             "native.archkeel_collect:SystemPart",
             "native.archkeel_collect:read_system",
             "native.archkeel_collect:scan",
-            "native.archkeel_collect:scan_with_clock"
+            "native.archkeel_collect:scan_with_clock",
+            "native.archkeel_collect:scan_with_options"
           ]
         },
         {
@@ -3199,7 +3202,8 @@
         "native.archkeel_collect:check",
         "native.archkeel_collect:read_system",
         "native.archkeel_collect:scan",
-        "native.archkeel_collect:scan_with_clock"
+        "native.archkeel_collect:scan_with_clock",
+        "native.archkeel_collect:scan_with_options"
       ],
       "decided_by": "architect"
     },
@@ -6504,7 +6508,8 @@
         "native.archkeel_python_collector:BUILD",
         "native.archkeel_python_collector:TEST_FEATURES",
         "native.archkeel_python_collector:check",
-        "native.archkeel_python_collector:typed_reply"
+        "native.archkeel_python_collector:typed_reply",
+        "native.archkeel_python_collector:typed_reply_with_navigation"
       ],
       "decided_by": "architect"
     },
@@ -7013,6 +7018,7 @@
         "native.archkeel_python_collector.parse.depth",
         "native.archkeel_python_collector.survey.binders",
         "native.archkeel_python_collector.survey.call_count",
+        "native.archkeel_python_collector.survey.call_navigation",
         "native.archkeel_python_collector.survey.constructs",
         "native.archkeel_python_collector.survey.typing_count",
         "native.archkeel_python_collector.survey.guard",
@@ -7137,6 +7143,7 @@
         "native.archkeel_python_collector.symbols.sites",
         "native.archkeel_python_collector.survey.hazards",
         "native.archkeel_python_collector.survey.typing_count",
+        "native.archkeel_python_collector.survey.call_navigation",
         "native.archkeel_python_collector.survey.constructs",
         "native.archkeel_python_collector.survey.imports",
         "native.archkeel_python_collector.survey.bound",

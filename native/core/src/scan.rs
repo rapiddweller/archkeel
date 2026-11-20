@@ -224,9 +224,10 @@ fn one(
         },
         _ => None,
     };
-    let scanned = match clock {
-        Some(now) => archkeel_collect::scan_with_clock(identity, MAX_BYTES, Some(now)),
-        None => archkeel_collect::scan(identity, MAX_BYTES),
+    let scanned = match (request.explorer, clock) {
+        (true, _) => archkeel_collect::scan_with_options(identity, MAX_BYTES, clock, true),
+        (false, Some(now)) => archkeel_collect::scan_with_clock(identity, MAX_BYTES, Some(now)),
+        (false, None) => archkeel_collect::scan(identity, MAX_BYTES),
     };
     match scanned {
         Ok(scanned) => {

@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use archkeel_facts::envelope::{Facts, Target};
+use archkeel_facts::envelope::{Facts, SourceCallCandidate, Target};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::nested::MemberInventory;
 use archkeel_facts::nullable::Nullable;
@@ -23,6 +23,8 @@ pub(crate) struct ExplorerPart {
     symbols: Option<Vec<Symbol>>,
     calls: Option<Vec<Call>>,
     imports: Option<Vec<Import>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    source_call_candidates: Vec<SourceCallCandidate>,
 }
 
 #[derive(Serialize, JsonSchema)]
@@ -231,6 +233,7 @@ fn project(facts: &Facts, language: &'static str) -> ExplorerPart {
             .collect(),
         symbols: None,
         calls: None,
+        source_call_candidates: facts.source_call_candidates.clone(),
         imports: None,
     };
     let targets: HashMap<_, _> = facts.imports.iter().map(|t| (t.import_id(), t)).collect();

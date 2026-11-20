@@ -87,7 +87,17 @@ pub fn compressed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Ve
 /// states that the survey reads the symbol of each named import and writes its publication route
 /// (AD-426, AD-450, AD-504).
 pub fn typed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Reply, String> {
-    let prepared = Prepared::of(request)?;
+    typed_reply_with_navigation(request, build, false)
+}
+
+/// Collect the same rule evidence and optionally link written calls to source declarations.
+pub fn typed_reply_with_navigation(
+    request: &PythonRequest,
+    build: &Build<'_>,
+    navigation: bool,
+) -> Result<Reply, String> {
+    let mut prepared = Prepared::of(request)?;
+    prepared.navigation = navigation;
     let survey = survey::survey(&prepared)?;
     let any = survey
         .signals

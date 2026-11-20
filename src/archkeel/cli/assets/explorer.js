@@ -66,7 +66,7 @@ export function label(id) {
     return known.get(id)?.name ?? id;
 }
 export function relationLabel(edge) {
-    const kinds = { requires: "Requires", import: "Import", import_site: "Import", interface: "Interface", call: "Call" };
+    const kinds = { requires: "Requires", import: "Import", import_site: "Import", interface: "Interface", call: "Call", source_call: "Call target" };
     const kind = kinds[edge.kind] ?? edge.kind;
     if (edge.kind === "call" && edge.resolution !== "resolved")
         return kind + " · UNKNOWN";
@@ -192,7 +192,8 @@ export async function select(item) {
         if (state.request !== request)
             return;
         for (const edge of result.items) {
-            const text = label(edge.source) + " → " + label(edge.target ?? "Unresolved target") + " · " + relationLabel(edge);
+            const endpoints = edge.kind === "source_call" ? relationDirection(edge) : label(edge.source) + " → " + label(edge.target ?? "Unresolved target");
+            const text = endpoints + " · " + relationLabel(edge);
             const link = button(text, () => showEvidence(edge), edge.kind === "call" && edge.resolution !== "resolved" ? "detail-btn unknown" : "detail-btn");
             breakPath(link, text);
             details.append(link);
@@ -249,11 +250,13 @@ export async function showEvidence(edge) {
     if (request !== state.request)
         return;
     const relation = result.relation;
-    selectionHeading(relationDirection(edge), relationLabel(relation));
-    details.append(element("h3", "Dependency evidence"));
+    selectionHeading(relation.declaration ? (relation.expression ?? relation.declaration) : relationDirection(edge), relationLabel(relation));
+    details.append(element("h3", relation.declaration ? "Possible declaration" : "Dependency evidence"));
     if (relation.title)
         details.append(element("p", relation.title));
-    if (relation.expression)
+    if (relation.declaration)
+        details.append(breakPath(element("p", "", "meta"), relation.declaration));
+    else if (relation.expression)
         details.append(element("p", relation.expression, "meta"));
     if (relation.reason)
         details.append(element("p", relation.reason, "unknown"));
@@ -267,7 +270,7 @@ export async function showEvidence(edge) {
         details.append(element("p", relation.rationale));
     if (relation.schema)
         details.append(element("p", relation.schema, "meta"));
-    if (result.total !== undefined)
+    if (!relation.declaration && result.total !== undefined)
         details.append(element("p", result.total + " indexed source locations"));
     if (result.evidence_truncated)
         details.append(element("p", "Some source locations were not retained.", "unknown"));
@@ -275,7 +278,8 @@ export async function showEvidence(edge) {
         if (!page.items.length && !page.next_cursor)
             details.append(element("p", "This relation has no indexed source location."));
         for (const item of page.items) {
-            const text = item.path + ":" + item.line;
+            const role = item.role === "call_site" ? "Call site · " : item.role === "declaration" ? "Declaration · " : "";
+            const text = role + item.path + ":" + item.line;
             const link = button(text, () => showSource(item.reference), "detail-btn");
             breakPath(link, text);
             details.append(link);

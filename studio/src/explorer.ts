@@ -10,7 +10,7 @@ import { bindStory, reopenStory, stopStoryPlayback } from "./explorer-story.js";
 import { loadStory, showStory } from "./explorer-story-loading.js";
 
 interface Evidence {
-  items: {path: string; line: number; reference: string}[];
+  items: {path: string; line: number; reference: string; role?: string}[];
   relation: StudioEdge;
   next_cursor: string | null;
   total: number;
@@ -71,7 +71,7 @@ export function label(id: string) {
   return known.get(id)?.name ?? id;
 }
 export function relationLabel(edge: StudioEdge) {
-  const kinds: Record<string, string> = { requires: "Requires", import: "Import", import_site: "Import", interface: "Interface", call: "Call" };
+  const kinds: Record<string, string> = { requires: "Requires", import: "Import", import_site: "Import", interface: "Interface", call: "Call", source_call: "Call target" };
   const kind = kinds[edge.kind] ?? edge.kind;
   if (edge.kind === "call" && edge.resolution !== "resolved") return kind + " · UNKNOWN";
   const statuses: Record<string, string> = { unresolved: " · UNKNOWN", open: " · UNKNOWN", declared: " · Declared", candidate: " · Candidate" };
@@ -188,7 +188,8 @@ export async function select(item: StudioItem) {
     const result = await api<Page<StudioEdge>>("relations", { element: item.id, limit: 30, cursor });
     if (state.request !== request) return;
     for (const edge of result.items) {
-      const text = label(edge.source) + " → " + label(edge.target ?? "Unresolved target") + " · " + relationLabel(edge);
+      const endpoints = edge.kind === "source_call" ? relationDirection(edge) : label(edge.source) + " → " + label(edge.target ?? "Unresolved target");
+      const text = endpoints + " · " + relationLabel(edge);
       const link = button(text, () => showEvidence(edge), edge.kind === "call" && edge.resolution !== "resolved" ? "detail-btn unknown" : "detail-btn");
       breakPath(link, text);
       details.append(link);
@@ -241,10 +242,11 @@ export async function showEvidence(edge: StudioEdge) {
   const result = await api<Evidence>("evidence", { relation: edge.id, limit: 30 });
   if (request !== state.request) return;
   const relation = result.relation;
-  selectionHeading(relationDirection(edge), relationLabel(relation));
-  details.append(element("h3", "Dependency evidence"));
+  selectionHeading(relation.declaration ? (relation.expression ?? relation.declaration) : relationDirection(edge), relationLabel(relation));
+  details.append(element("h3", relation.declaration ? "Possible declaration" : "Dependency evidence"));
   if (relation.title) details.append(element("p", relation.title));
-  if (relation.expression) details.append(element("p", relation.expression, "meta"));
+  if (relation.declaration) details.append(breakPath(element("p", "", "meta"), relation.declaration));
+  else if (relation.expression) details.append(element("p", relation.expression, "meta"));
   if (relation.reason) details.append(element("p", relation.reason, "unknown"));
   if (relation.kind === "call") {
     details.append(button("Follow call in Story", () => {
@@ -254,12 +256,13 @@ export async function showEvidence(edge: StudioEdge) {
   }
   if (relation.rationale) details.append(element("p", relation.rationale));
   if (relation.schema) details.append(element("p", relation.schema, "meta"));
-  if (result.total !== undefined) details.append(element("p", result.total + " indexed source locations"));
+  if (!relation.declaration && result.total !== undefined) details.append(element("p", result.total + " indexed source locations"));
   if (result.evidence_truncated) details.append(element("p", "Some source locations were not retained.", "unknown"));
   async function appendEvidence(page: Evidence) {
     if (!page.items.length && !page.next_cursor) details.append(element("p", "This relation has no indexed source location."));
     for (const item of page.items) {
-      const text = item.path + ":" + item.line;
+      const role = item.role === "call_site" ? "Call site · " : item.role === "declaration" ? "Declaration · " : "";
+      const text = role + item.path + ":" + item.line;
       const link = button(text, () => showSource(item.reference), "detail-btn");
       breakPath(link, text);
       details.append(link);
