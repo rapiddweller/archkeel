@@ -2,10 +2,13 @@
 
 ## State of `main`
 
-The Rust core `archkeel-core` is the only decision path on `main` (AD-432, issue #880).
+This page describes the development checkout. Studio and its optional MCP server are
+available from this checkout. The build on `main` does not expose them.
+
+The Rust core `archkeel-core` is the only decision path (AD-432, issue #880).
 The Python engine is deleted. The shell reads the arguments, starts the core and prints its frame.
 
-| Command | On `main` |
+| Command | In this checkout |
 | --- | --- |
 | `validate`, `report` | Served by the core, as text or JSON. See [the core path](#the-core-path). |
 | `skill install claude\|codex` | Served by the shell. It writes the skill file. |
@@ -13,16 +16,16 @@ The Python engine is deleted. The shell reads the arguments, starts the core and
 | `studio` | Open the [local Explorer](explorer.md). Existing scripts can use `explore`. |
 | `archkeel-mcp` | Start the [MCP stdio server](explorer.md) on a pinned snapshot. Requires the `mcp` extra. |
 
-`main` supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
+The core supports Rust, TypeScript, Python and Dart. See [known limits](known-limits.md)
+for the evidence each collector can provide.
 A config without `language` selects the Python profile. There is no partial PASS.
-Interactive reports, `architecture.json`, saved reports, focused reports, amendments and
-`--write-graph` are not on `main`. The shell refuses each of their options by name with exit 2.
-`validate --baseline` and `validate --write-baseline` are on `main` ([baselines](#baselines)).
+The shell refuses legacy saved-report inputs, focused-report options, amendments and
+`--write-graph` by name with exit 2.
+Use `validate --baseline` and `validate --write-baseline` for [baselines](#baselines).
 
 Release 4.0.1 has the Python engine: `check`, `init`, full reports and baselines for Python,
 Dart and TypeScript projects. It has no Rust profile, `explore`, Studio, stories or views.
 Its documents are at the [tag 4.0.1](https://github.com/rapiddweller/archkeel/tree/4.0.1/docs).
-This page and [known limits](known-limits.md) describe `main`.
 
 ## Configuration
 
@@ -40,8 +43,9 @@ namespace = "app"
 contract = "architecture-contract.json"
 ```
 
-One run covers one namespace. Roots are repository-relative, nonoverlapping and
-not globs. Optional `language` is `rust`, `typescript`, `python` or `dart`; a missing value
+Roots are repository-relative, nonoverlapping and not globs. With Python
+`namespace = ""`, module names are relative to their import roots. The
+[draft guide](onboarding.md) describes how ArchKeel finds those roots. Optional `language` is `rust`, `typescript`, `python` or `dart`; a missing value
 selects `python`. TypeScript also uses `tsconfig`; roots may be files or directories.
 Inputs must exist inside `--root`.
 
@@ -140,13 +144,11 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 
 ### Exit codes
 
-On `main`:
-
 | Command | 0 | 1 | 2 |
 | --- | --- | --- | --- |
 | `validate`, `report` | PASS: the core decided each rule and no rule fails | FAIL: a rule fails | UNKNOWN: a rule or a part is not decided. Or a refusal: nothing was decided |
 | `skill install` | Instructions written | — | Target could not be updated |
-| Each other command | — | — | Typed refusal `not_on_this_development_line` |
+| Unsupported command | — | — | Typed refusal `not_on_this_development_line` |
 
 Exit 0 needs a frame of the core. No path of the shell gives exit 0 for `validate` or `report` without it.
 Each JSON result starts with `command`, `outcome`, `status` and `exit_code`
@@ -208,7 +210,8 @@ Exit 2 replaces exit 1 of a FAIL: a run that cannot deliver the requested file i
 The parent must exist. Ancestor links are allowed, including `/tmp` on macOS; the resolved parent is pinned once.
 A final-component link, directory or special file is refused. Empty and `.` output paths refuse before the scan.
 `--output -` refuses: standard output is not a file target; omit `--output`.
-An existing regular file is replaced atomically. No sidecar or parent directory is created.
+An existing regular file is replaced atomically. When the HTML links to gap records,
+the same directory also contains the linked `archkeel-gaps-<sha256>.json` file.
 The page uses compact detail fields and cited evidence locations. The Tool block labels the core code digest.
 It shows no package version, because the scan request does not carry one. The crate version is not the package version.
 This safe file output requires POSIX directory handles; other platforms refuse file output.

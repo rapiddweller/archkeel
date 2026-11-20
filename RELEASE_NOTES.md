@@ -1,25 +1,23 @@
-# ArchKeel 5.0.0 — Explicit architecture ports and native ownership evidence
+# ArchKeel 5.0.0 (unreleased) — Explicit architecture ports and native ownership evidence
 
 ## Removed
 
 - `architecture-graph.schema.json`, `architecture-report.schema.json`, `architecture-comparison.schema.json`, `source-member-inventory.schema.json`: 4.0.1 wrote these artifacts; 5.0 does not.
 
-## Support reduction on main
+## Native core
 
-Rust and TypeScript projects use native collectors. The Python collector implementations are deleted.
-Python and Dart projects get PASS or FAIL for the rules that read the import graph (AD-450, AD-468).
-A gap in the survey gives UNKNOWN for each rule of the run. Python `interface_boundary` is decided from
-the publication route of each named import (AD-504). A Dart `no_component_cycles` rule is always UNKNOWN.
-Rules that read calls or constructs stay UNKNOWN for Python. For the other rules, use archkeel 4.0.1.
-Saved reports and baseline commands are refused by name with exit 2, never PASS.
-There is no Python fallback. Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD lack shipped binaries.
-Those platforms cannot scan without a native build and fail closed with exit 2.
-The per-language limits are in [known limits](docs/known-limits.md).
+The Rust core decides architecture rules using native Rust, TypeScript, Python and Dart
+collectors (AD-432). The core evaluates rules when the collector provides sufficient evidence.
+Python checks direct function witnesses for `call_owner` (AD-1002). Dart checks cycles when
+the survey proves the relevant package map (AD-800).
+See [known limits](docs/known-limits.md) for collector coverage.
 
-The Rust core `archkeel-core` is the only decision path on `main` (AD-432). The Python engine is deleted.
-`validate` and `report` (text and JSON) print the frame of the core: PASS exits 0, FAIL exits 1, UNKNOWN exits 2.
-`init` drafts a contract. `studio` opens the local Explorer. Release 4.0.1 provides `check`.
-No release carries the core binary yet. Run `main` from a source checkout after `make core`.
+`validate` and `report` print the core result as text or JSON. PASS exits 0, FAIL exits 1 and
+UNKNOWN exits 2. `init` drafts a contract. The development checkout supports `studio` and the
+optional `archkeel-mcp` server. Run `make core` from the checkout before using it.
+Release 4.0.1 provides the Python engine and its `check` command.
+
+Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD need a native build to scan.
 
 The result schemas no longer define the host source `github_initial_pr_head` and its member
 `initial_pr`: nothing produced them after AD-281 (#767).
@@ -32,9 +30,6 @@ native source evidence and conservative UNKNOWNs.
 - **Detailed architecture contracts.** ArchKeel's own Target defines lower-level
   owners, ports and responsibilities across Core, language collectors and reports.
   Observation, policy evaluation and rendering have separate owners.
-- **Native Rust and TypeScript collectors.** The bundled binaries replace the Python
-  collector implementations. Unsupported forms retain UNKNOWN. Python and Dart projects get
-  verdicts for the rules that read the import graph; use archkeel 4.0.1 for the other rules.
 - **JavaScript script-global dependencies.** The TypeScript adapter records supported
   script-global crossings for existing dependency rules, including bounded alias,
   factory-member and destructuring forms. Standard globals follow supported
@@ -80,10 +75,10 @@ native source evidence and conservative UNKNOWNs.
 - **Bounded Actions inventory.** Reviewed workflow files cover CI, full
   verification, Pages and release; temporary workflows fail the repository
   inventory check. Pages retains its Main-only deployment policy.
-- **`archkeel explore`.** A repository with no ArchKeel file gets an observed overview: layout
-  components, levels for large packages, an inventory line and the Explorer. Explore writes
-  nothing into the repository and gives no rule verdict
-  ([AD-285](docs/architecture/decisions/ad-285-explore-without-a-contract.md)).
+- **Local Studio.** `archkeel studio` opens the architecture of a repository with or
+  without a contract. Explore observed packages, imports and calls, or play a checked story.
+  `explore` is an alias. The optional MCP server reads the pinned snapshot.
+  See the [Studio guide](docs/explorer.md).
 
 ## Upgrade from 4.0.1
 
@@ -99,35 +94,10 @@ and `untyped_private_accesses`, because it counts them differently from 4.0.1: i
 1.3.0 file lists for `from m import name` names `m.name` in 4.0.1 and `m` in the core, so write such a
 file again once.
 
-When the Rust core runs `validate --against` (epic #880), an amendment of schema 1.0.0 gives
-exit 2 (AD-375). Write it again as schema 2.0.0 with `archkeel validate --against <ref>
---amendment <path> --write-amendment --decided-by <who> --rationale <why>`.
-
-`report` on a contract that declares nothing to check (no rule, UML target or component
-intent) now gives `declared_rules: UNKNOWN` and `target: unavailable`; before, it gave PASS
-(AD-285). `validate` on the same contract still gives PASS.
-
-Upgrade CLI, collectors and strict JSON consumers together. Native Python provider
-collection adds **SourceFacts/protocol 4.0.0** for captured source, provider bindings
-and supported context-manager signatures. Generic collection retains its 3.0.0
-default; known 1/2/3 packets remain readable without the new payloads.
-
-New observations use ArchitectureIR **2.1.0** and command-result **12.0.0**.
-A coverage gap names its cause in the diagnostic `kind`: `unresolved_import`, `not_examined` or
-`incomplete_scan` instead of `parse_error` (AD-336). Exit codes and verdicts do not change.
-A strict consumer must accept the new kinds; result schema 12.0 lists them.
-Python 2.1 call records require `call_binding`, including an explicit `null` when
-unproved; an omitted key is invalid. Supported historical reports remain readable;
-command schemas 6/7/8 reject 2.1 observations.
-Older readers reject the new evidence and cannot assess the new call policy.
-Re-observe both revisions with the same release before comparing snapshots.
-These documented evidence/protocol incompatibilities require a new package major
-under the existing compatibility policy.
-
-The internal `FilesToWrite` mapping becomes an immutable `entries` tuple. Internal
-callers must use `FilesToWrite(entries=(("path", content),))` and iterate
-`files.entries`. Mapping operations are no longer supported. Documented CLI commands,
-configuration and `archkeel.api` exports retain their interfaces.
+Use `archkeel validate` in place of `check`. Legacy saved-report inputs and
+amendments are unavailable in the core line. Update JSON consumers to read the
+core result and rescan both revisions before comparing results.
+See the [CLI reference](docs/reference.md#results).
 
 See [dependency evidence](docs/architecture/python-dynamic-dependencies.md),
 [call ownership](docs/architecture/decisions/ad-241-call-ownership-policy.md),

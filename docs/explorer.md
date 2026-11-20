@@ -1,6 +1,8 @@
 # Local architecture Explorer
 
-Open a repository with `archkeel studio /path/to/repository`. Existing scripts can use `explore`.
+Studio and MCP are available from this development checkout. Run `make core` here
+before starting Studio. Open a repository with `uv run archkeel studio /path/to/repository`.
+Existing scripts can use `explore` as an alias.
 Omit the path to use the current repository, or use `--root PATH`. Do not combine both forms.
 Without a contract, the Explorer shows observed source and package groups. It does not write a
 contract. A project-specific schema file or a gap-free scan is not required to open it. UNKNOWN and partial
@@ -55,12 +57,11 @@ with Git. SQLite snapshots stay in the bounded user cache.
 
 ## Connect an agent
 
-Install the optional MCP dependency with `uv sync --extra mcp`. Configure a local
-stdio server in the MCP client. Supply the snapshot path from the Explorer and the
+From this checkout, run the local stdio server with the optional `mcp` extra. Supply the snapshot path from the Explorer and the
 absolute path of the scanned repository.
 
 ```sh
-archkeel-mcp --snapshot /absolute/path/to/snapshot.sqlite3 --root /absolute/path/to/repository
+uv run --extra mcp archkeel-mcp --snapshot /absolute/path/to/snapshot.sqlite3 --root /absolute/path/to/repository
 ```
 
 The server provides overview, children, search, relations, evidence, source and story.
