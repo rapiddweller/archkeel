@@ -160,6 +160,15 @@ def _current_identity(
     return scip.bind(identity)
 
 
+def _bind_artifact(
+    path: Path | None, snapshot: SnapshotIdentity
+) -> tuple[ScipIndex | None, SnapshotIdentity]:
+    if path is None:
+        return None, snapshot
+    artifact = ScipIndex.read(path)
+    return artifact, artifact.bind(snapshot)
+
+
 def launch(
     options: Options,
     mode: OutputMode,
@@ -169,10 +178,8 @@ def launch(
     render_report: Callable[[], tuple[str, tuple[str, bytes]]] | None,
 ) -> int:
     """Use a matching snapshot or publish a new one, then start the local Explorer."""
-    scip = ScipIndex.read(options.scip_index) if options.scip_index is not None else None
     snapshot, digests = _fingerprint(project, binary)
-    if scip is not None:
-        snapshot = scip.bind(snapshot)
+    scip, snapshot = _bind_artifact(options.scip_index, snapshot)
     default = Path.home() / ".cache"
     cache = Path(os.environ.get("XDG_CACHE_HOME") or default) / "archkeel" / "explorer"
     cache = cache.resolve()
