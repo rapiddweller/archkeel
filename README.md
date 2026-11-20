@@ -99,13 +99,15 @@ gets JSON. The Rust core decides the verdict. An LLM can propose a story or expl
 
 ## Performance
 
-On two small fixtures with matching rule outcomes, the Rust-core development build took **80 ms**
-to validate the Python test suite and **86 ms** for the TypeScript checkout. Release 4.0.1 took
-**227 ms** and **210 ms**, respectively. These are whole CLI runs on one Apple M5 Pro.
+On **DATAMIMIC Community Edition**, the median time for `archkeel validate` was **27.93 s**
+with 4.0.1 and **1.18 s** with the unreleased Rust core (23.7× as fast for this command).
+Both scanned all **540 Python files**
+in the production package and passed the benchmark's ownership rule. The overall verdicts differed:
+4.0.1 returned PASS, while the Rust core returned UNKNOWN and reported 59 collection gaps.
 
-<img src="docs/assets/cli-validation-time.png" alt="Median validation time. Python fixture, 227 to 80 milliseconds. TypeScript fixture, 210 to 86 milliseconds." width="100%">
+<img src="docs/assets/cli-validation-time.png" alt="DATAMIMIC CE median validation time: 27.93 seconds with ArchKeel 4.0.1, 1.18 seconds with the Rust-core development build." width="100%">
 
-See the [benchmark conditions, ranges and reproduction steps](docs/performance.md).
+[Benchmark contract, timings and reproduction steps](docs/performance.md)
 
 ## Install
 
