@@ -51,6 +51,9 @@ _CSP = (
 
 
 class _ExplorerServer(ThreadingHTTPServer):
+    # A browser loads the Studio module graph in parallel.
+    request_queue_size = 64
+
     def __init__(
         self,
         path: Path,

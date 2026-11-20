@@ -7,6 +7,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
 from pathlib import Path
+from threading import Barrier
 from types import SimpleNamespace
 
 import pytest
@@ -88,6 +89,31 @@ def test_report_builds_gap_link_only_when_requested(
     assert core_only.run(["explore", "--root", str(tmp_path), "--no-open"]) == 0
     assert len(calls) == 1
     assert not list(tmp_path.glob("archkeel-gaps-*.json"))
+
+
+def test_explorer_serves_parallel_browser_assets(tmp_path: Path) -> None:
+    routes = list(core_explorer_http._ROUTES)[1:]
+    barrier = Barrier(len(routes))
+    with core_explorer_http._ExplorerServer(tmp_path / "snapshot", tmp_path, None, 0) as server:
+        with ThreadPoolExecutor(max_workers=len(routes) + 1) as pool:
+            running = pool.submit(server.serve_forever)
+
+            def fetch(route: str) -> int:
+                connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+                try:
+                    barrier.wait()
+                    connection.request("GET", route)
+                    response = connection.getresponse()
+                    response.read()
+                    return response.status
+                finally:
+                    connection.close()
+
+            try:
+                assert list(pool.map(fetch, routes)) == [200] * len(routes)
+            finally:
+                server.shutdown()
+                running.result()
 
 
 def test_explorer_queries_are_read_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
