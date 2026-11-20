@@ -144,7 +144,9 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     let mut evidence = EvidenceMap::new();
     let lazy = lazy::find(modules, &binders, namespace);
     let replaced = module_uses::replaces_literal_loader(modules, &binders);
-    let (literals, mut hazards) = hazards::split(modules, &binders, (Some(&lazy), replaced));
+    let local_literals = parsed.gaps.is_empty() && found.is_empty() && writes.importlib_unchanged();
+    let (literals, mut hazards) =
+        hazards::split(modules, &binders, (Some(&lazy), replaced), local_literals);
     let candidates = hazards.iter().map(|(index, site)| {
         (site.kind == hazards::DYNAMIC && site.detail == "code").then_some((*index, site.range))
     });

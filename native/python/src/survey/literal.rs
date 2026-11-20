@@ -4,7 +4,7 @@
 
 //! The proof that a call imports one literal module (AD-472).
 //!
-//! Exactly two forms are a static edge:
+//! Two loader forms can give a static edge:
 //!
 //! - `importlib.import_module("a.b")`, when each binding of `importlib` in the module is a plain
 //!   `import importlib` (no alias, no submodule import, no other binding), and there is no
@@ -12,25 +12,27 @@
 //! - `__import__("a.b")`, when the module binds `__import__` nowhere.
 //!
 //! The call has exactly one argument and no keyword: a plain string literal with an absolute dotted
-//! name. A module that calls `globals`, `vars` or `locals` proves nothing. `from importlib import
+//! name, or the adjacent local assignment of AD-1026. A module that calls `globals`, `vars` or
+//! `locals` proves nothing. `from importlib import
 //! import_module` stays a door: its import statement is a reference to the door. Any other call,
 //! alias, value or attribute use stays a `dynamic_import` gap (`hazards.rs`). A target that is
 //! itself a hazard keeps its named gap as well as the edge.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use archkeel_facts::identity::{evidence_id, is_identifier};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprCall, ModModule, Stmt};
+use ruff_python_ast::{Expr, ExprCall, ModModule, Stmt, StmtFunctionDef};
 
 use super::binders::Binders;
 use crate::module::Module;
 
 /// What one module proves about the names of the two import functions.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Default)]
 pub(super) struct Proof {
     importlib: bool,
     dunder: bool,
+    local: HashMap<*const ExprCall, String>,
 }
 
 impl Proof {
@@ -57,6 +59,7 @@ impl Proof {
         Proof {
             importlib: walk.plain > 0 && binders.count("importlib") == Some(walk.plain),
             dunder: binders.count("__import__") == Some(0),
+            local: HashMap::new(),
         }
     }
 
@@ -70,13 +73,51 @@ impl Proof {
         if !trusted || !call.arguments.keywords.is_empty() {
             return None;
         }
-        let [Expr::StringLiteral(text)] = &*call.arguments.args else {
+        match &*call.arguments.args {
+            [arg @ Expr::StringLiteral(_)] => member(arg),
+            [Expr::Name(_)] => HashMap::get(&self.local, &std::ptr::from_ref(call)).cloned(),
+            _ => None,
+        }
+    }
+
+    pub(super) fn prove_local(&mut self, tree: &ModModule, loader_unchanged: bool) {
+        if !self.importlib || !loader_unchanged {
+            return;
+        }
+        let after_import = tree.body.iter().skip_while(
+            |stmt| !matches!(stmt, Stmt::Import(node) if node.names.iter().any(plain_alias)),
+        );
+        self.local = after_import
+            .filter_map(|stmt| match stmt {
+                Stmt::FunctionDef(def) if !def.is_async => self.local_target(def),
+                _ => None,
+            })
+            .collect();
+    }
+
+    fn local_target(&self, def: &StmtFunctionDef) -> Option<(*const ExprCall, String)> {
+        // No statement can run between the local store and the load of the argument.
+        let [Stmt::Assign(assign), Stmt::Return(ret)] = def.body.as_slice() else {
             return None;
         };
-        let name = text.value.to_str();
-        let dotted = !text.value.is_implicit_concatenated() && name.split('.').all(is_identifier);
-        dotted.then(|| name.to_owned())
+        let [Expr::Name(binding)] = assign.targets.as_slice() else {
+            return None;
+        };
+        let Expr::Call(call) = ret.value.as_deref()? else {
+            return None;
+        };
+        let [Expr::Name(arg)] = &*call.arguments.args else {
+            return None;
+        };
+        if binding.id != arg.id || !self.loader(&call.func) || !call.arguments.keywords.is_empty() {
+            return None;
+        }
+        Some((std::ptr::from_ref(call), member(&assign.value)?))
     }
+}
+
+fn plain_alias(alias: &ruff_python_ast::Alias) -> bool {
+    alias.asname.is_none() && alias.name.as_str() == "importlib"
 }
 
 /// The number of plain `import importlib` statements of a module.
@@ -96,10 +137,7 @@ struct Walk {
 impl<'a> Visitor<'a> for Walk {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         if let Stmt::Import(node) = stmt {
-            let plain = node
-                .names
-                .iter()
-                .filter(|alias| alias.asname.is_none() && alias.name.as_str() == "importlib");
+            let plain = node.names.iter().filter(|alias| plain_alias(alias));
             self.plain += plain.count();
         }
         visitor::walk_stmt(self, stmt);
