@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
+//! Map verified Rust call and declaration tokens to exact AST identities.
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::identity::{evidence_id, stable_id, Part};

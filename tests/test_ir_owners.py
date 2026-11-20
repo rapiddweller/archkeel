@@ -33,6 +33,7 @@ SHELL = frozenset(
         "cli/core_explorer.py",
         "cli/core_explorer_http.py",
         "cli/core_explorer_identity.py",
+        "cli/core_explorer_scip.py",
         "cli/core_exit.py",
         "cli/core_frame.py",
         "cli/core_help.py",

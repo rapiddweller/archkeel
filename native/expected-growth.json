@@ -165538,7 +165538,7 @@
         "native.archkeel_rust_collector.bin_archkeel_rust_collector",
         "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
-      "reason": "AD-1036: possible trait dispatch recorded at native/rust/src/scip_evidence/syntax.rs:130 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+      "reason": "AD-1036: possible trait dispatch recorded at native/rust/src/scip_evidence/syntax.rs:132 in the opt-in adapter's source reach (lead approval 2026-11-20)"
     },
     {
       "entry": [
@@ -165547,7 +165547,7 @@
         "native.archkeel_rust_collector.bin_archkeel_rust_collector",
         "A trait impl in native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.wire may run in code that reaches native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.wire without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
-      "reason": "AD-1036: possible trait dispatch recorded at native/rust/src/scip_evidence/wire.rs:99 in the opt-in adapter's source reach (lead approval 2026-11-20)"
+      "reason": "AD-1036: possible trait dispatch recorded at native/rust/src/scip_evidence/wire.rs:101 in the opt-in adapter's source reach (lead approval 2026-11-20)"
     },
     {
       "entry": [

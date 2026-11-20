@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
+//! Read bounded SCIP documents and their written occurrence ranges.
+
 use std::io::{self, Read};
 
 type Result<T> = std::result::Result<T, String>;
