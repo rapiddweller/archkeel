@@ -1,6 +1,6 @@
 # Local architecture Explorer
 
-Open a repository with `archkeel studio /path/to/repository`. `explore` is the same command.
+Open a repository with `archkeel studio /path/to/repository`. Existing scripts can use `explore`.
 Omit the path to use the current repository, or use `--root PATH`. Do not combine both forms.
 Without a contract, the Explorer shows observed source and package groups. It does not write a
 contract. A project-specific schema file or a gap-free scan is not required to open it. UNKNOWN and partial
@@ -10,7 +10,7 @@ The ArchKeel checkout defines three system parts. Select **Python shell**, **Rus
 **Studio UI** to inspect its components and modules. To select this contract explicitly, run:
 
 ```sh
-uv run archkeel explore --config docs/architecture/architecture-system.json
+uv run archkeel studio --config docs/architecture/architecture-system.json
 ```
 
 Keep the terminal open while you use the browser. Use `--no-open` to print the local

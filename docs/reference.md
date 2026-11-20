@@ -10,9 +10,8 @@ The Python engine is deleted. The shell reads the arguments, starts the core and
 | `validate`, `report` | Served by the core, as text or JSON. See [the core path](#the-core-path). |
 | `skill install claude\|codex` | Served by the shell. It writes the skill file. |
 | `init` | Served by the shell: drafts `archkeel.toml` and a contract from the folder layout ([guide](onboarding.md), AD-626, AD-638). `validate` and `report` do it when `archkeel.toml` is missing, unless `--no-init` or `ARCHKEEL_NO_INIT=1`. |
-| `check` | Typed refusal, exit 2. Release 4.0.1 has it. |
-| `explore`, `studio` | Open the [local Explorer](explorer.md); `studio` is an alias. |
-| `guide`, `story`, `view` | Typed refusal, exit 2. No release has them. |
+| `studio` | Open the [local Explorer](explorer.md). Existing scripts can use `explore`. |
+| `archkeel-mcp` | Start the [MCP stdio server](explorer.md) on a pinned snapshot. Requires the `mcp` extra. |
 
 `main` supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A config without `language` selects the Python profile. There is no partial PASS.

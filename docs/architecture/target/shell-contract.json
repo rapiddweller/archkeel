@@ -349,8 +349,7 @@
         "archkeel.cli.core_arguments:output_mode",
         "archkeel.cli.core_arguments:command_of",
         "archkeel.cli.core_arguments:parse",
-        "archkeel.cli.core_arguments:RELEASE",
-        "archkeel.cli.core_arguments:RELEASED"
+        "archkeel.cli.core_arguments:RELEASE"
       ],
       "decided_by": "architect"
     },

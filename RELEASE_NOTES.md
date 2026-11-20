@@ -18,7 +18,7 @@ The per-language limits are in [known limits](docs/known-limits.md).
 
 The Rust core `archkeel-core` is the only decision path on `main` (AD-432). The Python engine is deleted.
 `validate` and `report` (text and JSON) print the frame of the core: PASS exits 0, FAIL exits 1, UNKNOWN exits 2.
-`check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
+`init` drafts a contract. `studio` opens the local Explorer. Release 4.0.1 provides `check`.
 No release carries the core binary yet. Run `main` from a source checkout after `make core`.
 
 The result schemas no longer define the host source `github_initial_pr_head` and its member

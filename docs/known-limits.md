@@ -186,9 +186,12 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The core decides on Windows since AD-442, and the installed Windows wheel must equal the core of
   the checkout. A release from `main` is open (AD-476): it publishes the sdist and the six platform
   wheels that Full builds and runs. The Windows wheel writes no report file (see `report --output`).
-- `init` is served (AD-626, AD-638): Python packages, a Cargo workspace or a `package.json` workspace; folder layout only, every decision a `TODO`; `validate` and `report` run it when `archkeel.toml` is missing, and a run that may not write stops (no in-memory configuration). `explore` and its alias `studio` open the local Explorer. `check`, `guide`, `story` and `view` give the typed refusal
-  `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
-  reports, amendments and `--write-graph` are refused by option name. `--baseline` and
+- `init` drafts a contract from the folder layout of Python packages, a Cargo workspace or a
+  `package.json` workspace (AD-626, AD-638). Each decision is a `TODO`. `validate` and `report`
+  run `init` when `archkeel.toml` is missing and writing is allowed.
+- `studio` opens the local Explorer. Existing scripts can use `explore`. Interactive, saved and
+  focused reports, `architecture.json`, amendments and `--write-graph` are refused by option name.
+  `--baseline` and
   `--write-baseline` are served ([reference](reference.md#baselines)).
 - `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.

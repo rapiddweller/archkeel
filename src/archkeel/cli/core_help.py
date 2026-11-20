@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from .core_arguments import RELEASE, RELEASED
+from .core_arguments import RELEASE
 from .core_exit import table_lines
 from .core_frame import CoreCommand as Command
 
@@ -104,7 +104,7 @@ usage: archkeel explore [PATH | --root PATH] [--config PATH] [--port PORT] [--no
                         [--json | --text]
 
 Open the architecture whiteboard and native report for the same local snapshot.
-`studio` is an alias for `explore`. PATH and --root select the repository; use only one.
+`explore` is a compatibility alias. PATH and --root select the repository; use only one.
 Without a contract configuration, the whiteboard shows observed source and layout groups.
 The Explorer binds to 127.0.0.1 and reads a snapshot of the repository.
 Press Ctrl-C to stop the server.
@@ -148,10 +148,10 @@ examples:
   archkeel init
   archkeel init --root ../service
 """
-_NOT_YET: Final = """\
-usage: archkeel {command}
+_CHECK: Final = """\
+usage: archkeel check
 
-`{command}` is not available in ArchKeel 5.0 yet. {where}
+`check` is not available in ArchKeel 5.0 yet. Use release {release} for it.
 Nothing runs; the exit code is 2. Use `archkeel validate` or `archkeel report`.
 """
 _TOOL: Final = """\
@@ -163,13 +163,9 @@ each run; this command line prints the result.
 commands:
   validate   Check the contract: PASS, FAIL or UNKNOWN. `archkeel validate --help` lists options.
   report     Print the same result as a report; with --output, write an HTML page.
-  explore    Open the local architecture whiteboard and report.
-  studio     Alias for explore.
+  studio     Open the local architecture whiteboard and report.
   init       Draft archkeel.toml and a first contract from the folder layout.
   skill      Install the agent skill: archkeel skill install {{claude,codex}}
-
-not available yet (exit 2): check (use release {release}); guide, story, view
-(no release has them).
 
 {output}
 
@@ -184,7 +180,7 @@ Run `archkeel <command> --help` for the options and examples of one command.
 def help_for(command: Command | None) -> str:
     """The help of one command, or of the tool for `None`."""
     table = "\n".join(table_lines())
-    fields = {"common": _COMMON, "output": _OUTPUT, "table": table, "release": RELEASE}
+    fields = {"common": _COMMON, "output": _OUTPUT, "table": table}
     if command is Command.VALIDATE:
         return _VALIDATE.format(**fields)
     if command is Command.REPORT:
@@ -199,9 +195,4 @@ def help_for(command: Command | None) -> str:
         return _INIT
     if command is None:
         return _TOOL.format(**fields)
-    where = (
-        f"Use release {RELEASE} for it."
-        if command in RELEASED
-        else f"No release has it; release {RELEASE} is older."
-    )
-    return _NOT_YET.format(command=command, where=where)
+    return _CHECK.format(release=RELEASE)

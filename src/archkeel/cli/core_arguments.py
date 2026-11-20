@@ -24,9 +24,6 @@ from .core_frame import CoreCommand as Command
 
 RELEASE: Final = "4.0.1"
 _LINE: Final = "not available in ArchKeel 5.0 yet"
-SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT, Command.EXPLORE, Command.INIT})
-# Release 4.0.1 has `check`. No release has the other refused commands.
-RELEASED: Final = frozenset({Command.CHECK})
 # The options of the deleted Python shell that release 4.0.1 does not have.
 UNRELEASED_OPTIONS: Final = frozenset(
     {"--collector-timeout-seconds", "--html", "--native-core", "--strict"}
@@ -161,8 +158,6 @@ def command_of(argv: Sequence[str]) -> Command:
     if command is Command.CHECK:
         names = "; ".join(_active_checks())
         raise NotOnThisLine(f"check is {_LINE}; {_remedy(True)}; not ported: {names}")
-    if command not in SERVED and command is not Command.SKILL:
-        raise NotOnThisLine(f"{command} is {_LINE}; {_remedy(command in RELEASED)}")
     return command
 
 

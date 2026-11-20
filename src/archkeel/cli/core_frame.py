@@ -72,9 +72,6 @@ class CoreCommand(StrEnum):
     CHECK = "check"
     EXPLORE = "explore"
     INIT = "init"
-    GUIDE = "guide"
-    STORY = "story"
-    VIEW = "view"
     STUDIO = "studio"
 
 

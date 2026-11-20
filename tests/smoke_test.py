@@ -10,12 +10,22 @@ of that binary, and a command that is not on this line must refuse. Run: `make s
 import json
 import subprocess
 import sys
+from importlib.metadata import distribution
 from importlib.resources import files
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 
 def files_of_the_package() -> None:
+    scripts = {
+        entry.name: entry.value
+        for entry in distribution("archkeel").entry_points
+        if entry.group == "console_scripts"
+    }
+    assert scripts == {
+        "archkeel": "archkeel.cli:main",
+        "archkeel-mcp": "archkeel.explorer_mcp:main",
+    }
     schemas = files("archkeel").joinpath("schema")
     result_schema = json.loads(
         schemas.joinpath("command-result.schema.json").read_text(encoding="utf-8")
@@ -88,9 +98,6 @@ def files_of_the_package() -> None:
         "source-facts.schema.json",
     ):
         assert json.loads(schemas.joinpath(name).read_text(encoding="utf-8"))["$id"]
-
-
-REFUSED = ("check", "explore", "guide", "story", "view", "studio")
 
 
 def cli(*args: str) -> subprocess.CompletedProcess[str]:
@@ -193,18 +200,23 @@ def commands() -> None:
         version = cli("--version")
         assert version.returncode == 0 and version.stdout.startswith("archkeel "), version
         assert cli("--help").returncode == 0
+        for command in ("studio", "explore"):
+            help_page = cli(command, "--help")
+            assert help_page.returncode == 0 and help_page.stdout.startswith(
+                f"usage: archkeel {command} "
+            ), help_page
         for command in ("validate", "report"):
             for extra in ((), ("--core-only",)):
                 decided(cli(command, "--root", str(root), "--json", *extra), native)
             text = cli(command, "--root", str(root), "--text")
             assert text.returncode == 0, (text.stdout, text.stderr)
             assert text.stdout.startswith(f"{command}: PASS -> exit 0"), text.stdout
-        for command in REFUSED:
-            message = refusal(
-                cli(command, "--root", str(root), "--json"), "not_on_this_development_line"
+        message = refusal(cli("check", "--json"), "not_on_this_development_line")
+        assert "use release 4.0.1" in message and "not available in ArchKeel 5.0 yet" in message
+        for command in ("guide", "story", "view"):
+            assert f"unknown command {command!r}" in refusal(
+                cli(command, "--json"), "invalid_input"
             )
-            remedy = "use release 4.0.1" if command == "check" else "no release has it"
-            assert remedy in message and "not available in ArchKeel 5.0 yet" in message, message
         removed = cli("validate", "--root", str(root), "--native-core", "--json")
         message = refusal(removed, "not_on_this_development_line")
         assert "--native-core" in message and "no release has it" in message, message

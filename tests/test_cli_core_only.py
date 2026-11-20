@@ -37,7 +37,8 @@ raise SystemExit(code)
 """
 
 
-REFUSED = ("check", "guide", "story", "view")
+REFUSED = ("check",)
+UNRELEASED = ("guide", "story", "view")
 
 
 def shell(*arguments: str) -> subprocess.CompletedProcess[str]:
@@ -92,14 +93,40 @@ def test_a_command_of_the_release_line_stays_registered_and_refuses_with_its_kin
     assert document["refusal"]["kind"] == "not_on_this_development_line"
     message = document["refusal"]["message"]
     assert message.startswith(f"{command} is not available in ArchKeel 5.0 yet")
-    # Release 4.0.1 has only `check` of the refused commands.
-    remedy = "use release 4.0.1" if command == "check" else "no release has it"
-    assert remedy in message and "#" not in message
-    assert ("use release" in message) == (command == "check")
+    assert "use release 4.0.1" in message and "#" not in message
     text = shell(command, *extra, "--text")
     assert text.returncode == 2 and text.stderr == ""
     assert text.stdout.splitlines()[:2] == [f"{command}: REFUSED -> exit 2", f"Problem: {message}"]
     assert "not_on_this_development_line" not in text.stdout
+
+
+def test_main_help_lists_working_commands_once(capsys: pytest.CaptureFixture[str]) -> None:
+    assert core_only.run(["--help"]) == 0
+    help_text = capsys.readouterr().out
+    commands = help_text.split("commands:\n", 1)[1].split("\n\n", 1)[0].splitlines()
+    assert [line.split()[0] for line in commands] == [
+        "validate",
+        "report",
+        "studio",
+        "init",
+        "skill",
+    ]
+    for hidden in (*REFUSED, *UNRELEASED, "explore"):
+        assert f"  {hidden} " not in help_text
+    for name in ("studio", "explore"):
+        assert core_only.run([name, "--help"]) == 0
+        assert capsys.readouterr().out.startswith(f"usage: archkeel {name} ")
+
+
+@pytest.mark.parametrize("command", UNRELEASED)
+@pytest.mark.parametrize("flags", [(), ("--help",)])
+def test_never_released_commands_are_unknown(command: str, flags: tuple[str, ...]) -> None:
+    done = shell(command, *flags, "--json")
+    assert done.returncode == 2 and done.stderr == ""
+    result = json.loads(done.stdout)
+    assert result["command"] is None
+    assert result["refusal"]["kind"] == "invalid_input"
+    assert f"unknown command {command!r}" in result["refusal"]["message"]
 
 
 def test_check_names_each_check_that_is_not_ported() -> None:

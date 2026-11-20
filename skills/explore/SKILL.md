@@ -3,7 +3,7 @@ name: explore
 description: Open the local architecture Explorer for a repository and inspect source evidence.
 ---
 
-Run `archkeel studio PATH` or `archkeel explore PATH` for the project. Omit PATH in the
+Run `archkeel studio PATH` for the project. Omit PATH in the
 project, or use `--root PATH`. Use `--config PATH` to select its scan or system
 document. Read the local address from the command output. Keep the process running while
 the owner uses the whiteboard. Use `--no-open` when a browser cannot open automatically.

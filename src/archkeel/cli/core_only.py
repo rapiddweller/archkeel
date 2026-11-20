@@ -59,7 +59,8 @@ def run(argv: Sequence[str]) -> int:
             print(f"archkeel {_version()}")
             return 0
         if {"-h", "--help"} & set(argv):
-            print(help_for(_command_or_none(argv)), end="")
+            command = _command_or_none(argv) or command_of(argv)
+            print(help_for(command), end="")
             return 0
         command_of(argv)
         options = parse(argv)
