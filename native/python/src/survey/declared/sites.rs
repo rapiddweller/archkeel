@@ -12,7 +12,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::DirectMethods;
+use super::direct_calls::DirectMethods;
 use archkeel_facts::data::{CallData, ImportData, ReferenceData};
 use archkeel_facts::envelope::{ConstructedCall, DirectCall};
 use archkeel_facts::identity::{stable_id, Part};

@@ -7,14 +7,13 @@
 use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::data::{CallableData, ClassData};
-use archkeel_facts::envelope::{ConstructedCall, Evidence, Facts, Profile};
-use archkeel_facts::ids::{EvidenceId, FactId};
+use archkeel_facts::envelope::{ConstructedCall, Evidence, Facts};
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
 use archkeel_facts::nullable::Nullable;
 use archkeel_facts::vocab::{ClassKind, MethodKind, Status};
 use archkeel_facts::{CallFact, Record, Section, SymbolFact};
 
 /// One validated call whose invoked method is a direct member of the constructed class.
-#[derive(Clone, Debug)]
 pub struct OwnedCall {
     /// The call fact.
     pub site: FactId,
@@ -29,7 +28,6 @@ pub struct OwnedCall {
 }
 
 /// The live bound calls and the modules in which every written call has a witness.
-#[derive(Clone, Debug, Default)]
 pub struct CallOwners {
     calls: Vec<OwnedCall>,
     targets: HashSet<String>,
@@ -53,11 +51,11 @@ pub(crate) fn validate(facts: &Facts) -> Result<Option<CallOwners>, String> {
     let Some(witnesses) = &facts.constructed_calls else {
         return Ok(None);
     };
-    if facts.profile != Profile::Python || facts.profile_limits.is_none() {
+    if !facts.coverage.full_scope || facts.profile_limits.is_none() {
         return Err(INVALID.to_owned());
     }
-    if witnesses.targets.is_empty() && witnesses.calls.is_empty() {
-        return Ok(Some(CallOwners::default()));
+    if Vec::is_empty(&witnesses.targets) && Vec::is_empty(&witnesses.calls) {
+        return Ok(None);
     }
     let index = Index::of(facts);
     let mut targets = HashSet::new();
@@ -89,9 +87,13 @@ pub(crate) fn validate(facts: &Facts) -> Result<Option<CallOwners>, String> {
     }
     let mut measured = HashSet::new();
     for row in facts.coverage.measures.iter().flatten() {
-        if index.files.get(row.module.as_str()) != Some(&row.file.as_str())
-            || !measured.insert(row.module.as_str())
-            || counts.get(row.module.as_str()).copied().unwrap_or(0) > row.calls_total
+        if index.files.get(ModuleName::as_str(&row.module)) != Some(&String::as_str(&row.file))
+            || !measured.insert(ModuleName::as_str(&row.module))
+            || counts
+                .get(ModuleName::as_str(&row.module))
+                .copied()
+                .unwrap_or(0)
+                > row.calls_total
         {
             return Err(INVALID.to_owned());
         }
@@ -117,7 +119,12 @@ impl<'a> Index<'a> {
             files: facts
                 .files
                 .iter()
-                .map(|file| (file.module.as_str(), file.rel_path.as_str()))
+                .map(|file| {
+                    (
+                        ModuleName::as_str(&file.module),
+                        String::as_str(&file.rel_path),
+                    )
+                })
                 .collect(),
         };
         for section in &facts.sections {
@@ -125,7 +132,11 @@ impl<'a> Index<'a> {
                 Section::Calls(rows) => index.calls.extend(rows.iter().map(|r| (&r.id, r))),
                 Section::Symbols(rows) => index.symbols.extend(rows.iter().map(|r| (&r.id, r))),
                 Section::Imports(rows) => index.imports.extend(rows.iter().filter_map(|record| {
-                    ConstructedCall::direct_import(&record.data).map(|path| (&record.id, path))
+                    let archkeel_facts::ImportFact::Import(data) = &record.data else {
+                        return None;
+                    };
+                    archkeel_facts::data::ImportData::direct_symbol_route(data)
+                        .map(|path| (&record.id, path))
                 })),
                 _ => {}
             }
@@ -159,19 +170,19 @@ impl<'a> Index<'a> {
             && outer.status == Status::Unresolved
             && outer.candidate_count == 0
             && !outer.candidates_truncated
-            && outer.targets.is_empty()
+            && Vec::is_empty(&outer.targets)
             && inner.status == Status::Resolved
             && allocation.status == Status::Resolved
             && !inner.candidates_truncated
             && !allocation.candidates_truncated
             && inner.candidate_count == 1
-            && matches!(inner.targets.as_slice(), [name] if name == &owner.qualified_name)
+            && matches!(Vec::as_slice(&inner.targets), [name] if name == &owner.qualified_name)
             && allocation.targets == inner.targets;
         if !valid || !self.receiver(call, ctor, witness, &member.name) {
             return None;
         }
-        let source = outer.source_module.as_str();
-        let provider = owner.module.as_str();
+        let source = ModuleName::as_str(&outer.source_module);
+        let provider = ModuleName::as_str(&owner.module);
         let name = owner.name.as_str();
         let spelling = inner.expression.as_str();
         let origin = match &witness.import {
@@ -221,17 +232,18 @@ impl<'a> Index<'a> {
             return None;
         };
         (member.method_kind == Some(MethodKind::Instance)
-            && member.decorators.is_empty()
+            && Vec::is_empty(&member.decorators)
             && member.source_binding_unique == Some(true)
             && owner.class_kind == Some(ClassKind::Class)
             && owner.class_header_static
             && owner.source_binding_unique
             && owner.lexical_parent_id.is_none()
-            && owner.base_declarations.is_empty()
+            && Vec::is_empty(&owner.base_declarations)
             && member.parent.as_deref() == Some(owner.qualified_name.as_str())
             && member.module == owner.module
             && member.qualified_name == format!("{}.{}", owner.qualified_name, member.name)
-            && owner.qualified_name == format!("{}.{}", owner.module.as_str(), owner.name))
+            && owner.qualified_name
+                == format!("{}.{}", ModuleName::as_str(&owner.module), owner.name))
         .then_some((method, class, member, owner))
     }
 

@@ -78,6 +78,23 @@ facts_data! {
 }
 
 impl ImportData {
+    /// The source, provider, declaration and binding of a direct, unique import.
+    pub fn direct_symbol_route(&self) -> Option<[&str; 4]> {
+        if !self.module_level_import
+            || self.under_type_checking
+            || !self.symbols_known
+            || self.source_binding_unique != Some(true)
+        {
+            return None;
+        }
+        Some([
+            self.source_module.as_str(),
+            self.target_module.as_str(),
+            self.symbol.as_deref()?,
+            self.binding.as_deref()?,
+        ])
+    }
+
     /// An import with the fields of a statement import (TypeScript, Rust) and empty values. The
     /// fields that only Python and Dart write are absent. A producer sets each statement field.
     pub fn statement() -> Self {

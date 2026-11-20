@@ -17,9 +17,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::{collections::BTreeMap, fmt};
 
-mod constructed_call;
-pub use crate::nested::{DirectCall, SourceCallCandidate, WrittenActual};
-pub use constructed_call::{ConstructedCall, ConstructedCalls};
+pub use crate::nested::{
+    ConstructedCall, ConstructedCalls, DirectCall, SourceCallCandidate, WrittenActual,
+};
 
 /// A closed object of the envelope: an unknown key is a decode error.
 macro_rules! object {

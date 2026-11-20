@@ -38,8 +38,6 @@
         "native.archkeel_facts.data:SelectorData",
         "native.archkeel_facts.data:SignalData",
         "native.archkeel_facts.data:ValueData",
-        "native.archkeel_facts.envelope.constructed_call:ConstructedCall",
-        "native.archkeel_facts.envelope.constructed_call:ConstructedCalls",
         "native.archkeel_facts.envelope.validation:InterfaceNeed",
         "native.archkeel_facts.envelope.validation:Registered",
         "native.archkeel_facts.envelope.validation:library_family",
@@ -278,7 +276,6 @@
       "public": [
         "native.archkeel_store:CallOwners",
         "native.archkeel_store:Ingested",
-        "native.archkeel_store:OwnedCall",
         "native.archkeel_store:ingest_reply",
         "native.archkeel_store:ingest_typed",
         "native.archkeel_store:sdk_libraries",
@@ -747,6 +744,7 @@
           "component": "store",
           "rationale": "Read the records of the validated reply in their typed form (AD-359).",
           "through": [
+            "native.archkeel_store.call_owners",
             "native.archkeel_store:CallOwners",
             "native.archkeel_store:Ingested",
             "native.archkeel_store:standard_library"

@@ -420,7 +420,7 @@ fn declarations(
     let methods = if closed_namespace {
         declared::DirectMethods::of(&found, modules, writes, written)
     } else {
-        declared::DirectMethods::default()
+        declared::DirectMethods::empty()
     };
     let mut sites = declared::Sites {
         calls: Vec::new(),
@@ -451,7 +451,7 @@ fn declarations(
     );
     let records = found.into_iter().flat_map(|item| item.records).collect();
     let constructed = ConstructedCalls {
-        targets: methods.targets(),
+        targets: declared::DirectMethods::targets(&methods),
         calls: std::mem::take(&mut sites.constructed),
     };
     Symbols {

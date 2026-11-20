@@ -238,7 +238,7 @@ fn sites_of(text: &str) -> (Vec<archkeel_facts::Record<archkeel_facts::CallFact>
     let sites = site_records(
         (&module, &binders),
         &found,
-        (&context, &super::DirectMethods::default()),
+        (&context, &super::DirectMethods::empty()),
         &mut evidence,
     );
     (sites.calls, sites.references.len())

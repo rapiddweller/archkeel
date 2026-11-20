@@ -7,23 +7,29 @@
 use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::envelope::ConstructedCall;
-use archkeel_facts::ids::FactId;
+use archkeel_facts::ids::{FactId, ModuleName};
 use archkeel_facts::nullable::Nullable;
 use archkeel_facts::vocab::{MethodKind, Status};
 use archkeel_facts::{CallFact, ImportFact, Record, SymbolFact};
 use ruff_python_ast::{Expr, ExprCall, Stmt, StmtFunctionDef};
 
-use super::Found;
+use super::found::Found;
 use crate::module::Module;
 use crate::survey::class_writes::{may_write, ClassWrites};
 
-#[derive(Default)]
 pub(crate) struct DirectMethods {
     methods: HashMap<String, HashMap<String, FactId>>,
     imports: HashMap<String, HashMap<String, (String, FactId)>>,
 }
 
 impl DirectMethods {
+    pub(crate) fn empty() -> Self {
+        Self {
+            methods: HashMap::new(),
+            imports: HashMap::new(),
+        }
+    }
+
     pub(crate) fn of(
         found: &[Found<'_>],
         modules: &[Module],
@@ -43,7 +49,7 @@ impl DirectMethods {
             "__delattr__",
         ];
         if hooks.into_iter().any(|name| may_write(writes, name)) {
-            return Self::default();
+            return Self::empty();
         }
         for declarations in found {
             let module = &modules[declarations.index];
@@ -63,7 +69,11 @@ impl DirectMethods {
             }
         }
         let bound_imports = imports.iter().filter_map(|record| {
-            ConstructedCall::direct_import(&record.data).map(|route| (route, &record.id))
+            let ImportFact::Import(data) = &record.data else {
+                return None;
+            };
+            archkeel_facts::data::ImportData::direct_symbol_route(data)
+                .map(|route| (route, &record.id))
         });
         for ([source, provider, symbol, bound], id) in bound_imports {
             let class = format!("{provider}.{symbol}");
@@ -108,7 +118,7 @@ impl DirectMethods {
         let Nullable::Value(allocation) = &data.construction else {
             return None;
         };
-        let [class] = allocation.targets.as_slice() else {
+        let [class] = Vec::as_slice(&allocation.targets) else {
             return None;
         };
         if allocation.status != Status::Resolved {
@@ -127,7 +137,7 @@ impl DirectMethods {
         };
         let method_id = self.methods.get(class)?.get(name)?.clone();
         let (provider, _) = class.rsplit_once('.')?;
-        let source = data.source_module.as_str();
+        let source = ModuleName::as_str(&data.source_module);
         let import = if source == provider {
             None
         } else {
@@ -174,11 +184,11 @@ fn plain_class(stmt: &Stmt) -> Option<&str> {
     };
     (class.arguments.is_none()
         && class.type_params.is_none()
-        && class.decorator_list.is_empty()
+        && Vec::is_empty(&class.decorator_list)
         && class.body.iter().all(|stmt| match stmt {
             Stmt::FunctionDef(method) => {
                 !method.name.as_str().starts_with("__")
-                    && method.decorator_list.is_empty()
+                    && Vec::is_empty(&method.decorator_list)
                     && method.type_params.is_none()
                     && method.returns.is_none()
                     && method
