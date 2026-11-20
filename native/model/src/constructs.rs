@@ -32,9 +32,10 @@ pub(crate) struct Constructs {
     pub(crate) sites: Vec<ConstructSite>,
     pub(crate) symbols: Vec<(String, String)>,
     pub(crate) capabilities: Vec<(String, ConstructSupport)>,
-    pub(crate) selectors: bool,
     pub(crate) constructs_measured: bool,
     pub(crate) signals_measured: bool,
+    pub(crate) placeholder_under_premise: bool,
+    pub(crate) any_annotation_under_premise: bool,
 }
 
 /// One matched site and whether its selected identity is proven.
@@ -60,14 +61,19 @@ impl Work {
 }
 
 impl Constructs {
-    pub(crate) fn derive(facts: &Facts) -> Result<Self, Reason> {
+    pub(crate) fn derive(facts: &Facts, trusted: bool) -> Result<Self, Reason> {
         let mut found = Self {
             sites: Vec::new(),
             symbols: Vec::new(),
             capabilities: Vec::new(),
-            selectors: facts.profile.construct_selectors(),
             constructs_measured: false,
             signals_measured: false,
+            any_annotation_under_premise: trusted
+                && Option::as_ref(&facts.standard)
+                    .is_some_and(|standard| standard.any_annotation_under_premise),
+            placeholder_under_premise: trusted
+                && Option::as_ref(&facts.standard)
+                    .is_some_and(|standard| standard.placeholder_under_premise),
         };
         let mut work = Work(4_000_000);
         for capability in &facts.capabilities.constructs {

@@ -78,8 +78,9 @@ the last two were fixed after it and are checked on main at `157dc8851`:
   `tests/test_collector_false_pass_ts_lookup.py`; a value that is only tested keeps its PASS.
 
 Main supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
-A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
-an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
+The linked Python collector also proves direct function calls for `call_owner` (AD-1002).
+An open import route keeps call identity unproved. An unrelated open call does not hide a proven violation.
+A dynamic import, an import-system change and the other gaps of AD-450 can hold rules that read them.
 A contract can declare the reach of an `eval`, `exec`, `compile`, unpickler, loader or `__import__`
 site; a PASS then holds only under that premise and says so (AD-664). A door module binding and a
 pickler have no declarable reach, and a TypeScript run-time key whose gap blocks the free standard
@@ -89,8 +90,9 @@ uses as a value escapes the package, unless its origin cannot be a module of the
 read of `__globals__` is no gap when the dict only feeds a lookup of a literal key; library code
 that gives the dict back is not seen (AD-530).
 Python construct rules stay UNKNOWN when the collector cannot prove that it sees every site.
-For `type_ignore`, only an exact `name.method()` statement with a trailing readable comment is
-recorded; other type comments keep the rule UNKNOWN (AD-780). `interface_boundary` and symbol-level
+For `type_ignore`, a single-line call with a plain or dotted name, assignment to one name,
+annotated name, or return with a value can carry an exact trailing comment. Other unread type comments
+keep the rule UNKNOWN (AD-780, AD-868, AD-872, AD-908, AD-942, AD-990, AD-997). `interface_boundary` and symbol-level
 `through` ports are decided from the publication route of each named import (AD-504); the hygiene
 checks `interface.*` prove a use of a `public` entry from the imports and name `interface.usage_unknown`
 where only a declared facade signature could reach it (AD-514). A Dart project gets PASS or FAIL

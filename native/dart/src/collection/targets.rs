@@ -217,6 +217,7 @@ fn construction_record(resolution: &Construction) -> ConstructionData {
         }
     };
     ConstructionData {
+        inferred_type: resolution.inferred_type.clone(),
         status,
         targets: target.into_iter().collect(),
         candidates_truncated: false,

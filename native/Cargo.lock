@@ -31,10 +31,8 @@ dependencies = [
  "archkeel-dart-collector",
  "archkeel-facts",
  "archkeel-python-collector",
- "archkeel-rust-collector",
  "archkeel-snapshot",
  "archkeel-store",
- "archkeel-typescript-collector",
  "archkeel-wire",
  "flate2",
  "serde_json",
@@ -194,7 +192,7 @@ dependencies = [
 name = "archkeel-snapshot"
 version = "0.0.0"
 dependencies = [
- "archkeel-facts",
+ "sha2",
 ]
 
 [[package]]

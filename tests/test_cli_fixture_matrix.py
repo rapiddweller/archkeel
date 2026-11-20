@@ -10,6 +10,7 @@ Never weaken a pinned verdict to make this test pass.
 
 from __future__ import annotations
 
+import json
 import os
 import tomllib
 from contextlib import nullcontext
@@ -17,6 +18,7 @@ from pathlib import Path
 
 import pytest
 from core_support import run
+from test_cli_native_python_imports import verdict
 
 from archkeel.cli import core_only
 from tools import fixture_source
@@ -77,6 +79,173 @@ def test_the_release_core_gives_the_pinned_result(
     found = summarize(envelope)
     assert found == entry["expect"], "the core result changed: update fixtures/matrix.json"
     assert code == entry["expect"]["exit"]
+
+
+def test_shop_repository_owns_the_package_entry_point(release_core: Path) -> None:
+    rule = "store:STORE-REQUIRES-COMPLETE"
+    shop = FIXTURES / "F-architecture"
+    assert verdict(release_core, shop)["frame"]["rules"][rule][1] == "PASS"
+    edit = {"path": "shop/store/__init__.py", "append": "\nfrom shop.store.sqlite import vacuum\n"}
+    with fixture_tree(shop, [edit]) as root:
+        frame = verdict(release_core, root)["frame"]
+    assert frame["rules"][rule][1] == "FAIL"
+    [finding] = frame["details"][rule]
+    assert (finding["source"], finding["target"]) == ("shop.store", "shop.store.sqlite")
+
+
+@pytest.mark.parametrize(
+    ("name", "status"),
+    [
+        ("M-module-acyclic", "PASS"),
+        ("M-module-cycle", "FAIL"),
+        ("M-module-possible-cycle", "UNKNOWN"),
+    ],
+)
+def test_module_cycle_demo_explains_its_rule(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str, status: str
+) -> None:
+    """The reverse import closes the cycle; an unreadable loader can hide that import."""
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    entry = next(run for run in RUNS if run["name"] == name)
+    source = FIXTURES / entry["root"]
+    edits = entry.get("plant", {}).get("edits")
+    with fixture_tree(source, edits, CACHE) if edits else nullcontext(source) as root:
+        assert "from app import b\n" in (root / "app/a.py").read_text()
+        _, envelope = run("report", "--root", str(root))
+    frame = envelope["frame"]
+    assert frame["rules"]["NO-MODULE-CYCLES"][1] == status
+    if status == "FAIL":
+        [cycle] = frame["explain"]["cycles"]["NO-MODULE-CYCLES"]["items"]
+        assert {(step["from"], step["to"]) for step in cycle["path"]} == {
+            ("app.a", "app.b"),
+            ("app.b", "app.a"),
+        }
+        for step in cycle["path"]:
+            sites = {
+                (frame["locations"][evidence]["path"], frame["locations"][evidence]["line"])
+                for evidence in step["evidence"]
+            }
+            expected = {
+                ("app.a", "app.b"): ("app/a.py", 5),
+                ("app.b", "app.a"): ("app/b.py", 5),
+            }
+            assert expected[step["from"], step["to"]] in sites
+    if status == "UNKNOWN":
+        hold = frame["explain"]["holds"]["rules"]["NO-MODULE-CYCLES"]
+        assert hold["kind"] == "scoped_gaps" and hold["pairs"] == []
+        [gap] = frame["collection_gaps"]
+        assert gap["subjects"] == ["app.b"]
+        assert gap["reason"] == "dynamic_import: __import__"
+        assert {
+            (frame["locations"][evidence]["path"], frame["locations"][evidence]["line"])
+            for evidence in gap["evidence"]
+        } == {("app/b.py", 2)}
+
+
+@pytest.mark.parametrize(
+    ("name", "rule", "target", "cause"),
+    [
+        (
+            "M-plant-interface",
+            "INTERFACE-BOUNDARY",
+            "orders.pricing.tax:Vat",
+            "import outside the public interface",
+        ),
+        (
+            "M-plant-requires",
+            "REQUIRES-COMPLETE",
+            "orders.storage",
+            "undeclared component dependency",
+        ),
+    ],
+)
+def test_review_demo_identifies_the_forbidden_import(
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    rule: str,
+    target: str,
+    cause: str,
+) -> None:
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    entry = next(run for run in RUNS if run["name"] == name)
+    with fixture_tree(FIXTURES / entry["root"], entry["plant"]["edits"], CACHE) as root:
+        _, envelope = run("report", "--root", str(root))
+    frame = envelope["frame"]
+    assert frame["rules"][rule][1] == "FAIL"
+    [detail] = frame["details"][rule]
+    assert (detail["source"], detail["target"], detail["cause"]) == ("orders.api", target, cause)
+    assert any(
+        frame["locations"][evidence]["path"] == "orders/api.py"
+        and frame["locations"][evidence]["line"] == 8
+        for evidence in detail["evidence"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "rule", "reason"),
+    [
+        (
+            "M-interface-open-route",
+            "INTERFACE-BOUNDARY",
+            "incomplete scope: interface_boundary: unproven publication route",
+        ),
+        (
+            "M-requires-open-symbol",
+            "REQUIRES-COMPLETE",
+            "incomplete scope: the rule left 1 imports undecided",
+        ),
+    ],
+)
+def test_review_demo_keeps_an_open_binding_unknown(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str, rule: str, reason: str
+) -> None:
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    entry = next(run for run in RUNS if run["name"] == name)
+    source = FIXTURES / entry["root"]
+    contract = json.loads((source / "architecture-contract.json").read_text())
+    entry_component = next(c for c in contract["components"] if c["id"] == "entry")
+    pricing = next(c for c in contract["components"] if c["id"] == "pricing")
+    assert pricing["public"] == ["orders.pricing:price"]
+    assert any(r["through"] == ["orders.pricing:price"] for r in entry_component["requires"])
+    _, baseline = run("report", "--root", str(source))
+    assert baseline["frame"]["rules"][rule][1] == "PASS"
+    with fixture_tree(source, entry["plant"]["edits"], CACHE) as root:
+        api = (root / "orders/api.py").read_text()
+        if name == "M-interface-open-route":
+            assert "from orders.pricing import price, mystery" in api
+            facade = (root / "orders/pricing/__init__.py").read_text()
+            assert "from orders.pricing.tax import Vat as mystery" in facade
+            assert "from orders.pricing.base import Line as mystery" in facade
+        else:
+            assert "import orders.pricing as pricing\nvalue = pricing\n" in api
+        _, result = run("report", "--root", str(root), "--topology")
+    frame = result["frame"]
+    assert frame["rules"][rule][1] == "UNKNOWN"
+    assert frame["explained"][rule] == reason
+    assert frame["collection_gaps"] == []
+    assert frame["explain"]["holds"]["rules"][rule]["kind"] == "other"
+    [edge] = [
+        edge
+        for edge in frame["topology"]["edges"]
+        if edge["source"] == "orders.api" and edge["target"] == "orders.pricing"
+    ]
+    assert edge["resolution"] == "resolved"
+    if name == "M-requires-open-symbol":
+        assert {"path": "orders/api.py", "line": 21} in edge["evidence"]
+    else:
+        assert {"path": "orders/api.py", "line": 7} in edge["evidence"]
+        assert frame["rules"]["REQUIRES-COMPLETE"][1] == "FAIL"
+        [detail] = frame["details"]["REQUIRES-COMPLETE"]
+        assert (detail["source"], detail["target"], detail["cause"]) == (
+            "orders.api",
+            "orders.pricing",
+            "undeclared component dependency",
+        )
+        assert any(
+            frame["locations"][evidence] == {"path": "orders/api.py", "line": 7}
+            for evidence in detail["evidence"]
+        )
 
 
 def test_the_scope_line_counts_the_gaps_that_the_report_lists(

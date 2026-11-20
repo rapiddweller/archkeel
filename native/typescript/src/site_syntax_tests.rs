@@ -44,11 +44,11 @@ fn a_template_with_a_substitution_and_a_non_equality_are_no_comparison() {
 }
 
 #[test]
-fn an_object_literal_a_unmodeled_block_and_a_plain_function_make_a_scope_uncertain() {
-    // A call inside an object literal, inside a loose block, inside an arrow function.
+fn only_a_named_module_arrow_has_a_certain_scope() {
     assert_eq!(ambiguous("({ k: f() });"), [true, true]);
     assert_eq!(ambiguous("{ f(); }"), [true]);
-    assert_eq!(ambiguous("const g = () => f();"), [true]);
+    assert_eq!(ambiguous("const g = () => f();"), [false]);
+    assert_eq!(ambiguous("register(() => f());"), [false, true]);
     assert_eq!(ambiguous("f();"), [false]);
     // An immediately called wrapper that passes the global object keeps the scope certain.
     assert_eq!(

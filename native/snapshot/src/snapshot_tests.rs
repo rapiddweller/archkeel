@@ -71,11 +71,7 @@ fn a_file_over_the_size_limit_is_not_read() {
         Some("Source file over the size limit of 4194304 bytes: src/over.ts")
     );
     assert_eq!(snapshot.size_gap("src/at.ts"), None);
-    let inputs: Vec<String> = snapshot
-        .inputs()
-        .into_iter()
-        .map(|input| input.path)
-        .collect();
+    let inputs = snapshot.inputs(|path, _, _| path.to_owned());
     assert_eq!(inputs, ["src/at.ts"]);
 }
 

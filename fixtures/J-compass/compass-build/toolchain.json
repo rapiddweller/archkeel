@@ -1,0 +1,13 @@
+{
+  "frameworkVersion": "3.44.8",
+  "frameworkRevision": "058e0af2c2b57e369d905a03ac9748b0ebf543c6",
+  "engineRevision": "0cd610717bde95fd88343c64f81c11ba4e5c0010",
+  "dartSdkVersion": "3.12.2",
+  "macos_arm64_archive": {
+    "url": "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_arm64_3.44.8-stable.zip",
+    "sha256": "c3d6fe95078f7001d947a31d42527de91d5bfe62e4cf444a1493a2e8f1fb199d"
+  },
+  "git_archive_sha256": {
+    "menubar": "93292e5b12ba26d6463197881c81355f8340061a8aea732c92458df72269453b"
+  }
+}

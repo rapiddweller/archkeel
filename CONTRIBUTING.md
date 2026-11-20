@@ -29,25 +29,29 @@ Python collectors are deleted; the Python collectors are gone, and a release 4.0
 make ci-pr-check BASE=origin/main        # lint, types and a fixed set of tests
 ```
 
-`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the hygiene and 500-line rule, `cargo fmt` and the clone and API gates. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast to keep its 3 minutes (AD-756).
+`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the hygiene and 500-line rule, `cargo fmt` and the clone and API gates. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
 
 Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, warns when the branch is behind `main`, and adds the reasons of the merge decision table (below).
 
-Merge with `python tools/merge_pr.py <number>` (AD-676, AD-736). One decision table gives MERGE, WAIT or REFUSE with reason codes (`--json` prints `{verdict, reasons, required, head}`; `--wait N` loops while the verdict is WAIT). Exit codes: 0 merged, 1 refused, 2 empty landing, 3 wait, 4 merged but the landing is not visible yet. A check that is queued or in progress, or a merge state that GitHub has not computed, is WAIT; a completed check that is not a success is REFUSE. The tool also refuses a pull request that deletes a file or removes more than 300 lines net (`deletion_unapproved`), and one that removes more than 50 entries from `native/expected-gaps.json` or `native/expected-growth.json` (`ratchet_removal_unapproved`), unless the lead has set the label `deletion-approved` or `ratchet-lead` after owner approval. Never `git reset --soft` onto a moved `origin/main`: your tree is then compared with a newer main and reverts what landed in between.
+Merge with `python tools/merge_pr.py <number>` (AD-676, AD-736). One decision table gives MERGE, WAIT or REFUSE with reason codes (`--json` prints `{verdict, reasons, required, head}`; `--wait N` loops while the verdict is WAIT). Exit codes: 0 merged, 1 refused, 2 empty landing, 3 wait, 4 merged but the landing is not visible yet. A check that is queued or in progress, or a merge state that GitHub has not computed, is WAIT; a completed check that is not a success is REFUSE. The tool also refuses a pull request that deletes a file or removes more than 300 lines net (`deletion_unapproved`), and one that removes more than 50 entries from `native/expected-gaps.json` or `native/expected-growth.json` (`ratchet_removal_unapproved`), unless the lead has set the label `deletion-approved` or `ratchet-lead` after owner approval. It counts removed entries by identity; added entries do not offset them (AD-945). Never `git reset --soft` onto a moved `origin/main`: your tree is then compared with a newer main and reverts what landed in between.
 
 Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md), updated by [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md), 2026-11-10):
 
 1. One review per PR. A PR that can enable a PASS also gets the false-PASS probes (the five `tests/test_collector_false_pass_*.py` files; four run in each PR and all run in Full); a probe expects UNKNOWN or FAIL, never PASS. The author fixes the findings and the lead checks the fixes. There is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not perfection.
 2. Local gate on the final head: `make ci-pr-static BASE=origin/main`, the area tests, `make native-check` when `native/` changes, `make merge-check`, and the lead's merge-tree check. Push only on a green local gate.
-3. Merge only on green (AD-674): the check `PR gate` of the PR must pass, and `tools/merge_pr.py` refuses a red or missing required check. Three tiers: the PR gate (at most 3 minutes: static checks, core build, self and system check, the fast tests of the touched areas), the main tier (a push to `main`: the whole fast suite and `make native-check`, at most 15 minutes) and the nightly Full run (scaling, large scans, Windows and Python matrix, at most 45 minutes). AD-674 amends [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md).
+3. Merge only on green (AD-674): the check `PR gate` of the PR must pass, and `tools/merge_pr.py` refuses a red or missing required check. Three tiers: the PR gate (static checks, core build, self and system check, and main-tier tests of touched areas), the main tier (a push to `main`: the whole fast suite and `make native-check`, at most 15 minutes) and the nightly Full run (scaling, large scans, Windows and Python matrix, at most 45 minutes). AD-674 amends [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md).
 4. Do not update the branch unless the merge-tree shows a real conflict.
 5. Full runs on `main` nightly, and by dispatch when useful. A failure on `main` becomes a backlog issue with a priority, except when `main` no longer builds locally: then fix it at once, because no agent can work.
 6. Run `python3 tools/ci_daily.py` for the daily line. Targets: CI at most 10 min, queue wait at most 3 min.
 7. Revisit these rules when the Rust corpus is complete, or after a second red `main` of more than 1 hour.
 
 Each CI run (a push to `main`) runs the fast tests, one area in each job (`make fast-test AREA=...`).
-The PR gate runs the areas that `tools/select_areas.py` derives from the changed paths with the rules
-of `tests/areas.py`; a path that no rule names selects every area. The slow files of `SLOW_FILES` in
+The PR gate selects areas from changed paths with the rules of `tests/areas.py`. A native or CLI
+source change runs the main-tier tests of its selected areas in parallel. A native report change
+selects the CLI and report areas. Other native and CLI changes select every area. A native change
+also runs `native-check`. Changes to the gate run all areas and the native check. Other changes
+keep the PR-tier selection. A path that no rule names selects every area.
+The slow files of `SLOW_FILES` in
 `tests/areas.py` (scaling, memory, large scans) carry the marker `slow` and run only in the nightly Full run.
 `tests/area_floors.json` gives each area a floor of fast tests, so an empty selection fails. Samples do not replace testing the behavior you change.
 Python import rules run through the release core in `tests/test_cli_native_python_imports.py`.
@@ -87,6 +91,11 @@ aggregate would count as passed.
 | Full: Native wheel: `<target>` (six targets) | same as above | `make native-wheel NATIVE_TAG=<tag>` on the target |
 | Full: All Full checks passed | same as above | none: it needs every Full job |
 | Release: Full, build, publish and gallery refresh | each version tag | `make build plugin-release VERSION=<version>` |
+
+The final 5.0.0 release also checks the complete system frame with its candidate wheel
+([AD-991](docs/architecture/decisions/ad-991-final-5-0-requires-the-complete-system-frame.md)).
+Every declared rule must be present once and read PASS. The frame keeps each premise.
+Before release, compare FastAPI and bazel_worker with 4.0.1. These comparisons are separate.
 
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. The main tier runs `make fast-test`;

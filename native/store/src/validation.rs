@@ -62,7 +62,10 @@ fn symbols(facts: &Facts) -> Result<(), String> {
 
 /// The language-free minimum that no block lowers.
 fn minimum(facts: &Facts, block: &Validation) -> Result<(), String> {
-    let named = block.registered.iter().flat_map(Registered::named_features);
+    let named = block
+        .registered
+        .iter()
+        .flat_map(|set: &Registered| set.named_features());
     if let Some(feature) = named.into_iter().find(|feature| !known_feature(feature)) {
         return Err(format!(
             "the store does not check the resolution feature {feature} yet"

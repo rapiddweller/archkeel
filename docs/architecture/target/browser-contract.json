@@ -187,7 +187,8 @@
       "kind": "complete_requires",
       "rationale": "Every selected script has one owner; cross-owner source bindings use only the exact declared entry ports. Runtime effects do not constitute source bindings.",
       "provenance": [
-        "docs/architecture/decisions/ad-606-the-report-page-holds-the-4-0-1-explorer-with-the-5-0-design-tokens.md"
+        "docs/architecture/decisions/ad-606-the-report-page-holds-the-4-0-1-explorer-with-the-5-0-design-tokens.md",
+        "docs/architecture/browser.md"
       ],
       "decided_by": "agent"
     }

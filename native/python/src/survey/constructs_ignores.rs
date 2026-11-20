@@ -10,8 +10,15 @@ use archkeel_facts::data::SignalData;
 use archkeel_facts::vocab::Signal;
 use ruff_python_ast::{Expr, Stmt};
 
-pub(super) fn member_call(expr: &Expr) -> bool {
-    matches!(expr, Expr::Call(call) if matches!(&*call.func, Expr::Attribute(attr) if matches!(&*attr.value, Expr::Name(_))))
+pub(super) fn supported_call(expr: &Expr) -> bool {
+    let Expr::Call(call) = expr else {
+        return false;
+    };
+    let mut target = call.func.as_ref();
+    while let Expr::Attribute(attribute) = target {
+        target = attribute.value.as_ref();
+    }
+    matches!(target, Expr::Name(_))
 }
 
 pub(super) fn data(owner: &str, line: i64, tag: String, statement: String) -> SignalData {
@@ -76,13 +83,11 @@ impl Comments {
         }
         match stmt {
             Stmt::Assign(node) if matches!(node.targets.as_slice(), [Expr::Name(_)]) => {}
+            Stmt::AnnAssign(node) if matches!(&*node.target, Expr::Name(_)) => {}
+            Stmt::Return(node) if node.value.is_some() => {}
             Stmt::Expr(_) => {
-                let (base, member) = statement
-                    .strip_suffix(')')?
-                    .split_once('(')?
-                    .0
-                    .split_once('.')?;
-                if !identifier(base) || !identifier(member) {
+                let name = statement.strip_suffix(')')?.split_once('(')?.0;
+                if !name.split('.').all(identifier) {
                     return None;
                 }
             }

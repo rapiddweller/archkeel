@@ -15,8 +15,9 @@ use ruff_python_ast::{CmpOp, ExceptHandler, Expr, Parameter, Stmt};
 use ruff_text_size::Ranged;
 use std::collections::HashSet;
 
-use super::binders::Binders;
+use super::binders::{named_call, Binders};
 use super::class_writes::ClassWrites;
+use super::declared::placeholder as declarations;
 use super::support::{Construct, Support};
 use crate::module::{EvidenceMap, Location, Module};
 
@@ -26,45 +27,51 @@ mod ignores;
 mod placeholder;
 
 pub(super) fn collect(
-    modules: &[Module],
-    binders: &[Binders],
-    imports: &[Record<ImportFact>],
+    (modules, binders, imports): (&[Module], &[Binders], &[Record<ImportFact>]),
     sets: (&HashSet<String>, &HashSet<String>),
-    (writes, hazard_free): (&ClassWrites, bool),
+    (writes, hazard_free, all_inputs_read): (&ClassWrites, bool, bool),
+    stdlib: &HashSet<&str>,
     evidence: &mut EvidenceMap,
 ) -> Findings {
     // AD-880: no site of the scan changes the import system or runs a door, and no write replaces `typing`.
     let typing_unchanged = hazard_free && writes.typing_unchanged();
+    let protocol_unchanged = hazard_free
+        && all_inputs_read
+        && declarations::standard_protocol(modules, imports, stdlib, writes);
     let mut records = Vec::new();
     let mut signals = Vec::new();
     let mut support = Support::start();
-    let by_module = super::declared::placeholder::by_module(imports);
+    let by_module = declarations::by_module(imports);
     for (module, binders) in modules.iter().zip(binders) {
         let source_imports = by_module
             .get(module.name.as_str())
             .map_or(&[][..], Vec::as_slice);
-        let withheld =
-            super::declared::placeholder::withheld(module, binders, source_imports, sets);
+        let decisions =
+            declarations::decisions(module, binders, source_imports, sets, protocol_unchanged);
         let mut found = one(module, binders, typing_unchanged, evidence);
-        found
-            .records
-            .extend(placeholder::collect(module, evidence, &withheld));
+        let (placeholders, coverage) = placeholder::collect(module, evidence, &decisions);
+        found.records.extend(placeholders);
+        found.support.observe_placeholder(coverage);
         records.extend(found.records);
         signals.extend(found.signals);
         support.meet(&found.support);
+    }
+    if !all_inputs_read {
+        support.downgrade(Construct::Placeholder);
     }
     Findings {
         records,
         signals,
         support,
+        protocol_unchanged,
     }
 }
 
 pub(super) struct Findings {
     pub records: Vec<Record<ConstructFact>>,
     pub signals: Vec<Record<SignalFact>>,
-    /// What the survey sees of each construct (AD-737).
     pub support: Support,
+    pub protocol_unchanged: bool,
 }
 
 fn one(
@@ -141,6 +148,7 @@ fn one(
         records: walk.records,
         signals: walk.signals,
         support: walk.support,
+        protocol_unchanged: false,
     }
 }
 
@@ -190,14 +198,17 @@ impl<'a> Visitor<'a> for Walk<'_> {
             self.owner.push_str(name);
         }
         match stmt {
-            Stmt::Expr(node) if ignores::member_call(&node.value) => self.type_ignore(stmt),
-            Stmt::Assign(_) => self.type_ignore(stmt),
+            Stmt::Expr(node) if ignores::supported_call(&node.value) => self.type_ignore(stmt),
+            Stmt::Assign(_) | Stmt::Return(_) => self.type_ignore(stmt),
             Stmt::FunctionDef(node) => {
                 if let Some(annotation) = &node.returns {
                     self.annotation(annotation);
                 }
             }
-            Stmt::AnnAssign(node) => self.annotation(&node.annotation),
+            Stmt::AnnAssign(node) => {
+                self.type_ignore(stmt);
+                self.annotation(&node.annotation);
+            }
             _ => {}
         }
         visitor::walk_stmt(self, stmt);
@@ -290,17 +301,6 @@ impl<'a> Visitor<'a> for Walk<'_> {
             }
         }
         visitor::walk_expr(self, expr);
-    }
-}
-
-fn named_call(func: &Expr, names: &HashSet<String>, modules: &HashSet<String>, attr: &str) -> bool {
-    match func {
-        Expr::Name(name) => names.contains(name.id.as_str()),
-        Expr::Attribute(node) => {
-            node.attr.as_str() == attr
-                && matches!(&*node.value, Expr::Name(name) if modules.contains(name.id.as_str()))
-        }
-        _ => false,
     }
 }
 

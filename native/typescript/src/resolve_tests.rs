@@ -405,11 +405,7 @@ fn run(block: &str) {
     }
     for line in &lines {
         if let Some(expected) = line.strip_prefix("reads|") {
-            let reads: Vec<String> = snapshot
-                .inputs()
-                .into_iter()
-                .map(|input| input.path)
-                .collect();
+            let reads = snapshot.inputs(|path, _, _| path.to_owned());
             assert_eq!(reads.join(","), expected, "inputs");
         } else if let Some(expected) = line.strip_prefix("problems|") {
             let problems: Vec<&str> = snapshot.problems.iter().map(String::as_str).collect();

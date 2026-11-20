@@ -15,6 +15,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use archkeel_facts::vocab::ResolutionDimension;
+use archkeel_facts::ImportFact;
 
 use crate::builder::Builder;
 use crate::crates::Workspace;
@@ -22,10 +23,69 @@ use crate::definitions::{Access, Form, Member, MethodCall};
 use crate::impl_globs::depends;
 use crate::impl_globs::once_gap;
 use crate::modules::inside;
-use crate::modules::TypeOf;
-use crate::scan::Via;
+use crate::modules::{Frame, Index, TypeOf};
+use crate::scan::{Reference, Via};
 use crate::site::Site;
 use crate::tree::Module;
+
+/// Exact import binding sites whose recorded routes reach their named types.
+pub(super) struct NameRoutes {
+    sites: BTreeSet<(String, i64, i64)>,
+    macro_shadow: bool,
+}
+
+impl NameRoutes {
+    pub(super) fn of(builder: &Builder, macro_shadow: bool) -> Self {
+        let sites = builder.imports.iter().filter_map(|record| {
+            let (ImportFact::Import(data) | ImportFact::Reexport(data)) = &record.data else {
+                return None;
+            };
+            if !data.symbols_known || data.route_complete == Some(false) || data.symbol.is_none() {
+                return None;
+            }
+            let [id] = &record.evidence_ids[..] else {
+                return None;
+            };
+            let site = builder.evidence.get(id.as_str())?;
+            Some((site.file.clone(), site.line, site.column))
+        });
+        Self {
+            sites: sites.collect(),
+            macro_shadow,
+        }
+    }
+
+    pub(super) fn covers(&self, index: &Index<'_>, frame: &Frame<'_>, path: &Reference) -> bool {
+        let [receiver, _] = path.names.as_slice() else {
+            return false;
+        };
+        let [leaf] = frame.bound(receiver) else {
+            return false;
+        };
+        let module = frame.module;
+        let site = (path.site.line, path.site.column);
+        !path.absolute
+            && path.in_macro.is_none()
+            && matches!(path.via, Via::Path)
+            && !module.scan.generic_paths.contains(&site)
+            && !module.scan.body_macros
+            && !module.scan.module_macros
+            && !(module.scan.placed_macros && self.macro_shadow)
+            && (!module.gated || module.gates.is_some())
+            && module.scan.counts.get(receiver) == Some(&1)
+            && !module.scan.conditional_bindings.contains(receiver)
+            && matches!(leaf.via, Via::Use { block: false, .. })
+            && !leaf.absolute
+            && frame.lexical_at(&path.scope) == frame.lexical_at(&leaf.scope)
+            && self
+                .sites
+                .contains(&(module.rel.clone(), leaf.site.line, leaf.site.column))
+            && matches!(
+                index.type_of(frame, &path.scope, std::slice::from_ref(receiver)),
+                TypeOf::Known(..)
+            )
+    }
+}
 
 /// A gap that waits for the value flow: a call in `source` (in the file `rel`, at `site`) may
 /// reach a member of a type in `target`.
@@ -35,11 +95,59 @@ pub(super) struct Pending {
     pub(super) site: Site,
     pub(super) target: String,
     pub(super) reason: String,
+    pub(super) erased: bool,
     pub(super) execution: bool,
+    pub(super) no_name_route: bool,
 }
 
-/// Give each pending gap whose target its source can reach.
-pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
+/// Keep known origins first. An erased value can also come from shared storage or unread code.
+pub(super) fn settle(
+    builder: &mut Builder,
+    open: Vec<Pending>,
+    index: &Index<'_>,
+    modules: &[Module],
+) {
+    let mut open = settle_pending(builder, open, index, &BTreeSet::new());
+    let mut ingress = builder.opaque_values.clone();
+    ingress.extend(
+        modules
+            .iter()
+            .filter(|module| module.scan.has_static)
+            .map(|module| module.module.clone()),
+    );
+    if ingress.is_empty() {
+        return;
+    }
+    let waiting = open.len();
+    for home in modules {
+        let Some(found) = home.scan.orphans.impls.iter().find(|found| found.may_drop) else {
+            continue;
+        };
+        let target = &home.module;
+        for caller in modules.iter().filter(|caller| caller.module != *target) {
+            open.push(Pending {
+                source: caller.module.clone(),
+                rel: home.rel.clone(),
+                site: found.site.clone(),
+                target: target.clone(),
+                reason: format!("An unproved value origin may run a destructor in {target}"),
+                erased: true,
+                execution: true,
+                no_name_route: true,
+            });
+        }
+    }
+    if open.len() != waiting {
+        drop(settle_pending(builder, open, index, &ingress));
+    }
+}
+
+fn settle_pending(
+    builder: &mut Builder,
+    mut open: Vec<Pending>,
+    index: &Index<'_>,
+    ingress: &BTreeSet<String>,
+) -> Vec<Pending> {
     // Both causes for the same pair become reachable together, regardless of their order.
     let mut named: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for pending in open.iter().filter(|pending| !pending.execution) {
@@ -54,7 +162,10 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
         let (ready, waiting): (Vec<_>, Vec<_>) = open.into_iter().partition(|pending| {
             let found = reach
                 .entry(pending.source.clone())
-                .or_insert_with(|| graph.reach(&pending.source));
+                .or_insert_with(|| graph.reach(&pending.source, index, ingress));
+            if pending.erased {
+                return found.any || found.ingress;
+            }
             // A type of an inline module of the file is reached through that module.
             let below = format!("{}.", pending.target);
             found.any
@@ -62,7 +173,7 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
                     .any(|module| *module == pending.target || module.starts_with(&below))
         });
         if ready.is_empty() {
-            return;
+            return waiting;
         }
         // The stored pair keeps any earlier gap that can also hide a lexical path.
         for pending in &ready {
@@ -74,7 +185,7 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
                     .edges
                     .contains(&(pending.source.clone(), pending.target.clone()))
             {
-                builder.named_site(pair, at, &pending.reason);
+                builder.named_site(pair, at, &pending.reason, pending.no_name_route);
                 continue;
             }
             let can_name = named
@@ -92,10 +203,12 @@ pub(super) fn settle(builder: &mut Builder, mut open: Vec<Pending>) {
                 at,
                 &pending.reason,
                 Some(dimension),
+                pending.no_name_route,
             );
         }
         open = waiting;
     }
+    open
 }
 
 /// A member of an inherent `impl` block: in `Members::foreign` a block that is not in the file of
@@ -145,6 +258,7 @@ pub(super) fn own_candidates(
     call: &MethodCall,
     (owned, aliases): (&[Foreign<'_>], &BTreeSet<&str>),
     keep: Keep<'_>,
+    no_name_route: bool,
 ) -> Vec<Pending> {
     owned
         .iter()
@@ -163,7 +277,9 @@ pub(super) fn own_candidates(
                 site: call.site.clone(),
                 target,
                 reason,
+                erased: false,
                 execution: false,
+                no_name_route,
             }
         })
         .collect()
@@ -205,6 +321,7 @@ pub(super) fn aliases(module: &Module) -> impl Iterator<Item = &str> {
 /// What a module reaches: each module, or any module.
 struct Reach {
     any: bool,
+    ingress: bool,
     modules: BTreeSet<String>,
 }
 
@@ -227,7 +344,7 @@ impl Graph {
             })
             .collect();
         let mut next: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        for (source, target) in edges.iter().chain(&builder.gapped) {
+        for (source, target) in edges.iter().chain(builder.gapped.keys()) {
             next.entry(source.clone()).or_default().push(target.clone());
         }
         let mut open = BTreeSet::new();
@@ -250,13 +367,19 @@ impl Graph {
         }
     }
 
-    fn reach(&self, source: &str) -> Reach {
+    fn reach(&self, source: &str, index: &Index<'_>, ingress: &BTreeSet<String>) -> Reach {
         let mut modules = BTreeSet::new();
+        let mut incoming = false;
         let mut queue = VecDeque::from([source.to_owned()]);
         while let Some(module) = queue.pop_front() {
             if self.anywhere || self.open.contains(&module) {
-                return Reach { any: true, modules };
+                return Reach {
+                    any: true,
+                    ingress: incoming,
+                    modules,
+                };
             }
+            incoming |= ingress.contains(index.file_of(&module).unwrap_or(&module));
             let next = self.next.get(&module).into_iter().flatten();
             for target in next.filter(|target| modules.insert((*target).clone())) {
                 queue.push_back(target.clone());
@@ -264,6 +387,7 @@ impl Graph {
         }
         Reach {
             any: false,
+            ingress: incoming,
             modules,
         }
     }
@@ -273,7 +397,7 @@ impl Graph {
 mod tests {
     use super::*;
 
-    fn dimension(causes: &[bool]) -> Option<ResolutionDimension> {
+    fn proofs(causes: &[bool], erased: bool) -> (Option<ResolutionDimension>, bool) {
         let mut builder = Builder::default();
         builder.gap("unread caller", None, "src");
         let pending = causes
@@ -285,31 +409,49 @@ mod tests {
                 target: "dst".to_owned(),
                 reason: format!("candidate {execution}"),
                 execution,
+                no_name_route: execution,
+                erased: erased && execution,
             })
             .collect();
-        settle(&mut builder, pending);
+        let root = archkeel_snapshot::test_tree::Tree::new(&[]);
+        let mut source = archkeel_snapshot::Snapshot::new(&root.path());
+        let workspace = crate::crates::discover(&mut source, &[], "ns");
+        settle(
+            &mut builder,
+            pending,
+            &crate::modules::index(&workspace, &[]),
+            &[],
+        );
         let pair = builder
             .gaps
             .values()
             .find(|gap| gap.data.data().source_module.is_some());
-        pair.expect("the pair is reachable")
-            .data
-            .data()
-            .resolution_dimension
+        let data = pair.expect("the pair is reachable").data.data();
+        (data.resolution_dimension, data.no_name_route)
     }
 
     #[test]
     fn a_named_cause_stays_open_before_or_after_an_execution_cause() {
         assert_eq!(
-            dimension(&[true]),
-            Some(ResolutionDimension::RuntimeEffects)
+            proofs(&[true], false),
+            (Some(ResolutionDimension::RuntimeEffects), true)
         );
         assert_eq!(
-            dimension(&[true, true]),
-            Some(ResolutionDimension::RuntimeEffects)
+            proofs(&[true, true], false),
+            (Some(ResolutionDimension::RuntimeEffects), true)
         );
-        assert_eq!(dimension(&[true, false]), None);
-        assert_eq!(dimension(&[false, true]), None);
-        assert_eq!(dimension(&[true, false, true]), None);
+        assert_eq!(proofs(&[true, false], false), (None, false));
+        assert_eq!(proofs(&[false, true], false), (None, false));
+        assert_eq!(proofs(&[true, false, true], false), (None, false));
+    }
+
+    #[test]
+    fn an_erased_destructor_is_execution_unless_the_pair_has_a_named_cause() {
+        assert_eq!(
+            proofs(&[true], true),
+            (Some(ResolutionDimension::RuntimeEffects), true)
+        );
+        assert_eq!(proofs(&[true, false], true), (None, false));
+        assert_eq!(proofs(&[false, true], true), (None, false));
     }
 }

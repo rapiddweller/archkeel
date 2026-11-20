@@ -12,12 +12,15 @@
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::envelope::{ConstructSupport, Facts};
-use archkeel_facts::ids::EvidenceId;
+use archkeel_facts::envelope::{ConstructSupport, DirectCall, Facts};
+use archkeel_facts::ids::{EvidenceId, FactId};
+use archkeel_facts::nullable::Nullable;
 use archkeel_facts::vocab::{
     EvidenceClass, InventoryStatus, MemberKind, ResolutionDimension, Status,
 };
-use archkeel_facts::{FactData, GapFact, IntoSection, Record, Section};
+use archkeel_facts::{
+    CallFact, FactData, GapFact, ImportFact, IntoSection, Record, Section, SymbolFact,
+};
 
 use crate::bindings::Modules;
 use crate::stored::{visit, Visitor};
@@ -27,6 +30,83 @@ use crate::view::View;
 /// The feature under which a reply states script effects and their gaps (AD-688: the feature,
 /// which only a registered set can admit, is the condition; the profile adds nothing).
 const SCRIPT_FEATURE: &str = "script-globals-v1";
+
+type Index<'a, D> = HashMap<&'a FactId, &'a D>;
+
+pub(crate) fn direct_calls(facts: &Facts) -> Result<(), String> {
+    let Some(witnesses) = &facts.direct_calls else {
+        return Ok(());
+    };
+    if Vec::is_empty(witnesses) {
+        return Ok(());
+    }
+    let (mut calls, mut functions, mut imports) = (HashMap::new(), HashMap::new(), HashMap::new());
+    for section in &facts.sections {
+        match section {
+            Section::Calls(rows) => calls.extend(rows.iter().map(|row| (&row.id, &row.data))),
+            Section::Symbols(rows) => functions.extend(rows.iter().map(|row| (&row.id, &row.data))),
+            Section::Imports(rows) => imports.extend(rows.iter().map(|row| (&row.id, &row.data))),
+            _ => {}
+        }
+    }
+    let mut seen = HashSet::new();
+    if facts.coverage.full_scope
+        && witnesses.iter().all(|link| {
+            seen.insert(&link.0) && call_link(link, (&calls, &functions, &imports)).is_some()
+        })
+    {
+        Ok(())
+    } else {
+        Err("invalid live direct-call witness".to_owned())
+    }
+}
+
+fn call_link(
+    (site, function, import, _): &DirectCall,
+    (calls, symbols, imports): (&Index<CallFact>, &Index<SymbolFact>, &Index<ImportFact>),
+) -> Option<()> {
+    let CallFact::Calls(call) = calls.get(site)? else {
+        return None;
+    };
+    let SymbolFact::Function(target) = symbols.get(function)? else {
+        return None;
+    };
+    let Nullable::Value(caller) = &call.source_definition_id else {
+        return None;
+    };
+    let (SymbolFact::Function(source) | SymbolFact::Method(source)) = symbols.get(caller)? else {
+        return None;
+    };
+    let valid = source.module == call.source_module
+        && source.qualified_name == call.source_scope
+        && target.source_binding_unique == Some(true)
+        && Vec::is_empty(&target.decorators)
+        && target.lexical_parent_id.is_none()
+        && target.qualified_name == format!("{}.{}", target.module.as_str(), target.name)
+        && call.status == Status::Resolved
+        && !call.candidates_truncated
+        && Vec::as_slice(&call.targets) == [target.qualified_name.as_str()];
+    if !valid {
+        return None;
+    }
+    let exact = match import {
+        None => target.module == source.module && target.name == call.expression,
+        Some(id) => {
+            let ImportFact::Import(origin) = imports.get(id)? else {
+                return None;
+            };
+            origin.source_module == source.module
+                && origin.target_module == target.module
+                && origin.symbol.as_deref() == Some(target.name.as_str())
+                && origin.binding.as_deref() == Some(call.expression.as_str())
+                && origin.module_level_import
+                && !origin.under_type_checking
+                && origin.symbols_known
+                && origin.source_binding_unique == Some(true)
+        }
+    };
+    exact.then_some(())
+}
 
 /// Kinds whose proof is a Python check that the store does not port yet.
 const UNCHECKED_KINDS: [&str; 5] = [

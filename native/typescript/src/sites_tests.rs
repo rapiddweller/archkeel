@@ -100,12 +100,12 @@ fn a_script_wrapper_keeps_its_scope_certain_and_a_with_blocks_every_name() {
 }
 
 #[test]
-fn a_type_use_and_a_computed_receiver_equal_python() {
+fn a_named_arrow_scope_keeps_computed_receivers_and_type_uses() {
     let found = lines(
         "a.ts",
         "const f = () => { let loc = 1; return a[loc].b; };\nfunction h(x: T) { return x as Foo; }",
     );
-    assert!(found[0].starts_with("reference a scope=None") && found[0].contains("ambiguous=true"));
+    assert!(found[0].starts_with("reference a scope=f") && found[0].contains("ambiguous=false"));
     assert!(found[2].starts_with("reference a[loc].b ") && found[2].contains("path=[]"));
     assert!(found[3].starts_with("reference T scope=h") && found[3].contains("free=false"));
     let syntax = facts("a.ts", "function h(x: T) { return x as Foo; }");

@@ -23,6 +23,7 @@ pub(crate) struct Kept {
     pub has_error: bool,
     /// The definitions and their parent scope indices.
     pub definitions: Vec<Definition>,
+    pub anonymous_default: Option<Box<Definition>>,
     /// The span of each written string and the qualified name of the definition that holds it.
     pub comparisons: Vec<(Span, Option<String>)>,
     /// The names that each import statement binds, by the line and column of the statement.
@@ -36,6 +37,8 @@ pub(crate) struct Kept {
     pub scopes: Scopes,
     /// The names that the module assigns outside every function (`rebound_names`).
     pub rebound: HashSet<String>,
+    pub written_root_names: HashSet<String>,
+    pub ambiguous_root_names: HashSet<String>,
     /// The text that the byte ranges of the sites point into.
     pub text: Vec<u8>,
     /// The question "does a scope hide this name" for the sites of the file.
@@ -75,10 +78,15 @@ impl Kept {
             comparisons,
             &syntax.import_bindings,
             &syntax.module_exports,
+            (
+                std::mem::take(&mut syntax.written_root_names),
+                std::mem::take(&mut syntax.ambiguous_root_names),
+            ),
         );
         kept.rebound = syntax.rebound_names.iter().cloned().collect();
         kept.patched = std::mem::take(&mut syntax.patched);
         kept.type_exports = std::mem::take(&mut syntax.type_exports);
+        kept.anonymous_default = syntax.anonymous_default.take();
         kept.sites = std::mem::take(&mut syntax.sites);
         kept.record_refusal = crate::site_charge::over(&kept.sites.sites);
         if kept.record_refusal.is_some() {
@@ -110,6 +118,7 @@ impl Kept {
         comparisons: Vec<(Span, Option<String>)>,
         import_bindings: &[ImportBinding],
         module_exports: &[ExportBinding],
+        root_names: (HashSet<String>, HashSet<String>),
     ) -> Self {
         let mut bindings: HashMap<(i64, i64), Vec<ImportBinding>> = HashMap::new();
         for binding in import_bindings {
@@ -132,6 +141,7 @@ impl Kept {
             module,
             has_error,
             definitions,
+            anonymous_default: None,
             comparisons,
             bindings,
             exports,
@@ -139,6 +149,8 @@ impl Kept {
             sites: Sites::default(),
             scopes: Scopes::default(),
             rebound: HashSet::new(),
+            written_root_names: root_names.0,
+            ambiguous_root_names: root_names.1,
             text: Vec::new(),
             shadow: NameIndex::default(),
             script: ScriptFile::default(),

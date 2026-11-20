@@ -38,8 +38,6 @@ use crate::observed::Observed;
 /// The rule kinds that no store-accepted profile decides (`unsupported_rules`).
 const UNDECIDED_KINDS: &[RuleKind] = &[
     RuleKind::BoundedNumericOperand,
-    RuleKind::ProtocolDeclarations,
-    RuleKind::ForbiddenCallArgument,
     RuleKind::CatalogArgument,
     RuleKind::CatalogUse,
     RuleKind::SourceOwnership,
@@ -182,10 +180,12 @@ fn reads(rule: &Rule) -> Reads {
         Rule::ForbiddenDependency(rule) if rule.target_symbol().is_some() => Reads::OwnSymbol,
         Rule::CompleteRequires(_) => Reads::Ports,
         undecided_rule!() => Reads::Undecided,
-        Rule::BoundaryTypes(_) => Reads::Shapes,
+        Rule::BoundaryTypes(_) | Rule::ProtocolDeclarations(_) => Reads::Shapes,
         Rule::UnusedPublic(_) => Reads::Published,
         Rule::SymbolPlacement(_) => Reads::Placement,
-        Rule::ForbiddenDependency(_)
+        Rule::CallOwner(_)
+        | Rule::ForbiddenCallArgument(_)
+        | Rule::ForbiddenDependency(_)
         | Rule::AllowedDependency(_)
         | Rule::ExternalDependencyScope(_)
         | Rule::CompleteAssignment(_)
@@ -193,8 +193,7 @@ fn reads(rule: &Rule) -> Reads {
         | Rule::CompleteExternalScope(_)
         | Rule::LayerOrder(_)
         | Rule::NoComponentCycles(_)
-        | Rule::SiblingIsolation(_)
-        | Rule::CallOwner(_) => Reads::Edges,
+        | Rule::SiblingIsolation(_) => Reads::Edges,
     }
 }
 
@@ -227,7 +226,7 @@ fn own_limit(rule: &Rule, observed: &Observed) -> Option<Limit> {
                     "{id}: the collector examines no {words}"
                 )))
             } else if rule.selector().is_some() && !observed.construct_selectors {
-                let lack = "the collector reads no construct selector";
+                let lack = "the collector does not report a complete construct selector inventory";
                 Some(Limit::Certain(format!("{id}: {lack}")))
             } else {
                 None
@@ -235,12 +234,12 @@ fn own_limit(rule: &Rule, observed: &Observed) -> Option<Limit> {
         }
         (Reads::Undecided, _) => Some(Limit::Certain(id)),
         // AD-550: a profile whose collector writes no shape cannot read the types.
-        (Reads::Shapes, _) if !observed.type_shapes => Some(Limit::Certain(id)),
+        (Reads::Shapes, _) if !observed.analysis.type_shapes => Some(Limit::Certain(id)),
         // AD-670: an absent symbol record may be an item that nobody uses, so a PASS needs every
         // public symbol; a violation that the model sees stays FAIL (AD-718).
-        (Reads::Published, _) if !observed.public_symbols => Some(Limit::Certain(format!(
-            "{id}: the collector does not state every public symbol"
-        ))),
+        (Reads::Published, _) if !observed.analysis.public_symbols => Some(Limit::Certain(
+            format!("{id}: the collector does not state every public symbol"),
+        )),
         // No store-accepted profile limits these kinds (`profile_failures`); `rule_limit` gives
         // the limit of the own symbol of a `target_symbol` rule.
         (

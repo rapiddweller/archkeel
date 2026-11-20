@@ -98,6 +98,8 @@ pub(crate) struct TraitImpl {
     /// The block holds an item other than an associated type (a `fn`, a `const`, a macro call):
     /// a caller that runs the impl runs code of its module (AD-806).
     pub runs: bool,
+    /// An impl whose members do not rule out a destructor.
+    pub may_drop: bool,
 }
 
 /// An item that a block declares, with the end of the block: a struct, enum or union (`nominal`),
@@ -183,6 +185,8 @@ pub(crate) struct MethodCall {
     pub site: Site,
     pub scope: Vec<String>,
     pub path: bool,
+    /// The written type is already covered by its exact import route.
+    pub bound_name: bool,
     /// The arguments of `x.m(..)`, or `None` when the scan does not know them (a macro, a path).
     pub arity: Option<usize>,
     /// The receiver is the plain `self` of a method of an `impl` block with an exact type.

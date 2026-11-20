@@ -114,6 +114,67 @@ fn a_field_formal_takes_the_type_of_its_field() {
 }
 
 #[test]
+fn an_inferred_type_of_a_literal_is_not_a_written_annotation_or_a_wire_fact() {
+    let found = symbols(&[(
+        "lib/routes.dart",
+        "class Routes { static const path = '/'; }",
+    )]);
+    let field = found
+        .symbols
+        .iter()
+        .find_map(|symbol| match &symbol.data {
+            archkeel_facts::SymbolFact::Class(data) => data.attribute_declarations.first(),
+            _ => None,
+        })
+        .expect("the field has a symbol");
+    assert_eq!(field.annotation, None);
+    let (actual, names) = field
+        .inferred_builtin_type
+        .as_ref()
+        .expect("the literal proof");
+    assert_eq!(actual, "dart.core.String");
+    assert_eq!(names.get("String"), Some(actual));
+    assert_eq!(names.get("int").map(String::as_str), Some("dart.core.int"));
+    let mut wire = serde_json::to_value(field).expect("the wire field");
+    assert!(wire.get("inferred_builtin_type").is_none());
+    wire["inferred_builtin_type"] =
+        serde_json::json!(["dart.core.String", {"String":"dart.core.String"}]);
+    assert!(serde_json::from_value::<archkeel_facts::nested::AttributeDeclaration>(wire).is_err());
+}
+
+#[test]
+fn an_untyped_final_local_infers_only_a_direct_nongeneric_constructor() {
+    let found = symbols(&[
+        ("lib/model.dart", "class Item {} class Box<T> {} typedef Alias = Item; class Factory { factory Factory() => _Impl(); } class _Impl implements Factory {}"),
+        ("lib/another.dart", "class Item {}"),
+        ("lib/main.dart", "import 'model.dart'; void main() { final plain = Item(); final alias = Alias(); final generic = Box<int>(); final factory = Factory(); final Item written = Item(); var mutable = Item(); } void shadowed(Item Function() Item) { final hidden = Item(); }"),
+        ("lib/ambiguous.dart", "import 'model.dart'; import 'another.dart'; void probe() { final ambiguous = Item(); }"),
+        ("lib/conditional.dart", "import 'model.dart' if (dart.library.io) 'missing.dart'; void probe() { final conditional = Item(); }"),
+        ("lib/barrel.dart", "export 'model.dart';"),
+        ("lib/reexport.dart", "import 'barrel.dart'; void probe() { final reexported = Item(); }"),
+    ]);
+    let mut proofs = Vec::new();
+    for record in &found.calls {
+        let archkeel_facts::CallFact::Call(data) = &record.data else {
+            continue;
+        };
+        for binding in data.result_bindings.iter().flatten() {
+            if let Some(inferred) = &binding.inferred_type {
+                assert_eq!(binding.annotation, None);
+                let mut wire = serde_json::to_value(binding).unwrap();
+                assert!(wire.get("inferred_type").is_none());
+                wire["inferred_type"] = serde_json::json!("Item");
+                assert!(
+                    serde_json::from_value::<archkeel_facts::nested::ResultBinding>(wire).is_err()
+                );
+                proofs.push((binding.name.as_str(), inferred.as_str()));
+            }
+        }
+    }
+    assert_eq!(proofs, [("plain", "Item")]);
+}
+
+#[test]
 fn an_inventory_is_partial_when_a_form_outside_the_body_can_add_members() {
     let found = symbols(&[
         (
@@ -123,12 +184,23 @@ fn an_inventory_is_partial_when_a_form_outside_the_body_can_add_members() {
         ("lib/mixed.dart", "mixin M {}\nclass Mixed with M {}\n"),
         (
             "lib/parted.dart",
-            "part 'parted_part.dart';\nclass Parted {}\n",
+            "part 'parted_part.dart';\nclass Parted {}\nclass Extended {}\nclass Derived extends Extended {}\n",
         ),
-        ("lib/parted_part.dart", "part of 'parted.dart';\n"),
         (
-            "lib/extended.dart",
-            "class Extended {}\nextension E on Extended {\n  void x() {}\n}\n",
+            "lib/parted_part.dart",
+            "part of 'parted.dart';\nextension E on Extended { void x() {} }\n",
+        ),
+        (
+            "lib/unread.dart",
+            "part 'unread_part.dart';\nclass Unread {}\n",
+        ),
+        (
+            "lib/augmented.dart",
+            "part 'augment_part.dart';\nclass Augmented {}\n",
+        ),
+        (
+            "lib/augment_part.dart",
+            "part of 'augmented.dart';\naugment class Augmented { void added() {} }\n",
         ),
         // An extension type wraps its representation and adds no member to it.
         (
@@ -153,12 +225,21 @@ fn an_inventory_is_partial_when_a_form_outside_the_body_can_add_members() {
         "{:?}",
         status("shop.mixed.Mixed")
     );
-    assert!(
-        status("shop.parted.Parted").1.contains("part"),
-        "{:?}",
-        status("shop.parted.Parted")
+    assert_eq!(
+        status("shop.parted.Parted"),
+        ("complete".to_owned(), String::new())
     );
-    assert_eq!(status("shop.extended.Extended").0, "partial");
+    for qualified in ["shop.unread.Unread", "shop.augmented.Augmented"] {
+        assert_eq!(
+            status(qualified),
+            (
+                "partial".to_owned(),
+                "not every part of the library was read".to_owned()
+            )
+        );
+    }
+    assert_eq!(status("shop.parted.Extended").0, "partial");
+    assert_eq!(status("shop.parted.Derived").0, "partial");
 }
 
 /// The store checks that a symbol name is the last segment of its qualified name (AD-796).

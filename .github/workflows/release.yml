@@ -51,13 +51,13 @@ jobs:
         with:
           pattern: native-wheel-*
           merge-multiple: true
-          path: native-wheels/
+          path: build/native-wheels/
 
       - name: Add the platform wheels that full verification built and ran
         run: |
           set -euo pipefail
           shopt -s nullglob
-          wheels=(native-wheels/*.whl)
+          wheels=(build/native-wheels/*.whl)
           sdists=(dist/*.tar.gz)
           [[ ${#wheels[@]} -eq 6 && ${#sdists[@]} -eq 1 ]] || {
             echo "Release requires six platform wheels and one sdist" >&2
@@ -72,6 +72,23 @@ jobs:
 
       - name: Refuse wheels that do not carry a core that decides
         run: python3 -m tools.release_core dist dist/archkeel-*-py3-none-manylinux_2_17_x86_64.whl
+
+      - name: Check the final 5.0 system with the candidate wheel
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          if [[ "${RELEASE_TAG#v}" == "5.0.0" ]]; then
+            python3 -m tools.release_system dist/archkeel-*-py3-none-manylinux_2_17_x86_64.whl "$RELEASE_COMMIT"
+          fi
+
+      - name: Keep the final 5.0 system frame
+        if: ${{ always() && (github.ref_name == '5.0.0' || github.ref_name == 'v5.0.0') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-system-frame
+          path: test-artifacts/release-system.json
+          if-no-files-found: warn
 
       - name: Build and verify the plugin archive separately
         env:

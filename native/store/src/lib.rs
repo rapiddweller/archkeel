@@ -15,6 +15,7 @@
 
 mod bindings;
 mod call_owners;
+pub use call_owners::{CallOwners, OwnedCall};
 mod decode;
 mod features;
 mod record_identity;
@@ -37,7 +38,6 @@ pub use crate::standard::{
     sdk_libraries, standard_library, standard_library_at, standard_library_everywhere,
 };
 use crate::stored::Store;
-pub use call_owners::{CallOwners, OwnedCall};
 
 /// A reply that the store decoded and validated once, for a library of the core (WP6, AD-363).
 /// The records stay in their typed form; nothing outside the store can make one.
@@ -49,15 +49,20 @@ impl Ingested {
         self.0.reply()
     }
 
-    /// The validated live call witnesses and file inventories, when the producer states them.
+    /// The validated linked constructor-to-method witnesses.
     pub fn call_owners(&self) -> Option<&CallOwners> {
         self.1.as_ref()
+    }
+
+    /// The fixed capabilities of this reply's validated profile.
+    pub fn analysis_capabilities(&self) -> archkeel_facts::profile_traits::AnalysisCapabilities {
+        self.0.reply().facts.analysis_capabilities()
     }
 }
 
 /// Decode and validate one compressed reply (protocol 11) for a library of the core.
 pub fn ingest_reply(payload: &[u8], inflate_limit: u64) -> Result<Ingested, String> {
-    ingest(payload, inflate_limit)
+    validated(decode::reply(payload, inflate_limit)?)
 }
 
 /// Validate one typed reply of a collector that runs in the process of the core (AD-406). It is
@@ -67,18 +72,20 @@ pub fn ingest_typed(reply: archkeel_facts::envelope::Reply) -> Result<Ingested, 
     validated(reply)
 }
 
-fn ingest(payload: &[u8], inflate_limit: u64) -> Result<Ingested, String> {
-    validated(decode::reply(payload, inflate_limit)?)
-}
-
 /// The one validation of a reply after its decode: the version, the envelope, the registered
 /// sets, the records and their bindings. Both front doors (`ingest_reply`, `ingest_typed`) end here.
 fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Ingested, String> {
     validate::invariants(&reply.facts)?;
-    let names: Vec<&str> = reply.facts.sections.iter().map(Section::name).collect();
+    let names: Vec<&str> = reply
+        .facts
+        .sections
+        .iter()
+        .map(|section: &Section| section.name())
+        .collect();
     validate::envelope(&reply.facts, &names)?;
     validation::check(&reply.facts)?;
     records::records(&reply.facts, &validate::index(&reply.facts))?;
-    let calls = call_owners::validate(&reply.facts)?;
-    Ok(Ingested(Store::new(reply), calls))
+    records::direct_calls(&reply.facts)?;
+    let owners = call_owners::validate(&reply.facts)?;
+    Ok(Ingested(Store::new(reply), owners))
 }

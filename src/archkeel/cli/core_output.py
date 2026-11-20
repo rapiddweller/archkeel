@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -126,13 +127,31 @@ def _target(directory: int, name: str) -> None:
         raise OSError("the report target must be a regular file, not a directory or link")
 
 
-def write_output(path: Path, payload: bytes) -> None:
-    """Atomically replace one regular file. Refuse final links and missing parents. No sidecars."""
+def write_output(
+    path: Path, payload: bytes, *, companion: tuple[Path, bytes] | None = None
+) -> None:
+    """Atomically replace the report after writing its optional immutable companion."""
     directory = _parent(path)
     temporary = f".archkeel-{secrets.token_hex(16)}"
     created = False
     try:
         _target(directory, path.name)
+        if companion is not None:
+            companion_path, content = companion
+            try:
+                write_new(companion_path, content)
+            except FileExistsError:
+                descriptor = os.open(companion_path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                with os.fdopen(descriptor, "rb") as existing:
+                    if not stat.S_ISREG(os.fstat(existing.fileno()).st_mode):
+                        raise OSError("the gap records file is not a regular file") from None
+                    if (
+                        hashlib.file_digest(existing, "sha256").digest()
+                        != hashlib.sha256(content).digest()
+                    ):
+                        raise OSError(
+                            "the existing gap records file has a different digest"
+                        ) from None
         descriptor = os.open(
             temporary,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,

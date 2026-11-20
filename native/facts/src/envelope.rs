@@ -1,13 +1,12 @@
 // Archkeel
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
-
-//! The closed envelope of a protocol 11 reply (AD-346). Unread parts are `NoEntries`.
-
+//! The envelope of a protocol 11 reply: every part of `facts` outside the sections (AD-346).
+//!
+//! Each object is closed: an unknown key is a decode error.
 pub use crate::envelope_vocab::{
     ConstructSupport, Profile, ProtocolVersion, RequirementState, Role, SectionName,
 };
-
 use crate::standard::StandardFacts;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
@@ -23,6 +22,12 @@ use crate::sections::{GapFact, Section};
 
 mod constructed_call;
 pub use constructed_call::{ConstructedCall, ConstructedCalls};
+
+/// One explicit actual: an optional keyword and whether the source writes a string literal.
+pub type WrittenActual = (Option<String>, bool);
+/// A live call site, its exact declaration, optional import and actuals when bindable.
+pub type DirectCall = (FactId, FactId, Option<FactId>, Option<Vec<WrittenActual>>);
+
 /// A closed object of the envelope: an unknown key is a decode error.
 macro_rules! object {
     ($(#[$doc:meta])* pub struct $name:ident { $($(#[$attr:meta])* pub $field:ident: $ty:ty,)* }) => {
@@ -86,25 +91,27 @@ object! {
         /// The linked collector's scope statements. Wire replies carry no live authority.
         #[serde(skip)]
         pub profile_limits: Option<ProfileLimits>,
-        /// The linked collector's one stated assumption of its proofs, shown with the verdict
-        /// (AD-540). It is no proof and replaces no gap. Wire replies carry none.
+        /// Exact calls from the linked producer, never from a saved reply.
         #[serde(skip)]
-        pub scope_premise: Option<&'static str>,
+        pub direct_calls: Option<Vec<DirectCall>>,
+        /// Live linked constructor-to-method witnesses (AD-1027).
+        #[serde(skip)]
+        pub constructed_calls: Option<ConstructedCalls>,
+        /// Call counts for complete lexical bodies from the linked producer only.
+        #[serde(skip)]
+        pub function_call_counts: Option<Vec<(String, u64)>>,
+        /// The premise of the linked proof, shown with the verdict (AD-540).
+        #[serde(skip)]
+        pub scope_premise: Option<String>,
         /// Paths intentionally excluded from the linked collector's source scope.
         #[serde(skip)]
         pub excluded_sources: Vec<String>,
-        /// The linked collector's files that belong to another module (AD-468). Wire replies
-        /// carry none.
+        /// Files that the linked collector assigns to another module (AD-468).
         #[serde(skip)]
         pub owned_files: Vec<OwnedFile>,
-        /// The linked collector's statements about the standard library of its language, read
-        /// only under the contract premise `standard_library_unchanged` (AD-782). Wire replies
-        /// carry none.
+        /// The linked producer's facts for `standard_library_unchanged` (AD-782).
         #[serde(skip)]
         pub standard: Option<StandardFacts>,
-        /// Linked Python constructor-to-method witnesses. Archived replies carry no authority.
-        #[serde(skip)]
-        pub constructed_calls: Option<ConstructedCalls>,
         /// The adapter that wrote the reply.
         pub adapter: Adapter,
         /// The runtime that ran the adapter.
@@ -480,7 +487,7 @@ pub fn source_digest(inputs: &[Input]) -> String {
 }
 
 #[path = "envelope_cycle.rs"]
-pub mod cycle;
+pub(crate) mod cycle;
 
 // The constructors of the envelope types; a child module that uses this one, never the reverse.
 #[path = "envelope_build.rs"]
@@ -492,9 +499,8 @@ mod tests;
 
 /// The test features of a linked collector, refused by `archkeel-collect` (AD-406).
 pub const fn test_features(dump: bool) -> &'static [&'static str] {
-    if dump {
-        &["dump"]
-    } else {
-        &[]
+    match dump {
+        true => &["dump"],
+        false => &[],
     }
 }

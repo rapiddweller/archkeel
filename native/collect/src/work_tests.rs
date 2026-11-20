@@ -133,19 +133,23 @@ fn a_rust_project_just_below_both_bounds_keeps_every_fact() {
         remaining -= extra;
     }
     assert_eq!(remaining, 0);
-    let decoded = archkeel_wire::request::decode_rust(&request).unwrap();
-    let before = archkeel_rust_collector::typed_reply(
-        &decoded,
-        archkeel_rust_collector::provenance(),
-        archkeel_wire::protocol::reply_version(decoded.protocol_version),
-    )
-    .unwrap();
+    let before = crate::rust_tests::public_reply(&request);
     let (after, charged) = guarded_rust(root.to_str().unwrap(), &request);
     assert_eq!(charged, total - 1);
     let after = archkeel_store::ingest_typed(after).unwrap();
+    let mut after = after.reply().clone();
     assert_eq!(
-        serde_json::to_vec(&before).unwrap(),
-        serde_json::to_vec(after.reply()).unwrap()
+        after
+            .facts
+            .capabilities
+            .resolution_features
+            .pop()
+            .as_deref(),
+        Some("rust-item-routes-v2")
+    );
+    assert_eq!(
+        serde_json::to_vec(before.reply()).unwrap(),
+        serde_json::to_vec(&after).unwrap()
     );
     let path = root.join("src/padding19.rs");
     use std::io::Write;

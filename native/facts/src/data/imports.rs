@@ -50,6 +50,8 @@ facts_data! {
         /// name, as a binary target names its library (AD-622). Absent: the same crate, or a
         /// collector without crates.
         [read skip] other_crate: Option<bool>,
+        /// True when a dot call's symbol names its inferred receiver type, not a written path.
+        [live never] inferred_receiver: bool,
         /// True when `__all__` lists the name.
         [read skip] declared_in_all: Option<bool>,
         /// True when the target is an ordinary module.
@@ -97,6 +99,7 @@ impl ImportData {
             route_complete: None,
             published_as: None,
             other_crate: None,
+            inferred_receiver: false,
             declared_in_all: None,
             ordinary_module: None,
             origin_binding_unique: None,

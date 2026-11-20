@@ -37,6 +37,7 @@ pub(crate) struct Collection<'a> {
     /// Every file to read, in discovery order; a file added while walking is walked too.
     pub(crate) queue: Vec<String>,
     pub(crate) queued: HashSet<String>,
+    pub(crate) excluded: BTreeSet<String>,
     pub(crate) gaps: BTreeMap<String, Record<GapFact>>,
     /// What reaches an installed-package directory other than a `node_modules` search (AD-488).
     pub(crate) reach: BTreeSet<String>,

@@ -118,7 +118,8 @@ fn a_construct_selector_holds_only_its_rule() {
         c["schema_version"] = json!("3.11.0");
         add_rule(c, rule);
     };
-    let subject = "SELECTOR: the collector reads no construct selector".to_owned();
+    let subject = "SELECTOR: the collector does not report a complete construct selector inventory"
+        .to_owned();
     let held = not_complete(Cause::ProfileLimit(subject));
     holds_only(found(change, unchanged), "SELECTOR", &held);
 }

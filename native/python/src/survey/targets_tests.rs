@@ -217,6 +217,108 @@ fn a_proven_literal_call_is_a_local_edge_without_a_gap() {
 }
 
 #[test]
+fn a_write_to_the_importlib_loader_withholds_the_literal_edge() {
+    for write in [
+        "from builtins import setattr as put\nput(importlib, 'import_module', other)",
+        "from builtins import delattr as remove\nremove(importlib, 'import_module')",
+        "from builtins import setattr as put\napply = put\napply(importlib, 'import_module', other)",
+        "import builtins as b\nb.setattr(importlib, 'import_module', other)",
+        "importlib.import_module = other",
+        "del importlib.import_module",
+        "module = importlib\nmodule.import_module = other",
+        "importlib.__setattr__('import_module', other)",
+        "object.__setattr__(importlib, 'import_module', other)",
+        "importlib.__dict__['import_module'] = other",
+        "vars(importlib)['import_module'] = other",
+    ] {
+        let found = client(
+            &format!("import importlib\n{write}\nimportlib.import_module('app.service')\n"),
+            "",
+        );
+        assert!(!kinds(&found).contains(&"local"), "{write}");
+        assert!(reasons(&found).iter().any(|reason| reason.starts_with("dynamic_import")), "{write}");
+    }
+}
+
+#[test]
+fn a_loader_write_in_another_scanned_module_withholds_the_literal_edge() {
+    let found = client(
+        "import importlib\nimportlib.import_module('app.service')\n",
+        "import importlib as loader\nfrom builtins import setattr as put\nput(loader, 'import_module', other)\n",
+    );
+    assert!(!kinds(&found).contains(&"local"));
+    assert!(reasons(&found)
+        .iter()
+        .any(|reason| reason.starts_with("dynamic_import")));
+}
+
+#[test]
+fn a_shadowed_writer_or_receiver_does_not_withhold_the_edge() {
+    for source in [
+        "import importlib as loader\ndef f(loader):\n    loader.import_module = other\n",
+        "import importlib as loader\ndef f():\n    import other as loader\n    loader.import_module = other\n",
+        "from builtins import setattr as put\nimport importlib as loader\ndef f(put):\n    put(loader, 'import_module', other)\n",
+        "import importlib as loader\nalias = loader\ndef f(alias):\n    alias.import_module = other\n",
+        "import importlib as loader\ndef f(loader):\n    alias = loader\n    alias.import_module = other\n",
+        "from builtins import setattr as put\nimport importlib as loader\nf = lambda put: put(loader, 'import_module', other)\n",
+        "from builtins import setattr as put\nimport importlib as loader\n[put(loader, 'import_module', other) for put in callbacks]\n",
+    ] {
+        let found = client(
+            "import importlib\nimportlib.import_module('app.service')\n",
+            source,
+        );
+        assert!(kinds(&found).contains(&"local"), "{source}");
+    }
+}
+
+#[test]
+fn a_possible_write_in_the_imports_own_scope_still_withholds_the_edge() {
+    for source in [
+        "import importlib as loader\ndef f():\n    loader.import_module = other\n",
+        "def f():\n    import importlib as loader\n    loader.import_module = other\n",
+        "import importlib as loader\ndef f(flag):\n    import importlib as local\n    if flag:\n        local = other\n    local.import_module = other\n",
+    ] {
+        let found = client(
+            "import importlib\nimportlib.import_module('app.service')\n",
+            source,
+        );
+        assert!(!kinds(&found).contains(&"local"), "{source}");
+        assert!(reasons(&found).iter().any(|reason| reason.starts_with("dynamic_import")), "{source}");
+    }
+}
+
+#[test]
+fn a_replaced_importlib_loader_does_not_withhold_the_builtin_import() {
+    let found = client(
+        "import importlib\nimportlib.import_module = other\n__import__('app.service')\n",
+        "",
+    );
+    assert!(kinds(&found).contains(&"local"));
+}
+
+#[test]
+fn unrelated_writes_and_open_doors_keep_the_literal_edge() {
+    for write in [
+        "setattr(other, 'import_module', value)",
+        "setattr(importlib, 'unrelated', value)",
+        "def setattr(obj, name, value):\n    pass\nsetattr(importlib, 'import_module', value)",
+        "importlib.import_module(unknown)",
+    ] {
+        let found = client(
+            &format!("import importlib\n{write}\nimportlib.import_module('app.service')\n"),
+            "",
+        );
+        assert!(kinds(&found).contains(&"local"), "{write}");
+        assert!(
+            reasons(&found)
+                .iter()
+                .any(|reason| reason.starts_with("dynamic_import")),
+            "{write}"
+        );
+    }
+}
+
+#[test]
 fn a_literal_call_record_is_a_runtime_edge_also_under_a_guard() {
     // AD-472: the guard proof covers import statements only, so a literal call record is never
     // `under_type_checking`, also in the body of `if TYPE_CHECKING:` (the stricter reading).

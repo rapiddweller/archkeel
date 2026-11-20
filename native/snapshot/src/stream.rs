@@ -11,8 +11,7 @@
 use std::fs::File;
 use std::io::Read;
 
-use archkeel_facts::envelope::Role;
-use archkeel_facts::identity::StreamDigest;
+use sha2::{Digest, Sha256};
 
 use super::Snapshot;
 
@@ -33,7 +32,7 @@ impl Snapshot {
                 .insert(format!("Unreadable resolver input: {rel}"));
             return false;
         };
-        let mut digest = StreamDigest::default();
+        let mut digest = Sha256::new();
         let mut buffer = vec![0_u8; PART];
         loop {
             match file.read(&mut buffer) {
@@ -49,11 +48,11 @@ impl Snapshot {
                 }
             }
         }
-        let role = self
-            .inputs
-            .get(rel)
-            .map_or(Role::Resolution, |(_, role)| *role);
-        self.inputs.insert(rel.to_owned(), (digest.hex(), role));
+        let selected = self.inputs.get(rel).is_some_and(|(_, selected)| *selected);
+        self.inputs.insert(
+            rel.to_owned(),
+            (format!("{:x}", digest.finalize()), selected),
+        );
         true
     }
 }

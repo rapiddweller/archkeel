@@ -28,7 +28,6 @@ html.ak-canvas .rp-explorer .flow[data-atlas] .flow-canvas{
   height: 100%; min-height: 0; border: 0; border-radius: 0; background: transparent;
 }
 html.ak-canvas .rp-explorer .flow-graph{ border: 0 !important; background: transparent !important; border-radius: 0 !important; }
-html.ak-canvas .rp-explorer .flow-map-column > .flow-explore{ display: none; }
 html.ak-canvas .rp-explorer .flow-map-column{ overflow: hidden; }
 html.ak-canvas .rp-explorer .flow[data-expanded] .flow-map-column{ height: auto; }
 html.ak-canvas .rp-explorer .flow-map-column:has(.ak-element-index:not([hidden])){ display: flex; flex-direction: column; }

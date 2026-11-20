@@ -12,7 +12,7 @@
 use std::io::{Read, Write};
 use std::process::ExitCode;
 
-use archkeel_rust_collector::{encoded_reply, provenance};
+use archkeel_rust_collector::{encoded_reply, provenance, typed_reply, TEST_FEATURES};
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::request::decode_rust;
 
@@ -43,6 +43,13 @@ fn run() -> Result<Vec<u8>, String> {
 }
 
 fn main() -> ExitCode {
+    if let Some(exit) =
+        archkeel_wire::worker::serve_v1(decode_rust, TEST_FEATURES, |request, version| {
+            archkeel_snapshot::work::bounded(|| typed_reply(request, provenance(), version))
+        })
+    {
+        return exit;
+    }
     match run().and_then(|reply| {
         std::io::stdout()
             .write_all(&reply)

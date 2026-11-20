@@ -7,16 +7,21 @@
 //! of its reading and the scan proof of the model. `scope_order.rs` reads these in its one order;
 //! `scope.rs` keeps the brand and the proof.
 
-use archkeel_contract::{kind_of, CycleLevel, Rule};
+use std::collections::HashSet;
+
+use archkeel_contract::{kind_of, CallOwner, CycleLevel, PremiseName, Rule};
 
 use crate::causes::{Cause, Held, Part};
 use crate::coverage::Incomplete;
 use crate::direction;
 use crate::dropped_gaps;
+use crate::graph::{ExactCall, Graph};
 use crate::model::Model;
+use crate::modules::Module;
 use crate::ownership::{in_scope, owner_of};
-use crate::pair_gaps::reads;
+use crate::pair_gaps::{reads, sides_match, Reads};
 use crate::reason::{Reason, Unsupported};
+use crate::receipts::{call_allowed, live_calls};
 use crate::receipts::{GapScope, ScanProof};
 use crate::roots::Roots;
 use crate::selection;
@@ -24,7 +29,8 @@ use archkeel_facts::profile_traits::Layout;
 
 /// The gap scope of one rule, or the kept gaps that can change what it reads.
 pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>, Reason> {
-    let reading = reads(rule, model.contract().components());
+    let contract = model.contract();
+    let reading = reads(rule, contract.components(), contract.rules());
     let pairs = model.pairs();
     // Dispatch can add a user, but cannot undo a known use or add an item to the inventory.
     let users_proven = match rule {
@@ -62,19 +68,20 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
             let Some((source, target)) = components.get(source).zip(components.get(target)) else {
                 return true;
             };
-            !source
-                .requires()
-                .iter()
-                .flatten()
-                .any(|entry| entry.component() == target.label() && entry.through() == &Vec::new())
+            direction::assessment(source, target, &gap.target, None, false)
+                != direction::Judged::Pass
         })
         .filter(|gap| gap.holds(&reading))
         .map(|gap| (gap.source.as_str(), gap.target.as_str()));
-    let named = matches!(rule, Rule::InterfaceBoundary(_))
-        .then(|| open_sites(model))
+    let named = matches!(reading, Reads::Interface | Reads::SourceNames(_))
+        .then(|| open_sites(model, &reading))
         .into_iter()
         .flatten();
-    if let Some(held) = Held::of(held.chain(named)) {
+    let mut seen = HashSet::new();
+    let distinct = held
+        .chain(named)
+        .filter(|pair| !matches!(reading, Reads::SourceNames(_)) || seen.insert(*pair));
+    if let Some(held) = Held::of(distinct) {
         return Err(Reason::NotComplete(Cause::PairGaps(held)));
     }
     let dropped = pairs
@@ -90,20 +97,35 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
 }
 
 /// An observed module edge does not prove the publication of a separate name.
-fn open_sites(model: &Model) -> impl Iterator<Item = (&str, &str)> {
+fn open_sites<'m>(
+    model: &'m Model,
+    reading: &'m Reads<'_>,
+) -> impl Iterator<Item = (&'m str, &'m str)> {
     let components = model.components();
     model
         .graph()
         .observed()
         .named_sites
         .iter()
-        .filter_map(|(source, target)| {
+        .filter_map(|((source, target), name_free)| {
             if !model.selects(source) {
                 return None;
             }
-            let from = owner_of(components, source)?;
-            let to = owner_of(components, target)?;
-            if from == to || components.get(to)?.public().is_none() {
+            let owners = [owner_of(components, source), owner_of(components, target)];
+            let relevant = match reading {
+                Reads::Interface => {
+                    let [Some(from), Some(to)] = owners else {
+                        return None;
+                    };
+                    from != to && components.get(to)?.public().is_some()
+                }
+                Reads::SourceNames(sides) => {
+                    (!name_free || owners.contains(&None))
+                        && sides_match(sides, [source, target], owners.map(|owner| owner.is_some()))
+                }
+                _ => false,
+            };
+            if !relevant {
                 return None;
             }
             Some((source.as_str(), target.as_str()))
@@ -114,7 +136,7 @@ fn open_sites(model: &Model) -> impl Iterator<Item = (&str, &str)> {
 pub(crate) fn scan_proof<'id, 'm>(model: &'m Model) -> Result<ScanProof<'id, 'm>, Reason> {
     let graph = model.graph();
     let roots = graph.settings().roots().ok_or(Part::ScanRoots)?;
-    if graph.observed().layout != Layout::ProjectFiles {
+    if graph.observed().analysis.layout != Layout::ProjectFiles {
         return Err(Part::ScanLayout.into());
     }
     let files = graph
@@ -146,7 +168,14 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         Rule::ExternalDependencyScope(_) => observed().next().is_some(),
         Rule::InterfaceBoundary(_) => observed().next().is_some(),
         Rule::ForbiddenConstruct(rule) => {
-            crate::construct_match::receipt(model, rule)?;
+            if Option::is_some(&crate::construct_match::receipt(model, rule)?)
+                && !archkeel_contract::declared_premises(model.contract())
+                    .contains(&PremiseName::StandardLibraryUnchanged)
+            {
+                return Err(Reason::NotComplete(Cause::Receipt(
+                    "Protocol declarations need standard_library_unchanged",
+                )));
+            }
             true
         }
         // Slice S5 (AD-380), `_rule_evaluation_facts_for_rule`.
@@ -194,23 +223,29 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             placement_receipt(model, rule)?;
             true
         }
-        Rule::CallOwner(rule) => {
-            crate::call_owner::receipt(model, rule)?;
-            true
-        }
         // AD-670: an item that another component may use without a proven import holds it back.
         Rule::UnusedPublic(rule) => crate::published::receipt(model, rule)?,
+        Rule::CallOwner(rule) => {
+            call_owner_receipt(model, rule)?;
+            true
+        }
+        Rule::ForbiddenCallArgument(rule) => {
+            crate::receipts::argument_receipt(model, rule)?;
+            true
+        }
+        Rule::ProtocolDeclarations(rule) => {
+            crate::gap_effects::protocol_receipt(model, rule)?;
+            true
+        }
         // Each kind that no slice decides: its slice states its receipt here (AD-378). A
         // permission declaration (`allowed_dependency`) has no verdict, so it has no receipt.
-        other @ (Rule::ForbiddenCallArgument(_)
-        | Rule::CatalogArgument(_)
+        other @ (Rule::CatalogArgument(_)
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
         | Rule::AllowedDependency(_)
         | Rule::SourceOwnership(_)
         | Rule::NoComponentCycles(_)
-        | Rule::BoundedNumericOperand(_)
-        | Rule::ProtocolDeclarations(_)) => {
+        | Rule::BoundedNumericOperand(_)) => {
             // `receipts::cycle` gives the receipt of `no_component_cycles` (slice S7).
             return Err(Reason::Unsupported(Unsupported::Rule(kind_of(other))));
         }
@@ -220,6 +255,81 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
     } else {
         Err(Reason::NoSubjects)
     }
+}
+
+/// The proved calls that break this rule, even if another call is open.
+pub fn call_owner_violations<'m>(
+    model: &'m Model,
+    rule: &CallOwner,
+) -> Result<Vec<&'m ExactCall>, Reason> {
+    let inventory = live_calls(model, rule)?;
+    let scope = CallOwner::source(rule).as_text();
+    let target = CallOwner::target(rule).as_text();
+    let module_scope = Graph::modules(Model::graph(model))
+        .iter()
+        .any(|(id, module)| model.holds(id) && in_scope(Module::name(module), scope));
+    Ok(inventory
+        .calls
+        .iter()
+        .filter(|(_, module, caller, callee, _)| {
+            model.selects(module)
+                && (in_scope(module, scope)
+                    || (!module_scope
+                        && inventory.bodies.contains_key(scope)
+                        && in_scope(caller, scope)))
+                && callee == target
+                && !call_allowed(rule, module, caller)
+        })
+        .collect())
+}
+
+fn call_owner_receipt(model: &Model, rule: &CallOwner) -> Result<(), Reason> {
+    let inventory = live_calls(model, rule)?;
+    if !inventory
+        .targets
+        .contains(CallOwner::target(rule).as_text())
+    {
+        return Err(Cause::Receipt("call ownership needs an exact target declaration").into());
+    }
+    let graph = Model::graph(model);
+    let scope = CallOwner::source(rule).as_text();
+    let mut nonempty = false;
+    let modules = Graph::modules(graph);
+    for (id, module) in modules.iter() {
+        let name = Module::name(module);
+        if !model.holds(id) || !in_scope(name, scope) {
+            continue;
+        }
+        nonempty |= !Module::blank(module);
+        if !call_allowed(rule, name, name) && !inventory.complete.contains(name) {
+            return Err(
+                Cause::Receipt("call ownership: a selected call has no exact target").into(),
+            );
+        }
+    }
+    if !nonempty {
+        if modules
+            .iter()
+            .any(|(id, module)| model.holds(id) && in_scope(Module::name(module), scope))
+        {
+            return Err(Reason::NoSubjects);
+        }
+        let Some(total) = std::collections::HashMap::get(&inventory.bodies, scope) else {
+            return Err(Reason::NoSubjects);
+        };
+        let found = inventory
+            .calls
+            .iter()
+            .filter(|(_, _, caller, _, _)| caller == scope)
+            .map(|(site, ..)| 1 + u64::from(inventory.constructors.contains(site)))
+            .sum::<u64>();
+        if found != *total {
+            return Err(
+                Cause::Receipt("call ownership: a selected call has no exact target").into(),
+            );
+        }
+    }
+    Ok(())
 }
 
 fn placement_receipt(
@@ -357,7 +467,6 @@ pub(crate) fn dynamic_import(model: &Model, rule: &Rule) -> bool {
 }
 
 /// The source module of a dynamic import limit and its type-only flag.
-#[derive(Clone, Copy)]
 struct Source<'a> {
     module: &'a str,
     type_only: bool,

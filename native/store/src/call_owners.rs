@@ -25,14 +25,13 @@ pub struct OwnedCall {
     /// The exact qualified method that the call invokes.
     pub target: String,
     /// The evidence of the call, allocation and declaration.
-    pub evidence: Vec<String>,
+    pub evidence: Vec<EvidenceId>,
 }
 
 /// The live bound calls and the modules in which every written call has a witness.
 #[derive(Clone, Debug, Default)]
 pub struct CallOwners {
     calls: Vec<OwnedCall>,
-    complete: HashSet<String>,
     targets: HashSet<String>,
 }
 
@@ -42,14 +41,9 @@ impl CallOwners {
         &self.calls
     }
 
-    /// True when the module's complete written call count agrees with the witnesses.
-    pub fn complete(&self, module: &str) -> bool {
-        self.complete.contains(module)
-    }
-
-    /// True when the linked producer proves the exact method declaration.
-    pub fn protects(&self, target: &str) -> bool {
-        self.targets.contains(target)
+    /// The exact method declarations from the linked producer.
+    pub fn targets(&self) -> &HashSet<String> {
+        &self.targets
     }
 }
 
@@ -88,7 +82,6 @@ pub(crate) fn validate(facts: &Facts) -> Result<Option<CallOwners>, String> {
         *counts.entry(call.module.clone()).or_default() += 2;
         calls.push(call);
     }
-    let mut complete = HashSet::new();
     let mut measured = HashSet::new();
     for row in facts.coverage.measures.iter().flatten() {
         if index.files.get(row.module.as_str()) != Some(&row.file.as_str())
@@ -97,15 +90,8 @@ pub(crate) fn validate(facts: &Facts) -> Result<Option<CallOwners>, String> {
         {
             return Err(INVALID.to_owned());
         }
-        if counts.get(row.module.as_str()).copied().unwrap_or(0) == row.calls_total {
-            complete.insert(row.module.as_str().to_owned());
-        }
     }
-    Ok(Some(CallOwners {
-        calls,
-        complete,
-        targets,
-    }))
+    Ok(Some(CallOwners { calls, targets }))
 }
 
 struct Index<'a> {
@@ -201,7 +187,7 @@ impl<'a> Index<'a> {
         ]
         .into_iter()
         .flatten()
-        .map(|id| id.as_str().to_owned())
+        .cloned()
         .collect();
         Some(OwnedCall {
             site: call.id.clone(),

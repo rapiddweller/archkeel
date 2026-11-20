@@ -65,7 +65,11 @@ def test_each_rust_corpus_request_has_equal_facts_or_a_named_refusal(
             done = subprocess.run(
                 command,
                 cwd=NATIVE,
-                env={**os.environ, "ARCHKEEL_COLLECT_RUST_REQUESTS": str(manifest)},
+                env={
+                    **os.environ,
+                    "CARGO_TARGET_DIR": str(NATIVE / "target" / "shell"),
+                    "ARCHKEEL_COLLECT_RUST_REQUESTS": str(manifest),
+                },
                 capture_output=True,
                 text=True,
                 timeout=600,

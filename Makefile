@@ -5,7 +5,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -42,8 +42,7 @@ FAST_TEST = ARCHKEEL_REQUIRE_PREBUILT=1 $(UV) run --locked python -m pytest -n 4
 fast-test: core browser-runtime-install
 	$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)
 
-# AD-674: the PR gate, at most 3 minutes: static checks, the core build, the self and system check,
-# and the fast tests of the areas that the change selects (tools/select_areas.py).
+# The PR gate runs the main-tier tests of the areas that the change selects.
 PR_BASE ?= origin/main
 # SKIP_STATIC=1: the workflow ran `make ci-pr-static` beside the core build (AD-754).
 ifneq ($(strip $(KEEP_GOING)),)
@@ -73,8 +72,17 @@ pr-native-lint:
 	$(UV) run --locked python -m pytest -q -p no:cacheprovider -n 0 tests/test_rust_clones.py tests/test_rust_api.py
 
 pr-selected-test: core browser-runtime-install
-	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") && echo "areas: $$areas" && \
-		eval "$(FAST_TEST) --tier pr -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"
+	@parallel=$$($(UV) run --locked python tools/select_areas.py --job "CLI and core" "$(PR_BASE)") || exit $$?; \
+	if [ "$$parallel" = run ] && [ -n "$(PR_PARALLEL)" ]; then echo "tests run in parallel jobs"; exit 0; fi; \
+	areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") || exit $$?; \
+	echo "areas: $$areas"; \
+	if [ "$$parallel" = run ]; then \
+		native=$$($(UV) run --locked python tools/select_areas.py --job native "$(PR_BASE)") || exit $$?; \
+		if [ "$$native" = run ]; then $(MAKE) native-test || exit $$?; fi; \
+		eval "$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $$areas"; \
+	else \
+		eval "$(FAST_TEST) --tier pr -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"; \
+	fi
 
 # Checks a pull request before its merge: make merge-check PR=<number> (tools/merge_check.py).
 merge-check:
@@ -120,8 +128,14 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --no-default-features -- -D warnings
 	cd native && cargo clippy --locked --all-targets --features dump,harness -- -D warnings
 	cd native && cargo deny --locked check
-	cd native && cargo test --locked
+	$(MAKE) native-test
 	$(MAKE) self-validate-native
+
+native-test:
+	cd native && cargo build --locked -p archkeel-rust-collector -p archkeel-typescript-collector
+	# Cargo puts the core test executable under deps/. Give it the same sibling as the installed core.
+	cd native && mkdir -p target/debug/deps && ln -sf ../archkeel-rust-collector ../archkeel-typescript-collector target/debug/deps/
+	cd native && cargo test --locked
 
 # AD-754: the gate builds the core with a fast profile: no LTO, 16 codegen units, opt-level 1. The verdicts do not depend
 # on it; the shipped wheel, the nightly run and a build without ARCHKEEL_CORE_PROFILE keep the release profile.
@@ -134,10 +148,10 @@ CORE_PROFILE_ENV := $(if $(filter gate,$(ARCHKEEL_CORE_PROFILE)),CARGO_PROFILE_R
 # from a cache, therefore never stands for the tree of a pull request. CORE_SOURCE is `build` by default.
 core:
 	@stamp=native/target/release/archkeel-core.tree; tree="$$ARCHKEEL_NATIVE_TREE"; \
-	if [ "$$ARCHKEEL_CORE_SOURCE" = cache ] && [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
+	if [ "$$ARCHKEEL_CORE_SOURCE" = cache ] && [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ -x native/target/release/archkeel-rust-collector ] && [ -x native/target/release/archkeel-typescript-collector ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
 		echo "core: the release core of tree $$tree is used (AD-732)"; \
 	else \
-		rm -f $$stamp; (cd native && $(CORE_PROFILE_ENV) cargo build --locked --release -p archkeel-core) && \
+		rm -f $$stamp; (cd native && $(CORE_PROFILE_ENV) cargo build --locked --release -p archkeel-core -p archkeel-rust-collector -p archkeel-typescript-collector) && \
 		{ [ -z "$$tree" ] || echo "$$tree" > $$stamp; }; \
 	fi
 
@@ -174,7 +188,7 @@ self-validate: self-validate-native self-validate-shell self-validate-system
 # shown, not pinned: the gaps of the scripts stay visible until a change removes them.
 browser-architecture-check: core browser-runtime-install
 	@mkdir -p test-artifacts/validation
-	@$(UV) run --locked archkeel validate --config docs/architecture/browser.toml --json > test-artifacts/validation/browser.json || true
+	@$(UV) run --locked archkeel validate --config docs/architecture/browser.toml --json > test-artifacts/validation/browser.json || test $$? -eq 2
 	@$(UV) run --locked python -c "import json, collections; f = json.load(open('test-artifacts/validation/browser.json'))['frame']; print('browser:', f['status'], dict(collections.Counter(v[1] for v in f['rules'].values()))); print('gaps:', len(f['collection_gaps'])); [print(f'  {n} {r}') for r, n in collections.Counter(g['reason'].split(':')[0] for g in f['collection_gaps']).most_common()]"
 
 # AD-462: one report pair for each run of fixtures/matrix.json, in test-artifacts/gallery. The
@@ -215,7 +229,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py \
 	native/hatch_build.py
 
 lint:
@@ -226,7 +240,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py
+	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 flutter-demo-check:
@@ -239,6 +253,11 @@ flutter-demo-check:
 	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" analyze
 	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" test
 	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" build web --output "$(abspath test-artifacts/flutter-demo/web)"
+
+COMPASS_BUILD_OUT ?= test-artifacts/compass-pinned-build
+
+compass-pinned-build:
+	$(UV) run --locked python -m tools.compass_build --flutter "$(FLUTTER_EXECUTABLE)" --out "$(COMPASS_BUILD_OUT)"
 
 # #1313: what a user runs on a checkout. The sdist cannot be installed alone (it has no core), so
 # this also builds the platform wheel of this host with the core in `dist/`. It installs

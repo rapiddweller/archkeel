@@ -12,8 +12,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::data::{CallData, ReferenceData};
-use archkeel_facts::envelope::ConstructedCall;
+use super::DirectMethods;
+use archkeel_facts::data::{CallData, ImportData, ReferenceData};
+use archkeel_facts::envelope::{ConstructedCall, DirectCall};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::{
     ids::{EvidenceId, FactId, ModuleName},
@@ -25,9 +26,9 @@ use archkeel_facts::{
 use ruff_python_ast::{Expr, ExprCall, ExprName};
 use ruff_text_size::{Ranged, TextSize};
 
+use super::found::{Found, Source};
 use super::reader::Reader;
 use super::scope::{self, Stored, Uses};
-use super::{DirectMethods, Found, Source};
 use crate::module::{EvidenceMap, Module};
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
@@ -37,6 +38,7 @@ pub(crate) struct Sym {
     pub class: bool,
     pub function: bool,
     pub constructible: bool,
+    direct_function: Option<FactId>,
 }
 
 /// True for a record whose name is the module and one part: a class, function or value of the
@@ -55,7 +57,7 @@ fn top_level(record: &Record<SymbolFact>) -> bool {
 pub(crate) struct Context {
     pub symbols: HashMap<String, Sym>,
     /// For each importing module: the name that a plain import binds to the qualified name.
-    pub imports: HashMap<String, HashMap<String, String>>,
+    imports: HashMap<String, HashMap<String, (String, Option<FactId>)>>,
 }
 
 impl Context {
@@ -63,7 +65,7 @@ impl Context {
     /// (`sole` and `ambiguous` are the sets of the survey).
     pub(crate) fn collect(
         found: &[Found<'_>],
-        records: &[Record<ImportFact>],
+        (records, written): (&[Record<ImportFact>], &[Record<ImportFact>]),
         (sole, ambiguous): (&HashSet<String>, &HashSet<String>),
     ) -> Self {
         let mut symbols = HashMap::new();
@@ -80,12 +82,14 @@ impl Context {
                     class,
                     function,
                     constructible,
+                    direct_function: function.then(|| record.id.clone()),
                 };
                 symbols.insert(name.to_owned(), sym);
             }
         }
-        let mut imports: HashMap<String, HashMap<String, String>> = HashMap::new();
-        for record in records {
+        let mut imports = HashMap::<String, HashMap<String, _>>::new();
+        // AD-654 keeps import order when it substitutes the provider in the view.
+        for (record, original) in records.iter().zip(written) {
             let data = record.data.data();
             let id = record.id.as_str();
             let (Some(symbol), Some(binding)) = (&data.symbol, &data.binding) else {
@@ -99,7 +103,10 @@ impl Context {
                 .or_default()
                 .insert(
                     binding.clone(),
-                    format!("{}.{symbol}", data.target_module.as_str()),
+                    (
+                        format!("{}.{symbol}", data.target_module.as_str()),
+                        direct_import(original, data),
+                    ),
                 );
         }
         Context { symbols, imports }
@@ -119,20 +126,32 @@ impl Context {
         if let Some(sym) = self.symbols.get(&own) {
             return Some((own, sym));
         }
-        let target = self.imports.get(module)?.get(name)?;
+        let (target, _) = self.imports.get(module)?.get(name)?;
         Some((target.clone(), self.symbols.get(target)?))
     }
 }
 
-/// The sites of the sources of one module.
+fn direct_import(original: &Record<ImportFact>, view: &ImportData) -> Option<FactId> {
+    let ImportFact::Import(data) = &original.data else {
+        return None;
+    };
+    (data.module_level_import
+        && data.symbols_known
+        && data.source_binding_unique == Some(true)
+        && data.target_module == view.target_module
+        && data.symbol == view.symbol)
+        .then(|| original.id.clone())
+}
+
 pub(crate) struct Sites {
     pub calls: Vec<Record<CallFact>>,
     pub references: Vec<Record<ReferenceFact>>,
     pub dead: HashSet<String>,
+    pub direct: Vec<DirectCall>,
     pub constructed: Vec<ConstructedCall>,
 }
 
-/// The sites and accepted receiver witnesses for one module.
+/// The sites of the sources of one module.
 pub(crate) fn site_records(
     (module, binders): (&Module, &Binders),
     found: &Found<'_>,
@@ -146,6 +165,7 @@ pub(crate) fn site_records(
         writes: None,
     };
     let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
+    let mut direct = Vec::new();
     let mut constructed = Vec::new();
     for source in &found.sources {
         let params = scope::parameters(source.node);
@@ -159,15 +179,17 @@ pub(crate) fn site_records(
         };
         let uses = Uses::of(source.node);
         let stored = scope::stored(source.node, &reader, &params);
-        let first = calls.len();
+        let start = calls.len();
         for (call, dead) in &uses.calls {
             let record = call_record(&mut reader, &reading, (call, *dead), &stored);
             if *dead {
                 dead_sites.extend(record.evidence_ids.iter().map(|id| id.as_str().to_owned()));
+            } else if let Expr::Name(name) = call.func.as_ref() {
+                direct.extend(reading.direct_call(name.id.as_str(), &record.id, call));
             }
             calls.push(record);
         }
-        constructed.extend(methods.witness(source.node, &calls[first..], &uses.calls));
+        constructed.extend(methods.witness(source.node, &calls[start..], &uses.calls));
         for (name, _) in uses.names.iter().filter(|(_, dead)| !dead) {
             references.extend(reference(&mut reader, &reading, name));
         }
@@ -177,8 +199,25 @@ pub(crate) fn site_records(
         calls,
         references,
         dead: dead_sites,
+        direct,
         constructed,
     }
+}
+
+fn written_actuals(call: &ExprCall) -> Option<Vec<archkeel_facts::envelope::WrittenActual>> {
+    let arguments = &call.arguments;
+    let positional = arguments.args.iter().map(|expr| {
+        (!matches!(expr, Expr::Starred(_)))
+            .then_some((None, matches!(expr, Expr::StringLiteral(_))))
+    });
+    let keywords = arguments.keywords.iter().map(|argument| {
+        let keyword = argument.arg.as_ref()?.as_str().to_owned();
+        Some((
+            Some(keyword),
+            matches!(argument.value, Expr::StringLiteral(_)),
+        ))
+    });
+    positional.chain(keywords).collect()
 }
 
 /// What the sites of one source read.
@@ -190,6 +229,23 @@ struct Reading<'a> {
 }
 
 impl Reading<'_> {
+    fn direct_call(&self, name: &str, site: &FactId, call: &ExprCall) -> Option<DirectCall> {
+        let (target, symbol) = self.lookup(name, self.hidden)?;
+        let function = symbol.direct_function.as_ref()?;
+        let import = if target == format!("{}.{name}", self.module) {
+            None
+        } else {
+            let (_, import) = self.context.imports.get(self.module)?.get(name)?;
+            Some(import.as_ref()?.clone())
+        };
+        Some((
+            site.clone(),
+            function.clone(),
+            import,
+            written_actuals(call),
+        ))
+    }
+
     /// The symbol that `name` means here. In a method a name that starts with `__` and does not
     /// end with it is mangled with the class name, so it is no symbol of the module.
     fn lookup(&self, name: &str, hidden: &HashSet<String>) -> Option<(String, &Sym)> {
@@ -309,6 +365,7 @@ fn result(reader: &mut Reader<'_, '_>, reading: &Reading<'_>, item: &Stored<'_>)
     );
     ResultBinding {
         annotation: item.annotation.clone(),
+        inferred_type: None,
         definition_contexts: Vec::new(),
         evidence_ids: vec![EvidenceId::new(reader.evidence(item.statement))],
         id: FactId::new(id),

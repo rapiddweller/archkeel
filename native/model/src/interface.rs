@@ -69,7 +69,9 @@ pub fn interface_crossings<'m>(model: &'m Model, rule: &InterfaceBoundary) -> Ve
 /// AD-604: an import of a whole module binds no name when the collector writes each use through
 /// it as a record of its own. The uses are the crossings; the import itself publishes nothing.
 fn namespace(model: &Model, import: &Import) -> bool {
-    import.symbols_known() && import.symbol().is_none() && model.graph().observed().namespace_uses
+    import.symbols_known()
+        && import.symbol().is_none()
+        && model.graph().observed().analysis.namespace_uses
 }
 
 /// A name that a re-export publishes outside the package of its module (AD-608), judged against

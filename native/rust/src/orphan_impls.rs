@@ -130,6 +130,7 @@ pub(super) fn orphan_impl_gaps(
                 (rel, site),
                 &why,
                 None,
+                false,
             );
         }
     }
@@ -144,7 +145,15 @@ pub(super) fn orphan_impl_gaps(
         };
         for caller in callers(workspace, modules, home) {
             let pair = (caller.module.as_str(), target);
-            once_gap(builder, edges, pair, (&home.rel, &found.site), &why, None);
+            once_gap(
+                builder,
+                edges,
+                pair,
+                (&home.rel, &found.site),
+                &why,
+                None,
+                false,
+            );
         }
     }
 }
@@ -172,7 +181,9 @@ pub(super) fn trait_impl_candidates(workspace: &Workspace, modules: &[Module]) -
                 site: site.clone(),
                 target: target.to_owned(),
                 reason: reason.clone(),
+                erased: false,
                 execution: true,
+                no_name_route: true,
             });
         }
     }

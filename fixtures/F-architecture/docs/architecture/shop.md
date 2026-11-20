@@ -41,12 +41,12 @@ sub-components offer is exactly what `store` offers.
 | Sub-component | Package | Responsibility |
 |---|---|---|
 | api | `shop.store.sqlite` | Housekeeping on a whole store directory |
-| repository | `shop.store.repository` | The order-facing persistence API |
+| repository | `shop.store` (exact module), `shop.store.repository`, `shop.store.lookup` | The order-facing persistence API |
 | codec | `shop.store.codec` | The document format and its version |
 | backend | `shop.store.backend` | Where a document lives, and how it is read and replaced |
 
-`shop.store` itself belongs to no sub-component. It is carried rather than dropped: a module that
-vanished between two levels is what this tool exists to prevent.
+The repository component owns the package entry point because it publishes `OrderRepository`.
+Its exact module selector leaves the three sibling components with their own modules.
 
 Pairs are decided here by `requires` alone, so absence forbids (AD-32); `STORE-REQUIRES-COMPLETE`
 is what makes that checkable, and a crossing no entry covers is a violation naming the importing

@@ -534,7 +534,10 @@
               }
             ],
             "returns": "String"
-          }
+          },
+          "modifiers": [
+            "static"
+          ]
         },
         {
           "id": "method-compass-main-main",

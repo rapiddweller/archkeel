@@ -139,14 +139,15 @@ fn an_execution_only_pair_needs_the_marker_and_live_dispatch(
             "shop.source",
             gap,
         )];
-        let pairs = observed(&facts, &[Class::Pair], None).pair_gaps;
+        let pairs = observed(&facts, facts.analysis_capabilities(), &[Class::Pair], None).pair_gaps;
         assert_eq!(
             pairs,
             vec![(
                 "shop.source".to_owned(),
                 "shop.target".to_owned(),
                 dispatch,
-                only_execution
+                only_execution,
+                false
             )]
         );
     }

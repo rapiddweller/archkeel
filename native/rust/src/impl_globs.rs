@@ -210,7 +210,7 @@ impl Builder {
         );
         let calls = reached.calls.iter();
         for call in calls.filter(|c| methods.as_ref().is_none_or(|m| m.contains(&c.name))) {
-            self.reached_gap(reached, call, &edge.module, &reason);
+            self.reached_gap(reached, call, &edge.module, &reason, false);
         }
     }
 
@@ -221,6 +221,7 @@ impl Builder {
         call: &MethodCall,
         target: &str,
         why: &str,
+        no_name_route: bool,
     ) {
         let source = reached.module.module.as_str();
         let at = (reached.module.rel.as_str(), &call.site);
@@ -229,10 +230,18 @@ impl Builder {
                 .edges
                 .contains(&(source.to_owned(), target.to_owned()))
         {
-            self.named_site((source, target), at, why);
+            self.named_site((source, target), at, why, no_name_route);
             return;
         }
-        once_gap(self, reached.edges, (source, target), at, why, None);
+        once_gap(
+            self,
+            reached.edges,
+            (source, target),
+            at,
+            why,
+            None,
+            no_name_route,
+        );
     }
 }
 
@@ -244,11 +253,16 @@ pub(crate) fn once_gap(
     (rel, site): (&str, &crate::site::Site),
     why: &str,
     dispatch: Option<archkeel_facts::vocab::ResolutionDimension>,
+    no_name_route: bool,
 ) {
     let pair = (source.to_owned(), target.to_owned());
-    if source == target || edges.contains(&pair) || !builder.gapped.insert(pair) {
+    if source == target || edges.contains(&pair) {
+        return;
+    }
+    if builder.pair_already_reported(&pair, no_name_route) {
         return;
     }
     let evidence = builder.cite(rel, site);
-    builder.pair_gap(why, &evidence, (source, target), dispatch);
+    let id = builder.pair_gap(why, &evidence, (source, target), dispatch, no_name_route);
+    builder.gapped.insert(pair, id);
 }

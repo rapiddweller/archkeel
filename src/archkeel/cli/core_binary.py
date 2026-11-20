@@ -38,10 +38,12 @@ def _verify(bundled: Path) -> None:
 
 
 def confirm(binary: Path) -> None:
-    """Check a bundled core binary again, immediately before it starts. A checkout binary has no
-    digest file and is not checked."""
+    """Check a bundled core binary and both workers beside it again, immediately before the
+    core starts. A checkout binary has no digest file and is not checked."""
     if binary.parent.name == "_native":
         _verify(binary)
+        for worker in ("archkeel-rust-collector", "archkeel-typescript-collector"):
+            _verify(binary.with_name(worker + binary.suffix))
 
 
 def locate_core(package: Path | None = None) -> Path:
@@ -60,10 +62,8 @@ def locate_core(package: Path | None = None) -> Path:
             binary = checkout / "native" / "target" / profile / name
             if binary.is_file():
                 return binary
-        raise CoreBinaryNotFound(
-            "the core binary is missing; build native/ with cargo build --release -p archkeel-core"
-        )
+        raise CoreBinaryNotFound("the core binary is missing; run make core")
     raise CoreBinaryNotFound(
         "this package holds no core binary; install a platform wheel of archkeel, or run from a "
-        "checkout after cargo build --release -p archkeel-core"
+        "checkout after make core"
     )

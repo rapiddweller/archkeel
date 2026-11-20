@@ -28,7 +28,9 @@ def _fake_cargo(tmp_path: Path, succeed: bool = True) -> dict[str, str]:
         f"{'' if succeed else 'exit 1'}\n"
         "mkdir -p target/release\n"
         "echo built > target/release/archkeel-core\n"
-        "chmod +x target/release/archkeel-core\n"
+        "echo built > target/release/archkeel-rust-collector\n"
+        "echo built > target/release/archkeel-typescript-collector\n"
+        "chmod +x target/release/archkeel-*\n"
     )
     cargo.chmod(0o755)
     return {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "MAKEFLAGS": ""}
@@ -81,7 +83,7 @@ def test_make_core_reuses_a_core_only_with_the_stamp_of_its_tree(tmp_path: Path)
 
 def test_a_core_is_saved_only_after_its_own_build_step_succeeded() -> None:
     """AD-732: `always()` alone would save the old core that a failed run restored."""
-    for workflow, job in (("pr-gate.yml", "pr-gate"), ("ci.yml", "lint")):
+    for workflow, job in (("pr-gate.yml", "base"), ("ci.yml", "lint")):
         body = _jobs(workflow)[job]
         assert "      - name: Build the core\n        id: build\n" in body, workflow
         save = body.split("      - name: Save the core for this native tree\n", 1)[1]
@@ -89,6 +91,16 @@ def test_a_core_is_saved_only_after_its_own_build_step_succeeded() -> None:
         assert condition is not None and "steps.build.outcome == 'success'" in condition[1]
         assert "archkeel-core.tree" in save.split("key:", 1)[0], workflow
         assert body.index("id: build") < body.index("Save the core for this native tree")
+
+
+def test_each_partial_core_cache_carries_the_target_directory_marker() -> None:
+    # A restore creates target before Cargo can mark it. The native self-scan then counts builds.
+    for workflow in ("ci.yml", "pr-gate.yml", "pages.yml"):
+        text = (ROOT / ".github/workflows" / workflow).read_text()
+        paths = re.findall(r"path: \|\n((?:            \S+\n)+)          key: core-gate-", text)
+        assert paths, workflow
+        for block in paths:
+            assert "native/target/CACHEDIR.TAG" in block, workflow
 
 
 def test_the_gate_profile_builds_without_lto_and_with_16_codegen_units(tmp_path: Path) -> None:
@@ -127,7 +139,7 @@ def test_the_gate_profile_builds_without_lto_and_with_16_codegen_units(tmp_path:
 
 def test_the_pr_gate_runs_the_static_checks_beside_the_core_build_and_checks_their_result() -> None:
     """AD-754: the static checks need no core; they run while cargo builds."""
-    body = _jobs("pr-gate.yml")["pr-gate"]
+    body = _jobs("pr-gate.yml")["base"]
     build = body.split("      - name: Build the core\n", 1)[1].split("\n      - name:", 1)[0]
     assert "make ci-pr-static" in build and "make core" in build and "wait " in build
     assert "make pr-native-lint" in build

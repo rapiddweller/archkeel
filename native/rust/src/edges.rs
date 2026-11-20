@@ -13,7 +13,7 @@ use archkeel_facts::identity::{package_of, stable_id, Part};
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 use archkeel_facts::{ImportFact, Record};
 
-use crate::builder::{import_record, Builder, Origin};
+use crate::builder::{import_record, Builder, Form, Origin};
 use crate::crates::{Crate, Root, Workspace};
 use crate::derive_imports::Local;
 use crate::modules::{Index, Outcome};
@@ -56,7 +56,7 @@ impl Builder {
                     .chain(scope.iter().map(String::as_str))
                     .collect::<Vec<_>>()
                     .join(".");
-                self.pair_gap(&concern.reason, &evidence, (&source, ""), None);
+                self.pair_gap(&concern.reason, &evidence, (&source, ""), None, false);
             } else {
                 self.gap(&concern.reason, Some(&evidence), &module.module);
             }
@@ -192,7 +192,7 @@ impl Builder {
         // One record for each distinct path of a file; the first use is its evidence.
         if !self
             .seen
-            .insert((from.module.to_owned(), key, reference.path.clone()))
+            .insert((from.module.to_owned(), key, reference.path.clone(), None))
         {
             self.ended += 1;
             return;
@@ -230,7 +230,7 @@ impl Builder {
                     let reason = format!(
                         "The dependency {package} has a registry or git entry, and a crate of the workspace has its name: a redirect that the scan does not read can make it that crate"
                     );
-                    self.pair_gap(&reason, &evidence, (from.module, &local), None);
+                    self.pair_gap(&reason, &evidence, (from.module, &local), None, false);
                 }
                 (
                     Target::External {
@@ -292,6 +292,11 @@ impl Builder {
         index: Option<&Index<'_>>,
         (target, target_module, name, other_crate): (Target, String, Option<ImportName>, bool),
     ) {
+        if matches!(from.form, Form::Import)
+            && matches!(&target, Target::External { .. } | Target::Builtin { .. })
+        {
+            self.opaque_values.insert(from.module.to_owned());
+        }
         let external = name.as_ref().and_then(ImportName::external_package);
         if let Some(package) = external.filter(|_| reference.in_macro.is_none()) {
             self.external_origin(from.module, &evidence, package);

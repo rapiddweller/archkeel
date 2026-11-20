@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
-from areas import areas_of_change  # noqa: E402
+from areas import AREAS, areas_of_change, parallel_areas, rust_checks  # noqa: E402
 
 
 def changed(base: str) -> list[str]:
@@ -31,6 +31,13 @@ def changed(base: str) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    if len(argv) == 3 and argv[0] == "--job":
+        if argv[1] != "native" and argv[1] not in AREAS:
+            raise ValueError(f"unknown test area: {argv[1]}")
+        paths = changed(argv[2])
+        selected = rust_checks(paths) if argv[1] == "native" else argv[1] in parallel_areas(paths)
+        print("run" if selected else "no matching paths")
+        return 0
     areas = areas_of_change(changed(argv[0])) or ["self-check and CI"]
     print(" ".join(f"--area {shlex.quote(area)}" for area in areas))
     return 0

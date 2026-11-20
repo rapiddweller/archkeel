@@ -21,6 +21,9 @@ pub struct GapData {
     /// The gap is an unresolved dispatch to an internal module in a linked collector reply.
     #[serde(skip)]
     pub dispatch: bool,
+    /// The live collector proves that this gap does not hide a written name route.
+    #[serde(skip)]
+    pub no_name_route: bool,
     /// The reason as written.
     #[serde(default, skip_serializing_if = "crate::skip::omitted")]
     pub reason: Option<String>,

@@ -23,7 +23,7 @@ use crate::impl_globs::{crate_path, Reached};
 use crate::modules::{Edge, Frame, Index, TypeOf};
 use crate::scan::Via;
 use crate::tree::Module;
-use flow::{visible, Foreign};
+use flow::{visible, Foreign, NameRoutes};
 use orphans::orphan_impl_gaps;
 use receivers::{certainly_visible, exact_type, Typed};
 
@@ -102,12 +102,13 @@ impl<'a> Members<'a> {
 }
 
 /// A path call `T::m(..)`: it can reach a member with or without `self`, of any arity.
-fn path_call(reference: &crate::scan::Reference) -> MethodCall {
+fn path_call(reference: &crate::scan::Reference, bound_name: bool) -> MethodCall {
     MethodCall {
         name: reference.names.last().cloned().unwrap_or_default(),
         site: reference.site.clone(),
         scope: reference.scope.clone(),
         path: true,
+        bound_name,
         arity: None,
         on_self: None,
         owner: written_owner(reference),
@@ -165,14 +166,15 @@ impl Builder {
         modules: &[Module],
     ) {
         let found = members(index, modules);
+        let names = NameRoutes::of(self, found.typed.shadowed());
         let paths: Vec<Paths> = (modules.iter())
-            .map(|module| self.member_paths(index, module, &found))
+            .map(|module| self.member_paths(index, module, &found, &names))
             .collect();
         let edges = self.module_pairs();
         orphan_impl_gaps(self, (workspace, index, modules), &edges);
         let mut pending = Vec::new();
         for (module, paths) in modules.iter().zip(paths) {
-            let mut calls = self.calls_of(workspace, index, module, &paths.proved);
+            let mut calls = self.calls_of(workspace, index, module, &paths.proved, &names);
             calls.extend(paths.unresolved);
             let reached = Reached {
                 index,
@@ -188,12 +190,12 @@ impl Builder {
                     "A method call may reach the method {} of an impl block in {target}",
                     call.name
                 );
-                self.reached_gap(&reached, call, target, &reason);
+                self.reached_gap(&reached, call, target, &reason, call.bound_name);
             }
             self.glob_trait_gaps(workspace, &reached);
         }
         pending.extend(orphans::trait_impl_candidates(workspace, modules));
-        flow::settle(self, pending);
+        flow::settle(self, pending, index, modules);
     }
 
     /// A path `S::m` whose type file defines no `m` for `S` is an edge to each foreign block of it
@@ -201,7 +203,13 @@ impl Builder {
     /// a foreign block of an unknown type may also extend, is returned as a call: it may reach any
     /// foreign `m` (#953). A path to a type that explicit paths give is an edge to its one member
     /// (AD-544).
-    fn member_paths(&mut self, index: &Index<'_>, module: &Module, found: &Members<'_>) -> Paths {
+    fn member_paths(
+        &mut self,
+        index: &Index<'_>,
+        module: &Module,
+        found: &Members<'_>,
+        names: &NameRoutes,
+    ) -> Paths {
         let mut out = Paths::default();
         let Some(frame) = index.frame(&module.module) else {
             return out;
@@ -213,9 +221,10 @@ impl Builder {
             let Some((member, ty)) = reference.names.split_last() else {
                 continue;
             };
+            let open_path = || path_call(reference, names.covers(index, frame, reference));
             // A macro may define the member outside the file of its type (#1371, AD-656).
             if !ty.is_empty() && self.macro_foreign_members.contains_key(member.as_str()) {
-                out.unresolved.push(path_call(reference));
+                out.unresolved.push(open_path());
             }
             let Some(blocks) = (found.foreign.get(member.as_str())).filter(|_| !ty.is_empty())
             else {
@@ -224,14 +233,14 @@ impl Builder {
             let site = (reference.site.line, reference.site.column);
             let shadowed = found.typed.shadowed();
             if module.scan.generic_paths.contains(&site) || rebound(module, reference, shadowed) {
-                out.unresolved.push(path_call(reference));
+                out.unresolved.push(open_path());
                 continue;
             }
             let at = frame.lexical_at(&reference.scope);
             let known = index.local_type_of(frame, &reference.scope, ty);
             let own = match &known {
                 TypeOf::Known(lexical, name) if variant(index, lexical, name, member) => {
-                    out.unresolved.push(path_call(reference));
+                    out.unresolved.push(open_path());
                     continue;
                 }
                 TypeOf::Known(lexical, name) => {
@@ -250,7 +259,7 @@ impl Builder {
             let unknown_block = blocks.iter().any(|block| block.ty == TypeOf::Unknown);
             let open_call = known == TypeOf::Unknown || (!own && unknown_block);
             if open_call {
-                out.unresolved.push(path_call(reference));
+                out.unresolved.push(open_path());
             }
             if own || known == TypeOf::Unknown {
                 continue;
@@ -261,7 +270,7 @@ impl Builder {
             };
             let typed = blocks.iter().filter(|block| block.ty == known);
             let (open, hidden): (Vec<_>, Vec<_>) = typed.partition(seen);
-            let doubt = |block: &&Foreign<'_>| (path_call(reference), block.module.module.clone());
+            let doubt = |block: &&Foreign<'_>| (open_path(), block.module.module.clone());
             out.doubts.extend(hidden.iter().map(doubt));
             let TypeOf::Known(type_at, type_name) = &known else {
                 continue;
@@ -272,7 +281,7 @@ impl Builder {
             let certain = exact_type(index, module, type_at, type_name)
                 && open.iter().all(|block| block.exact && block.member.inert);
             if !certain && !open_call {
-                out.unresolved.push(path_call(reference));
+                out.unresolved.push(open_path());
             }
             if !certain {
                 continue;
@@ -348,6 +357,7 @@ impl Builder {
         index: &Index<'_>,
         module: &Module,
         proved: &BTreeSet<(i64, i64)>,
+        names: &NameRoutes,
     ) -> Vec<MethodCall> {
         let mut calls = module.scan.method_calls.clone();
         calls.extend(
@@ -367,18 +377,7 @@ impl Builder {
             .filter(|r| matches!(r.via, Via::Path | Via::Helper));
         let open = crate_paths.filter(|r| !proved.contains(&(r.site.line, r.site.column)));
         for reference in open.filter(|r| crate_path(workspace, frame, r)) {
-            if let Some(name) = reference.names.last() {
-                calls.push(MethodCall {
-                    name: name.clone(),
-                    site: reference.site.clone(),
-                    scope: reference.scope.clone(),
-                    path: true,
-                    arity: None,
-                    on_self: None,
-                    owner: written_owner(reference),
-                    chain: None,
-                });
-            }
+            calls.push(path_call(reference, names.covers(index, frame, reference)));
         }
         calls
     }
@@ -410,7 +409,6 @@ impl Builder {
                 *self.ended_methods.entry(module.rel.clone()).or_default() += 1;
                 continue;
             }
-            // #1571: the type of the receiver narrows the members that the call can reach.
             let verdict = match at_index < own {
                 true => types::Context {
                     index: reached.index,
@@ -432,6 +430,7 @@ impl Builder {
                 continue;
             }
             let keep = |block: &Foreign<'_>| verdict.keeps(block);
+            let no_name_route = call.bound_name || at_index < own && !call.path;
             let at = frame.lexical_at(&call.scope);
             let blocks = found.foreign.get(call.name.as_str()).into_iter().flatten();
             let blocks = blocks.filter(|block| keep(block));
@@ -441,9 +440,8 @@ impl Builder {
                     "A method call may reach the method {} of an impl block in {target}",
                     call.name
                 );
-                self.reached_gap(reached, call, target, &reason);
+                self.reached_gap(reached, call, target, &reason, no_name_route);
             }
-            // #1571: the call may reach a member in the file of its type (`impl_flow.rs`).
             let owned = (found.owned.get(call.name.as_str())).map_or(&[][..], Vec::as_slice);
             let candidates = (owned, &found.aliases);
             pending.extend(flow::own_candidates(
@@ -452,17 +450,16 @@ impl Builder {
                 call,
                 candidates,
                 &keep,
+                no_name_route,
             ));
-            // #1196: a macro call can define the method in an impl block outside the file of its
-            // type, which the scan does not see; its visibility is not read either. A macro that
-            // defines the type and its impl together adds a member of its own file (AD-357).
+            // A macro in another file can define the method without exposing its visibility.
             let defined = (self.macro_foreign_members.get(&call.name).cloned()).unwrap_or_default();
             for target in &defined {
                 let reason = format!(
                     "A method call may reach the method {} that a macro call in {target} may define",
                     call.name
                 );
-                self.reached_gap(reached, call, target, &reason);
+                self.reached_gap(reached, call, target, &reason, no_name_route);
             }
             if at_index < own {
                 *self.ended_methods.entry(module.rel.clone()).or_default() += 1;

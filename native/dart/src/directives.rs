@@ -28,7 +28,7 @@ pub(crate) fn directives(
             "library_name" => result.push(Directive::new(
                 DirectiveKind::Library,
                 source.span(node),
-                Some(text_children(node, source)),
+                named(node, "dotted_identifier_list").map(|name| text_children(name, source)),
             )),
             "part_directive" => {
                 let target = literal_uri(named(node, "uri"), source);
@@ -42,19 +42,20 @@ pub(crate) fn directives(
                 ));
             }
             "part_of_directive" => {
-                let target = match named(node, "uri") {
+                let uri = named(node, "uri");
+                let target = match uri {
                     Some(uri) => literal_uri(Some(uri), source),
-                    None => Some(text_children(node, source)),
+                    None => named(node, "dotted_identifier_list")
+                        .map(|name| text_children(name, source)),
                 };
                 if target.is_none() {
                     let message = "Part owner is not a literal or library name.";
                     concerns.push(unsupported(source, node, message));
                 }
-                result.push(Directive::new(
-                    DirectiveKind::PartOf,
-                    source.span(node),
-                    target,
-                ));
+                let mut directive =
+                    Directive::new(DirectiveKind::PartOf, source.span(node), target);
+                directive.part_owner_is_uri = uri.is_some();
+                result.push(directive);
             }
             "import_or_export" => {
                 let kinds = ["library_import", "library_export"];

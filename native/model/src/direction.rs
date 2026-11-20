@@ -42,8 +42,7 @@ pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'
     let allowed = |module: &str| rule.allowed_sources().iter().any(|a| a.as_text() == module);
     model
         .graph()
-        .imports()
-        .iter()
+        .imports_for_symbol_rule(*rule.source_symbol_only())
         .filter(|import| {
             model.selects(import.source_module())
                 && sources.matches(import.source_module())
@@ -164,7 +163,16 @@ pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<
         if !symbols && symbol_port(source, target) {
             continue;
         }
-        let judged = assessment(source, target, import);
+        let named = import.symbols_known()
+            && (!import.under_type_checking() || import.symbol().is_none())
+            && import.symbol() != Some("*");
+        let judged = assessment(
+            source,
+            target,
+            import.target_module(),
+            import.symbol(),
+            named,
+        );
         found.push(Crossing {
             import,
             source,
@@ -186,13 +194,14 @@ fn symbol_port(source: &Component, target: &Component) -> bool {
     })
 }
 
-/// `requires_import_assessment`: a wildcard import cannot prove an exact symbol port.
-fn assessment(source: &Component, target: &Component, import: &Import) -> Judged {
-    let named = import.symbols_known()
-        && (!import.under_type_checking() || import.symbol().is_none())
-        && import.symbol() != Some("*");
-    let symbol = if named { import.symbol() } else { None };
-    let module = import.target_module();
+/// Assess a known import or a possible edge without a proven symbol.
+pub(crate) fn assessment(
+    source: &Component,
+    target: &Component,
+    module: &str,
+    symbol: Option<&str>,
+    named: bool,
+) -> Judged {
     let entries = || {
         source
             .requires()
@@ -202,19 +211,24 @@ fn assessment(source: &Component, target: &Component, import: &Import) -> Judged
     };
     let covered = entries().any(|entry| {
         entry.through().is_empty()
-            || entry
-                .through()
-                .iter()
-                .any(|port| port_judged(port.as_text(), module, symbol, true) == Judged::Pass)
+            || entry.through().iter().any(|port| {
+                port_judged(
+                    port.as_text(),
+                    module,
+                    if named { symbol } else { None },
+                    true,
+                ) == Judged::Pass
+            })
     });
     if covered {
         return Judged::Pass;
     }
     let undecided = !named
         && entries().any(|entry| {
-            entry.through().iter().any(|port| {
-                port_judged(port.as_text(), module, import.symbol(), false) == Judged::Undecided
-            })
+            entry
+                .through()
+                .iter()
+                .any(|port| port_judged(port.as_text(), module, symbol, false) == Judged::Undecided)
         });
     if undecided {
         Judged::Undecided

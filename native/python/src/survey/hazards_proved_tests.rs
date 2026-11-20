@@ -18,7 +18,7 @@ fn kinds_of(source: &str) -> Vec<&'static str> {
         source.to_owned(),
         tree,
     )];
-    let (_, found) = split(&modules, &binders, None);
+    let (_, found) = split(&modules, &binders, (None, false));
     found.iter().map(|(_, site)| site.kind).collect()
 }
 
@@ -60,7 +60,7 @@ fn has_dynamic(source: &str) -> bool {
 }
 
 #[test]
-fn an_attribute_code_of_an_imported_class_or_module_keeps_its_gap() {
+fn a_plain_literal_code_read_of_a_direct_import_has_no_gap() {
     let files = [
         ("src/app/__init__.py", ""),
         (
@@ -78,18 +78,59 @@ fn an_attribute_code_of_an_imported_class_or_module_keeps_its_gap() {
         reasons(&surveyed(&all))
     };
     let plain = "from app.models import Plan\ndef use():\n    return Plan.code, Plan.name\n";
-    assert!(!with(plain).is_empty(), "{:?}", with(plain));
+    assert!(with(plain).is_empty(), "{:?}", with(plain));
     let aliased = "from app.models import Plan as P\nvalue = P.code\n";
-    assert!(!with(aliased).is_empty(), "{:?}", with(aliased));
+    assert!(with(aliased).is_empty(), "{:?}", with(aliased));
+    let unrelated = "from app.models import Plan\nobj.other = value\nvalue = Plan.code\n";
+    assert!(with(unrelated).is_empty(), "{:?}", with(unrelated));
     for source in [
         "import code\ncode.interact()\n",
         "import code as c\nvalue = c.code\n",
         "from app import code\nvalue = code.code\n",
-        "from json import Plan\nvalue = Plan.code\n",
+        "from external.models import Plan\nvalue = Plan.code\n",
         "from app.models import Plan\nPlan = other\nvalue = Plan.code\n",
         "from app.models import Plan\nimport code as Plan\nvalue = Plan.code\n",
+        "from app.models import Plan\ndef read(Plan):\n    return Plan.code\n",
+        "from app.models import Plan\nPlan.code.interact()\n",
     ] {
         assert!(!with(source).is_empty(), "{source}");
+    }
+}
+
+#[test]
+fn a_code_read_keeps_its_gap_when_the_class_value_is_not_proven() {
+    for (models, writer) in [
+        ("class Plan:\n    pass\n", ""),
+        ("class Plan:\n    code = other\n", ""),
+        ("class Plan:\n    code = Descriptor()\n", ""),
+        ("class Plan(Base):\n    code = 'x'\n", ""),
+        ("@decorate\nclass Plan:\n    code = 'x'\n", ""),
+        (
+            "class Meta(type):\n    def __getattr__(cls, name): return loader\nclass Plan(metaclass=Meta):\n    code = 'x'\n",
+            "",
+        ),
+        ("class Plan:\n    code = 'x'\n    code = other\n", ""),
+        ("class Plan:\n    code = 'x'\n", "Plan.code = module\n"),
+        ("class Plan:\n    code = 'x'\n", "del Plan.code\n"),
+        ("class Plan:\n    code = 'x'\n", "setattr(Plan, 'code', module)\n"),
+        ("class Plan:\n    code = 'x'\n", "setattr(Plan, key, module)\n"),
+        ("class Plan:\n    code = 'x'\n", "writer = setattr\nwriter(Plan, 'code', module)\n"),
+        ("class Plan:\n    code = 'x'\n", "getattr(type, '__setattr__')(Plan, 'code', module)\n"),
+        ("class Plan:\n    code = 'x'\n", "setattr(models, 'Plan', replacement)\n"),
+        ("def __getattr__(name):\n    return replacement\nclass Plan:\n    code = 'x'\n", ""),
+    ] {
+        let mutation = format!("from app.models import Plan\nfrom app import models\n{writer}");
+        let result = surveyed(&[
+            ("src/app/__init__.py", ""),
+            ("src/app/models.py", models),
+            ("src/app/mutation.py", &mutation),
+            ("src/app/client.py", "from app.models import Plan\nvalue = Plan.code\n"),
+        ]);
+        assert!(
+            reasons(&result).iter().any(|reason| reason == "dynamic_import: code"),
+            "{models}\n{writer}\n{:?}",
+            reasons(&result)
+        );
     }
 }
 
@@ -130,7 +171,7 @@ fn a_class_attribute_named_code_keeps_the_dynamic_import_gap() {
             .iter()
             .map(|module| Binders::of(&module.tree))
             .collect();
-        let (_, found) = split(&modules, &binders, None);
+        let (_, found) = split(&modules, &binders, (None, false));
         assert!(
             found
                 .iter()

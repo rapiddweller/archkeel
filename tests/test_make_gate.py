@@ -135,6 +135,7 @@ def test_pr_gate_keeps_policy_and_stops_before_later_checks(tmp_path, failed):
 def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
+        "area-checks.yml",
         "full-verification.yml",
         "main-build.yml",
         "native-wheels.yml",
@@ -347,7 +348,7 @@ def _collected(
 def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
     files = sorted(path.name for path in (ROOT / "tests").rglob("test_*.py"))
     assert [name for name in files if area_of(name) is None] == []
-    for workflow in ("ci.yml", "full-verification.yml"):
+    for workflow in ("area-checks.yml", "full-verification.yml"):
         text = (ROOT / ".github/workflows" / workflow).read_text()
         listed = re.search(r"\n        area:\n((?:          - .+\n)+)", text)
         assert listed is not None, workflow
@@ -379,7 +380,12 @@ def test_the_fast_tests_leave_out_the_nightly_files_and_the_pr_gate_selects_by_a
     recipe = re.search(r"^FAST_TEST = .*?\n\n", makefile, re.DOTALL | re.MULTILINE)
     assert recipe is not None and "tests/test_" not in recipe[0]
     assert "-m 'not native_wheel and not slow'" in makefile
-    assert "not slow and not debug_build and not heavy" in makefile
+    selected = makefile.split("\npr-selected-test:", 1)[1].split("\n\n", 1)[0]
+    assert "--tier fast -m 'not native_wheel and not slow'" in selected
+    assert (
+        "--tier pr -m 'not native_wheel and not slow and not debug_build and not heavy'" in selected
+    )
+    assert "$(MAKE) native-test" in selected
     assert (
         "pr-gate: $(if $(strip $(SKIP_STATIC)),,ci-pr-static) self-validate pr-selected-test"
         in makefile
@@ -433,7 +439,9 @@ def test_each_make_target_that_only_full_runs_is_in_the_full_fragment() -> None:
     assert called - fragment == SHARED_WITH_CI
     assert SHARED_WITH_CI <= _called_targets("ci.yml")
     assert [t for t in SHARED_WITH_CI if re.search(rf"^{t}:", makefile, re.M) is None] == []
-    only_full = _closure(called) - _closure(_called_targets("ci.yml"))
+    only_full = _closure(called) - _closure(
+        _called_targets("ci.yml") | _called_targets("area-checks.yml")
+    )
     assert only_full - fragment == set()
     assert fragment - only_full == set(), "a recipe in the fragment that Full never runs"
 

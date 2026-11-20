@@ -4,7 +4,7 @@
 
 //! The ten rule kinds that only the Python profile decides (`ir/model.py`).
 
-use crate::model::{RuleHead, Selector, SelectorMatch};
+use crate::model::{is_false, RuleHead, Selector, SelectorMatch};
 
 closed_enum!(
     /// The kind of a class that a placement rule judges.
@@ -350,8 +350,3 @@ record!(
         condition: Condition,
     }
 );
-
-/// `native_mapping` is written only when it is true.
-fn is_false(value: &bool) -> bool {
-    !*value
-}

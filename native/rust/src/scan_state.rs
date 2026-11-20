@@ -41,6 +41,8 @@ pub(crate) enum Via {
     /// A path in code, in an attribute or in the body of a macro call.
     #[default]
     Path,
+    /// A dot call whose receiver and member the collector resolves.
+    Method,
     /// A validated derive-helper path, including a bare child-module name.
     Helper,
     /// A leaf of a `use` item: the local name that it binds.
@@ -80,6 +82,7 @@ pub(crate) struct Child {
 
 #[derive(Debug, Default)]
 pub(crate) struct Scan {
+    pub has_static: bool,
     pub references: Vec<Reference>,
     pub concerns: Vec<Concern>,
     pub children: Vec<Child>,
@@ -269,6 +272,7 @@ impl Walker<'_> {
             return;
         }
         self.out.method_calls.push(MethodCall {
+            bound_name: false,
             name,
             site,
             scope,

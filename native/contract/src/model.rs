@@ -249,6 +249,9 @@ record!(
         /// The imported name that the rule forbids.
         #[serde(skip_serializing_if = "Option::is_none")]
         target_symbol: Option<String>,
+        /// True when the rule reads written names, not inferred receiver types or execution.
+        #[serde(skip_serializing_if = "is_false")]
+        source_symbol_only: bool,
         /// The sources that the rule excepts by prefix.
         allowed_sources: Vec<Selector>,
         /// Whether the source selector matches by prefix or by exact name.
@@ -411,6 +414,11 @@ fn is_prefix(value: &SelectorMatch) -> bool {
 
 fn is_module(value: &TargetKind) -> bool {
     *value == TargetKind::Module
+}
+
+/// Omit an inactive rule option to preserve canonical bytes.
+pub(crate) fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 fn is_component(value: &CycleLevel) -> bool {

@@ -39,6 +39,56 @@ pub enum TargetMarks {
     ByModule,
 }
 
+/// Fixed analysis capabilities of the profile of a validated reply.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AnalysisCapabilities {
+    /// The layout of modules under the scan roots.
+    pub layout: Layout,
+    /// Whether the collector supplies a closed local package map.
+    pub cycle_scope: bool,
+    /// The language tag of UML entities.
+    pub language: &'static str,
+    /// Whether types and values have separate namespaces.
+    pub namespaces: bool,
+    /// Whether the reply can state symbol declarations.
+    pub symbol_facts: bool,
+    /// Whether the reply can inventory public items.
+    pub public_symbols: bool,
+    /// Whether public signatures require public types.
+    pub signatures_need_public_types: bool,
+    /// Whether the reply can state symbol sites.
+    pub symbol_sites: bool,
+    /// Whether the reply can state written signature shapes.
+    pub type_shapes: bool,
+    /// Whether a use through a module binding gets a separate row.
+    pub namespace_uses: bool,
+    /// The policy for an allowed pair gap.
+    pub pair_gap_drop: PairGapDrop,
+    /// How the model reads the target marks of import records.
+    pub target_marks: TargetMarks,
+}
+
+impl crate::envelope::Facts {
+    /// Project the fixed capabilities. Producer trust and reply validation are separate checks.
+    pub fn analysis_capabilities(&self) -> AnalysisCapabilities {
+        let profile = self.profile;
+        AnalysisCapabilities {
+            layout: profile.layout(),
+            cycle_scope: crate::envelope::cycle::proves_cycle_scope(profile),
+            language: profile.language_name(),
+            namespaces: profile.separates_type_namespace(),
+            symbol_facts: profile.symbol_facts(),
+            public_symbols: profile.public_symbols(),
+            signatures_need_public_types: profile.signatures_need_public_types(),
+            symbol_sites: profile.symbol_sites(),
+            type_shapes: profile.type_shapes(),
+            namespace_uses: profile.namespace_uses_recorded(),
+            pair_gap_drop: profile.pair_gap_drop(),
+            target_marks: profile.target_marks(),
+        }
+    }
+}
+
 impl Profile {
     /// Whether the linked collector selects a target even when the project declares no requirement.
     pub fn selects_target_without_requirement(self) -> bool {

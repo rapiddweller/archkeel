@@ -219,6 +219,8 @@ fn field_members<'t>(
 ) -> Result<Vec<Member>, Gap> {
     let declaration = source.text(node);
     let words = Words::of(&declaration);
+    let static_const = named(node, "const_builtin").is_some()
+        && children(node).iter().any(|child| child.kind() == "static");
     let mut members = Vec::new();
     for item in items {
         work.charge(1);
@@ -230,7 +232,8 @@ fn field_members<'t>(
         work.charge(name_node.start_byte().saturating_sub(node.start_byte()));
         work.charge(source.take_decoded());
         work.within(WORK_GAP)?;
-        let value = initializer(*item, source);
+        let (expression, whole) = initializer(*item);
+        let value = expression.map(|item| source.text(item));
         let mut member = Member::new(
             source.text(name_node),
             MemberKind::Field,
@@ -238,6 +241,8 @@ fn field_members<'t>(
         );
         member.annotation = annotation_before(node, name_node, source);
         member.r#static = words.r#static;
+        member.static_string_literal =
+            static_const && whole && expression.is_some_and(|item| item.kind() == "string_literal");
         member.literal.clone_from(&value);
         member.initializer = value;
         member.constant = words.constant;
@@ -285,7 +290,7 @@ pub(crate) fn top_level_variables<'t>(
         work.charge(name_node.start_byte().saturating_sub(node.start_byte()));
         work.charge(source.take_decoded());
         work.within(WORK_GAP)?;
-        let value = initializer(item, source);
+        let value = initializer(item).0.map(|item| source.text(item));
         let mut definition = Definition::new(
             source.text(name_node),
             DefinitionKind::Variable,
@@ -302,12 +307,14 @@ pub(crate) fn top_level_variables<'t>(
     Ok(definitions)
 }
 
-/// `_initializer`: the node after the first `=` child.
-fn initializer(node: Node<'_>, source: &Source<'_>) -> Option<String> {
+/// `_initializer`: the node after the first `=` child, and whether it holds the full expression.
+fn initializer(node: Node<'_>) -> (Option<Node<'_>>, bool) {
     let all = children(node);
-    let equal = all.iter().position(|child| child.kind() == "=")?;
-    all.get(equal.saturating_add(1))
-        .map(|item| source.text(*item))
+    let Some(equal) = all.iter().position(|child| child.kind() == "=") else {
+        return (None, false);
+    };
+    let tail = &all[equal.saturating_add(1)..];
+    (tail.first().copied(), matches!(tail, [_]))
 }
 
 /// `_declaration_text`: the modifier siblings before a declaration, or its own text.

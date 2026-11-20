@@ -108,72 +108,15 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
+            native/target/CACHEDIR.TAG
             native/target/release/archkeel-core
+            native/target/release/archkeel-rust-collector
+            native/target/release/archkeel-typescript-collector
             native/target/release/archkeel-core.tree
           key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
-  tests:
-    name: "Tests: ${{ matrix.area }}"
-    strategy:
-      fail-fast: false
-      matrix:
-        # One entry for each area in tests/areas.py.
-        area:
-          - CLI and core
-          - native collectors
-          - collectors
-          - reports
-          - self-check and CI
-    runs-on: ubuntu-24.04
-    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
-    timeout-minutes: 40
-    permissions:
-      contents: read
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install Node
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
-        with:
-          node-version: "22"
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install supported runtimes
-        run: uv python install 3.11.12 3.12.10
-
-      - name: Install locked dependencies
-        run: uv sync --locked
-
-      - name: Install the pinned Rust toolchain once, before any parallel step
-        working-directory: native
-        run: rustup toolchain install
-
-      - name: Show the runner CPU
-        run: lscpu | grep -E '^(Model name|CPU\(s\)):'
-
-      - name: Run the fast tests of this area
-        env:
-          AREA: ${{ matrix.area }}
-        run: make fast-test AREA="$AREA"
-
-      - name: Upload JUnit results
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: pytest-results-pr-${{ matrix.area }}
-          path: test-artifacts/pytest/pr-core.xml
-          if-no-files-found: warn
-          retention-days: 7
+  area-checks:
+    uses: ./.github/workflows/area-checks.yml
 
   mermaid:
     name: Docs diagrams
@@ -203,43 +146,9 @@ jobs:
       - name: Render every Mermaid block
         run: make mermaid
 
-  native:
-    name: "Native: Rust checks and dependency policy"
-    runs-on: ubuntu-24.04
-    # The limit only stops a hung job.
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install locked dependencies
-        run: uv sync --locked
-
-      - name: Install the pinned Rust toolchain once, before any parallel step
-        working-directory: native
-        run: rustup toolchain install
-
-      - name: Install the pinned cargo-deny and check its SHA-256
-        run: make cargo-deny-install
-
-      - name: Check format, lint, dependency policy, tests and build of native/
-        run: make native-check
-
   check:
     name: All checks passed
-    needs: [lint, tests, mermaid, native]
+    needs: [lint, area-checks, mermaid]
     # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
     if: always()
     runs-on: ubuntu-24.04

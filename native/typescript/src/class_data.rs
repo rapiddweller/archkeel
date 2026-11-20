@@ -319,6 +319,7 @@ fn attribute(cited: &mut Cited, entry: &Entry, member: &Member) -> AttributeDecl
         decorators: Some(names),
         definition_id: FactId::new(id),
         evidence_ids: vec![EvidenceId::new(evidence)],
+        inferred_builtin_type: None,
         literal_value: None,
         name: member.name.clone(),
         is_static: Some(member.is_static),

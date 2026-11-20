@@ -4,6 +4,8 @@
 
 //! The objects inside the data of a record. Each one is closed: an unknown key is an error.
 
+use std::collections::BTreeMap;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -33,6 +35,10 @@ pub struct AttributeDeclaration {
     pub definition_id: FactId,
     /// The ids of the evidence records that back the value.
     pub evidence_ids: Vec<EvidenceId>,
+    /// The inferred builtin identity and the proven bindings of builtin names in this scope.
+    /// Only the linked collector states this proof.
+    #[serde(skip)]
+    pub inferred_builtin_type: Option<(String, BTreeMap<String, String>)>,
     /// The literal value of the attribute, as written.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub literal_value: Option<String>,
@@ -295,6 +301,9 @@ pub struct ResultBinding {
     #[serde(deserialize_with = "crate::nullable::required")]
     #[schemars(required)]
     pub annotation: Option<String>,
+    /// The static type spelling proven by the linked collector for an untyped local.
+    #[serde(skip)]
+    pub inferred_type: Option<String>,
     /// The places where the binding is defined.
     pub definition_contexts: Vec<DefinitionContext>,
     /// The ids of the evidence records that back the value.

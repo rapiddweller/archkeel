@@ -56,6 +56,8 @@ impl<'a> Origin<'a> {
     }
 }
 
+type ImportKey = (String, String, String, Option<(String, String)>);
+
 #[derive(Default)]
 pub(crate) struct Builder {
     pub(crate) gaps: BTreeMap<String, Record<GapFact>>,
@@ -65,7 +67,7 @@ pub(crate) struct Builder {
     pub(crate) imports: Vec<Record<ImportFact>>,
     pub(crate) symbols: Vec<Record<SymbolFact>>,
     pub(crate) targets: Vec<Target>,
-    pub(crate) seen: BTreeSet<(String, String, String)>,
+    pub(crate) seen: BTreeSet<ImportKey>,
     /// The manifests of the crates: each is a module that holds the declared dependencies.
     pub(crate) manifests: Vec<String>,
     /// A proof of the scan rests on a registry identity that `Cargo.lock` records (AD-774).
@@ -91,7 +93,7 @@ pub(crate) struct Builder {
     /// (#1371, AD-516).
     pub(crate) macro_impl_homes: BTreeMap<String, (String, crate::site::Site)>,
     /// The pairs that have a pair gap: one gap is enough for each pair.
-    pub(crate) gapped: BTreeSet<(String, String)>,
+    pub(crate) gapped: BTreeMap<(String, String), String>,
     /// The outcomes that the edges ended, for the invariant of the extraction
     /// (`edges_extracted.rs`): a running total, and the references and macro calls by file.
     pub(crate) ended: usize,
@@ -100,9 +102,30 @@ pub(crate) struct Builder {
     pub(crate) ended_methods: BTreeMap<String, usize>,
     /// The names that each crate root publishes, for the route of a member (AD-608).
     pub(crate) publications: crate::routes::Publications,
+    /// Modules with a path to code whose value transfers the scan does not read.
+    pub(crate) opaque_values: BTreeSet<String>,
 }
 
 impl Builder {
+    /// Keep one coverage record, but do not let a later path inherit a proof from an earlier call.
+    pub(crate) fn pair_already_reported(
+        &mut self,
+        pair: &(String, String),
+        no_name_route: bool,
+    ) -> bool {
+        let Some(id) = self.gapped.get(pair) else {
+            return false;
+        };
+        if let Some(Record {
+            data: GapFact::CollectionGap(data),
+            ..
+        }) = self.gaps.get_mut(id)
+        {
+            data.no_name_route &= no_name_route;
+        }
+        true
+    }
+
     pub(crate) fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str) {
         let fact = GapFact::collection(reason, module);
         let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
@@ -128,16 +151,19 @@ impl Builder {
         evidence: &str,
         pair: (&str, &str),
         dispatch: Option<ResolutionDimension>,
-    ) {
+        no_name_route: bool,
+    ) -> String {
         let (source, target) = pair;
         let mut data = GapData::at(reason, target);
         data.source_module = Some(ModuleName::new(source));
         data.dispatch = dispatch.is_some();
+        data.no_name_route = no_name_route;
         data.resolution_dimension =
             dispatch.filter(|kind| *kind == ResolutionDimension::RuntimeEffects);
         let fact = GapFact::CollectionGap(data);
         let (id, record) = Record::unknown_gap(reason, Some(evidence), source, fact);
-        self.gaps.entry(id).or_insert(record);
+        self.gaps.entry(id.clone()).or_insert(record);
+        id
     }
 
     /// A known edge does not prove which name a separate call uses.
@@ -146,14 +172,23 @@ impl Builder {
         (source, target): (&str, &str),
         (rel, site): (&str, &Site),
         reason: &str,
+        no_name_route: bool,
     ) {
         let evidence = self.cite(rel, site);
         let mut data = GapData::at(reason, target);
         data.source_module = Some(ModuleName::new(source));
         data.resolution_dimension = Some(ResolutionDimension::Imports);
+        data.no_name_route = no_name_route;
         let fact = GapFact::SourceResolutionGap(data);
         let (id, record) = Record::unknown_gap(reason, Some(&evidence), source, fact);
-        self.named_sites.entry(id).or_insert(record);
+        self.named_sites
+            .entry(id)
+            .and_modify(|earlier| {
+                if let GapFact::SourceResolutionGap(data) = &mut earlier.data {
+                    data.no_name_route &= no_name_route;
+                }
+            })
+            .or_insert(record);
     }
 
     pub(crate) fn cite(&mut self, rel: &str, site: &Site) -> String {

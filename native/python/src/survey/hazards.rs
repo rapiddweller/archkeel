@@ -25,11 +25,11 @@ use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
 
-use bind::{bindings, imported};
-use names::{
-    above, first_hazard, store, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
+use super::hazards_names::{
+    above, first_hazard, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
 };
-pub(super) use names::{hazard, DYNAMIC, IMPORT_SYSTEM};
+pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM};
+use bind::{bindings, imported};
 
 #[path = "hazards_bind.rs"]
 mod bind;
@@ -39,16 +39,13 @@ mod comprehension;
 mod door;
 #[path = "hazards_inert.rs"]
 mod inert;
-#[path = "hazards_names.rs"]
-pub(super) mod names;
 #[path = "hazards_reflect.rs"]
-mod reflect;
+pub(super) mod reflect;
 
 /// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
 pub(super) const LITERAL: &str = "literal_import";
 
-/// One site: its gap, a short text and its range. A door site has its form, the dotted names of
-/// the classes and functions that hold it, and the name that an import statement binds (AD-664).
+/// A hazard or a proven import site. Door sites also carry scope and binding (AD-664).
 pub(super) struct Site {
     pub kind: &'static str,
     pub detail: String,
@@ -295,7 +292,8 @@ impl Walk<'_> {
         }
         attributes.reverse();
         ranges.reverse();
-        if !store(expr)
+        let store = matches!(expr, Expr::Attribute(node) if node.ctx != ExprContext::Load);
+        if !store
             && matches!(base, Expr::Name(name) if inert::read(&self.inert_modules, name.id.as_str(), &attributes))
         {
             return;
@@ -315,7 +313,7 @@ impl Walk<'_> {
             } else {
                 DYNAMIC
             };
-            if *name != "__path__" || store(expr) {
+            if *name != "__path__" || store {
                 return self.push(kind, name, expr);
             }
         }
@@ -459,12 +457,15 @@ mod tests;
 #[path = "hazards_inert_tests.rs"]
 mod inert_tests;
 
-/// The proven literal import calls of the modules, and their hazard sites, each with the index
-/// of its module.
+/// Proven imports and hazards, each keyed by its module index.
 pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
 
 /// The sites that the lazy import proof covers (`lazy.rs`) are no hazard when `lazy` is given.
-pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy]>) -> Split {
+pub(super) fn split(
+    modules: &[Module],
+    binders: &[Binders],
+    (lazy, replaced): (Option<&[Lazy]>, bool),
+) -> Split {
     let (mut literals, mut found) = (Vec::new(), Vec::new());
     let items: Vec<_> = modules
         .iter()
@@ -474,7 +475,7 @@ pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy
     let proved = reflect::proved(&items, &[&BUILTIN_DOORS, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
-        let proof = literal::Proof::of(&module.tree, binders);
+        let proof = literal::Proof::of(&module.tree, binders).without_replaced_loader(replaced);
         let covered = lazy.map(|all| &all[index]);
         for (range, target) in covered.iter().flat_map(|item| &item.targets) {
             literals.push((index, *range, target.clone()));

@@ -76,14 +76,42 @@ fn a_listing_over_the_limit_does_not_return_partial_entries() {
     );
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[test]
-fn a_listing_cannot_classify_a_link_loop_as_a_file() {
+fn a_listing_keeps_invalid_names_with_the_same_lossy_text_distinct() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
     let tree = Tree::new(&[("lib/a", "")]);
-    std::os::unix::fs::symlink("loop", tree.root.join("lib/loop")).unwrap();
+    let lib = tree.root.join("lib");
+    fs::write(lib.join(OsStr::from_bytes(b"a\xfe")), "").unwrap();
+    fs::create_dir(lib.join(OsStr::from_bytes(b"a\xff"))).unwrap();
     let mut snapshot = Snapshot::new(&tree.path());
     assert_eq!(snapshot.listing("lib"), None);
-    assert_eq!(problems(&snapshot), ["Unreadable link target: lib/loop"]);
+    assert_eq!(
+        problems(&snapshot),
+        [
+            "Source name is not UTF-8: lib/a\\xfe",
+            "Source name is not UTF-8: lib/a\\xff"
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_listing_reports_each_unreadable_link_target() {
+    let tree = Tree::new(&[("lib/a", "")]);
+    std::os::unix::fs::symlink("loop", tree.root.join("lib/loop")).unwrap();
+    std::os::unix::fs::symlink("other", tree.root.join("lib/other")).unwrap();
+    let mut snapshot = Snapshot::new(&tree.path());
+    assert_eq!(snapshot.listing("lib"), None);
+    assert_eq!(
+        problems(&snapshot),
+        [
+            "Unreadable link target: lib/loop",
+            "Unreadable link target: lib/other"
+        ]
+    );
 }
 
 #[test]
@@ -117,11 +145,7 @@ fn a_walked_file_is_read_and_digested_once_its_root_is_checked() {
     assert_eq!(snapshot.read_walked("lib/src/b.dart").unwrap(), b"b");
     assert_eq!(snapshot.check_root("."), RootCheck::Contained);
     assert_eq!(snapshot.read_walked("c.dart").unwrap(), b"c");
-    let paths: Vec<String> = snapshot
-        .inputs()
-        .into_iter()
-        .map(|input| input.path)
-        .collect();
+    let paths = snapshot.inputs(|path, _, _| path.to_owned());
     assert_eq!(paths, ["c.dart", "lib/a.dart", "lib/src/b.dart"]);
     assert!(snapshot.problems.is_empty());
 }
@@ -143,7 +167,7 @@ fn a_walked_file_over_the_size_limit_is_not_held() {
     snapshot.listing("lib").unwrap();
     assert_eq!(snapshot.read_walked("lib/big.dart"), None);
     assert!(snapshot.size_gap("lib/big.dart").is_some());
-    assert!(snapshot.inputs().is_empty());
+    assert!(snapshot.inputs(|_, _, _| ()).is_empty());
 }
 
 // Containment: a file link and a directory link that leave the scan root are never read. The
@@ -182,11 +206,7 @@ fn a_link_that_escapes_is_never_read_and_never_walked() {
             "Source outside a checked root: lib/leak_dir/x.dart",
         ]
     );
-    let read: Vec<String> = snapshot
-        .inputs()
-        .into_iter()
-        .map(|input| input.path)
-        .collect();
+    let read = snapshot.inputs(|path, _, _| path.to_owned());
     assert!(read.is_empty(), "{read:?}");
 }
 

@@ -36,9 +36,7 @@
     search: "M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm9 16-4.3-4.3",
     share: "M12 15V3m0 0L8 7m4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6",
     moon: "M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z",
-    overview: "M4 5h16M4 12h10M4 19h7",
     list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
-    keys: "M3 7h18v10H3zM7 11h.01M11 11h.01M15 11h.01M8 14h8",
     fit: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
     focus: "M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM12 2v3M12 19v3M2 12h3M19 12h3",
     chevron: "M7 10l5 5 5-5",
@@ -230,21 +228,11 @@
   const S = F.S;
   const present = (changes) => F.dispatch({ type: "present", ...changes });
 
-  // ---------- drawers: overview (health check) and objects list ----------
+  // ---------- objects drawer ----------
   let drawer = null, drawerShown = null;
-  let overviewEvidence = [];
-  const explore = root.querySelector(".flow-explore");
-  const exploreHome = explore?.parentElement;
   function closeDrawer() {
     const restoreFocus = drawer?.contains(document.activeElement);
     const trigger = drawerShown && rail.querySelector(`[data-drawer="${drawerShown}"]`);
-    if (drawerShown === "overview") F.setExploreOpen(false);
-    if (drawerShown === "overview" && explore && exploreHome) exploreHome.append(explore);
-    if (drawerShown === "overview") {
-      root.prepend(summary);
-      document.querySelector(".report-shell").append(...overviewEvidence);
-      overviewEvidence = [];
-    }
     drawer?.remove(); drawer = null; drawerShown = null;
     if (S.drawer) present({ drawer: null });
     F.syncExpansionInert();
@@ -259,23 +247,14 @@
     present({ drawer: name });
     drawer = h("aside", { class: "ak-drawer", "aria-label": name }, build());
     root.append(drawer);
-    if (name === "overview") F.setExploreOpen(true);
     F.syncExpansionInert();
     rail.querySelector(`[data-drawer="${name}"]`)?.setAttribute("aria-expanded", "true");
   }
   // The drawer that S names is the drawer on the page: at the start, and after Back.
   function showDrawer(name) {
     if (drawerShown === name) return;
-    if (name) toggleDrawer(name, name === "overview" ? overviewDrawer : objectsDrawer);
+    if (name === "objects") toggleDrawer(name, objectsDrawer);
     else closeDrawer();
-  }
-  function overviewDrawer() {
-    const body = [h("h2", {}, "Health check"),
-      h("p", {}, `Result: ${A.result}`), summary];
-    if (explore) { explore.hidden = false; body.push(explore); }
-    overviewEvidence = [...document.querySelectorAll(".report-shell > .atlas-structure-overview, .report-shell > .atlas-source")];
-    body.push(...overviewEvidence);
-    return body;
   }
   let sort = { key: "path", dir: 1 };
   function objectsDrawer() {
@@ -324,7 +303,7 @@
     ], "right", "share");
   }
 
-  // ---------- shortcuts: one table drives handlers and help ----------
+  // ---------- keyboard controls ----------
   const view = (name) => root.querySelector(`[data-flow-view="${name}"]`)?.click();
   const SHORTCUTS = [
     { keys: [`${MOD} K`, "/"], label: "Search everything", match: (e) => (e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !e.metaKey && !e.ctrlKey), run: openPalette },
@@ -335,16 +314,11 @@
     { keys: ["Alt ↑"], label: "Up one level", match: (e) => e.altKey && e.key === "ArrowUp", run: () => F.dispatch({ type: "up" }) },
     { keys: ["P"], label: "Next perspective", match: (e) => !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "p", run: () => cyclePerspective() },
     { keys: ["O"], label: "Objects list", match: (e) => !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "o", run: () => toggleDrawer("objects", objectsDrawer) },
-    { keys: ["?"], label: "Keyboard shortcuts", match: (e) => e.key === "?", run: () => help() },
     { keys: [`${MOD} wheel`, "pinch"], label: "Zoom at pointer" },
     { keys: ["Space drag", "middle drag"], label: "Pan over cards" },
     { keys: ["Hover"], label: "Trace incoming and outgoing dependencies" },
     { keys: ["Esc"], label: "Close search, menu, panel or full window, then clear the selection" },
   ];
-  function help() {
-    modal([h("h2", {}, "Keyboard shortcuts"), h("table", {}, h("tbody", {}, SHORTCUTS.map((item) =>
-      h("tr", {}, h("td", {}, item.keys.flatMap((key, i) => [i ? " or " : null, h("kbd", {}, key)])), h("td", {}, item.label)))))], undefined, "help");
-  }
   document.addEventListener("keydown", (event) => {
     if (event.defaultPrevented) return;
     // E3: one Escape ladder: overlay > popover > drawer > expanded > selection, one step per key.
@@ -387,11 +361,8 @@
     h("button", { class: "ak-icon-only", title: "Share", "aria-label": "Share", "data-ak-pop": "", onclick: (event) => shareMenu(event.currentTarget) }, icon("share")),
     document.querySelector(".theme-toggle"), move(".flow-fullscreen"));
   const rail = h("div", { class: "ak-bar ak-rail", role: "toolbar", "aria-label": "Panels" },
-    h("button", { "data-drawer": "overview", title: "Health check", "aria-label": "Health check", "aria-expanded": "false",
-      onclick: () => toggleDrawer("overview", overviewDrawer) }, icon("overview")),
     h("button", { "data-drawer": "objects", title: "Objects (O)", "aria-label": "Objects", "aria-expanded": "false",
-      onclick: () => toggleDrawer("objects", objectsDrawer) }, icon("list")),
-    h("button", { title: "Keyboard shortcuts (?)", "aria-label": "Keyboard shortcuts", onclick: help }, icon("keys")));
+      onclick: () => toggleDrawer("objects", objectsDrawer) }, icon("list")));
   const legendPanel = move(".flow-legend-panel");
   const legendContent = move(".flow-legend");
   legendPanel?.remove();
@@ -433,9 +404,6 @@
   // AD-606: in the report the diagram starts with the whole width; a click on a box opens the
   // panel of its facts, and "Details" opens and closes it.
   // AD-734: the state of the URL decides Details (closed unless the link selects a box or cell).
-  F.nodeLayer.addEventListener("click", () => {
-    if (root.dataset.detailsOpen !== "true") detailsToggle?.click();
-  });
   // The sheet of a box is set in the small body text of the design system.
   root.querySelector(".flow-inspector")?.classList.add("body-sm");
   const fitDiagram = () => F.fit(true, { whole: true });
@@ -466,16 +434,11 @@
   addEventListener("popstate", closePop, { capture: true });
   // After flow.js restored S from the URL of the entry.
   addEventListener("popstate", () => { showDrawer(S.drawer); applyPerspective(); });
-  const revealFindings = () => {
-    if (drawerShown !== "overview") toggleDrawer("overview", overviewDrawer);
-  };
-  root.addEventListener("archkeel:findings", revealFindings);
   root.addEventListener("archkeel:inspect", () => {
     if (matchMedia("(max-width: 900px)").matches) closeDrawer();
   });
   addEventListener("beforeprint", closeDrawer);
-  if (/^#atlas-(rule|finding)-/.test(location.hash)) revealFindings();
-  else showDrawer(S.drawer);
+  showDrawer(S.drawer);
   renderTagBar();
   if (F.state().scene) applyPerspective();
 })();

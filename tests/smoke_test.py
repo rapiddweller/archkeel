@@ -78,6 +78,7 @@ def files_of_the_package() -> None:
         "architecture-contract-3.16.schema.json",
         "architecture-contract-3.17.schema.json",
         "architecture-contract-3.18.schema.json",
+        "architecture-contract-3.19.schema.json",
         "architecture-ir-decoded-2.9.schema.json",
         "architecture-ir-python-decoded-2.9.schema.json",
         "architecture-ir-decoded-2.10.schema.json",
@@ -168,7 +169,14 @@ def commit(root: Path) -> None:
 def commands() -> None:
     native = Path(str(files("archkeel").joinpath("_native")))
     held = sorted(item.name.replace(".exe", "") for item in native.iterdir())
-    assert held == ["archkeel-core", "archkeel-core.sha256"], held
+    assert held == [
+        "archkeel-core",
+        "archkeel-core.sha256",
+        "archkeel-rust-collector",
+        "archkeel-rust-collector.sha256",
+        "archkeel-typescript-collector",
+        "archkeel-typescript-collector.sha256",
+    ], held
     with TemporaryDirectory(prefix="archkeel-smoke-") as temporary:
         root = Path(temporary).resolve()
         (root / "src").mkdir()

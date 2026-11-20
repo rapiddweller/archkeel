@@ -9,10 +9,12 @@ use std::collections::HashMap;
 
 use std::collections::HashSet;
 
+use ruff_python_ast::name::Name;
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Comprehension, Expr, ExprContext, ModModule, Stmt};
+use ruff_python_ast::{Comprehension, Expr, ExprContext, Identifier, ModModule, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
+use crate::survey::bound_kind::scalar_literal;
 use crate::survey::value::assignment_parts;
 
 type Bindings = HashMap<String, Vec<String>>;
@@ -292,4 +294,167 @@ impl<'a> Visitor<'a> for Marks {
         }
         visitor::walk_expr(self, expr);
     }
+}
+
+/// A module name, its tree, its unique names and whether it can directly export a class.
+pub(in crate::survey) type ClassItem<'a> = (&'a str, &'a ModModule, HashSet<String>, bool);
+
+/// True when each site reads a proven class literal, and no reflective helper can write it.
+pub(in crate::survey) fn only_class_data_reads<'a>(
+    candidates: impl Iterator<Item = Option<(usize, TextRange)>>,
+    modules: impl Iterator<Item = ClassItem<'a>>,
+    outside: &HashSet<String>,
+    stable: impl Fn(&str) -> bool + Copy,
+) -> bool {
+    let Some(sites) = candidates.collect::<Option<Vec<_>>>() else {
+        return false;
+    };
+    if sites.is_empty() || !["code", "__class__", "__bases__"].into_iter().all(stable) {
+        return false;
+    }
+    let modules: Vec<_> = modules.collect();
+    class_data_reads(&modules, outside, stable).is_some_and(|reads| {
+        sites
+            .into_iter()
+            .all(|(index, range)| reads.get(index).is_some_and(|found| found.contains(&range)))
+    })
+}
+
+fn class_data_reads(
+    modules: &[ClassItem<'_>],
+    outside: &HashSet<String>,
+    stable: impl Fn(&str) -> bool + Copy,
+) -> Option<Vec<HashSet<TextRange>>> {
+    let names = modules.iter().filter(|(name, _, _, exports)| {
+        *exports
+            && !outside.contains(*name)
+            && str::split(name, '.').all(stable)
+            && !outside.iter().any(|parent| {
+                str::strip_prefix(name, parent).is_some_and(|rest| rest.starts_with('.'))
+            })
+    });
+    let classes: HashMap<_, _> = names
+        .map(|(module, tree, unique, _)| {
+            let names = tree.body.iter().filter_map(literal_code_class);
+            let proven: HashSet<_> = names
+                .filter(|name| stable(name) && unique.contains(*name))
+                .collect();
+            (*module, proven)
+        })
+        .collect();
+    modules
+        .iter()
+        .map(|(module, tree, unique, _)| {
+            let mut marks = ClassReads {
+                names: literal_code_imports(tree, unique, &classes, stable),
+                found: HashSet::new(),
+                reflective: false,
+            };
+            marks.visit_body(&tree.body);
+            if outside.contains(*module) {
+                marks.found.clear();
+            }
+            (!marks.reflective).then_some(marks.found)
+        })
+        .collect()
+}
+
+/// No bases, decorator or class-body code can replace the literal or customize its lookup.
+fn literal_code_class(stmt: &Stmt) -> Option<&str> {
+    let Stmt::ClassDef(class) = stmt else {
+        return None;
+    };
+    if !<[_]>::is_empty(&class.decorator_list)
+        || class.arguments.is_some()
+        || class.type_params.is_some()
+    {
+        return None;
+    }
+    let mut code = false;
+    for statement in &class.body {
+        match statement {
+            Stmt::Pass(_) => {}
+            Stmt::Expr(node) if matches!(&*node.value, Expr::StringLiteral(_)) => {}
+            Stmt::Assign(node) if scalar_literal(&node.value) => {
+                let [Expr::Name(name)] = node.targets.as_slice() else {
+                    return None;
+                };
+                if Name::as_str(&name.id).starts_with("__") {
+                    return None;
+                }
+                code |= Name::as_str(&name.id) == "code";
+            }
+            _ => return None,
+        }
+    }
+    code.then(|| Identifier::as_str(&class.name))
+}
+
+fn literal_code_imports<'a>(
+    tree: &'a ModModule,
+    unique: &HashSet<String>,
+    classes: &HashMap<&str, HashSet<&str>>,
+    stable: impl Fn(&str) -> bool,
+) -> HashSet<&'a str> {
+    let mut found = HashSet::new();
+    for stmt in &tree.body {
+        let Stmt::ImportFrom(import) = stmt else {
+            continue;
+        };
+        let Some(module) = import.module.as_ref().filter(|_| import.level == 0) else {
+            continue;
+        };
+        let Some(eligible) = classes.get(Identifier::as_str(module)) else {
+            continue;
+        };
+        for alias in &import.names {
+            let local = Identifier::as_str(alias.asname.as_ref().unwrap_or(&alias.name));
+            if eligible.contains(Identifier::as_str(&alias.name))
+                && stable(local)
+                && unique.contains(local)
+            {
+                found.insert(local);
+            }
+        }
+    }
+    found
+}
+
+struct ClassReads<'a> {
+    names: HashSet<&'a str>,
+    found: HashSet<TextRange>,
+    reflective: bool,
+}
+
+impl<'a> Visitor<'a> for ClassReads<'_> {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        self.reflective |= matches!(stmt, Stmt::ImportFrom(import)
+            if import.names.iter().any(|alias| reflective_writer(Identifier::as_str(&alias.name))));
+        visitor::walk_stmt(self, stmt);
+    }
+
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        self.reflective |= match expr {
+            Expr::Name(node) => reflective_writer(Name::as_str(&node.id)),
+            Expr::Attribute(node) => {
+                reflective_writer(Identifier::as_str(&node.attr))
+                    || matches!(Identifier::as_str(&node.attr), "setattr" | "delattr")
+            }
+            _ => false,
+        };
+        if let Expr::Attribute(node) = expr {
+            if node.ctx == ExprContext::Load
+                && Identifier::as_str(&node.attr) == "code"
+                && matches!(&*node.value, Expr::Name(name) if self.names.contains(Name::as_str(&name.id)))
+            {
+                self.found.insert(node.range());
+            }
+        }
+        visitor::walk_expr(self, expr);
+    }
+}
+
+// An attribute helper can return a bound writer (for example, type.__setattr__).
+fn reflective_writer(name: &str) -> bool {
+    matches!(name, "getattr" | "__getattribute__" | "attrgetter")
 }

@@ -87,7 +87,12 @@ const KIND_GATES: [(RuleKind, Feature, &str); 10] = [
 ];
 
 /// A rule field that needs a feature, whatever the kind of the rule.
-const FIELD_GATES: [(&str, Feature, &str); 5] = [
+const FIELD_GATES: [(&str, Feature, &str); 6] = [
+    (
+        "source_symbol_only",
+        Feature::SourceSymbolOnly,
+        "source_symbol_only requires contract schema_version 3.19.0",
+    ),
     (
         "selector",
         Feature::ConstructSelector,

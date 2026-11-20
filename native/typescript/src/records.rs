@@ -254,12 +254,14 @@ pub(crate) fn typed_reply(
     facts: Facts,
     pending: &Pending,
 ) -> Result<archkeel_facts::envelope::Reply, String> {
+    let excluded_sources = facts.excluded_sources.clone();
     let (head, plan) = plan(facts, pending, false);
     let mut reply = archkeel_wire::typed::assemble(version, head, |sink| {
         plan.write(sink).map(|(tail, _)| tail)
     })?;
+    reply.facts.excluded_sources = excluded_sources;
     use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
-    reply.facts.scope_premise = Some(premise(pending));
+    reply.facts.scope_premise = Some(premise(pending).to_owned());
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: if reply
             .facts

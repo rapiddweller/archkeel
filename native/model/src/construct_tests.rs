@@ -10,7 +10,7 @@ use archkeel_contract::{Contract, ParsedContract, Rule};
 use archkeel_facts::envelope::{Facts, Profile};
 use serde_json::{json, Value};
 
-use crate::{Decision, Graph, Model, Producer, Settings, Verdict};
+use crate::{Decision, Graph, Model, Producer, Reason, Settings, Verdict};
 
 const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
 const OWNER: &str = "shop.src.data.local_x2e_ts";
@@ -93,6 +93,12 @@ fn record(reply: &mut Value, kind: &str, data: Value) {
             section["records"] = json!([entry.clone()]);
         }
     }
+}
+
+fn selector_capabilities(status: Option<&str>) -> Value {
+    let mut entries = vec![json!({"name": "string_literal_compare", "status": "supported"})];
+    entries.extend(status.map(|status| json!({"name": "selector", "status": status})));
+    json!(entries)
 }
 
 #[test]
@@ -222,10 +228,7 @@ fn each_selector_role_matches_identity_and_never_passes_an_empty_inventory(
             ("other", if literal_role { "PASS" } else { "FAIL" }),
         ] {
             let model = model(options.clone(), |v| {
-                v["facts"]["profile"] = json!(Profile::Python.as_str());
-                v["facts"]["adapter"]["name"] = json!(Profile::Python.as_str());
-                v["facts"]["capabilities"]["constructs"] =
-                    json!([{"name": "string_literal_compare", "status": "supported"}]);
+                v["facts"]["capabilities"]["constructs"] = selector_capabilities(Some("supported"));
                 record(
                     v,
                     "construct_selector",
@@ -247,12 +250,52 @@ fn each_selector_role_matches_identity_and_never_passes_an_empty_inventory(
             );
         }
         let empty = model(options, |v| {
-            v["facts"]["profile"] = json!(Profile::Python.as_str());
-            v["facts"]["adapter"]["name"] = json!(Profile::Python.as_str());
-            v["facts"]["capabilities"]["constructs"] =
-                json!([{"name": "string_literal_compare", "status": "supported"}]);
+            v["facts"]["capabilities"]["constructs"] = selector_capabilities(Some("supported"));
         })?;
         assert!(matches!(decide(&empty)?.verdict(), Verdict::Unknown));
+    }
+    Ok(())
+}
+
+#[test]
+fn a_selector_receipt_needs_complete_capability_and_producer_evidence(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let options = json!({"constructs": ["string_literal_compare"], "selector": {
+        "receiver": "shop.Connection", "member": "backend", "role": "equality", "literal": "forbidden"}});
+    let producer = Profile::Python.as_str();
+    for (status, adapter, literal, expected) in [
+        (None, producer, "other", Verdict::Unknown),
+        (Some("partial"), producer, "other", Verdict::Unknown),
+        (Some("unsupported"), producer, "other", Verdict::Unknown),
+        (Some("decided"), producer, "other", Verdict::Unknown),
+        (Some("supported"), "external", "other", Verdict::Unknown),
+        (None, producer, "forbidden", Verdict::Fail),
+    ] {
+        let model = model(options.clone(), |v| {
+            v["facts"]["profile"] = json!(producer);
+            v["facts"]["adapter"]["name"] = json!(adapter);
+            v["facts"]["capabilities"]["constructs"] = selector_capabilities(status);
+            record(
+                v,
+                "construct_selector",
+                json!({"construct": "selector", "owner": OWNER, "selector_role": "equality",
+                       "receiver_type": "shop.Connection", "member": "backend", "literal": literal,
+                       "status": "decided", "operation": "compare", "receiver_binding": null,
+                       "receiver_parameter": null}),
+            );
+        })?;
+        let decision = decide(&model)?;
+        assert_eq!(
+            decision.verdict(),
+            &expected,
+            "{status:?} {adapter} {literal}"
+        );
+        if adapter != producer {
+            assert!(matches!(
+                decision.reason(),
+                Some(Reason::NotComplete(crate::Cause::Producer))
+            ));
+        }
     }
     Ok(())
 }
@@ -345,10 +388,7 @@ fn selectors_with_wrong_or_missing_identity_are_unknown() -> Result<(), Box<dyn 
         ("equality", Some("shop.Connection"), "decided", None),
     ] {
         let model = model(options.clone(), |v| {
-            v["facts"]["profile"] = json!(Profile::Python.as_str());
-            v["facts"]["adapter"]["name"] = json!(Profile::Python.as_str());
-            v["facts"]["capabilities"]["constructs"] =
-                json!([{"name": "string_literal_compare", "status": "decided"}]);
+            v["facts"]["capabilities"]["constructs"] = selector_capabilities(Some("supported"));
             record(
                 v,
                 "construct_selector",

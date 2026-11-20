@@ -87,15 +87,7 @@ fn refusal(root: &Path) -> Refusal {
 
 /// The reply of the producer of the binary (`reply`), decoded, as JSON bytes.
 pub(super) fn binary_bytes(request: &[u8]) -> Vec<u8> {
-    let request = archkeel_wire::request::decode(request).unwrap();
-    let mut wire = Vec::new();
-    archkeel_typescript_collector::reply(
-        &request,
-        archkeel_typescript_collector::provenance(),
-        archkeel_wire::protocol::reply_version(request.protocol_version),
-        &mut wire,
-    )
-    .unwrap();
+    let wire = public_output(crate::worker::Worker::TypeScript, request);
     let mut plain = Vec::new();
     ZlibDecoder::new(wire.as_slice())
         .read_to_end(&mut plain)
@@ -104,8 +96,22 @@ pub(super) fn binary_bytes(request: &[u8]) -> Vec<u8> {
     serde_json::to_vec(&reply).unwrap()
 }
 
+pub(super) fn public_output(worker: crate::worker::Worker, request: &[u8]) -> Vec<u8> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let mut child = Command::new(crate::worker::executable(&worker).unwrap())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(request).unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success());
+    out.stdout
+}
+
 #[test]
-fn each_fixture_scans_in_the_process_and_equals_the_reply_of_the_binary() {
+fn each_fixture_scans_in_the_worker_and_equals_the_public_reply() {
     for fixture in FIXTURES {
         let root = repository(fixture);
         let text = root.to_str().unwrap();

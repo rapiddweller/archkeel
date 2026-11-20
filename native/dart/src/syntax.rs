@@ -22,12 +22,12 @@ macro_rules! vocabulary {
 
 /// A value of the syntax: the dump writes its fields in the order of the Python dataclass.
 macro_rules! value {
-    ($(#[$meta:meta])* $vis:vis $name:ident { $($field:ident: $kind:ty),+ $(,)? }) => {
+    ($(#[$meta:meta])* $vis:vis $name:ident { $($(#[$field_meta:meta])* $field:ident: $kind:ty),+ $(,)? }) => {
         $(#[$meta])*
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
         #[serde(deny_unknown_fields)]
         $vis struct $name {
-            $($vis $field: $kind),+
+            $($(#[$field_meta])* $vis $field: $kind),+
         }
     };
 }
@@ -202,6 +202,8 @@ value! {
         parameters: Vec<Parameter>,
         initializer: Option<String>,
         literal: Option<String>,
+        #[serde(skip)]
+        static_string_literal: bool,
         constructor_initializers: Vec<String>,
         redirect: Option<String>,
         factory: bool,
@@ -226,6 +228,7 @@ impl Member {
             parameters: Vec::new(),
             initializer: None,
             literal: None,
+            static_string_literal: false,
             constructor_initializers: Vec::new(),
             redirect: None,
             factory: false,
@@ -294,6 +297,8 @@ value! {
         kind: DirectiveKind,
         span: Span,
         target: Option<String>,
+        #[serde(skip)]
+        part_owner_is_uri: bool,
         prefix: Option<String>,
         deferred: bool,
         show: Vec<String>,
@@ -309,6 +314,7 @@ impl Directive {
             kind,
             span,
             target,
+            part_owner_is_uri: false,
             prefix: None,
             deferred: false,
             show: Vec::new(),
@@ -385,6 +391,8 @@ value! {
         arguments: Vec<String>,
         assigned_name: Option<String>,
         assignment_annotation: Option<String>,
+        #[serde(skip)]
+        inferred_final_local: bool,
         initializer: Option<String>,
         r#use: SiteUse,
         computed: bool,
@@ -410,6 +418,7 @@ impl Site {
             arguments: Vec::new(),
             assigned_name: None,
             assignment_annotation: None,
+            inferred_final_local: false,
             initializer: None,
             r#use: SiteUse::Value,
             computed: false,

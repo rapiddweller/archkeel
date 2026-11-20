@@ -51,3 +51,10 @@
 | 2026-11-18 | synthetic-esm-forms | cef0d6f3a+dirty | Mark the computed import gap as a declarable loader site (AD-882) (cpython 3.11.12) |
 | 2026-11-18 | l-nest-realworld | 51952f516 | Require a line selector for the computed import gap (AD-882) (cpython 3.11.12) |
 | 2026-11-18 | synthetic-esm-forms | 51952f516 | Require a line selector for the computed import gap (AD-882) (cpython 3.11.12) |
+| 2026-11-19 | h-typescript | f1b86a6f6+dirty | Record module const arrow definitions and lexical call scopes (AD-950) (cpython 3.11.12) |
+| 2026-11-19 | excalidraw-math | f1b86a6f6+dirty | Record module const arrow definitions and lexical call scopes (AD-950) (cpython 3.11.12) |
+| 2026-11-19 | excalidraw-laser-pointer | f1b86a6f6+dirty | Record module const arrow definitions and lexical call scopes (AD-950) (cpython 3.11.12) |
+| 2026-11-19 | synthetic-tsx-paths | f1b86a6f6+dirty | Record module const arrow definitions and lexical call scopes (AD-950) (cpython 3.11.12) |
+| 2026-11-19 | synthetic-esm-forms | f1b86a6f6+dirty | Record module const arrow definitions and lexical call scopes (AD-950) (cpython 3.11.12) |
+| 2026-11-19 | synthetic-nodenext | f1b86a6f6+dirty | Record module const arrow definitions and lexical call scopes (AD-950) (cpython 3.11.12) |
+| 2026-11-19 | synthetic-allowjs | f1b86a6f6+dirty | Record module const arrow definitions and lexical call scopes (AD-950) (cpython 3.11.12) |

@@ -144,10 +144,16 @@ impl Users {
             let from = owner(source);
             from.is_none() || from != owner(target)
         };
-        let mut users = Users::default_sets(model.graph().observed().signatures_need_public_types);
+        let mut users = Users::default_sets(
+            model
+                .graph()
+                .observed()
+                .analysis
+                .signatures_need_public_types,
+        );
         // AD-604: a profile that writes each use through a whole-module import as a record of
         // its own binds no name with that import.
-        let namespace_uses = model.graph().observed().namespace_uses;
+        let namespace_uses = model.graph().observed().analysis.namespace_uses;
         let imports = model.graph().imports();
         for import in imports {
             let target = import.target_module();

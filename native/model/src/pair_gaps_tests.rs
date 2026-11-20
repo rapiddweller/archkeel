@@ -16,6 +16,8 @@ fn kept(source: &str, target: &str, observed: bool, owned: [bool; 2], external: 
         target_external: external,
         dispatch: false,
         execution: false,
+        no_name_route: false,
+        cycle_rules: Vec::new(),
     }
 }
 
@@ -121,4 +123,28 @@ fn only_a_witnessed_execution_pair_leaves_the_named_interface_known() {
 
     gap.owned[1] = false;
     assert!(gap.holds(&Reads::Interface));
+}
+
+#[test]
+fn source_names_keep_unread_routes_but_not_proven_execution() {
+    let sides = || {
+        [
+            Selection::of_packages(vec!["a"]),
+            Selection::of_packages(vec!["b"]),
+        ]
+    };
+    let reading = Reads::SourceNames(sides());
+    let mut gap = kept("a.x", "b.y", true, OWNED, false);
+    gap.dispatch = true;
+    assert!(gap.holds(&reading));
+
+    gap.no_name_route = true;
+    assert!(!gap.holds(&reading));
+    assert!(gap.holds(&Reads::Sides(sides())));
+    assert!(gap.holds(&Reads::Every));
+
+    gap.owned[1] = false;
+    assert!(gap.holds(&reading));
+    gap.observed = false;
+    assert!(gap.holds(&reading));
 }

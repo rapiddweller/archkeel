@@ -7,7 +7,8 @@
 //! Exactly two forms are a static edge:
 //!
 //! - `importlib.import_module("a.b")`, when each binding of `importlib` in the module is a plain
-//!   `import importlib` (no alias, no submodule import, no other binding);
+//!   `import importlib` (no alias, no submodule import, no other binding), and there is no
+//!   visible write to that loader in the scan;
 //! - `__import__("a.b")`, when the module binds `__import__` nowhere.
 //!
 //! The call has exactly one argument and no keyword: a plain string literal with an absolute dotted
@@ -33,6 +34,11 @@ pub(super) struct Proof {
 }
 
 impl Proof {
+    pub(super) fn without_replaced_loader(mut self, replaced: bool) -> Self {
+        self.importlib &= !replaced;
+        self
+    }
+
     /// A direct `importlib.import_module` reference with the loader binding proved.
     pub(super) fn loader(&self, function: &Expr) -> bool {
         self.importlib

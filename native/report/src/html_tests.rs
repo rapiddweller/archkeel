@@ -278,9 +278,9 @@ fn an_open_run_without_an_unknown_rule_names_its_cause() {
         "unsupported": {"rules": "contract <refused>"}});
     let page = document(&frame);
     assert!(!page.contains("0 unknown rules"));
-    assert!(page.contains("Remove the cause that keeps the run open: contract &lt;refused&gt;"));
+    assert!(page.contains("contract &lt;refused&gt;"));
     let scope = json!({"status": "UNKNOWN", "rules": {}, "scope": "incomplete scope: 3 gaps"});
-    assert!(document(&scope).contains("keeps the run open: incomplete scope: 3 gaps"));
+    assert!(document(&scope).contains("incomplete scope: 3 gaps"));
 }
 
 const HOSTILE: &str = "<script>\"&'";
@@ -357,16 +357,22 @@ fn an_equal_place_is_shown_once_with_its_number_and_no_link_lacks_a_target() {
     assert!(!page.contains("src/m.rs:9</span>, <span class=\"rp-code\">src/m.rs:9"));
     let dead = dependency_frame(1);
     let page = document(&dead);
-    for link in page.split("href=\"#").skip(1) {
-        let id = link.split('"').next().unwrap();
-        assert!(page.contains(&format!("id=\"{id}\"")), "{id} has no target");
+    for (index, part) in page.split("<script").enumerate() {
+        let html = if index == 0 {
+            part
+        } else {
+            part.split_once("</script>").unwrap().1
+        };
+        for link in html.split("href=\"#").skip(1) {
+            let id = link.split('"').next().unwrap();
+            assert!(page.contains(&format!("id=\"{id}\"")), "{id} has no target");
+        }
     }
 }
 
-// Each cause appears once in the head of the page: in the step of NEXT that closes it. The verdict
-// block holds no second list of the causes, and the cards of the Unknown section hold the detail.
+// Recorded evidence stays in the folded Unknown section, not a generic task list.
 #[test]
-fn the_verdict_names_each_cause_once() {
+fn the_verdict_does_not_make_generic_gap_tasks() {
     let frame = json!({"status": "UNKNOWN",
         "rules": {"A": ["k", "UNKNOWN"], "B": ["k", "UNKNOWN"], "C": ["k", "UNKNOWN"], "D": ["k", "UNKNOWN"]},
         "explained": {"C": "pair text", "D": "other <b>"},
@@ -380,27 +386,10 @@ fn the_verdict_names_each_cause_once() {
         "no count line of the causes"
     );
     assert!(!head.contains("class=\"body-sm ak-verdict__note\">2 unknown rules:"));
-    assert_eq!(
-        head.matches("5 coverage gaps in the scan").count(),
-        1,
-        "{head}"
-    );
-    assert_eq!(
-        head.matches("7 gaps between two modules").count(),
-        1,
-        "{head}"
-    );
-    assert_eq!(head.matches("other &lt;b&gt;").count(), 1, "{head}");
-    // NEXT names the three largest jobs, each with its count of unknown rules.
-    let next = page
-        .split("id=\"next\"")
-        .nth(1)
-        .unwrap()
-        .split("</ol>")
-        .next()
-        .unwrap();
-    assert_eq!(next.matches("Close the gaps behind").count(), 3, "{next}");
-    assert!(next.contains("Close the gaps behind 2 unknown rules: 5 coverage gaps in the scan."));
+    assert!(!head.contains("Close the gaps behind"));
+    assert!(page.contains("5 coverage gaps in the scan"));
+    assert!(page.contains("7 gaps between two modules"));
+    assert!(page.contains("other &lt;b&gt;"));
 }
 
 // Red main (#1169): a page of an UNKNOWN run says why, with the code of the cause, and which rules
@@ -413,9 +402,7 @@ fn a_named_gap_without_a_rule_row_shows_its_code_on_the_page() {
     assert!(page.contains("contract hygiene graph.count: expected &lt;1&gt;"));
     // The card counts the gap, so its numbers equal its list: no unknown rule, one gap.
     assert!(page.contains("Gaps with no rule</dt><dd class=\"ak-num h2\">1</dd>"));
-    assert!(page.contains(
-        "Remove the cause that keeps the run open (1 gap): contract hygiene graph.count"
-    ));
+    assert!(!page.contains("Remove the cause that keeps the run open"));
 }
 
 #[test]
@@ -436,7 +423,7 @@ fn every_unknown_run_names_a_cause_and_the_rules_it_holds_with_a_bound() {
             .split("</article>")
             .next()
             .unwrap();
-        for index in 0..held.min(5) {
+        for index in 0..held {
             assert!(
                 card.contains(&format!("R{index:02}")),
                 "{held}: R{index:02}"
@@ -444,12 +431,16 @@ fn every_unknown_run_names_a_cause_and_the_rules_it_holds_with_a_bound() {
         }
         if held > 5 {
             assert!(card.contains(&format!("+{} more", held - 5)), "{held}");
-            let fold = card.split("</summary>").nth(1).unwrap();
+            let fold = card
+                .split("<summary class=\"caption rp-at\">+")
+                .nth(1)
+                .unwrap();
             assert!(fold.contains("R05"), "the sixth id is in the fold");
         }
+        assert!(card.contains("why"), "the cause is recorded");
     }
     let empty = document(&json!({"status": "UNKNOWN", "scope": "missing input"}));
-    assert!(empty.contains("keeps the run open: missing input"));
+    assert!(empty.contains("missing input"));
 }
 
 // A tower lays out its rows on the row tracks of its path (`subgrid`). A path without its row

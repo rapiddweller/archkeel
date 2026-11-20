@@ -45,6 +45,33 @@ fn project() -> Tree {
 }
 
 #[test]
+fn direct_calls_need_the_live_links_to_the_caller_and_provider() {
+    let tree = Tree::new(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/service.py", "def sink():\n    return 1\n"),
+        (
+            "src/app/client.py",
+            "from app.service import sink\n\ndef run():\n    return sink()\n",
+        ),
+    ]);
+    let original = reply(&tree);
+    let witnesses = original.facts.direct_calls.as_ref().unwrap();
+    assert_eq!(witnesses.len(), 1);
+    assert!(archkeel_store::ingest_typed(original.clone()).is_ok());
+
+    let mut forged = original.clone();
+    forged.facts.direct_calls.as_mut().unwrap()[0].2 = None;
+    assert_eq!(
+        archkeel_store::ingest_typed(forged).err().as_deref(),
+        Some("invalid live direct-call witness")
+    );
+
+    let archived = serde_json::to_vec(&original).unwrap();
+    let decoded: Reply = serde_json::from_slice(&archived).unwrap();
+    assert!(decoded.facts.direct_calls.is_none());
+}
+
+#[test]
 fn the_request_leaves_the_target_to_the_collector() {
     let request = resolver();
     assert_eq!(request, json!({"language": "python", "phase": "imports"}));
@@ -83,7 +110,7 @@ fn a_live_call_witness_is_bound_and_an_archive_has_no_call_authority() {
     let call = &calls[0];
     assert_eq!(call.scope, "app.client.run");
     assert_eq!(call.target, "app.service.Store.page");
-    assert!(CallOwners::complete(owners, "app.client"));
+    assert!(CallOwners::targets(owners).contains("app.service.Store.page"));
 
     let bytes = serde_json::to_vec(&original).unwrap();
     let archived = ingest_typed(serde_json::from_slice(&bytes).unwrap()).unwrap();

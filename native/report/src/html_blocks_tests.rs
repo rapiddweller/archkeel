@@ -53,7 +53,8 @@ fn the_unknown_rules_are_grouped_by_cause_and_the_largest_cause_comes_first() {
         .split("</section>")
         .next()
         .unwrap();
-    assert!(section.contains("4 rules cannot be decided, from 3 causes"));
+    assert!(section.contains("4 rules cannot be decided."));
+    assert!(section.contains("<details><summary>Undecided rules and recorded evidence</summary>"));
     assert_eq!(section.matches("class=\"rp-cause\"").count(), 3);
     let first = section.find("3 coverage gaps in the scan").unwrap();
     let second = section.find("7 gaps between two modules").unwrap();
@@ -372,29 +373,13 @@ fn a_cycle_over_two_modules_of_one_component_is_one_violation() {
 }
 
 #[test]
-fn the_next_step_names_each_job_with_its_own_count() {
+fn unknown_rules_do_not_create_generic_next_steps() {
     let frame = json!({"status": "UNKNOWN",
         "rules": {"R": ["k", "UNKNOWN"]}, "explained": {"R": "why"},
         "unsupported": {"rules": {"h:a": "named one", "h:b": "named two"}}});
     let page = document(&frame);
-    // Each job is one cause with the number of what it holds: 1 unknown rule, 1 and 1 named gap.
-    let next = page
-        .split("id=\"next\"")
-        .nth(1)
-        .unwrap()
-        .split("</ol>")
-        .next()
-        .unwrap();
-    assert!(
-        next.contains("Close the gaps behind 1 unknown rule: why."),
-        "{next}"
-    );
-    assert!(
-        next.matches("Remove the cause that keeps the run open (1 gap)")
-            .count()
-            == 2,
-        "{next}"
-    );
+    assert!(!page.contains("Close the gaps behind"));
+    assert!(!page.contains("Remove the cause that keeps the run open"));
 }
 
 #[test]

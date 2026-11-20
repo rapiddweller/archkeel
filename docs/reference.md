@@ -58,8 +58,10 @@ The shell checks the SHA-256 of every contract file. A changed, linked, missing 
 nested file cannot produce PASS. See [nested intent](rules.md#nested-and-independent-intent).
 
 `exclude_test_sources = true` (default false) leaves recognized test sources out of the scan
-of `report` and `validate`. File counts and verdicts then cover production code only, and the
-result has a note that says so. An import from production code into a test source stays UNKNOWN.
+of `report` and `validate`. The result names the excluded paths for Python, TypeScript and Dart.
+The rules use test naming conventions, not proof that each file is a test. Check the named paths
+before relying on the verdict. An import from production code into an excluded test source stays
+UNKNOWN. Keep the default to include test sources in architecture checks.
 For Dart, this option excludes `.dart` files under `test` or `tests` within a selected root,
 and files whose names end in `_test.dart`. It also excludes a root named `test` or `tests`,
 unless that root is a Dart package directory.

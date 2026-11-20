@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The `Sections` request: the rows of each requested section, or the reason that it has none.
-//!
-//! The evaluator supplies the violations, sorted by id (AD-360). Topology rows need no contract.
+//! The evaluator gives the violations, sorted by id (AD-360). Topology rows need no contract.
 
 use std::collections::BTreeMap;
 
@@ -15,10 +14,8 @@ use serde_json::{json, Value};
 #[cfg(test)]
 #[path = "interface_row_tests.rs"]
 mod interface_row_tests;
-
 /// One requested section and its rows or the reason that it has none.
 pub(crate) type SectionAnswer = (Section, Result<Vec<Value>, Reason>);
-
 /// The derivation of a run: its reply part and its model, or the reason of each missing part.
 pub(crate) type Derivation<'a> = (Result<&'a Graph, Reason>, Result<&'a Model, Reason>);
 
@@ -51,7 +48,6 @@ pub(crate) fn answer(
         })
         .collect()
 }
-
 /// The rows of the sections that have rows, and the reason of each section that has none.
 pub(crate) fn split(
     answers: Vec<SectionAnswer>,
@@ -73,7 +69,6 @@ pub(crate) fn split(
     }
     (rows, reasons)
 }
-
 fn violation_rows(outcomes: &[Outcome]) -> Vec<Value> {
     let mut violations: Vec<&Violation> = outcomes
         .iter()
@@ -82,8 +77,11 @@ fn violation_rows(outcomes: &[Outcome]) -> Vec<Value> {
     violations.sort_by(|a, b| a.id().cmp(b.id()));
     violations.into_iter().map(row).collect()
 }
-
 /// The 2.9 row of a violation (`classified` in `ir/source_records.py`).
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep all record kinds in one exhaustive match"
+)]
 fn row(violation: &Violation) -> Value {
     match violation {
         Violation::Unassigned {
@@ -157,6 +155,14 @@ fn row(violation: &Violation) -> Value {
         Violation::OuterLayer(layered) => layer_record(layered),
         Violation::Cycle(cyclic) => cycle_record(cyclic),
         Violation::Construct(row) => archkeel_report::construct_row(row),
+        Violation::ProtocolDeclaration(row) => record(
+            [&row.id, &row.rule, &row.id],
+            &row.evidence,
+            ["source", "protocol_declarations"],
+            &[&row.qualified_name, &row.subject],
+            format!("{} does not name the canonical Protocol", row.subject),
+            json!({"member": row.subject, "annotation": row.text}),
+        ),
         Violation::BoundaryType(found) => record(
             [&found.id, &found.rule, &found.id],
             &found.evidence,
@@ -170,34 +176,53 @@ fn row(violation: &Violation) -> Value {
                    "annotation": found.text, "reasons": found.reasons}),
         ),
         Violation::SymbolPlacement(found) => placement_record(found),
-        Violation::CallOwner(found) => call_owner_record(found),
+        Violation::CallOwner {
+            id,
+            rule,
+            fact,
+            source,
+            target,
+            evidence,
+        } => record(
+            [id, rule, fact],
+            evidence,
+            ["calls", "call_owner"],
+            &[source, target],
+            format!("{source} invokes {target} outside its owner"),
+            json!({"source_scope": source, "target": target}),
+        ),
+        Violation::ForbiddenArgument {
+            id,
+            rule,
+            fact,
+            source,
+            target,
+            parameter,
+            evidence,
+        } => record(
+            [id, rule, fact],
+            evidence,
+            ["source", "forbidden_call_argument"],
+            &[source, target],
+            format!("{source} passes a written string literal to {target}.{parameter}"),
+            json!({"source_scope": source, "target": target, "parameter": parameter}),
+        ),
         Violation::UnusedPublic(found) => {
             let item = format!("{}:{}", found.module, found.name);
             let data = json!({"module": found.module, "name": found.name, "item_kind": found.kind});
+            let title = format!("{item} is public and no other component uses it");
+            let subjects = [&found.module, &found.name];
             record(
                 [&found.id, &found.rule, &found.id],
                 &found.evidence,
                 ["source", "unused_public"],
-                &[&found.module, &found.name],
-                format!("{item} is public and no other component uses it"),
+                &subjects,
+                title,
                 data,
             )
         }
     }
 }
-
-fn call_owner_record(found: &archkeel_eval::CallOwnerViolation) -> Value {
-    let (source, target) = (&found.source, &found.target);
-    record(
-        [&found.id, &found.rule, &found.fact_id],
-        &found.evidence,
-        ["calls", "call_owner"],
-        &[source, target],
-        format!("{source} invokes {target} outside its owner"),
-        json!({"source_scope": source, "target": target}),
-    )
-}
-
 fn placement_record(found: &archkeel_eval::PlacedClass) -> Value {
     record(
         [&found.id, &found.rule, &found.fact_id],
@@ -208,7 +233,6 @@ fn placement_record(found: &archkeel_eval::PlacedClass) -> Value {
         json!({"qualified_name": found.name, "module": found.module, "class_kind": found.kind}),
     )
 }
-
 /// A `no_component_cycles` record (slice S7, AD-384): a component cycle has the kind of its rule
 /// and the members; a module cycle has the kind `module_cycle` and its edges.
 fn cycle_record(cyclic: &Cyclic) -> Value {
@@ -254,7 +278,6 @@ fn cycle_record(cyclic: &Cyclic) -> Value {
         "data": data,
     })
 }
-
 /// The record of a direction violation that cites one import (slice S5, AD-380).
 fn direction_record(violation: &Violation) -> Value {
     match violation {
@@ -340,23 +363,10 @@ fn direction_record(violation: &Violation) -> Value {
             json!({"source_module": cited.source_module, "target_module": cited.target_module,
                    "source_component": source_component, "target_component": target_component}),
         ),
-        // `row` writes the other kinds; it calls this function only for the three above.
-        Violation::Unassigned { .. }
-        | Violation::NotAllowedChild { .. }
-        | Violation::OutsideScope { .. }
-        | Violation::Undeclared { .. }
-        | Violation::OuterLayer(_)
-        | Violation::Construct(_)
-        | Violation::BoundaryType(_)
-        | Violation::CallOwner(_)
-        | Violation::SymbolPlacement(_)
-        | Violation::UnusedPublic(_)
-        | Violation::Cycle(_) => row(violation),
+        _ => row(violation),
     }
 }
-
-/// A `layer_order` record: it cites the receipt of its rule, the contract file and the
-/// provenance of its source component.
+/// Cite the rule receipt, contract file and source component provenance.
 fn layer_record(layered: &Layered) -> Value {
     let Layered {
         id,
@@ -388,7 +398,6 @@ fn layer_record(layered: &Layered) -> Value {
                  "rationale": rationale},
     })
 }
-
 /// The target name of an import, with an optional nonempty symbol.
 fn target_name(cited: &Cited, symbol: Option<&str>) -> String {
     [cited.target_module.as_str(), symbol.unwrap_or("")]
@@ -397,7 +406,6 @@ fn target_name(cited: &Cited, symbol: Option<&str>) -> String {
         .collect::<Vec<_>>()
         .join(".")
 }
-
 /// An interface violation retains the named target and both components.
 fn interface_record(
     ids: [&str; 2],
@@ -420,7 +428,6 @@ fn interface_record(
         json!({"symbol": symbol, "source_component": source_component, "target_component": target_component}),
     )
 }
-
 /// The common import fields of a violation that names a symbol.
 fn named_record(
     ids: [&str; 2],
@@ -442,7 +449,6 @@ fn named_record(
         data,
     )
 }
-
 /// A violation record that cites one import: its subjects are the two modules of the import.
 fn import_record(ids: [&str; 2], cited: &Cited, kind: &str, title: String, data: Value) -> Value {
     let [id, rule] = ids;
@@ -455,9 +461,7 @@ fn import_record(ids: [&str; 2], cited: &Cited, kind: &str, title: String, data:
         data,
     )
 }
-
-/// A violation record: `[id, rule, cited record]`, the evidence of the cited record (sorted),
-/// `[area, kind]` and the subjects.
+/// Build a violation record with its cited fact, evidence, area, kind and subjects.
 fn record(
     ids: [&str; 3],
     evidence: &[String],
@@ -482,7 +486,6 @@ fn record(
         "data": data,
     })
 }
-
 /// `classified` drops an empty subject and sorts the others.
 fn sorted_subjects<'a>(names: &[&'a String]) -> Vec<&'a str> {
     let mut found: Vec<&str> = names

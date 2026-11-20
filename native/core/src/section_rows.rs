@@ -75,6 +75,8 @@ enum Body {
     BoundaryTypes(BoundaryTypes),
     UnusedPublic(UnusedPublic),
     ForbiddenConstruct(ConstructData),
+    ForbiddenCallArgument(ForbiddenCallArgument),
+    ProtocolDeclarations(ProtocolDeclarations),
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -259,4 +261,19 @@ struct SelectedConstruct {
 struct PlainConstruct {
     source: String,
     construct: String,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ForbiddenCallArgument {
+    source_scope: String,
+    target: String,
+    parameter: String,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ProtocolDeclarations {
+    member: String,
+    annotation: String,
 }

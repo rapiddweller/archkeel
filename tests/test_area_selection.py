@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from areas import AREAS, SLOW_FILES, area_of, areas_of_change
+from areas import AREAS, SLOW_FILES, area_of, areas_of_change, parallel_areas, rust_checks
 
 ROOT = Path(__file__).parents[1]
 
@@ -26,13 +26,102 @@ def test_a_path_that_no_rule_names_selects_every_area() -> None:
 
 
 def test_a_source_change_selects_the_areas_that_it_can_reach() -> None:
-    assert areas_of_change(["native/python/src/lib.rs"]) == ["native collectors", "collectors"]
-    assert areas_of_change(["native/core/src/main.rs"]) == ["CLI and core", "self-check and CI"]
-    assert areas_of_change(["docs/readme.md", "native/report/src/html.rs"]) == [
-        "CLI and core",
-        "reports",
-        "self-check and CI",
-    ]
+    for path in (
+        "native/python/src/lib.rs",
+        "native/core/src/main.rs",
+        "native/model/src/direction.rs",
+        "native/eval/src/scoped_requires_tests.rs",
+        "src/archkeel/cli/native_scan.py",
+        "Makefile",
+        ".github/workflows/pr-gate.yml",
+    ):
+        assert areas_of_change([path]) == list(AREAS)
+    assert areas_of_change(["native/report/src/html.rs"]) == ["CLI and core", "reports"]
+
+
+def test_parallel_jobs_follow_the_changed_paths() -> None:
+    assert parallel_areas(["docs/readme.md"]) == []
+    assert not rust_checks(["docs/readme.md"])
+    assert parallel_areas(["native/report/src/html.rs"]) == ["CLI and core", "reports"]
+    assert rust_checks(["native/report/assets/explorer/explorer.html"])
+    assert "collectors" in parallel_areas(["native/model/src/direction.rs"])
+    assert "CLI and core" in parallel_areas(["native/collect/src/lib.rs"])
+    assert parallel_areas(["Makefile"]) == list(AREAS)
+    assert rust_checks(["Makefile"])
+
+
+def test_job_selector_reports_empty_and_rejects_unknown_areas(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from tools import select_areas
+
+    monkeypatch.setattr(select_areas, "changed", lambda base: ["docs/readme.md"])
+    assert select_areas.main(["--job", "reports", "base"]) == 0
+    assert capsys.readouterr().out == "no matching paths\n"
+    with pytest.raises(ValueError, match="unknown test area"):
+        select_areas.main(["--job", "missing", "base"])
+
+
+def test_pr_and_main_share_jobs_and_the_required_gate_needs_them() -> None:
+    workflows = ROOT / ".github/workflows"
+    main = (workflows / "ci.yml").read_text()
+    pr = (workflows / "pr-gate.yml").read_text()
+    shared = (workflows / "area-checks.yml").read_text()
+    assert "uses: ./.github/workflows/area-checks.yml" in main
+    assert "uses: ./.github/workflows/area-checks.yml" in pr
+    assert "name: PR gate\n    needs: [base, area-checks]\n    if: always()" in pr
+    assert shared.count("python3 tools/select_areas.py --job") == 2
+
+
+def test_pr_aggregate_refuses_failed_or_skipped_jobs() -> None:
+    workflow = (ROOT / ".github/workflows/pr-gate.yml").read_text()
+    script = workflow.split("      - name: Require every check\n", 1)[1].split(
+        "        run: |\n", 1
+    )[1]
+    for results, expected in (
+        ("success success", 0),
+        ("success failure", 1),
+        ("success skipped", 1),
+    ):
+        done = subprocess.run(
+            ["bash", "-c", script],
+            env={**os.environ, "RESULTS": results},
+            capture_output=True,
+            check=False,
+        )
+        assert done.returncode == expected
+
+
+def test_the_main_failures_are_in_the_fast_selection() -> None:
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "-p",
+            "no:xdist",
+            "-m",
+            "not native_wheel and not slow",
+            "tests/test_native_self_core_rows.py",
+            "tests/test_cli_native_core_scan_work.py",
+            "tests/test_cli_report_output.py",
+            "tests/test_collector_false_pass_rust_own_file_method.py",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    for name in (
+        "test_collect_hands_core_no_value_of_a_collector_type",
+        "test_release_scan_at_64_mib_keeps_a_full_frame_under_300_mib",
+        "test_native_static_page_stays_below_the_review_size_budget",
+        "test_requires_receipt_distinguishes_matching_and_wrong_ports",
+    ):
+        assert name in done.stdout
 
 
 def test_every_slow_file_is_in_an_area() -> None:

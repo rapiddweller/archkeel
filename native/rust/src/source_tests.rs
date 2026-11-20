@@ -87,7 +87,7 @@ fn a_file_over_the_limit_gives_the_reason_of_the_snapshot_crate() {
     let mut snapshot = Snapshot::new(&root.path());
     let reason = read_text(&mut snapshot, "big.rs").unwrap_err();
     assert_eq!(reason, snapshot.size_gap("big.rs").unwrap());
-    assert!(snapshot.inputs().is_empty());
+    assert!(snapshot.inputs(|_, _, _| ()).is_empty());
 }
 
 #[cfg(unix)]
@@ -111,9 +111,9 @@ fn a_link_that_stays_inside_is_followed_and_a_path_that_leaves_the_snapshot_is_n
     let listed = walk(&mut snapshot, "");
     assert_eq!(listed, ["dir/in.rs", "inside.rs", "real.rs"]);
     assert!(snapshot
-        .inputs()
+        .inputs(|path, _, _| path.contains("secret"))
         .iter()
-        .all(|input| !input.path.contains("secret")));
+        .all(|found| !found));
     // The escape is a problem, and the collector turns each problem into a gap.
     assert!(!snapshot.problems.is_empty());
 }

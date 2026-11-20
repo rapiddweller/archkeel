@@ -22,6 +22,9 @@ use crate::source::Span;
 use crate::tree::cx::Cx;
 use crate::tree::nodes::{children, named_children};
 
+#[path = "definitions_arrow.rs"]
+mod arrow;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum DefinitionKind {
     Class,
@@ -137,11 +140,6 @@ fn definition_kind(kind: K) -> Option<DefinitionKind> {
     })
 }
 
-/// The kind of the ancestor `up` levels above the node: 1 is the parent.
-fn ancestor_kind(stack: &[Entry], up: usize) -> Option<K> {
-    stack.len().checked_sub(up).map(|at| stack[at].kind)
-}
-
 /// The place of the node that the walk visits: its parent, its grandparent and the run of
 /// decorators and comments before it.
 fn place_of<'a, 't>(stack: &'a [Entry<'t>]) -> Place<'a, 't> {
@@ -149,21 +147,23 @@ fn place_of<'a, 't>(stack: &'a [Entry<'t>]) -> Place<'a, 't> {
     Place {
         parent: parent.map(|entry| entry.node),
         parent_kind: parent.map_or(K::Other, |entry| entry.kind),
-        grand_kind: ancestor_kind(stack, 2).unwrap_or(K::Other),
+        grand_kind: Entry::ancestor_kind(stack, 2).unwrap_or(K::Other),
         before: parent.map_or(&[], |entry| entry.run.as_slice()),
     }
 }
 
-/// A declaration that sits at the top of the file, or in an `export` at the top of the file.
-fn top_of_file(stack: &[Entry], up: usize) -> bool {
-    match ancestor_kind(stack, up) {
-        Some(K::Program) => true,
-        Some(K::ExportStatement) => ancestor_kind(stack, up + 1) == Some(K::Program),
-        _ => false,
-    }
-}
-
 impl Defs {
+    /// An export can name a function without introducing a name in its module scope.
+    pub(crate) fn anonymous_default(cx: &Cx, top: &[Node]) -> Option<Box<Definition>> {
+        let function = arrow::anonymous_default(cx, top)?;
+        let name = ("default".to_owned(), DefinitionKind::Function);
+        let mut definition = Self::build(cx, function, name, None, (&[], &place_of(&[])));
+        definition.visibility = Some(Visibility::Public);
+        definition.exported = true;
+        definition.top_level = true;
+        Some(Box::new(definition))
+    }
+
     /// `_inner`: record `node` when it is a definition. Returns the scope that it opens.
     pub(crate) fn definition(
         &mut self,
@@ -173,6 +173,17 @@ impl Defs {
         stack: &[Entry],
         seen: u8,
     ) -> Option<u32> {
+        if kind == K::ArrowFunction {
+            let name = arrow::name(cx, node, stack, seen, Entry::top_of_file(stack, 3))?;
+            let place = place_of(stack);
+            let named = (name.clone(), DefinitionKind::Function);
+            let mut definition = Self::build(cx, node, named, None, (stack, &place));
+            definition.exported = Entry::ancestor_kind(stack, 3) == Some(K::ExportStatement);
+            definition.top_level = true;
+            definition.overload_signature = false;
+            definition.signature_complete = false;
+            return Some(self.add_scope(name, None, definition));
+        }
         let found = definition_kind(kind)?;
         if node.has_error() || seen & (ERROR_ABOVE | INSIDE_NAMESPACE | IN_UNMODELED_BLOCK) != 0 {
             return None;
@@ -193,14 +204,18 @@ impl Defs {
         let owner = stack.last().and_then(|entry| entry.scope);
         let parent = owner.and_then(|at| self.scopes.0.get(at as usize).map(|scope| (at, scope)));
         let definition = Self::build(cx, node, (name.clone(), found), parent, (stack, &place));
+        Some(self.add_scope(name, owner, definition))
+    }
+
+    fn add_scope(&mut self, name: String, parent: Option<u32>, definition: Definition) -> u32 {
         self.scopes.0.push(Scope {
             name,
-            parent: owner,
+            parent,
             line: definition.span.line,
             column: definition.span.column,
         });
         self.found.push(definition);
-        Some((self.scopes.0.len() - 1) as u32)
+        (self.scopes.0.len() - 1) as u32
     }
 
     /// `_definition`.
@@ -231,7 +246,7 @@ impl Defs {
             parent: parent.map(|(at, _)| at),
             visibility: cx.visibility_in(node, &kids),
             is_static: modifiers.has_static(),
-            exported: ancestor_kind(stack, 1) == Some(K::ExportStatement),
+            exported: Entry::ancestor_kind(stack, 1) == Some(K::ExportStatement),
             annotation: cx.type_text(cx.field(node, F::Type).or_else(|| cx.field(node, F::Value))),
             parameters: cx.parameters(cx.field(node, F::Parameters)),
             returns: cx.type_text(cx.field(node, F::ReturnType)),
@@ -242,7 +257,7 @@ impl Defs {
             members_complete: cx.members_complete(body, owner),
             open_scope: None,
             overload_signature: body.is_none(),
-            top_level: top_of_file(stack, 1),
+            top_level: Entry::top_of_file(stack, 1),
             signature_complete: cx.signature_complete(node),
             parent_line: parent.map(|(_, scope)| scope.line),
             parent_column: parent.map(|(_, scope)| scope.column),
@@ -260,7 +275,7 @@ impl Defs {
         if kind != K::VariableDeclarator || seen & INSIDE_NAMESPACE != 0 {
             return;
         }
-        let module_level = top_of_file(stack, 2);
+        let module_level = Entry::top_of_file(stack, 2);
         let name_node = cx.field(node, F::Name);
         let Some(name_node) = name_node.filter(|name| cx.k(*name) == K::Identifier) else {
             self.opaque |= module_level;
@@ -296,7 +311,7 @@ impl Defs {
             parent: owner.map(|(at, _)| at),
             visibility: None,
             is_static: false,
-            exported: ancestor_kind(stack, 2) == Some(K::ExportStatement),
+            exported: Entry::ancestor_kind(stack, 2) == Some(K::ExportStatement),
             annotation: cx.type_text(cx.field(node, F::Type)),
             parameters: Vec::new(),
             returns: None,
@@ -364,7 +379,7 @@ fn module_visibility(item: &mut Definition, exports: &ModuleExports) {
 
 /// `_module_array_constant`: a direct module declaration of an array of plain values.
 fn module_array_constant(cx: &Cx, node: Node, value: Node, stack: &[Entry], seen: u8) -> bool {
-    if node.has_error() || seen & ERROR_ABOVE != 0 || !top_of_file(stack, 2) {
+    if node.has_error() || seen & ERROR_ABOVE != 0 || !Entry::top_of_file(stack, 2) {
         return false;
     }
     let mut value = value;
@@ -404,8 +419,8 @@ fn plain_name(cx: &Cx, binding: Option<Node>, kinds: &[K]) -> Peer {
 
 /// `_module_var_array_peer`: a block or loop `var` still competes with a module array.
 fn array_peer(cx: &Cx, node: Node, kind: K, stack: &[Entry], seen: u8) -> Peer {
-    let variable =
-        kind == K::VariableDeclarator && ancestor_kind(stack, 1) == Some(K::VariableDeclaration);
+    let variable = kind == K::VariableDeclarator
+        && Entry::ancestor_kind(stack, 1) == Some(K::VariableDeclaration);
     let looping = kind == K::ForInStatement && cx.has_child(node, K::Var);
     if !(variable || looping) || seen & IN_FUNCTION_LIKE != 0 {
         return (None, false);
@@ -451,7 +466,7 @@ fn uncollected(cx: &Cx, node: Node, kind: K, stack: &[Entry], seen: u8) -> Peer 
     };
     if variable {
         up = 2;
-        if ancestor_kind(stack, up) != Some(K::AmbientDeclaration) {
+        if Entry::ancestor_kind(stack, up) != Some(K::AmbientDeclaration) {
             return (None, false);
         }
     }
@@ -459,7 +474,7 @@ fn uncollected(cx: &Cx, node: Node, kind: K, stack: &[Entry], seen: u8) -> Peer 
         up += 1;
     }
     while matches!(
-        ancestor_kind(stack, up),
+        Entry::ancestor_kind(stack, up),
         Some(K::ExportStatement | K::AmbientDeclaration | K::ExpressionStatement)
     ) {
         up += 1;
@@ -467,7 +482,7 @@ fn uncollected(cx: &Cx, node: Node, kind: K, stack: &[Entry], seen: u8) -> Peer 
     let Some(declaration) = declaration else {
         return (None, false);
     };
-    if ancestor_kind(stack, up) != Some(K::Program) || cx.has_child(declaration, K::Type) {
+    if Entry::ancestor_kind(stack, up) != Some(K::Program) || cx.has_child(declaration, K::Type) {
         return (None, false);
     }
     if defined {

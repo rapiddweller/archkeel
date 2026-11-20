@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
-  "schema_version": "3.16.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.19.schema.json",
+  "schema_version": "3.19.0",
   "components": [
     {
       "id": "COMP-NATIVE-FACTS",
@@ -38,9 +38,6 @@
         "native.archkeel_facts.data:SelectorData",
         "native.archkeel_facts.data:SignalData",
         "native.archkeel_facts.data:ValueData",
-        "native.archkeel_facts.envelope.constructed_call:ConstructedCall",
-        "native.archkeel_facts.envelope.constructed_call:ConstructedCalls",
-        "native.archkeel_facts.envelope.cycle:proves_cycle_scope",
         "native.archkeel_facts.envelope.validation:InterfaceNeed",
         "native.archkeel_facts.envelope.validation:Registered",
         "native.archkeel_facts.envelope.validation:library_family",
@@ -48,9 +45,8 @@
         "native.archkeel_facts.envelope:Adapter",
         "native.archkeel_facts.envelope:Capabilities",
         "native.archkeel_facts.envelope:ConstructSupport",
-        "native.archkeel_facts.envelope:ConstructedCall",
-        "native.archkeel_facts.envelope:ConstructedCalls",
         "native.archkeel_facts.envelope:Coverage",
+        "native.archkeel_facts.envelope:DirectCall",
         "native.archkeel_facts.envelope:Dirty",
         "native.archkeel_facts.envelope:Evidence",
         "native.archkeel_facts.envelope:Facts",
@@ -73,12 +69,12 @@
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:TargetSource",
         "native.archkeel_facts.envelope:Validation",
+        "native.archkeel_facts.envelope:WrittenActual",
         "native.archkeel_facts.envelope:source_digest",
         "native.archkeel_facts.envelope:test_features",
         "native.archkeel_facts.fields:Fields",
         "native.archkeel_facts.fields:Named",
         "native.archkeel_facts.identity:Part",
-        "native.archkeel_facts.identity:StreamDigest",
         "native.archkeel_facts.identity:evidence_id",
         "native.archkeel_facts.identity:inside",
         "native.archkeel_facts.identity:is_identifier",
@@ -101,6 +97,7 @@
         "native.archkeel_facts.nested:ResultBinding",
         "native.archkeel_facts.nested:VisibilityDetail",
         "native.archkeel_facts.nullable:Nullable",
+        "native.archkeel_facts.profile_traits:AnalysisCapabilities",
         "native.archkeel_facts.profile_traits:Layout",
         "native.archkeel_facts.profile_traits:PairGapDrop",
         "native.archkeel_facts.profile_traits:TargetMarks",
@@ -118,6 +115,7 @@
         "native.archkeel_facts.request:RustRequest",
         "native.archkeel_facts.request:TypeScriptRequest",
         "native.archkeel_facts.sections:SignalFact",
+        "native.archkeel_facts.standard:ProtocolMembers",
         "native.archkeel_facts.standard:StandardFacts",
         "native.archkeel_facts.standard:Wrapped",
         "native.archkeel_facts.standard:WrappedSlot",
@@ -182,15 +180,6 @@
       "provenance": [
         "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
       ],
-      "requires": [
-        {
-          "component": "facts",
-          "rationale": "Write and read the typed facts that the reply holds (AD-345).",
-          "through": [
-            "native.archkeel_facts"
-          ]
-        }
-      ],
       "public": [
         "native.archkeel_snapshot.paths:basename",
         "native.archkeel_snapshot.paths:dirname",
@@ -248,7 +237,10 @@
         "native.archkeel_wire.stream:Tail",
         "native.archkeel_wire.stream:TypedEmit",
         "native.archkeel_wire.stream:encode_stream",
-        "native.archkeel_wire.typed:assemble"
+        "native.archkeel_wire.typed:assemble",
+        "native.archkeel_wire.worker:RUST_WORKER_V1",
+        "native.archkeel_wire.worker:read_rust_v1",
+        "native.archkeel_wire.worker:serve_v1"
       ],
       "decided_by": "architect"
     },
@@ -279,9 +271,7 @@
         }
       ],
       "public": [
-        "native.archkeel_store:CallOwners",
         "native.archkeel_store:Ingested",
-        "native.archkeel_store:OwnedCall",
         "native.archkeel_store:ingest_reply",
         "native.archkeel_store:ingest_typed",
         "native.archkeel_store:sdk_libraries",
@@ -348,6 +338,7 @@
         "native.archkeel_contract:Entity",
         "native.archkeel_contract:EntityKind",
         "native.archkeel_contract:ExternalDependencyScope",
+        "native.archkeel_contract:ForbiddenCallArgument",
         "native.archkeel_contract:ForbiddenConstruct",
         "native.archkeel_contract:ForbiddenDependency",
         "native.archkeel_contract:InterfaceBoundary",
@@ -361,6 +352,10 @@
         "native.archkeel_contract:ParsedContract",
         "native.archkeel_contract:PremiseName",
         "native.archkeel_contract:PresenceKind",
+        "native.archkeel_contract:ProtocolDeclarations",
+        "native.archkeel_contract:ProtocolRole",
+        "native.archkeel_contract:ProtocolSelector",
+        "native.archkeel_contract:ProtocolVisibility",
         "native.archkeel_contract:PublicItemKind",
         "native.archkeel_contract:Relationship",
         "native.archkeel_contract:RelationshipKind",
@@ -507,12 +502,12 @@
           "component": "model-proof",
           "rationale": "Take the scope proof, a receipt or the verdict that only the proof gives (AD-363).",
           "through": [
-            "native.archkeel_model.call_owner",
             "native.archkeel_model.gap_effects",
             "native.archkeel_model.premises",
             "native.archkeel_model.receipts",
             "native.archkeel_model.run",
             "native.archkeel_model.scope",
+            "native.archkeel_model.scope_receipt",
             "native.archkeel_model.verdict"
           ]
         },
@@ -536,7 +531,7 @@
         "native.archkeel_model:DoorProblem",
         "native.archkeel_model:Doors",
         "native.archkeel_model:Edge",
-        "native.archkeel_model:ForbiddenCall",
+        "native.archkeel_model:ExactCall",
         "native.archkeel_model:Graph",
         "native.archkeel_model:Hygiene",
         "native.archkeel_model:Import",
@@ -584,6 +579,7 @@
         "native.archkeel_model:cycles_of_components",
         "native.archkeel_model:facade_types",
         "native.archkeel_model:forbidden",
+        "native.archkeel_model:forbidden_argument_violations",
         "native.archkeel_model:gap_kind",
         "native.archkeel_model:in_scope",
         "native.archkeel_model:interface_crossings",
@@ -594,6 +590,7 @@
         "native.archkeel_model:peers",
         "native.archkeel_model:placement_violations",
         "native.archkeel_model:premise_words",
+        "native.archkeel_model:protocol_violations",
         "native.archkeel_model:publishes",
         "native.archkeel_model:rule_premises",
         "native.archkeel_model:shape",
@@ -743,7 +740,6 @@
           "component": "store",
           "rationale": "Read the records of the validated reply in their typed form (AD-359).",
           "through": [
-            "native.archkeel_store:CallOwners",
             "native.archkeel_store:Ingested",
             "native.archkeel_store:standard_library"
           ]
@@ -810,6 +806,8 @@
         "native.archkeel_model.edges:Edge",
         "native.archkeel_model.edges:Level",
         "native.archkeel_model.gaps:CoverageGap",
+        "native.archkeel_model.graph:CallInventory",
+        "native.archkeel_model.graph:ExactCall",
         "native.archkeel_model.graph:Graph",
         "native.archkeel_model.imports:Import",
         "native.archkeel_model.imports:Resolved",
@@ -872,6 +870,7 @@
             "native.archkeel_contract:CycleLevel",
             "native.archkeel_contract:ForbiddenDependency",
             "native.archkeel_contract:LayerOrder",
+            "native.archkeel_contract:NoComponentCycles",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
             "native.archkeel_contract:Selector",
@@ -918,8 +917,10 @@
         "native.archkeel_model.limits:undecided_kind",
         "native.archkeel_model.limits:word",
         "native.archkeel_model.pair_gaps:Pairs",
+        "native.archkeel_model.pair_gaps:Reads",
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
+        "native.archkeel_model.pair_gaps:sides_match",
         "native.archkeel_model.roots:Roots",
         "native.archkeel_model.rule_kinds:undecided_rule",
         "native.archkeel_model.selection:dependency_sides",
@@ -1127,6 +1128,7 @@
         "native.archkeel_model.construct_match:matches",
         "native.archkeel_model.construct_match:receipt",
         "native.archkeel_model.direction:Judged",
+        "native.archkeel_model.direction:assessment",
         "native.archkeel_model.direction:crossings",
         "native.archkeel_model.direction:forbidden",
         "native.archkeel_model.direction:peers",
@@ -1150,7 +1152,6 @@
       "role": "component",
       "layer": "model",
       "packages": [
-        "native.archkeel_model.call_owner",
         "native.archkeel_model.gap_effects",
         "native.archkeel_model.receipts",
         "native.archkeel_model.run",
@@ -1177,12 +1178,18 @@
           "through": [
             "native.archkeel_contract:CallOwner",
             "native.archkeel_contract:CycleLevel",
+            "native.archkeel_contract:ForbiddenCallArgument",
             "native.archkeel_contract:Lifecycle",
             "native.archkeel_contract:NoComponentCycles",
             "native.archkeel_contract:PREMISE_NAMES",
             "native.archkeel_contract:PremiseName",
+            "native.archkeel_contract:ProtocolDeclarations",
+            "native.archkeel_contract:ProtocolRole",
+            "native.archkeel_contract:ProtocolSelector",
+            "native.archkeel_contract:ProtocolVisibility",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
+            "native.archkeel_contract:Selector",
             "native.archkeel_contract:SymbolPlacement",
             "native.archkeel_contract:assumption_words",
             "native.archkeel_contract:declared_premises",
@@ -1196,7 +1203,10 @@
           "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment).",
           "through": [
             "native.archkeel_facts.data",
-            "native.archkeel_facts.profile_traits"
+            "native.archkeel_facts.envelope:WrittenActual",
+            "native.archkeel_facts.nested:Parameter",
+            "native.archkeel_facts.profile_traits",
+            "native.archkeel_facts.standard:ProtocolMembers"
           ]
         },
         {
@@ -1212,17 +1222,10 @@
           ]
         },
         {
-          "component": "store",
-          "rationale": "Match the validated live call inventory (AD-904).",
-          "through": [
-            "native.archkeel_store:CallOwners",
-            "native.archkeel_store:OwnedCall"
-          ]
-        },
-        {
           "component": "model-graph",
           "rationale": "Read the modules, owners, imports, edges and symbols of the reply, and the namespace, roots and contract evidence of its settings.",
           "through": [
+            "native.archkeel_model.boundary_facts:BoundaryFacts",
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph",
             "native.archkeel_model.modules",
@@ -1265,14 +1268,14 @@
         }
       ],
       "public": [
-        "native.archkeel_model.call_owner:ForbiddenCall",
-        "native.archkeel_model.call_owner:call_owner_violations",
+        "native.archkeel_model.gap_effects:protocol_violations",
         "native.archkeel_model.premises:PremiseKind",
         "native.archkeel_model.premises:UsedPremise",
         "native.archkeel_model.premises:kind_word",
         "native.archkeel_model.premises:of_kind_word",
         "native.archkeel_model.premises:premise_words",
         "native.archkeel_model.premises:rule_premises",
+        "native.archkeel_model.receipts:forbidden_argument_violations",
         "native.archkeel_model.run:Model",
         "native.archkeel_model.run:ModelTree",
         "native.archkeel_model.run:RunGap",
@@ -1280,6 +1283,7 @@
         "native.archkeel_model.scope:Model",
         "native.archkeel_model.scope:uml_pass",
         "native.archkeel_model.scope:uml_run",
+        "native.archkeel_model.scope_receipt:call_owner_violations",
         "native.archkeel_model.verdict:Decision",
         "native.archkeel_model.verdict:Verdict"
       ],
@@ -1439,7 +1443,6 @@
           "component": "eval-violation",
           "rationale": "Write a violation of the rule.",
           "through": [
-            "native.archkeel_eval.call_owner_row",
             "native.archkeel_eval.placement_row",
             "native.archkeel_eval.violation"
           ]
@@ -1450,7 +1453,6 @@
           "through": [
             "native.archkeel_eval.assignment",
             "native.archkeel_eval.boundary_types",
-            "native.archkeel_eval.call_owner",
             "native.archkeel_eval.constructs",
             "native.archkeel_eval.cycles",
             "native.archkeel_eval.direction",
@@ -1470,7 +1472,6 @@
         }
       ],
       "public": [
-        "native.archkeel_eval:CallOwnerViolation",
         "native.archkeel_eval:Cited",
         "native.archkeel_eval:ConstructViolation",
         "native.archkeel_eval:CycleStep",
@@ -1491,7 +1492,6 @@
       "role": "component",
       "layer": "evaluation",
       "packages": [
-        "native.archkeel_eval.call_owner_row",
         "native.archkeel_eval.violation",
         "native.archkeel_eval.placement_row"
       ],
@@ -1512,8 +1512,7 @@
           "through": [
             "native.archkeel_model:Import",
             "native.archkeel_model:Module",
-            "native.archkeel_model:ModuleId",
-            "native.archkeel_model:Position"
+            "native.archkeel_model:ModuleId"
           ]
         },
         {
@@ -1540,8 +1539,8 @@
         }
       ],
       "public": [
-        "native.archkeel_eval.call_owner_row:CallOwnerViolation",
         "native.archkeel_eval.placement_row:PlacedClass",
+        "native.archkeel_eval.violation:BoundaryViolation",
         "native.archkeel_eval.violation:Cited",
         "native.archkeel_eval.violation:ConstructViolation",
         "native.archkeel_eval.violation:CycleStep",
@@ -1561,7 +1560,6 @@
       "packages": [
         "native.archkeel_eval.assignment",
         "native.archkeel_eval.boundary_types",
-        "native.archkeel_eval.call_owner",
         "native.archkeel_eval.constructs",
         "native.archkeel_eval.cycles",
         "native.archkeel_eval.direction",
@@ -1593,12 +1591,12 @@
             "native.archkeel_model:Link",
             "native.archkeel_model:Model",
             "native.archkeel_model:Part",
+            "native.archkeel_model:Position",
             "native.archkeel_model:PublicItem",
             "native.archkeel_model:Reason",
             "native.archkeel_model:Resolved",
             "native.archkeel_model:Unused",
             "native.archkeel_model:boundary_reading",
-            "native.archkeel_model:call_owner_violations",
             "native.archkeel_model:claims",
             "native.archkeel_model:construct_matches",
             "native.archkeel_model:crossings",
@@ -1610,6 +1608,7 @@
             "native.archkeel_model:interface_publications",
             "native.archkeel_model:peers",
             "native.archkeel_model:placement_violations",
+            "native.archkeel_model:protocol_violations",
             "native.archkeel_model:unused_public"
           ]
         },
@@ -1618,7 +1617,6 @@
           "rationale": "Read the typed rules of the parsed contract (AD-359).",
           "through": [
             "native.archkeel_contract:BoundaryTypes",
-            "native.archkeel_contract:CallOwner",
             "native.archkeel_contract:CompleteRequires",
             "native.archkeel_contract:Component",
             "native.archkeel_contract:CycleLevel",
@@ -1628,6 +1626,7 @@
             "native.archkeel_contract:InterfaceBoundary",
             "native.archkeel_contract:LayerOrder",
             "native.archkeel_contract:NoComponentCycles",
+            "native.archkeel_contract:ProtocolDeclarations",
             "native.archkeel_contract:RootLayout",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:SiblingIsolation",
@@ -1665,7 +1664,6 @@
           "component": "eval-violation",
           "rationale": "Write a violation of the rule.",
           "through": [
-            "native.archkeel_eval.call_owner_row",
             "native.archkeel_eval.placement_row",
             "native.archkeel_eval.violation"
           ]
@@ -1674,7 +1672,7 @@
       "public": [
         "native.archkeel_eval.assignment:check",
         "native.archkeel_eval.boundary_types:check",
-        "native.archkeel_eval.call_owner:check",
+        "native.archkeel_eval.boundary_types:protocol",
         "native.archkeel_eval.constructs:check",
         "native.archkeel_eval.cycles:check",
         "native.archkeel_eval.direction:forbidden",
@@ -2056,7 +2054,7 @@
       "layer": "report",
       "packages": [
         "native.archkeel_report.build_script",
-        "native.archkeel_report.engine_frame.html"
+        "native.archkeel_report.html"
       ],
       "responsibilities": [
         "Render the static HTML page of one engine frame and derive its script hashes at build time (AD-440, AD-496, AD-498)."
@@ -2070,7 +2068,7 @@
         "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
       ],
       "public": [
-        "native.archkeel_report.engine_frame.html:render"
+        "native.archkeel_report.html:render"
       ],
       "requires": [
         {
@@ -2116,7 +2114,7 @@
           "component": "report-page",
           "rationale": "Render the page of the frame (AD-496).",
           "through": [
-            "native.archkeel_report.engine_frame.html"
+            "native.archkeel_report.html"
           ]
         }
       ],
@@ -2494,7 +2492,6 @@
           "component": "eval",
           "rationale": "Decide the rules of the run and write the violation rows of the decided kinds (AD-370).",
           "through": [
-            "native.archkeel_eval:CallOwnerViolation",
             "native.archkeel_eval:Cited",
             "native.archkeel_eval:Cyclic",
             "native.archkeel_eval:Layered",
@@ -3118,7 +3115,7 @@
         "native.archkeel_collect"
       ],
       "responsibilities": [
-        "The composition between the core and the collectors: read the repository configuration, derive the collection request, run the linked collector of the profile in the process of the core and give the store its typed reply; name each other profile and a configured collector as unsupported (AD-406). The refusal module owns typed failures. The collector thread enables the shared snapshot parse-work bound (AD-420)."
+        "Read the repository configuration and derive the collection request. Run the Rust and TypeScript workers or the linked Python and Dart collectors. Give the store the typed reply. Refuse a configured collector. Own the typed failures and enable the snapshot parse-work bound."
       ],
       "forbidden_responsibilities": [
         "Deciding a rule, writing a frame, and trusting a reply or a digest that a caller gives."
@@ -3150,23 +3147,9 @@
         },
         {
           "component": "wire",
-          "rationale": "Decode the derived request with the check of the binary (AD-406).",
+          "rationale": "Decode linked requests and read the private reply of an installed worker (AD-406, AD-881).",
           "through": [
             "native.archkeel_wire"
-          ]
-        },
-        {
-          "component": "ts-entry",
-          "rationale": "Run the TypeScript collector through its library: the typed reply, the provenance and its test features (AD-406).",
-          "through": [
-            "native.archkeel_typescript_collector"
-          ]
-        },
-        {
-          "component": "rs-entry",
-          "rationale": "Run the Rust collector through the same typed library path (AD-406, issue #1095 slice 2).",
-          "through": [
-            "native.archkeel_rust_collector"
           ]
         },
         {
@@ -5015,7 +4998,7 @@
         "native.archkeel_typescript_collector.cargo_toml"
       ],
       "responsibilities": [
-        "The library root and the binary of the TypeScript collector: the typed reply for archkeel-collect, the binary that reads the request and writes the reply, the build script and the manifest of the crate (AD-406)."
+        "The library root, build script and manifest of the TypeScript collector. Its binary writes the public reply or the typed reply on the private channel."
       ],
       "forbidden_responsibilities": [
         "Reading TypeScript source."
@@ -7225,6 +7208,8 @@
         "native.archkeel_python_collector",
         "native.archkeel_report.build_script",
         "native.archkeel_report.cargo_toml",
+        "native.archkeel_snapshot.cargo_toml",
+        "native.archkeel_snapshot.snapshot",
         "native.archkeel_store"
       ],
       "rationale": "These crates compute source digests, or the report's build-time script hashes; the model, evaluator and core copy digests and compute none.",
@@ -7920,10 +7905,12 @@
       "source": "native.archkeel_store",
       "target": "native",
       "target_symbol": "Profile",
+      "source_symbol_only": true,
       "include_type_checking": true,
-      "rationale": "Cut A: `store` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "rationale": "Cut A: `store` must not name `Profile` in source, either directly or through a name route. Inferred receiver types and execution alone do not count (AD-924).",
       "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md",
+        "docs/architecture/decisions/ad-924-the-native-profile-rules-check-source-names.md"
       ],
       "decided_by": "architect"
     },
@@ -7933,10 +7920,12 @@
       "source": "native.archkeel_model",
       "target": "native",
       "target_symbol": "Profile",
+      "source_symbol_only": true,
       "include_type_checking": true,
-      "rationale": "Cut A: `model` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "rationale": "Cut A: `model` must not name `Profile` in source, either directly or through a name route. Inferred receiver types and execution alone do not count (AD-924).",
       "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md",
+        "docs/architecture/decisions/ad-924-the-native-profile-rules-check-source-names.md"
       ],
       "decided_by": "architect"
     },
@@ -7946,10 +7935,12 @@
       "source": "native.archkeel_eval",
       "target": "native",
       "target_symbol": "Profile",
+      "source_symbol_only": true,
       "include_type_checking": true,
-      "rationale": "Cut A: `eval` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "rationale": "Cut A: `eval` must not name `Profile` in source, either directly or through a name route. Inferred receiver types and execution alone do not count (AD-924).",
       "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md",
+        "docs/architecture/decisions/ad-924-the-native-profile-rules-check-source-names.md"
       ],
       "decided_by": "architect"
     },
@@ -7959,10 +7950,12 @@
       "source": "native.archkeel_report",
       "target": "native",
       "target_symbol": "Profile",
+      "source_symbol_only": true,
       "include_type_checking": true,
-      "rationale": "Cut A: `report` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "rationale": "Cut A: `report` must not name `Profile` in source, either directly or through a name route. Inferred receiver types and execution alone do not count (AD-924).",
       "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md",
+        "docs/architecture/decisions/ad-924-the-native-profile-rules-check-source-names.md"
       ],
       "decided_by": "architect"
     },
@@ -7972,10 +7965,12 @@
       "source": "native.archkeel_core",
       "target": "native",
       "target_symbol": "Profile",
+      "source_symbol_only": true,
       "include_type_checking": true,
-      "rationale": "Cut A: `core` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "rationale": "Cut A: `core` must not name `Profile` in source, either directly or through a name route. Inferred receiver types and execution alone do not count (AD-924).",
       "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md",
+        "docs/architecture/decisions/ad-924-the-native-profile-rules-check-source-names.md"
       ],
       "decided_by": "architect"
     },

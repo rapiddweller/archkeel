@@ -53,14 +53,16 @@ pub(crate) fn run(
 /// A gap `source -> module` in the coverage and the unknowns of the reply.
 pub(crate) fn gap(source: &'static str, module: &'static str) -> impl FnOnce(&mut Value) + Clone {
     move |reply: &mut Value| {
+        let gaps = reply["facts"]["coverage"]["gaps"].as_array_mut().unwrap();
+        let id = format!("UNKNOWN-{:016x}", 0xaa + gaps.len());
         let gap = json!({
-            "id": "UNKNOWN-00000000000000aa", "evidence_class": "UNKNOWN", "area": "source",
+            "id": id, "evidence_class": "UNKNOWN", "area": "source",
             "kind": "collection_gap", "title": "pair", "subjects": [module],
             "evidence_ids": [], "fact_ids": [], "rule_ids": [], "provenance": [],
             "data": {"reason": "pair", "module": module, "source_module": source}
         });
-        reply["facts"]["sections"][1]["records"] = json!([gap.clone()]);
-        reply["facts"]["coverage"]["gaps"] = json!([gap]);
+        gaps.push(gap);
+        reply["facts"]["sections"][1]["records"] = json!(gaps);
         reply["facts"]["coverage"]["full_scope"] = json!(false);
     }
 }
@@ -119,8 +121,8 @@ fn the_clean_run_with_its_root_passes_each_rule_and_the_run() {
 }
 
 #[test]
-fn a_kept_gap_outside_every_selection_holds_only_the_rules_that_read_every_edge() {
-    // presentation does not require app: the drop rule keeps the gap.
+fn a_return_path_in_the_observed_graph_holds_both_cycle_rules() {
+    // The observed main -> page edge gives the gap a return path at both levels.
     let shown = [format!("{PAGE} -> {}", MAIN.0)];
     let shown: Vec<&str> = shown.iter().map(String::as_str).collect();
     let found = run(unchanged, gap(PAGE, MAIN.0), rooted()).unwrap_or_else(failed);
@@ -138,6 +140,69 @@ fn a_kept_gap_outside_every_selection_holds_only_the_rules_that_read_every_edge(
     assert!(held(&found, "MODULE-CYCLES", &shown));
     assert!(requires_held(&found), "{:?}", found.0.get("REQUIRES"));
     assert!(run_held(&found, &shown));
+}
+
+#[test]
+fn two_possible_edges_can_close_a_cycle_at_both_levels() {
+    let forward = gap(LOCAL, PAGE);
+    let back = gap(PAGE, LOCAL);
+    let single = run(unchanged, back.clone(), rooted()).unwrap_or_else(failed);
+    let cycle = run(unchanged, both(forward, back), rooted()).unwrap_or_else(failed);
+    let shown = [format!("{LOCAL} -> {PAGE}"), format!("{PAGE} -> {LOCAL}")];
+    let shown = shown.each_ref().map(String::as_str);
+    for rule in ["COMPONENT-CYCLES", "MODULE-CYCLES"] {
+        assert_eq!(word(&single, rule), "PASS", "{:?}", single.0);
+        assert!(held(&cycle, rule, &shown), "{:?}", cycle.0);
+    }
+}
+
+#[test]
+fn a_scoped_cycle_can_reach_a_selected_member_that_is_not_a_gap_end() {
+    let scope = |label| {
+        move |contract: &mut Value| {
+            for rule in contract["rules"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .filter(|rule| rule["kind"] == "no_component_cycles")
+            {
+                rule["components"] = json!([label]);
+            }
+        }
+    };
+    // main -> page -> index is observed. The possible index -> main reaches domain.
+    let forward = gap(PAGE, MAIN.0);
+    let back = gap(INDEX, MAIN.0);
+    let inside = run(
+        scope("domain"),
+        both(forward.clone(), back.clone()),
+        rooted(),
+    )
+    .unwrap_or_else(failed);
+    let outside = run(scope("data"), both(forward, back), rooted()).unwrap_or_else(failed);
+    let shown = [
+        format!("{PAGE} -> {}", MAIN.0),
+        format!("{INDEX} -> {}", MAIN.0),
+    ];
+    let shown = shown.each_ref().map(String::as_str);
+    assert!(held(&inside, "MODULE-CYCLES", &shown), "{:?}", inside.0);
+    assert!(held(&inside, "COMPONENT-CYCLES", &shown), "{:?}", inside.0);
+    // main -> local and repository -> order join the same component cycle, but not the module cycle.
+    assert!(
+        held(&outside, "COMPONENT-CYCLES", &shown),
+        "{:?}",
+        outside.0
+    );
+    assert_eq!(word(&outside, "MODULE-CYCLES"), "PASS");
+
+    let out_of_scope = run(
+        scope("app"),
+        both(gap(LOCAL, PAGE), gap(PAGE, LOCAL)),
+        rooted(),
+    )
+    .unwrap_or_else(failed);
+    assert_eq!(word(&out_of_scope, "COMPONENT-CYCLES"), "PASS");
+    assert_eq!(word(&out_of_scope, "MODULE-CYCLES"), "PASS");
 }
 
 #[test]

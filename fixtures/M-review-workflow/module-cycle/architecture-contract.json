@@ -1,0 +1,25 @@
+{
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "app",
+      "label": "app",
+      "role": "component",
+      "packages": ["app"],
+      "responsibilities": ["Own the application modules."],
+      "forbidden_responsibilities": [],
+      "provenance": ["target.md"],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [
+    {
+      "id": "NO-MODULE-CYCLES",
+      "kind": "no_component_cycles",
+      "level": "module",
+      "rationale": "Modules use each other in one direction.",
+      "provenance": ["target.md"],
+      "decided_by": "architect"
+    }
+  ]
+}

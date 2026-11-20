@@ -95,7 +95,10 @@ impl Resolver<'_> {
         let mut found: Vec<String> = self
             .table
             .top_named(module, name)
-            .filter(|item| fits(site.kind, item.definition.kind))
+            .filter(|item| {
+                fits(site.kind, item.definition.kind)
+                    && (site.kind != SiteKind::Call || !item.written)
+            })
             .map(|item| format!("{module}.{}", item.definition.name))
             .collect();
         let bound = self.imports.get(&(module.to_owned(), name.to_owned()));
@@ -107,7 +110,9 @@ impl Resolver<'_> {
                 self.table
                     .named_in(target, imported)
                     .filter(|item| {
-                        item.definition.exported && fits(site.kind, item.definition.kind)
+                        item.definition.exported
+                            && (site.kind != SiteKind::Call || !item.written)
+                            && fits(site.kind, item.definition.kind)
                     })
                     .map(|item| format!("{target}.{}", item.definition.name)),
             );
@@ -156,11 +161,15 @@ impl Resolver<'_> {
         let rebound = name
             .as_deref()
             .is_some_and(|name| kept.rebound.contains(name));
+        let ambiguous_root = site.kind == SiteKind::Call
+            && name
+                .as_deref()
+                .is_some_and(|name| kept.ambiguous_root_names.contains(name));
         let mut candidates = Vec::new();
         let mut reason = None;
         let mut unique_this = false;
         let named = name.as_deref().filter(|name| !name.is_empty());
-        if let Some(targets) = script {
+        if let Some(targets) = script.filter(|_| !ambiguous_root) {
             candidates.extend(targets.iter().cloned());
         } else if let (Some(name), false, false, false, false) = (
             named,
@@ -185,15 +194,28 @@ impl Resolver<'_> {
         }
         candidates.sort();
         candidates.dedup();
+        let ambiguous_target = candidates.iter().any(|target| self.table.ambiguous(target));
         let unique = candidates.len() == 1
             && reason.is_none()
+            && !ambiguous_root
+            && !ambiguous_target
             && (unique_this
                 || candidates
                     .iter()
                     .all(|target| self.table.count(target) == 1));
         let status = Status::of_candidates(candidates.len(), unique);
         if status == Status::PartiallyResolved && reason.is_none() {
-            reason = Some("multiple definition sites share the target name");
+            reason = Some(
+                if (ambiguous_root || ambiguous_target)
+                    && candidates
+                        .iter()
+                        .all(|target| self.table.count(target) == 1)
+                {
+                    "module binding is ambiguous"
+                } else {
+                    "multiple definition sites share the target name"
+                },
+            );
         }
         if reason.is_none() && status != Status::Resolved {
             reason = Some("definition is missing or ambiguous");

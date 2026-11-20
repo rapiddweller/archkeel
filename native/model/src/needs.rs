@@ -25,7 +25,7 @@ pub enum Need {
     UnusedPublic,
     /// The contract has a `symbol_placement` rule.
     SymbolPlacement,
-    /// The contract reads live Python constructor-to-method witnesses.
+    /// The contract reads the exact function calls of a linked producer.
     CallOwner,
 }
 
@@ -84,8 +84,7 @@ impl Needs {
         self.0.contains(&Need::SymbolPlacement)
     }
 
-    /// True when the run reads live Python call ownership.
-    pub fn call_owner(&self) -> bool {
+    pub(crate) fn call_owner(&self) -> bool {
         self.0.contains(&Need::CallOwner)
     }
 }

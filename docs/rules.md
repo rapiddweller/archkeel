@@ -50,21 +50,15 @@ unproved builtin `fromlist` retains the known base edge and adds uncertainty abo
 children. This proves dependency intent, not runtime loading or a public value API.
 See [supported forms and limits](architecture/python-dynamic-dependencies.md).
 
-`call_owner` names a lexical source prefix and one exact, qualified target.
-`allowed_sources` permits lexical scope prefixes. `exact_sources` permits one module or one
-lexical scope, not its descendants. Inside contracts select callers only in their own mount.
-
-The linked Python collector proves a direct, zero-argument instance call on a fresh local object.
-It reads `return C().m()` or `value = C(); return value.m()` in the same callable.
-`C` must be a plain source class with default allocation and lookup. A direct import alias is
-valid. A qualified method of a different class is a different target. A proved violation is FAIL
-even when another site has no proof. PASS needs a complete written call inventory for the
-selected, non-exempt source and a proved target declaration.
-
-Injected fields, custom allocation, inherited methods, external providers and saved call
-receipts cannot decide this slice. A saved report can show its historical verdict, not issue a
-new one. Release 4.0.1 did not accept this rule. See
-[AD-904](architecture/decisions/ad-904-call-ownership-uses-live-constructor-witnesses.md).
+`call_owner` names `source`, a canonical `target`, and optional `allowed_sources`
+(scope prefixes) or `exact_sources` (module or function). The native Python path
+reads direct names bound to stable top-level functions in the scan. It selects
+modules or packages as sources. It reports a witnessed forbidden call even when
+another call stays open. Unproved calls outside exempt modules withhold PASS.
+It does not decide receiver calls, computed targets, external providers, or saved
+replies. See [AD-1002](architecture/decisions/ad-1002-call-ownership-checks-direct-function-witnesses.md).
+Earlier call binding forms are described in [AD-241](architecture/decisions/ad-241-call-ownership-policy.md)
+and [AD-252](architecture/decisions/ad-252-bounded-call-identity.md).
 
 `bounded_numeric_operand` selects an owned `source`, `form` (`binary`,
 `augmented` or `both`), case-sensitive `terminal_suffix`, and nonnegative
@@ -145,6 +139,13 @@ re-export under another name (`pub use vocab::Profile as Lang`). A glob is UNKNO
 A route that the collector does not prove is UNKNOWN when some import of the run
 binds the item under another name. A type alias is an item of its own, in the
 same way as a function that returns the type: the alias itself names the item.
+
+Contract **3.19.0** adds `source_symbol_only: true` to `forbidden_dependency` with
+`target_symbol` (AD-924). It checks names in source and through name routes, not
+the inferred type of a dot-call receiver. A gap about execution alone does not
+hold this rule when the live collector proves that distinction. An open name
+route still holds the rule. Omitting `source_symbol_only` keeps the prior
+behavior.
 
 Contract **3.16.0** adds `unused_public` (AD-670). Each module-level item below
 `source` that the code declares public must have a user in another component: an

@@ -44,15 +44,15 @@ impl<'m> Facts<'m> {
         let observed = model.graph().observed();
         Facts {
             model,
-            language: observed.language,
+            language: observed.analysis.language,
             read,
-            namespaces: observed.namespaces,
+            namespaces: observed.analysis.namespaces,
         }
     }
 
     /// The symbol table of the run, or the cause that it decides nothing (AD-512).
     pub(crate) fn symbols(&self) -> Result<&'m crate::symbols::Symbols, String> {
-        if !self.model.graph().observed().symbol_facts {
+        if !self.model.graph().observed().analysis.symbol_facts {
             return Err(format!(
                 "the {} collector states no symbol facts",
                 self.language
@@ -70,7 +70,7 @@ impl<'m> Facts<'m> {
     /// The sites of the symbols, or the cause that the collector states none (AD-518): a
     /// relationship of a target is then undecided, and no class has a base receipt.
     pub(crate) fn sites(&self) -> Result<(), String> {
-        if self.model.graph().observed().symbol_sites {
+        if self.model.graph().observed().analysis.symbol_sites {
             return Ok(());
         }
         Err(format!(

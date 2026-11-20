@@ -10,34 +10,38 @@ use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::vocab::{Area, EvidenceClass, PlaceholderForm};
 use archkeel_facts::{ConstructFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, Stmt};
-use std::collections::HashSet;
+use ruff_python_ast::{Expr, Stmt, StmtFunctionDef};
+use ruff_text_size::{Ranged, TextSize};
+use std::collections::HashMap;
 
 use crate::module::{EvidenceMap, Module};
+use crate::survey::support::{PlaceholderCoverage as Coverage, PlaceholderDecision as Decision};
 
 pub(super) fn collect(
     module: &Module,
     evidence: &mut EvidenceMap,
-    withheld: &HashSet<String>,
-) -> Vec<Record<ConstructFact>> {
+    decisions: &HashMap<TextSize, Decision>,
+) -> (Vec<Record<ConstructFact>>, Coverage) {
     if module.rel.ends_with(".pyi") {
-        return Vec::new();
+        return (Vec::new(), Coverage::Complete);
     }
     let mut walk = Placeholders {
         module,
         evidence,
-        withheld,
+        decisions,
+        coverage: Coverage::Complete,
         owner: module.name.clone(),
         found: Vec::new(),
     };
     walk.visit_body(&module.tree.body);
-    walk.found
+    (walk.found, walk.coverage)
 }
 
 struct Placeholders<'a> {
     module: &'a Module,
     evidence: &'a mut EvidenceMap,
-    withheld: &'a HashSet<String>,
+    decisions: &'a HashMap<TextSize, Decision>,
+    coverage: Coverage,
     owner: String,
     found: Vec<Record<ConstructFact>>,
 }
@@ -55,19 +59,7 @@ impl<'a> Visitor<'a> for Placeholders<'_> {
             self.owner.push_str(name);
         }
         if let Stmt::FunctionDef(node) = stmt {
-            let doc = |stmt: &Stmt| matches!(stmt, Stmt::Expr(expr) if matches!(&*expr.value, Expr::StringLiteral(_)));
-            let empty = |stmt: &Stmt| {
-                matches!(stmt, Stmt::Pass(_))
-                    || matches!(stmt, Stmt::Expr(expr) if matches!(&*expr.value, Expr::EllipsisLiteral(_)))
-            };
-            let placeholder = match node.body.as_slice() {
-                [only] => empty(only) || doc(only),
-                [first, second] => doc(first) && empty(second),
-                _ => false,
-            };
-            if placeholder && !self.withheld.contains(&self.owner) {
-                self.record(stmt);
-            }
+            self.body(node, stmt);
         }
         visitor::walk_stmt(self, stmt);
         self.owner.truncate(length);
@@ -75,6 +67,34 @@ impl<'a> Visitor<'a> for Placeholders<'_> {
 }
 
 impl Placeholders<'_> {
+    fn body(&mut self, node: &StmtFunctionDef, stmt: &Stmt) {
+        let doc = |stmt: &Stmt| matches!(stmt, Stmt::Expr(expr) if matches!(&*expr.value, Expr::StringLiteral(_)));
+        let empty = |stmt: &Stmt| {
+            matches!(stmt, Stmt::Pass(_))
+                || matches!(stmt, Stmt::Expr(expr) if matches!(&*expr.value, Expr::EllipsisLiteral(_)))
+        };
+        let statement = match node.body.as_slice() {
+            [only] => Some((only, true)),
+            [first, second] if doc(first) => Some((second, false)),
+            _ => None,
+        };
+        if let Some((statement, only)) = statement {
+            let empty = empty(statement) || (only && doc(statement));
+            match (empty, self.decisions.get(&node.start()), self.coverage) {
+                (true, Some(Decision::Declaration), Coverage::Complete) => {
+                    self.coverage = Coverage::UsesProtocol;
+                }
+                (true, Some(Decision::Declaration), _) => {}
+                (true, Some(Decision::Unread), _) => self.coverage = Coverage::Incomplete,
+                (true, None, _) => self.record(stmt),
+                (false, _, _) if matches!(statement, Stmt::Raise(_)) => {
+                    self.coverage = Coverage::Incomplete;
+                }
+                (false, _, _) => {}
+            }
+        }
+    }
+
     fn record(&mut self, stmt: &Stmt) {
         let place = self.module.location(stmt);
         let evidence = self.module.evidence(self.evidence, stmt);

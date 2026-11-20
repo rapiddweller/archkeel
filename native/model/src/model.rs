@@ -215,8 +215,8 @@ impl Model {
     }
 
     /// The assumption that the collector states for its proofs (AD-540), if it states one.
-    pub fn scope_premise(&self) -> Option<&'static str> {
-        self.graph().observed().scope_premise
+    pub fn scope_premise(&self) -> Option<&str> {
+        self.graph().observed().scope_premise.as_deref()
     }
 
     /// The paths intentionally excluded from the source scope.

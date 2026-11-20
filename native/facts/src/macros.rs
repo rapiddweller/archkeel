@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The three macros that keep each fact type one definition: a closed vocabulary, a record data
-//! type with its read-set, and the data enum of a section.
+//! The macros for a closed vocabulary and a record data type with its read-set.
 
 /// A closed vocabulary: the enum, its JSON text, `ALL`, `as_str` and `parse`.
 macro_rules! closed {
@@ -91,94 +90,5 @@ macro_rules! facts_data {
     };
     (@push $v:tt $head:tt [$($done:tt)*] [$($attr:tt)*] [$($fd:tt)*] $field:ident : $ty:ty, $($rest:tt)*) => {
         facts_data!(@fields $v $head [$($done)* $($fd)* $($attr)* $v $field: $ty,] $($rest)*);
-    };
-}
-
-/// The data enum of a section: one variant for each kind, and the data type of that kind.
-macro_rules! section_facts {
-    (
-        $(#[$doc:meta])*
-        pub enum $name:ident in $section:ident with $data:ty { $($(#[$vdoc:meta])* $variant:ident,)* }
-    ) => {
-        section_facts! { $(#[$doc])* pub enum $name in $section { $($(#[$vdoc])* $variant($data),)* } }
-        impl CommonData for $name {
-            type Data = $data;
-
-            fn data(&self) -> &$data {
-                match self { $(Self::$variant(data) => data,)* }
-            }
-        }
-    };
-    (
-        $(#[$doc:meta])*
-        pub enum $name:ident in $section:ident { $($(#[$vdoc:meta])* $variant:ident($data:ty),)* }
-    ) => {
-        $(#[$doc])*
-        #[derive(Clone, Debug, PartialEq)]
-        pub enum $name {
-            $($(#[$vdoc])* $variant($data),)*
-        }
-
-        impl $crate::sections::IntoSection for $name {
-            fn section(records: Vec<$crate::record::Record<Self>>) -> $crate::sections::Section {
-                $crate::sections::Section::$section(records)
-            }
-
-            fn records(
-                section: &$crate::sections::Section,
-            ) -> Option<&[$crate::record::Record<Self>]> {
-                match section {
-                    $crate::sections::Section::$section(records) => Some(records),
-                    _ => None,
-                }
-            }
-        }
-
-        impl $crate::record::FactData for $name {
-            const NAME: &'static str = stringify!($name);
-
-            fn kind(&self) -> $crate::vocab::Kind {
-                match self {
-                    $(Self::$variant(_) => $crate::vocab::Kind::$variant,)*
-                }
-            }
-
-            fn wire_kind(&self) -> &str {
-                self.kind().as_str()
-            }
-
-            fn fields(&self) -> $crate::fields::Fields<'_> {
-                match self {
-                    $(Self::$variant(data) => $crate::fields::Project::fields(data),)*
-                }
-            }
-
-            fn serialize_data<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-                match self {
-                    $(Self::$variant(data) => serde::Serialize::serialize(data, serializer),)*
-                }
-            }
-
-            fn deserialize_data<'de, D: serde::Deserializer<'de>>(
-                kind: &str,
-                deserializer: D,
-            ) -> Result<Self, D::Error> {
-                match $crate::vocab::Kind::parse(kind) {
-                    $(Some($crate::vocab::Kind::$variant) => {
-                        <$data as serde::Deserialize>::deserialize(deserializer).map(Self::$variant)
-                    })*
-                    _ => Err(<D::Error as serde::de::Error>::custom(format!(
-                        "the kind {kind} is not a kind of {}", stringify!($name)
-                    ))),
-                }
-            }
-
-            fn variants(generator: &mut schemars::SchemaGenerator) -> Vec<(serde_json::Value, schemars::Schema)> {
-                vec![$((
-                    serde_json::json!({"const": $crate::vocab::Kind::$variant.as_str()}),
-                    generator.subschema_for::<$data>(),
-                ),)*]
-            }
-        }
     };
 }

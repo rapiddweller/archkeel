@@ -12,8 +12,7 @@
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-#[path = "html.rs"]
-mod html;
+use crate::html;
 
 /// The canonical bytes of one engine frame. The field is private: only `Ruling::frame` makes one.
 #[derive(Clone, Debug, PartialEq, Eq)]

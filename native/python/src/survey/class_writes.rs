@@ -29,8 +29,8 @@ pub(crate) struct ClassWrites {
     /// `globals()[k]`) or code run from a text: it can change any name of any module (AD-782).
     /// The lazy annotations of #1523 do not read it: a class namespace is no such mapping.
     namespace: bool,
-    /// A file of the repository can be the module `typing` for an `import typing` (AD-880).
-    typing_shadowed: bool,
+    /// A source file at an import root can shadow the standard library (AD-880).
+    shadowed: HashSet<String>,
 }
 
 /// The methods of a mapping that change it.
@@ -76,26 +76,67 @@ impl ClassWrites {
 }
 
 impl ClassWrites {
-    /// Note a file that `import typing` can find before the standard module (AD-880): `typing.py`
-    /// or `typing/__init__.py` in the directory of the repository, or in a directory of `roots`,
-    /// where the modules of the scan are found.
+    /// Record a module name that can be imported directly from one of the source roots.
     pub(super) fn add_path(&mut self, roots: &HashSet<String>, rel: &str) {
-        for name in ["typing.py", "typing/__init__.py"] {
-            let Some(before) = str::strip_suffix(rel, name) else {
-                continue;
-            };
-            let directory: &str = str::strip_suffix(before, '/').unwrap_or(before);
-            let at_root = str::is_empty(directory) || HashSet::contains(roots, directory);
-            let named = str::is_empty(before) || str::ends_with(before, '/');
-            self.typing_shadowed |= at_root && named;
+        let source =
+            str::strip_suffix(rel, "/__init__.py").or_else(|| str::strip_suffix(rel, ".py"));
+        let native = || {
+            let suffix = str::rsplit_once(rel, '.')?.1;
+            matches!(suffix, "so" | "pyd").then_some(rel)
+        };
+        let Some(module) = source.or_else(native) else {
+            return;
+        };
+        let (directory, name) = str::rsplit_once(module, '/').unwrap_or(("", module));
+        if !str::is_empty(directory) && !HashSet::contains(roots, directory) {
+            return;
         }
+        let name = str::split_once(name, '.').map_or(name, |(module, _)| module);
+        self.shadowed.insert(name.to_owned());
+    }
+
+    /// True when a local import root can resolve this name ahead of the standard library.
+    pub(super) fn shadows(&self, module: &str) -> bool {
+        HashSet::contains(&self.shadowed, module)
     }
 
     /// Nothing in the repository can replace the `Any` of the standard module `typing` (AD-880): no
     /// file shadows `typing`, and no store (a name, a computed name, `sys.modules`, a namespace)
     /// can change `Any`.
     pub(super) fn typing_unchanged(&self) -> bool {
-        !self.typing_shadowed && Option::is_none(&ClassWrites::change_of(self, "Any"))
+        self.typing_holds("Any")
+    }
+
+    /// True when no store can change the standard class forms that the Any inventory admits.
+    pub(super) fn annotation_classes_unchanged(&self) -> bool {
+        [
+            "TYPE_CHECKING",
+            "__bases__",
+            "__build_class__",
+            "__call__",
+            "__class__",
+            "__class_getitem__",
+            "__closure__",
+            "__code__",
+            "__defaults__",
+            "__globals__",
+            "__init_subclass__",
+            "__kwdefaults__",
+            "__mro_entries__",
+            "__new__",
+            "__prepare__",
+            "_TypedDictMeta",
+            "_add_slots",
+            "_process_class",
+            "EnumType",
+        ]
+        .into_iter()
+        .all(|name| self.change_of(name).is_none())
+    }
+
+    /// True when no observed file shadows typing or can write this attribute of it.
+    pub(super) fn typing_holds(&self, name: &str) -> bool {
+        !self.shadows("typing") && Option::is_none(&ClassWrites::change_of(self, name))
     }
 }
 

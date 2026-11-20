@@ -114,7 +114,7 @@ def test_an_exact_field_and_an_exact_impl_give_the_edge(
     assert found.get("NO-A-TO-C") == "FAIL", found
 
 
-def test_requires_receipt_distinguishes_unrestricted_and_restricted_targets(
+def test_requires_receipt_distinguishes_matching_and_wrong_ports(
     tmp_path: Path, release_core: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     files = {
@@ -142,12 +142,29 @@ def test_requires_receipt_distinguishes_unrestricted_and_restricted_targets(
     contract.write_text(
         json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
     )
-    restricted = validate(root, capsys)
-    assert allowed["frame"]["collection_gaps"] == restricted["frame"]["collection_gaps"]
+    matching = validate(root, capsys)
+    a["requires"][0]["through"] = ["native.app.c:S"]
+    contract.write_text(
+        json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
+    )
+    symbol = validate(root, capsys)
+    a["requires"][0]["through"] = ["native.app.c.other"]
+    contract.write_text(
+        json.dumps({"schema_version": "2.1.0", "components": parts, "rules": CRATE_RULES})
+    )
+    wrong = validate(root, capsys)
+    assert allowed["frame"]["collection_gaps"] == matching["frame"]["collection_gaps"]
+    assert allowed["frame"]["collection_gaps"] == symbol["frame"]["collection_gaps"]
+    assert allowed["frame"]["collection_gaps"] == wrong["frame"]["collection_gaps"]
     assert len(allowed["frame"]["collection_gaps"]) == 1
     assert statuses(allowed)["REQUIRES"] == "PASS", allowed["frame"]["details"]
-    assert statuses(restricted)["REQUIRES"] == "UNKNOWN", restricted
-    assert "native.app.a -> native.app.c" in restricted["frame"]["explained"]["REQUIRES"]
+    assert statuses(matching)["REQUIRES"] == "PASS", matching
+    assert statuses(symbol)["REQUIRES"] == "UNKNOWN", symbol
+    held = symbol["frame"]["explain"]["holds"]["rules"]["REQUIRES"]
+    assert held["kind"] == "pair_gaps"
+    assert held["pairs"] == [{"source": "native.app.a", "target": "native.app.c"}]
+    assert statuses(wrong)["REQUIRES"] == "UNKNOWN", wrong
+    assert "native.app.a -> native.app.c" in wrong["frame"]["explained"]["REQUIRES"]
 
 
 # #1571 (AD-804): the receiver type comes from a written return type `&S`, or from the item of a
@@ -209,3 +226,43 @@ def test_a_std_receiver_reaches_no_member_of_the_workspace(
     assert _real_target(root) == "2"
     found = statuses(validate(root, capsys))
     assert found.get("NO-A-TO-C") == "PASS", found
+
+
+@pytest.mark.parametrize("profile_first", (False, True))
+def test_same_call_text_keeps_both_proven_receivers(
+    tmp_path: Path, release_core: Path, capsys: pytest.CaptureFixture[str], profile_first: bool
+) -> None:
+    clean = f"fn clean() -> {STR} {{ {{ let value = crate::d::clean(); value.label() }} }}\n"
+    profile = f"fn profile() -> {STR} {{ {{ let value = crate::d::profile(); value.label() }} }}\n"
+    calls = profile + clean if profile_first else clean + profile
+    files = {
+        SRC + "lib.rs": "pub mod a;\nmod c;\nmod d;\n",
+        SRC + "a.rs": calls + 'pub fn run() -> String { [clean(), profile()].join("/") }\n',
+        SRC + "c.rs": (
+            f'pub struct Clean;\nimpl Clean {{ pub fn label(&self) -> {STR} {{ "clean" }} }}\n'
+            "pub struct Profile;\n"
+            f'impl Profile {{ pub fn label(&self) -> {STR} {{ "profile" }} }}\n'
+        ),
+        SRC + "d.rs": (
+            "pub fn clean() -> &'static crate::c::Clean { &crate::c::Clean }\n"
+            "pub fn profile() -> &'static crate::c::Profile { &crate::c::Profile }\n"
+        ),
+    }
+    no_profile = rule(
+        "NO-PROFILE",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.c",
+        target_symbol="Profile",
+        include_type_checking=True,
+    )
+    source_names = {**no_profile, "id": "SOURCE-NAMES", "source_symbol_only": True}
+    root = repository(tmp_path, release_core, files, rules=(*CRATE_RULES, no_profile, source_names))
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["schema_version"] = "3.19.0"
+    path.write_text(json.dumps(contract, indent=2))
+    assert _real_target(root) == "clean/profile"
+    found = statuses(validate(root, capsys))
+    assert found.get("NO-PROFILE") == "FAIL", found
+    assert found.get("SOURCE-NAMES") == "PASS", found

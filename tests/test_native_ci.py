@@ -38,7 +38,7 @@ def test_every_action_is_pinned_to_a_commit() -> None:
 
 
 def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
-    jobs = _jobs("ci.yml")
+    jobs = _jobs("area-checks.yml")
     native = jobs["native"]
     assert "runs-on: ubuntu-24.04\n" in native
     assert native.index("run: make cargo-deny-install") < native.index("run: make native-check")
@@ -54,9 +54,9 @@ _TOOLCHAIN_STEP = "run: rustup toolchain install\n"
     ("workflow", "job", "first_make"),
     [
         ("ci.yml", "lint", "run: make ci-pr-static"),
-        ("ci.yml", "tests", "run: make fast-test"),
-        ("pr-gate.yml", "pr-gate", "run: make pr-gate"),
-        ("ci.yml", "native", "run: make cargo-deny-install"),
+        ("area-checks.yml", "tests", "run: make fast-test"),
+        ("pr-gate.yml", "base", "run: make pr-gate"),
+        ("area-checks.yml", "native", "run: make cargo-deny-install"),
         ("full-verification.yml", "full-suite-and-reports", "run: make ci-core-check"),
         ("full-verification.yml", "tests", "run: make full-test"),
         ("full-verification.yml", "shell-compat", "run: make shell-compat"),
@@ -125,17 +125,17 @@ def test_full_builds_each_platform_wheel_on_its_own_target() -> None:
 
 def _add_script() -> str:
     build = _jobs("release.yml")["build"]
-    assert "pattern: native-wheel-*\n" in build and "path: native-wheels/\n" in build
+    assert "pattern: native-wheel-*\n" in build and "path: build/native-wheels/\n" in build
     step = build.split("- name: Add the platform wheels that full verification built and ran\n")
     return dedent(step[1].split("        run: |\n", 1)[1].split("\n\n", 1)[0])
 
 
 def test_a_release_adds_every_platform_wheel_of_full(tmp_path: Path) -> None:
     (tmp_path / "dist").mkdir()
-    (tmp_path / "native-wheels").mkdir()
+    (tmp_path / "build/native-wheels").mkdir(parents=True)
     (tmp_path / "dist/archkeel-5.0.0.tar.gz").write_bytes(b"sdist")
     for tag in PLATFORM_TAGS:
-        (tmp_path / "native-wheels" / f"archkeel-5.0.0-{tag}.whl").write_bytes(b"wheel")
+        (tmp_path / "build/native-wheels" / f"archkeel-5.0.0-{tag}.whl").write_bytes(b"wheel")
     result = subprocess.run(
         ["bash", "-c", _add_script()], cwd=tmp_path, check=False, capture_output=True
     )
@@ -145,20 +145,20 @@ def test_a_release_adds_every_platform_wheel_of_full(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("wheels,sdists", [(n, 1) for n in range(8)] + [(6, 0), (6, 2)])
-@pytest.mark.parametrize("pure", ["", "dist", "native-wheels"])
+@pytest.mark.parametrize("pure", ["", "dist", "build/native-wheels"])
 def test_release_requires_exactly_six_platform_wheels_and_one_sdist(
     tmp_path: Path, wheels: int, sdists: int, pure: str
 ) -> None:
     """A wheel without a platform carries no core (AD-436): it stops the step where it is."""
     script = _add_script()
     (tmp_path / "dist").mkdir()
-    (tmp_path / "native-wheels").mkdir()
+    (tmp_path / "build/native-wheels").mkdir(parents=True)
     if pure:
         (tmp_path / pure / "archkeel-5.0.0-py3-none-any.whl").write_bytes(b"pure")
-    for index in range(wheels - (pure == "native-wheels")):
-        (tmp_path / "native-wheels" / f"archkeel-5.0.0-py3-none-platform{index}.whl").write_bytes(
-            b"wheel"
-        )
+    for index in range(wheels - (pure == "build/native-wheels")):
+        (
+            tmp_path / "build/native-wheels" / f"archkeel-5.0.0-py3-none-platform{index}.whl"
+        ).write_bytes(b"wheel")
     for index in range(sdists):
         (tmp_path / "dist" / f"archkeel-5.0.{index}.tar.gz").write_bytes(b"sdist")
     result = subprocess.run(
@@ -199,12 +199,78 @@ def test_a_release_is_open_and_publishes_only_platforms_that_full_builds_and_run
     assert _unbuilt((*PLATFORM_TAGS, "py3-none-win_arm64")) == {"py3-none-win_arm64"}
 
 
-def test_the_release_build_checks_the_core_of_the_wheels_before_it_uploads_them() -> None:
-    build = _jobs("release.yml")["build"]
+def _check_release_build(build: str) -> None:
     check = "run: python3 -m tools.release_core dist dist/archkeel-*-py3-none-manylinux_2_17_x86_64"
     added = build.index("- name: Add the platform wheels that full verification built and ran")
     assert added < build.index(check) < build.index("- name: Upload distributions")
-    assert "if:" not in build and "continue-on-error" not in build
+    parts = re.split(r"^      - name: (.+)\n", build, flags=re.MULTILINE)
+    header, steps = parts[0], dict(zip(parts[1::2], parts[2::2], strict=True))
+    assert len(steps) == len(parts[1::2])
+    assert list(steps) == [
+        "Check out source",
+        "Install uv and Python",
+        "Build distributions after full verification",
+        "Download the platform wheels that full verification built",
+        "Add the platform wheels that full verification built and ran",
+        "Refuse wheels that do not carry a core that decides",
+        "Check the final 5.0 system with the candidate wheel",
+        "Keep the final 5.0 system frame",
+        "Build and verify the plugin archive separately",
+        "Upload distributions",
+        "Upload plugin archive and checksum",
+    ]
+    assert "if:" not in header and "continue-on-error" not in build
+    for name, step in steps.items():
+        if name == "Keep the final 5.0 system frame":
+            assert (
+                "if: ${{ always() && (github.ref_name == '5.0.0' || "
+                "github.ref_name == 'v5.0.0') }}" in step
+            )
+            assert "uses: actions/upload-artifact@" in step
+        else:
+            assert not re.search(r"^\s+if:", step, re.MULTILINE), name
+
+
+def test_the_release_build_checks_the_core_of_the_wheels_before_it_uploads_them() -> None:
+    build = _jobs("release.yml")["build"]
+    _check_release_build(build)
+    changed = build.replace(
+        "- name: Refuse wheels that do not carry a core that decides\n",
+        "- name: Refuse wheels that do not carry a core that decides\n        if: ${{ false }}\n",
+    )
+    with pytest.raises(AssertionError):
+        _check_release_build(changed)
+
+
+def test_release_wheel_staging_does_not_dirty_the_checkout(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / ".gitignore").write_text((ROOT / ".gitignore").read_text())
+    subprocess.run(["git", "add", ".gitignore"], cwd=tmp_path, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-qm",
+            "init",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+    (tmp_path / "dist").mkdir()
+    (tmp_path / "build/native-wheels").mkdir(parents=True)
+    (tmp_path / "dist/archkeel-5.0.0.tar.gz").write_bytes(b"sdist")
+    for tag in PLATFORM_TAGS:
+        (tmp_path / "build/native-wheels" / f"archkeel-5.0.0-{tag}.whl").write_bytes(b"wheel")
+    subprocess.run(["bash", "-c", _add_script()], cwd=tmp_path, check=True)
+    from archkeel.cli.native_scan import identity
+
+    assert identity(tmp_path)[1] is False
+    (tmp_path / "untracked-source.py").write_text("pass\n")
+    assert identity(tmp_path)[1] is True
 
 
 def _wheel(directory: Path, tag: str, *members: str, digest: str = "") -> Path:
@@ -217,6 +283,14 @@ def _wheel(directory: Path, tag: str, *members: str, digest: str = "") -> Path:
     return wheel
 
 
+def _binaries(suffix: str = "") -> tuple[str, ...]:
+    return tuple(
+        base + suffix + end
+        for base in (release_core.MEMBER, *release_core.WORKERS)
+        for end in ("", ".sha256")
+    )
+
+
 def test_a_wheel_carries_the_core_only_with_the_binary_and_its_digest(tmp_path: Path) -> None:
     core = release_core.MEMBER
     assert core == "archkeel/_native/archkeel-core"
@@ -224,13 +298,12 @@ def test_a_wheel_carries_the_core_only_with_the_binary_and_its_digest(tmp_path: 
     assert not release_core.carries_core(_wheel(tmp_path, "b", core))
     assert not release_core.carries_core(_wheel(tmp_path, "c", core + ".sha256"))
     assert not release_core.carries_core(_wheel(tmp_path, "d", core, core + ".exe.sha256"))
-    assert release_core.carries_core(_wheel(tmp_path, "e", core, core + ".sha256"))
-    assert release_core.carries_core(_wheel(tmp_path, "f", core + ".exe", core + ".exe.sha256"))
+    assert not release_core.carries_core(_wheel(tmp_path, "e", core, core + ".sha256"))
+    assert release_core.carries_core(_wheel(tmp_path, "py3-none-host", *_binaries()))
+    assert release_core.carries_core(_wheel(tmp_path, "py3-none-win_amd64", *_binaries(".exe")))
     # A digest of other bytes makes the shell refuse the binary, so the wheel carries no core.
     other = hashlib.sha256(b"other").hexdigest()
-    assert not release_core.carries_core(
-        _wheel(tmp_path, "g", core, core + ".sha256", digest=other)
-    )
+    assert not release_core.carries_core(_wheel(tmp_path, "g", *_binaries(), digest=other))
     assert not release_core.carries_core(_wheel(tmp_path, "h", core, core + ".sha256", digest="x"))
     (tmp_path / "no-archive.whl").write_bytes(b"wheel")
     assert not release_core.carries_core(tmp_path / "no-archive.whl")
@@ -242,7 +315,7 @@ def test_the_release_check_refuses_each_wheel_without_the_core(
     core = release_core.MEMBER
     monkeypatch.setattr(release_core, "platform_tags", lambda: ("py3-none-host",))
     assert release_core.main([str(tmp_path), "x.whl"]) == 2
-    host = _wheel(tmp_path, "py3-none-host", core, core + ".sha256")
+    host = _wheel(tmp_path, "py3-none-host", *_binaries())
     bare = _wheel(tmp_path, "py3-none-other")
     ran: list[Path] = []
     monkeypatch.setattr(release_core, "smoke", lambda wheel: ran.append(wheel) or "")
@@ -263,9 +336,8 @@ def test_the_release_check_wants_exactly_the_platforms_of_the_matrix(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """AD-476: a missing or an unlisted platform stops the release; each listed one passes."""
-    core = release_core.MEMBER
-    host = _wheel(tmp_path, "py3-none-host", core, core + ".sha256")
-    windows = _wheel(tmp_path, "py3-none-win_amd64", core + ".exe", core + ".exe.sha256")
+    host = _wheel(tmp_path, "py3-none-host", *_binaries())
+    windows = _wheel(tmp_path, "py3-none-win_amd64", *_binaries(".exe"))
     ran: list[Path] = []
     monkeypatch.setattr(release_core, "smoke", lambda wheel: ran.append(wheel) or "")
     monkeypatch.setattr(
@@ -275,7 +347,7 @@ def test_the_release_check_wants_exactly_the_platforms_of_the_matrix(
     windows.unlink()
     assert release_core.main([str(tmp_path), str(host)]) == 2
     assert "are not exactly the platforms" in capsys.readouterr().err
-    windows = _wheel(tmp_path, "py3-none-win_amd64", core + ".exe", core + ".exe.sha256")
+    windows = _wheel(tmp_path, "py3-none-win_amd64", *_binaries(".exe"))
     monkeypatch.setattr(release_core, "platform_tags", lambda: ("py3-none-host",))
     assert release_core.main([str(tmp_path), str(host)]) == 2
     assert "are not exactly the platforms" in capsys.readouterr().err
@@ -327,7 +399,10 @@ def test_native_check_runs_the_dependency_policy_with_the_pinned_cargo_deny(
         "cargo deny --locked check"
     )
     # AD-432: the self-check of native-check runs the release core of this checkout.
-    assert calls[-1] == "cargo build --locked --release -p archkeel-core"
+    assert calls[-1] == (
+        "cargo build --locked --release -p archkeel-core -p archkeel-rust-collector"
+        " -p archkeel-typescript-collector"
+    )
 
 
 def test_the_ci_install_of_cargo_deny_checks_the_hash_and_creates_the_target_directory() -> None:

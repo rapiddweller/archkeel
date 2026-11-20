@@ -248,7 +248,8 @@ def index(
         groups += _section(key, title, lede, body, len(chosen) + (1 if lead else 0))
     body = (
         '<h1 class="h2">ArchKeel fixture reports</h1>\n'
-        '<p class="body-sm"><a href="../index.html">ArchKeel as a product</a></p>\n'
+        '<p class="body-sm"><a href="../index.html">ArchKeel as a product</a> · '
+        '<a href="../capabilities.html">Rule capability statistics</a></p>\n'
         f'<p class="body-sm">Commit <code>{html.escape(sha)}</code>. '
         f"Built {html.escape(built_at)}.</p>\n"
         '<p class="body-sm">Each row is one run of the core on a project of '

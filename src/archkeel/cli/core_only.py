@@ -341,7 +341,7 @@ def _scan(
     if options.timings is not None:
         refused = any(gap.kind is GapKind.COLLECT for gap in frame.gaps)
         timings = read_timings(sink[0], refused=refused)
-    failures = _deliver(options, frame, stdout, root, timings)
+    failures = _deliver(options, frame, stdout, root, document, timings)
     outcome = outcome_of(frame, delivered=not failures)
     code = exit_for(outcome, frame, baseline=baseline)
     result = (

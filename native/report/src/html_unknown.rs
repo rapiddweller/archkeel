@@ -28,9 +28,7 @@ fn advice(kind: &str) -> Option<&'static str> {
         "coverage_gaps" => {
             Some("Close the gaps listed below. A rule is decided when no gap holds it.")
         }
-        "pair_gaps" => {
-            Some("For each pair below, make the call explicit or allow the pair in the contract.")
-        }
+        "pair_gaps" => None,
         "scoped_gaps" => Some(
             "Close the gaps that the core names. Each of them leaves facts unknown that the rule reads.",
         ),
@@ -334,16 +332,15 @@ pub(super) fn section(frame: &Frame, names: &Names<'_>) -> String {
     let total = cards.len();
     let lede = if unknown > 0 {
         format!(
-            "{} cannot be decided, from {}. An UNKNOWN rule is not a pass.",
-            count(unknown, "rule"),
-            count(total, "cause")
+            "{} cannot be decided. An UNKNOWN rule is not a pass.",
+            count(unknown, "rule")
         )
     } else {
         "The run is not decided, and a run that is not decided is not a pass.".to_owned()
     };
     let mut html = format!(
         "<section class=\"rp-sec\" aria-labelledby=\"unknown\"><h2 class=\"h2\" id=\"unknown\">Unknown</h2>\
-<p class=\"body-sm rp-lede\">{lede}</p>"
+<p class=\"body-sm rp-lede\">{lede}</p><details><summary>Undecided rules and recorded evidence</summary>"
     );
     cards.truncate(MAX_CARDS);
     for found in &cards {
@@ -379,7 +376,10 @@ The JSON frame lists each gap.",
             ));
         }
     }
-    html.push_str("</section>\n");
+    if frame.status.is_none() && !frame.cause.is_empty() {
+        html.push_str("<p class=\"body-sm\">Run <code>archkeel validate --verbose</code> to inspect the core reply.</p>");
+    }
+    html.push_str("</details></section>\n");
     html
 }
 
