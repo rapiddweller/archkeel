@@ -75903,11 +75903,6 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.routes",
-      "A trait impl in native.archkeel_rust_collector.macro_items may run in code that reaches native.archkeel_rust_collector.macro_items without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.routes",
       "A trait impl in native.archkeel_rust_collector.macro_public may run in code that reaches native.archkeel_rust_collector.macro_public without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
