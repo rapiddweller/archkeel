@@ -234,8 +234,10 @@ def _bytes(field: int, value: bytes) -> bytes:
     return _varint(field << 3 | 2) + _varint(len(value)) + value
 
 
-def _scip(source: bytes, *, malformed: bool = False, with_text: bool = True) -> bytes:
-    definition = b"rust-analyzer cargo app 0.1.0 Thing#get()."
+def _scip(
+    source: bytes, *, malformed: bool = False, invalid_utf8: bool = False, with_text: bool = True
+) -> bytes:
+    definition = b"\xff\xfe" if invalid_utf8 else b"rust-analyzer cargo app 0.1.0 Thing#get()."
     document = _bytes(1, b"src/lib.rs") + b"\x30\x01"
     if with_text:
         document += _bytes(5, source)
@@ -430,6 +432,29 @@ def test_explore_auto_discovers_project_scip_and_falls_back_when_stale(
     assert _run_explore(source, discovered) == 2
     refusal = "stale SCIP source" if with_manifest else "SCIP document text differs from source"
     assert refusal in capsys.readouterr().out
+
+    # Invalid UTF-8 symbol in auto-discovered index (no "SCIP" substring in error) still degrades
+    # gracefully to the native scan via the worker's structured scip_artifact_error tag, while
+    # explicit --scip stays fail-closed.
+    corrupt = _scip(source.read_bytes(), invalid_utf8=True, with_text=not with_manifest)
+    discovered.write_bytes(corrupt)
+    if with_manifest:
+        discovered.with_name(discovered.name + ".manifest.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "index_sha256": hashlib.sha256(corrupt).hexdigest(),
+                    "files": {"src/lib.rs": hashlib.sha256(source.read_bytes()).hexdigest()},
+                }
+            )
+        )
+    assert _run_explore(source) == 0
+    utf8_fallback = capsys.readouterr()
+    assert "invalid utf-8 sequence" in utf8_fallback.err
+    assert "using native scan" in utf8_fallback.err
+    assert "scip_artifact_error" not in utf8_fallback.err
+    assert _run_explore(source, discovered) == 2
+    assert "invalid utf-8 sequence" in capsys.readouterr().out
 
 
 def test_auto_discovery_does_not_swallow_worker_infrastructure_failure(

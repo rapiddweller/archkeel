@@ -31,6 +31,7 @@ _REPLY_LIMIT = 64 << 20
 _ROW_LIMIT = 64 << 10
 _STDLIB = {"core", "alloc", "std"}
 _MACRO = "Macro expansion can contain calls that are not read"
+_ARTIFACT_ERROR_TAG = "scip_artifact_error: "
 DEFAULT_RUST_SCIP = Path(".archkeel") / "scip" / "rust.scip"
 _SCHEMA = (
     """
@@ -397,14 +398,16 @@ def _store_resolution(
             str(worker), "scip-evidence", request, stderr, arguments=arguments, output=output
         )
         if status:
-            detail = (
+            raw_detail = (
                 (stderr[0][-2000:] if stderr else b"").decode("utf-8", errors="replace").strip()
+            )
+            is_artifact_error = status == 1 and _ARTIFACT_ERROR_TAG in raw_detail
+            detail = (
+                raw_detail.replace(_ARTIFACT_ERROR_TAG, "", 1) if is_artifact_error else raw_detail
             )
             message = f"the SCIP evidence worker failed (exit {status})"
             full = f"{message}: {detail}" if detail else message
-            # Only typed index/content refusals (exit 1 mentioning SCIP) degrade on auto-discovery;
-            # worker crashes or environment failures keep CoreError and fail closed.
-            if status == 1 and "SCIP" in detail:
+            if is_artifact_error:
                 raise ScipLoadError(full)
             raise CoreError(full)
         _write_rows(connection, output, artifact, digests, pending, declarations, locations)
