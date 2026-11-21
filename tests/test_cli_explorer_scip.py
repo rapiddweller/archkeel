@@ -230,8 +230,22 @@ def test_scip_stores_pointwise_evidence_without_an_explorer_overlay(
     )
     assert filtered["element_status"] == "known"
     assert [row["call_id"] for row in filtered["items"]] == ["dep"]
+    assert filtered["counts"] == [
+        {
+            "language": "rust",
+            "status": "external_dep",
+            "provenance": "scip_verified",
+            "reason": None,
+            "count": 1,
+        }
+    ]
     assert filtered["items"][0]["crate_name"] == "dep"
     assert filtered["items"][0]["crate_version"] == "1.2.3"
+    # Counts also match status-only filters without element scoping.
+    only_unresolved = query(database, tmp_path, "call_resolution", {"status": "unresolved"})
+    assert {row["status"] for row in only_unresolved["counts"]} == {"unresolved"}
+    assert sum(row["count"] for row in only_unresolved["counts"]) == len(only_unresolved["items"])
+    assert len(only_unresolved["items"]) == 3
     with pytest.raises(ValueError, match="invalid call_resolution status"):
         query(database, tmp_path, "call_resolution", {"status": "bogus"})
 

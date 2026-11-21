@@ -236,13 +236,26 @@ def _call_resolution(
         else:
             scope_where = "0"
 
-    if element:
+    clauses = [scope_where]
+    params: list[object] = list(scope_params)
+    if status:
+        clauses.append("cr.status=?")
+        params.append(status)
+    if provenance:
+        clauses.append("cr.provenance=?")
+        params.append(provenance)
+    if call_id:
+        clauses.append("cr.call_id=?")
+        params.append(call_id)
+    filter_where = " AND ".join(clauses)
+    has_filter = bool(element or status or provenance or call_id)
+    if has_filter:
         count_rows = db.execute(
             f"SELECT cr.language, cr.status, cr.provenance, cr.reason, count(*) "
-            f"FROM call_resolution cr {join} WHERE {scope_where} "
+            f"FROM call_resolution cr {join} WHERE {filter_where} "
             f"GROUP BY cr.language, cr.status, cr.provenance, cr.reason "
             f"ORDER BY cr.language, cr.status, cr.provenance, cr.reason",
-            scope_params,
+            params,
         ).fetchall()
     else:
         count_rows = db.execute(
@@ -259,21 +272,12 @@ def _call_resolution(
         for lang, st, prov, rsn, cnt in count_rows
     ]
 
-    clauses = [scope_where]
-    params: list[object] = list(scope_params)
-    if status:
-        clauses.append("cr.status=?")
-        params.append(status)
-    if provenance:
-        clauses.append("cr.provenance=?")
-        params.append(provenance)
-    if call_id:
-        clauses.append("cr.call_id=?")
-        params.append(call_id)
+    page_clauses = list(clauses)
+    page_params = list(params)
     if cursor:
-        clauses.append("cr.call_id>?")
-        params.append(cursor)
-    where = " AND ".join(clauses)
+        page_clauses.append("cr.call_id>?")
+        page_params.append(cursor)
+    where = " AND ".join(page_clauses)
     rows = db.execute(
         f"SELECT cr.call_id, cr.language, cr.status, cr.provenance, cr.reason, "
         f"cr.canonical_target_definition_id, cr.dispatch_kind, cr.evidence_id, "
@@ -281,7 +285,7 @@ def _call_resolution(
         f"cr.symbol_path, cr.reference_path, cr.reference_start_line, "
         f"cr.reference_start_column, cr.reference_end_line, cr.reference_end_column "
         f"FROM call_resolution cr {join} WHERE {where} ORDER BY cr.call_id LIMIT ?",
-        (*params, limit + 1),
+        (*page_params, limit + 1),
     ).fetchall()
     items = [_resolution_row(r) for r in rows[:limit]]
     return extra | {

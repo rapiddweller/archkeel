@@ -15,7 +15,8 @@ Studio users and MCP agents could not inspect those classifications.
 responses with or without SCIP tables. The `call_resolution` operation returns
 `available: false` when a snapshot has no SCIP tables, and supports bounded
 cursor pagination (`limit` up to 200) and optional filtering by `element`,
-`status`, `provenance`, and `call_id`.
+`status`, `provenance`, and `call_id`. Returned `counts` always summarize the
+full result set matching the active filters (ignoring only `cursor` and `limit`).
 
 **Limits.** This projection is read-only. It never promotes SCIP bindings into
 native AST edges, Stories, or contract verdicts, and it currently reads Rust
