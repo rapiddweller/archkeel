@@ -71,7 +71,9 @@ impl<'a> Index<'a> {
         if matches!(local, TypeOf::Known(..)) {
             return local;
         }
-        self.cross_type(frame, scope, ty).unwrap_or(local)
+        let no_macro_bind = binds_nothing(self, frame);
+        self.cross_type(frame, scope, ty, no_macro_bind)
+            .unwrap_or(local)
     }
     pub(crate) fn local_type_of(
         &self,

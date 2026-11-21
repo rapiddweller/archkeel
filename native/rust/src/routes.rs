@@ -83,7 +83,7 @@ fn route_in(index: &Index<'_>, at: &str, name: &str, of_type: bool) -> Route {
         hops.push(format!("{at}.{name}"));
         let scan = &frame.module.scan;
         let opaque = frame.module.gated && frame.module.gates.is_none();
-        if !opaque && !of_type && defined_here(index, frame, &name) {
+        if !opaque && defined_here(index, frame, &name) {
             return stop(hops, true);
         }
         if opaque || (scan.module_macros && !of_type) || scan.counts.get(&name) != Some(&1) {

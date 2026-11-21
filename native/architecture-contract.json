@@ -75,6 +75,7 @@
         "native.archkeel_facts.envelope:WrittenActual",
         "native.archkeel_facts.envelope:source_digest",
         "native.archkeel_facts.envelope:test_features",
+        "native.archkeel_facts.envelope_vocab:Profile",
         "native.archkeel_facts.fields:Fields",
         "native.archkeel_facts.fields:Named",
         "native.archkeel_facts.identity:Part",
@@ -3131,6 +3132,13 @@
             "native.archkeel_report:premise_words",
             "native.archkeel_report:system_status"
           ]
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Configure the producer trust of the run settings (#953, AD-804).",
+          "through": [
+            "native.archkeel_model.settings"
+          ]
         }
       ],
       "public": [
@@ -4572,6 +4580,7 @@
           "through": [
             "native.archkeel_facts.data",
             "native.archkeel_facts.envelope",
+            "native.archkeel_facts.envelope_vocab",
             "native.archkeel_facts.gap",
             "native.archkeel_facts.identity",
             "native.archkeel_facts.ids",
@@ -5518,6 +5527,7 @@
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
             "native.archkeel_facts.envelope",
+            "native.archkeel_facts.envelope_vocab",
             "native.archkeel_facts.request",
             "native.archkeel_facts:CallFact",
             "native.archkeel_facts:GapFact",
@@ -6112,6 +6122,7 @@
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
             "native.archkeel_facts.envelope",
+            "native.archkeel_facts.envelope_vocab",
             "native.archkeel_facts.request",
             "native.archkeel_facts.sections:SignalFact",
             "native.archkeel_facts.surveys",

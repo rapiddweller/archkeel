@@ -116,11 +116,10 @@ fn by_kind(kind: RuleKind) -> Reads<'static> {
         K::RootLayout | K::LayerOrder | K::SymbolPlacement | K::AllowedDependency => Reads::NoEdge,
         K::CompleteAssignment => Reads::Modules,
         K::ExternalDependencyScope | K::CompleteExternalScope => Reads::ExternalImports(None),
-        K::InterfaceBoundary => Reads::Interface,
+        K::InterfaceBoundary | K::CompleteRequires => Reads::Interface,
         // `reads` gives these kinds their own reading; here they read every edge (fail closed).
         K::ForbiddenDependency | K::SiblingIsolation | K::NoComponentCycles => Reads::Every,
-        K::CompleteRequires
-        | K::ForbiddenConstruct
+        K::ForbiddenConstruct
         | K::SourceOwnership
         | K::BoundedNumericOperand
         | K::CallOwner
@@ -160,7 +159,9 @@ impl PairGap {
                 .iter()
                 .any(|member| in_scope(a, member) || in_scope(b, member)),
             Reads::Interface => !self.execution || self.owned != [true; 2],
-            Reads::Cycles(rule) => self.cycle_rules.contains(rule),
+            Reads::Cycles(rule) => {
+                (!self.execution || self.owned != [true; 2]) && self.cycle_rules.contains(rule)
+            }
             Reads::Every => true,
         }
     }
@@ -266,10 +267,17 @@ impl<'g> Cyclic<'g> {
             .iter()
             .map(|import| (import.source_module(), import.target_module()))
             .collect();
-        edges.extend(gaps.iter().map(|(a, b, _, _, _)| (a.as_str(), b.as_str())));
+        edges.extend(
+            gaps.iter()
+                .filter(|(_, _, _, execution, _)| !*execution)
+                .map(|(a, b, _, _, _)| (a.as_str(), b.as_str())),
+        );
         let module = CycleScope::of(
             &edges,
-            gaps.iter().map(|(_, b, _, _, _)| b.as_str()).collect(),
+            gaps.iter()
+                .filter(|(_, _, _, execution, _)| !*execution)
+                .map(|(_, b, _, _, _)| b.as_str())
+                .collect(),
             module_rules,
             |labels| {
                 let selected: Vec<_> = components
@@ -292,7 +300,11 @@ impl<'g> Cyclic<'g> {
                 .filter_map(|(s, t)| Some((owner(s)?, owner(t)?)))
                 .filter(|(source, target)| source != target)
                 .collect();
-            let starts = gaps.iter().filter_map(|(_, b, _, _, _)| owner(b)).collect();
+            let starts = gaps
+                .iter()
+                .filter(|(_, _, _, execution, _)| !*execution)
+                .filter_map(|(_, b, _, _, _)| owner(b))
+                .collect();
             CycleScope::of(&parts, starts, component_rules, |labels| {
                 components
                     .iter()

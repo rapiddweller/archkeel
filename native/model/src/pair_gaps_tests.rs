@@ -121,6 +121,12 @@ fn only_a_witnessed_execution_pair_leaves_the_named_interface_known() {
     assert!(!gap.holds(&Reads::Interface));
     assert!(gap.holds(&Reads::Every));
 
+    gap.cycle_rules = vec![0];
+    assert!(!gap.holds(&Reads::Cycles(0)));
+    gap.execution = false;
+    assert!(gap.holds(&Reads::Cycles(0)));
+    gap.execution = true;
+
     gap.owned[1] = false;
     assert!(gap.holds(&Reads::Interface));
 }

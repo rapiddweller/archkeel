@@ -256,6 +256,7 @@ impl Index<'_> {
         frame: &Frame<'_>,
         scope: &[String],
         ty: &[String],
+        no_macro_bind: bool,
     ) -> Option<TypeOf> {
         let scan = &frame.module.scan;
         // A macro in a block can give any name of the block again, and a macro that takes a path
@@ -264,7 +265,10 @@ impl Index<'_> {
             crate::std_macros::has(call.name.as_str(), crate::std_macros::NO_BIND)
         };
         let opaque_gate = frame.module.gated && frame.module.gates.is_none();
-        if scan.body_macros || opaque_gate || !scan.macro_calls.iter().all(silent) {
+        if scan.body_macros
+            || opaque_gate
+            || !(scan.macro_calls.iter().all(silent) || no_macro_bind)
+        {
             return None;
         }
         let first = ty.first()?;
@@ -272,7 +276,7 @@ impl Index<'_> {
         let names = if binding.is_empty() {
             // A glob or a macro at module level can bring in a module of the name of the crate.
             if scan.counts.contains_key(first)
-                || scan.module_macros
+                || (scan.module_macros && !no_macro_bind)
                 || frame.globs().next().is_some()
             {
                 return None;

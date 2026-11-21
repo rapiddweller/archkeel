@@ -73,10 +73,11 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
         })
         .filter(|gap| gap.holds(&reading))
         .map(|gap| (gap.source.as_str(), gap.target.as_str()));
-    let named = matches!(reading, Reads::Interface | Reads::SourceNames(_))
-        .then(|| open_sites(model, &reading))
-        .into_iter()
-        .flatten();
+    let named = (matches!(rule, Rule::InterfaceBoundary(_))
+        || matches!(reading, Reads::SourceNames(_)))
+    .then(|| open_sites(model, &reading))
+    .into_iter()
+    .flatten();
     let mut seen = HashSet::new();
     let distinct = held
         .chain(named)

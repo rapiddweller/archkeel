@@ -271,7 +271,10 @@ impl Builder {
             self.impl_home(module, call);
         }
         let from_call = def.members.contains(NAME_FROM_CALL) && foreign;
-        let named = def.members.iter().filter(|name| *name != NAME_FROM_CALL);
+        let named = def
+            .members
+            .iter()
+            .filter(|name| *name != NAME_FROM_CALL && foreign);
         let names = named.chain(call.idents.iter().filter(|_| from_call));
         for name in names {
             let modules = self.macro_members.entry(name.clone()).or_default();
