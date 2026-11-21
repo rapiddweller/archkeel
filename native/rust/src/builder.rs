@@ -25,6 +25,7 @@ use crate::tree::Module;
 struct StringPool {
     values: Vec<String>,
     index: HashMap<String, u32>,
+    overflowed: bool,
 }
 
 impl StringPool {
@@ -32,22 +33,13 @@ impl StringPool {
         if let Some(&id) = self.index.get(value) {
             return id;
         }
-        let id = u32::try_from(Vec::len(&self.values)).unwrap_or(u32::MAX);
+        let Ok(id) = u32::try_from(Vec::len(&self.values)) else {
+            self.overflowed = true;
+            return u32::MAX;
+        };
         self.values.push(value.to_owned());
         self.index.insert(value.to_owned(), id);
         id
-    }
-
-    fn find(&self, value: &str) -> Option<u32> {
-        self.index.get(value).copied()
-    }
-
-    fn text(&self, id: u32) -> &str {
-        pool_str(&self.values, id)
-    }
-
-    fn count(&self) -> usize {
-        Vec::len(&self.values)
     }
 }
 
@@ -129,7 +121,7 @@ fn compact_gap_record(
 fn pool_str(strings: &[String], id: u32) -> &str {
     usize::try_from(id)
         .ok()
-        .and_then(|slot| strings.get(slot))
+        .and_then(|s| strings.get(s))
         .map_or("", String::as_str)
 }
 
@@ -243,15 +235,15 @@ impl Builder {
     }
 
     pub(crate) fn find_text(&self, value: &str) -> Option<u32> {
-        self.strings.find(value)
+        self.strings.index.get(value).copied()
     }
 
     pub(crate) fn interned_text(&self, id: u32) -> &str {
-        self.strings.text(id)
+        pool_str(&self.strings.values, id)
     }
 
     pub(crate) fn interned_count(&self) -> usize {
-        self.strings.count()
+        Vec::len(&self.strings.values)
     }
 
     /// Take materialized gaps and return a lightweight `Builder` holding only compact named sites.
@@ -271,6 +263,10 @@ impl Builder {
                 .into_iter()
                 .map(|entry| entry.to_record(&strings.values)),
         );
+        if strings.overflowed {
+            let msg = "Internal collector string-pool index limit exceeded";
+            all.push(Record::unknown_gap(msg, None, "", GapFact::collection(msg, "")).1);
+        }
         all.sort_by(|left, right| left.id.cmp(&right.id));
         all.dedup_by(|later, earlier| later.id == earlier.id);
         (
@@ -286,7 +282,7 @@ impl Builder {
     /// Stream compact named sites in exact `UNKNOWN-*` id order without bulk `Record` allocation.
     pub(crate) fn stream_named_sites(&self, emit: &mut dyn FnMut(&Record<GapFact>)) {
         let strings = &self.strings.values;
-        let mut order: Vec<(u64, u32)> = self
+        let mut order: Vec<(u64, usize)> = self
             .named_sites
             .iter()
             .enumerate()
@@ -296,17 +292,13 @@ impl Builder {
                     pool_str(strings, entry.evidence),
                     pool_str(strings, entry.source),
                 );
-                (key, u32::try_from(slot).unwrap_or(u32::MAX))
+                (key, slot)
             })
             .collect();
         order.sort_unstable_by_key(|&(key, _)| key);
         for (_, slot) in order {
-            if let Some(entry) = usize::try_from(slot)
-                .ok()
-                .and_then(|index| self.named_sites.get(index))
-            {
-                let record = entry.to_record(strings);
-                emit(&record);
+            if let Some(entry) = self.named_sites.get(slot) {
+                emit(&entry.to_record(strings));
             }
         }
     }
@@ -318,7 +310,7 @@ impl Builder {
         target: &str,
         no_name_route: bool,
     ) -> bool {
-        let (Some(src), Some(dst)) = (self.strings.find(source), self.strings.find(target)) else {
+        let (Some(src), Some(dst)) = (self.find_text(source), self.find_text(target)) else {
             return false;
         };
         self.pair_already_reported_ids((src, dst), no_name_route)
