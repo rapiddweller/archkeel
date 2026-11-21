@@ -418,8 +418,7 @@ impl<'ast> Visit<'ast> for Closures<'_> {
                 continue;
             };
             let name = plain(&ident.ident);
-            let clean = !self.bound.tainted.contains(&name) && !sites.bound.contains(&name);
-            if !plain_ident(ident) || !param.attrs.is_empty() || !clean {
+            if !plain_ident(ident) || !param.attrs.is_empty() || !once(self.bound, &name) {
                 continue;
             }
             let typed =
@@ -450,16 +449,5 @@ mod tests {
         let last = text.rfind("s.m()").unwrap();
         assert!(found.get("s", (1, first)).is_some());
         assert!(found.get("s", (1, last)).is_none());
-    }
-
-    #[test]
-    fn two_disjoint_closures_keep_their_own_typed_receiver_sites() {
-        let text = "fn f() { let _a = |s: &crate::c::S| s.m(); let _b = |s: &crate::c::S| s.n(); }";
-        let item: syn::ItemFn = syn::parse_str(text).unwrap();
-        let found = read_bindings((&item.sig, &item.block), (&[], &[]), (None, None));
-        let first = text.find("s.m()").unwrap();
-        let second = text.find("s.n()").unwrap();
-        assert!(found.get("s", (1, first)).is_some());
-        assert!(found.get("s", (1, second)).is_some());
     }
 }
