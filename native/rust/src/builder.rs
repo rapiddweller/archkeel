@@ -5,7 +5,7 @@
 //! The state that the collection fills: gaps, evidence, file facts and the edges. Each part of the
 //! collector (`edges`, `declared`, `module_edges`) adds to it; this module imports none of them.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use archkeel_facts::data::{GapData, GapEffect};
 use archkeel_facts::envelope::Target;
@@ -19,6 +19,125 @@ use crate::definitions::MethodCall;
 use crate::modules::Edge;
 use crate::scan::{Reference, Site};
 use crate::tree::Module;
+
+/// Interned strings shared across pair gaps and named sites (#1942).
+#[derive(Default)]
+struct StringPool {
+    values: Vec<String>,
+    index: HashMap<String, u32>,
+}
+
+impl StringPool {
+    fn intern(&mut self, value: &str) -> u32 {
+        if let Some(&id) = self.index.get(value) {
+            return id;
+        }
+        let id = u32::try_from(Vec::len(&self.values)).unwrap_or(u32::MAX);
+        self.values.push(value.to_owned());
+        self.index.insert(value.to_owned(), id);
+        id
+    }
+
+    fn find(&self, value: &str) -> Option<u32> {
+        self.index.get(value).copied()
+    }
+
+    fn text(&self, id: u32) -> &str {
+        pool_str(&self.values, id)
+    }
+
+    fn count(&self) -> usize {
+        Vec::len(&self.values)
+    }
+}
+
+/// Compact pair-gap entry materialized into `Record<GapFact>` at finish (#1942).
+struct CompactPairGap {
+    source: u32,
+    target: u32,
+    reason: u32,
+    evidence: u32,
+    dispatch: bool,
+    runtime_effects: bool,
+    no_name_route: bool,
+}
+
+impl CompactPairGap {
+    fn to_record(&self, strings: &[String]) -> Record<GapFact> {
+        let dimension = self
+            .runtime_effects
+            .then_some(ResolutionDimension::RuntimeEffects);
+        compact_gap_record(
+            strings,
+            (self.source, self.target, self.reason, self.evidence),
+            (self.dispatch, dimension, self.no_name_route, false),
+        )
+    }
+}
+
+/// Compact named-site gap streamed into the reply without bulk `Record` allocation (#1942).
+struct CompactNamedSite {
+    source: u32,
+    target: u32,
+    reason: u32,
+    evidence: u32,
+    no_name_route: bool,
+}
+
+impl CompactNamedSite {
+    fn to_record(&self, strings: &[String]) -> Record<GapFact> {
+        compact_gap_record(
+            strings,
+            (self.source, self.target, self.reason, self.evidence),
+            (
+                false,
+                Some(ResolutionDimension::Imports),
+                self.no_name_route,
+                true,
+            ),
+        )
+    }
+}
+
+fn compact_gap_record(
+    strings: &[String],
+    (source, target, reason, evidence): (u32, u32, u32, u32),
+    (dispatch, resolution_dimension, no_name_route, source_resolution): (
+        bool,
+        Option<ResolutionDimension>,
+        bool,
+        bool,
+    ),
+) -> Record<GapFact> {
+    let source = pool_str(strings, source);
+    let target = pool_str(strings, target);
+    let reason = pool_str(strings, reason);
+    let evidence = pool_str(strings, evidence);
+    let mut data = GapData::at(reason, target);
+    data.source_module = Some(ModuleName::new(source));
+    data.dispatch = dispatch;
+    data.no_name_route = no_name_route;
+    data.resolution_dimension = resolution_dimension;
+    let fact = if source_resolution {
+        GapFact::SourceResolutionGap(data)
+    } else {
+        GapFact::CollectionGap(data)
+    };
+    Record::unknown_gap(reason, Some(evidence), source, fact).1
+}
+
+fn pool_str(strings: &[String], id: u32) -> &str {
+    usize::try_from(id)
+        .ok()
+        .and_then(|slot| strings.get(slot))
+        .map_or("", String::as_str)
+}
+
+/// Sort key matching `UNKNOWN-<16 hex>` lexicographical order without holding all `Record`s.
+fn unknown_id_key(reason: &str, evidence: &str, source: &str) -> u64 {
+    let (id, _) = Record::unknown_gap(reason, Some(evidence), source, GapFact::collection("", ""));
+    u64::from_str_radix(id.strip_prefix("UNKNOWN-").unwrap_or(""), 16).unwrap_or(0)
+}
 
 /// How an edge is written: a path in source, or a dependency that a manifest declares. The form
 /// is part of the identity of the import record.
@@ -61,7 +180,11 @@ type ImportKey = (String, String, String, Option<(String, String)>);
 #[derive(Default)]
 pub(crate) struct Builder {
     pub(crate) gaps: BTreeMap<String, Record<GapFact>>,
-    pub(crate) named_sites: BTreeMap<String, Record<GapFact>>,
+    strings: StringPool,
+    pair_gaps: Vec<CompactPairGap>,
+    pair_gap_index: HashMap<(u32, u32, u32), u32>,
+    named_sites: Vec<CompactNamedSite>,
+    named_site_index: HashMap<(u32, u32, u32), u32>,
     pub(crate) evidence: BTreeMap<String, Evidence>,
     pub(crate) files: Vec<FileFact>,
     pub(crate) calls: Vec<Record<archkeel_facts::CallFact>>,
@@ -94,7 +217,7 @@ pub(crate) struct Builder {
     /// (#1371, AD-516).
     pub(crate) macro_impl_homes: BTreeMap<String, (String, crate::site::Site)>,
     /// The pairs that have a pair gap: one gap is enough for each pair.
-    pub(crate) gapped: BTreeMap<(String, String), String>,
+    pub(crate) gapped: HashMap<(u32, u32), u32>,
     /// The outcomes that the edges ended, for the invariant of the extraction
     /// (`edges_extracted.rs`): a running total, and the references and macro calls by file.
     pub(crate) ended: usize,
@@ -108,23 +231,120 @@ pub(crate) struct Builder {
 }
 
 impl Builder {
+    pub(crate) fn with_exclude_tests(exclude_tests: bool) -> Self {
+        Self {
+            exclude_tests,
+            ..Self::default()
+        }
+    }
+
+    pub(crate) fn intern_text(&mut self, value: &str) -> u32 {
+        self.strings.intern(value)
+    }
+
+    pub(crate) fn find_text(&self, value: &str) -> Option<u32> {
+        self.strings.find(value)
+    }
+
+    pub(crate) fn interned_text(&self, id: u32) -> &str {
+        self.strings.text(id)
+    }
+
+    pub(crate) fn interned_count(&self) -> usize {
+        self.strings.count()
+    }
+
+    /// Take materialized gaps and return a lightweight `Builder` holding only compact named sites.
+    pub(crate) fn take_gaps_and_named_sites(&mut self) -> (Vec<Record<GapFact>>, Self) {
+        self.pair_gap_index = HashMap::new();
+        self.named_site_index = HashMap::new();
+        self.gapped = HashMap::new();
+        let gaps = std::mem::take(&mut self.gaps);
+        let pair_gaps = std::mem::take(&mut self.pair_gaps);
+        let named_sites = std::mem::take(&mut self.named_sites);
+        let mut strings = std::mem::take(&mut self.strings);
+        strings.index = HashMap::new();
+        let mut all = Vec::with_capacity(BTreeMap::len(&gaps) + Vec::len(&pair_gaps));
+        all.extend(gaps.into_values());
+        all.extend(
+            pair_gaps
+                .into_iter()
+                .map(|entry| entry.to_record(&strings.values)),
+        );
+        all.sort_by(|left, right| left.id.cmp(&right.id));
+        all.dedup_by(|later, earlier| later.id == earlier.id);
+        (
+            all,
+            Self {
+                strings,
+                named_sites,
+                ..Self::default()
+            },
+        )
+    }
+
+    /// Stream compact named sites in exact `UNKNOWN-*` id order without bulk `Record` allocation.
+    pub(crate) fn stream_named_sites(&self, emit: &mut dyn FnMut(&Record<GapFact>)) {
+        let strings = &self.strings.values;
+        let mut order: Vec<(u64, u32)> = self
+            .named_sites
+            .iter()
+            .enumerate()
+            .map(|(slot, entry)| {
+                let key = unknown_id_key(
+                    pool_str(strings, entry.reason),
+                    pool_str(strings, entry.evidence),
+                    pool_str(strings, entry.source),
+                );
+                (key, u32::try_from(slot).unwrap_or(u32::MAX))
+            })
+            .collect();
+        order.sort_unstable_by_key(|&(key, _)| key);
+        for (_, slot) in order {
+            if let Some(entry) = usize::try_from(slot)
+                .ok()
+                .and_then(|index| self.named_sites.get(index))
+            {
+                let record = entry.to_record(strings);
+                emit(&record);
+            }
+        }
+    }
+
     /// Keep one coverage record, but do not let a later path inherit a proof from an earlier call.
     pub(crate) fn pair_already_reported(
         &mut self,
-        pair: &(String, String),
+        source: &str,
+        target: &str,
         no_name_route: bool,
     ) -> bool {
-        let Some(id) = self.gapped.get(pair) else {
+        let (Some(src), Some(dst)) = (self.strings.find(source), self.strings.find(target)) else {
             return false;
         };
-        if let Some(Record {
-            data: GapFact::CollectionGap(data),
-            ..
-        }) = self.gaps.get_mut(id)
+        self.pair_already_reported_ids((src, dst), no_name_route)
+    }
+
+    pub(crate) fn pair_already_reported_ids(
+        &mut self,
+        pair: (u32, u32),
+        no_name_route: bool,
+    ) -> bool {
+        let Some(&slot) = self.gapped.get(&pair) else {
+            return false;
+        };
+        if let Some(entry) = usize::try_from(slot)
+            .ok()
+            .and_then(|index| self.pair_gaps.get_mut(index))
         {
-            data.no_name_route &= no_name_route;
+            entry.no_name_route &= no_name_route;
         }
         true
+    }
+
+    pub(crate) fn mark_gapped(&mut self, source: &str, target: &str, slot: u32) {
+        let src = self.strings.intern(source);
+        let dst = self.strings.intern(target);
+        self.gapped.insert((src, dst), slot);
     }
 
     pub(crate) fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str) {
@@ -153,18 +373,31 @@ impl Builder {
         pair: (&str, &str),
         dispatch: Option<ResolutionDimension>,
         no_name_route: bool,
-    ) -> String {
+    ) -> u32 {
         let (source, target) = pair;
-        let mut data = GapData::at(reason, target);
-        data.source_module = Some(ModuleName::new(source));
-        data.dispatch = dispatch.is_some();
-        data.no_name_route = no_name_route;
-        data.resolution_dimension =
-            dispatch.filter(|kind| *kind == ResolutionDimension::RuntimeEffects);
-        let fact = GapFact::CollectionGap(data);
-        let (id, record) = Record::unknown_gap(reason, Some(evidence), source, fact);
-        self.gaps.entry(id.clone()).or_insert(record);
-        id
+        let reason_id = self.strings.intern(reason);
+        let evidence_id = self.strings.intern(evidence);
+        let source_id = self.strings.intern(source);
+        if let Some(&slot) = self
+            .pair_gap_index
+            .get(&(reason_id, evidence_id, source_id))
+        {
+            return slot;
+        }
+        let target_id = self.strings.intern(target);
+        let slot = u32::try_from(Vec::len(&self.pair_gaps)).unwrap_or(u32::MAX);
+        self.pair_gaps.push(CompactPairGap {
+            source: source_id,
+            target: target_id,
+            reason: reason_id,
+            evidence: evidence_id,
+            dispatch: dispatch.is_some(),
+            runtime_effects: dispatch == Some(ResolutionDimension::RuntimeEffects),
+            no_name_route,
+        });
+        self.pair_gap_index
+            .insert((reason_id, evidence_id, source_id), slot);
+        slot
     }
 
     /// A known edge does not prove which name a separate call uses.
@@ -176,20 +409,46 @@ impl Builder {
         no_name_route: bool,
     ) {
         let evidence = self.cite(rel, site);
-        let mut data = GapData::at(reason, target);
-        data.source_module = Some(ModuleName::new(source));
-        data.resolution_dimension = Some(ResolutionDimension::Imports);
-        data.no_name_route = no_name_route;
-        let fact = GapFact::SourceResolutionGap(data);
-        let (id, record) = Record::unknown_gap(reason, Some(&evidence), source, fact);
-        self.named_sites
-            .entry(id)
-            .and_modify(|earlier| {
-                if let GapFact::SourceResolutionGap(data) = &mut earlier.data {
-                    data.no_name_route &= no_name_route;
-                }
-            })
-            .or_insert(record);
+        let reason_id = self.strings.intern(reason);
+        let evidence_id = self.strings.intern(&evidence);
+        let source_id = self.strings.intern(source);
+        if let Some(&slot) = self
+            .named_site_index
+            .get(&(reason_id, evidence_id, source_id))
+        {
+            if let Some(earlier) = usize::try_from(slot)
+                .ok()
+                .and_then(|index| self.named_sites.get_mut(index))
+            {
+                earlier.no_name_route &= no_name_route;
+            }
+            return;
+        }
+        let target_id = self.strings.intern(target);
+        let slot = u32::try_from(Vec::len(&self.named_sites)).unwrap_or(u32::MAX);
+        self.named_sites.push(CompactNamedSite {
+            source: source_id,
+            target: target_id,
+            reason: reason_id,
+            evidence: evidence_id,
+            no_name_route,
+        });
+        self.named_site_index
+            .insert((reason_id, evidence_id, source_id), slot);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn materialize_test_gaps(&self) -> Vec<Record<GapFact>> {
+        let mut all = Vec::with_capacity(BTreeMap::len(&self.gaps) + Vec::len(&self.pair_gaps));
+        all.extend(self.gaps.values().cloned());
+        all.extend(
+            self.pair_gaps
+                .iter()
+                .map(|entry| entry.to_record(&self.strings.values)),
+        );
+        all.sort_by(|left, right| left.id.cmp(&right.id));
+        all.dedup_by(|later, earlier| later.id == earlier.id);
+        all
     }
 
     pub(crate) fn cite(&mut self, rel: &str, site: &Site) -> String {

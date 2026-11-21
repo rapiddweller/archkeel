@@ -12,18 +12,18 @@
 //! The scan reads no types, so a pair gap is the sound answer; the host drops it when the contract
 //! lets the caller use that module.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use archkeel_facts::ImportFact;
 
 use crate::builder::Builder;
 use crate::crates::Workspace;
 use crate::definitions::{Form, ImplBlock, MethodCall};
-use crate::impl_globs::{crate_path, Reached};
+use crate::impl_globs::{crate_path, visible, Foreign, NameRoutes, Reached};
 use crate::modules::{Edge, Frame, Index, TypeOf};
 use crate::scan::Via;
 use crate::tree::Module;
-use flow::{visible, Foreign, NameRoutes};
+use flow::aliases;
 use orphans::orphan_impl_gaps;
 use receivers::{certainly_visible, exact_type, Typed};
 
@@ -49,7 +49,7 @@ fn members<'a>(index: &Index<'_>, modules: &'a [Module]) -> Members<'a> {
     let mut found = Members::default();
     for module in modules {
         found.typed.note(module);
-        found.aliases.extend(flow::aliases(module));
+        found.aliases.extend(aliases(module));
         let Some(frame) = index.frame(&module.module) else {
             continue;
         };
@@ -172,7 +172,7 @@ impl Builder {
             .collect();
         let edges = self.module_pairs();
         orphan_impl_gaps(self, (workspace, index, modules), &edges);
-        let mut pending = Vec::new();
+        let mut pending = flow::PendingPool::new();
         for (module, paths) in modules.iter().zip(paths) {
             let mut calls = self.calls_of(workspace, index, module, &paths.proved, &names);
             calls.extend(paths.unresolved);
@@ -194,8 +194,8 @@ impl Builder {
             }
             self.glob_trait_gaps(workspace, &reached);
         }
-        pending.extend(orphans::trait_impl_candidates(workspace, modules));
-        flow::settle(self, pending, index, modules);
+        let homes = orphans::lazy_homes(self, workspace, modules);
+        flow::settle(self, pending, (index, modules), &homes);
     }
 
     /// A path `S::m` whose type file defines no `m` for `S` is an edge to each foreign block of it
@@ -335,18 +335,19 @@ impl Builder {
     }
 
     /// The pairs of modules that an `import` or `reexport` record joins.
-    fn module_pairs(&self) -> BTreeSet<(String, String)> {
-        let data = self.imports.iter().filter_map(|record| match &record.data {
-            ImportFact::Import(data) | ImportFact::Reexport(data) => Some(data),
-            _ => None,
-        });
-        data.map(|d| {
-            (
-                d.source_module.as_str().to_owned(),
-                d.target_module.as_str().to_owned(),
-            )
-        })
-        .collect()
+    fn module_pairs(&mut self) -> HashSet<(u32, u32)> {
+        let imports = std::mem::take(&mut self.imports);
+        let mut pairs = HashSet::new();
+        for record in &imports {
+            let (ImportFact::Import(data) | ImportFact::Reexport(data)) = &record.data else {
+                continue;
+            };
+            let source = self.intern_text(data.source_module.as_str());
+            let target = self.intern_text(data.target_module.as_str());
+            pairs.insert((source, target));
+        }
+        self.imports = imports;
+        pairs
     }
 
     /// The method calls of a module: in its code, in the macros that it calls, and the last name
@@ -389,7 +390,7 @@ impl Builder {
         reached: &Reached<'_>,
         found: &Members<'_>,
         own: usize,
-        pending: &mut Vec<flow::Pending>,
+        pending: &mut flow::PendingPool,
     ) {
         let (module, frame) = (reached.module, reached.index.frame(&reached.module.module));
         let Some(frame) = frame else {
@@ -444,14 +445,15 @@ impl Builder {
             }
             let owned = (found.owned.get(call.name.as_str())).map_or(&[][..], Vec::as_slice);
             let candidates = (owned, &found.aliases);
-            pending.extend(flow::own_candidates(
+            flow::push_own_candidates(
+                self,
+                pending,
                 workspace,
                 (module, &at),
                 call,
                 candidates,
-                &keep,
-                no_name_route,
-            ));
+                (&keep, no_name_route),
+            );
             // A macro in another file can define the method without exposing its visibility.
             let defined = (self.macro_foreign_members.get(&call.name).cloned()).unwrap_or_default();
             for target in &defined {

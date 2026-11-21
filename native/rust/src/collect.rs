@@ -26,10 +26,7 @@ use crate::tree::walk;
 /// Collect the facts of one request.
 pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collected {
     let mut source = Snapshot::new(&request.snapshot.root);
-    let mut builder: Builder = Builder {
-        exclude_tests: request.excludes_test_sources(),
-        ..Builder::default()
-    };
+    let mut builder = Builder::with_exclude_tests(request.excludes_test_sources());
     let (scope, files) = list(&mut source, &request.scope.roots, &mut builder);
     let overrides = crate::registry_overrides::configs(&mut source);
     let mut workspace = discover(&mut source, &files, &request.scope.namespace);
@@ -112,7 +109,12 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
     }
     selected.extend(builder.manifests.iter().cloned());
     selected.sort();
-    builder.finish(request, provenance, scope, selected, &walked, source)
+    // Free index maps and workspace before `finish` drops `walked` and materializes gaps (#1942).
+    drop(modules_index);
+    drop(taken);
+    drop(modules);
+    drop(workspace);
+    builder.finish(request, provenance, scope, selected, walked, source)
 }
 
 /// The scope labels and all the files below the roots.

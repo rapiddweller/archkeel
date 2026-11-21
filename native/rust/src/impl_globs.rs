@@ -7,14 +7,17 @@
 //! when `a` calls a method of `T`, or any method when the scan does not know what `T` is. This file
 //! also writes each pair gap (`reached_gap`), for itself and for `impl_edges.rs`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
+
+use archkeel_facts::ids::EvidenceId;
+use archkeel_facts::ImportFact;
 
 use crate::builder::Builder;
 use crate::crates::{Root, Workspace};
-use crate::definitions::{Form, MethodCall, Owner};
-use crate::modules::{Edge, Frame, Index, Outcome};
+use crate::definitions::{Access, Form, Member, MethodCall, Owner};
+use crate::modules::{inside, Edge, Frame, Index, Outcome, TypeOf};
 use crate::resolve::{classify, Found, Named};
-use crate::scan::Reference;
+use crate::scan::{Reference, Via};
 use crate::tree::Module;
 
 /// One module, its method calls and the module pairs that an edge joins.
@@ -22,7 +25,20 @@ pub(crate) struct Reached<'a> {
     pub(crate) index: &'a Index<'a>,
     pub(crate) module: &'a Module,
     pub(crate) calls: &'a [MethodCall],
-    pub(crate) edges: &'a BTreeSet<(String, String)>,
+    pub(crate) edges: &'a HashSet<(u32, u32)>,
+}
+
+/// Whether `edges` already joins `source -> target`, without allocating strings.
+pub(crate) fn has_edge(
+    builder: &Builder,
+    edges: &HashSet<(u32, u32)>,
+    source: &str,
+    target: &str,
+) -> bool {
+    builder
+        .find_text(source)
+        .zip(builder.find_text(target))
+        .is_some_and(|pair| edges.contains(&pair))
 }
 
 /// The deepest chain of globs that the scan follows.
@@ -223,13 +239,9 @@ impl Builder {
         why: &str,
         no_name_route: bool,
     ) {
-        let source = reached.module.module.as_str();
-        let at = (reached.module.rel.as_str(), &call.site);
-        if source != target
-            && reached
-                .edges
-                .contains(&(source.to_owned(), target.to_owned()))
-        {
+        let source: &str = &reached.module.module;
+        let at = (String::as_str(&reached.module.rel), &call.site);
+        if source != target && has_edge(self, reached.edges, source, target) {
             self.named_site((source, target), at, why, no_name_route);
             return;
         }
@@ -248,21 +260,184 @@ impl Builder {
 /// The pair gap `source -> target` at a site, once, unless an edge joins the pair.
 pub(crate) fn once_gap(
     builder: &mut Builder,
-    edges: &BTreeSet<(String, String)>,
+    edges: &HashSet<(u32, u32)>,
     (source, target): (&str, &str),
     (rel, site): (&str, &crate::site::Site),
     why: &str,
     dispatch: Option<archkeel_facts::vocab::ResolutionDimension>,
     no_name_route: bool,
 ) {
-    let pair = (source.to_owned(), target.to_owned());
-    if source == target || edges.contains(&pair) {
+    if source == target || has_edge(builder, edges, source, target) {
         return;
     }
-    if builder.pair_already_reported(&pair, no_name_route) {
+    if builder.pair_already_reported(source, target, no_name_route) {
         return;
     }
     let evidence = builder.cite(rel, site);
-    let id = builder.pair_gap(why, &evidence, (source, target), dispatch, no_name_route);
-    builder.gapped.insert(pair, id);
+    let slot = builder.pair_gap(why, &evidence, (source, target), dispatch, no_name_route);
+    builder.mark_gapped(source, target, slot);
+}
+
+/// Exact import binding sites whose recorded routes reach their named types.
+pub(crate) struct NameRoutes {
+    sites: BTreeSet<(String, i64, i64)>,
+    macro_shadow: bool,
+}
+
+impl NameRoutes {
+    pub(crate) fn of(builder: &Builder, macro_shadow: bool) -> Self {
+        let sites = builder.imports.iter().filter_map(|record| {
+            let (ImportFact::Import(data) | ImportFact::Reexport(data)) = &record.data else {
+                return None;
+            };
+            if !data.symbols_known || data.route_complete == Some(false) || data.symbol.is_none() {
+                return None;
+            }
+            let [id] = &record.evidence_ids[..] else {
+                return None;
+            };
+            let site = builder.evidence.get(EvidenceId::as_str(id))?;
+            Some((site.file.clone(), site.line, site.column))
+        });
+        Self {
+            sites: sites.collect(),
+            macro_shadow,
+        }
+    }
+
+    pub(crate) fn covers(&self, index: &Index<'_>, frame: &Frame<'_>, path: &Reference) -> bool {
+        let [receiver, _] = path.names.as_slice() else {
+            return false;
+        };
+        let [leaf] = frame.bound(receiver) else {
+            return false;
+        };
+        let module = frame.module;
+        let site = (path.site.line, path.site.column);
+        !path.absolute
+            && path.in_macro.is_none()
+            && matches!(path.via, Via::Path)
+            && !module.scan.generic_paths.contains(&site)
+            && !module.scan.body_macros
+            && !module.scan.module_macros
+            && !(module.scan.placed_macros && self.macro_shadow)
+            && (!module.gated || module.gates.is_some())
+            && module.scan.counts.get(receiver) == Some(&1)
+            && !module.scan.conditional_bindings.contains(receiver)
+            && matches!(leaf.via, Via::Use { block: false, .. })
+            && !leaf.absolute
+            && frame.lexical_at(&path.scope) == frame.lexical_at(&leaf.scope)
+            && self
+                .sites
+                .contains(&(module.rel.clone(), leaf.site.line, leaf.site.column))
+            && matches!(
+                index.type_of(frame, &path.scope, std::slice::from_ref(receiver)),
+                TypeOf::Known(..)
+            )
+    }
+}
+
+/// A member of an inherent `impl` block: foreign when outside the file of its type, else owned.
+pub(crate) struct Foreign<'a> {
+    pub(crate) module: &'a Module,
+    /// The lexical module of the block.
+    pub(crate) lexical: String,
+    pub(crate) ty: TypeOf,
+    pub(crate) member: &'a Member,
+    /// The block has only inert attributes and no type parameter (`ImplBlock::exact`).
+    pub(crate) exact: bool,
+}
+
+/// Whether a call at `at` in `caller` can reach the member (`pub(in path)` counts as the crate).
+pub(crate) fn visible(
+    workspace: &Workspace,
+    (caller, at): (&Module, &str),
+    call: &MethodCall,
+    member: &Foreign<'_>,
+) -> bool {
+    let arity = call.arity.is_none_or(|count| count == member.member.arity);
+    if !(call.path || member.member.receiver && arity) {
+        return false;
+    }
+    let same_crate = caller.crate_index == member.module.crate_index;
+    match &member.member.access {
+        // A private member is visible in its module and below it (#1571).
+        Access::Private => same_crate && inside(at, &member.lexical),
+        Access::Package(text) if text == "pub(super)" => {
+            let parent = member.lexical.rsplit_once('.').map_or("", |(up, _)| up);
+            inside(at, parent)
+        }
+        Access::Package(_) => same_crate,
+        Access::Public => same_crate || depends(workspace, caller, member.module),
+    }
+}
+
+/// Whether the written type of a path `T::m` can name the type of a member of the file of its type.
+pub(crate) fn names_type(
+    caller: &Module,
+    call: &MethodCall,
+    ty: &TypeOf,
+    aliases: &BTreeSet<&str>,
+) -> bool {
+    let (Some(owner), TypeOf::Known(_, name)) = (&call.owner, ty) else {
+        return true;
+    };
+    *owner == *name
+        || aliases.contains(String::as_str(owner))
+        || caller.scan.body_macros
+        || caller.scan.module_macros
+}
+
+/// Dot-prefix module ancestors indexed by `Builder` interned id (#1942).
+pub(crate) fn build_ancestors(builder: &Builder) -> Vec<Vec<u32>> {
+    let count = builder.interned_count();
+    let mut table = Vec::with_capacity(count);
+    for raw in 0..count {
+        let id = u32::try_from(raw).unwrap_or(u32::MAX);
+        let mut parents = Vec::new();
+        let mut rest = builder.interned_text(id);
+        while let Some((prefix, _)) = rest.rsplit_once('.') {
+            if let Some(parent) = builder.find_text(prefix) {
+                parents.push(parent);
+            }
+            rest = prefix;
+        }
+        table.push(parents);
+    }
+    table
+}
+
+/// Compact bitset indexed by interned `u32` module identifiers (#1942).
+pub(crate) struct BitSet {
+    pub(crate) words: Vec<u64>,
+}
+
+impl BitSet {
+    pub(crate) fn new(bits: usize) -> Self {
+        Self {
+            words: vec![0; bits.div_ceil(64)],
+        }
+    }
+
+    pub(crate) fn set(&mut self, id: u32) -> bool {
+        let index = usize::try_from(id).unwrap_or(usize::MAX);
+        let Some(word) = self.words.get_mut(index / 64) else {
+            return false;
+        };
+        let mask = 1u64 << (index % 64);
+        let fresh = (*word & mask) == 0;
+        *word |= mask;
+        fresh
+    }
+
+    pub(crate) fn has_bit(&self, id: u32) -> bool {
+        let index = usize::try_from(id).unwrap_or(usize::MAX);
+        self.words
+            .get(index / 64)
+            .is_some_and(|word| (*word & (1u64 << (index % 64))) != 0)
+    }
+
+    pub(crate) fn has_bits(&self) -> bool {
+        self.words.iter().any(|&word| word != 0)
+    }
 }
