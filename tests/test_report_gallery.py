@@ -471,3 +471,24 @@ def test_the_self_check_row_shows_the_real_gap_count_of_all_parts() -> None:
     assert "<td>5 collection gaps (Core 3, Shell 2)</td>" in page
     one = report_gallery_page.index([], "sha", "now", [_part("Core", 0), _part("Shell", 1)])
     assert "<td>1 collection gap (Shell 1)</td>" in one
+
+
+def test_the_gallery_stages_reports_outside_the_output_dir_during_scans(tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    probe = tmp_path / "probe.py"
+    probe.write_text(
+        f"from pathlib import Path\nassert not list(Path({str(out)!r}).rglob('*.html'))\n"
+        + (STUB % str(report_gallery.ROOT))
+    )
+    matrix = _matrix(tmp_path / "m.json", [_run("served-one", "served-one")])
+    code = report_gallery.main(
+        [
+            "--out",
+            str(out),
+            "--matrix",
+            str(matrix),
+            "--archkeel",
+            f"{shlex.quote(sys.executable)} {shlex.quote(str(probe))}",
+        ]
+    )
+    assert code == 0 and (out / "index.html").is_file()
