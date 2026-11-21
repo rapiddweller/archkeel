@@ -349,11 +349,14 @@ def _store_resolution(
     if artifact.manifest_sha256 is not None:
         arguments += (str(artifact.manifest),)
     with tempfile.TemporaryFile(mode="w+b") as output:
+        stderr: list[bytes] = []
         _, status = exchange(
-            str(worker), "scip-evidence", request, arguments=arguments, output=output
+            str(worker), "scip-evidence", request, stderr, arguments=arguments, output=output
         )
         if status:
-            raise CoreError(f"the SCIP evidence worker failed (exit {status})")
+            detail = stderr[0][-2000:].decode("utf-8", errors="replace").strip()
+            message = f"the SCIP evidence worker failed (exit {status})"
+            raise CoreError(f"{message}: {detail}" if detail else message)
         _write_rows(connection, output, artifact, digests, pending, declarations, locations)
     connection.execute(
         "INSERT INTO scip_artifact VALUES (?, ?)", (artifact.index_sha256, artifact.manifest_sha256)

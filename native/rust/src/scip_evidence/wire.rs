@@ -74,6 +74,10 @@ pub(super) enum Field<'a> {
 
 pub(super) fn field<'a>(input: &mut &'a [u8]) -> Result<(u64, Field<'a>)> {
     let tag = number(input)?;
+    let field_number = tag >> 3;
+    if field_number == 0 {
+        return Err("invalid SCIP field number".to_owned());
+    }
     let value = match tag & 7 {
         0 => Field::Number(number(input)?),
         2 => {
@@ -92,10 +96,7 @@ pub(super) fn field<'a>(input: &mut &'a [u8]) -> Result<(u64, Field<'a>)> {
         }
         _ => return Err("invalid SCIP wire type".to_owned()),
     };
-    if tag >> 3 == 0 {
-        return Err("invalid SCIP field number".to_owned());
-    }
-    Ok((tag >> 3, value))
+    Ok((field_number, value))
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -213,6 +214,16 @@ mod tests {
         assert_eq!(typed.range, parsed.range);
         assert!(occurrence(&[10, 3, 1, 3, 9, 66, 0]).is_err());
         assert!(occurrence(&[10, 3, 1, 9, 3]).is_err());
+    }
+
+    #[test]
+    fn refuses_field_zero_inside_typed_ranges() {
+        for tag in [66, 74] {
+            let error = occurrence(&[tag, 2, 0, 0])
+                .err()
+                .expect("position field zero is invalid");
+            assert_eq!(error, "invalid SCIP field number");
+        }
     }
 
     #[test]

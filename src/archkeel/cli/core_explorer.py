@@ -176,15 +176,14 @@ def _cache_location(root: Path, snapshot: SnapshotIdentity) -> Path:
     return cache_path(cache, root, snapshot)
 
 
-def launch(
+def _prepare_snapshot(
     options: Options,
-    mode: OutputMode,
     project: ProjectRoot,
     binary: Path,
     scan: Callable[[ProjectRoot], tuple[bytes, CoreFrame]],
-    render_report: Callable[[], tuple[str, tuple[str, bytes]]] | None,
-) -> int:
-    """Use a matching snapshot or publish a new one, then start the local Explorer."""
+    *,
+    observed: bool,
+) -> tuple[Path, SnapshotIdentity, ScipIndex | None]:
     snapshot, digests = _fingerprint(project, binary)
     scip, snapshot = _bind_artifact(options.scip_index, snapshot)
     path = _cache_location(project.path, snapshot)
@@ -198,9 +197,29 @@ def launch(
                     snapshot,
                     digests,
                     scan,
-                    observed=render_report is None,
+                    observed=observed,
                     scip=scip,
                 )
+    return path, snapshot, scip
+
+
+def launch(
+    options: Options,
+    mode: OutputMode,
+    project: ProjectRoot,
+    binary: Path,
+    scan: Callable[[ProjectRoot], tuple[bytes, CoreFrame]],
+    render_report: Callable[[], tuple[str, tuple[str, bytes]]] | None,
+) -> int:
+    """Use a matching snapshot or publish a new one, then start the local Explorer."""
+    try:
+        path, snapshot, scip = _prepare_snapshot(
+            options, project, binary, scan, observed=render_report is None
+        )
+    except KeyboardInterrupt:
+        if options.scip_index is None:
+            raise
+        return 130
 
     def confirm_snapshot() -> None:
         if _current_identity(project, binary, scip) != snapshot:

@@ -5,12 +5,14 @@
 
 import hashlib
 import json
+import signal
 import sqlite3
 from pathlib import Path
 
 import pytest
+from corpus_support import commit_tree
 
-from archkeel.cli import core_explorer_scip
+from archkeel.cli import core_explorer_http, core_explorer_scip, core_only
 from archkeel.cli.core_arguments import parse
 from archkeel.cli.core_json import CoreError
 from archkeel.explorer_queries import Row, populate, query
@@ -130,7 +132,7 @@ def test_scip_stores_pointwise_evidence_without_an_explorer_overlay(
         dict(call_id="macro", status="unresolved", provenance="ast_exact", reason="macro_call"),
     ]
 
-    def exchange(worker, operation, payload, *, arguments, output):
+    def exchange(worker, operation, payload, _stderr, *, arguments, output):
         assert worker.endswith("archkeel-rust-collector")
         assert operation == "scip-evidence"
         assert arguments == (str(tmp_path), str(path)) + ((str(sidecar),) if manifest else ())
@@ -216,3 +218,151 @@ def test_scip_stores_pointwise_evidence_without_an_explorer_overlay(
     assert core_explorer_scip.ScipIndex.read(path).bind(baseline).key() != identity.key()
     with pytest.raises(CoreError, match="changed"):
         artifact.confirm()
+
+
+def _varint(value: int) -> bytes:
+    encoded = bytearray()
+    while value > 127:
+        encoded.append((value & 127) | 128)
+        value >>= 7
+    encoded.append(value)
+    return bytes(encoded)
+
+
+def _bytes(field: int, value: bytes) -> bytes:
+    return _varint(field << 3 | 2) + _varint(len(value)) + value
+
+
+def _scip(source: bytes, *, malformed: bool = False, with_text: bool = True) -> bytes:
+    definition = b"rust-analyzer cargo app 0.1.0 Thing#get()."
+    document = _bytes(1, b"src/lib.rs") + b"\x30\x01"
+    if with_text:
+        document += _bytes(5, source)
+    for line, text in enumerate(source.splitlines()):
+        if b"get(" not in text:
+            continue
+        start = text.index(b"get(")
+        roles = b"\x18\x01" if b"fn get" in text else b""
+        position = _bytes(1, bytes([line, start, start + 3]))
+        if malformed:
+            position = _bytes(8, b"\x00\x00")
+        document += _bytes(2, position + _bytes(2, definition) + roles)
+    return _bytes(2, document)
+
+
+@pytest.fixture
+def scip_project(tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch):
+    root = tmp_path / "project"
+    (root / "src").mkdir(parents=True)
+    source = root / "src" / "lib.rs"
+    source.write_text(
+        "pub struct Thing;\n"
+        "impl Thing { fn get(&self) -> usize { 1 } }\n"
+        "pub fn read(value: &Thing) -> usize { value.get() }\n",
+        encoding="utf-8",
+    )
+    (root / "Cargo.toml").write_text('[package]\nname = "app"\nversion = "0.1.0"\n')
+    commit_tree(root)
+    cache = tmp_path / "cache"
+    artifact = tmp_path / "example.scip"
+    monkeypatch.setenv("XDG_CACHE_HOME", str(cache))
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    monkeypatch.setattr(core_explorer_http._ExplorerServer, "serve_forever", lambda self: None)
+    return source, artifact, cache
+
+
+def _run_explore(source: Path, artifact: Path | None = None) -> int:
+    args = ["explore", "--root", str(source.parent.parent), "--no-open", "--json"]
+    if artifact is not None:
+        args.extend(("--scip", str(artifact)))
+    return core_only.run(args)
+
+
+@pytest.mark.parametrize("with_manifest", [False, True])
+def test_real_scip_worker_publishes_current_and_refuses_stale_source(
+    scip_project, capsys: pytest.CaptureFixture[str], with_manifest: bool
+):
+    source, artifact, cache = scip_project
+    assert _run_explore(source) == 0
+    no_index = json.loads(capsys.readouterr().out)
+    data = _scip(source.read_bytes(), with_text=not with_manifest)
+    artifact.write_bytes(data)
+    if with_manifest:
+        artifact.with_name(artifact.name + ".manifest.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "index_sha256": hashlib.sha256(data).hexdigest(),
+                    "files": {"src/lib.rs": hashlib.sha256(source.read_bytes()).hexdigest()},
+                }
+            )
+        )
+    assert _run_explore(source, artifact) == 0
+    indexed = json.loads(capsys.readouterr().out)
+    assert indexed["snapshot"] != no_index["snapshot"]
+    with sqlite3.connect(indexed["snapshot"]) as db:
+        assert db.execute(
+            "SELECT status, provenance, dispatch_kind FROM call_resolution"
+        ).fetchall() == [("local_resolved", "scip_verified", "direct")]
+        target = db.execute(
+            "SELECT canonical_target_definition_id FROM call_resolution"
+        ).fetchone()[0]
+        assert db.execute(
+            "SELECT 1 FROM element WHERE id=?", (f"definition:{target}",)
+        ).fetchone() == (1,)
+    with sqlite3.connect(no_index["snapshot"]) as db:
+        assert (
+            db.execute("SELECT name FROM sqlite_schema WHERE name='call_resolution'").fetchone()
+            is None
+        )
+    before = sorted(cache.rglob("*.sqlite3"))
+    source.write_bytes(source.read_bytes().replace(b"{ 1 }", b"{ 2 }"))
+    assert _run_explore(source, artifact) == 2
+    refusal = "stale SCIP source" if with_manifest else "SCIP document text differs from source"
+    assert refusal in capsys.readouterr().out
+    assert sorted(cache.rglob("*.sqlite3")) == before
+    assert not list(cache.rglob(".building.sqlite3"))
+
+
+@pytest.mark.parametrize("malformed", [False, True])
+def test_real_scip_worker_refuses_unbound_or_malformed_document(
+    scip_project, capsys: pytest.CaptureFixture[str], malformed: bool
+):
+    source, artifact, cache = scip_project
+    artifact.write_bytes(_scip(source.read_bytes(), malformed=malformed, with_text=malformed))
+    assert _run_explore(source, artifact) == 2
+    refusal = capsys.readouterr()
+    expected = "invalid SCIP field number" if malformed else "unbound or stale SCIP document"
+    assert expected in refusal.out
+    assert "panicked" not in refusal.out + refusal.err
+    assert not list(cache.rglob("*.sqlite3"))
+
+
+@pytest.mark.parametrize("interrupt", [False, True])
+def test_real_scip_staging_rolls_back_on_signal_or_mid_launch_edit(
+    scip_project,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    interrupt: bool,
+):
+    source, artifact, cache = scip_project
+    artifact.write_bytes(_scip(source.read_bytes()))
+    exchange = core_explorer_scip.exchange
+
+    def after_worker(*args, **kwargs):
+        result = exchange(*args, **kwargs)
+        assert result == (b"", 0)
+        assert len(list(cache.rglob(".building.sqlite3"))) == 1
+        if interrupt:
+            signal.raise_signal(signal.SIGINT)
+        source.write_bytes(source.read_bytes().replace(b"{ 1 }", b"{ 2 }"))
+        return result
+
+    monkeypatch.setattr(core_explorer_scip, "exchange", after_worker)
+    assert _run_explore(source, artifact) == (130 if interrupt else 2)
+    result = capsys.readouterr()
+    if interrupt:
+        assert not result.out and "Traceback" not in result.err
+    else:
+        assert "the project changed during the Explorer scan" in result.out
+    assert not list(cache.rglob("*.sqlite3"))
