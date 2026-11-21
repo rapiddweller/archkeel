@@ -42,7 +42,17 @@ _ROUTES = {
     "/explorer.css": ("explorer.css", "text/css; charset=utf-8"),
 }
 _OPERATIONS = frozenset(
-    {"overview", "children", "search", "relations", "evidence", "source", "story", "map"}
+    {
+        "overview",
+        "children",
+        "search",
+        "relations",
+        "evidence",
+        "source",
+        "story",
+        "map",
+        "call_resolution",
+    }
 )
 _CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; font-src data:; "

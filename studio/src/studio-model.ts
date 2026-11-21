@@ -63,3 +63,43 @@ export interface MapResponse {
   scope_truncated?: boolean;
   edges_truncated?: boolean;
 }
+
+export interface CallResolutionArtifact {
+  language: string;
+  index_sha256: string;
+  manifest_sha256: string | null;
+}
+
+export interface CallResolutionCount {
+  language: string;
+  status: string;
+  provenance: string | null;
+  reason: string | null;
+  count: number;
+}
+
+export interface CallResolutionItem {
+  call_id: string;
+  relation_id: string;
+  language: string;
+  status: string;
+  provenance: string | null;
+  reason: string | null;
+  canonical_target_definition_id: string | null;
+  target_element_id: string | null;
+  dispatch_kind: string | null;
+  declaration_path: string | null;
+  declaration_line: number | null;
+  crate_name: string | null;
+  crate_version: string | null;
+  symbol_path: string | null;
+  reference: { path: string; start_line: number; start_column: number; end_line: number; end_column: number } | null;
+}
+
+export interface CallResolutionResponse {
+  available: boolean;
+  artifacts: CallResolutionArtifact[];
+  counts: CallResolutionCount[];
+  items: CallResolutionItem[];
+  next_cursor: string | null;
+}

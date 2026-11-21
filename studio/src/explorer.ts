@@ -1,5 +1,5 @@
 import { api, type Page } from "./studio-api.js";
-import type { StudioCoverage, StudioItem, StudioEdge } from "./studio-model.js";
+import type { CallResolutionCount, CallResolutionItem, CallResolutionResponse, StudioCoverage, StudioItem, StudioEdge } from "./studio-model.js";
 import { state, system, known } from "./studio-state.js";
 import { breakPath, get, element, button, canvas, cards, details, viewport, notice, showError } from "./studio-dom.js";
 import { showScope, changePage } from "./explorer-navigation.js";
@@ -182,6 +182,30 @@ export async function select(item: StudioItem) {
     details.append(element("p", unresolved.title), button("Inspect unlinked calls", () => openCalls(), "detail-btn"));
   }
   else if (!callsUnavailable && Number.isInteger(item.recorded_calls)) details.append(element("p", item.recorded_calls ? item.recorded_calls.toLocaleString() + " calls have a resolved target." : "No call sites recorded in this scope.", "meta"));
+  const scipSlot = element("div", "");
+  details.append(scipSlot);
+  if (!callsUnavailable && (!item.language || item.language === "rust")) {
+    void loadScipSummary(item, request, scipSlot, openScip);
+  }
+  async function openScip(cursor = "") {
+    const result = await api<CallResolutionResponse>("call_resolution", { element: item.id, cursor, limit: 30 });
+    if (state.request !== request) return;
+    if (!cursor) {
+      selectionHeading(item.name, "SCIP call evidence · separate from native AST");
+      if (result.counts.length) details.append(element("p", formatScipCounts(result.counts), "meta"));
+    }
+    for (const entry of result.items) {
+      const card = element("div", "", "detail-btn call-site");
+      card.append(element("strong", scipEntryTitle(entry)));
+      const detail = scipEntryDetail(entry);
+      if (detail) card.append(breakPath(element("span", "", "meta"), detail));
+      details.append(card);
+    }
+    if (result.next_cursor) {
+      const more = button("More SCIP call evidence", () => { more.remove(); return openScip(result.next_cursor!); }, "detail-btn");
+      details.append(more);
+    }
+  }
   async function openCalls(cursor = "") {
     const result = await api<Page<StudioEdge>>("relations", {element: item.id, scope: "unlinked_calls", cursor, limit: 30});
     if (state.request !== request) return;
@@ -225,6 +249,61 @@ export async function select(item: StudioItem) {
   }
   await load();
 }
+function formatScipCounts(counts: CallResolutionCount[]): string {
+  const totals: Record<string, number> = {};
+  for (const row of counts) totals[row.status] = (totals[row.status] ?? 0) + row.count;
+  const parts: string[] = [];
+  for (const [key, label] of [
+    ["local_resolved", "local"],
+    ["external_std", "stdlib"],
+    ["external_dep", "external crates"],
+    ["unresolved", "open"],
+  ] as const) {
+    if (totals[key]) parts.push(totals[key].toLocaleString() + " " + label);
+  }
+  return "SCIP call evidence (separate from native AST): " + parts.join(" · ");
+}
+
+function scipEntryTitle(entry: CallResolutionItem): string {
+  const origin = entry.provenance ? " · " + entry.provenance : "";
+  if (entry.status === "local_resolved") {
+    return "Local (" + (entry.dispatch_kind ?? "direct") + ")" + origin;
+  }
+  if (entry.status === "external_std" || entry.status === "external_dep") {
+    const version = entry.crate_version ? " " + entry.crate_version : "";
+    return (entry.crate_name ?? entry.status) + version + " · " + (entry.symbol_path ?? "");
+  }
+  return "Open (" + (entry.reason ?? "unresolved") + ")" + origin;
+}
+
+function scipEntryDetail(entry: CallResolutionItem): string {
+  if (entry.declaration_path && entry.declaration_line) {
+    return "Target: " + entry.declaration_path + ":" + entry.declaration_line;
+  }
+  if (entry.reference) {
+    return entry.reference.path + ":" + (entry.reference.start_line + 1);
+  }
+  return entry.call_id;
+}
+
+async function loadScipSummary(
+  item: StudioItem,
+  request: number,
+  slot: HTMLElement,
+  openScip: () => Promise<void>,
+) {
+  try {
+    const summary = await api<CallResolutionResponse>("call_resolution", { element: item.id, limit: 1 });
+    if (state.request !== request || !summary.available || !summary.counts.length) return;
+    slot.append(
+      element("p", formatScipCounts(summary.counts), "meta"),
+      button("Inspect SCIP call evidence", () => openScip(), "detail-btn"),
+    );
+  } catch {
+    // Optional SCIP evidence must never disrupt the native inspector.
+  }
+}
+
 export async function showAggregates(edges: StudioEdge[], title: string) {
   const request = ++state.request;
   inspector(true);

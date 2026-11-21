@@ -187,6 +187,33 @@ export async function select(item) {
     }
     else if (!callsUnavailable && Number.isInteger(item.recorded_calls))
         details.append(element("p", item.recorded_calls ? item.recorded_calls.toLocaleString() + " calls have a resolved target." : "No call sites recorded in this scope.", "meta"));
+    const scipSlot = element("div", "");
+    details.append(scipSlot);
+    if (!callsUnavailable && (!item.language || item.language === "rust")) {
+        void loadScipSummary(item, request, scipSlot, openScip);
+    }
+    async function openScip(cursor = "") {
+        const result = await api("call_resolution", { element: item.id, cursor, limit: 30 });
+        if (state.request !== request)
+            return;
+        if (!cursor) {
+            selectionHeading(item.name, "SCIP call evidence · separate from native AST");
+            if (result.counts.length)
+                details.append(element("p", formatScipCounts(result.counts), "meta"));
+        }
+        for (const entry of result.items) {
+            const card = element("div", "", "detail-btn call-site");
+            card.append(element("strong", scipEntryTitle(entry)));
+            const detail = scipEntryDetail(entry);
+            if (detail)
+                card.append(breakPath(element("span", "", "meta"), detail));
+            details.append(card);
+        }
+        if (result.next_cursor) {
+            const more = button("More SCIP call evidence", () => { more.remove(); return openScip(result.next_cursor); }, "detail-btn");
+            details.append(more);
+        }
+    }
     async function openCalls(cursor = "") {
         const result = await api("relations", { element: item.id, scope: "unlinked_calls", cursor, limit: 30 });
         if (state.request !== request)
@@ -237,6 +264,53 @@ export async function select(item) {
         }
     }
     await load();
+}
+function formatScipCounts(counts) {
+    const totals = {};
+    for (const row of counts)
+        totals[row.status] = (totals[row.status] ?? 0) + row.count;
+    const parts = [];
+    for (const [key, label] of [
+        ["local_resolved", "local"],
+        ["external_std", "stdlib"],
+        ["external_dep", "external crates"],
+        ["unresolved", "open"],
+    ]) {
+        if (totals[key])
+            parts.push(totals[key].toLocaleString() + " " + label);
+    }
+    return "SCIP call evidence (separate from native AST): " + parts.join(" · ");
+}
+function scipEntryTitle(entry) {
+    const origin = entry.provenance ? " · " + entry.provenance : "";
+    if (entry.status === "local_resolved") {
+        return "Local (" + (entry.dispatch_kind ?? "direct") + ")" + origin;
+    }
+    if (entry.status === "external_std" || entry.status === "external_dep") {
+        const version = entry.crate_version ? " " + entry.crate_version : "";
+        return (entry.crate_name ?? entry.status) + version + " · " + (entry.symbol_path ?? "");
+    }
+    return "Open (" + (entry.reason ?? "unresolved") + ")" + origin;
+}
+function scipEntryDetail(entry) {
+    if (entry.declaration_path && entry.declaration_line) {
+        return "Target: " + entry.declaration_path + ":" + entry.declaration_line;
+    }
+    if (entry.reference) {
+        return entry.reference.path + ":" + (entry.reference.start_line + 1);
+    }
+    return entry.call_id;
+}
+async function loadScipSummary(item, request, slot, openScip) {
+    try {
+        const summary = await api("call_resolution", { element: item.id, limit: 1 });
+        if (state.request !== request || !summary.available || !summary.counts.length)
+            return;
+        slot.append(element("p", formatScipCounts(summary.counts), "meta"), button("Inspect SCIP call evidence", () => openScip(), "detail-btn"));
+    }
+    catch {
+        // Optional SCIP evidence must never disrupt the native inspector.
+    }
 }
 export async function showAggregates(edges, title) {
     const request = ++state.request;

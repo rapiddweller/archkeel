@@ -13,7 +13,14 @@ from pathlib import Path
 from .explorer_boundaries import boundary_rows
 from .explorer_hierarchy import _element_status
 from .explorer_map import _aggregate_relations, _call_scope, _map_search, _map_view, _open_targets
-from .explorer_source import _number, _relation_evidence, _source, _source_path, _text
+from .explorer_source import (
+    _call_resolution,
+    _number,
+    _relation_evidence,
+    _source,
+    _source_path,
+    _text,
+)
 from .explorer_store import open_snapshot
 from .explorer_symbols import _symbol_rows
 
@@ -387,6 +394,8 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
             return result | _source(db, root, args)
         if operation == "evidence":
             return result | _relation_evidence(db, args)
+        if operation == "call_resolution":
+            return result | _call_resolution(db, args, _call_scope, _element_status)
         if operation == "story":
             row = db.execute(
                 "SELECT body FROM relation WHERE id=? AND kind='call'", (_text(args, "id"),)

@@ -84,7 +84,40 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
         """Read checked story steps and their coverage."""
         return query(path, root, "story", {"id": id})
 
-    for operation in (overview, map, children, search, relations, evidence, source, story):
+    def call_resolution(
+        element: str = "",
+        status: str = "",
+        provenance: str = "",
+        call_id: str = "",
+        cursor: str = "",
+        limit: int = 50,
+    ) -> Row:
+        """Read separate SCIP call resolution counts and rows without altering native calls."""
+        return query(
+            path,
+            root,
+            "call_resolution",
+            {
+                "element": element,
+                "status": status,
+                "provenance": provenance,
+                "call_id": call_id,
+                "cursor": cursor,
+                "limit": limit,
+            },
+        )
+
+    for operation in (
+        overview,
+        map,
+        children,
+        search,
+        relations,
+        evidence,
+        source,
+        story,
+        call_resolution,
+    ):
         server.tool(operation)
 
 
