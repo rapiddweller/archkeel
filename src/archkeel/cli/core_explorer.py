@@ -32,8 +32,8 @@ from .core_explorer_identity import _file_digest, _fingerprint
 from .core_explorer_scip import (
     ScipIndex,
     ScipLoadError,
+    _discover_rust_index,
     _store_resolution,
-    discover_rust_index,
 )
 from .core_frame import CoreError, CoreFrame, GapKind
 from .core_json import as_object, as_text
@@ -181,7 +181,7 @@ def _resolve_scip(
         return artifact, bound, True
     if options.no_scip:
         return None, snapshot, False
-    discovered = discover_rust_index(root)
+    discovered = _discover_rust_index(root)
     if discovered is None:
         return None, snapshot, False
     try:
@@ -263,7 +263,7 @@ def launch(
 ) -> int:
     """Use a matching snapshot or publish a new one, then start the local Explorer."""
     scip_possible = options.scip_index is not None or (
-        not options.no_scip and discover_rust_index(project.path) is not None
+        not options.no_scip and _discover_rust_index(project.path) is not None
     )
     try:
         path, snapshot, scip = _prepare_snapshot(

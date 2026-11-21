@@ -430,3 +430,24 @@ def test_explore_auto_discovers_project_scip_and_falls_back_when_stale(
     assert _run_explore(source, discovered) == 2
     refusal = "stale SCIP source" if with_manifest else "SCIP document text differs from source"
     assert refusal in capsys.readouterr().out
+
+
+def test_auto_discovery_does_not_swallow_worker_infrastructure_failure(
+    scip_project, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+):
+    source, _artifact, cache = scip_project
+    root = source.parent.parent
+    discovered = root / core_explorer_scip.DEFAULT_RUST_SCIP
+    discovered.parent.mkdir(parents=True)
+    discovered.write_bytes(_scip(source.read_bytes()))
+
+    def crashed_worker(_worker, _op, _req, stderr, **_kwargs):
+        stderr.append(b"segmentation fault")
+        return b"", 139
+
+    monkeypatch.setattr(core_explorer_scip, "exchange", crashed_worker)
+    assert _run_explore(source) == 2
+    captured = capsys.readouterr()
+    assert "worker failed (exit 139)" in captured.out
+    assert "using native scan" not in captured.err
+    assert not list(cache.rglob("*.sqlite3"))

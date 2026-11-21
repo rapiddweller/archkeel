@@ -60,7 +60,7 @@ class ScipLoadError(CoreError):
     """Raised when a SCIP artifact is unusable, stale, or incompatible with the scan."""
 
 
-def discover_rust_index(root: Path) -> Path | None:
+def _discover_rust_index(root: Path) -> Path | None:
     """Return the conventional Rust SCIP index under `.archkeel/scip/` without crossing symlinks."""
     current = root
     for segment in DEFAULT_RUST_SCIP.parts[:-1]:
@@ -155,7 +155,7 @@ def _inputs(topology: Row) -> tuple[list[Row], list[Row], Row]:
     locations = as_object(topology.get("locations"), "locations")
     parts = [p for p in _rows(topology.get("explorer"), "parts") if p.get("language") == "rust"]
     if not parts or all(part.get("calls") is None for part in parts):
-        raise CoreError("SCIP evidence requires a Rust Explorer scan with call records")
+        raise ScipLoadError("SCIP evidence requires a Rust Explorer scan with call records")
     calls: list[Row] = []
     definitions: list[Row] = []
     for part in parts:
@@ -343,10 +343,10 @@ def _write_rows(
         artifact.index_sha256,
         artifact.manifest_sha256,
     ):
-        raise CoreError("the SCIP worker read a different index or manifest")
+        raise ScipLoadError("the SCIP worker read a different index or manifest")
     files = as_texts(header.get("source_files"), "SCIP verified source files")
     if any(len(digest) != 64 or digests.get(path) != digest for path, digest in files.items()):
-        raise CoreError("the SCIP files differ from the Explorer source fingerprint")
+        raise ScipLoadError("the SCIP files differ from the Explorer source fingerprint")
     pending = {as_text(call["id"], "call ID"): as_text(call["path"], "call path") for call in calls}
     while (row := _read_record(output, _ROW_LIMIT, "binding")) is not None:
         call = as_text(row.get("call_id"), "SCIP call ID")
@@ -369,46 +369,47 @@ def _store_resolution(
     digests: dict[str, str],
     topology: Row,
 ) -> None:
-    try:
-        for statement in _SCHEMA[:2]:
-            connection.execute(statement)
-        calls, definitions, locations = _inputs(topology)
-        declarations = {
-            as_text(row["id"], "definition ID"): as_text(row["evidence_id"], "definition evidence")
-            for row in definitions
-        }
-        pending, paths = _native_calls(connection, calls, declarations, locations)
-        request = json.dumps(
-            dict(
-                calls=pending,
-                definitions=definitions,
-                local_packages=_packages(root, paths, digests),
-            )
-        ).encode()
-        if len(request) > _REQUEST_LIMIT:
-            raise CoreError("the SCIP evidence request exceeds the 16 MiB limit")
-        confirm(binary)
-        worker, _ = collector_workers(binary)
-        arguments: tuple[str, ...] = (str(root), str(artifact.path))
-        if artifact.manifest_sha256 is not None:
-            arguments += (str(artifact.manifest),)
-        with tempfile.TemporaryFile(mode="w+b") as output:
-            stderr: list[bytes] = []
-            _, status = exchange(
-                str(worker), "scip-evidence", request, stderr, arguments=arguments, output=output
-            )
-            if status:
-                detail = stderr[0][-2000:].decode("utf-8", errors="replace").strip()
-                message = f"the SCIP evidence worker failed (exit {status})"
-                raise CoreError(f"{message}: {detail}" if detail else message)
-            _write_rows(connection, output, artifact, digests, pending, declarations, locations)
-        connection.execute(
-            "INSERT INTO scip_artifact(language, index_sha256, manifest_sha256) "
-            "VALUES ('rust', ?, ?)",
-            (artifact.index_sha256, artifact.manifest_sha256),
+    for statement in _SCHEMA[:2]:
+        connection.execute(statement)
+    calls, definitions, locations = _inputs(topology)
+    declarations = {
+        as_text(row["id"], "definition ID"): as_text(row["evidence_id"], "definition evidence")
+        for row in definitions
+    }
+    pending, paths = _native_calls(connection, calls, declarations, locations)
+    request = json.dumps(
+        dict(
+            calls=pending,
+            definitions=definitions,
+            local_packages=_packages(root, paths, digests),
         )
-        connection.execute(_SCHEMA[2])
-    except CoreError as error:
-        if isinstance(error, ScipLoadError):
-            raise
-        raise ScipLoadError(str(error)) from error
+    ).encode()
+    if len(request) > _REQUEST_LIMIT:
+        raise CoreError("the SCIP evidence request exceeds the 16 MiB limit")
+    confirm(binary)
+    worker, _ = collector_workers(binary)
+    arguments: tuple[str, ...] = (str(root), str(artifact.path))
+    if artifact.manifest_sha256 is not None:
+        arguments += (str(artifact.manifest),)
+    with tempfile.TemporaryFile(mode="w+b") as output:
+        stderr: list[bytes] = []
+        _, status = exchange(
+            str(worker), "scip-evidence", request, stderr, arguments=arguments, output=output
+        )
+        if status:
+            detail = (
+                (stderr[0][-2000:] if stderr else b"").decode("utf-8", errors="replace").strip()
+            )
+            message = f"the SCIP evidence worker failed (exit {status})"
+            full = f"{message}: {detail}" if detail else message
+            # Only typed index/content refusals (exit 1 mentioning SCIP) degrade on auto-discovery;
+            # worker crashes or environment failures keep CoreError and fail closed.
+            if status == 1 and "SCIP" in detail:
+                raise ScipLoadError(full)
+            raise CoreError(full)
+        _write_rows(connection, output, artifact, digests, pending, declarations, locations)
+    connection.execute(
+        "INSERT INTO scip_artifact(language, index_sha256, manifest_sha256) VALUES ('rust', ?, ?)",
+        (artifact.index_sha256, artifact.manifest_sha256),
+    )
+    connection.execute(_SCHEMA[2])
