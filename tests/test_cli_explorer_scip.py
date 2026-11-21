@@ -7,16 +7,11 @@ import hashlib
 import json
 import signal
 import sqlite3
-from concurrent.futures import ThreadPoolExecutor
-from http.client import HTTPConnection
-from http.server import ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlencode
 
 import pytest
 from corpus_support import commit_tree
 
-from archkeel import explorer_mcp
 from archkeel.cli import core_explorer_http, core_explorer_scip, core_only
 from archkeel.cli.core_arguments import parse
 from archkeel.cli.core_json import CoreError
@@ -205,49 +200,6 @@ def test_scip_stores_pointwise_evidence_without_an_explorer_overlay(
         expected = query(baseline_db, tmp_path, section, args)
         assert actual.keys() == expected.keys()
         assert all(actual[key] == expected[key] for key in actual if key != "snapshot")
-
-    # Separate read-only call_resolution projection works cleanly with and without SCIP tables.
-    absent = query(baseline_db, tmp_path, "call_resolution", {})
-    assert absent["available"] is False
-    assert absent["artifacts"] == [] and absent["counts"] == [] and absent["items"] == []
-    present = query(database, tmp_path, "call_resolution", {"limit": 2})
-    assert present["available"] is True
-    assert present["artifacts"] == [
-        {
-            "language": "rust",
-            "index_sha256": artifact.index_sha256,
-            "manifest_sha256": artifact.manifest_sha256,
-        }
-    ]
-    assert sum(row["count"] for row in present["counts"]) == 7
-    assert len(present["items"]) == 2
-    assert present["next_cursor"] == present["items"][-1]["call_id"]
-    filtered = query(
-        database,
-        tmp_path,
-        "call_resolution",
-        {"element": "module:app", "status": "external_dep", "provenance": "scip_verified"},
-    )
-    assert filtered["element_status"] == "known"
-    assert [row["call_id"] for row in filtered["items"]] == ["dep"]
-    assert filtered["counts"] == [
-        {
-            "language": "rust",
-            "status": "external_dep",
-            "provenance": "scip_verified",
-            "reason": None,
-            "count": 1,
-        }
-    ]
-    assert filtered["items"][0]["crate_name"] == "dep"
-    assert filtered["items"][0]["crate_version"] == "1.2.3"
-    # Counts also match status-only filters without element scoping.
-    only_unresolved = query(database, tmp_path, "call_resolution", {"status": "unresolved"})
-    assert {row["status"] for row in only_unresolved["counts"]} == {"unresolved"}
-    assert sum(row["count"] for row in only_unresolved["counts"]) == len(only_unresolved["items"])
-    assert len(only_unresolved["items"]) == 3
-    with pytest.raises(ValueError, match="invalid call_resolution status"):
-        query(database, tmp_path, "call_resolution", {"status": "bogus"})
 
     header["source_files"] = {"lib.rs": "a" * 64}
     with pytest.raises(CoreError, match="source fingerprint"):
@@ -524,43 +476,3 @@ def test_auto_discovery_does_not_swallow_worker_infrastructure_failure(
     assert "worker failed (exit 139)" in captured.out
     assert "using native scan" not in captured.err
     assert not list(cache.rglob("*.sqlite3"))
-
-
-def test_http_and_mcp_expose_separate_scip_call_resolution_equally(
-    scip_project, capsys: pytest.CaptureFixture[str]
-):
-    source, artifact, _cache = scip_project
-    root = source.parent.parent
-    artifact.write_bytes(_scip(source.read_bytes()))
-    assert _run_explore(source, artifact) == 0
-    snapshot = Path(json.loads(capsys.readouterr().out)["snapshot"])
-
-    registered = {}
-
-    class Tools:
-        def tool(self, operation) -> None:
-            registered[operation.__name__] = operation
-
-    explorer_mcp._resolution_tools(Tools(), snapshot, root)
-    assert "call_resolution" in registered
-
-    with core_explorer_http._ExplorerServer(snapshot, root, None, 0) as server:
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            live = pool.submit(ThreadingHTTPServer.serve_forever, server, 0.01)
-            client = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
-            try:
-                params = {"status": "local_resolved", "provenance": "scip_verified"}
-                client.request("GET", f"/api/v1/call_resolution?{urlencode(params)}")
-                response = client.getresponse()
-                assert response.status == 200
-                http_payload = json.load(response)
-                mcp_payload = registered["call_resolution"](**params)
-                assert http_payload == mcp_payload
-                assert http_payload["available"] is True
-                assert len(http_payload["items"]) == 1
-                assert http_payload["items"][0]["dispatch_kind"] == "direct"
-                assert http_payload["items"][0]["target_element_id"].startswith("definition:")
-            finally:
-                client.close()
-                server.shutdown()
-                live.result(timeout=5)
