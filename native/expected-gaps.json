@@ -113,16 +113,6 @@
     [
       "collection_gap",
       "native.archkeel_collect",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_collect",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_collect",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
@@ -324,6 +314,11 @@
       "collection_gap",
       "native.archkeel_collect",
       "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_collect",
+      "A trait impl in native.archkeel_facts.pyminor may run in code that reaches native.archkeel_facts.pyminor without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -17833,11 +17828,6 @@
     [
       "collection_gap",
       "native.archkeel_core.scan",
-      "A method call may reach the method with_producer of a type in its own file native.archkeel_model.settings"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.scan",
       "A trait impl in native.archkeel_collect.config may run in code that reaches native.archkeel_collect.config without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -18893,16 +18883,6 @@
     [
       "collection_gap",
       "native.archkeel_core.sections",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.sections",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_model.boundary_judge"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.sections",
       "A method call may reach the method id of a type in its own file native.archkeel_eval.violation"
     ],
     [
@@ -19038,6 +19018,11 @@
     [
       "collection_gap",
       "native.archkeel_core.sections",
+      "A trait impl in native.archkeel_facts.envelope_vocab may run in code that reaches native.archkeel_facts.envelope_vocab without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.sections",
       "A trait impl in native.archkeel_facts.fields may run in code that reaches native.archkeel_facts.fields without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -19089,6 +19074,11 @@
       "collection_gap",
       "native.archkeel_core.sections",
       "A trait impl in native.archkeel_model.boundary_facts may run in code that reaches native.archkeel_model.boundary_facts without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_core.sections",
+      "A trait impl in native.archkeel_model.boundary_judge may run in code that reaches native.archkeel_model.boundary_judge without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -21143,11 +21133,6 @@
     [
       "collection_gap",
       "native.archkeel_core.topology",
-      "A method call may reach the method edges of a type in its own file native.archkeel_model.graph"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_core.topology",
       "A method call may reach the method fan_in of a type in its own file native.archkeel_model.topology"
     ],
     [
@@ -21168,7 +21153,7 @@
     [
       "collection_gap",
       "native.archkeel_core.topology",
-      "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
+      "A method call may reach the method is_empty of a type in its own file native.archkeel_model.ids"
     ],
     [
       "collection_gap",
@@ -53108,11 +53093,6 @@
     [
       "collection_gap",
       "native.archkeel_python_collector.reply",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.reply",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
     ],
     [
@@ -67993,7 +67973,7 @@
     [
       "collection_gap",
       "native.archkeel_report.ruling.explain",
-      "A method call may reach the method contract of a type in its own file native.archkeel_model.model"
+      "A method call may reach the method id of a type in its own file native.archkeel_eval.violation"
     ],
     [
       "collection_gap",
@@ -68029,11 +68009,6 @@
       "collection_gap",
       "native.archkeel_report.ruling.explain",
       "A method call may reach the method pairs of a type in its own file native.archkeel_model.causes"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.ruling.explain",
-      "A method call may reach the method rule of a type in its own file native.archkeel_eval.violation"
     ],
     [
       "collection_gap",
@@ -75633,11 +75608,6 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.reply",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.reply",
       "A method call may reach the method inputs of a type in its own file native.archkeel_snapshot.snapshot"
     ],
     [
@@ -75929,11 +75899,6 @@
       "collection_gap",
       "native.archkeel_rust_collector.routes",
       "A trait impl in native.archkeel_rust_collector.attrs.model may run in code that reaches native.archkeel_rust_collector.attrs.model without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.routes",
-      "A trait impl in native.archkeel_rust_collector.macro_items may run in code that reaches native.archkeel_rust_collector.macro_items without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -82903,57 +82868,7 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.kinds"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.places"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.scan"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.script_index"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.script_refs"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.script_syntax"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.site_types"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.syntax"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.umd"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method new of a type in its own file native.archkeel_typescript_collector.walk"
+      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
     ],
     [
       "collection_gap",
@@ -83068,6 +82983,11 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.kept",
+      "A trait impl in native.archkeel_typescript_collector.kinds may run in code that reaches native.archkeel_typescript_collector.kinds without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.kept",
       "A trait impl in native.archkeel_typescript_collector.layout may run in code that reaches native.archkeel_typescript_collector.layout without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -83088,6 +83008,11 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.kept",
+      "A trait impl in native.archkeel_typescript_collector.scan may run in code that reaches native.archkeel_typescript_collector.scan without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.kept",
       "A trait impl in native.archkeel_typescript_collector.script_declarations may run in code that reaches native.archkeel_typescript_collector.script_declarations without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -83099,6 +83024,11 @@
       "collection_gap",
       "native.archkeel_typescript_collector.kept",
       "A trait impl in native.archkeel_typescript_collector.script_publish may run in code that reaches native.archkeel_typescript_collector.script_publish without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.kept",
+      "A trait impl in native.archkeel_typescript_collector.script_refs may run in code that reaches native.archkeel_typescript_collector.script_refs without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -83123,12 +83053,27 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.kept",
+      "A trait impl in native.archkeel_typescript_collector.site_types may run in code that reaches native.archkeel_typescript_collector.site_types without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.kept",
       "A trait impl in native.archkeel_typescript_collector.source_input may run in code that reaches native.archkeel_typescript_collector.source_input without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
       "native.archkeel_typescript_collector.kept",
       "A trait impl in native.archkeel_typescript_collector.tree.cx may run in code that reaches native.archkeel_typescript_collector.tree.cx without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.kept",
+      "A trait impl in native.archkeel_typescript_collector.umd may run in code that reaches native.archkeel_typescript_collector.umd without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.kept",
+      "A trait impl in native.archkeel_typescript_collector.walk may run in code that reaches native.archkeel_typescript_collector.walk without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -83398,11 +83343,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.parse",
-      "A method call may reach the method finish of a type in its own file native.archkeel_typescript_collector.definitions"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.parse",
       "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
@@ -83414,6 +83354,11 @@
       "collection_gap",
       "native.archkeel_typescript_collector.parse",
       "A trait impl in native.archkeel_typescript_collector.ancestors may run in code that reaches native.archkeel_typescript_collector.ancestors without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.parse",
+      "A trait impl in native.archkeel_typescript_collector.definitions may run in code that reaches native.archkeel_typescript_collector.definitions without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
@@ -83549,11 +83494,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.pytext",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.records",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],
     [
       "collection_gap",
@@ -90929,11 +90869,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.symbol_table",
       "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.symbols",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.members"
     ],
     [
       "collection_gap",

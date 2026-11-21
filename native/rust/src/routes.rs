@@ -86,7 +86,13 @@ fn route_in(index: &Index<'_>, at: &str, name: &str, of_type: bool) -> Route {
         if !opaque && !of_type && defined_here(index, frame, &name) {
             return stop(hops, true);
         }
-        if opaque || (scan.module_macros && !of_type) || scan.counts.get(&name) != Some(&1) {
+        if opaque || (scan.module_macros && !of_type) {
+            return stop(hops, false);
+        }
+        if of_type && !scan.counts.contains_key(&name) {
+            return stop(hops, macro_type_here(index, frame, &name));
+        }
+        if scan.counts.get(&name) != Some(&1) {
             return stop(hops, false);
         }
         let defined = scan.definitions.iter().find(|d| {
@@ -136,6 +142,56 @@ fn defined_here(index: &Index<'_>, frame: &Frame<'_>, name: &str) -> bool {
         return false;
     }
     binds_nothing(index, frame)
+}
+
+/// Whether `name` has no written declaration or `use` in `frame`, and every module-level macro
+/// call of `frame` can declare `name` only as a nominal type (`struct`, `enum`, `trait`), with at
+/// least one call witnessing `name` (AD-1039).
+fn macro_type_here(index: &Index<'_>, frame: &Frame<'_>, name: &str) -> bool {
+    if !defined_here(index, frame, name) {
+        return false;
+    }
+    let crate_index = frame.module.crate_index;
+    let mut witnessed = false;
+    for call in frame
+        .module
+        .scan
+        .macro_calls
+        .iter()
+        .filter(|call| call.fills && frame.lexical_at(&call.scope) == frame.module.module)
+    {
+        let defs: Vec<_> = index
+            .frames()
+            .filter(|other| other.module.crate_index == crate_index)
+            .flat_map(|other| other.module.scan.macro_defs.iter())
+            .filter(|def| def.name == call.name)
+            .collect();
+        let [def] = defs.as_slice() else {
+            // A `std` `NO_BIND` macro is an expression macro and declares no item; any other case
+            // was already rejected by `defined_here`.
+            continue;
+        };
+        if !def.item_level.calls.iter().all(|inner| inner == &def.name) {
+            return false;
+        }
+        let (items, opaque) =
+            crate::macro_items::published(&def.item_level, &def.name, &call.public.head);
+        if opaque {
+            return false;
+        }
+        for (kind, item_name, _) in &items {
+            let is_nominal = matches!(kind.as_str(), "struct" | "enum" | "trait");
+            let exact = item_name == name;
+            let meta = item_name.starts_with('$');
+            if (exact || meta || item_name.is_empty()) && !is_nominal {
+                return false;
+            }
+            if is_nominal && (exact || (meta && call.idents.contains(name))) {
+                witnessed = true;
+            }
+        }
+    }
+    witnessed
 }
 
 /// The module and the name that a `use` leaf of `frame` names, by the rules of the edges: a
@@ -263,4 +319,89 @@ fn published(index: &Index<'_>, root: &str) -> Published {
         }
     }
     found
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::collect::tests::run;
+
+    fn root_publication_complete(lib_extra: &str, types_src: &str) -> bool {
+        let lib = format!("mod a;\nmod b;\nmod types;\n{lib_extra}");
+        let files = [
+            (
+                "crates/app/Cargo.toml",
+                "[package]\nname = \"app\"\nedition = \"2021\"\n",
+            ),
+            ("crates/app/src/lib.rs", lib.as_str()),
+            (
+                "crates/app/src/b.rs",
+                "pub struct S;\nimpl S { pub fn m(&self) {} }\n",
+            ),
+            (
+                "crates/app/src/a.rs",
+                "pub fn f(s: &crate::b::S) { s.m(); }\n",
+            ),
+            ("crates/app/src/types.rs", types_src),
+        ];
+        let facts = run(&files, false);
+        let call_edge = facts
+            .imports
+            .iter()
+            .map(|record| record.data.data())
+            .find(|data| {
+                data.source_module.as_str() == "ns.app.a"
+                    && data.target_module.as_str() == "ns.app.b"
+            })
+            .expect("expected method-call edge from a to b");
+        call_edge.route_complete != Some(false)
+    }
+
+    #[test]
+    fn type_route_proves_a_single_nominal_type_definition() {
+        assert!(root_publication_complete(
+            "pub use types::Item;\n",
+            "pub struct Item;\n",
+        ));
+    }
+
+    #[test]
+    fn type_route_rejects_a_type_alias() {
+        assert!(!root_publication_complete(
+            "pub use types::Alias;\n",
+            "pub type Alias = u64;\n",
+        ));
+    }
+
+    #[test]
+    fn type_route_rejects_multiple_cfg_gated_bindings() {
+        assert!(!root_publication_complete(
+            "pub use types::Item;\n",
+            "#[cfg(unix)]\npub struct Item;\n#[cfg(not(unix))]\npub struct Item;\n",
+        ));
+    }
+
+    #[test]
+    fn type_route_proves_a_macro_defined_nominal_type_and_rejects_a_macro_alias() {
+        let nominal_macro = concat!(
+            "macro_rules! mk_enum {\n",
+            "    ($name:ident) => { pub enum $name {} };\n",
+            "}\n",
+            "mk_enum!(Made);\n",
+        );
+        assert!(root_publication_complete(
+            "pub use types::Made;\n",
+            nominal_macro,
+        ));
+
+        let alias_macro = concat!(
+            "macro_rules! mk_alias {\n",
+            "    ($name:ident) => { pub type $name = u64; };\n",
+            "}\n",
+            "mk_alias!(MadeAlias);\n",
+        );
+        assert!(!root_publication_complete(
+            "pub use types::MadeAlias;\n",
+            alias_macro,
+        ));
+    }
 }

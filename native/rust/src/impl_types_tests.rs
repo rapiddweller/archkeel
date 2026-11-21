@@ -248,3 +248,14 @@ fn a_deref_target_or_autoref_method_needs_a_file_with_no_trait_of_a_dependency()
     let named = format!("use crate::Tr;\n{iter}");
     assert_eq!(outcome(&named, &[reexport]), gaps(&["b", "e"]));
 }
+
+#[test]
+fn an_anchored_macro_does_not_block_a_written_receiver_proof() {
+    let lib = (
+        "crates/app/src/lib.rs",
+        "macro_rules! id {\n    ($n:ident) => {\n        pub struct $n;\n        impl $n {\n            pub fn m(&self) {}\n        }\n    };\n}\nmod a;\nmod b;\nmod c;\nmod d;\nmod e;\n",
+    );
+    let c = ("crates/app/src/c.rs", "id!(Tag);\npub struct S;\n");
+    let a = "pub fn f(x: &crate::d::T) { x.m(); }";
+    assert_eq!(outcome(a, &[lib, c]), edge("e"));
+}
