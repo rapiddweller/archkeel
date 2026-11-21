@@ -84,6 +84,11 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
         """Read checked story steps and their coverage."""
         return query(path, root, "story", {"id": id})
 
+    for operation in (overview, map, children, search, relations, evidence, source, story):
+        server.tool(operation)
+
+
+def _resolution_tools(server: Any, path: Path, root: Path) -> None:
     def call_resolution(
         element: str = "",
         status: str = "",
@@ -107,18 +112,7 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
             },
         )
 
-    for operation in (
-        overview,
-        map,
-        children,
-        search,
-        relations,
-        evidence,
-        source,
-        story,
-        call_resolution,
-    ):
-        server.tool(operation)
+    server.tool(call_resolution)
 
 
 def _story_tools(server: Any, path: Path, root: Path) -> None:
@@ -157,6 +151,7 @@ def main() -> None:
         server = FastMCP("ArchKeel Explorer")
         _query_tools(server, path, root)
         _story_tools(server, path, root)
+        _resolution_tools(server, path, root)
         server.run(transport="stdio")
 
 

@@ -193,24 +193,22 @@ def _resolution_row(row: tuple[object, ...]) -> Row:
     }
 
 
-def _call_resolution(
+_RESOLUTION_COLUMNS = (
+    "cr.call_id, cr.language, cr.status, cr.provenance, cr.reason, "
+    "cr.canonical_target_definition_id, cr.dispatch_kind, cr.evidence_id, "
+    "cr.declaration_path, cr.declaration_line, cr.crate_name, cr.crate_version, "
+    "cr.symbol_path, cr.reference_path, cr.reference_start_line, "
+    "cr.reference_start_column, cr.reference_end_line, cr.reference_end_column"
+)
+
+
+def _resolution_filter(
     db: sqlite3.Connection,
     args: Row,
     call_scope: Callable[[sqlite3.Connection, str], tuple[str, Sequence[object]]],
     element_status: Callable[[sqlite3.Connection, str], str],
-) -> Row:
-    """Serve bounded read-only SCIP call resolution rows without mutating native edges."""
-    present = db.execute(
-        "SELECT 1 FROM sqlite_schema WHERE type='table' AND name='call_resolution'"
-    ).fetchone()
-    if not present:
-        return {
-            "available": False,
-            "artifacts": [],
-            "counts": [],
-            "items": [],
-            "next_cursor": None,
-        }
+) -> tuple[str, list[str], list[object], Row, bool]:
+    """Return the join, the predicates, their parameters and the notes of the active filters."""
     element = _text(args, "element", "")
     status = _text(args, "status", "")
     provenance = _text(args, "provenance", "")
@@ -219,79 +217,78 @@ def _call_resolution(
         raise ValueError("invalid call_resolution status")
     if provenance and provenance not in _SCIP_PROVENANCES:
         raise ValueError("invalid call_resolution provenance")
-    limit = _number(args, "limit", 50, 200)
-    cursor = _text(args, "cursor", "")
-
-    join = ""
-    scope_where = "1=1"
-    scope_params: list[object] = []
-    extra: Row = {}
+    join, clauses = "", ["1=1"]
+    params: list[object] = []
+    notes: Row = {}
     if element:
-        elem_state = element_status(db, element)
-        extra["element_status"] = elem_state
-        if elem_state == "known":
+        state = element_status(db, element)
+        notes["element_status"] = state
+        if state == "known":
             join = "JOIN relation ON relation.id = 'relation:call:' || cr.call_id"
-            scope_where, scoped = call_scope(db, element)
-            scope_params = list(scoped)
+            scope, scoped = call_scope(db, element)
+            clauses, params = [scope], list(scoped)
         else:
-            scope_where = "0"
+            clauses = ["0"]
+    for column, value in (("status", status), ("provenance", provenance), ("call_id", call_id)):
+        if value:
+            clauses.append(f"cr.{column}=?")
+            params.append(value)
+    return join, clauses, params, notes, bool(element or status or provenance or call_id)
 
-    clauses = [scope_where]
-    params: list[object] = list(scope_params)
-    if status:
-        clauses.append("cr.status=?")
-        params.append(status)
-    if provenance:
-        clauses.append("cr.provenance=?")
-        params.append(provenance)
-    if call_id:
-        clauses.append("cr.call_id=?")
-        params.append(call_id)
-    filter_where = " AND ".join(clauses)
-    has_filter = bool(element or status or provenance or call_id)
-    if has_filter:
-        count_rows = db.execute(
-            f"SELECT cr.language, cr.status, cr.provenance, cr.reason, count(*) "
-            f"FROM call_resolution cr {join} WHERE {filter_where} "
-            f"GROUP BY cr.language, cr.status, cr.provenance, cr.reason "
-            f"ORDER BY cr.language, cr.status, cr.provenance, cr.reason",
+
+def _resolution_counts(
+    db: sqlite3.Connection, join: str, clauses: list[str], params: list[object], filtered: bool
+) -> list[Row]:
+    if filtered:
+        rows = db.execute(
+            "SELECT cr.language, cr.status, cr.provenance, cr.reason, count(*) "
+            f"FROM call_resolution cr {join} WHERE {' AND '.join(clauses)} "
+            "GROUP BY cr.language, cr.status, cr.provenance, cr.reason "
+            "ORDER BY cr.language, cr.status, cr.provenance, cr.reason",
             params,
         ).fetchall()
     else:
-        count_rows = db.execute(
+        rows = db.execute(
             "SELECT language, status, provenance, reason, count FROM call_resolution_count"
         ).fetchall()
-    counts = [
-        {
-            "language": lang,
-            "status": st,
-            "provenance": prov,
-            "reason": rsn,
-            "count": cnt,
-        }
-        for lang, st, prov, rsn, cnt in count_rows
+    return [
+        {"language": lang, "status": st, "provenance": prov, "reason": rsn, "count": cnt}
+        for lang, st, prov, rsn, cnt in rows
     ]
 
-    page_clauses = list(clauses)
-    page_params = list(params)
-    if cursor:
-        page_clauses.append("cr.call_id>?")
-        page_params.append(cursor)
-    where = " AND ".join(page_clauses)
+
+def _call_resolution(
+    db: sqlite3.Connection,
+    args: Row,
+    call_scope: Callable[[sqlite3.Connection, str], tuple[str, Sequence[object]]],
+    element_status: Callable[[sqlite3.Connection, str], str],
+) -> Row:
+    """Serve bounded read-only SCIP call resolution rows without mutating native edges.
+
+    `counts` always summarize the full result set of the active filters; `cursor` and `limit`
+    only page `items`.
+    """
+    present = db.execute(
+        "SELECT 1 FROM sqlite_schema WHERE type='table' AND name='call_resolution'"
+    ).fetchone()
+    if not present:
+        return {"available": False, "artifacts": [], "counts": [], "items": [], "next_cursor": None}
+    join, clauses, params, notes, filtered = _resolution_filter(
+        db, args, call_scope, element_status
+    )
+    limit = _number(args, "limit", 50, 200)
+    cursor = _text(args, "cursor", "")
+    counts = _resolution_counts(db, join, clauses, params, filtered)
+    page = [*clauses, "cr.call_id>?"] if cursor else clauses
     rows = db.execute(
-        f"SELECT cr.call_id, cr.language, cr.status, cr.provenance, cr.reason, "
-        f"cr.canonical_target_definition_id, cr.dispatch_kind, cr.evidence_id, "
-        f"cr.declaration_path, cr.declaration_line, cr.crate_name, cr.crate_version, "
-        f"cr.symbol_path, cr.reference_path, cr.reference_start_line, "
-        f"cr.reference_start_column, cr.reference_end_line, cr.reference_end_column "
-        f"FROM call_resolution cr {join} WHERE {where} ORDER BY cr.call_id LIMIT ?",
-        (*page_params, limit + 1),
+        f"SELECT {_RESOLUTION_COLUMNS} FROM call_resolution cr {join} "
+        f"WHERE {' AND '.join(page)} ORDER BY cr.call_id LIMIT ?",
+        (*params, *([cursor] if cursor else []), limit + 1),
     ).fetchall()
-    items = [_resolution_row(r) for r in rows[:limit]]
-    return extra | {
+    return notes | {
         "available": True,
         "artifacts": _scip_artifacts(db),
         "counts": counts,
-        "items": items,
+        "items": [_resolution_row(r) for r in rows[:limit]],
         "next_cursor": str(rows[limit - 1][0]) if len(rows) > limit else None,
     }

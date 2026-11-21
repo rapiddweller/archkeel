@@ -541,7 +541,7 @@ def test_http_and_mcp_expose_separate_scip_call_resolution_equally(
         def tool(self, operation) -> None:
             registered[operation.__name__] = operation
 
-    explorer_mcp._query_tools(Tools(), snapshot, root)
+    explorer_mcp._resolution_tools(Tools(), snapshot, root)
     assert "call_resolution" in registered
 
     with core_explorer_http._ExplorerServer(snapshot, root, None, 0) as server:
