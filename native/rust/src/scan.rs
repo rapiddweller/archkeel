@@ -80,9 +80,42 @@ pub(crate) fn scan(
     visitor.walker.out.module_macros = safety.module_macros;
     visitor.walker.out.placed_macros = safety.placed_macros;
     visitor.visit_file(&file);
+    let drop_safe = !drop_shadowed_in_file(&file, &visitor.walker.out);
+    let local_drops = local_drop::non_escaping(&file, drop_safe, receivers::inert);
+    for found in &mut visitor.walker.out.orphans.impls {
+        if found.may_drop && local_drops.contains(&(found.site.line, found.site.column)) {
+            found.may_drop = false;
+        }
+    }
     attributes::finish(&mut visitor.walker);
     Ok(visitor.walker.out)
 }
+
+fn drop_shadowed_in_file(file: &syn::File, scan: &Scan) -> bool {
+    let no_prelude = file
+        .attrs
+        .iter()
+        .any(|attr| attr.path().is_ident("no_implicit_prelude"));
+    if no_prelude || scan.module_macros || !scan.extern_crates.is_empty() {
+        return true;
+    }
+    if scan.definitions.iter().any(|def| def.name == "drop") {
+        return true;
+    }
+    scan.references
+        .iter()
+        .any(|reference| match &reference.via {
+            Via::Use { binding: None, .. } => true,
+            Via::Use {
+                binding: Some(name),
+                ..
+            } => name == "drop",
+            _ => false,
+        })
+}
+
+#[path = "scan_local_drop.rs"]
+mod local_drop;
 
 #[path = "scan_path_safety.rs"]
 mod path_safety;

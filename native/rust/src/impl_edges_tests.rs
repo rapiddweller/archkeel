@@ -222,3 +222,92 @@ fn a_method_call_gives_a_gap_for_a_member_of_a_crate_of_a_renamed_dependency() {
         vec![("ns.app.a".to_owned(), "ns.core_x.b".to_owned())]
     );
 }
+
+fn erased_drop_gap(home_src: &str) -> bool {
+    let file = |rel: &'static str, text: &str| (rel, text.to_owned());
+    let pairs = pair_gaps(&[
+        file(MANIFEST.0, MANIFEST.1),
+        file("crates/app/src/lib.rs", "mod a;\nmod b;\n"),
+        // `a` has an unproved value origin (erased ingress via `Box<dyn Any>`).
+        file(
+            "crates/app/src/a.rs",
+            "pub fn take(x: Box<dyn std::any::Any>) { let _ = x; }\n",
+        ),
+        file("crates/app/src/b.rs", home_src),
+    ]);
+    pairs.contains(&("ns.app.a".to_owned(), "ns.app.b".to_owned()))
+}
+
+#[test]
+fn escaping_block_local_drop_impls_keep_the_erased_destructor_gap() {
+    let escaping = [
+        // 1. Returned as Box<dyn Any>.
+        "pub fn leak() -> Box<dyn std::any::Any> {\n\
+            struct Local;\n\
+            impl Drop for Local { fn drop(&mut self) {} }\n\
+            Box::new(Local)\n\
+        }\n",
+        // 2. Passed to an external sink / static storage.
+        "fn store(_: Box<dyn std::any::Any>) {}\n\
+        pub fn leak() {\n\
+            struct Local;\n\
+            impl Drop for Local { fn drop(&mut self) {} }\n\
+            let g = Local;\n\
+            store(Box::new(g));\n\
+        }\n",
+        // 3. Held inside an async fn state machine.
+        "pub async fn leak() {\n\
+            struct Local;\n\
+            impl Drop for Local { fn drop(&mut self) {} }\n\
+            let _g = Local;\n\
+            std::future::ready(()).await;\n\
+        }\n",
+        // 4. Bare `drop` shadowed by a module-level function.
+        "fn drop<T>(_: T) {}\n\
+        pub fn leak() {\n\
+            struct Local;\n\
+            impl Drop for Local { fn drop(&mut self) {} }\n\
+            let g = Local;\n\
+            drop(g);\n\
+        }\n",
+        // 5. Returned as `impl Debug` with a sibling trait impl.
+        "pub fn leak() -> impl std::fmt::Debug {\n\
+            struct Local;\n\
+            impl Drop for Local { fn drop(&mut self) {} }\n\
+            impl std::fmt::Debug for Local {\n\
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(\"L\") }\n\
+            }\n\
+            Local\n\
+        }\n",
+        // 6. Captured by a returned closure.
+        "pub fn leak() -> Box<dyn FnOnce()> {\n\
+            struct Local;\n\
+            impl Drop for Local { fn drop(&mut self) {} }\n\
+            let g = Local;\n\
+            Box::new(move || { let _ = g; })\n\
+        }\n",
+    ];
+    for (idx, src) in escaping.iter().enumerate() {
+        assert!(
+            erased_drop_gap(src),
+            "counterexample {} must keep erased destructor gap:\n{src}",
+            idx + 1
+        );
+    }
+}
+
+#[test]
+fn a_non_escaping_block_local_drop_guard_needs_no_erased_destructor_gap() {
+    let guard = "\
+pub fn bounded<T>(work: impl FnOnce() -> T) -> T {\n\
+    struct Restore(bool);\n\
+    impl Drop for Restore {\n\
+        fn drop(&mut self) {}\n\
+    }\n\
+    let restore = Restore(matches!(1u8, 1));\n\
+    let out = work();\n\
+    drop(restore);\n\
+    out\n\
+}\n";
+    assert!(!erased_drop_gap(guard));
+}
