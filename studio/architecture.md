@@ -9,3 +9,35 @@ connections to navigation to open their evidence. Both components use the DOM pa
 
 The Studio server has no current schema for its query endpoints. The system contract does not declare
 an interface for them until a schema describes the actual messages.
+
+<!-- archkeel-component-graph -->
+```mermaid
+flowchart LR
+    n_0["navigation"]
+    n_1["map"]
+    n_2["story"]
+    n_3["state"]
+    n_4["model"]
+    n_5["api"]
+    n_6["dom"]
+    n_0 --> n_1
+    n_0 --> n_2
+    n_0 --> n_3
+    n_0 --> n_4
+    n_0 --> n_5
+    n_0 --> n_6
+    n_1 --> n_0
+    n_1 --> n_2
+    n_1 --> n_3
+    n_1 --> n_4
+    n_1 --> n_5
+    n_1 --> n_6
+    n_2 --> n_0
+    n_2 --> n_1
+    n_2 --> n_3
+    n_2 --> n_4
+    n_2 --> n_5
+    n_2 --> n_6
+    n_3 --> n_4
+    n_5 --> n_4
+```
