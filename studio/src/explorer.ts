@@ -142,6 +142,7 @@ export async function readEdges() {
 }
 
 export function selectionHeading(title: string, kind: string) {
+  ++state.view;
   const heading = element("h2", "");
   breakPath(heading, title);
   details.replaceChildren(element("p", kind, "meta"), heading);
@@ -183,13 +184,18 @@ export async function select(item: StudioItem) {
     details.append(element("p", unresolved.title), button("Inspect unlinked calls", () => openCalls(), "detail-btn"));
   }
   else if (!callsUnavailable && Number.isInteger(item.recorded_calls)) details.append(element("p", item.recorded_calls ? item.recorded_calls.toLocaleString() + " calls have a resolved target." : "No call sites recorded in this scope.", "meta"));
+  const scipSlot = element("div", "");
+  details.append(scipSlot);
   if (!callsUnavailable && (!item.language || item.language === "rust")) {
-    void showScipSummary(item, request, selectionHeading);
+    void showScipSummary(item, request, state.view, scipSlot, selectionHeading);
   }
-  async function openCalls(cursor = "") {
+  async function openCalls(cursor = "", view = ++state.view) {
     const result = await api<Page<StudioEdge>>("relations", {element: item.id, scope: "unlinked_calls", cursor, limit: 30});
-    if (state.request !== request) return;
-    if (!cursor) selectionHeading(item.name, "Unlinked call sites");
+    if (state.request !== request || state.view !== view) return;
+    if (!cursor) {
+      selectionHeading(item.name, "Unlinked call sites");
+      view = state.view;
+    }
     for (const edge of result.items) {
       const site = edge.evidence?.[0];
       const link = button("", () => showEvidence(edge), "detail-btn call-site");
@@ -199,7 +205,7 @@ export async function select(item: StudioItem) {
       details.append(link);
     }
     if (result.next_cursor) {
-      const more = button("More call sites", () => { more.remove(); return openCalls(result.next_cursor!); }, "detail-btn");
+      const more = button("More call sites", () => { more.remove(); return openCalls(result.next_cursor!, view); }, "detail-btn");
       details.append(more);
     }
   }
@@ -209,9 +215,10 @@ export async function select(item: StudioItem) {
   if (item.source) details.append(button("Open source", () => showSource(item.source!), "detail-btn"));
   appendSelectionNotes(item);
   if (derivedMapGroup(item)) return;
+  const overviewView = state.view;
   async function load(cursor = "") {
     const result = await api<Page<StudioEdge>>("relations", { element: item.id, limit: 30, cursor });
-    if (state.request !== request) return;
+    if (state.request !== request || state.view !== overviewView) return;
     for (const edge of result.items) {
       const endpoints = relationDirection(edge);
       const text = endpoints + " · " + relationLabel(edge);

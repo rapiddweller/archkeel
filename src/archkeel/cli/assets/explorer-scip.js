@@ -34,12 +34,13 @@ function entryDetail(entry) {
         return entry.reference.path + ":" + (entry.reference.start_line + 1);
     return entry.call_id;
 }
-async function openScip(item, request, heading, cursor = "") {
+async function openScip(item, request, heading, cursor = "", view = ++state.view) {
     const result = await api("call_resolution", { element: item.id, cursor, limit: 30 });
-    if (state.request !== request)
+    if (state.request !== request || state.view !== view)
         return;
     if (!cursor) {
         heading(item.name, "SCIP call evidence · separate from native AST");
+        view = state.view;
         if (result.counts.length)
             details.append(element("p", formatScipCounts(result.counts), "meta"));
     }
@@ -50,16 +51,16 @@ async function openScip(item, request, heading, cursor = "") {
         details.append(card);
     }
     if (result.next_cursor) {
-        const more = button("More SCIP call evidence", () => { more.remove(); return openScip(item, request, heading, result.next_cursor); }, "detail-btn");
+        const more = button("More SCIP call evidence", () => { more.remove(); return openScip(item, request, heading, result.next_cursor, view); }, "detail-btn");
         details.append(more);
     }
 }
-export async function showScipSummary(item, request, heading) {
+export async function showScipSummary(item, request, view, slot, heading) {
     try {
         const summary = await api("call_resolution", { element: item.id, limit: 1 });
-        if (state.request !== request || !summary.available || !summary.counts.length)
+        if (state.request !== request || state.view !== view || !slot.isConnected || !summary.available || !summary.counts.length)
             return;
-        details.append(element("p", formatScipCounts(summary.counts), "meta"), button("Inspect SCIP call evidence", () => openScip(item, request, heading), "detail-btn"));
+        slot.append(element("p", formatScipCounts(summary.counts), "meta"), button("Inspect SCIP call evidence", () => openScip(item, request, heading), "detail-btn"));
     }
     catch {
         // Optional SCIP evidence must never disrupt the native inspector.
