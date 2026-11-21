@@ -29,6 +29,7 @@ import html
 import json
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -442,20 +443,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         document = str(args.system.resolve().relative_to(ROOT.resolve()))
     except ValueError:
         document = None
-    # Generated HTML contains inline scripts. Scan the Explorer before writing those reports.
-    browser = build_browser(cli, args.out)
-    self_rows = [build_self(cli, entry, args.out, document) for entry in self_runs(system)]
-    rows = [build_run(cli, run, args.out, args.source_cache) for run in showcase_runs(args.matrix)]
-    built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    parts: list[Part] = [row["part"] for row in self_rows]
-    system_row = build_system(cli, system, args.system, args.out)
-    (args.out / "self" / "badge.json").write_text(
-        json.dumps(system_badge(parts), ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    (args.out / "showcase").mkdir()
-    (args.out / "showcase" / "index.html").write_text(index(rows, sha, built_at, parts))
-    checked = [*self_rows, browser, *rows]
-    (args.out / "capabilities.html").write_text(capabilities_page([*self_rows, browser], rows))
+    # Generated HTML contains inline scripts: stage outside the repository so TypeScript scans of
+    # the repo root (`browser`, `studio`, `system`) never parse gallery reports written so far.
+    with tempfile.TemporaryDirectory(prefix="archkeel-gallery-") as staging:
+        stage = Path(staging)
+        browser = build_browser(cli, stage)
+        self_rows = [build_self(cli, entry, stage, document) for entry in self_runs(system)]
+        rows = [build_run(cli, run, stage, args.source_cache) for run in showcase_runs(args.matrix)]
+        built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+        parts: list[Part] = [row["part"] for row in self_rows]
+        system_row = build_system(cli, system, args.system, stage)
+        (stage / "self" / "badge.json").write_text(
+            json.dumps(system_badge(parts), ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        (stage / "showcase").mkdir()
+        (stage / "showcase" / "index.html").write_text(index(rows, sha, built_at, parts))
+        checked = [*self_rows, browser, *rows]
+        (stage / "capabilities.html").write_text(capabilities_page([*self_rows, browser], rows))
+        shutil.copytree(stage, args.out, dirs_exist_ok=True)
     failed = [row["run"]["name"] for row in checked if "error" in row]
     failed += [part.key for part in parts if part.error and part.key not in failed]
     if browser.get("summary", {}).get("refusal"):
@@ -464,6 +469,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         failed.append("system")
     if failed:
         print(f"No result for: {', '.join(failed)}", file=sys.stderr)
+        for row in [*checked, system_row]:
+            if "error" in row:
+                print(f"  {row['run']['name']}: {row['error']}", file=sys.stderr)
     return 1 if failed else 0
 
 
