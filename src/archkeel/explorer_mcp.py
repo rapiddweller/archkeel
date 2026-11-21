@@ -88,6 +88,33 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
         server.tool(operation)
 
 
+def _resolution_tools(server: Any, path: Path, root: Path) -> None:
+    def call_resolution(
+        element: str = "",
+        status: str = "",
+        provenance: str = "",
+        call_id: str = "",
+        cursor: str = "",
+        limit: int = 50,
+    ) -> Row:
+        """Read separate SCIP call resolution counts and rows without altering native calls."""
+        return query(
+            path,
+            root,
+            "call_resolution",
+            {
+                "element": element,
+                "status": status,
+                "provenance": provenance,
+                "call_id": call_id,
+                "cursor": cursor,
+                "limit": limit,
+            },
+        )
+
+    server.tool(call_resolution)
+
+
 def _story_tools(server: Any, path: Path, root: Path) -> None:
     def stories() -> list[Row]:
         """List saved stories checked against this snapshot."""
@@ -124,6 +151,7 @@ def main() -> None:
         server = FastMCP("ArchKeel Explorer")
         _query_tools(server, path, root)
         _story_tools(server, path, root)
+        _resolution_tools(server, path, root)
         server.run(transport="stdio")
 
 

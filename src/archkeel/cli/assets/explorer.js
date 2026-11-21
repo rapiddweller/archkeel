@@ -7,6 +7,7 @@ import { inspector, zoomMap } from "./explorer-map-layout.js";
 import { canOpenScope, itemKind } from "./explorer-uml.js";
 import { bindStory, reopenStory, stopStoryPlayback } from "./explorer-story.js";
 import { loadStory, showStory } from "./explorer-story-loading.js";
+import { showScipSummary } from "./explorer-scip.js";
 export function updateOverview({ coverage = {} }) {
     const displayNames = { python: "Python", rust: "Rust", dart: "Dart", typescript: "TypeScript", javascript: "JavaScript" };
     const languages = new Set((coverage.parts ?? []).flatMap((part) => part.language ? [part.language] : []).filter(Boolean));
@@ -141,6 +142,7 @@ export async function readEdges() {
     }
 }
 export function selectionHeading(title, kind) {
+    ++state.view;
     const heading = element("h2", "");
     breakPath(heading, title);
     details.replaceChildren(element("p", kind, "meta"), heading);
@@ -187,12 +189,19 @@ export async function select(item) {
     }
     else if (!callsUnavailable && Number.isInteger(item.recorded_calls))
         details.append(element("p", item.recorded_calls ? item.recorded_calls.toLocaleString() + " calls have a resolved target." : "No call sites recorded in this scope.", "meta"));
-    async function openCalls(cursor = "") {
+    const scipSlot = element("div", "");
+    details.append(scipSlot);
+    if (!callsUnavailable && (!item.language || item.language === "rust")) {
+        void showScipSummary(item, request, state.view, scipSlot, selectionHeading);
+    }
+    async function openCalls(cursor = "", view = ++state.view) {
         const result = await api("relations", { element: item.id, scope: "unlinked_calls", cursor, limit: 30 });
-        if (state.request !== request)
+        if (state.request !== request || state.view !== view)
             return;
-        if (!cursor)
+        if (!cursor) {
             selectionHeading(item.name, "Unlinked call sites");
+            view = state.view;
+        }
         for (const edge of result.items) {
             const site = edge.evidence?.[0];
             const link = button("", () => showEvidence(edge), "detail-btn call-site");
@@ -204,7 +213,7 @@ export async function select(item) {
             details.append(link);
         }
         if (result.next_cursor) {
-            const more = button("More call sites", () => { more.remove(); return openCalls(result.next_cursor); }, "detail-btn");
+            const more = button("More call sites", () => { more.remove(); return openCalls(result.next_cursor, view); }, "detail-btn");
             details.append(more);
         }
     }
@@ -216,9 +225,10 @@ export async function select(item) {
     appendSelectionNotes(item);
     if (derivedMapGroup(item))
         return;
+    const overviewView = state.view;
     async function load(cursor = "") {
         const result = await api("relations", { element: item.id, limit: 30, cursor });
-        if (state.request !== request)
+        if (state.request !== request || state.view !== overviewView)
             return;
         for (const edge of result.items) {
             const endpoints = relationDirection(edge);

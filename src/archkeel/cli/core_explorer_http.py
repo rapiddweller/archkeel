@@ -30,6 +30,7 @@ _ROUTES = {
     "/explorer-uml.js": ("explorer-uml.js", "text/javascript; charset=utf-8"),
     "/explorer-tree.js": ("explorer-tree.js", "text/javascript; charset=utf-8"),
     "/explorer-story.js": ("explorer-story.js", "text/javascript; charset=utf-8"),
+    "/explorer-scip.js": ("explorer-scip.js", "text/javascript; charset=utf-8"),
     "/explorer-story-loading.js": ("explorer-story-loading.js", "text/javascript; charset=utf-8"),
     "/explorer-story-routes.js": ("explorer-story-routes.js", "text/javascript; charset=utf-8"),
     "/explorer-story.css": ("explorer-story.css", "text/css; charset=utf-8"),
@@ -42,7 +43,17 @@ _ROUTES = {
     "/explorer.css": ("explorer.css", "text/css; charset=utf-8"),
 }
 _OPERATIONS = frozenset(
-    {"overview", "children", "search", "relations", "evidence", "source", "story", "map"}
+    {
+        "overview",
+        "children",
+        "search",
+        "relations",
+        "evidence",
+        "source",
+        "story",
+        "map",
+        "call_resolution",
+    }
 )
 _CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; font-src data:; "

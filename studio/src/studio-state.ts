@@ -9,13 +9,14 @@ interface State {
   selected: string | null;
   edges: StudioEdge[];
   request: number;
+  view: number;
   hops: StoryHop[];
   storyIndex: number;
   zoom: number;
   search: string | null;
 }
 export const state: State = {
-  ancestors: [system], items: [], cursor: null, selected: null, edges: [], request: 0,
+  ancestors: [system], items: [], cursor: null, selected: null, edges: [], request: 0, view: 0,
   hops: [], storyIndex: -1, zoom: 1, search: null,
 };
 export const pageTrails = new Map<string, string[]>();

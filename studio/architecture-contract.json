@@ -9,7 +9,8 @@
       "packages": [],
       "exact_modules": [
         "studio.studio.src.explorer_x2e_ts",
-        "studio.studio.src.explorer_x2d_navigation_x2e_ts"
+        "studio.studio.src.explorer_x2d_navigation_x2e_ts",
+        "studio.studio.src.explorer_x2d_scip_x2e_ts"
       ],
       "public": [
         "studio.studio.src.explorer_x2d_navigation_x2e_ts:showScope",
