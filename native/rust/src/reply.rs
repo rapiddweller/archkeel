@@ -57,7 +57,7 @@ pub(crate) struct Collected {
     pub imports: Vec<Record<ImportFact>>,
     pub symbols: Vec<Record<SymbolFact>>,
     pub gaps: Vec<Record<GapFact>>,
-    named_sites: Vec<Record<GapFact>>,
+    named_sites: Builder,
     pub selected_files: Vec<String>,
     pub files_read: usize,
     pub evidence: Vec<Evidence>,
@@ -136,7 +136,7 @@ struct Records {
     calls: Vec<Record<CallFact>>,
     imports: Vec<Record<ImportFact>>,
     symbols: Vec<Record<SymbolFact>>,
-    named_sites: Vec<Record<GapFact>>,
+    named_sites: Builder,
     tail: Tail,
 }
 
@@ -152,7 +152,8 @@ impl Records {
         writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
         writer.write_typed_section::<SymbolFact>(|emit| symbols.iter().for_each(emit))?;
         writer.write_typed_section::<GapFact>(|emit| {
-            tail.gaps.iter().chain(&named_sites).for_each(emit);
+            tail.gaps.iter().for_each(&mut *emit);
+            named_sites.stream_named_sites(emit);
         })?;
         writer.write_typed_section::<CallFact>(|emit| calls.iter().for_each(emit))?;
         Ok(tail)
@@ -161,19 +162,30 @@ impl Records {
 
 impl Builder {
     pub(crate) fn finish(
-        self,
+        mut self,
         request: &RustRequest,
         provenance: Provenance,
         scope: Vec<String>,
         selected: Vec<String>,
-        walked: &Walked,
+        walked: Walked,
         source: Snapshot,
     ) -> Collected {
-        let mut files = self.files;
+        let files_read = walked.modules.len() + self.manifests.len();
+        // Drop parsed module trees before materializing gap records (#1942).
+        drop(walked);
+        let (gaps, named_sites) = self.take_gaps_and_named_sites();
+        let Self {
+            evidence,
+            mut files,
+            calls,
+            mut imports,
+            mut symbols,
+            targets,
+            lock_premise,
+            ..
+        } = self;
         files.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
-        let mut imports = self.imports;
         imports.sort_by(|a, b| a.id.cmp(&b.id));
-        let mut symbols = self.symbols;
         symbols.sort_by(|a, b| a.id.cmp(&b.id));
         let head = Head {
             provenance,
@@ -190,20 +202,20 @@ impl Builder {
             }),
             source_digest: None,
             files,
-            imports: self.targets,
+            imports: targets,
             validation: validation(),
         };
         Collected {
             head,
-            calls: self.calls,
+            calls,
             imports,
             symbols,
-            gaps: self.gaps.into_values().collect(),
-            named_sites: self.named_sites.into_values().collect(),
+            gaps,
+            named_sites,
             selected_files: selected,
-            files_read: walked.modules.len() + self.manifests.len(),
-            evidence: self.evidence.into_values().collect(),
-            lock_premise: self.lock_premise,
+            files_read,
+            evidence: evidence.into_values().collect(),
+            lock_premise,
         }
     }
 }

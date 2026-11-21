@@ -22,7 +22,7 @@
 //! trait impl that runs code: a block with an item other than an associated type, or a derive
 //! other than `Copy`.
 
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 
 use crate::attrs::model::Proof;
 use crate::builder::Builder;
@@ -33,7 +33,7 @@ use crate::modules::{Index, TypeOf};
 use crate::site::Site;
 use crate::tree::Module;
 
-use super::flow::Pending;
+use super::flow::{LazyHome, LazyHomes};
 
 /// What the blocks around an impl say of its self type: `Some(anchored)` when they decide it,
 /// `None` when no block item or `use` can bind its first name and the module decides.
@@ -110,7 +110,7 @@ fn callers<'a>(
 pub(super) fn orphan_impl_gaps(
     builder: &mut Builder,
     (workspace, index, modules): (&Workspace, &Index<'_>, &[Module]),
-    edges: &BTreeSet<(String, String)>,
+    edges: &HashSet<(u32, u32)>,
 ) {
     // #1371: a macro call may write an impl that the scan does not read.
     let homes = builder.macro_impl_homes.clone();
@@ -158,36 +158,85 @@ pub(super) fn orphan_impl_gaps(
     }
 }
 
-/// The pending gap from each module that may run a trait impl of another module to that module:
-/// the modules of its crate and of each crate that depends on it, before the value flow.
-pub(super) fn trait_impl_candidates(workspace: &Workspace, modules: &[Module]) -> Vec<Pending> {
-    let mut pending = Vec::new();
+/// One module whose trait impl or destructor runs code, evaluated lazily in settlement (#1942).
+/// Precompute trait and `Drop` homes plus crate dependencies without `homes x callers` expansion.
+pub(super) fn lazy_homes(
+    builder: &mut Builder,
+    workspace: &Workspace,
+    modules: &[Module],
+) -> LazyHomes {
+    LazyHomes {
+        trait_homes: trait_impl_homes(builder, modules),
+        drop_homes: drop_impl_homes(builder, modules),
+        crate_deps: crate_dependency_matrix(workspace, modules),
+    }
+}
+
+/// The modules that hold a trait impl that runs code, without materializing `homes x callers`.
+fn trait_impl_homes(builder: &mut Builder, modules: &[Module]) -> Vec<LazyHome> {
+    modules
+        .iter()
+        .filter_map(|module| {
+            let site = runs_code(module)?;
+            let target = &module.module;
+            Some(LazyHome {
+                target: builder.intern_text(target),
+                crate_index: module.crate_index,
+                rel: module.rel.clone(),
+                site: site.clone(),
+                reason: format!(
+                    "A trait impl in {target} may run in code that reaches {target} without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+                ),
+            })
+        })
+        .collect()
+}
+
+/// The modules with a `Drop` impl, evaluated lazily against erased value ingress (#1942).
+fn drop_impl_homes(builder: &mut Builder, modules: &[Module]) -> Vec<LazyHome> {
+    let mut homes = Vec::new();
     for home in modules {
-        let Some(site) = runs_code(home) else {
+        let Some(found) = home.scan.orphans.impls.iter().find(|found| found.may_drop) else {
             continue;
         };
-        let target = home.module.as_str();
-        let reason = format!(
-            "A trait impl in {target} may run in code that reaches {target} without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-        );
-        let callers = modules.iter().filter(|caller| {
-            caller.module != home.module
-                && (caller.crate_index == home.crate_index || depends(workspace, caller, home))
+        let target = &home.module;
+        homes.push(LazyHome {
+            target: builder.intern_text(target),
+            crate_index: home.crate_index,
+            rel: home.rel.clone(),
+            site: found.site.clone(),
+            reason: format!("An unproved value origin may run a destructor in {target}"),
         });
-        for caller in callers {
-            pending.push(Pending {
-                source: caller.module.clone(),
-                rel: home.rel.clone(),
-                site: site.clone(),
-                target: target.to_owned(),
-                reason: reason.clone(),
-                erased: false,
-                execution: true,
-                no_name_route: true,
-            });
+    }
+    homes
+}
+
+/// Crate dependency matrix (`deps[caller_crate][home_crate]`) computed once per settlement.
+fn crate_dependency_matrix(workspace: &Workspace, modules: &[Module]) -> Vec<Vec<bool>> {
+    let count = workspace.crates.len();
+    let mut rep: Vec<Option<&Module>> = vec![None; count];
+    for module in modules {
+        if let Some(slot @ None) = rep.get_mut(module.crate_index) {
+            *slot = Some(module);
         }
     }
-    pending
+    (0..count)
+        .map(|from| {
+            let Some(caller) = rep.get(from).copied().flatten() else {
+                return vec![false; count];
+            };
+            (0..count)
+                .map(|to| {
+                    from == to
+                        || rep
+                            .get(to)
+                            .copied()
+                            .flatten()
+                            .is_some_and(|home| depends(workspace, caller, home))
+                })
+                .collect()
+        })
+        .collect()
 }
 
 /// The place of a trait impl of the file that runs code: a written impl block with an item other

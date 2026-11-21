@@ -8,6 +8,9 @@ use archkeel_facts::envelope::{ProfileLimits, Reply};
 use archkeel_facts::ids::FactId;
 use archkeel_facts::request::Request;
 use archkeel_facts::{GapFact, Record, Section};
+use flate2::read::ZlibDecoder;
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::io::{self, BufRead, Read, Write};
@@ -86,11 +89,46 @@ struct Packet {
     reply: Reply,
     limits: ProfileLimits,
     premise: String,
-    dispatch: BTreeSet<FactId>,
+    coverage_prefix: Option<usize>,
+    unknown_dispatch: Vec<u32>,
+    unknown_name_free: Vec<u32>,
+    coverage_dispatch: Vec<u32>,
+    coverage_name_free: Vec<u32>,
     inferred_receivers: BTreeSet<FactId>,
-    name_free_gaps: BTreeSet<FactId>,
     excluded_sources: Vec<String>,
 }
+
+fn first_unknowns(sections: &[Section]) -> Option<&[Record<GapFact>]> {
+    sections.iter().find_map(|section| match section {
+        Section::Unknowns(gaps) => Some(gaps.as_slice()),
+        _ => None,
+    })
+}
+
+fn flag_slots<'a>(
+    gaps: impl Iterator<Item = &'a Record<GapFact>>,
+    pick: impl Fn(&Record<GapFact>) -> bool,
+) -> Result<Vec<u32>, String> {
+    let mut slots = Vec::new();
+    for (index, gap) in gaps.enumerate() {
+        if pick(gap) {
+            let slot = u32::try_from(index).map_err(|_| "worker gap index exceeds u32")?;
+            slots.push(slot);
+        }
+    }
+    Ok(slots)
+}
+
+fn all_unknowns(sections: &[Section]) -> impl Iterator<Item = &Record<GapFact>> {
+    sections
+        .iter()
+        .filter_map(|section| match section {
+            Section::Unknowns(gaps) => Some(gaps.iter()),
+            _ => None,
+        })
+        .flatten()
+}
+
 impl Packet {
     /// Take the assembled facts before applying the private producer statements.
     fn new(mut reply: Reply) -> Result<Self, String> {
@@ -101,11 +139,27 @@ impl Packet {
         {
             return Err("unsupported private worker fact".into());
         }
-        let dispatch = gaps
-            .iter()
-            .filter(|g| g.data.data().dispatch)
-            .map(|g| g.id.clone())
-            .collect();
+        let first = first_unknowns(&reply.facts.sections).unwrap_or(&[]);
+        let coverage_prefix = (first.len() >= gaps.len()
+            && first
+                .get(..gaps.len())
+                .is_some_and(|prefix| prefix == gaps.as_slice()))
+        .then_some(gaps.len());
+        let unknown_dispatch = flag_slots(all_unknowns(&reply.facts.sections), |g| {
+            g.data.data().dispatch
+        })?;
+        let unknown_name_free = flag_slots(all_unknowns(&reply.facts.sections), |g| {
+            g.data.data().no_name_route
+        })?;
+        let (coverage_dispatch, coverage_name_free) = if coverage_prefix.is_some() {
+            reply.facts.coverage.gaps = Vec::new();
+            (Vec::new(), Vec::new())
+        } else {
+            (
+                flag_slots(gaps.iter(), |g| g.data.data().dispatch)?,
+                flag_slots(gaps.iter(), |g| g.data.data().no_name_route)?,
+            )
+        };
         let inferred_receivers = reply
             .facts
             .sections
@@ -117,21 +171,6 @@ impl Packet {
             .flatten()
             .filter(|record| record.data.data().inferred_receiver)
             .map(|record| record.id.clone())
-            .collect();
-        let name_free_gaps = reply
-            .facts
-            .sections
-            .iter()
-            .filter_map(|section| {
-                if let Section::Unknowns(gaps) = section {
-                    Some(gaps)
-                } else {
-                    None
-                }
-            })
-            .flatten()
-            .filter(|gap| gap.data.data().no_name_route)
-            .map(|gap| gap.id.clone())
             .collect();
         let excluded_sources = std::mem::take(&mut reply.facts.excluded_sources);
         Ok(Self {
@@ -146,32 +185,34 @@ impl Packet {
                 .take()
                 .ok_or("worker omitted scope premise")?,
             reply,
-            dispatch,
+            coverage_prefix,
+            unknown_dispatch,
+            unknown_name_free,
+            coverage_dispatch,
+            coverage_name_free,
             inferred_receivers,
-            name_free_gaps,
             excluded_sources,
         })
     }
+
     /// Recover the two views of each gap and the original scope statements.
     fn finish(self) -> Result<Reply, String> {
         let Self {
             mut reply,
             limits,
             premise,
-            dispatch,
+            coverage_prefix,
+            unknown_dispatch,
+            unknown_name_free,
+            coverage_dispatch,
+            coverage_name_free,
             mut inferred_receivers,
-            name_free_gaps,
             excluded_sources,
         } = self;
-        restore(&mut reply.facts.coverage.gaps, &dispatch)?;
-        restore_names(&mut reply.facts.coverage.gaps, &name_free_gaps)?;
-        let mut named = 0;
-        for s in &mut reply.facts.sections {
-            match s {
-                Section::Unknowns(gaps) => {
-                    restore(gaps, &dispatch)?;
-                    named += restore_names(gaps, &name_free_gaps)?;
-                }
+        let mut unknowns: Vec<&mut Record<GapFact>> = Vec::new();
+        for section in &mut reply.facts.sections {
+            match section {
+                Section::Unknowns(gaps) => unknowns.extend(gaps.iter_mut()),
                 Section::Imports(imports) => imports
                     .iter_mut()
                     .filter(|record| inferred_receivers.remove(&record.id))
@@ -179,11 +220,21 @@ impl Packet {
                 _ => {}
             }
         }
+        restore_dispatch_refs(&mut unknowns, &unknown_dispatch)?;
+        restore_name_refs(&mut unknowns, &unknown_name_free)?;
+        drop(unknowns);
+        if let Some(count) = coverage_prefix {
+            let first = first_unknowns(&reply.facts.sections)
+                .and_then(|gaps| gaps.get(..count))
+                .ok_or("unbound worker coverage prefix")?;
+            reply.facts.coverage.gaps = first.to_vec();
+        } else {
+            let mut cov: Vec<&mut Record<GapFact>> = reply.facts.coverage.gaps.iter_mut().collect();
+            restore_dispatch_refs(&mut cov, &coverage_dispatch)?;
+            restore_name_refs(&mut cov, &coverage_name_free)?;
+        }
         if !inferred_receivers.is_empty() {
             return Err("unbound worker receiver".into());
-        }
-        if named != name_free_gaps.len() {
-            return Err("unbound worker name-route proof".into());
         }
         reply.facts.profile_limits = Some(limits);
         reply.facts.scope_premise = Some(premise);
@@ -192,12 +243,24 @@ impl Packet {
     }
 }
 
-fn restore_names(
-    gaps: &mut [Record<GapFact>],
-    name_free: &BTreeSet<FactId>,
-) -> Result<usize, String> {
-    let mut seen = 0;
-    for gap in gaps.iter_mut().filter(|gap| name_free.contains(&gap.id)) {
+fn restore_slots(
+    gaps: &mut [&mut Record<GapFact>],
+    slots: &[u32],
+    missing: &str,
+    apply: impl Fn(&mut Record<GapFact>) -> Result<(), String>,
+) -> Result<(), String> {
+    for &slot in slots {
+        let gap = usize::try_from(slot)
+            .ok()
+            .and_then(|index| gaps.get_mut(index))
+            .ok_or_else(|| missing.to_owned())?;
+        apply(gap)?;
+    }
+    Ok(())
+}
+
+fn restore_name_refs(gaps: &mut [&mut Record<GapFact>], slots: &[u32]) -> Result<(), String> {
+    restore_slots(gaps, slots, "unbound worker name-route proof", |gap| {
         let (GapFact::CollectionGap(data) | GapFact::SourceResolutionGap(data)) = &mut gap.data
         else {
             return Err("invalid name-route proof kind".into());
@@ -211,30 +274,51 @@ fn restore_names(
             return Err("name-route proof needs a pair".into());
         }
         data.no_name_route = true;
-        seen += 1;
-    }
-    Ok(seen)
+        Ok(())
+    })
 }
 
-fn restore(gaps: &mut [Record<GapFact>], dispatch: &BTreeSet<FactId>) -> Result<(), String> {
-    let mut seen = 0;
-    for g in gaps.iter_mut().filter(|g| dispatch.contains(&g.id)) {
-        let GapFact::CollectionGap(d) = &mut g.data else {
+fn restore_dispatch_refs(gaps: &mut [&mut Record<GapFact>], slots: &[u32]) -> Result<(), String> {
+    restore_slots(gaps, slots, "unbound worker dispatch", |gap| {
+        let GapFact::CollectionGap(data) = &mut gap.data else {
             return Err("invalid dispatch kind".into());
         };
-        d.dispatch = true;
-        seen += 1;
-    }
-    if seen != dispatch.len() {
-        return Err("unbound worker dispatch".into());
-    }
-    Ok(())
+        data.dispatch = true;
+        Ok(())
+    })
 }
 
 // A frame is 9 to 16 times the Rust source it covers (6.8 MB: 59 MiB; 5.8 MB of `std`: 86 MiB) and the
 // scan budget is 64 MiB of source. A lower ceiling refuses projects that the linked collector scanned.
 // Neither side reserves the length of a header: the buffers grow with the bytes that arrive.
 const MAX_FRAME: usize = 1 << 30;
+// Explicit ceiling on decompressed JSON bytes so a corrupt compressed frame cannot expand unboundedly.
+const MAX_DECOMPRESSED_FRAME: u64 = 2 << 30;
+
+struct BoundedReader<R> {
+    inner: R,
+    remaining: u64,
+}
+
+impl<R: Read> Read for BoundedReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let count = self.inner.read(buf)?;
+        let used = u64::try_from(count).unwrap_or(u64::MAX);
+        if used > self.remaining {
+            return Err(io::Error::other("worker frame exceeds decompressed limit"));
+        }
+        self.remaining -= used;
+        Ok(count)
+    }
+}
+
+fn decode_answer(payload: &[u8], max_decompressed: u64) -> Result<Answer, String> {
+    let reader = BoundedReader {
+        inner: ZlibDecoder::new(payload),
+        remaining: max_decompressed,
+    };
+    serde_json::from_reader(reader).map_err(|e| e.to_string())
+}
 
 #[derive(Default)]
 struct Frame(Vec<u8>);
@@ -256,13 +340,16 @@ fn write_v1(
     mut out: impl Write,
     result: Result<Result<Reply, String>, String>,
 ) -> Result<(), String> {
-    let answer = match result {
-        Err(limit) => Answer::ParseWork(limit),
-        Ok(Err(why)) => Answer::Refused(why),
-        Ok(Ok(reply)) => Answer::Collected(Box::new(Packet::new(reply)?)),
+    let frame = {
+        let answer = match result {
+            Err(limit) => Answer::ParseWork(limit),
+            Ok(Err(why)) => Answer::Refused(why),
+            Ok(Ok(reply)) => Answer::Collected(Box::new(Packet::new(reply)?)),
+        };
+        let mut encoder = ZlibEncoder::new(Frame::default(), Compression::fast());
+        serde_json::to_writer(&mut encoder, &answer).map_err(|e| e.to_string())?;
+        encoder.finish().map_err(|e| e.to_string())?
     };
-    let mut frame = Frame::default();
-    serde_json::to_writer(&mut frame, &answer).map_err(|e| e.to_string())?;
     let len = u32::try_from(frame.0.len()).map_err(|e| e.to_string())?;
     out.write_all(&len.to_be_bytes())
         .and_then(|()| out.write_all(&frame.0))
@@ -291,7 +378,9 @@ pub fn read_rust_v1(mut input: impl Read) -> Result<Result<Reply, String>, Strin
     {
         return Err("wrong worker frame length".into());
     }
-    match serde_json::from_slice(&payload).map_err(|e| e.to_string())? {
+    let answer = decode_answer(&payload, MAX_DECOMPRESSED_FRAME)?;
+    drop(payload);
+    match answer {
         Answer::Collected(packet) => packet.finish().map(Ok),
         Answer::ParseWork(why) => Ok(Err(why)),
         Answer::Refused(why) => Err(why),
@@ -299,37 +388,5 @@ pub fn read_rust_v1(mut input: impl Read) -> Result<Result<Reply, String>, Strin
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn the_frame_refuses_overflow_before_reading_the_body() {
-        let header = u32::MAX.to_be_bytes();
-        assert_eq!(
-            read_rust_v1(header.as_slice()).unwrap_err(),
-            "worker frame exceeds 1 GiB"
-        );
-    }
-    #[test]
-    fn a_refusal_frame_gives_its_reason_and_an_empty_stream_gives_no_frame() {
-        let mut frame = Vec::new();
-        write_v1(&mut frame, Ok(Err("the reason".into()))).unwrap();
-        assert_eq!(read_rust_v1(frame.as_slice()).unwrap_err(), "the reason");
-        assert!(read_rust_v1(&[][..])
-            .unwrap_err()
-            .starts_with("the worker sent no frame"));
-    }
-    #[test]
-    fn only_a_complete_single_frame_can_return_a_work_refusal() {
-        let mut frame = Vec::new();
-        write_v1(&mut frame, Err("work limit".into())).unwrap();
-        assert_eq!(
-            read_rust_v1(frame.as_slice()).unwrap().unwrap_err(),
-            "work limit"
-        );
-        for end in 0..frame.len() {
-            assert!(read_rust_v1(&frame[..end]).is_err());
-        }
-        frame.push(0);
-        assert!(read_rust_v1(frame.as_slice()).is_err());
-    }
-}
+#[path = "worker_tests.rs"]
+mod tests;

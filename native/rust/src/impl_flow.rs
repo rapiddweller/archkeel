@@ -6,452 +6,493 @@
 //!
 //! A call `x.m()` whose receiver no proof resolves may reach a member `m` in the file of its type
 //! `S` in `c`. The caller can hold a value of `S` only through a chain of dependencies to code that
-//! names `S`, and that code has an edge into `c` (or is `c`). So the call gives the pair gap
-//! `a -> c` only when `c` is reachable from `a` over the edges and the pair gaps of the reply. A
-//! module with a gap that names no target can depend on any module, so reaching one keeps every
-//! candidate of the caller; a gap of the whole workspace keeps each candidate. Each gap that this
-//! adds is a new step of the graph, so the check runs until no candidate changes.
+//! names `S`, and that code has an edge into `c` (or is `c`). Each gap that this adds is a new step
+//! of the graph, so the check runs until no candidate changes.
 
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
 use archkeel_facts::vocab::ResolutionDimension;
-use archkeel_facts::ImportFact;
 
 use crate::builder::Builder;
 use crate::crates::Workspace;
-use crate::definitions::{Access, Form, Member, MethodCall};
-use crate::impl_globs::depends;
-use crate::impl_globs::once_gap;
-use crate::modules::inside;
-use crate::modules::{Frame, Index, TypeOf};
-use crate::scan::{Reference, Via};
+use crate::definitions::{Form, MethodCall};
+pub(super) use crate::impl_globs::Foreign;
+use crate::impl_globs::{build_ancestors, names_type, once_gap, visible, BitSet};
+use crate::modules::Index;
+use crate::scan::Via;
 use crate::site::Site;
 use crate::tree::Module;
 
-/// Exact import binding sites whose recorded routes reach their named types.
-pub(super) struct NameRoutes {
-    sites: BTreeSet<(String, i64, i64)>,
-    macro_shadow: bool,
+/// One trait or `Drop` home settled lazily without `homes x callers` materialization (#1942).
+pub(super) struct LazyHome {
+    pub(super) target: u32,
+    pub(super) crate_index: usize,
+    pub(super) rel: String,
+    pub(super) site: Site,
+    pub(super) reason: String,
 }
 
-impl NameRoutes {
-    pub(super) fn of(builder: &Builder, macro_shadow: bool) -> Self {
-        let sites = builder.imports.iter().filter_map(|record| {
-            let (ImportFact::Import(data) | ImportFact::Reexport(data)) = &record.data else {
-                return None;
-            };
-            if !data.symbols_known || data.route_complete == Some(false) || data.symbol.is_none() {
-                return None;
-            }
-            let [id] = &record.evidence_ids[..] else {
-                return None;
-            };
-            let site = builder.evidence.get(id.as_str())?;
-            Some((site.file.clone(), site.line, site.column))
-        });
+/// Precomputed lazy trait/drop homes and crate dependency matrix (#1942).
+pub(super) struct LazyHomes {
+    pub(super) trait_homes: Vec<LazyHome>,
+    pub(super) drop_homes: Vec<LazyHome>,
+    pub(super) crate_deps: Vec<Vec<bool>>,
+}
+
+/// Compact pending candidate waiting for value-flow settlement (#1942).
+pub(super) struct Pending {
+    source: u32,
+    site: u32,
+    target: u32,
+    reason: u32,
+    erased: bool,
+    execution: bool,
+    no_name_route: bool,
+}
+
+/// Interned candidate pool sharing `Builder`'s string table (#1942).
+pub(super) struct PendingPool {
+    sites: Vec<(u32, Site)>,
+    site_index: HashMap<(u32, i64, i64, i64), u32>,
+    items: Vec<Pending>,
+}
+
+impl PendingPool {
+    pub(super) fn new() -> Self {
         Self {
-            sites: sites.collect(),
-            macro_shadow,
+            sites: Vec::new(),
+            site_index: HashMap::new(),
+            items: Vec::new(),
         }
     }
 
-    pub(super) fn covers(&self, index: &Index<'_>, frame: &Frame<'_>, path: &Reference) -> bool {
-        let [receiver, _] = path.names.as_slice() else {
-            return false;
-        };
-        let [leaf] = frame.bound(receiver) else {
-            return false;
-        };
-        let module = frame.module;
-        let site = (path.site.line, path.site.column);
-        !path.absolute
-            && path.in_macro.is_none()
-            && matches!(path.via, Via::Path)
-            && !module.scan.generic_paths.contains(&site)
-            && !module.scan.body_macros
-            && !module.scan.module_macros
-            && !(module.scan.placed_macros && self.macro_shadow)
-            && (!module.gated || module.gates.is_some())
-            && module.scan.counts.get(receiver) == Some(&1)
-            && !module.scan.conditional_bindings.contains(receiver)
-            && matches!(leaf.via, Via::Use { block: false, .. })
-            && !leaf.absolute
-            && frame.lexical_at(&path.scope) == frame.lexical_at(&leaf.scope)
-            && self
-                .sites
-                .contains(&(module.rel.clone(), leaf.site.line, leaf.site.column))
-            && matches!(
-                index.type_of(frame, &path.scope, std::slice::from_ref(receiver)),
-                TypeOf::Known(..)
-            )
+    fn intern_site(&mut self, builder: &mut Builder, rel: &str, site: &Site) -> u32 {
+        let rel_id = builder.intern_text(rel);
+        let key = (rel_id, site.line, site.end_line, site.column);
+        if let Some(&id) = self.site_index.get(&key) {
+            return id;
+        }
+        let id = u32::try_from(Vec::len(&self.sites)).unwrap_or(u32::MAX);
+        self.sites.push((rel_id, site.clone()));
+        self.site_index.insert(key, id);
+        id
+    }
+
+    pub(super) fn push(
+        &mut self,
+        builder: &mut Builder,
+        (source, target): (&str, &str),
+        (rel, site): (&str, &Site),
+        reason: &str,
+        (erased, execution, no_name_route): (bool, bool, bool),
+    ) {
+        let site = self.intern_site(builder, rel, site);
+        self.items.push(Pending {
+            source: builder.intern_text(source),
+            site,
+            target: builder.intern_text(target),
+            reason: builder.intern_text(reason),
+            erased,
+            execution,
+            no_name_route,
+        });
+    }
+
+    fn site_of(&self, id: u32) -> Option<(u32, &Site)> {
+        let (rel, site) = self.sites.get(usize::try_from(id).ok()?)?;
+        Some((*rel, site))
     }
 }
 
-/// A gap that waits for the value flow: a call in `source` (in the file `rel`, at `site`) may
-/// reach a member of a type in `target`.
-pub(super) struct Pending {
-    pub(super) source: String,
-    pub(super) rel: String,
-    pub(super) site: Site,
-    pub(super) target: String,
-    pub(super) reason: String,
-    pub(super) erased: bool,
-    pub(super) execution: bool,
-    pub(super) no_name_route: bool,
+struct CallerEntry {
+    id: u32,
+    crate_index: usize,
+}
+
+struct FlowContext<'a> {
+    edges: HashSet<(u32, u32)>,
+    ancestors: Vec<Vec<u32>>,
+    callers: Vec<CallerEntry>,
+    crate_deps: &'a [Vec<bool>],
+    named: HashSet<(u32, u32)>,
+    ingress: BitSet,
+    pool: &'a PendingPool,
 }
 
 /// Keep known origins first. An erased value can also come from shared storage or unread code.
 pub(super) fn settle(
     builder: &mut Builder,
-    open: Vec<Pending>,
-    index: &Index<'_>,
-    modules: &[Module],
+    mut pool: PendingPool,
+    (index, modules): (&Index<'_>, &[Module]),
+    homes: &LazyHomes,
 ) {
-    let mut open = settle_pending(builder, open, index, &BTreeSet::new());
-    let mut ingress = builder.opaque_values.clone();
-    ingress.extend(
+    let callers: Vec<CallerEntry> = modules
+        .iter()
+        .map(|module| CallerEntry {
+            id: builder.intern_text(&module.module),
+            crate_index: module.crate_index,
+        })
+        .collect();
+    let mut open = std::mem::take(&mut pool.items);
+    let mut ctx = FlowContext {
+        edges: import_edges(builder),
+        ancestors: build_ancestors(builder),
+        callers,
+        crate_deps: &homes.crate_deps,
+        named: named_pairs(&open),
+        ingress: BitSet::new(builder.interned_count()),
+        pool: &pool,
+    };
+    open = settle_pending(builder, open, &ctx, &homes.trait_homes, false);
+    if homes.drop_homes.is_empty() {
+        return;
+    }
+    let ingress = build_ingress(builder, index, modules);
+    if !ingress.has_bits() {
+        return;
+    }
+    ctx.ancestors = build_ancestors(builder);
+    ctx.named = named_pairs(&open);
+    ctx.ingress = ingress;
+    drop(settle_pending(builder, open, &ctx, &homes.drop_homes, true));
+}
+
+fn named_pairs(open: &[Pending]) -> HashSet<(u32, u32)> {
+    open.iter()
+        .filter(|pending| !pending.execution)
+        .map(|pending| (pending.source, pending.target))
+        .collect()
+}
+
+fn build_ingress(builder: &Builder, index: &Index<'_>, modules: &[Module]) -> BitSet {
+    let mut names = builder.opaque_values.clone();
+    names.extend(
         modules
             .iter()
             .filter(|module| module.scan.has_static)
             .map(|module| module.module.clone()),
     );
-    if ingress.is_empty() {
-        return;
+    let count = builder.interned_count();
+    let mut bits = BitSet::new(count);
+    if names.is_empty() {
+        return bits;
     }
-    let waiting = open.len();
-    for home in modules {
-        let Some(found) = home.scan.orphans.impls.iter().find(|found| found.may_drop) else {
-            continue;
-        };
-        let target = &home.module;
-        for caller in modules.iter().filter(|caller| caller.module != *target) {
-            open.push(Pending {
-                source: caller.module.clone(),
-                rel: home.rel.clone(),
-                site: found.site.clone(),
-                target: target.clone(),
-                reason: format!("An unproved value origin may run a destructor in {target}"),
-                erased: true,
-                execution: true,
-                no_name_route: true,
-            });
+    for raw in 0..count {
+        let id = u32::try_from(raw).unwrap_or(u32::MAX);
+        let module = builder.interned_text(id);
+        if names.contains(index.file_of(module).unwrap_or(module)) {
+            bits.set(id);
         }
     }
-    if open.len() != waiting {
-        drop(settle_pending(builder, open, index, &ingress));
-    }
+    bits
 }
 
 fn settle_pending(
     builder: &mut Builder,
     mut open: Vec<Pending>,
-    index: &Index<'_>,
-    ingress: &BTreeSet<String>,
+    ctx: &FlowContext<'_>,
+    homes: &[LazyHome],
+    erased_homes: bool,
 ) -> Vec<Pending> {
-    // Both causes for the same pair become reachable together, regardless of their order.
-    let mut named: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for pending in open.iter().filter(|pending| !pending.execution) {
-        named
-            .entry(pending.source.clone())
-            .or_default()
-            .insert(pending.target.clone());
-    }
-    while !open.is_empty() {
-        let graph = Graph::of(builder);
-        let mut reach: BTreeMap<String, Reach> = BTreeMap::new();
+    let size = builder.interned_count();
+    loop {
+        let graph = Graph::of(builder, &ctx.edges, size);
+        let mut reach: Vec<Option<Reach>> = (0..size).map(|_| None).collect();
         let (ready, waiting): (Vec<_>, Vec<_>) = open.into_iter().partition(|pending| {
-            let found = reach
-                .entry(pending.source.clone())
-                .or_insert_with(|| graph.reach(&pending.source, index, ingress));
+            let found = reach_of(&mut reach, pending.source, &graph, ctx);
             if pending.erased {
-                return found.any || found.ingress;
-            }
-            // A type of an inline module of the file is reached through that module.
-            let below = format!("{}.", pending.target);
-            found.any
-                || (found.modules.iter())
-                    .any(|module| *module == pending.target || module.starts_with(&below))
-        });
-        if ready.is_empty() {
-            return waiting;
-        }
-        // The stored pair keeps any earlier gap that can also hide a lexical path.
-        for pending in &ready {
-            let pair = (pending.source.as_str(), pending.target.as_str());
-            let at = (pending.rel.as_str(), &pending.site);
-            if !pending.execution
-                && pair.0 != pair.1
-                && graph
-                    .edges
-                    .contains(&(pending.source.clone(), pending.target.clone()))
-            {
-                builder.named_site(pair, at, &pending.reason, pending.no_name_route);
-                continue;
-            }
-            let can_name = named
-                .get(pair.0)
-                .is_some_and(|targets| targets.contains(pair.1));
-            let dimension = if pending.execution && !can_name {
-                ResolutionDimension::RuntimeEffects
+                found.any || found.ingress
             } else {
-                ResolutionDimension::Imports
-            };
-            once_gap(
-                builder,
-                &graph.edges,
-                pair,
-                at,
-                &pending.reason,
-                Some(dimension),
-                pending.no_name_route,
-            );
+                found.any || found.targets.has_bit(pending.target)
+            }
+        });
+        for pending in &ready {
+            emit_pending(builder, pending, ctx);
+        }
+        let added = !homes.is_empty()
+            && ctx.callers.iter().fold(false, |any, caller| {
+                any | settle_caller_homes(
+                    builder,
+                    &mut reach,
+                    &graph,
+                    ctx,
+                    caller,
+                    homes,
+                    erased_homes,
+                )
+            });
+        if ready.is_empty() && !added {
+            return waiting;
         }
         open = waiting;
     }
-    open
 }
 
-/// A member of an inherent `impl` block: in `Members::foreign` a block that is not in the file of
-/// its type, in `Members::owned` a block in that file.
-pub(super) struct Foreign<'a> {
-    pub(super) module: &'a Module,
-    /// The lexical module of the block.
-    pub(super) lexical: String,
-    pub(super) ty: TypeOf,
-    pub(super) member: &'a Member,
-    /// The block has only inert attributes and no type parameter (`ImplBlock::exact`).
-    pub(super) exact: bool,
+fn reach_of<'r>(
+    cache: &'r mut [Option<Reach>],
+    source: u32,
+    graph: &Graph,
+    ctx: &FlowContext<'_>,
+) -> &'r Reach {
+    let slot = usize::try_from(source).unwrap_or(0);
+    if let Some(cell) = cache.get_mut(slot) {
+        return cell.get_or_insert_with(|| graph.reach(source, &ctx.ancestors, &ctx.ingress));
+    }
+    &EMPTY_REACH
 }
 
-/// Whether a call at `at` in `caller` can reach the member: `x.m(..)` reaches only a member with a
-/// `self` parameter and as many other parameters as the call has arguments (Rust has no overloads).
-/// `pub(in path)` counts as the crate.
-pub(super) fn visible(
-    workspace: &Workspace,
-    (caller, at): (&Module, &str),
-    call: &MethodCall,
-    member: &Foreign<'_>,
+static EMPTY_REACH: Reach = Reach {
+    any: false,
+    ingress: false,
+    targets: BitSet { words: Vec::new() },
+};
+
+fn emit_pending(builder: &mut Builder, pending: &Pending, ctx: &FlowContext<'_>) {
+    let Some((rel_id, site)) = ctx.pool.site_of(pending.site) else {
+        return;
+    };
+    let rel = builder.interned_text(rel_id).to_owned();
+    let reason = builder.interned_text(pending.reason).to_owned();
+    let source = builder.interned_text(pending.source).to_owned();
+    let target = builder.interned_text(pending.target).to_owned();
+    if !pending.execution
+        && pending.source != pending.target
+        && ctx.edges.contains(&(pending.source, pending.target))
+    {
+        builder.named_site(
+            (&source, &target),
+            (&rel, site),
+            &reason,
+            pending.no_name_route,
+        );
+        return;
+    }
+    let dimension = if pending.execution && !ctx.named.contains(&(pending.source, pending.target)) {
+        ResolutionDimension::RuntimeEffects
+    } else {
+        ResolutionDimension::Imports
+    };
+    once_gap(
+        builder,
+        &ctx.edges,
+        (&source, &target),
+        (&rel, site),
+        &reason,
+        Some(dimension),
+        pending.no_name_route,
+    );
+}
+
+fn settle_caller_homes(
+    builder: &mut Builder,
+    reach: &mut [Option<Reach>],
+    graph: &Graph,
+    ctx: &FlowContext<'_>,
+    caller: &CallerEntry,
+    homes: &[LazyHome],
+    erased: bool,
 ) -> bool {
-    let arity = call.arity.is_none_or(|count| count == member.member.arity);
-    if !(call.path || member.member.receiver && arity) {
-        return false;
-    }
-    let same_crate = caller.crate_index == member.module.crate_index;
-    match &member.member.access {
-        // A private member is visible in its module and below it (#1571).
-        Access::Private => same_crate && inside(at, &member.lexical),
-        Access::Package(text) if text == "pub(super)" => {
-            let parent = member.lexical.rsplit_once('.').map_or("", |(up, _)| up);
-            inside(at, parent)
+    let mut added = false;
+    for home in homes {
+        let pair = (caller.id, home.target);
+        if caller.id == home.target
+            || ctx.edges.contains(&pair)
+            || builder.gapped.contains_key(&pair)
+        {
+            continue;
         }
-        Access::Package(_) => same_crate,
-        Access::Public => same_crate || depends(workspace, caller, member.module),
+        if !erased && !crate_reaches(ctx.crate_deps, caller.crate_index, home.crate_index) {
+            continue;
+        }
+        let found = reach_of(reach, caller.id, graph, ctx);
+        let ready = if erased {
+            found.any || found.ingress
+        } else {
+            found.any || found.targets.has_bit(home.target)
+        };
+        if !ready {
+            continue;
+        }
+        let source = builder.interned_text(caller.id).to_owned();
+        let target = builder.interned_text(home.target).to_owned();
+        let dimension = if ctx.named.contains(&pair) {
+            ResolutionDimension::Imports
+        } else {
+            ResolutionDimension::RuntimeEffects
+        };
+        once_gap(
+            builder,
+            &ctx.edges,
+            (&source, &target),
+            (&home.rel, &home.site),
+            &home.reason,
+            Some(dimension),
+            true,
+        );
+        added = true;
     }
+    added
 }
 
-/// The pending gaps of a call that no proof resolved: it may reach each visible member `m` in the
-/// file of its type, because a field, a chain or a return value can give a value of that type
-/// that the caller does not name.
-pub(super) fn own_candidates(
+/// Record pending gaps of an unresolved call directly into the compact candidate pool (#1942).
+pub(super) fn push_own_candidates(
+    builder: &mut Builder,
+    pool: &mut PendingPool,
     workspace: &Workspace,
     (module, at): (&Module, &str),
     call: &MethodCall,
     (owned, aliases): (&[Foreign<'_>], &BTreeSet<&str>),
-    keep: Keep<'_>,
-    no_name_route: bool,
-) -> Vec<Pending> {
-    owned
+    (keep, no_name_route): (Keep<'_>, bool),
+) {
+    for block in owned
         .iter()
         .filter(|block| keep(block))
         .filter(|block| names_type(module, call, &block.ty, aliases))
         .filter(|block| visible(workspace, (module, at), call, block))
-        .map(|block| {
-            let target = block.module.module.clone();
-            let reason = format!(
-                "A method call may reach the method {} of a type in its own file {target}",
-                call.name
-            );
-            Pending {
-                source: module.module.clone(),
-                rel: module.rel.clone(),
-                site: call.site.clone(),
-                target,
-                reason,
-                erased: false,
-                execution: false,
-                no_name_route,
-            }
-        })
-        .collect()
+    {
+        let target = block.module.module.as_str();
+        let reason = format!(
+            "A method call may reach the method {} of a type in its own file {target}",
+            call.name
+        );
+        pool.push(
+            builder,
+            (&module.module, target),
+            (&module.rel, &call.site),
+            &reason,
+            (false, false, no_name_route),
+        );
+    }
 }
 
 /// Whether the type of a receiver lets a call reach the members of a block of this type (#1571).
 pub(super) type Keep<'k> = &'k dyn Fn(&Foreign<'_>) -> bool;
 
-/// Whether the written type of a path `T::m` can name the type of a member of the file of its type:
-/// `T` is its name, an alias or a renamed `use`, or a macro of the caller can give any name. A
-/// method call names no type.
-fn names_type(caller: &Module, call: &MethodCall, ty: &TypeOf, aliases: &BTreeSet<&str>) -> bool {
-    let (Some(owner), TypeOf::Known(_, name)) = (&call.owner, ty) else {
-        return true;
-    };
-    *owner == *name
-        || aliases.contains(owner.as_str())
-        || caller.scan.body_macros
-        || caller.scan.module_macros
+/// What a module reaches: each module (and its dot-prefix targets), or any module.
+struct Reach {
+    any: bool,
+    ingress: bool,
+    targets: BitSet,
 }
 
-/// The names of a module that may stand for another type in a path: each type alias and each
-/// name that a `use` renames.
+/// Dense module adjacency graph over `Builder::strings` ids.
+struct Graph {
+    next: Vec<Vec<u32>>,
+    open: BitSet,
+    anywhere: bool,
+}
+
+fn import_edges(builder: &mut Builder) -> HashSet<(u32, u32)> {
+    let imports = std::mem::take(&mut builder.imports);
+    let mut edges = HashSet::new();
+    for record in &imports {
+        let data = record.data.data();
+        let source = builder.intern_text(data.source_module.as_str());
+        let target = builder.intern_text(data.target_module.as_str());
+        edges.insert((source, target));
+    }
+    builder.imports = imports;
+    edges
+}
+
+/// The names of a module that may stand for another type in a path: type aliases and `use` renames.
 pub(super) fn aliases(module: &Module) -> impl Iterator<Item = &str> {
     let scan = &module.scan;
     let aliases = (scan.definitions.iter())
         .filter(|definition| definition.form == Form::Alias)
-        .map(|definition| definition.name.as_str());
+        .map(|definition| String::as_str(&definition.name));
     let renames = scan.references.iter().filter_map(|r| match &r.via {
         Via::Use {
             binding: Some(binding),
             ..
-        } if r.names.last() != Some(binding) => Some(binding.as_str()),
+        } if r.names.last() != Some(binding) => Some(String::as_str(binding)),
         _ => None,
     });
     aliases.chain(renames)
 }
 
-/// What a module reaches: each module, or any module.
-struct Reach {
-    any: bool,
-    ingress: bool,
-    modules: BTreeSet<String>,
+fn mark_open_gaps(builder: &Builder, open: &mut BitSet) -> bool {
+    let mut anywhere = false;
+    for record in builder.gaps.values() {
+        let data = record.data.data();
+        if data.source_module.is_some() {
+            continue;
+        }
+        let module = data.module.as_ref().map(|m| m.as_str()).unwrap_or("");
+        if module.is_empty() {
+            anywhere = true;
+        } else if let Some(id) = builder.find_text(module) {
+            open.set(id);
+        }
+    }
+    anywhere
 }
 
-/// The dependencies of the reply: the edges, the pair gaps and the modules that may depend on any
-/// module.
-struct Graph {
-    edges: BTreeSet<(String, String)>,
-    next: BTreeMap<String, Vec<String>>,
-    open: BTreeSet<String>,
-    anywhere: bool,
+fn mark_target_ancestors(targets: &mut BitSet, ancestors: &[Vec<u32>], target: u32) {
+    if let Some(parents) = usize::try_from(target)
+        .ok()
+        .and_then(|slot| ancestors.get(slot))
+    {
+        for &parent in parents {
+            targets.set(parent);
+        }
+    }
 }
 
 impl Graph {
-    fn of(builder: &Builder) -> Self {
-        let edges: BTreeSet<(String, String)> = (builder.imports.iter())
-            .map(|record| {
-                let data = record.data.data();
-                let source = data.source_module.as_str().to_owned();
-                (source, data.target_module.as_str().to_owned())
-            })
-            .collect();
-        let mut next: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        for (source, target) in edges.iter().chain(builder.gapped.keys()) {
-            next.entry(source.clone()).or_default().push(target.clone());
-        }
-        let mut open = BTreeSet::new();
-        let mut anywhere = false;
-        for record in builder.gaps.values() {
-            let data = record.data.data();
-            if data.source_module.is_some() {
-                continue;
-            }
-            match data.module.as_ref().map(|module| module.as_str()) {
-                Some(module) if !module.is_empty() => drop(open.insert(module.to_owned())),
-                _ => anywhere = true,
+    fn of(builder: &Builder, edges: &HashSet<(u32, u32)>, size: usize) -> Self {
+        let mut next: Vec<Vec<u32>> = vec![Vec::new(); size];
+        for &(source, target) in edges.iter().chain(builder.gapped.keys()) {
+            if let Some(list) = usize::try_from(source).ok().and_then(|i| next.get_mut(i)) {
+                list.push(target);
             }
         }
-        Graph {
-            edges,
+        let mut open = BitSet::new(size);
+        let anywhere = mark_open_gaps(builder, &mut open);
+        Self {
             next,
             open,
             anywhere,
         }
     }
 
-    fn reach(&self, source: &str, index: &Index<'_>, ingress: &BTreeSet<String>) -> Reach {
-        let mut modules = BTreeSet::new();
+    fn reach(&self, source: u32, ancestors: &[Vec<u32>], ingress: &BitSet) -> Reach {
+        let size = Vec::len(&self.next);
+        let mut visited = BitSet::new(size);
+        let mut targets = BitSet::new(size);
         let mut incoming = false;
-        let mut queue = VecDeque::from([source.to_owned()]);
+        let mut queue = VecDeque::from([source]);
         while let Some(module) = queue.pop_front() {
-            if self.anywhere || self.open.contains(&module) {
+            if self.anywhere || self.open.has_bit(module) {
                 return Reach {
                     any: true,
                     ingress: incoming,
-                    modules,
+                    targets,
                 };
             }
-            incoming |= ingress.contains(index.file_of(&module).unwrap_or(&module));
-            let next = self.next.get(&module).into_iter().flatten();
-            for target in next.filter(|target| modules.insert((*target).clone())) {
-                queue.push_back(target.clone());
+            incoming |= ingress.has_bit(module);
+            let outgoing = usize::try_from(module)
+                .ok()
+                .and_then(|slot| self.next.get(slot))
+                .map_or(&[][..], Vec::as_slice);
+            for &target in outgoing.iter().filter(|&&t| visited.set(t)) {
+                targets.set(target);
+                mark_target_ancestors(&mut targets, ancestors, target);
+                queue.push_back(target);
             }
         }
         Reach {
             any: false,
             ingress: incoming,
-            modules,
+            targets,
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn proofs(causes: &[bool], erased: bool) -> (Option<ResolutionDimension>, bool) {
-        let mut builder = Builder::default();
-        builder.gap("unread caller", None, "src");
-        let pending = causes
-            .iter()
-            .map(|&execution| Pending {
-                source: "src".to_owned(),
-                rel: "src.rs".to_owned(),
-                site: Site::default(),
-                target: "dst".to_owned(),
-                reason: format!("candidate {execution}"),
-                execution,
-                no_name_route: execution,
-                erased: erased && execution,
-            })
-            .collect();
-        let root = archkeel_snapshot::test_tree::Tree::new(&[]);
-        let mut source = archkeel_snapshot::Snapshot::new(&root.path());
-        let workspace = crate::crates::discover(&mut source, &[], "ns");
-        settle(
-            &mut builder,
-            pending,
-            &crate::modules::index(&workspace, &[]),
-            &[],
-        );
-        let pair = builder
-            .gaps
-            .values()
-            .find(|gap| gap.data.data().source_module.is_some());
-        let data = pair.expect("the pair is reachable").data.data();
-        (data.resolution_dimension, data.no_name_route)
-    }
-
-    #[test]
-    fn a_named_cause_stays_open_before_or_after_an_execution_cause() {
-        assert_eq!(
-            proofs(&[true], false),
-            (Some(ResolutionDimension::RuntimeEffects), true)
-        );
-        assert_eq!(
-            proofs(&[true, true], false),
-            (Some(ResolutionDimension::RuntimeEffects), true)
-        );
-        assert_eq!(proofs(&[true, false], false), (None, false));
-        assert_eq!(proofs(&[false, true], false), (None, false));
-        assert_eq!(proofs(&[true, false, true], false), (None, false));
-    }
-
-    #[test]
-    fn an_erased_destructor_is_execution_unless_the_pair_has_a_named_cause() {
-        assert_eq!(
-            proofs(&[true], true),
-            (Some(ResolutionDimension::RuntimeEffects), true)
-        );
-        assert_eq!(proofs(&[true, false], true), (None, false));
-        assert_eq!(proofs(&[false, true], true), (None, false));
-    }
+fn crate_reaches(deps: &[Vec<bool>], from: usize, to: usize) -> bool {
+    from == to || deps.get(from).and_then(|row| row.get(to)).copied() == Some(true)
 }
+
+#[cfg(test)]
+#[path = "impl_flow_tests.rs"]
+mod tests;
