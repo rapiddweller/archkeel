@@ -9,6 +9,8 @@
 
 #![forbid(unsafe_code)]
 
+mod scip_evidence;
+
 use std::io::{Read, Write};
 use std::process::ExitCode;
 
@@ -43,6 +45,9 @@ fn run() -> Result<Vec<u8>, String> {
 }
 
 fn main() -> ExitCode {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("scip-evidence")) {
+        return finish(scip_evidence::run(STACK_BYTES).map(|()| Vec::new()));
+    }
     if let Some(exit) =
         archkeel_wire::worker::serve_v1(decode_rust, TEST_FEATURES, |request, version| {
             archkeel_snapshot::work::bounded(|| typed_reply(request, provenance(), version))
@@ -50,7 +55,11 @@ fn main() -> ExitCode {
     {
         return exit;
     }
-    match run().and_then(|reply| {
+    finish(run())
+}
+
+fn finish(result: Result<Vec<u8>, String>) -> ExitCode {
+    match result.and_then(|reply| {
         std::io::stdout()
             .write_all(&reply)
             .map_err(|error| format!("cannot write the reply: {error}"))

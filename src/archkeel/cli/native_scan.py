@@ -23,7 +23,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from time import monotonic
-from typing import Final, TextIO
+from typing import BinaryIO, Final, TextIO
 
 from .core_frame import read_refusal
 from .core_json import CoreError, CoreExit
@@ -166,17 +166,25 @@ def ignored_by(root: Path, paths: Sequence[str]) -> dict[str, str]:
 
 
 def exchange(
-    binary: str, kind: str, request: bytes, stderr_sink: list[bytes] | None = None
+    binary: str,
+    kind: str,
+    request: bytes,
+    stderr_sink: list[bytes] | None = None,
+    *,
+    arguments: tuple[str, ...] = (),
+    output: BinaryIO | None = None,
 ) -> tuple[bytes, int]:
     """Run the core with one encoded request and a time limit, and give its standard output and exit
     code. Exit 2 (no frame) is a `CoreError`. A caller that wants the standard error of a run that
-    gave a frame (the timings of #659) passes a list; the bytes are appended to it."""
+    gave a frame (the timings of #659) passes a list; the bytes are appended to it.
+    A stream destination keeps large worker output outside the shell heap."""
     try:
         with _progress(Path.cwd().name) if kind == "scan" else _quiet():
             done = subprocess.run(
-                [binary, kind],
+                [binary, kind, *arguments],
                 input=request,
-                capture_output=True,
+                stdout=subprocess.PIPE if output is None else output,
+                stderr=subprocess.PIPE,
                 check=False,
                 timeout=_TIMEOUT_SECONDS,
             )
@@ -187,14 +195,14 @@ def exchange(
     if stderr_sink is not None:
         stderr_sink.append(done.stderr)
     if done.returncode == CoreExit.REFUSED:
-        if done.stdout:
+        if done.stdout or (output is not None and output.tell()):
             raise CoreError("the core wrote frame bytes with exit 2")
         gap = read_refusal(done.stderr)
         message = (
             gap.reason if gap else done.stderr.decode("utf-8", errors="replace").strip()[-2000:]
         )
         raise CoreError(f"the core refused the request (exit 2): {message}", gap=gap)
-    return done.stdout, done.returncode
+    return done.stdout or b"", done.returncode
 
 
 _PROGRESS_DELAY: Final = 3.0

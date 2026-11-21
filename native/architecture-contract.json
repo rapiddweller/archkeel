@@ -5659,6 +5659,10 @@
       "exact_modules": [
         "native.archkeel_rust_collector",
         "native.archkeel_rust_collector.bin_archkeel_rust_collector",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.wire",
         "native.archkeel_rust_collector.build_script",
         "native.archkeel_rust_collector.cargo_toml"
       ],
@@ -6960,6 +6964,7 @@
       "kind": "external_dependency_scope",
       "dependency": "syn",
       "allowed_sources": [
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
         "native.archkeel_rust_collector.tokens",
         "native.archkeel_rust_collector.attrs",
         "native.archkeel_rust_collector.net",
@@ -7127,6 +7132,7 @@
       "kind": "external_dependency_scope",
       "dependency": "proc_macro2",
       "allowed_sources": [
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
         "native.archkeel_rust_collector.tokens",
         "native.archkeel_rust_collector.macro_items",
         "native.archkeel_rust_collector.net",
@@ -7255,6 +7261,8 @@
       "kind": "external_dependency_scope",
       "dependency": "sha2",
       "allowed_sources": [
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence",
+        "native.archkeel_rust_collector.cargo_toml",
         "native.archkeel_build_support",
         "native.archkeel_contract",
         "native.archkeel_facts",
@@ -7276,6 +7284,10 @@
       "kind": "external_dependency_scope",
       "dependency": "serde",
       "allowed_sources": [
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
+        "native.archkeel_rust_collector.cargo_toml",
         "native.archkeel_contract",
         "native.archkeel_core",
         "native.archkeel_dart_collector",
@@ -7285,7 +7297,7 @@
         "native.archkeel_store",
         "native.archkeel_wire"
       ],
-      "rationale": "These crates encode or decode typed values; the evaluator and the collectors that write through the facts crate do not.",
+      "rationale": "These crates encode or decode typed values. The optional SCIP worker also checks typed artifact receipts.",
       "provenance": [
         "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
       ],

@@ -16,7 +16,10 @@ archkeel-facts.workspace = true
 archkeel-snapshot.workspace = true
 archkeel-wire.workspace = true
 proc-macro2.workspace = true
+# The collector fixture strings use the name serde for a synthetic dependency.
+scip_serde = { package = "serde", version = "1.0", features = ["derive"] }
 serde_json.workspace = true
+sha2.workspace = true
 syn.workspace = true
 
 [features]
