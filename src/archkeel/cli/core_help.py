@@ -101,19 +101,21 @@ examples:
 """
 _EXPLORE: Final = """\
 usage: archkeel explore [PATH | --root PATH] [--config PATH] [--port PORT] [--no-open]
-                        [--scip PATH] [--json | --text]
+                        [--scip PATH | --no-scip] [--json | --text]
 
 Open the architecture whiteboard and native report for the same local snapshot.
 `explore` is a compatibility alias. PATH and --root select the repository; use only one.
 Without a contract configuration, the whiteboard shows observed source and layout groups.
 The Explorer binds to 127.0.0.1 and reads a snapshot of the repository.
+When .archkeel/scip/rust.scip exists, Explorer checks and imports it automatically.
 Press Ctrl-C to stop the server.
 
   --root PATH    Read the project at PATH.
   --config PATH  Select a project configuration or system document.
   --port PORT    Use this local port. Default: choose a free port.
   --no-open      Print the local URL without opening a browser.
-  --scip PATH  Store Rust call evidence from a SCIP index in the snapshot.
+  --scip PATH    Store Rust call evidence from a SCIP index in the snapshot (fail closed).
+  --no-scip      Skip automatic SCIP index discovery under .archkeel/scip/.
   --json         Print one JSON object with the local URL.
 
 The command exits 0 after the Explorer stops, or 2 if it cannot start.

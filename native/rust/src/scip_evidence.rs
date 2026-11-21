@@ -28,6 +28,7 @@ const MANIFEST_LIMIT: u64 = 8 << 20;
 const REQUEST_LIMIT: u64 = 16 << 20;
 const SOURCE_LIMIT: usize = 4096;
 const OCCURRENCE_LIMIT: usize = 512_000;
+const ARTIFACT_ERROR_PREFIX: &str = "scip_artifact_error: ";
 
 #[derive(Deserialize)]
 #[serde(crate = "scip_serde", deny_unknown_fields)]
@@ -138,6 +139,55 @@ fn read_manifest(path: &Path) -> Result<(String, Manifest)> {
     Ok((sha256_hex(&raw), receipt))
 }
 
+type ReadArtifact<'a> = (String, Option<String>, BTreeMap<String, String>, Join<'a>);
+
+fn read_artifact<'a>(
+    snapshot: &mut Snapshot,
+    index: &Path,
+    manifest: Option<&Path>,
+    local_packages: Vec<String>,
+    calls: &'a BTreeMap<String, BTreeMap<usize, Vec<CallSite>>>,
+    declarations: &'a BTreeMap<String, Option<String>>,
+) -> Result<ReadArtifact<'a>> {
+    let receipt = manifest.map(read_manifest).transpose()?;
+    let mut source_files = receipt
+        .as_ref()
+        .map(|(_, m)| m.files.clone())
+        .unwrap_or_default();
+    for (path, digest) in &source_files {
+        let source = source_bytes(snapshot, path)?;
+        if sha256_hex(&source) != *digest {
+            return Err(format!("stale SCIP source: {path}"));
+        }
+    }
+    let mut result = Join::default();
+    result.matches.local_packages(local_packages);
+    let mut reader = DigestReader {
+        source: BufReader::new(regular(index, INDEX_LIMIT)?).take(INDEX_LIMIT + 1),
+        digest: Sha256::new(),
+        size: 0,
+    };
+    wire::documents(&mut reader, |bytes| {
+        result.document(bytes, &mut source_files, snapshot, calls, declarations)
+    })?;
+    if reader.size > INDEX_LIMIT || result.documents.is_empty() {
+        return Err("SCIP index has no documents or exceeds its byte limit".to_owned());
+    }
+    let index_sha256 = format!("{:x}", reader.digest.finalize());
+    if receipt
+        .as_ref()
+        .is_some_and(|(_, m)| m.index_sha256 != index_sha256)
+    {
+        return Err("SCIP index digest does not match its manifest".to_owned());
+    }
+    Ok((
+        index_sha256,
+        receipt.map(|(digest, _)| digest),
+        source_files,
+        result,
+    ))
+}
+
 fn join(
     root: &str,
     index: &Path,
@@ -145,11 +195,6 @@ fn join(
     request: Request,
     output: &mut impl Write,
 ) -> Result<()> {
-    let receipt = manifest.map(read_manifest).transpose()?;
-    let mut source_files = receipt
-        .as_ref()
-        .map(|(_, m)| m.files.clone())
-        .unwrap_or_default();
     if request.calls.len() > 100_000
         || request.definitions.len() > 100_000
         || request.local_packages.len() > SOURCE_LIMIT
@@ -157,12 +202,6 @@ fn join(
         return Err("SCIP request exceeds its row limit".to_owned());
     }
     let mut snapshot = Snapshot::open_root(root)?;
-    for (path, digest) in &source_files {
-        let source = source_bytes(&mut snapshot, path)?;
-        if sha256_hex(&source) != *digest {
-            return Err(format!("stale SCIP source: {path}"));
-        }
-    }
     let mut calls = BTreeMap::<String, BTreeMap<usize, Vec<CallSite>>>::new();
     for site in request.calls {
         calls
@@ -178,37 +217,20 @@ fn join(
             record(&mut declarations, d.evidence_id, Some(d.id));
         }
     }
-    let mut result = Join::default();
-    result.matches.local_packages(request.local_packages);
-    let mut index = DigestReader {
-        source: BufReader::new(regular(index, INDEX_LIMIT)?).take(INDEX_LIMIT + 1),
-        digest: Sha256::new(),
-        size: 0,
-    };
-    wire::documents(&mut index, |bytes| {
-        result.document(
-            bytes,
-            &mut source_files,
-            &mut snapshot,
-            &calls,
-            &declarations,
-        )
-    })?;
-    if index.size > INDEX_LIMIT || result.documents.is_empty() {
-        return Err("SCIP index has no documents or exceeds its byte limit".to_owned());
-    }
-    let index_sha256 = format!("{:x}", index.digest.finalize());
-    if receipt
-        .as_ref()
-        .is_some_and(|(_, m)| m.index_sha256 != index_sha256)
-    {
-        return Err("SCIP index digest does not match its manifest".to_owned());
-    }
+    let (index_sha256, manifest_sha256, source_files, result) = read_artifact(
+        &mut snapshot,
+        index,
+        manifest,
+        request.local_packages,
+        &calls,
+        &declarations,
+    )
+    .map_err(|why| format!("{ARTIFACT_ERROR_PREFIX}{why}"))?;
     line(
         output,
         &Header {
             index_sha256,
-            manifest_sha256: receipt.map(|(digest, _)| digest),
+            manifest_sha256,
             source_files: &source_files,
         },
     )?;

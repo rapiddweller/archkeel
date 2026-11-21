@@ -100,6 +100,7 @@ class Options(argparse.Namespace):
     port: int = 0
     no_open: bool = False
     scip_index: Path | None = None
+    no_scip: bool = False
     explorer: bool = False
 
 
@@ -237,6 +238,7 @@ def parse(argv: Sequence[str]) -> Options:
             parser.add_argument("--port", type=_port, default=0)
             parser.add_argument("--no-open", action="store_true")
             parser.add_argument("--scip", type=Path, dest="scip_index")
+            parser.add_argument("--no-scip", action="store_true")
         if command in {Command.VALIDATE, Command.REPORT}:
             parser.add_argument("--no-init", action="store_true")
             parser.add_argument("--timings", type=partial(_new_file_path, "--timings"))
@@ -267,6 +269,8 @@ def parse(argv: Sequence[str]) -> Options:
         if options.root is not None:
             raise ValueError("use either a project path or --root, not both")
         options.root = options.project
+    if options.scip_index is not None and options.no_scip:
+        raise ValueError("use either --scip or --no-scip, not both")
     if options.baseline is not None and options.baseline == options.write_baseline:
         raise ValueError(
             "--baseline and --write-baseline name the same file; "

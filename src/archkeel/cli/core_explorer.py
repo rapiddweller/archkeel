@@ -29,7 +29,12 @@ from .core_binding import ProjectRoot
 from .core_exit import Outcome, envelope, exit_for
 from .core_explorer_http import _ExplorerServer
 from .core_explorer_identity import _file_digest, _fingerprint
-from .core_explorer_scip import ScipIndex, _store_resolution
+from .core_explorer_scip import (
+    ScipIndex,
+    ScipLoadError,
+    _discover_rust_index,
+    _store_resolution,
+)
 from .core_frame import CoreError, CoreFrame, GapKind
 from .core_json import as_object, as_text
 from .init_draft import draft, write_missing
@@ -168,6 +173,25 @@ def _bind_artifact(
     return artifact, artifact.bind(snapshot)
 
 
+def _resolve_scip(
+    options: Options, root: Path, snapshot: SnapshotIdentity
+) -> tuple[ScipIndex | None, SnapshotIdentity, bool]:
+    if options.scip_index is not None:
+        artifact, bound = _bind_artifact(options.scip_index, snapshot)
+        return artifact, bound, True
+    if options.no_scip:
+        return None, snapshot, False
+    discovered = _discover_rust_index(root)
+    if discovered is None:
+        return None, snapshot, False
+    try:
+        artifact, bound = _bind_artifact(discovered, snapshot)
+    except ScipLoadError as error:
+        print(f"SCIP index {discovered} skipped ({error}); using native scan", file=sys.stderr)
+        return None, snapshot, False
+    return artifact, bound, False
+
+
 def _cache_location(root: Path, snapshot: SnapshotIdentity) -> Path:
     default = Path.home() / ".cache"
     cache = (Path(os.environ.get("XDG_CACHE_HOME") or default) / "archkeel" / "explorer").resolve()
@@ -176,16 +200,16 @@ def _cache_location(root: Path, snapshot: SnapshotIdentity) -> Path:
     return cache_path(cache, root, snapshot)
 
 
-def _prepare_snapshot(
-    options: Options,
+def _ensure_snapshot(
     project: ProjectRoot,
     binary: Path,
+    snapshot: SnapshotIdentity,
+    digests: dict[str, str],
     scan: Callable[[ProjectRoot], tuple[bytes, CoreFrame]],
     *,
     observed: bool,
-) -> tuple[Path, SnapshotIdentity, ScipIndex | None]:
-    snapshot, digests = _fingerprint(project, binary)
-    scip, snapshot = _bind_artifact(options.scip_index, snapshot)
+    scip: ScipIndex | None,
+) -> Path:
     path = _cache_location(project.path, snapshot)
     if not path.exists():
         with repository_writer(path):
@@ -200,6 +224,32 @@ def _prepare_snapshot(
                     observed=observed,
                     scip=scip,
                 )
+    return path
+
+
+def _prepare_snapshot(
+    options: Options,
+    project: ProjectRoot,
+    binary: Path,
+    scan: Callable[[ProjectRoot], tuple[bytes, CoreFrame]],
+    *,
+    observed: bool,
+) -> tuple[Path, SnapshotIdentity, ScipIndex | None]:
+    base_snapshot, digests = _fingerprint(project, binary)
+    scip, snapshot, explicit = _resolve_scip(options, project.path, base_snapshot)
+    try:
+        path = _ensure_snapshot(
+            project, binary, snapshot, digests, scan, observed=observed, scip=scip
+        )
+    except ScipLoadError as error:
+        if explicit or scip is None:
+            raise
+        print(f"SCIP index {scip.path} skipped ({error}); using native scan", file=sys.stderr)
+        scip = None
+        snapshot = base_snapshot
+        path = _ensure_snapshot(
+            project, binary, snapshot, digests, scan, observed=observed, scip=None
+        )
     return path, snapshot, scip
 
 
@@ -212,12 +262,15 @@ def launch(
     render_report: Callable[[], tuple[str, tuple[str, bytes]]] | None,
 ) -> int:
     """Use a matching snapshot or publish a new one, then start the local Explorer."""
+    scip_possible = options.scip_index is not None or (
+        not options.no_scip and _discover_rust_index(project.path) is not None
+    )
     try:
         path, snapshot, scip = _prepare_snapshot(
             options, project, binary, scan, observed=render_report is None
         )
     except KeyboardInterrupt:
-        if options.scip_index is None:
+        if not scip_possible:
             raise
         return 130
 
