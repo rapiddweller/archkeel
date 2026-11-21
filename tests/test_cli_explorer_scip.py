@@ -178,6 +178,7 @@ def test_scip_stores_pointwise_evidence_without_an_explorer_overlay(
         ]
         assert db.execute("SELECT sum(count) FROM call_resolution_count").fetchone() == (7,)
         assert db.execute("SELECT * FROM scip_artifact").fetchone() == (
+            "rust",
             artifact.index_sha256,
             artifact.manifest_sha256,
         )
@@ -366,3 +367,66 @@ def test_real_scip_staging_rolls_back_on_signal_or_mid_launch_edit(
     else:
         assert "the project changed during the Explorer scan" in result.out
     assert not list(cache.rglob("*.sqlite3"))
+
+
+@pytest.mark.parametrize("with_manifest", [False, True])
+def test_explore_auto_discovers_project_scip_and_falls_back_when_stale(
+    scip_project, capsys: pytest.CaptureFixture[str], with_manifest: bool
+):
+    source, _artifact, cache = scip_project
+    root = source.parent.parent
+    assert _run_explore(source) == 0
+    native_run = json.loads(capsys.readouterr().out)
+
+    discovered = root / core_explorer_scip.DEFAULT_RUST_SCIP
+    discovered.parent.mkdir(parents=True)
+    data = _scip(source.read_bytes(), with_text=not with_manifest)
+    discovered.write_bytes(data)
+    if with_manifest:
+        discovered.with_name(discovered.name + ".manifest.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "index_sha256": hashlib.sha256(data).hexdigest(),
+                    "files": {"src/lib.rs": hashlib.sha256(source.read_bytes()).hexdigest()},
+                }
+            )
+        )
+
+    assert _run_explore(source) == 0
+    auto_run = json.loads(capsys.readouterr().out)
+    assert auto_run["snapshot"] != native_run["snapshot"]
+    with sqlite3.connect(auto_run["snapshot"]) as db:
+        assert db.execute("SELECT language, index_sha256 FROM scip_artifact").fetchall() == [
+            ("rust", hashlib.sha256(data).hexdigest())
+        ]
+        assert db.execute("SELECT status, provenance FROM call_resolution").fetchall() == [
+            ("local_resolved", "scip_verified")
+        ]
+
+    # --no-scip skips the discovered index and reuses the plain native snapshot.
+    assert core_only.run(["explore", "--root", str(root), "--no-open", "--no-scip", "--json"]) == 0
+    skipped = json.loads(capsys.readouterr().out)
+    assert skipped["snapshot"] == native_run["snapshot"]
+
+    # Mutual exclusion between --scip and --no-scip.
+    with pytest.raises(ValueError, match="--scip or --no-scip"):
+        parse(["explore", "--scip", str(discovered), "--no-scip"])
+
+    # Editing source makes the auto-discovered index stale: warn and fall back to native scan.
+    source.write_bytes(source.read_bytes().replace(b"{ 1 }", b"{ 2 }"))
+    assert _run_explore(source) == 0
+    captured = capsys.readouterr()
+    fallback = json.loads(captured.out)
+    assert "using native scan" in captured.err
+    with sqlite3.connect(fallback["snapshot"]) as db:
+        assert (
+            db.execute("SELECT name FROM sqlite_schema WHERE name='call_resolution'").fetchone()
+            is None
+        )
+    assert not list(cache.rglob(".building.sqlite3"))
+
+    # Explicit --scip stays fail-closed on the same stale file.
+    assert _run_explore(source, discovered) == 2
+    refusal = "stale SCIP source" if with_manifest else "SCIP document text differs from source"
+    assert refusal in capsys.readouterr().out
