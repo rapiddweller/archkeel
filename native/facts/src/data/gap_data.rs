@@ -5,8 +5,8 @@
 //! The data of a gap of the coverage or of the `unknowns` section. It has a file of its own, with
 //! no macro call at module level, so the scan of the Rust collector places the type.
 
-use crate::data::door::DoorSite;
 use crate::data::gap_effect::GapEffect;
+use crate::data::trojan_horse::TrojanHorseSite;
 use crate::ids::ModuleName;
 use crate::reason::ReasonCode;
 use crate::vocab::ResolutionDimension;
@@ -67,8 +67,8 @@ pub struct GapData {
     /// scope unknown.
     #[serde(default, skip_serializing_if = "crate::skip::omitted")]
     pub effect: Option<GapEffect>,
-    /// The door of the site, when the gap is a door whose reach a contract can declare
-    /// (AD-664).
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub door: Option<DoorSite>,
+    /// The trojan horse of the site, when the gap is a trojan horse whose reach a contract can declare
+    /// (AD-664). A stored facts 11 file spells the key `door`; it reads as an alias (AD-1045).
+    #[serde(default, alias = "door", skip_serializing_if = "crate::skip::omitted")]
+    pub trojan_horse: Option<TrojanHorseSite>,
 }

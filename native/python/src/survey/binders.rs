@@ -153,7 +153,7 @@ impl Binders {
         found.1
     }
 
-    /// The facts of the door proofs (`hazards_inert.rs`): the unique direct names, the names that
+    /// The facts of the trojan horse proofs (`hazards_inert.rs`): the unique direct names, the names that
     /// the module binds exactly once anywhere, and the names of `builtins` that no binder shadows.
     pub(in crate::survey) fn proof_facts(
         &self,

@@ -5,7 +5,7 @@
 //! The part of the model that only the reply and the settings give (slices S1 to S3): the
 //! modules, packages, imports, edges, measures and cycles. It needs no contract, so a run whose
 //! contract the core cannot use yet still has its rows. The core derives it one time per run.
-//! The declared reach of the doors of the root contract (AD-664) is the one contract input: it
+//! The declared reach of the trojan horses of the root contract (AD-664) is the one contract input: it
 //! adds declared imports, so the edges and the cycles read them.
 //! The macro bodies are typed rows of the split (`MacroBody`): the fan counts of the modules
 //! read them while the graph is derived, and nothing reads them after.
@@ -21,7 +21,6 @@ use archkeel_store::Ingested;
 use crate::constructs::Constructs;
 use crate::coverage::{self, Incomplete};
 use crate::cycles::{self, Cycle};
-use crate::door_reach::{self, Doors};
 use crate::edges::{self, Edge, Level};
 use crate::gap_class::{self, Class};
 use crate::ids::{Id, ModuleId, PackageId, Table};
@@ -32,6 +31,7 @@ use crate::observed::{self, Observed};
 use crate::reason::Reason;
 use crate::settings::{Producer, Settings};
 use crate::topology::{self, Measure};
+use crate::trojan_horse_reach::{self, TrojanHorses};
 
 /// The reply part of the model of one run.
 #[derive(Debug)]
@@ -64,8 +64,8 @@ pub struct Graph {
     boundary: Option<crate::boundary_facts::BoundaryFacts>,
     placement: Option<Vec<crate::placement_facts::Class>>,
     exact_calls: Option<CallInventory>,
-    /// The declared reach of the door sites (AD-664).
-    doors: Doors,
+    /// The declared reach of the trojan horse sites (AD-664).
+    trojan_horses: TrojanHorses,
 }
 
 impl Graph {
@@ -88,7 +88,7 @@ impl Graph {
             facts,
             reply.analysis_capabilities(),
             settings,
-            needs.doors(),
+            needs.trojan_horses(),
         )?;
         if needs.symbols() && graph.observed.analysis.symbol_facts {
             graph.symbols = Some(crate::symbol_table::derive(
@@ -116,16 +116,16 @@ impl Graph {
         facts: &Facts,
         analysis: AnalysisCapabilities,
         settings: Settings,
-        declared: &[archkeel_contract::DoorReach],
+        declared: &[archkeel_contract::TrojanHorseReach],
     ) -> Result<Graph, Reason> {
         let settings = settings.bound(&facts.adapter.name, facts.profile.as_str());
         let (modules, packages) = modules::tables(&facts.files)?;
-        // AD-664: the declared reach of the doors; a declared gap names no unresolved import.
-        let mut doors = door_reach::matched(declared, facts, &settings);
+        // AD-664: the declared reach of the trojan horses; a declared gap names no unresolved import.
+        let mut trojan_horses = trojan_horse_reach::matched(declared, facts, &settings);
         let mut split = imports::split(facts, analysis.target_marks, |gap| {
-            doors.of_gap(gap).is_some()
+            trojan_horses.of_gap(gap).is_some()
         });
-        split.imports.extend(doors.take_imports());
+        split.imports.extend(trojan_horses.take_imports());
         split.names.declared = crate::published_items::declared(facts);
         let (module_edges, package_edges) =
             edges::both(&facts.files, &split.imports, settings.namespace());
@@ -147,7 +147,7 @@ impl Graph {
             Producer::Trusted | Producer::External => None,
         };
         let mut observed = observed::observed(facts, analysis, &classes, live_target);
-        observed.effect_gaps = door_reach::narrowed(&doors, observed.effect_gaps);
+        observed.effect_gaps = trojan_horse_reach::narrowed(&trojan_horses, observed.effect_gaps);
         let gaps = crate::gaps::coverage_gaps(&facts.coverage, &classes);
         drop(names);
         let constructs = Constructs::derive(facts, settings.producer() == Producer::Trusted)?;
@@ -183,13 +183,13 @@ impl Graph {
             boundary: None,
             placement: None,
             exact_calls: None,
-            doors,
+            trojan_horses,
         })
     }
 
-    /// The declared reach of the door sites, matched to the doors of the reply (AD-664).
-    pub fn doors(&self) -> &Doors {
-        &self.doors
+    /// The declared reach of the trojan horse sites, matched to the trojan horses of the reply (AD-664).
+    pub fn trojan_horses(&self) -> &TrojanHorses {
+        &self.trojan_horses
     }
 
     pub(crate) fn exact_calls(&self) -> Option<&CallInventory> {

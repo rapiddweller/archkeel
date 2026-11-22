@@ -164,7 +164,7 @@ pub(super) fn stores(body: &[Stmt]) -> HashSet<String> {
     walk.names
 }
 
-/// The local names of a function for the door check of `hazards.rs`: each parameter and each
+/// The local names of a function for the trojan horse check of `hazards.rs`: each parameter and each
 /// written name, less a name that a `global` or `nonlocal` line declares.
 pub(super) fn local_names(def: &StmtFunctionDef) -> HashSet<String> {
     local_scope(def).0

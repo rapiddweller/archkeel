@@ -17,7 +17,6 @@ from typing import Final, TypeVar
 
 from .core_baseline import BaselineResult, read_baseline
 from .core_binding import bind_request
-from .core_doors import DoorRow, Premises, pass_qualifiers, read_doors, read_premises
 from .core_evidence import (
     CollectionGap,
     Location,
@@ -35,6 +34,13 @@ from .core_json import as_text_list as _as_text_list
 from .core_output import read_html
 from .core_schema import check_frame, check_refusal
 from .core_topology import Topology, frame_topology, require_topology
+from .core_trojan_horses import (
+    Premises,
+    TrojanHorseRow,
+    pass_qualifiers,
+    read_premises,
+    read_trojan_horses,
+)
 
 
 class Status(StrEnum):
@@ -209,8 +215,9 @@ class CoreFrame:
     # AD-540: the one assumption that the collector states for its proofs, when it states one.
     premise: str | None = None
     excluded_sources: tuple[str, ...] = ()
-    # AD-664, AD-764: the applied door declarations; each PASS under a premise, and its words.
-    doors: tuple[DoorRow, ...] = ()
+    # AD-664, AD-764: the applied trojan horse declarations; each PASS under a premise, and its
+    # words.
+    trojan_horses: tuple[TrojanHorseRow, ...] = ()
     premises: Premises = Premises({}, None)
 
     @property
@@ -488,6 +495,6 @@ def read_frame(
         measures=measures,
         premise=_premise(frame, scan, status),
         excluded_sources=_as_text_list(frame.get("excluded_sources", []), "excluded_sources"),
-        doors=read_doors(frame),
+        trojan_horses=read_trojan_horses(frame),
         premises=read_premises(frame, passing),
     )

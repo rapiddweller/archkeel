@@ -15,14 +15,14 @@ from collections.abc import Mapping, Sequence
 
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
-from .core_doors import door_lines
-from .core_doors import qualifier as premise_qualifier
 from .core_evidence import ViolationDetail, call_lines
 from .core_exit import Outcome, verdict_code, word_of
 from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
 from .core_gaps import SHOWN, group_lines, not_installed_lines, places, rest
 from .core_json import Gap
+from .core_trojan_horses import qualifier as premise_qualifier
+from .core_trojan_horses import trojan_horse_lines
 from .core_words import CAUSE_FIXES, contract_fix, kind_label, plain, readable
 
 #: The named parts that an `init` draft leaves: decisions that the person has not made yet.
@@ -354,7 +354,7 @@ def render(
     if frame.excluded_sources:
         out.append("Excluded test sources:")
         out.extend(f"  {path}" for path in frame.excluded_sources)
-    out.extend(door_lines(frame.premises, frame.doors, SHOWN, show_all))
+    out.extend(trojan_horse_lines(frame.premises, frame.trojan_horses, SHOWN, show_all))
     if system:
         out.extend(_system(system))
     out.extend(_violation_lines(frame, show_all))

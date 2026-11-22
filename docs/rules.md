@@ -178,7 +178,7 @@ frame (`premises`, `assuming`) and the report. The names that the core knows:
 `standard_library_unchanged` ("outside code leaves the standard library unchanged"). A
 `boundary_types` rule rests on it: a type of the standard library that the collector names, and a
 definition with a standard decorator that it models, count only under it (AD-782). An unknown name refuses
-the contract. A declared door reach (AD-664) and a stated external user are premises of the same
+the contract. A declared trojan horse reach (AD-664) and a stated external user are premises of the same
 kind, with their own keys.
 
 Core and reports share immutable typed selections, including all packages and exact
@@ -391,20 +391,20 @@ an unused-consumer check.
 and literal exports resolving to its target; product imports must avoid it.
 Migration shims remain visible work.
 
-Contract **3.15.0** adds `declarations.door_reach` (AD-664). One record names one door site
-(`module`, `door`, and `line` or `scope`) and the module prefixes that the door may import
+Contract **3.15.0** adds `declarations.trojan_horse_reach` (AD-664). One record names one trojan horse site
+(`module`, `trojan_horse`, and `line` or `scope`) and the module prefixes that the trojan horse may import
 (`loads`) or change (`changes`). The forms are `eval`, `exec`, `compile`, `unpickle`, `loader`,
 `dunder_import` and `computed_key`. The reach is a premise, not a proof: a PASS that rests on it
-is "PASS assuming the declared reach of N doors", and a declared load is a possible edge that a rule
-can forbid. A declaration that matches no door, more than one door or an invalid reach is a
-named defect and is never applied; without a declaration a door stays UNKNOWN. The frame row
-`door_reach[]` and the text list name the `rationale` of each applied declaration, so a reader sees
+is "PASS assuming N declared reaches", and a declared load is a possible edge that a rule
+can forbid. A declaration that matches no trojan horse, more than one trojan horse or an invalid reach is a
+named defect and is never applied; without a declaration a trojan horse stays UNKNOWN. The frame row
+`trojan_horse_reach[]` and the text list name the `rationale` of each applied declaration, so a reader sees
 the id, the site and the reason next to the verdict.
 
 For a computed TypeScript `import()`, use `loader` and name its module and line. The collector
 does not state the enclosing scope, so a scope selector does not match.
 Use qualified module names or prefixes, not the import specifier text. The frame lists scanned
-targets under `door_reach[].possible_loads`. These are possible dependencies, not observed
+targets under `trojan_horse_reach[].possible_loads`. These are possible dependencies, not observed
 imports. Boundary and cycle rules use them, but the observed topology does not count them.
 The cycle rule checks the contract graph. A graph cycle does not show that its imports run together.
 If two sites match the same line, the declaration applies to neither and the gap stays open.
@@ -426,7 +426,7 @@ The contract still claims that all calls use only those targets and that the dec
 `changes` are complete. The rule's qualified PASS names the binding and source line.
 
 ```json
-{"id": "DOOR-FORMULA", "module": "app.calc", "door": "eval", "scope": "Formula.value",
+{"id": "DOOR-FORMULA", "module": "app.calc", "trojan_horse": "eval", "scope": "Formula.value",
  "loads": [], "changes": [], "rationale": "The text is a formula of numbers.",
  "provenance": ["docs/calc.md"]}
 ```

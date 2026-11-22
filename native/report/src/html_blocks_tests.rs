@@ -112,25 +112,22 @@ fn a_page_states_the_assumption_of_the_frame() {
     assert!(!document(&json!({"status": "PASS"})).contains("Stated assumption"));
 }
 
-// Consumer: AD-664. A PASS under a declared door reach is never a plain PASS on the page: the
+// Consumer: AD-664. A PASS under a declared trojan horse reach is never a plain PASS on the page: the
 // verdict names the premise, and the rules that rest on it have their own list with the sites.
 #[test]
-fn a_page_names_each_pass_under_a_declared_door_reach() {
+fn a_page_names_each_pass_under_a_declared_trojan_horse_reach() {
     let site = "D-EVAL (app.model:2 eval)";
     let frame = json!({"status": "PASS", "scope": "complete",
         "rules": {"A": ["no_component_cycles", "PASS"], "L": ["root_layout", "PASS"]},
         "assumed": {"A": [site]},
-        "door_reach": [{"id": "D-EVAL", "module": "app.model", "line": 2, "door": "eval",
+        "trojan_horse_reach": [{"id": "D-EVAL", "module": "app.model", "line": 2, "trojan_horse": "eval",
                         "loads": [], "changes": []}],
-        "premises": {"A": [{"kind": "door_reach", "subject": site}]},
-        "assuming": "the declared reach of 1 door"});
+        "premises": {"A": [{"kind": "trojan_horse_reach", "subject": site}]},
+        "assuming": "1 declared reach"});
     let page = document(&frame);
-    assert!(
-        page.contains("1 hold assuming the declared reach of 1 door"),
-        "{page}"
-    );
-    assert!(page.contains("PASS assuming the declared reach of 1 door: 1 rule holds only"));
-    assert!(page.contains("PASS ASSUMING THE DECLARED REACH OF 1 DOOR"));
+    assert!(page.contains("1 hold assuming 1 declared reach"), "{page}");
+    assert!(page.contains("PASS assuming 1 declared reach: 1 rule holds only"));
+    assert!(page.contains("PASS ASSUMING 1 DECLARED REACH"));
     assert!(page.contains(&escape(site)));
     let plain = page.split("PASS ASSUMING").next().unwrap_or_default();
     assert!(
@@ -139,7 +136,7 @@ fn a_page_names_each_pass_under_a_declared_door_reach() {
     );
     assert!(!document(&json!({"status": "PASS"})).contains("assuming the declared reach"));
     // #1549: the badge of a PASS under a premise is no bare PASS.
-    assert!(page.contains("PASS assuming the declared reach of 1 door</span>"));
+    assert!(page.contains("PASS assuming 1 declared reach</span>"));
 }
 
 fn component_frame(components: usize, modules_each: usize) -> Value {

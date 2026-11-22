@@ -4,7 +4,7 @@
 
 //! The hazard sites of a Python file of the repository outside the scan (#1522, AD-770).
 //!
-//! A door can give the object of a module of the scan by its name. The file then spells the name
+//! A trojan horse can give the object of a module of the scan by its name. The file then spells the name
 //! in a string, so each module that a string of the file names escapes (`named`). A name that the
 //! file does not spell comes from data or from other code: the stated premise of the run covers it.
 //!

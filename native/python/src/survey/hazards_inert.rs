@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Bounded inert reads of imported door modules (AD-574). The import gap stays.
+//! Bounded inert reads of imported trojan horse modules (AD-574). The import gap stays.
 //!
 //! `cleared` finds the sites that the walk of the hazards reports and that the syntax shows to be
-//! no door (AD-1041). `reflect::Proved::covers` drops them by their range.
+//! no trojan horse (AD-1041). `reflect::Proved::covers` drops them by their range.
 //!
 //! Each proof names the syntax that closes every use of the value. A name that an import
 //! binds is never dropped here: another module can import and use the binding, and the walk does
@@ -116,9 +116,11 @@ fn attribute(module: &str, attr: &str) -> bool {
 }
 
 /// The builtins that the proofs read. A proof needs a name that the module does not shadow.
-pub(super) const BUILTINS: [&str; 8] = [
+pub(super) const BUILTINS: [&str; 10] = [
     "isinstance",
     "globals",
+    "getattr",
+    "setattr",
     "set",
     "sorted",
     "list",
@@ -128,7 +130,7 @@ pub(super) const BUILTINS: [&str; 8] = [
 ];
 
 /// The builtins that read a view of names and keep no code of it.
-const PURE: &[&str] = BUILTINS.split_at(2).1;
+const PURE: &[&str] = BUILTINS.split_at(4).1;
 
 /// The facts of one module that the proofs read.
 struct Facts<'a> {
@@ -141,7 +143,7 @@ struct Facts<'a> {
     pkgutil: HashSet<String>,
 }
 
-/// The ranges of the sites of the module that are no door. `bound` is what its imports bind.
+/// The ranges of the sites of the module that are no trojan horse. `bound` is what its imports bind.
 pub(super) fn cleared(
     tree: &ModModule,
     bound: &HashMap<String, Vec<String>>,

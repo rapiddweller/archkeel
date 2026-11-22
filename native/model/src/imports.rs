@@ -17,7 +17,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use archkeel_facts::data::{DoorForm, GapEffect};
+use archkeel_facts::data::{GapEffect, TrojanHorseForm};
 use archkeel_facts::envelope::{Facts, FileFact, Target};
 use archkeel_facts::profile_traits::TargetMarks;
 use archkeel_facts::vocab::ResolutionDimension;
@@ -390,10 +390,40 @@ fn records(section: &Section) -> &[Record<ImportFact>] {
     }
 }
 
+/// The modules that can reach the name `binding` that the module `module` binds: those that
+/// import the name or all names of the module, and the `exposed` modules that the collector
+/// found (an attribute or a text of that name). Sorted and distinct (AD-664, AD-1043).
+pub(crate) fn importers(
+    facts: &Facts,
+    (module, binding): (&str, &str),
+    exposed: &[String],
+) -> Vec<String> {
+    let mut found: Vec<String> = exposed.to_vec();
+    found.extend(
+        facts
+            .sections
+            .iter()
+            .flat_map(|section| match section {
+                archkeel_facts::Section::Imports(records) => records.as_slice(),
+                _ => &[],
+            })
+            .map(|record| record.data.data())
+            .filter(|data| {
+                data.source_module.as_str() != module
+                    && data.target_module.as_str() == module
+                    && matches!(data.symbol.as_deref(), Some(name) if name == binding || name == "*")
+            })
+            .map(|data| data.source_module.as_str().to_owned()),
+    );
+    found.sort_unstable();
+    found.dedup();
+    found
+}
+
 /// The source location of a linked tuple and each exact target that the declaration names.
 pub(crate) fn constant_bound<'f>(
     files: &HashMap<&str, &'f FileFact>,
-    (form, module, evidence): (DoorForm, &str, &[String]),
+    (form, module, evidence): (Option<TrojanHorseForm>, &str, &[String]),
     bound: Option<(&str, &str, &str)>,
 ) -> Result<(Option<String>, Vec<&'f FileFact>), String> {
     let Some((constant, template, call)) = bound else {
@@ -404,7 +434,7 @@ pub(crate) fn constant_bound<'f>(
         return Err("loader has no unique call evidence".to_owned());
     };
     let actual = BTreeMap::get(&source.loader_calls, site).map(String::as_str);
-    if form != DoorForm::Loader || actual != Some(call) {
+    if form != Some(TrojanHorseForm::Loader) || actual != Some(call) {
         return Err("loader call text changed or the scan cannot prove its binding".to_owned());
     }
     let (module, name) = constant.split_once(':').ok_or("invalid constant")?;

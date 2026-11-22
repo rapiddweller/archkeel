@@ -65,12 +65,12 @@ class GapKind(StrEnum):
     # `boundary_types` rule that no position uses.
     BOUNDARY_TYPE_POSITION = "boundary_type_position"
     BOUNDARY_TYPE_ALLOWANCE_STALE = "boundary_type_allowance_stale"
-    # AD-664: a declared door reach that the core does not apply.
-    DOOR_REACH_UNMATCHED = "door_reach.unmatched"
-    DOOR_REACH_AMBIGUOUS = "door_reach.ambiguous"
-    DOOR_REACH_REPEATED = "door_reach.repeated"
-    DOOR_REACH_INVALID = "door_reach.invalid"
-    DOOR_REACH_INSIDE = "door_reach.inside"
+    # AD-664: a declared trojan horse reach that the core does not apply.
+    DOOR_REACH_UNMATCHED = "trojan_horse_reach.unmatched"
+    DOOR_REACH_AMBIGUOUS = "trojan_horse_reach.ambiguous"
+    DOOR_REACH_REPEATED = "trojan_horse_reach.repeated"
+    DOOR_REACH_INVALID = "trojan_horse_reach.invalid"
+    DOOR_REACH_INSIDE = "trojan_horse_reach.inside"
     HYGIENE_NOT_PORTED = "contract_hygiene_not_ported"
     HYGIENE_NOT_READ = "contract_hygiene_not_read"
 

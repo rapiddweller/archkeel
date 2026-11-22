@@ -110,12 +110,14 @@ impl Usable {
         let interface = kinds.contains(&RuleKind::InterfaceBoundary);
         let published = kinds.contains(&RuleKind::UnusedPublic);
         let placement = kinds.contains(&RuleKind::SymbolPlacement);
-        // AD-664: the root contract declares the reach of its door sites.
-        let doors = self
+        // AD-664: the root contract declares the reach of its trojan horse sites.
+        let trojan_horses = self
             .root
             .declarations()
             .as_ref()
-            .map_or_else(Vec::new, |declarations| declarations.door_reach().clone());
+            .map_or_else(Vec::new, |declarations| {
+                declarations.trojan_horse_reach().clone()
+            });
         Needs::from_reasons(
             target
                 .then_some(Need::UmlTarget)
@@ -135,7 +137,7 @@ impl Usable {
                         }),
                 ),
         )
-        .with_doors(doors)
+        .with_trojan_horses(trojan_horses)
     }
 }
 

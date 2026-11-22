@@ -8,7 +8,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use archkeel_facts::data::{BindingData, DoorForm, DoorSite, GapEffect};
+use archkeel_facts::data::{BindingData, GapEffect, TrojanHorseForm, TrojanHorseSite};
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
@@ -250,7 +250,7 @@ impl<'a, 'p> Run<'a, 'p> {
                 // AD-564: the form can write any global, so no module proves that a free name
                 // is the standard one: the code of every module is unknown, its files are not.
                 data.effect = Some(GapEffect::EveryModule);
-                data.door = key_door(form, span.line);
+                data.trojan_horse = key_trojan_horse(form, span.line);
             }
             let (id, mut record) = GapRecord::unknown_gap(&reason, Some(&node), &module, fact);
             if at == 0 {
@@ -433,13 +433,15 @@ fn blocker_message(detail: &str, form: &str) -> String {
     }
 }
 
-/// AD-664: a run-time key is a door site; a contract can name it by its line.
-fn key_door(form: &str, line: i64) -> Option<DoorSite> {
-    (form == key_form()).then(|| DoorSite {
-        form: DoorForm::ComputedKey,
+/// AD-664: a run-time key is a trojan horse site; a contract can name it by its line.
+fn key_trojan_horse(form: &str, line: i64) -> Option<TrojanHorseSite> {
+    (form == key_form()).then(|| TrojanHorseSite {
+        form: Some(TrojanHorseForm::ComputedKey),
+        site_name: None,
         line: u32::try_from(line).unwrap_or(0),
         line_only: false,
         scope: None,
         binding: None,
+        exposed_to: Vec::new(),
     })
 }

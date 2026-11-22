@@ -270,7 +270,8 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     for (index, site) in hazards {
         let module = &modules[index];
         let id = module.evidence(&mut evidence, &site.range);
-        let (key, gap) = targets::hazard_gap(site, module, &id);
+        let exposed = hazards::exposed(modules, &imports, (&module.name, &site.binding));
+        let (key, gap) = targets::hazard_gap(site, module, (&id, exposed));
         sites.insert(key, gap);
     }
     for (index, range, target) in external_loader::find(modules, &stdlib, &project) {

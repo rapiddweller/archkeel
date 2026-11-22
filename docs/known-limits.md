@@ -87,7 +87,7 @@ The linked Python collector also proves direct function calls for `call_owner` (
 An open import route keeps call identity unproved. An unrelated open call does not hide a proven violation.
 A dynamic import, an import-system change and the other gaps of AD-450 can hold rules that read them.
 A contract can declare the reach of an `eval`, `exec`, `compile`, unpickler, loader or `__import__`
-site; a PASS then holds only under that premise and says so (AD-664). A door module binding and a
+site; a PASS then holds only under that premise and says so (AD-664). A trojan horse module binding and a
 pickler have no declarable reach, and a TypeScript run-time key whose gap blocks the free standard
 names cannot apply.
 A re-export of a package is read through its uses: a name of a package that another module
@@ -124,7 +124,7 @@ from a string, for example a plugin loader, a framework that reads a dotted path
 an object deserializer. The survey does not know such a function, so it does not see that edge.
 A forbidden or cyclic dependency that only such a call makes can give PASS (#1519). Release 4.0.1 has the
 same hole. This is an open defect, not an accepted limit. The survey covers the names of AD-450
-point 7: the standard-library doors, the import state and the builtins that run text.
+point 7: the standard-library trojan horses, the import state and the builtins that run text.
 
 The Python collector does not follow a value from an unknown object to a loader. For example,
 a call of a method on an unknown value can load any module. A runner of the `code` module
@@ -304,7 +304,7 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
 
 - A write to a package that the repository does not show, after its statements ran. The survey
   reads the code of the repository outside the scan roots (AD-770): a script or an extension source
-  that writes a module of the scan, or names it beside a door, withholds its routes (UNKNOWN). A test
+  that writes a module of the scan, or names it beside a trojan horse, withholds its routes (UNKNOWN). A test
   file (`test_*.py`, `*_test.py`, a file below `test/` or `tests/`), a name built at run time from
   data, and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
   the stated premise of the run: "Code outside the scan roots, including test code, hands in no

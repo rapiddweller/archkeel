@@ -45,7 +45,7 @@ impl Need {
 
 /// The needs of one run. The default is no need.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Needs(BTreeSet<Need>, Vec<archkeel_contract::DoorReach>);
+pub struct Needs(BTreeSet<Need>, Vec<archkeel_contract::TrojanHorseReach>);
 
 impl Needs {
     /// The needs of a run, from its reasons.
@@ -53,14 +53,17 @@ impl Needs {
         Needs(needs.into_iter().collect(), Vec::new())
     }
 
-    /// These needs and the declared reach of the door sites of the root contract (AD-664): the
-    /// graph matches them to the doors of the reply and reads the declared imports as edges.
-    pub fn with_doors(self, doors: Vec<archkeel_contract::DoorReach>) -> Self {
-        Needs(self.0, doors)
+    /// These needs and the declared reach of the trojan horse sites of the root contract (AD-664): the
+    /// graph matches them to the trojan horses of the reply and reads the declared imports as edges.
+    pub fn with_trojan_horses(
+        self,
+        trojan_horses: Vec<archkeel_contract::TrojanHorseReach>,
+    ) -> Self {
+        Needs(self.0, trojan_horses)
     }
 
-    /// The declared reach of the door sites.
-    pub(crate) fn doors(&self) -> &[archkeel_contract::DoorReach] {
+    /// The declared reach of the trojan horse sites.
+    pub(crate) fn trojan_horses(&self) -> &[archkeel_contract::TrojanHorseReach] {
         &self.1
     }
 

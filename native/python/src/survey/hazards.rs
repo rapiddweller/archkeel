@@ -2,14 +2,12 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The sites that can import a module that no `import` statement names (AD-450).
-//! A door or state reference is a hazard. A proven inert read keeps its import gap (AD-574).
-//! - A dynamic import is a reference to a door, builtin or import function.
-//! - An import-system change is a reference to the state of the import system (`STATE`) or a
-//!   write to a package `__path__`.
+//! The sites that can import a module that no `import` statement names (AD-450). A proven inert
+//! read keeps its import gap (AD-574). Unproved names remain gaps (AD-539).
+//! - A dynamic import is a reference to a trojan horse, builtin or import function, or a computed
+//!   attribute name on an unproved receiver (#1967).
+//! - An import-system change is a reference to `STATE` or a write to a package `__path__`.
 //! - A module above a hazard name used as a value is a dynamic import too.
-//!
-//! Unproved names remain gaps (AD-539).
 
 use std::collections::{HashMap, HashSet};
 
@@ -26,22 +24,24 @@ use super::syspath;
 use crate::module::Module;
 
 use super::hazards_names::{
-    above, attribute_door, first_hazard, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
+    above, attribute_trojan_horse, first_hazard, BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS,
+    TROJAN_HORSE_STRINGS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM};
+pub(super) use bind::exposed;
 use bind::{bindings, imported};
-pub(super) use door::Site;
+pub(super) use trojan_horse::Site;
 
 #[path = "hazards_bind.rs"]
 mod bind;
 #[path = "hazards_comprehension.rs"]
 mod comprehension;
-#[path = "hazards_door.rs"]
-mod door;
 #[path = "hazards_inert.rs"]
 mod inert;
 #[path = "hazards_reflect.rs"]
 pub(super) mod reflect;
+#[path = "hazards_trojan_horse.rs"]
+mod trojan_horse;
 
 /// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
 pub(super) const LITERAL: &str = "literal_import";
@@ -79,7 +79,7 @@ pub(super) fn sites(
                 kind: syspath::PATH_WRITE,
                 detail: count.to_string(),
                 range: stmt.range(),
-                door: None,
+                trojan_horse: None,
                 scope: String::new(),
                 binding: None,
             }),
@@ -122,13 +122,13 @@ impl Walk<'_> {
         self.locals.pop();
     }
 
-    /// A site of a name, an attribute or an import: a door when its name is one (AD-664).
+    /// A site of a name, an attribute or an import: a trojan horse when its name is one (AD-664).
     fn push(&mut self, kind: &'static str, detail: &str, node: &impl Ranged) {
-        let door = door::form(kind, detail);
-        self.add(kind, detail, node, door);
+        let trojan_horse = trojan_horse::form(kind, detail);
+        self.add(kind, detail, node, trojan_horse);
     }
 
-    /// A site that is never a door site: a string that names a door.
+    /// A site that is never a trojan horse site: a string that names a trojan horse.
     fn push_text(&mut self, kind: &'static str, detail: &str, node: &impl Ranged) {
         self.add(kind, detail, node, None);
     }
@@ -138,21 +138,21 @@ impl Walk<'_> {
         kind: &'static str,
         detail: &str,
         node: &impl Ranged,
-        door: Option<archkeel_facts::data::DoorForm>,
+        trojan_horse: Option<archkeel_facts::data::TrojanHorseForm>,
     ) {
         self.found.push(Site {
             kind,
             detail: detail.to_owned(),
             range: node.range(),
-            door,
-            scope: door.map(|_| self.scope.join(".")).unwrap_or_default(),
+            trojan_horse,
+            scope: self.scope.join("."),
             binding: None,
         });
     }
 
-    /// AD-664: the name that an import statement binds for the door site just pushed.
-    fn bind_door(&mut self, stmt: &Stmt, name: &str) {
-        if let Some(site) = self.found.last_mut().filter(|site| site.door.is_some()) {
+    /// AD-664: the name that an import statement binds for the trojan horse site just pushed.
+    fn bind_trojan_horse(&mut self, stmt: &Stmt, name: &str) {
+        if let Some(site) = self.found.last_mut() {
             site.binding = bind::local_of(stmt, name);
         }
     }
@@ -172,7 +172,7 @@ impl Walk<'_> {
             .unwrap_or_else(|| vec![name.to_owned()])
     }
 
-    /// True when a function binds `id` and no import binds it: a local value, no door (AD-530).
+    /// True when a function binds `id` and no import binds it: a local value, no trojan horse (AD-530).
     fn local(&self, id: &str) -> bool {
         if self.bound.contains_key(id) {
             return false;
@@ -192,8 +192,7 @@ impl Walk<'_> {
     }
 
     /// `getattr(name, "attr")` and `getattr(name, "attr", default)` with a literal attribute that
-    /// is no door string read the one attribute `name.attr` (AD-530). Any other form is read as
-    /// before.
+    /// is no trojan horse string read the one attribute `name.attr` (AD-530). Other forms: as before.
     fn literal_getattr(&mut self, call: &ruff_python_ast::ExprCall) -> bool {
         let args = &call.arguments.args;
         let named = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "getattr");
@@ -201,7 +200,7 @@ impl Walk<'_> {
         else {
             return false;
         };
-        let literal = !DOOR_STRINGS.contains(&attr.value.to_str());
+        let literal = !TROJAN_HORSE_STRINGS.contains(&attr.value.to_str());
         let plain = named && literal && (2..=3).contains(&args.len());
         if !plain
             || !call.arguments.keywords.is_empty()
@@ -232,7 +231,7 @@ impl Walk<'_> {
         {
             return;
         }
-        if BUILTIN_DOORS.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
+        if BUILTIN_TROJAN_HORSES.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
             return self.push(DYNAMIC, id, expr);
         }
         for origin in self.origins(id) {
@@ -292,11 +291,11 @@ impl Walk<'_> {
         let reads = |at: usize, a: &str| {
             matches!(a, "__globals__" | "f_globals") && self.reads.contains(&ranges[at])
         };
-        let door_at = attributes
+        let trojan_horse_at = attributes
             .iter()
             .enumerate()
-            .find(|(at, a)| attribute_door(&attributes, *at) && !reads(*at, a));
-        if let Some((_, name)) = door_at {
+            .find(|(at, a)| attribute_trojan_horse(&attributes, *at) && !reads(*at, a));
+        if let Some((_, name)) = trojan_horse_at {
             let state = ["meta_path", "path_hooks", "path_importer_cache", "__path__"];
             let kind = if state.contains(name) {
                 IMPORT_SYSTEM
@@ -320,19 +319,19 @@ impl Walk<'_> {
         if self.local(id) {
             return;
         }
-        if BUILTIN_DOORS.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
+        if BUILTIN_TROJAN_HORSES.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
             return self.push(DYNAMIC, id, expr);
         }
         let dunder = attributes
             .iter()
             .any(|a| a.starts_with("__") && a.ends_with("__"));
         for origin in self.origins(id) {
-            let door = dunder && (hazard(&origin).is_some() || above(&origin));
+            let trojan_horse = dunder && (hazard(&origin).is_some() || above(&origin));
             if let Some((kind, name)) = first_hazard(origin.clone(), &attributes) {
                 return self.push(kind, &name, expr);
             }
-            if door {
-                // A dunder attribute of a door module, such as `sys.__getattribute__`.
+            if trojan_horse {
+                // A dunder attribute of a trojan horse module, such as `sys.__getattribute__`.
                 return self.push(DYNAMIC, &origin, expr);
             }
         }
@@ -351,7 +350,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
                 self.push(DYNAMIC, &name, stmt);
             } else if let Some(kind) = hazard(&name) {
                 self.push(kind, &name, stmt);
-                self.bind_door(stmt, &name);
+                self.bind_trojan_horse(stmt, &name);
             }
         }
         let previous = self.class_body;
@@ -422,7 +421,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
             }
             Expr::Attribute(_) => self.chain(expr),
             Expr::StringLiteral(node)
-                if DOOR_STRINGS.contains(&node.value.to_str())
+                if TROJAN_HORSE_STRINGS.contains(&node.value.to_str())
                     && !self.reads.contains(&node.range()) =>
             {
                 self.push_text(DYNAMIC, node.value.to_str(), expr);
@@ -462,7 +461,7 @@ pub(super) fn split(
         .zip(binders)
         .map(|(m, b)| (&m.tree, b.unique(), bindings(&m.tree)))
         .collect();
-    let proved = reflect::proved(&items, &[&BUILTIN_DOORS, &IMPORT_FUNCTIONS]);
+    let proved = reflect::proved(&items, &[&BUILTIN_TROJAN_HORSES, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let facts = binders.proof_facts(&inert::BUILTINS);
@@ -473,7 +472,14 @@ pub(super) fn split(
         for (range, target) in covered.iter().flat_map(|item| &item.targets) {
             literals.push((index, *range, target.clone()));
         }
-        for site in sites(&module.tree, proof, binders, &reads[index]) {
+        let named = comprehension::trojans(&module.tree, &facts);
+        let named = named
+            .into_iter()
+            .map(|(name, at)| Site::plain(DYNAMIC, name, at));
+        for site in sites(&module.tree, proof, binders, &reads[index])
+            .into_iter()
+            .chain(named)
+        {
             let exempt = covered.iter().flat_map(|item| &item.exempt);
             let inside = |range: &TextRange| range.contains_range(site.range);
             let kind = (site.kind == DYNAMIC, site.kind == IMPORT_SYSTEM);

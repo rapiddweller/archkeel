@@ -217,7 +217,7 @@ def test_a_pass_that_rests_on_stated_external_users_is_never_a_bare_pass(
     }
     assert {p["kind"] for p in frame["premises"]["UNUSED"]} == {"external_user"}
     assert frame["assuming"] == "2 stated external users"
-    assert "assumed" not in frame and "door_reach" not in frame
+    assert "assumed" not in frame and "trojan_horse_reach" not in frame
     output = io.StringIO()
     with pytest.MonkeyPatch.context() as patch, contextlib.redirect_stdout(output):
         patch.setattr(core_only, "locate_core", lambda: core_binary)

@@ -134,7 +134,7 @@
         },
         {
           "component": "display",
-          "rationale": "Write the door rows and the call lines with the display functions."
+          "rationale": "Write the trojan horse rows and the call lines with the display functions."
         },
         {
           "component": "json",
@@ -182,7 +182,7 @@
         },
         {
           "component": "display",
-          "rationale": "Read the typed gap rows and the declared door reaches."
+          "rationale": "Read the typed gap rows and the declared trojan horse reaches."
         }
       ],
       "decided_by": "architect",
@@ -450,7 +450,7 @@
         },
         {
           "component": "display",
-          "rationale": "Read the door rows, the evidence and the explain data of a frame."
+          "rationale": "Read the trojan horse rows, the evidence and the explain data of a frame."
         },
         {
           "component": "json",
@@ -490,13 +490,13 @@
       "layer": "decoding",
       "packages": [],
       "exact_modules": [
-        "archkeel.cli.core_doors",
+        "archkeel.cli.core_trojan_horses",
         "archkeel.cli.core_evidence",
         "archkeel.cli.core_explain",
         "archkeel.cli.core_topology"
       ],
       "responsibilities": [
-        "Decode the evidence metadata, the optional topology, the explain part and the declared door reaches (AD-664) as typed display values."
+        "Decode the evidence metadata, the optional topology, the explain part and the declared trojan horse reaches (AD-664) as typed display values."
       ],
       "forbidden_responsibilities": [
         "Supply a verdict, a status or a scope proof."
@@ -528,15 +528,15 @@
         "archkeel.cli.core_evidence:read_locations",
         "archkeel.cli.core_evidence:read_collection_gaps",
         "archkeel.cli.core_evidence:call_lines",
-        "archkeel.cli.core_doors:DECLARED",
-        "archkeel.cli.core_doors:DoorRow",
-        "archkeel.cli.core_doors:declared",
-        "archkeel.cli.core_doors:door_lines",
-        "archkeel.cli.core_doors:qualifier",
-        "archkeel.cli.core_doors:read_doors",
-        "archkeel.cli.core_doors:pass_qualifiers",
-        "archkeel.cli.core_doors:Premises",
-        "archkeel.cli.core_doors:read_premises"
+        "archkeel.cli.core_trojan_horses:DECLARED",
+        "archkeel.cli.core_trojan_horses:TrojanHorseRow",
+        "archkeel.cli.core_trojan_horses:declared",
+        "archkeel.cli.core_trojan_horses:trojan_horse_lines",
+        "archkeel.cli.core_trojan_horses:qualifier",
+        "archkeel.cli.core_trojan_horses:read_trojan_horses",
+        "archkeel.cli.core_trojan_horses:pass_qualifiers",
+        "archkeel.cli.core_trojan_horses:Premises",
+        "archkeel.cli.core_trojan_horses:read_premises"
       ]
     },
     {

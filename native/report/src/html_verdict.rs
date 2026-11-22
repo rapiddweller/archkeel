@@ -78,7 +78,7 @@ fn premise(frame: &Frame) -> String {
 }
 
 /// The premises of the contract (AD-664, #1549): a PASS under one is never a plain PASS.
-fn doors(frame: &Frame) -> String {
+fn trojan_horses(frame: &Frame) -> String {
     let Some(qualifier) = super::rules::qualifier(frame) else {
         return String::new();
     };
@@ -268,7 +268,7 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
         gaps(frame),
         baseline(frame),
         premise(frame),
-        doors(frame),
+        trojan_horses(frame),
         calls(frame),
         next(frame, places)
     )

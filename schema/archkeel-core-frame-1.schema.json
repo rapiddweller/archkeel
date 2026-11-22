@@ -74,14 +74,31 @@
           "type": "string"
         }
       },
-      "description": "Each PASS rule that holds only under the declared reach of door sites, with the sites\n(AD-664): never a plain PASS."
+      "description": "Each PASS rule that holds only under the declared reach of trojan horse sites, with the sites\n(AD-664): never a plain PASS."
     },
-    "door_reach": {
+    "notes": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/DoorRow"
+        "$ref": "#/$defs/Note"
       },
-      "description": "Each applied declaration of a door reach of the run (AD-664)."
+      "description": "The notes of the run: facts that change no verdict (AD-1045)."
+    },
+    "trojan_horse_reach": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TrojanHorseRow"
+      },
+      "description": "Each applied declaration of a trojan horse reach of the run (AD-664)."
+    },
+    "fail_from_declared_reach": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "description": "Each FAIL rule whose every violation rests on an edge that a declaration only allows, with\nthe ids of the declarations (AD-1043): the rule says \"FAIL from a declared reach\"."
     },
     "premises": {
       "type": "object",
@@ -451,7 +468,26 @@
       ],
       "description": "Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict\nfrom the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`."
     },
-    "DoorRow": {
+    "Note": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "The stable code of the note, such as `deprecated.trojan_horse_reach`."
+        },
+        "text": {
+          "type": "string",
+          "description": "The note in words."
+        }
+      },
+      "required": [
+        "code",
+        "text"
+      ],
+      "description": "A note of the run: a fact that the reader must see and that changes no verdict (AD-1045).",
+      "additionalProperties": false
+    },
+    "TrojanHorseRow": {
       "type": "object",
       "properties": {
         "id": {
@@ -464,24 +500,24 @@
         },
         "module": {
           "type": "string",
-          "description": "The module of the door."
+          "description": "The module of the trojan horse."
         },
         "line": {
           "type": "integer",
           "format": "uint32",
           "minimum": 0,
-          "description": "The line of the door site."
+          "description": "The line of the trojan horse site."
         },
-        "door": {
+        "trojan_horse": {
           "type": "string",
-          "description": "The form of the door."
+          "description": "The form of the trojan horse."
         },
         "loads": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "The declared module prefixes that the door may import."
+          "description": "The declared module prefixes that the trojan horse may import."
         },
         "constant": {
           "type": [
@@ -502,7 +538,7 @@
           "items": {
             "type": "string"
           },
-          "description": "The declared module prefixes whose names the door may change."
+          "description": "The declared module prefixes whose names the trojan horse may change."
         }
       },
       "required": [
@@ -510,7 +546,7 @@
         "rationale",
         "module",
         "line",
-        "door",
+        "trojan_horse",
         "loads",
         "changes"
       ],
@@ -522,7 +558,7 @@
       "properties": {
         "kind": {
           "type": "string",
-          "description": "`door_reach`, `external_user`, or the name of a declared premise (AD-764)."
+          "description": "`trojan_horse_reach`, `external_user`, or the name of a declared premise (AD-764)."
         },
         "subject": {
           "type": "string",

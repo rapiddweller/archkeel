@@ -47,24 +47,41 @@ pub(super) fn site_gap(
     Record::unknown_gap(&reason, Some(evidence), module, gap)
 }
 
-/// The gap of a hazard site of `module` with the evidence `id`. A door site states its form, its
-/// line, its scope and the name that it binds (AD-664); the id of the gap does not read the door.
+/// The gap of a hazard site of `module` with the evidence `id`. Each site states its name, its
+/// line, its scope and the name that it binds, so a contract can declare its reach by name
+/// (AD-664, AD-1043). A site of a trojan horse form states the form too. `exposed` lists the modules
+/// that can reach the bound name. The id of the gap does not read the trojan horse.
 pub(super) fn hazard_gap(
     site: super::hazards::Site,
     module: &crate::module::Module,
-    id: &str,
+    (id, exposed): (&str, Vec<String>),
 ) -> (String, Record<GapFact>) {
     let (key, mut gap) = site_gap(site.kind, &site.detail, &module.name, id);
-    if let (Some(form), GapFact::SourceResolutionGap(data)) = (site.door, &mut gap.data) {
-        data.door = Some(archkeel_facts::data::DoorSite {
-            form,
+    if let GapFact::SourceResolutionGap(data) = &mut gap.data {
+        data.trojan_horse = Some(archkeel_facts::data::TrojanHorseSite {
+            form: site.trojan_horse,
+            site_name: Some(site.detail),
             line: u32::try_from(module.location(&site.range).line).unwrap_or(0),
             line_only: false,
             scope: Some(site.scope).filter(|scope| !scope.is_empty()),
             binding: site.binding,
+            exposed_to: exposed,
         });
     }
     (key, gap)
+}
+
+/// The trojan horse of a site that has a name and no line.
+fn unlocated(name: &str) -> archkeel_facts::data::TrojanHorseSite {
+    archkeel_facts::data::TrojanHorseSite {
+        form: None,
+        site_name: Some(name.to_owned()),
+        line: 0,
+        line_only: false,
+        scope: None,
+        binding: None,
+        exposed_to: Vec::new(),
+    }
 }
 
 /// `collect._import_targets` with the classification of AD-450, and the gaps of the sites.
@@ -93,7 +110,11 @@ pub(super) fn resolve(
         let source = data.source_module.as_str();
         let evidence = import.evidence_ids.first().map_or("", |id| id.as_str());
         let mut gap = |kind: &str, detail: &str| {
-            let (id, record) = site_gap(kind, detail, source, evidence);
+            let (id, mut record) = site_gap(kind, detail, source, evidence);
+            if let (AMBIGUOUS, GapFact::SourceResolutionGap(data)) = (kind, &mut record.data) {
+                // No line: the name of the submodule is the key of the site (AD-1043).
+                data.trojan_horse = Some(unlocated(detail));
+            }
             found.gaps.insert(id, record);
         };
         let symbol = data.symbol.as_deref();

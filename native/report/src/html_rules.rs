@@ -55,7 +55,7 @@ pub(super) fn qualifier(frame: &Frame) -> Option<String> {
 }
 
 /// The rules that hold only under a premise of the contract (AD-664, #1549), each with its
-/// premises: the door sites and the stated external users.
+/// premises: the trojan horse sites and the stated external users.
 fn assumed(frame: &Frame) -> String {
     let Some(heading) = qualifier(frame).filter(|_| !frame.premises.is_empty()) else {
         return String::new();

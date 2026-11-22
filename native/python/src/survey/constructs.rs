@@ -33,7 +33,7 @@ pub(super) fn collect(
     stdlib: &HashSet<&str>,
     evidence: &mut EvidenceMap,
 ) -> Findings {
-    // AD-880: no site of the scan changes the import system or runs a door, and no write replaces `typing`.
+    // AD-880: no site of the scan changes the import system or runs a trojan horse, and no write replaces `typing`.
     let typing_unchanged = hazard_free && writes.typing_unchanged();
     let protocol_unchanged = hazard_free
         && all_inputs_read

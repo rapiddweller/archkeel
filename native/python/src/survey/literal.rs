@@ -14,7 +14,7 @@
 //! The call has exactly one argument and no keyword: a plain string literal with an absolute dotted
 //! name, or the adjacent local assignment of AD-1026. A module that calls `globals`, `vars` or
 //! `locals` proves nothing. `from importlib import
-//! import_module` stays a door: its import statement is a reference to the door. Any other call,
+//! import_module` stays a trojan horse: its import statement is a reference to the trojan horse. Any other call,
 //! alias, value or attribute use stays a `dynamic_import` gap (`hazards.rs`). A target that is
 //! itself a hazard keeps its named gap as well as the edge.
 

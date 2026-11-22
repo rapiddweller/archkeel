@@ -44,7 +44,7 @@ fn a_lookup_of_a_literal_key_reads_a_value_and_imports_nothing() {
 }
 
 #[test]
-fn a_dict_that_reaches_a_door_or_leaves_a_lookup_stays_a_gap() {
+fn a_dict_that_reaches_a_trojan_horse_or_leaves_a_lookup_stays_a_gap() {
     for source in [
         "def f(fn):\n    return fn.__globals__\n",
         "def f(fn):\n    return fn.__globals__.get('__builtins__')\n",
@@ -139,7 +139,7 @@ fn a_function_of_another_module_is_followed_through_its_import() {
 }
 
 #[test]
-fn a_local_name_with_the_name_of_a_door_is_no_door_but_the_module_is() {
+fn a_local_name_with_the_name_of_a_trojan_horse_is_no_trojan_horse_but_the_module_is() {
     for source in [
         "def f(code):\n    return str(code)\n",
         "def f(eval):\n    return eval(1)\n",
@@ -157,7 +157,7 @@ fn a_local_name_with_the_name_of_a_door_is_no_door_but_the_module_is() {
         "def f():\n    return code\n    code = 1\n",
     ] {
         let found = gaps(source, "");
-        // Only an import binds the door module `code` (AD-539): a name that no import binds is no
+        // Only an import binds the trojan horse module `code` (AD-539): a name that no import binds is no
         // loader, in a function or at module scope. A runner of the `code` module on such a name
         // keeps the gap: the name proves nothing about its value (#1520).
         let expected = source.contains("import code") || source.contains("code.interact");

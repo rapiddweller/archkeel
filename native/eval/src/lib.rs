@@ -271,11 +271,11 @@ mod direction_scope_tests;
 mod gap_scope_tests;
 
 #[cfg(test)]
-#[path = "door_reach_tests.rs"]
-mod door_reach_tests;
-#[cfg(test)]
 #[path = "gap_effect_tests.rs"]
 mod gap_effect_tests;
+#[cfg(test)]
+#[path = "trojan_horse_reach_tests.rs"]
+mod trojan_horse_reach_tests;
 
 #[cfg(test)]
 #[path = "cycle_receipt_tests.rs"]

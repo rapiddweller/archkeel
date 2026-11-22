@@ -299,7 +299,7 @@ fn an_alias_value_or_attribute_of_an_import_function_is_a_dynamic_import() {
 }
 
 #[test]
-fn each_standard_library_door_is_a_dynamic_import() {
+fn each_standard_library_trojan_horse_is_a_dynamic_import() {
     for source in [
         "compile(text, 'f', 'exec')\n",
         "import types\ntypes.FunctionType(code, {})\n",
@@ -470,11 +470,11 @@ fn only_the_inert_names_of_importlib_metadata_are_no_site() {
     }
 }
 
-/// AD-530, decision 5: a call that hands out a module object, and a frame namespace, are doors,
-/// because a `setattr` on a local object is no write to a module of the scan only if no door
+/// AD-530, decision 5: a call that hands out a module object, and a frame namespace, are trojan horses,
+/// because a `setattr` on a local object is no write to a module of the scan only if no trojan horse
 /// gives that module to the local.
 #[test]
-fn a_getter_of_module_objects_and_a_frame_namespace_are_doors() {
+fn a_getter_of_module_objects_and_a_frame_namespace_are_trojan_horses() {
     for source in [
         "import inspect\nm = inspect.getmodule(f)\n",
         "from inspect import getmodule\nm = getmodule(f)\n",

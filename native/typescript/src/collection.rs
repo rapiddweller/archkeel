@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-use archkeel_facts::data::{DoorForm, DoorSite, GapEffect};
+use archkeel_facts::data::{GapEffect, TrojanHorseForm, TrojanHorseSite};
 use archkeel_facts::envelope::{Evidence, FileFact, Target};
 use archkeel_facts::request::TypeScriptRequest;
 use archkeel_facts::{GapFact, Record};
@@ -110,12 +110,14 @@ impl Collection<'_> {
         {
             // An unknown module can run code that changes bindings elsewhere.
             data.effect = Some(GapEffect::EveryModule);
-            data.door = Some(DoorSite {
-                form: DoorForm::Loader,
+            data.trojan_horse = Some(TrojanHorseSite {
+                form: Some(TrojanHorseForm::Loader),
+                site_name: None,
                 line,
                 line_only: true,
                 scope: None,
                 binding: None,
+                exposed_to: Vec::new(),
             });
         }
         let (id, record) = Record::unknown_gap(reason, evidence, module, fact);

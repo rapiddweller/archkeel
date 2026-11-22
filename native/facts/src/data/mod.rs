@@ -9,12 +9,12 @@
 //! not write is an `Option` that the wire skips. A `[read]` field is in the read-set.
 
 mod constructs;
-pub(crate) mod door;
 pub(crate) mod gap_data;
 pub(crate) mod gap_effect;
 mod imports;
 mod sites;
 mod symbols;
+pub(crate) mod trojan_horse;
 
 pub use constructs::ConstructData;
 pub use constructs::NumericOperandData;
@@ -22,8 +22,6 @@ pub use constructs::PlaceholderData;
 pub use constructs::PlainConstructData;
 pub use constructs::SelectorData;
 pub use constructs::SignalData;
-pub use door::DoorForm;
-pub use door::DoorSite;
 pub use gap_data::GapData;
 pub use gap_effect::GapEffect;
 pub use imports::ImportData;
@@ -36,3 +34,5 @@ pub use symbols::CallableData;
 pub use symbols::ClassData;
 pub use symbols::Declared;
 pub use symbols::ValueData;
+pub use trojan_horse::TrojanHorseForm;
+pub use trojan_horse::TrojanHorseSite;

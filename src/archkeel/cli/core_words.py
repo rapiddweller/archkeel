@@ -38,12 +38,18 @@ GAP_KINDS: Final = {
     "responsibility.missing": "a component without a written responsibility",
     "rationale.placeholder": "a rationale that is still a placeholder",
     "graph.drift": "a drawn component graph that differs from the imports",
-    "door_reach.declared": "a door whose reach the contract declares (a premise, not a proof)",
-    "door_reach.unmatched": "a declared door reach that matches no door of the scan",
-    "door_reach.ambiguous": "a declared door reach that matches more than one door",
-    "door_reach.repeated": "a door with more than one declared reach",
-    "door_reach.invalid": "a declared door reach that cannot apply",
-    "door_reach.inside": "a declared door reach in an inside contract",
+    "trojan_horse_reach.declared": (
+        "a trojan horse whose reach the contract declares (a premise, not a proof)"
+    ),
+    "trojan_horse_reach.unmatched": (
+        "a declared trojan horse reach that matches no trojan horse of the scan"
+    ),
+    "trojan_horse_reach.ambiguous": (
+        "a declared trojan horse reach that matches more than one trojan horse"
+    ),
+    "trojan_horse_reach.repeated": "a trojan horse with more than one declared reach",
+    "trojan_horse_reach.invalid": "a declared trojan horse reach that cannot apply",
+    "trojan_horse_reach.inside": "a declared trojan horse reach in an inside contract",
     "baseline.invalid": "a baseline file that is not valid",
     "baseline.older_schema": "a baseline file from release 4.0.1",
 }

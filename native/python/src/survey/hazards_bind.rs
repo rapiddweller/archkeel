@@ -2,12 +2,16 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The names that the import statements of a module bind, for the door check (AD-450, AD-472).
+//! The names that the import statements of a module bind, for the trojan horse check (AD-450, AD-472).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+use archkeel_facts::{ImportFact, Record};
+use ruff_python_ast::helpers::any_over_body;
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{ModModule, Stmt};
+use ruff_python_ast::{Expr, Identifier, ModModule, Stmt};
+
+use crate::module::Module;
 
 use super::reflect;
 
@@ -61,7 +65,7 @@ fn bound(stmt: &Stmt) -> Vec<(String, String)> {
     }
 }
 
-/// The names that an import statement imports, as qualified names, for the door check: each
+/// The names that an import statement imports, as qualified names, for the trojan horse check: each
 /// module of `import a.b`, and each name of `from m import n`. A star import names its module.
 pub(super) fn imported(stmt: &Stmt) -> Vec<String> {
     match stmt {
@@ -90,6 +94,20 @@ pub(super) fn imported(stmt: &Stmt) -> Vec<String> {
 /// The local name that `from m import n [as a]` binds for the qualified name `m.n`, if the
 /// statement binds it (AD-664).
 pub(super) fn local_of(stmt: &Stmt, qualified: &str) -> Option<String> {
+    if let Stmt::Import(node) = stmt {
+        // `import a.b` binds `a`; `import a.b as c` binds `c` (AD-1043).
+        return node.names.iter().find_map(|alias| {
+            let name = alias.name.as_str();
+            let first = name.split('.').next().unwrap_or(name);
+            (name == qualified).then(|| {
+                alias
+                    .asname
+                    .as_ref()
+                    .map_or(first, |asname| asname.as_str())
+                    .to_owned()
+            })
+        });
+    }
     let Stmt::ImportFrom(node) = stmt else {
         return None;
     };
@@ -104,4 +122,41 @@ pub(super) fn local_of(stmt: &Stmt, qualified: &str) -> Option<String> {
                 .to_owned()
         })
     })
+}
+
+/// The modules of the scan that can reach the name `binding` of the module `module` without a
+/// record that names it: an attribute or a text of that name, in a module that imports `module`
+/// or a package above it (`import m` then `m.pickle.loads`). A name built at run time is the
+/// premise of the run (AD-770). A from-import and a star import are records of the imports.
+pub(in crate::survey) fn exposed(
+    modules: &[Module],
+    imports: &[Record<ImportFact>],
+    (module, binding): (&str, &Option<String>),
+) -> Vec<String> {
+    let Some(binding) = binding.as_deref() else {
+        return Vec::new();
+    };
+    let above = |target: &str| module == target || module.starts_with(&format!("{target}."));
+    let importers: HashSet<&str> = imports
+        .iter()
+        .map(|record| ImportFact::data(&record.data))
+        .filter(|data| above(data.target_module.as_str()))
+        .map(|data| data.source_module.as_str())
+        .collect();
+    let mut found: Vec<String> = Vec::new();
+    for other in modules {
+        if other.name == module || !importers.contains(other.name.as_str()) {
+            continue;
+        }
+        let named = |expr: &Expr| match expr {
+            Expr::Attribute(node) => Identifier::as_str(&node.attr) == binding,
+            Expr::StringLiteral(text) => text.value.to_str() == binding,
+            _ => false,
+        };
+        if any_over_body(&other.tree.body, named) {
+            found.push(other.name.clone());
+        }
+    }
+    found.sort_unstable();
+    found
 }

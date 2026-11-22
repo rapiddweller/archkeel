@@ -7,7 +7,7 @@
 
 use super::*;
 
-// #1549: a PASS that holds because of a stated external user reads like one under a door reach:
+// #1549: a PASS that holds because of a stated external user reads like one under a trojan horse reach:
 // the badge, the title, the note and the list of the rules name the premise and the entry.
 #[test]
 fn a_page_names_each_pass_under_a_stated_external_user() {

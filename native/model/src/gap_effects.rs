@@ -24,11 +24,11 @@ use crate::boundary_facts::BoundaryFacts;
 use crate::causes::Cause;
 use crate::reason::{Reason, Unsupported};
 
-use crate::door_reach::Applied;
 use crate::gap_class::{Doubt, Scoped};
 use crate::model::Model;
 use crate::ownership::{claims, in_scope, owner_of};
 use crate::selection;
+use crate::trojan_horse_reach::Applied;
 
 /// The facts of one module that a rule reads.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -78,13 +78,13 @@ pub(crate) fn held(model: &Model, rule: &Rule) -> Option<Scoped> {
     scoped(model, |module| reads(model, rule, module))
 }
 
-/// The applied door declarations whose stated effect meets what `rule` reads (AD-664): a PASS of
+/// The applied trojan horse declarations whose stated effect meets what `rule` reads (AD-664): a PASS of
 /// the rule holds only under their premise.
 pub(crate) fn assumed<'m>(model: &'m Model, rule: &Rule) -> Vec<&'m Applied> {
     let reads = |module: Option<&str>| reads(model, rule, module);
-    let applied = model.graph().doors().applied().iter();
+    let applied = model.graph().trojan_horses().applied().iter();
     applied
-        .filter(|door| !met(&door.stated, &reads).is_empty())
+        .filter(|trojan_horse| !met(&trojan_horse.stated, &reads).is_empty())
         .collect()
 }
 

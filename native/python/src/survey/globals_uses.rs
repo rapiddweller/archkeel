@@ -13,7 +13,7 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::globals_locals::Locals;
 use super::globals_project::{Callee, Project, DEPTH};
-use super::hazards_names::DOOR_STRINGS;
+use super::hazards_names::TROJAN_HORSE_STRINGS;
 
 impl Project<'_> {
     /// True when the parameter `param` of the scan function `def` is used in inert forms only.
@@ -94,9 +94,9 @@ struct Uses<'p, 'm, 'f> {
 }
 
 impl Uses<'_, '_, '_> {
-    /// True for a string literal that is no door.
+    /// True for a string literal that is no trojan horse.
     fn plain_key(expr: &Expr) -> bool {
-        matches!(expr, Expr::StringLiteral(text) if !DOOR_STRINGS.contains(&text.value.to_str()))
+        matches!(expr, Expr::StringLiteral(text) if !TROJAN_HORSE_STRINGS.contains(&text.value.to_str()))
     }
 
     /// The loads of the target that the expression `expr` uses in an inert form.
@@ -118,7 +118,7 @@ impl Uses<'_, '_, '_> {
         }
     }
 
-    /// `d.get("key")` with one literal key that is no door.
+    /// `d.get("key")` with one literal key that is no trojan horse.
     fn lookup(&mut self, call: &ruff_python_ast::ExprCall) {
         let args = &call.arguments;
         let Expr::Attribute(method) = &*call.func else {
@@ -134,7 +134,7 @@ impl Uses<'_, '_, '_> {
         }
     }
 
-    /// `"key" in d` with a literal key that is no door.
+    /// `"key" in d` with a literal key that is no trojan horse.
     fn membership(&mut self, node: &ruff_python_ast::ExprCompare) {
         let ([CmpOp::In | CmpOp::NotIn], [left, right]) = (&*node.ops, &*node.operands) else {
             return;

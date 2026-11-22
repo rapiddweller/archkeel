@@ -1,0 +1,133 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""AD-1043: a declaration names a gap site by its name, through the release core.
+
+Consumer: a CI job that reads the row of each rule and the exit code. Contract 3.20.0 lets a
+`trojan_horse_reach` record name its site by `name` instead of a form. A matched declaration lets
+the rules
+decide and says "PASS under N declared reaches"; a moved site, a twin site and a binding that
+another module can reach are named defects and apply nothing. Python 3.12 runs the truth of each
+plant: the declared reach must not hide an import that really happens.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+from test_cli_native_python_imports import command, rows
+from test_cli_python_gap_effects import ON_FILES
+from test_cli_python_trojan_horse_reach import declaration, scanned
+
+VERSION = "3.20.0"
+MODEL = "src/app/service/model.py"
+PAGE = "src/app/client/page.py"
+# Pickle bytes that import `app.service.secret` and read `KEY`: a real import through `pickle`.
+BLOB = "b'capp.service.secret\\nKEY\\n.'"
+
+
+def named(**fields: Any) -> dict[str, Any]:
+    record = declaration(id="D-NAME", name="__self__", line=1) | fields
+    del record["trojan_horse"]
+    return record
+
+
+def pickle_declaration() -> dict[str, Any]:
+    return named(id="D-PICKLE", name="pickle")
+
+
+def run(
+    root: Path, files: dict[str, str], declared: list[dict[str, Any]], binary: Path
+) -> dict[str, Any]:
+    return scanned(binary, root, files, declared, version=VERSION)
+
+
+def imports_secret(root: Path) -> bool:
+    code = (
+        "import sys; sys.path.insert(0, 'src'); import app.client.page; "
+        "print('app.service.secret' in sys.modules)"
+    )
+    done = subprocess.run(
+        [sys.executable, "-I", "-c", code], cwd=root, capture_output=True, text=True, check=True
+    )
+    return done.stdout.strip() == "True"
+
+
+def test_a_trojan_horse_string_is_declared_by_name_and_the_pass_says_so(
+    release_core: Path, tmp_path: Path
+) -> None:
+    files = {MODEL: "KEY = '__self__'\n"}
+    undeclared = run(tmp_path / "a", files, [], release_core)
+    assert "UNKNOWN" in set(rows(undeclared).values()), undeclared
+
+    result = run(tmp_path / "b", files, [named()], release_core)
+    assert set(rows(result).values()) == {"PASS"}, result
+    (row,) = result["frame"]["trojan_horse_reach"]
+    assert row["trojan_horse"] == "__self__" and row["rationale"], row
+    text = command(release_core, tmp_path / "b", "--text").stdout
+    assert "pass assuming 1 declared reach" in text, text
+
+
+def test_a_moved_site_is_unmatched_and_a_twin_needs_a_count(
+    release_core: Path, tmp_path: Path
+) -> None:
+    moved = run(tmp_path / "a", {MODEL: "KEY = '__self__'\n"}, [named(line=2)], release_core)
+    kinds = {gap["kind"] for gap in moved["gaps"]}
+    assert "trojan_horse_reach.unmatched" in kinds and moved["exit_code"] == 2, moved["gaps"]
+    assert "PASS" not in {v for k, v in rows(moved).items() if k not in ON_FILES}
+
+    twin = {MODEL: "KEY = ('__self__', '__self__')\n"}
+    one = run(tmp_path / "b", twin, [named()], release_core)
+    assert "trojan_horse_reach.ambiguous" in {gap["kind"] for gap in one["gaps"]}, one["gaps"]
+    two = run(tmp_path / "c", twin, [named(count=2)], release_core)
+    assert set(rows(two).values()) == {"PASS"}, two
+    three = run(tmp_path / "d", twin, [named(count=3)], release_core)
+    assert "trojan_horse_reach.unmatched" in {gap["kind"] for gap in three["gaps"]}, three["gaps"]
+
+
+def test_a_declared_import_that_another_module_reaches_by_attribute_applies_nothing(
+    release_core: Path, tmp_path: Path
+) -> None:
+    declared = [pickle_declaration()]
+    attribute = f"import app.service.model as model\nmodel.pickle.loads({BLOB})\n"
+    for name, use in {
+        "attribute": attribute,
+        "from-import": f"from app.service.model import pickle\npickle.loads({BLOB})\n",
+    }.items():
+        root = tmp_path / name
+        result = run(root, {MODEL: "import pickle\n", PAGE: use}, declared, release_core)
+        # Python imports the forbidden module through the declared name.
+        assert imports_secret(root)
+        assert rows(result)["CLIENT-NO-SECRET"] != "PASS", (name, result)
+        kinds = {gap["kind"] for gap in result["gaps"]}
+        assert "trojan_horse_reach.invalid" in kinds, (name, result["gaps"])
+
+
+def test_a_declared_import_that_no_module_reaches_applies(
+    release_core: Path, tmp_path: Path
+) -> None:
+    declared = [pickle_declaration()]
+    page = "import app.service.model as model\nVALUE = model.VALUE\n"
+    files = {MODEL: "import pickle\nVALUE = 1\n", PAGE: page}
+    result = run(tmp_path, files, declared, release_core)
+    assert set(rows(result).values()) == {"PASS"}, result
+
+
+def test_a_fail_that_rests_on_a_declared_load_says_so_and_an_observed_one_does_not(
+    release_core: Path, tmp_path: Path
+) -> None:
+    declared = [named(module="app.client.page", line=2, loads=["app.service.secret"])]
+    page = "import app.service.model as model\nKEY = '__self__'\n"
+    result = run(tmp_path / "a", {PAGE: page}, declared, release_core)
+    assert rows(result)["CLIENT-NO-SECRET"] == "FAIL", result
+    assert result["frame"]["fail_from_declared_reach"] == {"CLIENT-NO-SECRET": ["D-NAME"]}
+    text = command(release_core, tmp_path / "a", "--text").stdout
+    assert "FAIL from a declared reach: CLIENT-NO-SECRET (declared by D-NAME)" in text, text
+
+    seen = page + "import app.service.secret\n"
+    result = run(tmp_path / "b", {PAGE: seen}, declared, release_core)
+    assert rows(result)["CLIENT-NO-SECRET"] == "FAIL", result
+    assert "fail_from_declared_reach" not in result["frame"], result["frame"]

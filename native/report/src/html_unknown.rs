@@ -150,7 +150,7 @@ fn scan_sites(frame: &Frame) -> String {
     format!(
         "<details class=\"rp-fold\"><summary class=\"caption\">Scan gap sites: {} of {}</summary>\
 <p class=\"body-sm\">These are scan gaps; not every gap holds every rule. Review each site. \
-For eligible doors, a declared reach is an assumption, not a proof; a resulting \
+For eligible trojan_horses, a declared reach is an assumption, not a proof; a resulting \
 PASS assuming the declared reach is conditional. Not every gap can be declared.</p><ul>{}</ul></details>",
         total.min(MAX_SITES),
         total,

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""#1963: the door census proofs never turn an open import door into PASS.
+"""#1963: the trojan horse census proofs never turn an open import trojan horse into PASS.
 
 Consumer: `archkeel validate`. Each plant runs in Python 3.12 (`python3.12 -I`), which shows the
 real effect. A plant that the proof must keep open (`STAY`) really rebinds a name or really imports
@@ -103,7 +103,7 @@ def test_a_loader_under_a_foreign_name_that_writes_nothing_clears(
     assert verdict == "PASS"
 
 
-# S2 (AD-1041): names and strings that a door list matches but that run no import.
+# S2 (AD-1041): names and strings that a trojan horse list matches but that run no import.
 FORBIDDEN = {
     "id": "NO-IMPORT",
     "kind": "forbidden_dependency",
@@ -213,12 +213,12 @@ S2_STAY = {
         "        return True\n"
         "k = K()\nk != '__self__'\nk != '__import__'\n"
     ),
-    "a door string in a set that a loop passes on": lambda: (
+    "a trojan horse string in a set that a loop passes on": lambda: (
         "NAMES = {'__self__', '__import__'}\n"
         "def run():\n    a, b = sorted(NAMES, reverse=True)\n"
         "    getattr(getattr(len, a), b)('app.lib')\n"
     ),
-    "a door string in a variable that reaches getattr": lambda: (
+    "a trojan horse string in a variable that reaches getattr": lambda: (
         "def run():\n    a = '__self__'\n    b = '__import__'\n"
         "    if a != 'x':\n        getattr(getattr(len, a), b)('app.lib')\n"
     ),

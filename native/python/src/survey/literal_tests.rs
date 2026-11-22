@@ -82,7 +82,7 @@ fn a_proven_call_exempts_only_its_own_callee() {
 }
 
 #[test]
-fn a_door_in_any_position_other_than_the_exempt_callee_is_a_gap() {
+fn a_trojan_horse_in_any_position_other_than_the_exempt_callee_is_a_gap() {
     for source in [
         "__import__.__call__('app.service')\n",
         "exec.__call__('import app.service')\n",
@@ -147,7 +147,7 @@ fn a_constant_bound_uses_the_same_callee_identity_as_the_gap() {
     );
     let gap = gaps
         .iter()
-        .find(|gap| gap.door.is_some())
+        .find(|gap| gap.trojan_horse.is_some())
         .expect("a loader gap");
     let at = module.location(&gap.range);
     let id = evidence_id(&module.rel, at.line, at.end_line, at.column);

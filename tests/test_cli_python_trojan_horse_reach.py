@@ -1,14 +1,18 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-664: the declared reach of a door site, through the release core.
+"""AD-664: the declared reach of a trojan horse site, through the release core.
 
-Consumer: a CI job that reads the row of each rule and the exit code. A door (`eval` of a text
+Consumer: a CI job that reads the row of each rule and the exit code. A trojan horse (`eval` of a
+text
 that the scan cannot see) holds each rule but the rules on the files. A contract can declare the
-modules that one door may load or change. A matched declaration lets the rules decide, and each
-PASS that the door would hold says "PASS assuming the declared reach"; a declared load is a real
-edge; a declaration that matches no door is a problem and applies nothing. Python runs the truth
-of each door: the text that the door runs can load the module that a rule forbids.
+modules that one trojan horse may load or change. A matched declaration lets the rules decide, and
+each
+PASS that the trojan horse would hold says "PASS assuming the declared reach"; a declared load is
+a real
+edge; a declaration that matches no trojan horse is a problem and applies nothing. Python runs the
+truth
+of each trojan horse: the text that the trojan horse runs can load the module that a rule forbids.
 """
 
 from __future__ import annotations
@@ -24,8 +28,8 @@ import pytest
 from test_cli_native_python_imports import command, project, rows, verdict
 from test_cli_python_gap_effects import BINDS_SECRET, FILES, ON_FILES, RULES
 
-# The door: the module evaluates a text of the environment when it is imported (line 2).
-DOOR = "import os\nVALUE = eval(os.environ.get('DOOR', '1'))\n"
+# The trojan horse: the module evaluates a text of the environment when it is imported (line 2).
+TROJAN_HORSE = "import os\nVALUE = eval(os.environ.get('DOOR', '1'))\n"
 # The text that gives the name `app.service.model` the secret module.
 SWAP = (
     "__import__('sys').modules.__setitem__('app.service.model', "
@@ -45,7 +49,7 @@ def declaration(**fields: Any) -> dict[str, Any]:
     return {
         "id": "D-EVAL",
         "module": "app.service.model",
-        "door": "eval",
+        "trojan_horse": "eval",
         "line": 2,
         "loads": [],
         "rationale": "The text is a formula of numbers.",
@@ -62,23 +66,33 @@ def scanned(
     *,
     version: str = "3.15.0",
 ) -> dict[str, Any]:
-    """The verdict of the project with `files` and the door declarations `declared`."""
+    """The verdict of the project with `files` and the trojan horse declarations `declared`."""
     project(root, {**FILES, **files}, contract_rules=RULES)
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
     contract["schema_version"] = version
-    contract["declarations"] = {"door_reach": declared}
+    # AD-1045: a contract older than 3.20.0 spells the key `door_reach` and the form `door`.
+    old = tuple(int(part) for part in version.split(".")) < (3, 20, 0)
+    key = "door_reach" if old else "trojan_horse_reach"
+    records = [
+        {
+            ("door" if old and name == "trojan_horse" else name): value
+            for name, value in item.items()
+        }
+        for item in declared
+    ]
+    contract["declarations"] = {key: records}
     path.write_text(json.dumps(contract))
     subprocess.run(["git", "-C", str(root), "commit", "-qam", "reach"], check=True, env=GIT)
     return verdict(binary, root)
 
 
-def truth(root: Path, door: str, code: str) -> str:
-    """What Python prints for `code` when the door runs the text `door`."""
+def truth(root: Path, trojan_horse: str, code: str) -> str:
+    """What Python prints for `code` when the trojan horse runs the text `trojan_horse`."""
     done = subprocess.run(
         [sys.executable, "-I", "-c", f"import sys; sys.path.insert(0, 'src'); {code}"],
         cwd=root,
-        env={**os.environ, "DOOR": door},
+        env={**os.environ, "DOOR": trojan_horse},
         capture_output=True,
         text=True,
         check=True,
@@ -86,75 +100,78 @@ def truth(root: Path, door: str, code: str) -> str:
     return done.stdout.strip()
 
 
-def test_an_undeclared_door_keeps_each_rule_but_the_files_unknown(
+def test_an_undeclared_trojan_horse_keeps_each_rule_but_the_files_unknown(
     release_core: Path, tmp_path: Path
 ) -> None:
-    result = scanned(release_core, tmp_path, {"src/app/service/model.py": DOOR}, [])
+    result = scanned(release_core, tmp_path, {"src/app/service/model.py": TROJAN_HORSE}, [])
     expected = {rule["id"]: "PASS" if rule["id"] in ON_FILES else "UNKNOWN" for rule in RULES}
     assert rows(result) == expected, result
-    assert "assumed" not in result["frame"] and "door_reach" not in result["frame"]
-    # The door is real: the text gives the client the secret module.
+    assert "assumed" not in result["frame"] and "trojan_horse_reach" not in result["frame"]
+    # The trojan horse is real: the text gives the client the secret module.
     assert truth(tmp_path, SWAP, BINDS_SECRET) == "True"
 
 
 def test_a_matched_declaration_passes_each_rule_only_as_an_assumption(
     release_core: Path, tmp_path: Path
 ) -> None:
-    result = scanned(release_core, tmp_path, {"src/app/service/model.py": DOOR}, [declaration()])
+    result = scanned(
+        release_core, tmp_path, {"src/app/service/model.py": TROJAN_HORSE}, [declaration()]
+    )
     assert set(rows(result).values()) == {"PASS"}, result
     frame = result["frame"]
-    # No PASS that the door could change is a plain PASS: each one names the door site.
+    # No PASS that the trojan horse could change is a plain PASS: each one names the trojan horse
+    # site.
     assumed = {rule["id"] for rule in RULES} - set(ON_FILES)
     assert frame["assumed"] == dict.fromkeys(sorted(assumed), [SITE]), frame["assumed"]
-    assert frame["door_reach"] == [
+    assert frame["trojan_horse_reach"] == [
         {
             "id": "D-EVAL",
             "rationale": "The text is a formula of numbers.",
             "module": "app.service.model",
             "line": 2,
-            "door": "eval",
+            "trojan_horse": "eval",
             "loads": [],
             "changes": [],
         }
     ]
     assert result["status"] == "PASS" and result["exit_code"] == 0
     text = command(release_core, tmp_path, "--text").stdout
-    assert "all 7 rules pass; 5 pass assuming the declared reach of 1 door" in text, text
+    assert "all 7 rules pass; 5 pass assuming 1 declared reach" in text, text
     assert "D-EVAL: app.service.model:2 (eval) loads nothing; changes nothing" in text, text
     assert "Reason: The text is a formula of numbers." in text, text
-    # The premise is the claim of the contract, not a proof: the same door can break it.
+    # The premise is the claim of the contract, not a proof: the same trojan horse can break it.
     assert truth(tmp_path, SWAP, BINDS_SECRET) == "True"
 
 
 def test_a_declared_load_is_a_real_edge_that_a_rule_can_forbid(
     release_core: Path, tmp_path: Path
 ) -> None:
-    files = {"src/app/client/page.py": "import app.service.model as model\n" + DOOR}
-    door = declaration(module="app.client.page", line=3, loads=["app.service.secret"])
-    result = scanned(release_core, tmp_path, files, [door])
+    files = {"src/app/client/page.py": "import app.service.model as model\n" + TROJAN_HORSE}
+    trojan_horse = declaration(module="app.client.page", line=3, loads=["app.service.secret"])
+    result = scanned(release_core, tmp_path, files, [trojan_horse])
     assert rows(result)["CLIENT-NO-SECRET"] == "FAIL", result
     details = result["frame"]["details"]["CLIENT-NO-SECRET"]
-    assert result["frame"]["door_reach"][0]["possible_loads"] == ["app.service.secret"]
+    assert result["frame"]["trojan_horse_reach"][0]["possible_loads"] == ["app.service.secret"]
     assert {(row["source"], row["target"]) for row in details} == {
         ("app.client.page", "app.service.secret")
     }, details
-    # The door can load what the declaration names.
+    # The trojan horse can load what the declaration names.
     load = "import app.client.page, sys; print('app.service.secret' in sys.modules)"
     assert truth(tmp_path, "__import__('app.service.secret')", load) == "True"
 
 
-def test_a_declaration_that_matches_no_door_is_reported_and_applies_nothing(
+def test_a_declaration_that_matches_no_trojan_horse_is_reported_and_applies_nothing(
     release_core: Path, tmp_path: Path
 ) -> None:
     result = scanned(
-        release_core, tmp_path, {"src/app/service/model.py": DOOR}, [declaration(line=3)]
+        release_core, tmp_path, {"src/app/service/model.py": TROJAN_HORSE}, [declaration(line=3)]
     )
     expected = {rule["id"]: "PASS" if rule["id"] in ON_FILES else "UNKNOWN" for rule in RULES}
     assert rows(result) == expected, result
-    assert "assumed" not in result["frame"] and "door_reach" not in result["frame"]
+    assert "assumed" not in result["frame"] and "trojan_horse_reach" not in result["frame"]
     kinds = {gap["kind"] for gap in result["gaps"]}
-    assert "door_reach.unmatched" in kinds, result["gaps"]
-    (gap,) = [gap for gap in result["gaps"] if gap["kind"] == "door_reach.unmatched"]
+    assert "trojan_horse_reach.unmatched" in kinds, result["gaps"]
+    (gap,) = [gap for gap in result["gaps"] if gap["kind"] == "trojan_horse_reach.unmatched"]
     assert "D-EVAL" in gap["subject"] and "not applied" in gap["reason"], gap
     assert result["exit_code"] == 2
 
@@ -168,19 +185,23 @@ def test_a_loader_needs_a_declaration_of_its_binding_and_of_its_call(
         "    return import_module('app.service.' + name)\n"
     )
     files = {"src/app/service/model.py": loader}
-    binding = declaration(id="D-BIND", door="loader", line=1, loads=["app.service"])
-    call = declaration(id="D-CALL", door="loader", scope="load", loads=["app.service"])
+    binding = declaration(id="D-BIND", trojan_horse="loader", line=1, loads=["app.service"])
+    call = declaration(id="D-CALL", trojan_horse="loader", scope="load", loads=["app.service"])
     del call["line"]
     only_call = scanned(release_core, tmp_path / "a", files, [call])
     assert rows(only_call)["CYCLES"] == "UNKNOWN", only_call
     both = scanned(release_core, tmp_path / "b", files, [binding, call])
     assert set(rows(both).values()) == {"PASS"}, both
-    assert {door["id"] for door in both["frame"]["door_reach"]} == {"D-BIND", "D-CALL"}
-    # A module that imports the bound door runs it outside its module: the binding is refused.
+    assert {trojan_horse["id"] for trojan_horse in both["frame"]["trojan_horse_reach"]} == {
+        "D-BIND",
+        "D-CALL",
+    }
+    # A module that imports the bound trojan horse runs it outside its module: the binding is
+    # refused.
     files["src/app/service/other.py"] = "from app.service.model import import_module as f\n"
     refused = scanned(release_core, tmp_path / "c", files, [binding, call])
     kinds = {gap["kind"] for gap in refused["gaps"]}
-    assert "door_reach.invalid" in kinds, refused["gaps"]
+    assert "trojan_horse_reach.invalid" in kinds, refused["gaps"]
     assert rows(refused)["CYCLES"] == "UNKNOWN", refused
 
 
@@ -209,9 +230,9 @@ def test_a_python_loader_bound_reads_the_written_tuple_again(
         "def load(names=MODULES):\n"
         f"    return {actual}\n"
     )
-    door = declaration(module="app.client.page", door="loader", line=4)
-    door.pop("loads")
-    door["loads_from"] = {
+    trojan_horse = declaration(module="app.client.page", trojan_horse="loader", line=4)
+    trojan_horse.pop("loads")
+    trojan_horse["loads_from"] = {
         "constant": "app.service.registry:MODULES",
         "template": "app.service.{}",
         "call": call,
@@ -224,17 +245,17 @@ def test_a_python_loader_bound_reads_the_written_tuple_again(
         release_core,
         tmp_path,
         files,
-        [door],
+        [trojan_horse],
         version="3.18.0",
     )
     assert rows(result)["CLIENT-NO-SECRET"] == status, result
     frame = result["frame"]
     if status == "UNKNOWN":
-        assert "door_reach" not in frame
+        assert "trojan_horse_reach" not in frame
         problem = "ambiguous" if edit == "same-line" else "invalid"
-        assert any(gap["kind"] == f"door_reach.{problem}" for gap in result["gaps"])
+        assert any(gap["kind"] == f"trojan_horse_reach.{problem}" for gap in result["gaps"])
     else:
-        (bound,) = frame["door_reach"]
+        (bound,) = frame["trojan_horse_reach"]
         assert bound["constant"] == (
             "app.service.registry:MODULES (src/app/service/registry.py:1, template app.service.{})"
         )
@@ -267,8 +288,8 @@ def test_a_python_loader_bound_reads_the_written_tuple_again(
         )
 
 
-def test_the_native_self_check_declares_no_door_reach() -> None:
+def test_the_native_self_check_declares_no_trojan_horse_reach() -> None:
     """AD-1042: ArchKeel checks itself with proofs only; a declaration there needs an owner."""
     contract = json.loads(Path("native/architecture-contract.json").read_text())
 
-    assert not (contract.get("declarations") or {}).get("door_reach")
+    assert not (contract.get("declarations") or {}).get("trojan_horse_reach")

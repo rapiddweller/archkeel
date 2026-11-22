@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Inert-read and retained-door plants for the Python import survey.
+//! Inert-read and retained-trojan horse plants for the Python import survey.
 
 use super::*;
 
@@ -25,7 +25,7 @@ fn imported_code_types_in_isinstance_keep_the_import_gap() {
             .filter(|site| site.detail == format!("types.{name}"))
             .collect();
         assert_eq!(matching.len(), 1, "{source}");
-        assert!(matching[0].door.is_none(), "{source}");
+        assert!(matching[0].trojan_horse.is_none(), "{source}");
     }
     for source in [
         "from types import FunctionType\nx = FunctionType(code, globals())\n",
@@ -78,7 +78,7 @@ fn direct_metadata_version_reads_keep_the_import_gap() {
         assert!(
             found
                 .iter()
-                .any(|site| site.detail == "importlib.metadata" && site.door.is_none()),
+                .any(|site| site.detail == "importlib.metadata" && site.trojan_horse.is_none()),
             "{source}"
         );
     }
@@ -130,7 +130,8 @@ fn imported_inert_attribute_keeps_its_import_gap() {
         assert!(
             found
                 .iter()
-                .any(|site| site.detail == "importlib.abc.Traversable" && site.door.is_none()),
+                .any(|site| site.detail == "importlib.abc.Traversable"
+                    && site.trojan_horse.is_none()),
             "{source}"
         );
     }
@@ -159,7 +160,7 @@ fn imported_inert_attribute_keeps_its_import_gap() {
         assert!(
             found
                 .iter()
-                .any(|site| site.detail == detail && site.door.is_none()),
+                .any(|site| site.detail == detail && site.trojan_horse.is_none()),
             "{source}"
         );
     }
@@ -195,7 +196,7 @@ fn dill_settings_reads_keep_the_import_gap() {
         assert!(
             found
                 .iter()
-                .any(|site| site.detail == "dill" && site.door.is_none()),
+                .any(|site| site.detail == "dill" && site.trojan_horse.is_none()),
             "{source}"
         );
         assert!(
@@ -225,7 +226,7 @@ fn dill_settings_reads_keep_the_import_gap() {
 }
 
 #[test]
-fn door_strings_with_unproved_equality_or_membership_keep_their_gap() {
+fn trojan_horse_strings_with_unproved_equality_or_membership_keep_their_gap() {
     for source in [
         "result = value == '__import__'\n",
         "result = value in {'__import__'}\n",
@@ -454,4 +455,55 @@ fn a_spec_that_is_only_tested_and_read_for_names_is_no_site() {
     }
     let control = "def f(p):\n    s = p.__spec__\n    return list(s.submodule_search_locations)\n";
     assert_eq!(clear_count(control, "__spec__"), 0);
+}
+
+// #1967: a computed attribute name on an unproved receiver is a trojan horse site.
+fn trojan_names(source: &str) -> Vec<String> {
+    clear_details(source)
+        .into_iter()
+        .filter(|name| matches!(name.as_str(), "getattr" | "setattr" | "__getattribute__"))
+        .collect()
+}
+
+#[test]
+fn a_computed_attribute_name_on_an_unproved_receiver_is_a_site() {
+    for source in [
+        "def f(x, n):\n    return getattr(x, n)\n",
+        "def f(x, n):\n    return getattr(x, '__co' + 'de__')\n",
+        "def f(x, n):\n    setattr(x, n, 1)\n",
+        "def f(x, n):\n    return x.__getattribute__(n)\n",
+        "def f(x, n):\n    return object.__getattribute__(x, n)\n",
+        "def g(): ...\ndef f(n):\n    return getattr(g, n)\n",
+        "def f(x):\n    n = 'a'\n    n += 'b'\n    return getattr(x, n)\n",
+        "def f(x):\n    global n\n    n = 'a'\n    return getattr(x, n)\n",
+        "class C:\n    def m(self, n):\n        self = other\n        return getattr(self, n)\n",
+        "class C:\n    @staticmethod\n    def m(self, n):\n        return getattr(self, n)\n",
+        "from json import loads\ndef f(n):\n    return getattr(loads, n)\n",
+        "def getattr(a, b):\n    return a\ndef f(x, n):\n    return getattr(x, n)\n",
+        "def f(n, xs):\n    m = import_module('a')\n    for m in xs:\n        pass\n    return getattr(m, n)\n",
+        "def f(n, g):\n    m = import_module('a')\n    m = g()\n    return getattr(m, n)\n",
+    ] {
+        let found = trojan_names(source);
+        // A shadowed builtin is no site.
+        let expected = usize::from(!source.contains("def getattr"));
+        assert_eq!(found.len(), expected, "{source}: {found:?}");
+    }
+}
+
+#[test]
+fn a_literal_name_a_proved_receiver_or_a_local_literal_is_no_site() {
+    for source in [
+        "def f(x):\n    return getattr(x, 'a')\n",
+        "def f(x):\n    n = 'a'\n    return getattr(x, n)\n",
+        "class C: ...\ndef f(n):\n    return getattr(C, n)\n",
+        "class C:\n    def m(self, n):\n        return getattr(self, n)\n",
+        "class C:\n    @classmethod\n    def m(cls, n):\n        return getattr(cls, n)\n",
+        "import json\ndef f(n):\n    return getattr(json, n)\n",
+        "import json as j\ndef f(n):\n    return getattr(j, n)\n",
+        "def f(n):\n    m = import_module('a')\n    return getattr(m, n)\n",
+        "def f(n, c):\n    if c:\n        m = import_module('a')\n    else:\n        m = import_module('b')\n    return getattr(m, n)\n",
+    ] {
+        let found = trojan_names(source);
+        assert!(found.is_empty(), "{source}: {found:?}");
+    }
 }
