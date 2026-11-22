@@ -201,7 +201,7 @@ impl Walk<'_> {
             return false;
         };
         let literal = !TROJAN_HORSE_STRINGS.contains(&attr.value.to_str())
-            && !comprehension::reflective(attr.value.to_str());
+            && !comprehension::reflective(attr.value.to_str(), false);
         let plain = named && literal && (2..=3).contains(&args.len());
         if !plain
             || !call.arguments.keywords.is_empty()

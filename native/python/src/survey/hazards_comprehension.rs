@@ -187,7 +187,7 @@ const PLAIN_DUNDER: [&str; 7] = [
 /// `__class__`, `__init__`, ...) and the name of an access form. The names of
 /// `TROJAN_HORSE_STRINGS` (`__globals__`, `f_builtins`) and the trojan horse attributes have their
 /// own hazard, so they are no second site.
-pub(super) fn reflective(name: &str) -> bool {
+pub(super) fn reflective(name: &str, write: bool) -> bool {
     let dunder = name.len() > 4 && name.starts_with("__") && name.ends_with("__");
     let own = crate::survey::hazards_names::TROJAN_HORSE_STRINGS.contains(&name)
         || crate::survey::hazards_names::attribute_trojan_horse(&[name], 0);
@@ -196,7 +196,8 @@ pub(super) fn reflective(name: &str) -> bool {
         .chain(&LIBRARY_ACCESS)
         .chain(&METHOD_ACCESS)
         .any(|each| *each == name);
-    (dunder && !PLAIN_DUNDER.contains(&name) && !own) || access
+    // A write of a literal dunder (`setattr(C, '__new__', f)`) reads no reflection back.
+    (dunder && !write && !PLAIN_DUNDER.contains(&name) && !own) || access
 }
 
 /// `vars(x)` or `x.__dict__`: the dictionary of the attributes of any value.
@@ -221,8 +222,7 @@ impl Trojans<'_> {
             let id = Name::as_str(&target.id);
             // The module binds the name once: this assignment is its only binder.
             let once = !self.taken.contains(id) && self.single.contains(id);
-            let plain =
-                matches!(&*node.value, Expr::StringLiteral(t) if !reflective(t.value.to_str()));
+            let plain = matches!(&*node.value, Expr::StringLiteral(t) if !reflective(t.value.to_str(), false));
             if once && plain {
                 literals.insert(id.to_owned());
             }
@@ -271,9 +271,9 @@ impl Trojans<'_> {
     }
 
     /// True when the name is a literal or a local with one literal.
-    fn resolved(&self, name: &Expr) -> bool {
+    fn resolved(&self, name: &Expr, write: bool) -> bool {
         match (name, &self.scope) {
-            (Expr::StringLiteral(text), _) => !reflective(text.value.to_str()),
+            (Expr::StringLiteral(text), _) => !reflective(text.value.to_str(), write),
             (Expr::Name(node), Some(literals)) => {
                 HashSet::contains(literals, Name::as_str(&node.id))
             }
@@ -287,7 +287,8 @@ impl<'a> Trojans<'_> {
     /// its arguments are visited; the result is true when the call was one.
     fn access_call(&mut self, call: &'a ExprCall) -> bool {
         let site = self.computed(call);
-        let site = site.filter(|(_, _, name)| !self.resolved(name));
+        let write = |kind: &str| kind.contains("set") || kind.contains("del");
+        let site = site.filter(|(kind, _, name)| !self.resolved(name, write(kind)));
         if let Some((kind, _, _)) = site {
             self.found.push((kind, call.range()));
         }
@@ -341,7 +342,7 @@ impl<'a> Visitor<'a> for Trojans<'_> {
             // key that the scan cannot read reaches `__builtins__` and `__code__`. Only a direct
             // subscript with a literal key is no site; `d = vars(m)` is one (AD-1058).
             Expr::Subscript(node) if dict_view(&node.value) => {
-                if !self.resolved(&node.slice) {
+                if !self.resolved(&node.slice, false) {
                     self.found.push(("__dict__", node.range()));
                 }
                 match &*node.value {

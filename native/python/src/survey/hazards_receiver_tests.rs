@@ -112,6 +112,8 @@ fn a_literal_name_a_proved_receiver_or_a_local_literal_is_no_site() {
     for source in [
         "def f(x):\n    return getattr(x, 'a')\n",
         "def f(x):\n    return getattr(x, '__name__')\n",
+        // A write of a literal dunder reads no reflection back (`setattr(C, '__new__', f)`).
+        "class C: ...\nsetattr(C, '__new__', lambda cls: 5)\n",
         "def f(x):\n    return getattr(x, '__doc__')\n",
         "def f(x):\n    n = 'a'\n    return getattr(x, n)\n",
         "def f(m):\n    return vars(m)['a']\n",

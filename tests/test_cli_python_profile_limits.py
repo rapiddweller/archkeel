@@ -175,7 +175,15 @@ def test_the_python_collector_does_not_claim_a_nominal_selector_inventory(
 def _trojan_horse(source: str) -> bool:
     """A computed name, or a reference to an access form that is no call, is a trojan horse gap
     (AD-1053, AD-1058): the scan is incomplete before the construct rule says anything."""
-    return any(mark in source for mark in ("__getattribute__('__' +", "f = getattr", "f = vars"))
+    return any(
+        mark in source
+        for mark in (
+            "__getattribute__('__' +",
+            "f = getattr",
+            "f = vars",
+            "getattr(item, '__dict__')",
+        )
+    )
 
 
 @pytest.mark.parametrize(
