@@ -38,6 +38,11 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Install the Dart SDK for the oracle tests
+        uses: dart-lang/setup-dart@2286a0c042b44434fe26d292bbce8d34f7ec662b # v1.8.2
+        with:
+          sdk: "3.12.2"
+
       - name: Install uv and Python
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
@@ -46,7 +51,7 @@ jobs:
           version: "0.12.13"
 
       - name: Install supported runtimes
-        run: uv python install 3.11.12 3.12.10
+        run: uv python install 3.11.12 3.12.10 3.14.7
 
       - name: Install locked dependencies
         run: uv sync --locked
