@@ -244,3 +244,41 @@ fn door_strings_with_unproved_equality_or_membership_keep_their_gap() {
         );
     }
 }
+
+/// AD-1048: a code object that a function hands out is a door; a scalar field of it is a read.
+#[test]
+fn a_code_object_is_a_door_and_a_scalar_field_of_it_is_not() {
+    let kinds = |source: &str| -> Vec<&'static str> {
+        let tree = crate::test_tree(source, 12).expect("valid probe");
+        sites(
+            &tree,
+            Proof::default(),
+            &Binders::of(&tree),
+            &HashSet::new(),
+        )
+        .iter()
+        .map(|site| site.kind)
+        .collect()
+    };
+    for source in [
+        "def f(): pass\nf.__code__ = f.__code__.replace(co_names=())\n",
+        "def f(): pass\nc = f.__code__\n",
+        "def f(): pass\nx = f.__code__.replace(co_names=())\n",
+        "def f(): pass\nx = f.__code__.co_consts\n",
+        "def f(): pass\nx = f.__code__.co_names\n",
+        "import sys\nx = sys._getframe().f_code\n",
+        "def g():\n    yield 1\nx = g().gi_code\n",
+        "def f(): pass\nsetattr(f, '__code__', other)\n",
+        "def f(): pass\nx = getattr(f, '__code__')\n",
+    ] {
+        assert!(kinds(source).contains(&DYNAMIC), "{source}");
+    }
+    for source in [
+        "def f(): pass\nx = f.__code__.co_name\n",
+        "def f(): pass\nx = f.__code__.co_filename\n",
+        "def f(): pass\nx = f.__name__\n",
+        "def f(): pass\nx = f.__defaults__\n",
+    ] {
+        assert!(kinds(source).is_empty(), "{source}");
+    }
+}

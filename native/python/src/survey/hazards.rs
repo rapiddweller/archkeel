@@ -26,7 +26,7 @@ use super::syspath;
 use crate::module::Module;
 
 use super::hazards_names::{
-    above, first_hazard, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
+    above, attribute_door, first_hazard, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM};
 use bind::{bindings, imported};
@@ -301,11 +301,10 @@ impl Walk<'_> {
         let reads = |at: usize, a: &str| {
             matches!(a, "__globals__" | "f_globals") && self.reads.contains(&ranges[at])
         };
-        let door_at = attributes.iter().enumerate().find(|(at, a)| {
-            let named =
-                ANY_ATTRIBUTE.contains(a) || IMPORT_FUNCTIONS.contains(a) || **a == "__path__";
-            named && !reads(*at, a)
-        });
+        let door_at = attributes
+            .iter()
+            .enumerate()
+            .find(|(at, a)| attribute_door(&attributes, *at) && !reads(*at, a));
         if let Some((_, name)) = door_at {
             let state = ["meta_path", "path_hooks", "path_importer_cache", "__path__"];
             let kind = if state.contains(name) {

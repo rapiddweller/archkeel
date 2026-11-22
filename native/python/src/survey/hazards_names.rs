@@ -91,7 +91,7 @@ pub(super) const BUILTIN_DOORS: [&str; 10] = [
 
 /// The string values that name a door: `getattr(x, "__import__")` and `d["__builtins__"]`. A key
 /// with one of them is never read as data.
-pub(in crate::survey) const DOOR_STRINGS: [&str; 7] = [
+pub(in crate::survey) const DOOR_STRINGS: [&str; 12] = [
     "__import__",
     "__builtins__",
     "import_module",
@@ -99,7 +99,44 @@ pub(in crate::survey) const DOOR_STRINGS: [&str; 7] = [
     "__globals__",
     "__self__",
     "__loader__",
+    "__code__",
+    "f_code",
+    "gi_code",
+    "cr_code",
+    "ag_code",
 ];
+
+/// The attributes that hand out a code object (AD-1048). `code.replace(co_names=...)` or
+/// `type(code)(...)` then builds a function with other imports, and `f.__code__ = ...` runs it.
+const CODE_OBJECT: [&str; 5] = ["__code__", "f_code", "gi_code", "cr_code", "ag_code"];
+
+/// The fields of a code object that hold a scalar. A direct read of one hands out no code object;
+/// `co_consts` can hold a nested code object, so it is not here.
+const CODE_FIELD: [&str; 10] = [
+    "co_name",
+    "co_qualname",
+    "co_filename",
+    "co_firstlineno",
+    "co_argcount",
+    "co_posonlyargcount",
+    "co_kwonlyargcount",
+    "co_nlocals",
+    "co_stacksize",
+    "co_flags",
+];
+
+/// True when `attributes[at]` is a door on any value: the attributes of `ANY_ATTRIBUTE`, an import
+/// function, a write to `__path__`, or a code object that does not end in a scalar field.
+pub(super) fn attribute_door(attributes: &[&str], at: usize) -> bool {
+    let Some(name) = attributes.get(at) else {
+        return false;
+    };
+    let code = CODE_OBJECT.contains(name)
+        && !attributes
+            .get(at + 1)
+            .is_some_and(|field| CODE_FIELD.contains(field));
+    code || ANY_ATTRIBUTE.contains(name) || IMPORT_FUNCTIONS.contains(name) || *name == "__path__"
+}
 
 /// The names of import functions: a door as a plain name or as an attribute of any value.
 pub(super) const IMPORT_FUNCTIONS: [&str; 9] = [
