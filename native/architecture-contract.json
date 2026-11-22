@@ -2267,6 +2267,7 @@
           "component": "model-graph",
           "rationale": "Read the applied trojan horse declarations of the run to write the premise of a PASS (AD-664).",
           "through": [
+            "native.archkeel_model.graph",
             "native.archkeel_model.trojan_horse_reach"
           ]
         }

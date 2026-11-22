@@ -213,7 +213,11 @@ fn row(trojan_horse: &Applied) -> TrojanHorseRow {
         trojan_horse: trojan_horse.trojan_horse().to_owned(),
         loads: trojan_horse.loads.clone(),
         constant: trojan_horse.constant.clone(),
-        possible_loads: trojan_horse.possible_loads.clone(),
+        possible_loads: trojan_horse
+            .edges
+            .iter()
+            .map(|(target, _)| target.clone())
+            .collect(),
         covered: trojan_horse.covered.clone(),
         changes: trojan_horse.changes.clone(),
     }

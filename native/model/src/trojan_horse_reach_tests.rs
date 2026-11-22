@@ -63,7 +63,7 @@ fn an_applied_declaration_names_its_site() {
         line: 12,
         loads: Vec::new(),
         constant: None,
-        possible_loads: Vec::new(),
+        edges: Vec::new(),
         changes: Vec::new(),
         covered: Vec::new(),
         effect: None,

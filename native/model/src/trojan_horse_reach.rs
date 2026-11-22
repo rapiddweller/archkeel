@@ -43,8 +43,9 @@ pub struct Applied {
     pub loads: Vec<String>,
     /// The source binding and template of a constant-bound declaration.
     pub constant: Option<String>,
-    /// The scanned targets of the possible dependency edges supplied by the declaration.
-    pub possible_loads: Vec<String>,
+    /// The possible dependency edges that the declaration supplies, from the module of the site:
+    /// the scanned target and the id of the declared import (AD-1048).
+    pub edges: Vec<(String, String)>,
     /// The declared module prefixes whose names the trojan horse may change.
     pub changes: Vec<String>,
     /// The modules that reach the bound name and that `covers` names (AD-1047).
@@ -430,10 +431,10 @@ fn apply(
             .flatten()
             .map(|p| p.as_text().to_owned())
             .collect(),
-        possible_loads: imports
+        edges: imports
             .iter()
             .filter(|import| import.resolved() == &Resolved::Local)
-            .map(|import| import.target_module().to_owned())
+            .map(|import| (import.target_module().to_owned(), import.id().to_owned()))
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
             .collect(),

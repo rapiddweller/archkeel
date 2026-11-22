@@ -1789,6 +1789,13 @@
           "format": "uint",
           "minimum": 0
         },
+        "declared": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeclaredEdge"
+          },
+          "description": "The declared edges of the step: the declaration, the module of its site and the module that\nit may load (AD-1048)."
+        },
         "evidence": {
           "type": "array",
           "items": {
@@ -1811,6 +1818,27 @@
         "evidence_total"
       ],
       "description": "One step of a cycle path.",
+      "additionalProperties": false
+    },
+    "DeclaredEdge": {
+      "type": "object",
+      "properties": {
+        "declaration": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "declaration",
+        "source",
+        "target"
+      ],
+      "description": "One possible import that a declaration supplies to a cycle step.",
       "additionalProperties": false
     },
     "Holds": {

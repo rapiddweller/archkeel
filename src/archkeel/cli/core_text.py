@@ -204,6 +204,25 @@ def _edge(frame: CoreFrame, row: ViolationDetail) -> tuple[str, list[str]]:
     return edge, places(frame, row.evidence, SHOWN)
 
 
+def _declared_edges(frame: CoreFrame, rule: str, index: int) -> str:
+    """The declared imports that a cycle uses: the declaration, its site module and the target."""
+    cycles = None if frame.explain is None else frame.explain.cycles.get(rule)
+    items = [] if cycles is None else [item for item in cycles.items if item.index == index]
+    by_edge: dict[tuple[str, str], list[str]] = {}
+    for item in items:
+        for step in item.path:
+            for edge in step.declared:
+                ids = by_edge.setdefault((edge.source, edge.target), [])
+                ids.append(edge.declaration)
+    lines = [
+        f"    {source} -> {target}, declared by {', '.join(dict.fromkeys(ids))}"
+        for (source, target), ids in list(by_edge.items())[:3]
+    ]
+    if len(by_edge) > 3:
+        lines.append(f"    and {len(by_edge) - 3} more declared edges")
+    return "".join(f"\n{line}" for line in lines)
+
+
 def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]
     if not rows:
@@ -218,7 +237,9 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
             f"Violations ({len(rows)}: {new} new, {len(rows) - new} accepted by the baseline):"
         ]
     texts: dict[str, int] = {}
+    positions = {rule: 0 for rule in frame.details}
     for rule, row in rows if show_all else rows[:_VIOLATIONS_SHOWN]:
+        positions[rule] += 1
         edge, sites = _edge(frame, row)
         where = ", ".join(sites)
         cause = row.cause
@@ -229,6 +250,7 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
         elif row.possible:
             cause += " (the contract declares this possibility)"
         text = f"  {rule}: {cause}: {edge}" + (f" ({where})" if where else "")
+        text += _declared_edges(frame, rule, positions[rule] - 1)
         texts[text] = texts.get(text, 0) + 1  # one line per place; a repeat is counted
     lines.extend(f"{text} (x{n})" if n > 1 else text for text, n in texts.items())
     if more := rest(len(rows), _VIOLATIONS_SHOWN, show_all):
