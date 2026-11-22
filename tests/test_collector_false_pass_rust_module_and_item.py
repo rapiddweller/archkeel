@@ -72,4 +72,6 @@ def test_a_path_that_ends_at_a_module_never_hides_the_item_of_its_name(
     commit_tree(tmp_path)
     _rustc_accepts(tmp_path)
     found = statuses(validate(tmp_path))
-    assert (found["NO-REPLY-FN"], found["BOUNDARY"]) == (status, status), name
+    # AD-1048: no function `reply` exists in `base`, so the symbol rule examined nothing.
+    symbol = "UNKNOWN" if name.startswith("use of a module without") else status
+    assert (found["NO-REPLY-FN"], found["BOUNDARY"]) == (symbol, status), name

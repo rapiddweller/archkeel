@@ -338,7 +338,8 @@ def test_rust_decides_the_rule_and_names_a_component_without_public(
     frame = run_core(built, root)
     # AD-604: the Rust collector states its publication surface, so the rule is decided. A
     # component without `public` is no subject; the hygiene names it and holds the run.
-    assert frame["rules"]["INTERFACE"][1] == "PASS", frame
+    # AD-1048: no component declares `public`, so the rule examines nothing: UNKNOWN, not PASS.
+    assert frame["rules"]["INTERFACE"][1] == "UNKNOWN", frame
     assert "interface.undeclared" in json.dumps(frame), frame
     assert frame["status"] != "PASS", frame
 
@@ -361,7 +362,8 @@ def test_non_subject_imports_do_not_fail(built: Path, tmp_path: Path, case: str)
     else:
         contract["components"] = [client]
     path.write_text(json.dumps(contract))
-    expected = "UNKNOWN" if case.startswith("unowned") else "PASS"
+    # AD-1048: with no `public` entry anywhere the rule examines nothing.
+    expected = "PASS" if case == "same_component" else "UNKNOWN"
     assert run_core(built, tmp_path)["rules"]["INTERFACE"][1] == expected
 
 

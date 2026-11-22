@@ -189,7 +189,18 @@ pub(crate) fn interface(
 ) -> Result<(), Reason> {
     let ScanProof { brand: _, roots } = scan?;
     covered(model, &roots)?;
-    ownership(model)
+    ownership(model)?;
+    // AD-428 skips a target without `public`; with none declared, the rule examined nothing.
+    if model
+        .components()
+        .iter()
+        .all(|(_, component)| component.public().is_none())
+    {
+        return Err(Reason::NotComplete(Cause::Receipt(
+            "no component declares a public interface",
+        )));
+    }
+    Ok(())
 }
 
 /// The scan roots hold the packages and the exact modules of each component, and, for a mount,

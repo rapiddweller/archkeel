@@ -109,6 +109,54 @@ fn the_clean_reply_has_no_external_violation_and_passes_with_the_scope_proof() {
         .all(|o| matches!(o.decision().unwrap().verdict(), Verdict::Pass(_))));
 }
 
+/// The frozen reply imports no external package, and a PASS of `EXTERNAL-SHOP` needs one import of
+/// `@shop/transport` (AD-1048). A copy of the import of `data.remote` names it from an allowed
+/// source and leaves every other edge as it was.
+pub(crate) fn add_shop_transport(value: &mut Value) {
+    let copy = value["facts"]["imports"][1].clone();
+    let old = copy["import_id"].clone();
+    let new = json!("IMP_BINDING-00000000000000f1");
+    if let Some(sections) = value["facts"]["sections"].as_array_mut() {
+        for section in sections.iter_mut().filter(|s| s["name"] == "imports") {
+            let Some(records) = section["records"].as_array_mut() else {
+                continue;
+            };
+            if let Some(mut record) = records.iter().find(|r| r["id"] == old).cloned() {
+                record["id"] = new.clone();
+                records.push(record);
+            }
+        }
+    }
+    let mut copy = copy;
+    copy["import_id"] = new;
+    if let Some(imports) = value["facts"]["imports"].as_array_mut() {
+        imports.push(copy);
+        let at = imports.len() - 1;
+        external(at, "@shop/transport")(value);
+    }
+}
+
+/// AD-1048: a rule that names a package that no import names has nothing to examine.
+#[test]
+fn a_dependency_that_no_import_names_is_unknown() {
+    let typo = |contract: &mut Value| {
+        if let Some(rules) = contract["rules"].as_array_mut() {
+            for rule in rules.iter_mut().filter(|r| r["id"] == "EXTERNAL-SHOP") {
+                rule["dependency"] = json!("@shop/transprot");
+            }
+        }
+    };
+    let outcomes = run(typo, |_| {}, shop_settings());
+    let found = decision(&outcomes, "EXTERNAL-SHOP");
+    assert_eq!(found.map(Decision::verdict), Some(&Verdict::Unknown));
+    assert_eq!(
+        found.and_then(Decision::reason),
+        Some(&archkeel_model::Reason::NotComplete(
+            archkeel_model::Cause::Receipt("the named package matches no import")
+        ))
+    );
+}
+
 #[test]
 fn an_external_package_matches_by_its_name_and_a_declared_one_is_complete() {
     let outcomes = run(|_| {}, external(DOMAIN, "@shop/transport"), shop_settings());

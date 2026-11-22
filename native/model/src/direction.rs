@@ -19,10 +19,13 @@ use std::collections::HashMap;
 use archkeel_contract::{CompleteRequires, Component, ForbiddenDependency, SiblingIsolation};
 use archkeel_facts::envelope::LimitSupport;
 
-use crate::{
-    ids::ComponentId, imports::Import, model::Model, ownership::in_scope, ownership::owner_of,
-    selection::dependency_sides,
-};
+use crate::causes::Cause;
+use crate::ids::ComponentId;
+use crate::imports::{Import, Resolved};
+use crate::model::Model;
+use crate::ownership::{in_scope, owner_of};
+use crate::reason::Reason;
+use crate::selection::dependency_sides;
 
 /// The judgement of one import that a rule names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,6 +72,51 @@ pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'
             (import, judged)
         })
         .collect()
+}
+
+/// A PASS needs an import that names `dependency`, else a typo in the name looks like a clean
+/// project (AD-1048). The scan gives the import root, not the distribution name.
+pub(crate) fn dependency_named(model: &Model, dependency: &str) -> Result<(), Reason> {
+    let named = model.graph().imports().iter().any(|import| {
+        model.selects(import.source_module())
+            && match import.resolved() {
+                Resolved::External(package) => package == dependency,
+                Resolved::Local | Resolved::Builtin => in_scope(import.target_module(), dependency),
+            }
+    });
+    if named {
+        Ok(())
+    } else {
+        Err(Reason::NotComplete(Cause::Receipt(
+            "the named package matches no import",
+        )))
+    }
+}
+
+/// A PASS of a `target_symbol` rule needs a proof that the symbol exists in the target: an import
+/// of the target that may name it, or a module-level declaration of it in the target. Else the
+/// symbol can be a typo, and no import of it can break the rule (AD-1048).
+pub(crate) fn symbol_named(model: &Model, rule: &ForbiddenDependency) -> Result<(), Reason> {
+    let Some(symbol) = rule.target_symbol() else {
+        return Ok(());
+    };
+    let [_, targets] = dependency_sides(rule, model.contract().components());
+    let renamed = model.graph().renamed(symbol);
+    let imported = model.graph().imports().iter().any(|import| {
+        targets.matches(import.target_module())
+            && names_symbol(import, symbol, renamed) != Some(false)
+    });
+    if imported
+        || model
+            .graph()
+            .declared(|module| targets.matches(module), symbol)
+    {
+        Ok(())
+    } else {
+        Err(Reason::NotComplete(Cause::Receipt(
+            "the target symbol is named by no import and declared in no target module",
+        )))
+    }
 }
 
 /// Whether an import names the item `symbol` (AD-668): by its own name, or by a re-export whose

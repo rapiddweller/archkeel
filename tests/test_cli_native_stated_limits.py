@@ -22,7 +22,10 @@ import pytest
 from test_cli_native_python_imports import BASE, RULE, project, rows, rules, verdict
 
 EDGE_RULES = ("FORBID", "ASSIGN", "CYCLES", "EXTERNAL")
-VIOLATION = {**BASE, "src/app/client.py": "from app.service import VALUE\n"}
+# AD-1048: the symbol of a `target_symbol` rule must exist, so `service` declares `OTHER`.
+SERVICE = {"src/app/service.py": "VALUE = 1\nOTHER = 2\n"}
+WITH_OTHER = {**BASE, **SERVICE}
+VIOLATION = {**WITH_OTHER, "src/app/client.py": "from app.service import VALUE\n"}
 
 
 def symbol_rule(contract: dict[str, Any]) -> str:
@@ -48,6 +51,9 @@ def symbol_port(contract: dict[str, Any]) -> str:
 
 
 def interface_rule(contract: dict[str, Any]) -> str:
+    # AD-1048: with no `public` entry the rule examines nothing, so the module is public.
+    service = next(c for c in contract["components"] if c["label"] == "service")
+    service.setdefault("public", ["app.service"])
     contract["rules"].append({**RULE, "id": "BOUNDARY", "kind": "interface_boundary"})
     return "BOUNDARY"
 
@@ -82,7 +88,7 @@ def planted(root: Path, files: dict[str, str], plant: Callable[[dict[str, Any]],
 def test_the_python_survey_decides_each_reader_of_a_symbol_or_an_interface(
     release_core: Path, tmp_path: Path, name: str
 ) -> None:
-    reader = planted(tmp_path, BASE, PLANTS[name])
+    reader = planted(tmp_path, WITH_OTHER, PLANTS[name])
     result = verdict(release_core, tmp_path, "report")
     found = rows(result)
     assert found[reader] == "PASS", result["frame"]["explained"]

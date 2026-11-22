@@ -2777,15 +2777,6 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.direction",
-        "A method call may reach the method count of a type in its own file native.archkeel_model.causes"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_model.direction",
         "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
@@ -69390,15 +69381,6 @@
         "collection_gap",
         "native.archkeel_model.direction",
         "A trait impl in native.archkeel_model.published_items may run in code that reaches native.archkeel_model.published_items without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-      ],
-      "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_model.direction",
-        "A trait impl in native.archkeel_model.reason may run in code that reaches native.archkeel_model.reason without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },

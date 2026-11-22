@@ -42,8 +42,8 @@ pub struct Graph {
     gaps: Vec<crate::gaps::CoverageGap>,
     settings: Settings,
     imports: Vec<Import>,
-    /// Each name that a record of the reply binds under another name (AD-668).
-    renamed: std::collections::HashSet<String>,
+    /// The names that the records of the reply bind or declare (AD-668, AD-1048).
+    names: crate::imports::Names,
     /// The source and target module of each resolved macro body (AD-670).
     macro_bodies: Vec<(String, String)>,
     /// The public module-level items, when a rule of the run reads them (AD-670).
@@ -112,7 +112,7 @@ impl Graph {
         Ok(graph)
     }
 
-    fn from_facts(
+    pub(crate) fn from_facts(
         facts: &Facts,
         analysis: AnalysisCapabilities,
         settings: Settings,
@@ -126,6 +126,7 @@ impl Graph {
             doors.of_gap(gap).is_some()
         });
         split.imports.extend(doors.take_imports());
+        split.names.declared = crate::published_items::declared(facts);
         let (module_edges, package_edges) =
             edges::both(&facts.files, &split.imports, settings.namespace());
         let module_measured = topology::modules(&modules, &module_edges, &split.macro_bodies);
@@ -158,7 +159,7 @@ impl Graph {
             gaps,
             settings,
             imports: split.imports,
-            renamed: split.renamed,
+            names: split.names,
             macro_bodies: split
                 .macro_bodies
                 .iter()
@@ -184,12 +185,6 @@ impl Graph {
             exact_calls: None,
             doors,
         })
-    }
-
-    /// Recorded inputs for unit tests only; no production caller can bypass the store.
-    #[cfg(test)]
-    pub(crate) fn recorded(facts: &Facts, settings: Settings) -> Result<Graph, Reason> {
-        Self::from_facts(facts, facts.analysis_capabilities(), settings, &[])
     }
 
     /// The declared reach of the door sites, matched to the doors of the reply (AD-664).
@@ -252,10 +247,15 @@ impl Graph {
         self.published.as_deref()
     }
 
-    /// Whether a record of the reply binds `symbol` under another name (`use a::Profile as Lang`,
-    /// AD-668). Only such a record can give the item a second name; a glob keeps the name.
+    /// Whether a record binds `symbol` under another name (`use a::Profile as Lang`, AD-668).
     pub(crate) fn renamed(&self, symbol: &str) -> bool {
-        self.renamed.contains(symbol)
+        self.names.renamed(symbol)
+    }
+
+    /// Whether a module-level symbol of this name lies in a module that `of_target` accepts
+    /// (AD-1048).
+    pub(crate) fn declared(&self, of_target: impl Fn(&str) -> bool, symbol: &str) -> bool {
+        self.names.declared(of_target, symbol)
     }
 
     /// The edges of one level, in the order of their (source, target) pairs.

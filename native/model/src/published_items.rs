@@ -56,9 +56,10 @@ pub(crate) fn items(facts: &Facts) -> Vec<PublicItem> {
     records.iter().filter_map(item).collect()
 }
 
-fn item(record: &Record<SymbolFact>) -> Option<PublicItem> {
-    let kind = kind_of(&record.data)?;
-    let (module, name, parent, visibility) = match &record.data {
+/// The module, name, parent and visibility of a symbol record, whatever its kind: the parent is
+/// reduced to whether the symbol is at module level.
+fn fields(fact: &SymbolFact) -> (&str, &str, bool, &str, &str) {
+    let (module, name, parent, visibility) = match fact {
         SymbolFact::Class(d) => (&d.module, &d.name, &d.parent, &d.visibility_detail),
         SymbolFact::Function(d) | SymbolFact::Method(d) => {
             (&d.module, &d.name, &d.parent, &d.visibility_detail)
@@ -72,11 +73,41 @@ fn item(record: &Record<SymbolFact>) -> Option<PublicItem> {
         | SymbolFact::Macro(d)
         | SymbolFact::Attribute(d) => (&d.module, &d.name, &d.parent, &d.visibility_detail),
     };
-    let named = visibility.basis != "macro_call";
-    (parent.is_none() && visibility.kind == "public").then(|| PublicItem {
+    (
+        module.as_str(),
+        name,
+        parent.is_none(),
+        &visibility.kind,
+        &visibility.basis,
+    )
+}
+
+/// The module and name of each module-level symbol of the reply, whatever its visibility
+/// (AD-1048): a `target_symbol` that is declared in no module is a typo.
+pub(crate) fn declared(facts: &Facts) -> std::collections::HashSet<(String, String)> {
+    facts
+        .sections
+        .iter()
+        .filter_map(|section| match section {
+            Section::Symbols(records) => Some(records),
+            _ => None,
+        })
+        .flatten()
+        .filter_map(|record| {
+            let (module, name, top, _, _) = fields(&record.data);
+            top.then(|| (module.to_owned(), name.to_owned()))
+        })
+        .collect()
+}
+
+fn item(record: &Record<SymbolFact>) -> Option<PublicItem> {
+    let kind = kind_of(&record.data)?;
+    let (module, name, top, visibility, basis) = fields(&record.data);
+    let named = basis != "macro_call";
+    (top && visibility == "public").then(|| PublicItem {
         named,
-        module: module.as_str().to_owned(),
-        name: name.clone(),
+        module: module.to_owned(),
+        name: name.to_owned(),
         kind,
         evidence: record
             .evidence_ids

@@ -313,6 +313,15 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
   UNKNOWN. A direct scanned read of another function's `__globals__` also keeps its named gap, and an
   outside library dictionary that hides an importer gives the gap of AD-760 (#1521).
 
+## Open false PASS: a computed attribute name reaches a code object (Python, #1967)
+
+The door of AD-1048 sees the literal names `__code__`, `f_code`, `gi_code`, `cr_code` and
+`ag_code`. A name that is built at run time is not a door: `getattr(f, '__co' + 'de__')`,
+`f.__getattribute__(name)`, a variable name, and a `dir()` filter that picks the name. Such code can
+rewrite a code object, import a forbidden module, and still give PASS with no gap. CPython 3.12
+shows the import. The owner decides whether a computed `getattr` is a door (#1967). Plants, as
+expected failures: `tests/test_cli_python_code_door.py`.
+
 ## Before claiming PASS
 
 A rule needs applicable subjects, complete relevant coverage and sufficient evidence.

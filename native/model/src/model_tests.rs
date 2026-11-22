@@ -18,6 +18,16 @@ use crate::reason::{Input, Reason, Unsupported};
 use crate::section::{Porting, Section, Slice};
 use crate::verdict::{Decision, Verdict};
 
+impl crate::graph::Graph {
+    /// Recorded inputs for unit tests only; no production caller can bypass the store.
+    pub(crate) fn recorded(
+        facts: &archkeel_facts::envelope::Facts,
+        settings: crate::settings::Settings,
+    ) -> Result<Self, Reason> {
+        Self::from_facts(facts, facts.analysis_capabilities(), settings, &[])
+    }
+}
+
 /// The section names of `tools/dual_run_schema.json`, in its order.
 fn schema_sections() -> Vec<String> {
     let schema = include_str!("../../../tools/dual_run_schema.json");

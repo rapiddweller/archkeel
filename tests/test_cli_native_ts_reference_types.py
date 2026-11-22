@@ -198,7 +198,14 @@ GAPS = {
 }
 
 
-def _project(root: Path, files: dict[str, str], dependency: str) -> Path:
+def _project(root: Path, files: dict[str, str], dependency: str, anchor: bool = False) -> Path:
+    # AD-1048: a PASS needs one import that names the package. The allowed source `b` is the
+    # honest user, so that the rule has an import to examine and `a` shows no edge of its own.
+    if anchor:
+        files = {
+            **files,
+            "src/b/anchor.ts": f'import type {{}} from "{dependency}";\nexport const anchor = 1;\n',
+        }
     contract = json.loads(json.dumps(CONTRACT))
     contract["schema_version"] = "3.4.0"
     contract["rules"].append(
@@ -233,8 +240,8 @@ def _status(root: Path, release_core: Path) -> str:
 
 
 def test_the_honest_project_keeps_its_pass(tmp_path: Path, release_core: Path) -> None:
-    root = _project(tmp_path, {"src/a/a.ts": "export const a = 1;\n"}, "vite")
-    assert _status(root, release_core) == "PASS"
+    files = {**INSTALLED, "src/a/a.ts": "export const a = 1;\n"}
+    assert _status(_project(tmp_path, files, "vite", anchor=True), release_core) == "PASS"
 
 
 @pytest.mark.parametrize("name", sorted(EDGES))
@@ -250,7 +257,14 @@ def test_a_directive_that_the_compiler_does_not_honor_gives_no_edge(
     tmp_path: Path, release_core: Path, name: str
 ) -> None:
     files, dependency = SILENT[name]
-    assert _status(_project(tmp_path, files, dependency), release_core) == "PASS", name
+    root = _project(tmp_path, {**INSTALLED, **files}, dependency, anchor=True)
+    assert _status(root, release_core) == "PASS", name
+
+
+def test_a_package_that_no_import_names_is_not_pass(tmp_path: Path, release_core: Path) -> None:
+    """AD-1048: with no import of the package, the rule examines nothing."""
+    files = {"src/a/a.ts": "export const a = 1;\n"}
+    assert _status(_project(tmp_path, files, "vite"), release_core) == "UNKNOWN"
 
 
 @pytest.mark.parametrize("name", sorted(GAPS))
