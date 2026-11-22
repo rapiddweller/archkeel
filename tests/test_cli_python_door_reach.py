@@ -109,6 +109,7 @@ def test_a_matched_declaration_passes_each_rule_only_as_an_assumption(
     assert frame["door_reach"] == [
         {
             "id": "D-EVAL",
+            "rationale": "The text is a formula of numbers.",
             "module": "app.service.model",
             "line": 2,
             "door": "eval",
@@ -120,6 +121,7 @@ def test_a_matched_declaration_passes_each_rule_only_as_an_assumption(
     text = command(release_core, tmp_path, "--text").stdout
     assert "all 7 rules pass; 5 pass assuming the declared reach of 1 door" in text, text
     assert "D-EVAL: app.service.model:2 (eval) loads nothing; changes nothing" in text, text
+    assert "Reason: The text is a formula of numbers." in text, text
     # The premise is the claim of the contract, not a proof: the same door can break it.
     assert truth(tmp_path, SWAP, BINDS_SECRET) == "True"
 
@@ -263,3 +265,10 @@ def test_a_python_loader_bound_reads_the_written_tuple_again(
         assert truth(tmp_path, "", "from app.client.page import load; print(load().__name__)") == (
             f"app.service.{target}"
         )
+
+
+def test_the_native_self_check_declares_no_door_reach() -> None:
+    """AD-1042: ArchKeel checks itself with proofs only; a declaration there needs an owner."""
+    contract = json.loads(Path("native/architecture-contract.json").read_text())
+
+    assert not (contract.get("declarations") or {}).get("door_reach")

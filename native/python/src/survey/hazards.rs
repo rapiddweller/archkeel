@@ -30,6 +30,7 @@ use super::hazards_names::{
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM};
 use bind::{bindings, imported};
+pub(super) use door::Site;
 
 #[path = "hazards_bind.rs"]
 mod bind;
@@ -44,16 +45,6 @@ pub(super) mod reflect;
 
 /// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
 pub(super) const LITERAL: &str = "literal_import";
-
-/// A hazard or a proven import site. Door sites also carry scope and binding (AD-664).
-pub(super) struct Site {
-    pub kind: &'static str,
-    pub detail: String,
-    pub range: TextRange,
-    pub door: Option<archkeel_facts::data::DoorForm>,
-    pub scope: String,
-    pub binding: Option<String>,
-}
 
 /// The sites of a module, in source order.
 pub(super) fn sites(
@@ -474,6 +465,8 @@ pub(super) fn split(
     let proved = reflect::proved(&items, &[&BUILTIN_DOORS, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
+        let facts = binders.proof_facts(&inert::BUILTINS);
+        let cleared = inert::cleared(&module.tree, &items[index].2, &facts);
         let mut proof = literal::Proof::of(&module.tree, binders).without_replaced_loader(replaced);
         proof.prove_local(&module.tree, local_literals);
         let covered = lazy.map(|all| &all[index]);
@@ -485,6 +478,7 @@ pub(super) fn split(
             let inside = |range: &TextRange| range.contains_range(site.range);
             let kind = (site.kind == DYNAMIC, site.kind == IMPORT_SYSTEM);
             if exempt.into_iter().any(inside)
+                || HashSet::contains(&cleared, &site.range)
                 || proved[index].covers(kind, &site.detail, site.range)
             {
                 continue;

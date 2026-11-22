@@ -44,6 +44,7 @@ fn each_problem_has_its_code_and_says_that_it_is_not_applied() {
 fn an_applied_declaration_names_its_site() {
     let applied = Applied {
         id: "D-1".to_owned(),
+        rationale: "The text is a formula of numbers.".to_owned(),
         gap: "UNKNOWN-1".to_owned(),
         module: "p.a".to_owned(),
         form: DoorForm::Loader,

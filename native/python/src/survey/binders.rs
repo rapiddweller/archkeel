@@ -153,6 +153,19 @@ impl Binders {
         found.1
     }
 
+    /// The facts of the door proofs (`hazards_inert.rs`): the unique direct names, the names that
+    /// the module binds exactly once anywhere, and the names of `builtins` that no binder shadows.
+    pub(in crate::survey) fn proof_facts(
+        &self,
+        builtins: &[&str],
+    ) -> (HashSet<String>, HashSet<String>, HashSet<String>) {
+        let once = |(name, count): (&String, &usize)| (*count == 1).then(|| name.clone());
+        let single = (!self.opaque).then(|| self.counts.iter().filter_map(once).collect());
+        let visible = builtins.iter().filter(|name| self.builtin_visible(name));
+        let visible = visible.map(|name| (*name).to_owned()).collect();
+        (self.unique(), single.unwrap_or_default(), visible)
+    }
+
     /// `_unique_direct_module_bindings`: a direct name that no other binder in the module binds.
     pub(crate) fn unique(&self) -> HashSet<String> {
         if self.opaque {

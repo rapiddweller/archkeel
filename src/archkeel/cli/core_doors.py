@@ -29,6 +29,7 @@ class DoorRow:
     door: str
     loads: tuple[str, ...]
     changes: tuple[str, ...]
+    rationale: str
     possible_loads: tuple[str, ...] = ()
     constant: str | None = None
 
@@ -114,6 +115,7 @@ def read_doors(frame: Mapping[str, object]) -> tuple[DoorRow, ...]:
                 door=as_text(fields["door"], "door_reach.door"),
                 loads=_texts(fields["loads"], "door_reach.loads"),
                 changes=_texts(fields["changes"], "door_reach.changes"),
+                rationale=as_text(fields["rationale"], "door_reach.rationale"),
                 possible_loads=_texts(
                     fields.get("possible_loads", []), "door_reach.possible_loads"
                 ),
@@ -161,6 +163,7 @@ def door_lines(
         lines.append(
             f"  {row.id}: {row.module}:{row.line} ({row.door}) loads {loads}; changes {changes}"
         )
+        lines.append(f"    Reason: {row.rationale}")
         if row.possible_loads:
             lines.append(f"    Possible targets: {', '.join(row.possible_loads)}")
     by_kind: dict[str, set[str]] = {}

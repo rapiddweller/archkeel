@@ -39,6 +39,8 @@ use crate::settings::Settings;
 pub struct Applied {
     /// The id of the declaration.
     pub id: String,
+    /// Why the reach holds, in the words of the declaration.
+    pub rationale: String,
     /// The id of the gap of the door.
     pub gap: String,
     /// The module of the door.
@@ -421,6 +423,7 @@ fn apply(
     }
     let applied = Applied {
         id: declaration.id().as_text().to_owned(),
+        rationale: declaration.rationale().to_owned(),
         gap: door.gap.to_owned(),
         module: door.module.to_owned(),
         form: door.form,

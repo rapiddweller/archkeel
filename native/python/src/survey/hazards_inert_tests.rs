@@ -282,3 +282,176 @@ fn a_code_object_is_a_door_and_a_scalar_field_of_it_is_not() {
         assert!(kinds(source).is_empty(), "{source}");
     }
 }
+
+// AD-1041: a site that the proofs drop is no gap. Each dropped form has a control, and each use
+// that could turn the value into an import keeps its site.
+
+/// The `detail` of each site of the source.
+fn clear_details(source: &str) -> Vec<String> {
+    let tree = crate::test_tree(source, 14).expect("valid probe");
+    let binders = vec![Binders::of(&tree)];
+    let name = ("app/x.py".to_owned(), "app.x".to_owned());
+    let module = Module::new(name.0, name.1, source.to_owned(), tree);
+    let (_, found) = split(&[module], &binders, (None, false), false);
+    found.into_iter().map(|(_, site)| site.detail).collect()
+}
+
+fn clear_count(source: &str, detail: &str) -> usize {
+    let under = format!("{detail}.");
+    let found = clear_details(source);
+    found
+        .iter()
+        .filter(|found| *found == detail || found.starts_with(&under))
+        .count()
+}
+
+#[test]
+fn a_code_type_in_an_annotation_is_no_site_and_each_other_use_is() {
+    let import = "from types import CodeType\n";
+    for body in [
+        "def f(c: CodeType) -> CodeType | None:\n    return None\n",
+        "def f(c: list[CodeType], *a: CodeType, **k: CodeType) -> tuple[CodeType, int]: ...\n",
+        "x: CodeType | None = None\n",
+        "class A:\n    code: CodeType\n    def m(self, c: Optional[CodeType]): ...\n",
+    ] {
+        let source = format!("{import}{body}");
+        assert_eq!(clear_count(&source, "types.CodeType"), 1, "{source}");
+    }
+    for body in [
+        "def f(c=CodeType): ...\n",
+        "x = CodeType\n",
+        "CodeType(1, 2)\n",
+        "def f(c: Annotated[int, CodeType(1)]): ...\n",
+        "def f(c: Annotated[int, CodeType.replace]): ...\n",
+        "class A(CodeType): ...\n",
+        "def f():\n    return CodeType\n",
+    ] {
+        let source = format!("{import}{body}");
+        assert!(clear_count(&source, "types.CodeType") >= 2, "{source}");
+    }
+    // The attribute form clears in an annotation and in the class test of `isinstance`.
+    for source in [
+        "import types\ndef f(c: types.CodeType) -> types.FunctionType: ...\n",
+        "import types as t\ndef f(c: t.CodeType | None): ...\n",
+        "import types\nok = isinstance(x, types.CodeType)\n",
+    ] {
+        assert!(clear_details(source).is_empty(), "{source}");
+    }
+    // A use of the class, a rebound module name and a rebound name are no proven class.
+    for source in [
+        "import types\nx = types.CodeType\n",
+        "import types\nx = types.CodeType(1)\n",
+        "import types\nok = isinstance(types.CodeType, x)\n",
+        "import types\nok = isinstance(x, types.CodeType, y)\n",
+        "import types\ndef isinstance(a, b): ...\nok = isinstance(x, types.CodeType)\n",
+        "import types\nimport other as types\ndef f(c: types.CodeType): ...\n",
+        "def f(types, c: types.CodeType): ...\n",
+        "from types import CodeType\nfrom other import CodeType\ndef f(c: CodeType): ...\n",
+    ] {
+        let found = clear_details(source);
+        let class = found.iter().any(|item| item.starts_with("types."));
+        assert!(
+            class || source.contains("def f(types"),
+            "{source}: {found:?}"
+        );
+    }
+}
+
+#[test]
+fn a_literal_membership_test_of_sys_modules_is_no_site() {
+    for source in [
+        "import sys\nif 'numpy' in sys.modules:\n    pass\n",
+        "import sys\nok = 'numpy' not in sys.modules\n",
+        "import sys as s\nok = 'numpy' in s.modules\n",
+    ] {
+        assert_eq!(clear_count(source, "sys.modules"), 0, "{source}");
+    }
+    for source in [
+        "import sys\nx = sys.modules['numpy']\n",
+        "import sys\nx = sys.modules.get('numpy')\n",
+        "import sys\nm = sys.modules\nok = 'numpy' in m\n",
+        "import sys\nok = name in sys.modules\n",
+        "import sys\nok = 'a' in sys.modules in other\n",
+        "import sys\nok = 'a' in sys.modules.keys()\n",
+        "import sys\nok = 'a' in sys.modules\nsys.modules['b'] = c\n",
+        "from sys import modules\nok = 'a' in modules\n",
+        "ok = 'a' in sys.modules\n",
+        "import sys\nimport sys\nok = 'a' in sys.modules\n",
+    ] {
+        assert!(clear_count(source, "sys.modules") >= 1, "{source}");
+    }
+}
+
+#[test]
+fn only_the_key_view_of_globals_in_a_pure_builtin_is_no_site() {
+    for source in [
+        "x = sorted(set(globals().keys()))\n",
+        "def f():\n    return len(globals().keys())\n",
+        "x = list(globals().keys())\n",
+    ] {
+        assert_eq!(clear_count(source, "globals"), 0, "{source}");
+    }
+    for source in [
+        "x = globals()[k]\n",
+        "x = globals().items()\n",
+        "x = globals().values()\n",
+        "x = list(globals())\n",
+        "x = g(globals().keys())\n",
+        "x = globals().keys()\n",
+        "for k in globals().keys():\n    pass\n",
+        "x = set(globals().keys(), 1)\n",
+        "def set(v):\n    return v\nx = set(globals().keys())\n",
+        "x = set(globals(1).keys())\n",
+        "x = set(globals().keys(1))\n",
+        "g = globals\nx = set(g().keys())\n",
+    ] {
+        assert!(clear_count(source, "globals") >= 1, "{source}");
+    }
+}
+
+const SPEC_HEAD: &str = "import pkgutil\ndef f(package):\n    s = package.__spec__\n";
+
+#[test]
+fn a_spec_that_is_only_tested_and_read_for_names_is_no_site() {
+    for tail in [
+        "    if s is None or s.submodule_search_locations is None:\n        return\n",
+        "    name = s.name + s.parent\n",
+        "    return list(pkgutil.walk_packages(s.submodule_search_locations, s.name + '.'))\n",
+        "    return len(s.submodule_search_locations)\n",
+        "    if None is not s:\n        return 1\n",
+    ] {
+        let source = format!("{SPEC_HEAD}{tail}");
+        assert_eq!(clear_count(&source, "__spec__"), 0, "{source}");
+    }
+    for tail in [
+        "    return s\n",
+        "    g(s)\n",
+        "    x = s\n",
+        "    return s.loader\n",
+        "    s.loader.load_module('app.lib')\n",
+        "    g(s.submodule_search_locations)\n",
+        "    s.submodule_search_locations.append(p)\n",
+        "    for p in s.submodule_search_locations:\n        pass\n",
+        "    return s.name, s\n",
+        "    s = other\n",
+        "    return getattr(s, 'loader')\n",
+        "    return s.origin\n",
+        "    return lambda: s\n",
+        "    global s\n    return s.name\n",
+    ] {
+        let source = format!("{SPEC_HEAD}{tail}");
+        assert_eq!(clear_count(&source, "__spec__"), 1, "{source}");
+    }
+    // The value is not a plain name, or the holder is not a local of a function, or the callee
+    // is not a pure reader.
+    for source in [
+        "def f():\n    s = load().__spec__\n    return s.name\n",
+        "s = package.__spec__\nx = s.name\n",
+        "import pkgutil as q\ndef f(p):\n    s = p.__spec__\n    return q.other(s.submodule_search_locations)\n",
+        "def f(p):\n    s = p.__spec__\n    return g(s.submodule_search_locations)\n",
+    ] {
+        assert_eq!(clear_count(source, "__spec__"), 1, "{source}");
+    }
+    let control = "def f(p):\n    s = p.__spec__\n    return list(s.submodule_search_locations)\n";
+    assert_eq!(clear_count(control, "__spec__"), 0);
+}

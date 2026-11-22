@@ -2558,6 +2558,7 @@
     "field door_reach::Applied.loads: Vec<String>",
     "field door_reach::Applied.module: String",
     "field door_reach::Applied.possible_loads: Vec<String>",
+    "field door_reach::Applied.rationale: String",
     "field gap_effects::ProtocolMemberViolation.evidence: String",
     "field gap_effects::ProtocolMemberViolation.name: String",
     "field gap_effects::ProtocolMemberViolation.owner: String",

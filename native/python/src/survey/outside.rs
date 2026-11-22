@@ -15,9 +15,10 @@
 //!   other than a load or call of an attribute escapes that module. A literal import call of a
 //!   module of the scan escapes it and the packages above it.
 //! - A hazard site of a Python file (AD-450) can give a module object by its name. Each module of
-//!   the scan that a string of the file names then escapes (`outside_sites.rs`). Two forms are
-//!   proven harmless: an import call whose name cannot name a module of the scan, and `exec`,
-//!   `eval` or `compile` of a literal text without a name.
+//!   the scan that a string of the file names then escapes (`outside_sites.rs`). Three forms are
+//!   proven harmless: an import call whose name cannot name a module of the scan, `exec`, `eval` or
+//!   `compile` of a literal text without a name, and a loader that makes a module under a foreign
+//!   literal name (AD-1040).
 //! - A Python file that Python cannot run (it does not decode or parse at Python 3.14) writes
 //!   nothing. A file over the size limit, or with a declared encoding that is not UTF-8, can run:
 //!   it is read as the text of an extension.
@@ -39,6 +40,7 @@ use archkeel_snapshot::{Entry, Snapshot};
 
 use super::binders::Binders;
 use super::class_writes::ClassWrites;
+use super::hazards::Site;
 use super::imports;
 use super::lazy_cover::Sources;
 use crate::discover::is_test_source;
@@ -113,9 +115,23 @@ pub(super) fn written(
     for (_, _, target) in &literals {
         found.extend(native::reached(target, &names));
     }
+    let mut own: HashMap<usize, Vec<&Site>> = HashMap::new();
+    for (index, site) in &hazards {
+        own.entry(*index).or_default().push(site);
+    }
+    let foreign: Vec<bool> = (0..Vec::len(&outside))
+        .map(|at| {
+            let sites = own.get(&at).map_or(&[][..], Vec::as_slice);
+            sites::foreign_specs(&outside[at], sites.iter().copied(), &names)
+        })
+        .collect();
     for (index, site) in &hazards {
         let module = &outside[*index];
-        if !sites::harmless(site, module, &names) {
+        let file = sites::File {
+            module,
+            foreign_specs: foreign[*index],
+        };
+        if !sites::harmless(site, &file, &names) {
             found.extend(sites::named(module, &names));
         }
     }

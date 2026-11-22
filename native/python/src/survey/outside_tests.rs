@@ -126,3 +126,69 @@ fn an_extension_source_that_names_a_module_escapes_it_and_its_packages() {
         assert_eq!(escaped(&[(rel, text)]), base, "{rel}");
     }
 }
+
+const SPEC: &str = "import importlib.util\n\
+    spec = importlib.util.spec_from_file_location({name}, 'other.py')\n\
+    mod = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(mod)\n";
+
+fn loader(name: &str) -> String {
+    SPEC.replace("{name}", name)
+}
+
+#[test]
+fn a_loader_under_a_foreign_literal_name_writes_no_module_of_the_scan() {
+    let base = escaped(&[]);
+    let cases = [
+        // The text that names the package is a string, not a name of a module of the object.
+        format!(
+            "PACKAGE = 'app'\nTOP = 'app.lib'\n{}",
+            loader("'smoke_selection'")
+        ),
+        loader("name='smoke_selection'").replace("'other.py')", "'o.py')"),
+        "from importlib.util import module_from_spec, spec_from_file_location\n\
+         PACKAGE = 'app.lib'\nspec = spec_from_file_location('smoke', 'o.py')\n\
+         module_from_spec(spec).run()\n"
+            .to_owned(),
+        "import importlib.util as u\nPACKAGE = 'app'\n\
+         spec = u.spec_from_file_location('smoke', 'o.py')\nmod = u.module_from_spec(spec)\n\
+         spec.loader.exec_module(mod)\nmod.SMOKE = 1\n"
+            .to_owned(),
+    ];
+    for text in cases {
+        assert_eq!(escaped(&[("script/select.py", &text)]), base, "{text}");
+    }
+}
+
+#[test]
+fn a_loader_that_can_name_a_module_of_the_scan_escapes_it() {
+    let rest = "import importlib.util\nspec = importlib.util.spec_from_file_location";
+    let cases = [
+        // The spec name is a module of the scan, a package above one, a computed text.
+        loader("'app.lib'"),
+        loader("'app'"),
+        loader("'app.lib._priv'"),
+        loader("NAME") + "NAME = 'app.lib'\n",
+        loader("f'app.{x}'") + "x = 'lib'\nTOP = 'app.lib'\n",
+        loader("'.lib'") + "TOP = 'app.lib'\n",
+        // One call with a foreign name does not clear a second call, an alias or a keyword path.
+        format!("{rest}('smoke', 'o.py')\nspec = importlib.util.spec_from_file_location('app.lib', 'o.py')\n"),
+        format!("{rest}('smoke', 'o.py')\nmake = importlib.util.spec_from_file_location\nTOP = 'app.lib'\n"),
+        // A loader or a search path can run a file that the walk does not read.
+        loader("'smoke'").replace("'other.py')", "'o.txt', loader=ld)") + "TOP = 'app.lib'\n",
+        loader("'smoke'").replace("'other.py')", "'o.txt', ld)") + "TOP = 'app.lib'\n",
+        // The state of the import system and a plain loader keep the strings of the file.
+        loader("'smoke'") + "import sys\nsys.modules['app.lib'] = mod\n",
+        loader("'smoke'") + "import importlib\nimportlib.import_module('app.lib')\n",
+        loader("'smoke'") + "found = importlib.util.find_spec('app.lib')\n",
+        // A loader whose spec name is no literal, with no foreign call at all.
+        "import importlib.util\nspec = importlib.util.find_spec('app.lib')\n\
+         mod = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(mod)\n"
+            .to_owned(),
+        // A module object of the scan that the file passes on escapes it (AD-504).
+        loader("'smoke'") + "import app.lib\nspec.loader.exec_module(app.lib)\n",
+    ];
+    for text in cases {
+        let found = escaped(&[("script/select.py", &text)]);
+        assert!(found.contains(&"app.lib".to_owned()), "{text}: {found:?}");
+    }
+}

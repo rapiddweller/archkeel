@@ -119,6 +119,8 @@ pub fn words<'a>(
 pub(crate) struct DoorRow {
     /// The id of the declaration.
     id: String,
+    /// Why the reach holds, as the declaration words it.
+    rationale: String,
     /// The module of the door.
     module: String,
     /// The line of the door site.
@@ -147,6 +149,7 @@ fn rows(models: Option<&ModelTree>) -> Vec<DoorRow> {
 fn row(door: &Applied) -> DoorRow {
     DoorRow {
         id: door.id.clone(),
+        rationale: door.rationale.clone(),
         module: door.module.clone(),
         line: door.line,
         door: door.door(),

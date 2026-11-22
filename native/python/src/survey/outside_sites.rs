@@ -8,13 +8,19 @@
 //! in a string, so each module that a string of the file names escapes (`named`). A name that the
 //! file does not spell comes from data or from other code: the stated premise of the run covers it.
 //!
-//! Two forms give no module of the scan (`harmless`):
+//! Three forms give no module of the scan (`harmless`):
 //! - `import_module(name)` or `__import__(name)` where each value that `name` can have is a text,
 //!   or starts with a text, that is not a module of the scan, no package above one, and no prefix
 //!   of one: `f"fixtures.demo_{x}"`, `"a" if c else "b"`. A name that starts with `.` is relative,
 //!   so it is no such text.
 //! - `exec`, `eval` or `compile` of a literal text whose code has no name, no attribute, no call
 //!   and no subscript: `eval("1 + 1")`, `exec("pass")`.
+//! - `spec_from_file_location("<text>", path)` where the text is a literal that names no module of
+//!   the scan, no package above one and no prefix of one. The call and the loader calls that use its
+//!   spec (`module_from_spec`, `exec_module`, the `importlib.util` import) make a new module object
+//!   under a foreign name. That object is no module of the scan. Its code is read by the walk, or
+//!   it is a test source or outside the repository (the stated premise). The rule holds only for a
+//!   file in which each `spec_from_file_location` call has such a name (AD-1040).
 
 use std::collections::HashSet;
 
@@ -22,7 +28,7 @@ use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
     Expr, ExprCall, FStringPartRef, Identifier, InterpolatedStringElement,
-    InterpolatedStringElements, Operator, Stmt,
+    InterpolatedStringElements, Keyword, Operator, Stmt,
 };
 use ruff_text_size::{Ranged, TextRange};
 
@@ -31,13 +37,94 @@ use super::native::reached;
 use crate::module::Module;
 use crate::parse::parse;
 
+/// The loader calls of a file whose spec names are all foreign (AD-1040).
+const LOADER_CALLS: [&str; 2] = ["module_from_spec", "exec_module"];
+
+/// The import statements of the `importlib.util` loader names.
+const LOADER_IMPORTS: [&str; 4] = [
+    "importlib",
+    "importlib.util",
+    "importlib.util.spec_from_file_location",
+    "importlib.util.module_from_spec",
+];
+
+/// The sites of one file, with the fact that decides the loader calls (`foreign_specs`).
+pub(super) struct File<'a> {
+    pub module: &'a Module,
+    pub foreign_specs: bool,
+}
+
+/// True when the file has a `spec_from_file_location` call and each such use is a call with a
+/// literal name that cannot name a module of the scan. An import statement is no use. A value use
+/// (an alias) or a computed name ends the proof.
+pub(super) fn foreign_specs<'a>(
+    module: &Module,
+    sites: impl Iterator<Item = &'a Site>,
+    names: &HashSet<String>,
+) -> bool {
+    let mut calls = 0_usize;
+    for site in sites {
+        if !site.detail.ends_with("spec_from_file_location") || import_at(module, site.range) {
+            continue;
+        }
+        let literal = call_at(module, site.range).and_then(spec_name);
+        if !literal.is_some_and(|name| foreign(name, names)) {
+            return false;
+        }
+        calls = calls.saturating_add(1);
+    }
+    calls > 0
+}
+
+/// The literal name of a `spec_from_file_location` call that gives only a name and a location. A
+/// `loader` or `submodule_search_locations` can run the code of a file that the walk does not read.
+fn spec_name(call: &ExprCall) -> Option<&Expr> {
+    let args: &[Expr] = &call.arguments.args;
+    let keywords: &[Keyword] = &call.arguments.keywords;
+    let named = |key: &Keyword| {
+        (key.arg.as_ref()).is_some_and(|arg| matches!(Identifier::as_str(arg), "name" | "location"))
+    };
+    let plain = args.len() + keywords.len() <= 2
+        && args.iter().all(|arg| !Expr::is_starred_expr(arg))
+        && keywords.iter().all(named);
+    let name = args.first().or_else(|| {
+        keywords.iter().find_map(|key| {
+            (key.arg.as_ref().map(Identifier::as_str) == Some("name")).then_some(&key.value)
+        })
+    })?;
+    (plain && matches!(name, Expr::StringLiteral(_))).then_some(name)
+}
+
+/// True when an import statement has the range.
+fn import_at(module: &Module, range: TextRange) -> bool {
+    struct Find(TextRange, bool);
+    impl<'a> Visitor<'a> for Find {
+        fn visit_stmt(&mut self, stmt: &'a Stmt) {
+            self.1 |=
+                matches!(stmt, Stmt::Import(_) | Stmt::ImportFrom(_)) && stmt.range() == self.0;
+            visitor::walk_stmt(self, stmt);
+        }
+    }
+    let mut find = Find(range, false);
+    find.visit_body(&module.tree.body);
+    find.1
+}
+
 /// True when the site cannot give a module of `names`.
-pub(super) fn harmless(site: &Site, module: &Module, names: &HashSet<String>) -> bool {
+pub(super) fn harmless(site: &Site, file: &File, names: &HashSet<String>) -> bool {
+    let module = file.module;
+    let detail: &str = &site.detail;
+    let loader_import = file.foreign_specs && LOADER_IMPORTS.contains(&detail);
+    if loader_import && import_at(module, site.range) {
+        return true;
+    }
     let Some(call) = call_at(module, site.range) else {
         return false;
     };
-    let last = site.detail.rsplit('.').next().unwrap_or_default();
+    let last = detail.rsplit('.').next().unwrap_or_default();
     match last {
+        "spec_from_file_location" => file.foreign_specs && spec_name(call).is_some(),
+        call_name if LOADER_CALLS.contains(&call_name) => file.foreign_specs,
         "import_module" | "__import__" => {
             let args: &[Expr] = &call.arguments.args;
             let relative = last == "__import__"

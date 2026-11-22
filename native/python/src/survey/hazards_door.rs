@@ -12,8 +12,19 @@
 //! has no form, so no declaration can apply to it.
 
 use archkeel_facts::data::DoorForm;
+use ruff_text_size::TextRange;
 
 use crate::survey::hazards_names::DYNAMIC;
+
+/// A hazard or a proven import site. Door sites also carry scope and binding (AD-664).
+pub(in crate::survey) struct Site {
+    pub kind: &'static str,
+    pub detail: String,
+    pub range: TextRange,
+    pub door: Option<archkeel_facts::data::DoorForm>,
+    pub scope: String,
+    pub binding: Option<String>,
+}
 
 /// The functions of an unpickler: each imports the module that its bytes name.
 const UNPICKLE: [&str; 11] = [

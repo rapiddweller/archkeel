@@ -397,7 +397,9 @@ Contract **3.15.0** adds `declarations.door_reach` (AD-664). One record names on
 `dunder_import` and `computed_key`. The reach is a premise, not a proof: a PASS that rests on it
 is "PASS assuming the declared reach of N doors", and a declared load is a possible edge that a rule
 can forbid. A declaration that matches no door, more than one door or an invalid reach is a
-named defect and is never applied; without a declaration a door stays UNKNOWN.
+named defect and is never applied; without a declaration a door stays UNKNOWN. The frame row
+`door_reach[]` and the text list name the `rationale` of each applied declaration, so a reader sees
+the id, the site and the reason next to the verdict.
 
 For a computed TypeScript `import()`, use `loader` and name its module and line. The collector
 does not state the enclosing scope, so a scope selector does not match.

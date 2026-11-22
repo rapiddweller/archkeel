@@ -458,6 +458,10 @@
           "type": "string",
           "description": "The id of the declaration."
         },
+        "rationale": {
+          "type": "string",
+          "description": "Why the reach holds, as the declaration words it."
+        },
         "module": {
           "type": "string",
           "description": "The module of the door."
@@ -503,6 +507,7 @@
       },
       "required": [
         "id",
+        "rationale",
         "module",
         "line",
         "door",
