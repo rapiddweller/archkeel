@@ -1,4 +1,4 @@
-# AD-1040 A loader under a foreign literal name writes no module of the scan
+# AD-1049 A loader under a foreign literal name writes no module of the scan
 
 **Status.** Accepted. Part of #1963. It amends [AD-770](ad-770-code-of-the-repository-outside-the-scan-that-writes-a-module-of-the-scan-withholds-its-routes.md) point 3.
 

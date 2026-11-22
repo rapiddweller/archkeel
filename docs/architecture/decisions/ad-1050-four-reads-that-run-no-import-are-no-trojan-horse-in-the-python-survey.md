@@ -1,4 +1,4 @@
-# AD-1041 Four reads that run no import are no trojan horse in the Python survey
+# AD-1050 Four reads that run no import are no trojan horse in the Python survey
 
 **Status.** Accepted. Part of #1963. It amends [AD-450](ad-450-python-import-rules-use-a-bound-import-survey.md) (the trojan horse and state sites), [AD-574](ad-574-inert-door-attributes-keep-the-module-import-gap.md) and [AD-894](ad-894-a-plain-statement-is-no-import-door-in-the-python-survey.md) ("Kept gaps").
 

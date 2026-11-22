@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-1043: a declaration names a gap site by its name, through the release core.
+"""AD-1052: a declaration names a gap site by its name, through the release core.
 
 Consumer: a CI job that reads the row of each rule and the exit code. Contract 3.20.0 lets a
 `trojan_horse_reach` record name its site by `name` instead of a form. A matched declaration lets
@@ -137,7 +137,7 @@ def test_a_fail_that_rests_on_a_declared_load_says_so_and_an_observed_one_does_n
 def test_a_covers_list_clears_the_exposure_of_the_modules_it_names_and_no_other(
     release_core: Path, tmp_path: Path
 ) -> None:
-    """AD-1047: `covers` names the modules whose use of the bound name the contract accepts."""
+    """AD-1056: `covers` names the modules whose use of the bound name the contract accepts."""
     harmless = "import app.service.model as model\nSIZE = len(model.pickle.dumps(1))\n"
     declared = [pickle_declaration() | {"covers": ["app.client"]}]
     covered = run(

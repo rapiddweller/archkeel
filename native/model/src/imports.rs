@@ -392,7 +392,7 @@ fn records(section: &Section) -> &[Record<ImportFact>] {
 
 /// The modules that can reach the name `binding` that the module `module` binds: those that
 /// import the name or all names of the module, and the `exposed` modules that the collector
-/// found (an attribute or a text of that name). Sorted and distinct (AD-664, AD-1043).
+/// found (an attribute or a text of that name). Sorted and distinct (AD-664, AD-1052).
 pub(crate) fn importers(
     facts: &Facts,
     (module, binding): (&str, &str),

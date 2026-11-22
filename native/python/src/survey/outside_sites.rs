@@ -20,7 +20,7 @@
 //!   spec (`module_from_spec`, `exec_module`, the `importlib.util` import) make a new module object
 //!   under a foreign name. That object is no module of the scan. Its code is read by the walk, or
 //!   it is a test source or outside the repository (the stated premise). The rule holds only for a
-//!   file in which each `spec_from_file_location` call has such a name (AD-1040).
+//!   file in which each `spec_from_file_location` call has such a name (AD-1049).
 
 use std::collections::HashSet;
 
@@ -37,7 +37,7 @@ use super::native::reached;
 use crate::module::Module;
 use crate::parse::parse;
 
-/// The loader calls of a file whose spec names are all foreign (AD-1040).
+/// The loader calls of a file whose spec names are all foreign (AD-1049).
 const LOADER_CALLS: [&str; 2] = ["module_from_spec", "exec_module"];
 
 /// The import statements of the `importlib.util` loader names.

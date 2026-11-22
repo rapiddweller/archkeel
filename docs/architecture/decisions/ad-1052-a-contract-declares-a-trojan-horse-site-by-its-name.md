@@ -1,6 +1,6 @@
-# AD-1043 A contract declares a trojan horse site by its name
+# AD-1052 A contract declares a trojan horse site by its name
 
-**Status.** Accepted (owner decisions of 2026-11-22). Part of #1963. It amends [AD-664](ad-664-a-contract-can-declare-the-reach-of-a-door-site.md) and [AD-1042](ad-1042-a-trojan-horse-reach-names-its-reason-and-narrow-forms-are-proposed.md). Form (b) of AD-1042 replaces the proposed form words.
+**Status.** Accepted (owner decisions of 2026-11-22). Part of #1963. It amends [AD-664](ad-664-a-contract-can-declare-the-reach-of-a-door-site.md) and [AD-1051](ad-1051-a-trojan-horse-reach-names-its-reason-and-narrow-forms-are-proposed.md). Form (b) of AD-1051 replaces the proposed form words.
 
 **Words.** A trojan horse is a place that can load code the scan does not see; it is not a claim of malice. The schema keys keep their old spelling in this change (`trojan_horse_reach`, `DoorForm`).
 

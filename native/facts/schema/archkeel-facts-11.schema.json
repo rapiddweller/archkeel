@@ -5649,7 +5649,7 @@
               "type": "null"
             }
           ],
-          "description": "The trojan horse of the site, when the gap is a trojan horse whose reach a contract can declare\n(AD-664). A stored facts 11 file spells the key `door`; it reads as an alias (AD-1045)."
+          "description": "The trojan horse of the site, when the gap is a trojan horse whose reach a contract can declare\n(AD-664). A stored facts 11 file spells the key `door`; it reads as an alias (AD-1054)."
         }
       },
       "description": "An UNKNOWN gap of the coverage or of the `unknowns` section."
@@ -5782,7 +5782,7 @@
             "string",
             "null"
           ],
-          "description": "The qualified name that the gap of the site prints (`pickle.load`, `__self__`). A\ncontract names a site by it (AD-1043)."
+          "description": "The qualified name that the gap of the site prints (`pickle.load`, `__self__`). A\ncontract names a site by it (AD-1052)."
         },
         "line": {
           "type": "integer",
@@ -5813,7 +5813,7 @@
           "items": {
             "type": "string"
           },
-          "description": "The modules that can reach the bound name of the module of the site: an import of the\nname, a star import, or a use of an attribute or a text of that name (AD-1043)."
+          "description": "The modules that can reach the bound name of the module of the site: an import of the\nname, a star import, or a use of an attribute or a text of that name (AD-1052)."
         }
       },
       "required": [

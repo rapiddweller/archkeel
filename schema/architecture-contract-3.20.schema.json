@@ -2846,7 +2846,7 @@
     },
     "trojanHorseReach": {
       "type": "object",
-      "description": "The declared reach of one trojan horse site (AD-664, AD-1043): a premise of the contract, not a proof. A PASS that rests on it is reported as PASS under the declared reach. A declaration that matches no trojan horse, or more than one, is reported and never applied. A record names its site by `trojan horse` (a form) or by `name` (the name that the collector prints for the site); `count` is the number of sites with that key.",
+      "description": "The declared reach of one trojan horse site (AD-664, AD-1052): a premise of the contract, not a proof. A PASS that rests on it is reported as PASS under the declared reach. A declaration that matches no trojan horse, or more than one, is reported and never applied. A record names its site by `trojan horse` (a form) or by `name` (the name that the collector prints for the site); `count` is the number of sites with that key.",
       "additionalProperties": false,
       "required": [
         "id",
@@ -2935,7 +2935,7 @@
             "type": "string",
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
           },
-          "description": "The module prefixes whose modules may reach the name that the site binds (AD-1047). Without it, any module that can reach the name refuses the declaration. The report lists the covered uses."
+          "description": "The module prefixes whose modules may reach the name that the site binds (AD-1056). Without it, any module that can reach the name refuses the declaration. The report lists the covered uses."
         },
         "changes": {
           "type": "array",

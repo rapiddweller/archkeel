@@ -5,7 +5,7 @@
 use crate::contract::parse_file;
 use crate::document::Contract;
 
-/// A contract older than 3.20.0 spells the key `door_reach` and the field `door` (AD-1045).
+/// A contract older than 3.20.0 spells the key `door_reach` and the field `door` (AD-1054).
 fn contract(version: &str, reach: &str) -> String {
     let (key, reach) = if version == "3.20.0" {
         ("trojan_horse_reach", reach.to_string())

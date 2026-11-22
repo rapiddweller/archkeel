@@ -409,7 +409,7 @@ imports. Boundary and cycle rules use them, but the observed topology does not c
 The cycle rule checks the contract graph. A graph cycle does not show that its imports run together.
 If two sites match the same line, the declaration applies to neither and the gap stays open.
 
-Contract 3.20.0 adds `covers` (AD-1047): module prefixes whose use of the bound name the contract accepts. A module that can reach the name and lies below no prefix refuses the declaration. The row lists the covered modules in `covered`.
+Contract 3.20.0 adds `covers` (AD-1056): module prefixes whose use of the bound name the contract accepts. A module that can reach the name and lies below no prefix refuses the declaration. The row lists the covered modules in `covered`.
 
 `loads` is the existing AD-664 prefix premise. It does not read a target list from source code.
 Contract **3.18.0** adds `loads_from` for a direct Python `importlib.import_module` call

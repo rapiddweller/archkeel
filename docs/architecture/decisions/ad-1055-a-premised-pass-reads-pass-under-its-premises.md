@@ -1,4 +1,4 @@
-# AD-1046 A premised PASS reads "PASS under" its premises
+# AD-1055 A premised PASS reads "PASS under" its premises
 
 **Status.** Accepted (owner decision, 2026-11-22). It changes the words of [AD-764](ad-764-a-pass-that-rests-on-a-premise-of-the-contract-reads-pass-assuming.md) and [AD-664](ad-664-a-contract-can-declare-the-reach-of-a-door-site.md).
 

@@ -284,7 +284,7 @@ def test_dunder_dict_is_proven_or_left_unknown(
     )
     assert rows(result)["NO-DICT"] == expected, result["frame"]["explained"]
     if expected == "UNKNOWN":
-        # #1967: a computed name on an unproved receiver is a trojan horse gap (AD-1044); the
+        # #1967: a computed name on an unproved receiver is a trojan horse gap (AD-1053); the
         # scan is then incomplete before the construct rule says anything.
         text = result["frame"]["explained"]["NO-DICT"]
         computed = "__getattribute__('__' +" in source

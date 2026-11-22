@@ -49,7 +49,7 @@ pub(super) fn site_gap(
 
 /// The gap of a hazard site of `module` with the evidence `id`. Each site states its name, its
 /// line, its scope and the name that it binds, so a contract can declare its reach by name
-/// (AD-664, AD-1043). A site of a trojan horse form states the form too. `exposed` lists the modules
+/// (AD-664, AD-1052). A site of a trojan horse form states the form too. `exposed` lists the modules
 /// that can reach the bound name. The id of the gap does not read the trojan horse.
 pub(super) fn hazard_gap(
     site: super::hazards::Site,
@@ -112,7 +112,7 @@ pub(super) fn resolve(
         let mut gap = |kind: &str, detail: &str| {
             let (id, mut record) = site_gap(kind, detail, source, evidence);
             if let (AMBIGUOUS, GapFact::SourceResolutionGap(data)) = (kind, &mut record.data) {
-                // No line: the name of the submodule is the key of the site (AD-1043).
+                // No line: the name of the submodule is the key of the site (AD-1052).
                 data.trojan_horse = Some(unlocated(detail));
             }
             found.gaps.insert(id, record);

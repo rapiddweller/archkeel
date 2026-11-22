@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! Comprehension target scope for the import hazard survey, and the function scopes of a computed
-//! attribute name (AD-1043, #1967).
+//! attribute name (AD-1052, #1967).
 //!
 //! `getattr(x, name)`, `setattr(x, name, v)` and `x.__getattribute__(name)` give any attribute of
 //! `x`, such as `__code__`, `__globals__` or `__self__`, when `name` is no literal. A name that the
@@ -102,7 +102,7 @@ pub(super) fn trojans(
     (tree, module): (&ModModule, &str),
     names: &(HashSet<String>, HashSet<String>, HashSet<String>),
 ) -> Vec<(&'static str, TextRange)> {
-    // The premise of the run: code outside the scan roots writes no binding of the scan (AD-1044).
+    // The premise of the run: code outside the scan roots writes no binding of the scan (AD-1053).
     // The name of such a file starts with `<`, which no module of the scan can (`outside.rs`).
     if module.starts_with('<') {
         return Vec::new();

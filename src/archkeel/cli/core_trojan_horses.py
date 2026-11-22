@@ -50,7 +50,7 @@ class Premises:
     assuming: str | None
     #: Each FAIL rule whose every violation rests on a declared reach, with the declaration ids.
     fails: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
-    #: The notes of the run (code, text): facts that change no verdict (AD-1045).
+    #: The notes of the run (code, text): facts that change no verdict (AD-1054).
     notes: tuple[tuple[str, str], ...] = ()
 
 

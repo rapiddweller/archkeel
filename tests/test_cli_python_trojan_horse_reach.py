@@ -71,7 +71,7 @@ def scanned(
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
     contract["schema_version"] = version
-    # AD-1045: a contract older than 3.20.0 spells the key `door_reach` and the form `door`.
+    # AD-1054: a contract older than 3.20.0 spells the key `door_reach` and the form `door`.
     old = tuple(int(part) for part in version.split(".")) < (3, 20, 0)
     key = "door_reach" if old else "trojan_horse_reach"
     records = [
@@ -289,7 +289,7 @@ def test_a_python_loader_bound_reads_the_written_tuple_again(
 
 
 def test_the_native_self_check_declares_no_trojan_horse_reach() -> None:
-    """AD-1042: ArchKeel checks itself with proofs only; a declaration there needs an owner."""
+    """AD-1051: ArchKeel checks itself with proofs only; a declaration there needs an owner."""
     contract = json.loads(Path("native/architecture-contract.json").read_text())
 
     assert not (contract.get("declarations") or {}).get("trojan_horse_reach")

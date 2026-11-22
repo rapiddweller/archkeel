@@ -68,7 +68,7 @@ pub struct GapData {
     #[serde(default, skip_serializing_if = "crate::skip::omitted")]
     pub effect: Option<GapEffect>,
     /// The trojan horse of the site, when the gap is a trojan horse whose reach a contract can declare
-    /// (AD-664). A stored facts 11 file spells the key `door`; it reads as an alias (AD-1045).
+    /// (AD-664). A stored facts 11 file spells the key `door`; it reads as an alias (AD-1054).
     #[serde(default, alias = "door", skip_serializing_if = "crate::skip::omitted")]
     pub trojan_horse: Option<TrojanHorseSite>,
 }

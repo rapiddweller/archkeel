@@ -18,7 +18,7 @@
 //!   the scan that a string of the file names then escapes (`outside_sites.rs`). Three forms are
 //!   proven harmless: an import call whose name cannot name a module of the scan, `exec`, `eval` or
 //!   `compile` of a literal text without a name, and a loader that makes a module under a foreign
-//!   literal name (AD-1040).
+//!   literal name (AD-1049).
 //! - A Python file that Python cannot run (it does not decode or parse at Python 3.14) writes
 //!   nothing. A file over the size limit, or with a declared encoding that is not UTF-8, can run:
 //!   it is read as the text of an extension.

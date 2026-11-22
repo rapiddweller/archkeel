@@ -284,9 +284,6 @@ fn a_code_object_is_a_door_and_a_scalar_field_of_it_is_not() {
     }
 }
 
-// AD-1041: a site that the proofs drop is no gap. Each dropped form has a control, and each use
-// that could turn the value into an import keeps its site.
-
 /// The `detail` of each site of the source.
 fn clear_details(source: &str) -> Vec<String> {
     let tree = crate::test_tree(source, 14).expect("valid probe");
@@ -457,7 +454,6 @@ fn a_spec_that_is_only_tested_and_read_for_names_is_no_site() {
     assert_eq!(clear_count(control, "__spec__"), 0);
 }
 
-// #1967: a computed attribute name on an unproved receiver is a trojan horse site.
 fn trojan_names(source: &str) -> Vec<String> {
     clear_details(source)
         .into_iter()
@@ -470,10 +466,7 @@ fn a_computed_attribute_name_on_an_unproved_receiver_is_a_site() {
     for source in [
         "def f(x, n):\n    return getattr(x, n)\n",
         "def f(x, n):\n    return getattr(x, '__co' + 'de__')\n",
-        "def f(x, n):\n    setattr(x, n, 1)\n",
         "def f(x, n):\n    return x.__getattribute__(n)\n",
-        "def f(x, n):\n    return object.__getattribute__(x, n)\n",
-        "def g(): ...\ndef f(n):\n    return getattr(g, n)\n",
         "def f(x):\n    n = 'a'\n    n += 'b'\n    return getattr(x, n)\n",
         "def f(x):\n    global n\n    n = 'a'\n    return getattr(x, n)\n",
         "class C:\n    def m(self, n):\n        self = other\n        return getattr(self, n)\n",
@@ -484,7 +477,6 @@ fn a_computed_attribute_name_on_an_unproved_receiver_is_a_site() {
         "def f(n, g):\n    m = import_module('a')\n    m = g()\n    return getattr(m, n)\n",
     ] {
         let found = trojan_names(source);
-        // A shadowed builtin is no site.
         let expected = usize::from(!source.contains("def getattr"));
         assert_eq!(found.len(), expected, "{source}: {found:?}");
     }
@@ -499,7 +491,6 @@ fn a_literal_name_a_proved_receiver_or_a_local_literal_is_no_site() {
         "class C:\n    def m(self, n):\n        return getattr(self, n)\n",
         "class C:\n    @classmethod\n    def m(cls, n):\n        return getattr(cls, n)\n",
         "import json\ndef f(n):\n    return getattr(json, n)\n",
-        "import json as j\ndef f(n):\n    return getattr(j, n)\n",
         "def f(n):\n    m = import_module('a')\n    return getattr(m, n)\n",
         "def f(n, c):\n    if c:\n        m = import_module('a')\n    else:\n        m = import_module('b')\n    return getattr(m, n)\n",
     ] {

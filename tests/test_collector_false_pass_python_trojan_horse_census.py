@@ -6,7 +6,7 @@
 Consumer: `archkeel validate`. Each plant runs in Python 3.12 (`python3.12 -I`), which shows the
 real effect. A plant that the proof must keep open (`STAY`) really rebinds a name or really imports
 `app.lib`, and its rule is UNKNOWN or FAIL, never PASS. A control that the proof clears (`CLEAR`)
-does the same harmless thing, and its rule is PASS. S1 (AD-1040): outside code that loads a file
+does the same harmless thing, and its rule is PASS. S1 (AD-1049): outside code that loads a file
 under a foreign module name.
 """
 
@@ -103,7 +103,7 @@ def test_a_loader_under_a_foreign_name_that_writes_nothing_clears(
     assert verdict == "PASS"
 
 
-# S2 (AD-1041): names and strings that a trojan horse list matches but that run no import.
+# S2 (AD-1050): names and strings that a trojan horse list matches but that run no import.
 FORBIDDEN = {
     "id": "NO-IMPORT",
     "kind": "forbidden_dependency",
@@ -205,7 +205,7 @@ S2_STAY = {
         "    try:\n        pickle.dumps(f)\n    except Exception:\n        pass\n"
     ),
     # The string rules S1 to S4 of the census are not built: a class with `__ne__` collects the
-    # strings that the compare sees (AD-1041). The plants keep the verdict open.
+    # strings that the compare sees (AD-1050). The plants keep the verdict open.
     "a class that collects the strings of a compare": lambda: (
         "class K:\n    seen = []\n    def __ne__(self, other):\n        K.seen.append(other)\n"
         "        if len(K.seen) == 2:\n"

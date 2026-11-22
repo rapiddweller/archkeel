@@ -86,7 +86,7 @@ impl ViolationDetail {
     }
 
     /// The (importer, imported) pairs of this row that rest on a declared possible import
-    /// (AD-1043): the possible steps of a cycle, or the one pair of a possible dependency.
+    /// (AD-1052): the possible steps of a cycle, or the one pair of a possible dependency.
     pub(crate) fn declared_pairs(&self) -> Vec<(&str, &str)> {
         if let Some(path) = &self.path {
             let all: &[PathStep] = path;

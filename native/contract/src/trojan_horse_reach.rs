@@ -32,7 +32,7 @@ record!(
         #[serde(skip_serializing_if = "String::is_empty")]
         trojan_horse: String,
         /// The qualified name that the collector prints for the site (`pickle.load`,
-        /// `__self__`). Contract 3.20.0 (AD-1043).
+        /// `__self__`). Contract 3.20.0 (AD-1052).
         #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
         site_name: Option<String>,
         /// How many sites the module has with this name, line and scope; the declaration
@@ -57,7 +57,7 @@ record!(
         /// Why the reach holds.
         rationale: String,
         /// The module prefixes whose modules may reach the name that the site binds. Without it, a
-        /// module that can reach the name refuses the declaration. Contract 3.20.0 (AD-1047).
+        /// module that can reach the name refuses the declaration. Contract 3.20.0 (AD-1056).
         #[serde(skip_serializing_if = "Vec::is_empty")]
         covers: Vec<Package>,
         /// Where the item comes from.
@@ -94,7 +94,7 @@ const OPTIONAL: [&str; 10] = [
 
 /// The trojan horse reach records, or none for an absent key, and whether the contract uses the
 /// deprecated spelling `door_reach` or `door` (one note names the new keys). Both spellings of the
-/// key together are a contract problem. The new key reads from contract 3.15.0 on, so that the canonical bytes of an old contract read again (AD-1045).
+/// key together are a contract problem. The new key reads from contract 3.15.0 on, so that the canonical bytes of an old contract read again (AD-1054).
 pub(crate) fn trojan_horse_reach(
     object: &Object,
     version: ContractVersion,

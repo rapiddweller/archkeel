@@ -101,7 +101,7 @@ struct Step {
     to_component: Option<String>,
     imports: usize,
     /// The declared edges of the step: the declaration, the module of its site and the module that
-    /// it may load (AD-1048).
+    /// it may load (AD-1057).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     declared: Vec<DeclaredEdge>,
     evidence: Vec<String>,

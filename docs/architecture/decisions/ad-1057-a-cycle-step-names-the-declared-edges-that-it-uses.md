@@ -1,6 +1,6 @@
-# AD-1048 A cycle step names the declared edges that it uses
+# AD-1057 A cycle step names the declared edges that it uses
 
-**Status.** Accepted (owner decision, 2026-11-22). It extends [AD-1043](ad-1043-a-contract-declares-a-trojan-horse-site-by-its-name.md), which lists the declaration ids behind a FAIL.
+**Status.** Accepted (owner decision, 2026-11-22). It extends [AD-1052](ad-1052-a-contract-declares-a-trojan-horse-site-by-its-name.md), which lists the declaration ids behind a FAIL.
 
 **Words.** A trojan horse is a place that can load code the scan does not see; it is not a claim of malice.
 

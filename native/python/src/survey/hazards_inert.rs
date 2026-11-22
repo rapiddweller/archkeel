@@ -5,7 +5,7 @@
 //! Bounded inert reads of imported trojan horse modules (AD-574). The import gap stays.
 //!
 //! `cleared` finds the sites that the walk of the hazards reports and that the syntax shows to be
-//! no trojan horse (AD-1041). `reflect::Proved::covers` drops them by their range.
+//! no trojan horse (AD-1050). `reflect::Proved::covers` drops them by their range.
 //!
 //! Each proof names the syntax that closes every use of the value. A name that an import
 //! binds is never dropped here: another module can import and use the binding, and the walk does

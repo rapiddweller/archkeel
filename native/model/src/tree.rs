@@ -117,7 +117,7 @@ impl ModelTree {
     }
 
     /// True when the root contract spells its trojan horse key or field with the deprecated word
-    /// `door` (AD-1045).
+    /// `door` (AD-1054).
     pub fn deprecated_spelling(&self) -> bool {
         let root: &Model = &self.root;
         let found = root.contract().declarations();

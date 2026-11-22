@@ -86,7 +86,7 @@ pub struct TrojanHorseSite {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub form: Option<TrojanHorseForm>,
     /// The qualified name that the gap of the site prints (`pickle.load`, `__self__`). A
-    /// contract names a site by it (AD-1043).
+    /// contract names a site by it (AD-1052).
     #[serde(rename = "name", default, skip_serializing_if = "Option::is_none")]
     pub site_name: Option<String>,
     /// The line of the site in the file of the module, counted from 1; 0 when the collector has
@@ -104,7 +104,7 @@ pub struct TrojanHorseSite {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding: Option<String>,
     /// The modules that can reach the bound name of the module of the site: an import of the
-    /// name, a star import, or a use of an attribute or a text of that name (AD-1043).
+    /// name, a star import, or a use of an attribute or a text of that name (AD-1052).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exposed_to: Vec<String>,
 }

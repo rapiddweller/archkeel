@@ -58,6 +58,6 @@
 | 2026-11-19 | synthetic-esm-forms | f1b86a6f6+dirty | Record module const arrow definitions and lexical call scopes (AD-950) (cpython 3.11.12) |
 | 2026-11-19 | synthetic-nodenext | f1b86a6f6+dirty | Record module const arrow definitions and lexical call scopes (AD-950) (cpython 3.11.12) |
 | 2026-11-19 | synthetic-allowjs | f1b86a6f6+dirty | Record module const arrow definitions and lexical call scopes (AD-950) (cpython 3.11.12) |
-| 2026-11-22 | l-nest-realworld | ceac5b108 | AD-1045 renames the gap field door to trojan_horse (cpython 3.11.12) |
-| 2026-11-22 | excalidraw-laser-pointer | ceac5b108 | AD-1045 renames the gap field door to trojan_horse (cpython 3.11.12) |
-| 2026-11-22 | synthetic-esm-forms | ceac5b108 | AD-1045 renames the gap field door to trojan_horse (cpython 3.11.12) |
+| 2026-11-22 | l-nest-realworld | ceac5b108 | AD-1054 renames the gap field door to trojan_horse (cpython 3.11.12) |
+| 2026-11-22 | excalidraw-laser-pointer | ceac5b108 | AD-1054 renames the gap field door to trojan_horse (cpython 3.11.12) |
+| 2026-11-22 | synthetic-esm-forms | ceac5b108 | AD-1054 renames the gap field door to trojan_horse (cpython 3.11.12) |

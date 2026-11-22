@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-1048: a cycle that rests on a declared reach names the declaration and the module edge.
+"""AD-1057: a cycle that rests on a declared reach names the declaration and the module edge.
 
 Consumer: a person who reads a FAIL of a cycle rule and must find which declaration of the
 contract closes the cycle. The step of the cycle that has no observed import lists the declared

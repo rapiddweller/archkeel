@@ -95,7 +95,7 @@ pub(super) fn imported(stmt: &Stmt) -> Vec<String> {
 /// statement binds it (AD-664).
 pub(super) fn local_of(stmt: &Stmt, qualified: &str) -> Option<String> {
     if let Stmt::Import(node) = stmt {
-        // `import a.b` binds `a`; `import a.b as c` binds `c` (AD-1043).
+        // `import a.b` binds `a`; `import a.b as c` binds `c` (AD-1052).
         return node.names.iter().find_map(|alias| {
             let name = alias.name.as_str();
             let first = name.split('.').next().unwrap_or(name);

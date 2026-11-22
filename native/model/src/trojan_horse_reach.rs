@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The declared reach of trojan horse sites (AD-664, AD-1043). A trojan horse is a place that can
+//! The declared reach of trojan horse sites (AD-664, AD-1052). A trojan horse is a place that can
 //! load code the scan does not see; it is not a claim of malice. A contract names one site by form
 //! or by name, and the prefixes that it may load or change. A declaration that matches its sites
 //! with a valid reach is applied; each other one is a problem and applies nothing. It reads
@@ -44,11 +44,11 @@ pub struct Applied {
     /// The source binding and template of a constant-bound declaration.
     pub constant: Option<String>,
     /// The possible dependency edges that the declaration supplies, from the module of the site:
-    /// the scanned target and the id of the declared import (AD-1048).
+    /// the scanned target and the id of the declared import (AD-1057).
     pub edges: Vec<(String, String)>,
     /// The declared module prefixes whose names the trojan horse may change.
     pub changes: Vec<String>,
-    /// The modules that reach the bound name and that `covers` names (AD-1047).
+    /// The modules that reach the bound name and that `covers` names (AD-1056).
     pub covered: Vec<String>,
     /// What the gap still leaves unknown under the premise, or `None` for nothing.
     pub(crate) effect: Option<GapEffect>,
@@ -260,7 +260,7 @@ pub(crate) fn matched(
         let reach = (horse.binding).map_or_else(Vec::new, |binding| {
             crate::imports::importers(facts, (horse.module, binding), horse.exposed)
         });
-        // `covers` names the modules whose use of the bound name the contract accepts (AD-1047).
+        // `covers` names the modules whose use of the bound name the contract accepts (AD-1056).
         let covers = declaration.covers().iter();
         let at = |name: &String| {
             covers
@@ -330,7 +330,7 @@ fn at(horse: &TrojanHorse<'_>, declaration: &Declaration, form: TrojanHorseForm)
             .is_none_or(|scope| horse.scope == Some(scope))
 }
 
-/// True when the declaration names this trojan horse by name, line and scope (AD-1043).
+/// True when the declaration names this trojan horse by name, line and scope (AD-1052).
 fn named(horse: &TrojanHorse<'_>, declaration: &Declaration) -> bool {
     let name: &Option<String> = declaration.site_name();
     horse.module == declaration.module().as_text()

@@ -1,4 +1,4 @@
-# AD-1042 A trojan horse reach names its reason, and narrow trojan horse forms are proposed
+# AD-1051 A trojan horse reach names its reason, and narrow trojan horse forms are proposed
 
 **Status.** Part accepted, part proposed. Part of #1963 (owner decisions of 2026-11-22). It amends [AD-664](ad-664-a-contract-can-declare-the-reach-of-a-door-site.md).
 

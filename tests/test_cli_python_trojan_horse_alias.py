@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-1045: `door_reach` and `door` are deprecated spellings of `trojan_horse_reach` and
+"""AD-1054: `door_reach` and `door` are deprecated spellings of `trojan_horse_reach` and
 `trojan_horse`.
 
 A trojan horse is a place that can load code the scan does not see; it is not a claim of malice.

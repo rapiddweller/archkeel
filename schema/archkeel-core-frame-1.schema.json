@@ -81,7 +81,7 @@
       "items": {
         "$ref": "#/$defs/Note"
       },
-      "description": "The notes of the run: facts that change no verdict (AD-1045)."
+      "description": "The notes of the run: facts that change no verdict (AD-1054)."
     },
     "trojan_horse_reach": {
       "type": "array",
@@ -98,7 +98,7 @@
           "type": "string"
         }
       },
-      "description": "Each FAIL rule whose every violation rests on an edge that a declaration only allows, with\nthe ids of the declarations (AD-1043): the rule says \"FAIL from a declared reach\"."
+      "description": "Each FAIL rule whose every violation rests on an edge that a declaration only allows, with\nthe ids of the declarations (AD-1052): the rule says \"FAIL from a declared reach\"."
     },
     "premises": {
       "type": "object",
@@ -484,7 +484,7 @@
         "code",
         "text"
       ],
-      "description": "A note of the run: a fact that the reader must see and that changes no verdict (AD-1045).",
+      "description": "A note of the run: a fact that the reader must see and that changes no verdict (AD-1054).",
       "additionalProperties": false
     },
     "TrojanHorseRow": {
@@ -538,7 +538,7 @@
           "items": {
             "type": "string"
           },
-          "description": "The modules that can reach the bound name and that `covers` names (AD-1047)."
+          "description": "The modules that can reach the bound name and that `covers` names (AD-1056)."
         },
         "changes": {
           "type": "array",
@@ -1794,7 +1794,7 @@
           "items": {
             "$ref": "#/$defs/DeclaredEdge"
           },
-          "description": "The declared edges of the step: the declaration, the module of its site and the module that\nit may load (AD-1048)."
+          "description": "The declared edges of the step: the declaration, the module of its site and the module that\nit may load (AD-1057)."
         },
         "evidence": {
           "type": "array",

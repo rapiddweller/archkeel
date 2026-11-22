@@ -48,7 +48,7 @@ pub(crate) fn of(model: &Model, id: &str) -> Vec<Premise> {
 /// declared possible import (`ViolationDetail::declared_pairs`).
 pub(crate) type DeclaredPairs = BTreeMap<String, Vec<Vec<(String, String)>>>;
 
-/// A note of the run: a fact that the reader must see and that changes no verdict (AD-1045).
+/// A note of the run: a fact that the reader must see and that changes no verdict (AD-1054).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub(crate) struct Note {
     /// The stable code of the note, such as `deprecated.trojan_horse_reach`.
@@ -71,14 +71,14 @@ pub(crate) struct Premises {
     /// (AD-664): never a plain PASS.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     assumed: BTreeMap<String, Vec<String>>,
-    /// The notes of the run: facts that change no verdict (AD-1045).
+    /// The notes of the run: facts that change no verdict (AD-1054).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     notes: Vec<Note>,
     /// Each applied declaration of a trojan horse reach of the run (AD-664).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     trojan_horse_reach: Vec<TrojanHorseRow>,
     /// Each FAIL rule whose every violation rests on an edge that a declaration only allows, with
-    /// the ids of the declarations (AD-1043): the rule says "FAIL from a declared reach".
+    /// the ids of the declarations (AD-1052): the rule says "FAIL from a declared reach".
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     fail_from_declared_reach: BTreeMap<String, Vec<String>>,
     /// Each PASS rule that rests on a premise of the contract, with each premise (AD-764): never
@@ -170,14 +170,14 @@ pub(crate) struct TrojanHorseRow {
     /// The scanned targets of the possible dependency edges, not observed imports.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     possible_loads: Vec<String>,
-    /// The modules that can reach the bound name and that `covers` names (AD-1047).
+    /// The modules that can reach the bound name and that `covers` names (AD-1056).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     covered: Vec<String>,
     /// The declared module prefixes whose names the trojan horse may change.
     changes: Vec<String>,
 }
 
-/// The notes of the run: one for a contract that uses the deprecated word `door` (AD-1045).
+/// The notes of the run: one for a contract that uses the deprecated word `door` (AD-1054).
 fn notes_of(models: Option<&ModelTree>) -> Vec<Note> {
     if models.is_some_and(ModelTree::deprecated_spelling) {
         vec![DEPRECATED_SPELLING]
@@ -224,7 +224,7 @@ fn row(trojan_horse: &Applied) -> TrojanHorseRow {
 }
 
 /// The FAIL rules whose every violation row rests on a declared possible import, with the ids of
-/// the declarations that supply the edges (AD-1043).
+/// the declarations that supply the edges (AD-1052).
 fn declared_fails(
     trojan_horses: &[TrojanHorseRow],
     details: &DeclaredPairs,
