@@ -271,4 +271,23 @@ cases = {
         },
         [pickle_declaration()],
     ),
+    # AD-1058 (fifth review): the module hands the bound value out under another name.
+    "W1 HELPER = pickle in the module": (
+        {MODEL: "import pickle\nHELPER = pickle\n", PAGE: IM + f"model.HELPER.loads({BLOB})\n"},
+        [pickle_declaration()],
+    ),
+    "W2 module __getattr__ returns the value": (
+        {
+            MODEL: "import pickle\ndef __getattr__(n):\n    return pickle\n",
+            PAGE: IM + f"model.x.loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "W3 class attribute holds the value": (
+        {
+            MODEL: "import pickle\nclass K:\n    p = pickle\n",
+            PAGE: IM + f"model.K.p.loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
 }

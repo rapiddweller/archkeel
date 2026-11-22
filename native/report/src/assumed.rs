@@ -173,8 +173,17 @@ pub(crate) struct TrojanHorseRow {
     /// The modules that can reach the bound name and that `covers` names (AD-1056).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     covered: Vec<String>,
+    /// The number of modules in `covered`: the modules that the contract trusts not to hand the
+    /// bound name to an uncovered module (AD-1056). Absent without covered modules.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    covered_count: usize,
     /// The declared module prefixes whose names the trojan horse may change.
     changes: Vec<String>,
+}
+
+/// True for a count of zero, which the frame leaves out.
+fn is_zero(count: &usize) -> bool {
+    *count == 0
 }
 
 /// The notes of the run: one for a contract that uses the deprecated word `door` (AD-1054).
@@ -219,6 +228,7 @@ fn row(trojan_horse: &Applied) -> TrojanHorseRow {
             .map(|(target, _)| target.clone())
             .collect(),
         covered: trojan_horse.covered.clone(),
+        covered_count: trojan_horse.covered.len(),
         changes: trojan_horse.changes.clone(),
     }
 }

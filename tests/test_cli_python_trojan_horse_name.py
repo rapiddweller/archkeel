@@ -146,7 +146,7 @@ def test_a_covers_list_clears_the_exposure_of_the_modules_it_names_and_no_other(
     assert not imports_secret(tmp_path / "covered"), "the covered use really loads nothing"
     assert set(rows(covered).values()) == {"PASS"}, covered
     (row,) = covered["frame"]["trojan_horse_reach"]
-    assert row["covered"] == ["app.client.page"], row
+    assert row["covered"] == ["app.client.page"] and row["covered_count"] == 1, row
     text = command(release_core, tmp_path / "covered", "--text").stdout
     assert "1 declarations cover 1 modules in all." in text, text
     assert "D-PICKLE covers 1 modules, trusted not to hand the bound name" in text, text
@@ -199,3 +199,17 @@ def test_a_plain_import_of_the_same_name_elsewhere_is_no_use_of_the_binding(
 
     assert set(rows(result).values()) == {"PASS"}, result
     assert {row["id"] for row in result["frame"]["trojan_horse_reach"]} == {"D-PICKLE", "D-OTHER"}
+
+
+def test_the_module_may_use_its_binding_only_as_an_attribute_base(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """AD-1058: `pickle.dumps(...)` in the module keeps the declaration; each other load refuses."""
+    base = "import pickle\n"
+    for name, model, applied in [
+        ("base", base + "def f(b):\n    return pickle.loads(b)\n", True),
+        ("value", base + "HELPER = pickle\n", False),
+    ]:
+        result = run(tmp_path / name, {MODEL: model}, [pickle_declaration()], release_core)
+        kinds = {gap["kind"] for gap in result["gaps"]}
+        assert ("trojan_horse_reach.invalid" not in kinds) == applied, (name, kinds)

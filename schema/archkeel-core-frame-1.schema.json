@@ -540,6 +540,12 @@
           },
           "description": "The modules that can reach the bound name and that `covers` names (AD-1056)."
         },
+        "covered_count": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0,
+          "description": "The number of modules in `covered`: the modules that the contract trusts not to hand the\nbound name to an uncovered module (AD-1056). Absent without covered modules."
+        },
         "changes": {
           "type": "array",
           "items": {

@@ -34,6 +34,7 @@ class TrojanHorseRow:
     rationale: str
     possible_loads: tuple[str, ...] = ()
     covered: tuple[str, ...] = ()
+    covered_count: int = 0
     constant: str | None = None
 
 
@@ -147,6 +148,9 @@ def read_trojan_horses(frame: Mapping[str, object]) -> tuple[TrojanHorseRow, ...
                     fields.get("possible_loads", []), "trojan_horse_reach.possible_loads"
                 ),
                 covered=_texts(fields.get("covered", []), "trojan_horse_reach.covered"),
+                covered_count=as_count(
+                    fields.get("covered_count", 0), "trojan_horse_reach.covered_count"
+                ),
                 constant=None
                 if constant is None
                 else as_text(constant, "trojan_horse_reach.constant"),
@@ -190,7 +194,7 @@ def trojan_horse_lines(
         lines.append("  The scan does not check `loads` and `covers`: the contract is trusted.")
     covering = [row for row in trojan_horses if row.covered]
     if covering:
-        total = sum(len(row.covered) for row in covering)
+        total = sum(row.covered_count for row in covering)
         lines.append(f"  {len(covering)} declarations cover {total} modules in all.")
     for row in trojan_horses:
         loads = (
@@ -208,7 +212,7 @@ def trojan_horse_lines(
             lines.append(f"    Possible targets: {', '.join(row.possible_loads)}")
         if row.covered:
             lines.append(
-                f"    {row.id} covers {len(row.covered)} modules, trusted not to hand the bound "
+                f"    {row.id} covers {row.covered_count} modules, trusted not to hand the bound "
                 f"name to an uncovered module: {', '.join(row.covered)}"
             )
     for rule, ids in sorted(premises.fails.items()):

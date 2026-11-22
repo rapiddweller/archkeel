@@ -160,7 +160,8 @@ fn computed_loader(call: &ExprCall) -> bool {
 /// import of the module or of a module that imports it (through the resolved records). Any other
 /// way is a computed access, and each of these is a site already: a read of any attribute by a
 /// name that is no literal (`getattr`, `vars`, `__dict__`, `getmembers`) and a loader call with a
-/// computed name refuse the declaration too. A plain `import name` of the standard module is no
+/// computed name refuse the declaration too. Inside the module itself, any load of the name that is
+/// no attribute base refuses it, and so does a string of that name (`__all__`). A plain `import name` of the standard module is no
 /// use of the binding. A module of `covers` is accepted by the model, not here.
 pub(in crate::survey) fn exposed(
     modules: &[Module],
@@ -212,6 +213,35 @@ pub(in crate::survey) fn exposed(
         _ => false,
     };
     let mut found: Vec<String> = Vec::new();
+    // Inside the module: the name is only the base of an attribute (`pickle.loads(...)`) or a callee. Each
+    // other load hands the value out under another name (`HELPER = pickle`, `return pickle`,
+    // `class K: p = pickle`, `__all__ = ['pickle']`), and the scan would not see the name outside.
+    let (mut loads, mut bases) = (0_usize, 0_usize);
+    let own = |expr: &Expr| {
+        match expr {
+            Expr::Name(node) => loads += usize::from(Name::as_str(&node.id) == binding),
+            Expr::StringLiteral(text) => loads += usize::from(text.value.to_str() == binding),
+            // A call of the name (`import_module(x)`) hands out no value.
+            Expr::Call(call) => {
+                bases += usize::from(
+                    matches!(&*call.func, Expr::Name(n) if Name::as_str(&n.id) == binding),
+                );
+            }
+            Expr::Attribute(node) => {
+                bases += usize::from(
+                    matches!(&*node.value, Expr::Name(n) if Name::as_str(&n.id) == binding),
+                );
+            }
+            _ => {}
+        }
+        false
+    };
+    if let Some(home) = modules.iter().find(|home| home.name == module) {
+        any_over_body(&home.tree.body, own);
+    }
+    if loads > bases {
+        found.push(module.to_owned());
+    }
     for other in modules {
         let used =
             by_record.contains(other.name.as_str()) || any_over_body(&other.tree.body, named);

@@ -98,3 +98,50 @@ fn a_plain_import_of_the_same_module_and_the_module_itself_do_not() {
     assert!(!names_other("import pickle\nX = 1\n", &[]));
     assert!(exposed("X = 1\n", &[]).is_empty());
 }
+
+/// The modules that the site `import pickle` is exposed to when the module itself reads as `home`.
+fn exposed_by_home(home: &str) -> Vec<String> {
+    let files = [
+        ("src/app/__init__.py", ""),
+        INIT,
+        ("src/app/service/model.py", home),
+    ];
+    let found = surveyed(&files);
+    let mut sites = found.unknowns.iter().filter_map(|gap| match &gap.data {
+        GapFact::SourceResolutionGap(data) => data.trojan_horse.as_ref().zip(data.module.as_ref()),
+        _ => None,
+    });
+    let site = sites
+        .find(|(site, _)| site.site_name.as_deref() == Some("pickle") && site.binding.is_some());
+    site.map(|(site, _)| site.exposed_to.clone())
+        .unwrap_or_default()
+}
+
+#[test]
+fn a_load_of_the_name_in_the_module_that_is_no_attribute_base_exposes_the_binding() {
+    for home in [
+        "import pickle\nHELPER = pickle\n",
+        "import pickle\ndef __getattr__(n):\n    return pickle\n",
+        "import pickle\nclass K:\n    p = pickle\n",
+        "import pickle\ndef f(x=pickle):\n    return x\n",
+        "import pickle\nITEMS = [pickle]\n",
+        "import pickle\n__all__ = ['pickle']\n",
+        "import pickle\ndef f():\n    return lambda: pickle\n",
+        "import pickle\ndel pickle\n",
+        "import pickle\ng = dict(m=pickle)\n",
+    ] {
+        assert_eq!(exposed_by_home(home), ["app.service.model"], "{home}");
+    }
+}
+
+#[test]
+fn a_use_of_the_name_as_the_base_of_an_attribute_does_not() {
+    for home in [
+        "import pickle\nX = pickle.dumps(1)\n",
+        "import pickle\ndef f():\n    def g(b):\n        return pickle.loads(b)\n    return g\n",
+        "import pickle\n",
+        "import pickle\ndef f(x):\n    return pickle(x)\n",
+    ] {
+        assert!(exposed_by_home(home).is_empty(), "{home}");
+    }
+}
