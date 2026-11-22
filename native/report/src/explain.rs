@@ -173,11 +173,11 @@ impl Held {
         }
         if let Reason::NotComplete(Cause::PairGaps(pairs)) = reason {
             held.kind = HoldKind::PairGaps;
-            held.pairs = pairs.pairs().to_vec();
+            held.pairs = distinct(pairs.pairs());
         }
         if let Reason::NotComplete(Cause::AllowedPairGaps(pairs)) = reason {
             held.kind = HoldKind::AllowedPairGaps;
-            held.pairs = pairs.pairs().to_vec();
+            held.pairs = distinct(pairs.pairs());
         }
         if let Reason::NotComplete(Cause::ScopedGaps(scoped)) = reason {
             held.kind = HoldKind::ScopedGaps;
@@ -193,6 +193,16 @@ pub(crate) struct Collected {
     rules: BTreeMap<String, RuleShape>,
     cycles: BTreeMap<String, Cycles>,
     held: BTreeMap<String, Held>,
+}
+
+/// The pairs of the gap records, each once, in the order of their first record.
+fn distinct(records: &[(String, String)]) -> Vec<(String, String)> {
+    let mut seen = BTreeSet::new();
+    records
+        .iter()
+        .filter(|pair| seen.insert(*pair))
+        .cloned()
+        .collect()
 }
 
 impl Collected {
@@ -291,10 +301,12 @@ struct RuleHolds {
     kind: HoldKind,
     /// The ids of the coverage gaps of the reply that hold the rule.
     gaps: Vec<String>,
-    /// The pairs of the gaps between two modules that hold the rule.
+    /// The first module pairs that hold the rule (a pair is two modules with a gap between them).
     pairs: Vec<Pair>,
-    /// The number of gaps that hold the rule.
+    /// The number of module pairs that hold the rule. A pair can have several gap records. A
+    /// rule that no pair holds counts gap ids. `pairs` and `gaps` keep at most `held_per_rule`.
     total: usize,
+    /// True when `total` is larger than the lists that this frame keeps.
     truncated: bool,
     /// The imports that the collector could not resolve and that no gap names.
     unnamed_imports: usize,
@@ -372,13 +384,22 @@ impl Collected {
             for id in &ids {
                 rules_of.entry(id.clone()).or_default().push(rule.clone());
             }
-            let total = ids.len().max(held.pairs.len());
+            // A pair rule counts distinct pairs; a record count would not match the noun.
+            let total = match held.kind {
+                HoldKind::PairGaps | HoldKind::AllowedPairGaps => held.pairs.len(),
+                HoldKind::CoverageGaps
+                | HoldKind::ScopedGaps
+                | HoldKind::UnknownImports
+                | HoldKind::NoSourceFiles
+                | HoldKind::Other => ids.len(),
+            };
             held_by_rule.insert(
                 rule.clone(),
                 RuleHolds {
                     cause: held.cause,
                     kind: held.kind,
-                    gaps: ids.into_iter().take(MAX_HELD).collect(),
+                    // The host checks that no list is longer than `total`, which counts pairs here.
+                    gaps: ids.into_iter().take(MAX_HELD.min(total)).collect(),
                     pairs: held
                         .pairs
                         .iter()

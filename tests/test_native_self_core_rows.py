@@ -64,9 +64,24 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     if not expected["gaps"]:
         assert frame["scope"] == "complete"
     else:
-        found = re.fullmatch(r"incomplete scope: (\d+) gaps? .*", frame["scope"], re.DOTALL)
+        # AD-1041: each number matches its noun. The pairs are distinct module pairs; a pair can
+        # have several gap records, and the text names the records only when they differ.
+        found = re.fullmatch(
+            r"incomplete scope: (\d+) module pairs? with gaps that the contract does not allow"
+            r"(?: \(from (\d+) gap records\))?(?: \(showing (\d+)\))?: .*",
+            frame["scope"],
+            re.DOTALL,
+        )
         assert found, frame["scope"]
-        assert 0 < int(found.group(1)) <= len(expected["gaps"])
+        pairs = int(found.group(1))
+        records = int(found.group(2) or pairs)
+        assert 0 < pairs <= records <= len(expected["gaps"])
+        # A rule holds a part of the run, so its pair count cannot pass the run count.
+        for rule, held in frame["explain"]["holds"]["rules"].items():
+            assert held["total"] <= pairs, rule
+        if found.group(3):
+            assert int(found.group(3)) == 5
+            assert frame["scope"].endswith(f" and {pairs - 5} more pairs")
 
 
 def test_typescript_flow_has_no_open_crossing_into_the_script_index(

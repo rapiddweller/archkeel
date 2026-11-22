@@ -66,7 +66,7 @@ fn pairs_table(names: &Names<'_>, card: &Cause<'_>) -> String {
         })
         .collect();
     format!(
-        "<table class=\"rp-mini\"><caption class=\"caption\">Where: {} of {} between two modules</caption>\
+        "<table class=\"rp-mini\"><caption class=\"caption\">Where: {} of {} module pairs</caption>\
 <thead><tr><th class=\"caption\">Source</th><th class=\"caption\">Target</th></tr></thead><tbody>{rows}</tbody></table>",
         card.pairs.len().min(MAX_ROWS),
         card.total.max(card.pairs.len())

@@ -6,6 +6,7 @@
 //! incomplete, and a part of the proof that the core cannot read. `proof.rs` finds them; a
 //! `Reason` carries them.
 
+use std::collections::HashSet;
 use std::fmt;
 
 /// A missing fact of the interface import verdict, not a lifecycle diagnosis.
@@ -79,11 +80,13 @@ pub enum Cause {
     ClassSite(String),
 }
 
-/// The gaps that hold a rule: the first ones as `a -> b` and the number of all.
+/// The module pairs that hold a rule: the first ones as `a -> b`, the number of distinct pairs and
+/// the number of gap records. A pair can have several gap records, so the two numbers can differ.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Held {
     shown: Vec<String>,
-    count: usize,
+    distinct: usize,
+    records: usize,
     pairs: Vec<(String, String)>,
 }
 
@@ -91,52 +94,66 @@ pub struct Held {
 const HELD_SHOWN: usize = 5;
 
 impl Held {
-    /// The gaps `(source, target)` that hold a rule, or `None` for no gap. A `Held` is a reason,
-    /// not a proof: it can only make a rule UNKNOWN.
+    /// The gap records `(source, target)` that hold a rule, or `None` for no gap. A `Held` is a
+    /// reason, not a proof: it can only make a rule UNKNOWN.
     pub fn of<'a>(gaps: impl Iterator<Item = (&'a str, &'a str)>) -> Option<Held> {
         let mut shown = Vec::new();
         let mut pairs = Vec::new();
-        let mut count = 0;
+        let mut seen: HashSet<(&str, &str)> = HashSet::new();
+        let mut distinct = 0;
+        let mut records = 0;
         for (source, target) in gaps {
+            pairs.push((source.to_owned(), target.to_owned()));
+            records += 1;
+            if !seen.insert((source, target)) {
+                continue;
+            }
+            distinct += 1;
             if shown.len() < HELD_SHOWN {
                 shown.push(format!("{source} -> {target}"));
             }
-            pairs.push((source.to_owned(), target.to_owned()));
-            count += 1;
         }
-        (count > 0).then_some(Held {
+        (records > 0).then_some(Held {
             shown,
-            count,
+            distinct,
+            records,
             pairs,
         })
     }
 
-    /// The number of gaps.
+    /// The number of distinct module pairs.
     pub fn count(&self) -> usize {
-        self.count
+        self.distinct
     }
 
-    /// Each gap `(source, target)` that holds the rule (AD-484).
+    /// Each gap record `(source, target)` that holds the rule (AD-484).
     pub fn pairs(&self) -> &[(String, String)] {
         &self.pairs
     }
 
-    /// The gaps that the reason shows, as `a -> b`.
+    /// The pairs that the reason shows, as `a -> b`.
     pub fn shown(&self) -> &[String] {
         &self.shown
     }
 
-    /// `{count} {what}: a -> b, ...` and the number of the gaps that it does not show.
+    /// `{pairs} module pairs {what}: a -> b, ...`. When the pairs have more records, the text adds
+    /// `from {records} gap records`. A cut list says `(showing N)` and ends with the number of the
+    /// pairs that it leaves out.
     fn write(&self, formatter: &mut fmt::Formatter<'_>, what: &str) -> fmt::Result {
-        write!(
-            formatter,
-            "{} {what}: {}",
-            self.count,
-            self.shown.join(", ")
-        )?;
-        match self.count - self.shown.len() {
+        let shown = self.shown.len();
+        let hidden = self.distinct - shown;
+        let unit = if self.distinct == 1 { "pair" } else { "pairs" };
+        write!(formatter, "{} module {unit} {what}", self.distinct)?;
+        if self.records != self.distinct {
+            write!(formatter, " (from {} gap records)", self.records)?;
+        }
+        if hidden > 0 {
+            write!(formatter, " (showing {shown})")?;
+        }
+        write!(formatter, ": {}", self.shown.join(", "))?;
+        match hidden {
             0 => Ok(()),
-            more => write!(formatter, " and {more} more"),
+            more => write!(formatter, " and {more} more pairs"),
         }
     }
 }
@@ -182,13 +199,12 @@ pub enum Part {
 impl fmt::Display for Cause {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Cause::PairGaps(held) => held.write(
-                formatter,
-                "gaps between two modules that the contract does not allow",
-            ),
+            Cause::PairGaps(held) => {
+                held.write(formatter, "with gaps that the contract does not allow")
+            }
             Cause::AllowedPairGaps(held) => held.write(
                 formatter,
-                "gaps between two modules that the contract allows and that can change the rule",
+                "with gaps that the contract allows and that can change the rule",
             ),
             Cause::ScopedGaps(scoped) => scoped.write(formatter, HELD_SHOWN),
             Cause::WorkTree => formatter.write_str("the host could not read the work tree"),
@@ -280,3 +296,7 @@ impl fmt::Display for Part {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "causes_tests.rs"]
+mod tests;

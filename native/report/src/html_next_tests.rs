@@ -194,7 +194,7 @@ fn each_cause_names_its_places() {
             "<article class=\"rp-cause\" id=\"cause-pair_gaps-{total}\">"
         )));
         assert!(
-            page.contains(&format!("Which pairs: {total} gap")),
+            page.contains(&format!("Which pairs: {total} module pairs with gaps")),
             "{total}"
         );
     }

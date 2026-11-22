@@ -19,12 +19,25 @@ use crate::gap_scope_tests::{
     dropping, dropping_settings, failed, gap, held, run, word, Run, LOCAL, ORDER, PAGE,
 };
 
-const ALLOWS: &str =
-    "gaps between two modules that the contract allows and that can change the rule";
+const ALLOWS: &str = "with gaps that the contract allows and that can change the rule";
 
-/// The text that names `shown` as the dropped gaps that hold a rule or the run.
+/// The text that names `shown` as the module pairs with dropped gaps that hold a rule or the run.
 fn named(shown: &[&str]) -> String {
-    format!("{} {ALLOWS}: {}", shown.len(), shown.join(", "))
+    let unit = if shown.len() == 1 { "pair" } else { "pairs" };
+    format!(
+        "{} module {unit} {ALLOWS}: {}",
+        shown.len(),
+        shown.join(", ")
+    )
+}
+
+/// The same text for pairs that have `records` gap records.
+fn named_records(shown: &[&str], records: usize) -> String {
+    named(shown).replacen(
+        &format!(" {ALLOWS}"),
+        &format!(" {ALLOWS} (from {records} gap records)"),
+        1,
+    )
 }
 
 /// True when the rule is UNKNOWN because the dropped gaps `shown` hold it.
@@ -154,12 +167,13 @@ fn a_dropped_gap_that_no_reading_sees_changes_no_rule_and_not_the_run() {
 }
 
 #[test]
-fn a_duplicate_dropped_gap_names_each_record() {
+fn a_duplicate_dropped_gap_is_one_pair_shown_once() {
     let shown = [format!("{} -> {}", LOCAL, MAIN.0)];
-    let shown = [shown[0].as_str(), shown[0].as_str()];
+    let shown = [shown[0].as_str()];
     let found = dropped(nested, twice(LOCAL, MAIN.0));
-    assert!(dropped_held(&found, "F", &shown), "{:?}", found.0);
-    assert!(run_dropped(&found, &shown), "{:?}", found.1);
+    let text = named_records(&shown, 2);
+    assert!(matches!(found.0.get("F"), Some((_, Some(why))) if why.to_string().ends_with(&text)));
+    assert!(matches!(&found.1, Err(why) if why.to_string().ends_with(&text)));
     let quiet = dropped(unchanged, twice(MAIN.0, PAGE));
     assert_eq!(quiet.1, Ok(()), "{:?}", quiet.0);
 }

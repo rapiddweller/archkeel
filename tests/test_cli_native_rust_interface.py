@@ -149,7 +149,7 @@ PLANTS = [
         "pub fn run() -> base_crate::Tool { base_crate::Tool::build() }\n",
         ["native.base_crate:Tool", "native.base_crate.extra:Tool"],
         "UNKNOWN",
-        "BOUNDARY: incomplete scope: 1 gaps between two modules that the contract does not allow: "
+        "BOUNDARY: incomplete scope: 1 module pair with gaps that the contract does not allow: "
         "native.app -> native.base_crate.extra",
     ),
 ]

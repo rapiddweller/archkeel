@@ -1826,16 +1826,17 @@
           "items": {
             "$ref": "#/$defs/Pair"
           },
-          "description": "The pairs of the gaps between two modules that hold the rule."
+          "description": "The first module pairs that hold the rule (a pair is two modules with a gap between them)."
         },
         "total": {
           "type": "integer",
           "format": "uint",
           "minimum": 0,
-          "description": "The number of gaps that hold the rule."
+          "description": "The number of module pairs that hold the rule. A pair can have several gap records. A\nrule that no pair holds counts gap ids. `pairs` and `gaps` keep at most `held_per_rule`."
         },
         "truncated": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when `total` is larger than the lists that this frame keeps."
         },
         "unnamed_imports": {
           "type": "integer",
