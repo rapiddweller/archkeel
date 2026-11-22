@@ -379,6 +379,8 @@ REEXPORT_CALL = "pub fn run() -> u32 { base_crate::Token::origin() }\n"
 UNUSED_REEXPORT = "macro_rules! unused { () => { base_crate::Token::origin() }; }\n"
 
 
+# AD-1048: in the two `VACUOUS` plants no import names `cc`, so the rule examined nothing: the
+# verdict was PASS before and is UNKNOWN now, and the unread package gap is not the cause.
 @pytest.mark.parametrize(
     ("bridge", "app", "direct", "answer", "expected"),
     [
@@ -390,14 +392,14 @@ UNUSED_REEXPORT = "macro_rules! unused { () => { base_crate::Token::origin() }; 
             UNUSED_REEXPORT + "pub fn run() -> u32 { 0 }\n",
             False,
             0,
-            "PASS",
+            "VACUOUS",
         ),
         (
             "pub struct Token; impl Token { pub fn origin() -> u32 { 42 } }",
             REEXPORT_CALL,
             False,
             42,
-            "PASS",
+            "VACUOUS",
         ),
         ("pub use foreign::Token;", REEXPORT_CALL.replace("base_crate", "cc"), True, 42, "FAIL"),
     ],
@@ -455,7 +457,7 @@ def test_an_external_reexport_can_name_an_unread_package(
     done = subprocess.run(command, capture_output=True, text=True, env=env, check=False)
     assert done.returncode == 0, done.stderr
     result = validate(root)
-    assert statuses(result)["NO-CC"] == expected
+    assert statuses(result)["NO-CC"] == ("UNKNOWN" if expected == "VACUOUS" else expected)
     gaps = result["frame"]["collection_gaps"]
     unread = [gap for gap in gaps if "unread package foreign" in gap["reason"]]
     if expected == "UNKNOWN":

@@ -204,9 +204,32 @@ pub(crate) struct Split {
     /// The number of unresolved imports that no collector gap names (each is a coverage
     /// failure of the reference engine).
     pub(crate) unknown: usize,
+    /// The names that the records of the reply bind or declare.
+    pub(crate) names: Names,
+}
+
+/// The names of a reply that the `target_symbol` judgement reads.
+#[derive(Debug, Default)]
+pub(crate) struct Names {
     /// Each name that a record binds under another name (`use a::Profile as Lang`), in any
     /// record of the reply: a macro body and an unresolved import too (AD-668).
-    pub(crate) renamed: HashSet<String>,
+    renamed: HashSet<String>,
+    /// The module and name of each module-level symbol (AD-1048).
+    pub(crate) declared: HashSet<(String, String)>,
+}
+
+impl Names {
+    /// True when a record binds `symbol` under another name (AD-668).
+    pub(crate) fn renamed(&self, symbol: &str) -> bool {
+        self.renamed.contains(symbol)
+    }
+
+    /// True when a module-level symbol of this name lies in a module that `of_target` accepts.
+    pub(crate) fn declared(&self, of_target: impl Fn(&str) -> bool, symbol: &str) -> bool {
+        self.declared
+            .iter()
+            .any(|(module, name)| name == symbol && of_target(module))
+    }
 }
 
 /// A gap of the import resolution: its id, the module and the evidence that it names, and its
@@ -263,7 +286,7 @@ pub(crate) fn split(facts: &Facts, marks: TargetMarks, declared: impl Fn(&str) -
         let data = record.data.data();
         if let (Some(symbol), Some(binding)) = (&data.symbol, &data.binding) {
             if symbol != binding {
-                found.renamed.insert(symbol.clone());
+                found.names.renamed.insert(symbol.clone());
             }
         }
         let resolved = match targets.get(record.id.as_str()) {

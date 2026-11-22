@@ -225,13 +225,14 @@ fn supported_profile_does_not_remove_the_per_import_symbol_check(
         .ok_or("the selected import")?
         .data
         .data();
+    // AD-1048: another source imports and declares `page`, so the rule has an item to examine.
     let contract = serde_json::json!({
         "schema_version": "3.14.0", "components": [{"id": "COMP-APP", "label": "app",
         "role": "component", "packages": ["shop"], "responsibilities": ["Own the source."],
         "forbidden_responsibilities": [], "provenance": ["p"], "decided_by": "architect"}],
         "rules": [{"id": "SYMBOL", "kind": "forbidden_dependency",
-        "source": selected.source_module, "target": selected.target_module,
-        "target_symbol": "blocked", "include_type_checking": true,
+        "source": selected.source_module, "target": "shop",
+        "target_symbol": "page", "include_type_checking": true,
         "rationale": "Keep the boundary.", "provenance": ["p"], "decided_by": "architect"}]
     });
     let ParsedContract::Complete(contract) =

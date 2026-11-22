@@ -165,7 +165,10 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         Rule::RootLayout(rule) => {
             observed().any(|(_, module)| in_scope(module.name(), rule.root().as_text()))
         }
-        Rule::ExternalDependencyScope(_) => observed().next().is_some(),
+        Rule::ExternalDependencyScope(rule) => {
+            observed().next().is_some()
+                && direction::dependency_named(model, rule.dependency().as_text()).map(|()| true)?
+        }
         Rule::InterfaceBoundary(_) => observed().next().is_some(),
         Rule::ForbiddenConstruct(rule) => {
             if Option::is_some(&crate::construct_match::receipt(model, rule)?)
@@ -185,6 +188,7 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
                 .into_iter()
                 .map(|(_, j)| j);
             undecided(direction::undecided(judged))?;
+            direction::symbol_named(model, rule)?;
             let [sources, _] = selection::dependency_sides(rule, model.contract().components());
             observed().any(|(_, module)| sources.matches(module.name()))
         }

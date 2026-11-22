@@ -66,6 +66,7 @@ pub(crate) fn reply_or_refusal(
     ))
     .unwrap_or_default();
     value["provider_sources"] = json!([]);
+    crate::external_tests::add_shop_transport(&mut value);
     change(&mut value);
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
     let _ = encoder.write_all(value.to_string().as_bytes());

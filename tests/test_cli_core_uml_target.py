@@ -67,7 +67,7 @@ def _entity(contract: dict[str, Any], identity: str) -> dict[str, Any]:
 # assessments of H-typescript remain undecided; H-uml-typescript retains three.
 @pytest.mark.parametrize(
     ("name", "passes", "undecided"),
-    [("H-typescript", 9, 7), ("H-uml-typescript", 0, 3)],
+    [("H-typescript", 8, 7), ("H-uml-typescript", 0, 3)],
 )
 def test_the_uml_target_is_an_unknown_row_with_its_reason_and_not_a_gap(
     tmp_path: Path, name: str, passes: int, undecided: int
@@ -79,7 +79,9 @@ def test_the_uml_target_is_an_unknown_row_with_its_reason_and_not_a_gap(
         row for row in rows.values() if row[0] != "uml_target" and row[1] == "PASS"
     ]
     assert sum(row[1] == "PASS" for row in rows.values()) == passes
-    assert all(row[1] != "UNKNOWN" for rule, row in rows.items() if rule != ROW)
+    # AD-1048: no import names `@shop/transport`, so EXTERNAL-SHOP is UNKNOWN in H-typescript.
+    vacuous = {ROW, "EXTERNAL-SHOP"}
+    assert all(row[1] != "UNKNOWN" for rule, row in rows.items() if rule not in vacuous)
     reason = envelope["frame"]["explained"][ROW]
     assert reason.startswith(UNDECIDED.format(count=undecided)), reason
     assert envelope["frame"]["unknown_kinds"][ROW] == "no_receipt"

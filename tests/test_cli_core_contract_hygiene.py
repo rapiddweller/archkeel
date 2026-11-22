@@ -33,6 +33,8 @@ def shop() -> Iterator[Path]:
     """The TypeScript fixture without its UML target: the core decides it with PASS."""
     with materialized(case("fixture/H-typescript")) as root:
         edit(root, lambda contract: contract.pop("declarations"))
+        # AD-1048: no import names `@shop/transport`, so that rule is UNKNOWN, not PASS.
+        edit(root, lambda c: c.update(rules=[r for r in c["rules"] if r["id"] != "EXTERNAL-SHOP"]))
         yield root.resolve()
 
 

@@ -37763,11 +37763,6 @@
     [
       "collection_gap",
       "native.archkeel_model.direction",
-      "A method call may reach the method count of a type in its own file native.archkeel_model.causes"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.direction",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
     ],
     [
@@ -37974,11 +37969,6 @@
       "collection_gap",
       "native.archkeel_model.direction",
       "A trait impl in native.archkeel_model.published_items may run in code that reaches native.archkeel_model.published_items without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_model.direction",
-      "A trait impl in native.archkeel_model.reason may run in code that reaches native.archkeel_model.reason without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",
