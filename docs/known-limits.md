@@ -325,8 +325,11 @@ them that is no direct call (`g = getattr`, `map(getattr, ...)`), `vars(x)` and 
 Still open, with a plant that fails when it is fixed (`tests/test_collector_false_pass_python_open.py`):
 - `dis.Bytecode(f).codeobj` hands out the code object without a name: #1969. Other standard library
   routes can exist; the collector has no list of them.
+- The standard library imports a module that a string names: `logging.config.dictConfig` (`'()'` and
+  `'class'` keys) and `unittest.TestLoader().loadTestsFromName`: #1970 (one issue for the list; the
+  plants are in `tests/test_collector_false_pass_python_stdlib_importers.py`).
 
-A declaration is trusted: the scan does not check `loads` or `covers` (AD-1052, AD-1056). A covered module is trusted not to hand the bound name to an uncovered module (it can re-export it: `USE = m.pickle`, `from model import pickle as USE`, or a `covers` that lists the page itself); the scan does not check this. The report prints the number of covered modules of each declaration. Guidance for EE and CE: a unique alias of the bound name (`import pickle as _pickle_loader`) avoids almost all name hits and the long `covers` list.
+A declaration is trusted: the scan does not check `loads` or `covers` (AD-1052, AD-1056). The rule can give PASS under a declared reach while Python imports the module, when a covered module hands the bound name to an uncovered module (it re-exports the attribute, it imports the name under another name, or `covers` lists the importer itself); `main` gives UNKNOWN there only because it cannot read a declaration. This is the trust that `covers` states, and `tests/test_cli_python_trojan_horse_covers_trust.py` pins it. A covered module is trusted not to hand the bound name to an uncovered module; the scan does not check this. The report prints the number of covered modules of each declaration. Guidance for EE and CE: a unique alias of the bound name (`import pickle as _pickle_loader`) avoids almost all name hits and the long `covers` list.
 
 Premise: code that writes raw memory (`ctypes`, `from_address`) can change a code object or a binding without any name that the scan reads. The scan does not read it; the run assumes that the scanned code does not do this.
 
