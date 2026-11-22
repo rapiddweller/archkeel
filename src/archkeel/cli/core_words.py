@@ -42,7 +42,8 @@ GAP_KINDS: Final = {
         "a trojan horse whose reach the contract declares (a premise, not a proof)"
     ),
     "trojan_horse_reach.unmatched": (
-        "a declared trojan horse reach that matches no trojan horse of the scan"
+        "a declared trojan horse reach that matches no trojan horse of the scan (the name is the "
+        "text that the collector prints, not the name that an import binds)"
     ),
     "trojan_horse_reach.ambiguous": (
         "a declared trojan horse reach that matches more than one trojan horse"

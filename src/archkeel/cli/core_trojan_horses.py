@@ -188,6 +188,10 @@ def trojan_horse_lines(
         lines.append("Declared reach (a premise, not a proof):")
     if trojan_horses:
         lines.append("  The scan does not check `loads` and `covers`: the contract is trusted.")
+    covering = [row for row in trojan_horses if row.covered]
+    if covering:
+        total = sum(len(row.covered) for row in covering)
+        lines.append(f"  {len(covering)} declarations cover {total} modules in all.")
     for row in trojan_horses:
         loads = (
             f"only the targets from {row.constant}"
@@ -203,7 +207,10 @@ def trojan_horse_lines(
         if row.possible_loads:
             lines.append(f"    Possible targets: {', '.join(row.possible_loads)}")
         if row.covered:
-            lines.append(f"    Covered uses of the bound name: {', '.join(row.covered)}")
+            lines.append(
+                f"    {row.id} covers {len(row.covered)} modules, trusted not to hand the bound "
+                f"name to an uncovered module: {', '.join(row.covered)}"
+            )
     for rule, ids in sorted(premises.fails.items()):
         lines.append(f"  FAIL from a declared reach: {rule} (declared by {', '.join(ids)})")
     if premises.fails:

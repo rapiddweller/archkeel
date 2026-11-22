@@ -326,7 +326,7 @@ Still open, with a plant that fails when it is fixed (`tests/test_collector_fals
 - `dis.Bytecode(f).codeobj` hands out the code object without a name: #1969. Other standard library
   routes can exist; the collector has no list of them.
 
-A declaration is trusted: the scan does not check `loads` or `covers` (AD-1052, AD-1056).
+A declaration is trusted: the scan does not check `loads` or `covers` (AD-1052, AD-1056). A covered module is trusted not to hand the bound name to an uncovered module (it can re-export it: `USE = m.pickle`, `from model import pickle as USE`, or a `covers` that lists the page itself); the scan does not check this. The report prints the number of covered modules of each declaration. Guidance for EE and CE: a unique alias of the bound name (`import pickle as _pickle_loader`) avoids almost all name hits and the long `covers` list.
 
 Premise: code that writes raw memory (`ctypes`, `from_address`) can change a code object or a binding without any name that the scan reads. The scan does not read it; the run assumes that the scanned code does not do this.
 

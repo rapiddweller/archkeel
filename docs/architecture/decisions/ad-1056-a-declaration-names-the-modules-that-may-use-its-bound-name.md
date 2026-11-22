@@ -8,7 +8,7 @@
 
 **Decision.** Contract 3.20.0 adds the optional field `covers`: a list of module prefixes, like `loads`. A module that can reach the bound name and lies below a `covers` prefix does not refuse the declaration. A module that can reach the name and lies below no prefix still refuses it (`trojan_horse_reach.invalid`). Each frame row of an applied declaration lists the covered modules in `covered`, and the text report prints `Covered uses of the bound name`.
 
-**Limits.** `covers` is a premise of the contract, like `loads`: it is trusted. The scan does not prove that a covered module uses the name harmlessly. The row and the "PASS under" words say so. A prefix that names a module that never reaches the name is not an error.
+**Limits.** A covered module is trusted not to hand the bound name to an uncovered module (it can re-export it: `USE = m.pickle`, `from model import pickle as USE`, or a `covers` that lists the page itself); the scan does not check this. Guidance for a project: a unique alias of the bound name (`import pickle as _pickle_loader`) avoids almost all name hits, so the `covers` list stays short. `covers` is a premise of the contract, like `loads`: it is trusted. The scan does not prove that a covered module uses the name harmlessly. The row and the "PASS under" words say so. A prefix that names a module that never reaches the name is not an error.
 
 **Measured.** Scratch copies without `.git`, 86 and 57 declarations by name, `loads: []`: datamimic-ce 99 to 36 UNKNOWN (1 FAIL stays, 239 PASS: 176 unconditional, 63 under declared reaches). datamimic-ee needs no `covers` (24 UNKNOWN, 0 FAIL, 455 PASS: 256 unconditional, 199 under declared reaches).
 

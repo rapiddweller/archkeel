@@ -222,3 +222,7 @@ pub(in crate::survey) fn exposed(
     found.sort_unstable();
     found
 }
+
+#[cfg(test)]
+#[path = "hazards_bind_tests.rs"]
+mod tests;

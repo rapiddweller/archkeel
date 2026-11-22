@@ -148,7 +148,8 @@ def test_a_covers_list_clears_the_exposure_of_the_modules_it_names_and_no_other(
     (row,) = covered["frame"]["trojan_horse_reach"]
     assert row["covered"] == ["app.client.page"], row
     text = command(release_core, tmp_path / "covered", "--text").stdout
-    assert "Covered uses of the bound name: app.client.page" in text, text
+    assert "1 declarations cover 1 modules in all." in text, text
+    assert "D-PICKLE covers 1 modules, trusted not to hand the bound name" in text, text
 
     # A module that `covers` does not name stays refused, and Python really imports the module.
     attribute = f"import app.service.model as model\nmodel.pickle.loads({BLOB})\n"

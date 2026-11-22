@@ -35,6 +35,6 @@ The 6 `reexport_ambiguity` gaps in `domains/registry/components.py` stay. A modu
 scan is a list element or a call argument there. The escape rule of AD-504 (a bare use escapes) fires in
 `uses::Uses::visit_expr`. A proof needs the receiver type and a proof of the callee parameter.
 
-**Tests.** `survey/outside_tests.rs` (clears and stays), `tests/test_collector_false_pass_python_door_census.py`
+**Tests.** `survey/outside_tests.rs` (clears and stays), `tests/test_collector_false_pass_python_trojan_horse_census.py`
 (Python 3.12 runs each plant: a spec with a scan name, a scan module as loader target, a store, the state of the
 import system; the control with a foreign name is PASS).

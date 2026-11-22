@@ -116,8 +116,10 @@ impl TrojanHorseProblem {
     /// What the problem is, for a reader.
     pub fn text(&self) -> String {
         match self {
-            TrojanHorseProblem::Unmatched => "matches no trojan horse of the scan (moved, changed or gone); \
-                 the declaration is not applied"
+            TrojanHorseProblem::Unmatched => "matches no trojan horse of the scan: no site of the module has this name, line \
+                 and scope. A name is the text that the collector prints for the site \
+                 (`importlib.util`, `pickle.loads`), not the name that an import binds (`iu`); the \
+                 site can also have moved or be gone; the declaration is not applied"
                 .to_owned(),
             TrojanHorseProblem::Ambiguous(n) => format!("matches {n} trojan horses; name the site by its line; the declaration is not applied"),
             TrojanHorseProblem::Repeated(o) => format!("names a trojan horse that {} also name; the declarations of the trojan horse are not applied", o.join(", ")),
