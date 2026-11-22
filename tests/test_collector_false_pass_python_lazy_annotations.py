@@ -75,10 +75,10 @@ def _validate(
 
 
 def _truth(root: Path, script: str) -> str:
-    """What Python 3.14 reads for `x`, or `""` when no Python 3.14 is installed."""
+    """What Python 3.14 reads for `x`. The test skips when no Python 3.14 is installed."""
     python = shutil.which("python3.14")
     if python is None:
-        return ""
+        pytest.skip("python3.14 is the oracle")
     code = (
         f"import sys; sys.path.insert(0, '.'); {script}import annotationlib, app.api; "
         "print(annotationlib.get_annotations(app.api.Box.f)['x'])"
@@ -107,7 +107,7 @@ def test_a_lazy_method_annotation_cannot_pass_an_unproved_allowance(
     found = _truth(
         tmp_path / "repo", "import runpy; runpy.run_path('outside.py'); " if files else ""
     )
-    assert found in {"", truth}, found
+    assert found == truth, found
 
     assert result["frame"]["rules"]["API-TYPES"][1] in {"FAIL", "UNKNOWN"}, result["frame"]
     assert REMEDY in str(result["frame"]), result["frame"]

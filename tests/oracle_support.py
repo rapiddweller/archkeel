@@ -19,12 +19,13 @@ from typing import Any
 
 import pytest
 
-# The reasons that the tests give to a `skipif` on a missing oracle tool, and the tool of each.
+# A skip reason names an oracle tool as a word, in any case: `Node.js is required`, `no node on this
+# machine`, `rustc is not on PATH`, `python3.14`. The tool of the first pattern that matches wins.
 REASONS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"python3\.12|(Python|CPython) is the oracle"), "python312"),
-    (re.compile(r"rustc is the oracle|Rust runs the fixtures|cargo is not installed"), "cargo"),
-    (re.compile(r"node is the oracle"), "node"),
-    (re.compile(r"dart is the oracle"), "dart"),
+    (re.compile(r"\bpython ?(3)\.(\d+)\b|\b(?:CPython|Python) is the oracle", re.I), "python"),
+    (re.compile(r"\b(?:cargo|rustc)\b|\bRust runs\b", re.I), "cargo"),
+    (re.compile(r"\bnode(?:\.?js)?\b", re.I), "node"),
+    (re.compile(r"\bdart\b", re.I), "dart"),
 )
 MARK = "oracle_"
 SELECTED: set[str] = set()
@@ -33,7 +34,13 @@ RAN: set[str] = set()
 
 def tool_of(reason: str) -> str | None:
     """The oracle tool that a skip reason names, or None for another reason."""
-    return next((tool for pattern, tool in REASONS if pattern.search(reason)), None)
+    for pattern, tool in REASONS:
+        found = pattern.search(reason)
+        if found and tool == "python":
+            return "python" + "".join(found.groups("")) if found.group(1) else "python312"
+        if found:
+            return tool
+    return None
 
 
 def in_ci(environ: Mapping[str, str] = os.environ) -> bool:

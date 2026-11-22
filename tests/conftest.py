@@ -21,7 +21,7 @@ ROOT = Path(__file__).parents[1]
 def pytest_configure(config: pytest.Config) -> None:
     """AD-1048: an oracle test never skips in CI, and each selected oracle runs once."""
     config.pluginmanager.register(oracle_support, "oracle_support")
-    for _, tool in oracle_support.REASONS:
+    for tool in ("python312", "python314", "cargo", "node", "dart"):
         config.addinivalue_line("markers", f"oracle_{tool}: compares a verdict with {tool}")
 
 

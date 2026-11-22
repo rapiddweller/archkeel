@@ -53,6 +53,21 @@ PLANTS = {
         "type(f)(code, {})()\nrun()\n"
     ),
 }
+# #1967: a computed name is no door yet. Each plant imports `app.lib` under CPython 3.12 and still
+# gives PASS; the owner decides whether a computed `getattr` is a door.
+EDIT = "tuple('app.lib' if n == 'json' else n for n in code.co_names)"
+HEAD = "def f():\n    import json\n    return json\n\nname = {name}\n"
+TAIL = "code = {read}\nsetattr(f, name, code.replace(co_names=" + EDIT + "))\nf()\n"
+COMPUTED = {
+    "joined-getattr": ("'__co' + 'de__'", "getattr(f, name)"),
+    "getattribute": ("''.join(['__c', 'ode__'])", "f.__getattribute__(name)"),
+    "variable-name": ("''.join(['__c', 'ode__'])", "getattr(f, name)"),
+    "reversed-name": ("'__edoc__'[::-1]", "getattr(f, name)"),
+    "dir-filter": (
+        "[n for n in dir(f) if n.startswith('__co')][0]",
+        "getattr(f, name)",
+    ),
+}
 CONTROLS = {
     "scalar-field": "def f():\n    import json\n    return json\n\nNAME = f.__code__.co_name\n",
     "function-name": "def f():\n    import json\n    return json\n\nNAME = f.__name__\nf()\n",
@@ -117,3 +132,16 @@ def test_a_plain_read_of_a_function_keeps_pass(
     assert not loads_lib(root), "CPython must leave app.lib unloaded: the control is clean"
     result = verdict(release_core, root)
     assert rows(result)["NO-LIB"] == "PASS", result["frame"]
+
+
+@pytest.mark.xfail(strict=True, reason="#1967: a computed attribute name is no import door yet")
+@pytest.mark.parametrize("name", sorted(COMPUTED))
+def test_a_computed_name_that_reaches_a_code_object_is_never_pass(
+    release_core: Path, tmp_path: Path, name: str
+) -> None:
+    value, read = COMPUTED[name]
+    source = HEAD.format(name=value) + TAIL.format(read=read)
+    root = build(tmp_path, source)
+    assert loads_lib(root), "CPython must import app.lib: the plant is real"
+    result = verdict(release_core, root)
+    assert rows(result)["NO-LIB"] in {"FAIL", "UNKNOWN"}, result["frame"]

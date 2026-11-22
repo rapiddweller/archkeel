@@ -22,7 +22,7 @@ Each rule below is UNKNOWN, with the stated reason, when its subject is absent.
    declares a public interface". This is the smallest change that keeps the design of AD-428: the
    skip stays, and the verdict states that it is vacuous. A contract with one `public` entry
    keeps its verdict.
-4. Python: a code object that a function hands out is an import door (#1965).
+4. Python: a code object that a function hands out by a literal name is an import door (#1965).
    `f.__code__ = f.__code__.replace(co_names=...)` makes `import json` import another module.
    The attributes `__code__`, `f_code`, `gi_code`, `cr_code` and `ag_code` give `dynamic_import`,
    unless a scalar field is read at once (`f.__code__.co_name`, `co_filename`, `co_argcount`, and
@@ -44,6 +44,10 @@ Each rule below is UNKNOWN, with the stated reason, when its subject is absent.
 - Case 1 and 2 give UNKNOWN for a rule that is true and unused. This is the price of evidence.
 - The `target_symbol` proof reads the names of the symbol facts and the imports. It does not read
   names that a macro or a star import adds; a star import was UNKNOWN before (AD-668).
+- Computed names are open: `getattr(f, '__co' + 'de__')`, `f.__getattribute__(...)`, a variable
+  name and a `dir()` filter still give PASS (#1967; `docs/known-limits.md`). The owner decides.
+- The 17 `external_dependency_scope` rules of the native self-check keep PASS: an import names
+  each of their packages.
 - A code object that code outside the scan roots rewrites is outside the scan (the premise).
 
 ## Checks
