@@ -2,26 +2,27 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Comprehension target scope for the import hazard survey, and the function scopes of a computed
-//! attribute name (AD-1052, #1967).
+//! Comprehension target scope for the import hazard survey, and the sites of an access by a name
+//! that the scan cannot read (AD-1053, AD-1058, #1967).
 //!
 //! `getattr(x, name)`, `setattr(x, name, v)` and `x.__getattribute__(name)` give any attribute of
-//! `x`, such as `__code__`, `__globals__` or `__self__`, when `name` is no literal. A name that the
-//! scan cannot read is a trojan horse: a place that can load code the scan does not see. It is
-//! not a claim of malice. The site is a `dynamic_import` gap, and a contract can declare it by
-//! its name (`getattr`, `setattr`, `__getattribute__`). The site is no gap when
-//! - the name is a string literal (`hazards.rs` reads it), or a local of the function that one
-//!   assignment binds to a string literal;
-//! - the receiver is a class of this module, a module that a plain `import` of this module binds,
-//!   or a local that one assignment binds to the result of a loader call (that call is a site of
-//!   its own). A name counts only when the module binds it exactly once, so no parameter, pattern,
-//!   `except` target, loop target or nested name can rebind it.
+//! `x`, such as `__code__`, `__globals__` or `__builtins__`, when `name` is no literal. A place
+//! that does this is a trojan horse: a place that can load code the scan does not see. It is not a
+//! claim of malice. The site is a `dynamic_import` gap, and a contract can declare it by its name.
 //!
-//! `self` and `cls` are no proof: `C.get(f, name)` calls a method with any first argument. A nested
-//! function or a lambda has no proof of its own. The call must use the builtin `getattr` or
-//! `setattr`, which the module does not shadow, or the method `__getattribute__` or `__setattr__`
-//! of any class (`C.__getattribute__(x, name)` has the receiver `x`). A call through another name
-//! (`g = getattr`) is not read.
+//! The collector clears only what is obviously safe. A call is no site when the name is a string
+//! literal, or a local that the module binds exactly once, in an outermost function, to a string
+//! literal. No receiver is proven: not `self`, not a class (a decorator or a store through an alias
+//! can replace it), not a module (each module has `__builtins__`). A nested function or a lambda
+//! has no scope of its own.
+//!
+//! These forms are sites: a call of the builtin `getattr`, `setattr`, `delattr` or `vars`, or of a
+//! method `__getattribute__`, `__setattr__` or `__delattr__`, with an unproven name; each call of
+//! `attrgetter`, `methodcaller`, `getmembers`, `getmembers_static`, `getattr_static`,
+//! `get_referents` or `get_referrers`; each import of one of these names (an alias hides the use);
+//! each reference to one of them that is no direct call (`g = getattr`, `map(getattr, xs)`);
+//! `x.__dict__` and `vars(x)`, except directly subscripted with a literal key. The builtin must
+//! not be shadowed in the module.
 
 use std::collections::HashSet;
 
@@ -90,7 +91,6 @@ struct Trojans<'n> {
     single: &'n HashSet<String>,
     visible: &'n HashSet<String>,
     taken: HashSet<String>,
-    classes: HashSet<String>,
     scope: Option<Scope>,
     depth: usize,
     found: Vec<(&'static str, TextRange)>,
@@ -112,19 +112,10 @@ pub(super) fn trojans(
         single,
         visible,
         taken: HashSet::new(),
-        classes: HashSet::new(),
         scope: None,
         depth: 0,
         found: Vec::new(),
     };
-    for stmt in &tree.body {
-        if let Stmt::ClassDef(node) = stmt {
-            if single.contains(Identifier::as_str(&node.name)) {
-                walk.classes
-                    .insert(Identifier::as_str(&node.name).to_owned());
-            }
-        }
-    }
     let mut globals = Declared(HashSet::new());
     globals.visit_body(&tree.body);
     walk.taken = globals.0;
@@ -168,11 +159,12 @@ impl<'a> Visitor<'a> for Declared {
 const BUILTIN_ACCESS: [&str; 4] = ["getattr", "setattr", "delattr", "vars"];
 /// The functions of the standard library that read attributes by a name that the scan does not
 /// follow, or hand out every attribute of a value, a code object among them.
-const LIBRARY_ACCESS: [&str; 6] = [
+const LIBRARY_ACCESS: [&str; 7] = [
     "attrgetter",
     "methodcaller",
     "getmembers",
     "getmembers_static",
+    "getattr_static",
     "get_referents",
     "get_referrers",
 ];
@@ -258,12 +250,6 @@ impl Trojans<'_> {
             _ => false,
         }
     }
-
-    /// True when the receiver is a class of this module. A module is no proof: each module has
-    /// `__builtins__` and `__loader__` (AD-1058).
-    fn known(&self, receiver: &Expr) -> bool {
-        matches!(receiver, Expr::Name(node) if HashSet::contains(&self.classes, Name::as_str(&node.id)))
-    }
 }
 
 impl<'a> Trojans<'_> {
@@ -271,7 +257,7 @@ impl<'a> Trojans<'_> {
     /// its arguments are visited; the result is true when the call was one.
     fn access_call(&mut self, call: &'a ExprCall) -> bool {
         let site = self.computed(call);
-        let site = site.filter(|(_, receiver, name)| !self.resolved(name) && !self.known(receiver));
+        let site = site.filter(|(_, _, name)| !self.resolved(name));
         if let Some((kind, _, _)) = site {
             self.found.push((kind, call.range()));
         }
@@ -300,6 +286,16 @@ impl<'a> Visitor<'a> for Trojans<'_> {
                 self.depth += 1;
                 // Only an outermost function has a proof; a nested one has none (it can rebind).
                 self.scope = (depth == 0).then(|| self.scope_of(def));
+            }
+            Stmt::ImportFrom(node) => {
+                // `from inspect import getmembers as gm`: the alias hides each later use.
+                let named = node
+                    .names
+                    .iter()
+                    .filter(|alias| LIBRARY_ACCESS.contains(&Identifier::as_str(&alias.name)));
+                self.found
+                    .extend(named.map(|alias| ("getattr_value", alias.range())));
+                self.scope = outer.clone();
             }
             _ => self.scope = outer.clone(),
         }
@@ -333,7 +329,7 @@ impl<'a> Visitor<'a> for Trojans<'_> {
             // A form that is no callee is a call that the scan does not follow: `g = getattr`,
             // `map(getattr, ...)`, `partial(getattr, f)`, `ga = f.__getattribute__` (AD-1058).
             Expr::Name(_) | Expr::Attribute(_) if self.form(expr).is_some() => {
-                self.found.push(("value", expr.range()));
+                self.found.push(("getattr_value", expr.range()));
             }
             _ => {}
         }

@@ -142,6 +142,78 @@ fn computed_read(call: &ExprCall) -> bool {
     }
 }
 
+/// The names that the import statements of `body` bind to `module` or to a package above it,
+/// at any depth of the compound statements.
+fn bound_to(body: &[Stmt], module: &str, found: &mut Vec<String>) {
+    let above = |name: &str| module == name || module.starts_with(&format!("{name}."));
+    for stmt in body {
+        match stmt {
+            Stmt::Import(node) => {
+                for alias in node.names.iter().filter(|alias| above(alias.name.as_str())) {
+                    let first = alias.name.as_str().split('.').next().unwrap_or("");
+                    found.push(
+                        alias
+                            .asname
+                            .as_ref()
+                            .map_or(first, |a| a.as_str())
+                            .to_owned(),
+                    );
+                }
+            }
+            Stmt::ImportFrom(node) if node.level == 0 => {
+                let from = node.module.as_ref().map_or("", |name| name.as_str());
+                let hits = node
+                    .names
+                    .iter()
+                    .filter(|alias| above(&format!("{from}.{}", alias.name.as_str())));
+                let names = hits.map(|alias| alias.asname.as_ref().unwrap_or(&alias.name));
+                found.extend(names.map(|name| name.as_str().to_owned()));
+            }
+            Stmt::FunctionDef(node) => bound_to(&node.body, module, found),
+            Stmt::ClassDef(node) => bound_to(&node.body, module, found),
+            Stmt::If(node) => {
+                bound_to(&node.body, module, found);
+                for clause in &node.elif_else_clauses {
+                    bound_to(&clause.body, module, found);
+                }
+            }
+            Stmt::Try(node) => {
+                bound_to(&node.body, module, found);
+                bound_to(&node.orelse, module, found);
+                bound_to(&node.finalbody, module, found);
+            }
+            Stmt::With(node) => bound_to(&node.body, module, found),
+            Stmt::For(node) => bound_to(&node.body, module, found),
+            Stmt::While(node) => bound_to(&node.body, module, found),
+            _ => {}
+        }
+    }
+}
+
+/// True when the module value escapes the importer: a name that is bound to it is used other than
+/// as the base of an attribute (`f(model)`, `return model`, `x = model`, `[model]`). Then any
+/// attribute of it can be read where the scan does not look (AD-1058).
+fn escapes(body: &[Stmt], module: &str) -> bool {
+    let mut names = Vec::new();
+    bound_to(body, module, &mut names);
+    names.iter().any(|name| {
+        let (mut loads, mut bases) = (0_usize, 0_usize);
+        let count = |expr: &Expr| {
+            match expr {
+                Expr::Name(node) if Name::as_str(&node.id) == name => loads += 1,
+                Expr::Attribute(node) => {
+                    let base = matches!(&*node.value, Expr::Name(n) if Name::as_str(&n.id) == name);
+                    bases += usize::from(base);
+                }
+                _ => {}
+            }
+            false
+        };
+        any_over_body(body, count);
+        loads > bases
+    })
+}
+
 /// The modules of the scan that can reach the name `binding` of the module `module` without a
 /// record that names it: an attribute or a text of that name, in a module that imports `module`
 /// or a package above it (`import m` then `m.pickle.loads`). A from-import and a star import are
@@ -178,7 +250,7 @@ pub(in crate::survey) fn exposed(
             Expr::Call(call) => computed_read(call),
             _ => false,
         };
-        if any_over_body(&other.tree.body, named) {
+        if any_over_body(&other.tree.body, named) || escapes(&other.tree.body, module) {
             found.push(other.name.clone());
         }
     }

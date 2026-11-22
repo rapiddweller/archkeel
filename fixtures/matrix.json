@@ -79,7 +79,7 @@
     "K-python-realworld": {
       "language": "python",
       "runs": [
-      {"name": "K-python-realworld", "section": "unknown", "intent": "UNKNOWN", "blocked_by": [], "about": "Real project: the FastAPI RealWorld app, pinned. A Python inventory is always partial, so a closed scope stays UNKNOWN.", "root": "K-python-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "K-python-realworld", "section": "unknown", "intent": "UNKNOWN", "blocked_by": [], "about": "Real project: the FastAPI RealWorld app, pinned. A Python inventory is always partial, so a closed scope stays UNKNOWN.", "root": "K-python-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: 1 gap leaves unknown what the rule reads: the code of every module", "gaps": {}, "refusal": null}}
       ]
     },
     "L-nest-realworld": {

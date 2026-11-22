@@ -43,6 +43,24 @@ PUT = "code.replace(co_names=" + EDIT + ")"
 BUILTINS_IMPORT = "b = d['__bui' + 'ltins__']\nb['__imp' + 'ort__']('app.lib')\n"
 W = "(f, name, " + PUT + ")\nf()\n"
 FULL = {
+    # AD-1058: no class is a proven receiver. A decorator returns another object; a store through
+    # an alias of the module replaces the class.
+    "class-decorator": (
+        "def d(c):\n    return globals()['f']\n\n\n" + F + "@d\nclass C: ...\n\n\n"
+        "def r(n):\n    return getattr(C, n)\n\n\n"
+        + NAME
+        + "code = r(name)\nsetattr(C, name, "
+        + PUT
+        + ")\nf()\n"
+    ),
+    "class-replaced-through-alias": (
+        "import app.consumer as me\n\n\nclass C: ...\n\n\n"
+        + F
+        + NAME
+        + "me.C = f\ncode = getattr(C, name)\nsetattr(C, name, "
+        + PUT
+        + ")\nf()\n"
+    ),
     # AD-1058: a reference to an access form that is no direct call is a site.
     "alias": "g = getattr\ns = setattr\n" + F + NAME + "code = g(f, name)\ns" + W,
     "bound-method": (
@@ -218,7 +236,6 @@ FULL |= ANNOTATED
 CONTROLS = {
     "literal-name": "def f():\n    return 1\n\nNAME = getattr(f, '__name__')\n",
     "local-literal": "def f():\n    n = '__name__'\n    return getattr(f, n)\n",
-    "project-class": "class C:\n    x = 1\n\ndef read(n):\n    return getattr(C, n)\n",
     "local-annotation": (
         "import types\n\ndef f(x):\n    code: types.CodeType = x\n"
         "    return isinstance(x, types.CodeType)\n"

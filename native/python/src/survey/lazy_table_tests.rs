@@ -42,7 +42,7 @@ def __getattr__(name):
         .collect();
     assert!(targets.contains(&"app.first"), "{targets:?}");
     assert!(targets.contains(&"app.second"), "{targets:?}");
-    assert!(reasons(&found).is_empty(), "{:?}", reasons(&found));
+    only_the_access_sites(&found);
 }
 
 #[test]
@@ -227,11 +227,22 @@ fn targets_of(found: &crate::survey::Survey) -> BTreeSet<String> {
         .collect()
 }
 
+/// The lazy `__getattr__` reads an attribute by a computed name, so each `getattr` call keeps its
+/// trojan horse site until a contract declares it (AD-1058). No other gap is left.
+fn only_the_access_sites(found: &crate::survey::Survey) {
+    let rest = reasons(found);
+    assert!(
+        rest.iter()
+            .all(|reason| reason == "dynamic_import: getattr"),
+        "{rest:?}"
+    );
+}
+
 #[test]
 fn the_shape_of_pydantic_has_no_gap_and_every_import_python_makes_is_an_edge() {
     let tree = shape_tree(SHAPE);
     let found = surveyed_at(&tree);
-    assert!(reasons(&found).is_empty(), "{:?}", reasons(&found));
+    only_the_access_sites(&found);
     let edges = targets_of(&found);
     for name in ["sub", "Alpha", "Beta", "Gamma", "Delta", "Old"] {
         let Some(truth) = truth(&tree, &[name]) else {

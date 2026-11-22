@@ -41,6 +41,21 @@ fn a_computed_attribute_name_on_an_unproved_receiver_is_a_site() {
         "def f(m, n):\n    return m.__dict__[n]\n",
         "def f(m, n):\n    return m.__dict__.get(n)\n",
         "def f(m):\n    return vars(m)\n",
+        // AD-1058: no class is a proven receiver (a decorator or a store can replace it).
+        "class C: ...\ndef f(n):\n    return getattr(C, n)\n",
+        "def d(c):\n    return other\n@d\nclass C: ...\ndef f(n):\n    return getattr(C, n)\n",
+        "class C: ...\nimport sys\ndef f(n):\n    return getattr(C, n)\n",
+        // An alias hides the later use: the import is the site.
+        "from inspect import getmembers as gm\n",
+        "from operator import attrgetter as ag\n",
+        "from operator import methodcaller as mc\n",
+        "from inspect import getattr_static\n",
+        "import inspect as i\ndef f(x):\n    return i.getattr_static(x, 'a')\n",
+        "def f(x):\n    return x.f_builtins\n",
+        "def f(g):\n    return g.gi_frame\n",
+        "import sys\ndef f():\n    return sys._getframe(0)\n",
+        "import inspect\ndef f():\n    return inspect.currentframe()\n",
+        "def f(x):\n    return getattr(x, 'f_builtins')\n",
         "def f(m):\n    d = m.__dict__\n    return d\n",
         "import json\nd = vars(json)\n",
         "def f(n, xs):\n    m = import_module('a')\n    for m in xs:\n        pass\n    return getattr(m, n)\n",
@@ -90,7 +105,6 @@ fn a_literal_name_a_proved_receiver_or_a_local_literal_is_no_site() {
     for source in [
         "def f(x):\n    return getattr(x, 'a')\n",
         "def f(x):\n    n = 'a'\n    return getattr(x, n)\n",
-        "class C: ...\ndef f(n):\n    return getattr(C, n)\n",
         "def f(m):\n    return vars(m)['a']\n",
         "def f(m):\n    return m.__dict__['a']\n",
     ] {

@@ -8,7 +8,7 @@
 
 **Decision.** The Python collector gives a `dynamic_import` gap for a call of the visible builtin `getattr`, `setattr` or `delattr`, or of the method `__getattribute__`, `__setattr__` or `__delattr__` (`x.m(name)` has the receiver `x`, `C.m(x, name)` has the receiver `x`), whose attribute name is not a string literal and whose receiver is not proven. AD-1058 tightens the proofs below. A declaration by name can state its reach (AD-1052). There is no gap when:
 - the name is a literal, or a local that the module binds exactly once, in an outermost function, to a literal;
-- the receiver is a class that the module binds exactly once. `self`, `cls` and a module are no proof (AD-1058): `C.get(f, name)` calls a method with any first argument, and each module has `__builtins__`.
+- no receiver is proven (AD-1058): `self`, `cls`, a class and a module are no proof.
 
 **Limits.** A file outside the scan roots is not read for this rule: the premise of the run says that outside code writes no binding of the scan. Without this exception, one computed `getattr` in a test file of archkeel turned off call resolution of the shell scan (found by `make self-validate-shell`). A loop over a literal tuple of names is not proven; its site stays. A name proven only at module level is not resolved (another module can write it). A receiver that is an imported class stays a site.
 

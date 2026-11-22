@@ -93,7 +93,7 @@ pub(super) const BUILTIN_TROJAN_HORSES: [&str; 10] = [
 
 /// The string values that name a trojan horse: `getattr(x, "__import__")` and `d["__builtins__"]`. A key
 /// with one of them is never read as data.
-pub(in crate::survey) const TROJAN_HORSE_STRINGS: [&str; 12] = [
+pub(in crate::survey) const TROJAN_HORSE_STRINGS: [&str; 17] = [
     "__import__",
     "__builtins__",
     "import_module",
@@ -106,6 +106,11 @@ pub(in crate::survey) const TROJAN_HORSE_STRINGS: [&str; 12] = [
     "gi_code",
     "cr_code",
     "ag_code",
+    "f_builtins",
+    "f_locals",
+    "gi_frame",
+    "cr_frame",
+    "ag_frame",
 ];
 
 /// The attributes that hand out a code object (AD-1048). `code.replace(co_names=...)` or
@@ -156,8 +161,16 @@ pub(super) const IMPORT_FUNCTIONS: [&str; 9] = [
 /// The attributes that are hazards on any value: the attributes that reach the builtins, a
 /// loader or the importer classes (`f.__globals__`, `len.__self__`, `object.__subclasses__`),
 /// the state of the import system, and modules that another module can re-export (`os.sys`).
-pub(super) const ANY_ATTRIBUTE: [&str; 13] = [
+pub(super) const ANY_ATTRIBUTE: [&str; 21] = [
     "f_globals",
+    "f_builtins",
+    "f_locals",
+    "gi_frame",
+    "cr_frame",
+    "ag_frame",
+    "_getframe",
+    "_current_frames",
+    "currentframe",
     "__self__",
     "__globals__",
     "__subclasses__",

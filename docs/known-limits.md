@@ -320,8 +320,7 @@ The collector gives a `dynamic_import` gap (a trojan horse site, AD-1053, AD-105
 a literal code attribute (`__code__`, `f_code`, ...), `getattr`, `setattr`, `delattr`, `__getattribute__`,
 `__setattr__` and `__delattr__` with a name or a receiver that it cannot prove, each reference to one of
 them that is no direct call (`g = getattr`, `map(getattr, ...)`), `vars(x)` and `x.__dict__`,
-`attrgetter`, `methodcaller`, `inspect.getmembers` and `gc.get_referents`. A proven receiver is a class that
-the module binds once. `self`, `cls` and a module are no proof. A module that is imported twice, or a
+`attrgetter`, `methodcaller`, `inspect.getmembers` and `gc.get_referents`. No receiver is proven: `self`, `cls`, a class and a module are no proof. A lazy `__getattr__` table keeps its `getattr` sites, so its proven keys (AD-654) are dropped until a contract declares them. A module that is imported twice, or a
 loop over a literal tuple of names, keeps its site (precision limit; a contract can declare it).
 
 Still open, with a plant that fails when it is fixed (`tests/test_collector_false_pass_python_open.py`):
