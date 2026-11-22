@@ -24,11 +24,11 @@ use crate::boundary_facts::BoundaryFacts;
 use crate::causes::Cause;
 use crate::reason::{Reason, Unsupported};
 
+use crate::door_reach::Applied;
 use crate::gap_class::{Doubt, Scoped};
 use crate::model::Model;
 use crate::ownership::{claims, in_scope, owner_of};
 use crate::selection;
-use crate::trojan_horse_reach::Applied;
 
 /// The facts of one module that a rule reads.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

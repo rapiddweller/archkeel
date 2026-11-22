@@ -14,6 +14,8 @@
 - A note is typed (`code`, `text`), never blocks, and changes no verdict. The text report prints one line `Note (<code>): <text>` for each note.
 - A stored facts 11 file that spells the gap field `door` still reads (serde alias).
 
+**File name.** The model file keeps the file name `door_reach.rs`; the rename of the file waits for a split that keeps the born-small limit.
+
 **Pins.** The pins of the self-check name modules. They are re-keyed: the set of gap records is the same, only the module names changed (`door` to `trojan_horse`). No pin is raised: 18393 gaps before and after.
 
 **Tests.** `tests/test_cli_python_trojan_horse_alias.py`: an old contract (3.15.0, 3.19.0, 3.20.0) gives the same rows and the same exit code as the new spelling plus one note; both keys together are refused.

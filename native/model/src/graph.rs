@@ -21,6 +21,7 @@ use archkeel_store::Ingested;
 use crate::constructs::Constructs;
 use crate::coverage::{self, Incomplete};
 use crate::cycles::{self, Cycle};
+use crate::door_reach::{self, TrojanHorses};
 use crate::edges::{self, Edge, Level};
 use crate::gap_class::{self, Class};
 use crate::ids::{Id, ModuleId, PackageId, Table};
@@ -31,7 +32,6 @@ use crate::observed::{self, Observed};
 use crate::reason::Reason;
 use crate::settings::{Producer, Settings};
 use crate::topology::{self, Measure};
-use crate::trojan_horse_reach::{self, TrojanHorses};
 
 /// The reply part of the model of one run.
 #[derive(Debug)]
@@ -121,7 +121,7 @@ impl Graph {
         let settings = settings.bound(&facts.adapter.name, facts.profile.as_str());
         let (modules, packages) = modules::tables(&facts.files)?;
         // AD-664: the declared reach of the trojan horses; a declared gap names no unresolved import.
-        let mut trojan_horses = trojan_horse_reach::matched(declared, facts, &settings);
+        let mut trojan_horses = door_reach::matched(declared, facts, &settings);
         let mut split = imports::split(facts, analysis.target_marks, |gap| {
             trojan_horses.of_gap(gap).is_some()
         });
@@ -147,7 +147,7 @@ impl Graph {
             Producer::Trusted | Producer::External => None,
         };
         let mut observed = observed::observed(facts, analysis, &classes, live_target);
-        observed.effect_gaps = trojan_horse_reach::narrowed(&trojan_horses, observed.effect_gaps);
+        observed.effect_gaps = door_reach::narrowed(&trojan_horses, observed.effect_gaps);
         let gaps = crate::gaps::coverage_gaps(&facts.coverage, &classes);
         drop(names);
         let constructs = Constructs::derive(facts, settings.producer() == Producer::Trusted)?;

@@ -2794,7 +2794,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
@@ -2803,7 +2803,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A method call may reach the method iter of a type in its own file native.archkeel_model.ids"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
@@ -2812,7 +2812,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
@@ -13157,7 +13157,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -15020,7 +15020,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.base",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -16469,7 +16469,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.baseline",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -17270,7 +17270,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.baseline_frame",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -18476,7 +18476,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.check",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -19907,7 +19907,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.contract",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -20573,7 +20573,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.decode",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -21662,7 +21662,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.dual_run",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -23399,7 +23399,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.dual_run.frame_parts",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -25154,7 +25154,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.engine",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -26576,7 +26576,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.gap_key",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -28907,7 +28907,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.hygiene_boundary",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -29600,7 +29600,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.hygiene_interface",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -30230,7 +30230,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.hygiene_pairs",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -30887,7 +30887,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.hygiene_refs",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -32957,7 +32957,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.provenance",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -35423,7 +35423,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.report",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -36170,7 +36170,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.request",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -36971,7 +36971,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.rules",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -38132,7 +38132,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.scan",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -39563,7 +39563,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.sections",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -40742,7 +40742,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.system",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -43244,7 +43244,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.topology",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -43910,7 +43910,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.topology_declared",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -44558,7 +44558,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_core.topology_projection",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -55619,7 +55619,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -56294,7 +56294,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.assignment",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -56960,7 +56960,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.boundary_types",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -57653,7 +57653,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.constructs",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -58346,7 +58346,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.cycles",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -59039,7 +59039,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.decide",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -59732,7 +59732,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.direction",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -60389,7 +60389,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.external",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -61055,7 +61055,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.interface",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -61757,7 +61757,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.layout",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -62414,7 +62414,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.placement",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -63125,7 +63125,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.unused_public",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -63818,7 +63818,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_eval.violation",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -66716,7 +66716,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.boundary_positions",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -67148,7 +67148,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.boundary_surface",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -67787,7 +67787,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.component_cycles",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -68237,7 +68237,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.construct_match",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -69281,7 +69281,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.direction",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -69739,7 +69739,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_contract.document may run in code that reaches native.archkeel_contract.document without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69748,7 +69748,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_contract.error may run in code that reaches native.archkeel_contract.error without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69757,7 +69757,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_contract.json may run in code that reaches native.archkeel_contract.json without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69766,7 +69766,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_contract.macros may run in code that reaches native.archkeel_contract.macros without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69775,7 +69775,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_contract.premises may run in code that reaches native.archkeel_contract.premises without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69784,7 +69784,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_contract.version may run in code that reaches native.archkeel_contract.version without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69793,7 +69793,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.data.gap_data may run in code that reaches native.archkeel_facts.data.gap_data without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69802,7 +69802,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.data.gap_effect may run in code that reaches native.archkeel_facts.data.gap_effect without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69811,7 +69811,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.data.symbols may run in code that reaches native.archkeel_facts.data.symbols without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69820,7 +69820,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.envelope.limits may run in code that reaches native.archkeel_facts.envelope.limits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69829,7 +69829,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.envelope.target_source may run in code that reaches native.archkeel_facts.envelope.target_source without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69838,7 +69838,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.envelope.validation may run in code that reaches native.archkeel_facts.envelope.validation without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69847,7 +69847,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.fields may run in code that reaches native.archkeel_facts.fields without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69856,7 +69856,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.measures may run in code that reaches native.archkeel_facts.measures without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69865,7 +69865,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.nested may run in code that reaches native.archkeel_facts.nested without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69874,7 +69874,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.nullable may run in code that reaches native.archkeel_facts.nullable without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69883,7 +69883,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.profile_traits may run in code that reaches native.archkeel_facts.profile_traits without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69892,7 +69892,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.record may run in code that reaches native.archkeel_facts.record without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69901,7 +69901,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.skip may run in code that reaches native.archkeel_facts.skip without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69910,7 +69910,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.standard may run in code that reaches native.archkeel_facts.standard without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69919,7 +69919,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_facts.type_shape may run in code that reaches native.archkeel_facts.type_shape without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69928,7 +69928,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_model.causes may run in code that reaches native.archkeel_model.causes without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69937,7 +69937,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_model.modules may run in code that reaches native.archkeel_model.modules without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69946,7 +69946,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_model.reason may run in code that reaches native.archkeel_model.reason without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -69955,7 +69955,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "A trait impl in native.archkeel_model.section may run in code that reaches native.archkeel_model.section without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
@@ -70253,7 +70253,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.dropped_gaps",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -70991,7 +70991,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.facade_reach",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -72503,7 +72503,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.interface",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -73349,7 +73349,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.model",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -74438,7 +74438,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.pair_gaps",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -74852,7 +74852,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.placement",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -75968,7 +75968,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.proof",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -76355,7 +76355,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.published",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -77399,7 +77399,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.receipts",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -78200,7 +78200,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.run",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -78731,7 +78731,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.scope",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -79262,7 +79262,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.scope_order",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -79721,7 +79721,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.scope_receipt",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -82358,7 +82358,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.tree",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -82781,7 +82781,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.uml",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -83303,7 +83303,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.uml_details",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -83744,7 +83744,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.uml_facts",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -84194,7 +84194,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.uml_inventory",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -84662,7 +84662,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.uml_scope",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -85094,7 +85094,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.uml_scope_symbols",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -85571,7 +85571,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.uml_symbols",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -86075,7 +86075,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.uml_tree",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -86606,7 +86606,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_model.verdict",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -109088,7 +109088,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_report",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -110546,7 +110546,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_report.beyond",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -111275,7 +111275,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_report.build_error",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -112022,7 +112022,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_report.construct",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -112778,7 +112778,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_report.edge_links",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -113588,7 +113588,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_report.report",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -114317,7 +114317,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_report.ruling",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -115595,7 +115595,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_report.run_scope",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -116351,7 +116351,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_report.violation_detail",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -117089,7 +117089,7 @@
         "gap",
         "collection_gap",
         "native.archkeel_report.why",
-        "A trait impl in native.archkeel_model.trojan_horse_reach may run in code that reaches native.archkeel_model.trojan_horse_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+        "A trait impl in native.archkeel_model.door_reach may run in code that reaches native.archkeel_model.door_reach without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "#1515/#1516 sound trait-dispatch gaps (AD-806); owner decision 2026-11-17; reduced by the precision steps"
     },
@@ -154861,7 +154861,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
       ],
       "reason": "Proposed #1811 soundness correction: unproved origin can supply a destructor; lead decision pending."
@@ -154870,7 +154870,7 @@
       "entry": [
         "gap",
         "collection_gap",
-        "native.archkeel_model.trojan_horse_reach",
+        "native.archkeel_model.door_reach",
         "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
       ],
       "reason": "Proposed #1811 soundness correction: unproved origin can supply a destructor; lead decision pending."

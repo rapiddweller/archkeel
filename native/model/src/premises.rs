@@ -21,9 +21,9 @@ use std::collections::BTreeSet;
 
 use archkeel_contract::{PremiseName, Rule};
 
+use crate::door_reach::Applied;
 use crate::model::Model;
 use crate::published_items::PublicItem;
-use crate::trojan_horse_reach::Applied;
 
 /// What one premise is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
