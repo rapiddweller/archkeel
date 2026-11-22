@@ -63,6 +63,24 @@ def _verdict(
 
 
 STAY = {
+    # AD-1049 (M1 of the counter-example run): a name below, above or computed from a variable
+    # can still name a module of the scan, so the foreign-name proof must refuse each of them.
+    "the spec name is below a module of the scan": (
+        LOAD.format(name="'app.lib.pub'") + "sys.modules['app.lib'] = mod\n",
+        "private",
+    ),
+    "the spec name is a package above a module of the scan": (
+        LOAD.format(name="'app'") + "mod.__path__ = []\nsys.modules['app.lib'] = mod\n",
+        "private",
+    ),
+    "the spec name comes from a variable": (
+        "NAME = 'app.' + 'lib'\n" + LOAD.format(name="NAME") + "sys.modules[NAME] = mod\n",
+        "private",
+    ),
+    "the spec name is a relative form": (
+        LOAD.format(name="'.lib'") + "sys.modules['app.lib'] = mod\n",
+        "private",
+    ),
     "the spec has the name of a module of the scan": (
         LOAD.format(name="'app.lib'") + "sys.modules['app.lib'] = mod\n",
         "private",
@@ -249,12 +267,12 @@ S2_CLEAR = {
     ),
     "types.CodeType": (
         "from types import CodeType\n"
-        "def f(c: CodeType | None = None) -> list[CodeType]:\n    return []\n"
+        "def f(c):\n    x: CodeType | None = None\n    y: list[CodeType] = []\n    return x, y\n"
     ),
     "types.CodeType attribute": (
         "import types\n"
-        "def f(c: types.CodeType | None = None) -> list[types.FunctionType]:\n"
-        "    return [x for x in [c] if isinstance(x, types.CodeType)]\n"
+        "def f(c):\n    z: list[types.FunctionType] = []\n"
+        "    return [x for x in [c] if isinstance(x, types.CodeType)], z\n"
     ),
 }
 

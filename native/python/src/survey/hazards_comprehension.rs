@@ -12,16 +12,19 @@
 //! its name (`getattr`, `setattr`, `__getattribute__`). The site is no gap when
 //! - the name is a string literal (`hazards.rs` reads it), or a local of the function that one
 //!   assignment binds to a string literal;
-//! - the receiver is a class of this module, the `self` or `cls` of a method that does not rebind
-//!   it, a module that a plain `import` of this module binds, or a local that one assignment binds
-//!   to the result of a loader call (that call is a site of its own).
+//! - the receiver is a class of this module, a module that a plain `import` of this module binds,
+//!   or a local that one assignment binds to the result of a loader call (that call is a site of
+//!   its own). A name counts only when the module binds it exactly once, so no parameter, pattern,
+//!   `except` target, loop target or nested name can rebind it.
 //!
-//! The call must use the builtin `getattr` or `setattr`, which the module does not shadow. A call
-//! through another name (`g = getattr`) is not read.
+//! `self` and `cls` are no proof: `C.get(f, name)` calls a method with any first argument. A nested
+//! function or a lambda has no proof of its own. The call must use the builtin `getattr` or
+//! `setattr`, which the module does not shadow, or the method `__getattribute__` or `__setattr__`
+//! of any class (`C.__getattribute__(x, name)` has the receiver `x`). A call through another name
+//! (`g = getattr`) is not read.
 
 use std::collections::HashSet;
 
-use ruff_python_ast::helpers::any_over_body;
 use ruff_python_ast::name::Name;
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
@@ -79,9 +82,8 @@ impl<'a> Visitor<'a> for Targets {
     }
 }
 
-/// What one outermost function proves: its own receiver, the names that hold one literal and the
-/// names that hold the module that a loader call returned.
-type Scope = (Option<String>, HashSet<String>, HashSet<String>);
+/// What one outermost function proves: the names that hold one literal.
+type Scope = HashSet<String>;
 
 /// The proofs of the module and the sites found so far.
 struct Trojans<'n> {
@@ -89,10 +91,8 @@ struct Trojans<'n> {
     visible: &'n HashSet<String>,
     taken: HashSet<String>,
     classes: HashSet<String>,
-    modules: HashSet<String>,
     scope: Option<Scope>,
     depth: usize,
-    class: bool,
     found: Vec<(&'static str, TextRange)>,
 }
 
@@ -113,30 +113,16 @@ pub(super) fn trojans(
         visible,
         taken: HashSet::new(),
         classes: HashSet::new(),
-        modules: HashSet::new(),
         scope: None,
         depth: 0,
-        class: false,
         found: Vec::new(),
     };
     for stmt in &tree.body {
-        match stmt {
-            Stmt::ClassDef(node) if single.contains(Identifier::as_str(&node.name)) => {
+        if let Stmt::ClassDef(node) = stmt {
+            if single.contains(Identifier::as_str(&node.name)) {
                 walk.classes
                     .insert(Identifier::as_str(&node.name).to_owned());
             }
-            Stmt::Import(node) => {
-                for alias in &node.names {
-                    let first = Identifier::as_str(&alias.name)
-                        .split('.')
-                        .next()
-                        .unwrap_or("");
-                    let bound = alias.asname.as_ref().map_or(first, Identifier::as_str);
-                    let once = single.contains(bound);
-                    once.then(|| walk.modules.insert(bound.to_owned()));
-                }
-            }
-            _ => {}
         }
     }
     let mut globals = Declared(HashSet::new());
@@ -178,32 +164,34 @@ impl<'a> Visitor<'a> for Declared {
     }
 }
 
-/// True for the callee of a loader call: `import_module`, `x.import_module` or `__import__`.
-fn loader(func: &Expr) -> bool {
-    match func {
-        Expr::Name(node) => matches!(Name::as_str(&node.id), "import_module" | "__import__"),
-        Expr::Attribute(node) => Identifier::as_str(&node.attr) == "import_module",
+/// The builtins that read, write or list attributes by a name (`vars` lists them).
+const BUILTIN_ACCESS: [&str; 4] = ["getattr", "setattr", "delattr", "vars"];
+/// The functions of the standard library that read attributes by a name that the scan does not
+/// follow, or hand out every attribute of a value, a code object among them.
+const LIBRARY_ACCESS: [&str; 6] = [
+    "attrgetter",
+    "methodcaller",
+    "getmembers",
+    "getmembers_static",
+    "get_referents",
+    "get_referrers",
+];
+/// The methods that read or write an attribute of any value.
+const METHOD_ACCESS: [&str; 3] = ["__getattribute__", "__setattr__", "__delattr__"];
+
+/// `vars(x)` or `x.__dict__`: the dictionary of the attributes of any value.
+fn dict_view(expr: &Expr) -> bool {
+    match expr {
+        Expr::Attribute(node) => Identifier::as_str(&node.attr) == "__dict__",
+        Expr::Call(call) => matches!(&*call.func, Expr::Name(n) if Name::as_str(&n.id) == "vars"),
         _ => false,
     }
 }
 
 impl Trojans<'_> {
-    /// The scope of an outermost function: the receiver of a method and the literal names.
+    /// The scope of an outermost function: the names that hold one literal.
     fn scope_of(&self, def: &StmtFunctionDef) -> Scope {
-        let plain = !def.decorator_list.iter().any(|item| {
-            matches!(&item.expression, Expr::Name(name) if Name::as_str(&name.id) == "staticmethod")
-        });
-        let first = def.parameters.iter_non_variadic_params().next();
-        let own = first.map(|param| Identifier::as_str(&param.parameter.name).to_owned());
-        let rebound = |own: &str| {
-            any_over_body(&def.body, |expr| {
-                matches!(expr, Expr::Name(node)
-                    if Name::as_str(&node.id) == own && node.ctx != ExprContext::Load)
-            })
-        };
-        let receiver = own.filter(|own| self.class && plain && !rebound(own));
         let mut literals = HashSet::new();
-        let mut loaders: Vec<(String, usize)> = Vec::new();
         let mut assigns = Assigns(Vec::new());
         assigns.visit_body(&def.body);
         for node in assigns.0 {
@@ -211,62 +199,52 @@ impl Trojans<'_> {
                 continue;
             };
             let id = Name::as_str(&target.id);
-            if self.taken.contains(id) {
-                continue;
-            }
-            match &*node.value {
-                Expr::StringLiteral(_) if self.single.contains(id) => {
-                    literals.insert(id.to_owned());
-                }
-                Expr::Call(call) if loader(&call.func) => loaders.push((id.to_owned(), 1)),
-                _ => {}
+            // The module binds the name once: this assignment is its only binder.
+            let once = !self.taken.contains(id) && self.single.contains(id);
+            if once && matches!(&*node.value, Expr::StringLiteral(_)) {
+                literals.insert(id.to_owned());
             }
         }
-        // A local is a loaded module when each store of it in the function is a loader call.
-        let stores = |id: &str| {
-            let mut count = 0_usize;
-            let each = |expr: &Expr| {
-                count += usize::from(
-                    matches!(expr, Expr::Name(n) if Name::as_str(&n.id) == id && n.ctx == ExprContext::Store),
-                );
-                false
-            };
-            any_over_body(&def.body, each);
-            count
+        literals
+    }
+
+    /// The access form that `expr` names: a visible builtin, a function of the library, or a
+    /// method that reads or writes an attribute of any value.
+    fn form(&self, expr: &Expr) -> Option<&'static str> {
+        let (name, local) = match expr {
+            Expr::Name(node) => (Name::as_str(&node.id), true),
+            Expr::Attribute(node) => (Identifier::as_str(&node.attr), false),
+            _ => return None,
         };
-        let loaded: HashSet<String> = loaders
-            .iter()
-            .map(|(id, _)| id.clone())
-            .filter(|id| stores(id) == loaders.iter().filter(|(other, _)| other == id).count())
-            .collect();
-        (receiver, literals, loaded)
+        let found = |list: &'static [&'static str]| list.iter().find(|each| **each == name);
+        let builtin = found(&BUILTIN_ACCESS).filter(|_| local && self.visible.contains(name));
+        let library = found(&LIBRARY_ACCESS);
+        builtin
+            .or(library)
+            .or(found(&METHOD_ACCESS).filter(|_| !local))
+            .copied()
     }
 
     /// The call that reads an attribute by a computed name: its form, its receiver and its name.
+    /// A form that has no receiver to prove gives the callee for both.
     fn computed<'c>(&self, call: &'c ExprCall) -> Option<(&'static str, &'c Expr, &'c Expr)> {
         let args: &[Expr] = &call.arguments.args;
-        match &*call.func {
-            Expr::Name(node) => {
-                let kind = match Name::as_str(&node.id) {
-                    "getattr" => "getattr",
-                    "setattr" => "setattr",
-                    _ => return None,
-                };
-                let [receiver, name, ..] = args else {
-                    return None;
-                };
-                HashSet::contains(self.visible, kind).then_some((kind, receiver, name))
+        let callee: &Expr = &call.func;
+        let kind = self.form(callee)?;
+        // `x.m(name)` has the receiver `x`; `C.m(x, name)` and `getattr(x, name)` have `x`.
+        let bound = match kind {
+            "__getattribute__" | "__delattr__" => 1,
+            "__setattr__" => 2,
+            "getattr" | "setattr" | "delattr" => 0,
+            "vars" => return Some((kind, callee, callee)),
+            _ => return Some((kind, callee, callee)),
+        };
+        match (callee, args) {
+            (Expr::Attribute(node), [name, ..]) if args.len() == bound => {
+                Some((kind, &*node.value, name))
             }
-            Expr::Attribute(node) if Identifier::as_str(&node.attr) == "__getattribute__" => {
-                let object = matches!(&*node.value, Expr::Name(base)
-                    if Name::as_str(&base.id) == "object");
-                match (object, args) {
-                    (true, [receiver, name, ..]) => Some(("__getattribute__", receiver, name)),
-                    (false, [name, ..]) => Some(("__getattribute__", &*node.value, name)),
-                    _ => None,
-                }
-            }
-            _ => None,
+            (_, [receiver, name, ..]) if args.len() > bound => Some((kind, receiver, name)),
+            _ => Some((kind, callee, callee)),
         }
     }
 
@@ -274,61 +252,99 @@ impl Trojans<'_> {
     fn resolved(&self, name: &Expr) -> bool {
         match (name, &self.scope) {
             (Expr::StringLiteral(_), _) => true,
-            (Expr::Name(node), Some((_, literals, _))) => {
+            (Expr::Name(node), Some(literals)) => {
                 HashSet::contains(literals, Name::as_str(&node.id))
             }
             _ => false,
         }
     }
 
-    /// True when the receiver is a class or a module of this module, or the `self` of the method.
+    /// True when the receiver is a class of this module. A module is no proof: each module has
+    /// `__builtins__` and `__loader__` (AD-1058).
     fn known(&self, receiver: &Expr) -> bool {
-        let Expr::Name(node) = receiver else {
+        matches!(receiver, Expr::Name(node) if HashSet::contains(&self.classes, Name::as_str(&node.id)))
+    }
+}
+
+impl<'a> Trojans<'_> {
+    /// A call of an access form: its site, if any. The callee is read here, so only its base and
+    /// its arguments are visited; the result is true when the call was one.
+    fn access_call(&mut self, call: &'a ExprCall) -> bool {
+        let site = self.computed(call);
+        let site = site.filter(|(_, receiver, name)| !self.resolved(name) && !self.known(receiver));
+        if let Some((kind, _, _)) = site {
+            self.found.push((kind, call.range()));
+        }
+        if self.form(&call.func).is_none() {
             return false;
-        };
-        let id = Name::as_str(&node.id);
-        let own = self.scope.as_ref().and_then(|(own, ..)| own.as_deref());
-        let loaded = self
-            .scope
-            .as_ref()
-            .is_some_and(|(_, _, held)| HashSet::contains(held, id));
-        HashSet::contains(&self.classes, id)
-            || HashSet::contains(&self.modules, id)
-            || loaded
-            || own == Some(id)
+        }
+        if let Expr::Attribute(node) = &*call.func {
+            self.visit_expr(&node.value);
+        }
+        for arg in &call.arguments.args {
+            self.visit_expr(arg);
+        }
+        for key in &call.arguments.keywords {
+            self.visit_expr(&key.value);
+        }
+        true
     }
 }
 
 impl<'a> Visitor<'a> for Trojans<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        let (class, depth) = (self.class, self.depth);
+        let outer = self.scope.take();
+        let depth = self.depth;
         match stmt {
-            Stmt::ClassDef(_) => self.class = true,
             Stmt::FunctionDef(def) => {
-                if depth == 0 {
-                    self.scope = Some(self.scope_of(def));
-                }
                 self.depth += 1;
-                self.class = false;
+                // Only an outermost function has a proof; a nested one has none (it can rebind).
+                self.scope = (depth == 0).then(|| self.scope_of(def));
             }
-            _ => {}
+            _ => self.scope = outer.clone(),
         }
         visitor::walk_stmt(self, stmt);
-        (self.class, self.depth) = (class, depth);
-        if depth == 0 && matches!(stmt, Stmt::FunctionDef(_)) {
-            self.scope = None;
-        }
+        self.depth = depth;
+        self.scope = outer;
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
-        if let Expr::Call(call) = expr {
-            let computed = self.computed(call);
-            let site = computed
-                .filter(|(_, receiver, name)| !self.resolved(name) && !self.known(receiver));
-            if let Some((kind, _, _)) = site {
-                self.found.push((kind, call.range()));
+        match expr {
+            Expr::Call(call) if self.access_call(call) => return,
+            // `x.__dict__` and `vars(x)` hand out the dictionary of the attributes of any value: a
+            // key that the scan cannot read reaches `__builtins__` and `__code__`. Only a direct
+            // subscript with a literal key is no site; `d = vars(m)` is one (AD-1058).
+            Expr::Subscript(node) if dict_view(&node.value) => {
+                if !self.resolved(&node.slice) {
+                    self.found.push(("__dict__", node.range()));
+                }
+                match &*node.value {
+                    Expr::Attribute(inner) => self.visit_expr(&inner.value),
+                    Expr::Call(inner) => {
+                        inner.arguments.args.iter().for_each(|a| self.visit_expr(a))
+                    }
+                    _ => {}
+                }
+                return self.visit_expr(&node.slice);
             }
+            Expr::Attribute(node) if Identifier::as_str(&node.attr) == "__dict__" => {
+                self.found.push(("__dict__", expr.range()));
+            }
+            // A form that is no callee is a call that the scan does not follow: `g = getattr`,
+            // `map(getattr, ...)`, `partial(getattr, f)`, `ga = f.__getattribute__` (AD-1058).
+            Expr::Name(_) | Expr::Attribute(_) if self.form(expr).is_some() => {
+                self.found.push(("value", expr.range()));
+            }
+            _ => {}
         }
+        let outer = self.scope.take();
+        // A lambda has no proof: its parameters can rebind a name.
+        self.scope = if matches!(expr, Expr::Lambda(_)) {
+            None
+        } else {
+            outer.clone()
+        };
         visitor::walk_expr(self, expr);
+        self.scope = outer;
     }
 }

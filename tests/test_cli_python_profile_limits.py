@@ -172,6 +172,12 @@ def test_the_python_collector_does_not_claim_a_nominal_selector_inventory(
     )
 
 
+def _trojan_horse(source: str) -> bool:
+    """A computed name, or a reference to an access form that is no call, is a trojan horse gap
+    (AD-1053, AD-1058): the scan is incomplete before the construct rule says anything."""
+    return any(mark in source for mark in ("__getattribute__('__' +", "f = getattr", "f = vars"))
+
+
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
@@ -287,8 +293,7 @@ def test_dunder_dict_is_proven_or_left_unknown(
         # #1967: a computed name on an unproved receiver is a trojan horse gap (AD-1053); the
         # scan is then incomplete before the construct rule says anything.
         text = result["frame"]["explained"]["NO-DICT"]
-        computed = "__getattribute__('__' +" in source
-        assert ("incomplete scope" if computed else "construct absence") in text, text
+        assert ("incomplete scope" if _trojan_horse(source) else "construct absence") in text, text
     if expected == "FAIL":
         frame = result["frame"]
         evidence = frame["details"]["NO-DICT"][0]["evidence"]
@@ -316,10 +321,9 @@ def test_vars_call_is_proven_or_left_unknown(
     )
     assert rows(result)["NO-VARS"] == expected, result["frame"]["explained"]
     if expected == "UNKNOWN":
-        assert (
-            "construct absence is not completely observed"
-            in result["frame"]["explained"]["NO-VARS"]
-        )
+        text = result["frame"]["explained"]["NO-VARS"]
+        wanted = "incomplete scope" if _trojan_horse(source) else "construct absence is not"
+        assert wanted in text, text
     if expected == "FAIL":
         frame = result["frame"]
         evidence = frame["details"]["NO-VARS"][0]["evidence"]
@@ -380,10 +384,9 @@ def test_getattr_call_is_proven_or_left_unknown(
     )
     assert rows(result)["NO-GETATTR"] == expected, result["frame"]["explained"]
     if expected == "UNKNOWN":
-        assert (
-            "construct absence is not completely observed"
-            in result["frame"]["explained"]["NO-GETATTR"]
-        )
+        text = result["frame"]["explained"]["NO-GETATTR"]
+        wanted = "incomplete scope" if _trojan_horse(source) else "construct absence is not"
+        assert wanted in text, text
     if expected == "FAIL":
         frame = result["frame"]
         evidence = frame["details"]["NO-GETATTR"][0]["evidence"]

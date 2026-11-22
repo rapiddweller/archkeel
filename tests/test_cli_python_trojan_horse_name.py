@@ -159,3 +159,28 @@ def test_a_covers_list_clears_the_exposure_of_the_modules_it_names_and_no_other(
     assert rows(refused)["CLIENT-NO-SECRET"] != "PASS", refused
     assert "trojan_horse_reach.invalid" in {gap["kind"] for gap in refused["gaps"]}, refused["gaps"]
     assert "covered" not in json.dumps(refused["frame"].get("trojan_horse_reach", [])), refused
+
+
+def test_a_module_that_reads_any_attribute_by_a_computed_name_is_exposed(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """AD-1058: `getattr(m, 'pick' + 'le')`, `m.__dict__[n]` and `vars(m)[n]` reach the bound name.
+
+    The importer builds the name at run time, so no attribute or text of it is in the scan. The
+    declaration on `import pickle` is refused, and Python really imports the secret module.
+    """
+    declared = [pickle_declaration()]
+    head = "import app.service.model as model\nn = 'pick' + 'le'\n"
+    plants = {
+        "getattr": f"{head}getattr(model, n).loads({BLOB})\n",
+        "dict": f"{head}model.__dict__[n].loads({BLOB})\n",
+        "vars": f"{head}vars(model)[n].loads({BLOB})\n",
+        "getattribute": f"{head}model.__getattribute__(n).loads({BLOB})\n",
+    }
+    for name, use in plants.items():
+        root = tmp_path / name
+        result = run(root, {MODEL: "import pickle\n", PAGE: use}, declared, release_core)
+        assert imports_secret(root), name
+        assert rows(result)["CLIENT-NO-SECRET"] != "PASS", (name, result)
+        assert "trojan_horse_reach.invalid" in {gap["kind"] for gap in result["gaps"]}, name
+        assert "assuming" not in result["frame"], (name, result["frame"])

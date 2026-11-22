@@ -67,7 +67,7 @@ fn a_scope_selector_and_the_module_level_parse() -> Result<(), String> {
 fn each_malformed_trojan_horse_reach_is_refused() {
     let refused = [
         (contract("3.14.0", &reach(r#", "line": 1"#)), "3.15.0"),
-        (contract("3.15.0", &reach("")), "by line, scope or name"),
+        (contract("3.15.0", &reach("")), "by line or scope"),
         (contract("3.15.0", &reach(r#", "line": 0"#)), "positive"),
         (contract("3.15.0", &reach(r#", "scope": "a b""#)), "scope"),
         (
@@ -124,8 +124,8 @@ fn a_constant_bound_is_versioned_and_round_trips_without_a_free_list() -> Result
 
 #[test]
 fn a_site_name_and_a_count_need_contract_3_20_and_one_key() -> Result<(), String> {
-    let named =
-        reach(r#", "name": "pickle.load", "count": 2"#).replace(r#""trojan_horse": "eval","#, "");
+    let named = reach(r#", "name": "pickle.load", "count": 2, "scope": """#)
+        .replace(r#""trojan_horse": "eval","#, "");
     assert!(
         named.contains("pickle.load") && !named.contains("\"trojan_horse\""),
         "{named}"
@@ -137,6 +137,9 @@ fn a_site_name_and_a_count_need_contract_3_20_and_one_key() -> Result<(), String
     read(&bytes)?;
     let old = read(&contract("3.19.0", &named)).err().unwrap_or_default();
     assert!(old.contains("3.20.0"), "{old}");
+    let alone = named.replace(r#", "scope": """#, "");
+    let message = read(&contract("3.20.0", &alone)).err().unwrap_or_default();
+    assert!(message.contains("by line or scope"), "{message}");
     let both = reach(r#", "name": "pickle.load""#);
     let message = read(&contract("3.20.0", &both)).err().unwrap_or_default();
     assert!(message.contains("by trojan_horse or by name"), "{message}");

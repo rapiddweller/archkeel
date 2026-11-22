@@ -8,6 +8,8 @@ use super::*;
 
 #[path = "hazards_proved_tests.rs"]
 mod proved;
+#[path = "hazards_receiver_tests.rs"]
+mod receiver;
 
 #[test]
 fn imported_code_types_in_isinstance_keep_the_import_gap() {
@@ -306,14 +308,25 @@ fn clear_count(source: &str, detail: &str) -> usize {
 #[test]
 fn a_code_type_in_an_annotation_is_no_site_and_each_other_use_is() {
     let import = "from types import CodeType\n";
+    // AD-1058: only the annotation of a local variable is neither evaluated nor stored.
     for body in [
-        "def f(c: CodeType) -> CodeType | None:\n    return None\n",
-        "def f(c: list[CodeType], *a: CodeType, **k: CodeType) -> tuple[CodeType, int]: ...\n",
-        "x: CodeType | None = None\n",
-        "class A:\n    code: CodeType\n    def m(self, c: Optional[CodeType]): ...\n",
+        "def f():\n    c: CodeType | None = None\n",
+        "def f():\n    x: list[CodeType] = []\n    y: tuple[CodeType, int]\n",
     ] {
         let source = format!("{import}{body}");
         assert_eq!(clear_count(&source, "types.CodeType"), 1, "{source}");
+    }
+    // Each other annotation is stored in `__annotations__`, where code can read the class back
+    // and call it (`H.__annotations__['code'](...)`): it keeps its site.
+    for body in [
+        "def f(c: CodeType) -> CodeType | None:\n    return None\n",
+        "def f(*a: CodeType, **k: CodeType): ...\n",
+        "x: CodeType | None = None\n",
+        "class A:\n    code: CodeType\n    def m(self, c: Optional[CodeType]): ...\n",
+        "def f():\n    class A:\n        code: CodeType\n",
+    ] {
+        let source = format!("{import}{body}");
+        assert!(clear_count(&source, "types.CodeType") >= 2, "{source}");
     }
     for body in [
         "def f(c=CodeType): ...\n",
@@ -327,13 +340,20 @@ fn a_code_type_in_an_annotation_is_no_site_and_each_other_use_is() {
         let source = format!("{import}{body}");
         assert!(clear_count(&source, "types.CodeType") >= 2, "{source}");
     }
-    // The attribute form clears in an annotation and in the class test of `isinstance`.
+    // The attribute form clears in a local annotation and in the class test of `isinstance`.
     for source in [
-        "import types\ndef f(c: types.CodeType) -> types.FunctionType: ...\n",
-        "import types as t\ndef f(c: t.CodeType | None): ...\n",
+        "import types\ndef f():\n    c: types.CodeType\n    d: types.FunctionType = None\n",
+        "import types as t\ndef f():\n    c: t.CodeType | None = None\n",
         "import types\nok = isinstance(x, types.CodeType)\n",
     ] {
         assert!(clear_details(source).is_empty(), "{source}");
+    }
+    for source in [
+        "import types\ndef f(c: types.CodeType): ...\n",
+        "import types\nx: types.FunctionType = None\n",
+        "import types\nclass H:\n    code: types.CodeType\n",
+    ] {
+        assert!(!clear_details(source).is_empty(), "{source}");
     }
     // A use of the class, a rebound module name and a rebound name are no proven class.
     for source in [
@@ -452,49 +472,4 @@ fn a_spec_that_is_only_tested_and_read_for_names_is_no_site() {
     }
     let control = "def f(p):\n    s = p.__spec__\n    return list(s.submodule_search_locations)\n";
     assert_eq!(clear_count(control, "__spec__"), 0);
-}
-
-fn trojan_names(source: &str) -> Vec<String> {
-    clear_details(source)
-        .into_iter()
-        .filter(|name| matches!(name.as_str(), "getattr" | "setattr" | "__getattribute__"))
-        .collect()
-}
-
-#[test]
-fn a_computed_attribute_name_on_an_unproved_receiver_is_a_site() {
-    for source in [
-        "def f(x, n):\n    return getattr(x, n)\n",
-        "def f(x, n):\n    return getattr(x, '__co' + 'de__')\n",
-        "def f(x, n):\n    return x.__getattribute__(n)\n",
-        "def f(x):\n    n = 'a'\n    n += 'b'\n    return getattr(x, n)\n",
-        "def f(x):\n    global n\n    n = 'a'\n    return getattr(x, n)\n",
-        "class C:\n    def m(self, n):\n        self = other\n        return getattr(self, n)\n",
-        "class C:\n    @staticmethod\n    def m(self, n):\n        return getattr(self, n)\n",
-        "from json import loads\ndef f(n):\n    return getattr(loads, n)\n",
-        "def getattr(a, b):\n    return a\ndef f(x, n):\n    return getattr(x, n)\n",
-        "def f(n, xs):\n    m = import_module('a')\n    for m in xs:\n        pass\n    return getattr(m, n)\n",
-        "def f(n, g):\n    m = import_module('a')\n    m = g()\n    return getattr(m, n)\n",
-    ] {
-        let found = trojan_names(source);
-        let expected = usize::from(!source.contains("def getattr"));
-        assert_eq!(found.len(), expected, "{source}: {found:?}");
-    }
-}
-
-#[test]
-fn a_literal_name_a_proved_receiver_or_a_local_literal_is_no_site() {
-    for source in [
-        "def f(x):\n    return getattr(x, 'a')\n",
-        "def f(x):\n    n = 'a'\n    return getattr(x, n)\n",
-        "class C: ...\ndef f(n):\n    return getattr(C, n)\n",
-        "class C:\n    def m(self, n):\n        return getattr(self, n)\n",
-        "class C:\n    @classmethod\n    def m(cls, n):\n        return getattr(cls, n)\n",
-        "import json\ndef f(n):\n    return getattr(json, n)\n",
-        "def f(n):\n    m = import_module('a')\n    return getattr(m, n)\n",
-        "def f(n, c):\n    if c:\n        m = import_module('a')\n    else:\n        m = import_module('b')\n    return getattr(m, n)\n",
-    ] {
-        let found = trojan_names(source);
-        assert!(found.is_empty(), "{source}: {found:?}");
-    }
 }

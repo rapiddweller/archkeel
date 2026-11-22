@@ -96,11 +96,11 @@ impl Premises {
     pub(crate) fn of(
         premises: BTreeMap<String, Vec<Premise>>,
         models: Option<&ModelTree>,
-        details: &DeclaredPairs,
+        (details, cycles): &(DeclaredPairs, BTreeMap<String, Vec<String>>),
     ) -> Self {
         let trojan_horse_reach = once(rows(models));
         let notes = notes_of(models);
-        let fail_from_declared_reach = declared_fails(&trojan_horse_reach, details);
+        let fail_from_declared_reach = declared_fails(&trojan_horse_reach, (details, cycles));
         let trojan_horse = archkeel_model::kind_word(PremiseKind::TrojanHorseReach);
         let mut assumed: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut pairs: Vec<(&str, &str)> = Vec::new();
@@ -227,7 +227,7 @@ fn row(trojan_horse: &Applied) -> TrojanHorseRow {
 /// the declarations that supply the edges (AD-1052).
 fn declared_fails(
     trojan_horses: &[TrojanHorseRow],
-    details: &DeclaredPairs,
+    (details, cycles): (&DeclaredPairs, &BTreeMap<String, Vec<String>>),
 ) -> BTreeMap<String, Vec<String>> {
     let mut found: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (rule, rows) in details {
@@ -237,15 +237,8 @@ fn declared_fails(
         for pair in rows.iter().flatten() {
             ids.extend(suppliers(trojan_horses, pair));
         }
-        // A cycle names components, not modules: then every declaration with a load is a cause.
-        if ids.is_empty() {
-            ids.extend(
-                trojan_horses
-                    .iter()
-                    .filter(|row| !Vec::is_empty(&row.possible_loads))
-                    .map(|row| String::clone(&row.id)),
-            );
-        }
+        // A cycle names components: its declared steps name the declarations (AD-1057).
+        ids.extend(cycles.get(rule).into_iter().flatten().cloned());
         ids.sort_unstable();
         ids.dedup();
         if every && !ids.is_empty() {

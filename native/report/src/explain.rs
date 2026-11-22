@@ -207,6 +207,27 @@ pub(crate) struct Collected {
     held: BTreeMap<String, Held>,
 }
 
+impl Collected {
+    /// The declared (importer, imported) pairs of each row of each rule, and for each rule with a
+    /// cycle the ids of the declarations that supply a step of a cycle. The join of a cycle is by
+    /// the id of the declared import (AD-1057), not by module names.
+    pub(crate) fn declared(
+        &self,
+        details: &BTreeMap<String, Vec<crate::violation_detail::ViolationDetail>>,
+    ) -> (crate::assumed::DeclaredPairs, BTreeMap<String, Vec<String>>) {
+        let pairs = crate::violation_detail::ViolationDetail::declared_by_rule(details);
+        let mut found = BTreeMap::new();
+        for (rule, cycles) in &self.cycles {
+            let steps = cycles.items.iter().flat_map(|item| &item.path);
+            let ids: BTreeSet<String> = steps
+                .flat_map(|step| step.declared.iter().map(|edge| edge.declaration.clone()))
+                .collect();
+            found.insert(rule.clone(), ids.into_iter().collect());
+        }
+        (pairs, found)
+    }
+}
+
 /// The pairs of the gap records, each once, in the order of their first record.
 fn distinct(records: &[(String, String)]) -> Vec<(String, String)> {
     let mut seen = BTreeSet::new();
@@ -292,19 +313,16 @@ fn cycle_path(index: usize, cycle: &archkeel_eval::Cyclic, model: &Model) -> Cyc
 /// The declared edges behind the imports of a step: a declared import has the id that its
 /// declaration gives it, so the join needs no module name.
 fn declared_edges(step: &CycleStep, applied: &[Applied]) -> Vec<DeclaredEdge> {
-    let mut found = Vec::new();
-    for site in applied {
-        for (target, id) in &site.edges {
-            if step.imports.contains(id) {
-                found.push(DeclaredEdge {
-                    declaration: site.id.clone(),
-                    source: site.module.clone(),
-                    target: target.clone(),
-                });
-            }
-        }
-    }
-    found
+    let edges = applied
+        .iter()
+        .flat_map(|site| site.edges.iter().map(move |edge| (site, edge)));
+    let used = edges.filter(|(_, (_, id))| step.imports.contains(id));
+    let edge = |(site, (target, _)): (&Applied, &(String, String))| DeclaredEdge {
+        declaration: site.id.clone(),
+        source: site.module.clone(),
+        target: target.clone(),
+    };
+    used.map(edge).collect()
 }
 
 fn step(step: &CycleStep, applied: &[Applied]) -> Step {

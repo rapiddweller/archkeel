@@ -71,14 +71,14 @@ pub(super) fn hazard_gap(
     (key, gap)
 }
 
-/// The trojan horse of a site that has a name and no line.
+/// The trojan horse of a site that has a name and no line: it lies at the module level.
 fn unlocated(name: &str) -> archkeel_facts::data::TrojanHorseSite {
     archkeel_facts::data::TrojanHorseSite {
         form: None,
         site_name: Some(name.to_owned()),
         line: 0,
         line_only: false,
-        scope: None,
+        scope: Some(String::new()),
         binding: None,
         exposed_to: Vec::new(),
     }

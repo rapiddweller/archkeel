@@ -186,6 +186,8 @@ def trojan_horse_lines(
         lines.append(f"{qualifier(premises.assuming)} ({count} {noun}); a premise is not a proof:")
     elif trojan_horses or premises.fails:
         lines.append("Declared reach (a premise, not a proof):")
+    if trojan_horses:
+        lines.append("  The scan does not check `loads` and `covers`: the contract is trusted.")
     for row in trojan_horses:
         loads = (
             f"only the targets from {row.constant}"
@@ -218,8 +220,11 @@ def trojan_horse_lines(
         label = "stated external users" if kind == "external_user" else kind
         lines.append(f"  {label}: {', '.join(sorted(subjects))}")
     rules = sorted(premises.rules)
-    if rules:
-        listed = rules if show_all else rules[:shown]
-        more = "" if show_all or len(rules) <= shown else f" and {len(rules) - shown} more"
-        lines.append(f"  rules: {', '.join(listed)}{more}")
+    listed = rules if show_all else rules[:shown]
+    for rule in listed:
+        # The number of the header is for the whole run; each rule names its own premises.
+        names = {subject.split(" ")[0] for _, subject in premises.rules[rule]}
+        lines.append(f"  {rule}: under {', '.join(sorted(names))}")
+    if not show_all and len(rules) > shown:
+        lines.append(f"  and {len(rules) - shown} more rules")
     return lines

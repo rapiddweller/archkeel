@@ -3061,6 +3061,20 @@
               }
             }
           ]
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "line"
+              ]
+            },
+            {
+              "required": [
+                "scope"
+              ]
+            }
+          ]
         }
       ]
     }

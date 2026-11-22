@@ -27,7 +27,7 @@ use ruff_python_ast::helpers::any_over_body;
 use ruff_python_ast::name::Name;
 use ruff_python_ast::{
     CmpOp, ElifElseClause, ExceptHandler, Expr, ExprCall, ExprContext, Identifier, Keyword,
-    ModModule, Operator, Parameters, Stmt, StmtFunctionDef,
+    ModModule, Operator, Stmt, StmtFunctionDef,
 };
 use ruff_text_size::{Ranged, TextRange};
 
@@ -116,11 +116,13 @@ fn attribute(module: &str, attr: &str) -> bool {
 }
 
 /// The builtins that the proofs read. A proof needs a name that the module does not shadow.
-pub(super) const BUILTINS: [&str; 10] = [
+pub(super) const BUILTINS: [&str; 12] = [
     "isinstance",
     "globals",
     "getattr",
     "setattr",
+    "delattr",
+    "vars",
     "set",
     "sorted",
     "list",
@@ -130,7 +132,7 @@ pub(super) const BUILTINS: [&str; 10] = [
 ];
 
 /// The builtins that read a view of names and keep no code of it.
-const PURE: &[&str] = BUILTINS.split_at(4).1;
+const PURE: &[&str] = BUILTINS.split_at(6).1;
 
 /// The facts of one module that the proofs read.
 struct Facts<'a> {
@@ -175,7 +177,7 @@ pub(super) fn cleared(
         false
     };
     any_over_body(&tree.body, tests);
-    in_statements(&tree.body, &facts, &mut found);
+    in_statements(&tree.body, &facts, (&mut found, false));
     found
 }
 
@@ -316,28 +318,30 @@ fn keys_view(facts: &Facts, expr: &Expr, found: &mut HashSet<TextRange>) {
     }
 }
 
-/// The annotations and the functions of a body, at any depth of the compound statements.
-fn in_statements(body: &[Stmt], facts: &Facts, found: &mut HashSet<TextRange>) {
+/// The annotations and the functions of a body, at any depth of the compound statements. `local`
+/// is true inside a function body: Python neither evaluates nor stores the annotation of a local
+/// variable. Each other annotation is stored in `__annotations__`, where code can read the class
+/// back and call it, so it keeps its site (AD-1058).
+fn in_statements(body: &[Stmt], facts: &Facts, (found, local): (&mut HashSet<TextRange>, bool)) {
     for stmt in body {
-        match stmt {
-            Stmt::FunctionDef(def) => in_function(facts, def, found),
-            Stmt::AnnAssign(node) => annotation(facts, &node.annotation, found),
-            _ => {}
-        }
-        for inner in child_bodies(stmt) {
-            in_statements(inner, facts, found);
+        let inner = match stmt {
+            Stmt::FunctionDef(def) => {
+                spec(facts, def, found);
+                true
+            }
+            Stmt::ClassDef(_) => false,
+            Stmt::AnnAssign(node) => {
+                if local {
+                    annotation(facts, &node.annotation, found);
+                }
+                local
+            }
+            _ => local,
+        };
+        for each in child_bodies(stmt) {
+            in_statements(each, facts, (&mut *found, inner));
         }
     }
-}
-
-/// The annotations of the parameters and of the result, and the spec proof of one function.
-fn in_function(facts: &Facts, def: &StmtFunctionDef, found: &mut HashSet<TextRange>) {
-    let parameters: &Parameters = &def.parameters;
-    let notes = parameters.iter().filter_map(|each| each.annotation());
-    for note in notes.chain(def.returns.as_deref()) {
-        annotation(facts, note, found);
-    }
-    spec(facts, def, found);
 }
 
 /// The statement lists that a statement holds.

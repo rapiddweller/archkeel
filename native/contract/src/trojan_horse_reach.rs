@@ -148,9 +148,10 @@ fn one(raw: &Json, label: &str, version: ContractVersion) -> Parsed<(TrojanHorse
         None => None,
         Some(raw) => Some(scope_text(raw, &format!("{label}.scope"))?),
     };
-    if line.is_none() && scope.is_none() && name.is_none() {
+    // A name alone could re-attach to another function that uses the same name (AD-1058).
+    if line.is_none() && scope.is_none() {
         return Err(invalid(format!(
-            "{label} must name the site by line, scope or name"
+            "{label} must name the site by line or scope, also when it names it by name"
         )));
     }
     let loads_from = field(item, "loads_from")

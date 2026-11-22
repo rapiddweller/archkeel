@@ -51,8 +51,11 @@ fn a_trojan_horse_module_name_that_is_not_one_plain_definition_keeps_its_gap() {
     ] {
         assert!(has_dynamic(source), "{source}");
     }
-    // The standard `inspect` module keeps its behaviour: only `getmodule` is a trojan horse.
-    assert!(!has_dynamic("import inspect\ninspect.getmembers(x)\n"));
+    // `inspect.getmembers(f)` hands out the code object of `f` without its name (AD-1058).
+    assert!(has_dynamic("import inspect\ninspect.getmembers(x)\n"));
+    assert!(has_dynamic("import gc\ngc.get_referents(x)\n"));
+    // The rest of `inspect` is no trojan horse.
+    assert!(!has_dynamic("import inspect\ninspect.signature(x)\n"));
 }
 
 fn has_dynamic(source: &str) -> bool {

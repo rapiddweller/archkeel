@@ -12,6 +12,7 @@ The draft step gives one `InitOutcome` (AD-735): its state, what it wrote and th
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 from dataclasses import dataclass
@@ -190,7 +191,7 @@ def _declined(result: Draft, why: str, root: Path) -> str:
 
 
 def _with(options: Options, config: str) -> Options:
-    found = Options(**vars(options))
+    found = copy.copy(options)
     found.config = config
     return found
 

@@ -225,4 +225,4 @@ def test_a_pass_that_rests_on_stated_external_users_is_never_a_bare_pass(
     text = output.getvalue()
     assert "PASS under 2 stated external users (1 rule); a premise is not a proof:" in text
     assert "stated external users: pkg.base:Shape, pkg.base:unused" in text
-    assert "rules: UNUSED" in text
+    assert "UNUSED: under pkg.base:Shape, pkg.base:unused" in text

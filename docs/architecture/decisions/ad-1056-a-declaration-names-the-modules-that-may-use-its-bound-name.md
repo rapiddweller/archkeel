@@ -8,7 +8,7 @@
 
 **Decision.** Contract 3.20.0 adds the optional field `covers`: a list of module prefixes, like `loads`. A module that can reach the bound name and lies below a `covers` prefix does not refuse the declaration. A module that can reach the name and lies below no prefix still refuses it (`trojan_horse_reach.invalid`). Each frame row of an applied declaration lists the covered modules in `covered`, and the text report prints `Covered uses of the bound name`.
 
-**Limits.** `covers` is a premise of the contract, like `loads`: the scan does not prove that a covered module uses the name harmlessly. The row and the "PASS under" words say so. A prefix that names a module that never reaches the name is not an error.
+**Limits.** `covers` is a premise of the contract, like `loads`: it is trusted. The scan does not prove that a covered module uses the name harmlessly. The row and the "PASS under" words say so. A prefix that names a module that never reaches the name is not an error.
 
 **Measured.** Scratch copies without `.git`, 86 and 57 declarations by name, `loads: []`: datamimic-ce 99 to 36 UNKNOWN (1 FAIL stays, 239 PASS: 176 unconditional, 63 under declared reaches). datamimic-ee needs no `covers` (24 UNKNOWN, 0 FAIL, 455 PASS: 256 unconditional, 199 under declared reaches).
 

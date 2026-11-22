@@ -42,9 +42,14 @@ pub(crate) fn surveyed(files: &[(&str, &str)]) -> Survey {
     surveyed_in(files, &["src"], "app")
 }
 
-/// The reason of each gap of a survey.
+/// The reason of each gap of a survey, except the trojan horse sites of a computed attribute name
+/// (`getattr(module, key)`): a module is no proven receiver (AD-1058), so a lazy `__getattr__`
+/// table keeps that site until a contract declares it. `trojan_names` in
+/// `hazards_receiver_tests.rs` covers the site itself.
 pub(crate) fn reasons(survey: &Survey) -> Vec<String> {
-    survey.unknowns.iter().map(reason).collect()
+    let all = survey.unknowns.iter().map(reason);
+    all.filter(|text| !text.starts_with("dynamic_import: getattr"))
+        .collect()
 }
 
 pub(crate) fn reason(gap: &Record<GapFact>) -> String {

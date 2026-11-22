@@ -313,16 +313,22 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
   UNKNOWN. A direct scanned read of another function's `__globals__` also keeps its named gap, and an
   outside library dictionary that hides an importer gives the gap of AD-760 (#1521).
 
-## A computed attribute name reaches a code object (Python, #1967)
+## Open false PASS: a code object reached by a route that the collector does not read (Python, #1969)
 
-A computed name in `getattr`, `setattr` or `x.__getattribute__` can reach a code object and import a
-forbidden module. Since AD-1053 such a call is a trojan horse site unless the name is a literal (or a
-local that one literal assignment binds) or the receiver is proven: a class of the module, the `self`
-or `cls` of a method, or a module that one plain `import` binds. The rule stays
-UNKNOWN until a contract declares the site by name (AD-1052). `g = getattr` and
-`operator.attrgetter` are not read. A module imported twice (at module level and inside a function) is
-not proven (precision limit: `getattr(logging, name)` stays a site; declare it).
-Plants: `tests/test_cli_python_code_door.py`, `tests/test_collector_false_pass_python_trojan_attribute.py`.
+A code object lets code build a function that imports any module (`type(f)(code.replace(co_names=...), {})`).
+The collector gives a `dynamic_import` gap (a trojan horse site, AD-1053, AD-1058) for these routes:
+a literal code attribute (`__code__`, `f_code`, ...), `getattr`, `setattr`, `delattr`, `__getattribute__`,
+`__setattr__` and `__delattr__` with a name or a receiver that it cannot prove, each reference to one of
+them that is no direct call (`g = getattr`, `map(getattr, ...)`), `vars(x)` and `x.__dict__`,
+`attrgetter`, `methodcaller`, `inspect.getmembers` and `gc.get_referents`. A proven receiver is a class that
+the module binds once. `self`, `cls` and a module are no proof. A module that is imported twice, or a
+loop over a literal tuple of names, keeps its site (precision limit; a contract can declare it).
+
+Still open, with a plant that fails when it is fixed (`tests/test_collector_false_pass_python_open.py`):
+- `dis.Bytecode(f).codeobj` hands out the code object without a name: #1969. Other standard library
+  routes can exist; the collector has no list of them.
+
+A declaration is trusted: the scan does not check `loads` or `covers` (AD-1052, AD-1056).
 
 ## Before claiming PASS
 

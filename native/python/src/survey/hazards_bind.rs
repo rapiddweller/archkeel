@@ -8,8 +8,9 @@ use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::{ImportFact, Record};
 use ruff_python_ast::helpers::any_over_body;
+use ruff_python_ast::name::Name;
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, Identifier, ModModule, Stmt};
+use ruff_python_ast::{Expr, ExprCall, Identifier, ModModule, Stmt};
 
 use crate::module::Module;
 
@@ -124,10 +125,30 @@ pub(super) fn local_of(stmt: &Stmt, qualified: &str) -> Option<String> {
     })
 }
 
+/// The attributes that read any attribute of a value: `m.__dict__[n]`, `C.__getattribute__(m, n)`,
+/// `inspect.getmembers(m)` and `operator.attrgetter(n)`.
+const ANY_ATTRIBUTE_READ: [&str; 4] = ["__dict__", "__getattribute__", "getmembers", "attrgetter"];
+
+/// `vars(x)`, or `getattr`, `setattr` or `delattr` with a name that is no literal.
+fn computed_read(call: &ExprCall) -> bool {
+    let Expr::Name(func) = &*call.func else {
+        return false;
+    };
+    let args: &[Expr] = &call.arguments.args;
+    match Name::as_str(&func.id) {
+        "vars" => true,
+        "getattr" | "setattr" | "delattr" => !matches!(args.get(1), Some(Expr::StringLiteral(_))),
+        _ => false,
+    }
+}
+
 /// The modules of the scan that can reach the name `binding` of the module `module` without a
 /// record that names it: an attribute or a text of that name, in a module that imports `module`
-/// or a package above it (`import m` then `m.pickle.loads`). A name built at run time is the
-/// premise of the run (AD-770). A from-import and a star import are records of the imports.
+/// or a package above it (`import m` then `m.pickle.loads`). A from-import and a star import are
+/// records of the imports. A module that can read any attribute of a value by a name that the scan
+/// cannot read (`getattr(m, 'pick' + 'le')`, `vars(m)`, `m.__dict__`) is exposed to every bound name
+/// (AD-1058); a name built at run time through a text outside these forms stays the premise of
+/// the run.
 pub(in crate::survey) fn exposed(
     modules: &[Module],
     imports: &[Record<ImportFact>],
@@ -149,8 +170,12 @@ pub(in crate::survey) fn exposed(
             continue;
         }
         let named = |expr: &Expr| match expr {
-            Expr::Attribute(node) => Identifier::as_str(&node.attr) == binding,
+            Expr::Attribute(node) => {
+                let attr = Identifier::as_str(&node.attr);
+                attr == binding || ANY_ATTRIBUTE_READ.contains(&attr)
+            }
             Expr::StringLiteral(text) => text.value.to_str() == binding,
+            Expr::Call(call) => computed_read(call),
             _ => false,
         };
         if any_over_body(&other.tree.body, named) {

@@ -36,15 +36,193 @@ PLANTS = {
     "reversed-name": ("'__edoc__'[::-1]", "getattr(f, name)"),
     "dir-filter": ("[n for n in dir(f) if n.startswith('__co')][0]", "getattr(f, name)"),
 }
+# AD-1058: plants of the independent review of #1968. CPython 3.12 imports `app.lib` in each one.
+F = "def f():\n    import json\n    return json\n\n"
+NAME = "name = '__co' + 'de__'\n"
+PUT = "code.replace(co_names=" + EDIT + ")"
+BUILTINS_IMPORT = "b = d['__bui' + 'ltins__']\nb['__imp' + 'ort__']('app.lib')\n"
+W = "(f, name, " + PUT + ")\nf()\n"
+FULL = {
+    # AD-1058: a reference to an access form that is no direct call is a site.
+    "alias": "g = getattr\ns = setattr\n" + F + NAME + "code = g(f, name)\ns" + W,
+    "bound-method": (
+        F
+        + NAME
+        + "ga = f.__getattribute__\nsa = f.__setattr__\ncode = ga(name)\nsa(name, "
+        + PUT
+        + ")\nf()\n"
+    ),
+    "attrgetter": (
+        "import operator\nsa = f = None\n"
+        + F
+        + NAME
+        + "code = operator.attrgetter('__co' + 'de__')(f)\nobject.__setattr__"
+        + W
+    ),
+    "attrgetter-literal": (
+        "import operator\ns = setattr\n"
+        + F
+        + "code = operator.attrgetter('__code__')(f)\ns(f, '__code__', "
+        + PUT
+        + ")\nf()\n"
+    ),
+    "map": F
+    + NAME
+    + "code = list(map(getattr, [f], [name]))[0]\nlist(map(setattr, [f], [name], ["
+    + PUT
+    + "]))\nf()\n",
+    "partial": (
+        "import functools\n" + F + NAME + "code = functools.partial(getattr, f)(name)\n"
+        "functools.partial(setattr, f, name)(" + PUT + ")\nf()\n"
+    ),
+    # `vars(x)` and `x.__dict__` hand out every attribute; the key is computed later.
+    "vars-bound": "import json\nd = vars(json)\n" + BUILTINS_IMPORT,
+    "dict-bound": "import json\nd = json.__dict__\n" + BUILTINS_IMPORT,
+    "vars-subscript": (
+        "import json\nn = '__bui' + 'ltins__'\nb = vars(json)[n]\nb['__imp' + 'ort__']('app.lib')\n"
+    ),
+    # The members of a function hold its code object without its name.
+    "getmembers": (
+        "import inspect\n" + F + "members = inspect.getmembers(f)\n"
+        "code = [v for n, v in members if n.endswith('code__')][0]\n"
+        "g = type(f)(" + PUT + ", {})\ng()\n"
+    ),
+    "referents": (
+        "import gc\n" + F + "code = [c for c in gc.get_referents(f) if hasattr(c, 'co_names')][0]\n"
+        "g = type(f)(" + PUT + ", {})\ng()\n"
+    ),
+    # AD-1058: each module has `__builtins__`, so a module is no proven receiver.
+    "module-builtins": (
+        "import json\n\n\ndef read(n):\n    return getattr(json, n)\n\n\n"
+        "b = read('__bui' + 'ltins__')\nb['__imp' + 'ort__']('app.lib')\n"
+    ),
+    "module-builtins-alias": (
+        "import os.path as m\n\n\ndef read(n):\n    return getattr(m, n)\n\n\n"
+        "b = read('__bui' + 'ltins__')\nb['__imp' + 'ort__']('app.lib')\n"
+    ),
+    "loaded-module-builtins": (
+        "def read(n):\n    m = __import__('json')\n    return getattr(m, n)\n\n\n"
+        "b = read('__bui' + 'ltins__')\nb['__imp' + 'ort__']('app.lib')\n"
+    ),
+    # `C.get(f, name)` calls the method through the class with any first argument.
+    "unbound-self": (
+        "class C:\n    def get(self, n):\n        return getattr(self, n)\n\n"
+        "    def put(self, n, v):\n        setattr(self, n, v)\n\n\n"
+        + F
+        + NAME
+        + "code = C.get(f, name)\nC.put(f, name, "
+        + PUT
+        + ")\nf()\n"
+    ),
+    "unbound-cls": (
+        "class C:\n    @classmethod\n    def get(cls, n):\n        return getattr(cls, n)\n\n\n"
+        + F
+        + NAME
+        + "code = C.get.__func__(f, name)\nsetattr(f, name, "
+        + PUT
+        + ")\nf()\n"
+    ),
+    # A parameter of a lambda or of a nested function rebinds the loaded name.
+    "lambda-loaded": (
+        "def r(obj, n):\n    m = __import__('json')\n"
+        "    return (lambda m: getattr(m, n))(obj)\n\n\n"
+        + F
+        + NAME
+        + "code = r(f, name)\nsetattr(f, name, "
+        + PUT
+        + ")\nf()\n"
+    ),
+    "nested-self": (
+        "class C:\n    def put(self, obj, n, v):\n        def inner(self):\n"
+        "            setattr(self, n, v)\n        inner(obj)\n\n\n"
+        + F
+        + NAME
+        + "code = getattr(f, name)\nC().put(f, name, "
+        + PUT
+        + ")\nf()\n"
+    ),
+    # The unbound form `C.__getattribute__(x, n)` has the receiver `x`.
+    "class-getattribute": (
+        "class C:\n    pass\n\n\n"
+        + F
+        + NAME
+        + "code = C.__getattribute__(f, name)\nobject.__setattr__(f, name, "
+        + PUT
+        + ")\nf()\n"
+    ),
+    "class-setattr": (
+        "class C:\n    pass\n\n\n"
+        + F
+        + NAME
+        + "code = f.__getattribute__(name)\nC.__setattr__(f, name, "
+        + PUT
+        + ")\nf()\n"
+    ),
+    # A name that one literal binds and a loop rebinds is no literal name.
+    "literal-rebound-by-loop": (
+        "def r(obj, names):\n    n = 'a'\n    for n in names:\n        pass\n"
+        "    return getattr(obj, n)\n\n\n"
+        "def w(obj, names, v):\n    n = 'a'\n    for n in names:\n        pass\n"
+        "    setattr(obj, n, v)\n\n\n"
+        + F
+        + NAME
+        + "code = r(f, [name])\nw(f, [name], "
+        + PUT
+        + ")\nf()\n"
+    ),
+    "literal-rebound-by-with": (
+        "import contextlib\n\n\ndef r(obj, other):\n    n = 'a'\n    with other as n:\n"
+        "        pass\n    return getattr(obj, n)\n\n\n"
+        "def w(obj, other, v):\n    n = 'a'\n    with other as n:\n        pass\n"
+        "    setattr(obj, n, v)\n\n\n" + F + NAME + "code = r(f, contextlib.nullcontext(name))\n"
+        "w(f, contextlib.nullcontext(name), " + PUT + ")\nf()\n"
+    ),
+    "match-capture": (
+        "def r(obj, n):\n    m = __import__('json')\n    match obj:\n        case m:\n"
+        "            return getattr(m, n)\n\n\n"
+        + F
+        + NAME
+        + "code = r(f, name)\nsetattr(f, name, "
+        + PUT
+        + ")\nf()\n"
+    ),
+    "for-target": (
+        "def r(obj, n):\n    m = __import__('json')\n    for m in (obj,):\n        pass\n"
+        "    return getattr(m, n)\n\n\n"
+        + F
+        + NAME
+        + "code = r(f, name)\nsetattr(f, name, "
+        + PUT
+        + ")\nf()\n"
+    ),
+}
+# AD-1058: a stored annotation hands the class back, so code reads it and calls it.
+BYTES = "bytes([151, 0, 100, 0, 100, 1, 108, 0, 1, 0, 121, 1])"
+BUILD = f"(0, 0, 0, 0, 2, 0, {BYTES}, (0, None), ('app.lib',), (), 'x', 'x', 'x', 1, b'', b'')"
+ANNOTATED = {
+    "class-annotation": (
+        "import types\n\n\nclass H:\n    code: types.CodeType\n"
+        "    function: types.FunctionType\n\n\n"
+        f"hints = H.__annotations__\nc = hints['code']{BUILD}\nhints['function'](c, " + "{})()\n"
+    ),
+    "parameter-annotation": (
+        "import types\n\n\ndef h(code: types.CodeType, function: types.FunctionType): ...\n\n\n"
+        f"hints = h.__annotations__\nc = hints['code']{BUILD}\nhints['function'](c, " + "{})()\n"
+    ),
+    "module-annotation": (
+        "import types\n\ncode: types.CodeType\nfunction: types.FunctionType\n\n"
+        f"hints = __annotations__\nc = hints['code']{BUILD}\nhints['function'](c, " + "{})()\n"
+    ),
+}
+FULL |= ANNOTATED
 CONTROLS = {
     "literal-name": "def f():\n    return 1\n\nNAME = getattr(f, '__name__')\n",
     "local-literal": "def f():\n    n = '__name__'\n    return getattr(f, n)\n",
-    "project-class": (
-        "class C:\n    x = 1\n    def get(self, n):\n        return getattr(self, n)\n"
-        "    @classmethod\n    def make(cls, n):\n        return getattr(cls, n)\n"
-        "def read(n):\n    return getattr(C, n)\n"
+    "project-class": "class C:\n    x = 1\n\ndef read(n):\n    return getattr(C, n)\n",
+    "local-annotation": (
+        "import types\n\ndef f(x):\n    code: types.CodeType = x\n"
+        "    return isinstance(x, types.CodeType)\n"
     ),
-    "module-receiver": "import json\n\ndef read(n):\n    return getattr(json, n)\n",
 }
 SITES = {"builtins": "import builtins\n\ndef read(n):\n    return getattr(builtins, n)\n"}
 
@@ -88,6 +266,17 @@ def test_a_computed_name_that_reaches_a_code_object_is_never_pass(
 ) -> None:
     value, read = PLANTS[name]
     root = _root(tmp_path, HEAD.format(name=value) + TAIL.format(read=read))
+    assert _loads_lib(root), "CPython must import app.lib: the plant is real"
+    frame = _verdict(root, release_core, monkeypatch)["frame"]
+
+    assert frame["rules"]["NO-LIB"][1] in {"FAIL", "UNKNOWN"}, frame
+
+
+@pytest.mark.parametrize("name", sorted(FULL))
+def test_a_review_plant_that_imports_the_module_is_never_pass(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    root = _root(tmp_path, FULL[name])
     assert _loads_lib(root), "CPython must import app.lib: the plant is real"
     frame = _verdict(root, release_core, monkeypatch)["frame"]
 

@@ -19,6 +19,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
+use ruff_python_ast::helpers::any_over_body;
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, Stmt, StmtFunctionDef};
 use ruff_text_size::{Ranged, TextRange};
@@ -61,6 +62,13 @@ struct World<'a> {
     binders: &'a [Binders],
     known: HashMap<&'a str, usize>,
     project: &'a str,
+}
+
+/// The range of a call of the name `getattr`.
+fn getattr_call(expr: &Expr) -> Option<TextRange> {
+    let call = expr.as_call_expr()?;
+    let name = call.func.as_name_expr()?;
+    (name.id.as_str() == "getattr").then(|| call.range())
 }
 
 impl World<'_> {
@@ -107,6 +115,17 @@ impl World<'_> {
         }
         if by_name {
             found.exempt.extend(callee.1);
+        }
+        // A proven table gives the names that the function can read: its keys (AD-654). The
+        // computed attribute names of the function are no trojan horse then (AD-1058).
+        if !found.sources.is_empty() {
+            let mut reads = Vec::new();
+            let each = |expr: &Expr| {
+                reads.extend(getattr_call(expr));
+                false
+            };
+            any_over_body(&function.body, each);
+            found.exempt.extend(reads);
         }
         Some(found)
     }

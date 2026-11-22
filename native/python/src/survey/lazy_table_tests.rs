@@ -42,12 +42,7 @@ def __getattr__(name):
         .collect();
     assert!(targets.contains(&"app.first"), "{targets:?}");
     assert!(targets.contains(&"app.second"), "{targets:?}");
-    assert!(
-        reasons(&found).is_empty(),
-        "{:?} {:?}",
-        reasons(&found),
-        found.unknowns
-    );
+    assert!(reasons(&found).is_empty(), "{:?}", reasons(&found));
 }
 
 #[test]
