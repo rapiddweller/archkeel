@@ -184,3 +184,17 @@ def test_a_module_that_reads_any_attribute_by_a_computed_name_is_exposed(
         assert rows(result)["CLIENT-NO-SECRET"] != "PASS", (name, result)
         assert "trojan_horse_reach.invalid" in {gap["kind"] for gap in result["gaps"]}, name
         assert "assuming" not in result["frame"], (name, result["frame"])
+
+
+def test_a_plain_import_of_the_same_name_elsewhere_is_no_use_of_the_binding(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """AD-1058: another module's own `import pickle` is its own site, not a use of the binding."""
+    other = "src/app/service/other.py"
+    first = pickle_declaration()
+    second = named(id="D-OTHER", name="pickle", module="app.service.other")
+    files = {MODEL: "import pickle\n", other: "import pickle\nSIZE = 1\n"}
+    result = run(tmp_path, files, [first, second], release_core)
+
+    assert set(rows(result).values()) == {"PASS"}, result
+    assert {row["id"] for row in result["frame"]["trojan_horse_reach"]} == {"D-PICKLE", "D-OTHER"}

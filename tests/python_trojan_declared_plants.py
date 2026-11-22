@@ -12,6 +12,7 @@ from test_cli_python_trojan_horse_name import (
 )
 
 OTHER = "src/app/service/other.py"
+USER = "src/app/client/user.py"
 IM = "import app.service.model as model\n"
 cases = {
     "X0 control attribute": (
@@ -212,6 +213,61 @@ cases = {
             MODEL: "import pickle\n",
             PAGE: "import app.service.model as model\n\n\ndef use(m=model):\n"
             f"    return getattr(m, 'pickle')\n\n\nuse().loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    # AD-1058 (fourth review): the name check over the whole scan.
+    "Z2 a loader with a literal name, helper reads the literal name": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "def helper(m):\n    return getattr(m, 'pickle')\n",
+            PAGE: "import importlib\nfrom app.service.other import helper\n"
+            f"helper(importlib.import_module('app.service.model')).loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "Z5 the module is an attribute of a module that user imports": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "def helper(m):\n    return getattr(m, 'pickle')\n",
+            PAGE: "import app.service.model as model\nVALUE = model.VALUE\nimport app.client.user\n",
+            USER: "import app.client.page as p\nfrom app.service.other import helper\n"
+            f"helper(p.model).loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "Z5b attribute chain p.model.pickle": (
+        {
+            MODEL: "import pickle\nVALUE = 1\n",
+            PAGE: "import app.service.model as model\nVALUE = model.VALUE\nimport app.client.user\n",
+            USER: f"import app.client.page as p\np.model.pickle.loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "Z7 from app.client import page": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "def helper(m):\n    return getattr(m, 'pickle')\n",
+            PAGE: "import app.service.model as model\nVALUE = model.VALUE\nimport app.client.user\n",
+            USER: "from app.client import page\nfrom app.service.other import helper\n"
+            f"helper(page.model).loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "B10 star re-export through another module": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "from app.service.model import *\n",
+            PAGE: f"from app.service.other import *\npickle.loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "B11 attribute re-export of the module": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "from app.service import model\n"
+            "def helper(m):\n    return getattr(m, 'pickle')\n",
+            PAGE: f"import app.service.other as o\no.helper(o.model).loads({BLOB})\n",
         },
         [pickle_declaration()],
     ),

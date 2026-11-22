@@ -142,114 +142,26 @@ fn computed_read(call: &ExprCall) -> bool {
     }
 }
 
-/// The dotted name that the expression `expr` has when it is the name `binding` or an attribute
-/// chain on it: `binding` stands for the object `object`.
-fn chain(expr: &Expr, binding: &str, object: &str) -> Option<String> {
-    match expr {
-        Expr::Name(node) => (Name::as_str(&node.id) == binding).then(|| object.to_owned()),
-        Expr::Attribute(node) => {
-            let base = chain(&node.value, binding, object)?;
-            Some(format!("{base}.{}", Identifier::as_str(&node.attr)))
-        }
-        _ => None,
-    }
+/// A loader call with a name that is no literal: `import_module(name)`, `__import__(name)`.
+fn computed_loader(call: &ExprCall) -> bool {
+    let func = match &*call.func {
+        Expr::Name(node) => Name::as_str(&node.id),
+        Expr::Attribute(node) => Identifier::as_str(&node.attr),
+        _ => return false,
+    };
+    let first = call.arguments.args.first();
+    matches!(func, "import_module" | "__import__") && !matches!(first, Some(Expr::StringLiteral(_)))
 }
 
-/// True when `path` is the module or a package above it: its value holds the module.
-fn holds(path: &str, module: &str) -> bool {
-    module == path || module.starts_with(&format!("{path}."))
-}
-
-/// The names that the resolved import records bind to the module or to a package above it, for
-/// each module of the scan, with the object that each name stands for (`import a.b.c` binds `a`;
-/// `from a import b` binds `b` to `a.b`). A relative import, an `except` or `match` body and an
-/// `async` block need no syntax: the records are resolved. A module that imports such a name from
-/// another module (`from page import model`) holds the value too, so the names follow the
-/// re-exports until no new module is reached.
-fn bound_to(
-    imports: &[Record<ImportFact>],
-    module: &str,
-) -> HashMap<String, Vec<(String, String)>> {
-    let mut found: HashMap<String, Vec<(String, String)>> = HashMap::new();
-    let all: Vec<&archkeel_facts::data::ImportData> = imports
-        .iter()
-        .map(|record| ImportFact::data(&record.data))
-        .collect();
-    for data in &all {
-        let Some(binding) = data.binding.as_deref() else {
-            continue;
-        };
-        let target = data.target_module.as_str();
-        let first = target.split('.').next().unwrap_or(target);
-        let object = match data.symbol.as_deref() {
-            Some(symbol) => format!("{target}.{symbol}"),
-            None if binding == first => first.to_owned(),
-            None => target.to_owned(),
-        };
-        if holds(&object, module) {
-            let names = found
-                .entry(data.source_module.as_str().to_owned())
-                .or_default();
-            names.push((binding.to_owned(), object));
-        }
-    }
-    loop {
-        let mut more: Vec<(String, (String, String))> = Vec::new();
-        for data in &all {
-            let (Some(binding), Some(symbol)) = (data.binding.as_deref(), data.symbol.as_deref())
-            else {
-                continue;
-            };
-            let held = found.get(data.target_module.as_str());
-            let same = held.iter().flat_map(|names| names.iter());
-            let mut same = same;
-            let name = same.find(|(held, _)| held == symbol || symbol == "*");
-            let source = data.source_module.as_str();
-            let new = |(_, object): &(String, String)| (binding.to_owned(), object.clone());
-            let seen = |pair: &(String, String)| {
-                found.get(source).is_some_and(|names| names.contains(pair))
-            };
-            if let Some(pair) = name.map(new).filter(|pair| !seen(pair)) {
-                more.push((source.to_owned(), pair));
-            }
-        }
-        if more.is_empty() {
-            return found;
-        }
-        for (source, pair) in more {
-            found.entry(source).or_default().push(pair);
-        }
-    }
-}
-
-/// True when the module value escapes the importer: a name that is bound to the module or to a
-/// package above it is used where its chain ends at the module or above (`f(model)`, `return
-/// app.service.model`, `m = svc.model`, `[model]`). Only a chain that goes on past the module
-/// is an attribute read that the scan sees (AD-1058).
-fn escapes(body: &[Stmt], bound: &[(String, String)], module: &str) -> bool {
-    bound.iter().any(|(binding, object)| {
-        let (mut all, mut bases) = (0_usize, 0_usize);
-        let count = |expr: &Expr| {
-            let held =
-                |expr: &Expr| chain(expr, binding, object).is_some_and(|p| holds(&p, module));
-            all += usize::from(held(expr));
-            if let Expr::Attribute(node) = expr {
-                bases += usize::from(held(&node.value));
-            }
-            false
-        };
-        any_over_body(body, count);
-        all > bases
-    })
-}
-
-/// The modules of the scan that can reach the name `binding` of the module `module` without a
-/// record that names it: an attribute or a text of that name, in a module that imports `module`
-/// or a package above it (`import m` then `m.pickle.loads`). A from-import and a star import are
-/// records of the imports. A module that can read any attribute of a value by a name that the scan
-/// cannot read (`getattr(m, 'pick' + 'le')`, `vars(m)`, `m.__dict__`) is exposed to every bound name
-/// (AD-1058); a name built at run time through a text outside these forms stays the premise of
-/// the run.
+/// The modules of the scan that can reach the name `binding` of the module `module` (AD-1058). To
+/// obtain the binding from outside its module, the scan must contain the NAME in one of these
+/// forms: an attribute of that name on any value, a string literal that is the name or that ends
+/// with `.name` or starts with `name.`, an import of the name (`from x import name`), or a star
+/// import of the module or of a module that imports it (through the resolved records). Any other
+/// way is a computed access, and each of these is a site already: a read of any attribute by a
+/// name that is no literal (`getattr`, `vars`, `__dict__`, `getmembers`) and a loader call with a
+/// computed name refuse the declaration too. A plain `import name` of the standard module is no
+/// use of the binding. A module of `covers` is accepted by the model, not here.
 pub(in crate::survey) fn exposed(
     modules: &[Module],
     imports: &[Record<ImportFact>],
@@ -258,32 +170,52 @@ pub(in crate::survey) fn exposed(
     let Some(binding) = binding.as_deref() else {
         return Vec::new();
     };
-    let above = |target: &str| module == target || module.starts_with(&format!("{target}."));
-    let importers: HashSet<&str> = imports
+    // The module and each module that imports it: a star import of one of them gives the name.
+    let mut reach: HashSet<&str> = HashSet::from([module]);
+    let all: Vec<&archkeel_facts::data::ImportData> = imports
         .iter()
         .map(|record| ImportFact::data(&record.data))
-        .filter(|data| above(data.target_module.as_str()))
+        .collect();
+    loop {
+        let more: Vec<&str> = (all.iter())
+            .filter(|data| reach.contains(data.target_module.as_str()))
+            .map(|data| data.source_module.as_str())
+            .filter(|source| !reach.contains(source))
+            .collect();
+        if more.is_empty() {
+            break;
+        }
+        reach.extend(more);
+    }
+    let from_import = |data: &archkeel_facts::data::ImportData| {
+        let symbol = data.symbol.as_deref();
+        symbol == Some(binding)
+            || (symbol == Some("*") && reach.contains(data.target_module.as_str()))
+    };
+    let by_record: HashSet<&str> = all
+        .iter()
+        .copied()
+        .filter(|data| from_import(data))
         .map(|data| data.source_module.as_str())
         .collect();
-    let held = bound_to(imports, module);
+    let (dotted, prefix) = (format!(".{binding}"), format!("{binding}."));
+    let named = |expr: &Expr| match expr {
+        Expr::Attribute(node) => {
+            let attr = Identifier::as_str(&node.attr);
+            attr == binding || ANY_ATTRIBUTE_READ.contains(&attr)
+        }
+        Expr::StringLiteral(text) => {
+            let text = text.value.to_str();
+            text == binding || text.ends_with(&dotted) || text.starts_with(&prefix)
+        }
+        Expr::Call(call) => computed_read(call) || computed_loader(call),
+        _ => false,
+    };
     let mut found: Vec<String> = Vec::new();
     for other in modules {
-        let names = held.get(other.name.as_str());
-        if other.name == module || !(importers.contains(other.name.as_str()) || names.is_some()) {
-            continue;
-        }
-        let named = |expr: &Expr| match expr {
-            Expr::Attribute(node) => {
-                let attr = Identifier::as_str(&node.attr);
-                attr == binding || ANY_ATTRIBUTE_READ.contains(&attr)
-            }
-            Expr::StringLiteral(text) => text.value.to_str() == binding,
-            Expr::Call(call) => computed_read(call),
-            _ => false,
-        };
-        if any_over_body(&other.tree.body, named)
-            || escapes(&other.tree.body, names.map_or(&[], Vec::as_slice), module)
-        {
+        let used =
+            by_record.contains(other.name.as_str()) || any_over_body(&other.tree.body, named);
+        if other.name != module && used {
             found.push(other.name.clone());
         }
     }
