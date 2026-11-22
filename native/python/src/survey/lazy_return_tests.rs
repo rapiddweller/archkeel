@@ -323,3 +323,28 @@ fn a_proven_key_is_a_route_hop() {
         Some(vec!["app.Alpha".to_owned(), "app.first.Alpha".to_owned()])
     );
 }
+
+/// A table that only calls `import_module` (no `getattr`): its keys are submodules. This shape
+/// still gives a claim after AD-1058, because it has no trojan horse site.
+const INIT_MODULES: &str = "from importlib import import_module\n\
+    _table = {'sub': (__spec__.parent, '__module__'), 'first': (__spec__.parent, '__module__')}\n\
+    def __getattr__(attr_name):\n    entry = _table.get(attr_name)\n    if entry is None:\n        \
+    raise AttributeError(attr_name)\n    package, module_name = entry\n    \
+    result = import_module(f'.{attr_name}', package=package)\n    \
+    globals()[attr_name] = result\n    return result\n";
+
+#[test]
+fn a_table_of_submodules_still_gives_its_keys_and_no_ambiguous_import() {
+    let tree = tree(INIT_MODULES, "from app import sub\nconsume(sub)\n");
+    let found = survey(&tree);
+    agrees(&tree, &found, "sub");
+    agrees(&tree, &found, "first");
+    assert!(reasons(&found).is_empty(), "{:?}", reasons(&found));
+}
+
+#[test]
+fn a_key_of_a_submodule_table_whose_run_ends_without_return_is_not_proven() {
+    let init = INIT_MODULES.replace("    return result\n", "");
+    let found = survey(&tree(&init, "from app import sub\n"));
+    unclaimed(&found, "sub");
+}

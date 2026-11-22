@@ -153,4 +153,66 @@ cases = {
         },
         [pickle_declaration()],
     ),
+    # AD-1058 (third review, B8): the module value escapes the importer.
+    "Y1 relative import, module passed to a helper": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "def helper(m):\n    return getattr(m, 'pickle')\n",
+            PAGE: "from ..service import model\nfrom app.service.other import helper\n"
+            f"helper(model).loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "Y2 except handler": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "def helper(m):\n    return getattr(m, 'pickle')\n",
+            PAGE: "from app.service.other import helper\ntry:\n    raise ValueError\nexcept ValueError:\n"
+            f"    import app.service.model as model\n    helper(model).loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "Y3 match body": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "def helper(m):\n    return getattr(m, 'pickle')\n",
+            PAGE: "from app.service.other import helper\nmatch 1:\n    case 1:\n"
+            f"        import app.service.model as model\n        helper(model).loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "Y4 dotted chain ends at the module": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "def helper(m):\n    return getattr(m, 'pickle')\n",
+            PAGE: "import app.service.model\nfrom app.service.other import helper\n"
+            f"helper(app.service.model).loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "Y5 alias assignment of a chain": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "def helper(m):\n    return getattr(m, 'pickle')\n",
+            PAGE: "import app.service as svc\nimport app.service.model\nfrom app.service.other import helper\n"
+            f"m = svc.model\nhelper(m).loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "Y6 the module is re-exported by another module": (
+        {
+            MODEL: "import pickle\n",
+            OTHER: "from app.service import model\n",
+            PAGE: f"from app.service.other import model\ngetattr(model, 'pickle').loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
+    "Y7 the module is a default argument": (
+        {
+            MODEL: "import pickle\n",
+            PAGE: "import app.service.model as model\n\n\ndef use(m=model):\n"
+            f"    return getattr(m, 'pickle')\n\n\nuse().loads({BLOB})\n",
+        },
+        [pickle_declaration()],
+    ),
 }

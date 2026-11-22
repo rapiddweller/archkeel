@@ -142,75 +142,104 @@ fn computed_read(call: &ExprCall) -> bool {
     }
 }
 
-/// The names that the import statements of `body` bind to `module` or to a package above it,
-/// at any depth of the compound statements.
-fn bound_to(body: &[Stmt], module: &str, found: &mut Vec<String>) {
-    let above = |name: &str| module == name || module.starts_with(&format!("{name}."));
-    for stmt in body {
-        match stmt {
-            Stmt::Import(node) => {
-                for alias in node.names.iter().filter(|alias| above(alias.name.as_str())) {
-                    let first = alias.name.as_str().split('.').next().unwrap_or("");
-                    found.push(
-                        alias
-                            .asname
-                            .as_ref()
-                            .map_or(first, |a| a.as_str())
-                            .to_owned(),
-                    );
-                }
+/// The dotted name that the expression `expr` has when it is the name `binding` or an attribute
+/// chain on it: `binding` stands for the object `object`.
+fn chain(expr: &Expr, binding: &str, object: &str) -> Option<String> {
+    match expr {
+        Expr::Name(node) => (Name::as_str(&node.id) == binding).then(|| object.to_owned()),
+        Expr::Attribute(node) => {
+            let base = chain(&node.value, binding, object)?;
+            Some(format!("{base}.{}", Identifier::as_str(&node.attr)))
+        }
+        _ => None,
+    }
+}
+
+/// True when `path` is the module or a package above it: its value holds the module.
+fn holds(path: &str, module: &str) -> bool {
+    module == path || module.starts_with(&format!("{path}."))
+}
+
+/// The names that the resolved import records bind to the module or to a package above it, for
+/// each module of the scan, with the object that each name stands for (`import a.b.c` binds `a`;
+/// `from a import b` binds `b` to `a.b`). A relative import, an `except` or `match` body and an
+/// `async` block need no syntax: the records are resolved. A module that imports such a name from
+/// another module (`from page import model`) holds the value too, so the names follow the
+/// re-exports until no new module is reached.
+fn bound_to(
+    imports: &[Record<ImportFact>],
+    module: &str,
+) -> HashMap<String, Vec<(String, String)>> {
+    let mut found: HashMap<String, Vec<(String, String)>> = HashMap::new();
+    let all: Vec<&archkeel_facts::data::ImportData> = imports
+        .iter()
+        .map(|record| ImportFact::data(&record.data))
+        .collect();
+    for data in &all {
+        let Some(binding) = data.binding.as_deref() else {
+            continue;
+        };
+        let target = data.target_module.as_str();
+        let first = target.split('.').next().unwrap_or(target);
+        let object = match data.symbol.as_deref() {
+            Some(symbol) => format!("{target}.{symbol}"),
+            None if binding == first => first.to_owned(),
+            None => target.to_owned(),
+        };
+        if holds(&object, module) {
+            let names = found
+                .entry(data.source_module.as_str().to_owned())
+                .or_default();
+            names.push((binding.to_owned(), object));
+        }
+    }
+    loop {
+        let mut more: Vec<(String, (String, String))> = Vec::new();
+        for data in &all {
+            let (Some(binding), Some(symbol)) = (data.binding.as_deref(), data.symbol.as_deref())
+            else {
+                continue;
+            };
+            let held = found.get(data.target_module.as_str());
+            let same = held.iter().flat_map(|names| names.iter());
+            let mut same = same;
+            let name = same.find(|(held, _)| held == symbol || symbol == "*");
+            let source = data.source_module.as_str();
+            let new = |(_, object): &(String, String)| (binding.to_owned(), object.clone());
+            let seen = |pair: &(String, String)| {
+                found.get(source).is_some_and(|names| names.contains(pair))
+            };
+            if let Some(pair) = name.map(new).filter(|pair| !seen(pair)) {
+                more.push((source.to_owned(), pair));
             }
-            Stmt::ImportFrom(node) if node.level == 0 => {
-                let from = node.module.as_ref().map_or("", |name| name.as_str());
-                let hits = node
-                    .names
-                    .iter()
-                    .filter(|alias| above(&format!("{from}.{}", alias.name.as_str())));
-                let names = hits.map(|alias| alias.asname.as_ref().unwrap_or(&alias.name));
-                found.extend(names.map(|name| name.as_str().to_owned()));
-            }
-            Stmt::FunctionDef(node) => bound_to(&node.body, module, found),
-            Stmt::ClassDef(node) => bound_to(&node.body, module, found),
-            Stmt::If(node) => {
-                bound_to(&node.body, module, found);
-                for clause in &node.elif_else_clauses {
-                    bound_to(&clause.body, module, found);
-                }
-            }
-            Stmt::Try(node) => {
-                bound_to(&node.body, module, found);
-                bound_to(&node.orelse, module, found);
-                bound_to(&node.finalbody, module, found);
-            }
-            Stmt::With(node) => bound_to(&node.body, module, found),
-            Stmt::For(node) => bound_to(&node.body, module, found),
-            Stmt::While(node) => bound_to(&node.body, module, found),
-            _ => {}
+        }
+        if more.is_empty() {
+            return found;
+        }
+        for (source, pair) in more {
+            found.entry(source).or_default().push(pair);
         }
     }
 }
 
-/// True when the module value escapes the importer: a name that is bound to it is used other than
-/// as the base of an attribute (`f(model)`, `return model`, `x = model`, `[model]`). Then any
-/// attribute of it can be read where the scan does not look (AD-1058).
-fn escapes(body: &[Stmt], module: &str) -> bool {
-    let mut names = Vec::new();
-    bound_to(body, module, &mut names);
-    names.iter().any(|name| {
-        let (mut loads, mut bases) = (0_usize, 0_usize);
+/// True when the module value escapes the importer: a name that is bound to the module or to a
+/// package above it is used where its chain ends at the module or above (`f(model)`, `return
+/// app.service.model`, `m = svc.model`, `[model]`). Only a chain that goes on past the module
+/// is an attribute read that the scan sees (AD-1058).
+fn escapes(body: &[Stmt], bound: &[(String, String)], module: &str) -> bool {
+    bound.iter().any(|(binding, object)| {
+        let (mut all, mut bases) = (0_usize, 0_usize);
         let count = |expr: &Expr| {
-            match expr {
-                Expr::Name(node) if Name::as_str(&node.id) == name => loads += 1,
-                Expr::Attribute(node) => {
-                    let base = matches!(&*node.value, Expr::Name(n) if Name::as_str(&n.id) == name);
-                    bases += usize::from(base);
-                }
-                _ => {}
+            let held =
+                |expr: &Expr| chain(expr, binding, object).is_some_and(|p| holds(&p, module));
+            all += usize::from(held(expr));
+            if let Expr::Attribute(node) = expr {
+                bases += usize::from(held(&node.value));
             }
             false
         };
         any_over_body(body, count);
-        loads > bases
+        all > bases
     })
 }
 
@@ -236,9 +265,11 @@ pub(in crate::survey) fn exposed(
         .filter(|data| above(data.target_module.as_str()))
         .map(|data| data.source_module.as_str())
         .collect();
+    let held = bound_to(imports, module);
     let mut found: Vec<String> = Vec::new();
     for other in modules {
-        if other.name == module || !importers.contains(other.name.as_str()) {
+        let names = held.get(other.name.as_str());
+        if other.name == module || !(importers.contains(other.name.as_str()) || names.is_some()) {
             continue;
         }
         let named = |expr: &Expr| match expr {
@@ -250,7 +281,9 @@ pub(in crate::survey) fn exposed(
             Expr::Call(call) => computed_read(call),
             _ => false,
         };
-        if any_over_body(&other.tree.body, named) || escapes(&other.tree.body, module) {
+        if any_over_body(&other.tree.body, named)
+            || escapes(&other.tree.body, names.map_or(&[], Vec::as_slice), module)
+        {
             found.push(other.name.clone());
         }
     }

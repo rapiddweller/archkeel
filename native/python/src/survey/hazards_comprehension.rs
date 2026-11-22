@@ -171,6 +171,34 @@ const LIBRARY_ACCESS: [&str; 7] = [
 /// The methods that read or write an attribute of any value.
 const METHOD_ACCESS: [&str; 3] = ["__getattribute__", "__setattr__", "__delattr__"];
 
+/// The dunder names that hand out no reflection: a read of one gives a text or a list of texts.
+const PLAIN_DUNDER: [&str; 7] = [
+    "__name__",
+    "__doc__",
+    "__file__",
+    "__version__",
+    "__all__",
+    "__module__",
+    "__qualname__",
+];
+
+/// True when reading the attribute `name` by a literal still hands out reflection that no other
+/// rule reads (AD-1058): a dunder name but `PLAIN_DUNDER` (`__dict__`, `__getattribute__`,
+/// `__class__`, `__init__`, ...) and the name of an access form. The names of
+/// `TROJAN_HORSE_STRINGS` (`__globals__`, `f_builtins`) and the trojan horse attributes have their
+/// own hazard, so they are no second site.
+pub(super) fn reflective(name: &str) -> bool {
+    let dunder = name.len() > 4 && name.starts_with("__") && name.ends_with("__");
+    let own = crate::survey::hazards_names::TROJAN_HORSE_STRINGS.contains(&name)
+        || crate::survey::hazards_names::attribute_trojan_horse(&[name], 0);
+    let access = BUILTIN_ACCESS
+        .iter()
+        .chain(&LIBRARY_ACCESS)
+        .chain(&METHOD_ACCESS)
+        .any(|each| *each == name);
+    (dunder && !PLAIN_DUNDER.contains(&name) && !own) || access
+}
+
 /// `vars(x)` or `x.__dict__`: the dictionary of the attributes of any value.
 fn dict_view(expr: &Expr) -> bool {
     match expr {
@@ -193,7 +221,9 @@ impl Trojans<'_> {
             let id = Name::as_str(&target.id);
             // The module binds the name once: this assignment is its only binder.
             let once = !self.taken.contains(id) && self.single.contains(id);
-            if once && matches!(&*node.value, Expr::StringLiteral(_)) {
+            let plain =
+                matches!(&*node.value, Expr::StringLiteral(t) if !reflective(t.value.to_str()));
+            if once && plain {
                 literals.insert(id.to_owned());
             }
         }
@@ -243,7 +273,7 @@ impl Trojans<'_> {
     /// True when the name is a literal or a local with one literal.
     fn resolved(&self, name: &Expr) -> bool {
         match (name, &self.scope) {
-            (Expr::StringLiteral(_), _) => true,
+            (Expr::StringLiteral(text), _) => !reflective(text.value.to_str()),
             (Expr::Name(node), Some(literals)) => {
                 HashSet::contains(literals, Name::as_str(&node.id))
             }

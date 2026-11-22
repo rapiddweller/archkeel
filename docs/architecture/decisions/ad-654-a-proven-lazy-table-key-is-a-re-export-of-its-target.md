@@ -1,5 +1,7 @@
 # AD-654 A proven lazy table key is a re-export of its target
 
+**Superseded in part by [AD-1058](ad-1058-receiver-annotation-and-exposure-proofs-of-the-trojan-horse-rules-are-tightened.md).** A lazy `__getattr__` that reads its keys with a computed `getattr` keeps a trojan horse site, so its proven keys are dropped until a contract declares the site.
+
 **Status.** Accepted. Part of #880. It amends AD-560, AD-504 and AD-450.
 
 **Reason.** AD-560 proves that a lazy `__getattr__` imports only modules that its table names. It does not prove what the function returns. So `from P import X` stayed an import of an unknown name of a module with `__getattr__`. A use of such a name escapes `P` and each module below it (AD-504). For `pydantic` v2.14.3 the root escaped. This gave 98 `reexport_ambiguity` gaps, no publication route through the root, and no symbol facts below it: 0 of 8,304 calls resolved. A bounded import call does not bound the returned value. A `python3.12` plant imports the module of the entry and then returns another module.

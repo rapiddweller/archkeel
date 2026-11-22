@@ -56,6 +56,13 @@ fn a_computed_attribute_name_on_an_unproved_receiver_is_a_site() {
         "import sys\ndef f():\n    return sys._getframe(0)\n",
         "import inspect\ndef f():\n    return inspect.currentframe()\n",
         "def f(x):\n    return getattr(x, 'f_builtins')\n",
+        // AD-1058: a literal that names reflection is a site (B7 of the third review).
+        "import json\ndef f():\n    return getattr(json, '__dict__')\n",
+        "def f(x):\n    return getattr(x, '__getattribute__')\n",
+        "def f(x):\n    return getattr(x, '__class__')\n",
+        "def f(x):\n    n = '__dict__'\n    return getattr(x, n)\n",
+        "def f(x):\n    return x.__getattribute__('__dict__')\n",
+        "def f(x):\n    return getattr(x, 'getattr')\n",
         "def f(m):\n    d = m.__dict__\n    return d\n",
         "import json\nd = vars(json)\n",
         "def f(n, xs):\n    m = import_module('a')\n    for m in xs:\n        pass\n    return getattr(m, n)\n",
@@ -104,6 +111,8 @@ fn a_shadowed_builtin_is_no_site() {
 fn a_literal_name_a_proved_receiver_or_a_local_literal_is_no_site() {
     for source in [
         "def f(x):\n    return getattr(x, 'a')\n",
+        "def f(x):\n    return getattr(x, '__name__')\n",
+        "def f(x):\n    return getattr(x, '__doc__')\n",
         "def f(x):\n    n = 'a'\n    return getattr(x, n)\n",
         "def f(m):\n    return vars(m)['a']\n",
         "def f(m):\n    return m.__dict__['a']\n",

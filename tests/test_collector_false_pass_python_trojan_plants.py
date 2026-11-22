@@ -89,3 +89,6 @@ def test_a_declared_import_that_the_secret_reaches_is_never_pass(
         secret = False  # the plant fails in Python: a bogus control
 
     assert not (secret and rows(result)["CLIENT-NO-SECRET"] == "PASS"), (name, result["frame"])
+    if name.startswith("Y"):
+        # B8 of the third review: the escape of the module value refuses the declaration.
+        assert "trojan_horse_reach.invalid" in {gap["kind"] for gap in result["gaps"]}, name

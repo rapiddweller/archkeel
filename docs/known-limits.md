@@ -320,14 +320,15 @@ The collector gives a `dynamic_import` gap (a trojan horse site, AD-1053, AD-105
 a literal code attribute (`__code__`, `f_code`, ...), `getattr`, `setattr`, `delattr`, `__getattribute__`,
 `__setattr__` and `__delattr__` with a name or a receiver that it cannot prove, each reference to one of
 them that is no direct call (`g = getattr`, `map(getattr, ...)`), `vars(x)` and `x.__dict__`,
-`attrgetter`, `methodcaller`, `inspect.getmembers` and `gc.get_referents`. No receiver is proven: `self`, `cls`, a class and a module are no proof. A lazy `__getattr__` table keeps its `getattr` sites, so its proven keys (AD-654) are dropped until a contract declares them. A module that is imported twice, or a
-loop over a literal tuple of names, keeps its site (precision limit; a contract can declare it).
+`attrgetter`, `methodcaller`, `inspect.getmembers` and `gc.get_referents`. No receiver is proven: `self`, `cls`, a class and a module are no proof. A lazy `__getattr__` table keeps its `getattr` sites, so its proven keys (AD-654) are dropped until a contract declares them. A loop over a literal tuple of names keeps its site (precision limit; a contract can declare it). A literal that names reflection (`__dict__`, `__getattribute__`, `__class__`) keeps its site; the dunders that hand out text (`__name__`, `__doc__`, `__file__`, `__version__`, `__all__`, `__module__`, `__qualname__`) do not.
 
 Still open, with a plant that fails when it is fixed (`tests/test_collector_false_pass_python_open.py`):
 - `dis.Bytecode(f).codeobj` hands out the code object without a name: #1969. Other standard library
   routes can exist; the collector has no list of them.
 
 A declaration is trusted: the scan does not check `loads` or `covers` (AD-1052, AD-1056).
+
+Premise: code that writes raw memory (`ctypes`, `from_address`) can change a code object or a binding without any name that the scan reads. The scan does not read it; the run assumes that the scanned code does not do this.
 
 ## Before claiming PASS
 
