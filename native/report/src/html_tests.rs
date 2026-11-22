@@ -388,7 +388,7 @@ fn the_verdict_does_not_make_generic_gap_tasks() {
     assert!(!head.contains("class=\"body-sm ak-verdict__note\">2 unknown rules:"));
     assert!(!head.contains("Close the gaps behind"));
     assert!(page.contains("5 coverage gaps in the scan"));
-    assert!(page.contains("7 gaps between two modules"));
+    assert!(page.contains("7 module pairs with gaps"));
     assert!(page.contains("other &lt;b&gt;"));
 }
 

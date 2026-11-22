@@ -146,10 +146,10 @@ pub(super) fn anchor(cause: &Cause<'_>) -> String {
 pub(super) fn title(cause: &Cause<'_>) -> String {
     match cause.kind {
         "coverage_gaps" => format!("{} in the scan", count(cause.total, "coverage gap")),
-        "pair_gaps" => format!("{} between two modules", count(cause.total, "gap")),
+        "pair_gaps" => format!("{} with gaps", count(cause.total, "module pair")),
         "allowed_pair_gaps" => format!(
-            "{} between two modules that the contract allows",
-            count(cause.total, "gap")
+            "{} with gaps that the contract allows",
+            count(cause.total, "module pair")
         ),
         "scoped_gaps" => format!(
             "{} with an effect that the rule reads",

@@ -57,7 +57,7 @@ fn the_unknown_rules_are_grouped_by_cause_and_the_largest_cause_comes_first() {
     assert!(section.contains("<details><summary>Undecided rules and recorded evidence</summary>"));
     assert_eq!(section.matches("class=\"rp-cause\"").count(), 3);
     let first = section.find("3 coverage gaps in the scan").unwrap();
-    let second = section.find("7 gaps between two modules").unwrap();
+    let second = section.find("7 module pairs with gaps").unwrap();
     assert!(first < second, "the cause with two rules is first");
     let code = |id: &str| format!("<span class=\"rp-code\">{id}</span>");
     assert!(section.contains(&format!(
@@ -73,7 +73,7 @@ fn the_unknown_rules_are_grouped_by_cause_and_the_largest_cause_comes_first() {
         1
     );
     assert!(section.contains("Where: 3 of 3 components, 3 gaps in all"));
-    assert!(section.contains("Where: 2 of 7 between two modules"));
+    assert!(section.contains("Where: 2 of 7 module pairs"));
     assert!(section.contains("the core says &lt;b&gt;"));
     assert!(section.contains("Close the gaps listed below"));
 }
