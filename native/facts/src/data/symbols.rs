@@ -56,7 +56,7 @@ facts_data! {
         /// The boolean members that a guard reads.
         [read skip] guard_boolean_members: Option<Vec<GuardBooleanMember>>,
         /// The evidence of the scope of the instance members.
-        [read skip] instance_member_scope_evidence_id: Nullable<EvidenceId>,
+        [read absent] instance_member_scope_evidence_id: Nullable<EvidenceId>,
         /// The instance members that the class writes.
         [read skip] instance_member_writes: Option<Vec<String>>,
         /// The id of the symbol that holds it in the source text.
@@ -112,7 +112,7 @@ facts_data! {
         /// The kind of accessor, for a property method.
         [read skip] accessor_kind: Option<String>,
         /// The annotation as written.
-        [read skip] annotation: Nullable<String>,
+        [read absent] annotation: Nullable<String>,
         /// True for an `async` function.
         [read skip "async"] is_async: Option<bool>,
         /// True when the header of the class is read in full.
@@ -156,7 +156,7 @@ facts_data! {
         /// The name with the names of its parents.
         [read] qualified_name: String,
         /// The parameter that holds the receiver.
-        [read skip] receiver_parameter: Nullable<String>,
+        [read absent] receiver_parameter: Nullable<String>,
         /// The return annotation as written.
         [read required] returns: Option<String>,
         /// The shape of the written return type.
@@ -196,11 +196,11 @@ facts_data! {
         /// The type that the alias names.
         [read skip] alias: Option<String>,
         /// The annotation as written.
-        [read skip] annotation: Nullable<String>,
+        [read absent] annotation: Nullable<String>,
         /// True when the header of the class is read in full.
         [read skip] class_header_static: Option<bool>,
         /// The constant value, when it is one.
-        [read skip] constant: Nullable<Literal>,
+        [read absent] constant: Nullable<Literal>,
         /// The evidence of the decorators.
         [read skip] decorator_evidence_ids: Option<Vec<EvidenceId>>,
         /// The decorators as written.
@@ -208,9 +208,9 @@ facts_data! {
         /// The places where the definition is made.
         [read skip] definition_contexts: Option<Vec<DefinitionContext>>,
         /// The expression that sets the value.
-        [read skip] initializer: Nullable<String>,
+        [read absent] initializer: Nullable<String>,
         /// The id of the symbol that holds it in the source text.
-        [read skip] lexical_parent_id: Nullable<FactId>,
+        [read absent] lexical_parent_id: Nullable<FactId>,
         /// The modifiers as written.
         [read skip] modifiers: Option<Vec<String>>,
         /// The module that holds it.
@@ -230,7 +230,7 @@ facts_data! {
         /// The kind of the record.
         [read skip] record_kind: Option<String>,
         /// The return annotation as written.
-        [read skip] returns: Nullable<String>,
+        [read absent] returns: Nullable<String>,
         /// True when the collector reads the whole signature.
         [read skip] signature_complete: Option<bool>,
         /// True when one statement binds the name in the source.

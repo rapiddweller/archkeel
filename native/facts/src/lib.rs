@@ -48,7 +48,8 @@ pub mod request;
 #[cfg(test)]
 mod schema;
 pub mod sections;
-mod skip;
+#[cfg(test)]
+pub mod skip_wire_tests;
 pub mod standard;
 pub mod surveys;
 pub mod type_shape;
