@@ -227,7 +227,7 @@ fn the_explorer_names_the_result_of_the_run_and_no_observation() {
     let plain = json!({"status": "PASS", "topology": components(2, &[])});
     let open = json!({"status": "UNKNOWN", "topology": components(2, &[])});
     for (frame, result) in [
-        (premised, "PASS assuming 1 stated external user"),
+        (premised, "PASS under 1 stated external user"),
         (plain, "PASS"),
         (open, "UNKNOWN"),
     ] {

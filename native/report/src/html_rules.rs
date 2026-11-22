@@ -45,17 +45,17 @@ fn fold(heading: &str, kinds: &BTreeMap<String, Vec<String>>) -> String {
     html
 }
 
-/// `PASS assuming <the premises of the run>`, in the words of the core (#1549), or `None` for a
+/// `PASS under <the premises of the run>`, in the words of the core (#1549), or `None` for a
 /// run with no stated premise.
 pub(super) fn qualifier(frame: &Frame) -> Option<String> {
     frame
         .assuming
         .as_ref()
-        .map(|words| format!("PASS assuming {words}"))
+        .map(|words| format!("PASS under {words}"))
 }
 
 /// The rules that hold only under a premise of the contract (AD-664, #1549), each with its
-/// premises: the door sites and the stated external users.
+/// premises: the trojan horse sites and the stated external users.
 fn assumed(frame: &Frame) -> String {
     let Some(heading) = qualifier(frame).filter(|_| !frame.premises.is_empty()) else {
         return String::new();

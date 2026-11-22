@@ -74,14 +74,31 @@
           "type": "string"
         }
       },
-      "description": "Each PASS rule that holds only under the declared reach of door sites, with the sites\n(AD-664): never a plain PASS."
+      "description": "Each PASS rule that holds only under the declared reach of trojan horse sites, with the sites\n(AD-664): never a plain PASS."
     },
-    "door_reach": {
+    "notes": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/DoorRow"
+        "$ref": "#/$defs/Note"
       },
-      "description": "Each applied declaration of a door reach of the run (AD-664)."
+      "description": "The notes of the run: facts that change no verdict (AD-1054)."
+    },
+    "trojan_horse_reach": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TrojanHorseRow"
+      },
+      "description": "Each applied declaration of a trojan horse reach of the run (AD-664)."
+    },
+    "fail_from_declared_reach": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "description": "Each FAIL rule whose every violation rests on an edge that a declaration only allows, with\nthe ids of the declarations (AD-1052): the rule says \"FAIL from a declared reach\"."
     },
     "premises": {
       "type": "object",
@@ -98,7 +115,7 @@
         "string",
         "null"
       ],
-      "description": "The premises of the run in words: a PASS that rests on them reads \"PASS assuming\" and\nthese words (AD-764)."
+      "description": "The premises of the run in words: a PASS that rests on them reads \"PASS under\" and\nthese words (AD-764)."
     },
     "scope": {
       "type": "string",
@@ -451,33 +468,56 @@
       ],
       "description": "Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict\nfrom the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`."
     },
-    "DoorRow": {
+    "Note": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "The stable code of the note, such as `deprecated.trojan_horse_reach`."
+        },
+        "text": {
+          "type": "string",
+          "description": "The note in words."
+        }
+      },
+      "required": [
+        "code",
+        "text"
+      ],
+      "description": "A note of the run: a fact that the reader must see and that changes no verdict (AD-1054).",
+      "additionalProperties": false
+    },
+    "TrojanHorseRow": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string",
           "description": "The id of the declaration."
         },
+        "rationale": {
+          "type": "string",
+          "description": "Why the reach holds, as the declaration words it."
+        },
         "module": {
           "type": "string",
-          "description": "The module of the door."
+          "description": "The module of the trojan horse."
         },
         "line": {
           "type": "integer",
           "format": "uint32",
           "minimum": 0,
-          "description": "The line of the door site."
+          "description": "The line of the trojan horse site."
         },
-        "door": {
+        "trojan_horse": {
           "type": "string",
-          "description": "The form of the door."
+          "description": "The form of the trojan horse."
         },
         "loads": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "The declared module prefixes that the door may import."
+          "description": "The declared module prefixes that the trojan horse may import."
         },
         "constant": {
           "type": [
@@ -493,19 +533,33 @@
           },
           "description": "The scanned targets of the possible dependency edges, not observed imports."
         },
+        "covered": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The modules that can reach the bound name and that `covers` names (AD-1056)."
+        },
+        "covered_count": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0,
+          "description": "The number of modules in `covered`: the modules that the contract trusts not to hand the\nbound name to an uncovered module (AD-1056). Absent without covered modules."
+        },
         "changes": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "The declared module prefixes whose names the door may change."
+          "description": "The declared module prefixes whose names the trojan horse may change."
         }
       },
       "required": [
         "id",
+        "rationale",
         "module",
         "line",
-        "door",
+        "trojan_horse",
         "loads",
         "changes"
       ],
@@ -517,7 +571,7 @@
       "properties": {
         "kind": {
           "type": "string",
-          "description": "`door_reach`, `external_user`, or the name of a declared premise (AD-764)."
+          "description": "`trojan_horse_reach`, `external_user`, or the name of a declared premise (AD-764)."
         },
         "subject": {
           "type": "string",
@@ -1741,6 +1795,13 @@
           "format": "uint",
           "minimum": 0
         },
+        "declared": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeclaredEdge"
+          },
+          "description": "The declared edges of the step: the declaration, the module of its site and the module that\nit may load (AD-1057)."
+        },
         "evidence": {
           "type": "array",
           "items": {
@@ -1763,6 +1824,27 @@
         "evidence_total"
       ],
       "description": "One step of a cycle path.",
+      "additionalProperties": false
+    },
+    "DeclaredEdge": {
+      "type": "object",
+      "properties": {
+        "declaration": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "declaration",
+        "source",
+        "target"
+      ],
+      "description": "One possible import that a declaration supplies to a cycle step.",
       "additionalProperties": false
     },
     "Holds": {

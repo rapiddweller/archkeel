@@ -20,7 +20,7 @@ fn title(frame: &Frame, places: &Places) -> String {
     let pass = frame.rules_with(RuleVerdict::Pass);
     match frame.status {
         Some(Status::Pass) if !frame.premises.is_empty() => format!(
-            "All {} hold; {} hold assuming {}",
+            "All {} hold; {} hold under {}",
             count(pass, "rule"),
             frame.premises.len(),
             frame
@@ -78,7 +78,7 @@ fn premise(frame: &Frame) -> String {
 }
 
 /// The premises of the contract (AD-664, #1549): a PASS under one is never a plain PASS.
-fn doors(frame: &Frame) -> String {
+fn trojan_horses(frame: &Frame) -> String {
     let Some(qualifier) = super::rules::qualifier(frame) else {
         return String::new();
     };
@@ -92,7 +92,7 @@ contract; a premise is not a proof.</p>",
     )
 }
 
-/// The word of the badge: `PASS assuming <premises>` for a PASS that rests on a premise of the
+/// The word of the badge: `PASS under <premises>` for a PASS that rests on a premise of the
 /// contract (#1549), else the word of the status.
 fn badge(frame: &Frame) -> String {
     match super::rules::qualifier(frame) {
@@ -268,7 +268,7 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
         gaps(frame),
         baseline(frame),
         premise(frame),
-        doors(frame),
+        trojan_horses(frame),
         calls(frame),
         next(frame, places)
     )

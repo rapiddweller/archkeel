@@ -7,7 +7,7 @@
 //!
 //! A premise is a claim about what the scan cannot see. The contract opts in to a premise by its
 //! name, with a reason. A rule that rests on a declared premise never reads as a plain PASS: the
-//! frame names the premise and the run reads "PASS assuming <premise>". This file only reads the
+//! frame names the premise and the run reads "PASS under <premise>". This file only reads the
 //! shape and the known names; the model decides where a premise applies.
 
 use serde::Serialize;
@@ -37,11 +37,11 @@ pub fn premise_word(name: PremiseName) -> &'static str {
     }
 }
 
-/// A premise in words, as "PASS assuming <words>" reads it.
+/// A premise in words, as "PASS under <words>" reads it.
 pub fn assumption_words(name: PremiseName) -> &'static str {
     match name {
         PremiseName::StandardLibraryUnchanged => {
-            "outside code leaves the standard library unchanged"
+            "the premise that outside code leaves the standard library unchanged"
         }
     }
 }

@@ -71,7 +71,7 @@ pub(super) fn settle(
                     kind: IMPORT_SYSTEM,
                     detail: "sys.path".to_owned(),
                     range: site.range,
-                    door: None,
+                    trojan_horse: None,
                     scope: String::new(),
                     binding: None,
                 },

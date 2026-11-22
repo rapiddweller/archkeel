@@ -160,24 +160,24 @@ fn list<'a>(part: &'a Map<String, Value>, key: &str) -> impl Iterator<Item = Val
         .cloned()
 }
 
-/// The premises of the parts (AD-664, #1549): a PASS under a declared door reach or a stated
+/// The premises of the parts (AD-664, #1549): a PASS under a declared trojan horse reach or a stated
 /// external user stays qualified in the system frame, and the run names its premises in words.
 fn join_premises(
     frames: &[Map<String, Value>],
     frame: &mut Map<String, Value>,
 ) -> Result<(), String> {
-    // AD-664: a PASS under a declared door reach stays qualified in the system frame.
+    // AD-664: a PASS under a declared trojan horse reach stays qualified in the system frame.
     let assumed = disjoint(frames, "assumed")?;
     if !assumed.is_empty() {
         frame.insert("assumed".to_owned(), Value::Object(assumed));
     }
-    let doors: Vec<Value> = frames
+    let trojan_horses: Vec<Value> = frames
         .iter()
-        .flat_map(|part| list(part, "door_reach"))
+        .flat_map(|part| list(part, "trojan_horse_reach"))
         .collect();
-    let door_count = doors.len();
-    if !doors.is_empty() {
-        frame.insert("door_reach".to_owned(), Value::Array(doors));
+    let trojan_horse_count = trojan_horses.len();
+    if !trojan_horses.is_empty() {
+        frame.insert("trojan_horse_reach".to_owned(), Value::Array(trojan_horses));
     }
     // #1549: each premise of a part stays with its rule, and the run names them in words.
     let premises = disjoint(frames, "premises")?;
@@ -189,7 +189,7 @@ fn join_premises(
             pairs.push((kind, Value::as_str(&row["subject"]).unwrap_or("")));
         }
     }
-    let words = archkeel_report::premise_words(door_count, pairs.into_iter())
+    let words = archkeel_report::premise_words(trojan_horse_count, pairs.into_iter())
         .map_err(|why| format!("system: {why}"))?;
     if !premises.is_empty() {
         frame.insert("premises".to_owned(), Value::Object(premises));

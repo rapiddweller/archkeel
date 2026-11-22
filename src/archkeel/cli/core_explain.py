@@ -58,6 +58,15 @@ class RuleShape:
 
 
 @dataclass(frozen=True, slots=True)
+class DeclaredEdge:
+    """A possible import that a declaration supplies: its id, its site module and the target."""
+
+    declaration: str
+    source: str
+    target: str
+
+
+@dataclass(frozen=True, slots=True)
 class Step:
     """One import edge on a path of a cycle, with the evidence for it."""
 
@@ -68,6 +77,7 @@ class Step:
     imports: int
     evidence: tuple[str, ...]
     evidence_total: int
+    declared: tuple[DeclaredEdge, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,6 +190,22 @@ def _step(value: object, where: str) -> Step:
         as_count(row["imports"], where),
         evidence,
         total,
+        tuple(_declared_edge(item, where) for item in _items(row.get("declared", []), where)),
+    )
+
+
+def _items(value: object, where: str) -> list[object]:
+    if not isinstance(value, list):
+        raise CoreError(f"the core frame field {where} is not a list")
+    return value
+
+
+def _declared_edge(value: object, where: str) -> DeclaredEdge:
+    row = as_object(value, where)
+    return DeclaredEdge(
+        as_text(row["declaration"], where),
+        as_text(row["source"], where),
+        as_text(row["target"], where),
     )
 
 

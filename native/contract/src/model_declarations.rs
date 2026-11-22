@@ -4,10 +4,10 @@
 
 //! The `declarations` object of a contract (`ContractDeclarations` in `ir/model.py`).
 
-use crate::door_reach::DoorReach;
 use crate::model::{ComponentLabel, ItemId, Package, Selector, SourcePath};
 use crate::model_uml::Target;
 use crate::premises::DeclaredPremise;
+use crate::trojan_horse_reach::TrojanHorseReach;
 
 record!(
     pub(crate),
@@ -199,9 +199,12 @@ record!(
     Declarations {
         /// The capabilities of the product.
         capabilities: Vec<Capability>,
-        /// The declared reach of each door site (AD-664); an empty list is not written.
+        /// The declared reach of each trojan horse site (AD-664); an empty list is not written.
         #[serde(skip_serializing_if = "Vec::is_empty")]
-        door_reach: Vec<DoorReach>,
+        trojan_horse_reach: Vec<TrojanHorseReach>,
+        /// True when the contract spells the key or the field with the deprecated word `door`.
+        #[serde(skip)]
+        deprecated_spelling: bool,
         /// The premises that the contract declares (AD-764); an empty list is not written.
         #[serde(skip_serializing_if = "Vec::is_empty")]
         premises: Vec<DeclaredPremise>,

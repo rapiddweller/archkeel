@@ -30,7 +30,7 @@ from test_cli_core_uml_review import (
     readme,
     ts,
 )
-from test_cli_python_door_reach import GIT
+from test_cli_python_trojan_horse_reach import GIT
 
 LAZY = {
     "t-dyn-mod": "export const one = import('../b/t');\n",
@@ -223,17 +223,17 @@ def test_computed_imports_use_declared_possible_targets(
     assert frame["rules"]["NO-CYCLE"] == ["no_component_cycles", status], result
     assert not [edge for edge in frame["topology"]["edges"] if edge["source"] == ONE]
     problems = {
-        "missing": "door_reach.invalid",
-        "scope": "door_reach.unmatched",
-        "same-line": "door_reach.ambiguous",
-        "include": "door_reach.invalid",
-        "inside": "door_reach.inside",
+        "missing": "trojan_horse_reach.invalid",
+        "scope": "trojan_horse_reach.unmatched",
+        "same-line": "trojan_horse_reach.ambiguous",
+        "include": "trojan_horse_reach.invalid",
+        "inside": "trojan_horse_reach.inside",
     }
     if case in problems:
-        assert "door_reach" not in frame
+        assert "trojan_horse_reach" not in frame
         assert any(gap["kind"] == problems[case] for gap in result["gaps"]), result["gaps"]
     else:
-        reach = frame["door_reach"][0]
+        reach = frame["trojan_horse_reach"][0]
         assert reach["loads"] == loads
         expected = {"forbidden": [secret, T], "exclusive": [secret]}.get(case, [T])
         assert reach["possible_loads"] == expected
@@ -243,19 +243,19 @@ def test_computed_imports_use_declared_possible_targets(
         assert result["status"] == "PASS", result
     if case == "system":
         assert frame["system"]["parts"][0]["id"] == "web"
-        assert frame["premises"]["NO-SECRET"][0]["kind"] == "door_reach"
+        assert frame["premises"]["NO-SECRET"][0]["kind"] == "trojan_horse_reach"
         text = command(release_core, root, "--text", *options).stdout
-        assert "PASS assuming the declared reach of 1 door" in text
+        assert "PASS under 1 declared reach" in text
         assert "Possible targets: app.src.b.t.ts" in text
         target = tmp_path / "system.html"
         command(release_core, root, "--output", str(target), *options, verb="report")
-        assert "PASS ASSUMING THE DECLARED REACH OF 1 DOOR" in target.read_text()
+        assert "PASS UNDER 1 DECLARED REACH" in target.read_text()
     if case == "system-open":
         assert result["status"] == "UNKNOWN", result
         assert frame["rules"]["OPEN-NO-SECRET"] == ["forbidden_dependency", "UNKNOWN"]
         assert "OPEN-NO-SECRET" not in frame["premises"]
         assert frame["assumed"]["NO-SECRET"] == [f"D-IMPORT ({ONE}:1 loader)"]
-        assert len(frame["door_reach"]) == 1
+        assert len(frame["trojan_horse_reach"]) == 1
     if case == "forbidden":
         assert {(edge["source"], edge["target"]) for edge in frame["topology"]["edges"]} == {
             (secret, ONE)
@@ -273,7 +273,7 @@ def test_computed_imports_use_declared_possible_targets(
         assert "Possible targets: app.src.b.secret.ts, app.src.b.t.ts" in text
         assert "NO-CYCLE: contract graph cycle" in text
         assert "the contract declares this possibility" in text
-        assert "PASS assuming" not in text
+        assert "PASS under" not in text
         page_path = tmp_path / "report.html"
         command(release_core, root, "--output", str(page_path), "--format", "html", verb="report")
         page = page_path.read_text()

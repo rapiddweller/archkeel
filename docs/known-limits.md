@@ -87,7 +87,7 @@ The linked Python collector also proves direct function calls for `call_owner` (
 An open import route keeps call identity unproved. An unrelated open call does not hide a proven violation.
 A dynamic import, an import-system change and the other gaps of AD-450 can hold rules that read them.
 A contract can declare the reach of an `eval`, `exec`, `compile`, unpickler, loader or `__import__`
-site; a PASS then holds only under that premise and says so (AD-664). A door module binding and a
+site; a PASS then holds only under that premise and says so (AD-664). A trojan horse module binding and a
 pickler have no declarable reach, and a TypeScript run-time key whose gap blocks the free standard
 names cannot apply.
 A re-export of a package is read through its uses: a name of a package that another module
@@ -124,7 +124,7 @@ from a string, for example a plugin loader, a framework that reads a dotted path
 an object deserializer. The survey does not know such a function, so it does not see that edge.
 A forbidden or cyclic dependency that only such a call makes can give PASS (#1519). Release 4.0.1 has the
 same hole. This is an open defect, not an accepted limit. The survey covers the names of AD-450
-point 7: the standard-library doors, the import state and the builtins that run text.
+point 7: the standard-library trojan horses, the import state and the builtins that run text.
 
 The Python collector does not follow a value from an unknown object to a loader. For example,
 a call of a method on an unknown value can load any module. A runner of the `code` module
@@ -304,7 +304,7 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
 
 - A write to a package that the repository does not show, after its statements ran. The survey
   reads the code of the repository outside the scan roots (AD-770): a script or an extension source
-  that writes a module of the scan, or names it beside a door, withholds its routes (UNKNOWN). A test
+  that writes a module of the scan, or names it beside a trojan horse, withholds its routes (UNKNOWN). A test
   file (`test_*.py`, `*_test.py`, a file below `test/` or `tests/`), a name built at run time from
   data, and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
   the stated premise of the run: "Code outside the scan roots, including test code, hands in no
@@ -313,14 +313,25 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
   UNKNOWN. A direct scanned read of another function's `__globals__` also keeps its named gap, and an
   outside library dictionary that hides an importer gives the gap of AD-760 (#1521).
 
-## Open false PASS: a computed attribute name reaches a code object (Python, #1967)
+## Open false PASS: a code object reached by a route that the collector does not read (Python, #1969)
 
-The door of AD-1048 sees the literal names `__code__`, `f_code`, `gi_code`, `cr_code` and
-`ag_code`. A name that is built at run time is not a door: `getattr(f, '__co' + 'de__')`,
-`f.__getattribute__(name)`, a variable name, and a `dir()` filter that picks the name. Such code can
-rewrite a code object, import a forbidden module, and still give PASS with no gap. CPython 3.12
-shows the import. The owner decides whether a computed `getattr` is a door (#1967). Plants, as
-expected failures: `tests/test_cli_python_code_door.py`.
+A code object lets code build a function that imports any module (`type(f)(code.replace(co_names=...), {})`).
+The collector gives a `dynamic_import` gap (a trojan horse site, AD-1053, AD-1058) for these routes:
+a literal code attribute (`__code__`, `f_code`, ...), `getattr`, `setattr`, `delattr`, `__getattribute__`,
+`__setattr__` and `__delattr__` with a name or a receiver that it cannot prove, each reference to one of
+them that is no direct call (`g = getattr`, `map(getattr, ...)`), `vars(x)` and `x.__dict__`,
+`attrgetter`, `methodcaller`, `inspect.getmembers` and `gc.get_referents`. No receiver is proven: `self`, `cls`, a class and a module are no proof. A lazy `__getattr__` table keeps its `getattr` sites, so its proven keys (AD-654) are dropped until a contract declares them. A loop over a literal tuple of names keeps its site (precision limit; a contract can declare it). A literal that names reflection (`__dict__`, `__getattribute__`, `__class__`) keeps its site; the dunders that hand out text (`__name__`, `__doc__`, `__file__`, `__version__`, `__all__`, `__module__`, `__qualname__`) do not.
+
+Still open, with a plant that fails when it is fixed (`tests/test_collector_false_pass_python_open.py`):
+- `dis.Bytecode(f).codeobj` hands out the code object without a name: #1969. Other standard library
+  routes can exist; the collector has no list of them.
+- The standard library imports a module that a string names: `logging.config.dictConfig` (`'()'` and
+  `'class'` keys) and `unittest.TestLoader().loadTestsFromName`: #1970 (one issue for the list; the
+  plants are in `tests/test_collector_false_pass_python_stdlib_importers.py`).
+
+A declaration is trusted: the scan does not check `loads` or `covers` (AD-1052, AD-1056). The rule can give PASS under a declared reach while Python imports the module, when a covered module hands the bound name to an uncovered module (it re-exports the attribute, it imports the name under another name, or `covers` lists the importer itself); `main` gives UNKNOWN there only because it cannot read a declaration. This is the trust that `covers` states, and `tests/test_cli_python_trojan_horse_covers_trust.py` pins it. A covered module is trusted not to hand the bound name to an uncovered module; the scan does not check this. The report prints the number of covered modules of each declaration. Guidance for EE and CE: a unique alias of the bound name (`import pickle as _pickle_loader`) avoids almost all name hits and the long `covers` list.
+
+Premise: code that writes raw memory (`ctypes`, `from_address`) can change a code object or a binding without any name that the scan reads. The scan does not read it; the run assumes that the scanned code does not do this.
 
 ## Before claiming PASS
 
@@ -440,7 +451,7 @@ body ([#775](https://github.com/rapiddweller/archkeel/issues/775)):
 
 A name of the standard library is an identity that the scan cannot prove: code outside the
 repository can replace it before the module runs. So `boundary_types` counts such a name only under
-the opt-in contract premise `standard_library_unchanged`, and the PASS reads "PASS assuming outside
+the opt-in contract premise `standard_library_unchanged`, and the PASS reads "PASS under outside
 code leaves the standard library unchanged" (AD-782). This covers the closed table of value types
 and markers (`pathlib.Path`, `datetime`, `typing.Final`, ...), the decorators that the collector
 models, and, since #1718, the collections and special forms that the shape reader reads by name

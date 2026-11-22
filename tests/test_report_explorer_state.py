@@ -438,7 +438,7 @@ def test_the_explorer_names_the_result_and_no_observation(site: str, page: Brows
     # "Observation" was a 4.0.1 word: next to PASS it read like a contradiction.
     page.open(f"{site}/part.html")
     status = page.evaluate("document.querySelector('#flow .ak-run-status').textContent")
-    assert status == "Result: PASS assuming 2 stated external users"
+    assert status == "Result: PASS under 2 stated external users"
     premises = page.evaluate(
         "[...document.querySelectorAll('.rp-ev li')].find((row) => "
         "row.querySelector('.rp-code')?.textContent === 'SHELL-PUBLIC-HAS-A-USER').textContent"

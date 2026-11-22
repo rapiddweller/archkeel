@@ -5,9 +5,9 @@
 //! The premises that a PASS rests on (AD-764): the one seam for every claim of the contract about
 //! what the scan cannot see.
 //!
-//! A premise is never a proof. A rule that passes only because of one reads "PASS assuming
+//! A premise is never a proof. A rule that passes only because of one reads "PASS under
 //! <premise>". Three kinds exist:
-//! - the declared reach of a door site (`declarations.door_reach`, AD-664);
+//! - the declared reach of a trojan horse site (`declarations.trojan_horse_reach`, AD-664);
 //! - a stated external user of a public item (`external_users` of `unused_public`, AD-670);
 //! - a premise that the contract declares by name (`declarations.premises`, contract 3.17.0).
 //!
@@ -28,8 +28,8 @@ use crate::published_items::PublicItem;
 /// What one premise is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PremiseKind {
-    /// The declared reach of a door site; the subject is the site.
-    DoorReach,
+    /// The declared reach of a trojan horse site; the subject is the site.
+    TrojanHorseReach,
     /// A stated user outside the scan of a public item; the subject is `module:name`.
     ExternalUser,
     /// A premise that the contract declares by name; the subject names what it covers.
@@ -39,7 +39,7 @@ pub enum PremiseKind {
 /// The word of a premise kind in the frame.
 pub fn kind_word(kind: PremiseKind) -> &'static str {
     match kind {
-        PremiseKind::DoorReach => "door_reach",
+        PremiseKind::TrojanHorseReach => "trojan_horse_reach",
         PremiseKind::ExternalUser => "external_user",
         PremiseKind::Declared(name) => archkeel_contract::premise_word(name),
     }
@@ -47,7 +47,7 @@ pub fn kind_word(kind: PremiseKind) -> &'static str {
 
 /// The premise kind of a word of the frame, or `None` for a word that names no kind.
 pub fn of_kind_word(word: &str) -> Option<PremiseKind> {
-    let fixed = [PremiseKind::DoorReach, PremiseKind::ExternalUser];
+    let fixed = [PremiseKind::TrojanHorseReach, PremiseKind::ExternalUser];
     let declared = archkeel_contract::PREMISE_NAMES.map(PremiseKind::Declared);
     fixed
         .into_iter()
@@ -64,13 +64,13 @@ pub struct UsedPremise {
     pub subject: String,
 }
 
-/// The premises that a PASS of `rule` in `model` rests on, in a fixed order: the door sites, the
+/// The premises that a PASS of `rule` in `model` rests on, in a fixed order: the trojan horse sites, the
 /// stated external users, then the declared premises.
 pub fn rule_premises(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
-    let doors: Vec<&Applied> = crate::gap_effects::assumed(model, rule);
-    let doors = doors.into_iter().map(|door| UsedPremise {
-        kind: PremiseKind::DoorReach,
-        subject: Applied::site(door),
+    let trojan_horses: Vec<&Applied> = crate::gap_effects::assumed(model, rule);
+    let trojan_horses = trojan_horses.into_iter().map(|trojan_horse| UsedPremise {
+        kind: PremiseKind::TrojanHorseReach,
+        subject: Applied::site(trojan_horse),
     });
     let items: Vec<&PublicItem> = match rule {
         Rule::UnusedPublic(unused) => crate::published::stated_users(model, unused),
@@ -80,7 +80,10 @@ pub fn rule_premises(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
         kind: PremiseKind::ExternalUser,
         subject: format!("{}:{}", item.module, item.name),
     });
-    doors.chain(users).chain(declared(model, rule)).collect()
+    trojan_horses
+        .chain(users)
+        .chain(declared(model, rule))
+        .collect()
 }
 
 /// The declared premises that `rule` rests on: `standard_library_unchanged` for each position or
@@ -125,11 +128,11 @@ impl Model {
     }
 }
 
-/// The premises of a run in words, or `None` without one: `the declared reach of N doors`,
-/// `N stated external users`, then the words of each declared premise, joined by `and`. `doors`
-/// is the number of applied door declarations; `used` is each premise of each PASS rule. The one
+/// The premises of a run in words, or `None` without one: `N declared reaches`,
+/// `N stated external users`, then the words of each declared premise, joined by `and`. `trojan_horses`
+/// is the number of applied trojan horse declarations; `used` is each premise of each PASS rule. The one
 /// place of these words.
-pub fn premise_words(doors: usize, used: &[(PremiseKind, &str)]) -> Option<String> {
+pub fn premise_words(trojan_horses: usize, used: &[(PremiseKind, &str)]) -> Option<String> {
     let plural = |n: usize| if n == 1 { "" } else { "s" };
     let mut users: BTreeSet<&str> = BTreeSet::new();
     let mut declared: BTreeSet<PremiseName> = BTreeSet::new();
@@ -141,17 +144,21 @@ pub fn premise_words(doors: usize, used: &[(PremiseKind, &str)]) -> Option<Strin
             PremiseKind::Declared(name) => {
                 declared.insert(*name);
             }
-            PremiseKind::DoorReach => {}
+            PremiseKind::TrojanHorseReach => {}
         }
     }
     let count = BTreeSet::len(&users);
-    let door_words =
-        (doors > 0).then(|| format!("the declared reach of {doors} door{}", plural(doors)));
+    let trojan_horse_words = (trojan_horses > 0).then(|| {
+        format!(
+            "{trojan_horses} declared reach{}",
+            if trojan_horses == 1 { "" } else { "es" }
+        )
+    });
     let user_words = (count > 0).then(|| format!("{count} stated external user{}", plural(count)));
     let declared_words = declared
         .into_iter()
         .map(|name| archkeel_contract::assumption_words(name).to_owned());
-    let parts: Vec<String> = door_words
+    let parts: Vec<String> = trojan_horse_words
         .into_iter()
         .chain(user_words)
         .chain(declared_words)
@@ -169,7 +176,7 @@ mod tests {
     #[test]
     fn each_kind_has_one_word_and_the_words_of_a_run_name_each_premise() {
         for kind in [
-            PremiseKind::DoorReach,
+            PremiseKind::TrojanHorseReach,
             PremiseKind::ExternalUser,
             PremiseKind::Declared(PremiseName::StandardLibraryUnchanged),
         ] {
@@ -178,8 +185,8 @@ mod tests {
         assert_eq!(of_kind_word("other"), None);
         assert_eq!(premise_words(0, &[]), None);
         assert_eq!(
-            premise_words(1, &[(PremiseKind::DoorReach, "D")]).as_deref(),
-            Some("the declared reach of 1 door")
+            premise_words(1, &[(PremiseKind::TrojanHorseReach, "D")]).as_deref(),
+            Some("1 declared reach")
         );
         let used = [
             (PremiseKind::ExternalUser, "a:x"),
@@ -193,8 +200,8 @@ mod tests {
         assert_eq!(
             premise_words(2, &used).as_deref(),
             Some(
-                "the declared reach of 2 doors and 2 stated external users and outside code \
-                 leaves the standard library unchanged"
+                "2 declared reaches and 2 stated external users and the premise that \
+                 outside code leaves the standard library unchanged"
             )
         );
     }

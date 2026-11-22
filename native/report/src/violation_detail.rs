@@ -5,6 +5,8 @@
 //! The evidence of a failed rule, copied from its evaluated violation without a second verdict.
 
 use archkeel_eval::{Cited, CycleStep, Violation};
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 /// One violation row. `source` and `target` are its identity, which the baseline reads (AD-546):
@@ -81,6 +83,39 @@ impl ViolationDetail {
 
     pub(crate) fn target(&self) -> Option<&str> {
         self.target.as_deref()
+    }
+
+    /// The (importer, imported) pairs of this row that rest on a declared possible import
+    /// (AD-1052): the possible steps of a cycle, or the one pair of a possible dependency.
+    pub(crate) fn declared_pairs(&self) -> Vec<(&str, &str)> {
+        if let Some(path) = &self.path {
+            let all: &[PathStep] = path;
+            let steps = all.iter().filter(|step| step.possible);
+            return steps
+                .map(|step| (String::as_str(&step.from), String::as_str(&step.to)))
+                .collect();
+        }
+        match (self.possible, &self.target) {
+            (true, Some(target)) => vec![(String::as_str(&self.source), String::as_str(target))],
+            _ => Vec::new(),
+        }
+    }
+
+    /// For each rule and each row of it, the declared (importer, imported) pairs, as text.
+    pub(crate) fn declared_by_rule(
+        details: &BTreeMap<String, Vec<ViolationDetail>>,
+    ) -> BTreeMap<String, Vec<Vec<(String, String)>>> {
+        let own = |(source, target): (&str, &str)| (source.to_owned(), target.to_owned());
+        let mut found = BTreeMap::new();
+        for (rule, rows) in details {
+            let each = rows.iter().map(|row| row.declared_pairs());
+            found.insert(
+                rule.clone(),
+                each.map(|pairs| pairs.into_iter().map(own).collect())
+                    .collect(),
+            );
+        }
+        found
     }
 
     fn cited(cause: &'static str, cited: &Cited) -> Self {

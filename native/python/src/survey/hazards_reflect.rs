@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! One-step aliases and literal reflection of import-bound module names.
-//! `Proved` holds the sites that the scan proves are no door (AD-894).
+//! `Proved` holds the sites that the scan proves are no trojan horse (AD-894).
 
 use std::collections::HashMap;
 
@@ -172,7 +172,7 @@ pub(super) fn code(expr: &Expr, bindings: &Bindings) -> bool {
 /// One module for the proof: its tree, its unique direct bindings and its imports.
 pub(super) type Item<'a> = (&'a ModModule, HashSet<String>, Bindings);
 
-/// The sites that are no door although a door name appears in them (AD-894). The walk of the
+/// The sites that are no trojan horse although a trojan horse name appears in them (AD-894). The walk of the
 /// hazards reports each site, and `covers` finds it again by its range.
 pub(super) struct Proved {
     /// A name of a module `def` or `class`, or an attribute chain on it: the name of its root.
@@ -182,7 +182,7 @@ pub(super) struct Proved {
 }
 
 /// The proof facts of each module. `fixed` lists the names that a module `def` never makes local:
-/// the builtin doors and the import functions.
+/// the builtin trojan horses and the import functions.
 pub(super) fn proved(modules: &[Item], fixed: &[&[&str]]) -> Vec<Proved> {
     let each = |(tree, unique, imports): &Item| Proved::of(tree, (imports, unique), fixed);
     modules.iter().map(each).collect()
@@ -222,7 +222,7 @@ impl Proved {
         marks.found
     }
 
-    /// True when the site is no door. `kind` tells whether the site is a dynamic import or an
+    /// True when the site is no trojan horse. `kind` tells whether the site is a dynamic import or an
     /// import-system change; a site of another kind is never covered.
     pub(super) fn covers(&self, kind: (bool, bool), detail: &str, range: TextRange) -> bool {
         let (dynamic, system) = kind;
@@ -232,8 +232,8 @@ impl Proved {
                     .strip_prefix(root.as_str())
                     .is_some_and(|rest| rest.starts_with('.'))
         };
-        let door = self.local.get(&range).is_some_and(under);
-        (dynamic && door) || (system && detail == "sys.path" && self.path.contains(&range))
+        let trojan_horse = self.local.get(&range).is_some_and(under);
+        (dynamic && trojan_horse) || (system && detail == "sys.path" && self.path.contains(&range))
     }
 }
 

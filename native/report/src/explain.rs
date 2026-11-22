@@ -19,7 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_contract::{head_of, Rule};
 use archkeel_eval::{CycleStep, Outcome, Violation};
-use archkeel_model::{shape, Cause, CoverageGap, Incomplete, Model, Reason, Shape};
+use archkeel_model::{shape, Applied, Cause, CoverageGap, Incomplete, Model, Reason, Shape};
 use serde::Serialize;
 
 use crate::why::WhyUnknown;
@@ -100,8 +100,20 @@ struct Step {
     from_component: Option<String>,
     to_component: Option<String>,
     imports: usize,
+    /// The declared edges of the step: the declaration, the module of its site and the module that
+    /// it may load (AD-1057).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    declared: Vec<DeclaredEdge>,
     evidence: Vec<String>,
     evidence_total: usize,
+}
+
+/// One possible import that a declaration supplies to a cycle step.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+struct DeclaredEdge {
+    declaration: String,
+    source: String,
+    target: String,
 }
 
 /// One cycle: its members and one closed path through them.
@@ -195,6 +207,27 @@ pub(crate) struct Collected {
     held: BTreeMap<String, Held>,
 }
 
+impl Collected {
+    /// The declared (importer, imported) pairs of each row of each rule, and for each rule with a
+    /// cycle the ids of the declarations that supply a step of a cycle. The join of a cycle is by
+    /// the id of the declared import (AD-1057), not by module names.
+    pub(crate) fn declared(
+        &self,
+        details: &BTreeMap<String, Vec<crate::violation_detail::ViolationDetail>>,
+    ) -> (crate::assumed::DeclaredPairs, BTreeMap<String, Vec<String>>) {
+        let pairs = crate::violation_detail::ViolationDetail::declared_by_rule(details);
+        let mut found = BTreeMap::new();
+        for (rule, cycles) in &self.cycles {
+            let steps = cycles.items.iter().flat_map(|item| &item.path);
+            let ids: BTreeSet<String> = steps
+                .flat_map(|step| step.declared.iter().map(|edge| edge.declaration.clone()))
+                .collect();
+            found.insert(rule.clone(), ids.into_iter().collect());
+        }
+        (pairs, found)
+    }
+}
+
 /// The pairs of the gap records, each once, in the order of their first record.
 fn distinct(records: &[(String, String)]) -> Vec<(String, String)> {
     let mut seen = BTreeSet::new();
@@ -237,7 +270,7 @@ impl Collected {
             .enumerate()
             .filter_map(|(index, violation)| {
                 if let Violation::Cycle(cycle) = violation {
-                    Some(cycle_path(index, cycle))
+                    Some(cycle_path(index, cycle, model))
                 } else {
                     None
                 }
@@ -262,20 +295,39 @@ impl Collected {
     }
 }
 
-fn cycle_path(index: usize, cycle: &archkeel_eval::Cyclic) -> CyclePath {
+fn cycle_path(index: usize, cycle: &archkeel_eval::Cyclic, model: &Model) -> CyclePath {
     let steps_total = cycle.path.len();
+    let applied = model.graph().trojan_horses().applied();
     CyclePath {
         id: cycle.id.clone(),
         index,
         members: cycle.members.clone(),
-        path: cycle.path.iter().take(MAX_STEPS).map(step).collect(),
+        path: (cycle.path.iter().take(MAX_STEPS))
+            .map(|each| step(each, applied))
+            .collect(),
         steps_total,
         truncated: steps_total > MAX_STEPS,
     }
 }
 
-fn step(step: &CycleStep) -> Step {
+/// The declared edges behind the imports of a step: a declared import has the id that its
+/// declaration gives it, so the join needs no module name.
+fn declared_edges(step: &CycleStep, applied: &[Applied]) -> Vec<DeclaredEdge> {
+    let edges = applied
+        .iter()
+        .flat_map(|site| site.edges.iter().map(move |edge| (site, edge)));
+    let used = edges.filter(|(_, (_, id))| step.imports.contains(id));
+    let edge = |(site, (target, _)): (&Applied, &(String, String))| DeclaredEdge {
+        declaration: site.id.clone(),
+        source: site.module.clone(),
+        target: target.clone(),
+    };
+    used.map(edge).collect()
+}
+
+fn step(step: &CycleStep, applied: &[Applied]) -> Step {
     Step {
+        declared: declared_edges(step, applied),
         possible: step.possible,
         from: step.from.clone(),
         to: step.to.clone(),

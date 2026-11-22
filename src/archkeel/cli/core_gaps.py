@@ -13,9 +13,9 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from typing import Final
 
-from .core_doors import DECLARED, declared
 from .core_evidence import CollectionGap
 from .core_frame import CoreFrame
+from .core_trojan_horses import DECLARED, declared
 from .core_words import NOT_FOUND_PREFIX, kind_label, plain
 
 SHOWN = 3
@@ -91,7 +91,7 @@ def group_lines(
     groups: dict[str, list[int]] = {}
     for index, gap in enumerate(frame.collection_gaps):
         lines_of = [place.line for e in gap.evidence if (place := frame.locations.get(e))]
-        if declared(gap.subjects, lines_of, frame.doors):
+        if declared(gap.subjects, lines_of, frame.trojan_horses):
             key = kind_label(DECLARED)
         else:
             key = _NOT_FOUND_LABEL if _missing(gap) is not None else kind_label(gap.kind)

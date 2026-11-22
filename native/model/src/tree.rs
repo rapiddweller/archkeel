@@ -116,6 +116,16 @@ impl ModelTree {
         &self.root
     }
 
+    /// True when the root contract spells its trojan horse key or field with the deprecated word
+    /// `door` (AD-1054).
+    pub fn deprecated_spelling(&self) -> bool {
+        let root: &Model = &self.root;
+        let found = root.contract().declarations();
+        found
+            .as_ref()
+            .is_some_and(|declarations| *declarations.deprecated_spelling())
+    }
+
     /// The exclusions of the shared observation of every model of the tree.
     pub fn excluded_sources(&self) -> Vec<String> {
         let root: &Model = &self.root;

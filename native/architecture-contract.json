@@ -20,16 +20,14 @@
         "docs/architecture/decisions/ad-345-collector-facts-have-one-typed-definition-in-archkeel-facts.md"
       ],
       "public": [
-        "native.archkeel_facts.data.door:DoorForm",
         "native.archkeel_facts.data.gap_data:GapData",
+        "native.archkeel_facts.data.trojan_horse:TrojanHorseForm",
         "native.archkeel_facts.data:BindingData",
         "native.archkeel_facts.data:CallData",
         "native.archkeel_facts.data:CallableData",
         "native.archkeel_facts.data:ClassData",
         "native.archkeel_facts.data:ConstructData",
         "native.archkeel_facts.data:Declared",
-        "native.archkeel_facts.data:DoorForm",
-        "native.archkeel_facts.data:DoorSite",
         "native.archkeel_facts.data:GapEffect",
         "native.archkeel_facts.data:ImportData",
         "native.archkeel_facts.data:PlaceholderData",
@@ -37,6 +35,8 @@
         "native.archkeel_facts.data:ReferenceData",
         "native.archkeel_facts.data:SelectorData",
         "native.archkeel_facts.data:SignalData",
+        "native.archkeel_facts.data:TrojanHorseForm",
+        "native.archkeel_facts.data:TrojanHorseSite",
         "native.archkeel_facts.data:ValueData",
         "native.archkeel_facts.envelope.validation:InterfaceNeed",
         "native.archkeel_facts.envelope.validation:Registered",
@@ -340,7 +340,6 @@
         "native.archkeel_contract:Contract",
         "native.archkeel_contract:CycleLevel",
         "native.archkeel_contract:DecidedBy",
-        "native.archkeel_contract:DoorReach",
         "native.archkeel_contract:Entity",
         "native.archkeel_contract:EntityKind",
         "native.archkeel_contract:ExternalDependencyScope",
@@ -379,6 +378,7 @@
         "native.archkeel_contract:Target",
         "native.archkeel_contract:TargetKind",
         "native.archkeel_contract:TargetScope",
+        "native.archkeel_contract:TrojanHorseReach",
         "native.archkeel_contract:UnusedPublic",
         "native.archkeel_contract:VisibilityBasis",
         "native.archkeel_contract:VisibilityKind",
@@ -534,8 +534,6 @@
         "native.archkeel_model:CoverageGap",
         "native.archkeel_model:Cycle",
         "native.archkeel_model:Decision",
-        "native.archkeel_model:DoorProblem",
-        "native.archkeel_model:Doors",
         "native.archkeel_model:Edge",
         "native.archkeel_model:ExactCall",
         "native.archkeel_model:Graph",
@@ -565,6 +563,8 @@
         "native.archkeel_model:Section",
         "native.archkeel_model:Settings",
         "native.archkeel_model:Shape",
+        "native.archkeel_model:TrojanHorseProblem",
+        "native.archkeel_model:TrojanHorses",
         "native.archkeel_model:UmlDeclared",
         "native.archkeel_model:UmlDiff",
         "native.archkeel_model:UmlGap",
@@ -611,15 +611,15 @@
       "role": "component",
       "layer": "model",
       "packages": [
-        "native.archkeel_model.ids",
-        "native.archkeel_model.section",
+        "native.archkeel_model.brand",
         "native.archkeel_model.causes",
         "native.archkeel_model.coverage",
+        "native.archkeel_model.gap_class",
+        "native.archkeel_model.ids",
+        "native.archkeel_model.needs",
         "native.archkeel_model.reason",
         "native.archkeel_model.reason_key",
-        "native.archkeel_model.brand",
-        "native.archkeel_model.needs",
-        "native.archkeel_model.gap_class"
+        "native.archkeel_model.section"
       ],
       "responsibilities": [
         "Name the ids, the sections, the coverage facts of the reply and the reasons why a part of a run has no result."
@@ -636,8 +636,8 @@
           "component": "contract",
           "rationale": "Name the rule kind in a reason (AD-359).",
           "through": [
-            "native.archkeel_contract:DoorReach",
-            "native.archkeel_contract:RuleKind"
+            "native.archkeel_contract:RuleKind",
+            "native.archkeel_contract:TrojanHorseReach"
           ]
         },
         {
@@ -692,7 +692,6 @@
       "layer": "model",
       "packages": [
         "native.archkeel_model.boundary_facts",
-        "native.archkeel_model.placement_facts",
         "native.archkeel_model.condensation",
         "native.archkeel_model.constructs",
         "native.archkeel_model.cycles",
@@ -705,18 +704,19 @@
         "native.archkeel_model.modules",
         "native.archkeel_model.observed",
         "native.archkeel_model.ownership",
+        "native.archkeel_model.placement_facts",
+        "native.archkeel_model.published_items",
         "native.archkeel_model.settings",
         "native.archkeel_model.symbol_inventory",
         "native.archkeel_model.symbol_sites",
         "native.archkeel_model.symbol_table",
         "native.archkeel_model.symbol_values",
         "native.archkeel_model.symbols",
-        "native.archkeel_model.topology",
-        "native.archkeel_model.published_items"
+        "native.archkeel_model.topology"
       ],
       "responsibilities": [
         "Derive what the reply and the settings give without a rule: the modules, owners, imports, edges, ranks, cycles, measures, constructs and symbols (slices S1 to S3).",
-        "Match the declared reach of each door site of the root contract to the doors of the reply, add the declared imports as edges and name each declaration that does not apply (AD-664)."
+        "Match the declared reach of each trojan horse site of the root contract to the trojan horses of the reply, add the declared imports as edges and name each declaration that does not apply (AD-664)."
       ],
       "forbidden_responsibilities": [
         "Reading a rule of the contract and proving a scope."
@@ -731,13 +731,13 @@
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
             "native.archkeel_contract:Component",
-            "native.archkeel_contract:DoorReach",
             "native.archkeel_contract:EntityKind",
             "native.archkeel_contract:ModifierKind",
             "native.archkeel_contract:ParameterKind",
             "native.archkeel_contract:PublicItemKind",
             "native.archkeel_contract:RelationshipKind",
             "native.archkeel_contract:ResolutionKind",
+            "native.archkeel_contract:TrojanHorseReach",
             "native.archkeel_contract:VisibilityBasis",
             "native.archkeel_contract:VisibilityKind"
           ]
@@ -810,8 +810,8 @@
         "native.archkeel_model.constructs:Work",
         "native.archkeel_model.cycles:Cycle",
         "native.archkeel_model.door_reach:Applied",
-        "native.archkeel_model.door_reach:DoorProblem",
-        "native.archkeel_model.door_reach:Doors",
+        "native.archkeel_model.door_reach:TrojanHorseProblem",
+        "native.archkeel_model.door_reach:TrojanHorses",
         "native.archkeel_model.edges:Edge",
         "native.archkeel_model.edges:Level",
         "native.archkeel_model.gaps:CoverageGap",
@@ -847,15 +847,15 @@
       "role": "component",
       "layer": "model",
       "packages": [
+        "native.archkeel_model.domain",
+        "native.archkeel_model.dropped_gaps",
+        "native.archkeel_model.limits",
+        "native.archkeel_model.pair_gaps",
+        "native.archkeel_model.roots",
+        "native.archkeel_model.rule_kinds",
         "native.archkeel_model.selection",
         "native.archkeel_model.sides",
-        "native.archkeel_model.subjects",
-        "native.archkeel_model.limits",
-        "native.archkeel_model.roots",
-        "native.archkeel_model.domain",
-        "native.archkeel_model.pair_gaps",
-        "native.archkeel_model.dropped_gaps",
-        "native.archkeel_model.rule_kinds"
+        "native.archkeel_model.subjects"
       ],
       "responsibilities": [
         "Say what each rule reads: its sides, subjects, profile limits, scan roots, domain and pair gaps (slices S4, S5 and S7)."
@@ -1031,16 +1031,16 @@
       "role": "component",
       "layer": "model",
       "packages": [
-        "native.archkeel_model.direction",
-        "native.archkeel_model.interface",
-        "native.archkeel_model.construct_match",
-        "native.archkeel_model.component_cycles",
-        "native.archkeel_model.closed_path",
         "native.archkeel_model.boundary_judge",
         "native.archkeel_model.boundary_positions",
-        "native.archkeel_model.placement",
         "native.archkeel_model.boundary_surface",
+        "native.archkeel_model.closed_path",
+        "native.archkeel_model.component_cycles",
+        "native.archkeel_model.construct_match",
+        "native.archkeel_model.direction",
         "native.archkeel_model.facade_reach",
+        "native.archkeel_model.interface",
+        "native.archkeel_model.placement",
         "native.archkeel_model.published"
       ],
       "responsibilities": [
@@ -1164,13 +1164,13 @@
       "layer": "model",
       "packages": [
         "native.archkeel_model.gap_effects",
+        "native.archkeel_model.premises",
         "native.archkeel_model.receipts",
         "native.archkeel_model.run",
         "native.archkeel_model.scope",
         "native.archkeel_model.scope_order",
         "native.archkeel_model.scope_receipt",
-        "native.archkeel_model.verdict",
-        "native.archkeel_model.premises"
+        "native.archkeel_model.verdict"
       ],
       "responsibilities": [
         "Prove that a rule and a run saw their whole scope, and make the only PASS: the scope, the receipts, the verdict and the run proof (AD-363, AD-378, AD-384)."
@@ -1503,8 +1503,8 @@
       "role": "component",
       "layer": "evaluation",
       "packages": [
-        "native.archkeel_eval.violation",
-        "native.archkeel_eval.placement_row"
+        "native.archkeel_eval.placement_row",
+        "native.archkeel_eval.violation"
       ],
       "responsibilities": [
         "Write each violation with the record id of the reference engine (AD-370)."
@@ -1930,8 +1930,8 @@
       "role": "component",
       "layer": "report",
       "packages": [
-        "native.archkeel_report.status",
-        "native.archkeel_report.report"
+        "native.archkeel_report.report",
+        "native.archkeel_report.status"
       ],
       "responsibilities": [
         "Apply the status rule and hold the decided mark of the engine ruling."
@@ -1977,10 +1977,10 @@
       "role": "component",
       "layer": "report",
       "packages": [
-        "native.archkeel_report.kind",
-        "native.archkeel_report.why",
         "native.archkeel_report.build_error",
-        "native.archkeel_report.construct"
+        "native.archkeel_report.construct",
+        "native.archkeel_report.kind",
+        "native.archkeel_report.why"
       ],
       "responsibilities": [
         "Name ruling errors, rule kinds and UNKNOWN reasons, and write construct violation rows."
@@ -2152,7 +2152,7 @@
       ],
       "responsibilities": [
         "Decide the head of the engine frame: evaluate the model once and give the status, the rule verdicts, the violation evidence and the explain part (AD-388, AD-484).",
-        "Name each PASS that holds only under a declared door reach, with the door sites, and each applied declaration (AD-664)."
+        "Name each PASS that holds only under a declared trojan horse reach, with the trojan horse sites, and each applied declaration (AD-664)."
       ],
       "forbidden_responsibilities": [
         "Rendering markup and checking a payload."
@@ -2265,9 +2265,10 @@
         },
         {
           "component": "model-graph",
-          "rationale": "Read the applied door declarations of the run to write the premise of a PASS (AD-664).",
+          "rationale": "Read the applied trojan horse declarations of the run to write the premise of a PASS (AD-664).",
           "through": [
-            "native.archkeel_model.door_reach"
+            "native.archkeel_model.door_reach",
+            "native.archkeel_model.graph"
           ]
         }
       ],
@@ -2432,7 +2433,7 @@
         },
         {
           "component": "model-terms",
-          "rationale": "Add the declared reach of the door sites of the root contract to the needs of the run (AD-664, AD-804).",
+          "rationale": "Add the declared reach of the trojan horse sites of the root contract to the needs of the run (AD-664, AD-804).",
           "through": [
             "native.archkeel_model.needs"
           ]
@@ -2457,14 +2458,14 @@
       "layer": "core",
       "packages": [
         "native.archkeel_core.engine",
-        "native.archkeel_core.request",
         "native.archkeel_core.ingest",
+        "native.archkeel_core.report",
+        "native.archkeel_core.request",
         "native.archkeel_core.rules",
         "native.archkeel_core.sections",
         "native.archkeel_core.topology",
-        "native.archkeel_core.report",
-        "native.archkeel_core.topology_projection",
-        "native.archkeel_core.topology_declared"
+        "native.archkeel_core.topology_declared",
+        "native.archkeel_core.topology_projection"
       ],
       "responsibilities": [
         "Keep the contract and the reply of one run and answer each typed request: ingest, rules, sections, report and the topology projection (design WP6-0, AD-359)."
@@ -2579,7 +2580,7 @@
         },
         {
           "component": "collect",
-          "rationale": "Run the checks of the collector of a reply after the store, also for the byte door of the harness (AD-688).",
+          "rationale": "Run the checks of the collector of a reply after the store, also for the byte trojan horse of the harness (AD-688).",
           "through": [
             "native.archkeel_collect:check"
           ]
@@ -2733,14 +2734,14 @@
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
             "native.archkeel_model:ComponentId",
-            "native.archkeel_model:DoorProblem",
-            "native.archkeel_model:Doors",
             "native.archkeel_model:Graph",
             "native.archkeel_model:Hygiene",
             "native.archkeel_model:Import",
             "native.archkeel_model:Model",
             "native.archkeel_model:ModelTree",
             "native.archkeel_model:Reason",
+            "native.archkeel_model:TrojanHorseProblem",
+            "native.archkeel_model:TrojanHorses",
             "native.archkeel_model:Unsupported",
             "native.archkeel_model:boundary_reading",
             "native.archkeel_model:claims",
@@ -3011,10 +3012,10 @@
       "role": "component",
       "layer": "core",
       "packages": [
-        "native.archkeel_core.scan",
-        "native.archkeel_core.check",
         "native.archkeel_core.base",
+        "native.archkeel_core.check",
         "native.archkeel_core.refusal",
+        "native.archkeel_core.scan",
         "native.archkeel_core.system",
         "native.archkeel_core.system_topology"
       ],
@@ -3300,10 +3301,10 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_dart_collector.pytext",
+        "native.archkeel_dart_collector.dartstr",
         "native.archkeel_dart_collector.module",
         "native.archkeel_dart_collector.pubspec",
-        "native.archkeel_dart_collector.dartstr",
+        "native.archkeel_dart_collector.pytext",
         "native.archkeel_dart_collector.unicode_tables"
       ],
       "responsibilities": [
@@ -3414,21 +3415,21 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_dart_collector.syntax",
-        "native.archkeel_dart_collector.tree",
-        "native.archkeel_dart_collector.parameters",
-        "native.archkeel_dart_collector.members",
         "native.archkeel_dart_collector.definitions",
         "native.archkeel_dart_collector.directives",
-        "native.archkeel_dart_collector.parse",
+        "native.archkeel_dart_collector.members",
         "native.archkeel_dart_collector.nesting",
+        "native.archkeel_dart_collector.parameters",
+        "native.archkeel_dart_collector.parse",
         "native.archkeel_dart_collector.sites",
-        "native.archkeel_dart_collector.sites.scopes",
         "native.archkeel_dart_collector.sites.bindings",
         "native.archkeel_dart_collector.sites.calls",
-        "native.archkeel_dart_collector.sites.references",
         "native.archkeel_dart_collector.sites.canonical",
-        "native.archkeel_dart_collector.sites.contain"
+        "native.archkeel_dart_collector.sites.contain",
+        "native.archkeel_dart_collector.sites.references",
+        "native.archkeel_dart_collector.sites.scopes",
+        "native.archkeel_dart_collector.syntax",
+        "native.archkeel_dart_collector.tree"
       ],
       "responsibilities": [
         "Parse one Dart source with the vendored grammar into its syntax, as analyzer/dart/parse.py does: the definitions, the directives, the sites with their scopes, the concerns, the first error and the language version (AD-369, AD-376)."
@@ -3487,11 +3488,11 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_dart_collector.records",
-        "native.archkeel_dart_collector.declarations",
         "native.archkeel_dart_collector.collection",
-        "native.archkeel_dart_collector.work",
-        "native.archkeel_dart_collector.sdk"
+        "native.archkeel_dart_collector.declarations",
+        "native.archkeel_dart_collector.records",
+        "native.archkeel_dart_collector.sdk",
+        "native.archkeel_dart_collector.work"
       ],
       "responsibilities": [
         "Build the discovery, parse and declaration records. Check SDK support (AD-387). Assemble declarations from typed parameter resolutions (AD-392). Assemble imports, bases, sites and final metadata from typed resolver answers (AD-400)."
@@ -3609,16 +3610,16 @@
         "native.archkeel_dart_collector.import_survey.uri",
         "native.archkeel_dart_collector.resolve",
         "native.archkeel_dart_collector.resolve.answers",
+        "native.archkeel_dart_collector.resolve.construct",
         "native.archkeel_dart_collector.resolve.formals",
+        "native.archkeel_dart_collector.resolve.lexical",
+        "native.archkeel_dart_collector.resolve.members",
         "native.archkeel_dart_collector.resolve.namespace",
         "native.archkeel_dart_collector.resolve.params",
-        "native.archkeel_dart_collector.resolve.types",
-        "native.archkeel_dart_collector.symbol_survey",
-        "native.archkeel_dart_collector.resolve.construct",
-        "native.archkeel_dart_collector.resolve.members",
         "native.archkeel_dart_collector.resolve.receivers",
         "native.archkeel_dart_collector.resolve.sites",
-        "native.archkeel_dart_collector.resolve.lexical"
+        "native.archkeel_dart_collector.resolve.types",
+        "native.archkeel_dart_collector.symbol_survey"
       ],
       "responsibilities": [
         "The survey of one Dart package (AD-454, AD-796): resolve each directive URI, find the owner of each part, write the import records with their targets, resolve the names of each library and write its symbol records, name each case that it does not prove as a gap, and assemble the typed reply with the sections imports, unknowns and symbols."
@@ -3887,10 +3888,10 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_typescript_collector.source",
-        "native.archkeel_typescript_collector.source_input",
         "native.archkeel_typescript_collector.kinds",
-        "native.archkeel_typescript_collector.pytext"
+        "native.archkeel_typescript_collector.pytext",
+        "native.archkeel_typescript_collector.source",
+        "native.archkeel_typescript_collector.source_input"
       ],
       "responsibilities": [
         "The typed input of the walk and repository directory classifications: source text with spans, nominal source inputs, closed node kinds, text helpers and the directories excluded from repository-source walks."
@@ -3941,10 +3942,10 @@
       "role": "component",
       "layer": "collector",
       "packages": [
+        "native.archkeel_typescript_collector.ancestors",
         "native.archkeel_typescript_collector.tree",
         "native.archkeel_typescript_collector.tree.cx",
-        "native.archkeel_typescript_collector.tree.nodes",
-        "native.archkeel_typescript_collector.ancestors"
+        "native.archkeel_typescript_collector.tree.nodes"
       ],
       "responsibilities": [
         "Generic access to a syntax tree: children and named children of a node, the context of one file (grammar and text) and the ancestors of a node."
@@ -3992,17 +3993,17 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_typescript_collector.definitions",
-        "native.archkeel_typescript_collector.exports",
-        "native.archkeel_typescript_collector.scope",
         "native.archkeel_typescript_collector.bind_kinds",
-        "native.archkeel_typescript_collector.import_bindings",
         "native.archkeel_typescript_collector.class_members",
         "native.archkeel_typescript_collector.constructors",
         "native.archkeel_typescript_collector.decorators",
+        "native.archkeel_typescript_collector.definitions",
+        "native.archkeel_typescript_collector.exports",
+        "native.archkeel_typescript_collector.import_bindings",
         "native.archkeel_typescript_collector.layout",
+        "native.archkeel_typescript_collector.member_additions",
         "native.archkeel_typescript_collector.members",
-        "native.archkeel_typescript_collector.member_additions"
+        "native.archkeel_typescript_collector.scope"
       ],
       "responsibilities": [
         "Find the declarations of one file: definitions, exports, scopes, import bindings, class members, constructors and the file layout."
@@ -4082,14 +4083,14 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_typescript_collector.sites",
         "native.archkeel_typescript_collector.site_charge",
         "native.archkeel_typescript_collector.site_local",
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
         "native.archkeel_typescript_collector.site_syntax",
         "native.archkeel_typescript_collector.site_text",
-        "native.archkeel_typescript_collector.site_types"
+        "native.archkeel_typescript_collector.site_types",
+        "native.archkeel_typescript_collector.sites"
       ],
       "responsibilities": [
         "Read the use sites of a file: the names, the paths and the syntax of each site. The site_text module keeps only the referenced source bytes and releases per-file parse state (AD-420). The site_charge module counts the expression bytes that the records of a file copy and hash (AD-778)."
@@ -4259,13 +4260,13 @@
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
         "native.archkeel_typescript_collector.script_lookup",
-        "native.archkeel_typescript_collector.script_reflective",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
         "native.archkeel_typescript_collector.script_patch",
         "native.archkeel_typescript_collector.script_prototype",
         "native.archkeel_typescript_collector.script_publish",
+        "native.archkeel_typescript_collector.script_reflective",
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
         "native.archkeel_typescript_collector.script_syntax",
@@ -4339,12 +4340,12 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_typescript_collector.parse",
-        "native.archkeel_typescript_collector.syntax",
         "native.archkeel_typescript_collector.concerns",
         "native.archkeel_typescript_collector.jsdoc",
-        "native.archkeel_typescript_collector.umd_publication",
-        "native.archkeel_typescript_collector.places"
+        "native.archkeel_typescript_collector.parse",
+        "native.archkeel_typescript_collector.places",
+        "native.archkeel_typescript_collector.syntax",
+        "native.archkeel_typescript_collector.umd_publication"
       ],
       "responsibilities": [
         "Parse one file into its syntax facts: join the traversal, the scripts, the concerns and the JSDoc."
@@ -4499,8 +4500,8 @@
       "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.resolve",
-        "native.archkeel_typescript_collector.resolver",
-        "native.archkeel_typescript_collector.resolve.package"
+        "native.archkeel_typescript_collector.resolve.package",
+        "native.archkeel_typescript_collector.resolver"
       ],
       "responsibilities": [
         "Resolve an import specifier to a file or a package from the manifest and the options."
@@ -4808,15 +4809,15 @@
       "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.collect",
-        "native.archkeel_typescript_collector.collection",
-        "native.archkeel_typescript_collector.collect.imports",
-        "native.archkeel_typescript_collector.collect.script_run",
-        "native.archkeel_typescript_collector.collect.import_target",
         "native.archkeel_typescript_collector.collect.import_record",
+        "native.archkeel_typescript_collector.collect.import_target",
+        "native.archkeel_typescript_collector.collect.imports",
         "native.archkeel_typescript_collector.collect.package_closure",
         "native.archkeel_typescript_collector.collect.package_closure.names",
         "native.archkeel_typescript_collector.collect.preloads",
-        "native.archkeel_typescript_collector.collect.preloads.script_context"
+        "native.archkeel_typescript_collector.collect.preloads.script_context",
+        "native.archkeel_typescript_collector.collect.script_run",
+        "native.archkeel_typescript_collector.collection"
       ],
       "responsibilities": [
         "Orchestrate one collection: select the files, parse them, resolve the imports and write the reply."
@@ -5200,15 +5201,15 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_rust_collector.source",
-        "native.archkeel_rust_collector.paths",
-        "native.archkeel_rust_collector.test_scope",
-        "native.archkeel_rust_collector.toml",
+        "native.archkeel_rust_collector.crates",
         "native.archkeel_rust_collector.manifest",
         "native.archkeel_rust_collector.manifest_lines",
-        "native.archkeel_rust_collector.crates",
+        "native.archkeel_rust_collector.paths",
         "native.archkeel_rust_collector.registry",
-        "native.archkeel_rust_collector.registry_overrides"
+        "native.archkeel_rust_collector.registry_overrides",
+        "native.archkeel_rust_collector.source",
+        "native.archkeel_rust_collector.test_scope",
+        "native.archkeel_rust_collector.toml"
       ],
       "responsibilities": [
         "Read the Cargo workspace: TOML, manifests, crates, paths, sources and the test scope."
@@ -5255,12 +5256,12 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_rust_collector.tree",
-        "native.archkeel_rust_collector.modules",
-        "native.archkeel_rust_collector.resolve",
         "native.archkeel_rust_collector.derive_identity",
         "native.archkeel_rust_collector.derive_imports",
-        "native.archkeel_rust_collector.routes"
+        "native.archkeel_rust_collector.modules",
+        "native.archkeel_rust_collector.resolve",
+        "native.archkeel_rust_collector.routes",
+        "native.archkeel_rust_collector.tree"
       ],
       "responsibilities": [
         "Build the module tree of a crate and resolve a path to a module."
@@ -6107,8 +6108,8 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_python_collector.reply",
-        "native.archkeel_python_collector.claims"
+        "native.archkeel_python_collector.claims",
+        "native.archkeel_python_collector.reply"
       ],
       "responsibilities": [
         "The 10.0.0 reply of the import survey as the Python collector writes it in the phase imports: the provenance with the interpreter version of the request, the inputs, and only the sections of the survey (AD-334)."
@@ -6273,8 +6274,8 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_python_collector.symbols",
-        "native.archkeel_python_collector.bindings"
+        "native.archkeel_python_collector.bindings",
+        "native.archkeel_python_collector.symbols"
       ],
       "responsibilities": [
         "The definition table, its lexical binding inputs, unused-binding records and import-local proofs, or a named gap (AD-377, AD-396, AD-404)."

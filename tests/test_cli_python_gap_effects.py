@@ -64,7 +64,8 @@ RULES = [
 ]
 # The rules on the files and their names: no stated effect reaches them.
 ON_FILES = ("ASSIGN", "LAYOUT")
-# The text that the door of a plant runs: it gives the name `app.service.model` another module.
+# The text that the trojan horse of a plant runs: it gives the name `app.service.model` another
+# module.
 SWAP = "import sys, app.service.secret as s; sys.modules['app.service.model'] = s"
 # True when the module that `app.client.page` binds is the secret module.
 BINDS_SECRET = "import app.client.page as p; print(p.model.__name__ == 'app.service.secret')"
@@ -74,9 +75,10 @@ class Plant(NamedTuple):
     files: dict[str, str]
     # The rules that are not UNKNOWN, with their status. Each other rule is UNKNOWN.
     decided: dict[str, str]
-    # Python code that prints `True` when the hidden violation is real, and the text of the door.
+    # Python code that prints `True` when the hidden violation is real, and the text of the trojan
+    # horse.
     truth: str = ""
-    door: str = ""
+    trojan_horse: str = ""
 
 
 def files_pass(**more: str) -> dict[str, str]:
@@ -121,7 +123,7 @@ PLANTS = {
         {"src/app/service/model.py": "import os\nexec(os.environ.get('DOOR', ''))\n"},
         files_pass(),
         truth=BINDS_SECRET,
-        door=SWAP,
+        trojan_horse=SWAP,
     ),
     # A loader call with an unknown name can return `sys`. No later site names the write, so the
     # edges of the source module alone are not the effect of the call.
@@ -135,7 +137,7 @@ PLANTS = {
         },
         files_pass(),
         truth=BINDS_SECRET,
-        door="sys",
+        trojan_horse="sys",
     ),
     # A name that is an attribute and a submodule: the code of the one service module is unknown.
     "ambiguity": Plant(
@@ -181,7 +183,7 @@ def test_a_gap_holds_the_rules_that_read_its_effect_and_no_other_rule(
         done = subprocess.run(
             [sys.executable, "-I", "-c", f"import sys; sys.path.insert(0, 'src'); {plant.truth}"],
             cwd=tmp_path,
-            env={**os.environ, "DOOR": plant.door},
+            env={**os.environ, "DOOR": plant.trojan_horse},
             capture_output=True,
             text=True,
             check=True,

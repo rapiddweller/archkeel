@@ -2,28 +2,16 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The declared reach of door sites (AD-664).
-//!
-//! A door gap (`GapData.door`) states `every_module`: the door can run code that the scan does
-//! not see (AD-564). A contract can name one door site and the module prefixes that the door may
-//! load (`loads`) or change (`changes`). This file matches each declaration of the root contract
-//! to the doors of the reply, one time, while the graph is derived:
-//!
-//! - A declaration that matches exactly one door, with a valid reach, is applied. The gap keeps
-//!   only what the premise leaves unknown: the code of each module of the scan below a
-//!   `changes` prefix. The door writes a declared import from its module to each module of the
-//!   scan below a `loads` prefix, or to the outside package of the prefix, so the edge rules read
-//!   these edges as real edges.
-//! - Each other declaration is a problem (no door, more than one door, a door with two
-//!   declarations, a word that names no form, a reach outside the scan). A problem is never
-//!   applied: its door keeps `every_module`, and the core reports the problem.
-//!
-//! This file matches collector site metadata. It does not read source code.
+//! The declared reach of trojan horse sites (AD-664, AD-1052). A trojan horse is a place that can
+//! load code the scan does not see; it is not a claim of malice. A contract names one site by form
+//! or by name, and the prefixes that it may load or change. A declaration that matches its sites
+//! with a valid reach is applied; each other one is a problem and applies nothing. It reads
+//! collector metadata, not source code.
 
 use std::collections::{BTreeMap, HashMap};
 
-use archkeel_contract::DoorReach as Declaration;
-use archkeel_facts::data::{DoorForm, GapEffect};
+use archkeel_contract::TrojanHorseReach as Declaration;
+use archkeel_facts::data::{GapEffect, TrojanHorseForm};
 use archkeel_facts::envelope::{Facts, FileFact};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::ModuleName;
@@ -34,150 +22,143 @@ use crate::imports::{Import, Published, Resolved};
 use crate::ownership::in_scope;
 use crate::settings::Settings;
 
-/// One applied declaration: the door site, the gap and the reach.
+/// One applied declaration: the site, the gap and the reach.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Applied {
     /// The id of the declaration.
     pub id: String,
-    /// The id of the gap of the door.
+    /// Why the reach holds.
+    pub rationale: String,
+    /// The id of the gap of the trojan horse.
     pub gap: String,
-    /// The module of the door.
+    /// The module of the trojan horse.
     pub module: String,
-    /// The form of the door.
-    pub form: DoorForm,
-    /// The line of the door site.
+    /// The form word of the trojan horse, or the name of the site.
+    pub label: String,
+    /// The form of the trojan horse; none for a site named by its name.
+    pub form: Option<TrojanHorseForm>,
+    /// The line of the trojan horse site.
     pub line: u32,
-    /// The declared module prefixes that the door may import.
+    /// The declared module prefixes that the trojan horse may import.
     pub loads: Vec<String>,
     /// The source binding and template of a constant-bound declaration.
     pub constant: Option<String>,
-    /// The scanned targets of the possible dependency edges supplied by the declaration.
-    pub possible_loads: Vec<String>,
-    /// The declared module prefixes whose names the door may change.
+    /// The possible dependency edges that the declaration supplies, from the module of the site:
+    /// the scanned target and the id of the declared import (AD-1057).
+    pub edges: Vec<(String, String)>,
+    /// The declared module prefixes whose names the trojan horse may change.
     pub changes: Vec<String>,
+    /// The modules that reach the bound name and that `covers` names (AD-1056).
+    pub covered: Vec<String>,
     /// What the gap still leaves unknown under the premise, or `None` for nothing.
     pub(crate) effect: Option<GapEffect>,
-    /// The effect that the collector stated for the door.
     pub(crate) stated: GapEffect,
 }
 
 impl Applied {
     /// `D-1 (pkg.mod:12 eval)`: the declaration and its site, for a reader.
     pub fn site(&self) -> String {
-        let site = format!(
-            "{} ({}:{} {})",
-            self.id,
-            self.module,
-            self.line,
-            self.door()
-        );
+        let site = format!("{} ({}:{} {})", self.id, self.module, self.line, self.label);
         match &self.constant {
             Some(bound) => format!("{site}: loads only the targets from {bound}"),
             None => site,
         }
     }
 
-    /// The word of the form of the door.
-    pub fn door(&self) -> &'static str {
-        self.form.word()
+    /// The form word of the trojan horse, or the name that the declaration gives the site.
+    pub fn trojan_horse(&self) -> &str {
+        match self.form {
+            Some(form) => form.word(),
+            None => &self.label,
+        }
     }
 }
 
 /// Why one declaration is not applied.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum DoorProblem {
-    /// No door of the reply has this site: it moved, changed its form or is gone.
+pub enum TrojanHorseProblem {
+    /// No trojan horse of the reply has this site: it moved, changed its form or is gone.
     Unmatched,
-    /// More than one door has this site: their number.
+    /// More than one trojan horse has this site: their number.
     Ambiguous(usize),
-    /// The door has more than one declaration: the ids of the others.
+    /// The site has more than one declaration: the ids of the others.
     Repeated(Vec<String>),
-    /// The word names no form of a door.
+    /// The word names no form of a trojan horse.
     Form,
-    /// A `changes` prefix holds no module of the scan: a change outside the scan can change
-    /// any import.
+    /// A `changes` prefix holds no module of the scan.
     ChangesOutside(String),
     /// A `loads` prefix lies in a top package of the scan and holds no module of it.
     LoadsNothing(String),
-    /// The site binds the door to a name that these modules import: the door leaves its module.
+    /// These modules can reach the name that the site binds.
     Exported(Vec<String>),
-    /// The gap of the door covers this number of imports that the scan cannot resolve.
+    /// The gap covers this number of unresolved imports.
     Unresolved(usize),
     /// The scanned evidence does not establish a usable constant bound.
     Constant(String),
 }
 
-impl DoorProblem {
+impl TrojanHorseProblem {
     /// The stable code of the problem, for its row.
     pub fn code(&self) -> &'static str {
         match self {
-            DoorProblem::Unmatched => "door_reach.unmatched",
-            DoorProblem::Ambiguous(_) => "door_reach.ambiguous",
-            DoorProblem::Repeated(_) => "door_reach.repeated",
-            DoorProblem::Form
-            | DoorProblem::ChangesOutside(_)
-            | DoorProblem::LoadsNothing(_)
-            | DoorProblem::Exported(_)
-            | DoorProblem::Constant(_)
-            | DoorProblem::Unresolved(_) => "door_reach.invalid",
+            TrojanHorseProblem::Unmatched => "trojan_horse_reach.unmatched",
+            TrojanHorseProblem::Ambiguous(_) => "trojan_horse_reach.ambiguous",
+            TrojanHorseProblem::Repeated(_) => "trojan_horse_reach.repeated",
+            TrojanHorseProblem::Form
+            | TrojanHorseProblem::ChangesOutside(_)
+            | TrojanHorseProblem::LoadsNothing(_)
+            | TrojanHorseProblem::Exported(_)
+            | TrojanHorseProblem::Constant(_)
+            | TrojanHorseProblem::Unresolved(_) => "trojan_horse_reach.invalid",
         }
     }
 
     /// What the problem is, for a reader.
     pub fn text(&self) -> String {
         match self {
-            DoorProblem::Unmatched => "matches no door of the scan: the door moved, changed its \
-                                   form or is gone; the declaration is not applied"
+            TrojanHorseProblem::Unmatched => "matches no trojan horse of the scan: no site of the module has this name, line \
+                 and scope. A name is the text that the collector prints for the site \
+                 (`importlib.util`, `pickle.loads`), not the name that an import binds (`iu`); the \
+                 site can also have moved or be gone; the declaration is not applied"
                 .to_owned(),
-            DoorProblem::Ambiguous(count) => format!(
-                "matches {count} doors; name the site by its line; the declaration is not applied"
+            TrojanHorseProblem::Ambiguous(n) => format!("matches {n} trojan horses; name the site by its line; the declaration is not applied"),
+            TrojanHorseProblem::Repeated(o) => format!("names a trojan horse that {} also name; the declarations of the trojan horse are not applied", o.join(", ")),
+            TrojanHorseProblem::Form => format!(
+                "names no form of a trojan horse; the forms are {}; the declaration is not applied",
+                TrojanHorseForm::ALL.map(TrojanHorseForm::word).join(", ")
             ),
-            DoorProblem::Repeated(others) => format!(
-                "names a door that {} also name; the declarations of the door are not applied",
-                others.join(", ")
-            ),
-            DoorProblem::Form => format!(
-                "names no form of a door; the forms are {}; the declaration is not applied",
-                DoorForm::ALL.map(DoorForm::word).join(", ")
-            ),
-            DoorProblem::ChangesOutside(prefix) => format!(
+            TrojanHorseProblem::ChangesOutside(prefix) => format!(
                 "changes {prefix}, which holds no module of the scan; a change outside the \
                  scan can change any import; the declaration is not applied"
             ),
-            DoorProblem::Exported(importers) => format!(
-                "binds the door to a name that {} import, so the door runs outside its module; \
+            TrojanHorseProblem::Exported(importers) => format!(
+                "binds the trojan horse to a name that {} import, so the trojan horse runs outside its module; \
                  the declaration is not applied",
                 importers.join(", ")
             ),
-            DoorProblem::Unresolved(count) => format!(
-                "names a door whose gap covers {count} imports that the scan cannot resolve; a \
-                 declared reach does not resolve them; the declaration is not applied"
-            ),
-            DoorProblem::LoadsNothing(prefix) => format!(
-                "loads {prefix}, which lies in the project and holds no module of the scan; the \
-                 declaration is not applied"
-            ),
-            DoorProblem::Constant(reason) => format!("{reason}; the declaration is not applied"),
+            TrojanHorseProblem::Unresolved(n) => format!("names a trojan horse whose gap covers {n} imports that the scan cannot resolve; a declared reach does not resolve them; the declaration is not applied"),
+            TrojanHorseProblem::LoadsNothing(p) => format!("loads {p}, which lies in the project and holds no module of the scan; the declaration is not applied"),
+            TrojanHorseProblem::Constant(reason) => format!("{reason}; the declaration is not applied"),
         }
     }
 }
 
-/// The declarations of a run, matched to the doors of its reply.
+/// The declarations of a run, matched to the trojan horses of its reply.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Doors {
+pub struct TrojanHorses {
     applied: Vec<Applied>,
-    problems: Vec<(usize, String, DoorProblem)>,
+    problems: Vec<(usize, String, TrojanHorseProblem)>,
     imports: Vec<Import>,
 }
 
-impl Doors {
+impl TrojanHorses {
     /// Each applied declaration, in contract order.
     pub fn applied(&self) -> &[Applied] {
         &self.applied
     }
 
-    /// Each declaration that is not applied: its index in the contract, its id and the problem.
-    pub fn problems(&self) -> &[(usize, String, DoorProblem)] {
+    /// Each declaration that is not applied: its index, its id and the problem.
+    pub fn problems(&self) -> &[(usize, String, TrojanHorseProblem)] {
         &self.problems
     }
 
@@ -194,9 +175,9 @@ impl Doors {
 
 /// The gaps with an effect under the applied declarations: a declared gap keeps what its premise
 /// leaves unknown, and leaves the list when that is nothing.
-pub(crate) fn narrowed(doors: &Doors, gaps: Vec<EffectGap>) -> Vec<EffectGap> {
+pub(crate) fn narrowed(trojan_horses: &TrojanHorses, gaps: Vec<EffectGap>) -> Vec<EffectGap> {
     gaps.into_iter()
-        .filter_map(|gap| match doors.of_gap(&gap.id) {
+        .filter_map(|gap| match trojan_horses.of_gap(&gap.id) {
             None => Some(gap),
             Some(applied) => applied
                 .effect
@@ -206,44 +187,66 @@ pub(crate) fn narrowed(doors: &Doors, gaps: Vec<EffectGap>) -> Vec<EffectGap> {
         .collect()
 }
 
-/// One door of the reply.
-struct Door<'f> {
+/// One trojan horse of the reply.
+struct TrojanHorse<'f> {
     gap: &'f str,
     module: &'f str,
-    form: DoorForm,
+    form: Option<TrojanHorseForm>,
+    name: Option<&'f str>,
     line: u32,
     scope: Option<&'f str>,
+    exposed: &'f [String],
     effect: &'f GapEffect,
     evidence: Vec<String>,
     binding: Option<&'f str>,
 }
 
-/// Match the declarations to the doors of `facts`.
-pub(crate) fn matched(declared: &[Declaration], facts: &Facts, settings: &Settings) -> Doors {
-    let doors: Vec<Door<'_>> = facts.coverage.gaps.iter().filter_map(door).collect();
-    let mut found = Doors::default();
+/// Match the declarations to the trojan horses of `facts`.
+pub(crate) fn matched(
+    declared: &[Declaration],
+    facts: &Facts,
+    settings: &Settings,
+) -> TrojanHorses {
+    let trojan_horses: Vec<TrojanHorse<'_>> = facts
+        .coverage
+        .gaps
+        .iter()
+        .filter_map(trojan_horse)
+        .collect();
+    let mut found = TrojanHorses::default();
     let mut by_gap: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
-    let mut matches: Vec<(usize, &Door<'_>)> = Vec::new();
+    let mut matches: Vec<(usize, &TrojanHorse<'_>)> = Vec::new();
     for (index, declaration) in declared.iter().enumerate() {
-        let problem = |found: &mut Doors, problem| {
+        let problem = |found: &mut TrojanHorses, problem| {
             let id = declaration.id().as_text().to_owned();
-            found.problems.push((index, id, problem));
+            found.problems.push((index, id, problem))
         };
-        let Some(form) = DoorForm::of_word(declaration.door()) else {
-            problem(&mut found, DoorProblem::Form);
-            continue;
+        let sites: Vec<&TrojanHorse<'_>> = if String::is_empty(declaration.trojan_horse()) {
+            trojan_horses
+                .iter()
+                .filter(|horse| named(horse, declaration))
+                .collect()
+        } else {
+            let Some(form) = TrojanHorseForm::of_word(declaration.trojan_horse()) else {
+                problem(&mut found, TrojanHorseProblem::Form);
+                continue;
+            };
+            trojan_horses
+                .iter()
+                .filter(|horse| at(horse, declaration, form))
+                .collect()
         };
-        let sites: Vec<&Door<'_>> = doors
-            .iter()
-            .filter(|door| at(door, declaration, form))
-            .collect();
+        let count = (*declaration.site_count()).map_or(1, |n| usize::try_from(n).unwrap_or(0));
         match sites.as_slice() {
-            [] => problem(&mut found, DoorProblem::Unmatched),
-            [door] => {
-                by_gap.entry(door.gap).or_default().push(index);
-                matches.push((index, door));
+            [] => problem(&mut found, TrojanHorseProblem::Unmatched),
+            many if many.len() == count => {
+                for horse in many {
+                    by_gap.entry(horse.gap).or_default().push(index);
+                    matches.push((index, horse));
+                }
             }
-            many => problem(&mut found, DoorProblem::Ambiguous(many.len())),
+            many if many.len() < count => problem(&mut found, TrojanHorseProblem::Unmatched),
+            many => problem(&mut found, TrojanHorseProblem::Ambiguous(many.len())),
         }
     }
     let unresolved = crate::imports::covered(facts);
@@ -252,33 +255,35 @@ pub(crate) fn matched(declared: &[Declaration], facts: &Facts, settings: &Settin
         .iter()
         .map(|file| (file.module.as_str(), file))
         .collect();
-    for (index, door) in matches {
+    for (index, horse) in matches {
         let declaration = &declared[index];
         let id = declaration.id().as_text().to_owned();
-        let shared = &by_gap[door.gap];
-        if shared.len() > 1 {
+        let shared = &by_gap[horse.gap];
+        let reach = (horse.binding).map_or_else(Vec::new, |binding| {
+            crate::imports::importers(facts, (horse.module, binding), horse.exposed)
+        });
+        // `covers` names the modules whose use of the bound name the contract accepts (AD-1056).
+        let covers = declaration.covers().iter();
+        let at = |name: &String| {
+            covers
+                .clone()
+                .any(|prefix| in_scope(name, prefix.as_text()))
+        };
+        let (covered, blocking): (Vec<String>, Vec<String>) = reach.into_iter().partition(at);
+        let refused = if shared.len() > 1 {
             let others = shared.iter().filter(|other| **other != index);
             let others = others.map(|other| declared[*other].id().as_text().to_owned());
-            found
-                .problems
-                .push((index, id, DoorProblem::Repeated(others.collect())));
-            continue;
-        }
-        if let Some(count) = unresolved.get(door.gap) {
-            found
-                .problems
-                .push((index, id, DoorProblem::Unresolved(*count)));
-            continue;
-        }
-        let importers = importers(facts, door);
-        if !importers.is_empty() {
-            found
-                .problems
-                .push((index, id, DoorProblem::Exported(importers)));
-            continue;
-        }
-        match apply(declaration, door, &files, settings) {
-            Ok((applied, imports)) => {
+            Some(TrojanHorseProblem::Repeated(others.collect()))
+        } else if let Some(count) = unresolved.get(horse.gap) {
+            Some(TrojanHorseProblem::Unresolved(*count))
+        } else if !blocking.is_empty() {
+            Some(TrojanHorseProblem::Exported(blocking))
+        } else {
+            None
+        };
+        match refused.map_or_else(|| apply(declaration, horse, &files, settings), Err) {
+            Ok((mut applied, imports)) => {
+                applied.covered = covered;
                 found.applied.push(applied);
                 found.imports.extend(imports);
             }
@@ -286,19 +291,22 @@ pub(crate) fn matched(declared: &[Declaration], facts: &Facts, settings: &Settin
         }
     }
     found.problems.sort_by_key(|(index, _, _)| *index);
+    found.problems.dedup_by_key(|(index, _, _)| *index);
     found.imports.sort_by(|a, b| a.id.cmp(&b.id));
     found.imports.dedup_by(|a, b| a.id == b.id);
     found
 }
 
-/// The door of a gap, when the collector marks one and names its module and its effect.
-fn door(gap: &archkeel_facts::Record<archkeel_facts::GapFact>) -> Option<Door<'_>> {
+/// The trojan horse of a gap, when the collector marks one and names its module and its effect.
+fn trojan_horse(gap: &archkeel_facts::Record<archkeel_facts::GapFact>) -> Option<TrojanHorse<'_>> {
     let data = data_of(&gap.data);
-    let site = data.door.as_ref()?;
-    Some(Door {
+    let site = data.trojan_horse.as_ref()?;
+    Some(TrojanHorse {
         gap: gap.id.as_str(),
         module: data.module.as_ref()?.as_str(),
         form: site.form,
+        name: Option::as_deref(&site.site_name),
+        exposed: &site.exposed_to,
         line: site.line,
         scope: (!site.line_only).then(|| site.scope.as_deref().unwrap_or("")),
         effect: data.effect.as_ref()?,
@@ -311,53 +319,40 @@ fn door(gap: &archkeel_facts::Record<archkeel_facts::GapFact>) -> Option<Door<'_
     })
 }
 
-/// The modules that import the name that the door site binds, or all names of its module, sorted
-/// and distinct.
-fn importers(facts: &Facts, door: &Door<'_>) -> Vec<String> {
-    let Some(binding) = door.binding else {
-        return Vec::new();
-    };
-    let mut found: Vec<String> = facts
-        .sections
-        .iter()
-        .flat_map(|section| match section {
-            archkeel_facts::Section::Imports(records) => records.as_slice(),
-            _ => &[],
-        })
-        .map(|record| record.data.data())
-        .filter(|data| {
-            data.source_module.as_str() != door.module
-                && data.target_module.as_str() == door.module
-                && matches!(data.symbol.as_deref(), Some(name) if name == binding || name == "*")
-        })
-        .map(|data| data.source_module.as_str().to_owned())
-        .collect();
-    found.sort_unstable();
-    found.dedup();
-    found
-}
-
-/// True when the declaration names this door: the module, the form, and the line and the scope
-/// that it names.
-fn at(door: &Door<'_>, declaration: &Declaration, form: DoorForm) -> bool {
-    door.module == declaration.module().as_text()
-        && door.form == form
+/// True when the declaration names this trojan horse by form, line and scope.
+fn at(horse: &TrojanHorse<'_>, declaration: &Declaration, form: TrojanHorseForm) -> bool {
+    horse.module == declaration.module().as_text()
+        && horse.form == Some(form)
         && declaration
             .line()
-            .is_none_or(|line| u64::from(door.line) == line)
+            .is_none_or(|line| u64::from(horse.line) == line)
         && declaration
             .scope()
             .as_deref()
-            .is_none_or(|scope| door.scope == Some(scope))
+            .is_none_or(|scope| horse.scope == Some(scope))
+}
+
+/// True when the declaration names this trojan horse by name, line and scope (AD-1052).
+fn named(horse: &TrojanHorse<'_>, declaration: &Declaration) -> bool {
+    let name: &Option<String> = declaration.site_name();
+    horse.module == declaration.module().as_text()
+        && horse.name == Option::as_deref(name)
+        && declaration
+            .line()
+            .is_none_or(|line| u64::from(horse.line) == line)
+        && declaration
+            .scope()
+            .as_deref()
+            .is_none_or(|scope| horse.scope == Some(scope))
 }
 
 /// The applied declaration and its declared imports, or the problem of its reach.
 fn apply(
     declaration: &Declaration,
-    door: &Door<'_>,
+    horse: &TrojanHorse<'_>,
     files: &HashMap<&str, &FileFact>,
     settings: &Settings,
-) -> Result<(Applied, Vec<Import>), DoorProblem> {
+) -> Result<(Applied, Vec<Import>), TrojanHorseProblem> {
     let below = |prefix: &str| -> Vec<&str> {
         let mut names: Vec<&str> = files
             .keys()
@@ -371,14 +366,16 @@ fn apply(
     for prefix in declaration.changes() {
         let names = below(prefix.as_text());
         if names.is_empty() {
-            return Err(DoorProblem::ChangesOutside(prefix.as_text().to_owned()));
+            return Err(TrojanHorseProblem::ChangesOutside(
+                prefix.as_text().to_owned(),
+            ));
         }
         changed.extend(names.into_iter().map(ModuleName::new));
     }
     changed.sort_by(|a, b| a.as_str().cmp(b.as_str()));
     changed.dedup();
     let source = files
-        .get(door.module)
+        .get(horse.module)
         .map_or("", |file| file.package.as_str());
     let bound = declaration.loads_from().as_ref().map(|bound| {
         (
@@ -388,14 +385,14 @@ fn apply(
         )
     });
     let (constant, targets) =
-        crate::imports::constant_bound(files, (door.form, door.module, &door.evidence), bound)
-            .map_err(DoorProblem::Constant)?;
+        crate::imports::constant_bound(files, (horse.form, horse.module, &horse.evidence), bound)
+            .map_err(TrojanHorseProblem::Constant)?;
     let edge = |target, package, resolved| {
-        declared(declaration, door, (source, target, package), resolved)
+        declared(declaration, horse, (source, target, package), resolved)
     };
     let mut imports: Vec<Import> = targets
         .into_iter()
-        .filter(|file| file.module.as_str() != door.module)
+        .filter(|file| file.module.as_str() != horse.module)
         .map(|file| edge(file.module.as_str(), file.package.as_str(), Resolved::Local))
         .collect();
     for prefix in declaration.loads().iter().flatten() {
@@ -405,7 +402,7 @@ fn apply(
         if names.is_empty() {
             let inside = files.keys().any(|module| in_scope(module, top));
             if inside {
-                return Err(DoorProblem::LoadsNothing(prefix.to_owned()));
+                return Err(TrojanHorseProblem::LoadsNothing(prefix.to_owned()));
             }
             let resolved = if settings.standard(top) {
                 Resolved::Builtin
@@ -414,17 +411,21 @@ fn apply(
             };
             imports.push(edge(prefix, top, resolved));
         }
-        for name in names.into_iter().filter(|name| *name != door.module) {
+        for name in names.into_iter().filter(|name| *name != horse.module) {
             let package = files.get(name).map_or("", |file| file.package.as_str());
             imports.push(edge(name, package, Resolved::Local));
         }
     }
+    let site = Some(declaration.trojan_horse().clone()).filter(|word| !String::is_empty(word));
+    let site = site.or_else(|| Option::clone(declaration.site_name()));
     let applied = Applied {
         id: declaration.id().as_text().to_owned(),
-        gap: door.gap.to_owned(),
-        module: door.module.to_owned(),
-        form: door.form,
-        line: door.line,
+        rationale: declaration.rationale().to_owned(),
+        gap: horse.gap.to_owned(),
+        module: horse.module.to_owned(),
+        form: horse.form,
+        label: site.unwrap_or_default(),
+        line: horse.line,
         constant,
         loads: declaration
             .loads()
@@ -432,10 +433,10 @@ fn apply(
             .flatten()
             .map(|p| p.as_text().to_owned())
             .collect(),
-        possible_loads: imports
+        edges: imports
             .iter()
             .filter(|import| import.resolved() == &Resolved::Local)
-            .map(|import| import.target_module().to_owned())
+            .map(|import| (import.target_module().to_owned(), import.id().to_owned()))
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
             .collect(),
@@ -445,16 +446,17 @@ fn apply(
             .map(|p| p.as_text().to_owned())
             .collect(),
         effect: (!changed.is_empty()).then_some(GapEffect::Modules { modules: changed }),
-        stated: door.effect.clone(),
+        covered: Vec::new(),
+        stated: horse.effect.clone(),
     };
     Ok((applied, imports))
 }
 
-/// The declared import from the module of the door to `target`: a call that may run, with no
-/// known name, cited by the evidence of the door site.
+/// The declared import from the module of the trojan horse to `target`: a call that may run, with no
+/// known name, cited by the evidence of the trojan horse site.
 fn declared(
     declaration: &Declaration,
-    door: &Door<'_>,
+    horse: &TrojanHorse<'_>,
     (source_package, target, target_package): (&str, &str, &str),
     resolved: Resolved,
 ) -> Import {
@@ -462,16 +464,16 @@ fn declared(
         "DECLARED",
         &[
             Part::Text(declaration.id().as_text()),
-            Part::Text(door.module),
+            Part::Text(horse.module),
             Part::Text(target),
         ],
     );
-    let mut evidence = door.evidence.clone();
+    let mut evidence = horse.evidence.clone();
     evidence.sort_unstable();
     Import {
         id,
         declared: true,
-        source_module: door.module.to_owned(),
+        source_module: horse.module.to_owned(),
         target_module: target.to_owned(),
         source_package: source_package.to_owned(),
         target_package: target_package.to_owned(),
@@ -493,5 +495,5 @@ fn declared(
 }
 
 #[cfg(test)]
-#[path = "door_reach_tests.rs"]
+#[path = "trojan_horse_reach_tests.rs"]
 mod tests;

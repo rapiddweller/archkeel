@@ -299,7 +299,7 @@ fn a_replaced_importlib_loader_does_not_withhold_the_builtin_import() {
 }
 
 #[test]
-fn unrelated_writes_and_open_doors_keep_the_literal_edge() {
+fn unrelated_writes_and_open_trojan_horses_keep_the_literal_edge() {
     for write in [
         "setattr(other, 'import_module', value)",
         "setattr(importlib, 'unrelated', value)",

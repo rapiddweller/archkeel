@@ -90,7 +90,7 @@ The summary stays short in a CI log. For example, running
 `archkeel validate --config docs/architecture/shell.toml --summary` in this checkout printed:
 
 ```text
-validate: PASS assuming 2 stated external users -> exit 0 (all 27 rules pass; 1 pass assuming 2 stated external users) · root . · config docs/architecture/shell.toml
+validate: PASS under 2 stated external users -> exit 0 (all 27 rules pass; 1 pass under 2 stated external users) · root . · config docs/architecture/shell.toml
 Details: archkeel validate --text (all: --all); machine output: --json
 ```
 

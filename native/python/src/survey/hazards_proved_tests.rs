@@ -27,7 +27,7 @@ fn has(source: &str, kind: &str) -> bool {
 }
 
 #[test]
-fn a_call_of_a_function_or_class_of_the_module_with_a_door_module_name_is_no_gap() {
+fn a_call_of_a_function_or_class_of_the_module_with_a_trojan_horse_module_name_is_no_gap() {
     for source in [
         "def inspect(x):\n    return x\ninspect(1)\n",
         "def inspect(x):\n    return x\ndef use():\n    return inspect(1)\n",
@@ -39,7 +39,7 @@ fn a_call_of_a_function_or_class_of_the_module_with_a_door_module_name_is_no_gap
 }
 
 #[test]
-fn a_door_module_name_that_is_not_one_plain_definition_keeps_its_gap() {
+fn a_trojan_horse_module_name_that_is_not_one_plain_definition_keeps_its_gap() {
     for source in [
         "inspect(1)\n",
         "import inspect\ndef f():\n    return inspect.getmodule(x)\n",
@@ -51,8 +51,11 @@ fn a_door_module_name_that_is_not_one_plain_definition_keeps_its_gap() {
     ] {
         assert!(has_dynamic(source), "{source}");
     }
-    // The standard `inspect` module keeps its behaviour: only `getmodule` is a door.
-    assert!(!has_dynamic("import inspect\ninspect.getmembers(x)\n"));
+    // `inspect.getmembers(f)` hands out the code object of `f` without its name (AD-1058).
+    assert!(has_dynamic("import inspect\ninspect.getmembers(x)\n"));
+    assert!(has_dynamic("import gc\ngc.get_referents(x)\n"));
+    // The rest of `inspect` is no trojan horse.
+    assert!(!has_dynamic("import inspect\ninspect.signature(x)\n"));
 }
 
 fn has_dynamic(source: &str) -> bool {

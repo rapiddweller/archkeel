@@ -183,7 +183,7 @@ def _assuming(row: Mapping[str, Any]) -> str:
     premise = row.get("assuming")
     if not premise or _status_of(row) != "PASS":
         return ""
-    return f'<br><span class="caption">PASS assuming {html.escape(str(premise))}.</span>'
+    return f'<br><span class="caption">PASS under {html.escape(str(premise))}.</span>'
 
 
 def _scenario(row: Mapping[str, Any]) -> str:

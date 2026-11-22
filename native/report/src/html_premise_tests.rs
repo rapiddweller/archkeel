@@ -7,7 +7,7 @@
 
 use super::*;
 
-// #1549: a PASS that holds because of a stated external user reads like one under a door reach:
+// #1549: a PASS that holds because of a stated external user reads like one under a trojan horse reach:
 // the badge, the title, the note and the list of the rules name the premise and the entry.
 #[test]
 fn a_page_names_each_pass_under_a_stated_external_user() {
@@ -17,14 +17,14 @@ fn a_page_names_each_pass_under_a_stated_external_user() {
         "assuming": "1 stated external user"});
     let page = document(&frame);
     assert!(
-        page.contains("PASS assuming 1 stated external user</span>"),
+        page.contains("PASS under 1 stated external user</span>"),
         "{page}"
     );
-    assert!(page.contains("All 2 rules hold; 1 hold assuming 1 stated external user"));
-    assert!(page.contains("PASS assuming 1 stated external user: 1 rule holds only under"));
-    assert!(page.contains("PASS ASSUMING 1 STATED EXTERNAL USER"));
+    assert!(page.contains("All 2 rules hold; 1 hold under 1 stated external user"));
+    assert!(page.contains("PASS under 1 stated external user: 1 rule holds only under"));
+    assert!(page.contains("PASS UNDER 1 STATED EXTERNAL USER"));
     assert!(page.contains("app.api:serve"));
-    let plain = page.split("PASS ASSUMING").next().unwrap_or_default();
+    let plain = page.split("PASS UNDER").next().unwrap_or_default();
     assert!(
         !plain.contains("<span class=\"rp-code\">U</span>"),
         "U is no plain PASS"

@@ -6,9 +6,9 @@
 //!
 //! `f.__globals__` and `getattr(f, "__globals__")` give the namespace of a function. The dict
 //! reaches `__builtins__` and so any import, so the survey treats a read as a dynamic import
-//! (`hazards.rs`). A read is inert when the dict is used only in forms that name no door:
+//! (`hazards.rs`). A read is inert when the dict is used only in forms that name no trojan horse:
 //!
-//! - `d.get("key")`, `d["key"]` and `"key" in d` with a literal key that is no door string;
+//! - `d.get("key")`, `d["key"]` and `"key" in d` with a literal key that is no trojan horse string;
 //! - an argument of a call whose callee is outside the scan, or a function of the scan whose
 //!   parameter is used in these forms only (bounded, a cycle is not inert). A callee outside the
 //!   scan is a function of an import that leaves the scan, a member of such a module, or a pure

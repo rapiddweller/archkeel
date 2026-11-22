@@ -13,6 +13,7 @@ with exit 2; it never falls back and never reports success. Each exit code comes
 
 from __future__ import annotations
 
+import copy
 import json
 import traceback
 from collections.abc import Mapping, Sequence
@@ -277,7 +278,7 @@ def _decide(options: Options, mode: OutputMode) -> int:
     """Draft the files of a first run, then scan. A failure after a write still names the files."""
     # AD-735, AD-776: one root and one configuration for the draft, the scan and the files.
     project = ProjectRoot.of(options.root, options.config if options.config_given else None)
-    options = Options(**vars(options))
+    options = copy.copy(options)
     options.config = project.config
     baseline = options.baseline is not None
     binary = locate_core()  # AD-735: the core is found and checked before the draft writes a file

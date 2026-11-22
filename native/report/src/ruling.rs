@@ -5,11 +5,10 @@
 //! `Ruling`: the decided head of the engine frame of the core (AD-388, #1073 item 4).
 //!
 //! The core writes the status of a run and the verdict of each rule only through a `Ruling`.
-//! `rule` is its only maker. It evaluates the model itself, so an outcome of another model or a
-//! bare verdict cannot enter. The status comes from the status rule of the report (`run_status`,
-//! the same rule as `status_of`). A PASS status needs the run proof of the model
-//! (`Scope::run_complete`), as `build` does. The core adds only gaps (`Named`): a gap can make a
-//! status stricter, never PASS. The engine frame keeps its rows and the `Decided` mark.
+//! `rule` is its only maker. It evaluates the model itself, so no other outcome can enter. The
+//! status comes from `run_status`. A PASS status needs the run proof of the model
+//! (`Scope::run_complete`). The core adds only gaps (`Named`): a gap can make a status stricter,
+//! never PASS. The frame keeps its rows and the `Decided` mark.
 
 #![deny(
     clippy::wildcard_enum_match_arm,
@@ -274,6 +273,8 @@ pub fn rule_with_edge_links(
         Some(reason) => RuleReasons::All(reason),
         None => RuleReasons::Each(reasons),
     };
+    let fails = rows.explain.declared(&rows.details);
+    let premises = crate::assumed::Premises::of(rows.premises, models.ok(), &fails);
     let ruling = Ruling {
         protocol: "archkeel-core-frame-1",
         html: false,
@@ -289,7 +290,7 @@ pub fn rule_with_edge_links(
         details: rows.details,
         unknown_kinds: rows.unknown_kinds,
         beyond: rows.beyond,
-        premises: crate::assumed::Premises::of(rows.premises, models.ok()),
+        premises,
         scope,
         excluded_sources: observed.map_or_else(Vec::new, ModelTree::excluded_sources),
         premise: premise.map(str::to_owned),

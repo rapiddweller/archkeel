@@ -203,7 +203,7 @@ def test_a_pass_that_rests_on_stated_external_users_is_never_a_bare_pass(
     core_binary: Path, tmp_path: Path
 ) -> None:
     """#1549: the two items without a user pass only because the contract states an external
-    user of each. The rule reads "PASS assuming 2 stated external users" in the frame and the
+    user of each. The rule reads "PASS under 2 stated external users" in the frame and the
     text. The entry of a used item is no premise: a proven user holds that item. (The run of this
     plant stays UNKNOWN for its contract hygiene; the header of a PASS run is in
     `test_cli_text_output.py`.)"""
@@ -217,12 +217,12 @@ def test_a_pass_that_rests_on_stated_external_users_is_never_a_bare_pass(
     }
     assert {p["kind"] for p in frame["premises"]["UNUSED"]} == {"external_user"}
     assert frame["assuming"] == "2 stated external users"
-    assert "assumed" not in frame and "door_reach" not in frame
+    assert "assumed" not in frame and "trojan_horse_reach" not in frame
     output = io.StringIO()
     with pytest.MonkeyPatch.context() as patch, contextlib.redirect_stdout(output):
         patch.setattr(core_only, "locate_core", lambda: core_binary)
         core_only.run(["validate", "--text", "--root", str(tmp_path)])
     text = output.getvalue()
-    assert "PASS assuming 2 stated external users (1 rule); a premise is not a proof:" in text
+    assert "PASS under 2 stated external users (1 rule); a premise is not a proof:" in text
     assert "stated external users: pkg.base:Shape, pkg.base:unused" in text
-    assert "rules: UNUSED" in text
+    assert "UNUSED: under pkg.base:Shape, pkg.base:unused" in text

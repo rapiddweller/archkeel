@@ -7,7 +7,6 @@
 //! after the label checks. The functions here keep these three steps, so the first error of a
 //! contract has the same kind in both parsers.
 
-use crate::door_reach::DoorReach;
 use crate::error::{invalid, Parsed};
 use crate::json::{field, has, Json, Object};
 use crate::model::{ComponentLabel, ItemId, Package};
@@ -23,11 +22,12 @@ use crate::read::{
     count, fields, listed_strings, nonempty_field, positive, present, record, repeats,
     strings_field, text,
 };
+use crate::trojan_horse_reach::TrojanHorseReach;
 use crate::uml::target;
 use crate::version::{ContractVersion, Feature};
 use crate::words::value_of;
 
-const KEYS: [&str; 17] = [
+const KEYS: [&str; 18] = [
     "capabilities",
     "review_scopes",
     "public_api",
@@ -43,6 +43,7 @@ const KEYS: [&str; 17] = [
     "coupling_budgets",
     "modules",
     "uml",
+    "trojan_horse_reach",
     "door_reach",
     "premises",
 ];
@@ -100,7 +101,8 @@ pub(crate) struct Records {
     coupling_budgets: Option<Vec<CouplingBudget>>,
     modules: Option<Vec<ModuleTarget>>,
     pub(crate) uml: Option<Target>,
-    door_reach: Vec<DoorReach>,
+    trojan_horse_reach: Vec<TrojanHorseReach>,
+    deprecated: bool,
     premises: Vec<DeclaredPremise>,
 }
 
@@ -110,10 +112,10 @@ pub(crate) fn record_ids(records: &Records) -> Vec<&ItemId> {
     let commands = records.public_commands.iter().map(|item| &item.id);
     let paths = records.paths.iter().map(|item| &item.id);
     let owners = records.spot_owners.iter().map(|item| &item.id);
-    let doors = records.door_reach.iter().map(|item| &item.id);
+    let trojan_horses = records.trojan_horse_reach.iter().map(|item| &item.id);
     let premises = records.premises.iter().map(|item| &item.id);
     let all = scopes.chain(commands).chain(paths).chain(owners);
-    all.chain(doors).chain(premises).collect()
+    all.chain(trojan_horses).chain(premises).collect()
 }
 
 /// The budgets of step 2, for the interface budget check.
@@ -165,7 +167,8 @@ pub(crate) fn later_records(object: &Object, version: ContractVersion) -> Parsed
         return Err(invalid("contract.declarations.modules repeats a path"));
     }
     let uml = uml(object, version)?;
-    let door_reach = crate::door_reach::door_reach(object, version)?;
+    let (trojan_horse_reach, deprecated) =
+        crate::trojan_horse_reach::trojan_horse_reach(object, version)?;
     let premises = crate::premises::premises(object, version)?;
     Ok(Records {
         review_scopes,
@@ -178,7 +181,8 @@ pub(crate) fn later_records(object: &Object, version: ContractVersion) -> Parsed
         coupling_budgets,
         modules,
         uml,
-        door_reach,
+        trojan_horse_reach,
+        deprecated,
         premises,
     })
 }
@@ -225,7 +229,8 @@ pub(crate) fn finish(
         coupling_budgets: records.coupling_budgets,
         modules: records.modules,
         uml: records.uml,
-        door_reach: records.door_reach,
+        trojan_horse_reach: records.trojan_horse_reach,
+        deprecated_spelling: records.deprecated,
         premises: records.premises,
     })
 }

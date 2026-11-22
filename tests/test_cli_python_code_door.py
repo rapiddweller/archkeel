@@ -53,8 +53,8 @@ PLANTS = {
         "type(f)(code, {})()\nrun()\n"
     ),
 }
-# #1967: a computed name is no door yet. Each plant imports `app.lib` under CPython 3.12 and still
-# gives PASS; the owner decides whether a computed `getattr` is a door.
+# #1967 (AD-1053): a computed name on an unproved receiver is a trojan horse. Each plant imports
+# `app.lib` under CPython 3.12, so the rule must not give PASS.
 EDIT = "tuple('app.lib' if n == 'json' else n for n in code.co_names)"
 HEAD = "def f():\n    import json\n    return json\n\nname = {name}\n"
 TAIL = "code = {read}\nsetattr(f, name, code.replace(co_names=" + EDIT + "))\nf()\n"
@@ -134,7 +134,6 @@ def test_a_plain_read_of_a_function_keeps_pass(
     assert rows(result)["NO-LIB"] == "PASS", result["frame"]
 
 
-@pytest.mark.xfail(strict=True, reason="#1967: a computed attribute name is no import door yet")
 @pytest.mark.parametrize("name", sorted(COMPUTED))
 def test_a_computed_name_that_reaches_a_code_object_is_never_pass(
     release_core: Path, tmp_path: Path, name: str

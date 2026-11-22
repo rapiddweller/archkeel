@@ -71,7 +71,7 @@ mod condensation;
 mod coverage;
 mod cycles;
 mod door_reach;
-pub use door_reach::{Applied, DoorProblem, Doors};
+pub use door_reach::{Applied, TrojanHorseProblem, TrojanHorses};
 mod edges;
 mod gap_class;
 mod gap_effects;

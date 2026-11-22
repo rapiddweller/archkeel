@@ -163,8 +163,11 @@ def test_lazy_import_candidate_is_not_a_live_import_witness(
     if with_rule:
         assert frame["rules"].get(RULE) == ["call_owner", "UNKNOWN"], frame
     else:
-        assert frame["status"] == "PASS", frame
-    assert frame["measures"]["calls_resolved"] >= 1
+        # AD-1058: the lazy `getattr(module, key)` keeps its trojan horse site, so the module
+        # keeps no proven key and the run is UNKNOWN until a contract declares the site.
+        assert frame["status"] == "UNKNOWN", frame
+        kinds = {gap["reason"] for gap in frame["collection_gaps"]}
+        assert kinds == {"dynamic_import: getattr"}, kinds
 
 
 @pytest.mark.parametrize("caller", ["parent", "selected"])

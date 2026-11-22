@@ -111,7 +111,7 @@ impl World<'_> {
         Some(found)
     }
 
-    /// The module that `import_module(name, package)` names, when it is a module name and no door.
+    /// The module that `import_module(name, package)` names, when it is a module name and no trojan horse.
     fn module_name(&self, name: &str, package: Option<&str>) -> Option<String> {
         let target = match (name.starts_with('.'), package) {
             (false, _) => name.to_owned(),
@@ -205,7 +205,7 @@ impl World<'_> {
     }
 
     /// The modules that a call can import, or `None` when a candidate is no module name or is a
-    /// door (`hazards::hazard`).
+    /// trojan horse (`hazards::hazard`).
     fn candidates(&self, call: &Call) -> Option<BTreeSet<String>> {
         let none = [String::new()];
         let packages: &[String] = call.packages.as_deref().unwrap_or(&none);

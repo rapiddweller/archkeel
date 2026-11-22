@@ -15,14 +15,14 @@ from collections.abc import Mapping, Sequence
 
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
-from .core_doors import door_lines
-from .core_doors import qualifier as premise_qualifier
 from .core_evidence import ViolationDetail, call_lines
 from .core_exit import Outcome, verdict_code, word_of
 from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
 from .core_gaps import SHOWN, group_lines, not_installed_lines, places, rest
 from .core_json import Gap
+from .core_trojan_horses import qualifier as premise_qualifier
+from .core_trojan_horses import trojan_horse_lines
 from .core_words import CAUSE_FIXES, contract_fix, kind_label, plain, readable
 
 #: The named parts that an `init` draft leaves: decisions that the person has not made yet.
@@ -114,7 +114,7 @@ def _reason_of(frame: CoreFrame, code: int, outcome: Outcome) -> str:
     if not frame.rules and any(gap.kind in PROBLEM_KINDS for gap in frame.gaps):
         return "no rule could be read: see the problem below"
     if frame.status is Status.PASS and (words := frame.premises.assuming) is not None:
-        return f"all {total} rules pass; {len(frame.premises.rules)} pass assuming {words}"
+        return f"all {total} rules pass; {len(frame.premises.rules)} pass under {words}"
     if frame.status is Status.PASS:
         return f"all {total} rules pass"
     if frame.status is Status.FAIL:
@@ -204,6 +204,25 @@ def _edge(frame: CoreFrame, row: ViolationDetail) -> tuple[str, list[str]]:
     return edge, places(frame, row.evidence, SHOWN)
 
 
+def _declared_edges(frame: CoreFrame, rule: str, index: int) -> str:
+    """The declared imports that a cycle uses: the declaration, its site module and the target."""
+    cycles = None if frame.explain is None else frame.explain.cycles.get(rule)
+    items = [] if cycles is None else [item for item in cycles.items if item.index == index]
+    by_edge: dict[tuple[str, str], list[str]] = {}
+    for item in items:
+        for step in item.path:
+            for edge in step.declared:
+                ids = by_edge.setdefault((edge.source, edge.target), [])
+                ids.append(edge.declaration)
+    lines = [
+        f"    {source} -> {target}, declared by {', '.join(dict.fromkeys(ids))}"
+        for (source, target), ids in list(by_edge.items())[:3]
+    ]
+    if len(by_edge) > 3:
+        lines.append(f"    and {len(by_edge) - 3} more declared edges")
+    return "".join(f"\n{line}" for line in lines)
+
+
 def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]
     if not rows:
@@ -218,7 +237,9 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
             f"Violations ({len(rows)}: {new} new, {len(rows) - new} accepted by the baseline):"
         ]
     texts: dict[str, int] = {}
+    positions = {rule: 0 for rule in frame.details}
     for rule, row in rows if show_all else rows[:_VIOLATIONS_SHOWN]:
+        positions[rule] += 1
         edge, sites = _edge(frame, row)
         where = ", ".join(sites)
         cause = row.cause
@@ -229,6 +250,7 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
         elif row.possible:
             cause += " (the contract declares this possibility)"
         text = f"  {rule}: {cause}: {edge}" + (f" ({where})" if where else "")
+        text += _declared_edges(frame, rule, positions[rule] - 1)
         texts[text] = texts.get(text, 0) + 1  # one line per place; a repeat is counted
     lines.extend(f"{text} (x{n})" if n > 1 else text for text, n in texts.items())
     if more := rest(len(rows), _VIOLATIONS_SHOWN, show_all):
@@ -354,7 +376,7 @@ def render(
     if frame.excluded_sources:
         out.append("Excluded test sources:")
         out.extend(f"  {path}" for path in frame.excluded_sources)
-    out.extend(door_lines(frame.premises, frame.doors, SHOWN, show_all))
+    out.extend(trojan_horse_lines(frame.premises, frame.trojan_horses, SHOWN, show_all))
     if system:
         out.extend(_system(system))
     out.extend(_violation_lines(frame, show_all))

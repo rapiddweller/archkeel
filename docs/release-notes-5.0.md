@@ -178,7 +178,7 @@ verdict, so a PASS is never claimed without it.
   [AD-788](architecture/decisions/ad-788-a-repository-file-outside-the-scan-roots-that-replaces-a-global-withholds-its-proof.md)).
 - **TypeScript bundler mode** (opt-in, `bundler = true`): the bundler's aliases equal the tsconfig
   `paths`. ArchKeel does not verify this ([AD-260](architecture/decisions/ad-260-typescript-bundler-mode.md)).
-- **Declared door reach**: a PASS under a declared reach of a door site is shown as assumed, never as
+- **Declared trojan horse reach**: a PASS under a declared reach of a trojan horse site is shown as assumed, never as
   a plain PASS ([AD-664](architecture/decisions/ad-664-a-contract-can-declare-the-reach-of-a-door-site.md)).
 
 What a structural PASS means (not a premise, but a limit of the claim):
