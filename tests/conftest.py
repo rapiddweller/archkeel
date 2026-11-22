@@ -7,6 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import oracle_support
 import pytest
 from core_support import built as built
 from core_support import core_binary as core_binary
@@ -15,6 +16,13 @@ from core_support import release_core as release_core
 from filelock import FileLock
 
 ROOT = Path(__file__).parents[1]
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """AD-1048: an oracle test never skips in CI, and each selected oracle runs once."""
+    config.pluginmanager.register(oracle_support, "oracle_support")
+    for _, tool in oracle_support.REASONS:
+        config.addinivalue_line("markers", f"oracle_{tool}: compares a verdict with {tool}")
 
 
 @pytest.fixture(autouse=True)
