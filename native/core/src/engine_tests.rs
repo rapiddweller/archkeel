@@ -63,6 +63,36 @@ pub(crate) fn golden_reply_by(adapter: Option<&str>) -> Vec<u8> {
     })
 }
 
+/// The frozen reply imports no external package, and a PASS of `EXTERNAL-SHOP` needs one import of
+/// `@shop/transport` (AD-1048). A copy of the import of `data.remote` names it from an allowed
+/// source and leaves every other edge as it was.
+fn add_shop_transport(value: &mut Value) {
+    let old = value["facts"]["imports"][1]["import_id"].clone();
+    let new = json!("IMP_BINDING-00000000000000f1");
+    let target = json!({"kind": "external", "package": "@shop/transport", "import_id": new});
+    if let Some(sections) = value["facts"]["sections"].as_array_mut() {
+        for section in sections.iter_mut().filter(|s| s["name"] == "imports") {
+            let Some(records) = section["records"].as_array_mut() else {
+                continue;
+            };
+            if let Some(mut record) = records.iter().find(|r| r["id"] == old).cloned() {
+                record["id"] = new.clone();
+                record["data"]["target_module"] = json!("vendor.entry");
+                record["data"]["target_package"] = json!("@shop/transport");
+                let source = record["data"]["source_module"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_owned();
+                record["subjects"] = json!([source, "vendor.entry"]);
+                records.push(record);
+            }
+        }
+    }
+    if let Some(imports) = value["facts"]["imports"].as_array_mut() {
+        imports.push(target);
+    }
+}
+
 /// The frozen reply after `change` (a caller can write any reply bytes).
 pub(crate) fn golden_reply_with(change: impl FnOnce(&mut Value)) -> Vec<u8> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -86,6 +116,7 @@ pub(crate) fn golden_reply_with(change: impl FnOnce(&mut Value)) -> Vec<u8> {
     ))
     .unwrap_or_default();
     value["provider_sources"] = json!([]);
+    add_shop_transport(&mut value);
     change(&mut value);
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
     let _ = encoder.write_all(value.to_string().as_bytes());
