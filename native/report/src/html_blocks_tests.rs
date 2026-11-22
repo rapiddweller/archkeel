@@ -125,18 +125,18 @@ fn a_page_names_each_pass_under_a_declared_trojan_horse_reach() {
         "premises": {"A": [{"kind": "trojan_horse_reach", "subject": site}]},
         "assuming": "1 declared reach"});
     let page = document(&frame);
-    assert!(page.contains("1 hold assuming 1 declared reach"), "{page}");
-    assert!(page.contains("PASS assuming 1 declared reach: 1 rule holds only"));
-    assert!(page.contains("PASS ASSUMING 1 DECLARED REACH"));
+    assert!(page.contains("1 hold under 1 declared reach"), "{page}");
+    assert!(page.contains("PASS under 1 declared reach: 1 rule holds only"));
+    assert!(page.contains("PASS UNDER 1 DECLARED REACH"));
     assert!(page.contains(&escape(site)));
-    let plain = page.split("PASS ASSUMING").next().unwrap_or_default();
+    let plain = page.split("PASS UNDER").next().unwrap_or_default();
     assert!(
         !plain.contains("<span class=\"rp-code\">A</span>"),
         "A is no plain PASS"
     );
-    assert!(!document(&json!({"status": "PASS"})).contains("assuming the declared reach"));
+    assert!(!document(&json!({"status": "PASS"})).contains("under the declared reach"));
     // #1549: the badge of a PASS under a premise is no bare PASS.
-    assert!(page.contains("PASS assuming 1 declared reach</span>"));
+    assert!(page.contains("PASS under 1 declared reach</span>"));
 }
 
 fn component_frame(components: usize, modules_each: usize) -> Value {

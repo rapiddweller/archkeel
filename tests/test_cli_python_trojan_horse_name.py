@@ -13,6 +13,7 @@ plant: the declared reach must not hide an import that really happens.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -68,7 +69,7 @@ def test_a_trojan_horse_string_is_declared_by_name_and_the_pass_says_so(
     (row,) = result["frame"]["trojan_horse_reach"]
     assert row["trojan_horse"] == "__self__" and row["rationale"], row
     text = command(release_core, tmp_path / "b", "--text").stdout
-    assert "pass assuming 1 declared reach" in text, text
+    assert "pass under 1 declared reach" in text, text
 
 
 def test_a_moved_site_is_unmatched_and_a_twin_needs_a_count(
@@ -131,3 +132,30 @@ def test_a_fail_that_rests_on_a_declared_load_says_so_and_an_observed_one_does_n
     result = run(tmp_path / "b", {PAGE: seen}, declared, release_core)
     assert rows(result)["CLIENT-NO-SECRET"] == "FAIL", result
     assert "fail_from_declared_reach" not in result["frame"], result["frame"]
+
+
+def test_a_covers_list_clears_the_exposure_of_the_modules_it_names_and_no_other(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """AD-1047: `covers` names the modules whose use of the bound name the contract accepts."""
+    harmless = "import app.service.model as model\nSIZE = len(model.pickle.dumps(1))\n"
+    declared = [pickle_declaration() | {"covers": ["app.client"]}]
+    covered = run(
+        tmp_path / "covered", {MODEL: "import pickle\n", PAGE: harmless}, declared, release_core
+    )
+    assert not imports_secret(tmp_path / "covered"), "the covered use really loads nothing"
+    assert set(rows(covered).values()) == {"PASS"}, covered
+    (row,) = covered["frame"]["trojan_horse_reach"]
+    assert row["covered"] == ["app.client.page"], row
+    text = command(release_core, tmp_path / "covered", "--text").stdout
+    assert "Covered uses of the bound name: app.client.page" in text, text
+
+    # A module that `covers` does not name stays refused, and Python really imports the module.
+    attribute = f"import app.service.model as model\nmodel.pickle.loads({BLOB})\n"
+    other = [pickle_declaration() | {"covers": ["app.other"]}]
+    root = tmp_path / "uncovered"
+    refused = run(root, {MODEL: "import pickle\n", PAGE: attribute}, other, release_core)
+    assert imports_secret(root)
+    assert rows(refused)["CLIENT-NO-SECRET"] != "PASS", refused
+    assert "trojan_horse_reach.invalid" in {gap["kind"] for gap in refused["gaps"]}, refused["gaps"]
+    assert "covered" not in json.dumps(refused["frame"].get("trojan_horse_reach", [])), refused

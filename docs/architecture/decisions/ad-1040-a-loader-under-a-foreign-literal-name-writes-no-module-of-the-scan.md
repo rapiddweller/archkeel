@@ -20,7 +20,7 @@ package above one and no prefix of one. In such a file these sites are no hazard
 
 Each other site of the file keeps its rule. A value use of `spec_from_file_location` (an alias), a
 second call with a scan name, a computed name, a `loader` or `submodule_search_locations`
-argument, `sys.modules`, `import_module`, `find_spec` and any other door end the proof.
+argument, `sys.modules`, `import_module`, `find_spec` and any other trojan horse end the proof.
 
 **Why it is sound.** `module_from_spec` makes a new module object. Under a foreign name it is no
 module of the scan. A module object of the scan can reach `exec_module` only through a use that

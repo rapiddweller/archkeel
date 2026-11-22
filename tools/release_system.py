@@ -149,7 +149,13 @@ def main(wheel: Path, commit: str) -> int:
                 json.dumps(
                     {
                         key: frame.get(key)
-                        for key in ("premise", "premises", "assuming", "assumed", "door_reach")
+                        for key in (
+                            "premise",
+                            "premises",
+                            "assuming",
+                            "assumed",
+                            "trojan_horse_reach",
+                        )
                     }
                 )
             )

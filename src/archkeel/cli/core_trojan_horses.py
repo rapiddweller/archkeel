@@ -33,6 +33,7 @@ class TrojanHorseRow:
     changes: tuple[str, ...]
     rationale: str
     possible_loads: tuple[str, ...] = ()
+    covered: tuple[str, ...] = ()
     constant: str | None = None
 
 
@@ -145,6 +146,7 @@ def read_trojan_horses(frame: Mapping[str, object]) -> tuple[TrojanHorseRow, ...
                 possible_loads=_texts(
                     fields.get("possible_loads", []), "trojan_horse_reach.possible_loads"
                 ),
+                covered=_texts(fields.get("covered", []), "trojan_horse_reach.covered"),
                 constant=None
                 if constant is None
                 else as_text(constant, "trojan_horse_reach.constant"),
@@ -168,8 +170,8 @@ def declared(
 
 
 def qualifier(words: str) -> str:
-    """`PASS assuming <words>`: the words are the field `assuming` of the core, as on the page."""
-    return f"PASS assuming {words}"
+    """`PASS under <words>`: the words are the field `assuming` of the core, as on the page."""
+    return f"PASS under {words}"
 
 
 def trojan_horse_lines(
@@ -198,6 +200,8 @@ def trojan_horse_lines(
         lines.append(f"    Reason: {row.rationale}")
         if row.possible_loads:
             lines.append(f"    Possible targets: {', '.join(row.possible_loads)}")
+        if row.covered:
+            lines.append(f"    Covered uses of the bound name: {', '.join(row.covered)}")
     for rule, ids in sorted(premises.fails.items()):
         lines.append(f"  FAIL from a declared reach: {rule} (declared by {', '.join(ids)})")
     if premises.fails:

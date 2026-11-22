@@ -168,14 +168,14 @@ is FAIL. It is UNKNOWN instead when a use may exist that the facts do not show:
 
 A PASS needs a collector that states every public symbol. A PASS that holds only
 because of an `external_users` entry is never a plain PASS: it reads
-"PASS assuming N stated external users" (AD-764).
+"PASS under N stated external users" (AD-764).
 
 Contract **3.17.0** adds `declarations.premises` (AD-764): the premises that the
 contract states by name, each with an `id`, a `name`, a `rationale` and a
 `provenance`. A premise is a claim about what the scan cannot see, never a proof.
-A rule that rests on a premise reads "PASS assuming <premise>" in the text, the
+A rule that rests on a premise reads "PASS under <premise>" in the text, the
 frame (`premises`, `assuming`) and the report. The names that the core knows:
-`standard_library_unchanged` ("outside code leaves the standard library unchanged"). A
+`standard_library_unchanged` ("the premise that outside code leaves the standard library unchanged"). A
 `boundary_types` rule rests on it: a type of the standard library that the collector names, and a
 definition with a standard decorator that it models, count only under it (AD-782). An unknown name refuses
 the contract. A declared trojan horse reach (AD-664) and a stated external user are premises of the same
@@ -395,7 +395,7 @@ Contract **3.15.0** adds `declarations.trojan_horse_reach` (AD-664). One record 
 (`module`, `trojan_horse`, and `line` or `scope`) and the module prefixes that the trojan horse may import
 (`loads`) or change (`changes`). The forms are `eval`, `exec`, `compile`, `unpickle`, `loader`,
 `dunder_import` and `computed_key`. The reach is a premise, not a proof: a PASS that rests on it
-is "PASS assuming N declared reaches", and a declared load is a possible edge that a rule
+is "PASS under N declared reaches", and a declared load is a possible edge that a rule
 can forbid. A declaration that matches no trojan horse, more than one trojan horse or an invalid reach is a
 named defect and is never applied; without a declaration a trojan horse stays UNKNOWN. The frame row
 `trojan_horse_reach[]` and the text list name the `rationale` of each applied declaration, so a reader sees
@@ -408,6 +408,8 @@ targets under `trojan_horse_reach[].possible_loads`. These are possible dependen
 imports. Boundary and cycle rules use them, but the observed topology does not count them.
 The cycle rule checks the contract graph. A graph cycle does not show that its imports run together.
 If two sites match the same line, the declaration applies to neither and the gap stays open.
+
+Contract 3.20.0 adds `covers` (AD-1047): module prefixes whose use of the bound name the contract accepts. A module that can reach the name and lies below no prefix refuses the declaration. The row lists the covered modules in `covered`.
 
 `loads` is the existing AD-664 prefix premise. It does not read a target list from source code.
 Contract **3.18.0** adds `loads_from` for a direct Python `importlib.import_module` call
@@ -426,7 +428,7 @@ The contract still claims that all calls use only those targets and that the dec
 `changes` are complete. The rule's qualified PASS names the binding and source line.
 
 ```json
-{"id": "DOOR-FORMULA", "module": "app.calc", "trojan_horse": "eval", "scope": "Formula.value",
+{"id": "TROJAN-HORSE-FORMULA", "module": "app.calc", "trojan_horse": "eval", "scope": "Formula.value",
  "loads": [], "changes": [], "rationale": "The text is a formula of numbers.",
  "provenance": ["docs/calc.md"]}
 ```

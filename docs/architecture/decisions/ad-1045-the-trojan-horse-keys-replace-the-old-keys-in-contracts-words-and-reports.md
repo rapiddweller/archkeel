@@ -1,10 +1,10 @@
-# AD-1045 A door is called a trojan horse in keys, words and reports
+# AD-1045 The trojan horse keys replace the old keys in contracts, words and reports
 
 **Status.** Accepted (owner decision, 2026-11-22). It renames the term of [AD-664](ad-664-a-contract-can-declare-the-reach-of-a-door-site.md). Old records stay as history.
 
 **Words.** A trojan horse is a place that can load code the scan does not see; it is not a claim of malice.
 
-**Reason.** "Door" does not tell a reader that the site is a risk. A trojan horse says it.
+**Reason.** The old word did not tell a reader that the site is a risk. A trojan horse says it.
 
 **Decision.**
 - Contract 3.20.0 names the key `declarations.trojan_horse_reach` and the form field `trojan_horse`. The field `name` and the field `count` stay as they are (AD-1043).

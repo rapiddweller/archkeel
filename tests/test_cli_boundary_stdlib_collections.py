@@ -132,7 +132,7 @@ def test_a_named_collection_or_form_counts_only_under_the_premise(
     if row == "UNKNOWN" and not premise and not text.startswith("may change"):
         assert "standard_library_unchanged" in frame, frame
     if row == "PASS" and premise and without == "UNKNOWN":
-        assert "outside code leaves the standard library unchanged" in frame, frame
+        assert "the premise that outside code leaves the standard library unchanged" in frame, frame
 
 
 # The plants of the shape reader that read a collection or a form by name keep their row under

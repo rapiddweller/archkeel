@@ -99,9 +99,14 @@ struct Trojans<'n> {
 /// The sites of the module: a computed attribute name on a receiver that is not proven. `names`
 /// holds the unique names, the names bound once and the visible builtins (`Binders::proof_facts`).
 pub(super) fn trojans(
-    tree: &ModModule,
+    (tree, module): (&ModModule, &str),
     names: &(HashSet<String>, HashSet<String>, HashSet<String>),
 ) -> Vec<(&'static str, TextRange)> {
+    // The premise of the run: code outside the scan roots writes no binding of the scan (AD-1044).
+    // The name of such a file starts with `<`, which no module of the scan can (`outside.rs`).
+    if module.starts_with('<') {
+        return Vec::new();
+    }
     let (_, single, visible) = names;
     let mut walk = Trojans {
         single,

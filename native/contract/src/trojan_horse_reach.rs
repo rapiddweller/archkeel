@@ -56,6 +56,10 @@ record!(
         changes: Vec<Package>,
         /// Why the reach holds.
         rationale: String,
+        /// The module prefixes whose modules may reach the name that the site binds. Without it, a
+        /// module that can reach the name refuses the declaration. Contract 3.20.0 (AD-1047).
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        covers: Vec<Package>,
         /// Where the item comes from.
         provenance: Vec<String>,
     }
@@ -75,7 +79,8 @@ record!(
 );
 
 const REQUIRED: [&str; 2] = ["module", "rationale"];
-const OPTIONAL: [&str; 9] = [
+const OPTIONAL: [&str; 10] = [
+    "covers",
     "trojan_horse",
     "door",
     "name",
@@ -163,6 +168,15 @@ fn one(raw: &Json, label: &str, version: ContractVersion) -> Parsed<(TrojanHorse
     let loads = field(item, "loads")
         .map(|_| prefixes(item, "loads", label))
         .transpose()?;
+    let covers = match field(item, "covers") {
+        Some(_) => prefixes(item, "covers", label)?,
+        None => Vec::new(),
+    };
+    if !covers.is_empty() && !crate::version::supports(version, Feature::TrojanHorseName) {
+        return Err(invalid(format!(
+            "{label}.covers requires contract schema_version 3.20.0"
+        )));
+    }
     let changes = prefixes(item, "changes", label)?;
     let record = TrojanHorseReach {
         id,
@@ -174,6 +188,7 @@ fn one(raw: &Json, label: &str, version: ContractVersion) -> Parsed<(TrojanHorse
         scope,
         loads,
         loads_from,
+        covers,
         changes,
         rationale: nonempty_field(item, "rationale", label)?,
         provenance,

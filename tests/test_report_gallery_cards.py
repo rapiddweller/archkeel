@@ -16,7 +16,7 @@ def _passing(assuming: str | None) -> dict:
 
 def test_a_pass_under_a_premise_shows_the_premise_text_and_a_plain_pass_does_not() -> None:
     page = report_gallery_page.index([_passing("outside <code> is fixed")], "sha", "now")
-    assert "PASS assuming outside &lt;code&gt; is fixed." in page
+    assert "PASS under outside &lt;code&gt; is fixed." in page
     plain = report_gallery_page.index([_passing(None)], "sha", "now")
     assert "assuming" not in plain.split("<tbody>")[1]
     failing = _passing("p")

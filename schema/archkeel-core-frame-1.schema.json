@@ -115,7 +115,7 @@
         "string",
         "null"
       ],
-      "description": "The premises of the run in words: a PASS that rests on them reads \"PASS assuming\" and\nthese words (AD-764)."
+      "description": "The premises of the run in words: a PASS that rests on them reads \"PASS under\" and\nthese words (AD-764)."
     },
     "scope": {
       "type": "string",
@@ -532,6 +532,13 @@
             "type": "string"
           },
           "description": "The scanned targets of the possible dependency edges, not observed imports."
+        },
+        "covered": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The modules that can reach the bound name and that `covers` names (AD-1047)."
         },
         "changes": {
           "type": "array",

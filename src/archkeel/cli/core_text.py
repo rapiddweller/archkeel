@@ -114,7 +114,7 @@ def _reason_of(frame: CoreFrame, code: int, outcome: Outcome) -> str:
     if not frame.rules and any(gap.kind in PROBLEM_KINDS for gap in frame.gaps):
         return "no rule could be read: see the problem below"
     if frame.status is Status.PASS and (words := frame.premises.assuming) is not None:
-        return f"all {total} rules pass; {len(frame.premises.rules)} pass assuming {words}"
+        return f"all {total} rules pass; {len(frame.premises.rules)} pass under {words}"
     if frame.status is Status.PASS:
         return f"all {total} rules pass"
     if frame.status is Status.FAIL:

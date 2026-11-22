@@ -8,7 +8,7 @@ text
 that the scan cannot see) holds each rule but the rules on the files. A contract can declare the
 modules that one trojan horse may load or change. A matched declaration lets the rules decide, and
 each
-PASS that the trojan horse would hold says "PASS assuming the declared reach"; a declared load is
+PASS that the trojan horse would hold says "PASS under the declared reach"; a declared load is
 a real
 edge; a declaration that matches no trojan horse is a problem and applies nothing. Python runs the
 truth
@@ -136,7 +136,7 @@ def test_a_matched_declaration_passes_each_rule_only_as_an_assumption(
     ]
     assert result["status"] == "PASS" and result["exit_code"] == 0
     text = command(release_core, tmp_path, "--text").stdout
-    assert "all 7 rules pass; 5 pass assuming 1 declared reach" in text, text
+    assert "all 7 rules pass; 5 pass under 1 declared reach" in text, text
     assert "D-EVAL: app.service.model:2 (eval) loads nothing; changes nothing" in text, text
     assert "Reason: The text is a formula of numbers." in text, text
     # The premise is the claim of the contract, not a proof: the same trojan horse can break it.

@@ -8,7 +8,7 @@
 //! by name) is a claim of the contract, not a proof. A PASS of a rule that rests on one is never a
 //! plain PASS: the frame names each premise of the rule in `premises`, the trojan horse sites also in
 //! `assumed` (AD-664), each applied trojan horse declaration in `trojan_horse_reach`, and the premises of the run
-//! in words in `assuming`. The text and the page print "PASS assuming <assuming>". The model
+//! in words in `assuming`. The text and the page print "PASS under <assuming>". The model
 //! decides which premises a rule rests on (`archkeel_model::rule_premises`).
 
 use std::collections::BTreeMap;
@@ -85,7 +85,7 @@ pub(crate) struct Premises {
     /// a plain PASS.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     premises: BTreeMap<String, Vec<Premise>>,
-    /// The premises of the run in words: a PASS that rests on them reads "PASS assuming" and
+    /// The premises of the run in words: a PASS that rests on them reads "PASS under" and
     /// these words (AD-764).
     #[serde(skip_serializing_if = "Option::is_none")]
     assuming: Option<String>,
@@ -170,6 +170,9 @@ pub(crate) struct TrojanHorseRow {
     /// The scanned targets of the possible dependency edges, not observed imports.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     possible_loads: Vec<String>,
+    /// The modules that can reach the bound name and that `covers` names (AD-1047).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    covered: Vec<String>,
     /// The declared module prefixes whose names the trojan horse may change.
     changes: Vec<String>,
 }
@@ -211,6 +214,7 @@ fn row(trojan_horse: &Applied) -> TrojanHorseRow {
         loads: trojan_horse.loads.clone(),
         constant: trojan_horse.constant.clone(),
         possible_loads: trojan_horse.possible_loads.clone(),
+        covered: trojan_horse.covered.clone(),
         changes: trojan_horse.changes.clone(),
     }
 }

@@ -65,6 +65,7 @@ fn an_applied_declaration_names_its_site() {
         constant: None,
         possible_loads: Vec::new(),
         changes: Vec::new(),
+        covered: Vec::new(),
         effect: None,
         stated: GapEffect::EveryModule,
     };

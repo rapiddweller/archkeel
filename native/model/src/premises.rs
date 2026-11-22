@@ -5,7 +5,7 @@
 //! The premises that a PASS rests on (AD-764): the one seam for every claim of the contract about
 //! what the scan cannot see.
 //!
-//! A premise is never a proof. A rule that passes only because of one reads "PASS assuming
+//! A premise is never a proof. A rule that passes only because of one reads "PASS under
 //! <premise>". Three kinds exist:
 //! - the declared reach of a trojan horse site (`declarations.trojan_horse_reach`, AD-664);
 //! - a stated external user of a public item (`external_users` of `unused_public`, AD-670);
@@ -200,8 +200,8 @@ mod tests {
         assert_eq!(
             premise_words(2, &used).as_deref(),
             Some(
-                "2 declared reaches and 2 stated external users and outside code \
-                 leaves the standard library unchanged"
+                "2 declared reaches and 2 stated external users and the premise that \
+                 outside code leaves the standard library unchanged"
             )
         );
     }

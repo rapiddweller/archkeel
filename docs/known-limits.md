@@ -440,7 +440,7 @@ body ([#775](https://github.com/rapiddweller/archkeel/issues/775)):
 
 A name of the standard library is an identity that the scan cannot prove: code outside the
 repository can replace it before the module runs. So `boundary_types` counts such a name only under
-the opt-in contract premise `standard_library_unchanged`, and the PASS reads "PASS assuming outside
+the opt-in contract premise `standard_library_unchanged`, and the PASS reads "PASS under outside
 code leaves the standard library unchanged" (AD-782). This covers the closed table of value types
 and markers (`pathlib.Path`, `datetime`, `typing.Final`, ...), the decorators that the collector
 models, and, since #1718, the collections and special forms that the shape reader reads by name

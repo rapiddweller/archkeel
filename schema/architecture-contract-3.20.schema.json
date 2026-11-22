@@ -2928,6 +2928,15 @@
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
           }
         },
+        "covers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+          },
+          "description": "The module prefixes whose modules may reach the name that the site binds (AD-1047). Without it, any module that can reach the name refuses the declaration. The report lists the covered uses."
+        },
         "changes": {
           "type": "array",
           "uniqueItems": true,

@@ -408,7 +408,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
     Some((value, marks))
 }
 
-/// The result of the run in the words of its verdict: `PASS assuming <premises>` for a PASS that
+/// The result of the run in the words of its verdict: `PASS under <premises>` for a PASS that
 /// rests on a premise of the contract (AD-764), else the run word. It replaces the 4.0.1 word
 /// "observation": `topology.complete` only says that a list of the topology was cut by its budget,
 /// which tells a visitor nothing about the result.

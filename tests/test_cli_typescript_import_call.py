@@ -245,11 +245,11 @@ def test_computed_imports_use_declared_possible_targets(
         assert frame["system"]["parts"][0]["id"] == "web"
         assert frame["premises"]["NO-SECRET"][0]["kind"] == "trojan_horse_reach"
         text = command(release_core, root, "--text", *options).stdout
-        assert "PASS assuming 1 declared reach" in text
+        assert "PASS under 1 declared reach" in text
         assert "Possible targets: app.src.b.t.ts" in text
         target = tmp_path / "system.html"
         command(release_core, root, "--output", str(target), *options, verb="report")
-        assert "PASS ASSUMING 1 DECLARED REACH" in target.read_text()
+        assert "PASS UNDER 1 DECLARED REACH" in target.read_text()
     if case == "system-open":
         assert result["status"] == "UNKNOWN", result
         assert frame["rules"]["OPEN-NO-SECRET"] == ["forbidden_dependency", "UNKNOWN"]
@@ -273,7 +273,7 @@ def test_computed_imports_use_declared_possible_targets(
         assert "Possible targets: app.src.b.secret.ts, app.src.b.t.ts" in text
         assert "NO-CYCLE: contract graph cycle" in text
         assert "the contract declares this possibility" in text
-        assert "PASS assuming" not in text
+        assert "PASS under" not in text
         page_path = tmp_path / "report.html"
         command(release_core, root, "--output", str(page_path), "--format", "html", verb="report")
         page = page_path.read_text()

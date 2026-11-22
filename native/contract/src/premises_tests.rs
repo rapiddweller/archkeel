@@ -34,7 +34,7 @@ fn a_declared_premise_parses_with_its_name_and_reason() -> Result<(), String> {
     assert!(premise.rationale().contains("patches"));
     assert_eq!(
         assumption_words(*premise.name()),
-        "outside code leaves the standard library unchanged"
+        "the premise that outside code leaves the standard library unchanged"
     );
     Ok(())
 }

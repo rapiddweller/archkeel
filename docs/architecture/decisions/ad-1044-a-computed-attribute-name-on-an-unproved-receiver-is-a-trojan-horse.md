@@ -10,7 +10,7 @@
 - the name is a literal, or a local of the function that one assignment binds to a literal and nothing else binds;
 - the receiver is a class of the module, the `self` or `cls` of a method that does not rebind it, or a module that a plain `import` binds.
 
-**Limits.** `g = getattr` and `operator.attrgetter` are not read. A name proven only at module level is not resolved (another module can write it). A receiver that is an imported class stays a site.
+**Limits.** A file outside the scan roots is not read for this rule: the premise of the run says that outside code writes no binding of the scan. Without this exception, one computed `getattr` in a test file of archkeel turned off call resolution of the shell scan (found by `make self-validate-shell`). `g = getattr` and `operator.attrgetter` are not read. A name proven only at module level is not resolved (another module can write it). A receiver that is an imported class stays a site.
 
 **Measured.** datamimic-ee 70 to 88 collection gaps (18 sites), datamimic-ce 55 to 58 (3 sites). No rule changes: the rules were UNKNOWN already.
 

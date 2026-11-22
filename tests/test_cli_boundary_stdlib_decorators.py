@@ -251,7 +251,7 @@ def test_with_the_premise_a_modeled_form_is_read(
     assert row == expected, text
     assert cause in text, text
     if expected == "PASS":
-        assert "outside code leaves the standard library unchanged" in text, text
+        assert "the premise that outside code leaves the standard library unchanged" in text, text
 
 
 TRUTH = """

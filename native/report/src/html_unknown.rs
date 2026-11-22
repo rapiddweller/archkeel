@@ -151,7 +151,7 @@ fn scan_sites(frame: &Frame) -> String {
         "<details class=\"rp-fold\"><summary class=\"caption\">Scan gap sites: {} of {}</summary>\
 <p class=\"body-sm\">These are scan gaps; not every gap holds every rule. Review each site. \
 For eligible trojan_horses, a declared reach is an assumption, not a proof; a resulting \
-PASS assuming the declared reach is conditional. Not every gap can be declared.</p><ul>{}</ul></details>",
+PASS under the declared reach is conditional. Not every gap can be declared.</p><ul>{}</ul></details>",
         total.min(MAX_SITES),
         total,
         sites
@@ -430,7 +430,7 @@ mod tests {
         let rendered = page(&frame);
         assert!(rendered.contains("src/a.py:12") && rendered.contains("src/b.py:42"));
         assert!(rendered.contains("not every gap holds every rule"));
-        assert!(rendered.contains("PASS assuming the declared reach"));
+        assert!(rendered.contains("PASS under the declared reach"));
         frame["collection_gaps"][0]["reason"] = json!("<script>");
         assert!(page(&frame).contains("&lt;script&gt;"));
         frame["collection_gaps"] = json!([]);

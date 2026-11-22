@@ -47,6 +47,8 @@ pub struct Applied {
     pub possible_loads: Vec<String>,
     /// The declared module prefixes whose names the trojan horse may change.
     pub changes: Vec<String>,
+    /// The modules that reach the bound name and that `covers` names (AD-1047).
+    pub covered: Vec<String>,
     /// What the gap still leaves unknown under the premise, or `None` for nothing.
     pub(crate) effect: Option<GapEffect>,
     pub(crate) stated: GapEffect,
@@ -113,16 +115,11 @@ impl TrojanHorseProblem {
     /// What the problem is, for a reader.
     pub fn text(&self) -> String {
         match self {
-            TrojanHorseProblem::Unmatched => "matches no trojan horse of the scan: the trojan horse moved, changed its \
-                                   form or is gone; the declaration is not applied"
+            TrojanHorseProblem::Unmatched => "matches no trojan horse of the scan (moved, changed or gone); \
+                 the declaration is not applied"
                 .to_owned(),
-            TrojanHorseProblem::Ambiguous(count) => format!(
-                "matches {count} trojan horses; name the site by its line; the declaration is not applied"
-            ),
-            TrojanHorseProblem::Repeated(others) => format!(
-                "names a trojan horse that {} also name; the declarations of the trojan horse are not applied",
-                others.join(", ")
-            ),
+            TrojanHorseProblem::Ambiguous(n) => format!("matches {n} trojan horses; name the site by its line; the declaration is not applied"),
+            TrojanHorseProblem::Repeated(o) => format!("names a trojan horse that {} also name; the declarations of the trojan horse are not applied", o.join(", ")),
             TrojanHorseProblem::Form => format!(
                 "names no form of a trojan horse; the forms are {}; the declaration is not applied",
                 TrojanHorseForm::ALL.map(TrojanHorseForm::word).join(", ")
@@ -136,14 +133,8 @@ impl TrojanHorseProblem {
                  the declaration is not applied",
                 importers.join(", ")
             ),
-            TrojanHorseProblem::Unresolved(count) => format!(
-                "names a trojan horse whose gap covers {count} imports that the scan cannot resolve; a \
-                 declared reach does not resolve them; the declaration is not applied"
-            ),
-            TrojanHorseProblem::LoadsNothing(prefix) => format!(
-                "loads {prefix}, which lies in the project and holds no module of the scan; the \
-                 declaration is not applied"
-            ),
+            TrojanHorseProblem::Unresolved(n) => format!("names a trojan horse whose gap covers {n} imports that the scan cannot resolve; a declared reach does not resolve them; the declaration is not applied"),
+            TrojanHorseProblem::LoadsNothing(p) => format!("loads {p}, which lies in the project and holds no module of the scan; the declaration is not applied"),
             TrojanHorseProblem::Constant(reason) => format!("{reason}; the declaration is not applied"),
         }
     }
@@ -265,27 +256,31 @@ pub(crate) fn matched(
         let declaration = &declared[index];
         let id = declaration.id().as_text().to_owned();
         let shared = &by_gap[horse.gap];
-        let exported = || {
-            let found = horse.binding.map_or_else(Vec::new, |binding| {
-                crate::imports::importers(facts, (horse.module, binding), horse.exposed)
-            });
-            (!found.is_empty()).then_some(TrojanHorseProblem::Exported(found))
+        let reach = (horse.binding).map_or_else(Vec::new, |binding| {
+            crate::imports::importers(facts, (horse.module, binding), horse.exposed)
+        });
+        // `covers` names the modules whose use of the bound name the contract accepts (AD-1047).
+        let covers = declaration.covers().iter();
+        let at = |name: &String| {
+            covers
+                .clone()
+                .any(|prefix| in_scope(name, prefix.as_text()))
         };
+        let (covered, blocking): (Vec<String>, Vec<String>) = reach.into_iter().partition(at);
         let refused = if shared.len() > 1 {
             let others = shared.iter().filter(|other| **other != index);
             let others = others.map(|other| declared[*other].id().as_text().to_owned());
             Some(TrojanHorseProblem::Repeated(others.collect()))
         } else if let Some(count) = unresolved.get(horse.gap) {
             Some(TrojanHorseProblem::Unresolved(*count))
+        } else if !blocking.is_empty() {
+            Some(TrojanHorseProblem::Exported(blocking))
         } else {
-            exported()
+            None
         };
-        if let Some(problem) = refused {
-            found.problems.push((index, id, problem));
-            continue;
-        }
-        match apply(declaration, horse, &files, settings) {
-            Ok((applied, imports)) => {
+        match refused.map_or_else(|| apply(declaration, horse, &files, settings), Err) {
+            Ok((mut applied, imports)) => {
+                applied.covered = covered;
                 found.applied.push(applied);
                 found.imports.extend(imports);
             }
@@ -448,6 +443,7 @@ fn apply(
             .map(|p| p.as_text().to_owned())
             .collect(),
         effect: (!changed.is_empty()).then_some(GapEffect::Modules { modules: changed }),
+        covered: Vec::new(),
         stated: horse.effect.clone(),
     };
     Ok((applied, imports))
