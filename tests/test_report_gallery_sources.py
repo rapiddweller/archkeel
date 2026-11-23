@@ -154,7 +154,7 @@ def test_the_card_states_the_pin_the_licence_and_that_only_the_contract_is_ours(
 
 
 def test_the_matrix_lists_both_real_projects_with_their_decided_result() -> None:
-    # AD-1062: FastAPI keeps four accepted trojan horse gaps: UNKNOWN on purpose.
+    # Release 5 gives FastAPI 10 accepted trojan horse gaps (AD-1053, AD-1058): UNKNOWN on purpose.
     pinned = {"N-fastapi-realworld": "UNKNOWN", "O-bazel-worker-realworld": "PASS"}
     runs = {run["name"]: run for run in report_gallery.showcase_runs()}
     for name in PINNED:

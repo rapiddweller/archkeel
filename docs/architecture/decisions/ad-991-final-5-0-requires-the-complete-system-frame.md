@@ -26,7 +26,7 @@ This decision does not establish that control.
 
 The release check rejects a system rule or an inside contract.
 Neither occurs in this system today. Extend the identity check before adding either.
-Before the final release, compare FastAPI and bazel_worker with 4.0.1.
+Before the final release, compare FastAPI and bazel_worker with 4.0.1. Release 4.0.1 gave PASS for FastAPI (AD-530); release 5 gives UNKNOWN with 10 gaps, all computed or literal dunder attribute reads (AD-1053, AD-1058). This difference is expected.
 These comparisons are separate from the system check.
 
 `tests/test_cli_release_system.py` checks the rule set, decisions and identity failures.
