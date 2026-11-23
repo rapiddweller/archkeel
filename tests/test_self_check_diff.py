@@ -272,3 +272,16 @@ def test_two_results_of_one_commit_must_be_equal(tmp_path: Path) -> None:
             timeout=60,
         )
         assert done.returncode == code, done.stdout
+
+
+def test_an_unusable_base_needs_the_label_even_when_the_pr_has_nothing_to_approve(
+    tmp_path: Path,
+) -> None:
+    clean = real("base.json")
+    clean["gaps"] = []
+    clean["exit_code"] = 0
+    pr, base = save(tmp_path, "p.json", clean), save(tmp_path, "b.json", "")
+    red(run(tmp_path, base, pr), "unusable base: set the label ratchet-lead")
+    done = run(tmp_path, base, pr, labels="ratchet-lead")
+    assert done.returncode == 0, done.stdout
+    assert "nothing is compared" in done.stdout
