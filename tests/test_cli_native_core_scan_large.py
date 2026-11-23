@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -371,8 +372,12 @@ def test_a_long_call_chain_is_a_named_gap(release_core: Path, tmp_path: Path, li
     data = json.loads(contract.read_text())
     data["rules"] = [rule for rule in data["rules"] if rule["id"] == "MODULE-CYCLES"]
     contract.write_text(json.dumps(data))
+    started = time.monotonic()
     done, peak = measured_scan(release_core, request)
+    elapsed = time.monotonic() - started
     frame = json.loads(done.stdout)
     assert frame["status"] == "UNKNOWN"
     assert "is too long to record" in json.dumps(frame["collection_gaps"])
     assert peak is None or peak < 1 << 30
+    # A quiet machine needs 1.3 s for 200,000 links; a quadratic scan needs 20 s.
+    assert elapsed < 10, elapsed

@@ -130,9 +130,12 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// A free name of a global that is no window name (a window write is AD-460).
     fn free_global(&self, node: Node<'t>) -> Option<String> {
         let tree = self.tree;
+        // Reading the text copies the whole subtree; a call chain of n links would copy n times.
+        if Node::kind(&node) != "identifier" {
+            return None;
+        }
         let name = Tree::text(tree, node);
-        let free = Node::kind(&node) == "identifier"
-            && !is_root(&name)
+        let free = !is_root(&name)
             && !crate::source_input::is_window_name(&name)
             && bound_scope(tree, node, &name).is_none()
             && !Tree::in_type(tree, node);

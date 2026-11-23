@@ -142,3 +142,12 @@ fn a_patch_withholds_the_uses_of_its_member_and_of_the_whole_global_only() {
         "{title:?}"
     );
 }
+
+#[test]
+fn a_long_call_chain_is_scanned_in_linear_time() {
+    // Before the fix, each link copied its whole subtree: 50,000 links took minutes in a debug build.
+    let chain = format!("export const v = a{};\n", ".b()".repeat(50_000));
+    let start = std::time::Instant::now();
+    holds(&[("src/b.ts", &chain)], "Math");
+    assert!(start.elapsed().as_secs() < 60, "{:?}", start.elapsed());
+}
