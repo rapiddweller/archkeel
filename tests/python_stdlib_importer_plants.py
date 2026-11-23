@@ -167,6 +167,11 @@ P = {
     ),
     "warnings._setoption": guarded("import warnings\n", "warnings._setoption('ignore::app.lib.X')"),
     "warnings._getcategory": guarded("import warnings\n", "warnings._getcategory('app.lib.X')"),
+    # A star import binds the name that the module holds, so the star import is the site.
+    "unittest star import": guarded(
+        "from unittest import *\n", "TestLoader().loadTestsFromName('app.lib')"
+    ),
+    "cProfile star import": quiet("from cProfile import *\n", "run('import app.lib')"),
 }
 
 # The code of a project and of the standard library that no rule may refuse: each stays PASS and
