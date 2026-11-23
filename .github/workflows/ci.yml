@@ -3,10 +3,6 @@ name: CI
 on:
   push:
     branches: [main]
-  # AD-674: a full run of the main tier every two hours, so that a main whose pushes keep coming
-  # still shows its breakage; the nightly Full run stays.
-  schedule:
-    - cron: "23 */2 * * *"
   workflow_dispatch:
 
 permissions:

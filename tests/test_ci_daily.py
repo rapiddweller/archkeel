@@ -92,7 +92,7 @@ def test_the_main_tier_queues_and_the_nightly_run_cancels() -> None:
         assert "draft" not in text, name
         assert group in text, name
     head = (workflows / "ci.yml").read_text().split("\nconcurrency:\n", 1)[0]
-    assert 'cron: "23 */2 * * *"' in head, "a full main run every two hours"
+    assert "schedule:" not in head, "AD-1060: a timer run re-checks a commit that a push checked"
 
 
 def test_a_red_that_began_the_day_before_carries_into_the_day() -> None:
