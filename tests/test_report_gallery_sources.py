@@ -68,12 +68,18 @@ def test_the_pinned_commit_is_fetched_once_and_the_cache_serves_the_next_build(
 def test_a_fetch_that_fails_raises_and_leaves_no_partial_checkout(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(fixture_source, "ATTEMPTS", 2)
+    waits: list[float] = []
+    monkeypatch.setattr(fixture_source.time, "sleep", waits.append)
     spec = {**_upstream(tmp_path), "commit": "0" * 40}
     cache = tmp_path / "cache"
-    with pytest.raises(fixture_source.SourceError), fixture_source.checkout(spec, cache):
+    with (
+        pytest.raises(fixture_source.SourceError, match="fetch"),
+        fixture_source.checkout(spec, cache),
+    ):
         pass
     assert list(cache.iterdir()) == []
+    # AD-1063: three attempts, a wait of 5 s and 15 s between them, no wait after the last.
+    assert waits == [5, 15]
 
 
 def test_the_copy_takes_the_listed_parts_and_leaves_out_git_and_the_excluded(
