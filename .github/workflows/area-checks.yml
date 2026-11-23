@@ -79,7 +79,7 @@ jobs:
         working-directory: native
         run: rustup toolchain install
 
-      # AD-1063: the fixture matrix pins the result of two real projects (FastAPI, bazel_worker).
+      # AD-1062: the fixture matrix pins the result of two real projects (FastAPI, bazel_worker).
       # A PR that can change such a result fetches their pinned sources, so no PASS to UNKNOWN
       # change reaches the nightly run unseen. Other PRs and each push to main stay offline.
       - name: Decide whether to fetch the pinned sources of the real projects

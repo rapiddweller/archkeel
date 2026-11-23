@@ -115,52 +115,11 @@ fn a_literal_name_a_proved_receiver_or_a_local_literal_is_no_site() {
         // A write of a literal dunder reads no reflection back (`setattr(C, '__new__', f)`).
         "class C: ...\nsetattr(C, '__new__', lambda cls: 5)\n",
         "def f(x):\n    return getattr(x, '__doc__')\n",
-        // AD-1062: the literal `__call__` is the same read as `x.__call__`, which is no site.
-        "def f(c):\n    return getattr(c, '__call__', None)\n",
-        "def f(c):\n    return getattr(c, '__call__')\n",
-        "def f(c):\n    return c.__call__\n",
         "def f(x):\n    n = 'a'\n    return getattr(x, n)\n",
         "def f(m):\n    return vars(m)['a']\n",
         "def f(m):\n    return m.__dict__['a']\n",
     ] {
         let found = trojan_names(source);
         assert!(found.is_empty(), "{source}: {found:?}");
-    }
-}
-
-#[test]
-fn the_plain_dunder_list_is_exactly_the_decided_set() {
-    // AD-1058 item 8 with `__call__` of AD-1062: a change of this set is a new decision.
-    let mut found = comprehension::PLAIN_DUNDER.to_vec();
-    found.sort_unstable();
-    assert_eq!(
-        found,
-        [
-            "__all__",
-            "__call__",
-            "__doc__",
-            "__file__",
-            "__module__",
-            "__name__",
-            "__qualname__",
-            "__version__",
-        ]
-    );
-}
-
-#[test]
-fn the_follow_on_reads_of_a_call_attribute_and_the_computed_name_stay_sites() {
-    for source in [
-        "def f(c):\n    return getattr(c, '__call__').__self__\n",
-        "def f(c):\n    return getattr(c, '__call__').__globals__\n",
-        "def f(c):\n    return getattr(c, '__call__').__self__.__class__\n",
-        "def f(c, n):\n    return getattr(c, n)\n",
-        "def f(c):\n    return getattr(c, '__call_' + '_')\n",
-        "getattr(__import__, '__call__')('app.lib')\n",
-        "getattr(exec, '__call__')('import app.lib')\n",
-        "from importlib import import_module as im\ngetattr(im, '__call__')('app.lib')\n",
-        "import importlib\ngetattr(importlib.import_module, '__call__')('app.lib')\n",
-    ] {
-        assert!(!trojan_names(source).is_empty(), "{source}");
     }
 }

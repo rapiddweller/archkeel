@@ -1,4 +1,4 @@
-# AD-1063 The PR gate fetches the real projects when a change can alter their result
+# AD-1062 The PR gate fetches the real projects when a change can alter their result
 
 **Status.** Accepted (lead decision, 2026-11-23). It amends [AD-462](ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md) and the CI part of [AD-1060](ad-1060-the-pages-run-can-be-rerun-and-the-gates-say-what-they-prove.md).
 

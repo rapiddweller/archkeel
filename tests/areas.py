@@ -228,7 +228,7 @@ def rust_checks(paths: list[str]) -> bool:
     return any(path.startswith("native/") or path in GATE_FILES for path in paths)
 
 
-# AD-1063: a change to these paths can change the result of a real project, so the PR gate fetches
+# AD-1062: a change to these paths can change the result of a real project, so the PR gate fetches
 # the pinned sources of the real-project fixtures (`fixtures/matrix.json`). Native Python and Dart
 # collectors live under `native/`; no Python collector remains.
 FETCH_FILES = frozenset(

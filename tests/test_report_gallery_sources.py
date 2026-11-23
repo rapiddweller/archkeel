@@ -78,7 +78,7 @@ def test_a_fetch_that_fails_raises_and_leaves_no_partial_checkout(
     ):
         pass
     assert list(cache.iterdir()) == []
-    # AD-1063: three attempts, a wait of 5 s and 15 s between them, no wait after the last.
+    # AD-1062: three attempts, a wait of 5 s and 15 s between them, no wait after the last.
     assert waits == [5, 15]
 
 

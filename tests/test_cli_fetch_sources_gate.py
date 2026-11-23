@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-1063: the PR gate fetches the pinned real projects only when a change can alter their result.
+"""AD-1062: the PR gate fetches the pinned real projects only when a change can alter their result.
 
 Consumer: a PR author whose collector change turns a real project from PASS into UNKNOWN. The
 fixture matrix pins that result, but the two network fixtures need the fetch. Only the paths below
