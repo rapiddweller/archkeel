@@ -171,8 +171,9 @@ const LIBRARY_ACCESS: [&str; 7] = [
 /// The methods that read or write an attribute of any value.
 const METHOD_ACCESS: [&str; 3] = ["__getattribute__", "__setattr__", "__delattr__"];
 
-/// The dunder names that hand out no reflection: a read of one gives a text or a list of texts.
-const PLAIN_DUNDER: [&str; 7] = [
+/// The dunder names that hand out no reflection: a read of one gives a text, a list of texts or,
+/// for `__call__`, the same object as the plain read `x.__call__` (AD-1062).
+pub(super) const PLAIN_DUNDER: [&str; 8] = [
     "__name__",
     "__doc__",
     "__file__",
@@ -180,6 +181,7 @@ const PLAIN_DUNDER: [&str; 7] = [
     "__all__",
     "__module__",
     "__qualname__",
+    "__call__",
 ];
 
 /// True when reading the attribute `name` by a literal still hands out reflection that no other
@@ -198,6 +200,14 @@ pub(super) fn reflective(name: &str, write: bool) -> bool {
         .any(|each| *each == name);
     // A write of a literal dunder (`setattr(C, '__new__', f)`) reads no reflection back.
     (dunder && !write && !PLAIN_DUNDER.contains(&name) && !own) || access
+}
+
+/// True when `getattr(x, name)` with this literal name reads the one attribute `x.name`, so the
+/// scan need not read `x`. `__call__` is cleared (AD-1062) but returns `x` itself: `x` must be read.
+pub(super) fn reads_one_attribute(name: &str) -> bool {
+    name != "__call__"
+        && !crate::survey::hazards_names::TROJAN_HORSE_STRINGS.contains(&name)
+        && !reflective(name, false)
 }
 
 /// `vars(x)` or `x.__dict__`: the dictionary of the attributes of any value.

@@ -18,7 +18,16 @@ from pathlib import Path
 import pytest
 from test_collector_false_pass_python_trojan_attribute import _loads_lib, _root, _verdict
 
-PLAIN = {"__name__", "__doc__", "__file__", "__version__", "__all__", "__module__", "__qualname__"}
+PLAIN = {
+    "__name__",
+    "__doc__",
+    "__file__",
+    "__version__",
+    "__all__",
+    "__module__",
+    "__qualname__",
+    "__call__",  # AD-1062: `getattr(x, "__call__")` is the same read as `x.__call__`
+}
 BUILTINS = "'__bui' + 'ltins__'"
 IMPORT = "'__imp' + 'ort__'"
 PLANTS = {
@@ -36,6 +45,25 @@ PLANTS = {
     "local-name": (
         "import json\n\n\ndef load(k1, k2, t):\n    n = '__dict__'\n    d = getattr(json, n)\n"
         f"    return d[k1][k2](t)\n\n\nload({BUILTINS}, {IMPORT}, 'app.lib')\n"
+    ),
+    # AD-1062: `__call__` is cleared, but each follow-on read keeps its own site.
+    "call-self-globals": (
+        "def f():\n    pass\n\n\ndef load(k1, k2, t):\n"
+        "    g = getattr(f, '__call__').__self__.__globals__\n"
+        f"    return g[k1][k2](t)\n\n\nload({BUILTINS}, {IMPORT}, 'app.lib')\n"
+    ),
+    "call-self-init-globals": (
+        "class K:\n    def __init__(self):\n        pass\n\n\ndef load(k1, k2, t):\n"
+        "    g = getattr(K, '__call__').__self__.__init__.__globals__\n"
+        f"    return g[k1][k2](t)\n\n\nload({BUILTINS}, {IMPORT}, 'app.lib')\n"
+    ),
+    "call-of-import": "getattr(__import__, '__call__')('app.lib')\n",
+    "call-of-import-module": (
+        "import importlib\n\ngetattr(importlib.import_module, '__call__')('app.lib')\n"
+    ),
+    "call-computed-name": (
+        "def f():\n    pass\n\n\ndef load(k, k1, k2, t):\n    g = getattr(f, k)\n"
+        f"    return g[k1][k2](t)\n\n\nload('__glo' + 'bals__', {BUILTINS}, {IMPORT}, 'app.lib')\n"
     ),
     "method-call": (
         "import json\n\n\ndef load(k1, k2, t):\n    d = json.__getattribute__('__dict__')\n"
@@ -61,6 +89,21 @@ def test_a_literal_name_that_hands_out_reflection_is_never_pass(
     frame = _verdict(root, release_core, monkeypatch)["frame"]
 
     assert frame["rules"]["NO-LIB"][1] in {"FAIL", "UNKNOWN"}, frame
+
+
+CONTROL = (
+    "def run(c):\n    handler = getattr(c, '__call__', None)\n"
+    "    return handler() if callable(handler) else None\n"
+)
+
+
+def test_a_literal_call_attribute_on_an_ordinary_object_keeps_the_pass(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frame = _verdict(_root(tmp_path, CONTROL), release_core, monkeypatch)["frame"]
+
+    assert frame["rules"]["NO-LIB"][1] == "PASS", frame
+    assert frame["collection_gaps"] == []
 
 
 @pytest.fixture(scope="module")

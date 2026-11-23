@@ -190,6 +190,7 @@ impl Walk<'_> {
 
     /// `getattr(name, "attr")` and `getattr(name, "attr", default)` with a literal attribute that
     /// is no trojan horse string read the one attribute `name.attr` (AD-530). Other forms: as before.
+    /// The default path reads the receiver too, which a `__call__` needs (AD-1062).
     fn literal_getattr(&mut self, call: &ruff_python_ast::ExprCall) -> bool {
         let args = &call.arguments.args;
         let named = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "getattr");
@@ -197,8 +198,7 @@ impl Walk<'_> {
         else {
             return false;
         };
-        let literal = !TROJAN_HORSE_STRINGS.contains(&attr.value.to_str())
-            && !comprehension::reflective(attr.value.to_str(), false);
+        let literal = comprehension::reads_one_attribute(attr.value.to_str());
         let plain = named && literal && (2..=3).contains(&args.len());
         if !plain
             || !call.arguments.keywords.is_empty()
