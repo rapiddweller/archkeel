@@ -27,7 +27,7 @@ use super::hazards_names::{
     above, attribute_trojan_horse, first_hazard, BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS,
     TROJAN_HORSE_STRINGS,
 };
-pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM};
+pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
 pub(super) use bind::exposed;
 use bind::{bindings, imported};
 pub(super) use trojan_horse::Site;
@@ -42,9 +42,6 @@ mod inert;
 pub(super) mod reflect;
 #[path = "hazards_trojan_horse.rs"]
 mod trojan_horse;
-
-/// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
-pub(super) const LITERAL: &str = "literal_import";
 
 /// The sites of a module, in source order.
 pub(super) fn sites(
@@ -257,6 +254,9 @@ impl Walk<'_> {
                 self.visit_expr(&call.arguments.args[0]);
             }
             None if !reflect::code(expr, &self.bound) && self.literal_getattr(call) => {}
+            None if inert::names_no_module(call, &|id| self.origins(id)) => {
+                visitor::walk_arguments(self, &call.arguments);
+            }
             None => {
                 if reflect::code(expr, &self.bound) {
                     self.push(DYNAMIC, "code", expr);

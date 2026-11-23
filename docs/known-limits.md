@@ -313,7 +313,7 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
   UNKNOWN. A direct scanned read of another function's `__globals__` also keeps its named gap, and an
   outside library dictionary that hides an importer gives the gap of AD-760 (#1521).
 
-## Open false PASS: a code object reached by a route that the collector does not read (Python, #1969)
+## Open false PASS: a code object or a module name reached by a route that the collector does not read (Python, #1969, #1970)
 
 A code object lets code build a function that imports any module (`type(f)(code.replace(co_names=...), {})`).
 The collector gives a `dynamic_import` gap (a trojan horse site, AD-1053, AD-1058) for these routes:
@@ -322,12 +322,14 @@ a literal code attribute (`__code__`, `f_code`, ...), `getattr`, `setattr`, `del
 them that is no direct call (`g = getattr`, `map(getattr, ...)`), `vars(x)` and `x.__dict__`,
 `attrgetter`, `methodcaller`, `inspect.getmembers` and `gc.get_referents`. No receiver is proven: `self`, `cls`, a class and a module are no proof. A lazy `__getattr__` table keeps its `getattr` sites, so its proven keys (AD-654) are dropped until a contract declares them. A loop over a literal tuple of names keeps its site (precision limit; a contract can declare it). A literal that names reflection (`__dict__`, `__getattribute__`, `__class__`) keeps its site; the dunders that hand out text (`__name__`, `__doc__`, `__file__`, `__version__`, `__all__`, `__module__`, `__qualname__`) do not.
 
+Closed by AD-1059 (#1969, #1970): `dis.Bytecode`, `dis.get_instructions` and `dis._get_code_object`; `logging.config`; `unittest.TestLoader`, `unittest.defaultTestLoader`, `unittest.main` and `unittest.TestProgram` with an argument that names a module; `xml.sax.make_parser` with a parser list; `help`; the text runners `profile`, `cProfile`, `trace`, `bdb` and `pdb`; and some private routes. All are trojan horse sites by their import binding; `unittest.main()` and `xml.sax.make_parser()` without a name are no site. A standard library name on a project object is no site.
+
 Still open, with a plant that fails when it is fixed (`tests/test_collector_false_pass_python_open.py`):
-- `dis.Bytecode(f).codeobj` hands out the code object without a name: #1969. Other standard library
-  routes can exist; the collector has no list of them.
-- The standard library imports a module that a string names: `logging.config.dictConfig` (`'()'` and
-  `'class'` keys) and `unittest.TestLoader().loadTestsFromName`: #1970 (one issue for the list; the
-  plants are in `tests/test_collector_false_pass_python_stdlib_importers.py`).
+- A project module that re-exports a standard library module (`import dis` in `util`, `util.dis.Bytecode(f).codeobj` in another module) hides the name: the survey resolves a name through the import bindings of the module that uses it and follows no attribute of a project module. This is #1973. It is open for `unittest.mock.patch` since AD-450 and holds for each name of AD-1059 except `logging.config`, whose import is a site.
+- `typing.get_type_hints` and `typing.ForwardRef` evaluate a string annotation, and `"__import__('app.lib')"` imports a module. The call is ordinary code, so it is no site (AD-1059). This is #1974, with a strict expected failure in the open plants.
+- A loader, a `Bytecode` object or a module that a parameter hands in is an unknown value: its method call is not read (see above) (`def helper(m): m.config.dictConfig(...)` called with `logging` gives PASS; #1973).
+- Four more routes (#1976, strict expected failures; old holes, `main` gives PASS too): the module value of a literal import call (`importlib.import_module('unittest').TestLoader()...`); `vars(dis)` and `dis.__dict__`; the `-m` entry points `cProfile.main()`, `profile.main()` and `pdb.main()`; `pdb.set_trace()` with a scripted stdin; and `eval_str=True` of `inspect.signature` and `inspect.get_annotations`.
+- The command line and the environment name modules too (`python -m unittest a.b`, `PYTHONWARNINGS`, `PY_SAX_PARSER`, `PYTHONBREAKPOINT`). They are outside the scan.
 
 A declaration is trusted: the scan does not check `loads` or `covers` (AD-1052, AD-1056). The rule can give PASS under a declared reach while Python imports the module, when a covered module hands the bound name to an uncovered module (it re-exports the attribute, it imports the name under another name, or `covers` lists the importer itself); `main` gives UNKNOWN there only because it cannot read a declaration. This is the trust that `covers` states, and `tests/test_cli_python_trojan_horse_covers_trust.py` pins it. A covered module is trusted not to hand the bound name to an uncovered module; the scan does not check this. The report prints the number of covered modules of each declaration. Guidance for EE and CE: a unique alias of the bound name (`import pickle as _pickle_loader`) avoids almost all name hits and the long `covers` list.
 

@@ -15,6 +15,7 @@ use ruff_python_ast::{Expr, ExprCall, Identifier, ModModule, Stmt};
 use crate::module::Module;
 
 use super::reflect;
+use crate::survey::hazards_names::star;
 
 /// The qualified names that the import statements of a module bind, in any scope.
 pub(super) fn bindings(tree: &ModModule) -> HashMap<String, Vec<String>> {
@@ -83,7 +84,7 @@ pub(super) fn imported(stmt: &Stmt) -> Vec<String> {
             node.names
                 .iter()
                 .map(|alias| match alias.name.as_str() {
-                    "*" => module.to_owned(),
+                    "*" => star(module),
                     name => format!("{module}.{name}"),
                 })
                 .collect()
