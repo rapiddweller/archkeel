@@ -26,8 +26,8 @@ use std::collections::{HashMap, HashSet};
 use ruff_python_ast::helpers::any_over_body;
 use ruff_python_ast::name::Name;
 use ruff_python_ast::{
-    CmpOp, ElifElseClause, ExceptHandler, Expr, ExprCall, ExprContext, Identifier, Keyword,
-    ModModule, Operator, Stmt, StmtFunctionDef,
+    Arguments, CmpOp, ElifElseClause, ExceptHandler, Expr, ExprCall, ExprContext, Identifier,
+    Keyword, ModModule, Operator, Stmt, StmtFunctionDef,
 };
 use ruff_text_size::{Ranged, TextRange};
 
@@ -37,6 +37,46 @@ pub(super) fn code_type_check(call: &ExprCall, types: &HashSet<String>, visible:
         && call.arguments.args.len() == 2
         && call.arguments.keywords.is_empty()
         && matches!(&call.arguments.args[1], Expr::Name(name) if types.contains(name.id.as_str()))
+}
+
+/// A call of a standard library name that imports a module only when an argument names it, with no
+/// such argument: no positional argument, no `**` and no keyword of the list. `unittest.main()` and
+/// `xml.sax.make_parser()` are two. The name resolves through `origins`, the import bindings, so a
+/// project function of the same name has no origin and never matches (AD-1059).
+pub(super) fn names_no_module(call: &ExprCall, origins: &dyn Fn(&str) -> Vec<String>) -> bool {
+    let arguments: &Arguments = &call.arguments;
+    let (args, keywords): (&[Expr], &[Keyword]) = (&arguments.args, &arguments.keywords);
+    let mut attributes: Vec<&str> = Vec::new();
+    let mut base: &Expr = &call.func;
+    while let Expr::Attribute(node) = base {
+        attributes.push(Identifier::as_str(&node.attr));
+        base = &node.value;
+    }
+    let Expr::Name(root) = base else {
+        return false;
+    };
+    attributes.reverse();
+    let origins = origins(Name::as_str(&root.id));
+    let carries = |qualified: &str| {
+        crate::survey::hazards_names::named_by_argument(qualified).is_some_and(|names| {
+            args.is_empty()
+                && keywords.iter().all(|keyword| {
+                    let arg: &Option<Identifier> = &keyword.arg;
+                    arg.as_ref()
+                        .is_some_and(|arg| !names.contains(&Identifier::as_str(arg)))
+                })
+        })
+    };
+    !origins.is_empty()
+        && origins.iter().all(|origin| {
+            carries(
+                &[origin.as_str()]
+                    .into_iter()
+                    .chain(attributes.iter().copied())
+                    .collect::<Vec<_>>()
+                    .join("."),
+            )
+        })
 }
 
 pub(super) fn code_types(
