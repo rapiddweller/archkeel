@@ -19,6 +19,6 @@
 
 **Rejected.** A skip of a scheduled run when the commit has a green push run: each other job would need a skip condition, and no job may skip (`.github/AGENTS.md`). A poll on the artifact count before the deploy: the gap between two jobs is 10 to 20 s and the listing lags 0.6 s. Add the poll (`gh api .../runs/$GITHUB_RUN_ID/artifacts`, at most 60 s, `actions: read`) only if a run shows `Found 0` again. A path filter for Pages: 34 of 40 commits touch the gallery inputs.
 
-**Limit.** Without the Pages saves, a CI `lint` that fails before its build leaves the main cache one push older. The PR gate is then slower, not wrong. The removal of `Install Node` is not tested; the review only suspects that the report needs no Node.
+**Limit.** Without the Pages saves, a CI `lint` that fails before its build leaves the main cache one push older. The PR gate is then slower, not wrong. "Re-run failed jobs" works for one day: the artifact of `upload-pages-artifact` is kept 1 day. After that, use "Re-run all jobs". A rerun of an old run can take the pending slot and publish an older page; this was so before.
 
-**Tests.** `tests/test_gallery_publication.py`, `tests/test_core_cache.py`, `tests/test_collector_native_rust_scaling.py`, `tests/test_collector_native_records.py`, `tests/test_ci_failure_summary.py`.
+**Tests.** `tests/test_gallery_publication.py`, `tests/test_core_cache.py`, `tests/test_collector_native_rust_scaling.py`, `tests/test_collector_native_records.py`, `tests/test_ci_failure_summary.py`, `tests/test_make_gate.py`.

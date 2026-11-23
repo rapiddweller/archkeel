@@ -11,9 +11,16 @@ step; this text only tells a reader where to start.
 from __future__ import annotations
 
 import argparse
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Sequence
 from pathlib import Path
+
+MESSAGE_LIMIT = 500
+
+
+def longest_backtick_run(text: str) -> int:
+    return max((len(run) for run in re.findall(r"`+", text)), default=0)
 
 
 def first_failure(junit: Path) -> tuple[str, str] | None:
@@ -38,7 +45,10 @@ def render(job: str, junit: Path, reproduce: str, artifact: str) -> str:
             head = f"**{job}**: the JUnit file has no failed test; read the step log."
         else:
             name, message = found
-            head = f"**{job}**: first failing test `{name}`\n\n```\n{message}\n```"
+            # A longer fence than any backtick run in the message keeps the block closed.
+            message = message[:MESSAGE_LIMIT]
+            fence = "`" * max(3, longest_backtick_run(message) + 1)
+            head = f"**{job}**: first failing test `{name}`\n\n{fence}\n{message}\n{fence}"
     return f"{head}\n\nRepeat it locally: `{reproduce}`\n\nFull result: artifact `{artifact}`.\n"
 
 

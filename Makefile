@@ -50,7 +50,7 @@ decision-index:
 # job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). A floor in
 # tests/area_floors.json makes an empty or shrunken selection fail.
 FAST_TEST = ARCHKEEL_REQUIRE_PREBUILT=1 $(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
-	-q --tb=short -rfE --durations=10 --junitxml=test-artifacts/pytest/fast.xml
+	-q --tb=short -rfEs --durations=10 --junitxml=test-artifacts/pytest/fast.xml
 
 fast-test: core browser-runtime-install
 	$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)

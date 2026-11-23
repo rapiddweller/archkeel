@@ -51,3 +51,15 @@ def test_the_summary_carries_the_command_and_the_artifact(tmp_path: Path, capsys
     out = capsys.readouterr().out
     assert "first failing test `tests.test_b::test_bad[200000]`" in out
     assert "`make full-test`" in out and "artifact `a`" in out
+
+
+def test_a_long_message_is_cut_and_backticks_cannot_close_the_fence(tmp_path: Path) -> None:
+    junit = tmp_path / "results.xml"
+    message = "```" + "x" * 900
+    junit.write_text(
+        f'<testsuites><testcase classname="a" name="b"><failure message="{message}"/>'
+        "</testcase></testsuites>"
+    )
+    text = render("job", junit, "make x", "art")
+    assert "x" * 501 not in text
+    assert "````\n```x" in text and "x\n````\n" in text
