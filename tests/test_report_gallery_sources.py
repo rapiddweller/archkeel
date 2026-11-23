@@ -147,8 +147,10 @@ def test_the_card_states_the_pin_the_licence_and_that_only_the_contract_is_ours(
     assert "The contract is ours." in page
 
 
-def test_the_matrix_lists_both_real_projects_as_expected_passes() -> None:
+def test_the_matrix_lists_both_real_projects_with_their_decided_result() -> None:
+    # AD-1062: FastAPI keeps four accepted trojan horse gaps: UNKNOWN on purpose.
+    pinned = {"N-fastapi-realworld": "UNKNOWN", "O-bazel-worker-realworld": "PASS"}
     runs = {run["name"]: run for run in report_gallery.showcase_runs()}
     for name in PINNED:
-        assert runs[name]["section"] == "real" and runs[name]["intent"] == "PASS"
-        assert runs[name]["expect"]["status"] == "PASS", name
+        assert runs[name]["section"] == "real" and runs[name]["intent"] == pinned[name]
+        assert runs[name]["expect"]["status"] == pinned[name], name

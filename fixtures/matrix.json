@@ -105,7 +105,7 @@
     "N-fastapi-realworld": {
       "language": "python",
       "runs": [
-      {"name": "N-fastapi-realworld", "section": "real", "intent": "PASS", "blocked_by": [], "about": "Real project: FastAPI. Its layering as built at the pin: the components, the import directions that the code shows, and one pair that must stay apart.", "root": "N-fastapi-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 3, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "N-fastapi-realworld", "section": "real", "intent": "UNKNOWN", "blocked_by": [], "about": "Real project: FastAPI. Its layering as built at the pin: the components, the import directions that the code shows, and one pair that must stay apart. Four reads by a computed name (an accepted trojan horse, AD-1062) leave two rules unknown.", "root": "N-fastapi-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 2}, "scope": "incomplete scope: 4 gaps leave unknown what the rule reads: the code of every module", "gaps": {}, "refusal": null}}
       ]
     },
     "O-bazel-worker-realworld": {
