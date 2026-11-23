@@ -87,11 +87,18 @@ jobs:
         if: steps.select.outputs.selected == 'run' && matrix.area == 'CLI and core' && inputs.base != ''
         env:
           BASE: ${{ inputs.base }}
-        run: echo "decision=$(python3 tools/select_areas.py --fetch "$BASE")" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          decision="$(python3 tools/select_areas.py --fetch "$BASE")"
+          case "$decision" in
+            fetch | skip) ;;
+            *) echo "the selector gave '$decision', not fetch or skip" >&2; exit 1 ;;
+          esac
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
 
       - name: Restore the pinned sources of the real projects
         if: steps.fetch.outputs.decision == 'fetch'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: test-artifacts/source-cache
           key: gallery-sources-${{ hashFiles('fixtures/*/SOURCE.json') }}

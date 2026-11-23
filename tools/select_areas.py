@@ -7,7 +7,7 @@
 <base-ref>...HEAD` (a rename lists the old and the new path), applies `tests/areas.py` and prints
 one `--area '<name>'` option for each selected area, ready for pytest.
 `python tools/select_areas.py --fetch <base-ref>` prints `fetch` when a change can alter the
-result of a real project (`areas.fetch_sources`), else `no fetch`.
+result of a real project (`areas.fetch_sources`), else `skip`. A bad ref exits non-zero.
 A change without files selects the area `self-check and CI`, so the selection is never empty.
 """
 
@@ -34,7 +34,7 @@ def changed(base: str) -> list[str]:
 
 def main(argv: list[str]) -> int:
     if len(argv) == 2 and argv[0] == "--fetch":
-        print("fetch" if fetch_sources(changed(argv[1])) else "no fetch")
+        print("fetch" if fetch_sources(changed(argv[1])) else "skip")
         return 0
     if len(argv) == 3 and argv[0] == "--job":
         if argv[1] != "native" and argv[1] not in AREAS:
