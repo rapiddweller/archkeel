@@ -138,24 +138,11 @@ jobs:
         if: failure()
         env:
           AREA: ${{ matrix.area }}
-        run: |
-          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import os, xml.etree.ElementTree as ET
-          area = os.environ["AREA"]
-          try:
-              cases = ET.parse("test-artifacts/pytest/results.xml").getroot().iter("testcase")
-          except (OSError, ET.ParseError):
-              print(f"**{area}**: no JUnit file. The job ended before pytest wrote it; read the step log.")
-          else:
-              bad = next((c for c in cases if c.find("failure") is not None or c.find("error") is not None), None)
-              if bad is None:
-                  print(f"**{area}**: no failed test in the JUnit file; read the step log.")
-              else:
-                  fault = bad.find("failure") if bad.find("failure") is not None else bad.find("error")
-                  message = (fault.get("message") or "").splitlines()[:1]
-                  print(f"**{area}**: first failing test `{bad.get('classname')}::{bad.get('name')}`")
-                  print(f"\n```\n{message[0] if message else ''}\n```")
-          PY
+        run: >-
+          python3 tools/ci_failure_summary.py --job "$AREA"
+          --junit test-artifacts/pytest/results.xml
+          --reproduce "make full-test AREA=\"$AREA\""
+          --artifact "pytest-results-full-$AREA" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload full suite JUnit results
         if: always()

@@ -5,6 +5,13 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
+# AD-1060: a CI log has no per-crate lines of a successful cargo build. Warnings and errors stay.
+# GitHub Actions sets CI.
+ifdef CI
+export CARGO_TERM_PROGRESS_WHEN := never
+export CARGO_TERM_QUIET := true
+endif
+
 .PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
@@ -43,7 +50,7 @@ decision-index:
 # job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). A floor in
 # tests/area_floors.json makes an empty or shrunken selection fail.
 FAST_TEST = ARCHKEEL_REQUIRE_PREBUILT=1 $(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
-	-q --durations=10 --junitxml=test-artifacts/pytest/fast.xml
+	-q --tb=short -rfE --durations=10 --junitxml=test-artifacts/pytest/fast.xml
 
 fast-test: core browser-runtime-install
 	$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)

@@ -15,8 +15,10 @@
 
 **Decision (nightly).** The ratio tests of the Rust collector (`attributes` and the other shapes) and of the TypeScript records pass take the least CPU time of three runs, with the two sizes alternating (`interleaved_least`, AD-323). The limit stays 3.0. The Full run names the first failing test of each failed test job in its job summary. The chain test and its wall timeout stay as they are: the cost is a quadratic copy in the core, and a CPU measure would hide it.
 
+**Decision (logs).** A CI log has about 18,000 lines for a PR gate run and 26,000 for a Full run. About 60 % are the branch list that `git fetch` prints in the checkout with `fetch-depth: 0` (1,578 lines for each job). About 1,600 lines are cargo `Compiling` and `Downloaded`. Under `CI`, the Makefile sets `CARGO_TERM_QUIET` and `CARGO_TERM_PROGRESS_WHEN=never`; errors and warnings stay. The pytest targets add `--tb=short -rfE`, so the end of a failed log lists each failure. A failed test job writes its first failing test, the repeat command and the artifact name to the job summary (`tools/ci_failure_summary.py`). The PR gate and CI keep `fetch-depth: 0`: they need `origin/main` for the base diff.
+
 **Rejected.** A skip of a scheduled run when the commit has a green push run: each other job would need a skip condition, and no job may skip (`.github/AGENTS.md`). A poll on the artifact count before the deploy: the gap between two jobs is 10 to 20 s and the listing lags 0.6 s. Add the poll (`gh api .../runs/$GITHUB_RUN_ID/artifacts`, at most 60 s, `actions: read`) only if a run shows `Found 0` again. A path filter for Pages: 34 of 40 commits touch the gallery inputs.
 
 **Limit.** Without the Pages saves, a CI `lint` that fails before its build leaves the main cache one push older. The PR gate is then slower, not wrong. The removal of `Install Node` is not tested; the review only suspects that the report needs no Node.
 
-**Tests.** `tests/test_gallery_publication.py`, `tests/test_core_cache.py`, `tests/test_collector_native_rust_scaling.py`, `tests/test_collector_native_records.py`.
+**Tests.** `tests/test_gallery_publication.py`, `tests/test_core_cache.py`, `tests/test_collector_native_rust_scaling.py`, `tests/test_collector_native_records.py`, `tests/test_ci_failure_summary.py`.
