@@ -16,3 +16,5 @@ growth file from the same Git merge base. Check mode marks entries above the pin
 one uncommitted change. Commit the removal before assessing the return.
 
 **Tests.** `tests/test_native_expected_gaps.py` checks growth, base comparison, removal and return.
+
+**Superseded in part.** AD-1061: the count by occurrence moves to `tools/self_check_diff.py` (AD-1061).
