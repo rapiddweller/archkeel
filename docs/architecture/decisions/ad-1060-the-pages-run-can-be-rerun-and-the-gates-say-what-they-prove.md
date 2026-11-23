@@ -13,8 +13,10 @@
 
 **Decision (schedule).** `ci.yml` has no `schedule`. `workflow_dispatch` stays. All 11 scheduled runs in the review checked a commit that a push run had already checked: about 48 job-minutes each, no new information. One failed on a commit that had passed, which is a flake, not a finding. The nightly Full run still checks main.
 
+**Decision (nightly).** The ratio tests of the Rust collector (`attributes` and the other shapes) and of the TypeScript records pass take the least CPU time of three runs, with the two sizes alternating (`interleaved_least`, AD-323). The limit stays 3.0. The Full run names the first failing test of each failed test job in its job summary. The chain test and its wall timeout stay as they are: the cost is a quadratic copy in the core, and a CPU measure would hide it.
+
 **Rejected.** A skip of a scheduled run when the commit has a green push run: each other job would need a skip condition, and no job may skip (`.github/AGENTS.md`). A poll on the artifact count before the deploy: the gap between two jobs is 10 to 20 s and the listing lags 0.6 s. Add the poll (`gh api .../runs/$GITHUB_RUN_ID/artifacts`, at most 60 s, `actions: read`) only if a run shows `Found 0` again. A path filter for Pages: 34 of 40 commits touch the gallery inputs.
 
 **Limit.** Without the Pages saves, a CI `lint` that fails before its build leaves the main cache one push older. The PR gate is then slower, not wrong. The removal of `Install Node` is not tested; the review only suspects that the report needs no Node.
 
-**Tests.** `tests/test_gallery_publication.py`, `tests/test_core_cache.py`.
+**Tests.** `tests/test_gallery_publication.py`, `tests/test_core_cache.py`, `tests/test_collector_native_rust_scaling.py`, `tests/test_collector_native_records.py`.

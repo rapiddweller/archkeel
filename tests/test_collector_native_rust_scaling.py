@@ -26,7 +26,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from collector_timing import Taken, least_of, timed_run
+from collector_timing import Taken, interleaved_least, least_of, timed_run
 
 RATIO = 3.0
 MEMORY_RATIO = 2.5
@@ -187,7 +187,11 @@ def _measure(binary: Path, root: Path, shape: Shape) -> tuple[int, Taken, Taken]
             break
         n *= 2
         first = _least(binary, root, shape, n)
-    return n, first, _least(binary, root, shape, 2 * n)
+    # The rounds alternate the two sizes, so a slow phase of a shared runner hits both (AD-323).
+    first, second = interleaved_least(
+        lambda size: _once(binary, root, shape, size), n, 2 * n, seed=first
+    )
+    return n, first, second
 
 
 @pytest.mark.parametrize("name", sorted(SHAPES))

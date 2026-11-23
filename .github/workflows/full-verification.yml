@@ -134,6 +134,29 @@ jobs:
           ARCHKEEL_FETCH_SOURCES: "1"
         run: make full-test AREA="$AREA"
 
+      - name: Name the first failing test in the job summary
+        if: failure()
+        env:
+          AREA: ${{ matrix.area }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import os, xml.etree.ElementTree as ET
+          area = os.environ["AREA"]
+          try:
+              cases = ET.parse("test-artifacts/pytest/results.xml").getroot().iter("testcase")
+          except (OSError, ET.ParseError):
+              print(f"**{area}**: no JUnit file. The job ended before pytest wrote it; read the step log.")
+          else:
+              bad = next((c for c in cases if c.find("failure") is not None or c.find("error") is not None), None)
+              if bad is None:
+                  print(f"**{area}**: no failed test in the JUnit file; read the step log.")
+              else:
+                  fault = bad.find("failure") if bad.find("failure") is not None else bad.find("error")
+                  message = (fault.get("message") or "").splitlines()[:1]
+                  print(f"**{area}**: first failing test `{bad.get('classname')}::{bad.get('name')}`")
+                  print(f"\n```\n{message[0] if message else ''}\n```")
+          PY
+
       - name: Upload full suite JUnit results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
