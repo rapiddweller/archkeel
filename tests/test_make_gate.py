@@ -368,7 +368,7 @@ def _triggers(workflow: str) -> set[str]:
 
 def test_ci_runs_on_main_and_dispatch_and_full_runs_nightly_dispatch_or_called() -> None:
     # AD-674: the PR tier is `pr-gate.yml`; ci.yml is the main tier.
-    assert _triggers("ci.yml") == {"push", "schedule", "workflow_dispatch"}
+    assert _triggers("ci.yml") == {"push", "workflow_dispatch"}
     assert _triggers("pr-gate.yml") == {"pull_request"}
     assert _triggers("full-verification.yml") == {"workflow_call", "workflow_dispatch", "schedule"}
     assert "branches: [main]" in (ROOT / ".github/workflows/ci.yml").read_text()
@@ -470,3 +470,12 @@ def test_ci_pr_static_runs_policy_without_tests(tmp_path) -> None:
     result, steps = _run_gate(tmp_path, "ci-pr-static", None, 2, False, base="a" * 40)
     assert steps == []
     assert result.returncode == 0
+
+
+def test_the_pytest_targets_keep_the_skip_report_of_addopts() -> None:
+    """`-r` letters add up per option, but a later `-r` replaces the earlier one: keep `s`."""
+    addopts = re.search(r'^addopts = "(.+)"$', (ROOT / "pyproject.toml").read_text(), re.M)
+    assert addopts is not None and "-rs" in addopts[1].split()
+    for path in ("Makefile", "tools/full.mk"):
+        flags = re.findall(r"--tb=short -r([a-zA-Z]+)\s", (ROOT / path).read_text())
+        assert flags and all("s" in letters for letters in flags), path

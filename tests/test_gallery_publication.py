@@ -19,13 +19,15 @@ def _jobs(workflow: str) -> dict[str, str]:
     return dict(zip(parts[1::2], parts[2::2], strict=True))
 
 
-def test_the_publication_job_is_alone_and_a_failed_publish_turns_the_run_red() -> None:
-    body = _jobs("pages.yml")["publish-gallery"]
+def test_the_deploy_needs_the_build_and_a_failed_publish_turns_the_run_red() -> None:
+    jobs = _jobs("pages.yml")
+    assert set(jobs) == {"publish-gallery", "deploy-gallery"}
     assert "publish-gallery" not in _jobs("ci.yml")
     assert "publish-gallery" not in _jobs("full-verification.yml")
     # AD-740: no `continue-on-error`; a failed publish makes the run red.
-    assert "continue-on-error" not in body
-    assert "needs:" not in body
+    assert "continue-on-error" not in "".join(jobs.values())
+    assert "needs:" not in jobs["publish-gallery"]
+    assert "    needs: publish-gallery\n" in jobs["deploy-gallery"]
 
 
 def test_the_publication_runs_only_for_a_push_or_a_dispatch_on_main() -> None:
@@ -40,7 +42,7 @@ def test_the_publication_runs_only_for_a_push_or_a_dispatch_on_main() -> None:
             )
 
 
-def test_only_the_publication_job_can_write_pages_and_each_other_job_keeps_read_only() -> None:
+def test_only_the_deploy_job_can_write_pages_and_the_build_job_keeps_read_only() -> None:
     for workflow in WORKFLOWS.glob("*.yml"):
         if workflow.name == "release.yml":
             continue  # PyPI publishing asks for id-token on its own
@@ -52,28 +54,32 @@ def test_only_the_publication_job_can_write_pages_and_each_other_job_keeps_read_
             for name, body in _jobs(workflow.name).items()
             if any(item in body for item in PAGES)
         ]
-        assert holders == (["pages.yml:publish-gallery"] if workflow.name == "pages.yml" else [])
-    body = _jobs("pages.yml")["publish-gallery"]
-    assert all(f"      {item}\n" in body for item in PAGES)
-    assert "      contents: read\n" in body
-    block = re.search(r"^    permissions:\n((?:      .+\n)+)", body, re.MULTILINE)
-    assert block is not None
-    assert sorted(re.findall(r"^      ([\w-]+):", block[1], re.MULTILINE)) == [
-        "contents",
-        "id-token",
-        "pages",
-    ]
+        assert holders == (["pages.yml:deploy-gallery"] if workflow.name == "pages.yml" else [])
+    jobs = _jobs("pages.yml")
+    assert all(f"      {item}\n" in jobs["deploy-gallery"] for item in PAGES)
+    # The build job fetches third-party sources: it gets no token that can publish.
+    for job, expected in (
+        ("publish-gallery", ["contents"]),
+        ("deploy-gallery", ["id-token", "pages"]),
+    ):
+        block = re.search(r"^    permissions:\n((?:      .+\n)+)", jobs[job], re.MULTILINE)
+        assert block is not None
+        assert sorted(re.findall(r"^      ([\w-]+):", block[1], re.MULTILINE)) == expected
 
 
-def test_the_job_builds_the_gallery_then_uploads_and_deploys_the_same_directory() -> None:
-    body = _jobs("pages.yml")["publish-gallery"]
-    build = body.index("run: make report-gallery")
-    upload = body.index("actions/upload-pages-artifact@")
-    deploy = body.index("actions/deploy-pages@")
-    assert build < upload < deploy
-    assert "path: test-artifacts/gallery/" in body
-    assert "name: github-pages" in body
-    assert "group: github-pages" in body
+def test_the_build_uploads_an_artifact_named_by_the_attempt_and_the_deploy_takes_that_name() -> (
+    None
+):
+    """A rerun keeps the artifact of attempt 1, and `deploy-pages` needs exactly one artifact."""
+    jobs = _jobs("pages.yml")
+    build, deploy = jobs["publish-gallery"], jobs["deploy-gallery"]
+    assert build.index("run: make report-gallery") < build.index("actions/upload-pages-artifact@")
+    assert "path: test-artifacts/gallery/" in build
+    assert 'echo "name=github-pages-${{ github.run_attempt }}"' in build
+    assert "name: ${{ steps.artifact.outputs.name }}" in build
+    assert "artifact: ${{ steps.artifact.outputs.name }}" in build
+    assert "artifact_name: ${{ needs.publish-gallery.outputs.artifact }}" in deploy
+    assert "actions/deploy-pages@" in deploy and "name: github-pages\n" in deploy
 
 
 def test_no_other_workflow_can_write_pages() -> None:
@@ -101,33 +107,23 @@ def test_no_push_cancels_a_publication_and_the_nightly_run_publishes_too() -> No
     """AD-740: in ci.yml a newer push cancelled the publication; 38 of 40 runs were cancelled."""
     text = (WORKFLOWS / "pages.yml").read_text()
     head = text.split("\njobs:\n", 1)[0]
-    assert "concurrency:" not in head and "cancel-in-progress: true" not in text
-    assert "    cancel-in-progress: false\n" in text and "group: github-pages" in text
+    assert "\nconcurrency:\n  group: github-pages\n  cancel-in-progress: false\n" in head
+    assert "cancel-in-progress: true" not in text
     assert "push:\n    branches: [main]" in head and "schedule:" in head
     assert "publish-gallery" not in (WORKFLOWS / "ci.yml").read_text()
 
 
-def test_the_pages_job_keeps_the_gate_cache_of_main_warm() -> None:
-    """AD-754: CI runs of main are cancelled by the next push; this job is not."""
-    body = _jobs("pages.yml")["publish-gallery"]
-    assert "ARCHKEEL_CORE_PROFILE: gate" in body
-    assert body.index("name: Build the core") < body.index("Save the Rust build cache of main")
-    assert body.count("if: always() && steps.build.outcome == 'success'") == 2
-    assert "key: core-gate-" in body and "key: rust-gate-main-" in body
+def test_a_failed_build_deploys_nothing_and_the_fetched_sources_are_cached() -> None:
+    """A pinned source that cannot be fetched fails the build step. The deploy is another job
+    that needs the build and has no `if:`, so the last good page stays and no half page appears."""
+    jobs = _jobs("pages.yml")
+    assert "if:" not in jobs["deploy-gallery"]
+    build = jobs["publish-gallery"]
+    restore = build.index("path: test-artifacts/source-cache")
+    assert restore < build.index("run: make report-gallery")
+    assert "hashFiles('fixtures/*/SOURCE.json')" in build
 
 
-def test_a_failed_build_publishes_nothing_says_so_and_the_fetched_sources_are_cached() -> None:
-    """A pinned source that cannot be fetched fails the build step. The upload and the deploy
-    run only after it, without `always()`, so the last good page stays and no half page appears."""
-    body = _jobs("pages.yml")["publish-gallery"]
-    build = body.index("run: make report-gallery")
-    upload = body.index("actions/upload-pages-artifact@")
-    deploy = body.index("actions/deploy-pages@")
-    for step in (body[upload:deploy], body[deploy:].split("- name:", 1)[0]):
-        assert "if:" not in step
-    notice = body.index("Say that the last good page stays online")
-    assert deploy < notice and "if: failure()" in body[notice:]
-    assert "::error title=The gallery was not published::" in body
-    restore = body.index("path: test-artifacts/source-cache")
-    assert restore < build
-    assert "hashFiles('fixtures/*/SOURCE.json')" in body
+def test_the_pages_build_saves_no_cache() -> None:
+    """AD-1060: CI saves the Rust cache and the core of main; a second save only conflicts."""
+    assert "cache/save" not in (WORKFLOWS / "pages.yml").read_text()

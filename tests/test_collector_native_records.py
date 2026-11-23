@@ -16,6 +16,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from collector_timing import RUNS
 from collector_wire import request_bytes
 from conftest import build_native_copy
 from test_collector_native_imports import (
@@ -129,11 +130,10 @@ def _run(binary: Path, payload: bytes) -> tuple[float, float]:
 
 
 def _measure(binary: Path, root: Path, name: str, n: int) -> tuple[float, float]:
-    """The least CPU seconds of two runs, and the largest peak memory in MiB."""
+    """One run: its CPU seconds and its peak memory in MiB."""
     shutil.rmtree(root, ignore_errors=True)
     _write(root, _records_shape(name, n))
-    runs = [_run(binary, request_bytes(root, "app", "tsconfig.json")) for _ in range(2)]
-    return min(cpu for cpu, _ in runs), max(peak for _, peak in runs)
+    return _run(binary, request_bytes(root, "app", "tsconfig.json"))
 
 
 RECORD_SHAPES = (
@@ -152,8 +152,16 @@ RECORD_SHAPES = (
 def test_the_records_pass_is_linear_in_time_and_memory(
     tmp_path: Path, records_binary: Path, name: str, n: int
 ) -> None:
-    first_cpu, first_peak = _measure(records_binary, tmp_path / "one", name, n)
-    second_cpu, second_peak = _measure(records_binary, tmp_path / "two", name, 2 * n)
+    # The least CPU time of the runs of one size is its time. The rounds alternate the two sizes,
+    # so a slow phase of a shared runner hits both (AD-323).
+    sizes = (n, 2 * n)
+    runs: dict[int, list[tuple[float, float]]] = {size: [] for size in sizes}
+    for _ in range(RUNS):
+        for size in sizes:
+            runs[size].append(_measure(records_binary, tmp_path / str(size), name, size))
+    (first_cpu, first_peak), (second_cpu, second_peak) = (
+        (min(cpu for cpu, _ in runs[size]), max(peak for _, peak in runs[size])) for size in sizes
+    )
     print(
         f"RECORDS {name} n={n} cpu {first_cpu:.3f} s 2n {second_cpu:.3f} s ratio "
         f"{second_cpu / first_cpu:.2f}; peak {first_peak:.0f} MiB 2n {second_peak:.0f} MiB"

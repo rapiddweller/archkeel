@@ -18,7 +18,7 @@ full-test: core browser-runtime-install test
 
 test: core
 	ARCHKEEL_REQUIRE_PREBUILT=1 $(UV) run --locked $(PYTEST_EXTRA) python -m pytest --tier full -n $(TEST_WORKERS) --dist=loadgroup --max-worker-restart=0 \
-		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml \
+		-q --tb=short -rfEs $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml \
 		$(if $(AREA),--area="$(AREA)",)
 
 # AD-317, AD-436: build the platform wheel of this host with the core and its SBOM, check the tag

@@ -95,7 +95,7 @@ def test_a_core_is_saved_only_after_its_own_build_step_succeeded() -> None:
 
 def test_each_partial_core_cache_carries_the_target_directory_marker() -> None:
     # A restore creates target before Cargo can mark it. The native self-scan then counts builds.
-    for workflow in ("ci.yml", "pr-gate.yml", "pages.yml"):
+    for workflow in ("ci.yml", "pr-gate.yml"):
         text = (ROOT / ".github/workflows" / workflow).read_text()
         paths = re.findall(r"path: \|\n((?:            \S+\n)+)          key: core-gate-", text)
         assert paths, workflow

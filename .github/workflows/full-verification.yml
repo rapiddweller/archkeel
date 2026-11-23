@@ -134,6 +134,16 @@ jobs:
           ARCHKEEL_FETCH_SOURCES: "1"
         run: make full-test AREA="$AREA"
 
+      - name: Name the first failing test in the job summary
+        if: failure()
+        env:
+          AREA: ${{ matrix.area }}
+        run: >-
+          python3 tools/ci_failure_summary.py --job "$AREA"
+          --junit test-artifacts/pytest/results.xml
+          --reproduce "make full-test AREA=\"$AREA\""
+          --artifact "pytest-results-full-$AREA" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload full suite JUnit results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
