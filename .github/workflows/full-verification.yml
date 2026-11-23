@@ -57,8 +57,29 @@ jobs:
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1
 
+      # AD-1061: the release core must give the result that the gate profile gave on main CI for this
+      # commit (AD-754). The base comparison is not run here: it is for the PR gate.
+      - name: Restore the gate-profile self-check result of this commit
+        id: gate_result
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: test-artifacts/selfcheck/result.json
+          key: selfcheck-v1-${{ runner.os }}-${{ github.sha }}
+
       - name: Check native/ and the Python shell with the core against their pinned results
-        run: make self-validate
+        run: |
+          if [ -f test-artifacts/selfcheck/result.json ]; then
+            mv test-artifacts/selfcheck/result.json "$RUNNER_TEMP/gate-profile-result.json"
+          fi
+          make self-validate SELFCHECK_ARGS=--no-compare
+
+      - name: Compare the release result with the gate-profile result of this commit
+        run: |
+          if [ ! -f "$RUNNER_TEMP/gate-profile-result.json" ]; then
+            echo "No gate-profile result is cached for ${GITHUB_SHA} (a main CI run did not finish for it): not compared." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            uv run --locked python tools/self_check_diff.py same "$RUNNER_TEMP/gate-profile-result.json" test-artifacts/selfcheck/result.json
+          fi
 
       - name: Check documentation diagrams
         run: make mermaid

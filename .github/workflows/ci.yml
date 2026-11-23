@@ -83,10 +83,27 @@ jobs:
           BASE: ${{ github.event_name == 'push' && github.event.before || 'HEAD~1' }}
         run: make ci-pr-static BASE="$BASE"
 
-      - name: Check native/ and the Python shell with the core against their pinned results
+      # AD-1061: the base is the result of the parent commit. The gate writes the result of this commit
+      # to the same path; it is saved below, also when another step of this job is red.
+      - name: Restore the self-check result of the parent commit
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: test-artifacts/selfcheck/result.json
+          key: selfcheck-v1-${{ runner.os }}-${{ github.event_name == 'push' && github.event.before || 'none' }}
+
+      # Main CI only reports the comparison: it cannot see the label of the merged pull request.
+      - id: selfcheck
+        name: Check native/ and the Python shell with the core against their pinned results
         env:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
-        run: make self-validate
+        run: make self-validate SELFCHECK_BASE=HEAD~1 SELFCHECK_ARGS=--report-only
+
+      - name: Save the self-check result of this commit
+        if: always() && steps.selfcheck.outcome != 'skipped' && hashFiles('test-artifacts/selfcheck/result.json') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: test-artifacts/selfcheck/result.json
+          key: selfcheck-v1-${{ runner.os }}-${{ github.sha }}
 
       - name: Save the Rust build cache
         if: always()
