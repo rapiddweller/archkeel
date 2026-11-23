@@ -1,11 +1,7 @@
 name: Pages
 
-# AD-740: the report gallery is published by its own workflow. In `ci.yml` it ran inside the run of
-# each push to main, and a newer push cancelled that run: 38 of the last 40 runs on main were cancelled
-# and the site stayed on an old commit. Here no push cancels a run; GitHub keeps one pending run (the
-# newest) behind the running one. The nightly run publishes as well, so a failed publish does not leave the
-# site behind for a day. A failed publish makes the run red (the job has no continue-on-error): the
-# last good page stays online, and the failure shows in every overview. Pages is no required check.
+# AD-740, AD-754, AD-1060.
+
 on:
   push:
     branches: [main]
@@ -16,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
 jobs:
   publish-gallery:
     name: Publish the report gallery
@@ -23,23 +23,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      # AD-754: this job keeps the Rust cache of main warm for the PR gate, so it builds the gate profile.
+      # AD-754: the gate profile reuses the Rust cache that CI saves for main.
       ARCHKEEL_CORE_PROFILE: gate
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      artifact: ${{ steps.artifact.outputs.name }}
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Hash the native tree
@@ -61,7 +54,7 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Install the pinned Rust toolchain once, before any parallel step
+      - name: Install the pinned Rust toolchain
         working-directory: native
         run: rustup toolchain install
 
@@ -77,34 +70,9 @@ jobs:
             rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
 
       - name: Build the core
-        id: build
         env:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
         run: make core
-
-      # AD-754: a push to main cancels the CI run of the older push, so CI cannot keep the cache of
-      # main warm. This workflow never cancels a run: it saves the Rust cache and the core of main.
-      - name: Save the Rust build cache of main
-        if: always() && steps.build.outcome == 'success'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            native/target
-          key: rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
-
-      - name: Save the core for this native tree
-        if: always() && steps.build.outcome == 'success'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            native/target/CACHEDIR.TAG
-            native/target/release/archkeel-core
-            native/target/release/archkeel-rust-collector
-            native/target/release/archkeel-typescript-collector
-            native/target/release/archkeel-core.tree
-          key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
       # The pinned sources of the real-project fixtures (fixtures/*/SOURCE.json) are fetched when
       # the gallery builds. The cache keeps them between runs; a pin that changes is a new key.
@@ -114,23 +82,34 @@ jobs:
           path: test-artifacts/source-cache
           key: gallery-sources-${{ hashFiles('fixtures/*/SOURCE.json') }}
 
-      # A pinned source that cannot be fetched fails this step. The upload and the deploy below do
-      # not run, so the last good page stays online and no half page is published.
+      # A failed fetch of a pinned source fails this step: the build job fails and nothing is deployed.
       - name: Build the report of each fixture with the core
         run: make report-gallery
+
+      - name: Name the artifact
+        id: artifact
+        run: echo "name=github-pages-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
 
       - name: Upload the gallery
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
+          name: ${{ steps.artifact.outputs.name }}
           path: test-artifacts/gallery/
-          retention-days: 1
 
+  deploy-gallery:
+    name: Deploy the report gallery
+    needs: publish-gallery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy the gallery
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
-
-      - name: Say that the last good page stays online
-        if: failure()
-        run: >-
-          echo "::error title=The gallery was not published::A step failed, for example because a
-          pinned source could not be fetched. The last good page stays online."
+        with:
+          artifact_name: ${{ needs.publish-gallery.outputs.artifact }}

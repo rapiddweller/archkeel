@@ -11,6 +11,8 @@
 
 **Rejected.** `sccache` (a second cache service, and the GitHub backend is being retired); restoring file mtimes to keep crates fresh (a stale crate would pass for a changed one); building only the touched crates (the core links all of them).
 
+**Amended by AD-1060.** `pages.yml` no longer keeps the cache of main warm; the saves of CI do.
+
 **Tests.** `tests/test_core_cache.py`.
 
 **Measured.** A native PR on a warm cache: before 5:34 (core build 2:28); with the gate profile, the static and Rust lint beside the build and the cache of main kept warm by `pages.yml`: probe on `native/core` 3:17 (core build 1:33, tests 0:39), probe on `native/python` 4:22 (core build 1:30, tests 1:51; 0:46 of the test set were two heavy files, now in the main tier). Opt-level 1 and the two files go in the second step; its numbers are in the pull request.
