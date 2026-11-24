@@ -1,0 +1,36 @@
+# AD-1064 The pin files are deleted and the base comparison is the only self-check gate
+
+**Status.** Accepted. Owner decision of 2026-11-23, confirmed on 2026-11-24. This is stage 3 of 3 of [AD-1061](ad-1061-the-self-check-is-compared-with-its-base-commit-beside-the-pins.md). It supersedes in full AD-672, AD-733, AD-944 and AD-945. It amends AD-357, AD-382, AD-432, AD-478 and AD-736 (point 8).
+
+**Reason.** The probe on the real runner (PR #1981, closed) showed the new gate. With no label, the PR gate was red and named the grown gaps. With the label and `Ratchet growth: 118 items: <reason>`, it was green. With a wrong count, it failed with `the PR text says Ratchet growth: 117 items, the grown count is 118`. Two gates gave one verdict, so the pins had no job left. They held 257,641 lines that no person read.
+
+**Decision.**
+1. **Delete the pins.** Delete `native/expected-gaps.json` (92,050 lines), `native/expected-growth.json` (165,553), `docs/architecture/target/shell-expected.json` (35), `docs/architecture/target/shell-expected-growth.json` (3), `tools/native_expected.py` (393) and `RATCHET_FILES` with its removal guard in `tools/merge_pr.py`. A test fails when a file named `*expected-gaps*`, `*expected-growth*` or `*shell-expected*` comes back, or when a tool, the Makefile or a workflow names one.
+2. **Native gate.** `make self-validate-native` runs the self-check and calls `tools/self_check_gate.py`. The gate prints the counts of the run (rules PASS, FAIL and UNKNOWN, gap records, violations) and compares with the base commit (AD-1061, points 1 to 4). Nothing else gates.
+3. **Shell gate.** `make self-validate-shell` runs `tools/self_check_diff.py shell`. The result must be no refusal, all rules PASS, no gap and exit code 0. It needs no base: the old pin said the same (27 PASS, 0 gaps).
+4. **Main CI and the nightly run.** Main CI keeps `--report-only`: growth is printed, because main CI cannot see the label. A result that is not clean (refusal, FAIL, violation, wrong exit code) still fails it. The nightly run keeps `--no-compare`, which now means `alone`: the result must be clean. The pin gate did both checks before.
+5. **One gate.** `GATE DISAGREEMENT` and `--old-exit` are gone. The last line of the gate is `self-check gate: GREEN` or `self-check gate: RED (exit N)`, so the `Error 1` of make is not the message. A red result tells the reader to run `make self-validate-native`.
+6. **Output.** The log shows the count for each reason and the first 10 grown items. The gate writes all grown items, with their reason, to `test-artifacts/selfcheck/grown.txt` and names the file. The PR gate uploads the file as the artifact `selfcheck-grown` when it is red. `GITHUB_STEP_SUMMARY` gets the count and the first 10 items. A grown gap of the receiver class (#1571) prints the fix as a hint; the file names that the old hint gave are not kept.
+7. **Label.** `ratchet-lead` now means "approves growth of the self-check". Only the gate reads it, with the PR text line. `tools/merge_pr.py` keeps the `deletion-approved` rule for deleted files and for a net removal of more than 300 lines. It no longer reads any ratchet file.
+8. **Tests.** The tests do not read a pin. `NATIVE_UNKNOWN` in `tests/core_support.py` names the three UNKNOWN rules that the self-contract has today (AD-670). It is a stated goal, not a gap list. It is empty when the goal is reached, and the expected status is then PASS. The self-check tests assert a clean result (no refusal, FAIL or violation), those rules UNKNOWN, all other rules PASS, and the exit code that follows.
+
+**Moved or ended.**
+
+| Old protection | Now |
+|---|---|
+| New or missing gap (`problems`) | New gap: `tests/test_self_check_diff.py`. A missing gap is a removal and is green (the base moves with main). |
+| Gap count by occurrence (AD-944, AD-945) | `tests/test_self_check_diff.py::test_a_gap_counts_for_each_occurrence`; AD-1061 point 3. |
+| Stale growth entry (AD-733), growth file (AD-672) | Ended: nothing is stored, so nothing goes stale. |
+| Pin removal above 50 entries needs `ratchet-lead` (AD-736 point 8) | Ended: no pin to remove. Tests of `tests/test_merge_pr.py` for it are deleted. |
+| Violation without an issue number (AD-668, AD-670) | Ended; it was empty. A violation fails the gate and no approval passes it (AD-1061 point 3). |
+| Exit code of the pinned statuses | `absolute()` in `tools/self_check_diff.py`. |
+| The pinned UNKNOWN rules and `scope` of the self-contract | `tests/test_native_self_core_rows.py` with `NATIVE_UNKNOWN`. |
+| The pinned rows of the neutral crates (AD-668) | `tests/test_native_neutral_crates.py`: no neutral crate names `Profile`. This is stronger than before. |
+| Shell pin (27 PASS, no gap) | `tests/test_cli_shell_self_check.py` and `self_check_diff.py shell`. |
+| The pin gate in `make self-validate-native` | `tests/test_make_self_check.py`: a refusal or no result fails both targets. |
+
+**Deleted tests.** `tests/test_native_expected_gaps.py` and `tests/test_ratchet_stale.py` tested only `tools/native_expected.py`. Their cases are in the table above or ended with the pins.
+
+**Limit.** The repository no longer lists the accepted gaps. A gap that merges by skew is the new base of the next run, and main CI is red only for a result that is not clean (AD-1061 limit). The approval binds a count, not the items.
+
+**Tests.** `tests/test_self_check_diff.py`, `tests/test_self_check_report.py` (the log, `grown.txt`, the summary, `report-only`, `alone`, `shell`), `tests/test_self_check_gate.py` (the gate, the last line, no pin file), `tests/test_make_self_check.py`.

@@ -16,4 +16,4 @@
 
 **Tests.** `tests/test_ratchet_stale.py`, `tests/test_born_small.py`.
 
-**Superseded in part.** AD-1061: the stale-entry rule ends with the pins (stage 3 of AD-1061).
+**Superseded in full by [AD-1064](ad-1064-the-pin-files-are-deleted-and-the-base-comparison-is-the-only-self-check-gate.md).**

@@ -17,4 +17,4 @@ one uncommitted change. Commit the removal before assessing the return.
 
 **Tests.** `tests/test_native_expected_gaps.py` checks growth, base comparison, removal and return.
 
-**Superseded in part.** AD-1061: the count by occurrence moves to `tools/self_check_diff.py` (AD-1061).
+**Superseded in full by [AD-1064](ad-1064-the-pin-files-are-deleted-and-the-base-comparison-is-the-only-self-check-gate.md).** The pins end; the count by occurrence lives on in `tools/self_check_diff.py` (AD-1061).

@@ -16,4 +16,4 @@
 
 **Tests.** `tests/test_native_expected_gaps.py`: `test_growth_names_...`, `test_growth_needs_an_entry_with_a_reason`, `test_write_refuses_a_new_unknown_and_takes_a_listed_one`, `test_every_growth_entry_of_the_repository_has_a_reason`.
 
-**Superseded in part.** AD-1061: the pin growth file ends with the pins (stage 3 of AD-1061).
+**Superseded in full by [AD-1064](ad-1064-the-pin-files-are-deleted-and-the-base-comparison-is-the-only-self-check-gate.md).**
