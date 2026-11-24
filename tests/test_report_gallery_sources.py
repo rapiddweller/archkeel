@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -69,7 +70,9 @@ def test_a_fetch_that_fails_raises_and_leaves_no_partial_checkout(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     waits: list[float] = []
-    monkeypatch.setattr(fixture_source.time, "sleep", waits.append)
+    # Only the module's own name: `time.sleep` is global, and the wait loop of `subprocess` calls it
+    # in tiny steps while git runs.
+    monkeypatch.setattr(fixture_source, "time", types.SimpleNamespace(sleep=waits.append))
     spec = {**_upstream(tmp_path), "commit": "0" * 40}
     cache = tmp_path / "cache"
     with (
