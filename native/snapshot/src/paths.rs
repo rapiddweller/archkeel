@@ -82,3 +82,13 @@ pub fn within(scope: &str, path: &str) -> bool {
 #[cfg(test)]
 #[path = "paths_tests.rs"]
 mod tests;
+
+/// A normalised path as a value that prints like the text.
+#[allow(dead_code)]
+struct Normalised(String);
+
+impl std::fmt::Display for Normalised {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        out.write_str(&normpath(&self.0))
+    }
+}
