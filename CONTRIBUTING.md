@@ -153,6 +153,14 @@ make self-validate-native
 
 This builds the core, runs `archkeel validate --config native/archkeel.toml` and compares the result with the pin.
 A result that differs from the pin, a refusal or no result fails the target.
+It then compares the result with the result of the same run on the merge base of `PR_BASE` (default
+`origin/main`) and HEAD ([AD-1061](docs/architecture/decisions/ad-1061-the-self-check-is-compared-with-its-base-commit-beside-the-pins.md)).
+The target takes that base result from `test-artifacts/selfcheck/base.json` or computes it in a git
+worktree (use `BASE_RESULT=<file>` offline). A new gap, UNKNOWN reason or worse rule status fails the
+target and is named. It passes only with the PR label `ratchet-lead` and the PR text line
+`Ratchet growth: <N> items: <reason>`, with N as printed (set `RATCHET_LABELED=true` and `RATCHET_BODY_FILE`
+to test this locally; the line must be a plain line of the text, one line only). A different verdict of the two gates prints `GATE DISAGREEMENT`. The pins are
+deleted in the next change.
 The full result is in ignored `test-artifacts/validation-native/result.json`.
 `make self-validate-shell` checks the Python shell of `src/archkeel` with the contract
 `docs/architecture/target/shell-contract.json` against the pinned rows of

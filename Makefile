@@ -171,12 +171,18 @@ core:
 # AD-672: the pins are ratchets. With origin/main present, growth against it needs a reason in the growth file.
 RATCHET_BASE := $(if $(shell git rev-parse --verify -q origin/main),--base-ref origin/main,)
 
+# AD-1061: the same run on the merge base of SELFCHECK_BASE is the second gate: growth against it fails
+# (`tools/self_check_gate.py`). Main CI adds --report-only, the nightly run --no-compare.
+SELFCHECK_BASE ?= $(PR_BASE)
+SELFCHECK_ARGS ?=
+
 # AD-335: Archkeel checks the Rust of native/ with its own core and its own contract (AD-432).
 # Compare the reported rule statuses, gaps and violations with native/expected-gaps.json (AD-357).
 self-validate-native: core
 	@mkdir -p test-artifacts/validation-native
 	@$(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || true
-	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-native/result.json native/expected-gaps.json --growth native/expected-growth.json $(RATCHET_BASE)
+	@old=0; $(UV) run --locked python tools/native_expected.py test-artifacts/validation-native/result.json native/expected-gaps.json --growth native/expected-growth.json $(RATCHET_BASE) || old=$$?; \
+	$(UV) run --locked python tools/self_check_gate.py --result test-artifacts/validation-native/result.json --base "$(SELFCHECK_BASE)" --old-exit $$old --uv "$(UV)" $(SELFCHECK_ARGS) || exit $$?
 	@echo "Native architecture rules: as pinned in native/expected-gaps.json; full result: test-artifacts/validation-native/result.json"
 
 # AD-478: Archkeel checks the Python shell of src/archkeel with its own core and its own contract.
@@ -242,7 +248,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/native_expected.py tools/self_check_diff.py tools/self_check_gate.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
 	native/hatch_build.py
 
 lint:
@@ -253,7 +259,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
+	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/self_check_diff.py tools/self_check_gate.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 flutter-demo-check:

@@ -15,3 +15,5 @@
 **Rejected.** Keeping the entries as history (the decision log has the reasons); letting `--write` keep stale entries.
 
 **Tests.** `tests/test_ratchet_stale.py`, `tests/test_born_small.py`.
+
+**Superseded in part.** AD-1061: the stale-entry rule ends with the pins (stage 3 of AD-1061).

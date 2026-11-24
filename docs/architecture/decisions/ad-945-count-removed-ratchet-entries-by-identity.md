@@ -19,3 +19,5 @@ removal is correct. The lead still makes that decision.
 
 **Check.** `tests/test_merge_pr.py` checks both ratchet files, replacement, duplicate gaps,
 approval, unchanged identities and the 50-entry boundary.
+
+**Superseded in part.** AD-1061: the removal guard ends with the pins (stage 3 of AD-1061).

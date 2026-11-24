@@ -1,0 +1,36 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "COMP-INVENTORY",
+      "label": "inventory",
+      "role": "component",
+      "packages": [
+        "inventory"
+      ],
+      "public": [
+        "inventory"
+      ],
+      "responsibilities": [
+        "Check stock before reserving an item."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/inventory.md"
+      ],
+      "requires": [],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [
+    {
+      "id": "TINY-INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "A component is used only through the names that it lists in public.",
+      "provenance": [
+        "docs/architecture/inventory.md"
+      ],
+      "decided_by": "architect"
+    }
+  ]
+}

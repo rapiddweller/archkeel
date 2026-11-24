@@ -40,6 +40,8 @@ def test_a_self_check_without_the_pinned_core_result_fails(
         "native/expected-gaps.json",
         "docs/architecture/target/shell-expected.json",
         "tools/native_expected.py",
+        "tools/self_check_gate.py",
+        "tools/self_check_diff.py",
     ):
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / name).write_bytes((ROOT / name).read_bytes())
@@ -55,3 +57,6 @@ def test_a_self_check_without_the_pinned_core_result_fails(
     assert result.returncode == 2, result.stdout + result.stderr
     assert shown in result.stdout + result.stderr
     assert "as pinned in" not in result.stdout
+    if target == "self-validate-native":
+        # AD-1061: the base comparison runs after a failed pin gate; no git history here.
+        assert "the self-check result is unusable" in result.stdout
