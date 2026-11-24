@@ -23,7 +23,6 @@ import json
 import subprocess
 import sys
 import time
-from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -34,10 +33,7 @@ PENDING = {"queued", "in_progress", "pending", "waiting", "requested"}
 EXIT = {MERGE: 0, REFUSE: 1, WAIT: 3}
 # AD-736: the owner rule "ask before you delete anything", enforced by the tool.
 NET_REMOVAL_LIMIT = 300
-RATCHET_FILES = ("native/expected-gaps.json", "native/expected-growth.json")
-RATCHET_REMOVAL_LIMIT = 50
 DELETION_LABEL = "deletion-approved"
-RATCHET_LABEL = "ratchet-lead"
 
 
 @dataclass(frozen=True)
@@ -49,17 +45,15 @@ class Reason:
 
 @dataclass
 class Changes:
-    """What the pull request changes: its files, its labels and the entries of the ratchet files.
+    """What the pull request changes: its files and its labels.
 
-    `files` holds `{filename, status, additions, deletions}` of the pull request API. `entries`
-    maps a ratchet file to the count of entries removed since the merge base.
+    `files` holds `{filename, status, additions, deletions}` of the pull request API.
     """
 
     files: list[dict] = field(default_factory=list)
     labels: set[str] = field(default_factory=set)
     # Removed files whose lines went to an added file (a rename that GitHub did not detect).
     moved: set[str] = field(default_factory=set)
-    entries: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -132,7 +126,7 @@ def decide(
 
 
 def deletions(changes: Changes) -> list[tuple[str, str]]:
-    """The refusals of the deletion guard: a removed file, a net removal, a ratchet removal.
+    """The refusals of the deletion guard: a removed file or a net removal.
 
     A renamed file (status `renamed`, with or without edits) is counted by its line delta, not as a
     deletion. A file that GitHub lists as removed plus added, but whose lines went to the added
@@ -159,15 +153,6 @@ def deletions(changes: Changes) -> list[tuple[str, str]]:
                 f"only the lead sets '{DELETION_LABEL}' after owner approval",
             )
         )
-    for path, removed_entries in sorted(changes.entries.items()):
-        if removed_entries > RATCHET_REMOVAL_LIMIT and RATCHET_LABEL not in changes.labels:
-            found.append(
-                (
-                    "ratchet_removal_unapproved",
-                    f"{path} loses {removed_entries} entries (limit {RATCHET_REMOVAL_LIMIT}): "
-                    f"only the lead sets the label '{RATCHET_LABEL}'",
-                )
-            )
     return found
 
 
@@ -210,30 +195,8 @@ def moved_files(
     return moved
 
 
-def entry_counts(text: str) -> Counter[tuple[str, ...]]:
-    """Count ratchet entries by identity, including repeated gaps."""
-    counts: Counter[tuple[str, ...]] = Counter()
-    for section, values in json.loads(text).items():
-        if isinstance(values, dict):
-            counts.update((section, str(key)) for key in values)
-        elif isinstance(values, list):
-            for value in values:
-                if section == "gaps":
-                    key = tuple(map(str, value))
-                elif section == "raised" and isinstance(value, dict):
-                    key = tuple(map(str, value["entry"]))
-                elif section == "violations":
-                    key = tuple(
-                        str(value[field]) for field in ("rule", "source", "target", "cause")
-                    )
-                else:
-                    key = (json.dumps(value, sort_keys=True),)
-                counts[(section, *key)] += 1
-    return counts
-
-
 def read_changes(run: Gh, number: str, pr: dict) -> Changes:
-    """Read the file list, the labels and the ratchet files at the merge base and at the head."""
+    """Read the file list and the labels, and find the files that moved."""
     text = run(
         "api",
         f"repos/{{owner}}/{{repo}}/pulls/{number}/files",
@@ -244,7 +207,6 @@ def read_changes(run: Gh, number: str, pr: dict) -> Changes:
     files = [json.loads(line) for line in text.splitlines() if line.strip()]
     labels = json.loads(run("pr", "view", number, "--json", "labels"))["labels"]
     changes = Changes(files=files, labels={item["name"] for item in labels})
-    touched = [item["filename"] for item in files if item["filename"] in RATCHET_FILES]
     removed = [
         item["filename"]
         for item in files
@@ -255,7 +217,7 @@ def read_changes(run: Gh, number: str, pr: dict) -> Changes:
         for item in files
         if item.get("status") == "added" and item.get("additions", 0) > 0
     ]
-    if not touched and not (removed and added):
+    if not (removed and added):
         return changes
     compare = f"repos/{{owner}}/{{repo}}/compare/{pr['baseRefName']}...{pr['headRefOid']}"
     base = json.loads(run("api", compare, "--jq", "{sha: .merge_base_commit.sha}"))["sha"]
@@ -270,11 +232,6 @@ def read_changes(run: Gh, number: str, pr: dict) -> Changes:
         lambda path: content(path, base),
         lambda path: content(path, pr["headRefOid"]),
     )
-
-    for path in touched:
-        before = entry_counts(content(path, base))
-        after = entry_counts(content(path, pr["headRefOid"]))
-        changes.entries[path] = sum((before - after).values())
     return changes
 
 

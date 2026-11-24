@@ -7,7 +7,7 @@
 <base-ref>...HEAD` and prints one line for `make pr-native-lint`:
 
 - nothing: the change does not touch `native/`, so no Rust lint runs;
-- `-`: `native/` changed but no crate (a pin or a data file): only `cargo fmt --check` runs;
+- `-`: `native/` changed but no crate (a data file): only `cargo fmt --check` runs;
 - `--workspace`: `Cargo.toml`, `Cargo.lock`, the toolchain or `clippy.toml` changed;
 - `-p <name> -p <name>`: the crates whose directory holds a changed file.
 """

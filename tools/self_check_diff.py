@@ -1,10 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Compare a self-check result with the result of the same run on the base commit (AD-1061).
+"""Compare a self-check result with the result of the same run on the base commit (AD-1064).
 
 Run: `python tools/self_check_diff.py <base.json> <pr.json> [--base-sha S] [--labels a,b]
-[--body-file F]` or `python tools/self_check_diff.py same <a.json> <b.json>`.
+[--body-file F] [--report-only] [--grown-file F] [--summary-file F]`, or `same <a.json> <b.json>`,
+`alone <pr.json>` (the PR result must be clean) or `shell <pr.json>` (all rules PASS, no gap).
 
 A file is the full JSON of `archkeel validate` or the condensed form of `condense`: the gaps as
 (kind, subjects, reason), the rule statuses, the UNKNOWN reason kinds, the violations and the exit
@@ -14,7 +15,9 @@ multiset compare, so a growing gap counts for each occurrence), a new UNKNOWN re
 rule with a worse status (PASS < UNKNOWN < FAIL). Removals do not offset additions. Growth passes
 only with the label `ratchet-lead` and the PR text line `Ratchet growth: <N> items: <reason>`,
 where N is the printed count. A base that is missing, corrupt, refused or for another commit
-compares as an empty base, and only the same approval passes it.
+compares as an empty base, and only the same approval passes it. The log shows the first
+`SHOWN` grown items; `--grown-file` takes all of them. `--report-only` (main CI, which cannot see
+the label) fails only on a result that is not clean.
 """
 
 from __future__ import annotations
@@ -26,19 +29,42 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from native_expected import RANK, observed
-
+Gap = tuple[str, str, str]
+Violation = tuple[str, str, str, str]
+RANK = {"PASS": 0, "UNKNOWN": 1, "FAIL": 2}
+RECEIVER_GAP = re.compile(r"A method call may reach the method (\S+) of a type in its own file")
 FORMAT = "selfcheck-v1"
 LABEL = "ratchet-lead"
 LINE = re.compile(r"Ratchet growth: (0|[1-9][0-9]*) items?: \S.{9,}")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
-SHOWN = 20
+SHOWN = 10
 FIELDS = ("rules", "unknown", "gaps", "violations", "exit_code")
 EMPTY: dict[str, Any] = {"rules": {}, "unknown": {}, "gaps": [], "violations": []}
 
 
 class Unusable(Exception):
     """A result file that cannot be compared; the message names the file and the reason."""
+
+
+def observed(result: dict[str, Any]) -> tuple[list[Gap], dict[str, str], list[Violation]]:
+    """The gaps, the status of each rule, and each violation as (rule, source, target, cause)."""
+    frame = result.get("frame")
+    frame = frame if isinstance(frame, dict) else {}
+    gaps = [
+        (str(gap["kind"]), ", ".join(sorted(map(str, gap["subjects"]))), str(gap["reason"]))
+        for gap in frame.get("collection_gaps") or ()
+    ]
+    gaps += [
+        (str(gap["kind"]), str(gap["subject"]), str(gap["reason"]))
+        for gap in result.get("gaps") or ()
+    ]
+    statuses = {str(rule): str(row[1]) for rule, row in (frame.get("rules") or {}).items()}
+    violations = sorted(
+        (str(rule), str(row["source"]), str(row["target"]), str(row["cause"]))
+        for rule, rows in (frame.get("details") or {}).items()
+        for row in rows
+    )
+    return sorted(gaps), statuses, violations
 
 
 def condense(result: dict[str, Any], sha: str = "", tree: str = "") -> dict[str, Any]:
@@ -116,37 +142,42 @@ def absolute(pr: dict[str, Any]) -> list[str]:
     return found
 
 
-def grown(base: dict[str, Any], pr: dict[str, Any]) -> tuple[list[str], int, int]:
-    """The grown items by name, their count and the count of removed gaps."""
+def both(text: str) -> tuple[str, str]:
+    return text, text
+
+
+def grown(base: dict[str, Any], pr: dict[str, Any]) -> tuple[list[str], list[tuple[str, str]], int]:
+    """The heading lines, each grown item as (short, full) text, and the count of removed gaps."""
     old = Counter(map(tuple, base["gaps"]))
     new = Counter(map(tuple, pr["gaps"]))
     by_reason: dict[tuple[str, str], list[str]] = defaultdict(list)
     for kind, subjects, reason in sorted((new - old).elements()):
         by_reason[(kind, reason)].append(subjects)
     lines: list[str] = []
+    items: list[tuple[str, str]] = []
     for (kind, reason), subjects in sorted(by_reason.items()):
         lines.append(f"GROWN {len(subjects)} new gaps [{kind}]: {reason}")
-        lines += [f"    {item}" for item in subjects[:SHOWN]]
-        if len(subjects) > SHOWN:
-            lines.append(f"    and {len(subjects) - SHOWN} more")
-    count = sum(len(subjects) for subjects in by_reason.values())
+        items += [(f"gap [{kind}] {item}", f"gap [{kind}] {item} -- {reason}") for item in subjects]
+    if any(RECEIVER_GAP.search(reason) for _kind, reason in by_reason):
+        lines.append(
+            "Hint: write a method call as a path call (`Type::method(&value)`) or bind a typed "
+            "local (`let local: Type = ...; local.method()`)"
+        )
     for rule, status in sorted(pr["rules"].items()):
         before = base["rules"].get(rule, "PASS")
         if RANK.get(status, 2) > RANK.get(before, 2):
-            lines.append(f"GROWN rule status: {rule} {before} -> {status}")
-            count += 1
+            items += [both(f"rule status: {rule} {before} -> {status}")]
     for rule, kind in sorted(pr["unknown"].items()):
         if base["unknown"].get(rule) != kind:
-            lines.append(f"GROWN UNKNOWN reason: {rule}: {kind}")
-            count += 1
-    for rule in sorted(set(base["rules"]) - set(pr["rules"])):
-        lines.append(f"GROWN rule removed: {rule}")
-        count += 1
+            items += [both(f"UNKNOWN reason: {rule}: {kind}")]
+    items += [
+        both(f"rule removed: {rule}") for rule in sorted(set(base["rules"]) - set(pr["rules"]))
+    ]
     before, after = base.get("files"), pr.get("files")
     if isinstance(before, int) and not (isinstance(after, int) and after >= before):
-        lines.append(f"GROWN scope shrank: files {before} -> {after if after is not None else '?'}")
-        count += 1
-    return lines, count, sum((old - new).values())
+        shown = after if after is not None else "?"
+        items.append(both(f"scope shrank: files {before} -> {shown}"))
+    return lines, items, sum((old - new).values())
 
 
 def plain_lines(body: str) -> list[str]:
@@ -186,14 +217,56 @@ def where(result: dict[str, Any]) -> str:
     )
 
 
-def check(base_path: str, pr_path: str, base_sha: str, labels: list[str], body: str) -> int:
+def summary(result: dict[str, Any]) -> str:
+    """The counts of the run, so that a green gate does not read as proven (AD-382)."""
+    count = Counter(result["rules"].values())
+    return (
+        f"self-check: {count['PASS']} rules PASS, {count['FAIL']} FAIL, "
+        f"{count['UNKNOWN']} UNKNOWN; "
+        f"{len(result['gaps'])} gap records, {len(result['violations'])} violations"
+    )
+
+
+def report(
+    items: list[tuple[str, str]], errors: list[str], grown_file: str, summary_file: str
+) -> None:
+    """Print the first `SHOWN` grown items; keep all of them in `grown_file` and the summary."""
+    for short, _full in items[:SHOWN]:
+        print(f"    {short}")
+    if len(items) > SHOWN:
+        print(f"    and {len(items) - SHOWN} more")
+    if grown_file and items:
+        print(f"All {len(items)} grown items are in {grown_file}")
+        Path(grown_file).parent.mkdir(parents=True, exist_ok=True)
+        Path(grown_file).write_text("".join(f"{full}\n" for _s, full in items), encoding="utf-8")
+    if summary_file and (items or errors):
+        lines = [f"### Self-check: {len(items)} grown items"]
+        lines += [f"- {text}" for text in errors]
+        lines += [f"- `{short}`" for short, _full in items[:SHOWN]]
+        if len(items) > SHOWN:
+            lines.append(f"- and {len(items) - SHOWN} more")
+        with Path(summary_file).open("a", encoding="utf-8") as out:
+            out.write("\n".join(lines) + "\n")
+
+
+def check(
+    base_path: str,
+    pr_path: str,
+    base_sha: str,
+    labels: list[str],
+    body: str,
+    report_only: bool = False,
+    grown_file: str = "",
+    summary_file: str = "",
+) -> int:
     """Print the comparison and return the exit code: 0 when nothing grew or growth is approved."""
     try:
         pr = load(pr_path)
     except Unusable as error:
         print(f"the PR result is unusable: {error}")
         return 1
-    errors = absolute(pr)
+    hard = absolute(pr)
+    errors: list[str] = []
     try:
         base = load(base_path)
         if base.get("refusal"):
@@ -206,13 +279,38 @@ def check(base_path: str, pr_path: str, base_sha: str, labels: list[str], body: 
         print(f"the base result is unusable: {error}; nothing is compared, each item counts as new")
         if LABEL not in labels:
             errors.append(f"unusable base: set the label {LABEL} and the growth line to pass")
-    lines, count, removed = grown(base, pr)
-    print("\n".join(lines))
+    print(summary(pr))
+    lines, items, removed = grown(base, pr)
+    count = len(items)
+    if lines:
+        print("\n".join(lines))
     if count:
         errors += approval(count, labels, body)
     if count and removed:
         print(f"{removed} gaps are removed. A reworded reason or a renamed module shows as both.")
     print(f"self-check diff: grown {count}, removed {removed}")
+    report(items, hard + errors, grown_file, summary_file)
+    for line in hard + errors:
+        print(f"FAIL {line}")
+    if hard or errors:
+        print("Run `make self-validate-native` to see the same result on your machine.")
+    return 1 if hard or (errors and not report_only) else 0
+
+
+def alone(path: str, strict: bool) -> int:
+    """Exit 0 when one result is clean. `strict` (the shell): all rules PASS and no gap."""
+    try:
+        found = load(path)
+    except Unusable as error:
+        print(f"FAIL {error}")
+        return 1
+    errors = absolute(found)
+    if strict and not errors:
+        statuses = set(found["rules"].values())
+        if statuses != {"PASS"} or found["gaps"]:
+            errors.append("the result must have all rules PASS and no gap")
+    if not found.get("refusal"):
+        print(summary(found))
     for line in errors:
         print(f"FAIL {line}")
     return 1 if errors else 0
@@ -240,6 +338,8 @@ def main(argv: list[str]) -> int:
 
     if argv[:1] == ["same"] and len(argv) == 3:
         return same(argv[1], argv[2])
+    if argv[:1] in (["alone"], ["shell"]) and len(argv) == 2:
+        return alone(argv[1], strict=argv[0] == "shell")
     if len(argv) < 2:
         print(__doc__)
         return 2
@@ -250,7 +350,16 @@ def main(argv: list[str]) -> int:
         if body_file and Path(body_file).is_file()
         else ""
     )
-    return check(argv[0], argv[1], option("--base-sha"), labels, body)
+    return check(
+        argv[0],
+        argv[1],
+        option("--base-sha"),
+        labels,
+        body,
+        "--report-only" in argv,
+        option("--grown-file"),
+        option("--summary-file"),
+    )
 
 
 if __name__ == "__main__":
