@@ -15,8 +15,6 @@ cases edit these real files.
 
 from __future__ import annotations
 
-import json
-import os
 import subprocess
 import sys
 from collections.abc import Callable
@@ -24,63 +22,19 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
-ROOT = Path(__file__).parents[1]
-FIXTURES = Path(__file__).parent / "selfcheck_fixtures"
-TOOL = Path(os.environ.get("SELF_CHECK_DIFF_TOOL", ROOT / "tools/self_check_diff.py"))
-RULE = "TINY-INTERFACE-BOUNDARY"
-LINE = "Ratchet growth: {n} items: the scan reads a new public name"
-
-
-def real(name: str) -> dict[str, Any]:
-    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
-
-
-def save(tmp_path: Path, name: str, result: dict[str, Any] | str) -> str:
-    path = tmp_path / name
-    path.write_text(result if isinstance(result, str) else json.dumps(result), encoding="utf-8")
-    return str(path)
-
-
-def run(
-    tmp_path: Path,
-    base: str,
-    pr: str,
-    *,
-    labels: str = "",
-    body: str = "",
-    extra: tuple[str, ...] = (),
-) -> subprocess.CompletedProcess[str]:
-    args = [sys.executable, str(TOOL), base, pr, "--labels", labels, *extra]
-    if body:
-        args += ["--body-file", save(tmp_path, "body.txt", body)]
-    return subprocess.run(args, capture_output=True, text=True, timeout=60)
-
-
-def worse(status: str) -> Callable[[dict[str, Any]], None]:
-    def edit(result: dict[str, Any]) -> None:
-        result["frame"]["rules"][RULE][1] = status
-
-    return edit
-
-
-def unknown_reason(result: dict[str, Any]) -> None:
-    worse("UNKNOWN")(result)
-    result["frame"]["unknown_kinds"] = {RULE: "scope_incomplete"}
-
-
-def violation(result: dict[str, Any]) -> None:
-    worse("FAIL")(result)
-    row = {"source": "a", "target": "b", "cause": "forbidden", "evidence": []}
-    result["frame"]["details"] = {RULE: [row]}
-    result["frame"]["violations"] = {RULE: 1}
-    result["exit_code"] = 1
-
-
-def red(done: subprocess.CompletedProcess[str], *named: str) -> None:
-    assert done.returncode == 1, done.stdout + done.stderr
-    for text in named:
-        assert text in done.stdout, done.stdout
+from self_check_support import (
+    FIXTURES,
+    LINE,
+    RULE,
+    TOOL,
+    real,
+    red,
+    run,
+    save,
+    unknown_reason,
+    violation,
+    worse,
+)
 
 
 def test_equal_results_are_green(tmp_path: Path) -> None:
@@ -129,8 +83,8 @@ def test_a_gap_counts_for_each_occurrence(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("base_edit", "pr_edit", "named"),
     [
-        (None, worse("UNKNOWN"), f"GROWN rule status: {RULE} PASS -> UNKNOWN"),
-        (worse("UNKNOWN"), unknown_reason, f"GROWN UNKNOWN reason: {RULE}: scope_incomplete"),
+        (None, worse("UNKNOWN"), f"rule status: {RULE} PASS -> UNKNOWN"),
+        (worse("UNKNOWN"), unknown_reason, f"UNKNOWN reason: {RULE}: scope_incomplete"),
     ],
 )
 def test_a_worse_status_or_a_new_unknown_reason_is_red(
@@ -296,7 +250,7 @@ def test_a_scan_that_reads_fewer_files_is_growth_even_when_the_gaps_are_equal(
     """A `[scan]` exclusion hides gaps by scanning less: the real result shows files 4 -> 3."""
     assert real("base.json")["frame"]["self_test"]["reply"]["files"] == 4
     base, shrunk = str(FIXTURES / "base.json"), str(FIXTURES / "scan-shrank.json")
-    red(run(tmp_path, base, shrunk), "GROWN scope shrank: files 4 -> 3", "grown 1")
+    red(run(tmp_path, base, shrunk), "scope shrank: files 4 -> 3", "grown 1")
     done = run(tmp_path, base, shrunk, labels="ratchet-lead", body=LINE.format(n=1))
     assert done.returncode == 0, done.stdout
     assert run(tmp_path, shrunk, base).returncode == 0
@@ -314,7 +268,7 @@ def test_a_rule_that_disappears_is_growth(tmp_path: Path) -> None:
     del pr["frame"]["rules"][RULE]
     pr["frame"]["rules"]["OTHER-RULE"] = ["interface_boundary", "PASS"]
     done = run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", pr))
-    red(done, f"GROWN rule removed: {RULE}", "grown 1")
+    red(done, f"rule removed: {RULE}", "grown 1")
     done = run(
         tmp_path,
         str(FIXTURES / "base.json"),

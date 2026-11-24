@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 import pytest
-from core_support import ROOT, pinned_self_status, run
+from core_support import NATIVE_SELF_STATUS, ROOT, SHELL_SELF_STATUS, run
 from frozen_native import frozen_root as frozen_root
 from planted_cycle import cycle_root as cycle_root
 
@@ -22,11 +22,11 @@ ASSETS = ROOT / "native/report/assets"
 # AD-606: the Explorer scripts and style are about 2.1 MB of the page.
 BUDGET = 3_500_000
 RUNS = {
-    # AD-670: the shell pin holds the known FAIL rows of its self-contract.
+    # AD-1064: the self-contract of the shell has all rules PASS.
     "shell": (
         None,
         "docs/architecture/shell.toml",
-        pinned_self_status(ROOT / "docs/architecture/target/shell-expected.json")[1],
+        SHELL_SELF_STATUS[1],
     ),
     "H-typescript": ("fixtures/H-typescript", "archkeel.toml", "UNKNOWN"),
     "L-nest-realworld": ("fixtures/L-nest-realworld", "archkeel.toml", "UNKNOWN"),
@@ -52,7 +52,7 @@ def self_page(
         code, text, found = write_page(
             release_core, patch, frozen_root, "native/archkeel.toml", target
         )
-    assert (code, found["status"]) == pinned_self_status()
+    assert (code, found["status"]) == NATIVE_SELF_STATUS
     return text
 
 

@@ -199,7 +199,7 @@ def test_file_size_limit_covers_code_and_not_data() -> None:
     assert not _is_size_limited("native/report/assets/Geist-Variable.woff2")
     assert _is_size_limited("tests/test_analyzer.py")
     assert _is_size_limited("fixtures/demo_catalog_types.py")
-    assert _is_size_limited("tools/native_expected.py")
+    assert _is_size_limited("tools/self_check_diff.py")
     assert _is_size_limited("fixtures/capture_typescript_config_reference.cjs")
     assert not _is_size_limited("tools/browser-runtime/node_modules/x/index.js")
     assert not _is_size_limited("fixtures/H-typescript/src/main.ts")

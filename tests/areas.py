@@ -15,7 +15,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_explorer_*.py",
         "test_native_core.py",
         "test_native_interface_boundary.py",
-        "test_native_expected_gaps.py",
         "test_native_self_rules.py",
         "test_native_self_contract.py",
         "test_native_self_core_rows.py",

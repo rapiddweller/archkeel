@@ -23,14 +23,14 @@ def test_a_change_outside_native_checks_no_rust() -> None:
     assert selection(["src/archkeel/cli/core_text.py", "docs/a.md"], CRATES) == ""
 
 
-def test_a_change_in_a_crate_names_that_crate_and_a_pin_checks_only_the_format() -> None:
+def test_a_change_in_a_crate_names_that_crate_and_a_data_file_checks_only_the_format() -> None:
     assert selection(["native/core/src/main.rs"], CRATES) == "-p archkeel-core"
     paths = ["native/python/src/a.rs", "native/report/src/b.rs", "native/core/src/c.rs"]
     assert (
         selection(paths, CRATES)
         == "-p archkeel-core -p archkeel-python-collector -p archkeel-report"
     )
-    assert selection(["native/expected-gaps.json"], CRATES) == "-"
+    assert selection(["native/api_baseline.json"], CRATES) == "-"
 
 
 def test_a_workspace_file_checks_the_whole_workspace() -> None:

@@ -4,10 +4,9 @@
 """AD-478: the core decides each rule of the contract of the Python shell (#880).
 
 The tests copy `src/archkeel` and the shell contract into a Git repository, run the default
-`archkeel validate` with the core of this build, and compare the rows with the pinned file
-`docs/architecture/target/shell-expected.json`, which `make self-validate-shell` checks with the
-same code. Planted imports show that a rule can fail, and one mounted contract of `native/` shows
-what a mixed tree gives today.
+`archkeel validate` with the core of this build, and require all rules PASS and no gap,
+as `make self-validate-shell` does (AD-1064). Planted imports show that a rule can fail, and one
+mounted contract of `native/` shows what a mixed tree gives today.
 """
 
 from __future__ import annotations
@@ -21,17 +20,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import ROOT, SUFFIX, copy_cited, pinned_self_status, run
+from core_support import ROOT, SHELL_SELF_STATUS, SUFFIX, copy_cited, run
 from corpus_support import commit_tree
 
 from archkeel.cli import core_only
 
 sys.path.insert(0, str(ROOT / "tools"))
-from native_expected import problems  # noqa: E402
+from self_check_diff import absolute, condense  # noqa: E402
 
 CONFIG = "docs/architecture/shell.toml"
 CONTRACT = "docs/architecture/target/shell-contract.json"
-EXPECTED = ROOT / "docs/architecture/target/shell-expected.json"
 DECIDED_KINDS = {
     "complete_assignment",
     "complete_requires",
@@ -71,13 +69,10 @@ def decide(root: Path, built: Path) -> tuple[int, dict[str, Any]]:
 def test_the_core_decides_each_rule_of_the_shell_contract(shell_tree: Path, built: Path) -> None:
     code, result = decide(shell_tree, built)
     frame = result["frame"]
-    expected = json.loads(EXPECTED.read_text())
-    assert problems(result, expected) == []
-    # AD-670: a known violation stays FAIL, as pinned (honesty rule); no rule is UNKNOWN.
+    assert absolute(condense(result)) == []
     core = {rule: row[1] for rule, row in frame["rules"].items()}
-    assert core == expected["rules"] and "UNKNOWN" not in core.values()
-    status = pinned_self_status(EXPECTED)
-    assert (code, result["status"], frame["scope"]) == (*status, "complete")
+    assert core and set(core.values()) == {"PASS"}
+    assert (code, result["status"], frame["scope"]) == (*SHELL_SELF_STATUS, "complete")
     assert result["gaps"] == [] and frame["collection_gaps"] == []
 
 
@@ -132,13 +127,12 @@ def test_a_contract_of_native_mounted_in_the_python_scan_decides_nothing(
     rows = result["frame"]["rules"]
     assert any(rule.startswith("native:") for rule in rows)
     assert {row[1] for rule, row in rows.items() if rule.startswith("native:")} == {"UNKNOWN"}
-    # A violation of the shell is a fact also in an incomplete scope; no row passes.
-    pinned = json.loads(EXPECTED.read_text())["rules"]
+    # A violation of the shell is a fact also in an incomplete scope; the shell has none.
     failing = {rule for rule, row in rows.items() if row[1] == "FAIL"}
-    assert failing == {rule for rule, status in pinned.items() if status == "FAIL"}
+    assert failing == set()
     assert "PASS" not in {row[1] for row in rows.values()}
     assert "outside the namespace" in result["frame"]["scope"]
-    assert (code, result["status"]) == ((1, "FAIL") if failing else (2, "UNKNOWN"))
+    assert (code, result["status"]) == (2, "UNKNOWN")
 
 
 def test_the_contract_states_every_rule_with_a_decided_kind_and_real_provenance() -> None:

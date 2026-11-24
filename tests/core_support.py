@@ -31,19 +31,16 @@ NATIVE = ROOT / "native"
 SUFFIX = ".exe" if os.name == "nt" else ""
 
 
-def pinned_self_status(pin: Path | None = None) -> tuple[int, str]:
-    """The exit code and status of a self-check as its pin states it (default: the native one).
-
-    AD-668: a known violation of the self-contract stays FAIL until the code is fixed, so a test of
-    the self run compares with the pin and does not expect PASS.
-    """
-    # Imported here: a copy of this module in a temporary project (`test_parallel_execution`)
-    # has no `tools` package beside it.
-    from tools.native_expected import expected_exit
-
-    expected = json.loads((pin or NATIVE / "expected-gaps.json").read_text("utf-8"))
-    code = expected_exit(expected)
-    return code, {0: "PASS", 1: "FAIL"}.get(code, "UNKNOWN")
+# AD-670: the Rust collector states no public symbol facts yet, so the self-check of native/ has
+# these UNKNOWN rules and no others. The tuple is the stated goal, not a pin: it is empty when the
+# goal is reached, and the expected status is then PASS (AD-1064).
+NATIVE_UNKNOWN = (
+    "NATIVE-INTERFACE-BOUNDARY",
+    "NATIVE-NO-MODULE-CYCLES",
+    "NATIVE-REQUIRES-COMPLETE",
+)
+NATIVE_SELF_STATUS = (2, "UNKNOWN") if NATIVE_UNKNOWN else (0, "PASS")
+SHELL_SELF_STATUS = (0, "PASS")
 
 
 def build_environment() -> dict[str, str]:
