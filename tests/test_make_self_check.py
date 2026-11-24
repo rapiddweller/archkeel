@@ -37,7 +37,11 @@ def test_a_self_check_without_a_usable_core_result_fails(
         "esac\n"
     )
     uv.chmod(0o755)
-    for name in ("tools/self_check_gate.py", "tools/self_check_diff.py"):
+    for name in (
+        "tools/self_check_gate.py",
+        "tools/self_check_diff.py",
+        "docs/architecture/target/shell-contract.json",
+    ):
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / name).write_bytes((ROOT / name).read_bytes())
     (tmp_path / "native").mkdir()

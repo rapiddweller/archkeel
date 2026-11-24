@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from self_check_support import FIXTURES, RULE, TOOL, real, red, run, save, violation
+from self_check_support import FIXTURES, RULE, TOOL, real, red, run, save, violation, worse
 
 
 def many_gaps(count: int) -> dict[str, Any]:
@@ -73,6 +73,8 @@ def test_a_clean_result_alone_is_green_and_a_refusal_or_a_fail_is_red(
 ) -> None:
     def tool(result: dict[str, Any] | str) -> subprocess.CompletedProcess[str]:
         args = [sys.executable, str(TOOL), mode, save(tmp_path, "r.json", result)]
+        if mode == "shell":
+            args.append(save(tmp_path, "contract.json", {"rules": [{"id": RULE}]}))
         return subprocess.run(args, capture_output=True, text=True, timeout=60)
 
     clean = real("base.json")
@@ -93,3 +95,65 @@ def test_a_clean_result_alone_is_green_and_a_refusal_or_a_fail_is_red(
 
 
 REFUSED = {"refusal": {"kind": "core_error", "message": "x"}, "exit_code": 2}
+
+
+def shell(
+    tmp_path: Path, result: dict[str, Any], rules: list[str]
+) -> subprocess.CompletedProcess[str]:
+    contract = save(tmp_path, "contract.json", {"rules": [{"id": rule} for rule in rules]})
+    args = [sys.executable, str(TOOL), "shell", save(tmp_path, "r.json", result), contract]
+    return subprocess.run(args, capture_output=True, text=True, timeout=60)
+
+
+def passing() -> dict[str, Any]:
+    result = real("base.json")
+    result["gaps"] = []
+    result["frame"]["collection_gaps"] = []
+    result["exit_code"] = 0
+    return result
+
+
+def test_the_shell_rules_must_equal_the_rules_of_the_contract(tmp_path: Path) -> None:
+    assert shell(tmp_path, passing(), [RULE]).returncode == 0
+    missing = shell(tmp_path, passing(), [RULE, "SHELL-DROPPED"])
+    red(missing, "rule SHELL-DROPPED of the contract has no row in the result")
+    extra = shell(tmp_path, passing(), [])
+    red(extra, f"rule {RULE} is in the result and not in the contract")
+    assert shell(tmp_path, passing(), []).returncode == 1
+    nothing = subprocess.run(
+        [sys.executable, str(TOOL), "shell", save(tmp_path, "r.json", passing()), "none.json"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    red(nothing, "none.json is not a contract with rules")
+
+
+def test_a_newline_in_a_reason_never_starts_a_log_line(tmp_path: Path) -> None:
+    more = many_gaps(1)
+    more["gaps"][-1]["reason"] = "first\n::error::x\r::warning::y\u2028::notice::z"
+    refused = {"refusal": {"kind": "k", "message": "a\n::error::boom"}, "exit_code": 2}
+    for pr in (more, refused):
+        done = run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", pr))
+        assert done.returncode == 1
+        assert [line for line in done.stdout.splitlines() if line.startswith("::")] == []
+        assert "::error::x" in done.stdout or "::error::boom" in done.stdout
+
+
+def test_the_summary_is_small_with_500_violations(tmp_path: Path) -> None:
+    pr = real("base.json")
+    worse("FAIL")(pr)
+    row = {"source": "a", "target": "b", "cause": "x" * 400, "evidence": []}
+    pr["frame"]["details"] = {RULE: [{**row, "source": f"s{i}"} for i in range(500)]}
+    pr["frame"]["violations"] = {RULE: 500}
+    pr["exit_code"] = 1
+    summary = tmp_path / "summary.md"
+    done = run(
+        tmp_path,
+        str(FIXTURES / "base.json"),
+        save(tmp_path, "p.json", pr),
+        extra=("--summary-file", str(summary)),
+    )
+    assert done.returncode == 1 and "and 490 more violations" in done.stdout
+    text = summary.read_text()
+    assert len(text) < 10_000 and len(text.splitlines()) <= 25

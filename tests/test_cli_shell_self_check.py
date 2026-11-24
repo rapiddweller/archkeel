@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -74,6 +75,36 @@ def test_the_core_decides_each_rule_of_the_shell_contract(shell_tree: Path, buil
     assert core and set(core.values()) == {"PASS"}
     assert (code, result["status"], frame["scope"]) == (*SHELL_SELF_STATUS, "complete")
     assert result["gaps"] == [] and frame["collection_gaps"] == []
+
+
+def test_the_gate_compares_the_rule_set_of_a_real_result_with_the_contract(
+    shell_tree: Path, built: Path, tmp_path: Path
+) -> None:
+    _code, result = decide(shell_tree, built)
+    contract = str(ROOT / CONTRACT)
+
+    def gate(document: dict[str, Any]) -> subprocess.CompletedProcess[str]:
+        path = tmp_path / "result.json"
+        path.write_text(json.dumps(document), encoding="utf-8")
+        args = [
+            sys.executable,
+            str(ROOT / "tools/self_check_diff.py"),
+            "shell",
+            str(path),
+            contract,
+        ]
+        return subprocess.run(args, capture_output=True, text=True, timeout=60)
+
+    assert gate(result).returncode == 0
+    dropped = json.loads(json.dumps(result))
+    name = sorted(dropped["frame"]["rules"])[0]
+    del dropped["frame"]["rules"][name]
+    done = gate(dropped)
+    assert done.returncode == 1 and f"rule {name} of the contract has no row" in done.stdout
+    added = json.loads(json.dumps(result))
+    added["frame"]["rules"]["SHELL-INVENTED"] = ["x", "PASS"]
+    done = gate(added)
+    assert done.returncode == 1 and "rule SHELL-INVENTED is in the result and not in" in done.stdout
 
 
 def test_a_planted_import_fails_the_rule_that_names_it(shell_tree: Path, built: Path) -> None:

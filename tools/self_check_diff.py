@@ -5,7 +5,8 @@
 
 Run: `python tools/self_check_diff.py <base.json> <pr.json> [--base-sha S] [--labels a,b]
 [--body-file F] [--report-only] [--grown-file F] [--summary-file F]`, or `same <a.json> <b.json>`,
-`alone <pr.json>` (the PR result must be clean) or `shell <pr.json>` (all rules PASS, no gap).
+`alone <pr.json>` (the PR result must be clean) or `shell <pr.json> <contract.json>` (the rules
+are exactly the rules of the contract, all PASS, no gap).
 
 A file is the full JSON of `archkeel validate` or the condensed form of `condense`: the gaps as
 (kind, subjects, reason), the rule statuses, the UNKNOWN reason kinds, the violations and the exit
@@ -38,8 +39,18 @@ LABEL = "ratchet-lead"
 LINE = re.compile(r"Ratchet growth: (0|[1-9][0-9]*) items?: \S.{9,}")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 SHOWN = 10
+SUMMARY_LIMIT = 60_000
 FIELDS = ("rules", "unknown", "gaps", "violations", "exit_code")
 EMPTY: dict[str, Any] = {"rules": {}, "unknown": {}, "gaps": [], "violations": []}
+
+
+def one(text: object) -> str:
+    """One line: a newline in a reason, subject or message must not start a line of the log."""
+    return " ".join(str(text).splitlines())
+
+
+def show(text: object) -> None:
+    print(one(text))
 
 
 class Unusable(Exception):
@@ -127,7 +138,9 @@ def absolute(pr: dict[str, Any]) -> list[str]:
     found += [
         f"rule {rule} is FAIL" for rule, status in sorted(pr["rules"].items()) if status == "FAIL"
     ]
-    found += [f"violation: {item}" for item in pr["violations"]]
+    found += [f"violation: {item}" for item in pr["violations"][:SHOWN]]
+    if len(pr["violations"]) > SHOWN:
+        found.append(f"and {len(pr['violations']) - SHOWN} more violations")
     counted = sum(int(n) for n in (pr.get("violation_counts") or {}).values())
     if counted > len(pr["violations"]):
         found.append(f"the result counts {counted} violations and lists {len(pr['violations'])}")
@@ -140,6 +153,10 @@ def absolute(pr: dict[str, Any]) -> list[str]:
             f"exit code {pr.get('exit_code')} differs from {expected}, which its statuses give"
         )
     return found
+
+
+def one2(kind: str, item: str, reason: str) -> tuple[str, str]:
+    return one(f"gap [{kind}] {item}"), one(f"gap [{kind}] {item} -- {reason}")
 
 
 def both(text: str) -> tuple[str, str]:
@@ -156,8 +173,8 @@ def grown(base: dict[str, Any], pr: dict[str, Any]) -> tuple[list[str], list[tup
     lines: list[str] = []
     items: list[tuple[str, str]] = []
     for (kind, reason), subjects in sorted(by_reason.items()):
-        lines.append(f"GROWN {len(subjects)} new gaps [{kind}]: {reason}")
-        items += [(f"gap [{kind}] {item}", f"gap [{kind}] {item} -- {reason}") for item in subjects]
+        lines.append(f"GROWN {len(subjects)} new gaps [{kind}]: {one(reason)}")
+        items += [one2(kind, item, reason) for item in subjects]
     if any(RECEIVER_GAP.search(reason) for _kind, reason in by_reason):
         lines.append(
             "Hint: write a method call as a path call (`Type::method(&value)`) or bind a typed "
@@ -232,21 +249,23 @@ def report(
 ) -> None:
     """Print the first `SHOWN` grown items; keep all of them in `grown_file` and the summary."""
     for short, _full in items[:SHOWN]:
-        print(f"    {short}")
+        show(f"    {short}")
     if len(items) > SHOWN:
-        print(f"    and {len(items) - SHOWN} more")
+        show(f"    and {len(items) - SHOWN} more")
     if grown_file and items:
-        print(f"All {len(items)} grown items are in {grown_file}")
+        show(f"All {len(items)} grown items are in {grown_file}")
         Path(grown_file).parent.mkdir(parents=True, exist_ok=True)
         Path(grown_file).write_text("".join(f"{full}\n" for _s, full in items), encoding="utf-8")
     if summary_file and (items or errors):
         lines = [f"### Self-check: {len(items)} grown items"]
-        lines += [f"- {text}" for text in errors]
+        lines += [f"- {one(text)[:500]}" for text in errors[:SHOWN]]
+        if len(errors) > SHOWN:
+            lines.append(f"- and {len(errors) - SHOWN} more errors")
         lines += [f"- `{short}`" for short, _full in items[:SHOWN]]
         if len(items) > SHOWN:
             lines.append(f"- and {len(items) - SHOWN} more")
         with Path(summary_file).open("a", encoding="utf-8") as out:
-            out.write("\n".join(lines) + "\n")
+            out.write(("\n".join(lines) + "\n")[:SUMMARY_LIMIT])
 
 
 def check(
@@ -263,7 +282,7 @@ def check(
     try:
         pr = load(pr_path)
     except Unusable as error:
-        print(f"the PR result is unusable: {error}")
+        show(f"the PR result is unusable: {error}")
         return 1
     hard = absolute(pr)
     errors: list[str] = []
@@ -273,46 +292,65 @@ def check(
             raise Unusable(f"{base_path} is a refusal: {base['refusal'].get('kind')}")
         if base_sha and base.get("sha") != base_sha:
             raise Unusable(f"{base_path} is for {base.get('sha') or 'no commit'}, not {base_sha}")
-        print(f"base {where(base)}; PR {where(pr)}")
+        show(f"base {where(base)}; PR {where(pr)}")
     except Unusable as error:
         base = EMPTY
-        print(f"the base result is unusable: {error}; nothing is compared, each item counts as new")
+        show(f"the base result is unusable: {error}; nothing is compared, each item counts as new")
         if LABEL not in labels:
             errors.append(f"unusable base: set the label {LABEL} and the growth line to pass")
-    print(summary(pr))
+    show(summary(pr))
     lines, items, removed = grown(base, pr)
     count = len(items)
     if lines:
-        print("\n".join(lines))
+        for line in lines:
+            show(line)
     if count:
         errors += approval(count, labels, body)
     if count and removed:
-        print(f"{removed} gaps are removed. A reworded reason or a renamed module shows as both.")
-    print(f"self-check diff: grown {count}, removed {removed}")
+        show(f"{removed} gaps are removed. A reworded reason or a renamed module shows as both.")
+    show(f"self-check diff: grown {count}, removed {removed}")
     report(items, hard + errors, grown_file, summary_file)
     for line in hard + errors:
-        print(f"FAIL {line}")
+        show(f"FAIL {line}")
     if hard or errors:
-        print("Run `make self-validate-native` to see the same result on your machine.")
+        show("Run `make self-validate-native` to see the same result on your machine.")
     return 1 if hard or (errors and not report_only) else 0
 
 
-def alone(path: str, strict: bool) -> int:
-    """Exit 0 when one result is clean. `strict` (the shell): all rules PASS and no gap."""
+def contract_rules(path: str) -> set[str]:
+    """The rule ids of a contract file: the one source of the rule set of the shell."""
+    try:
+        document = json.loads(Path(path).read_text(encoding="utf-8"))
+        return {str(rule["id"]) for rule in document["rules"]}
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise Unusable(f"{path} is not a contract with rules ({error})") from error
+
+
+def alone(path: str, strict: bool, contract: str = "") -> int:
+    """Exit 0 when one result is clean. `strict` (the shell): rules equal the contract, all PASS."""
     try:
         found = load(path)
+        wanted = contract_rules(contract) if strict else set()
     except Unusable as error:
-        print(f"FAIL {error}")
+        show(f"FAIL {error}")
         return 1
     errors = absolute(found)
     if strict and not errors:
         statuses = set(found["rules"].values())
         if statuses != {"PASS"} or found["gaps"]:
             errors.append("the result must have all rules PASS and no gap")
+        errors += [
+            f"rule {rule} of the contract has no row in the result"
+            for rule in sorted(wanted - set(found["rules"]))
+        ]
+        errors += [
+            f"rule {rule} is in the result and not in the contract"
+            for rule in sorted(set(found["rules"]) - wanted)
+        ]
     if not found.get("refusal"):
-        print(summary(found))
+        show(summary(found))
     for line in errors:
-        print(f"FAIL {line}")
+        show(f"FAIL {line}")
     return 1 if errors else 0
 
 
@@ -321,14 +359,14 @@ def same(first: str, second: str) -> int:
     try:
         one, two = load(first), load(second)
     except Unusable as error:
-        print(f"FAIL {error}")
+        show(f"FAIL {error}")
         return 1
     differ = [f for f in FIELDS if f != "gaps" and one.get(f) != two.get(f)]
     if one.get("sha") != two.get("sha"):
         differ.append("sha")
     if Counter(map(tuple, one["gaps"])) != Counter(map(tuple, two["gaps"])):
         differ.append("gaps")
-    print(f"same-commit compare: fields that differ: {differ or 'none'}")
+    show(f"same-commit compare: fields that differ: {differ or 'none'}")
     return 1 if differ else 0
 
 
@@ -338,10 +376,12 @@ def main(argv: list[str]) -> int:
 
     if argv[:1] == ["same"] and len(argv) == 3:
         return same(argv[1], argv[2])
-    if argv[:1] in (["alone"], ["shell"]) and len(argv) == 2:
-        return alone(argv[1], strict=argv[0] == "shell")
+    if argv[:1] == ["alone"] and len(argv) == 2:
+        return alone(argv[1], strict=False)
+    if argv[:1] == ["shell"] and len(argv) == 3:
+        return alone(argv[1], strict=True, contract=argv[2])
     if len(argv) < 2:
-        print(__doc__)
+        print(__doc__)  # the module text, not a result
         return 2
     labels = [name for name in option("--labels").split(",") if name]
     body_file = option("--body-file")

@@ -176,7 +176,8 @@ reason or a renamed module shows as the same number of new and removed gaps and 
 The full result is in ignored `test-artifacts/validation-native/result.json`.
 `make self-validate-shell` checks the Python shell of `src/archkeel` with the contract
 `docs/architecture/target/shell-contract.json` ([shell](docs/architecture/shell.md), AD-478). All rules must
-PASS with no gap and exit code 0; it needs no base.
+PASS with no gap and exit code 0, and the rules must equal the rules of the contract; it needs no base.
+The hygiene test also fails on an untracked local file that is named like a pin (`*expected-gaps*`, `*expected-growth*`, `*shell-expected*`): delete it.
 `make self-validate` runs both checks and the system check. The system check includes the Studio UI
 contract at `studio/architecture-contract.json`. The tools have no architecture contract.
 

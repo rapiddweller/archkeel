@@ -51,7 +51,9 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert result["gaps"] == []
     # AD-668: a known violation would stay FAIL (honesty rule); the self-contract has none. An
     # UNKNOWN rule is a stated one (AD-670: the Rust collector states no public symbol facts yet).
-    assert {rule for rule, status in core.items() if status == "UNKNOWN"} == set(NATIVE_UNKNOWN)
+    assert {rule for rule, status in core.items() if status == "UNKNOWN"} == set(NATIVE_UNKNOWN), (
+        "a rule left UNKNOWN (the goal): remove it from NATIVE_UNKNOWN in tests/core_support.py"
+    )
     assert {status for rule, status in core.items() if rule not in NATIVE_UNKNOWN} == {"PASS"}
     status = NATIVE_SELF_STATUS[1]
     assert (code, result["status"], frame["status"]) == (NATIVE_SELF_STATUS[0], status, status)

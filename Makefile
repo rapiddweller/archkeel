@@ -186,7 +186,7 @@ self-validate-native: core
 self-validate-shell: core
 	@mkdir -p test-artifacts/validation-shell
 	@$(UV) run --locked archkeel validate --config docs/architecture/shell.toml --json > test-artifacts/validation-shell/result.json || true
-	@$(UV) run --locked python tools/self_check_diff.py shell test-artifacts/validation-shell/result.json
+	@$(UV) run --locked python tools/self_check_diff.py shell test-artifacts/validation-shell/result.json docs/architecture/target/shell-contract.json
 	@echo "Shell architecture rules: all PASS; full result: test-artifacts/validation-shell/result.json"
 
 # AD-616: ArchKeel as one system: one core run checks each part of the system document and gives one
