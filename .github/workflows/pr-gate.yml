@@ -115,12 +115,15 @@ jobs:
         if: steps.build.outcome == 'success'
         run: test "${{ steps.build.outputs.static }}" = 0
 
+      - name: Remove any self-check result that the checkout holds
+        run: rm -f test-artifacts/selfcheck/result.json test-artifacts/selfcheck/base.json
+
       # AD-1061: the result of the self-check on the base commit. A miss is computed by the gate in a
       # git worktree; the gate never skips. Only main CI saves this key.
       - name: Restore the self-check result of the base commit
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: test-artifacts/selfcheck/result.json
+          path: test-artifacts/selfcheck/base.json
           key: selfcheck-v1-${{ runner.os }}-${{ github.event.pull_request.base.sha }}
 
       # AD-1061: read the labels and the text now, not from the event: a re-run must see a later label.
@@ -131,7 +134,8 @@ jobs:
         run: |
           gh api "repos/$GITHUB_REPOSITORY/pulls/$NUMBER" > "$RUNNER_TEMP/pull.json"
           jq -r '.body // ""' "$RUNNER_TEMP/pull.json" > "$RUNNER_TEMP/pull-body.txt"
-          echo "RATCHET_LABELS=$(jq -r '[.labels[].name] | join(",")' "$RUNNER_TEMP/pull.json")" >> "$GITHUB_ENV"
+          # A boolean only: label text never reaches GITHUB_ENV.
+          echo "RATCHET_LABELED=$(jq '[.labels[].name] | index("ratchet-lead") != null' "$RUNNER_TEMP/pull.json")" >> "$GITHUB_ENV"
           echo "RATCHET_BODY_FILE=$RUNNER_TEMP/pull-body.txt" >> "$GITHUB_ENV"
 
       - name: Run the PR gate

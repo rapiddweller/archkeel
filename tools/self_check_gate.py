@@ -6,14 +6,16 @@
 Run: `python tools/self_check_gate.py --result <result.json> --base <ref> --old-exit <N> --uv <uv>
 [--report-only] [--no-compare]`. `make self-validate-native` calls it after the pin gate.
 
-It condenses the result into `test-artifacts/selfcheck/result.json`. That file holds the result of
-this commit: main CI saves it in a cache keyed by the sha, and the next run reads it as the base
-candidate when the file is for the merge base of `--base` and HEAD. A miss computes the base in a
-git worktree of that commit (the core of this tree is reused when `native/` is the same). It never
-skips: when the base cannot be computed, the gate fails and names the reason. The label and the PR
-text for growth come from RATCHET_LABELS and RATCHET_BODY_FILE. `BASE_RESULT=<file>` replaces the
-base. While the pin gate stays authoritative, a different verdict of the two gates prints one line
-`GATE DISAGREEMENT`.
+It condenses the result into `test-artifacts/selfcheck/result.json`: the result of this commit.
+Main CI copies it to `base.json` and saves that file in a cache keyed by the sha. The PR gate
+restores the cache to `base.json`, which nothing else writes. The gate reads `base.json` as the
+base candidate only when it is for the merge base of `--base` and HEAD. The gate fails when git
+tracks a file under `test-artifacts/selfcheck/`: a PR must not bring its own base. A miss computes
+the base in a git worktree of that commit (the core of this tree is reused when `native/` is the
+same). It never skips: when the base cannot be computed, the gate fails and names the reason. The
+label and the PR text for growth come from RATCHET_LABELED (`true`) and RATCHET_BODY_FILE.
+`BASE_RESULT=<file>` replaces the base. While the pin gate stays authoritative, a different verdict
+of the two gates prints one line `GATE DISAGREEMENT`.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from self_check_diff import Unusable, condense
 from self_check_diff import main as diff
 
 KEPT = Path("test-artifacts/selfcheck/result.json")
+BASE = Path("test-artifacts/selfcheck/base.json")
 BINARIES = ("archkeel-core", "archkeel-rust-collector", "archkeel-typescript-collector")
 
 
@@ -123,9 +126,13 @@ def main(argv: list[str]) -> int:
         return argv[argv.index(name) + 1] if name in argv else ""
 
     old = int(option("--old-exit") or 0)
-    candidate = KEPT.read_text(encoding="utf-8") if KEPT.is_file() else ""
+    candidate = BASE.read_text(encoding="utf-8") if BASE.is_file() else ""
     KEPT.unlink(missing_ok=True)
     try:
+        if tracked := git("ls-files", str(KEPT.parent)):
+            print(f"FAIL git tracks files under {KEPT.parent}/, a PR must not bring a base:")
+            print(tracked)
+            return 1
         sha, tree = git("rev-parse", "HEAD"), git("rev-parse", "HEAD:native")
         own = condense(json.loads(Path(option("--result")).read_text(encoding="utf-8")), sha, tree)
     except (Unusable, OSError, ValueError) as error:
@@ -142,7 +149,7 @@ def main(argv: list[str]) -> int:
     except Unusable as error:
         print(f"base unavailable: {error}")
         path, wanted = Path("missing-base-result.json"), ""
-    labels = os.environ.get("RATCHET_LABELS", "")
+    labels = "ratchet-lead" if os.environ.get("RATCHET_LABELED") == "true" else ""
     args = [str(path), str(KEPT), "--labels", labels, "--base-sha", wanted]
     args += (
         ["--body-file", os.environ["RATCHET_BODY_FILE"]]

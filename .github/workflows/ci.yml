@@ -83,12 +83,16 @@ jobs:
           BASE: ${{ github.event_name == 'push' && github.event.before || 'HEAD~1' }}
         run: make ci-pr-static BASE="$BASE"
 
-      # AD-1061: the base is the result of the parent commit. The gate writes the result of this commit
-      # to the same path; it is saved below, also when another step of this job is red.
+      - name: Remove any self-check result that the checkout holds
+        run: rm -f test-artifacts/selfcheck/result.json test-artifacts/selfcheck/base.json
+
+      # AD-1061: the base is the result of the parent commit, restored to base.json. The gate writes the
+      # result of this commit to result.json. A copy of it is saved as base.json below, also when another
+      # step of this job is red. result.json exists only when the gate ran in this job.
       - name: Restore the self-check result of the parent commit
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: test-artifacts/selfcheck/result.json
+          path: test-artifacts/selfcheck/base.json
           key: selfcheck-v1-${{ runner.os }}-${{ github.event_name == 'push' && github.event.before || 'none' }}
 
       # Main CI only reports the comparison: it cannot see the label of the merged pull request.
@@ -98,11 +102,15 @@ jobs:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
         run: make self-validate SELFCHECK_BASE=HEAD~1 SELFCHECK_ARGS=--report-only
 
+      - name: Keep the self-check result of this commit as the base of the next runs
+        if: always() && hashFiles('test-artifacts/selfcheck/result.json') != ''
+        run: cp test-artifacts/selfcheck/result.json test-artifacts/selfcheck/base.json
+
       - name: Save the self-check result of this commit
-        if: always() && steps.selfcheck.outcome != 'skipped' && hashFiles('test-artifacts/selfcheck/result.json') != ''
+        if: always() && hashFiles('test-artifacts/selfcheck/result.json') != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: test-artifacts/selfcheck/result.json
+          path: test-artifacts/selfcheck/base.json
           key: selfcheck-v1-${{ runner.os }}-${{ github.sha }}
 
       - name: Save the Rust build cache

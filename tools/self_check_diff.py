@@ -30,7 +30,8 @@ from native_expected import RANK, observed
 
 FORMAT = "selfcheck-v1"
 LABEL = "ratchet-lead"
-LINE = re.compile(r"^Ratchet growth: (\d+) items?: (\S.{9,})$", re.MULTILINE)
+LINE = re.compile(r"Ratchet growth: (0|[1-9][0-9]*) items?: \S.{9,}")
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 SHOWN = 20
 FIELDS = ("rules", "unknown", "gaps", "violations", "exit_code")
 EMPTY: dict[str, Any] = {"rules": {}, "unknown": {}, "gaps": [], "violations": []}
@@ -42,14 +43,19 @@ class Unusable(Exception):
 
 def condense(result: dict[str, Any], sha: str = "", tree: str = "") -> dict[str, Any]:
     """The parts of a full result that the comparison needs."""
+    if not result.get("refusal") and not isinstance(result.get("frame"), dict):
+        raise ValueError("the result has no frame")
     gaps, rules, violations = observed(result)
     frame: dict[str, Any] = result.get("frame") or {}
+    reply = (frame.get("self_test") or {}).get("reply") or {}
+    files = reply.get("files")
     return {
         "format": FORMAT,
         "sha": sha,
         "tree": tree,
         "exit_code": result.get("exit_code"),
         "refusal": result.get("refusal"),
+        "files": files if isinstance(files, int) else None,
         "rules": rules,
         "unknown": dict(frame.get("unknown_kinds") or {}),
         "gaps": [list(gap) for gap in gaps],
@@ -76,7 +82,9 @@ def load(path: str) -> dict[str, Any]:
         try:
             found = condense(found)
         except (AttributeError, TypeError, KeyError, ValueError) as error:
-            raise Unusable(f"{path} is corrupt: its fields have the wrong shape") from error
+            raise Unusable(
+                f"{path} is corrupt: {error or 'its fields have the wrong shape'}"
+            ) from error
     gaps = found.get("gaps")
     shaped = isinstance(gaps, list) and all(isinstance(g, list) and len(g) == 3 for g in gaps)
     if not shaped or any(not isinstance(found.get(f), (dict, list, int)) for f in FIELDS[:4]):
@@ -89,7 +97,8 @@ def absolute(pr: dict[str, Any]) -> list[str]:
     if pr.get("refusal"):
         refusal = pr["refusal"]
         return [f"the PR result is a refusal: {refusal.get('kind')}: {refusal.get('message')}"]
-    found = [
+    found = [] if pr["rules"] else ["the PR result has no rules, so it proves nothing"]
+    found += [
         f"rule {rule} is FAIL" for rule, status in sorted(pr["rules"].items()) if status == "FAIL"
     ]
     found += [f"violation: {item}" for item in pr["violations"]]
@@ -130,7 +139,30 @@ def grown(base: dict[str, Any], pr: dict[str, Any]) -> tuple[list[str], int, int
         if base["unknown"].get(rule) != kind:
             lines.append(f"GROWN UNKNOWN reason: {rule}: {kind}")
             count += 1
+    for rule in sorted(set(base["rules"]) - set(pr["rules"])):
+        lines.append(f"GROWN rule removed: {rule}")
+        count += 1
+    before, after = base.get("files"), pr.get("files")
+    if isinstance(before, int) and not (isinstance(after, int) and after >= before):
+        lines.append(f"GROWN scope shrank: files {before} -> {after if after is not None else '?'}")
+        count += 1
     return lines, count, sum((old - new).values())
+
+
+def plain_lines(body: str) -> list[str]:
+    """The lines of the PR text that a reader sees as plain text: no code, quote or comment."""
+    lines: list[str] = []
+    fence = ""
+    quoted = False
+    for line in re.sub(r"<!--.*?(-->|\Z)", "", body, flags=re.DOTALL).splitlines():
+        marker = FENCE.match(line)
+        if marker and (not fence or marker.group(1)[0] == fence):
+            fence = "" if fence else marker.group(1)[0]
+            continue
+        quoted = line.lstrip().startswith(">") or (quoted and bool(line.strip()))
+        if not fence and not quoted:
+            lines.append(line.rstrip("\r"))
+    return lines
 
 
 def approval(count: int, labels: list[str], body: str) -> list[str]:
@@ -138,9 +170,11 @@ def approval(count: int, labels: list[str], body: str) -> list[str]:
     ask = f"`Ratchet growth: {count} items: <reason>`"
     if LABEL not in labels:
         return [f"growth of {count} items needs the label {LABEL} and the PR text line {ask}"]
-    said = [int(found.group(1)) for found in LINE.finditer(body)]
+    said = [int(m.group(1)) for line in plain_lines(body) if (m := LINE.fullmatch(line))]
     if not said:
-        return [f"the label {LABEL} is set, but the PR text has no line {ask}"]
+        return [f"the label {LABEL} is set, but the PR text has no plain line {ask}"]
+    if len(said) > 1:
+        return [f"the PR text has {len(said)} Ratchet growth lines; keep exactly one"]
     if count not in said:
         return [f"the PR text says Ratchet growth: {said[0]} items, the grown count is {count}"]
     return []
@@ -192,6 +226,8 @@ def same(first: str, second: str) -> int:
         print(f"FAIL {error}")
         return 1
     differ = [f for f in FIELDS if f != "gaps" and one.get(f) != two.get(f)]
+    if one.get("sha") != two.get("sha"):
+        differ.append("sha")
     if Counter(map(tuple, one["gaps"])) != Counter(map(tuple, two["gaps"])):
         differ.append("gaps")
     print(f"same-commit compare: fields that differ: {differ or 'none'}")

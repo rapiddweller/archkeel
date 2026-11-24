@@ -55,15 +55,16 @@ def repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def keep_base(repo: Path, fixture: str, sha: str) -> None:
+def keep_base(repo: Path, fixture: str, sha: str, name: str = "base.json") -> Path:
     """Put a base result for `sha` where the cache restore puts it."""
     sys.path.insert(0, str(GATE.parent))
     from self_check_diff import condense
 
-    path = repo / "test-artifacts/selfcheck/result.json"
-    path.parent.mkdir(parents=True)
+    path = repo / "test-artifacts/selfcheck" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
     result = json.loads((FIXTURES / fixture).read_text(encoding="utf-8"))
     path.write_text(json.dumps(condense(result, sha, "tree")), encoding="utf-8")
+    return path
 
 
 def gate(
@@ -168,3 +169,45 @@ def test_an_unreadable_result_fails(repo: Path) -> None:
     ]
     done = subprocess.run(args, cwd=repo, env=GIT_ENV, capture_output=True, text=True, timeout=60)
     assert done.returncode == 1 and "result is unusable" in done.stdout
+
+
+@pytest.mark.parametrize("name", ["base.json", "result.json"])
+def test_a_base_result_that_the_pr_commits_is_red(repo: Path, name: str) -> None:
+    """BLOCKER: a fake base with the merge-base sha, added with `git add -f`, is not green."""
+    path = keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"), name)
+    fake = json.loads(path.read_text())
+    fake["gaps"] = []
+    path.write_text(json.dumps(fake))
+    git(repo, "add", "-f", str(path.relative_to(repo)))
+    git(repo, "commit", "-qm", "own base")
+    done = gate(repo, "plus-one-gap.json", old=0)
+    assert done.returncode == 1, done.stdout
+    assert "git tracks files under test-artifacts/selfcheck/" in done.stdout
+    assert "cache hit" not in done.stdout
+
+
+def test_a_tracked_file_is_red_also_without_a_comparison(repo: Path) -> None:
+    path = keep_base(repo, "base.json", "x" * 40, "other.json")
+    git(repo, "add", "-f", str(path.relative_to(repo)))
+    git(repo, "commit", "-qm", "own file")
+    assert gate(repo, "base.json", "--no-compare").returncode == 1
+    assert gate(repo, "base.json", "--report-only").returncode == 1
+
+
+def test_an_untracked_result_file_is_not_a_base_candidate(repo: Path) -> None:
+    """Only `base.json` (the cache restore path) is read; `result.json` is the gate output."""
+    keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"), "result.json")
+    done = gate(repo, "base.json")
+    assert done.returncode == 1 and "cache miss" in done.stdout
+
+
+def test_the_label_comes_as_a_boolean_and_label_text_is_ignored(repo: Path, tmp_path: Path) -> None:
+    keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
+    body = tmp_path / "body.txt"
+    body.write_text("Ratchet growth: 1 items: the scan reads a new public name\n")
+    env = {"RATCHET_BODY_FILE": str(body)}
+    assert gate(repo, "plus-one-gap.json", **env).returncode == 1
+    assert gate(repo, "plus-one-gap.json", RATCHET_LABELS="ratchet-lead", **env).returncode == 1
+    assert gate(repo, "plus-one-gap.json", RATCHET_LABELED="yes", **env).returncode == 1
+    done = gate(repo, "plus-one-gap.json", old=0, RATCHET_LABELED="true", **env)
+    assert done.returncode == 0, done.stdout

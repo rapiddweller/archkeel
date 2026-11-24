@@ -7,7 +7,10 @@ Each case runs `tools/self_check_diff.py` as a process on two real results of th
 in `tests/selfcheck_fixtures/` come from `archkeel validate --config archkeel.toml --json` on the
 tiny Rust project `tiny/` (a git repository): `base.json` is that run, `plus-one-gap.json` is the
 run after `plus-contract.json` replaces its contract. The second contract lists one more public
-name that no import reaches, which gives one more gap. Other cases edit these two real files.
+name that no import reaches, which gives one more gap. `scan-shrank.json` is the run after
+`exclude_test_sources = true` is added to `tiny/archkeel.toml` and `#[cfg(test)]` is put before
+`mod stock;` in `tiny/src/lib.rs`: the scan reads 3 files, not 4, and the gaps stay equal. Other
+cases edit these real files.
 """
 
 from __future__ import annotations
@@ -229,12 +232,12 @@ def test_a_base_of_another_native_tree_is_compared_and_both_trees_print(tmp_path
     [
         ("ratchet-lead", LINE.format(n=1), True, ""),
         ("ratchet-lead", "text\n" + LINE.format(n=1) + "\nmore", True, ""),
-        ("ratchet-lead", "", False, "no line"),
+        ("ratchet-lead", "", False, "no plain line"),
         ("ratchet-lead", LINE.format(n=2), False, "grown count is 1"),
         ("", LINE.format(n=1), False, "needs the label ratchet-lead"),
         ("deletion-approved", LINE.format(n=1), False, "needs the label ratchet-lead"),
         ("", "", False, "needs the label ratchet-lead"),
-        ("ratchet-lead", "Ratchet growth: 1 items: short", False, "no line"),
+        ("ratchet-lead", "Ratchet growth: 1 items: short", False, "no plain line"),
     ],
 )
 def test_growth_passes_only_with_the_label_and_the_exact_count(
@@ -285,3 +288,146 @@ def test_an_unusable_base_needs_the_label_even_when_the_pr_has_nothing_to_approv
     done = run(tmp_path, base, pr, labels="ratchet-lead")
     assert done.returncode == 0, done.stdout
     assert "nothing is compared" in done.stdout
+
+
+def test_a_scan_that_reads_fewer_files_is_growth_even_when_the_gaps_are_equal(
+    tmp_path: Path,
+) -> None:
+    """A `[scan]` exclusion hides gaps by scanning less: the real result shows files 4 -> 3."""
+    assert real("base.json")["frame"]["self_test"]["reply"]["files"] == 4
+    base, shrunk = str(FIXTURES / "base.json"), str(FIXTURES / "scan-shrank.json")
+    red(run(tmp_path, base, shrunk), "GROWN scope shrank: files 4 -> 3", "grown 1")
+    done = run(tmp_path, base, shrunk, labels="ratchet-lead", body=LINE.format(n=1))
+    assert done.returncode == 0, done.stdout
+    assert run(tmp_path, shrunk, base).returncode == 0
+
+
+def test_a_scan_with_no_file_count_is_a_shrunk_scope(tmp_path: Path) -> None:
+    pr = real("base.json")
+    del pr["frame"]["self_test"]
+    red(run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", pr)), "files 4 -> ?")
+
+
+def test_a_rule_that_disappears_is_growth(tmp_path: Path) -> None:
+    """A removed PASS rule, for example one deleted from the contract, is not green and silent."""
+    pr = real("base.json")
+    del pr["frame"]["rules"][RULE]
+    pr["frame"]["rules"]["OTHER-RULE"] = ["interface_boundary", "PASS"]
+    done = run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", pr))
+    red(done, f"GROWN rule removed: {RULE}", "grown 1")
+    done = run(
+        tmp_path,
+        str(FIXTURES / "base.json"),
+        save(tmp_path, "p.json", pr),
+        labels="ratchet-lead",
+        body=LINE.format(n=1),
+    )
+    assert done.returncode == 0, done.stdout
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        lambda r: r.update(frame=None),
+        lambda r: r.update(frame=[]),
+        lambda r: r.pop("frame"),
+        lambda r: r["frame"].update(rules={}),
+        lambda r: r["frame"].pop("rules"),
+    ],
+    ids=["frame-none", "frame-list", "frame-missing", "rules-empty", "rules-missing"],
+)
+def test_a_degenerate_core_output_is_never_green(
+    tmp_path: Path, broken: Callable[[dict[str, Any]], None]
+) -> None:
+    pr = real("base.json")
+    broken(pr)
+    pr["exit_code"] = 2
+    base = str(FIXTURES / "base.json")
+    done = run(
+        tmp_path, base, save(tmp_path, "p.json", pr), labels="ratchet-lead", body=LINE.format(n=9)
+    )
+    assert done.returncode == 1, done.stdout
+    assert "the PR result is unusable" in done.stdout or "has no rules" in done.stdout
+
+
+def test_a_degenerate_base_is_unusable(tmp_path: Path) -> None:
+    base = real("base.json")
+    base["frame"] = None
+    red(
+        run(tmp_path, save(tmp_path, "b.json", base), str(FIXTURES / "base.json")),
+        "base result is unusable",
+    )
+
+
+FENCE = "```"
+APPROVAL = LINE.format(n=1)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"{FENCE}\n{APPROVAL}\n{FENCE}",
+        f"~~~\n{APPROVAL}\n~~~",
+        f"> {APPROVAL}",
+        f"> quote\n{APPROVAL}",
+        f"<!--\n{APPROVAL}\n-->",
+        f"<!-- {APPROVAL} -->",
+        f"<!--\n{APPROVAL}",
+        f"    {APPROVAL}",
+        f"- {APPROVAL}",
+        "Ratchet growth: \uff11 items: the scan reads a new public name",
+        "Ratchet growth: 01 items: the scan reads a new public name",
+        f"{APPROVAL}\n{APPROVAL}",
+        f"{APPROVAL}\r\n{LINE.format(n=2)}",
+        "Ratchet growth: 1 items: too short",
+    ],
+    ids=[
+        "fence",
+        "tilde",
+        "quote",
+        "lazy-quote",
+        "comment",
+        "inline-comment",
+        "open-comment",
+        "indented",
+        "list",
+        "fullwidth",
+        "leading-zero",
+        "twice",
+        "two-counts",
+        "short",
+    ],
+)
+def test_the_approval_line_is_a_plain_exact_line(tmp_path: Path, body: str) -> None:
+    done = run(
+        tmp_path,
+        str(FIXTURES / "base.json"),
+        str(FIXTURES / "plus-one-gap.json"),
+        labels="ratchet-lead",
+        body=body,
+    )
+    red(done, "Ratchet growth")
+
+
+def test_a_plain_line_after_a_fence_or_a_comment_counts(tmp_path: Path) -> None:
+    body = f"{FENCE}\nx\n{FENCE}\n<!-- note -->\n{APPROVAL}\r\n"
+    done = run(
+        tmp_path,
+        str(FIXTURES / "base.json"),
+        str(FIXTURES / "plus-one-gap.json"),
+        labels="ratchet-lead",
+        body=body,
+    )
+    assert done.returncode == 0, done.stdout
+
+
+def test_results_of_two_commits_are_not_the_same_commit(tmp_path: Path) -> None:
+    sys.path.insert(0, str(TOOL.parent))
+    from self_check_diff import condense
+
+    one = save(tmp_path, "1.json", condense(real("base.json"), sha="a" * 40))
+    two = save(tmp_path, "2.json", condense(real("base.json"), sha="b" * 40))
+    done = subprocess.run(
+        [sys.executable, str(TOOL), "same", one, two], capture_output=True, text=True
+    )
+    assert done.returncode == 1 and "sha" in done.stdout
