@@ -1,0 +1,10 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: a path dependency that is no member, named `m_hy` like the member `m-hy`.
+[package]
+name = "m_hy"
+version = "0.0.9"
+edition = "2021"
+publish = false

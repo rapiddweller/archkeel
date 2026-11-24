@@ -1,0 +1,10 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: a workspace member whose directory name differs from its package name.
+[package]
+name = "rn_pkg"
+version = "0.0.0"
+edition = "2021"
+publish = false

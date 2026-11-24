@@ -1,0 +1,10 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: a workspace member with a hyphen in its name.
+[package]
+name = "b-crate"
+version = "0.0.0"
+edition = "2021"
+publish = false

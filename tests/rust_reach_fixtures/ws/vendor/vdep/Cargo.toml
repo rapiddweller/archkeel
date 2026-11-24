@@ -1,0 +1,11 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: a path dependency under the root of the scan that is no workspace member. The wrapper of the
+# driver does not read its MIR, so each call into it is a call outside the workspace.
+[package]
+name = "vdep"
+version = "0.0.0"
+edition = "2021"
+publish = false

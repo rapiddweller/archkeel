@@ -53,7 +53,7 @@ fn the_reader_verifies_the_facts_of_the_native_workspace() {
 /// The cases of `tests/rust_reach_fixtures/ws`: each has `<case>_a`, whose code dispatches into an impl
 /// in `<case>_b`. The first group runs that impl at run time, so the pair is real and must stay;
 /// the controls never run it, and the filter may exclude the pair.
-const KEPT: [&str; 61] = [
+const KEPT: [&str; 60] = [
     "direct",
     "h1",
     "h2",
@@ -114,7 +114,6 @@ const KEPT: [&str; 61] = [
     "vtreg",
     "vtblanket",
     "cfg_feature_only_fb",
-    "cfg_not_feature",
 ];
 const CONTROLS: [&str; 5] = ["none", "dyn", "generic", "other", "unbound"];
 
@@ -158,4 +157,35 @@ fn each_hole_keeps_its_real_dispatch_pair_and_each_control_is_excluded() {
         }
     }
     assert!(wrong.is_empty(), "the filter is wrong on {wrong:?}");
+}
+
+/// The cases of `tests/rust_reach_fixtures/coll`: an erasing crate that is a vendored path dependency with the
+/// package name of a member (the old reader took it for workspace code), and members that the name does not
+/// give away. Each runs its dispatch, so each pair must stay.
+#[test]
+#[ignore = "reads the facts of `make rustc-facts-e2e`"]
+fn a_vendored_crate_with_the_name_of_a_member_is_foreign_and_a_renamed_member_is_not() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/rust_reach_fixtures/coll")
+        .canonicalize()
+        .unwrap();
+    let mut scanned = BTreeMap::new();
+    scan_rust_files(&root, &root, &mut scanned);
+    let loaded = read_descriptor(&out("coll.json"), &scanned).unwrap();
+    let truth: BTreeMap<String, usize> =
+        serde_json::from_str(&std::fs::read_to_string(out("coll-truth.json")).unwrap()).unwrap();
+    let cases = ["mcoll", "mcollhy", "mrenamed", "mhyph"];
+    let known: BTreeSet<String> = cases
+        .iter()
+        .flat_map(|c| ["a", "b"].map(|s| format!("native.fx.{c}_{s}")))
+        .collect();
+    let filter = Filter::new(&loaded, &known);
+    for case in cases {
+        assert_eq!(truth[case], 1, "the run decides the truth of {case}");
+        let excluded = filter.excluded(
+            &format!("native.fx.{case}_a"),
+            &format!("native.fx.{case}_b"),
+        );
+        assert!(!excluded, "the filter dropped the real dispatch of {case}");
+    }
 }

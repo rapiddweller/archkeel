@@ -1,0 +1,17 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "fx"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+vnamed = { path = "../../vendor/vname", package = "memb" }
+vhy = { path = "../../vendor/vhy", package = "m_hy" }
+memb = { path = "../memb" }
+m-hy = { path = "../member_hy" }
+rn_pkg = { path = "../rn_dir" }
+b-crate = { path = "../b-crate" }

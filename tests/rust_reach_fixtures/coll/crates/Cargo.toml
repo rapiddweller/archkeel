@@ -1,0 +1,9 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: the workspace is `crates/`. The crates under `vendor/` are path dependencies of the repository and no members,
+# and two of them have the package name of a member.
+[workspace]
+members = ["fx", "memb", "member_hy", "rn_dir", "b-crate"]
+resolver = "2"

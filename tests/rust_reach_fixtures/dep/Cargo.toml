@@ -1,0 +1,10 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# A registry outside the workspace of `ws`: its generic code is not in the MIR of the workspace.
+[package]
+name = "regdep"
+version = "0.0.0"
+edition = "2021"
+publish = false
