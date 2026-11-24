@@ -47,13 +47,13 @@ fn the_reader_verifies_the_facts_of_the_native_workspace() {
     let mut scanned = BTreeMap::new();
     scan_rust_files(&root, &root.join("native"), &mut scanned);
     let facts = read_descriptor(&out("native.json"), &scanned).unwrap();
-    assert_eq!(facts.len(), 3);
+    assert_eq!(facts.len(), 9);
 }
 
 /// The cases of `tests/rust_reach_fixtures/ws`: each has `<case>_a`, whose code dispatches into an impl
 /// in `<case>_b`. The first group runs that impl at run time, so the pair is real and must stay;
 /// the controls never run it, and the filter may exclude the pair.
-const KEPT: [&str; 55] = [
+const KEPT: [&str; 61] = [
     "direct",
     "h1",
     "h2",
@@ -109,6 +109,12 @@ const KEPT: [&str; 55] = [
     "futhold",
     "jobup",
     "bptr",
+    "vtany",
+    "vtsend",
+    "vtreg",
+    "vtblanket",
+    "cfg_feature_only_fb",
+    "cfg_not_feature",
 ];
 const CONTROLS: [&str; 5] = ["none", "dyn", "generic", "other", "unbound"];
 

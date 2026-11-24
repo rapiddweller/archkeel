@@ -17,6 +17,7 @@ fn expected<'a>(config: &'a Config, units: &'a [String]) -> Expected<'a> {
         config,
         cargo_lock_sha256: "c1",
         units,
+        members: Box::leak(Box::new(["a/".to_string()])),
     }
 }
 
@@ -270,4 +271,32 @@ fn a_descriptor_whose_facts_do_not_match_the_scan_names_the_field() {
 fn the_schema_number_of_the_driver_is_the_one_of_the_reader() {
     let out = include_str!("../../../tools/rustc-facts/src/out.rs");
     assert!(out.contains(&format!("const SCHEMA: u32 = {};", super::SCHEMA)));
+}
+
+#[test]
+fn a_scanned_file_under_no_member_is_a_refusal() {
+    // A path dependency in the repository tree that is no workspace member: the facts name its file.
+    let files = [file("a-1", |v| {
+        v["files"] = json!([["vendor/dep/src/lib.rs", "h5"]])
+    })];
+    let mut scanned = scan();
+    scanned.insert("vendor/dep/src/lib.rs".to_string(), "h5".to_string());
+    let (config, wanted) = (Config::Default, units(&["a-1"]));
+    let got = field(expected(&config, &wanted).verify(&files, &scanned));
+    assert_eq!(got, "file vendor/dep/src/lib.rs is of no workspace member");
+}
+
+#[test]
+fn a_feature_alone_is_a_configuration_with_a_name_that_reads_back() {
+    let config = Config::Feature {
+        package: "app".to_string(),
+        feature: "fb".to_string(),
+    };
+    assert_eq!(config.cfg_name(), "feature:app/fb");
+    assert_eq!(
+        Config::named("feature:app/fb").unwrap().cfg_name(),
+        "feature:app/fb"
+    );
+    assert!(Config::named("feature:app").is_none());
+    assert!(Config::named("nothing").is_none());
 }

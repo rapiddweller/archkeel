@@ -286,7 +286,8 @@ def test_drop_from_sibling_storage(tmp_path: Path, release_core: Path, case: str
     root = repository(tmp_path / "repo", release_core, _app(files), tuple(parts), rules)
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
-    contract["schema_version"] = "3.4.0"
+    if "declarations" not in contract:  # a contract with the type-reach premise needs 3.21.0
+        contract["schema_version"] = "3.4.0"
     path.write_text(json.dumps(contract))
     commit_tree(root)
     runs_drop = case not in {"different-trait", "no-read"}

@@ -71,6 +71,11 @@
           "default": false,
           "description": "TypeScript only. Treat bundler-resolved imports (tsconfig paths, package export conditions, CSS/asset/JSON imports) as known. Requires compilerOptions.moduleResolution bundler. Asserts that the bundler's aliases match tsconfig paths; not verified."
         },
+        "rust_type_reach": {
+          "type": "boolean",
+          "default": false,
+          "description": "Rust only. Read the Rust code with compiler type-reach facts (AD-1047): the scan runs cargo check with a pinned rustc driver. The contract declares the premise rust_type_reach. A missing toolchain keeps every gap and says why."
+        },
         "exclude_test_sources": {
           "type": "boolean",
           "default": false,

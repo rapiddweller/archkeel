@@ -16,7 +16,7 @@
 //! unit read is listed too, because its `cfg(not(test))` code is not seen.
 
 use crate::type_reach_facts::Facts;
-use archkeel_facts::type_reach::{matrix, Config, Field, Unavailable, ENV};
+use archkeel_facts::type_reach::{Config, Field, Unavailable, ENV};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -35,6 +35,9 @@ pub struct Expected<'a> {
     pub cargo_lock_sha256: &'a str,
     /// The units that `cargo check` reported: each needs one facts file `<unit>.jsonl`.
     pub units: &'a [String],
+    /// The directory of each workspace member, relative to the scan root, with a closing slash. A facts file
+    /// that lists a scanned source file under none of them read the code of a crate that is no member.
+    pub members: &'a [String],
 }
 
 /// What a successful check found.
@@ -163,7 +166,7 @@ fn check_unit(
         want.target_triple,
         Field::TargetTriple,
     )?;
-    same(&build, "cfg", want.config.cfg_name(), Field::Cfg)?;
+    same(&build, "cfg", &want.config.cfg_name(), Field::Cfg)?;
     same(
         &build,
         "cargo_lock_sha256",
@@ -178,6 +181,14 @@ fn check_unit(
         .ok_or_else(|| mismatch(Field::Build))?;
     for entry in files {
         let (path, sha) = pair(entry).ok_or_else(|| mismatch(Field::Build))?;
+        if scanned.contains_key(path)
+            && !want
+                .members
+                .iter()
+                .any(|dir| path.starts_with(dir.as_str()))
+        {
+            return Err(mismatch(Field::NonMember(path.to_string())));
+        }
         if scanned.get(path).is_some_and(|scan| scan != sha) {
             return Err(mismatch(Field::SourceFile(path.to_string())));
         }
@@ -268,9 +279,15 @@ fn read_descriptor(path: &Path, scanned: &BTreeMap<String, String>) -> Result<Ve
                 .unwrap_or_default()
                 .to_string()
         };
-        let config = matrix().into_iter().find(|c| c.cfg_name() == field("name"));
-        let config =
-            config.ok_or_else(|| "the descriptor names an unknown configuration".to_string())?;
+        let config = Config::named(&field("name"))
+            .ok_or_else(|| "the descriptor names an unknown configuration".to_string())?;
+        let members: Vec<String> = descriptor
+            .get("members")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|m| m.as_str().map(str::to_string))
+            .collect();
         let units: Vec<String> = entry
             .get("units")
             .and_then(Value::as_array)
@@ -291,6 +308,7 @@ fn read_descriptor(path: &Path, scanned: &BTreeMap<String, String>) -> Result<Ve
             config: &config,
             cargo_lock_sha256: &lock,
             units: &units,
+            members: &members,
         };
         let dir = field("dir");
         want.verify_dir(Path::new(&dir), scanned)

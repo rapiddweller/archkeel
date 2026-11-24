@@ -89,6 +89,23 @@ pub fn rule_premises(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
 /// The declared premises that `rule` rests on: `standard_library_unchanged` for each position or
 /// entry of a `boundary_types` rule that it allows (AD-782).
 fn declared(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
+    // AD-1047: a rule that reads module pair gaps can rest on the compiler type reach, when the contract
+    // declares it. The rule says so although no gap was dropped: the claim is only stronger.
+    let reads_pairs = matches!(
+        rule,
+        Rule::ForbiddenDependency(_)
+            | Rule::SiblingIsolation(_)
+            | Rule::LayerOrder(_)
+            | Rule::CompleteRequires(_)
+            | Rule::NoComponentCycles(_)
+            | Rule::InterfaceBoundary(_)
+    );
+    if reads_pairs && Model::declares_premise(model, PremiseName::RustTypeReach) {
+        return vec![UsedPremise {
+            kind: PremiseKind::Declared(PremiseName::RustTypeReach),
+            subject: "type reach".to_owned(),
+        }];
+    }
     if let Rule::ForbiddenConstruct(rule) = rule {
         let Ok(Some(subject)) = crate::construct_match::receipt(model, rule) else {
             return Vec::new();
@@ -203,6 +220,14 @@ mod tests {
                 "2 declared reaches and 2 stated external users and the premise that \
                  outside code leaves the standard library unchanged"
             )
+        );
+    }
+
+    #[test]
+    fn the_premise_word_of_the_facts_is_the_word_of_the_contract() {
+        assert_eq!(
+            archkeel_facts::type_reach::PREMISE,
+            archkeel_contract::premise_word(PremiseName::RustTypeReach)
         );
     }
 }

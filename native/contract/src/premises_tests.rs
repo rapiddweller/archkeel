@@ -62,3 +62,21 @@ fn an_unknown_name_an_old_version_and_a_repeated_name_refuse_the_contract() {
         assert!(found.contains(word), "{word}: {found}");
     }
 }
+
+#[test]
+fn the_type_reach_premise_needs_contract_3_21_and_has_its_own_words() -> Result<(), String> {
+    let reach = STDLIB.replace("standard_library_unchanged", "rust_type_reach");
+    let parsed = read(&contract("3.21.0", &reach))?;
+    let declarations = parsed.declarations().as_ref().ok_or("declarations")?;
+    let [premise] = declarations.premises().as_slice() else {
+        return Err("one premise".to_owned());
+    };
+    assert_eq!(*premise.name(), PremiseName::RustTypeReach);
+    assert!(assumption_words(*premise.name()).contains("type reach"));
+    let old = read(&contract("3.19.0", &reach)).err().unwrap_or_default();
+    assert!(
+        old.contains("requires contract schema_version 3.21.0"),
+        "{old}"
+    );
+    Ok(())
+}
