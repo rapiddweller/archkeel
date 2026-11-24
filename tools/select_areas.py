@@ -6,6 +6,8 @@
 `python tools/select_areas.py <base-ref>` reads `git diff --name-only --no-renames
 <base-ref>...HEAD` (a rename lists the old and the new path), applies `tests/areas.py` and prints
 one `--area '<name>'` option for each selected area, ready for pytest.
+`python tools/select_areas.py --fetch <base-ref>` prints `fetch` when a change can alter the
+result of a real project (`areas.fetch_sources`), else `skip`. A bad ref exits non-zero.
 A change without files selects the area `self-check and CI`, so the selection is never empty.
 """
 
@@ -17,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
-from areas import AREAS, areas_of_change, parallel_areas, rust_checks  # noqa: E402
+from areas import AREAS, areas_of_change, fetch_sources, parallel_areas, rust_checks  # noqa: E402
 
 
 def changed(base: str) -> list[str]:
@@ -31,6 +33,9 @@ def changed(base: str) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    if len(argv) == 2 and argv[0] == "--fetch":
+        print("fetch" if fetch_sources(changed(argv[1])) else "skip")
+        return 0
     if len(argv) == 3 and argv[0] == "--job":
         if argv[1] != "native" and argv[1] not in AREAS:
             raise ValueError(f"unknown test area: {argv[1]}")

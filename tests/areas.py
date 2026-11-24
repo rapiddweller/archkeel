@@ -228,6 +228,24 @@ def rust_checks(paths: list[str]) -> bool:
     return any(path.startswith("native/") or path in GATE_FILES for path in paths)
 
 
+# AD-1062: a change to these paths can change the result of a real project, so the PR gate fetches
+# the pinned sources of the real-project fixtures (`fixtures/matrix.json`). Native Python and Dart
+# collectors live under `native/`; no Python collector remains.
+FETCH_FILES = frozenset(
+    {
+        "tools/fixture_source.py",
+        "tools/fixture_tree.py",
+        "tools/report_gallery.py",
+        "tests/test_cli_fixture_matrix.py",
+        ".github/workflows/area-checks.yml",
+    }
+)
+
+
+def fetch_sources(paths: list[str]) -> bool:
+    return any(path.startswith(("native/", "fixtures/")) or path in FETCH_FILES for path in paths)
+
+
 def parallel_areas(paths: list[str]) -> list[str]:
     if rust_checks(paths) or any(path.startswith("src/archkeel/cli/") for path in paths):
         return areas_of_change(paths)

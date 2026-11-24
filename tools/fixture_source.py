@@ -22,6 +22,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 import uuid
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
@@ -30,6 +31,9 @@ from typing import Any
 
 SOURCE = "SOURCE.json"
 ATTEMPTS = 3
+# Seconds to wait after the first and the second failed fetch: a short outage of the host or a rate
+# limit often ends within seconds. The last failure raises at once, with its reason.
+BACKOFF = (5, 15)
 TIMEOUT = 300
 
 
@@ -212,7 +216,9 @@ def checkout(spec: Mapping[str, Any], cache: Path | None = None) -> Iterator[Pat
         ready = home / f"{slug}-{spec['commit']}"
         if not ready.is_dir():
             error: SourceError | None = None
-            for _ in range(ATTEMPTS):
+            for attempt in range(ATTEMPTS):
+                if attempt:
+                    time.sleep(BACKOFF[min(attempt, len(BACKOFF)) - 1])
                 partial = Path(scratch) / "partial"
                 shutil.rmtree(partial, ignore_errors=True)
                 try:

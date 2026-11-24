@@ -96,6 +96,7 @@ The final 5.0.0 release also checks the complete system frame with its candidate
 ([AD-991](docs/architecture/decisions/ad-991-final-5-0-requires-the-complete-system-frame.md)).
 Every declared rule must be present once and read PASS. The frame keeps each premise.
 Before release, compare FastAPI and bazel_worker with 4.0.1. These comparisons are separate.
+Release 4.0.1 gave PASS for FastAPI (AD-530). Release 5 gives UNKNOWN with 10 gaps, all computed or literal dunder attribute reads (AD-1053, AD-1058). This difference is expected.
 
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. The main tier runs `make fast-test`;

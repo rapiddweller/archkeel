@@ -79,6 +79,37 @@ jobs:
         working-directory: native
         run: rustup toolchain install
 
+      # AD-1062: the fixture matrix pins the result of two real projects (FastAPI, bazel_worker).
+      # A PR that can change such a result fetches their pinned sources, so no PASS to UNKNOWN
+      # change reaches the nightly run unseen. Other PRs and each push to main stay offline.
+      - name: Decide whether to fetch the pinned sources of the real projects
+        id: fetch
+        if: steps.select.outputs.selected == 'run' && matrix.area == 'CLI and core' && inputs.base != ''
+        env:
+          BASE: ${{ inputs.base }}
+        run: |
+          set -euo pipefail
+          decision="$(python3 tools/select_areas.py --fetch "$BASE")"
+          case "$decision" in
+            fetch | skip) ;;
+            *) echo "the selector gave '$decision', not fetch or skip" >&2; exit 1 ;;
+          esac
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the pinned sources of the real projects
+        if: steps.fetch.outputs.decision == 'fetch'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: test-artifacts/source-cache
+          key: gallery-sources-${{ hashFiles('fixtures/*/SOURCE.json') }}
+
+      # A failed fetch of a pin fails the test with its reason; the test never skips it.
+      - name: Allow the fetch of the pinned sources
+        if: steps.fetch.outputs.decision == 'fetch'
+        run: |
+          echo "ARCHKEEL_FETCH_SOURCES=1" >> "$GITHUB_ENV"
+          echo "ARCHKEEL_SOURCE_CACHE=$GITHUB_WORKSPACE/test-artifacts/source-cache" >> "$GITHUB_ENV"
+
       - name: Run the fast tests of this area
         if: steps.select.outputs.selected == 'run'
         env:

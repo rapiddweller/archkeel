@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -68,12 +69,20 @@ def test_the_pinned_commit_is_fetched_once_and_the_cache_serves_the_next_build(
 def test_a_fetch_that_fails_raises_and_leaves_no_partial_checkout(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(fixture_source, "ATTEMPTS", 2)
+    waits: list[float] = []
+    # Only the module's own name: `time.sleep` is global, and the wait loop of `subprocess` calls it
+    # in tiny steps while git runs.
+    monkeypatch.setattr(fixture_source, "time", types.SimpleNamespace(sleep=waits.append))
     spec = {**_upstream(tmp_path), "commit": "0" * 40}
     cache = tmp_path / "cache"
-    with pytest.raises(fixture_source.SourceError), fixture_source.checkout(spec, cache):
+    with (
+        pytest.raises(fixture_source.SourceError, match="fetch"),
+        fixture_source.checkout(spec, cache),
+    ):
         pass
     assert list(cache.iterdir()) == []
+    # AD-1062: three attempts, a wait of 5 s and 15 s between them, no wait after the last.
+    assert waits == [5, 15]
 
 
 def test_the_copy_takes_the_listed_parts_and_leaves_out_git_and_the_excluded(
@@ -147,8 +156,10 @@ def test_the_card_states_the_pin_the_licence_and_that_only_the_contract_is_ours(
     assert "The contract is ours." in page
 
 
-def test_the_matrix_lists_both_real_projects_as_expected_passes() -> None:
+def test_the_matrix_lists_both_real_projects_with_their_decided_result() -> None:
+    # Release 5 gives FastAPI 10 accepted trojan horse gaps (AD-1053, AD-1058): UNKNOWN on purpose.
+    pinned = {"N-fastapi-realworld": "UNKNOWN", "O-bazel-worker-realworld": "PASS"}
     runs = {run["name"]: run for run in report_gallery.showcase_runs()}
     for name in PINNED:
-        assert runs[name]["section"] == "real" and runs[name]["intent"] == "PASS"
-        assert runs[name]["expect"]["status"] == "PASS", name
+        assert runs[name]["section"] == "real" and runs[name]["intent"] == pinned[name]
+        assert runs[name]["expect"]["status"] == pinned[name], name
