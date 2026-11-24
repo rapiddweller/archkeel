@@ -165548,6 +165548,1068 @@
         "A trait impl in native.archkeel_typescript_collector.definitions may run in code that reaches native.archkeel_typescript_collector.definitions without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
       "reason": "AD-1039: anchored macro receiver proof cleared a method-call gap and exposed the existing underlying gap on the same module pair"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_collect",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_collect.run",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.base",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.check",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.dual_run",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.dual_run.frame_parts",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.engine",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.hygiene",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.ingest",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.provenance",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.refusal",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.scan",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.system",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_core.system_topology",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.bin_archkeel_dart_collector",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.collection",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.collection.builder",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.collection.imports",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.collection.inventories",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.collection.prepare",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.collection.sites",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.collection.targets",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.declarations",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.declarations.assembly",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.declarations.members",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.dump",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.binding",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.edges",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.index",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.names",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.package",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.package_map",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.parts",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.pubspec_keys",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.reply",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.uri",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.import_survey.uri",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.records",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.resolve",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.resolve.answers",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.resolve.construct",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.resolve.lexical",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.resolve.members",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.resolve.namespace",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.resolve.params",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.resolve.receivers",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.resolve.sites",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_dart_collector.symbol_survey",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.bin_archkeel_python_collector",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.dump",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.inputs",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.reply",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.requirement",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.outside.native",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.outside.sites",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.parse_files",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.pathscope",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.bindings",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector.scip_evidence.syntax",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.builder",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.calls",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.collect",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.derive_identity",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.derive_imports",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.edges",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.edges_extracted",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.impl_edges",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.impl_edges.flow",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.impl_edges.orphans",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.impl_edges.receivers",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.impl_edges.scope",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.impl_edges.types",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.impl_edges.types.defs",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.impl_edges.types.paths",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.impl_globs",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.macro_identity",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.module_edges",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.modules",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.modules.alias",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.modules.filled",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.modules.state",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.modules.walk",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.names",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.paths",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.paths",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.reply",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.resolve",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.routes",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_rust_collector.symbols",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_snapshot",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_snapshot.paths",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_snapshot.paths",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_snapshot.snapshot.stream",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.bin_archkeel_typescript_collector",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.collect.import_record",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.collect.imports",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.collect.script_run",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.collection",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.dump",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.glob",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.test_tree"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.glob",
+        "An unproved value origin may run a destructor in native.archkeel_snapshot.work"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.installed",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.resolver",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.script_depend",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.script_deps",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.script_global",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.script_proof",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.script_state",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_typescript_collector.script_vendor",
+        "A trait impl in native.archkeel_snapshot.paths may run in code that reaches native.archkeel_snapshot.paths without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
+      ],
+      "reason": "PROBE (AD-1061): a throwaway PR adds a Display impl in snapshot paths; do not merge"
     }
   ]
 }
