@@ -1,0 +1,155 @@
+// Archkeel
+// Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+// SPDX-License-Identifier: MIT
+
+// Consumer: `type_reach.rs` and the reach model. These tests read the facts that the real toolchain
+// produced. They are ignored: `make rustc-facts-e2e` produces the descriptors (`ARCHKEEL_E2E_OUT`) and
+// runs them.
+
+use super::read_descriptor;
+use crate::type_reach_filter::Filter;
+use archkeel_facts::identity::sha256_hex;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
+
+/// The facts of the producer, or the reason why the test cannot run.
+fn out(name: &str) -> PathBuf {
+    let dir = std::env::var("ARCHKEEL_E2E_OUT")
+        .expect("set ARCHKEEL_E2E_OUT; run `make rustc-facts-e2e`");
+    Path::new(&dir).join(name)
+}
+
+/// Every `.rs` file under `dir`, as a path relative to `root` with `/`, with its SHA-256.
+fn scan_rust_files(root: &Path, dir: &Path, found: &mut BTreeMap<String, String>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        if path.is_dir() && name != "target" && !name.starts_with('.') {
+            scan_rust_files(root, &path, found);
+        } else if name.ends_with(".rs") {
+            let relative = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            found.insert(relative, sha256_hex(&std::fs::read(&path).unwrap()));
+        }
+    }
+}
+
+#[test]
+#[ignore = "reads the facts of `make rustc-facts-e2e`"]
+fn the_reader_verifies_the_facts_of_the_native_workspace() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let mut scanned = BTreeMap::new();
+    scan_rust_files(&root, &root.join("native"), &mut scanned);
+    let facts = read_descriptor(&out("native.json"), &scanned).unwrap();
+    assert_eq!(facts.len(), 3);
+}
+
+/// The cases of `tests/rust_reach_fixtures/ws`: each has `<case>_a`, whose code dispatches into an impl
+/// in `<case>_b`. The first group runs that impl at run time, so the pair is real and must stay;
+/// the controls never run it, and the filter may exclude the pair.
+const KEPT: [&str; 55] = [
+    "direct",
+    "h1",
+    "h2",
+    "h3",
+    "fnvalue",
+    "dropgen",
+    "upcast",
+    "async",
+    "opaque",
+    "fielddrop",
+    "closure",
+    "cgen",
+    "ioerr",
+    "panic",
+    "gdyn",
+    "gvec",
+    "esend",
+    "eany",
+    "ctl",
+    "boxerr",
+    "rcrefcell",
+    "arcfn",
+    "foreach",
+    "spawn",
+    "mpsc",
+    "anybox",
+    "ops",
+    "deref",
+    "iter",
+    "trep",
+    "dropu",
+    "stat",
+    "send",
+    "wrapi",
+    "proj",
+    "intoc",
+    "derefc",
+    "waker",
+    "wakearc",
+    "fnptr",
+    "pinfut",
+    "localkey",
+    "intoraw",
+    "autoup",
+    "down",
+    "fup",
+    "stash",
+    "feach",
+    "arcraw",
+    "fhold",
+    "hand",
+    "princ",
+    "futhold",
+    "jobup",
+    "bptr",
+];
+const CONTROLS: [&str; 5] = ["none", "dyn", "generic", "other", "unbound"];
+
+#[test]
+#[ignore = "reads the facts of `make rustc-facts-e2e`"]
+fn each_hole_keeps_its_real_dispatch_pair_and_each_control_is_excluded() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/rust_reach_fixtures/ws")
+        .canonicalize()
+        .unwrap();
+    let mut scanned = BTreeMap::new();
+    scan_rust_files(&root, &root, &mut scanned);
+    let loaded = read_descriptor(&out("fixtures.json"), &scanned).unwrap();
+    let truth: BTreeMap<String, usize> =
+        serde_json::from_str(&std::fs::read_to_string(out("truth.json")).unwrap()).unwrap();
+    let cases = KEPT
+        .iter()
+        .map(|c| (c, true))
+        .chain(CONTROLS.iter().map(|c| (c, false)));
+    let known: BTreeSet<String> = cases
+        .clone()
+        .flat_map(|(c, _)| ["a", "b", "g"].map(|s| format!("native.fx.{c}_{s}")))
+        .collect();
+    let filter = Filter::new(&loaded, &known);
+    let mut wrong: Vec<String> = Vec::new();
+    for (case, kept) in cases {
+        // `cgen`: the generic function that the closure calls is the code that dispatches.
+        let caller = if case == &"cgen" { "g" } else { "a" };
+        let excluded = filter.excluded(
+            &format!("native.fx.{case}_{caller}"),
+            &format!("native.fx.{case}_b"),
+        );
+        assert_eq!(
+            truth[*case] > 0,
+            kept,
+            "the run decides the truth of {case}"
+        );
+        // The class hierarchy keeps `dyn`: its type implements the trait in reach although nothing coerces it.
+        if excluded == (kept || *case == "dyn") {
+            wrong.push((*case).to_string());
+        }
+    }
+    assert!(wrong.is_empty(), "the filter is wrong on {wrong:?}");
+}

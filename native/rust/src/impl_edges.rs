@@ -19,11 +19,10 @@ use archkeel_facts::ImportFact;
 use crate::builder::Builder;
 use crate::crates::Workspace;
 use crate::definitions::{Form, ImplBlock, MethodCall};
-use crate::impl_globs::{crate_path, visible, Foreign, NameRoutes, Reached};
+use crate::impl_globs::{aliases, crate_path, visible, Foreign, NameRoutes, Reached};
 use crate::modules::{Edge, Frame, Index, TypeOf};
 use crate::scan::Via;
 use crate::tree::Module;
-use flow::aliases;
 use orphans::orphan_impl_gaps;
 use receivers::{certainly_visible, exact_type, Typed};
 

@@ -22,12 +22,14 @@ use crate::reply::Collected;
 use crate::source::walk as list_files;
 use crate::test_scope::NO_PRODUCTION_SOURCE;
 use crate::tree::walk;
+use archkeel_facts::identity::sha256_hex;
 
 /// Collect the facts of one request.
 pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collected {
     let mut source = Snapshot::new(&request.snapshot.root);
     let mut builder = Builder::with_exclude_tests(request.excludes_test_sources());
     let (scope, files) = list(&mut source, &request.scope.roots, &mut builder);
+    let unavailable = load_facts(&mut source, &files, &mut builder);
     let overrides = crate::registry_overrides::configs(&mut source);
     let mut workspace = discover(&mut source, &files, &request.scope.namespace);
     for krate in &mut workspace.crates {
@@ -114,7 +116,30 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
     drop(taken);
     drop(modules);
     drop(workspace);
+    if let Some(why) = unavailable {
+        let reason = format!("The compiler type-reach facts are unavailable: {why}. Each trait-impl, destructor and receiver gap stays (AD-1047).");
+        builder.gap(&reason, None, "");
+    }
     builder.finish(request, provenance, scope, selected, walked, source)
+}
+
+/// AD-1047: the type-reach facts of the producer, or the cause why a scan that asked for them has none.
+/// A failed check keeps every gap and says why; it never falls back to the old reach in silence.
+fn load_facts(source: &mut Snapshot, files: &[String], builder: &mut Builder) -> Option<String> {
+    match crate::type_reach::announced(|| rust_hashes(source, files))? {
+        Ok(facts) => {
+            builder.type_reach = facts;
+            None
+        }
+        Err(why) => Some(why),
+    }
+}
+
+/// The SHA-256 of each Rust file below the roots, by path.
+fn rust_hashes(source: &mut Snapshot, files: &[String]) -> BTreeMap<String, String> {
+    let rust = files.iter().filter(|f| f.ends_with(".rs"));
+    let read = rust.filter_map(|f| source.read(f).map(|bytes| (f.clone(), sha256_hex(&bytes))));
+    read.collect()
 }
 
 /// The scope labels and all the files below the roots.

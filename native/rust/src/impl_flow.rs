@@ -15,13 +15,13 @@ use archkeel_facts::vocab::ResolutionDimension;
 
 use crate::builder::Builder;
 use crate::crates::Workspace;
-use crate::definitions::{Form, MethodCall};
+use crate::definitions::MethodCall;
 pub(super) use crate::impl_globs::Foreign;
 use crate::impl_globs::{build_ancestors, names_type, once_gap, visible, BitSet};
 use crate::modules::Index;
-use crate::scan::Via;
 use crate::site::Site;
 use crate::tree::Module;
+use crate::type_reach_filter::Filter;
 
 /// One trait or `Drop` home settled lazily without `homes x callers` materialization (#1942).
 pub(super) struct LazyHome {
@@ -117,6 +117,8 @@ struct FlowContext<'a> {
     named: HashSet<(u32, u32)>,
     ingress: BitSet,
     pool: &'a PendingPool,
+    /// The compiler type-reach filter (AD-1047), when the scan has facts.
+    reach: Option<&'a Filter<'a>>,
 }
 
 /// Keep known origins first. An erased value can also come from shared storage or unread code.
@@ -133,6 +135,12 @@ pub(super) fn settle(
             crate_index: module.crate_index,
         })
         .collect();
+    let facts = std::mem::take(&mut builder.type_reach);
+    let known: BTreeSet<String> = modules.iter().map(|m| m.module.clone()).collect();
+    let filter = (!facts.is_empty()).then(|| Filter::new(&facts, &known));
+    if filter.as_ref().is_some_and(|f| f.matched() == 0) {
+        builder.gap(Filter::no_module(), None, "");
+    }
     let mut open = std::mem::take(&mut pool.items);
     let mut ctx = FlowContext {
         edges: import_edges(builder),
@@ -142,6 +150,7 @@ pub(super) fn settle(
         named: named_pairs(&open),
         ingress: BitSet::new(builder.interned_count()),
         pool: &pool,
+        reach: filter.as_ref(),
     };
     open = settle_pending(builder, open, &ctx, &homes.trait_homes, false);
     if homes.drop_homes.is_empty() {
@@ -267,6 +276,9 @@ fn emit_pending(builder: &mut Builder, pending: &Pending, ctx: &FlowContext<'_>)
         );
         return;
     }
+    if ctx.reach.is_some_and(|r| r.excluded(&source, &target)) {
+        return;
+    }
     let dimension = if pending.execution && !ctx.named.contains(&(pending.source, pending.target)) {
         ResolutionDimension::RuntimeEffects
     } else {
@@ -310,11 +322,14 @@ fn settle_caller_homes(
         } else {
             found.any || found.targets.has_bit(home.target)
         };
-        if !ready {
+        let (source, target) = (
+            builder.interned_text(caller.id),
+            builder.interned_text(home.target),
+        );
+        if !ready || ctx.reach.is_some_and(|r| r.excluded(source, target)) {
             continue;
         }
-        let source = builder.interned_text(caller.id).to_owned();
-        let target = builder.interned_text(home.target).to_owned();
+        let (source, target) = (source.to_owned(), target.to_owned());
         let dimension = if ctx.named.contains(&pair) {
             ResolutionDimension::Imports
         } else {
@@ -393,22 +408,6 @@ fn import_edges(builder: &mut Builder) -> HashSet<(u32, u32)> {
     }
     builder.imports = imports;
     edges
-}
-
-/// The names of a module that may stand for another type in a path: type aliases and `use` renames.
-pub(super) fn aliases(module: &Module) -> impl Iterator<Item = &str> {
-    let scan = &module.scan;
-    let aliases = (scan.definitions.iter())
-        .filter(|definition| definition.form == Form::Alias)
-        .map(|definition| String::as_str(&definition.name));
-    let renames = scan.references.iter().filter_map(|r| match &r.via {
-        Via::Use {
-            binding: Some(binding),
-            ..
-        } if r.names.last() != Some(binding) => Some(String::as_str(binding)),
-        _ => None,
-    });
-    aliases.chain(renames)
 }
 
 fn mark_open_gaps(builder: &Builder, open: &mut BitSet) -> bool {
