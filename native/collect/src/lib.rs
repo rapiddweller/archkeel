@@ -26,11 +26,15 @@ mod python;
 mod refusal;
 mod repository;
 mod run;
+mod rustc_facts;
+mod rustc_facts_members;
+mod rustc_facts_merge;
 mod system;
 mod worker;
 
 pub use system::{System, SystemPart};
 
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use archkeel_store::Ingested;
@@ -179,8 +183,20 @@ pub fn scan_with_options(
     let prepared = clock
         .zip(started)
         .map_or(Duration::ZERO, |(now, start)| now() - start);
-    let (reply, collected, validated) =
-        run::collect_timed(config.profile, &bytes, clock, explorer)?;
+    let descriptor = config
+        .rust_type_reach
+        .then(|| type_reach_descriptor(&root, &config))
+        .transpose()?;
+    let collected_reply = run::collect_timed(
+        config.profile,
+        &bytes,
+        clock,
+        (explorer, descriptor.as_deref()),
+    );
+    if let Some(path) = &descriptor {
+        let _ = std::fs::remove_file(path);
+    }
+    let (reply, collected, validated) = collected_reply?;
     let bound = match config.profile {
         Profile::Python => python::bound(&root, reply.reply()),
         Profile::Dart => dart::bound(&root, reply.reply()),
@@ -209,6 +225,69 @@ pub fn scan_with_options(
         validated,
         root,
     })
+}
+
+/// The descriptor of produced facts: what the Rust worker verifies (`ARCHKEEL_TYPE_REACH`).
+fn descriptor_of(made: &rustc_facts::FactsProduced) -> Value {
+    let configs: Vec<Value> = made
+        .runs
+        .iter()
+        .map(|run| json!({"name": run.config.cfg_name(), "dir": run.dir, "units": run.units, "seconds": run.elapsed.as_secs_f64()}))
+        .collect();
+    json!({"rustc": made.rustc, "target_triple": made.target_triple, "driver_sha256": made.driver_sha256, "cargo_lock_sha256": made.cargo_lock_sha256, "members": made.members, "configs": configs})
+}
+
+/// AD-1047: produce the compiler facts of the Rust workspace and write the descriptor that the Rust worker
+/// reads (`ARCHKEEL_TYPE_REACH`). A missing toolchain, a failed build or a failed check is written into the
+/// descriptor as its cause: the worker keeps every gap and says why. Only a descriptor that cannot be
+/// written refuses the scan, because the worker would then run without facts and without a reason.
+/// The reason why the facts may not be used: the compiler type reach is a premise (AD-1047), and a
+/// contract that does not declare it must not get a PASS that rests on it. `None` when it is declared.
+fn premise_missing(root: &Path, contract: &str) -> Option<String> {
+    let word = archkeel_facts::type_reach::PREMISE;
+    let read = std::fs::read(root.join(contract)).ok();
+    let parsed = read.and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
+    let premises = parsed
+        .as_ref()
+        .and_then(|c| c["declarations"]["premises"].as_array());
+    let declared = premises.is_some_and(|all| all.iter().any(|p| p["name"] == word));
+    (!declared).then(|| format!("the contract does not declare the premise {word}"))
+}
+
+fn type_reach_descriptor(
+    root: &repository::Root,
+    config: &config::Config,
+) -> Result<PathBuf, Refusal> {
+    let base = std::env::var_os("ARCHKEEL_FACTS_CACHE")
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .map(|home| PathBuf::from(home).join(".cache/archkeel/rustc-facts"))
+        })
+        .ok_or_else(|| refused("type reach", "no cache directory: set ARCHKEEL_FACTS_CACHE"))?;
+    let manifest = config
+        .roots
+        .iter()
+        .map(|r| root.path().join(r).join("Cargo.toml"))
+        .find(|m| m.is_file())
+        .unwrap_or_else(|| root.path().join("Cargo.toml"));
+    let text = match premise_missing(root.path(), &config.contract) {
+        Some(why) => json!({"unavailable": why}),
+        None => match rustc_facts::FactsTools::system().produce(root.path(), &manifest, &base) {
+            Err(cause) => {
+                json!({"unavailable": archkeel_facts::type_reach::Unavailable::describe(&cause)})
+            }
+            Ok(made) => descriptor_of(&made),
+        },
+    };
+    static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let unique = COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let dir = base.join("descriptors");
+    let path = dir.join(format!("{}-{unique}.json", std::process::id()));
+    std::fs::create_dir_all(&dir)
+        .and_then(|()| std::fs::write(&path, text.to_string()))
+        .map_err(|why| refused("type reach", format!("cannot write the descriptor: {why}")))?;
+    Ok(path)
 }
 
 /// A build of a collector with a test feature reads planted faults from the environment

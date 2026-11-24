@@ -62,7 +62,10 @@ def _make(tmp_path: Path, selected: str, fmt_fails: bool = False) -> tuple[int, 
         f'#!/bin/sh\necho "$@" >> "{log}"\n'
         + ('case "$1" in fmt) exit 1;; esac\n' if fmt_fails else "")
     )
-    for script in (uv, cargo):
+    # AD-1047: the recipe also formats the driver, which the fake tree does not hold.
+    rustfmt = bin_dir / "rustfmt"
+    rustfmt.write_text("#!/bin/sh\nexit 0\n")
+    for script in (uv, cargo, rustfmt):
         script.chmod(0o755)
     env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "MAKEFLAGS": ""}
     done = subprocess.run(

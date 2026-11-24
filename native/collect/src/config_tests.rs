@@ -30,6 +30,7 @@ fn a_typescript_scan_gives_its_settings_with_the_python_defaults() {
             exclude_test_sources: false,
             python: None,
             import_roots_ambiguous: false,
+            rust_type_reach: false,
         })
     );
     let set = typescript(
@@ -200,4 +201,17 @@ fn a_stated_root_is_a_folder_that_holds_the_file_and_changes_no_setting() {
         );
     }
     assert!(matches!(typescript("root = 1\n"), Err(Refused::Invalid(_))));
+}
+
+#[test]
+fn the_type_reach_key_is_a_boolean_of_a_rust_scan_only() {
+    let rust = |extra: &str| parsed(&format!("{BASE}language = \"rust\"\n{extra}"));
+    assert!(rust("rust_type_reach = true\n").unwrap().rust_type_reach);
+    assert!(!rust("").unwrap().rust_type_reach);
+    for bad in [
+        rust("rust_type_reach = \"yes\"\n"),
+        typescript("rust_type_reach = true\n"),
+    ] {
+        assert!(matches!(bad, Err(Refused::Invalid(_))));
+    }
 }

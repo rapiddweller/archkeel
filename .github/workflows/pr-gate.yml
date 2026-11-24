@@ -36,7 +36,7 @@ jobs:
       # The hash is taken right after the checkout, before any build writes into native/.
       - name: Hash the native tree
         id: native
-        run: echo "hash=${{ hashFiles('native/**', '!native/target/**', '!**/__pycache__/**') }}" >> "$GITHUB_OUTPUT"
+        run: echo "hash=${{ hashFiles('native/**', '!native/target/**', 'tools/rustc-facts/**', '!tools/rustc-facts/target/**', '!**/__pycache__/**') }}" >> "$GITHUB_OUTPUT"
 
       - name: Install Node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
@@ -61,9 +61,10 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
+      # AD-1047: the self-check reads native/ with compiler facts, so the pinned toolchain needs rustc-dev.
       - name: Install the pinned Rust toolchain
         working-directory: native
-        run: rustup toolchain install
+        run: rustup toolchain install && rustup component add rustc-dev
 
       # AD-674: when native/ is the same as on a main run that saved its core, the PR downloads
       # that core and builds nothing. When native/ changed, it restores the target directory of

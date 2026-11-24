@@ -543,6 +543,7 @@ flowchart LR
     n_75["report-page"]
     n_76["report-payload"]
     n_77["report-ruling"]
+    n_79["rs-type-reach"]
     n_2 --> n_59
     n_2 --> n_61
     n_56 --> n_1
@@ -681,4 +682,8 @@ flowchart LR
     n_77 --> n_76
     n_61 --> n_41
     n_41 --> n_74
+    n_79 --> n_4
+    n_6 --> n_79
+    n_7 --> n_79
+    n_9 --> n_79
 ```

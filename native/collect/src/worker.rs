@@ -31,15 +31,24 @@ pub(crate) fn executable(worker: &Worker) -> std::io::Result<std::path::PathBuf>
     Ok(exe.with_file_name(format!("{name}{}", std::env::consts::EXE_SUFFIX)))
 }
 
-pub(crate) fn read(worker: Worker, request: &[u8]) -> Result<Reply, Refusal> {
+pub(crate) fn read(
+    worker: Worker,
+    request: &[u8],
+    facts: Option<&std::path::Path>,
+) -> Result<Reply, Refusal> {
     let part = match worker {
         Worker::Rust => "Rust worker",
         Worker::TypeScript => "TypeScript worker",
     };
+    let for_rust = matches!(worker, Worker::Rust);
     let io = |e: std::io::Error| refused(part, e.to_string());
     let worker = executable(&worker).map_err(io)?;
     let mut cmd = Command::new(&worker);
     cmd.env_clear();
+    // AD-1047: the descriptor of the compiler facts, for the Rust worker only.
+    if let Some(path) = facts.filter(|_| for_rust) {
+        cmd.env(archkeel_facts::type_reach::ENV, path);
+    }
     #[cfg(windows)]
     if let Some(root) = std::env::var_os("SystemRoot") {
         cmd.env("SystemRoot", root);

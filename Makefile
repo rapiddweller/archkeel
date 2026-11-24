@@ -12,7 +12,7 @@ export CARGO_TERM_PROGRESS_WHEN := never
 export CARGO_TERM_QUIET := true
 endif
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -81,6 +81,7 @@ pr-native-lint:
 	if [ -z "$$crates" ]; then echo "native lint: native/ is unchanged, nothing to check"; exit 0; fi; \
 	echo "native lint: fmt and clippy for '$$crates'"; \
 	(cd native && cargo fmt --all -- --check) && \
+	(cd native && rustfmt --edition 2021 --check ../tools/rustc-facts/src/main.rs) && \
 	{ [ "$$crates" = "-" ] || (cd native && cargo clippy --locked --all-targets $$crates -- -D warnings); } && \
 	$(UV) run --locked python -m pytest -q -p no:cacheprovider -n 0 tests/test_rust_clones.py tests/test_rust_api.py
 
@@ -137,12 +138,25 @@ native-check:
 	@cargo deny --version 2>/dev/null | grep -qx "cargo-deny $(CARGO_DENY_VERSION)" || \
 		{ echo "native-check needs cargo-deny $(CARGO_DENY_VERSION): run make native-tools"; exit 2; }
 	cd native && cargo fmt --all --check
+	cd native && rustfmt --edition 2021 --check ../tools/rustc-facts/src/main.rs
 	cd native && cargo clippy --locked --all-targets -- -D warnings
 	cd native && cargo clippy --locked --all-targets --no-default-features -- -D warnings
 	cd native && cargo clippy --locked --all-targets --features dump,harness -- -D warnings
 	cd native && cargo deny --locked check
 	$(MAKE) native-test
 	$(MAKE) self-validate-native
+
+# AD-1047: the producer tests that run the real toolchain need the pinned channel with `rustc-dev`. They are
+# ignored in `cargo test`, and CI has no `rustc-dev` yet. One thread: the tests share one driver build.
+# The collect tests produce the facts and write descriptors; the reader tests of the Rust collector read them.
+rustc-facts-e2e:
+	rm -rf native/target/e2e-facts && mkdir -p native/target/e2e-facts
+	cd native && ARCHKEEL_E2E_OUT=$(CURDIR)/native/target/e2e-facts cargo test --locked -p archkeel-collect --lib -- --ignored --test-threads=1 --nocapture rustc_facts
+	cd native && ARCHKEEL_E2E_OUT=$(CURDIR)/native/target/e2e-facts cargo test --locked -p archkeel-rust-collector --lib -- --ignored --test-threads=1 --nocapture type_reach::real_tests
+
+# AD-1047: the driver is outside the workspace, so `native-check` does not lint it. Needs `rustc-dev`.
+rustc-facts-clippy:
+	cd tools/rustc-facts && RUSTC_BOOTSTRAP=1 cargo clippy --locked -- -D warnings
 
 native-test:
 	cd native && cargo build --locked -p archkeel-rust-collector -p archkeel-typescript-collector
