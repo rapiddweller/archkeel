@@ -1,0 +1,9 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: one channel with `native/rust-toolchain.toml`. A test in `archkeel-collect` checks this.
+[toolchain]
+channel = "1.97.0"
+components = ["rustc-dev", "llvm-tools"]
+profile = "minimal"
