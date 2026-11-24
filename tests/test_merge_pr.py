@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from merge_pr import Changes, decide, deletions, entry_counts, main, moved_files  # noqa: E402
+from merge_pr import Changes, decide, deletions, main, moved_files  # noqa: E402
 
 PR = {
     "state": "OPEN",
@@ -229,6 +229,10 @@ def test_a_deleted_file_is_refused_without_the_label_and_allowed_with_it() -> No
     assert decide(PR, ["PR gate"], GREEN, changes).verdict == "MERGE"
 
 
+def test_a_change_without_files_has_no_deletion_refusal() -> None:
+    assert deletions(Changes()) == []
+
+
 def test_a_net_removal_over_300_lines_is_refused_like_the_reverts_of_1636() -> None:
     """#1636 removed 19,516 lines of other pull requests while it added 178."""
     changes = Changes(files=[_file("native/x.rs", add=178, delete=19_516)])
@@ -243,33 +247,6 @@ def test_a_net_removal_over_300_lines_is_refused_like_the_reverts_of_1636() -> N
     )
 
 
-def test_a_ratchet_file_that_loses_more_than_50_entries_needs_the_lead_label() -> None:
-    changes = Changes(files=[_file("native/expected-growth.json", add=1, delete=2)])
-    changes.entries["native/expected-growth.json"] = 51
-    refused = decide(PR, ["PR gate"], GREEN, changes)
-    assert codes(refused) == ["ratchet_removal_unapproved"]
-    changes.labels = {"ratchet-lead"}
-    assert decide(PR, ["PR gate"], GREEN, changes).verdict == "MERGE"
-    changes.entries["native/expected-growth.json"] = 50
-    changes.labels = set()
-    assert decide(PR, ["PR gate"], GREEN, changes).verdict == "MERGE"
-
-
-def test_both_guards_can_refuse_together_and_the_deletion_label_does_not_open_the_ratchet() -> None:
-    changes = Changes(files=[_file("a.py", "removed", 0, 5)], labels={"deletion-approved"})
-    changes.entries["native/expected-gaps.json"] = 90
-    assert codes(decide(PR, ["PR gate"], GREEN, changes)) == ["ratchet_removal_unapproved"]
-
-
-def test_the_entries_of_a_ratchet_file_are_its_lists_and_maps() -> None:
-    assert (
-        sum(entry_counts(json.dumps({"name": "n", "rules": {"A": "PASS"}, "gaps": []})).values())
-        == 1
-    )
-    assert not entry_counts(json.dumps({"raised": []}))
-    assert deletions(Changes()) == []
-
-
 def test_main_reads_the_files_and_the_labels_and_refuses_an_unapproved_deletion() -> None:
     fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
     fake.changed = [_file("a.py", "removed", 0, 400)]
@@ -278,91 +255,6 @@ def test_main_reads_the_files_and_the_labels_and_refuses_an_unapproved_deletion(
     fake.changed = [_file("a.py", "removed", 0, 400)]
     fake.labels = ["deletion-approved"]
     assert main(["7"], fake) == 0
-
-
-def test_main_counts_the_entries_of_a_ratchet_file_at_the_merge_base_and_at_the_head() -> None:
-    fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
-    fake.changed = [
-        _file("native/expected-growth.json", add=0, delete=6),
-        _file("diagram.png", "added"),
-        _file("notes.md", "added", add=5),
-    ]
-    fake.contents = {
-        "base": json.dumps({"raised": list(range(80))}),
-        "head": json.dumps({"raised": list(range(20))}),
-    }
-    assert main(["7", "--json"], fake) == 1 and not fake.merged()
-    fake.labels = ["ratchet-lead"]
-    assert main(["7"], fake) == 0
-    assert not any("/contents/diagram.png" in " ".join(call) for call in fake.calls)
-    assert not any("/contents/notes.md" in " ".join(call) for call in fake.calls)
-
-
-@pytest.mark.parametrize("path", ["native/expected-gaps.json", "native/expected-growth.json"])
-def test_replacements_do_not_hide_removed_gap_entries(path: str) -> None:
-    def pin(start: int) -> str:
-        gaps = [["collection_gap", f"module.{i}", "reason"] for i in range(start, start + 100)]
-        if path.endswith("expected-growth.json"):
-            return json.dumps(
-                {"raised": [{"entry": ["gap", *gap], "reason": "approved"} for gap in gaps]}
-            )
-        return json.dumps({"gaps": gaps})
-
-    fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
-    fake.changed = [_file(path, add=100, delete=100)]
-    fake.contents = {"base": pin(0), "head": pin(100)}
-    assert main(["7"], fake) == 1 and not fake.merged()
-    fake.labels = ["ratchet-lead"]
-    assert main(["7"], fake) == 0
-
-
-@pytest.mark.parametrize("path", ["native/expected-gaps.json", "native/expected-growth.json"])
-def test_removed_gap_entries_count_duplicate_occurrences(path: str) -> None:
-    gap = ["collection_gap", "module", "reason"]
-
-    def pin(gaps: list[list[str]]) -> str:
-        if path.endswith("expected-growth.json"):
-            return json.dumps(
-                {"raised": [{"entry": ["gap", *item], "reason": "ok"} for item in gaps]}
-            )
-        return json.dumps({"gaps": gaps})
-
-    fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
-    fake.changed = [_file(path, add=1, delete=1)]
-    fake.contents = {
-        "base": pin([gap] * 101),
-        "head": pin([gap] * 50 + [["collection_gap", "other", "reason"]] * 51),
-    }
-    assert main(["7"], fake) == 1 and not fake.merged()
-    fake.contents["head"] = pin([gap] * 51)
-    assert main(["7"], fake) == 0
-
-
-def test_raised_entry_identity_ignores_its_reason_and_order() -> None:
-    old = {
-        "raised": [
-            {"entry": ["gap", str(i), "subject", "reason"], "reason": "old"} for i in range(60)
-        ]
-    }
-    new = {"raised": [{**item, "reason": "new"} for item in reversed(old["raised"])]}
-    fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
-    fake.changed = [_file("native/expected-growth.json", add=60, delete=60)]
-    fake.contents = {"base": json.dumps(old), "head": json.dumps(new)}
-    assert main(["7"], fake) == 0
-
-
-def test_issue_numbers_and_rule_statuses_do_not_change_entry_identity() -> None:
-    before = {
-        "rules": {"R": "UNKNOWN"},
-        "unknown": {"R": "gap"},
-        "violations": [{"rule": "R", "source": "a", "target": "b", "cause": "c", "issue": 1}],
-    }
-    after = {
-        "rules": {"R": "PASS"},
-        "unknown": {"R": "other"},
-        "violations": [{"rule": "R", "source": "a", "target": "b", "cause": "c", "issue": 2}],
-    }
-    assert not entry_counts(json.dumps(before)) - entry_counts(json.dumps(after))
 
 
 def test_the_newest_run_of_a_check_name_counts_after_a_re_run() -> None:

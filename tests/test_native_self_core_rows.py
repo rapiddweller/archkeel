@@ -4,8 +4,9 @@
 """AD-418, AD-432: the core decides each rule of the self-contract of native/ (#880).
 
 The test runs the default `archkeel validate` on `native/` of this tree with the core of this
-build. Each rule has a row: no rule names a part of the scope proof. The rows equal the pinned
-file `native/expected-gaps.json`, which `make self-validate-native` checks with the same code.
+build. Each rule has a row: no rule names a part of the scope proof. The result is clean (no
+refusal, no FAIL, no violation) and its UNKNOWN rules are the stated ones. `make
+self-validate-native` compares the gaps with the base commit (AD-1064).
 """
 
 from __future__ import annotations
@@ -20,13 +21,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import NATIVE, ROOT, SUFFIX, run
+from core_support import NATIVE_SELF_STATUS, NATIVE_UNKNOWN, ROOT, SUFFIX, run
 from frozen_native import frozen_root as frozen_root
 
 from archkeel.cli import core_only
 
 sys.path.insert(0, str(ROOT / "tools"))
-from native_expected import expected_exit, problems  # noqa: E402
+from self_check_diff import absolute, condense  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -43,25 +44,23 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     code, result = checked
     frame = result["frame"]
     core = {rule: row[1] for rule, row in frame["rules"].items()}
-    expected = json.loads((NATIVE / "expected-gaps.json").read_text())
-    assert problems(result, expected) == []
+    condensed = condense(result)
+    assert absolute(condensed) == []
     assert core, "the self-contract has rules"
     # No rule names a part of the scope proof: each one has a decision.
     assert result["gaps"] == []
-    # AD-668: a known violation stays FAIL, as pinned (honesty rule). An UNKNOWN rule is one that
-    # the pin names with its reason (AD-670: the Rust collector states no public symbol facts yet).
-    assert {rule for rule, status in core.items() if status == "UNKNOWN"} == set(
-        expected["unknown"]
+    # AD-668: a known violation would stay FAIL (honesty rule); the self-contract has none. An
+    # UNKNOWN rule is a stated one (AD-670: the Rust collector states no public symbol facts yet).
+    assert {rule for rule, status in core.items() if status == "UNKNOWN"} == set(NATIVE_UNKNOWN), (
+        "a rule left UNKNOWN (the goal): remove it from NATIVE_UNKNOWN in tests/core_support.py"
     )
-    assert core == expected["rules"]
-    status = (
-        "FAIL" if "FAIL" in core.values() else "UNKNOWN" if "UNKNOWN" in core.values() else "PASS"
-    )
-    assert (code, result["status"], frame["status"]) == (expected_exit(expected), status, status)
-    assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
-    # The scope follows the pin (the ratchet): a pin without gaps gives a complete scope; a pin with
-    # gaps gives an incomplete one that counts at most the pinned gaps (the contract allows some).
-    if not expected["gaps"]:
+    assert {status for rule, status in core.items() if rule not in NATIVE_UNKNOWN} == {"PASS"}
+    status = NATIVE_SELF_STATUS[1]
+    assert (code, result["status"], frame["status"]) == (NATIVE_SELF_STATUS[0], status, status)
+    assert set(frame["unknown_kinds"]) == set(NATIVE_UNKNOWN)
+    # With no stated UNKNOWN rule the scope is complete. Else it is incomplete and counts at most
+    # the gap records (the contract allows some).
+    if not NATIVE_UNKNOWN:
         assert frame["scope"] == "complete"
     else:
         # AD-1041: each number matches its noun. The pairs are distinct module pairs; a pair can
@@ -75,7 +74,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
         assert found, frame["scope"]
         pairs = int(found.group(1))
         records = int(found.group(2) or pairs)
-        assert 0 < pairs <= records <= len(expected["gaps"])
+        assert 0 < pairs <= records <= len(condensed["gaps"])
         # A rule holds a part of the run, so its pair count cannot pass the run count.
         for rule, held in frame["explain"]["holds"]["rules"].items():
             assert held["total"] <= pairs, rule

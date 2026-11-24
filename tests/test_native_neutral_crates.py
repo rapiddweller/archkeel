@@ -1,15 +1,15 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-668: a neutral crate names no language, and the self-check shows each place where one does.
+"""AD-668: a neutral crate names no language, and no violation of that is accepted.
 
 The native contract forbids each neutral crate (`store`, `model`, `eval`, `report`, `core`) to name
 `Profile`, the vocabulary of the languages, and `store` to use its language modules. This test is an
 independent oracle of those rules: a token scan of the production source of each neutral crate.
 
-- Each module that names `Profile` in code must be a source of a pinned violation of the rule of
-  its crate in `native/expected-gaps.json`, and each pinned source must still name it. So the rule
-  misses no place (no wrong PASS), and a fixed place leaves the pin.
+- No module of a neutral crate names `Profile` in code. The self-contract has no violation (AD-1064
+  keeps no list of accepted ones), so a module that names it is a place that the rule must find.
+  This oracle needs no result, so a wrong PASS of the rule cannot hide it.
 - Each module of a neutral crate that is named after a language (the variants of `Profile`) must be
   the target of a rule of the contract, so a new language module cannot land without a visible FAIL.
 """
@@ -23,7 +23,6 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 NATIVE = ROOT / "native"
 CONTRACT = NATIVE / "architecture-contract.json"
-EXPECTED = NATIVE / "expected-gaps.json"
 VOCABULARY = NATIVE / "facts/src/envelope_vocab.rs"
 SYMBOL = "Profile"
 CRATE_NAME = re.compile(r'^name\s*=\s*"([^"]+)"', re.MULTILINE)
@@ -92,28 +91,17 @@ def crate_dir(selector: str) -> Path:
     return NATIVE / name.replace("_", "-")
 
 
-def misses(found: set[str], pinned: set[str], rule: str) -> list[str]:
-    """Each module that names the symbol and has no pinned row, and each pinned row that is gone."""
-    return [
-        f"{rule}: {module} names {SYMBOL} but has no pinned FAIL row"
-        for module in sorted(found - pinned)
-    ] + [
-        f"{rule}: {module} no longer names {SYMBOL}; remove its pinned rows"
-        for module in sorted(pinned - found)
-    ]
-
-
-def test_each_module_that_names_the_vocabulary_is_a_visible_violation() -> None:
+def test_no_module_of_a_neutral_crate_names_the_vocabulary() -> None:
     contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
-    expected = json.loads(EXPECTED.read_text(encoding="utf-8"))
     rules = symbol_rules(contract)
     assert set(rules.values()) >= {
         f"native.archkeel_{name}" for name in ("store", "model", "eval", "report", "core")
     }
-    problems = []
-    for rule, source in sorted(rules.items()):
-        pinned = {row["source"] for row in expected["violations"] if row["rule"] == rule}
-        problems += misses(naming_modules(crate_dir(source), SYMBOL), pinned, rule)
+    problems = [
+        f"{rule}: {module} names {SYMBOL}"
+        for rule, source in sorted(rules.items())
+        for module in sorted(naming_modules(crate_dir(source), SYMBOL))
+    ]
     assert problems == [], "\n".join(problems)
 
 
@@ -158,11 +146,3 @@ def test_a_planted_variant_use_is_found_and_a_comment_string_or_test_is_not(tmp_
         },
     )
     assert naming_modules(crate, SYMBOL) == {"native.archkeel_plant.used"}
-
-
-def test_a_new_place_without_a_pinned_row_and_a_gone_place_with_one_both_fail() -> None:
-    found = misses({"native.archkeel_plant.used"}, {"native.archkeel_plant.gone"}, "R")
-    assert found == [
-        "R: native.archkeel_plant.used names Profile but has no pinned FAIL row",
-        "R: native.archkeel_plant.gone no longer names Profile; remove its pinned rows",
-    ]

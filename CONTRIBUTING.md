@@ -33,7 +33,7 @@ make ci-pr-check BASE=origin/main        # lint, types and a fixed set of tests
 
 Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, warns when the branch is behind `main`, and adds the reasons of the merge decision table (below).
 
-Merge with `python tools/merge_pr.py <number>` (AD-676, AD-736). One decision table gives MERGE, WAIT or REFUSE with reason codes (`--json` prints `{verdict, reasons, required, head}`; `--wait N` loops while the verdict is WAIT). Exit codes: 0 merged, 1 refused, 2 empty landing, 3 wait, 4 merged but the landing is not visible yet. A check that is queued or in progress, or a merge state that GitHub has not computed, is WAIT; a completed check that is not a success is REFUSE. The tool also refuses a pull request that deletes a file or removes more than 300 lines net (`deletion_unapproved`), and one that removes more than 50 entries from `native/expected-gaps.json` or `native/expected-growth.json` (`ratchet_removal_unapproved`), unless the lead has set the label `deletion-approved` or `ratchet-lead` after owner approval. It counts removed entries by identity; added entries do not offset them (AD-945). Never `git reset --soft` onto a moved `origin/main`: your tree is then compared with a newer main and reverts what landed in between.
+Merge with `python tools/merge_pr.py <number>` (AD-676, AD-736). One decision table gives MERGE, WAIT or REFUSE with reason codes (`--json` prints `{verdict, reasons, required, head}`; `--wait N` loops while the verdict is WAIT). Exit codes: 0 merged, 1 refused, 2 empty landing, 3 wait, 4 merged but the landing is not visible yet. A check that is queued or in progress, or a merge state that GitHub has not computed, is WAIT; a completed check that is not a success is REFUSE. The tool also refuses a pull request that deletes a file or removes more than 300 lines net (`deletion_unapproved`), unless the lead has set the label `deletion-approved` after owner approval. Never `git reset --soft` onto a moved `origin/main`: your tree is then compared with a newer main and reverts what landed in between.
 
 Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md), updated by [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md), 2026-11-10):
 
@@ -144,27 +144,40 @@ files with the pinned compiler output. The installed Studio serves these files w
 
 ## Inspect the native self-check
 
-ArchKeel checks the Rust source of `native/` with its own core (AD-432).
-The pin in `native/expected-gaps.json` records each rule status, gap and violation.
+ArchKeel checks the Rust source of `native/` with its own core (AD-432). No file lists the accepted
+gaps: the gate compares your result with the same run on the base commit
+([AD-1064](docs/architecture/decisions/ad-1064-the-pin-files-are-deleted-and-the-base-comparison-is-the-only-self-check-gate.md)).
 
 ```bash
 make self-validate-native
 ```
 
-This builds the core, runs `archkeel validate --config native/archkeel.toml` and compares the result with the pin.
-A result that differs from the pin, a refusal or no result fails the target.
-It then compares the result with the result of the same run on the merge base of `PR_BASE` (default
-`origin/main`) and HEAD ([AD-1061](docs/architecture/decisions/ad-1061-the-self-check-is-compared-with-its-base-commit-beside-the-pins.md)).
-The target takes that base result from `test-artifacts/selfcheck/base.json` or computes it in a git
-worktree (use `BASE_RESULT=<file>` offline). A new gap, UNKNOWN reason or worse rule status fails the
-target and is named. It passes only with the PR label `ratchet-lead` and the PR text line
-`Ratchet growth: <N> items: <reason>`, with N as printed (set `RATCHET_LABELED=true` and `RATCHET_BODY_FILE`
-to test this locally; the line must be a plain line of the text, one line only). A different verdict of the two gates prints `GATE DISAGREEMENT`. The pins are
-deleted in the next change.
+This builds the core, runs `archkeel validate --config native/archkeel.toml` and prints the counts
+(rules PASS, FAIL and UNKNOWN, gap records, violations). The result must have no refusal, no FAIL and
+no violation. Then the target compares it with the result on the merge base of `PR_BASE` (default
+`origin/main`) and HEAD. It takes the base result from `test-artifacts/selfcheck/base.json` or computes
+it in a git worktree (use `BASE_RESULT=<file>` offline). The last line is `self-check gate: GREEN` or
+`self-check gate: RED (exit N)`.
+
+When the gate is red because the result grew (a new gap, a new UNKNOWN reason, a worse rule status or a
+scan of fewer files):
+
+1. Read the first 10 grown items in the log. All items are in `test-artifacts/selfcheck/grown.txt`
+   (the PR gate uploads it as the artifact `selfcheck-grown`).
+2. Reduce the growth. For a new field-receiver gap, write the call as a path call
+   (`Type::method(&value)`) or bind a typed local. Run `make self-validate-native` again.
+3. If the growth is intended, ask the lead for the label `ratchet-lead`. It approves growth of the
+   self-check and nothing else. Write one plain line in the PR text:
+   `Ratchet growth: <N> items: <reason>`. N is the printed count. A later push with more growth fails again.
+4. A new class of gaps also gets a decision record. A FAIL or a violation has no approval path: fix it.
+
+To test the approval locally, set `RATCHET_LABELED=true` and `RATCHET_BODY_FILE=<file>`. A reworded
+reason or a renamed module shows as the same number of new and removed gaps and needs the approval too.
 The full result is in ignored `test-artifacts/validation-native/result.json`.
 `make self-validate-shell` checks the Python shell of `src/archkeel` with the contract
-`docs/architecture/target/shell-contract.json` against the pinned rows of
-`docs/architecture/target/shell-expected.json` ([shell](docs/architecture/shell.md), AD-478).
+`docs/architecture/target/shell-contract.json` ([shell](docs/architecture/shell.md), AD-478). All rules must
+PASS with no gap and exit code 0, and the rules must equal the rules of the contract; it needs no base.
+The hygiene test also fails on an untracked local file that is named like a pin (`*expected-gaps*`, `*expected-growth*`, `*shell-expected*`): delete it.
 `make self-validate` runs both checks and the system check. The system check includes the Studio UI
 contract at `studio/architecture-contract.json`. The tools have no architecture contract.
 

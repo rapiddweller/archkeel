@@ -69,7 +69,7 @@ jobs:
           path: test-artifacts/selfcheck/base.json
           key: selfcheck-v1-${{ runner.os }}-${{ github.sha }}
 
-      - name: Check native/ and the Python shell with the core against their pinned results
+      - name: Check native/ and the Python shell with the core (AD-1064)
         run: make self-validate SELFCHECK_ARGS=--no-compare
 
       - name: Compare the release result with the gate-profile result of this commit

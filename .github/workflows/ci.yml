@@ -97,7 +97,7 @@ jobs:
 
       # Main CI only reports the comparison: it cannot see the label of the merged pull request.
       - id: selfcheck
-        name: Check native/ and the Python shell with the core against their pinned results
+        name: Check native/ and the Python shell with the core (AD-1064)
         env:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
         run: make self-validate SELFCHECK_BASE=HEAD~1 SELFCHECK_ARGS=--report-only

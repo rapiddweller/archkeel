@@ -1,9 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-432, AD-478, AD-492: a self-check target fails without the pinned result of the core."""
+"""AD-432, AD-478, AD-492: a self-check target fails without a usable result of the core."""
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -18,13 +19,13 @@ REFUSED = '{"status": "UNKNOWN", "exit_code": 2, "refusal": {"kind": "core_error
 @pytest.mark.parametrize(
     ("target", "printed", "shown"),
     [
-        ("self-validate-native", REFUSED, "refused: core_error: x"),
-        ("self-validate-native", "", "JSONDecodeError"),
-        ("self-validate-shell", REFUSED, "refused: core_error: x"),
-        ("self-validate-shell", "", "JSONDecodeError"),
+        ("self-validate-native", REFUSED, "the PR result is a refusal: core_error: x"),
+        ("self-validate-native", "", "the self-check result is unusable"),
+        ("self-validate-shell", REFUSED, "the PR result is a refusal: core_error: x"),
+        ("self-validate-shell", "", "is empty or corrupt"),
     ],
 )
-def test_a_self_check_without_the_pinned_core_result_fails(
+def test_a_self_check_without_a_usable_core_result_fails(
     tmp_path: Path, target: str, printed: str, shown: str
 ) -> None:
     """AD-432: a refusal or no result of `archkeel validate` never passes a self-check gate."""
@@ -37,26 +38,33 @@ def test_a_self_check_without_the_pinned_core_result_fails(
     )
     uv.chmod(0o755)
     for name in (
-        "native/expected-gaps.json",
-        "docs/architecture/target/shell-expected.json",
-        "tools/native_expected.py",
         "tools/self_check_gate.py",
         "tools/self_check_diff.py",
+        "docs/architecture/target/shell-contract.json",
     ):
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / name).write_bytes((ROOT / name).read_bytes())
+    (tmp_path / "native").mkdir()
+    (tmp_path / "native/lib.rs").write_text("// one\n")
+    env = {
+        **os.environ,
+        "MAKEFLAGS": "",
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.com",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.com",
+    }
+    for git in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "base"]):
+        subprocess.run(["git", *git], cwd=tmp_path, env=env, check=True, capture_output=True)
     result = run_bounded(
         ["make", "-f", str(ROOT / "Makefile"), "-o", "core", "-o", "browser-runtime-install"]
         + [target, f"UV={uv}"],
         cwd=tmp_path,
-        env={**os.environ, "MAKEFLAGS": ""},
+        env=env,
         capture_output=True,
         text=True,
         timeout=30,
     )
     assert result.returncode == 2, result.stdout + result.stderr
     assert shown in result.stdout + result.stderr
-    assert "as pinned in" not in result.stdout
-    if target == "self-validate-native":
-        # AD-1061: the base comparison runs after a failed pin gate; no git history here.
-        assert "the self-check result is unusable" in result.stdout
+    assert "as pinned in" not in result.stdout and "GREEN" not in result.stdout

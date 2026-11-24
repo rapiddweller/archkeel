@@ -68,10 +68,10 @@ def keep_base(repo: Path, fixture: str, sha: str, name: str = "base.json") -> Pa
 
 
 def gate(
-    repo: Path, fixture: str, *extra: str, old: int = 0, base: str = "HEAD~1", **env: str
+    repo: Path, fixture: str, *extra: str, base: str = "HEAD~1", **env: str
 ) -> subprocess.CompletedProcess[str]:
     args = [sys.executable, str(GATE), "--result", str(FIXTURES / fixture), "--base", base]
-    args += ["--old-exit", str(old), "--uv", "true", *extra]
+    args += ["--uv", "true", *extra]
     return subprocess.run(
         args, cwd=repo, env={**GIT_ENV, **env}, capture_output=True, text=True, timeout=120
     )
@@ -84,33 +84,37 @@ def test_a_cached_base_is_compared_and_equal_results_pass(repo: Path) -> None:
     assert "cache hit" in done.stdout and "grown 0, removed 0" in done.stdout
 
 
-def test_growth_against_the_cached_base_fails_and_a_disagreement_prints(repo: Path) -> None:
+def test_growth_against_the_cached_base_fails_and_the_last_line_says_red(repo: Path) -> None:
     keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
-    done = gate(repo, "plus-one-gap.json", old=0)
+    done = gate(repo, "plus-one-gap.json")
     assert done.returncode == 1, done.stdout
     assert "inventory.stock" in done.stdout
-    assert "GATE DISAGREEMENT: the pin gate exits 0, the base comparison exits 1" in done.stdout
-
-
-def test_the_pin_gate_failing_alone_is_a_disagreement_too(repo: Path) -> None:
-    keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
-    done = gate(repo, "base.json", old=1)
-    assert done.returncode == 1
-    assert "GATE DISAGREEMENT: the pin gate exits 1, the base comparison exits 0" in done.stdout
-
-
-def test_both_gates_red_is_no_disagreement(repo: Path) -> None:
-    keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
-    done = gate(repo, "plus-one-gap.json", old=1)
-    assert done.returncode == 1
     assert "DISAGREEMENT" not in done.stdout
+    assert done.stdout.splitlines()[-1] == "self-check gate: RED (exit 1)"
+    grown = (repo / "test-artifacts/selfcheck/grown.txt").read_text()
+    assert "inventory.stock" in grown and grown.count("\n") == 1
 
 
-def test_report_only_keeps_the_verdict_of_the_pin_gate(repo: Path) -> None:
+def test_a_green_gate_says_green_and_leaves_no_grown_file(repo: Path) -> None:
+    keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
+    (repo / "test-artifacts/selfcheck/grown.txt").write_text("stale\n")
+    done = gate(repo, "base.json")
+    assert done.returncode == 0 and done.stdout.splitlines()[-1] == "self-check gate: GREEN"
+    assert not (repo / "test-artifacts/selfcheck/grown.txt").exists()
+
+
+def test_the_job_summary_gets_the_grown_items(repo: Path, tmp_path: Path) -> None:
+    keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
+    summary = tmp_path / "summary.md"
+    gate(repo, "plus-one-gap.json", GITHUB_STEP_SUMMARY=str(summary))
+    assert "1 grown items" in summary.read_text() and "inventory.stock" in summary.read_text()
+
+
+def test_report_only_does_not_fail_on_growth_but_fails_on_a_tracked_base(repo: Path) -> None:
     keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
     done = gate(repo, "plus-one-gap.json", "--report-only")
     assert done.returncode == 0
-    assert "GROWN" in done.stdout and "DISAGREEMENT" in done.stdout
+    assert "inventory.stock" in done.stdout and "make self-validate-native" in done.stdout
 
 
 def test_a_base_that_cannot_be_computed_fails_and_gives_the_reason(repo: Path) -> None:
@@ -147,12 +151,12 @@ def test_a_head_equal_to_the_base_compares_with_itself(repo: Path) -> None:
     assert "grown 0, removed 0" in done.stdout
 
 
-def test_no_compare_writes_the_result_and_keeps_the_old_verdict(repo: Path) -> None:
-    done = gate(repo, "base.json", "--no-compare", old=0)
+def test_no_compare_writes_the_result_and_still_requires_a_clean_one(repo: Path) -> None:
+    done = gate(repo, "base.json", "--no-compare")
     assert done.returncode == 0
     saved = json.loads((repo / "test-artifacts/selfcheck/result.json").read_text())
     assert saved["sha"] == git(repo, "rev-parse", "HEAD") and saved["format"] == "selfcheck-v1"
-    assert gate(repo, "base.json", "--no-compare", old=1).returncode == 1
+    assert gate(repo, "refused.json", "--no-compare").returncode == 1
 
 
 def test_an_unreadable_result_fails(repo: Path) -> None:
@@ -164,8 +168,6 @@ def test_an_unreadable_result_fails(repo: Path) -> None:
         "empty.json",
         "--base",
         "HEAD~1",
-        "--old-exit",
-        "0",
     ]
     done = subprocess.run(args, cwd=repo, env=GIT_ENV, capture_output=True, text=True, timeout=60)
     assert done.returncode == 1 and "result is unusable" in done.stdout
@@ -180,7 +182,7 @@ def test_a_base_result_that_the_pr_commits_is_red(repo: Path, name: str) -> None
     path.write_text(json.dumps(fake))
     git(repo, "add", "-f", str(path.relative_to(repo)))
     git(repo, "commit", "-qm", "own base")
-    done = gate(repo, "plus-one-gap.json", old=0)
+    done = gate(repo, "plus-one-gap.json")
     assert done.returncode == 1, done.stdout
     assert "git tracks files under test-artifacts/selfcheck/" in done.stdout
     assert "cache hit" not in done.stdout
@@ -209,5 +211,29 @@ def test_the_label_comes_as_a_boolean_and_label_text_is_ignored(repo: Path, tmp_
     assert gate(repo, "plus-one-gap.json", **env).returncode == 1
     assert gate(repo, "plus-one-gap.json", RATCHET_LABELS="ratchet-lead", **env).returncode == 1
     assert gate(repo, "plus-one-gap.json", RATCHET_LABELED="yes", **env).returncode == 1
-    done = gate(repo, "plus-one-gap.json", old=0, RATCHET_LABELED="true", **env)
+    done = gate(repo, "plus-one-gap.json", RATCHET_LABELED="true", **env)
     assert done.returncode == 0, done.stdout
+
+
+PIN_NAMES = ("expected-gaps", "expected-growth", "shell-expected", "native_expected")
+
+
+def test_no_pin_file_exists_and_no_code_path_opens_one() -> None:
+    """AD-1064: the base comparison is the only gate, so a pin file must not come back."""
+    listed = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.splitlines()
+    named = [name for name in listed if any(pin in Path(name).name for pin in PIN_NAMES)]
+    assert named == [], "a pin file is back; the gate compares with the base commit (AD-1064)"
+    code = [*(ROOT / "tools").glob("*.py"), *(ROOT / "src").rglob("*.py"), ROOT / "Makefile"]
+    code += (ROOT / ".github/workflows").glob("*.yml")
+    readers = [
+        str(path.relative_to(ROOT))
+        for path in code
+        if any(pin in path.read_text(encoding="utf-8") for pin in PIN_NAMES)
+    ]
+    assert readers == []

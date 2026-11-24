@@ -260,8 +260,10 @@ See the [CLI reference](reference.md) for current commands and baselines.
 - The shell trusts the rule rows of the core binary that it located. It checks the root, the commit,
   the dirty state, the configuration and all contract file digests against its request (AD-438).
   A nested file changed since the request started is refused. Keep the snapshot unchanged during a run.
-- ArchKeel checks its Rust source in `native/` with the core: 86 rules PASS, 0 FAIL, 0 UNKNOWN, 0 violations,
-  pinned in `native/expected-gaps.json`. The Python shell and the tools have no architecture contract.
+- ArchKeel checks its Rust source in `native/` with the core: 89 rules PASS, 0 FAIL, 3 UNKNOWN, 0 violations.
+  The gate compares the result with the base commit and keeps no list of accepted gaps
+  ([AD-1064](architecture/decisions/ad-1064-the-pin-files-are-deleted-and-the-base-comparison-is-the-only-self-check-gate.md)).
+  The tools have no architecture contract.
   This contract states each crossing as a module port (`through`)
   ([AD-588](architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md)).
   `boundary_types` needs type shapes, which only the Python collector writes (AD-550).

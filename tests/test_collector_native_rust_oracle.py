@@ -84,8 +84,8 @@ def facts(rust_binary: Path, frozen_root: Path) -> dict[str, Any]:
 
 def test_the_scan_of_native_is_complete(facts: dict[str, Any]) -> None:
     # AD-357: a method call that may reach an impl block in another module is a pair-scoped gap.
-    # The host drops the gaps that the contract allows, and native/expected-gaps.json pins the
-    # rest. Any other gap means the scan of native/ missed something.
+    # The host drops the gaps that the contract allows, and the self-check gate compares the rest
+    # with the base commit (AD-1064). Any other gap means the scan of native/ missed something.
     gaps = facts["coverage"]["gaps"]
     own = [gap for gap in gaps if not gap["data"].get("source_module")]
     assert [(gap["title"], gap["data"]) for gap in own] == []

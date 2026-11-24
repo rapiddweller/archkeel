@@ -4,8 +4,8 @@ The Python shell in `src/archkeel` starts the core binary and prints its frame. 
 ([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)).
 Archkeel checks the shell with its own core and the contract in
 `docs/architecture/target/shell-contract.json` (AD-478). Run `make self-validate-shell` to check it.
-`make self-validate` checks the shell and `native/`. The pinned rows are in
-`docs/architecture/target/shell-expected.json`.
+`make self-validate` checks the shell and `native/`. The shell check passes only when all rules PASS,
+no gap exists and the exit code is 0 (AD-1064).
 
 ## Parts
 

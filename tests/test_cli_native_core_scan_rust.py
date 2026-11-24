@@ -13,7 +13,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from core_support import NATIVE, SUFFIX, copy_native, ensure_target_dir, pinned_self_status
+from core_support import NATIVE, NATIVE_SELF_STATUS, SUFFIX, copy_native, ensure_target_dir
 from corpus_support import commit_tree, corpus_cases, materialized
 from filelock import FileLock
 from frozen_native import frozen_root as frozen_root
@@ -103,8 +103,8 @@ def test_the_core_scans_its_own_workspace_with_no_shell_reply(
     # AD-418: the core decides each rule of its own contract, so the frame names no part (exit 0).
     assert code == 0, frame["unsupported"]
     assert not frame["unsupported"]["rules"]
-    # AD-668: the status is the pinned one; a known violation stays FAIL.
-    assert frame["status"] == pinned_self_status()[1]
+    # AD-1064: the status follows the stated UNKNOWN rules of the self-contract.
+    assert frame["status"] == NATIVE_SELF_STATUS[1]
     assert frame["self_test"]["collect"]["request"]["resolver"] == {"language": "rust"}
     assert frame["self_test"]["reply"]["files"] > 200
     assert "producer not verified" not in json.dumps(frame["unsupported"])
