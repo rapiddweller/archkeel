@@ -347,6 +347,21 @@ impl Builder {
         self.gaps.entry(id).or_insert(record);
     }
 
+    /// A gap that leaves the edges of `sources` unknown: they depend on code that the scan does not read (#1989).
+    pub(crate) fn foreign_edges(&mut self, reason: &str, module: &str, sources: Vec<String>) {
+        let mut data = GapData::at(reason, module);
+        data.effect = Some(GapEffect::Edges {
+            sources: sources
+                .iter()
+                .map(String::as_str)
+                .map(ModuleName::new)
+                .collect(),
+        });
+        let fact = GapFact::CollectionGap(data);
+        let (id, record) = Record::unknown_gap(reason, None, module, fact);
+        self.gaps.entry(id).or_insert(record);
+    }
+
     pub(crate) fn external_origin(&mut self, module: &str, evidence: &str, package: &str) {
         let reason = format!("A re-export reaches unread package {package}: its origin is unknown");
         let mut data = GapData::at(&reason, module);

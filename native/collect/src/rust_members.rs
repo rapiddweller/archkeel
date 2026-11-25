@@ -44,6 +44,12 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
         })?;
         roots.push(root.trim_end_matches('/').to_owned());
         // The snapshot lists paths with `/`; the members reader prints the separator of the platform.
+        // A member that is a symlink has two paths: Cargo builds the one it names, and the walk lists the real one.
+        for real_dir in all.roots.keys() {
+            if let Ok(relative) = Path::new(real_dir).strip_prefix(&real) {
+                found.push(relative.to_string_lossy().replace('\\', "/"));
+            }
+        }
         found.extend(
             all.dirs
                 .iter()

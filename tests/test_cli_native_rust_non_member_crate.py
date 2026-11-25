@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from rust_repository import component, repository, validate
+from rust_repository import component, repository, rule, validate
 
 pytestmark = pytest.mark.skipif(
     shutil.which("cargo") is None or shutil.which("git") is None,
@@ -77,8 +77,9 @@ def test_a_non_member_crate_is_no_module_of_the_workspace(
     assert _counter(root) == "foreign code ran\n"
     result = validate(root)
     assert result["outcome"] == "verdict", result["gaps"]
-    assert {row[1] for row in result["frame"]["rules"].values()} == {"PASS"}
-    assert _reasons(result) == []
+    rules = {name: row[1] for name, row in result["frame"]["rules"].items()}
+    assert rules["ASSIGNED"] == "PASS" and rules["REQUIRES"] != "PASS", rules
+    assert any("a crate that is no workspace member" in r for r in _reasons(result))
     # The workspace manifest, the two crates and their two sources: no file of `vendor`.
     assert result["frame"]["self_test"]["reply"]["files"] == 5
 
@@ -138,6 +139,101 @@ def test_a_non_member_manifest_inside_a_member_keeps_the_targets_of_the_member(
     # The member keeps its library, and the foreign file is named as unclaimed.
     assert not any("package_unscanned" in gap["kind"] for gap in result["gaps"]), result["gaps"]
     assert any(r.startswith("Source file is in no module tree") for r in _reasons(result))
+
+
+def _forbid(indirect: bool) -> tuple[dict[str, Any], ...]:
+    forbid = rule(
+        "FORBID",
+        "forbidden_dependency",
+        source="native.app",
+        target="native.base_crate",
+        indirect=indirect,
+        include_type_checking=True,
+    )
+    return (forbid,)
+
+
+def _recommit(root: Path) -> None:
+    """The contract needs the schema of the `indirect` key."""
+    contract = root / "architecture-contract.json"
+    contract.write_text(contract.read_text().replace('"2.1.0"', '"3.21.0"'))
+    identity = ["-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(["git", "-C", str(root), *identity, "commit", "-qam", "3.21"], check=True)
+
+
+def _run_marker(root: Path, manifest: str) -> str:
+    done = subprocess.run(
+        ["cargo", "run", "--offline", "-q", "--manifest-path", str(root / manifest)],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PATH": os.environ["PATH"], "CARGO_TARGET_DIR": str(root.parent / "target")},
+    )
+    assert done.returncode == 0, done.stderr
+    return str(done.stdout)
+
+
+MEMBER = '[package]\nname = "base-crate"\nversion = "0.0.0"\nedition = "2021"\n'
+APP_SRC = "pub fn run() { base_crate::make(); x::f(); }\n"
+MARKED_MAIN = 'fn main() { app::run(); println!("app ran"); }\n'
+FOREIGN_X = '[package]\nname = "x"\nversion = "0.0.0"\nedition = "2021"\n'
+
+
+def _app(extra: str) -> str:
+    head = '[package]\nname = "app"\nversion = "0.0.0"\nedition = "2021"\n[dependencies]\n'
+    return head + extra
+
+
+def test_a_member_that_is_a_symlink_to_an_excluded_directory_stays_in_the_scan(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = {
+        "crates/Cargo.toml": (
+            '[workspace]\nmembers = ["base", "zapp"]\nexclude = ["app", "vendor/x"]\n'
+        ),
+        "crates/app/Cargo.toml": _app(
+            'base-crate = { path = "../base" }\nx = { path = "../vendor/x" }\n'
+        ),
+        "crates/app/src/lib.rs": APP_SRC,
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "crates/vendor/x/Cargo.toml": FOREIGN_X,
+        "crates/vendor/x/src/lib.rs": "pub fn f() {}\n",
+    }
+    parts = (component("base", "base_crate"), component("app", "app"))
+    root = repository(
+        tmp_path / "repo", release_core, files=layout, components=parts, rules=_forbid(False)
+    )
+    (root / "crates/zapp").symlink_to("app")
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+    _recommit(root)
+    assert _run_marker(root, "crates/zapp/Cargo.toml") == "app ran\n"
+    result = validate(root)
+    assert result["frame"]["rules"]["FORBID"][1] == "FAIL", result["frame"]["rules"]
+
+
+def test_an_excluded_crate_does_not_hide_an_edge_that_passes_through_it(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = {
+        "crates/Cargo.toml": '[workspace]\nmembers = ["app", "base"]\nexclude = ["vendor/x"]\n',
+        "crates/app/Cargo.toml": _app('x = { path = "../vendor/x" }\n'),
+        "crates/app/src/lib.rs": "pub fn run() { x::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "crates/vendor/x/Cargo.toml": (
+            FOREIGN_X + '[dependencies]\nbase-crate = { path = "../../base" }\n'
+        ),
+        "crates/vendor/x/src/lib.rs": "pub fn f() { base_crate::make(); }\n",
+    }
+    parts = (component("base", "base_crate"), component("app", "app"))
+    root = repository(
+        tmp_path / "repo", release_core, files=layout, components=parts, rules=_forbid(True)
+    )
+    _recommit(root)
+    assert _run_marker(root, "crates/app/Cargo.toml") == "app ran\n"
+    result = validate(root)
+    # The chain app -> x -> base is not read: the rule must not PASS.
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+    assert any("depends on x, a crate that is no workspace member" in r for r in _reasons(result))
 
 
 def _without_cargo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

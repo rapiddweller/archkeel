@@ -17,7 +17,7 @@ use archkeel_facts::request::RustRequest;
 use archkeel_snapshot::Snapshot;
 
 use crate::builder::Builder;
-use crate::crates::{discover, unproven_members};
+use crate::crates::{discover, unproven_members, Workspace};
 use crate::manifest::ident;
 use crate::modules::index;
 use crate::registry::Registry;
@@ -25,7 +25,7 @@ use crate::reply::Collected;
 use crate::source::{read_text, walk as list_files};
 use crate::test_scope::NO_PRODUCTION_SOURCE;
 use crate::toml;
-use crate::tree::walk;
+use crate::tree::{walk, Module};
 use archkeel_facts::identity::sha256_hex;
 use archkeel_facts::type_reach::MEMBERS_ENV;
 use archkeel_snapshot::paths::{dirname, join, within};
@@ -36,7 +36,7 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
     let mut builder = Builder::with_exclude_tests(request.excludes_test_sources());
     let (scope, files) = list(&mut source, &request.scope.roots, &mut builder);
     let unavailable = load_facts(&mut source, &files, &mut builder);
-    let files = workspace_files(files, &mut source, &mut builder);
+    let (files, foreign_names) = workspace_files(files, &mut source, &mut builder);
     let overrides = crate::registry_overrides::configs(&mut source);
     let mut workspace = discover(&mut source, &files, &request.scope.namespace);
     for krate in &mut workspace.crates {
@@ -48,6 +48,7 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
         .iter()
         .any(|krate| !krate.registry.packages.is_empty());
     let mut walked = walk(&mut source, &workspace, request.excludes_test_sources());
+    hold_foreign_edges(&workspace, &walked.modules, &foreign_names, &mut builder);
     let proven: Vec<Vec<String>> = {
         let index = index(&workspace, &walked.modules);
         walked
@@ -209,15 +210,43 @@ fn answer() -> Answer {
     }
 }
 
+/// A member that depends on a foreign crate may reach other members through it: the files of the foreign crate are
+/// not read, so the edges of that member are unknown (#1989).
+fn hold_foreign_edges(
+    workspace: &Workspace,
+    modules: &[Module],
+    foreign_names: &BTreeSet<String>,
+    builder: &mut Builder,
+) {
+    for (index, krate) in workspace.crates.iter().enumerate() {
+        let through = krate
+            .manifest
+            .dependencies
+            .values()
+            .find(|package| foreign_names.contains(package.as_str()));
+        let (Some(package), Some(root)) = (through, krate.primary.as_ref().or(krate.roots.first()))
+        else {
+            continue;
+        };
+        let sources = modules
+            .iter()
+            .filter(|m| m.crate_index == index)
+            .map(|m| m.module.clone())
+            .collect();
+        let reason = format!("The crate {} depends on {package}, a crate that is no workspace member: the edges that pass through it are not read", krate.ident);
+        builder.foreign_edges(&reason, &root.module, sources);
+    }
+}
+
 /// `files` without the files below a crate that is no workspace member. A crate whose membership is not decided
 /// stays in the list and adds a gap.
 fn workspace_files(
     files: Vec<String>,
     source: &mut Snapshot,
     builder: &mut Builder,
-) -> Vec<String> {
+) -> (Vec<String>, BTreeSet<String>) {
     let (roots, members) = match answer() {
-        Answer::Absent => return files,
+        Answer::Absent => return (files, BTreeSet::new()),
         Answer::Unavailable(why) => {
             // Without `cargo metadata` the manifests prove a membership only for the plain layouts.
             let dirs = package_dirs(&files, source);
@@ -227,7 +256,7 @@ fn workspace_files(
                 let reason = format!("The Cargo workspace members are unavailable: {why}. The manifests do not prove that {} is a member: every crate below the scan roots is read as workspace code.", unproven.join(", "));
                 builder.gap(&reason, None, "");
             }
-            return files;
+            return (files, BTreeSet::new());
         }
         Answer::Listed { roots, members } => (roots, members),
     };
@@ -270,7 +299,8 @@ fn workspace_files(
         .copied()
         .filter(|dir| inside_member(dir, &kept))
         .collect();
-    files
+    let names: BTreeSet<String> = foreign.values().map(|name| ident(name)).collect();
+    let kept_files = files
         .iter()
         .filter(|file| {
             let mut dir = dirname(file);
@@ -285,7 +315,8 @@ fn workspace_files(
             }
         })
         .cloned()
-        .collect()
+        .collect();
+    (kept_files, names)
 }
 
 /// Whether a directory above `dir` is a member crate.
