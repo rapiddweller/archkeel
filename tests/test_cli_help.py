@@ -78,7 +78,9 @@ def test_a_flag_that_does_not_exist_yet_refuses_in_plain_words(
     text = capsys.readouterr().out
     assert f"report {flag} is not available in ArchKeel 5.0 yet" in text
     assert "development line" not in text
-    assert "release 4.0.1" in text and "#" not in text
+    problem = next(line for line in text.splitlines() if line.startswith("Problem: "))
+    assert "use archkeel report --json" in problem and "release" not in problem
+    assert "#" not in text
 
 
 def test_skill_install_without_an_agent_names_the_fix(capsys: pytest.CaptureFixture[str]) -> None:

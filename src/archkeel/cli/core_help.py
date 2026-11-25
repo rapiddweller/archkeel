@@ -166,8 +166,8 @@ examples:
 _CHECK: Final = """\
 usage: archkeel check
 
-`check` is not available in ArchKeel 5.0 yet. Use release {release} for it.
-Nothing runs; the exit code is 2. Use `archkeel validate` or `archkeel report`.
+`check` is not available in ArchKeel 5.0 yet. Release {release} cannot read a 5.0 config.
+Use `archkeel validate --json` for the verdict. Nothing runs; the exit code is 2.
 """
 _TOOL: Final = """\
 usage: archkeel <command> [options]
