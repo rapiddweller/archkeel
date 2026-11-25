@@ -29,6 +29,9 @@
 //! `source.scope` (`root/**` for a directory, else the root), so the roots of the request must
 //! be exactly these labels in their order. A caller cannot widen a root by word.
 
+use archkeel_facts::envelope::Facts;
+use archkeel_facts::type_reach::{Config, TypeReach};
+
 use crate::ownership::in_scope;
 use crate::reason::Refusal;
 
@@ -216,6 +219,46 @@ impl Settings {
             Err(Refusal::OutsideNamespace(module.to_owned()))
         }
     }
+}
+
+/// The provenance of the type-reach facts of a reply, refused by name unless it is complete (AD-1114): a
+/// rustc text, a target, two SHA-256 hashes, each configuration of the matrix and at least one member.
+pub(crate) fn check_reach(facts: &Facts) -> Result<(), Refusal> {
+    facts.type_reach.as_ref().map_or(Ok(()), provenance)
+}
+
+fn provenance(fact: &TypeReach) -> Result<(), Refusal> {
+    let sha = |text: &str| text.len() == 64 && text.bytes().all(|b| b.is_ascii_hexdigit());
+    if !fact.rustc.starts_with("rustc ") {
+        return Err(Refusal::TypeReach("no rustc version text"));
+    }
+    if fact.target_triple.is_empty() {
+        return Err(Refusal::TypeReach("no target triple"));
+    }
+    if !sha(&fact.driver_sha256) || !sha(&fact.cargo_lock_sha256) {
+        return Err(Refusal::TypeReach("a hash that is not a SHA-256"));
+    }
+    if fact.members.is_empty() || fact.members.iter().any(|dir| !dir.ends_with('/')) {
+        return Err(Refusal::TypeReach(
+            "no workspace member, or a member without a closing slash",
+        ));
+    }
+    if fact
+        .configs
+        .iter()
+        .any(|name| Config::named(name).is_none())
+    {
+        return Err(Refusal::TypeReach(
+            "a configuration that the matrix does not know",
+        ));
+    }
+    let covers = |config: Config| fact.configs.contains(&config.cfg_name());
+    if !archkeel_facts::type_reach::matrix().into_iter().all(covers) {
+        return Err(Refusal::TypeReach(
+            "a matrix that misses a fixed configuration",
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

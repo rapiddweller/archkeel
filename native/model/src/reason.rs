@@ -211,6 +211,8 @@ pub enum Refusal {
     StandardLibrary(&'static str),
     /// The scan roots are not the scope labels that the collector wrote (AD-384).
     ScanRoots,
+    /// The provenance of the compiler type-reach facts does not hold (AD-1114).
+    TypeReach(&'static str),
 }
 
 impl fmt::Display for Refusal {
@@ -227,6 +229,9 @@ impl fmt::Display for Refusal {
             }
             Refusal::ScanRoots => {
                 formatter.write_str("the scan roots of the settings are not the scope of the reply")
+            }
+            Refusal::TypeReach(rule) => {
+                formatter.write_str(&["the type-reach facts of the reply have ", rule].concat())
             }
         }
     }

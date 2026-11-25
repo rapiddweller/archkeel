@@ -100,7 +100,12 @@ fn declared(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
             | Rule::NoComponentCycles(_)
             | Rule::InterfaceBoundary(_)
     );
-    if reads_pairs && Model::declares_premise(model, PremiseName::RustTypeReach) {
+    // The contract declares the premise and the reply proves that the facts were used (AD-1114): the
+    // declaration alone is a wish, not evidence.
+    if reads_pairs
+        && Model::declares_premise(model, PremiseName::RustTypeReach)
+        && model.graph().observed().type_reach.is_some()
+    {
         return vec![UsedPremise {
             kind: PremiseKind::Declared(PremiseName::RustTypeReach),
             subject: "type reach".to_owned(),

@@ -74,7 +74,10 @@ fn the_producer_gives_facts_for_the_native_workspace() {
     );
     assert_eq!(names.len(), 9, "{names:?}");
     assert!(names[3..].iter().all(|n| n.starts_with("feature:")));
-    write("native.json", &crate::descriptor_of(&made).to_string());
+    write(
+        "native.json",
+        &serde_json::to_string(&crate::descriptor_of(&made)).unwrap(),
+    );
 }
 
 /// A workspace whose `.cargo/config.toml` adds `--cfg foo` for the build and for the host target.
@@ -181,7 +184,10 @@ fn the_producer_gives_facts_for_the_fixture_workspace_and_runs_its_dispatches() 
         .produce(&root, &root.join("Cargo.toml"), &cache)
         .map_err(|e| e.describe())
         .unwrap();
-    write("fixtures.json", &crate::descriptor_of(&made).to_string());
+    write(
+        "fixtures.json",
+        &serde_json::to_string(&crate::descriptor_of(&made)).unwrap(),
+    );
     let truth = dispatch_counts(channel().unwrap(), &cache);
     write("truth.json", &serde_json::to_string(&truth).unwrap());
 }
@@ -203,7 +209,10 @@ fn the_producer_gives_facts_for_the_collision_workspace_and_runs_its_dispatches(
         .produce(&root, &manifest, &cache)
         .map_err(|e| e.describe())
         .unwrap();
-    write("coll.json", &crate::descriptor_of(&made).to_string());
+    write(
+        "coll.json",
+        &serde_json::to_string(&crate::descriptor_of(&made)).unwrap(),
+    );
     let truth = dispatch_counts_of(channel().unwrap(), &manifest, &[], &cache);
     write("coll-truth.json", &serde_json::to_string(&truth).unwrap());
 }

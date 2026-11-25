@@ -16,7 +16,7 @@
 //! unit read is listed too, because its `cfg(not(test))` code is not seen.
 
 use crate::type_reach_facts::Facts;
-use archkeel_facts::type_reach::{Config, Field, Unavailable, ENV};
+use archkeel_facts::type_reach::{Config, Descriptor, Field, TypeReach, Unavailable, ENV};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -240,88 +240,53 @@ fn verify(
     })
 }
 
+/// The facts of the producer and their provenance, or the cause why a scan that asked has none.
+pub type Announced = Option<Result<(Vec<Facts>, TypeReach), String>>;
+
 /// The facts that the producer announced in the descriptor that `ARCHKEEL_TYPE_REACH` names, checked
-/// against the scan. `None` when the variable is unset: the scan asks for no facts. `scanned` is read
-/// only when the variable is set. An `Err` is the exact cause, and the scan keeps every gap.
-pub fn announced(
-    scanned: impl FnOnce() -> BTreeMap<String, String>,
-) -> Option<Result<Vec<Facts>, String>> {
+/// against the scan, with their provenance. `None` when the variable is unset: the scan asks for no facts.
+/// `scanned` is read only when the variable is set. An `Err` is the exact cause, and the scan keeps every gap.
+pub fn announced(scanned: impl FnOnce() -> BTreeMap<String, String>) -> Announced {
     let path = std::env::var_os(ENV)?;
     Some(read_descriptor(Path::new(&path), &scanned()))
 }
 
-fn read_descriptor(path: &Path, scanned: &BTreeMap<String, String>) -> Result<Vec<Facts>, String> {
+fn read_descriptor(
+    path: &Path,
+    scanned: &BTreeMap<String, String>,
+) -> Result<(Vec<Facts>, TypeReach), String> {
     let text =
         std::fs::read_to_string(path).map_err(|e| format!("cannot read the descriptor: {e}"))?;
-    let descriptor: Value =
-        serde_json::from_str(&text).map_err(|e| format!("the descriptor is no JSON: {e}"))?;
-    if let Some(why) = descriptor.get("unavailable").and_then(Value::as_str) {
-        return Err(why.to_string());
-    }
-    let word = |key: &str| {
-        descriptor
-            .get(key)
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string()
+    let descriptor: Descriptor =
+        serde_json::from_str(&text).map_err(|e| format!("the descriptor is not valid: {e}"))?;
+    let produced = match descriptor {
+        Descriptor::Unavailable { unavailable } => return Err(unavailable),
+        Descriptor::Produced(produced) => produced,
     };
     let mut all = Vec::new();
-    for entry in descriptor
-        .get("configs")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-    {
-        let field = |key: &str| {
-            entry
-                .get(key)
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string()
-        };
-        let config = Config::named(&field("name"))
+    for run in &produced.configs {
+        let config = Config::named(&run.name)
             .ok_or_else(|| "the descriptor names an unknown configuration".to_string())?;
-        let members: Vec<String> = descriptor
-            .get("members")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(|m| m.as_str().map(str::to_string))
-            .collect();
-        let units: Vec<String> = entry
-            .get("units")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(|u| u.as_str().map(str::to_string))
-            .collect();
-        let (rustc, driver, triple, lock) = (
-            word("rustc"),
-            word("driver_sha256"),
-            word("target_triple"),
-            word("cargo_lock_sha256"),
-        );
         let want = Expected {
-            rustc: &rustc,
-            driver_sha256: &driver,
-            target_triple: &triple,
+            rustc: &produced.rustc,
+            driver_sha256: &produced.driver_sha256,
+            target_triple: &produced.target_triple,
             config: &config,
-            cargo_lock_sha256: &lock,
-            units: &units,
-            members: &members,
+            cargo_lock_sha256: &produced.cargo_lock_sha256,
+            units: &run.units,
+            members: &produced.members,
         };
-        let dir = field("dir");
-        want.verify_dir(Path::new(&dir), scanned)
+        want.verify_dir(Path::new(&run.dir), scanned)
             .map_err(|e| e.describe())?;
         all.push(
-            Facts::load_dir(Path::new(&dir))
+            Facts::load_dir(Path::new(&run.dir))
                 .ok_or_else(|| "the facts cannot be read".to_string())?,
         );
     }
     if all.is_empty() {
         return Err("the descriptor names no configuration".to_string());
     }
-    Ok(all)
+    Ok((all, produced.fact()))
 }
 
 #[cfg(test)]

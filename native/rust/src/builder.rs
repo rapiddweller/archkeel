@@ -222,6 +222,8 @@ pub(crate) struct Builder {
     pub(crate) opaque_values: BTreeSet<String>,
     /// The compiler type-reach facts of each configuration, or none (AD-1047).
     pub(crate) type_reach: Vec<crate::type_reach_facts::Facts>,
+    /// The provenance of those facts. It stays only when the filter used them (AD-1114).
+    pub(crate) reach_fact: Option<archkeel_facts::type_reach::TypeReach>,
 }
 
 impl Builder {

@@ -480,8 +480,7 @@ fn symbol_counts(facts: &Facts, modules: &Table<ModuleId, Module>) -> Option<Vec
     )
 }
 
-/// The facts of the reply, when the settings of the shell hold for it (AD-372): the profile is
-/// the profile of the reply, and each module lies in the namespace.
+/// The facts of the reply, when the settings of the shell hold for it (AD-372, AD-1114).
 fn admitted<'a>(reply: &'a Ingested, settings: &Settings) -> Result<&'a Facts, Reason> {
     let facts = &reply.reply().facts;
     let pinned = archkeel_store::standard_library(&facts.validation.standard_library);
@@ -491,6 +490,7 @@ fn admitted<'a>(reply: &'a Ingested, settings: &Settings) -> Result<&'a Facts, R
     settings
         .bind_roots(&facts.source.scope)
         .map_err(Reason::Refused)?;
+    crate::settings::check_reach(facts).map_err(Reason::Refused)?;
     for file in &facts.files {
         settings
             .admits(file.module.as_str(), file.package.as_str())

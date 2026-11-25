@@ -56,6 +56,8 @@ pub(crate) struct Observed {
     pub(crate) profile_limits: Option<ProfileLimits>,
     /// The linked collector's stated assumption (AD-540), absent for a wire reply.
     pub(crate) scope_premise: Option<String>,
+    /// The provenance of the type-reach facts that the scan used, checked by `admitted` (AD-1114).
+    pub(crate) type_reach: Option<archkeel_facts::type_reach::TypeReach>,
     pub(crate) excluded_sources: Vec<String>,
     /// Each pair's source, target, dispatch flag and the two scope proofs.
     pub(crate) pair_gaps: Vec<(String, String, bool, bool, bool)>,
@@ -155,6 +157,7 @@ pub(crate) fn observed(
         profile_limits: facts.profile_limits,
         named_sites: named_sites(unknowns().map(|gap| &gap.data)),
         scope_premise: facts.scope_premise.clone(),
+        type_reach: facts.type_reach.clone(),
         excluded_sources: facts.excluded_sources.clone(),
         pair_gaps,
         effect_gaps: gap_class::effect_gaps(&facts.coverage, classes),
