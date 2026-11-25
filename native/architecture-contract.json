@@ -333,6 +333,7 @@
         "native.archkeel_contract.policy:baseline_bytes",
         "native.archkeel_contract.policy:budget_word",
         "native.archkeel_contract.policy:clip_inside",
+        "native.archkeel_contract.policy:declared_budgets",
         "native.archkeel_contract.policy:parse_baseline",
         "native.archkeel_contract.policy:provenance_paths",
         "native.archkeel_contract:BoundaryAllowance",
@@ -2661,6 +2662,7 @@
           "through": [
             "native.archkeel_model:Graph",
             "native.archkeel_model:Hygiene",
+            "native.archkeel_model:Measures",
             "native.archkeel_model:Reason",
             "native.archkeel_model:gap_kind",
             "native.archkeel_model:stable"
@@ -2735,6 +2737,7 @@
         "native.archkeel_core.baseline_frame:Part",
         "native.archkeel_core.baseline_frame:build",
         "native.archkeel_core.baseline_frame:gap_rows",
+        "native.archkeel_core.baseline_frame:holds_budgets",
         "native.archkeel_core.baseline_frame:observed"
       ],
       "decided_by": "architect"
@@ -2792,6 +2795,7 @@
           "rationale": "Parse the contract bytes that the shell sends (AD-359).",
           "through": [
             "native.archkeel_contract.policy",
+            "native.archkeel_contract:BudgetName",
             "native.archkeel_contract:Component",
             "native.archkeel_contract:Contract",
             "native.archkeel_contract:DecidedBy",

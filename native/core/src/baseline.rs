@@ -37,6 +37,8 @@ pub(crate) struct Observed {
     pub(crate) gaps: Gaps,
     pub(crate) violations: BTreeMap<Violation, u64>,
     pub(crate) budgets: Budgets,
+    /// The budgets that the contract declares: a file of schema 1.4.0 must hold each one.
+    pub(crate) declared: Vec<BudgetName>,
     /// True when the run status is UNKNOWN, whatever the keys say. A status without a key must
     /// still keep the exit code at 2.
     pub(crate) unknown_status: bool,
@@ -50,6 +52,36 @@ type Accepted<'a> = BTreeMap<(&'a [String], &'a [String]), (u64, &'a [BaselineRo
 pub(crate) struct Budgets {
     pub(crate) cycle_edges: Option<u64>,
     pub(crate) private_crossings: Option<u64>,
+    pub(crate) calls_unresolved: Option<u64>,
+    pub(crate) typing_positions: Option<u64>,
+    pub(crate) untyped_private_accesses: Option<u64>,
+}
+
+impl Budgets {
+    /// The measured value of a budget, or `None` when the run does not measure it.
+    fn of(&self, name: BudgetName) -> Option<u64> {
+        match name {
+            BudgetName::CycleEdges => self.cycle_edges,
+            BudgetName::PrivateCrossings => self.private_crossings,
+            BudgetName::CallsUnresolved => self.calls_unresolved,
+            BudgetName::TypingPositions => self.typing_positions,
+            BudgetName::UntypedPrivateAccesses => self.untyped_private_accesses,
+            _ => None,
+        }
+    }
+}
+
+impl Observed {
+    /// One gap for each declared budget that the run does not measure: no file can hold it.
+    pub(crate) fn unmeasured_declared(&self) -> Vec<Named> {
+        let missing = self
+            .declared
+            .iter()
+            .filter(|name| self.budgets.of(**name).is_none());
+        missing
+            .map(|name| unmeasured(budget_word(*name), "the run does not measure it"))
+            .collect()
+    }
 }
 
 /// One difference between the run and the file.
@@ -189,7 +221,8 @@ impl Compared {
 }
 
 /// Release 4.0.1 measured these three with its own analyzer; a file of an older schema holds its
-/// numbers, and the core does not compare them with its own (the schema is the measure).
+/// numbers, and the core does not compare them with its own (the schema is the measure). A file
+/// of schema 1.4.0 holds the numbers of this core, and the compare reads them (AD-1090).
 const OTHER_ANALYZER: [BudgetName; 3] = [
     BudgetName::CallsUnresolved,
     BudgetName::TypingPositions,
@@ -286,27 +319,47 @@ fn budgets(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
                 continue;
             }
         };
-        let measured = match name {
-            BudgetName::CycleEdges => Some(run.budgets.cycle_edges),
-            BudgetName::PrivateCrossings => Some(run.budgets.private_crossings),
-            _ => None,
-        };
         let word = budget_word(name);
-        match measured {
-            Some(Some(value)) => compare_budget(word, value, ceiling, found),
-            Some(None) => found
-                .gaps
-                .push(unmeasured(word, "the run does not measure it")),
-            None if !current && OTHER_ANALYZER.contains(&name) => found.gaps.push(Named {
+        if !current && OTHER_ANALYZER.contains(&name) {
+            found.gaps.push(Named {
                 kind: "baseline.budget_of_older_schema",
                 subject: word.to_owned(),
                 reason: "release 4.0.1 measured it with its own analyzer; write the file again \
                          with --write-baseline"
                     .to_owned(),
+            });
+            continue;
+        }
+        match run.budgets.of(name) {
+            Some(value) => compare_budget(word, value, ceiling, found),
+            None => found
+                .gaps
+                .push(unmeasured(word, "the run does not measure it")),
+        }
+    }
+    for name in &run.declared {
+        let held = file.budgets().iter().any(
+            |budget| matches!(budget, BaselineBudget::Scalar { name: held, .. } if held == name),
+        );
+        if held {
+            continue;
+        }
+        let word = budget_word(*name);
+        // A declared budget without a ceiling is red, not a gap: exit 2 is green for CE, so
+        // deleting the line from the file would hide a grown measure.
+        match run.budgets.of(*name) {
+            Some(value) => found.new.push(Difference {
+                what: "budget",
+                kind: "budget.unknown".to_owned(),
+                subject: word.to_owned(),
+                reason: "the contract declares this budget and the file holds no value for it"
+                    .to_owned(),
+                run: value,
+                file: 0,
             }),
             None => found
                 .gaps
-                .push(unmeasured(word, "this core does not measure it")),
+                .push(unmeasured(word, "the run does not measure it")),
         }
     }
 }
@@ -329,7 +382,9 @@ fn compare_budget(name: &str, run: u64, file: u64, found: &mut Compared) {
         file,
     };
     if run > file {
-        found.new.push(difference("above the baseline"));
+        let mut above = difference("above the baseline");
+        above.kind = "budget.exceeded".to_owned();
+        found.new.push(above);
     } else if run < file {
         found.gone.push(difference("below the baseline"));
     }

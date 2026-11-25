@@ -65,6 +65,7 @@ fn hygiene(bytes: Vec<u8>, documents: &Documents) -> super::Found {
         "app",
         &[],
         "architecture-contract.json",
+        false,
     )
 }
 

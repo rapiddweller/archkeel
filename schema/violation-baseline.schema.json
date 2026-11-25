@@ -10,10 +10,13 @@
     "budgets"
   ],
   "additionalProperties": false,
+  "if": {"properties": {"schema_version": {"const": "1.4.0"}}},
+  "then": {"required": ["unknowns"]},
+  "else": {"not": {"required": ["unknowns"]}},
   "properties": {
     "schema_version": {
-      "const": "1.3.0",
-      "description": "Current writer schema; the reader also accepts baseline schemas 1.0.0, 1.1.0 and 1.2.0, which carries scalar budgets only."
+      "enum": ["1.3.0", "1.4.0"],
+      "description": "Writer schema: 1.4.0 holds the unknowns list and the three call and type budgets, which the core compares (AD-1090). The reader also accepts 1.0.0 to 1.3.0; their three call and type budgets come from release 4.0.1 and are not compared."
     },
     "budgets": {
       "type": "object",
@@ -30,6 +33,11 @@
       },
       "description": "Exact accepted values for the measurement_budgets selected by the architecture contract, and the accepted names per declared facade (component label) or coupling pair (\"source -> target\") budget (AD-99)."
     },
+    "unknowns": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/acceptedUnknown"},
+      "description": "Schema 1.4.0 only: each UNKNOWN that a person accepted, by kind, subject and reason (AD-546). The file lists no line and no evidence id."
+    },
     "violations": {
       "type": "array",
       "uniqueItems": true,
@@ -40,6 +48,17 @@
     }
   },
   "$defs": {
+    "acceptedUnknown": {
+      "type": "object",
+      "required": ["kind", "subject", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"type": "string", "minLength": 1},
+        "subject": {"type": "string"},
+        "reason": {"type": "string"},
+        "count": {"type": "integer", "minimum": 2, "description": "Written only above 1."}
+      }
+    },
     "acceptedNames": {
       "type": "object",
       "additionalProperties": {

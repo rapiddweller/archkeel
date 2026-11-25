@@ -20,6 +20,7 @@ use archkeel_store::Ingested;
 #[cfg(any(test, feature = "harness"))]
 use serde::Deserialize;
 
+use crate::baseline_frame;
 use crate::contract::{ContractInput, ContractState, InsideFile};
 #[cfg(any(test, feature = "harness"))]
 use crate::decode::{decode, hex, insides, InsideJson, ReplyBytes, INFLATE_LIMIT};
@@ -207,6 +208,10 @@ pub(crate) struct Trust {
 
 /// The one engine path of each request kind: the reply, the settings, the contract, the rows and
 /// the ruling, in this order, and the frame.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the engine path of one request is one ordered sequence (AD-1090 adds two lines)"
+)]
 pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answered, String> {
     let evaluating = clock.map(|now| now());
     let mut engine = Engine::default();
@@ -250,6 +255,9 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
         (run.documents.as_ref(), &run.sdk_libraries),
         &namespace,
         &path,
+        run.accept
+            .as_ref()
+            .is_some_and(baseline_frame::holds_budgets),
     );
     let mut named = named(&contract, run.baseline, &engine, &path);
     frame_parts::hold_contract(&mut named, trust.gap, base, hygiene.refusal);
@@ -262,9 +270,10 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
     let (rows, sections) = crate::sections::split(rows);
     let refused = frame_parts::refusals(&reply, &contract, &sections, report.as_ref().err());
     let baseline = run.accept.map(|input| {
+        let counts = (hygiene.budgets.as_slice(), measures.as_ref());
         let seen =
-            crate::baseline_frame::observed(&ruling, engine.reply(), engine.graph(), refused);
-        crate::baseline_frame::build(input, &seen)
+            baseline_frame::observed(&ruling, engine.reply(), engine.graph(), refused, counts);
+        baseline_frame::build(input, &seen)
     });
     let names_a_gap = report.is_err()
         || !ruling.unsupported().is_empty()

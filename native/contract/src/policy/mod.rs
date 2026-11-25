@@ -39,5 +39,5 @@ pub use baseline_value::{
 pub use baseline_write::{baseline_bytes, budget_word};
 pub use clip::{clip_inside, Clipped};
 pub use issue::{IssueKind, SourceProblem, TreeError, TreeIssue};
-pub use scope::provenance_paths;
+pub use scope::{declared_budgets, provenance_paths};
 pub use tree::{assemble_tree, ContractTree, InsideMount};

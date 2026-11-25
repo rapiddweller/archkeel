@@ -265,3 +265,14 @@ fn a_refused_run_that_compares_and_writes_exits_1_because_exit_2_means_all_accep
         (Some("not_written"), Some(2))
     );
 }
+
+#[test]
+fn a_write_for_a_declared_budget_that_the_run_cannot_measure_never_exits_0() {
+    let run = crate::baseline::Observed {
+        declared: vec![archkeel_contract::BudgetName::UnknownPositions],
+        ..crate::baseline::Observed::default()
+    };
+    let part = serde_json::to_value(super::build(super::Input::Write, &run)).unwrap();
+    assert_eq!(part["exit_code"], 2, "{part}");
+    assert_eq!(part["gaps"][0]["kind"], "budget.unmeasured");
+}

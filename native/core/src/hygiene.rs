@@ -21,8 +21,8 @@
 use std::collections::BTreeMap;
 use std::iter;
 
-use archkeel_contract::policy::InsideMount;
-use archkeel_contract::{Contract, Rule};
+use archkeel_contract::policy::{self, InsideMount};
+use archkeel_contract::{BudgetName, Contract, Rule};
 use archkeel_model::{
     in_scope, Graph, Hygiene, ModelTree, Reason, TrojanHorseProblem, TrojanHorses, Unsupported,
 };
@@ -42,8 +42,6 @@ const INTERFACE: &str = "interface.undeclared, interface.unused, interface.usage
 const COMPATIBILITY: &str = "compatibility.invalid";
 /// The check of an `allowed_dependency` rule of a mounted contract against its parent.
 const INSIDE: &str = "inside.forbidden_import";
-/// The measurement budgets: release 4.0.1 needs a baseline for them, and `main` reads none.
-const BUDGET: &str = "baseline.invalid, budget.exceeded, budget.unknown";
 
 /// What the hygiene of a run adds to the gaps of the core.
 #[derive(Debug, Default)]
@@ -52,9 +50,20 @@ pub(crate) struct Found {
     pub(crate) refusal: Option<(&'static str, String)>,
     /// The reason of each hygiene row.
     pub(crate) rules: BTreeMap<String, Reason>,
+    /// The measurement budgets that the root contract declares: the baseline compare holds them.
+    pub(crate) budgets: Vec<BudgetName>,
 }
 
 impl Found {
+    /// An empty result that carries the budgets of the usable contract.
+    fn of(usable: Option<&Usable>) -> Found {
+        let budgets = usable.map_or_else(Vec::new, |usable| policy::declared_budgets(&usable.root));
+        Found {
+            budgets,
+            ..Found::default()
+        }
+    }
+
     fn defect(&mut self, place: &str, finding: hygiene_refs::Finding) {
         let parts = vec![finding.2.clone()];
         self.defect_parts(place, finding, parts);
@@ -98,7 +107,7 @@ impl Found {
 /// The hygiene of a request without provenance documents (a dual-run or a check request): one
 /// named row for a usable contract, so such a request cannot give PASS without hygiene.
 pub(crate) fn unread(usable: Option<&Usable>) -> Found {
-    let mut found = Found::default();
+    let mut found = Found::of(usable);
     if usable.is_some() {
         let reason = Reason::Unsupported(Unsupported::HygieneInput);
         found.rules.insert("hygiene:request".to_owned(), reason);
@@ -108,6 +117,8 @@ pub(crate) fn unread(usable: Option<&Usable>) -> Found {
 
 /// The hygiene of a run over the usable contract at `path`, the provenance documents and the
 /// models. A run without a usable contract has no hygiene: its contract already names a gap.
+/// `compares_baseline` is true when the request compares the run with a checked baseline file: the
+/// compare then holds each declared budget (AD-1090).
 pub(crate) fn check(
     documents: &Documents,
     usable: Option<&Usable>,
@@ -115,8 +126,9 @@ pub(crate) fn check(
     namespace: &str,
     sdk: &[String],
     path: &str,
+    compares_baseline: bool,
 ) -> Found {
-    let mut found = Found::default();
+    let mut found = Found::of(usable);
     let Some(usable) = usable else {
         return found;
     };
@@ -178,7 +190,13 @@ pub(crate) fn check(
             inside_trojan_horses(&mut found, place, contract);
         }
     }
-    root(&mut found, documents, &usable.root, models, path);
+    root(
+        &mut found,
+        documents,
+        &usable.root,
+        models,
+        (path, compares_baseline),
+    );
     found
 }
 
@@ -261,7 +279,7 @@ fn root(
     documents: &Documents,
     contract: &Contract,
     models: Result<&ModelTree, Reason>,
-    path: &str,
+    (path, compares_baseline): (&str, bool),
 ) {
     for finding in hygiene_refs::rationale(contract) {
         found.defect(path, finding);
@@ -270,8 +288,21 @@ fn root(
         if !declarations.compat().is_empty() {
             found.gap(path, "compatibility", COMPATIBILITY);
         }
-        if !declarations.measurement_budgets().is_empty() {
-            found.gap(path, "budget", BUDGET);
+        if !declarations.measurement_budgets().is_empty() && !compares_baseline {
+            let claim =
+                "the contract declares measurement budgets and this run compares them with no \
+                         baseline file: run with --baseline FILE"
+                    .to_owned();
+            let pointer = "/declarations/measurement_budgets".to_owned();
+            found.defect(
+                path,
+                (
+                    "budget.unknown",
+                    pointer,
+                    "measurement_budgets".to_owned(),
+                    claim,
+                ),
+            );
         }
     }
     // The checks below read the code: a run without models has no PASS to hold back.
