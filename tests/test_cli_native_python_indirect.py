@@ -37,7 +37,8 @@ def scan(release_core: Path, root: Path, rules: list[dict[str, Any]], files: dic
     project(root, files, contract_rules=rules)
     contract = root / "architecture-contract.json"
     contract.write_text(contract.read_text().replace('"2.2.0"', '"3.21.0"'))
-    subprocess.run(["git", "-C", str(root), "commit", "-qam", "3.21"], check=True)
+    identity = ["-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(["git", "-C", str(root), *identity, "commit", "-qam", "3.21"], check=True)
     return verdict(release_core, root)
 
 
