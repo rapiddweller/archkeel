@@ -73,6 +73,8 @@ class GapKind(StrEnum):
     TROJAN_HORSE_REACH_REPEATED = "trojan_horse_reach.repeated"
     TROJAN_HORSE_REACH_INVALID = "trojan_horse_reach.invalid"
     TROJAN_HORSE_REACH_INSIDE = "trojan_horse_reach.inside"
+    # AD-1090: a declared measurement budget that the run does not compare with a baseline file.
+    BUDGET_UNKNOWN = "budget.unknown"
     HYGIENE_NOT_PORTED = "contract_hygiene_not_ported"
     HYGIENE_NOT_READ = "contract_hygiene_not_read"
 

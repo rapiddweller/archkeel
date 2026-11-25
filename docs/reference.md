@@ -241,10 +241,15 @@ There is no line, evidence id or digest, so an unrelated edit does not change an
 UNKNOWN stays UNKNOWN: the rule row, the run status and the exit code keep the word, and the text
 says `accepted UNKNOWN entries`. UNKNOWN never exits 0. Accepted violations are known debt: they do
 not make the exit code 1.
-The budgets `cycle_edges` and `private_crossings` are compared. A budget that the core does not
-measure (`calls_unresolved`, `typing_positions`, `untyped_private_accesses`) is the gap
-`budget.unmeasured`, exit 2. A file of schema 1.0.0 to 1.3.0 is read; it accepts no UNKNOWN, and its
-three call and typing budgets give `baseline.budget_of_older_schema`, exit 2. The JSON result has a
+A file of schema 1.4.0 compares the budgets `cycle_edges`, `private_crossings`, `calls_unresolved`,
+`typing_positions` and `untyped_private_accesses`. A budget above its ceiling is `drift`, exit 1.
+A budget that the contract declares and the file lacks is also `drift`, exit 1. A budget that the
+run does not measure is the gap `budget.unmeasured`, exit 2. A file of schema 1.0.0 to 1.3.0 is
+read; it accepts no UNKNOWN, and its three call and typing budgets give
+`baseline.budget_of_older_schema`, exit 2. The status can read `FAIL` with exit 2: the status names
+the worst verdict, the exit code names the gate, and each violation of such a run is accepted
+([AD-1090](architecture/decisions/ad-1090-baseline-1-4-0-compares-the-three-call-and-type-budgets.md)).
+A run that declares `measurement_budgets` and compares with no baseline gets the row `budget.unknown`. The JSON result has a
 `baseline` object with `state`, `exit_code`, `accepted_unknowns`, `new`, `gone` and `gaps`
 ([AD-546](architecture/decisions/ad-546-a-baseline-accepts-an-unknown-by-what-it-is-and-the-core-compares-it-both-ways.md)).
 

@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 
 use crate::document::Contract;
 use crate::model::{ItemId, RuleHead};
-use crate::model_declarations::Declarations;
+use crate::model_declarations::{BudgetName, Declarations};
 use crate::model_uml::Target;
 use crate::rule::Rule;
 
@@ -52,6 +52,15 @@ pub(crate) fn record_ids(contract: &Contract) -> BTreeSet<String> {
 
 fn head(rule: &Rule) -> &RuleHead {
     crate::rule::head_of(rule)
+}
+
+/// The measurement budgets that the contract declares, in file order (AD-1090).
+pub fn declared_budgets(contract: &Contract) -> Vec<BudgetName> {
+    let declarations = contract.declarations.iter();
+    declarations
+        .flat_map(|found| &found.measurement_budgets)
+        .map(|item| item.name)
+        .collect()
 }
 
 /// Each repository path that the contract cites. The core
