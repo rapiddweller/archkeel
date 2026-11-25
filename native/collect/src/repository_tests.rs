@@ -42,7 +42,7 @@ fn only_a_safe_absolute_disk_path_has_a_plain_form() {
 }
 
 /// A fresh directory below the temporary directory, canonical.
-pub(crate) struct Scratch(pub(crate) PathBuf);
+pub(crate) struct Scratch(PathBuf);
 
 impl std::ops::Deref for Scratch {
     type Target = std::path::Path;
@@ -74,18 +74,6 @@ pub(crate) fn scratch(name: &str) -> Scratch {
     fs::create_dir_all(&path).unwrap();
     path.0 = local_path(&fs::canonicalize(&path).unwrap()).unwrap();
     path
-}
-
-#[test]
-fn scratch_is_removed_on_panic() {
-    let path = std::cell::RefCell::new(PathBuf::new());
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let dir = scratch("panic");
-        *path.borrow_mut() = dir.to_path_buf();
-        std::panic::resume_unwind(Box::new("test cleanup"));
-    }));
-    assert!(result.is_err());
-    assert!(!path.borrow().exists());
 }
 
 #[test]

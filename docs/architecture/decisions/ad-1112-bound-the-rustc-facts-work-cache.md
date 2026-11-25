@@ -9,8 +9,8 @@ A cache lock protects facts until the Rust collector has read them.
 
 **Reason.** Each scanned path makes a separate Cargo work directory.
 One directory can use several GB. The reported cache used 268 GB.
-Removing a directory only causes a rebuild. The facts remain hash-bound and verified.
-Thus, cache eviction does not change a PASS.
+Removing a directory requires a rebuild. The facts remain hash-bound and verified.
+A successful rebuild does not create a different PASS. A failed rebuild keeps the gaps.
 
 **Rejected.** An unbounded cache can exhaust the disk. A byte budget adds measurement and policy
 without a known need. Three directories bound the count, not the bytes: a large project can use
