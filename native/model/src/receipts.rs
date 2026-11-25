@@ -29,6 +29,7 @@ use crate::modules::Module;
 use crate::ownership::{claims, in_scope};
 use crate::reason::{Reason, Unsupported};
 use crate::roots::Roots;
+use crate::selection::{unused_by_module, UnusedAllowance};
 
 /// The proof that no kept pair gap can change what one rule of the model of `'id` reads.
 #[derive(Debug)]
@@ -323,6 +324,49 @@ pub(crate) fn live_calls<'m>(
         return Err(Reason::Unsupported(Unsupported::Rule(RuleKind::CallOwner)));
     }
     Ok(inventory)
+}
+
+/// The proved calls to the target from the source of the rule, before its allowances apply.
+pub(crate) fn named_calls<'m>(
+    model: &'m Model,
+    rule: &CallOwner,
+) -> Result<Vec<&'m ExactCall>, Reason> {
+    let inventory = live_calls(model, rule)?;
+    let scope = CallOwner::source(rule).as_text();
+    let target = CallOwner::target(rule).as_text();
+    let module_scope = Graph::modules(Model::graph(model))
+        .iter()
+        .any(|(id, module)| model.holds(id) && in_scope(Module::name(module), scope));
+    Ok(inventory
+        .calls
+        .iter()
+        .filter(|(_, module, caller, callee, _)| {
+            model.selects(module)
+                && (in_scope(module, scope)
+                    || (!module_scope
+                        && inventory.bodies.contains_key(scope)
+                        && in_scope(caller, scope)))
+                && callee == target
+        })
+        .collect())
+}
+
+/// The `call_owner` entries that name no call (AD-1070). A module with an unproven call keeps them.
+pub(crate) fn unused_call_allowances(model: &Model, rule: &CallOwner) -> Vec<UnusedAllowance> {
+    let (Ok(inventory), Ok(calls)) = (live_calls(model, rule), named_calls(model, rule)) else {
+        return Vec::new();
+    };
+    let modules = Graph::modules(Model::graph(model));
+    let hidden = |entry: &str| {
+        calls.is_empty()
+            || modules.iter().any(|(id, m)| {
+                let name = Module::name(m);
+                let near = in_scope(name, entry) || in_scope(entry, name);
+                near && model.holds(id) && !inventory.complete.contains(name)
+            })
+    };
+    let names: Vec<&str> = calls.iter().flat_map(|c| [&*c.1, &*c.2]).collect();
+    unused_by_module(rule.allowed_sources(), rule.exact_sources(), &names, hidden)
 }
 
 pub(crate) fn call_allowed(rule: &CallOwner, module: &str, caller: &str) -> bool {

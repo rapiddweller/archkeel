@@ -224,6 +224,23 @@ prefix `allowed_sources` and exact `exact_sources`. Type-checking filters affect
 rule evaluation, not cycle graph collection. Component and module cycles differ;
 choose both rules if both matter. Known SCC contractions can shrink baselines.
 
+An exception entry that no subject of its rule uses is a named defect
+([AD-1070](architecture/decisions/ad-1070-an-exception-entry-that-no-subject-uses-is-a-named-gap.md)).
+It protects nothing and can hide a new violation later. The core reports it as the gap
+`unused_allowance` with the rule id, the field and the entry. Its count is UNKNOWN, not FAIL:
+the contract is stale, and the code is not wrong. The rule keeps its own verdict. The row holds
+back a PASS: a run without a FAIL reads UNKNOWN with exit 2. A subject is an import, class, call, construct or public facade that the
+rule judges before its exceptions apply. The check covers these fields:
+
+- `forbidden_dependency.allowed_sources`
+- `allowed_sources` and `exact_sources` of `external_dependency_scope`, `symbol_placement`,
+  `call_owner`, `forbidden_construct` and `boundary_types`
+- `forbidden_construct.allowed_type_ignores`
+
+`boundary_types.allowed_positions` keeps its own gap `boundary_type_allowance_stale`.
+`allowed_dependency` records permission without an observed import, so it has no check. A rule
+of a kind that the collector proves only in part reports nothing while it judges no subject.
+
 ### Interfaces and types
 
 Contract **3.6.0** adds exact caller-scoped `interface_boundary.module_object_grants`.

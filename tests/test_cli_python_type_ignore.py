@@ -167,7 +167,10 @@ def test_newer_syntax_demo_requires_an_exact_written_ignore(
     frame = result["frame"]
     assert rows(result)["CONSTRUCT-EXACT-TYPE-IGNORE"] == expected, frame
     assert frame["self_test"]["reply"]["files"] == 4
-    assert frame["gaps"] == []
+    # AD-1070: a reviewed ignore that no written ignore matches is an unused exception.
+    assert [gap["kind"] for gap in frame["gaps"]] == (
+        ["unused_allowance"] if expected == "FAIL" else []
+    )
     call_rule = "CALL-PURGE-MAINTENANCE-ONLY"
     assert frame["rules"][call_rule] == ["call_owner", "FAIL"]
     [detail] = frame["details"][call_rule]

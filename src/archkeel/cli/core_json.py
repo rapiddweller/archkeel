@@ -65,6 +65,8 @@ class GapKind(StrEnum):
     # `boundary_types` rule that no position uses.
     BOUNDARY_TYPE_POSITION = "boundary_type_position"
     BOUNDARY_TYPE_ALLOWANCE_STALE = "boundary_type_allowance_stale"
+    # AD-1070: an exception entry of a rule that no subject of the rule uses.
+    UNUSED_ALLOWANCE = "unused_allowance"
     # AD-664: a declared trojan horse reach that the core does not apply.
     TROJAN_HORSE_REACH_UNMATCHED = "trojan_horse_reach.unmatched"
     TROJAN_HORSE_REACH_AMBIGUOUS = "trojan_horse_reach.ambiguous"
