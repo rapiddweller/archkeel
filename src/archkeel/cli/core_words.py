@@ -14,6 +14,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Final
 
+from .core_json import GapAction
+
 #: Why a rule is UNKNOWN, in the words of a reader.
 UNKNOWN_CAUSES: Final = {
     "scope_incomplete": "the scan has gaps, so the rule cannot be proven",
@@ -21,6 +23,11 @@ UNKNOWN_CAUSES: Final = {
     "undecided": "the core does not decide this kind of rule yet",
     "ownership_blocker": "a module has no single owner",
     "no_decided_rule": "the contract has no rule that the core decides",
+}
+#: What a reader can do about a gap whose kind has more than one answer (#1963).
+GAP_ACTIONS: Final = {
+    GapAction.NO_IMPORT_FOUND: "no import found: delete the entry or name the importer",
+    GapAction.IMPORT_SEEN: "import seen, no proven use: read the import or delete the entry",
 }
 #: A gap of the collector, in the words of a reader. A kind that is not here is spelled out.
 GAP_KINDS: Final = {

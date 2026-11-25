@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 from corpus_support import commit_tree
-from test_cli_native_python_imports import verdict
+from test_cli_native_python_imports import command, verdict
 
 GRAPH = (
     "# Target\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n"
@@ -133,3 +133,33 @@ def test_a_symbol_entry_that_no_import_uses_is_usage_unknown(
     root.mkdir()
     result = verdict(release_core, tree(root, "export const alone = 1;\n"))
     assert codes(result) == {"interface.usage_unknown"}, result["frame"]["unsupported"]
+
+
+def test_usage_unknown_names_the_action_of_each_entry(release_core: Path, tmp_path: Path) -> None:
+    """#1963: an entry whose module has an import is not the same as one that no import reaches."""
+    root = tmp_path / "p"
+    root.mkdir()
+    tree(root, "import type { TT } from '../b/t';\nexport type X = TT;\n")
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["components"][1]["public"] = [
+        "app.src.b.t_x2e_ts:t",
+        "app.src.b.t_x2e_ts:TT",
+        "app.src.b.other_x2e_ts:o",
+        "app.src.b.other_x2e_ts",
+    ]
+    path.write_text(json.dumps(contract))
+    (root / "src/b/other.ts").write_text("export const o = 1;\n")
+    commit_tree(root)
+    result = verdict(release_core, root)
+    rows = [g for g in result["frame"]["gaps"] if g["kind"] == "interface.usage_unknown"]
+    found = {g["subject"].rsplit("/", 1)[-1]: g["action"] for g in rows}
+    assert found == {
+        "2:app.src.b.other_x2e_ts:o": "no_import_found",
+        "3:app.src.b.other_x2e_ts": "no_import_found",
+        "0:app.src.b.t_x2e_ts:t": "import_seen",
+    }, rows
+    assert all("action" not in g for g in result["frame"]["gaps"] if g not in rows)
+    text = command(release_core, root, "--text", verb="validate").stdout
+    assert "      2 x no import found: delete the entry or name the importer" in text
+    assert "      1 x import seen, no proven use: read the import or delete the entry" in text

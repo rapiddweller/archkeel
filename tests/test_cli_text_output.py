@@ -493,7 +493,7 @@ def test_the_named_gaps_are_gaps_with_no_rule_not_parts() -> None:
 
     from archkeel.cli.core_text import _named_lines
 
-    gap = SimpleNamespace(kind="unported", subject="PLACE", reason="unsupported: rule kind")
+    gap = SimpleNamespace(kind="unported", subject="PLACE", reason="unsupported", action=None)
     lines, _ = _named_lines(SimpleNamespace(gaps=[gap, gap]), False)  # type: ignore[arg-type]
     assert lines[0] == "Gaps with no rule of their own (2):"
     assert not any("Parts that are not decided" in line for line in lines)

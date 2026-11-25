@@ -49,7 +49,12 @@
       "provenance": [
         "docs/architecture/shell.md"
       ],
-      "requires": [],
+      "requires": [
+        {
+          "component": "json",
+          "rationale": "Key the words of a gap action by the closed action vocabulary of the JSON part."
+        }
+      ],
       "public": [
         "archkeel.cli.core_words:kind_label",
         "archkeel.cli.core_words:plain",
@@ -57,7 +62,8 @@
         "archkeel.cli.core_words:contract_fix",
         "archkeel.cli.core_words:fix_for",
         "archkeel.cli.core_words:CAUSE_FIXES",
-        "archkeel.cli.core_words:NOT_FOUND_PREFIX"
+        "archkeel.cli.core_words:NOT_FOUND_PREFIX",
+        "archkeel.cli.core_words:GAP_ACTIONS"
       ],
       "decided_by": "architect"
     },
@@ -671,6 +677,7 @@
         "archkeel.cli.core_json:CoreError",
         "archkeel.cli.core_json:CoreExit",
         "archkeel.cli.core_json:Gap",
+        "archkeel.cli.core_json:GapAction",
         "archkeel.cli.core_json:GapKind",
         "archkeel.cli.core_json:RequestMismatch",
         "archkeel.cli.core_json:as_object",
