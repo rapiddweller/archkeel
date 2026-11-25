@@ -1,4 +1,4 @@
-# AD-1089 A project module that re-exports a standard library module hands on its trojan horse
+# AD-1094 A project module that re-exports a standard library module hands on its trojan horse
 
 **Status.** Accepted. Issue #1973. It extends [AD-1059](ad-1059-a-standard-library-name-that-imports-by-a-string-is-a-trojan-horse.md) and [AD-450](ad-450-python-import-rules-use-a-bound-import-survey.md).
 

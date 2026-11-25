@@ -326,12 +326,12 @@ them that is no direct call (`g = getattr`, `map(getattr, ...)`), `vars(x)` and 
 
 Closed by AD-1059 (#1969, #1970): `dis.Bytecode`, `dis.get_instructions` and `dis._get_code_object`; `logging.config`; `unittest.TestLoader`, `unittest.defaultTestLoader`, `unittest.main` and `unittest.TestProgram` with an argument that names a module; `xml.sax.make_parser` with a parser list; `help`; the text runners `profile`, `cProfile`, `trace`, `bdb` and `pdb`; and some private routes. All are trojan horse sites by their import binding; `unittest.main()` and `xml.sax.make_parser()` without a name are no site. A standard library name on a project object is no site.
 
-Closed by AD-1089 (#1973): a project module that re-exports a standard library module (`import cProfile` in `util`, `util.cProfile.run(...)` in another module) is a site, also under `import ... as` and for each name of the trojan horse lists.
+Closed by AD-1094 (#1973): a project module that re-exports a standard library module (`import cProfile` in `util`, `util.cProfile.run(...)` in another module) is a site, also under `import ... as` and for each name of the trojan horse lists.
 
 Still open, with a plant that fails when it is fixed (`tests/test_collector_false_pass_python_open.py`):
 - A write of a literal dunder name (`setattr(K, '__call__', f)`, `K.__call__ = f`) gives no site (#1979). Do not clear a literal `__call__` read until #1979 is closed: `getattr(util.cProfile.run, '__call__')(...)` is a site only because of it.
 - `typing.get_type_hints` and `typing.ForwardRef` evaluate a string annotation, and `"__import__('app.lib')"` imports a module. The call is ordinary code, so it is no site (AD-1059). This is #1974, with a strict expected failure in the open plants.
-- A loader, a `Bytecode` object or a module that a parameter hands in is an unknown value: its method call is not read (see above). The import of the module in the scan stays the site (AD-1089).
+- A loader, a `Bytecode` object or a module that a parameter hands in is an unknown value: its method call is not read (see above). The import of the module in the scan stays the site (AD-1094).
 - Four more routes (#1976, strict expected failures; old holes, `main` gives PASS too): the module value of a literal import call (`importlib.import_module('unittest').TestLoader()...`); `vars(dis)` and `dis.__dict__`; the `-m` entry points `cProfile.main()`, `profile.main()` and `pdb.main()`; `pdb.set_trace()` with a scripted stdin; and `eval_str=True` of `inspect.signature` and `inspect.get_annotations`.
 - The command line and the environment name modules too (`python -m unittest a.b`, `PYTHONWARNINGS`, `PY_SAX_PARSER`, `PYTHONBREAKPOINT`). They are outside the scan.
 

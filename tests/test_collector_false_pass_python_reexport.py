@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""#1973, AD-1089: a project module re-exports a standard library module that holds a trojan horse.
+"""#1973, AD-1094: a project module re-exports a standard library module that holds a trojan horse.
 
 Consumer: `archkeel validate`. `app.util` imports the standard library module and `app.consumer`
 reaches the trojan horse through `util`. Each plant imports `app.lib` under CPython 3.12 (the test

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A project module that binds a standard library module hands it to another module (AD-1089,
+//! A project module that binds a standard library module hands it to another module (AD-1094,
 //! #1973). `util.py` holds `import cProfile`, and `app.util.cProfile.run(text)` runs the text.
 
 use std::collections::HashMap;

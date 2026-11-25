@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The sites of all modules of a scan: proven imports and hazards, with the names that the
-//! modules re-export to each other (AD-450, AD-1089).
+//! modules re-export to each other (AD-450, AD-1094).
 
 use std::collections::HashSet;
 
