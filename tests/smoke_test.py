@@ -215,7 +215,8 @@ def commands() -> None:
             assert text.returncode == 0, (text.stdout, text.stderr)
             assert text.stdout.startswith(f"{command}: PASS -> exit 0"), text.stdout
         message = refusal(cli("check", "--json"), "not_on_this_development_line")
-        assert "use release 4.0.1" in message and "not available in ArchKeel 5.0 yet" in message
+        assert "use archkeel validate --json" in message
+        assert "not available in ArchKeel 5.0 yet" in message
         for command in ("guide", "story", "view"):
             assert f"unknown command {command!r}" in refusal(
                 cli(command, "--json"), "invalid_input"
