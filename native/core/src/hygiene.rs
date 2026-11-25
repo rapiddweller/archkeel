@@ -157,6 +157,12 @@ pub(crate) fn check(
                 found.defect(place, finding);
             }
         }
+        // AD-1070: an unused exception entry needs the models, as the rows of `boundary_types` do.
+        if let Ok(tree) = models {
+            for finding in unused_allowances(tree, index) {
+                found.defect(place, finding);
+            }
+        }
         if place != path && has(|rule| matches!(rule, Rule::AllowedDependency(_))) {
             found.gap(place, "inside", INSIDE);
         }
@@ -165,6 +171,31 @@ pub(crate) fn check(
         }
     }
     root(&mut found, documents, &usable.root, models, path);
+    found
+}
+
+/// AD-1070: an exception entry that no subject of its rule uses is a defect; the rule keeps its
+/// own verdict.
+fn unused_allowances(tree: &ModelTree, index: Option<usize>) -> Vec<hygiene_refs::Finding> {
+    let model = index.map_or(Some(tree.root()), |at| tree.mounts().get(at));
+    let rules = model.into_iter().flat_map(|model| {
+        let rules = model.contract().rules().iter().enumerate();
+        rules.map(move |(position, rule)| (model, position, rule))
+    });
+    let mut found = Vec::new();
+    for (model, position, rule) in rules {
+        let id = archkeel_contract::head_of(rule).id().as_text();
+        for unused in archkeel_model::unused_allowances(model, rule) {
+            found.push((
+                "unused_allowance",
+                format!("/rules/{position}/{}/{}", unused.field, unused.index),
+                format!("{id} {} \"{}\"", unused.field, unused.entry),
+                "matches nothing: no subject of the rule uses this exception; delete it or \
+                 correct it"
+                    .to_owned(),
+            ));
+        }
+    }
     found
 }
 

@@ -126,7 +126,10 @@ def test_allowed_sources_exempts_the_first_module_of_a_chain_only(
         "src/app/mid.py": "import app.service\n",
     }
     # The exempt module `legacy` starts a chain: no violation.
-    assert rows(scan(release_core, tmp_path / "start", rules, files))["FORBID"] == "PASS"
+    start = scan(release_core, tmp_path / "start", rules, files)
+    assert rows(start)["FORBID"] == "PASS"
+    # AD-1070: the exemption is used by the chain, so it is no unused exception.
+    assert [gap for gap in start["gaps"] if gap["kind"] == "unused_allowance"] == []
     # The same module in the middle of the chain of `main` is no exception.
     through = {**files, "src/app/cli/main.py": "import app.cli.legacy\n"}
     result = scan(release_core, tmp_path / "through", rules, through)

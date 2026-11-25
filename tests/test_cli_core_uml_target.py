@@ -66,11 +66,12 @@ def _entity(contract: dict[str, Any], identity: str) -> dict[str, Any]:
 # TypeScript target. The main arrow and its call to page are now observed. The other seven
 # assessments of H-typescript remain undecided; H-uml-typescript retains three.
 @pytest.mark.parametrize(
-    ("name", "passes", "undecided"),
-    [("H-typescript", 8, 7), ("H-uml-typescript", 0, 3)],
+    ("name", "passes", "undecided", "gaps"),
+    # AD-1070: the one exception entry of EXTERNAL-SHOP names no import, as the rule does not.
+    [("H-typescript", 8, 7, ["unused_allowance"]), ("H-uml-typescript", 0, 3, [])],
 )
 def test_the_uml_target_is_an_unknown_row_with_its_reason_and_not_a_gap(
-    tmp_path: Path, name: str, passes: int, undecided: int
+    tmp_path: Path, name: str, passes: int, undecided: int, gaps: list[str]
 ) -> None:
     code, envelope = run("validate", "--root", str(_copy(tmp_path, name)))
     rows = _rows(envelope)
@@ -85,7 +86,7 @@ def test_the_uml_target_is_an_unknown_row_with_its_reason_and_not_a_gap(
     reason = envelope["frame"]["explained"][ROW]
     assert reason.startswith(UNDECIDED.format(count=undecided)), reason
     assert envelope["frame"]["unknown_kinds"][ROW] == "no_receipt"
-    assert envelope["gaps"] == []
+    assert [gap["kind"] for gap in envelope["gaps"]] == gaps
     assert (code, envelope["status"]) == (2, "UNKNOWN")
 
 

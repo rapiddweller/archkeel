@@ -16,7 +16,9 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use archkeel_contract::{CompleteRequires, Component, ForbiddenDependency, SiblingIsolation};
+use archkeel_contract::{
+    CompleteRequires, Component, ExternalDependencyScope, ForbiddenDependency, SiblingIsolation,
+};
 use archkeel_facts::envelope::LimitSupport;
 
 use crate::causes::Cause;
@@ -25,7 +27,9 @@ use crate::imports::{Import, Resolved};
 use crate::model::Model;
 use crate::ownership::{in_scope, owner_of};
 use crate::reason::Reason;
-use crate::selection::{dependency_sides, Selection};
+use crate::selection::{
+    dependency_sides, unused_by_module, unused_entries, Selection, UnusedAllowance,
+};
 
 /// The judgement of one import that a rule names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,21 +42,29 @@ pub enum Judged {
     Undecided,
 }
 
-/// The judgement of each import that a `forbidden_dependency` rule names, in reply order. A mount
+/// The imports that a `forbidden_dependency` rule names before its `allowed_sources` apply. A mount
 /// judges only the imports whose source lies in its domain (AD-385).
-pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'m Import, Judged)> {
+fn named_imports<'m>(
+    model: &'m Model,
+    rule: &'m ForbiddenDependency,
+) -> impl Iterator<Item = &'m Import> {
     let [sources, targets] = dependency_sides(rule, model.contract().components());
-    let allowed = |module: &str| rule.allowed_sources().iter().any(|a| a.as_text() == module);
     model
         .graph()
         .imports_for_symbol_rule(*rule.source_symbol_only())
-        .filter(|import| {
+        .filter(move |import| {
             model.selects(import.source_module())
                 && sources.matches(import.source_module())
                 && targets.matches(import.target_module())
-                && !allowed(import.source_module())
                 && !(import.under_type_checking() && !rule.include_type_checking())
         })
+}
+
+/// The judgement of each import that a `forbidden_dependency` rule names, in reply order.
+pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'m Import, Judged)> {
+    let allowed = |module: &str| rule.allowed_sources().iter().any(|a| a.as_text() == module);
+    named_imports(model, rule)
+        .filter(|import| !allowed(import.source_module()))
         .map(|import| {
             // AD-434: named type publication does not lift dependency symbol limits.
             let judged = match rule.target_symbol() {
@@ -74,6 +86,60 @@ pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'
         .collect()
 }
 
+/// The imports of the selected modules that name `dependency`: an external import by its package
+/// name, any other import by the scope of its target module.
+fn named_by<'m>(model: &'m Model, dependency: &'m str) -> impl Iterator<Item = &'m Import> {
+    let names = move |import: &Import| match import.resolved() {
+        Resolved::External(package) => package == dependency,
+        Resolved::Local | Resolved::Builtin => in_scope(import.target_module(), dependency),
+    };
+    let imports = model.graph().imports().iter();
+    imports.filter(move |import| model.selects(import.source_module()) && names(import))
+}
+
+/// True when an import that the scan cannot resolve can come from a module below `scope`. The
+/// import can be the subject that an exception entry names, so the entry is not reported.
+fn unresolved(model: &Model, scope: &str) -> bool {
+    let limits = &model.graph().observed().dynamic_imports;
+    let below = |module: &str| in_scope(module, scope);
+    limits
+        .iter()
+        .any(|limit| limit.source.as_deref().is_none_or(below))
+}
+
+/// The `allowed_sources` entries of a `forbidden_dependency` rule that name no import (AD-1070).
+pub(crate) fn unused_dependency_allowances(
+    model: &Model,
+    rule: &ForbiddenDependency,
+) -> Vec<UnusedAllowance> {
+    let imports: Vec<_> = named_imports(model, rule).collect();
+    // An indirect rule judges a chain start too, and `allowed_sources` exempts it (AD-1085).
+    let mut starts = Vec::new();
+    if *rule.indirect() {
+        let [sources, targets] = dependency_sides(rule, model.contract().components());
+        starts = chain_starts(&sources, &fewest_imports(&hop_table(model, rule), &targets));
+    }
+    let used = |entry: &str| {
+        unresolved(model, entry)
+            || imports.iter().any(|i| i.source_module() == entry)
+            || starts.iter().any(|(start, _)| *start == entry)
+    };
+    unused_entries("allowed_sources", rule.allowed_sources(), used)
+}
+
+/// The exception entries of an `external_dependency_scope` rule that name no module (AD-1070).
+pub(crate) fn unused_scope_allowances(
+    model: &Model,
+    rule: &ExternalDependencyScope,
+) -> Vec<UnusedAllowance> {
+    let dependency = rule.dependency().as_text();
+    let modules: Vec<&str> = named_by(model, dependency)
+        .map(Import::source_module)
+        .collect();
+    let (allowed, exact) = (rule.allowed_sources(), rule.exact_sources());
+    unused_by_module(allowed, exact, &modules, |entry| unresolved(model, entry))
+}
+
 /// The first import of each pair of modules, by id: the hops that a chain can use.
 type Hops<'m> = BTreeMap<&'m str, BTreeMap<&'m str, &'m Import>>;
 
@@ -90,15 +156,22 @@ pub fn forbidden_chains<'m>(
     let next = hop_table(model, rule);
     let fewest = fewest_imports(&next, &targets);
     let allowed = |module: &str| rule.allowed_sources().iter().any(|a| a.as_text() == module);
-    let mut starts: Vec<(&str, usize)> = HashMap::iter(&fewest)
-        .filter(|(start, length)| **length >= 2 && sources.matches(start) && !allowed(start))
-        .map(|(start, length)| (*start, *length))
-        .collect();
+    let mut starts = chain_starts(&sources, &fewest);
+    starts.retain(|(start, _)| !allowed(start));
     starts.sort_unstable();
     starts
         .into_iter()
         .map(|(start, length)| chain_from(start, length, &next, &fewest, &targets))
         .collect()
+}
+
+/// The modules of the source side that reach the target side only through other modules.
+fn chain_starts<'m>(
+    sources: &Selection<'_>,
+    fewest: &HashMap<&'m str, usize>,
+) -> Vec<(&'m str, usize)> {
+    let starts = HashMap::iter(fewest).filter(|(m, n)| **n >= 2 && sources.matches(m));
+    starts.map(|(module, length)| (*module, *length)).collect()
 }
 
 /// The imports that a chain can use: a module of the model, no self import, and `TYPE_CHECKING`
@@ -200,14 +273,7 @@ pub(crate) fn chains_readable(model: &Model, rule: &ForbiddenDependency) -> Resu
 /// A PASS needs an import that names `dependency`, else a typo in the name looks like a clean
 /// project (AD-1048). The scan gives the import root, not the distribution name.
 pub(crate) fn dependency_named(model: &Model, dependency: &str) -> Result<(), Reason> {
-    let named = model.graph().imports().iter().any(|import| {
-        model.selects(import.source_module())
-            && match import.resolved() {
-                Resolved::External(package) => package == dependency,
-                Resolved::Local | Resolved::Builtin => in_scope(import.target_module(), dependency),
-            }
-    });
-    if named {
+    if named_by(model, dependency).next().is_some() {
         Ok(())
     } else {
         Err(Reason::NotComplete(Cause::Receipt(
