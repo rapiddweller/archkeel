@@ -46,6 +46,7 @@ SHELL = frozenset(
         "cli/init_areas.py",
         "cli/init_binding.py",
         "cli/init_typescript.py",
+        "cli/init_preset.py",
         "cli/core_init.py",
         "cli/core_schema.py",
         "cli/core_only.py",

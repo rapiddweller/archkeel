@@ -68,7 +68,7 @@ def run(argv: Sequence[str]) -> int:
         if options.command is Command.SKILL:
             return _install_skill(options, mode)
         if options.command is Command.INIT:
-            return _run_init(mode is OutputMode.JSON, ProjectRoot.top(options.root).path)
+            return _run_init(mode is OutputMode.JSON, options)
         if options.command is Command.EXPLORE:
             return _explore(options, mode)
         return _decide(options, mode)

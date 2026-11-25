@@ -21,6 +21,7 @@ from typing import Final, NoReturn
 
 from .core_frame import CheckKind, CoreError
 from .core_frame import CoreCommand as Command
+from .init_preset import Preset, Shape
 
 RELEASE: Final = "4.0.1"
 _LINE: Final = "not available in ArchKeel 5.0 yet"
@@ -102,6 +103,17 @@ class Options(argparse.Namespace):
     scip_index: Path | None = None
     no_scip: bool = False
     explorer: bool = False
+    preset: Preset | None = None
+    layers: tuple[str, ...] = ()
+    adapters: tuple[str, ...] = ()
+
+    def shape(self) -> Shape | None:
+        """The preset of `init` with the names of the user; `ValueError` when they do not fit."""
+        if self.preset is None:
+            if self.layers or self.adapters:
+                raise ValueError("--layers and --adapters need --preset layered or hexagonal")
+            return None
+        return Shape(self.preset, self.layers, self.adapters)
 
 
 class Parser(argparse.ArgumentParser):
@@ -211,6 +223,23 @@ def _port(value: str) -> int:
     return int(value)
 
 
+def _preset(value: str) -> Preset:
+    try:
+        return Preset(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"--preset is one of: {', '.join(Preset)}") from None
+
+
+def _names(value: str) -> tuple[str, ...]:
+    return tuple(name.strip() for name in value.split(","))
+
+
+def _add_preset_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--preset", type=_preset)
+    parser.add_argument("--layers", type=_names, default=())
+    parser.add_argument("--adapters", type=_names, default=())
+
+
 def parse(argv: Sequence[str]) -> Options:
     """The options of a served command. Each other argument is refused by name."""
     command = command_of(argv)
@@ -231,7 +260,9 @@ def parse(argv: Sequence[str]) -> Options:
         parser.add_argument("agent", choices=["claude", "codex"])
     else:
         parser.add_argument("--core-only", action="store_true")
-        if command is not Command.INIT:
+        if command is Command.INIT:
+            _add_preset_arguments(parser)
+        else:
             parser.add_argument("--config", default="archkeel.toml")
         if command is Command.EXPLORE:
             parser.add_argument("project", nargs="?", type=Path)
@@ -285,5 +316,6 @@ def parse(argv: Sequence[str]) -> Options:
         raise ValueError("--system-href needs --part-of: name the system document of this part")
     if options.part_of is not None and (options.output is None or options.format != "html"):
         raise ValueError("--part-of needs an HTML --output: only the page names its system")
+    options.shape()
     options.config_given = any(arg == "--config" or arg.startswith("--config=") for arg in argv)
     return options

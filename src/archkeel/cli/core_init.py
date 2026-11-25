@@ -226,9 +226,10 @@ def _prepare(options: Options, project: ProjectRoot) -> tuple[Options, InitOutco
     return _with(options, result.entry), InitOutcome(_InitState.CREATED, created)
 
 
-def _run_init(as_json: bool, root: Path) -> int:
+def _run_init(as_json: bool, options: Options) -> int:
     """The command `archkeel init`: draft the files, or refuse and write nothing."""
-    result = draft(root)
+    root, shape = ProjectRoot.top(options.root).path, options.shape()
+    result = draft(root, shape=shape)
     files = write_missing(root, result)
     if not files:
         raise FileExistsError(
@@ -251,7 +252,12 @@ def _run_init(as_json: bool, root: Path) -> int:
     print(f"Components ({len(result.components)}): {', '.join(result.components)}")
     if result.note:
         print(f"Note: {result.note}")
-    print("Every responsibility and rationale is a TODO. Replace each with your decision, then run")
+    print(
+        "Every responsibility is a TODO. Read each rule of the preset, then run"
+        if shape
+        else "Every responsibility and rationale is a TODO. "
+        "Replace each with your decision, then run"
+    )
     config = (
         ""
         if result.entry == CONFIG or not (root / CONFIG).exists()

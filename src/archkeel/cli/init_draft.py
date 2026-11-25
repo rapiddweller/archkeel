@@ -34,8 +34,10 @@ from .init_areas import (
     _python_layouts,
     _python_one_script,
     _rust_layout,
+    _slug,
 )
 from .init_binding import _binding, _uses
+from .init_preset import Shape
 from .init_typescript import _typescript_layout, _typescript_project
 
 __all__ = [
@@ -163,10 +165,6 @@ def _page(components: tuple[str, ...]) -> str:
     )
 
 
-def _slug(text: str) -> str:
-    return re.sub(r"[^A-Z0-9]+", "-", text.upper()).strip("-")
-
-
 def _component(part: Part, prefix: str, page: str) -> dict[str, object]:
     return {
         "id": "-".join(x for x in ("COMP", prefix, _slug(part.label)) if x),
@@ -183,12 +181,18 @@ def _component(part: Part, prefix: str, page: str) -> dict[str, object]:
     }
 
 
-def _rule(identifier: str, kind: str, page: str, **fields: str) -> dict[str, object]:
+def _rule(
+    identifier: str,
+    kind: str,
+    page: str,
+    rationale: str = "TODO: say why this rule holds.",
+    **fields: object,
+) -> dict[str, object]:
     return {
         "id": identifier,
         "kind": kind,
         **fields,
-        "rationale": "TODO: say why this rule holds.",
+        "rationale": rationale,
         "provenance": [page],
         "decided_by": "architect",
     }
@@ -202,7 +206,9 @@ def _toml(layout: Layout, contract: str) -> str:
     )
 
 
-def _unit(layout: Layout, folder: str, prefix: str) -> tuple[list[File], tuple[str, ...]]:
+def _unit(
+    layout: Layout, folder: str, prefix: str, shape: Shape | None = None
+) -> tuple[list[File], tuple[str, ...]]:
     """The configuration, the contract and the page of one scan, in `folder` ("" is the root)."""
     at = f"{folder}/" if folder else ""
     contract, page = f"{at}{CONTRACT}", f"{folder or _FOLDER}/{_PAGE}"
@@ -223,12 +229,23 @@ def _unit(layout: Layout, folder: str, prefix: str) -> tuple[list[File], tuple[s
         )
         for index, source in enumerate(sources, 1)
     ]
+    preset = (
+        shape.rules({part.label: (*part.packages, *part.modules) for part in parts})
+        if shape
+        else []
+    )
+    layers = shape.layer_of() if shape else {}
     document = {
         "schema_version": _SCHEMA,
-        "components": [_component(part, prefix, page) for part in parts],
+        "components": [
+            _component(part, prefix, page)
+            | ({"layer": layers[part.label]} if part.label in layers else {})
+            for part in parts
+        ],
         "rules": [
             *assignment,
             _rule(ids[1].strip("-"), "no_component_cycles", page),
+            *(_rule(name, kind, page, why, **fields) for name, kind, why, fields in preset),
         ],
     }
     files = [
@@ -372,13 +389,20 @@ def _system(repo: Path, areas: list[Area], folder: str = _FOLDER) -> Draft:
     )
 
 
-def draft(root: Path, *, scan_folder: str = "") -> Draft:
-    """Draft the files for the layout of `root`, or raise `NothingToDraft`."""
+def draft(root: Path, *, scan_folder: str = "", shape: Shape | None = None) -> Draft:
+    """Draft the files for the layout of `root`, or raise `NothingToDraft`.
+
+    A `shape` (a preset with the layers of the user) needs one language area."""
     areas = _detect(root, observed=bool(scan_folder))
     if len(areas) > 1:
+        if shape:
+            raise NothingToDraft(
+                "--preset drafts one language area, and this repository has several "
+                f"({', '.join(area.label for area in areas)}). Run `archkeel init --root <folder>`."
+            )
         return _system(root, areas, scan_folder or _FOLDER)
     layout = areas[0].layout
-    files, labels = _unit(layout, scan_folder, "")
+    files, labels = _unit(layout, scan_folder, "", shape)
     # One scan at the root keeps the plain names of the rules and components.
     return Draft(
         tuple(files),
