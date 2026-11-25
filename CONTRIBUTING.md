@@ -37,7 +37,7 @@ Merge with `python tools/merge_pr.py <number>` (AD-676, AD-736). One decision ta
 
 Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md), updated by [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md), 2026-11-10):
 
-1. One review per PR. A PR that can enable a PASS also gets the false-PASS probes (the five `tests/test_collector_false_pass_*.py` files; four run in each PR and all run in Full); a probe expects UNKNOWN or FAIL, never PASS. The author fixes the findings and the lead checks the fixes. There is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not perfection.
+1. One review per PR. The review checks the responsibility of each new file, module and crate against the contract (see "Keep the contract true"), and the PR text shows the dog-food run (AGENTS.md). A PR that can enable a PASS also gets the false-PASS probes (the five `tests/test_collector_false_pass_*.py` files; four run in each PR and all run in Full); a probe expects UNKNOWN or FAIL, never PASS. The author fixes the findings and the lead checks the fixes. There is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not perfection.
 2. Local gate on the final head: `make ci-pr-static BASE=origin/main`, the area tests, `make native-check` when `native/` changes, `make merge-check`, and the lead's merge-tree check. Push only on a green local gate.
 3. Merge only on green (AD-674): the check `PR gate` of the PR must pass, and `tools/merge_pr.py` refuses a red or missing required check. Three tiers: the PR gate (static checks, core build, self and system check, and main-tier tests of touched areas), the main tier (a push to `main`: the whole fast suite and `make native-check`, at most 15 minutes) and the nightly Full run (scaling, large scans, Windows and Python matrix, at most 45 minutes). AD-674 amends [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md).
 4. Do not update the branch unless the merge-tree shows a real conflict.
@@ -144,6 +144,12 @@ files with the pinned compiler output. The installed Studio serves these files w
 
 ## Inspect the native self-check
 
+`make self-check` runs `make self-validate` and prints at most 40 lines from its results: the
+verdicts, the growth against the base commit, the largest UNKNOWN causes, files over the size limit
+and near it, the import hotspots and the cycles. Run it before you change code and before you push.
+Its exit code is the one of `make self-validate`. The full output is in
+`test-artifacts/selfcheck/self-validate.log` ([AD-1088](docs/architecture/decisions/ad-1088-make-self-check-prints-the-first-minute-of-a-change-in-40-lines.md)).
+
 ArchKeel checks the Rust source of `native/` with its own core (AD-432). No file lists the accepted
 gaps: the gate compares your result with the same run on the base commit
 ([AD-1064](docs/architecture/decisions/ad-1064-the-pin-files-are-deleted-and-the-base-comparison-is-the-only-self-check-gate.md)).
@@ -193,7 +199,10 @@ contract at `studio/architecture-contract.json`. The tools have no architecture 
   [roadmap](docs/roadmap.md) lists open work only.
 - **Keep the contract true.** A new crate or module in `native/` needs a component in
   `native/architecture-contract.json`, and a new import between components needs a `requires`
-  entry with its reason. Never widen a rule to make a check pass.
+  entry with its reason. A new module in `src/archkeel/` belongs to a component of the shell contract
+  and to the closed set of shell modules (AD-432). Its first docstring or `//!` line names one
+  responsibility, and no `forbidden_responsibilities` item of its component applies to it.
+  Never widen a rule to make a check pass.
 - **Keep a source file at 500 lines or less.** This covers each Python file under `src/` and each
   Rust file under `native/` and `crates/` ([AD-314](docs/architecture/decisions/ad-314-source-files-have-at-most-500-lines-and-legacy-files-only-shrink.md)).
   A split must follow a responsibility seam. A legacy file over the limit is in

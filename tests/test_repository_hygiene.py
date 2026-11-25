@@ -11,6 +11,8 @@ import tomllib
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 
+from tools.file_size import MAX_FILE_LINES, SIZE_LIMIT_EXEMPT, is_size_limited, line_count
+
 ROOT = Path(__file__).parents[1]
 HEADER = "\n".join(
     (
@@ -53,7 +55,6 @@ SOURCES = tuple(
     path for path in TRACKED if path.suffix == ".py" and path.is_relative_to(ROOT / "src")
 )
 LONG_FUNCTION_LINES = 80
-MAX_FILE_LINES = 500
 FILE_SIZE_BASELINE = ROOT / "tests/file_size_baseline.json"
 ALLOWED_LONG_FUNCTIONS: dict[str, str] = {}
 
@@ -92,38 +93,10 @@ def _functions(node: ast.AST, prefix: str) -> Iterator[tuple[str, int]]:
             yield from _functions(child, prefix)
 
 
-SIZE_LIMIT_EXEMPT: dict[str, str] = {
-    "native/report/assets/explorer/elkjs-0.12.0.bundled.js": "vendored ELK release, not our code",
-    "native/report/assets/explorer/flow.runtime.js": "generated from the parts of flow/",
-}
-# The scripts and styles of the report page are code too (lead L-283).
-REPORT_ASSETS = "native/report/assets/"
-SCRIPT_SUFFIXES = (".py", ".cjs", ".mjs", ".js")
-
-
-def _is_size_limited(relative: str) -> bool:
-    top, _, rest = relative.partition("/")
-    if relative in SIZE_LIMIT_EXEMPT:
-        return False
-    if top == "src" or relative.startswith("studio/src/"):
-        return relative.endswith((*SCRIPT_SUFFIXES, ".ts", ".tsx", ".css"))
-    if relative.startswith(REPORT_ASSETS):
-        return relative.endswith((".js", ".css"))
-    if top in {"native", "crates"}:
-        return relative.endswith(".rs")
-    if top == "tools":
-        return relative.endswith(SCRIPT_SUFFIXES) and "/node_modules/" not in relative
-    # Test modules and fixture helpers are code. Golden data and fixture sources are inputs.
-    return top in {"tests", "fixtures"} and "/" not in rest and relative.endswith(SCRIPT_SUFFIXES)
-
-
 def _file_size_problems(
     root: Path, relatives: Iterable[str], baseline: Mapping[str, int]
 ) -> list[str]:
-    sizes = {
-        relative: len((root / relative).read_text(encoding="utf-8").splitlines())
-        for relative in relatives
-    }
+    sizes = {relative: line_count(root / relative) for relative in relatives}
     problems = []
     for relative, lines in sorted(sizes.items()):
         if lines <= MAX_FILE_LINES and relative in baseline:
@@ -180,9 +153,9 @@ def test_file_size_check_applies_the_ratchet(tmp_path: Path) -> None:
 
 def test_size_ratchet_stops_a_new_long_test_and_a_grown_script(tmp_path: Path) -> None:
     names = ("test_new.py", "flow.js")
-    assert _is_size_limited("tests/test_new.py")
-    assert _is_size_limited("studio/src/explorer.ts")
-    assert _is_size_limited("fixtures/capture_typescript_config_reference.cjs")
+    assert is_size_limited("tests/test_new.py")
+    assert is_size_limited("studio/src/explorer.ts")
+    assert is_size_limited("fixtures/capture_typescript_config_reference.cjs")
     (tmp_path / "test_new.py").write_text("x = 1\n" * 501, encoding="utf-8")
     (tmp_path / "flow.js").write_text("let x;\n" * 3603, encoding="utf-8")
     problems = _file_size_problems(tmp_path, names, {"flow.js": 3602})
@@ -191,22 +164,22 @@ def test_size_ratchet_stops_a_new_long_test_and_a_grown_script(tmp_path: Path) -
 
 
 def test_file_size_limit_covers_code_and_not_data() -> None:
-    assert _is_size_limited("src/archkeel/cli/__init__.py")
-    assert _is_size_limited("native/ts/src/lib.rs")
-    assert _is_size_limited("crates/py/src/lib.rs")
-    assert _is_size_limited("native/report/assets/explorer/report-layout.js")
-    assert _is_size_limited("native/report/assets/report.css")
-    assert not _is_size_limited("native/report/assets/Geist-Variable.woff2")
-    assert _is_size_limited("tests/test_analyzer.py")
-    assert _is_size_limited("fixtures/demo_catalog_types.py")
-    assert _is_size_limited("tools/self_check_diff.py")
-    assert _is_size_limited("fixtures/capture_typescript_config_reference.cjs")
-    assert not _is_size_limited("tools/browser-runtime/node_modules/x/index.js")
-    assert not _is_size_limited("fixtures/H-typescript/src/main.ts")
-    assert not _is_size_limited("tests/golden/typescript/expected.json")
-    assert not _is_size_limited("tests/golden/typescript/sources/a/src/b.py")
+    assert is_size_limited("src/archkeel/cli/__init__.py")
+    assert is_size_limited("native/ts/src/lib.rs")
+    assert is_size_limited("crates/py/src/lib.rs")
+    assert is_size_limited("native/report/assets/explorer/report-layout.js")
+    assert is_size_limited("native/report/assets/report.css")
+    assert not is_size_limited("native/report/assets/Geist-Variable.woff2")
+    assert is_size_limited("tests/test_analyzer.py")
+    assert is_size_limited("fixtures/demo_catalog_types.py")
+    assert is_size_limited("tools/self_check_diff.py")
+    assert is_size_limited("fixtures/capture_typescript_config_reference.cjs")
+    assert not is_size_limited("tools/browser-runtime/node_modules/x/index.js")
+    assert not is_size_limited("fixtures/H-typescript/src/main.ts")
+    assert not is_size_limited("tests/golden/typescript/expected.json")
+    assert not is_size_limited("tests/golden/typescript/sources/a/src/b.py")
     for relative in SIZE_LIMIT_EXEMPT:
-        assert not _is_size_limited(relative)
+        assert not is_size_limited(relative)
 
 
 def test_source_files_stay_within_the_size_limit() -> None:
@@ -218,7 +191,7 @@ def test_source_files_stay_within_the_size_limit() -> None:
     relatives = [
         relative
         for path in TRACKED
-        if _is_size_limited(relative := path.relative_to(ROOT).as_posix())
+        if is_size_limited(relative := path.relative_to(ROOT).as_posix())
     ]
     assert relatives
     problems = _file_size_problems(ROOT, relatives, baseline)
