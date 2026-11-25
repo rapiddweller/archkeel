@@ -1,4 +1,4 @@
-# AD-1089 An `interface_boundary` hold names its imports
+# AD-1091 An `interface_boundary` hold names its imports
 
 **Status.** Accepted. Part of #1963. It follows [AD-428](ad-428-the-interface-import-verdict-needs-a-known-binding-and-publication-proof.md) (publication proof).
 

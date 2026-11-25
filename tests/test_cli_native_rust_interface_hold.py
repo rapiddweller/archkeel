@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-1089: the hold of an `interface_boundary` rule counts each import once."""
+"""AD-1091: the hold of an `interface_boundary` rule counts each import once."""
 
 from __future__ import annotations
 
