@@ -3,12 +3,14 @@
 # SPDX-License-Identifier: MIT
 """AD-1047, #1989: a crate under the scan root that is no workspace member is foreign code.
 
-`crates/vendor/erdep` is excluded from the workspace and is a path dependency of `app`. The test runs
-`cargo run` as the oracle: the foreign function runs, and the scan must still read no module of it.
+`crates/vendor/erdep` is excluded from the workspace and is a path dependency of `app`.
+The test runs `cargo run` as the oracle: the foreign function runs, and the scan must read no
+module of it.
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -58,10 +60,10 @@ def _counter(root: Path) -> str:
         capture_output=True,
         text=True,
         check=False,
-        env={"PATH": shutil.os.environ["PATH"], "CARGO_TARGET_DIR": str(root.parent / "target")},
+        env={"PATH": os.environ["PATH"], "CARGO_TARGET_DIR": str(root.parent / "target")},
     )
     assert done.returncode == 0, done.stderr
-    return done.stdout
+    return str(done.stdout)
 
 
 def _reasons(result: dict[str, Any]) -> list[str]:
@@ -84,9 +86,12 @@ def test_a_non_member_crate_is_no_module_of_the_workspace(
 def test_a_non_member_crate_with_the_name_of_a_member_gives_a_named_gap(
     tmp_path: Path, release_core: Path
 ) -> None:
-    # The dependency `erdep` reads as the member `base-crate`: that edge must not satisfy a declared requirement.
+    # The dependency `erdep` reads as the member `base-crate`.
+    # That edge must not satisfy a declared requirement.
     parts = (component("base", "base_crate"), component("app", "app", ("base",)))
-    root = repository(tmp_path / "repo", release_core, files=_layout("base-crate"), components=parts)
+    root = repository(
+        tmp_path / "repo", release_core, files=_layout("base-crate"), components=parts
+    )
     assert _counter(root) == "foreign code ran\n"
     result = validate(root)
     assert result["outcome"] == "verdict", result["gaps"]
@@ -97,9 +102,7 @@ def test_a_non_member_crate_with_the_name_of_a_member_gives_a_named_gap(
 def test_without_cargo_the_scan_says_that_membership_is_unknown(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    root = repository(
-        tmp_path / "repo", release_core, files=_layout("other"), components=PARTS
-    )
+    root = repository(tmp_path / "repo", release_core, files=_layout("other"), components=PARTS)
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     git = shutil.which("git")
@@ -108,6 +111,8 @@ def test_without_cargo_the_scan_says_that_membership_is_unknown(
     monkeypatch.setenv("PATH", str(bin_dir))
     result = validate(root)
     reasons = _reasons(result)
-    assert any(r.startswith("The Cargo workspace members are unavailable") for r in reasons), reasons
+    assert any(r.startswith("The Cargo workspace members are unavailable") for r in reasons), (
+        reasons
+    )
     # The old read stays: the foreign crate is a module that no component owns.
     assert result["frame"]["rules"]["ASSIGNED"][1] != "PASS"
