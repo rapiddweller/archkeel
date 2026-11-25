@@ -82,6 +82,8 @@ native source evidence and conservative UNKNOWNs.
 
 ## Upgrade from 4.0.1
 
+The step-by-step guide for EE and CE is [docs/migration-4-to-5.md](docs/migration-4-to-5.md).
+
 The facts below are measured on the development line at `d3d10f846` and on release 4.0.1.
 They are not measurements of a release build. Measure the release artifact before you publish.
 
