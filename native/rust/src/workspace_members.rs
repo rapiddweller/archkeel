@@ -10,6 +10,7 @@
 //! crate as before and says so in a gap: it never decides membership by the directory tree in silence.
 
 use crate::builder::Builder;
+use crate::crates::unproven_members;
 use crate::source::read_text;
 use crate::toml;
 use archkeel_facts::type_reach::MEMBERS_ENV;
@@ -63,8 +64,14 @@ pub(crate) fn workspace_files(
     let (roots, members) = match answer() {
         Answer::Absent => return files,
         Answer::Unavailable(why) => {
-            let reason = format!("The Cargo workspace members are unavailable: {why}. Every crate below the scan roots is read as workspace code.");
-            builder.gap(&reason, None, "");
+            // Without `cargo metadata` the manifests prove a membership only for the plain layouts.
+            let dirs = package_dirs(&files, source);
+            let unproven =
+                unproven_members(source, &dirs.iter().map(String::as_str).collect::<Vec<_>>());
+            if !unproven.is_empty() {
+                let reason = format!("The Cargo workspace members are unavailable: {why}. The manifests do not prove that {} is a member: every crate below the scan roots is read as workspace code.", unproven.join(", "));
+                builder.gap(&reason, None, "");
+            }
             return files;
         }
         Answer::Listed { roots, members } => (roots, members),
@@ -111,6 +118,17 @@ fn package_name(source: &mut Snapshot, file: &str) -> Option<String> {
     };
     let package = table.get("package")?;
     Some(package.table()?.get("name")?.text()?.to_owned())
+}
+
+/// The directory of each package manifest in `files`.
+fn package_dirs(files: &[String], source: &mut Snapshot) -> Vec<String> {
+    let manifests = files
+        .iter()
+        .filter(|f| *f == "Cargo.toml" || f.ends_with("/Cargo.toml"));
+    manifests
+        .filter(|file| package_name(source, file).is_some())
+        .map(|file| dirname(file).to_owned())
+        .collect()
 }
 
 fn dir_or_dot(dir: &str) -> &str {

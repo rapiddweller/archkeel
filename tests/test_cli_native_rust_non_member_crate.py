@@ -99,20 +99,35 @@ def test_a_non_member_crate_with_the_name_of_a_member_gives_a_named_gap(
     assert result["frame"]["rules"]["REQUIRES"][1] != "PASS"
 
 
-def test_without_cargo_the_scan_says_that_membership_is_unknown(
-    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    root = repository(tmp_path / "repo", release_core, files=_layout("other"), components=PARTS)
+def _without_cargo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     git = shutil.which("git")
     assert git is not None
     (bin_dir / "git").symlink_to(git)
     monkeypatch.setenv("PATH", str(bin_dir))
+
+
+def test_without_cargo_an_excluded_crate_gives_a_named_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = repository(tmp_path / "repo", release_core, files=_layout("other"), components=PARTS)
+    _without_cargo(tmp_path, monkeypatch)
     result = validate(root)
     reasons = _reasons(result)
     assert any(r.startswith("The Cargo workspace members are unavailable") for r in reasons), (
         reasons
     )
+    assert any("crates/vendor/erdep" in r for r in reasons), reasons
     # The old read stays: the foreign crate is a module that no component owns.
     assert result["frame"]["rules"]["ASSIGNED"][1] != "PASS"
+
+
+def test_without_cargo_a_plain_workspace_needs_no_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = repository(tmp_path / "repo", release_core)
+    _without_cargo(tmp_path, monkeypatch)
+    result = validate(root)
+    assert _reasons(result) == []
+    assert {row[1] for row in result["frame"]["rules"].values()} == {"PASS"}

@@ -53,8 +53,8 @@ compressed). Without `llvm-tools` the link fails and the collector says only "th
 toolchain file of the core does not list them, and the six wheel jobs do not install them. `make type-reach-setup`
 installs them from `tools/rustc-facts/rust-toolchain.toml`, then runs `cargo fetch --locked` in `native/`, because the
 producer runs `cargo check --offline` over the workspace. Each job that runs the self-check calls it once before any
-parallel step. `tests/test_native_ci_type_reach.py` fails when a job does not. A test that needs the facts skips on
-a machine without them and fails in CI (`tests/rustc_dev_support.py`, with the oracle guard of AD-1048).
+parallel step, and so does `publish-gallery` of `pages.yml`. `tests/test_native_ci_type_reach.py` fails when a job does
+not. A test that needs the facts skips without them and fails in CI (`tests/rustc_dev_support.py`, AD-1048).
 
 **Closes of the reviews.** Each close has a fixture in `tests/rust_reach_fixtures` that runs a real dispatch with a
 counter, and a mutation proof. A `dyn` type argument flows into its instance. A foreign ADT has an `adt` record. An open
@@ -66,9 +66,5 @@ A warm cache keeps the crate ids of fresh members.
 **Limits.**
 - The facts path is a hidden input of the scan: it is not part of the request.
 - `not_built` and `test_only` of the reader are listed, not used. A module without facts keeps its pairs.
-- The syntax scan reads only workspace members (#1989). The core runs `cargo metadata --no-deps` for each scan root and
-  gives the member directories to the Rust worker (`ARCHKEEL_WORKSPACE_MEMBERS`). The files of a crate that is no member
-  are not scanned: it is foreign code. When `cargo metadata` fails, every crate stays in the scan and a gap says why. A
-  non-member crate with the package name of a member adds a gap, because a dependency is read by its package name.
 - A build script that emits a `--cfg` makes the facts unverifiable (refusal). `RUSTC_BOOTSTRAP=1` builds the driver.
 **Tests.** A fake `rustup` tests each `Unavailable` value; `make rustc-facts-e2e` runs the fixtures.
