@@ -147,7 +147,11 @@ pub(crate) fn receipt(model: &Model, rule: &InterfaceBoundary) -> Result<(), Rea
         }
     }
     for publication in interface_publications(model, rule) {
-        if publication.judged == Judged::Undecided {
+        // A re-export that is also a crossing is one import: the crossing names it first.
+        let counted = undecided
+            .iter()
+            .any(|(_, seen, _)| seen.id() == publication.import.id());
+        if publication.judged == Judged::Undecided && !counted {
             let gap = InterfaceGap::UnreadBinding;
             undecided.push((gap, publication.import, Some(publication.name)));
         }
