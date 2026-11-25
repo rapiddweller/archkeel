@@ -55,6 +55,7 @@ pub mod type_reach_facts;
 pub mod type_reach_filter;
 pub mod type_reach_fold;
 pub mod type_reach_model;
+mod workspace_members;
 
 use archkeel_facts::envelope::{test_features, Provenance, Reply};
 use archkeel_facts::request::RustRequest;

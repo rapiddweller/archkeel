@@ -1,0 +1,113 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""AD-1047, #1989: a crate under the scan root that is no workspace member is foreign code.
+
+`crates/vendor/erdep` is excluded from the workspace and is a path dependency of `app`. The test runs
+`cargo run` as the oracle: the foreign function runs, and the scan must still read no module of it.
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any
+
+import pytest
+from rust_repository import component, repository, validate
+
+pytestmark = pytest.mark.skipif(
+    shutil.which("cargo") is None or shutil.which("git") is None,
+    reason="the scan needs cargo and git",
+)
+
+WORKSPACE = '[workspace]\nmembers = ["base", "app"]\nexclude = ["vendor/erdep"]\n'
+APP = (
+    '[package]\nname = "app"\nversion = "0.0.0"\nedition = "2021"\n'
+    '[dependencies]\nerdep = { path = "../vendor/erdep", package = "%s" }\n'
+)
+# Another version: Cargo refuses two path packages with one name and one version in a lock file.
+FOREIGN = '[package]\nname = "%s"\nversion = "0.0.1"\nedition = "2021"\n'
+APP_SOURCE = "pub fn run() { erdep::erase_any(1u8); }\n"
+APP_MAIN = "fn main() { app::run(); }\n"
+FOREIGN_SOURCE = (
+    "pub fn erase_any<T: std::any::Any>(t: T) -> Box<dyn std::any::Any> {\n"
+    '    println!("foreign code ran");\n    Box::new(t)\n}\n'
+)
+
+
+PARTS = (component("base", "base_crate"), component("app", "app"))
+
+
+def _layout(name: str) -> dict[str, str]:
+    return {
+        "crates/Cargo.toml": WORKSPACE,
+        "crates/app/Cargo.toml": APP % name,
+        "crates/app/src/lib.rs": APP_SOURCE,
+        "crates/app/src/main.rs": APP_MAIN,
+        "crates/vendor/erdep/Cargo.toml": FOREIGN % name,
+        "crates/vendor/erdep/src/lib.rs": FOREIGN_SOURCE,
+    }
+
+
+def _counter(root: Path) -> str:
+    """What `cargo run` prints: the proof that the non-member crate runs."""
+    done = subprocess.run(
+        ["cargo", "run", "--offline", "-q", "--manifest-path", str(root / "crates/app/Cargo.toml")],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PATH": shutil.os.environ["PATH"], "CARGO_TARGET_DIR": str(root.parent / "target")},
+    )
+    assert done.returncode == 0, done.stderr
+    return done.stdout
+
+
+def _reasons(result: dict[str, Any]) -> list[str]:
+    return [gap["reason"] for gap in result["frame"]["collection_gaps"]]
+
+
+def test_a_non_member_crate_is_no_module_of_the_workspace(
+    tmp_path: Path, release_core: Path
+) -> None:
+    root = repository(tmp_path / "repo", release_core, files=_layout("other"), components=PARTS)
+    assert _counter(root) == "foreign code ran\n"
+    result = validate(root)
+    assert result["outcome"] == "verdict", result["gaps"]
+    assert {row[1] for row in result["frame"]["rules"].values()} == {"PASS"}
+    assert _reasons(result) == []
+    # The workspace manifest, the two crates and their two sources: no file of `vendor`.
+    assert result["frame"]["self_test"]["reply"]["files"] == 5
+
+
+def test_a_non_member_crate_with_the_name_of_a_member_gives_a_named_gap(
+    tmp_path: Path, release_core: Path
+) -> None:
+    # The dependency `erdep` reads as the member `base-crate`: that edge must not satisfy a declared requirement.
+    parts = (component("base", "base_crate"), component("app", "app", ("base",)))
+    root = repository(tmp_path / "repo", release_core, files=_layout("base-crate"), components=parts)
+    assert _counter(root) == "foreign code ran\n"
+    result = validate(root)
+    assert result["outcome"] == "verdict", result["gaps"]
+    assert any("has the package name base-crate of a member" in r for r in _reasons(result))
+    assert result["frame"]["rules"]["REQUIRES"][1] != "PASS"
+
+
+def test_without_cargo_the_scan_says_that_membership_is_unknown(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = repository(
+        tmp_path / "repo", release_core, files=_layout("other"), components=PARTS
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    git = shutil.which("git")
+    assert git is not None
+    (bin_dir / "git").symlink_to(git)
+    monkeypatch.setenv("PATH", str(bin_dir))
+    result = validate(root)
+    reasons = _reasons(result)
+    assert any(r.startswith("The Cargo workspace members are unavailable") for r in reasons), reasons
+    # The old read stays: the foreign crate is a module that no component owns.
+    assert result["frame"]["rules"]["ASSIGNED"][1] != "PASS"

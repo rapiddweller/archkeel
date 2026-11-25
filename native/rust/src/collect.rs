@@ -22,6 +22,7 @@ use crate::reply::Collected;
 use crate::source::walk as list_files;
 use crate::test_scope::NO_PRODUCTION_SOURCE;
 use crate::tree::walk;
+use crate::workspace_members::workspace_files;
 use archkeel_facts::identity::sha256_hex;
 
 /// Collect the facts of one request.
@@ -30,6 +31,7 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
     let mut builder = Builder::with_exclude_tests(request.excludes_test_sources());
     let (scope, files) = list(&mut source, &request.scope.roots, &mut builder);
     let unavailable = load_facts(&mut source, &files, &mut builder);
+    let files = workspace_files(files, &mut source, &mut builder);
     let overrides = crate::registry_overrides::configs(&mut source);
     let mut workspace = discover(&mut source, &files, &request.scope.namespace);
     for krate in &mut workspace.crates {

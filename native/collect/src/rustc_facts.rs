@@ -75,7 +75,7 @@ pub(crate) fn sha256() -> String {
 
 /// The only variables that a Cargo run may inherit. `RUSTC`, `RUSTFLAGS`, `CARGO_BUILD_*` and the like
 /// would change the build that the facts claim.
-const KEPT_ENV: [&str; 4] = ["PATH", "HOME", "RUSTUP_HOME", "CARGO_HOME"];
+pub(crate) const KEPT_ENV: [&str; 4] = ["PATH", "HOME", "RUSTUP_HOME", "CARGO_HOME"];
 
 /// `rustup run <channel> cargo <subcommand> --offline` with a clean environment. An empty `RUSTFLAGS`
 /// beats the `build.rustflags` and `target.<triple>.rustflags` of each config file; the options below

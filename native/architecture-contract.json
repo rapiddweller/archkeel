@@ -128,6 +128,7 @@
         "native.archkeel_facts.type_reach:ENV",
         "native.archkeel_facts.type_reach:Field",
         "native.archkeel_facts.type_reach:MAX_FEATURES",
+        "native.archkeel_facts.type_reach:MEMBERS_ENV",
         "native.archkeel_facts.type_reach:PREMISE",
         "native.archkeel_facts.type_reach:Unavailable",
         "native.archkeel_facts.type_reach:matrix",
@@ -5273,7 +5274,8 @@
         "native.archkeel_rust_collector.source:read_text",
         "native.archkeel_rust_collector.source:walk",
         "native.archkeel_rust_collector.test_scope:NO_PRODUCTION_SOURCE",
-        "native.archkeel_rust_collector.test_scope:in_test_directory"
+        "native.archkeel_rust_collector.test_scope:in_test_directory",
+        "native.archkeel_rust_collector.toml:parse"
       ],
       "decided_by": "architect"
     },
@@ -5661,7 +5663,8 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_rust_collector.collect"
+        "native.archkeel_rust_collector.collect",
+        "native.archkeel_rust_collector.workspace_members"
       ],
       "responsibilities": [
         "Orchestrate one collection of the Rust collector."
@@ -5679,13 +5682,15 @@
           "through": [
             "native.archkeel_facts.envelope",
             "native.archkeel_facts.identity",
-            "native.archkeel_facts.request"
+            "native.archkeel_facts.request",
+            "native.archkeel_facts.type_reach"
           ]
         },
         {
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
+            "native.archkeel_snapshot.paths",
             "native.archkeel_snapshot.snapshot",
             "native.archkeel_snapshot:Snapshot"
           ]
@@ -5698,7 +5703,8 @@
             "native.archkeel_rust_collector.registry",
             "native.archkeel_rust_collector.registry_overrides",
             "native.archkeel_rust_collector.source",
-            "native.archkeel_rust_collector.test_scope"
+            "native.archkeel_rust_collector.test_scope",
+            "native.archkeel_rust_collector.toml"
           ]
         },
         {
