@@ -98,7 +98,7 @@ struct Trojans<'n> {
 
 /// The sites of the module: a computed attribute name on a receiver that is not proven. `names`
 /// holds the unique names, the names bound once and the visible builtins (`Binders::proof_facts`).
-pub(super) fn trojans(
+pub(in crate::survey) fn trojans(
     (tree, module): (&ModModule, &str),
     names: &(HashSet<String>, HashSet<String>, HashSet<String>),
 ) -> Vec<(&'static str, TextRange)> {

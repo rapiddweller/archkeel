@@ -6,6 +6,8 @@
 // case, and each true site that looks like it keeps its gap.
 
 use super::*;
+use crate::module::Module;
+use crate::survey::hazards_split::split;
 use crate::survey::targets::tests::{reasons, surveyed};
 
 /// The gap kinds that the survey keeps for one module.

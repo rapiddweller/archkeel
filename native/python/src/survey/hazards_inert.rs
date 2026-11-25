@@ -156,7 +156,7 @@ fn attribute(module: &str, attr: &str) -> bool {
 }
 
 /// The builtins that the proofs read. A proof needs a name that the module does not shadow.
-pub(super) const BUILTINS: [&str; 12] = [
+pub(in crate::survey) const BUILTINS: [&str; 12] = [
     "isinstance",
     "globals",
     "getattr",
@@ -186,7 +186,7 @@ struct Facts<'a> {
 }
 
 /// The ranges of the sites of the module that are no trojan horse. `bound` is what its imports bind.
-pub(super) fn cleared(
+pub(in crate::survey) fn cleared(
     tree: &ModModule,
     bound: &HashMap<String, Vec<String>>,
     names: &(HashSet<String>, HashSet<String>, HashSet<String>),

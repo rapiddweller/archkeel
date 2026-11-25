@@ -20,7 +20,7 @@ import subprocess
 import sys
 import threading
 from collections.abc import Iterator, Sequence
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from time import monotonic
 from typing import BinaryIO, Final, TextIO
@@ -177,17 +177,17 @@ def exchange(
     """Run the core with one encoded request and a time limit, and give its standard output and exit
     code. Exit 2 (no frame) is a `CoreError`. A caller that wants the standard error of a run that
     gave a frame (the timings of #659) passes a list; the bytes are appended to it.
-    A stream destination keeps large worker output outside the shell heap."""
+    A stream destination keeps large worker output outside the shell heap. Progress is not shown
+    here: the caller wraps the call in `scan_progress`, so the line names the scanned root."""
     try:
-        with _progress(Path.cwd().name) if kind == "scan" else _quiet():
-            done = subprocess.run(
-                [binary, kind, *arguments],
-                input=request,
-                stdout=subprocess.PIPE if output is None else output,
-                stderr=subprocess.PIPE,
-                check=False,
-                timeout=_TIMEOUT_SECONDS,
-            )
+        done = subprocess.run(
+            [binary, kind, *arguments],
+            input=request,
+            stdout=subprocess.PIPE if output is None else output,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=_TIMEOUT_SECONDS,
+        )
     except subprocess.TimeoutExpired as error:
         raise CoreError(f"the core did not answer in {_TIMEOUT_SECONDS} s") from error
     except OSError as error:
@@ -248,7 +248,6 @@ def _progress(
             out.flush()
 
 
-@contextmanager
-def _quiet() -> Iterator[None]:
-    """No progress line for a command other than a scan."""
-    yield
+def scan_progress(root: Path) -> AbstractContextManager[None]:
+    """The progress line of a scan of `root`, named by the root and not by the working folder."""
+    return _progress(root.name or str(root))

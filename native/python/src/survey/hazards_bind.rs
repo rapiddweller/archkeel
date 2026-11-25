@@ -18,7 +18,7 @@ use super::reflect;
 use crate::survey::hazards_names::star;
 
 /// The qualified names that the import statements of a module bind, in any scope.
-pub(super) fn bindings(tree: &ModModule) -> HashMap<String, Vec<String>> {
+pub(in crate::survey) fn bindings(tree: &ModModule) -> HashMap<String, Vec<String>> {
     struct Imports(HashMap<String, Vec<String>>);
     impl<'a> Visitor<'a> for Imports {
         fn visit_stmt(&mut self, stmt: &'a Stmt) {

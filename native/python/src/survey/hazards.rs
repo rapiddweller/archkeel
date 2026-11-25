@@ -17,19 +17,21 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::Binders;
 use super::bound::Bound;
-use super::globals_read;
-use super::lazy_cover::Lazy;
-use super::literal::{self, Proof};
+use super::literal::Proof;
 use super::syspath;
-use crate::module::Module;
 
 use super::hazards_names::{
     above, attribute_trojan_horse, first_hazard, BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS,
     TROJAN_HORSE_STRINGS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
+pub(super) use bind::bindings;
 pub(super) use bind::exposed;
-use bind::{bindings, imported};
+use bind::imported;
+pub(super) use comprehension::trojans as comprehension_trojans;
+pub(super) use inert::{cleared, BUILTINS};
+pub(super) use reexport::{table, Reexports};
+pub(super) use reflect::proved;
 pub(super) use trojan_horse::Site;
 
 #[path = "hazards_bind.rs"]
@@ -38,17 +40,31 @@ mod bind;
 mod comprehension;
 #[path = "hazards_inert.rs"]
 mod inert;
+#[path = "hazards_reexport.rs"]
+mod reexport;
 #[path = "hazards_reflect.rs"]
 pub(super) mod reflect;
 #[path = "hazards_trojan_horse.rs"]
 mod trojan_horse;
 
-/// The sites of a module, in source order.
+/// The sites of a module, in source order, when no other module re-exports a name.
+#[cfg(test)]
 pub(super) fn sites(
     tree: &ModModule,
     proof: Proof,
     binders: &Binders,
     reads: &HashSet<TextRange>,
+) -> Vec<Site> {
+    sites_with(tree, proof, binders, reads, &Reexports::new())
+}
+
+/// The sites of a module, in source order.
+pub(super) fn sites_with(
+    tree: &ModModule,
+    proof: Proof,
+    binders: &Binders,
+    reads: &HashSet<TextRange>,
+    reexports: &Reexports,
 ) -> Vec<Site> {
     let bound = bindings(tree);
     let inert_modules = inert::modules(&bound, &binders.unique(), tree);
@@ -67,6 +83,7 @@ pub(super) fn sites(
         getattr_bound: !Bound::of(&tree.body).unbound("getattr"),
         scope: Vec::new(),
         code_aliases: reflect::code_aliases(tree),
+        reexports,
     };
     for stmt in &tree.body {
         // AD-538: an expression statement of the module body that appends a directory of the
@@ -87,6 +104,8 @@ pub(super) fn sites(
 }
 
 struct Walk<'r> {
+    /// The names that the modules of the scan bind to a module that holds a hazard name.
+    reexports: &'r Reexports,
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
     inert_modules: HashMap<String, String>,
@@ -270,6 +289,13 @@ impl Walk<'_> {
         }
     }
 
+    /// A hazard behind a name that a module of the scan binds to a standard library module.
+    fn reexported(&mut self, attributes: &[&str], expr: &Expr) {
+        if let Some((kind, name)) = reexport::find(self.reexports, attributes) {
+            self.push(kind, &name, expr);
+        }
+    }
+
     /// An attribute chain `base.a.b`: the first hazard on it, or a module above a hazard as
     /// the value of the whole chain.
     fn chain(&mut self, expr: &Expr) {
@@ -314,10 +340,12 @@ impl Walk<'_> {
             return self.push(DYNAMIC, "code", expr);
         }
         let Expr::Name(root) = base else {
+            self.reexported(&attributes, expr);
             return self.visit_expr(base);
         };
         let id = root.id.as_str();
         if self.local(id) {
+            self.reexported(&attributes, expr);
             return;
         }
         if BUILTIN_TROJAN_HORSES.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
@@ -336,6 +364,7 @@ impl Walk<'_> {
                 return self.push(DYNAMIC, &origin, expr);
             }
         }
+        self.reexported(&attributes, expr);
     }
 }
 
@@ -448,53 +477,3 @@ mod inert_tests;
 
 /// Proven imports and hazards, each keyed by its module index.
 pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
-
-/// The sites that the lazy import proof covers (`lazy.rs`) are no hazard when `lazy` is given.
-pub(super) fn split(
-    modules: &[Module],
-    binders: &[Binders],
-    (lazy, replaced): (Option<&[Lazy]>, bool),
-    local_literals: bool,
-) -> Split {
-    let (mut literals, mut found) = (Vec::new(), Vec::new());
-    let items: Vec<_> = modules
-        .iter()
-        .zip(binders)
-        .map(|(m, b)| (&m.tree, b.unique(), bindings(&m.tree)))
-        .collect();
-    let proved = reflect::proved(&items, &[&BUILTIN_TROJAN_HORSES, &IMPORT_FUNCTIONS]);
-    let reads = globals_read::inert_reads(modules);
-    for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
-        let facts = binders.proof_facts(&inert::BUILTINS);
-        let cleared = inert::cleared(&module.tree, &items[index].2, &facts);
-        let mut proof = literal::Proof::of(&module.tree, binders).without_replaced_loader(replaced);
-        proof.prove_local(&module.tree, local_literals);
-        let covered = lazy.map(|all| &all[index]);
-        for (range, target) in covered.iter().flat_map(|item| &item.targets) {
-            literals.push((index, *range, target.clone()));
-        }
-        let named = comprehension::trojans((&module.tree, &module.name), &facts);
-        let named = named
-            .into_iter()
-            .map(|(name, at)| Site::plain(DYNAMIC, name, at));
-        for site in sites(&module.tree, proof, binders, &reads[index])
-            .into_iter()
-            .chain(named)
-        {
-            let exempt = covered.iter().flat_map(|item| &item.exempt);
-            let inside = |range: &TextRange| range.contains_range(site.range);
-            let kind = (site.kind == DYNAMIC, site.kind == IMPORT_SYSTEM);
-            if exempt.into_iter().any(inside)
-                || HashSet::contains(&cleared, &site.range)
-                || proved[index].covers(kind, &site.detail, site.range)
-            {
-                continue;
-            }
-            match site.kind {
-                LITERAL => literals.push((index, site.range, site.detail)),
-                _ => found.push((index, site)),
-            }
-        }
-    }
-    (literals, found)
-}

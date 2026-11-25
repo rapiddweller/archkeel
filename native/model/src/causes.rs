@@ -22,14 +22,83 @@ pub enum InterfaceGap {
     TypePublication,
 }
 
+impl InterfaceGap {
+    /// The short form of the gap, as one import reads it.
+    pub fn form(&self) -> &'static str {
+        match self {
+            Self::UnreadBinding => "unread import binding",
+            Self::PublicationRoute => "unproven publication route",
+            Self::PublicationSurface => "incomplete publication surface",
+            Self::TypePublication => "unproven named type publication",
+        }
+    }
+}
+
 impl fmt::Display for InterfaceGap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::UnreadBinding => "interface_boundary: unread import binding",
-            Self::PublicationRoute => "interface_boundary: unproven publication route",
-            Self::PublicationSurface => "interface_boundary: incomplete publication surface",
-            Self::TypePublication => "interface_boundary: unproven named type publication",
-        })
+        write!(f, "interface_boundary: {}", self.form())
+    }
+}
+
+/// The imports that an `interface_boundary` rule could not decide. The gap of the first one is the
+/// stable key of the reason; the display lists the imports (#1963).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InterfaceHold {
+    gap: InterfaceGap,
+    shown: Vec<String>,
+    total: usize,
+}
+
+impl InterfaceHold {
+    /// A hold with no import: the gap holds the rule before any import is read.
+    pub fn bare(gap: InterfaceGap) -> InterfaceHold {
+        InterfaceHold {
+            gap,
+            shown: Vec::new(),
+            total: 0,
+        }
+    }
+
+    /// The hold of the undecided imports `(gap, source, target, name)`, or `None` for no import.
+    pub fn of<'a>(
+        undecided: impl Iterator<Item = (InterfaceGap, &'a str, &'a str, Option<&'a str>)>,
+    ) -> Option<InterfaceHold> {
+        let mut found: Option<InterfaceHold> = None;
+        for (gap, source, target, name) in undecided {
+            let hold: &mut InterfaceHold = found.get_or_insert_with(|| InterfaceHold::bare(gap));
+            hold.total += 1;
+            if Vec::len(&hold.shown) < HELD_SHOWN {
+                let name = name.map_or_else(String::new, |name| format!(":{name}"));
+                hold.shown
+                    .push(format!("{source} -> {target}{name} ({})", gap.form()));
+            }
+        }
+        found
+    }
+
+    /// The gap of the first undecided import.
+    pub fn gap(&self) -> InterfaceGap {
+        self.gap
+    }
+}
+
+impl fmt::Display for InterfaceHold {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.gap)?;
+        if self.total == 0 {
+            return Ok(());
+        }
+        let unit = if self.total == 1 { "import" } else { "imports" };
+        write!(f, ": {} {unit}", self.total)?;
+        let shown = Vec::len(&self.shown);
+        if self.total > shown {
+            write!(f, " (showing {shown})")?;
+        }
+        write!(f, ": {}", self.shown.join(", "))?;
+        match self.total - shown {
+            0 => Ok(()),
+            more => write!(f, " and {more} more"),
+        }
     }
 }
 

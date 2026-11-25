@@ -61,7 +61,7 @@ counter, and a mutation proof. A `dyn` type argument flows into its instance. A 
 `dyn` takes each type that flows into foreign code. A raw pointer to `()`, `c_void`, an extern type or a number hides a
 type: a module or an ADT that holds one reaches the types that a cast hid. An opaque type or an async block in a type
 argument flows by its name, and so do the `dyn` traits of an associated type. Facts that name no scan module add a gap.
-A warm cache keeps the crate ids of fresh members.
+A warm cache keeps the crate ids of fresh members. AD-1112 bounds the work cache.
 
 **Limits.**
 - The facts path is a hidden input of the scan: it is not part of the request.
