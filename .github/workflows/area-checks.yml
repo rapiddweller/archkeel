@@ -174,10 +174,10 @@ jobs:
         if: steps.select.outputs.selected == 'run'
         run: uv sync --locked
 
+      # AD-1047: `make native-check` runs the self-check of native/ with compiler facts.
       - name: Install the pinned Rust toolchain
         if: steps.select.outputs.selected == 'run'
-        working-directory: native
-        run: rustup toolchain install
+        run: make type-reach-setup
 
       - name: Install the pinned cargo-deny
         if: steps.select.outputs.selected == 'run'

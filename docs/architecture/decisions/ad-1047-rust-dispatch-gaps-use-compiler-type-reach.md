@@ -49,12 +49,12 @@ impl of `b` from `a`. A `dyn Tr` counts as every implementer of `Tr`. A pair wit
 `Unavailable` cause adds one whole-scope gap with the exact reason (UNKNOWN). Contract 3.22.0 adds the premise.
 
 **CI.** The driver links `librustc_driver` and `libLLVM`, so it needs `rustc-dev` and `llvm-tools` (about 160 MB
-compressed). The toolchain file of the core does not list them, and the six wheel jobs do not install them. `make
-type-reach-setup` installs them from `tools/rustc-facts/rust-toolchain.toml`, then runs `cargo fetch --locked` in
-`native/`, because the producer runs `cargo check --offline` over the workspace. Only the area `CLI and core` runs it.
-The self-scan of `native/` has the option off: 9 cold `cargo check` runs exceed the 15-minute job cap (#1964, #1999).
-`tests/test_native_ci_type_reach.py` pins both. A test that needs the facts skips on a machine without them and fails in
-CI (`tests/rustc_dev_support.py`, with the oracle guard of AD-1048).
+compressed). Without `llvm-tools` the link fails and the collector says only "the rustc driver did not build". The
+toolchain file of the core does not list them, and the six wheel jobs do not install them. `make type-reach-setup`
+installs them from `tools/rustc-facts/rust-toolchain.toml`, then runs `cargo fetch --locked` in `native/`, because the
+producer runs `cargo check --offline` over the workspace. Each job that runs the self-check calls it once before any
+parallel step. `tests/test_native_ci_type_reach.py` fails when a job does not. A test that needs the facts skips on
+a machine without them and fails in CI (`tests/rustc_dev_support.py`, with the oracle guard of AD-1048).
 
 **Closes of the reviews.** Each close has a fixture in `tests/rust_reach_fixtures` that runs a real dispatch with a
 counter, and a mutation proof. A `dyn` type argument flows into its instance. A foreign ADT has an `adt` record. An open
