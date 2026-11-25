@@ -12,7 +12,8 @@ A file is the full JSON of `archkeel validate` or the condensed form of `condens
 code, with the sha and the native tree that it was computed for. The PR result must have no
 refusal, no FAIL, no violation and the exit code that its statuses give. Growth is a new gap (a
 multiset compare, so a growing gap counts for each occurrence), a new UNKNOWN reason kind, or a
-rule with a worse status (PASS < UNKNOWN < FAIL). Removals do not offset additions. Growth passes
+rule with a worse status (PASS < UNKNOWN < FAIL), fewer scanned files or a changed `[scan]`
+table. Removals do not offset additions. Growth passes
 only with the label `ratchet-lead` and the PR text line `Ratchet growth: <N> items: <reason>`,
 where N is the printed count. The shell gate reads its own line `Ratchet growth (shell): ...`.
 A base that is missing, corrupt, refused or for another commit
@@ -39,6 +40,9 @@ LABEL = "ratchet-lead"
 NUMBER = r"(0|[1-9][0-9]*) items?: \S.{9,}"
 LINE = re.compile(rf"Ratchet growth: {NUMBER}")
 SHELL_LINE = re.compile(rf"Ratchet growth \(shell\): {NUMBER}")
+INLINE_CODE = re.compile(r"`[^`]*`")
+DETAILS_OPEN = re.compile(r"<details\b", re.IGNORECASE)
+DETAILS_CLOSE = re.compile(r"</details\s*>", re.IGNORECASE)
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 SHOWN = 10
 SUMMARY_LIMIT = 60_000
@@ -80,8 +84,10 @@ def observed(result: dict[str, Any]) -> tuple[list[Gap], dict[str, str], list[Vi
     return sorted(gaps), statuses, violations
 
 
-def condense(result: dict[str, Any], sha: str = "", tree: str = "") -> dict[str, Any]:
-    """The parts of a full result that the comparison needs."""
+def condense(
+    result: dict[str, Any], sha: str = "", tree: str = "", scan: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """The parts of a full result that the comparison needs; `scan` is the `[scan]` table."""
     if not result.get("refusal") and not isinstance(result.get("frame"), dict):
         raise ValueError("the result has no frame")
     gaps, rules, violations = observed(result)
@@ -95,6 +101,7 @@ def condense(result: dict[str, Any], sha: str = "", tree: str = "") -> dict[str,
         "exit_code": result.get("exit_code"),
         "refusal": result.get("refusal"),
         "files": files if isinstance(files, int) else None,
+        "scan": scan,
         "rules": rules,
         "unknown": dict(frame.get("unknown_kinds") or {}),
         "gaps": [list(gap) for gap in gaps],
@@ -120,7 +127,7 @@ def load(path: str) -> dict[str, Any]:
             raise Unusable(f"{path} is not a self-check result")
         try:
             found = condense(found)
-        except (AttributeError, TypeError, KeyError, ValueError) as error:
+        except (AttributeError, TypeError, KeyError, IndexError, ValueError) as error:
             raise Unusable(
                 f"{path} is corrupt: {error or 'its fields have the wrong shape'}"
             ) from error
@@ -196,22 +203,33 @@ def grown(base: dict[str, Any], pr: dict[str, Any]) -> tuple[list[str], list[tup
     if isinstance(before, int) and not (isinstance(after, int) and after >= before):
         shown = after if after is not None else "?"
         items.append(both(f"scope shrank: files {before} -> {shown}"))
+    if isinstance(base.get("scan"), dict) and base["scan"] != pr.get("scan"):
+        items.append(both("scope changed: the [scan] table differs from the base"))
     return lines, items, sum((old - new).values())
 
 
 def plain_lines(body: str) -> list[str]:
-    """The lines of the PR text that a reader sees as plain text: no code, quote or comment."""
+    """The PR text lines that a reader sees as plain text: no code, quote, comment or `<details>`.
+
+    Trailing blanks go, so that they do not count as a part of the reason.
+    """
     lines: list[str] = []
     fence = ""
     quoted = False
+    hidden = 0
     for line in re.sub(r"<!--.*?(-->|\Z)", "", body, flags=re.DOTALL).splitlines():
         marker = FENCE.match(line)
         if marker and (not fence or marker.group(1)[0] == fence):
             fence = "" if fence else marker.group(1)[0]
             continue
         quoted = line.lstrip().startswith(">") or (quoted and bool(line.strip()))
-        if not fence and not quoted:
-            lines.append(line.rstrip("\r"))
+        if fence or quoted:
+            continue
+        tags = INLINE_CODE.sub("", line)
+        opens, closes = len(DETAILS_OPEN.findall(tags)), len(DETAILS_CLOSE.findall(tags))
+        if not hidden and not opens:
+            lines.append(line.rstrip())
+        hidden = max(0, hidden + opens - closes)
     return lines
 
 

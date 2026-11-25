@@ -150,12 +150,10 @@ mod tests {
     // A repository that has a HEAD and no commit says so, with what to do (a first run of a user).
     #[test]
     fn a_repository_without_a_commit_says_so_and_what_to_do() {
-        let root = std::env::temp_dir().join(format!("archkeel-nocommit-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+        let root = crate::repository::tests::scratch("nocommit");
         fs::create_dir_all(root.join(".git")).unwrap();
         fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
         let why = head(&root).unwrap_err();
-        fs::remove_dir_all(&root).unwrap();
         assert!(
             why.starts_with("this Git repository has no commit yet"),
             "{why}"

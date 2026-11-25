@@ -11,7 +11,7 @@ use super::*;
 use crate::tests::{commit, copy, identity};
 use archkeel_facts::envelope::LimitSupport;
 
-pub(super) fn repository() -> std::path::PathBuf {
+pub(super) fn repository() -> crate::repository::tests::Scratch {
     let root = crate::repository::tests::scratch("rust");
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(

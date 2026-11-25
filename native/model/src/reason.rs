@@ -8,7 +8,7 @@ use std::fmt;
 
 use archkeel_contract::RuleKind;
 
-use crate::causes::{Cause, InterfaceGap, Part};
+use crate::causes::{Cause, InterfaceHold, Part};
 use crate::coverage::Incomplete;
 use crate::section::{Porting, Section};
 
@@ -74,7 +74,7 @@ pub enum Reason {
     /// A cause that holds the rule or makes the scope incomplete (AD-378, AD-418).
     NotComplete(Cause),
     /// A fact needed to decide an interface crossing is absent.
-    Interface(InterfaceGap),
+    Interface(InterfaceHold),
     /// A contract hygiene check of the core found a defect (AD-466).
     Hygiene(Hygiene),
     /// The UML target row of a contract tree is UNKNOWN for this cause (AD-470).
@@ -325,7 +325,7 @@ impl fmt::Display for Reason {
                 .write_str("the rule selects no module of the reply: no evaluator receipt exists"),
             Reason::Refused(refusal) => write!(formatter, "refused settings: {refusal}"),
             Reason::NotComplete(cause) => write!(formatter, "incomplete scope: {cause}"),
-            Reason::Interface(gap) => write!(formatter, "incomplete scope: {gap}"),
+            Reason::Interface(hold) => write!(formatter, "incomplete scope: {hold}"),
             Reason::Hygiene(found) => {
                 write!(
                     formatter,

@@ -430,6 +430,7 @@
         "archkeel.cli.native_scan:exchange",
         "archkeel.cli.native_scan:identity",
         "archkeel.cli.native_scan:ignored_by",
+        "archkeel.cli.native_scan:scan_progress",
         "archkeel.cli.native_scan:tracked_and_unignored",
         "archkeel.cli.native_scan:prepare_disposable_git",
         "archkeel.cli.story_model:ask_story_model"

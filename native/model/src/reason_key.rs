@@ -83,7 +83,7 @@ pub fn stable(reason: &Reason) -> Vec<Stable> {
         }
         Reason::Refused(refusal) => vec![Stable::of("refused_settings", refusal_code(refusal))],
         Reason::NotComplete(cause) => cause_entries(cause),
-        Reason::Interface(gap) => vec![Stable::of("interface_gap", gap.to_string())],
+        Reason::Interface(hold) => vec![Stable::of("interface_gap", hold.gap().to_string())],
         Reason::Hygiene(found) => hygiene(found),
         Reason::Uml(gap) => vec![Stable::of("uml_target", uml_code(gap))],
     }

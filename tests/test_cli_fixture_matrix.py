@@ -222,7 +222,7 @@ def test_review_demo_keeps_an_open_binding_unknown(
         _, result = run("report", "--root", str(root), "--topology")
     frame = result["frame"]
     assert frame["rules"][rule][1] == "UNKNOWN"
-    assert frame["explained"][rule] == reason
+    assert frame["explained"][rule].startswith(reason)
     assert frame["collection_gaps"] == []
     assert frame["explain"]["holds"]["rules"][rule]["kind"] == "other"
     [edge] = [
