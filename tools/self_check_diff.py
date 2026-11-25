@@ -12,8 +12,9 @@ A file is the full JSON of `archkeel validate` or the condensed form of `condens
 code, with the sha and the native tree that it was computed for. The PR result must have no
 refusal, no FAIL, no violation and the exit code that its statuses give. Growth is a new gap (a
 multiset compare, so a growing gap counts for each occurrence), a new UNKNOWN reason kind, or a
-rule with a worse status (PASS < UNKNOWN < FAIL), fewer scanned files or a changed `[scan]`
-table. Removals do not offset additions. Growth passes
+rule with a worse status (PASS < UNKNOWN < FAIL), fewer scanned files, a changed `[scan]`
+table, or a changed path or contract scope. Changed contract inputs with removed gaps also count.
+Removals do not offset additions. Growth passes
 only with the label `ratchet-lead` and the PR text line `Ratchet growth: <N> items: <reason>`,
 where N is the printed count. The shell gate reads its own line `Ratchet growth (shell): ...`.
 A base that is missing, corrupt, refused or for another commit
@@ -35,7 +36,7 @@ Gap = tuple[str, str, str]
 Violation = tuple[str, str, str, str]
 RANK = {"PASS": 0, "UNKNOWN": 1, "FAIL": 2}
 RECEIVER_GAP = re.compile(r"A method call may reach the method (\S+) of a type in its own file")
-FORMAT = "selfcheck-v1"
+FORMAT = "selfcheck-v2"
 LABEL = "ratchet-lead"
 NUMBER = r"(0|[1-9][0-9]*) items?: \S.{9,}"
 LINE = re.compile(rf"Ratchet growth: {NUMBER}")
@@ -84,6 +85,82 @@ def observed(result: dict[str, Any]) -> tuple[list[Gap], dict[str, str], list[Vi
     return sorted(gaps), statuses, violations
 
 
+def scanned_scope(frame: dict[str, Any]) -> dict[str, Any] | None:
+    """The complete paths and component scopes from the core's bounded topology."""
+    topology = frame.get("topology")
+    digest = frame.get("contract_digest")
+    if (
+        not isinstance(digest, str)
+        or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+        or not isinstance(topology, dict)
+        or not isinstance(topology.get("total"), dict)
+    ):
+        return None
+    modules, components = topology.get("modules"), topology.get("components")
+    if not isinstance(modules, list) or not isinstance(components, list):
+        return None
+    total = topology["total"]
+    reply = (frame.get("self_test") or {}).get("reply") or {}
+    if (
+        type(total.get("modules")) is not int
+        or type(total.get("components")) is not int
+        or type(reply.get("files")) is not int
+        or total.get("modules") != len(modules)
+        or total.get("components") != len(components)
+        or reply.get("files") != len(modules)
+    ):
+        return None
+    module_keys = ("path", "name", "component", "ownership")
+    component_keys = (
+        "id",
+        "name",
+        "parent",
+        "packages",
+        "exact_modules",
+        "planned",
+        "layer",
+        "public",
+        "planned_public",
+    )
+    if any(
+        not isinstance(row, dict) or not all(key in row for key in module_keys) for row in modules
+    ):
+        return None
+    if any(
+        not isinstance(row, dict) or not all(key in row for key in component_keys)
+        for row in components
+    ):
+        return None
+    files = [{key: row[key] for key in module_keys} for row in modules]
+    owners = [{key: row[key] for key in component_keys} for row in components]
+    for row in files:
+        if not all(isinstance(row[key], str) for key in ("path", "name", "ownership")):
+            return None
+        if row["component"] is not None and not isinstance(row["component"], str):
+            return None
+    for row in owners:
+        if not all(isinstance(row[key], str) for key in ("id", "name")):
+            return None
+        if any(
+            row[key] is not None and not isinstance(row[key], str) for key in ("parent", "layer")
+        ):
+            return None
+        if not isinstance(row["planned"], bool):
+            return None
+        if not all(
+            isinstance(row[key], list) and all(isinstance(value, str) for value in row[key])
+            for key in ("packages", "exact_modules", "public", "planned_public")
+        ):
+            return None
+        for key in ("packages", "exact_modules", "public", "planned_public"):
+            row[key] = sorted(row[key])
+    return {
+        "contract": digest,
+        "files": sorted(files, key=lambda row: (row["path"], row["name"])),
+        "components": sorted(owners, key=lambda row: row["id"]),
+    }
+
+
 def condense(
     result: dict[str, Any], sha: str = "", tree: str = "", scan: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -92,7 +169,9 @@ def condense(
         raise ValueError("the result has no frame")
     gaps, rules, violations = observed(result)
     frame: dict[str, Any] = result.get("frame") or {}
-    reply = (frame.get("self_test") or {}).get("reply") or {}
+    self_test = frame.get("self_test") or {}
+    reply = self_test.get("reply") or {}
+    collect = self_test.get("collect") or {}
     files = reply.get("files")
     return {
         "format": FORMAT,
@@ -102,6 +181,8 @@ def condense(
         "refusal": result.get("refusal"),
         "files": files if isinstance(files, int) else None,
         "scan": scan,
+        "scope": scanned_scope(frame),
+        "contract_files": collect.get("contract_files"),
         "rules": rules,
         "unknown": dict(frame.get("unknown_kinds") or {}),
         "gaps": [list(gap) for gap in gaps],
@@ -122,7 +203,7 @@ def load(path: str) -> dict[str, Any]:
         raise Unusable(f"{path} is empty or corrupt ({error})") from error
     if not isinstance(found, dict):
         raise Unusable(f"{path} is not a result object")
-    if found.get("format") != FORMAT:
+    if found.get("format") not in (FORMAT, "selfcheck-v1"):
         if "frame" not in found and "refusal" not in found:
             raise Unusable(f"{path} is not a self-check result")
         try:
@@ -205,6 +286,11 @@ def grown(base: dict[str, Any], pr: dict[str, Any]) -> tuple[list[str], list[tup
         items.append(both(f"scope shrank: files {before} -> {shown}"))
     if isinstance(base.get("scan"), dict) and base["scan"] != pr.get("scan"):
         items.append(both("scope changed: the [scan] table differs from the base"))
+    scope_changed = base.get("scope") != pr.get("scope")
+    if scope_changed:
+        items.append(both("scope changed: scanned paths or contract scope differ from the base"))
+    if not scope_changed and old - new and base.get("contract_files") != pr.get("contract_files"):
+        items.append(both("scope changed: contract inputs changed while gaps were removed"))
     return lines, items, sum((old - new).values())
 
 
@@ -365,7 +451,7 @@ def same(first: str, second: str) -> int:
     except Unusable as error:
         show(f"FAIL {error}")
         return 1
-    differ = [f for f in FIELDS if f != "gaps" and one.get(f) != two.get(f)]
+    differ = [f for f in (*FIELDS, "scope") if f != "gaps" and one.get(f) != two.get(f)]
     if one.get("sha") != two.get("sha"):
         differ.append("sha")
     if Counter(map(tuple, one["gaps"])) != Counter(map(tuple, two["gaps"])):

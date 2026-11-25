@@ -53,7 +53,12 @@ def test_one_new_gap_is_red_and_named(tmp_path: Path) -> None:
 
 
 def test_removal_only_is_green(tmp_path: Path) -> None:
-    done = run(tmp_path, str(FIXTURES / "plus-one-gap.json"), str(FIXTURES / "base.json"))
+    base = real("plus-one-gap.json")
+    pr = real("base.json")
+    pr["frame"]["self_test"]["collect"]["contract_files"] = base["frame"]["self_test"]["collect"][
+        "contract_files"
+    ]
+    done = run(tmp_path, save(tmp_path, "base.json", base), save(tmp_path, "pr.json", pr))
     assert done.returncode == 0, done.stdout
     assert "grown 0, removed 1" in done.stdout
 
