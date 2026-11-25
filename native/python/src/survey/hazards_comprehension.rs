@@ -24,9 +24,11 @@
 //! `x.__dict__` and `vars(x)`, except directly subscripted with a literal key. The builtin must
 //! not be shadowed in the module.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::name::Name;
+
+use crate::survey::hazards_names::module_hazard;
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
     Comprehension, Expr, ExprCall, ExprContext, Identifier, ModModule, Stmt, StmtFunctionDef,
@@ -88,6 +90,7 @@ type Scope = HashSet<String>;
 
 /// The proofs of the module and the sites found so far.
 struct Trojans<'n> {
+    imports: HashMap<String, Vec<String>>,
     single: &'n HashSet<String>,
     visible: &'n HashSet<String>,
     taken: HashSet<String>,
@@ -109,6 +112,7 @@ pub(in crate::survey) fn trojans(
     }
     let (_, single, visible) = names;
     let mut walk = Trojans {
+        imports: super::bind::bindings(tree),
         single,
         visible,
         taken: HashSet::new(),
@@ -230,6 +234,18 @@ impl Trojans<'_> {
         literals
     }
 
+    /// `vars(m)` and `m.__dict__` of a name that an import binds to a module with hazard names.
+    fn module_value(&self, view: &Expr) -> bool {
+        let base = match view {
+            Expr::Attribute(node) => &*node.value,
+            Expr::Call(call) => call.arguments.args.first().unwrap_or(view),
+            _ => return false,
+        };
+        let Expr::Name(name) = base else { return false };
+        let origins = self.imports.get(Name::as_str(&name.id));
+        origins.is_some_and(|all| all.iter().any(|origin| module_hazard(origin).is_some()))
+    }
+
     /// The access form that `expr` names: a visible builtin, a function of the library, or a
     /// method that reads or writes an attribute of any value.
     fn form(&self, expr: &Expr) -> Option<&'static str> {
@@ -342,7 +358,7 @@ impl<'a> Visitor<'a> for Trojans<'_> {
             // key that the scan cannot read reaches `__builtins__` and `__code__`. Only a direct
             // subscript with a literal key is no site; `d = vars(m)` is one (AD-1058).
             Expr::Subscript(node) if dict_view(&node.value) => {
-                if !self.resolved(&node.slice, false) {
+                if !self.resolved(&node.slice, false) || self.module_value(&node.value) {
                     self.found.push(("__dict__", node.range()));
                 }
                 match &*node.value {

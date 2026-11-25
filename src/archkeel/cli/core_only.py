@@ -49,7 +49,6 @@ from .native_scan import SCAN_PROTOCOL, exchange, identity, ignored_by, scan_pro
 
 def run(argv: Sequence[str]) -> int:
     """Run one command line and return its exit code. The core decides; the shell only maps."""
-
     mode = output_mode(argv)  # AD-735: one output mode for the result and each refusal
     baseline = any(arg == "--baseline" or arg.startswith("--baseline=") for arg in argv)
     try:
@@ -76,7 +75,8 @@ def run(argv: Sequence[str]) -> int:
         output = any(arg == "--output" or arg.startswith("--output=") for arg in argv)
         message = _message(error, output=output)
         kind = _refusal_kind(error)
-        return _refused(_command_or_none(argv), kind, message, mode, baseline=baseline)
+        fix = error.fix if isinstance(error, NotOnThisLine) else None
+        return _refused(_command_or_none(argv), kind, message, mode, baseline=baseline, fix=fix)
     except Exception as error:
         traceback.print_exc()
         return _refused(

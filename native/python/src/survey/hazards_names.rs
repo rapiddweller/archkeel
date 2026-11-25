@@ -90,6 +90,12 @@ pub(super) fn holds(name: &str) -> bool {
             .any(|entry| entry.starts_with(&prefix))
 }
 
+/// The gap of a module that a literal import call or a bound name gives as a value: the module
+/// is a hazard, or holds a hazard name that its value reaches (`__import__('dis')`, `vars(dis)`).
+pub(super) fn module_hazard(name: &str) -> Option<&'static str> {
+    hazard(name).or_else(|| holds(name).then_some(DYNAMIC))
+}
+
 /// The first hazard on a qualified attribute chain.
 pub(super) fn first_hazard(origin: String, attributes: &[&str]) -> Option<(&'static str, String)> {
     let mut name = origin;
@@ -120,7 +126,8 @@ const IMPORTERS: &str = "\
     pdb.dis trace.dis sre_compile.dis profile.run profile.runctx profile.Profile cProfile.run \
     cProfile.runctx cProfile.Profile trace.Trace bdb.Bdb pdb.run pdb.runeval pdb.runctx pdb.Pdb \
     xml.sax.make_parser xml.sax._create_parser multiprocessing.spawn warnings._setoption \
-    warnings._getcategory warnings._processoptions";
+    warnings._getcategory warnings._processoptions cProfile.main profile.main pdb.main \
+    pdb.set_trace pdb.post_mortem pdb.pm";
 
 /// Each hazard name that is not above-checked, as one qualified name.
 fn importers() -> impl Iterator<Item = &'static str> {

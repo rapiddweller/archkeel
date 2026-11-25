@@ -240,3 +240,23 @@ def test_an_unknown_command_or_argument_is_invalid_input(
     result = json.loads(capsys.readouterr().out)
     assert result["status"] == Status.UNKNOWN
     assert result["refusal"]["kind"] == RefusalKind.INVALID_INPUT
+
+
+@pytest.mark.parametrize("option", sorted(core_arguments._REPLACEMENTS))
+def test_the_fix_line_of_a_replaced_option_names_a_command_that_parses(
+    option: str, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`Problem:` names the 5.0 command; `Fix:` points at it. No release is named in either."""
+
+    def no_binary() -> Path:
+        pytest.fail("a refused option must not start the core")
+
+    monkeypatch.setattr(core_only, "locate_core", no_binary)
+    assert core_only.run(["validate", option, "x", "--text"]) == 2
+    lines = capsys.readouterr().out.splitlines()
+    problem = next(line for line in lines if line.startswith("Problem: "))
+    fix = next(line for line in lines if line.startswith("Fix: "))
+    assert "release" not in problem and "release" not in fix
+    assert "run the command named above" in fix
+    named = problem.split("use archkeel ", 1)[1].split()
+    assert core_arguments.parse(tuple(named)).command in {Command.VALIDATE, Command.REPORT}
