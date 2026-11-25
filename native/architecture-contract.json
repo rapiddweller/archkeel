@@ -5268,6 +5268,7 @@
         "native.archkeel_rust_collector.crates:discover",
         "native.archkeel_rust_collector.crates:unproven_members",
         "native.archkeel_rust_collector.manifest:Kind",
+        "native.archkeel_rust_collector.manifest:ident",
         "native.archkeel_rust_collector.paths:normalize",
         "native.archkeel_rust_collector.registry:Registry",
         "native.archkeel_rust_collector.registry_overrides:Cited",
@@ -5701,6 +5702,7 @@
           "rationale": "Read the crates and the manifests of the workspace.",
           "through": [
             "native.archkeel_rust_collector.crates",
+            "native.archkeel_rust_collector.manifest",
             "native.archkeel_rust_collector.registry",
             "native.archkeel_rust_collector.registry_overrides",
             "native.archkeel_rust_collector.source",
