@@ -30,7 +30,7 @@
 //! are UNKNOWN with the gap of the unproven publication route. A write that the repository does not
 //! show (a name built at run time, code outside the repository) is the stated premise of the run.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use archkeel_facts::data::{GapData, GapEffect};
 use archkeel_facts::ids::ModuleName;
@@ -82,11 +82,11 @@ pub(super) struct Withheld {
     file: String,
     line: Option<i64>,
     site: String,
-    modules: usize,
+    modules: Vec<String>,
 }
 
-/// The gap of each site that withholds symbol records. It states an effect on no module: the
-/// escape already withholds the records, so the gap names the cause and holds no other rule.
+/// The gap of each site that withholds symbol records. Its effect is `Symbols`: only a rule that
+/// reads symbols is held, no edge, layout or cycle rule.
 pub(super) fn gaps(withheld: &[Withheld]) -> Vec<Record<GapFact>> {
     withheld
         .iter()
@@ -97,18 +97,19 @@ pub(super) fn gaps(withheld: &[Withheld]) -> Vec<Record<GapFact>> {
                 site,
                 modules,
             } = found;
-            let unit = if *modules == 1 { "module" } else { "modules" };
+            let count = Vec::len(modules);
+            let unit = if count == 1 { "module" } else { "modules" };
             let at = line.map_or_else(|| file.clone(), |line| format!("{file}:{line}"));
             let reason = format!(
-                "{WITHHELD}: {at} {site} names {modules} {unit} of the scan; \
+                "{WITHHELD}: {at} {site} names {count} {unit} of the scan; \
                  their symbol records are withheld"
             );
             let mut data = GapData::at(&reason, "");
             data.resolution_dimension = Some(ResolutionDimension::Imports);
             data.file = Some(file.clone());
             data.line = *line;
-            data.effect = Some(GapEffect::Edges {
-                sources: Vec::new(),
+            data.effect = Some(GapEffect::Symbols {
+                modules: modules.iter().map(|name| ModuleName::new(name.as_str())).collect(),
             });
             let gap = GapFact::SourceResolutionGap(data);
             Record::unknown_gap(&reason, None, "", gap).1
@@ -161,7 +162,12 @@ pub(super) fn written(
     for (index, range, target) in &literals {
         let hit = native::reached(target, &names);
         let module = &outside[*index];
-        withheld.extend(site_of(module, "import call", range, &hit));
+        withheld.extend(site_of(
+            module,
+            "import call",
+            module.location(range).line,
+            &hit,
+        ));
         found.extend(hit);
     }
     let mut own: HashMap<usize, Vec<&Site>> = HashMap::new();
@@ -182,7 +188,12 @@ pub(super) fn written(
         };
         if !sites::harmless(site, &file, &names) {
             let hit = sites::named(module, &names);
-            withheld.extend(site_of(module, &site.detail, &site.range, &hit));
+            withheld.extend(site_of(
+                module,
+                &site.detail,
+                module.location(&site.range).line,
+                &hit,
+            ));
             found.extend(hit);
         }
     }
@@ -193,16 +204,16 @@ pub(super) fn written(
 }
 
 /// The site of `module` that names `hit`, or `None` when it names no module of the scan.
-fn site_of(
-    module: &Module,
-    site: &str,
-    range: &impl ruff_text_size::Ranged,
-    hit: &[String],
-) -> Option<Withheld> {
-    let modules = hit.iter().collect::<HashSet<_>>().len();
-    (modules > 0).then(|| Withheld {
+fn site_of(module: &Module, site: &str, line: i64, hit: &[String]) -> Option<Withheld> {
+    let modules: Vec<String> = hit
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    (!modules.is_empty()).then(|| Withheld {
         file: module.rel.clone(),
-        line: Some(module.location(range).line),
+        line: Some(line),
         site: site.to_owned(),
         modules,
     })
@@ -312,23 +323,37 @@ fn escaped(
     let result: HashSet<String> = (all.into_iter())
         .filter(|name| names.contains(String::as_str(name)) && !inside.contains(name))
         .collect();
-    // #1963: the file of each use. The scan runs once more for each file, with that file alone
-    // added, so each file names the modules that its own uses escape.
+    // #1963: the file of each use. One file names every module that escapes. With more files the
+    // scan runs once more for each file, with that file alone added, until each module has a file.
     let mut uses = Vec::new();
+    let mut open: BTreeSet<&String> = result.iter().collect();
+    let single = Vec::len(&outsiders) == 1;
     for module in outsiders {
-        let mine = (records.records.iter())
-            .filter(|record| from(record) == module.name)
-            .cloned();
-        let both: Vec<_> = own.iter().cloned().chain(mine).collect();
-        let file = module.rel.clone();
-        scan.push(module);
-        let hit = super::uses::settled(scan, &both, &mut fresh.clone());
-        scan.pop();
-        let modules = hit
-            .iter()
-            .filter(|name| result.contains(*name) && !inside.contains(*name))
-            .count();
-        if modules > 0 {
+        if open.is_empty() {
+            break;
+        }
+        let (hit, module): (HashSet<String>, Module) = if single {
+            (result.clone(), module)
+        } else {
+            let mine = (records.records.iter())
+                .filter(|record| from(record) == module.name)
+                .cloned();
+            let both: Vec<_> = own.iter().cloned().chain(mine).collect();
+            let name = module.name.clone();
+            scan.push(module);
+            let hit = super::uses::settled(scan, &both, &mut fresh.clone());
+            let Some(module) = scan.pop() else { break };
+            debug_assert_eq!(module.name, name);
+            (hit, module)
+        };
+        let modules: Vec<String> = (hit.into_iter())
+            .filter(|name| result.contains(name) && !inside.contains(name))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        open.retain(|name| !modules.contains(*name));
+        if !modules.is_empty() {
+            let file = module.rel.clone();
             uses.push(Withheld {
                 file,
                 line: None,

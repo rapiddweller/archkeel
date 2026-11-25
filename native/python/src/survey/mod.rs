@@ -283,8 +283,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         sites.insert(key, gap);
     }
     let unambiguous_layout = found.is_empty();
-    unknowns.extend(found);
-    unknowns.extend(outside::gaps(&withheld_by));
+    unknowns.extend(found.into_iter().chain(outside::gaps(&withheld_by)));
     unknowns.extend(sites.into_values());
     unknowns.extend(layout::problems(&snapshot.problems));
     let selected: HashSet<&str> = scope.selected.iter().map(String::as_str).collect();
