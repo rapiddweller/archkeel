@@ -59,8 +59,29 @@ REMOVED_OPTIONS: Final = frozenset(
 )
 
 
+# The 5.0 command that replaces a removed option. Release 4.0.1 cannot read a 5.0 config, so it is
+# no remedy. The tests parse each command here, so each refusal names a command that runs.
+_REPLACEMENTS: Final[dict[str, tuple[str, ...]]] = {
+    "--against": ("validate", "--baseline", "FILE"),
+    "--full": ("report", "--json"),
+    "--input": ("report", "--json"),
+    "--only": ("report", "--json"),
+}
+_CHECK_REPLACEMENT: Final = ("validate", "--json")
+
+
 class NotOnThisLine(CoreError):
-    """A command or option of the deleted Python shell that ArchKeel 5.0 does not serve yet."""
+    """A command or option of the deleted Python shell that ArchKeel 5.0 does not serve yet.
+
+    `fix` is the fix when the message names a 5.0 command. `None` keeps the fix of the kind.
+    """
+
+    def __init__(self, message: str, *, fix: str | None = None) -> None:
+        super().__init__(message)
+        self.fix = fix
+
+
+_REPLACED_FIX: Final = "run the command named above instead, or leave this option out."
 
 
 def _remedy(released: bool) -> str:
@@ -70,6 +91,19 @@ def _remedy(released: bool) -> str:
         if released
         else f"no release has it; release {RELEASE} is older"
     )
+
+
+def _use(argv: tuple[str, ...]) -> str:
+    return f"use archkeel {' '.join(argv)}"
+
+
+def _removed(command: str, name: str) -> NotOnThisLine:
+    """The refusal of a removed option: the 5.0 command when one replaces it, else the release."""
+    if name in _REPLACEMENTS:
+        return NotOnThisLine(
+            f"{command} {name} is {_LINE}; {_use(_REPLACEMENTS[name])}", fix=_REPLACED_FIX
+        )
+    return NotOnThisLine(f"{command} {name} is {_LINE}; {_remedy(name not in UNRELEASED_OPTIONS)}")
 
 
 class Options(argparse.Namespace):
@@ -171,7 +205,9 @@ def command_of(argv: Sequence[str]) -> Command:
         return Command.EXPLORE
     if command is Command.CHECK:
         names = "; ".join(_active_checks())
-        raise NotOnThisLine(f"check is {_LINE}; {_remedy(True)}; not ported: {names}")
+        raise NotOnThisLine(
+            f"check is {_LINE}; {_use(_CHECK_REPLACEMENT)}; not ported: {names}", fix=_REPLACED_FIX
+        )
     return command
 
 
@@ -292,8 +328,7 @@ def parse(argv: Sequence[str]) -> Options:
         raise
     for argument in extra:
         if (name := argument.split("=", 1)[0]) in REMOVED_OPTIONS:
-            remedy = _remedy(name not in UNRELEASED_OPTIONS)
-            raise NotOnThisLine(f"{command} {name} is {_LINE}; {remedy}")
+            raise _removed(command, name)
     if extra:
         raise ValueError(f"unknown arguments: {' '.join(extra)}; run archkeel --help")
     if command is Command.EXPLORE and options.project is not None:

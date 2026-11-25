@@ -20,10 +20,10 @@ from .core_exit import Outcome, verdict_code, word_of
 from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
 from .core_gaps import SHOWN, group_lines, not_installed_lines, places, rest
-from .core_json import Gap
+from .core_json import Gap, GapAction
 from .core_trojan_horses import qualifier as premise_qualifier
 from .core_trojan_horses import trojan_horse_lines
-from .core_words import CAUSE_FIXES, contract_fix, kind_label, plain, readable
+from .core_words import CAUSE_FIXES, GAP_ACTIONS, contract_fix, kind_label, plain, readable
 
 #: The named parts that an `init` draft leaves: decisions that the person has not made yet.
 DRAFT_KINDS = frozenset(
@@ -281,9 +281,12 @@ def _waiting_lines(frame: CoreFrame, show_all: bool) -> list[str]:
 def _named_lines(frame: CoreFrame, show_all: bool) -> tuple[list[str], list[tuple[str, int]]]:
     """The parts that the core names and does not decide, one group for each kind."""
     groups: dict[str, list[tuple[str, str]]] = {}
+    actions: dict[str, Counter[GapAction]] = {}
     for gap in frame.gaps:
         if gap.kind is not GapKind.COLLECT and gap.kind not in PROBLEM_KINDS:
             groups.setdefault(gap.kind, []).append((gap.subject, plain(gap.reason)))
+            if gap.action is not None:
+                actions.setdefault(gap.kind, Counter())[gap.action] += 1
     ranked = sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
     lines = (
         [f"Gaps with no rule of their own ({sum(len(rows) for _, rows in ranked)}):"]
@@ -292,6 +295,10 @@ def _named_lines(frame: CoreFrame, show_all: bool) -> tuple[list[str], list[tupl
     )
     for kind, rows in ranked:
         lines.append(f"  {len(rows)} x {kind_label(kind)}")
+        lines.extend(
+            f"      {count} x {GAP_ACTIONS[action]}"
+            for action, count in sorted(actions.get(kind, Counter()).items())
+        )
         for subject, reason in rows if show_all else rows[:SHOWN]:
             lines.append(
                 f"      {reason if subject.startswith('hygiene:') else f'{subject}: {reason}'}"

@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from archkeel.cli import core_arguments, core_only
+from archkeel.cli.core_frame import CoreCommand as Command
 from archkeel.cli.core_frame import RefusalKind, Status
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,7 +94,8 @@ def test_a_command_of_the_release_line_stays_registered_and_refuses_with_its_kin
     assert document["refusal"]["kind"] == "not_on_this_development_line"
     message = document["refusal"]["message"]
     assert message.startswith(f"{command} is not available in ArchKeel 5.0 yet")
-    assert "use release 4.0.1" in message and "#" not in message
+    assert "use archkeel validate --json" in message and "release 4.0.1" not in message
+    assert "#" not in message
     text = shell(command, *extra, "--text")
     assert text.returncode == 2 and text.stderr == ""
     assert text.stdout.splitlines()[:2] == [f"{command}: REFUSED -> exit 2", f"Problem: {message}"]
@@ -202,10 +204,25 @@ def test_each_option_of_the_release_line_refuses_by_name(
         refusal = json.loads(capsys.readouterr().out)["refusal"]
         assert refusal["kind"] == RefusalKind.NOT_ON_THIS_LINE
         assert f"{command} {option} is not available" in refusal["message"]
+        assert "#" not in refusal["message"]
+        if option in core_arguments._REPLACEMENTS:
+            replacement = " ".join(core_arguments._REPLACEMENTS[option])
+            assert f"use archkeel {replacement}" in refusal["message"]
+            assert "release" not in refusal["message"]
+            continue
         released = option not in core_arguments.UNRELEASED_OPTIONS
         assert ("use release 4.0.1" in refusal["message"]) == released
         assert ("no release has it" in refusal["message"]) != released
-        assert "#" not in refusal["message"]
+
+
+@pytest.mark.parametrize(
+    "argv", [*core_arguments._REPLACEMENTS.values(), core_arguments._CHECK_REPLACEMENT]
+)
+def test_each_replacement_is_a_command_the_line_serves(argv: tuple[str, ...]) -> None:
+    """A refusal names a command. `parse` accepts it, so the command is served and runs. The core
+    is not started: it needs a project, and the parser alone decides the form (AD-596)."""
+    options = core_arguments.parse(argv)
+    assert options.command in {Command.VALIDATE, Command.REPORT}
 
 
 @pytest.mark.parametrize(
@@ -223,3 +240,23 @@ def test_an_unknown_command_or_argument_is_invalid_input(
     result = json.loads(capsys.readouterr().out)
     assert result["status"] == Status.UNKNOWN
     assert result["refusal"]["kind"] == RefusalKind.INVALID_INPUT
+
+
+@pytest.mark.parametrize("option", sorted(core_arguments._REPLACEMENTS))
+def test_the_fix_line_of_a_replaced_option_names_a_command_that_parses(
+    option: str, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`Problem:` names the 5.0 command; `Fix:` points at it. No release is named in either."""
+
+    def no_binary() -> Path:
+        pytest.fail("a refused option must not start the core")
+
+    monkeypatch.setattr(core_only, "locate_core", no_binary)
+    assert core_only.run(["validate", option, "x", "--text"]) == 2
+    lines = capsys.readouterr().out.splitlines()
+    problem = next(line for line in lines if line.startswith("Problem: "))
+    fix = next(line for line in lines if line.startswith("Fix: "))
+    assert "release" not in problem and "release" not in fix
+    assert "run the command named above" in fix
+    named = problem.split("use archkeel ", 1)[1].split()
+    assert core_arguments.parse(tuple(named)).command in {Command.VALIDATE, Command.REPORT}

@@ -27,7 +27,7 @@ from .core_evidence import (
 )
 from .core_explain import Explain, read_explain
 from .core_json import CoreError as CoreError
-from .core_json import CoreExit, as_count, as_object, as_text, as_texts, check_measures
+from .core_json import CoreExit, GapAction, as_count, as_object, as_text, as_texts, check_measures
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
 from .core_json import as_text_list as _as_text_list
@@ -320,14 +320,14 @@ def _core_gaps(frame: Mapping[str, object], named: object) -> list[Gap]:
     rows = frame.get("gaps")
     if not isinstance(rows, list):
         raise CoreError("the core frame has no gaps list")
-    found = [as_object(row, "gaps") for row in rows]
     gaps = [
         Gap(
             _word(GapKind, row["kind"], "gaps.kind"),
             as_text(row["subject"], "gaps.subject"),
             as_text(row["reason"], "gaps.reason"),
+            _word(GapAction, row["action"], "gaps.action") if "action" in row else None,
         )
-        for row in found
+        for row in (as_object(item, "gaps") for item in rows)
     ]
     expected = (
         {("the whole contract", named)}

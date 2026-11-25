@@ -21,8 +21,8 @@ use super::literal::Proof;
 use super::syspath;
 
 use super::hazards_names::{
-    above, attribute_trojan_horse, first_hazard, BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS,
-    TROJAN_HORSE_STRINGS,
+    above, attribute_trojan_horse, first_hazard, module_hazard, BUILTIN_TROJAN_HORSES,
+    IMPORT_FUNCTIONS, TROJAN_HORSE_STRINGS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
 pub(super) use bind::bindings;
@@ -265,7 +265,7 @@ impl Walk<'_> {
         match self.proof.target(call) {
             Some(target) => {
                 self.push(LITERAL, &target, expr);
-                if let Some(kind) = hazard(&target) {
+                if let Some(kind) = module_hazard(&target) {
                     self.push(kind, &target, expr);
                 }
             }
