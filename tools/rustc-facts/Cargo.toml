@@ -16,6 +16,12 @@ publish = false
 
 [dependencies]
 
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
 [[bin]]
 name = "archkeel-rustc-facts"
 path = "src/main.rs"
