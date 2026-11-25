@@ -69,3 +69,10 @@ def red(done: subprocess.CompletedProcess[str], *named: str) -> None:
     assert done.returncode == 1, done.stdout + done.stderr
     for text in named:
         assert text in done.stdout, done.stdout
+
+
+def many_gaps(count: int) -> dict[str, Any]:
+    more = real("base.json")
+    gap = more["gaps"][0]
+    more["gaps"] += [{**gap, "subject": f"{gap['subject']}/new{i}"} for i in range(count)]
+    return more

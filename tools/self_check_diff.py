@@ -5,8 +5,7 @@
 
 Run: `python tools/self_check_diff.py <base.json> <pr.json> [--base-sha S] [--labels a,b]
 [--body-file F] [--report-only] [--grown-file F] [--summary-file F]`, or `same <a.json> <b.json>`,
-`alone <pr.json>` (the PR result must be clean) or `shell <pr.json> <contract.json>` (the rules
-are exactly the rules of the contract, all PASS, no gap).
+`alone <pr.json>` (the PR result must be clean). The shell gate is `tools/self_check_shell.py`.
 
 A file is the full JSON of `archkeel validate` or the condensed form of `condense`: the gaps as
 (kind, subjects, reason), the rule statuses, the UNKNOWN reason kinds, the violations and the exit
@@ -15,7 +14,8 @@ refusal, no FAIL, no violation and the exit code that its statuses give. Growth 
 multiset compare, so a growing gap counts for each occurrence), a new UNKNOWN reason kind, or a
 rule with a worse status (PASS < UNKNOWN < FAIL). Removals do not offset additions. Growth passes
 only with the label `ratchet-lead` and the PR text line `Ratchet growth: <N> items: <reason>`,
-where N is the printed count. A base that is missing, corrupt, refused or for another commit
+where N is the printed count. The shell gate reads its own line `Ratchet growth (shell): ...`.
+A base that is missing, corrupt, refused or for another commit
 compares as an empty base, and only the same approval passes it. The log shows the first
 `SHOWN` grown items; `--grown-file` takes all of them. `--report-only` (main CI, which cannot see
 the label) fails only on a result that is not clean.
@@ -36,7 +36,9 @@ RANK = {"PASS": 0, "UNKNOWN": 1, "FAIL": 2}
 RECEIVER_GAP = re.compile(r"A method call may reach the method (\S+) of a type in its own file")
 FORMAT = "selfcheck-v1"
 LABEL = "ratchet-lead"
-LINE = re.compile(r"Ratchet growth: (0|[1-9][0-9]*) items?: \S.{9,}")
+NUMBER = r"(0|[1-9][0-9]*) items?: \S.{9,}"
+LINE = re.compile(rf"Ratchet growth: {NUMBER}")
+SHELL_LINE = re.compile(rf"Ratchet growth \(shell\): {NUMBER}")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 SHOWN = 10
 SUMMARY_LIMIT = 60_000
@@ -213,18 +215,24 @@ def plain_lines(body: str) -> list[str]:
     return lines
 
 
-def approval(count: int, labels: list[str], body: str) -> list[str]:
-    """The reasons why growth of `count` items is not approved; empty when it is."""
-    ask = f"`Ratchet growth: {count} items: <reason>`"
+def approval(count: int, labels: list[str], body: str, shell: bool = False) -> list[str]:
+    """The reasons why growth of `count` items is not approved; empty when it is.
+
+    Each gate reads only its own line: `Ratchet growth: N items: <reason>` (native) or
+    `Ratchet growth (shell): N items: <reason>`. Both lines can stand in one PR text.
+    """
+    name = "Ratchet growth (shell)" if shell else "Ratchet growth"
+    pattern = SHELL_LINE if shell else LINE
+    ask = f"`{name}: {count} items: <reason>`"
     if LABEL not in labels:
         return [f"growth of {count} items needs the label {LABEL} and the PR text line {ask}"]
-    said = [int(m.group(1)) for line in plain_lines(body) if (m := LINE.fullmatch(line))]
+    said = [int(m.group(1)) for line in plain_lines(body) if (m := pattern.fullmatch(line))]
     if not said:
         return [f"the label {LABEL} is set, but the PR text has no plain line {ask}"]
     if len(said) > 1:
-        return [f"the PR text has {len(said)} Ratchet growth lines; keep exactly one"]
+        return [f"the PR text has {len(said)} `{name}` lines; keep exactly one"]
     if count not in said:
-        return [f"the PR text says Ratchet growth: {said[0]} items, the grown count is {count}"]
+        return [f"the PR text says {name}: {said[0]} items, the grown count is {count}"]
     return []
 
 
@@ -317,36 +325,14 @@ def check(
     return 1 if hard or (errors and not report_only) else 0
 
 
-def contract_rules(path: str) -> set[str]:
-    """The rule ids of a contract file: the one source of the rule set of the shell."""
-    try:
-        document = json.loads(Path(path).read_text(encoding="utf-8"))
-        return {str(rule["id"]) for rule in document["rules"]}
-    except (OSError, ValueError, KeyError, TypeError) as error:
-        raise Unusable(f"{path} is not a contract with rules ({error})") from error
-
-
-def alone(path: str, strict: bool, contract: str = "") -> int:
-    """Exit 0 when one result is clean. `strict` (the shell): rules equal the contract, all PASS."""
+def alone(path: str) -> int:
+    """Exit 0 when one result is clean: no refusal, FAIL or violation, a true exit code."""
     try:
         found = load(path)
-        wanted = contract_rules(contract) if strict else set()
     except Unusable as error:
         show(f"FAIL {error}")
         return 1
     errors = absolute(found)
-    if strict and not errors:
-        statuses = set(found["rules"].values())
-        if statuses != {"PASS"} or found["gaps"]:
-            errors.append("the result must have all rules PASS and no gap")
-        errors += [
-            f"rule {rule} of the contract has no row in the result"
-            for rule in sorted(wanted - set(found["rules"]))
-        ]
-        errors += [
-            f"rule {rule} is in the result and not in the contract"
-            for rule in sorted(set(found["rules"]) - wanted)
-        ]
     if not found.get("refusal"):
         show(summary(found))
     for line in errors:
@@ -377,9 +363,7 @@ def main(argv: list[str]) -> int:
     if argv[:1] == ["same"] and len(argv) == 3:
         return same(argv[1], argv[2])
     if argv[:1] == ["alone"] and len(argv) == 2:
-        return alone(argv[1], strict=False)
-    if argv[:1] == ["shell"] and len(argv) == 3:
-        return alone(argv[1], strict=True, contract=argv[2])
+        return alone(argv[1])
     if len(argv) < 2:
         print(__doc__)  # the module text, not a result
         return 2
