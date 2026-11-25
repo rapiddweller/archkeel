@@ -88,10 +88,10 @@ def test_the_gate_compares_the_rule_set_of_a_real_result_with_the_contract(
         path.write_text(json.dumps(document), encoding="utf-8")
         args = [
             sys.executable,
-            str(ROOT / "tools/self_check_diff.py"),
-            "shell",
+            str(ROOT / "tools/self_check_shell.py"),
             str(path),
             contract,
+            "--no-compare",
         ]
         return subprocess.run(args, capture_output=True, text=True, timeout=60)
 

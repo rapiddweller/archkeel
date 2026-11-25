@@ -182,11 +182,12 @@ self-validate-native: core
 	@echo "Native architecture rules: full result: test-artifacts/validation-native/result.json"
 
 # AD-478: Archkeel checks the Python shell of src/archkeel with its own core and its own contract.
-# The whole gate: all rules PASS, no gap, exit code 0 (no base comparison).
+# The whole gate: all rules PASS, no gap, exit code 0, and the rule ids of the contract: the same as
+# the contract at the base commit, or the loss is approved (`tools/self_check_shell.py`).
 self-validate-shell: core
 	@mkdir -p test-artifacts/validation-shell
 	@$(UV) run --locked archkeel validate --config docs/architecture/shell.toml --json > test-artifacts/validation-shell/result.json || true
-	@$(UV) run --locked python tools/self_check_diff.py shell test-artifacts/validation-shell/result.json docs/architecture/target/shell-contract.json
+	@$(UV) run --locked python tools/self_check_shell.py test-artifacts/validation-shell/result.json docs/architecture/target/shell-contract.json --base "$(SELFCHECK_BASE)" $(SELFCHECK_ARGS)
 	@echo "Shell architecture rules: all PASS; full result: test-artifacts/validation-shell/result.json"
 
 # AD-616: ArchKeel as one system: one core run checks each part of the system document and gives one

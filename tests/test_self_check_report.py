@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import pytest
 from self_check_support import FIXTURES, RULE, TOOL, real, red, run, save, violation, worse
 
 
@@ -67,19 +66,12 @@ def test_report_only_fails_on_a_result_that_is_not_clean_but_not_on_growth(tmp_p
     red(done, f"rule {RULE} is FAIL")
 
 
-@pytest.mark.parametrize("mode", ["alone", "shell"])
-def test_a_clean_result_alone_is_green_and_a_refusal_or_a_fail_is_red(
-    tmp_path: Path, mode: str
-) -> None:
+def test_a_clean_result_alone_is_green_and_a_refusal_or_a_fail_is_red(tmp_path: Path) -> None:
     def tool(result: dict[str, Any] | str) -> subprocess.CompletedProcess[str]:
-        args = [sys.executable, str(TOOL), mode, save(tmp_path, "r.json", result)]
-        if mode == "shell":
-            args.append(save(tmp_path, "contract.json", {"rules": [{"id": RULE}]}))
+        args = [sys.executable, str(TOOL), "alone", save(tmp_path, "r.json", result)]
         return subprocess.run(args, capture_output=True, text=True, timeout=60)
 
-    clean = real("base.json")
-    # The base fixture has one gap: clean for `alone`, red for the strict shell gate.
-    assert tool(clean).returncode == (1 if mode == "shell" else 0)
+    assert tool(real("base.json")).returncode == 0  # one gap is clean for `alone`
     pass_only = real("base.json")
     pass_only["gaps"] = []
     pass_only["frame"]["collection_gaps"] = []
@@ -95,38 +87,6 @@ def test_a_clean_result_alone_is_green_and_a_refusal_or_a_fail_is_red(
 
 
 REFUSED = {"refusal": {"kind": "core_error", "message": "x"}, "exit_code": 2}
-
-
-def shell(
-    tmp_path: Path, result: dict[str, Any], rules: list[str]
-) -> subprocess.CompletedProcess[str]:
-    contract = save(tmp_path, "contract.json", {"rules": [{"id": rule} for rule in rules]})
-    args = [sys.executable, str(TOOL), "shell", save(tmp_path, "r.json", result), contract]
-    return subprocess.run(args, capture_output=True, text=True, timeout=60)
-
-
-def passing() -> dict[str, Any]:
-    result = real("base.json")
-    result["gaps"] = []
-    result["frame"]["collection_gaps"] = []
-    result["exit_code"] = 0
-    return result
-
-
-def test_the_shell_rules_must_equal_the_rules_of_the_contract(tmp_path: Path) -> None:
-    assert shell(tmp_path, passing(), [RULE]).returncode == 0
-    missing = shell(tmp_path, passing(), [RULE, "SHELL-DROPPED"])
-    red(missing, "rule SHELL-DROPPED of the contract has no row in the result")
-    extra = shell(tmp_path, passing(), [])
-    red(extra, f"rule {RULE} is in the result and not in the contract")
-    assert shell(tmp_path, passing(), []).returncode == 1
-    nothing = subprocess.run(
-        [sys.executable, str(TOOL), "shell", save(tmp_path, "r.json", passing()), "none.json"],
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    red(nothing, "none.json is not a contract with rules")
 
 
 def test_a_newline_in_a_reason_never_starts_a_log_line(tmp_path: Path) -> None:

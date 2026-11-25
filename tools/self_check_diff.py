@@ -5,8 +5,7 @@
 
 Run: `python tools/self_check_diff.py <base.json> <pr.json> [--base-sha S] [--labels a,b]
 [--body-file F] [--report-only] [--grown-file F] [--summary-file F]`, or `same <a.json> <b.json>`,
-`alone <pr.json>` (the PR result must be clean) or `shell <pr.json> <contract.json>` (the rules
-are exactly the rules of the contract, all PASS, no gap).
+`alone <pr.json>` (the PR result must be clean). The shell gate is `tools/self_check_shell.py`.
 
 A file is the full JSON of `archkeel validate` or the condensed form of `condense`: the gaps as
 (kind, subjects, reason), the rule statuses, the UNKNOWN reason kinds, the violations and the exit
@@ -317,36 +316,14 @@ def check(
     return 1 if hard or (errors and not report_only) else 0
 
 
-def contract_rules(path: str) -> set[str]:
-    """The rule ids of a contract file: the one source of the rule set of the shell."""
-    try:
-        document = json.loads(Path(path).read_text(encoding="utf-8"))
-        return {str(rule["id"]) for rule in document["rules"]}
-    except (OSError, ValueError, KeyError, TypeError) as error:
-        raise Unusable(f"{path} is not a contract with rules ({error})") from error
-
-
-def alone(path: str, strict: bool, contract: str = "") -> int:
-    """Exit 0 when one result is clean. `strict` (the shell): rules equal the contract, all PASS."""
+def alone(path: str) -> int:
+    """Exit 0 when one result is clean: no refusal, FAIL or violation, a true exit code."""
     try:
         found = load(path)
-        wanted = contract_rules(contract) if strict else set()
     except Unusable as error:
         show(f"FAIL {error}")
         return 1
     errors = absolute(found)
-    if strict and not errors:
-        statuses = set(found["rules"].values())
-        if statuses != {"PASS"} or found["gaps"]:
-            errors.append("the result must have all rules PASS and no gap")
-        errors += [
-            f"rule {rule} of the contract has no row in the result"
-            for rule in sorted(wanted - set(found["rules"]))
-        ]
-        errors += [
-            f"rule {rule} is in the result and not in the contract"
-            for rule in sorted(set(found["rules"]) - wanted)
-        ]
     if not found.get("refusal"):
         show(summary(found))
     for line in errors:
@@ -377,9 +354,7 @@ def main(argv: list[str]) -> int:
     if argv[:1] == ["same"] and len(argv) == 3:
         return same(argv[1], argv[2])
     if argv[:1] == ["alone"] and len(argv) == 2:
-        return alone(argv[1], strict=False)
-    if argv[:1] == ["shell"] and len(argv) == 3:
-        return alone(argv[1], strict=True, contract=argv[2])
+        return alone(argv[1])
     if len(argv) < 2:
         print(__doc__)  # the module text, not a result
         return 2
