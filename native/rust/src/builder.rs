@@ -220,6 +220,8 @@ pub(crate) struct Builder {
     pub(crate) publications: crate::routes::Publications,
     /// Modules with a path to code whose value transfers the scan does not read.
     pub(crate) opaque_values: BTreeSet<String>,
+    /// The compiler type-reach facts of each configuration, or none (AD-1047).
+    pub(crate) type_reach: Vec<crate::type_reach_facts::Facts>,
 }
 
 impl Builder {

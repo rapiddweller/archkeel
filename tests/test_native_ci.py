@@ -53,11 +53,7 @@ _TOOLCHAIN_STEP = "run: rustup toolchain install\n"
 @pytest.mark.parametrize(
     ("workflow", "job", "first_make"),
     [
-        ("ci.yml", "lint", "run: make ci-pr-static"),
         ("area-checks.yml", "tests", "run: make fast-test"),
-        ("pr-gate.yml", "base", "run: make pr-gate"),
-        ("area-checks.yml", "native", "run: make cargo-deny-install"),
-        ("full-verification.yml", "full-suite-and-reports", "run: make ci-core-check"),
         ("full-verification.yml", "tests", "run: make full-test"),
         ("full-verification.yml", "shell-compat", "run: make shell-compat"),
     ],
@@ -398,11 +394,8 @@ def test_native_check_runs_the_dependency_policy_with_the_pinned_cargo_deny(
     assert calls.index("cargo clippy --locked --all-targets -- -D warnings") < calls.index(
         "cargo deny --locked check"
     )
-    # AD-432: the self-check of native-check runs the release core of this checkout.
-    assert calls[-1] == (
-        "cargo build --locked --release -p archkeel-core -p archkeel-rust-collector"
-        " -p archkeel-typescript-collector"
-    )
+    # AD-1047: the self-check runs in pr-gate and ci-check, not twice in native-check.
+    assert not any("--release" in call for call in calls)
 
 
 def test_the_ci_install_of_cargo_deny_checks_the_hash_and_creates_the_target_directory() -> None:

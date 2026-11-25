@@ -1,0 +1,10 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: a path dependency that is no member, with the package name of the member `memb`.
+[package]
+name = "memb"
+version = "0.0.9"
+edition = "2021"
+publish = false

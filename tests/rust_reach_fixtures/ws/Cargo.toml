@@ -1,0 +1,22 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: one case for each hole of the type-reach model. Each case has a module `<case>_a` whose code
+# dispatches into an impl in `<case>_b`, with a counter, so that the truth is a run and no opinion.
+[package]
+name = "fx"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+regdep = { path = "../dep" }
+vdep = { path = "vendor/vdep" }
+
+# The default feature `fa` makes the default build differ from `--no-default-features`: a case with
+# `cfg(feature = "fb")` runs only in `--no-default-features --features fb`.
+[features]
+default = ["fa"]
+fa = []
+fb = []

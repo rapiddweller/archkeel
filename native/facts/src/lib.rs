@@ -51,6 +51,7 @@ pub mod sections;
 mod skip;
 pub mod standard;
 pub mod surveys;
+pub mod type_reach;
 pub mod type_shape;
 pub mod vocab;
 mod vocab_constructs;

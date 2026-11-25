@@ -9,3 +9,5 @@ namespace = "native"
 contract = "native/architecture-contract.json"
 # The report and the rules read production code only (the collector owns the cfg(test) rule).
 exclude_test_sources = true
+# AD-1047: the compiler type-reach facts drop the trait-impl, destructor and receiver gaps that no body can run.
+rust_type_reach = true

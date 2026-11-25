@@ -1,0 +1,10 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: a workspace member with a hyphen. The vendored crate is named `m_hy`.
+[package]
+name = "m-hy"
+version = "0.0.0"
+edition = "2021"
+publish = false

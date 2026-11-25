@@ -10,6 +10,8 @@ below `crates/`. A test changes the sources or the contract and reads the verdic
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -90,12 +92,18 @@ def repository(
     components: tuple[dict[str, Any], ...] | None = None,
     rules: tuple[dict[str, Any], ...] = CRATE_RULES,
     drawn: str | None = None,
+    type_reach: bool | None = None,
+    premise: bool = True,
 ) -> Path:
     """Write the fixture below `root`. A file in `files` replaces or adds a file of the default.
 
     `binary` is the core that decides the fixture (the `core_binary` fixture). The marked graph
     draws the `requires` edges, or the edges of `drawn` when the observed edges differ (AD-466).
+    `type_reach` turns the compiler type-reach facts on (AD-1047); `None` reads
+    `ARCHKEEL_TEST_TYPE_REACH`. The contract then declares the premise `rust_type_reach`, unless
+    `premise` is false.
     """
+    reach = bool(os.environ.get("ARCHKEEL_TEST_TYPE_REACH")) if type_reach is None else type_reach
     assert binary.is_file(), binary
     _CORES[root.resolve()] = binary
     sources = {
@@ -122,15 +130,46 @@ def repository(
     (root / "docs").mkdir(exist_ok=True)
     edges = edges if drawn is None else drawn
     (root / "docs/target.md").write_text(GRAPH_PAGE.format(edges=edges or "    base"))
-    contract = {"schema_version": "2.1.0", "components": list(parts), "rules": list(rules)}
+    contract: dict[str, Any] = {
+        "schema_version": "2.1.0",
+        "components": list(parts),
+        "rules": list(rules),
+    }
+    if reach and premise:
+        contract["schema_version"] = "3.22.0"
+        contract["declarations"] = {
+            "premises": [
+                {
+                    "id": "PREMISE-RUST-TYPE-REACH",
+                    "name": "rust_type_reach",
+                    "rationale": "The fixture is the whole program and builds with its toolchain.",
+                    "provenance": PROVENANCE,
+                }
+            ]
+        }
     (root / "architecture-contract.json").write_text(json.dumps(contract, indent=2))
     (root / "archkeel.toml").write_text(
         "[scan]\n"
         'language = "rust"\n'
         'roots = ["crates"]\n'
         'namespace = "native"\n'
-        'contract = "architecture-contract.json"\n'
+        'contract = "architecture-contract.json"\n' + ("rust_type_reach = true\n" if reach else "")
+        # AD-1047: `ARCHKEEL_TEST_TYPE_REACH=1` runs each fixture with the compiler type-reach
+        # facts, so a plant that must never PASS proves that the filter keeps its real edge.
     )
+    if reach:
+        # The producer runs `cargo check --locked`: the fixture needs its lock file.
+        subprocess.run(
+            [
+                "cargo",
+                "generate-lockfile",
+                "--offline",
+                "--manifest-path",
+                str(root / "crates/Cargo.toml"),
+            ],
+            check=False,  # no lock offline: no facts, UNKNOWN with the reason
+            capture_output=True,
+        )
     commit_tree(root)
     return root
 

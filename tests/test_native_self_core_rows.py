@@ -23,6 +23,7 @@ from typing import Any
 import pytest
 from core_support import NATIVE_SELF_STATUS, NATIVE_UNKNOWN, ROOT, SUFFIX, run
 from frozen_native import frozen_root as frozen_root
+from rustc_dev_support import needs_rustc_dev
 
 from archkeel.cli import core_only
 
@@ -38,6 +39,7 @@ def checked(built: Path, frozen_root: Path) -> tuple[int, dict[str, Any]]:
         return run("validate", "--root", str(frozen_root), "--config", "native/archkeel.toml")
 
 
+@needs_rustc_dev
 def test_the_core_decides_each_rule_of_the_self_contract(
     checked: tuple[int, dict[str, Any]],
 ) -> None:
@@ -123,6 +125,7 @@ def test_a_planted_report_cycle_fails_the_native_component_rule(
     assert all(step["evidence"] and not step.get("possible") for step in cycle["path"])
 
 
+@needs_rustc_dev
 def test_routing_the_body_walk_through_params_restores_the_module_cycle(
     tmp_path: Path, frozen_root: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -314,6 +317,7 @@ def test_collect_hands_core_no_value_of_a_collector_type(
     assert found == COLLECT_TO_COLLECTORS
 
 
+@needs_rustc_dev
 def test_a_globals_return_edge_fails_the_native_module_rule(
     tmp_path: Path, frozen_root: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

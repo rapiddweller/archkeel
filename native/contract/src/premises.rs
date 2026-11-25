@@ -16,7 +16,7 @@ use crate::error::{invalid, Parsed};
 use crate::json::{Json, Object};
 use crate::model::ItemId;
 use crate::read::{declared_items, nonempty_field, record};
-use crate::version::{ContractVersion, Feature};
+use crate::version::{supports, ContractVersion, Feature};
 
 /// A premise that a contract can declare by name. A new premise is a new variant, with its word
 /// here and the place that reads it in the model.
@@ -25,15 +25,21 @@ use crate::version::{ContractVersion, Feature};
 pub enum PremiseName {
     /// No code of the run changes a module of the standard library of the language (#1538).
     StandardLibraryUnchanged,
+    /// The compiler type-reach facts of the pinned toolchain prove that no body can run an impl (AD-1047).
+    RustTypeReach,
 }
 
 /// Each premise name, in the order of the frame.
-pub const PREMISE_NAMES: [PremiseName; 1] = [PremiseName::StandardLibraryUnchanged];
+pub const PREMISE_NAMES: [PremiseName; 2] = [
+    PremiseName::StandardLibraryUnchanged,
+    PremiseName::RustTypeReach,
+];
 
 /// The word of a premise in the contract and in the frame.
 pub fn premise_word(name: PremiseName) -> &'static str {
     match name {
         PremiseName::StandardLibraryUnchanged => "standard_library_unchanged",
+        PremiseName::RustTypeReach => "rust_type_reach",
     }
 }
 
@@ -42,6 +48,9 @@ pub fn assumption_words(name: PremiseName) -> &'static str {
     match name {
         PremiseName::StandardLibraryUnchanged => {
             "the premise that outside code leaves the standard library unchanged"
+        }
+        PremiseName::RustTypeReach => {
+            "rust_type_reach: the compiler type reach of the pinned rustc holds: the facts are of these files, this Cargo.lock and this target, in the dev profile and the feature matrix (default, none, all, each alone), the workspace is the whole program (a library function that only a downstream crate calls is not seen, and state that a dependency holds for the workspace is not charged), and the scanned repository is trusted to build"
         }
     }
 }
@@ -81,7 +90,13 @@ pub(crate) fn premises(object: &Object, version: ContractVersion) -> Parsed<Vec<
     let found: Vec<DeclaredPremise> = items
         .iter()
         .enumerate()
-        .map(|(index, raw)| one(raw, &format!("contract.declarations.premises[{index}]")))
+        .map(|(index, raw)| {
+            one(
+                raw,
+                version,
+                &format!("contract.declarations.premises[{index}]"),
+            )
+        })
         .collect::<Parsed<_>>()?;
     let mut names: Vec<PremiseName> = Vec::new();
     for premise in &found {
@@ -98,7 +113,7 @@ pub(crate) fn premises(object: &Object, version: ContractVersion) -> Parsed<Vec<
     Ok(found)
 }
 
-fn one(raw: &Json, label: &str) -> Parsed<DeclaredPremise> {
+fn one(raw: &Json, version: ContractVersion, label: &str) -> Parsed<DeclaredPremise> {
     let (item, id, provenance) = record(raw, &["name", "rationale"], &[], label)?;
     let text: String = nonempty_field(item, "name", label)?;
     let known: Vec<&str> = PREMISE_NAMES.map(premise_word).to_vec();
@@ -108,6 +123,11 @@ fn one(raw: &Json, label: &str) -> Parsed<DeclaredPremise> {
             known.join(", ")
         )));
     };
+    if name == PremiseName::RustTypeReach && !supports(version, Feature::RustTypeReach) {
+        return Err(invalid(format!(
+            "{label}.name rust_type_reach requires contract schema_version 3.22.0"
+        )));
+    }
     Ok(DeclaredPremise {
         id,
         name,

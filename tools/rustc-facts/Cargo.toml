@@ -1,0 +1,21 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: a rustc driver. It lives in `tools/`, not in `native/`: it links `rustc_private`, needs the
+# `rustc-dev` component, which a developer does not have, and the self-scan of `native/` cannot read an
+# `extern crate rustc_driver`. The collector builds it on first use, from the source that the core carries.
+[package]
+name = "archkeel-rustc-facts"
+description = "A rustc driver that writes type-reach facts of a Cargo workspace (AD-1047)"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.97"
+license = "MIT"
+publish = false
+
+[dependencies]
+
+[[bin]]
+name = "archkeel-rustc-facts"
+path = "src/main.rs"

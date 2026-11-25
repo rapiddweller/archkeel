@@ -441,3 +441,19 @@ impl BitSet {
         self.words.iter().any(|&word| word != 0)
     }
 }
+
+/// The names of a module that may stand for another type in a path: type aliases and `use` renames.
+pub(super) fn aliases(module: &Module) -> impl Iterator<Item = &str> {
+    let scan = &module.scan;
+    let aliases = (scan.definitions.iter())
+        .filter(|definition| definition.form == Form::Alias)
+        .map(|definition| String::as_str(&definition.name));
+    let renames = scan.references.iter().filter_map(|r| match &r.via {
+        Via::Use {
+            binding: Some(binding),
+            ..
+        } if r.names.last() != Some(binding) => Some(String::as_str(binding)),
+        _ => None,
+    });
+    aliases.chain(renames)
+}

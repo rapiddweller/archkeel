@@ -29,6 +29,8 @@ def is_size_limited(relative: str) -> bool:
         return relative.endswith((".js", ".css"))
     if top in {"native", "crates"}:
         return relative.endswith(".rs")
+    if relative.startswith("tools/rustc-facts/"):
+        return relative.endswith(".rs")
     if top == "tools":
         return relative.endswith(SCRIPT_SUFFIXES) and "/node_modules/" not in relative
     # Test modules and fixture helpers are code. Golden data and fixture sources are inputs.

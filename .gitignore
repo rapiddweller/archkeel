@@ -26,5 +26,6 @@ fixtures/D-self/architecture.json
 
 # Cargo build output of the native collectors.
 /native/target/
+/tools/rustc-facts/target/
 /native/.digests/
 /src/archkeel/_native/

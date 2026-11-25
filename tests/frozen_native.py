@@ -30,12 +30,24 @@ from corpus_support import commit_tree
 from filelock import FileLock
 
 ROOT = Path(__file__).resolve().parents[1]
-LISTING = ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "native"]
+# `native/collect` includes the driver sources through `concat!`, which `included()` misses.
+DRIVER = "tools/rustc-facts"
+LISTING = [
+    "git",
+    "ls-files",
+    "-z",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "--",
+    "native",
+    DRIVER,
+]
 SKIPPED = frozenset({"target", ".digests"})
 
 
 def live_files(root: Path = ROOT) -> list[str]:
-    """The files of `native/` that a checkout holds, by relative path: no build output."""
+    """The files of `native/` and of the driver that a checkout holds: no build output."""
     done = subprocess.run(LISTING, cwd=root, capture_output=True, check=False)
     if done.returncode == 0:
         names = [name for name in done.stdout.decode().split("\0") if name]
@@ -108,6 +120,12 @@ def _copy(root: Path, target: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         path.chmod((root / name).stat().st_mode & 0o777)
+    # The tests check the verdict machinery, not the facts. Facts need 9 cold `cargo check` runs
+    # of this copy, over the CI job cap. `test_cli_native_rust_type_reach.py` tests the facts.
+    config = staging / "native/archkeel.toml"
+    config.write_text(
+        config.read_text().replace("rust_type_reach = true", "rust_type_reach = false")
+    )
     commit_tree(staging)
     staging.rename(target)
 

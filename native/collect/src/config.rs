@@ -15,7 +15,7 @@ use toml::{Table, Value};
 
 /// The fields that `[scan]` must have and may have (`_REQUIRED_SCAN`, `_OPTIONAL_SCAN`).
 const REQUIRED: [&str; 3] = ["roots", "namespace", "contract"];
-const OPTIONAL: [&str; 10] = [
+const OPTIONAL: [&str; 11] = [
     "language",
     "tsconfig",
     "collector_argv",
@@ -25,6 +25,8 @@ const OPTIONAL: [&str; 10] = [
     "exclude_test_sources",
     "python",
     "import_roots_ambiguous",
+    // AD-1047: the Rust scan asks for the compiler type-reach facts.
+    "rust_type_reach",
     // AD-776: the folder of the scan root, from the folder of this file. The shell reads it.
     "root",
 ];
@@ -56,6 +58,7 @@ pub(crate) struct Config {
     pub exclude_test_sources: bool,
     pub python: Option<String>,
     pub import_roots_ambiguous: bool,
+    pub rust_type_reach: bool,
 }
 
 fn invalid(text: &str) -> Refused {
@@ -116,6 +119,7 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         "scan.contract",
         false,
     )?);
+    let rust_type_reach = type_reach_flag(scan, language)?;
     let exclude_test_sources = flag(
         scan,
         "exclude_test_sources",
@@ -154,7 +158,22 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         exclude_test_sources,
         python,
         import_roots_ambiguous,
+        rust_type_reach,
     })
+}
+
+fn type_reach_flag(scan: &Table, language: &str) -> Result<bool, Refused> {
+    let asked = flag(
+        scan,
+        "rust_type_reach",
+        "scan.rust_type_reach must be a boolean",
+    )?;
+    if asked && language != "rust" {
+        return Err(invalid(
+            "scan.rust_type_reach is only valid when scan.language is rust",
+        ));
+    }
+    Ok(asked)
 }
 
 fn ambiguous_roots(scan: &Table, language: &str, namespace: &str) -> Result<bool, Refused> {

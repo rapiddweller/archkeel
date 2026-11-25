@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.19.schema.json",
-  "schema_version": "3.19.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.22.schema.json",
+  "schema_version": "3.22.0",
   "components": [
     {
       "id": "COMP-NATIVE-FACTS",
@@ -124,6 +124,13 @@
         "native.archkeel_facts.standard:Wrapped",
         "native.archkeel_facts.standard:WrappedSlot",
         "native.archkeel_facts.surveys:gaps_are_unknowns",
+        "native.archkeel_facts.type_reach:Config",
+        "native.archkeel_facts.type_reach:ENV",
+        "native.archkeel_facts.type_reach:Field",
+        "native.archkeel_facts.type_reach:MAX_FEATURES",
+        "native.archkeel_facts.type_reach:PREMISE",
+        "native.archkeel_facts.type_reach:Unavailable",
+        "native.archkeel_facts.type_reach:matrix",
         "native.archkeel_facts.type_shape:Binding",
         "native.archkeel_facts.type_shape:Family",
         "native.archkeel_facts.type_shape:TypeShape",
@@ -5412,6 +5419,13 @@
             "native.archkeel_rust_collector.routes",
             "native.archkeel_rust_collector.tree"
           ]
+        },
+        {
+          "component": "rs-type-reach",
+          "rationale": "Hold the facts of each configuration until the value flow settles (AD-1047).",
+          "through": [
+            "native.archkeel_rust_collector.type_reach_facts"
+          ]
         }
       ],
       "public": [
@@ -5516,6 +5530,13 @@
           "through": [
             "native.archkeel_rust_collector.builder"
           ]
+        },
+        {
+          "component": "rs-type-reach",
+          "rationale": "Drop a pair gap that the compiler type-reach facts exclude (AD-1047).",
+          "through": [
+            "native.archkeel_rust_collector.type_reach_filter"
+          ]
         }
       ],
       "public": [
@@ -5598,6 +5619,43 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-RS-TYPE-REACH",
+      "label": "rs-type-reach",
+      "role": "component",
+      "layer": "collector",
+      "packages": [
+        "native.archkeel_rust_collector.type_reach",
+        "native.archkeel_rust_collector.type_reach_facts",
+        "native.archkeel_rust_collector.type_reach_filter",
+        "native.archkeel_rust_collector.type_reach_fold",
+        "native.archkeel_rust_collector.type_reach_model"
+      ],
+      "responsibilities": [
+        "Check that compiler type-reach facts belong to the scan: the schema, the toolchain, the driver, the configuration, `Cargo.lock` and the hash of each source file (AD-1047). Fold the facts of one configuration into the type reach of a module, in shadow mode (AD-1047)."
+      ],
+      "forbidden_responsibilities": [
+        "Producing facts, running the compiler and deciding a gap."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-1047-rust-dispatch-gaps-use-compiler-type-reach.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Name the typed cause when the facts do not match the scan (AD-1047).",
+          "through": [
+            "native.archkeel_facts.type_reach"
+          ]
+        }
+      ],
+      "decided_by": "architect",
+      "public": [
+        "native.archkeel_rust_collector.type_reach:announced",
+        "native.archkeel_rust_collector.type_reach_facts:Facts",
+        "native.archkeel_rust_collector.type_reach_filter:Filter"
+      ]
+    },
+    {
       "id": "COMP-NATIVE-RS-FLOW",
       "label": "rs-flow",
       "role": "component",
@@ -5620,6 +5678,7 @@
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
             "native.archkeel_facts.envelope",
+            "native.archkeel_facts.identity",
             "native.archkeel_facts.request"
           ]
         },
@@ -5676,6 +5735,13 @@
           "rationale": "Encode the reply.",
           "through": [
             "native.archkeel_rust_collector.reply"
+          ]
+        },
+        {
+          "component": "rs-type-reach",
+          "rationale": "Read the compiler type-reach facts that the producer announced, checked against the scan (AD-1047).",
+          "through": [
+            "native.archkeel_rust_collector.type_reach"
           ]
         }
       ],
@@ -8015,5 +8081,17 @@
       ],
       "decided_by": "architect"
     }
-  ]
+  ],
+  "declarations": {
+    "premises": [
+      {
+        "id": "PREMISE-RUST-TYPE-REACH",
+        "name": "rust_type_reach",
+        "rationale": "The self-check reads the Rust of native/ with compiler facts. The facts come from the rustc of native/rust-toolchain.toml, over the files with the hashes that the check compares, under the three cfg sets of the matrix (default, no default features, all features), the Cargo.lock of native/ and the host target. The type-reach rule holds for exactly these facts: a gap is dropped only when no body of the module can hold a value of the self type of any impl of the target. native/ is the whole program of its binaries and has no downstream crate. The repository is trusted: cargo check runs its build scripts and proc macros, and --offline does not stop their network access.",
+        "provenance": [
+          "docs/architecture/decisions/ad-1047-rust-dispatch-gaps-use-compiler-type-reach.md"
+        ]
+      }
+    ]
+  }
 }

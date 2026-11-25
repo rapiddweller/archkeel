@@ -395,7 +395,7 @@ def test_the_fast_tests_leave_out_the_nightly_files_and_the_pr_gate_selects_by_a
 
 FULL_MK = "tools/full.mk"
 # CI runs these on each PR, so a break in them shows before the merge. Full needs no run for them.
-SHARED_WITH_CI = {"mermaid", "self-validate"}
+SHARED_WITH_CI = {"mermaid", "self-validate", "type-reach-setup"}
 
 
 def _called_targets(workflow: str) -> set[str]:

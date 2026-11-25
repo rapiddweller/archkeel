@@ -67,7 +67,8 @@ def test_a_path_that_ends_at_a_module_never_hides_the_item_of_its_name(
     repository(tmp_path, core_binary, files, (owner, component("app", "app", ("base",))), RULES)
     path = tmp_path / "architecture-contract.json"
     contract = json.loads(path.read_text())
-    contract["schema_version"] = "3.14.0"
+    if "declarations" not in contract:  # a contract with the type-reach premise needs 3.22.0
+        contract["schema_version"] = "3.14.0"
     path.write_text(json.dumps(contract, indent=2))
     commit_tree(tmp_path)
     _rustc_accepts(tmp_path)
