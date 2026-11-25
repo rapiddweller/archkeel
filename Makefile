@@ -194,9 +194,11 @@ self-validate-shell: core
 # status by the status rule of the core, then one line for each part. The gate of each part
 # is above, so a FAIL or UNKNOWN (exit 1 or 2) does not stop make; a refusal does.
 SYSTEM_DOCUMENT := docs/architecture/architecture-system.json
+# AD-1088: the JSON of the same run, for `make self-check`.
+SYSTEM_RESULT := test-artifacts/validation-system/result.json
 self-validate-system: core
-	@mkdir -p test-artifacts/validation-system
-	@$(UV) run --locked archkeel report --text --config $(SYSTEM_DOCUMENT) --output test-artifacts/validation-system/result.json --format json; test $$? -le 2
+	@mkdir -p $(dir $(SYSTEM_RESULT))
+	@$(UV) run --locked archkeel report --text --config $(SYSTEM_DOCUMENT) --output $(SYSTEM_RESULT) --format json; test $$? -le 2
 
 # AD-478: the shell and native/ with their own contracts, then the system line.
 self-validate: self-validate-native self-validate-shell self-validate-system
