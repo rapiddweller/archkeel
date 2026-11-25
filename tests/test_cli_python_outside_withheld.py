@@ -42,7 +42,8 @@ def tree(root: Path, script: str | None) -> Path:
         if component["label"] == "service":
             component["public"] = ["app.service:f"]
     path.write_text(json.dumps(contract))
-    for step in (["add", "-A"], ["commit", "-qm", "public"]):
+    who = ["-c", "user.name=t", "-c", "user.email=t@t"]
+    for step in (["add", "-A"], [*who, "commit", "-qm", "public"]):
         subprocess.run(["git", "-C", str(root), *step], check=True, capture_output=True)
     return root
 
