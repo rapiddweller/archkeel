@@ -11,11 +11,8 @@ use archkeel_facts::type_reach::{Config, Field, Unavailable};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-pub(super) fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("archkeel-facts-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+pub(super) fn scratch(name: &str) -> crate::repository::tests::Scratch {
+    crate::repository::tests::scratch(name)
 }
 
 /// A workspace with a `Cargo.toml` and a `Cargo.lock`, and a cache directory.
@@ -23,6 +20,41 @@ fn project(dir: &Path) -> (PathBuf, PathBuf) {
     std::fs::write(dir.join("Cargo.toml"), "[workspace]\n").unwrap();
     std::fs::write(dir.join("Cargo.lock"), "version = 4\n").unwrap();
     (dir.join("Cargo.toml"), dir.join("cache"))
+}
+
+#[cfg(unix)]
+#[test]
+fn work_cache_keeps_only_three_recent_paths() {
+    let dir = scratch("cache-bound");
+    let cache = dir.join("cache");
+    let tools = fake(&dir, &WORKS);
+    for n in 0..4 {
+        let root = dir.join(format!("project-{n}"));
+        std::fs::create_dir(&root).unwrap();
+        let (manifest, _) = project(&root);
+        assert!(tools.produce(&root, &manifest, &cache).is_ok());
+    }
+    assert!(std::fs::read_dir(cache.join("work")).unwrap().count() <= 3);
+}
+
+#[test]
+fn work_cache_evicts_the_oldest_unused_path() {
+    let dir = scratch("cache-lru");
+    let paths: Vec<_> = (0..4).map(|n| dir.join(format!("{n}"))).collect();
+    for (index, path) in paths.iter().take(3).enumerate() {
+        std::fs::create_dir(path).unwrap();
+        let file = std::fs::File::create(path.join("last-used")).unwrap();
+        let time = std::time::SystemTime::UNIX_EPOCH
+            + std::time::Duration::from_secs(u64::try_from(index).unwrap() + 1);
+        file.set_times(std::fs::FileTimes::new().set_modified(time))
+            .unwrap();
+    }
+    super::prune_work(&paths[0]);
+    super::prune_work(&paths[3]);
+    assert!(paths[0].exists());
+    assert!(!paths[1].exists());
+    assert!(paths[2].exists());
+    assert!(paths[3].exists());
 }
 
 /// The behaviour of the fake `rustup`: each field is the exit status of one command.

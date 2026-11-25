@@ -42,16 +42,50 @@ fn only_a_safe_absolute_disk_path_has_a_plain_form() {
 }
 
 /// A fresh directory below the temporary directory, canonical.
-pub(crate) fn scratch(name: &str) -> PathBuf {
+pub(crate) struct Scratch(pub(crate) PathBuf);
+
+impl std::ops::Deref for Scratch {
+    type Target = std::path::Path;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<std::path::Path> for Scratch {
+    fn as_ref(&self) -> &std::path::Path {
+        &self.0
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+pub(crate) fn scratch(name: &str) -> Scratch {
     static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let next = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let path = std::env::temp_dir().join(format!(
+    let mut path = Scratch(std::env::temp_dir().join(format!(
         "archkeel-collect-{name}-{}-{next}",
         std::process::id()
-    ));
+    )));
     let _ = fs::remove_dir_all(&path);
     fs::create_dir_all(&path).unwrap();
-    local_path(&fs::canonicalize(path).unwrap()).unwrap()
+    path.0 = local_path(&fs::canonicalize(&path).unwrap()).unwrap();
+    path
+}
+
+#[test]
+fn scratch_is_removed_on_panic() {
+    let path = std::cell::RefCell::new(PathBuf::new());
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let dir = scratch("panic");
+        *path.borrow_mut() = dir.to_path_buf();
+        std::panic::resume_unwind(Box::new("test cleanup"));
+    }));
+    assert!(result.is_err());
+    assert!(!path.borrow().exists());
 }
 
 #[test]
@@ -202,7 +236,7 @@ fn the_survey_refuses_more_entries_than_the_budget() {
 }
 
 /// A project with one file over the byte total in `target/debug`; the file has no data blocks.
-fn with_large_build_output(name: &str) -> (PathBuf, Root) {
+fn with_large_build_output(name: &str) -> (Scratch, Root) {
     let base = scratch(name);
     fs::create_dir_all(base.join("target/debug")).unwrap();
     fs::write(base.join("lib.rs"), "pub fn a() {}\n").unwrap();
@@ -304,7 +338,7 @@ fn a_directory_that_cannot_be_listed_below_a_proven_cache_is_no_refusal() {
 #[test]
 fn the_survey_refuses_a_deep_nest_and_follows_no_symlink_loop() {
     let base = scratch("deep");
-    let mut path = base.clone();
+    let mut path = base.to_path_buf();
     for _ in 0..=MAX_DEPTH {
         path = path.join("d");
     }
