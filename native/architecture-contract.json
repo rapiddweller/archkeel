@@ -2659,6 +2659,7 @@
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
             "native.archkeel_model:Graph",
+            "native.archkeel_model:Hygiene",
             "native.archkeel_model:Reason",
             "native.archkeel_model:gap_kind",
             "native.archkeel_model:stable"
