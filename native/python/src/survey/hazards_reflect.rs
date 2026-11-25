@@ -170,11 +170,11 @@ pub(super) fn code(expr: &Expr, bindings: &Bindings) -> bool {
 }
 
 /// One module for the proof: its tree, its unique direct bindings and its imports.
-pub(super) type Item<'a> = (&'a ModModule, HashSet<String>, Bindings);
+pub(in crate::survey) type Item<'a> = (&'a ModModule, HashSet<String>, Bindings);
 
 /// The sites that are no trojan horse although a trojan horse name appears in them (AD-894). The walk of the
 /// hazards reports each site, and `covers` finds it again by its range.
-pub(super) struct Proved {
+pub(in crate::survey) struct Proved {
     /// A name of a module `def` or `class`, or an attribute chain on it: the name of its root.
     local: HashMap<TextRange, String>,
     /// A `sys.path` that a read uses.
@@ -183,7 +183,7 @@ pub(super) struct Proved {
 
 /// The proof facts of each module. `fixed` lists the names that a module `def` never makes local:
 /// the builtin trojan horses and the import functions.
-pub(super) fn proved(modules: &[Item], fixed: &[&[&str]]) -> Vec<Proved> {
+pub(in crate::survey) fn proved(modules: &[Item], fixed: &[&[&str]]) -> Vec<Proved> {
     let each = |(tree, unique, imports): &Item| Proved::of(tree, (imports, unique), fixed);
     modules.iter().map(each).collect()
 }
@@ -224,7 +224,12 @@ impl Proved {
 
     /// True when the site is no trojan horse. `kind` tells whether the site is a dynamic import or an
     /// import-system change; a site of another kind is never covered.
-    pub(super) fn covers(&self, kind: (bool, bool), detail: &str, range: TextRange) -> bool {
+    pub(in crate::survey) fn covers(
+        &self,
+        kind: (bool, bool),
+        detail: &str,
+        range: TextRange,
+    ) -> bool {
         let (dynamic, system) = kind;
         let under = |root: &String| {
             detail == root

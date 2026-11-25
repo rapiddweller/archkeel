@@ -79,6 +79,16 @@ pub(super) fn above(name: &str) -> bool {
         .any(|entry| entry.starts_with(&prefix))
 }
 
+/// True when `name` is a hazard, or a module that holds a hazard name (AD-1089).
+pub(super) fn holds(name: &str) -> bool {
+    let prefix = format!("{name}.");
+    hazard(name).is_some()
+        || trojan_horses()
+            .chain(importers())
+            .chain(STATE)
+            .any(|entry| entry.starts_with(&prefix))
+}
+
 /// The first hazard on a qualified attribute chain.
 pub(super) fn first_hazard(origin: String, attributes: &[&str]) -> Option<(&'static str, String)> {
     let mut name = origin;

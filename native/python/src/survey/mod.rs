@@ -39,6 +39,7 @@ mod globals_uses;
 mod guard;
 mod hazards;
 mod hazards_names;
+mod hazards_split;
 mod imports;
 mod layout;
 mod lazy;
@@ -146,7 +147,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     let replaced = module_uses::replaces_literal_loader(modules, &binders);
     let local_literals = parsed.gaps.is_empty() && found.is_empty() && writes.importlib_unchanged();
     let (literals, mut hazards) =
-        hazards::split(modules, &binders, (Some(&lazy), replaced), local_literals);
+        hazards_split::split(modules, &binders, (Some(&lazy), replaced), local_literals);
     let candidates = hazards.iter().map(|(index, site)| {
         (site.kind == hazards::DYNAMIC && site.detail == "code").then_some((*index, site.range))
     });
