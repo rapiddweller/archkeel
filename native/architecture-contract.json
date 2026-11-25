@@ -2659,6 +2659,7 @@
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
             "native.archkeel_model:Graph",
+            "native.archkeel_model:Reason",
             "native.archkeel_model:gap_kind",
             "native.archkeel_model:stable"
           ]
@@ -2830,6 +2831,13 @@
           "rationale": "Read the parsed contract tree of the run.",
           "through": [
             "native.archkeel_core.contract"
+          ]
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Name the action that a hygiene defect asks for (#1963).",
+          "through": [
+            "native.archkeel_model.reason:Hygiene"
           ]
         }
       ],

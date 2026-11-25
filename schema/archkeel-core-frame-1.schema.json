@@ -4660,6 +4660,13 @@
         },
         "reason": {
           "type": "string"
+        },
+        "action": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "What the user can do about the gap, when its kind has more than one answer (#1963)."
         }
       },
       "required": [

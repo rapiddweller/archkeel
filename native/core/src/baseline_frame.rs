@@ -17,7 +17,7 @@ use archkeel_contract::policy::{
     ValidationBaseline,
 };
 use archkeel_contract::BudgetName;
-use archkeel_model::Graph;
+use archkeel_model::{Graph, Reason};
 use archkeel_report::{RuleReasons, Ruling, Status};
 use archkeel_store::Ingested;
 use serde::Serialize;
@@ -57,6 +57,9 @@ pub(crate) struct GapRow {
     kind: &'static str,
     subject: String,
     reason: String,
+    /// What the user can do about the gap, when its kind has more than one answer (#1963).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    action: Option<&'static str>,
 }
 
 /// The gaps of the rules without a decision, each with its kind from the typed reason.
@@ -66,6 +69,7 @@ pub(crate) fn gap_rows(ruling: &Ruling) -> Vec<GapRow> {
             kind: ruling.contract_kind().unwrap_or("other"),
             subject: "the whole contract".to_owned(),
             reason: text.clone(),
+            action: None,
         }],
         RuleReasons::Each(rules) => rules
             .iter()
@@ -76,6 +80,10 @@ pub(crate) fn gap_rows(ruling: &Ruling) -> Vec<GapRow> {
                     .map_or("other", archkeel_model::gap_kind),
                 subject: rule.clone(),
                 reason: text.clone(),
+                action: match ruling.causes().get(rule) {
+                    Some(Reason::Hygiene(found)) => found.action(),
+                    _ => None,
+                },
             })
             .collect(),
     }

@@ -77,6 +77,13 @@ class GapKind(StrEnum):
     HYGIENE_NOT_READ = "contract_hygiene_not_read"
 
 
+class GapAction(StrEnum):
+    """What the user can do about a gap whose kind has more than one answer (#1963)."""
+
+    NO_IMPORT_FOUND = "no_import_found"
+    IMPORT_SEEN = "import_seen"
+
+
 @dataclass(frozen=True, slots=True)
 class Gap:
     """One part that the core names and does not decide."""
@@ -84,6 +91,7 @@ class Gap:
     kind: GapKind
     subject: str
     reason: str
+    action: GapAction | None = None
 
 
 class CoreError(Exception):

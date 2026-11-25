@@ -13,16 +13,12 @@
 use archkeel_contract::Rule;
 use archkeel_model::{boundary_reading, ModelTree};
 
-use crate::hygiene_refs::Finding;
+use crate::hygiene_refs::{model_of, Finding};
 
 /// The rows of the `boundary_types` rules of the contract of `index` (the root when `None`).
 pub(crate) fn findings(tree: &ModelTree, index: Option<usize>) -> Vec<Finding> {
-    let model = match index {
-        None => tree.root(),
-        Some(at) => match tree.mounts().get(at) {
-            Some(model) => model,
-            None => return Vec::new(),
-        },
+    let Some(model) = model_of(tree, index) else {
+        return Vec::new();
     };
     let mut found = Vec::new();
     for (position, rule) in model.contract().rules().iter().enumerate() {

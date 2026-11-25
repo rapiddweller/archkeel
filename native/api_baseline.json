@@ -2796,6 +2796,8 @@
     "fn premises::premise_words(trojan_horses:usize,used:&[(PremiseKind,&str)])->Option<String>",
     "fn premises::rule_premises(model:&Model,rule:&Rule)->Vec<UsedPremise>",
     "fn published::unused<'m>(model:&'m Model,rule:&UnusedPublic)->Vec<(&'m PublicItem,Unused)>",
+    "fn reason::acting(mut self,action:&'static str)->Hygiene",
+    "fn reason::action(&self)->Option<&'static str>",
     "fn reason::code(&self)->&'static str",
     "fn reason::keyed(code:&'static str,detail:String,place:&str,parts:Vec<String>)->Hygiene",
     "fn reason::new(code:&'static str,detail:String)->Hygiene",

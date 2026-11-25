@@ -30,24 +30,29 @@ use archkeel_contract::policy::InsideMount;
 use archkeel_contract::Component;
 use archkeel_model::{facade_types, publishes, ComponentId, Import, Model, ModelTree};
 
-use crate::hygiene_refs::Finding;
+use crate::hygiene_refs::{model_of, Finding};
 
-const UNKNOWN: &str = "No proven import reaches this entry, and the core reads no declared \
-                       facade signature that could reach it. Remove the entry from `public`, or \
-                       name the component that imports it.";
+/// The two answers to `interface.usage_unknown` (#1963): the action word of each, and its text.
+const NO_IMPORT: (&str, &str) = (
+    "no_import_found",
+    "No import of this module reaches the component, and the core reads no declared facade \
+     signature that could reach it. Remove the entry from `public`, or name the component that \
+     imports it.",
+);
+const IMPORT_SEEN: (&str, &str) = (
+    "import_seen",
+    "An import of this module reaches the component, but the core proves no use of this entry: \
+     the symbol record of the import is withheld, or the import names another symbol. Read the \
+     import, or remove the entry from `public`.",
+);
+
+/// A finding, and the word of the action that it asks for when its code has more than one.
+pub(crate) type Row = (Finding, Option<&'static str>);
 
 /// The findings of the contract of `index` (the root when `None`) in the order of its components.
-pub(crate) fn findings(
-    tree: &ModelTree,
-    mounts: &[InsideMount],
-    index: Option<usize>,
-) -> Vec<Finding> {
-    let model = match index {
-        None => tree.root(),
-        Some(at) => match tree.mounts().get(at) {
-            Some(model) => model,
-            None => return Vec::new(),
-        },
+pub(crate) fn findings(tree: &ModelTree, mounts: &[InsideMount], index: Option<usize>) -> Vec<Row> {
+    let Some(model) = model_of(tree, index) else {
+        return Vec::new();
     };
     let uses = uses(tree, mounts, index, model);
     let signatures = facade_types(model);
@@ -68,12 +73,15 @@ pub(crate) fn findings(
         let place = format!("{root}/{position}");
         match component.public() {
             None if !records.is_empty() => found.push((
-                "interface.undeclared",
-                place.clone(),
-                component.label().as_text().to_owned(),
-                "The component receives cross-component imports but declares no public \
-                 interface."
-                    .to_owned(),
+                (
+                    "interface.undeclared",
+                    place.clone(),
+                    component.label().as_text().to_owned(),
+                    "The component receives cross-component imports but declares no public \
+                     interface."
+                        .to_owned(),
+                ),
+                None,
             )),
             Some(entries) => found.extend(
                 entries
@@ -86,7 +94,7 @@ pub(crate) fn findings(
                                 .is_some_and(|names| exposed(entry.as_text(), names))
                     })
                     .map(|(item, entry)| {
-                        unknown(format!("{place}/public/{item}"), entry.as_text())
+                        unknown(format!("{place}/public/{item}"), entry.as_text(), records)
                     }),
             ),
             None => {}
@@ -100,26 +108,43 @@ pub(crate) fn findings(
             let pointer = format!("{place}/planned/{item}");
             found.push(if used(text, records) {
                 (
-                    "interface.planned_built",
-                    pointer,
-                    text.to_owned(),
-                    "The planned entry's module has been scanned; it is no longer planned."
-                        .to_owned(),
+                    (
+                        "interface.planned_built",
+                        pointer,
+                        text.to_owned(),
+                        "The planned entry's module has been scanned; it is no longer planned."
+                            .to_owned(),
+                    ),
+                    None,
                 )
             } else {
-                unknown(pointer, text)
+                unknown(pointer, text, records)
             });
         }
     }
     found
 }
 
-fn unknown(pointer: String, entry: &str) -> Finding {
+/// An entry that no proven import reaches. An import of its module that proves no use is a
+/// different answer than no import at all: the first one needs a read, the second a delete.
+fn unknown(pointer: String, entry: &str, records: &[&Import]) -> Row {
+    let module = entry.split(':').next().unwrap_or(entry);
+    let touches = |hop: &String| {
+        hop.rsplit_once('.')
+            .is_some_and(|(found, _)| found == module)
+    };
+    let seen = records
+        .iter()
+        .any(|r| r.target_module() == module || r.reexport_chain().iter().any(touches));
+    let (action, claim) = if seen { IMPORT_SEEN } else { NO_IMPORT };
     (
-        "interface.usage_unknown",
-        pointer,
-        entry.to_owned(),
-        UNKNOWN.to_owned(),
+        (
+            "interface.usage_unknown",
+            pointer,
+            entry.to_owned(),
+            claim.to_owned(),
+        ),
+        Some(action),
     )
 }
 
