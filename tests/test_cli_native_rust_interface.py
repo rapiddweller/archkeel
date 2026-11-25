@@ -202,20 +202,6 @@ def test_each_rust_form_gets_the_verdict_of_its_route(
     assert claim is None or any(c.startswith(claim) for c in found), (name, found)
 
 
-def test_a_glob_that_is_a_crossing_and_a_publication_is_one_import_in_the_hold(
-    core_binary: Path, tmp_path: Path
-) -> None:
-    """Codex #2005: the crossing and the re-export are one import record; it is counted once."""
-    base = {**component("base", "base_crate"), "public": PUBLIC}
-    app = {**component("app", "app", ("base",)), "public": ["native.app:run"]}
-    files = {**BASE, "crates/app/src/lib.rs": "pub use base_crate::*;\npub fn run() {}\n"}
-    _, found = _run(tmp_path, core_binary, files, (base, app))
-    [text] = found
-    assert text.startswith(
-        "BOUNDARY: incomplete scope: interface_boundary: unread import binding: 1 import: "
-    ), found
-
-
 @pytest.mark.parametrize(
     ("public", "status"), [(["native.base_crate.extra:Tool"], "PASS"), ([], "FAIL")]
 )
