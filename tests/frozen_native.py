@@ -120,6 +120,10 @@ def _copy(root: Path, target: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         path.chmod((root / name).stat().st_mode & 0o777)
+    # These tests check the verdict machinery, not the facts. A scan with facts needs 9 cold `cargo check`
+    # runs of this copy (13 min on a laptop, over the job cap of CI); `test_cli_native_rust_type_reach.py` has the facts.
+    config = staging / "native/archkeel.toml"
+    config.write_text(config.read_text().replace("rust_type_reach = true", "rust_type_reach = false"))
     commit_tree(staging)
     staging.rename(target)
 
