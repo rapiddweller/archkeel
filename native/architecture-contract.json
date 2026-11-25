@@ -5665,8 +5665,7 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_rust_collector.collect",
-        "native.archkeel_rust_collector.workspace_members"
+        "native.archkeel_rust_collector.collect"
       ],
       "responsibilities": [
         "Orchestrate one collection of the Rust collector."
