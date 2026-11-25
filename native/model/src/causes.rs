@@ -63,17 +63,17 @@ impl InterfaceHold {
     pub fn of<'a>(
         undecided: impl Iterator<Item = (InterfaceGap, &'a str, &'a str, Option<&'a str>)>,
     ) -> Option<InterfaceHold> {
-        let mut hold: Option<InterfaceHold> = None;
+        let mut found: Option<InterfaceHold> = None;
         for (gap, source, target, name) in undecided {
-            let hold = hold.get_or_insert_with(|| InterfaceHold::bare(gap));
+            let hold: &mut InterfaceHold = found.get_or_insert_with(|| InterfaceHold::bare(gap));
             hold.total += 1;
-            if hold.shown.len() < HELD_SHOWN {
+            if Vec::len(&hold.shown) < HELD_SHOWN {
                 let name = name.map_or_else(String::new, |name| format!(":{name}"));
                 hold.shown
                     .push(format!("{source} -> {target}{name} ({})", gap.form()));
             }
         }
-        hold
+        found
     }
 
     /// The gap of the first undecided import.
@@ -90,11 +90,12 @@ impl fmt::Display for InterfaceHold {
         }
         let unit = if self.total == 1 { "import" } else { "imports" };
         write!(f, ": {} {unit}", self.total)?;
-        if self.total > self.shown.len() {
-            write!(f, " (showing {})", self.shown.len())?;
+        let shown = Vec::len(&self.shown);
+        if self.total > shown {
+            write!(f, " (showing {shown})")?;
         }
         write!(f, ": {}", self.shown.join(", "))?;
-        match self.total - self.shown.len() {
+        match self.total - shown {
             0 => Ok(()),
             more => write!(f, " and {more} more"),
         }
