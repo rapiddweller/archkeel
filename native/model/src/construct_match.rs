@@ -15,6 +15,7 @@ use crate::limits::word;
 use crate::model::Model;
 use crate::ownership::in_scope;
 use crate::reason::Reason;
+use crate::selection::{unused_by_module, UnusedAllowance};
 
 /// Matching forbidden sites; a literal conflict of a proven selector is not forbidden.
 pub fn matches<'a>(
@@ -110,17 +111,17 @@ pub(crate) fn receipt<'a>(
     Ok(needs_premise.then(|| rule.source().as_text()))
 }
 
-fn matching(rule: &ForbiddenConstruct, site: &ConstructSite) -> Option<bool> {
+/// Whether the site is one that the rule names, before its type-ignore allowances apply.
+fn named(rule: &ForbiddenConstruct, site: &ConstructSite) -> Option<bool> {
     match (rule.selector(), &site.selector) {
         (Some(selector), Some(data)) => selector_match(selector, data),
-        (None, None)
-            if rule.constructs().iter().any(|c| word(c) == site.construct)
-                && !allowed_ignore(rule, site) =>
-        {
-            Some(true)
-        }
+        (None, None) if rule.constructs().iter().any(|c| word(c) == site.construct) => Some(true),
         _ => None,
     }
+}
+
+fn matching(rule: &ForbiddenConstruct, site: &ConstructSite) -> Option<bool> {
+    named(rule, site).filter(|_| rule.selector().is_some() || !allowed_ignore(rule, site))
 }
 
 fn selector_match(
@@ -192,14 +193,25 @@ fn selector_receipt(
     Ok(())
 }
 
-fn selected(model: &Model, rule: &ForbiddenConstruct, site: &ConstructSite) -> bool {
-    let owner = site.owner.split(':').next().unwrap_or_default();
+/// The module or function that owns the site.
+fn owner(site: &ConstructSite) -> &str {
+    site.owner.split(':').next().unwrap_or_default()
+}
+
+/// Whether the site lies in the source of the rule.
+fn in_source(model: &Model, rule: &ForbiddenConstruct, site: &ConstructSite) -> bool {
+    let owner = owner(site);
     model
         .graph()
         .modules()
         .iter()
         .any(|(id, module)| model.holds(id) && in_scope(&site.owner, module.name()))
         && in_scope(owner, rule.source().as_text())
+}
+
+fn selected(model: &Model, rule: &ForbiddenConstruct, site: &ConstructSite) -> bool {
+    let owner = owner(site);
+    in_source(model, rule, site)
         && !rule
             .allowed_sources()
             .iter()
@@ -208,16 +220,61 @@ fn selected(model: &Model, rule: &ForbiddenConstruct, site: &ConstructSite) -> b
 }
 
 fn allowed_ignore(rule: &ForbiddenConstruct, site: &ConstructSite) -> bool {
-    let Some(data) = &site.signal else {
-        return false;
-    };
-    if site.construct != "type_ignore" {
-        return false;
+    ignores_at(rule, site).next().is_some()
+}
+
+/// The positions of the `allowed_type_ignores` entries that name the site.
+fn ignores_at<'r>(
+    rule: &'r ForbiddenConstruct,
+    site: &'r ConstructSite,
+) -> impl Iterator<Item = usize> + 'r {
+    let data = site
+        .signal
+        .as_ref()
+        .filter(|_| site.construct == "type_ignore");
+    rule.allowed_type_ignores()
+        .iter()
+        .enumerate()
+        .filter(move |(_, a)| {
+            data.is_some_and(|data| {
+                data.qualified_name.as_deref() == Some(a.qualified_name().as_text())
+                    && data.line.and_then(|n| u64::try_from(n).ok()) == Some(*a.line())
+                    && data.statement.as_deref() == Some(a.statement().as_str())
+                    && data.tag.as_deref() == Some(a.tag().as_str())
+            })
+        })
+        .map(|(at, _)| at)
+}
+
+/// The exception entries of a rule that name no site that it judges (AD-1070). A rule that judges
+/// no site reports none: the collector can leave a construct unread.
+pub(crate) fn unused_allowances(model: &Model, rule: &ForbiddenConstruct) -> Vec<UnusedAllowance> {
+    let sites = model.graph().constructs().sites.iter();
+    let sites: Vec<_> = sites
+        .filter(|site| in_source(model, rule, site) && named(rule, site).is_some())
+        .collect();
+    if sites.is_empty() {
+        return Vec::new();
     }
-    rule.allowed_type_ignores().iter().any(|a| {
-        data.qualified_name.as_deref() == Some(a.qualified_name().as_text())
-            && data.line.and_then(|n| u64::try_from(n).ok()) == Some(*a.line())
-            && data.statement.as_deref() == Some(a.statement().as_str())
-            && data.tag.as_deref() == Some(a.tag().as_str())
-    })
+    let owners: Vec<&str> = sites.iter().map(|site| owner(site)).collect();
+    let (allowed, exact) = (rule.allowed_sources(), rule.exact_sources());
+    let mut found = unused_by_module(allowed, exact, &owners, |_| false);
+    let used: Vec<usize> = sites
+        .iter()
+        .flat_map(|site| ignores_at(rule, site))
+        .collect();
+    let ignores = rule.allowed_type_ignores().iter().enumerate();
+    found.extend(
+        ignores
+            .filter(|(at, _)| !used.contains(at))
+            .map(|(index, ignore)| {
+                let entry = format!("{}:{}", ignore.qualified_name().as_text(), ignore.line());
+                UnusedAllowance {
+                    field: "allowed_type_ignores",
+                    index,
+                    entry,
+                }
+            }),
+    );
+    found
 }

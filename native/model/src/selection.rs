@@ -12,7 +12,8 @@
 use std::collections::HashMap;
 
 use archkeel_contract::{
-    Component, ComponentLabel, Contract, ForbiddenDependency, LayerOrder, SelectorMatch, TargetKind,
+    Component, ComponentLabel, Contract, ForbiddenDependency, LayerOrder, Selector, SelectorMatch,
+    TargetKind,
 };
 
 use crate::ownership::in_scope;
@@ -138,4 +139,45 @@ pub(crate) fn layer_components<'c>(
         .iter()
         .filter(|c| sources.iter().any(|s| s.id() == c.id()) || targets.contains(&c.label()))
         .collect()
+}
+
+/// One exception entry of a rule that no subject uses (AD-1070).
+pub struct UnusedAllowance {
+    /// The contract field that holds the entry.
+    pub field: &'static str,
+    /// The position of the entry in the field.
+    pub index: usize,
+    /// The text of the entry.
+    pub entry: String,
+}
+
+/// Each entry of `field` that `used` does not accept.
+pub(crate) fn unused_entries(
+    field: &'static str,
+    entries: &[Selector],
+    used: impl Fn(&str) -> bool,
+) -> Vec<UnusedAllowance> {
+    let rows = entries.iter().enumerate();
+    let unused = rows.filter(|(_, entry)| !used(entry.as_text()));
+    let entry = |(index, entry): (usize, &Selector)| UnusedAllowance {
+        field,
+        index,
+        entry: entry.as_text().to_owned(),
+    };
+    unused.map(entry).collect()
+}
+
+/// Both entry fields of a rule against the modules of its subjects: `allowed_sources` by scope,
+/// `exact_sources` by name. `hidden` names an entry that a gap of the scan can use.
+pub(crate) fn unused_by_module(
+    allowed: &[Selector],
+    exact: &[Selector],
+    modules: &[&str],
+    hidden: impl Fn(&str) -> bool,
+) -> Vec<UnusedAllowance> {
+    let by_scope = |entry: &str| hidden(entry) || modules.iter().any(|m| in_scope(m, entry));
+    let by_name = |entry: &str| hidden(entry) || modules.contains(&entry);
+    let mut found = unused_entries("allowed_sources", allowed, by_scope);
+    found.extend(unused_entries("exact_sources", exact, by_name));
+    found
 }

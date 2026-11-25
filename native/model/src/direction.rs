@@ -16,7 +16,9 @@
 
 use std::collections::HashMap;
 
-use archkeel_contract::{CompleteRequires, Component, ForbiddenDependency, SiblingIsolation};
+use archkeel_contract::{
+    CompleteRequires, Component, ExternalDependencyScope, ForbiddenDependency, SiblingIsolation,
+};
 use archkeel_facts::envelope::LimitSupport;
 
 use crate::causes::Cause;
@@ -25,7 +27,7 @@ use crate::imports::{Import, Resolved};
 use crate::model::Model;
 use crate::ownership::{in_scope, owner_of};
 use crate::reason::Reason;
-use crate::selection::dependency_sides;
+use crate::selection::{dependency_sides, unused_by_module, unused_entries, UnusedAllowance};
 
 /// The judgement of one import that a rule names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,21 +40,29 @@ pub enum Judged {
     Undecided,
 }
 
-/// The judgement of each import that a `forbidden_dependency` rule names, in reply order. A mount
+/// The imports that a `forbidden_dependency` rule names before its `allowed_sources` apply. A mount
 /// judges only the imports whose source lies in its domain (AD-385).
-pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'m Import, Judged)> {
+fn named_imports<'m>(
+    model: &'m Model,
+    rule: &'m ForbiddenDependency,
+) -> impl Iterator<Item = &'m Import> {
     let [sources, targets] = dependency_sides(rule, model.contract().components());
-    let allowed = |module: &str| rule.allowed_sources().iter().any(|a| a.as_text() == module);
     model
         .graph()
         .imports_for_symbol_rule(*rule.source_symbol_only())
-        .filter(|import| {
+        .filter(move |import| {
             model.selects(import.source_module())
                 && sources.matches(import.source_module())
                 && targets.matches(import.target_module())
-                && !allowed(import.source_module())
                 && !(import.under_type_checking() && !rule.include_type_checking())
         })
+}
+
+/// The judgement of each import that a `forbidden_dependency` rule names, in reply order.
+pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'m Import, Judged)> {
+    let allowed = |module: &str| rule.allowed_sources().iter().any(|a| a.as_text() == module);
+    named_imports(model, rule)
+        .filter(|import| !allowed(import.source_module()))
         .map(|import| {
             // AD-434: named type publication does not lift dependency symbol limits.
             let judged = match rule.target_symbol() {
@@ -74,15 +84,61 @@ pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'
         .collect()
 }
 
+/// True when the import names `dependency`: an external import by its package name, any other
+/// import by the scope of its target module.
+fn names_dependency(import: &Import, dependency: &str) -> bool {
+    match import.resolved() {
+        Resolved::External(package) => package == dependency,
+        Resolved::Local | Resolved::Builtin => in_scope(import.target_module(), dependency),
+    }
+}
+
+/// True when an import that the scan cannot resolve can come from a module below `scope`. The
+/// import can be the subject that an exception entry names, so the entry is not reported.
+fn unresolved(model: &Model, scope: &str) -> bool {
+    let limits = &model.graph().observed().dynamic_imports;
+    let below = |module: &str| in_scope(module, scope);
+    limits
+        .iter()
+        .any(|limit| limit.source.as_deref().is_none_or(below))
+}
+
+/// The `allowed_sources` entries of a `forbidden_dependency` rule that name no import of its side
+/// (AD-1070).
+pub(crate) fn unused_dependency_allowances(
+    model: &Model,
+    rule: &ForbiddenDependency,
+) -> Vec<UnusedAllowance> {
+    let imports: Vec<_> = named_imports(model, rule).collect();
+    let used = |entry: &str| {
+        unresolved(model, entry) || imports.iter().any(|i| i.source_module() == entry)
+    };
+    unused_entries("allowed_sources", rule.allowed_sources(), used)
+}
+
+/// The exception entries of an `external_dependency_scope` rule that name no importing module
+/// (AD-1070).
+pub(crate) fn unused_scope_allowances(
+    model: &Model,
+    rule: &ExternalDependencyScope,
+) -> Vec<UnusedAllowance> {
+    let dependency = rule.dependency().as_text();
+    let imports = model.graph().imports().iter();
+    let modules: Vec<&str> = imports
+        .filter(|import| {
+            model.selects(import.source_module()) && names_dependency(import, dependency)
+        })
+        .map(Import::source_module)
+        .collect();
+    let (allowed, exact) = (rule.allowed_sources(), rule.exact_sources());
+    unused_by_module(allowed, exact, &modules, |entry| unresolved(model, entry))
+}
+
 /// A PASS needs an import that names `dependency`, else a typo in the name looks like a clean
 /// project (AD-1048). The scan gives the import root, not the distribution name.
 pub(crate) fn dependency_named(model: &Model, dependency: &str) -> Result<(), Reason> {
     let named = model.graph().imports().iter().any(|import| {
-        model.selects(import.source_module())
-            && match import.resolved() {
-                Resolved::External(package) => package == dependency,
-                Resolved::Local | Resolved::Builtin => in_scope(import.target_module(), dependency),
-            }
+        model.selects(import.source_module()) && names_dependency(import, dependency)
     });
     if named {
         Ok(())

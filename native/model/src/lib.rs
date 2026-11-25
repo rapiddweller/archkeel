@@ -133,7 +133,7 @@ pub use modules::Module;
 pub use ownership::{claims, in_scope};
 pub use reason::{Hygiene, Input, Reason, UmlGap, Unsupported};
 pub use receipts::forbidden_argument_violations;
-pub use scope_receipt::call_owner_violations;
+pub use scope_receipt::{call_owner_violations, unused_allowances};
 pub use section::Section;
 pub use settings::{Producer, Settings};
 pub use uml::{UmlDiff, UmlOutcome, UmlTarget};

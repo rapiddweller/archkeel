@@ -18,6 +18,7 @@ use crate::boundary_facts::{wrapped_of, BoundaryFacts, Origin};
 use crate::boundary_judge::{GapCause, GapRow};
 use crate::model::Model;
 use crate::ownership::in_scope;
+use crate::selection::{unused_by_module, UnusedAllowance};
 
 /// One entry of a `public` list.
 pub(crate) struct PublicEntry {
@@ -123,4 +124,23 @@ pub(crate) fn declared(model: &Model, facts: &BoundaryFacts) -> HashSet<String> 
         }
     }
     found
+}
+
+/// The exception entries of a rule that name no facade module below its source (AD-1070).
+pub(crate) fn unused_allowances(model: &Model, rule: &BoundaryTypes) -> Vec<UnusedAllowance> {
+    let facades = entries(model, None);
+    let below = |module: &str| in_scope(module, rule.source().as_text());
+    let modules: Vec<&str> = (facades.iter())
+        .map(|entry| entry.module.as_str())
+        .filter(|module| below(module))
+        .collect();
+    if modules.is_empty() {
+        return Vec::new();
+    }
+    unused_by_module(
+        rule.allowed_sources(),
+        rule.exact_sources(),
+        &modules,
+        |_| false,
+    )
 }

@@ -29,6 +29,7 @@ use crate::modules::Module;
 use crate::ownership::{claims, in_scope};
 use crate::reason::{Reason, Unsupported};
 use crate::roots::Roots;
+use crate::selection::{unused_entries, UnusedAllowance};
 
 /// The proof that no kept pair gap can change what one rule of the model of `'id` reads.
 #[derive(Debug)]
@@ -323,6 +324,49 @@ pub(crate) fn live_calls<'m>(
         return Err(Reason::Unsupported(Unsupported::Rule(RuleKind::CallOwner)));
     }
     Ok(inventory)
+}
+
+/// The proved calls to the target from the source of the rule, before its allowances apply.
+pub(crate) fn named_calls<'m>(
+    model: &'m Model,
+    rule: &CallOwner,
+) -> Result<Vec<&'m ExactCall>, Reason> {
+    let inventory = live_calls(model, rule)?;
+    let scope = CallOwner::source(rule).as_text();
+    let target = CallOwner::target(rule).as_text();
+    let module_scope = Graph::modules(Model::graph(model))
+        .iter()
+        .any(|(id, module)| model.holds(id) && in_scope(Module::name(module), scope));
+    Ok(inventory
+        .calls
+        .iter()
+        .filter(|(_, module, caller, callee, _)| {
+            model.selects(module)
+                && (in_scope(module, scope)
+                    || (!module_scope
+                        && inventory.bodies.contains_key(scope)
+                        && in_scope(caller, scope)))
+                && callee == target
+        })
+        .collect())
+}
+
+/// The exception entries of a `call_owner` rule that name no call of its target (AD-1070). A rule
+/// with no proven call reports none: the collector can leave a call without a proven target.
+pub(crate) fn unused_call_allowances(model: &Model, rule: &CallOwner) -> Vec<UnusedAllowance> {
+    let calls = named_calls(model, rule).unwrap_or_default();
+    if calls.is_empty() {
+        return Vec::new();
+    }
+    let by_caller = |entry: &str| calls.iter().any(|call| in_scope(&call.2, entry));
+    let by_name = |entry: &str| calls.iter().any(|call| call.1 == entry || call.2 == entry);
+    let mut found = unused_entries("allowed_sources", rule.allowed_sources(), by_caller);
+    found.extend(unused_entries(
+        "exact_sources",
+        rule.exact_sources(),
+        by_name,
+    ));
+    found
 }
 
 pub(crate) fn call_allowed(rule: &CallOwner, module: &str, caller: &str) -> bool {

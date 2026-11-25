@@ -21,10 +21,11 @@ use crate::modules::Module;
 use crate::ownership::{in_scope, owner_of};
 use crate::pair_gaps::{reads, sides_match, Reads};
 use crate::reason::{Reason, Unsupported};
-use crate::receipts::{call_allowed, live_calls};
+use crate::receipts::{call_allowed, live_calls, named_calls, unused_call_allowances};
 use crate::receipts::{GapScope, ScanProof};
 use crate::roots::Roots;
-use crate::selection;
+use crate::selection::{self, UnusedAllowance};
+use crate::{boundary_surface, construct_match, placement};
 use archkeel_facts::profile_traits::Layout;
 
 /// The gap scope of one rule, or the kept gaps that can change what it reads.
@@ -266,25 +267,9 @@ pub fn call_owner_violations<'m>(
     model: &'m Model,
     rule: &CallOwner,
 ) -> Result<Vec<&'m ExactCall>, Reason> {
-    let inventory = live_calls(model, rule)?;
-    let scope = CallOwner::source(rule).as_text();
-    let target = CallOwner::target(rule).as_text();
-    let module_scope = Graph::modules(Model::graph(model))
-        .iter()
-        .any(|(id, module)| model.holds(id) && in_scope(Module::name(module), scope));
-    Ok(inventory
-        .calls
-        .iter()
-        .filter(|(_, module, caller, callee, _)| {
-            model.selects(module)
-                && (in_scope(module, scope)
-                    || (!module_scope
-                        && inventory.bodies.contains_key(scope)
-                        && in_scope(caller, scope)))
-                && callee == target
-                && !call_allowed(rule, module, caller)
-        })
-        .collect())
+    let mut calls = named_calls(model, rule)?;
+    calls.retain(|(_, module, caller, ..)| !call_allowed(rule, module, caller));
+    Ok(calls)
 }
 
 fn call_owner_receipt(model: &Model, rule: &CallOwner) -> Result<(), Reason> {
@@ -495,5 +480,21 @@ pub(crate) fn rescued(model: &Model, rule: &Rule, reason: &Reason) -> Reason {
         Part::ScopedRequires.into()
     } else {
         reason.clone()
+    }
+}
+
+/// The exception entries of `rule` that no subject of the rule uses (AD-1070): an entry of
+/// `allowed_sources`, `exact_sources` or `allowed_type_ignores` that names no import, class, call,
+/// construct or facade that the rule judges. Each matcher reads its subjects before its exceptions
+/// apply, so the check and the verdict share one definition of a subject.
+pub fn unused_allowances(model: &Model, rule: &Rule) -> Vec<UnusedAllowance> {
+    match rule {
+        Rule::ForbiddenDependency(rule) => direction::unused_dependency_allowances(model, rule),
+        Rule::ExternalDependencyScope(rule) => direction::unused_scope_allowances(model, rule),
+        Rule::SymbolPlacement(rule) => placement::unused_allowances(model, rule),
+        Rule::CallOwner(rule) => unused_call_allowances(model, rule),
+        Rule::ForbiddenConstruct(rule) => construct_match::unused_allowances(model, rule),
+        Rule::BoundaryTypes(rule) => boundary_surface::unused_allowances(model, rule),
+        _ => Vec::new(),
     }
 }
