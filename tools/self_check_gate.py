@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,7 @@ KEPT = Path("test-artifacts/selfcheck/result.json")
 GROWN = Path("test-artifacts/selfcheck/grown.txt")
 BASE = Path("test-artifacts/selfcheck/base.json")
 COMPARED = Path("test-artifacts/selfcheck/compared-base.json")
+CONFIG = Path("native/archkeel.toml")
 BINARIES = ("archkeel-core", "archkeel-rust-collector", "archkeel-typescript-collector")
 
 
@@ -47,6 +49,15 @@ def git(*args: str, cwd: Path | None = None) -> str:
     if done.returncode != 0:
         raise Unusable(f"git {' '.join(args)} failed: {done.stderr.strip()}")
     return done.stdout.strip()
+
+
+def scan_table(root: Path) -> dict[str, Any] | None:
+    """The `[scan]` table of the self-check config under `root`; None when it cannot be read."""
+    try:
+        found = tomllib.loads((root / CONFIG).read_text(encoding="utf-8")).get("scan")
+    except (OSError, ValueError):
+        return None
+    return found if isinstance(found, dict) else None
 
 
 def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
@@ -90,7 +101,7 @@ def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
             text=True,
         )
         try:
-            return condense(json.loads(run.stdout), sha, tree)
+            return condense(json.loads(run.stdout), sha, tree, scan_table(wt))
         except ValueError as error:
             raise Unusable(
                 f"the check on the base commit gave no result ({error}): {run.stderr[-300:]}"
@@ -130,6 +141,9 @@ def gate(argv: list[str]) -> int:
     def option(name: str) -> str:
         return argv[argv.index(name) + 1] if name in argv else ""
 
+    if KEPT.parent.resolve() != Path.cwd().resolve() / KEPT.parent:
+        print(f"FAIL {KEPT.parent} is a symlink or lies behind one; the base would be planted")
+        return 1
     candidate = BASE.read_text(encoding="utf-8") if BASE.is_file() else ""
     KEPT.unlink(missing_ok=True)
     GROWN.unlink(missing_ok=True)
@@ -139,8 +153,9 @@ def gate(argv: list[str]) -> int:
             print(tracked)
             return 1
         sha, tree = git("rev-parse", "HEAD"), git("rev-parse", "HEAD:native")
-        own = condense(json.loads(Path(option("--result")).read_text(encoding="utf-8")), sha, tree)
-    except (Unusable, OSError, ValueError) as error:
+        saved = json.loads(Path(option("--result")).read_text(encoding="utf-8"))
+        own = condense(saved, sha, tree, scan_table(Path()))
+    except (Unusable, OSError, IndexError, ValueError) as error:
         print(f"FAIL the self-check result is unusable: {error}")
         return 1
     KEPT.parent.mkdir(parents=True, exist_ok=True)
