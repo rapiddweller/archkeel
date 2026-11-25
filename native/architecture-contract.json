@@ -2661,7 +2661,9 @@
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
             "native.archkeel_model:Graph",
+            "native.archkeel_model:Hygiene",
             "native.archkeel_model:Measures",
+            "native.archkeel_model:Reason",
             "native.archkeel_model:gap_kind",
             "native.archkeel_model:stable"
           ]
@@ -2719,6 +2721,13 @@
           "rationale": "Read the decided status of the ruling to mark a baseline part of an UNKNOWN run (AD-546, AD-804).",
           "through": [
             "native.archkeel_report.report"
+          ]
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Read the action word of a hygiene reason for a gap row (#1963).",
+          "through": [
+            "native.archkeel_model.reason:Hygiene"
           ]
         }
       ],
@@ -2835,6 +2844,13 @@
           "rationale": "Read the parsed contract tree of the run.",
           "through": [
             "native.archkeel_core.contract"
+          ]
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Name the action that a hygiene defect asks for (#1963).",
+          "through": [
+            "native.archkeel_model.reason:Hygiene"
           ]
         }
       ],

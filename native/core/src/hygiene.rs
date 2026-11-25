@@ -70,15 +70,23 @@ impl Found {
     }
 
     /// A defect whose stable key names `parts` and not the subject of its display row (AD-546).
-    fn defect_parts(
+    fn defect_parts(&mut self, place: &str, finding: hygiene_refs::Finding, parts: Vec<String>) {
+        self.insert(place, finding, parts, None);
+    }
+
+    fn insert(
         &mut self,
         place: &str,
         (code, pointer, subject, claim): hygiene_refs::Finding,
         parts: Vec<String>,
+        action: Option<&'static str>,
     ) {
         let id = format!("hygiene:{code}:{place}{pointer}:{subject}");
         let detail = format!("{place}{pointer} {subject}: {claim}");
-        let found = Hygiene::keyed(code, detail, place, parts);
+        let mut found = Hygiene::keyed(code, detail, place, parts);
+        if let Some(word) = action {
+            found = found.acting(word);
+        }
         self.rules.insert(id, Reason::Hygiene(found));
     }
 
@@ -259,8 +267,9 @@ fn interface(
         found.gap(place, "interface", INTERFACE);
         return;
     };
-    for finding in hygiene_interface::findings(tree, inside, index) {
-        found.defect(place, finding);
+    for (finding, action) in hygiene_interface::findings(tree, inside, index) {
+        let parts = vec![finding.2.clone()];
+        found.insert(place, finding, parts, action);
     }
 }
 

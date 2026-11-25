@@ -91,6 +91,8 @@ pub struct Hygiene {
     /// hold a pointer or a count, so the key reads these.
     place: String,
     parts: Vec<String>,
+    /// What the user can do about the defect, when the code has more than one answer (#1963).
+    action: Option<&'static str>,
 }
 
 impl Hygiene {
@@ -101,6 +103,7 @@ impl Hygiene {
             detail,
             place: String::new(),
             parts: Vec::new(),
+            action: None,
         }
     }
 
@@ -112,7 +115,19 @@ impl Hygiene {
             detail,
             place: place.to_owned(),
             parts,
+            action: None,
         }
+    }
+
+    /// The defect with the word of the action that it asks for.
+    pub fn acting(mut self, action: &'static str) -> Hygiene {
+        self.action = Some(action);
+        self
+    }
+
+    /// The word of the action that the defect asks for, if its code has more than one.
+    pub fn action(&self) -> Option<&'static str> {
+        self.action
     }
 
     /// The code of the reference engine, such as `graph.drift`.
