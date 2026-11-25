@@ -80,12 +80,20 @@ pub(crate) fn gap_rows(ruling: &Ruling) -> Vec<GapRow> {
                     .map_or("other", archkeel_model::gap_kind),
                 subject: rule.clone(),
                 reason: text.clone(),
-                action: match ruling.causes().get(rule) {
-                    Some(Reason::Hygiene(found)) => Hygiene::action(found),
-                    _ => None,
-                },
+                action: action_of(ruling.causes().get(rule)),
             })
             .collect(),
+    }
+}
+
+/// The action word that the hygiene reason of a gap asks for, if it has one.
+fn action_of(cause: Option<&Reason>) -> Option<&'static str> {
+    match cause {
+        Some(Reason::Hygiene(found)) => {
+            let found: &Hygiene = found;
+            found.action()
+        }
+        _ => None,
     }
 }
 

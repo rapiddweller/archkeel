@@ -10,22 +10,13 @@
 //! canonical form of the typed contract, whose field names are the names of the reference engine.
 
 use archkeel_contract::{canonical_bytes, Component, Contract, DecidedBy};
-use archkeel_model::{claims, in_scope, Model, ModelTree};
+use archkeel_model::{claims, in_scope};
 use serde_json::Value;
 
 use crate::hygiene_graph::space;
 
 /// One reference finding: the code, the pointer, the subject and the claim.
 pub(crate) type Finding = (&'static str, String, String, String);
-
-/// The model of the contract of `index` (the root when `None`), or `None` for a mount that the
-/// tree does not hold.
-pub(crate) fn model_of(tree: &ModelTree, index: Option<usize>) -> Option<&Model> {
-    match index {
-        None => Some(tree.root()),
-        Some(at) => tree.mounts().get(at),
-    }
-}
 
 /// The rule kinds whose `source` names a module, and the kinds whose other fields do.
 const SOURCE_KINDS: [&str; 8] = [

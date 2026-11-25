@@ -30,7 +30,7 @@ use archkeel_contract::policy::InsideMount;
 use archkeel_contract::Component;
 use archkeel_model::{facade_types, publishes, ComponentId, Import, Model, ModelTree};
 
-use crate::hygiene_refs::{model_of, Finding};
+use crate::hygiene_refs::Finding;
 
 /// The two answers to `interface.usage_unknown` (#1963): the action word of each, and its text.
 const NO_IMPORT: (&str, &str) = (
@@ -51,7 +51,7 @@ pub(crate) type Row = (Finding, Option<&'static str>);
 
 /// The findings of the contract of `index` (the root when `None`) in the order of its components.
 pub(crate) fn findings(tree: &ModelTree, mounts: &[InsideMount], index: Option<usize>) -> Vec<Row> {
-    let Some(model) = model_of(tree, index) else {
+    let Some(model) = index.map_or(Some(tree.root()), |at| tree.mounts().get(at)) else {
         return Vec::new();
     };
     let uses = uses(tree, mounts, index, model);
