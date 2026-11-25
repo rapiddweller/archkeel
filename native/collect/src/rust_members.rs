@@ -43,7 +43,12 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
             )
         })?;
         roots.push(root.trim_end_matches('/').to_owned());
-        found.extend(all.dirs.iter().map(|d| d.trim_end_matches('/').to_owned()));
+        // The snapshot lists paths with `/`; the members reader prints the separator of the platform.
+        found.extend(
+            all.dirs
+                .iter()
+                .map(|d| d.replace('\\', "/").trim_end_matches('/').to_owned()),
+        );
     }
     found.sort();
     found.dedup();

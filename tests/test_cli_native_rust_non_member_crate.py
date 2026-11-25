@@ -83,20 +83,40 @@ def test_a_non_member_crate_is_no_module_of_the_workspace(
     assert result["frame"]["self_test"]["reply"]["files"] == 5
 
 
+@pytest.mark.parametrize("name", ["base-crate", "base_crate"])
 def test_a_non_member_crate_with_the_name_of_a_member_gives_a_named_gap(
-    tmp_path: Path, release_core: Path
+    tmp_path: Path, release_core: Path, name: str
 ) -> None:
     # The dependency `erdep` reads as the member `base-crate`.
     # That edge must not satisfy a declared requirement.
     parts = (component("base", "base_crate"), component("app", "app", ("base",)))
-    root = repository(
-        tmp_path / "repo", release_core, files=_layout("base-crate"), components=parts
-    )
+    root = repository(tmp_path / "repo", release_core, files=_layout(name), components=parts)
     assert _counter(root) == "foreign code ran\n"
     result = validate(root)
     assert result["outcome"] == "verdict", result["gaps"]
-    assert any("has the package name base-crate of a member" in r for r in _reasons(result))
+    assert any(f"has the package name {name} of a member" in r for r in _reasons(result))
     assert result["frame"]["rules"]["REQUIRES"][1] != "PASS"
+
+
+def test_a_member_below_a_non_member_crate_stays_in_the_scan(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = _layout("other")
+    layout["crates/Cargo.toml"] = (
+        '[workspace]\nmembers = ["base", "app", "vendor/erdep/nested"]\n'
+        'exclude = ["vendor/erdep"]\n'
+    )
+    layout["crates/vendor/erdep/nested/Cargo.toml"] = (
+        '[package]\nname = "nested"\nversion = "0.0.0"\nedition = "2021"\n'
+    )
+    layout["crates/vendor/erdep/nested/src/lib.rs"] = "pub fn n() {}\n"
+    root = repository(tmp_path / "repo", release_core, files=layout, components=PARTS)
+    result = validate(root)
+    assert result["outcome"] == "verdict", result["gaps"]
+    # No component owns the nested member, so ASSIGNED names it. The foreign crate is no module.
+    sources = {row["source"] for row in result["frame"]["details"]["ASSIGNED"]}
+    assert "native.nested" in sources, sources
+    assert not any("other" in source for source in sources), sources
 
 
 def _without_cargo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

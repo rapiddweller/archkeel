@@ -11,13 +11,14 @@
 
 use crate::builder::Builder;
 use crate::crates::unproven_members;
+use crate::manifest::ident;
 use crate::source::read_text;
 use crate::toml;
 use archkeel_facts::type_reach::MEMBERS_ENV;
 use archkeel_snapshot::paths::{dirname, within};
 use archkeel_snapshot::Snapshot;
 use serde_json::Value;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The answer of the core.
 enum Answer {
@@ -76,8 +77,9 @@ pub(crate) fn workspace_files(
         }
         Answer::Listed { roots, members } => (roots, members),
     };
-    let (mut foreign, mut member_names): (Vec<(&str, String)>, BTreeSet<String>) =
+    let (mut foreign, mut member_names): (BTreeMap<&str, String>, BTreeSet<String>) =
         Default::default();
+    let mut kept: BTreeSet<&str> = BTreeSet::new();
     for file in files
         .iter()
         .filter(|f| *f == "Cargo.toml" || f.ends_with("/Cargo.toml"))
@@ -89,20 +91,38 @@ pub(crate) fn workspace_files(
         if !roots.iter().any(|root| within(root, dir)) {
             let reason = format!("Whether the crate {file} is a workspace member is not decided: its scan root has no Cargo.toml");
             builder.gap(&reason, None, "");
+            kept.insert(dir);
         } else if members.contains(dir) {
-            member_names.insert(name);
+            member_names.insert(ident(&name));
+            kept.insert(dir);
         } else {
-            foreign.push((dir, name));
+            foreign.insert(dir, name);
         }
     }
-    // A dependency is read by its package name, so a foreign crate with the name of a member would be read as the member.
-    for (dir, name) in foreign.iter().filter(|(_, n)| member_names.contains(n)) {
+    // A dependency is read by its normalized package name, so a foreign crate with the name of a member would be
+    // read as the member.
+    for (dir, name) in foreign
+        .iter()
+        .filter(|(_, n)| member_names.contains(&ident(n)))
+    {
         let reason = format!("The crate {dir} is no workspace member and has the package name {name} of a member: a dependency on that name is read as the member");
         builder.gap(&reason, None, "");
     }
+    // A file belongs to its nearest crate: a member below a foreign crate stays.
     files
         .iter()
-        .filter(|file| !foreign.iter().any(|(dir, _)| within(dir_or_dot(dir), file)))
+        .filter(|file| {
+            let mut dir = dirname(file);
+            loop {
+                if foreign.contains_key(dir) {
+                    return false;
+                }
+                if kept.contains(dir) || dir.is_empty() {
+                    return true;
+                }
+                dir = dirname(dir);
+            }
+        })
         .cloned()
         .collect()
 }
@@ -129,12 +149,4 @@ fn package_dirs(files: &[String], source: &mut Snapshot) -> Vec<String> {
         .filter(|file| package_name(source, file).is_some())
         .map(|file| dirname(file).to_owned())
         .collect()
-}
-
-fn dir_or_dot(dir: &str) -> &str {
-    if dir.is_empty() {
-        "."
-    } else {
-        dir
-    }
 }
