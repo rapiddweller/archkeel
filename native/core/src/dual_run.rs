@@ -255,7 +255,9 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
         (run.documents.as_ref(), &run.sdk_libraries),
         &namespace,
         &path,
-        run.accept.as_ref(),
+        run.accept
+            .as_ref()
+            .is_some_and(baseline_frame::holds_budgets),
     );
     let mut named = named(&contract, run.baseline, &engine, &path);
     frame_parts::hold_contract(&mut named, trust.gap, base, hygiene.refusal);
@@ -268,7 +270,7 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
     let (rows, sections) = crate::sections::split(rows);
     let refused = frame_parts::refusals(&reply, &contract, &sections, report.as_ref().err());
     let baseline = run.accept.map(|input| {
-        let counts = (&hygiene.budgets[..], measures.as_ref());
+        let counts = (hygiene.budgets.as_slice(), measures.as_ref());
         let seen =
             baseline_frame::observed(&ruling, engine.reply(), engine.graph(), refused, counts);
         baseline_frame::build(input, &seen)

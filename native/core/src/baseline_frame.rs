@@ -42,16 +42,14 @@ pub(crate) enum Input {
     },
 }
 
-impl Input {
-    /// True when the request holds the budgets of the run against a baseline: it compares with a
-    /// file that passed the check, or it writes the file from this run (AD-1090). A run with
-    /// neither has no baseline value for a declared budget.
-    pub(crate) fn holds_budgets(&self) -> bool {
-        !matches!(
-            self,
-            Self::Compare { file: Err(_), .. } | Self::CompareAndWrite { file: Err(_), .. }
-        )
-    }
+/// True when the request holds the budgets of the run against a baseline: it compares with a
+/// file that passed the check, or it writes the file from this run (AD-1090). A run with neither
+/// has no baseline value for a declared budget.
+pub(crate) fn holds_budgets(input: &Input) -> bool {
+    !matches!(
+        input,
+        Input::Compare { file: Err(_), .. } | Input::CompareAndWrite { file: Err(_), .. }
+    )
 }
 
 /// The part of the frame. `file` holds the bytes to write, as text.

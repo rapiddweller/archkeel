@@ -333,6 +333,7 @@
         "native.archkeel_contract.policy:baseline_bytes",
         "native.archkeel_contract.policy:budget_word",
         "native.archkeel_contract.policy:clip_inside",
+        "native.archkeel_contract.policy:declared_budgets",
         "native.archkeel_contract.policy:parse_baseline",
         "native.archkeel_contract.policy:provenance_paths",
         "native.archkeel_contract:BoundaryAllowance",
@@ -2726,6 +2727,7 @@
         "native.archkeel_core.baseline_frame:Part",
         "native.archkeel_core.baseline_frame:build",
         "native.archkeel_core.baseline_frame:gap_rows",
+        "native.archkeel_core.baseline_frame:holds_budgets",
         "native.archkeel_core.baseline_frame:observed"
       ],
       "decided_by": "architect"

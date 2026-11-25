@@ -21,7 +21,7 @@
 use std::collections::BTreeMap;
 use std::iter;
 
-use archkeel_contract::policy::InsideMount;
+use archkeel_contract::policy::{self, InsideMount};
 use archkeel_contract::{BudgetName, Contract, Rule};
 use archkeel_model::{
     in_scope, Graph, Hygiene, ModelTree, Reason, TrojanHorseProblem, TrojanHorses, Unsupported,
@@ -55,6 +55,15 @@ pub(crate) struct Found {
 }
 
 impl Found {
+    /// An empty result that carries the budgets of the usable contract.
+    fn of(usable: Option<&Usable>) -> Found {
+        let budgets = usable.map_or_else(Vec::new, |usable| policy::declared_budgets(&usable.root));
+        Found {
+            budgets,
+            ..Found::default()
+        }
+    }
+
     fn defect(&mut self, place: &str, finding: hygiene_refs::Finding) {
         let parts = vec![finding.2.clone()];
         self.defect_parts(place, finding, parts);
@@ -90,10 +99,7 @@ impl Found {
 /// The hygiene of a request without provenance documents (a dual-run or a check request): one
 /// named row for a usable contract, so such a request cannot give PASS without hygiene.
 pub(crate) fn unread(usable: Option<&Usable>) -> Found {
-    let mut found = Found {
-        budgets: declared(usable),
-        ..Found::default()
-    };
+    let mut found = Found::of(usable);
     if usable.is_some() {
         let reason = Reason::Unsupported(Unsupported::HygieneInput);
         found.rules.insert("hygiene:request".to_owned(), reason);
@@ -114,10 +120,7 @@ pub(crate) fn check(
     path: &str,
     compares_baseline: bool,
 ) -> Found {
-    let mut found = Found {
-        budgets: declared(usable),
-        ..Found::default()
-    };
+    let mut found = Found::of(usable);
     let Some(usable) = usable else {
         return found;
     };
@@ -187,18 +190,6 @@ pub(crate) fn check(
         (path, compares_baseline),
     );
     found
-}
-
-/// The names of the measurement budgets that the root contract declares.
-fn declared(usable: Option<&Usable>) -> Vec<BudgetName> {
-    let declarations = usable.and_then(|usable| usable.root.declarations().as_ref());
-    declarations.map_or_else(Vec::new, |found| {
-        found
-            .measurement_budgets()
-            .iter()
-            .map(|b| *b.name())
-            .collect()
-    })
 }
 
 /// AD-1070: an exception entry that no subject of its rule uses is a defect; the rule keeps its
@@ -288,12 +279,11 @@ fn root(
         if !declarations.compat().is_empty() {
             found.gap(path, "compatibility", COMPATIBILITY);
         }
-        let budgets = declarations.measurement_budgets().len();
-        if budgets > 0 && !compares_baseline {
-            let claim = format!(
-                "the contract declares {budgets} measurement budgets and this run compares them \
-                 with no baseline file: run with --baseline FILE"
-            );
+        if !declarations.measurement_budgets().is_empty() && !compares_baseline {
+            let claim =
+                "the contract declares measurement budgets and this run compares them with no \
+                         baseline file: run with --baseline FILE"
+                    .to_owned();
             let pointer = "/declarations/measurement_budgets".to_owned();
             found.defect(
                 path,
