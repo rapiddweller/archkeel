@@ -5631,7 +5631,7 @@
         "native.archkeel_rust_collector.type_reach_model"
       ],
       "responsibilities": [
-        "Check that compiler type-reach facts belong to the scan: the schema, the toolchain, the driver, the configuration, `Cargo.lock` and the hash of each source file (AD-1047). Fold the facts of one configuration into the type reach of a module, in shadow mode (AD-1047)."
+        "Check that compiler type-reach facts belong to the scan: the schema, the toolchain, the driver, the configuration, `Cargo.lock` and the hash of each source file (AD-1047). Fold the facts of one configuration into the type reach of a module. The facts drop held gaps under the premise `rust_type_reach` (AD-1047)."
       ],
       "forbidden_responsibilities": [
         "Producing facts, running the compiler and deciding a gap."

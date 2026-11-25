@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The reach model of the compiler type-reach facts (AD-1047, stage 2, shadow mode).
+//! The reach model of the compiler type-reach facts (AD-1047, stage 2).
 //!
 //! `Facts` unions the files of one configuration. `Reach` decides, for a pair of scan modules `(a, b)`
 //! that a gap holds, whether no body of `a` can hold the self type of any impl in `b` that runs code.
