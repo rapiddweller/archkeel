@@ -82,26 +82,63 @@ native source evidence and conservative UNKNOWNs.
 
 ## Upgrade from 4.0.1
 
-**Baselines.** `archkeel validate --baseline FILE` is back, with schema 1.4.0. The file lists each
-accepted UNKNOWN by kind, subject and reason. A new UNKNOWN is red (exit 1). An accepted UNKNOWN
-that is gone is red until you write the file again with `archkeel validate --write-baseline FILE`.
-The exit code is 2 while an UNKNOWN is accepted, and 0 only when nothing is unknown. Run
-`--write-baseline` once after you upgrade, and review the file. A baseline of schema 1.3.0 is still
-read, but it accepts no UNKNOWN. The core does not compare its `calls_unresolved`, `typing_positions`
-and `untyped_private_accesses`, because it counts them differently from 4.0.1: it names them as
-`baseline.budget_of_older_schema` (exit 2). `cycle_edges` and `private_crossings` are compared.
-`--accept-new` is not available: write the file again and review the diff. A violation that a
-1.3.0 file lists for `from m import name` names `m.name` in 4.0.1 and `m` in the core, so write such a
-file again once.
+The facts below are measured on the development line at `d3d10f846` and on release 4.0.1.
+They are not measurements of a release build. Measure the release artifact before you publish.
 
-Use `archkeel validate` in place of `check`. Legacy saved-report inputs and
-amendments are unavailable in the core line. Update JSON consumers to read the
-core result and rescan both revisions before comparing results.
-See the [CLI reference](docs/reference.md#results).
+### Commands and options
 
-See [dependency evidence](docs/architecture/python-dynamic-dependencies.md),
-[call ownership](docs/architecture/decisions/ad-241-call-ownership-policy.md),
-[compatibility](docs/reference.md) and [known limits](docs/known-limits.md).
+- `check` exits 2 with the refusal `not_on_this_development_line`. Use 4.0.1 for `check`.
+- `guide`, `story` and `view` are unknown commands on this line. Each exits 2.
+- `validate` removes these options: `--against`, `--amendment`, `--write-amendment`, `--accept-new`,
+  `--write-graph`, `--compact-open-decisions`, `--decided-by` and `--rationale`. `--against` and
+  `--accept-new` exit 2 with a refusal.
+- `report` removes these options: `--only`, `--rule`, `--component`, `--full`, `--input` and
+  `--baseline`. `--only` exits 2 with a refusal. `--baseline` exits 1 as an unknown argument.
+  Use `validate --baseline` for the baseline check.
+- `init` removes these options: `--source`, `--namespace`, `--language`, `--tsconfig`, `--full`,
+  `--force`, `--collector-argv` and `--collector-output-limit-bytes`. `init --source` exits 2 with a
+  refusal.
+- New options: `validate` has `--summary`, `--all`, `--text`, `--timings`, `--no-init` and
+  `--verbose`. `report` has `--format`, `--part-of`, `--system-href`, `--topology`, `--timings`,
+  `--summary`, `--all`, `--text`, `--no-init` and `--verbose`. `init` has `--adapters`, `--layers`
+  and `--preset`.
+- `archkeel.api` is removed. `import archkeel.api` raises `ModuleNotFoundError`.
+
+### Exit codes
+
+| Command | PASS | FAIL | UNKNOWN or refusal |
+|---|---|---|---|
+| `validate`, `report` | 0 | 1 | 2 |
+
+The table is in [reference: exit codes](docs/reference.md#exit-codes). Tests of this table pass on
+the development line: `tests/test_cli_core_only_exit_table.py` and `tests/test_cli_exit_outcome.py`.
+
+### Baselines
+
+- `validate --baseline FILE` and `validate --write-baseline FILE` use schema 1.4.0
+  ([AD-546](docs/architecture/decisions/ad-546-a-baseline-accepts-an-unknown-by-what-it-is-and-the-core-compares-it-both-ways.md)).
+- A new violation, gap or budget exits 1. An accepted entry that the run no longer has also exits 1.
+- An accepted UNKNOWN keeps exit 2. Exit 0 needs no UNKNOWN.
+- Run `archkeel validate --write-baseline FILE` once after you upgrade. Review the diff before you commit it.
+- A 4.0.1 baseline (schema 1.0.0 to 1.3.0) is still read. It accepts no UNKNOWN. Its
+  `calls_unresolved`, `typing_positions` and `untyped_private_accesses` budgets exit 2 with
+  `baseline.budget_of_older_schema`. Write the file again.
+- `--accept-new` is not available. Write the file again and review the diff.
+- A refused run under a baseline exits 1 ([AD-731](docs/architecture/decisions/ad-731-under-a-baseline-only-a-verdict-exits-2.md)).
+
+### JSON consumers
+
+- Read `status` and `exit_code` first. Each JSON result starts with them.
+- A refusal has no frame. It has the field `refusal` with `kind` and `message`.
+- Rescan both revisions before you compare two results.
+
+### Not measured
+
+- Verdict parity with 4.0.1 on your project. Run both versions and compare.
+- Runtime on a large project.
+- The effect of dynamic imports on this line. The 4.0.1 counts in older notes belong to the
+  deleted Python engine.
+- The version of a release build. `archkeel --version` prints `4.0.2.dev944+gd3d10f846` on this line.
 
 ---
 
