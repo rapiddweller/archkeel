@@ -224,3 +224,23 @@ def test_placement_keeps_the_entry_of_a_module_with_an_unread_class(
         "src/app/service.py": "from dataclasses import dataclass\n\n@dataclass\nclass Data: pass\n",
     }
     assert unused(run(release_core, tmp_path, rule, files)) == []
+
+
+def test_call_owner_keeps_the_entries_while_a_call_has_no_exact_target(
+    release_core: Path, tmp_path: Path
+) -> None:
+    # `purge` in `app.client` is a parameter, so its call has no exact target and can be the one.
+    rule = {
+        **RULE,
+        "id": "CALL-PURGE",
+        "kind": "call_owner",
+        "source": "app",
+        "target": "app.service.purge",
+        "allowed_sources": ["app.service", "app.client"],
+    }
+    files = {
+        **BASE,
+        "src/app/service.py": "def purge(): pass\n\ndef run():\n    purge()\n",
+        "src/app/client.py": "def run(purge):\n    purge()\n",
+    }
+    assert unused(run(release_core, tmp_path, rule, files)) == []

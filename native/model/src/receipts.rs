@@ -29,7 +29,7 @@ use crate::modules::Module;
 use crate::ownership::{claims, in_scope};
 use crate::reason::{Reason, Unsupported};
 use crate::roots::Roots;
-use crate::selection::{unused_entries, UnusedAllowance};
+use crate::selection::{unused_by_module, UnusedAllowance};
 
 /// The proof that no kept pair gap can change what one rule of the model of `'id` reads.
 #[derive(Debug)]
@@ -351,22 +351,22 @@ pub(crate) fn named_calls<'m>(
         .collect())
 }
 
-/// The exception entries of a `call_owner` rule that name no call of its target (AD-1070). A rule
-/// with no proven call reports none: the collector can leave a call without a proven target.
+/// The `call_owner` entries that name no call (AD-1070). A module with an unproven call keeps them.
 pub(crate) fn unused_call_allowances(model: &Model, rule: &CallOwner) -> Vec<UnusedAllowance> {
-    let calls = named_calls(model, rule).unwrap_or_default();
-    if calls.is_empty() {
+    let (Ok(inventory), Ok(calls)) = (live_calls(model, rule), named_calls(model, rule)) else {
         return Vec::new();
-    }
-    let by_caller = |entry: &str| calls.iter().any(|call| in_scope(&call.2, entry));
-    let by_name = |entry: &str| calls.iter().any(|call| call.1 == entry || call.2 == entry);
-    let mut found = unused_entries("allowed_sources", rule.allowed_sources(), by_caller);
-    found.extend(unused_entries(
-        "exact_sources",
-        rule.exact_sources(),
-        by_name,
-    ));
-    found
+    };
+    let modules = Graph::modules(Model::graph(model));
+    let hidden = |entry: &str| {
+        calls.is_empty()
+            || modules.iter().any(|(id, m)| {
+                let name = Module::name(m);
+                let near = in_scope(name, entry) || in_scope(entry, name);
+                near && model.holds(id) && !inventory.complete.contains(name)
+            })
+    };
+    let names: Vec<&str> = calls.iter().flat_map(|c| [&*c.1, &*c.2]).collect();
+    unused_by_module(rule.allowed_sources(), rule.exact_sources(), &names, hidden)
 }
 
 pub(crate) fn call_allowed(rule: &CallOwner, module: &str, caller: &str) -> bool {
