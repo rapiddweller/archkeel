@@ -385,3 +385,78 @@ def test_results_of_two_commits_are_not_the_same_commit(tmp_path: Path) -> None:
         [sys.executable, str(TOOL), "same", one, two], capture_output=True, text=True
     )
     assert done.returncode == 1 and "sha" in done.stdout
+
+
+def test_a_net_zero_scope_swap_is_growth_when_the_scan_table_differs(tmp_path: Path) -> None:
+    """#1980: the same file count and fewer gaps; a `[scan]` change is the only trace."""
+    sys.path.insert(0, str(TOOL.parent))
+    from self_check_diff import condense
+
+    base = condense(real("base.json"), "a" * 40, "t", {"roots": ["src"]})
+    swapped = real("base.json")
+    swapped["gaps"] = []
+    swapped["exit_code"] = 0
+    pr = condense(swapped, "b" * 40, "t", {"roots": ["src"], "exclude": ["src/stock.rs"]})
+    base_file, pr_file = save(tmp_path, "b.json", base), save(tmp_path, "p.json", pr)
+    red(run(tmp_path, base_file, pr_file), "scope changed: the [scan] table differs", "grown 1")
+    assert (
+        run(tmp_path, base_file, save(tmp_path, "q.json", {**pr, "scan": base["scan"]})).returncode
+        == 0
+    )
+
+
+def test_a_rule_row_of_the_wrong_shape_is_an_unusable_result(tmp_path: Path) -> None:
+    pr = real("base.json")
+    pr["frame"]["rules"] = {"r1": ["x"]}
+    done = run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", pr))
+    red(done, "the PR result is unusable", "is corrupt")
+    assert "Traceback" not in done.stderr
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"<details>\n{APPROVAL}\n</details>",
+        f"<details><summary>x</summary>\n{APPROVAL}\n</details>",
+        f"<DETAILS>\n<details>\n</details>\n{APPROVAL}\n</details>",
+        "Ratchet growth: 1 items: x         ",
+    ],
+    ids=["details", "details-summary", "nested-details", "blank-padded-reason"],
+)
+def test_a_hidden_or_padded_approval_line_is_refused(tmp_path: Path, body: str) -> None:
+    done = run(
+        tmp_path,
+        str(FIXTURES / "base.json"),
+        str(FIXTURES / "plus-one-gap.json"),
+        labels="ratchet-lead",
+        body=body,
+    )
+    red(done, "Ratchet growth")
+
+
+def test_a_line_after_a_closed_details_block_counts(tmp_path: Path) -> None:
+    body = f"<details>\nnote\n</details>\n{APPROVAL}  \n"
+    done = run(
+        tmp_path,
+        str(FIXTURES / "base.json"),
+        str(FIXTURES / "plus-one-gap.json"),
+        labels="ratchet-lead",
+        body=body,
+    )
+    assert done.returncode == 0, done.stdout
+
+
+@pytest.mark.parametrize(
+    "body",
+    [f"{FENCE}html\n<details>\n{FENCE}\n\n{APPROVAL}", f"Use `<details>` for logs.\n{APPROVAL}"],
+    ids=["fenced-tag", "inline-code-tag"],
+)
+def test_a_details_tag_in_code_hides_nothing(tmp_path: Path, body: str) -> None:
+    done = run(
+        tmp_path,
+        str(FIXTURES / "base.json"),
+        str(FIXTURES / "plus-one-gap.json"),
+        labels="ratchet-lead",
+        body=body,
+    )
+    assert done.returncode == 0, done.stdout
