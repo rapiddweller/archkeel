@@ -5278,6 +5278,8 @@
         "native.archkeel_rust_collector.source:walk",
         "native.archkeel_rust_collector.test_scope:NO_PRODUCTION_SOURCE",
         "native.archkeel_rust_collector.test_scope:in_test_directory",
+        "native.archkeel_rust_collector.toml:Table",
+        "native.archkeel_rust_collector.toml:Value",
         "native.archkeel_rust_collector.toml:parse"
       ],
       "decided_by": "architect"

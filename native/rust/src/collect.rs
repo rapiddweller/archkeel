@@ -290,8 +290,10 @@ fn package_name(source: &mut Snapshot, file: &str) -> Option<String> {
     let Some(table) = table else {
         return Some(String::new());
     };
-    let package = table.get("package")?;
-    Some(package.table()?.get("name")?.text()?.to_owned())
+    let package: &toml::Value = table.get("package")?;
+    let fields: &toml::Table = package.table()?;
+    let name: &toml::Value = fields.get("name")?;
+    Some(name.text()?.to_owned())
 }
 
 /// The directory of each package manifest in `files`.
