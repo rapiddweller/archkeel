@@ -129,7 +129,9 @@ the development line: `tests/test_cli_core_only_exit_table.py` and `tests/test_c
 ### JSON consumers
 
 - Read `status` and `exit_code` first. Each JSON result starts with them.
-- A refusal has no frame. It has the field `refusal` with `kind` and `message`.
+- A command refusal has no frame. It has the field `refusal` with `kind` and `message`.
+- A collection refusal or a failed file write keeps its frame. Its JSON also has `refusal` and
+  `refusals`, which lists each refusal in order.
 - Rescan both revisions before you compare two results.
 
 ### Not measured
