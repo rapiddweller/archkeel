@@ -255,12 +255,16 @@ fn write(run: &Observed, compared: Option<Compared>) -> Part {
     }
     // A write without a file compares the run with its own output: no difference, and the exit
     // code is the one that `--baseline` gives for the same tree.
+    // A declared budget that the run cannot measure is not in the file: the run stays open, so a
+    // write cannot exit 0 for a budget that nothing checks.
+    let unmeasured = run.unmeasured_declared();
     let compared = compared.unwrap_or_else(|| Compared {
         // The file that this run writes holds these entries and items.
         accepted_entries: u64::try_from(run.gaps.keys.len()).unwrap_or(u64::MAX),
         accepted_unknowns: run.gaps.keys.values().sum(),
+        gaps: unmeasured.clone(),
         ..Compared::of(BaselineState::Written {
-            open: !run.gaps.keys.is_empty() || run.unknown_status,
+            open: !run.gaps.keys.is_empty() || run.unknown_status || !unmeasured.is_empty(),
         })
     });
     Part {

@@ -71,6 +71,19 @@ impl Budgets {
     }
 }
 
+impl Observed {
+    /// One gap for each declared budget that the run does not measure: no file can hold it.
+    pub(crate) fn unmeasured_declared(&self) -> Vec<Named> {
+        let missing = self
+            .declared
+            .iter()
+            .filter(|name| self.budgets.of(**name).is_none());
+        missing
+            .map(|name| unmeasured(budget_word(*name), "the run does not measure it"))
+            .collect()
+    }
+}
+
 /// One difference between the run and the file.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub(crate) struct Difference {
