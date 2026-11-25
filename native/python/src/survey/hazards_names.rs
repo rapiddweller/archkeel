@@ -79,11 +79,12 @@ pub(super) fn above(name: &str) -> bool {
         .any(|entry| entry.starts_with(&prefix))
 }
 
-/// True when `name` is a hazard, or a module that holds a hazard name (AD-1089).
+/// True when `name` is a module above a hazard name and no hazard itself (AD-1089). The import of
+/// a hazard is a site already, so a module that re-exports it needs no second site.
 pub(super) fn holds(name: &str) -> bool {
     let prefix = format!("{name}.");
-    hazard(name).is_some()
-        || trojan_horses()
+    hazard(name).is_none()
+        && trojan_horses()
             .chain(importers())
             .chain(STATE)
             .any(|entry| entry.starts_with(&prefix))

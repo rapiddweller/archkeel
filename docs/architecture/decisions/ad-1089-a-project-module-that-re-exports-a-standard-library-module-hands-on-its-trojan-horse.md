@@ -5,7 +5,7 @@
 **Reason.** `util.py` holds `import cProfile`. `consumer.py` calls `util.cProfile.run('import app.lib')`. CPython 3.12 imports `app.lib`, and `forbidden_dependency` gave PASS with no gap. The survey resolved a name only through the import bindings of the module that uses it. The same hole existed for `unittest.mock.patch`, `dis.Bytecode`, `unittest.main`, `unittest.TestLoader` and `trace.Trace`. A false PASS is the worst defect.
 
 **Decision.**
-1. The survey builds one table for the scan. It maps each name that an import statement of any module binds to the qualified origin of that name. It keeps an origin only when the origin is a hazard name or a module that holds one (`cProfile`, `unittest.mock`, `logging`, `sys`).
+1. The survey builds one table for the scan. It maps each name that an import statement of any module binds to the qualified origin of that name. It keeps an origin only when the origin is a module above a hazard name and no hazard itself (`cProfile`, `unittest.mock`, `logging`, `sys`). The import of a hazard (`import pickle`) is a site already.
 2. In each attribute chain, an attribute that is a key of the table starts a new read. The rest of the chain is read from each origin of that key with the rules of AD-450 and AD-1059. A hit is a site with the name of the origin (`cProfile.run`, `unittest.mock.patch`). The gap is `dynamic_import`, as for the other trojan horse names.
 3. The rule applies to each base: a project module, a call, a local or a parameter. It runs after the existing checks, so a chain that was a site before keeps its detail.
 4. `import cProfile as cp` in `util` binds `cp`: `util.cp.run` is a site too.
