@@ -12,7 +12,8 @@ restores the cache to `base.json`, which nothing else writes. The gate reads `ba
 base candidate only when it is for the merge base of `--base` and HEAD. The gate fails when git
 tracks a file under `test-artifacts/selfcheck/`: a PR must not bring its own base. A miss computes
 the base in a git worktree of that commit (the core of this tree is reused when `native/` is the
-same). A base without the scope data is recomputed. The gate refuses an incomplete topology.
+same). A v1 cached base uses the old comparison during migration. The gate refuses an incomplete
+v2 scope or topology.
 It never skips: when the base cannot be computed, the gate fails and names the reason. The
 label and the PR text for growth come from RATCHET_LABELED (`true`) and RATCHET_BODY_FILE.
 `BASE_RESULT=<file>` replaces the base. The base that it compares is kept in `compared-base.json`
@@ -34,7 +35,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from self_check_diff import FORMAT, LABEL, Unusable, condense
+from self_check_diff import FORMAT, LABEL, Unusable, condense, scanned_scope
 from self_check_diff import main as diff
 
 KEPT = Path("test-artifacts/selfcheck/result.json")
@@ -63,8 +64,23 @@ def scan_table(root: Path) -> dict[str, Any] | None:
 
 def complete_scope(result: dict[str, Any]) -> bool:
     inputs = result.get("contract_files")
+    scope = result.get("scope")
+    if not isinstance(scope, dict):
+        return False
+    files, components = scope.get("files"), scope.get("components")
+    if not isinstance(files, list) or not isinstance(components, list):
+        return False
+    frame = {
+        "contract_digest": scope.get("contract"),
+        "topology": {
+            "modules": files,
+            "components": components,
+            "total": {"modules": len(files), "components": len(components)},
+        },
+        "self_test": {"reply": {"files": result.get("files")}},
+    }
     return (
-        isinstance(result.get("scope"), dict)
+        scanned_scope(frame) == scope
         and isinstance(inputs, dict)
         and bool(inputs)
         and all(
@@ -140,8 +156,15 @@ def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> t
     if sha == own["sha"]:
         found = own
     else:
+        found = None
         try:
             found = json.loads(candidate)
+            legacy = (
+                isinstance(found, dict)
+                and found.get("sha") == sha
+                and found.get("format") == "selfcheck-v1"
+                and "scope" not in found
+            )
             hit = (
                 isinstance(found, dict)
                 and found.get("sha") == sha
@@ -149,7 +172,23 @@ def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> t
                 and complete_scope(found)
             )
         except ValueError:
-            hit = False
+            hit = legacy = False
+        if legacy:
+            message = (
+                "scope comparison: base scope not in the v1 cache; "
+                "it starts when main writes the v2 cache"
+            )
+            print(message)
+            if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
+                with Path(summary).open("a", encoding="utf-8") as output:
+                    output.write(f"{message}\n")
+            found["scope"] = own["scope"]
+            found["contract_files"] = own["contract_files"]
+            hit = True
+        elif (
+            isinstance(found, dict) and found.get("format") == FORMAT and not complete_scope(found)
+        ):
+            raise Unusable("the cached base has no complete scanned scope")
         if hit:
             print(f"base result: cache hit for {sha[:12]}")
         else:
@@ -192,7 +231,7 @@ def gate(argv: list[str]) -> int:
         )
     except Unusable as error:
         print(f"base unavailable: {error}")
-        path, wanted = Path("missing-base-result.json"), ""
+        return 1
     labels = LABEL if os.environ.get("RATCHET_LABELED") == "true" else ""
     args = [str(path), str(KEPT), "--labels", labels, "--base-sha", wanted]
     args += [
