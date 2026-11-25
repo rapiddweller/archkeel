@@ -23,7 +23,7 @@ from .explorer_source import (
 )
 from .explorer_store import open_snapshot
 from .explorer_symbols import _symbol_rows
-from .explorer_verdict import ANSWERS, VerdictRows, store
+from .explorer_verdict import _ANSWERS, VerdictRows, _store
 
 _SCHEMA = (
     "CREATE TABLE element(id TEXT PRIMARY KEY,name TEXT,kind TEXT,parent TEXT,body TEXT)",
@@ -276,7 +276,7 @@ def populate(
         raise ValueError("unsupported topology version")
     for statement in _SCHEMA:
         connection.execute(statement)
-    store(connection, verdict)
+    _store(connection, verdict)
     _coverage(connection, topology, root)
     digests: dict[str, str | None] = {}
 
@@ -394,8 +394,8 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
         saved_root, coverage = db.execute("SELECT root,coverage FROM analysis").fetchone()
         if Path(saved_root) != root.resolve():
             raise ValueError("snapshot belongs to another repository")
-        if operation in ANSWERS:
-            return ANSWERS[operation](db, root, args, path.stem)
+        if operation in _ANSWERS:
+            return _ANSWERS[operation](db, root, args, path.stem)
         result = {"snapshot": path.stem, "coverage": json.loads(coverage)}
         if operation == "map":
             return result | _map_view(

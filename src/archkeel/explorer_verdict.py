@@ -41,7 +41,7 @@ class Basis(StrEnum):
     UNKNOWN = "unknown"
 
 
-class Freshness(StrEnum):
+class _Freshness(StrEnum):
     """Whether each file that the scan read still has its scan digest."""
 
     FRESH = "fresh"
@@ -89,7 +89,7 @@ def _located(at: str | None) -> Row:
     return {} if at is None else {"at": at}
 
 
-def store(connection: sqlite3.Connection, rows: VerdictRows | None) -> None:
+def _store(connection: sqlite3.Connection, rows: VerdictRows | None) -> None:
     """Create the tables. A scan without a contract verdict leaves them empty."""
     for statement in _SCHEMA:
         connection.execute(statement)
@@ -143,16 +143,16 @@ def _untrusted(text: str) -> Row:
     return {"text": text[:_TEXT_CHARS], "untrusted": True}
 
 
-def _freshness(db: sqlite3.Connection, root: Path) -> Freshness:
+def _freshness(db: sqlite3.Connection, root: Path) -> _Freshness:
     for name, digest in db.execute("SELECT path,digest FROM source ORDER BY path"):
         try:
             with _source_path(root, name).open("rb") as stream:
                 current = hashlib.file_digest(stream, "sha256").hexdigest()
         except (OSError, ValueError):
-            return Freshness.STALE
+            return _Freshness.STALE
         if current != digest:
-            return Freshness.STALE
-    return Freshness.FRESH
+            return _Freshness.STALE
+    return _Freshness.FRESH
 
 
 def _count(
@@ -263,7 +263,7 @@ def _unknowns(db: sqlite3.Connection, root: Path, args: Row, snapshot: str) -> R
     return _page(db, root, args, snapshot, "gap", (condition, params), shape)
 
 
-ANSWERS: Mapping[str, Callable[[sqlite3.Connection, Path, Row, str], Row]] = {
+_ANSWERS: Mapping[str, Callable[[sqlite3.Connection, Path, Row, str], Row]] = {
     "verdict": _verdict,
     "findings": _findings,
     "unknowns": _unknowns,

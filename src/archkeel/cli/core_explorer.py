@@ -38,7 +38,6 @@ from .core_explorer_scip import (
 )
 from .core_frame import CoreError, CoreFrame, GapKind, RuleStatus
 from .core_json import as_object, as_text, as_texts
-from .core_topology import Topology
 from .init_draft import draft, write_missing
 from .native_scan import prepare_disposable_git
 
@@ -77,12 +76,14 @@ def _observed_scan(
 
 def _verdict_rows(
     frame: CoreFrame,
-    topology: Topology,
     document: Mapping[str, object],
     digests: Mapping[str, str],
     assessed: Iterable[str],
 ) -> VerdictRows:
     """Copy the verdict rows of the frame. The core decided them; nothing is decided again."""
+    topology = frame.topology
+    if topology is None:
+        raise CoreError("the core did not give Explorer topology")
     owners = {module.name: module.component for module in topology.modules}
     parents = {component.id: component.parent for component in topology.components}
     # A cycle names its members by component name, and a module names its component by id.
@@ -221,7 +222,7 @@ def _publish(
     rows = None
     if not observed:
         assessed = {*paths, Path(project.config).as_posix()}
-        rows = _verdict_rows(frame, frame.topology, document, digests, assessed)
+        rows = _verdict_rows(frame, document, digests, assessed)
 
     def build(connection: sqlite3.Connection) -> None:
         display = topology | {

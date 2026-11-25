@@ -328,9 +328,9 @@ def test_a_possible_import_gives_a_declared_row_never_a_proven_one() -> None:
         gaps=(),
         missing=(),
         details={"R-OBSERVED": (detail(False),), "R-DECLARED": (detail(True),)},
+        topology=Topology(True, False, (), {}, (), (), (), (), (), ()),
     )
-    topology = Topology(True, False, (), {}, (), (), (), (), (), ())
-    rows = core_explorer._verdict_rows(frame, topology, {"contract_digest": None}, {})
+    rows = core_explorer._verdict_rows(frame, {"contract_digest": None}, {}, [])
     assert {row.rule: row.basis for row in rows.findings} == {
         "R-OBSERVED": Basis.PROVEN,
         "R-DECLARED": Basis.DECLARED,
