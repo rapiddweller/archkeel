@@ -44,7 +44,7 @@ from .core_output import read_timings
 from .core_text import header, refusal, render, summary
 from .core_words import NOT_FOUND_PREFIX, fix_for, plain
 from .init_draft import DOCUMENT, SYSTEM
-from .native_scan import SCAN_PROTOCOL, exchange, identity, ignored_by
+from .native_scan import SCAN_PROTOCOL, exchange, identity, ignored_by, scan_progress
 
 
 def run(argv: Sequence[str]) -> int:
@@ -342,11 +342,11 @@ def _exchange_scan(
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
     started_ns = time_ns()
     payload = json.dumps(request).encode()
-    # #659: the seconds of the phases come on standard error, only when the user asked for them.
-    if options.timings is None:
-        stdout, status_code = exchange(str(binary), "scan", payload)
-    else:
-        stdout, status_code = exchange(str(binary), "scan", payload, stderr_sink=sink)
+    with scan_progress(project.path):
+        if options.timings is None:  # #659: the phase seconds come on standard error only if asked
+            stdout, status_code = exchange(str(binary), "scan", payload)
+        else:
+            stdout, status_code = exchange(str(binary), "scan", payload, stderr_sink=sink)
     frame = read_frame(
         stdout,
         status_code,

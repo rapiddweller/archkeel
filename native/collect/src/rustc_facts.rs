@@ -76,6 +76,42 @@ pub(crate) fn sha256() -> String {
 /// The only variables that a Cargo run may inherit. `RUSTC`, `RUSTFLAGS`, `CARGO_BUILD_*` and the like
 /// would change the build that the facts claim.
 pub(crate) const KEPT_ENV: [&str; 4] = ["PATH", "HOME", "RUSTUP_HOME", "CARGO_HOME"];
+const WORK_CACHE_LIMIT: usize = 3;
+
+fn prune_work(work: &Path) {
+    let Some(parent) = work.parent() else { return };
+    if let Err(error) = std::fs::create_dir_all(work) {
+        eprintln!("rustc facts: cannot prepare work cache: {error}");
+        return;
+    }
+    let marker = work.join("last-used");
+    if let Err(error) = std::fs::File::create(marker) {
+        eprintln!("rustc facts: cannot update work cache marker: {error}");
+    }
+    let entries = match std::fs::read_dir(parent) {
+        Ok(entries) => entries,
+        Err(error) => {
+            eprintln!("rustc facts: cannot read work cache: {error}");
+            return;
+        }
+    };
+    let mut others: Vec<_> = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path != work && path.is_dir())
+        .collect();
+    others.sort_by_key(|path| {
+        std::fs::metadata(path.join("last-used"))
+            .and_then(|metadata| metadata.modified())
+            .ok()
+    });
+    let remove = others.len().saturating_sub(WORK_CACHE_LIMIT - 1);
+    for path in others.into_iter().take(remove) {
+        if let Err(error) = std::fs::remove_dir_all(&path) {
+            eprintln!("rustc facts: cannot remove {}: {error}", path.display());
+        }
+    }
+}
 
 /// `rustup run <channel> cargo <subcommand> --offline` with a clean environment. An empty `RUSTFLAGS`
 /// beats the `build.rustflags` and `target.<triple>.rustflags` of each config file; the options below
@@ -348,6 +384,8 @@ fn produce(
             .and_then(|()| std::fs::write(&marker, &identity))
             .map_err(|_| Unavailable::CargoCheckFailed(Config::Default))?;
     }
+
+    prune_work(&work);
     let configs = configs(&members)?;
     let root = format!("{}/", scan_root.display());
     let job = Job {

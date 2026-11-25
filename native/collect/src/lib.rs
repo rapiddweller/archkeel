@@ -194,9 +194,13 @@ pub fn scan_with_options(
         config.profile,
         &bytes,
         clock,
-        (explorer, descriptor.as_deref(), members.as_deref()),
+        (
+            explorer,
+            descriptor.as_ref().map(|(path, _)| path.as_path()),
+            members.as_deref(),
+        ),
     );
-    if let Some(path) = &descriptor {
+    if let Some((path, _)) = &descriptor {
         let _ = std::fs::remove_file(path);
     }
     let (reply, collected, validated) = collected_reply?;
@@ -260,7 +264,7 @@ fn premise_missing(root: &Path, contract: &str) -> Option<String> {
 fn type_reach_descriptor(
     root: &repository::Root,
     config: &config::Config,
-) -> Result<PathBuf, Refusal> {
+) -> Result<(PathBuf, std::fs::File), Refusal> {
     let base = std::env::var_os("ARCHKEEL_FACTS_CACHE")
         .map(PathBuf::from)
         .or_else(|| {
@@ -268,6 +272,16 @@ fn type_reach_descriptor(
                 .map(|home| PathBuf::from(home).join(".cache/archkeel/rustc-facts"))
         })
         .ok_or_else(|| refused("type reach", "no cache directory: set ARCHKEEL_FACTS_CACHE"))?;
+    std::fs::create_dir_all(&base)
+        .map_err(|why| refused("type reach", format!("cannot create cache: {why}")))?;
+    let lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(base.join("work.lock"))
+        .map_err(|why| refused("type reach", format!("cannot open cache lock: {why}")))?;
+    lock.lock()
+        .map_err(|why| refused("type reach", format!("cannot lock cache: {why}")))?;
     let manifest = config
         .roots
         .iter()
@@ -290,7 +304,7 @@ fn type_reach_descriptor(
     std::fs::create_dir_all(&dir)
         .and_then(|()| std::fs::write(&path, text.to_string()))
         .map_err(|why| refused("type reach", format!("cannot write the descriptor: {why}")))?;
-    Ok(path)
+    Ok((path, lock))
 }
 
 /// A build of a collector with a test feature reads planted faults from the environment

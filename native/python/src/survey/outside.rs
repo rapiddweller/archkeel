@@ -111,7 +111,7 @@ pub(super) fn written(
         .iter()
         .map(|module| Binders::of(&module.tree))
         .collect();
-    let (literals, hazards) = super::hazards::split(&outside, &binders, (None, false), false);
+    let (literals, hazards) = super::hazards_split::split(&outside, &binders, (None, false), false);
     for (_, _, target) in &literals {
         found.extend(native::reached(target, &names));
     }

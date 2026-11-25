@@ -12,22 +12,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// One directory for all real runs of this process, so that the driver is built once.
-fn real_cache() -> &'static PathBuf {
-    static CACHE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
-    CACHE.get_or_init(|| {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!(
-            "archkeel-facts-real-{}-{nanos}",
-            std::process::id()
-        ))
-    })
-}
-
-/// The real runs share one driver build: one test at a time.
+/// The real runs use one test at a time to limit disk and CPU use.
 static REAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// The system tools. A test that needs `rustc-dev` fails with the cause when it is missing: it runs
@@ -51,20 +36,34 @@ fn out_dir() -> PathBuf {
 }
 
 fn write(name: &str, text: &str) {
-    std::fs::write(out_dir().join(name), text).unwrap();
+    let mut value: serde_json::Value = serde_json::from_str(text).unwrap();
+    if let Some(configs) = value.get_mut("configs").and_then(|v| v.as_array_mut()) {
+        for (index, config) in configs.iter_mut().enumerate() {
+            let source = PathBuf::from(config["dir"].as_str().unwrap());
+            let target = out_dir().join(format!("{name}-facts-{index}"));
+            std::fs::create_dir_all(&target).unwrap();
+            for entry in std::fs::read_dir(source).unwrap() {
+                let entry = entry.unwrap();
+                std::fs::copy(entry.path(), target.join(entry.file_name())).unwrap();
+            }
+            config["dir"] = serde_json::json!(target);
+        }
+    }
+    std::fs::write(out_dir().join(name), value.to_string()).unwrap();
 }
 
 #[test]
 #[ignore = "needs the pinned toolchain with rustc-dev; run `make rustc-facts-e2e`"]
 fn the_producer_gives_facts_for_the_native_workspace() {
     let _one = REAL.lock().unwrap_or_else(|e| e.into_inner());
+    let cache = scratch("real-cache");
     let tools = real_tools();
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
         .unwrap();
     let made = tools
-        .produce(&root, &root.join("native/Cargo.toml"), real_cache())
+        .produce(&root, &root.join("native/Cargo.toml"), &cache)
         .map_err(|e| e.describe())
         .unwrap();
     // The three fixed configurations, and each feature of a member alone (the native workspace has six).
@@ -83,8 +82,10 @@ fn the_producer_gives_facts_for_the_native_workspace() {
 #[ignore = "needs the pinned toolchain with rustc-dev; run `make rustc-facts-e2e`"]
 fn a_cargo_config_file_cannot_change_the_cfg_of_the_facts() {
     let _one = REAL.lock().unwrap_or_else(|e| e.into_inner());
+    let cache = scratch("real-cache");
     let tools = real_tools();
-    let dir = scratch("cfg-leak").canonicalize().unwrap();
+    let scratch = scratch("cfg-leak");
+    let dir = scratch.canonicalize().unwrap();
     let host = toolchain(&tools, channel().unwrap()).ok().unwrap();
     let host = host
         .lines()
@@ -107,7 +108,7 @@ fn a_cargo_config_file_cannot_change_the_cfg_of_the_facts() {
     .unwrap();
     std::fs::write(dir.join("src/lib.rs"), "pub fn f() {}\n").unwrap();
     let made = tools
-        .produce(&dir, &dir.join("Cargo.toml"), real_cache())
+        .produce(&dir, &dir.join("Cargo.toml"), &cache)
         .map_err(|e| e.describe())
         .unwrap();
     for run in &made.runs {
@@ -121,21 +122,26 @@ fn a_cargo_config_file_cannot_change_the_cfg_of_the_facts() {
 
 /// The count of real dispatches of each case. A case under a `cfg` that only some builds enable runs in the
 /// build with that cfg: the counts of the builds add up.
-fn dispatch_counts(channel: &str) -> BTreeMap<String, usize> {
+fn dispatch_counts(channel: &str, cache: &Path) -> BTreeMap<String, usize> {
     let builds: [&[&str]; 2] = [&[], &["--no-default-features", "--features", "fb"]];
     let mut total = BTreeMap::new();
     for build in builds {
         let ws = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../tests/rust_reach_fixtures/ws/Cargo.toml");
-        for (case, count) in dispatch_counts_of(channel, &ws, build) {
+        for (case, count) in dispatch_counts_of(channel, &ws, build, cache) {
             *total.entry(case).or_insert(0) += count;
         }
     }
     total
 }
 
-fn dispatch_counts_of(channel: &str, ws: &Path, build: &[&str]) -> BTreeMap<String, usize> {
-    let target = real_cache().join(format!("fixture-run-{}", ws.display().to_string().len()));
+fn dispatch_counts_of(
+    channel: &str,
+    ws: &Path,
+    build: &[&str],
+    cache: &Path,
+) -> BTreeMap<String, usize> {
+    let target = cache.join(format!("fixture-run-{}", ws.display().to_string().len()));
     let run = Command::new("rustup")
         .args([
             "run",
@@ -165,17 +171,18 @@ fn dispatch_counts_of(channel: &str, ws: &Path, build: &[&str]) -> BTreeMap<Stri
 #[ignore = "needs the pinned toolchain with rustc-dev; run `make rustc-facts-e2e`"]
 fn the_producer_gives_facts_for_the_fixture_workspace_and_runs_its_dispatches() {
     let _one = REAL.lock().unwrap_or_else(|e| e.into_inner());
+    let cache = scratch("real-cache");
     let tools = real_tools();
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/rust_reach_fixtures/ws")
         .canonicalize()
         .unwrap();
     let made = tools
-        .produce(&root, &root.join("Cargo.toml"), real_cache())
+        .produce(&root, &root.join("Cargo.toml"), &cache)
         .map_err(|e| e.describe())
         .unwrap();
     write("fixtures.json", &crate::descriptor_of(&made).to_string());
-    let truth = dispatch_counts(channel().unwrap());
+    let truth = dispatch_counts(channel().unwrap(), &cache);
     write("truth.json", &serde_json::to_string(&truth).unwrap());
 }
 
@@ -185,6 +192,7 @@ fn the_producer_gives_facts_for_the_fixture_workspace_and_runs_its_dispatches() 
 #[ignore = "needs the pinned toolchain with rustc-dev; run `make rustc-facts-e2e`"]
 fn the_producer_gives_facts_for_the_collision_workspace_and_runs_its_dispatches() {
     let _one = REAL.lock().unwrap_or_else(|e| e.into_inner());
+    let cache = scratch("real-cache");
     let tools = real_tools();
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/rust_reach_fixtures/coll")
@@ -192,11 +200,11 @@ fn the_producer_gives_facts_for_the_collision_workspace_and_runs_its_dispatches(
         .unwrap();
     let manifest = root.join("crates/Cargo.toml");
     let made = tools
-        .produce(&root, &manifest, real_cache())
+        .produce(&root, &manifest, &cache)
         .map_err(|e| e.describe())
         .unwrap();
     write("coll.json", &crate::descriptor_of(&made).to_string());
-    let truth = dispatch_counts_of(channel().unwrap(), &manifest, &[]);
+    let truth = dispatch_counts_of(channel().unwrap(), &manifest, &[], &cache);
     write("coll-truth.json", &serde_json::to_string(&truth).unwrap());
 }
 
@@ -206,8 +214,10 @@ fn the_producer_gives_facts_for_the_collision_workspace_and_runs_its_dispatches(
 #[ignore = "needs the pinned toolchain with rustc-dev; run `make rustc-facts-e2e`"]
 fn a_cargo_config_env_table_cannot_override_the_variables_of_the_driver() {
     let _one = REAL.lock().unwrap_or_else(|e| e.into_inner());
+    let cache = scratch("real-cache");
     let tools = real_tools();
-    let dir = scratch("env-force").canonicalize().unwrap();
+    let scratch = scratch("env-force");
+    let dir = scratch.canonicalize().unwrap();
     std::fs::create_dir_all(dir.join(".cargo")).unwrap();
     std::fs::create_dir_all(dir.join("src")).unwrap();
     let forced = ["AK_FACTS_MEMBERS", "AK_FACTS_DIR", "AK_FACTS_REGISTRY"]
@@ -229,7 +239,7 @@ fn a_cargo_config_env_table_cannot_override_the_variables_of_the_driver() {
     .unwrap();
     std::fs::write(dir.join("src/lib.rs"), "pub fn f() {}\n").unwrap();
     let made = tools
-        .produce(&dir, &dir.join("Cargo.toml"), real_cache())
+        .produce(&dir, &dir.join("Cargo.toml"), &cache)
         .map_err(|e| e.describe())
         .unwrap();
     assert!(made.runs.iter().all(|run| !run.units.is_empty()));
@@ -256,10 +266,11 @@ fn facts_of(run: &crate::rustc_facts::FactsRun, krate: &str) -> String {
 #[ignore = "needs the pinned toolchain with rustc-dev; run `make rustc-facts-e2e`"]
 fn a_warm_scan_after_an_edit_gives_the_facts_of_a_cold_scan() {
     let _one = REAL.lock().unwrap_or_else(|e| e.into_inner());
+    let cache = scratch("real-cache");
     let tools = real_tools();
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/rust_reach_fixtures/coll");
-    let ws = real_cache().join("warm-coll");
-    std::fs::create_dir_all(real_cache()).unwrap();
+    let ws = cache.join("warm-coll");
+    std::fs::create_dir_all(&cache).unwrap();
     let _ = std::fs::remove_dir_all(&ws);
     let copied = Command::new("cp")
         .arg("-R")
@@ -270,7 +281,7 @@ fn a_warm_scan_after_an_edit_gives_the_facts_of_a_cold_scan() {
     assert!(copied.success());
     let ws = ws.canonicalize().unwrap();
     let manifest = ws.join("crates/Cargo.toml");
-    let (warm_cache, cold_cache) = (real_cache().join("warm"), real_cache().join("cold"));
+    let (warm_cache, cold_cache) = (cache.join("warm"), cache.join("cold"));
     let first = tools
         .produce(&ws, &manifest, &warm_cache)
         .map_err(|e| e.describe())
