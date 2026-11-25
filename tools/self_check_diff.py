@@ -40,6 +40,7 @@ LABEL = "ratchet-lead"
 NUMBER = r"(0|[1-9][0-9]*) items?: \S.{9,}"
 LINE = re.compile(rf"Ratchet growth: {NUMBER}")
 SHELL_LINE = re.compile(rf"Ratchet growth \(shell\): {NUMBER}")
+INLINE_CODE = re.compile(r"`[^`]*`")
 DETAILS_OPEN = re.compile(r"<details\b", re.IGNORECASE)
 DETAILS_CLOSE = re.compile(r"</details\s*>", re.IGNORECASE)
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
@@ -222,10 +223,13 @@ def plain_lines(body: str) -> list[str]:
             fence = "" if fence else marker.group(1)[0]
             continue
         quoted = line.lstrip().startswith(">") or (quoted and bool(line.strip()))
-        shut = hidden > 0 or bool(DETAILS_OPEN.search(line))
-        hidden = max(0, hidden + len(DETAILS_OPEN.findall(line)) - len(DETAILS_CLOSE.findall(line)))
-        if not fence and not quoted and not shut:
+        if fence or quoted:
+            continue
+        tags = INLINE_CODE.sub("", line)
+        opens, closes = len(DETAILS_OPEN.findall(tags)), len(DETAILS_CLOSE.findall(tags))
+        if not hidden and not opens:
             lines.append(line.rstrip())
+        hidden = max(0, hidden + opens - closes)
     return lines
 
 

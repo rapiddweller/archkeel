@@ -444,3 +444,19 @@ def test_a_line_after_a_closed_details_block_counts(tmp_path: Path) -> None:
         body=body,
     )
     assert done.returncode == 0, done.stdout
+
+
+@pytest.mark.parametrize(
+    "body",
+    [f"{FENCE}html\n<details>\n{FENCE}\n\n{APPROVAL}", f"Use `<details>` for logs.\n{APPROVAL}"],
+    ids=["fenced-tag", "inline-code-tag"],
+)
+def test_a_details_tag_in_code_hides_nothing(tmp_path: Path, body: str) -> None:
+    done = run(
+        tmp_path,
+        str(FIXTURES / "base.json"),
+        str(FIXTURES / "plus-one-gap.json"),
+        labels="ratchet-lead",
+        body=body,
+    )
+    assert done.returncode == 0, done.stdout
