@@ -20,6 +20,6 @@
 
 **Not done.** A narrowing for instance hooks (a class method `__getattr__` that passes its own name parameter through) is not built: no plant shows it sound, and the unbound call `K.__getattr__(f, name)` passes any receiver.
 
-**Open limits.** The collector does not read these forms; each is a strict expected failure with an issue number in `tests/test_collector_false_pass_python_open.py`: see `docs/known-limits.md`.
+**Open limits.** The collector does not read these forms: see `docs/known-limits.md`.
 
 **Tests.** `tests/test_collector_false_pass_python_trojan_attribute.py` (CPython runs each plant of the reviews), `tests/test_cli_python_trojan_horse_name.py` (exposure), `hazards_receiver_tests.rs`, `hazards_inert_tests.rs`.

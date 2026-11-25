@@ -62,6 +62,13 @@ pub(crate) fn comments(text: &str) -> Vec<std::ops::Range<usize>> {
     }
 }
 
+/// The expression that `eval` reads from `text` (a string annotation), or `None` when it does not
+/// parse. The newest syntax is accepted: a text that fails to parse imports nothing.
+pub(crate) fn expression(text: &str) -> Option<ruff_python_ast::Expr> {
+    let parsed = ruff_python_parser::parse_expression(text.trim()).ok()?;
+    Some(*parsed.into_syntax().body)
+}
+
 /// The tree of `text` for Python 3.`minor`, or the failure that the Python collector reports.
 pub(crate) fn parse(text: &str, minor: PyMinor) -> Result<ModModule, ParseFailure> {
     if text.contains('\0') {
