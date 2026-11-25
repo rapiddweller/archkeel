@@ -12,7 +12,9 @@ restores the cache to `base.json`, which nothing else writes. The gate reads `ba
 base candidate only when it is for the merge base of `--base` and HEAD. The gate fails when git
 tracks a file under `test-artifacts/selfcheck/`: a PR must not bring its own base. A miss computes
 the base in a git worktree of that commit (the core of this tree is reused when `native/` is the
-same). It never skips: when the base cannot be computed, the gate fails and names the reason. The
+same). A v1 cached base uses the old comparison during migration. The gate refuses an incomplete
+v2 scope or topology.
+It never skips: when the base cannot be computed, the gate fails and names the reason. The
 label and the PR text for growth come from RATCHET_LABELED (`true`) and RATCHET_BODY_FILE.
 `BASE_RESULT=<file>` replaces the base. The base that it compares is kept in `compared-base.json`
 for `make self-check`. All grown items go to `grown.txt` in the same directory
@@ -33,7 +35,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from self_check_diff import LABEL, Unusable, condense
+from self_check_diff import FORMAT, LABEL, Unusable, condense, scanned_scope
 from self_check_diff import main as diff
 
 KEPT = Path("test-artifacts/selfcheck/result.json")
@@ -58,6 +60,33 @@ def scan_table(root: Path) -> dict[str, Any] | None:
     except (OSError, ValueError):
         return None
     return found if isinstance(found, dict) else None
+
+
+def complete_scope(result: dict[str, Any]) -> bool:
+    inputs = result.get("contract_files")
+    scope = result.get("scope")
+    if not isinstance(scope, dict):
+        return False
+    files, components = scope.get("files"), scope.get("components")
+    if not isinstance(files, list) or not isinstance(components, list):
+        return False
+    frame = {
+        "contract_digest": scope.get("contract"),
+        "topology": {
+            "modules": files,
+            "components": components,
+            "total": {"modules": len(files), "components": len(components)},
+        },
+        "self_test": {"reply": {"files": result.get("files")}},
+    }
+    return (
+        scanned_scope(frame) == scope
+        and isinstance(inputs, dict)
+        and bool(inputs)
+        and all(
+            isinstance(path, str) and isinstance(digest, str) for path, digest in inputs.items()
+        )
+    )
 
 
 def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
@@ -90,10 +119,11 @@ def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
                 "run",
                 "--locked",
                 "archkeel",
-                "validate",
+                "report",
                 "--config",
                 "native/archkeel.toml",
                 "--json",
+                "--topology",
             ],
             cwd=wt,
             env=env,
@@ -101,8 +131,11 @@ def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
             text=True,
         )
         try:
-            return condense(json.loads(run.stdout), sha, tree, scan_table(wt))
-        except ValueError as error:
+            result = condense(json.loads(run.stdout), sha, tree, scan_table(wt))
+            if not complete_scope(result):
+                raise Unusable("the base has no complete scanned scope")
+            return result
+        except (AttributeError, TypeError, KeyError, IndexError, ValueError) as error:
             raise Unusable(
                 f"the check on the base commit gave no result ({error}): {run.stderr[-300:]}"
             ) from error
@@ -123,11 +156,39 @@ def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> t
     if sha == own["sha"]:
         found = own
     else:
+        found = None
         try:
             found = json.loads(candidate)
-            hit = found.get("sha") == sha and found.get("format") == "selfcheck-v1"
+            legacy = (
+                isinstance(found, dict)
+                and found.get("sha") == sha
+                and found.get("format") == "selfcheck-v1"
+                and "scope" not in found
+            )
+            hit = (
+                isinstance(found, dict)
+                and found.get("sha") == sha
+                and found.get("format") == FORMAT
+                and complete_scope(found)
+            )
         except ValueError:
-            hit = False
+            hit = legacy = False
+        if legacy and isinstance(found, dict):
+            message = (
+                "scope comparison: base scope not in the v1 cache; "
+                "it starts when main writes the v2 cache"
+            )
+            print(message)
+            if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
+                with Path(summary).open("a", encoding="utf-8") as output:
+                    output.write(f"{message}\n")
+            found["scope"] = own["scope"]
+            found["contract_files"] = own["contract_files"]
+            hit = True
+        elif (
+            isinstance(found, dict) and found.get("format") == FORMAT and not complete_scope(found)
+        ):
+            raise Unusable("the cached base has no complete scanned scope")
         if hit:
             print(f"base result: cache hit for {sha[:12]}")
         else:
@@ -155,11 +216,15 @@ def gate(argv: list[str]) -> int:
         sha, tree = git("rev-parse", "HEAD"), git("rev-parse", "HEAD:native")
         saved = json.loads(Path(option("--result")).read_text(encoding="utf-8"))
         own = condense(saved, sha, tree, scan_table(Path()))
-    except (Unusable, OSError, IndexError, ValueError) as error:
+        if not own["refusal"] and not complete_scope(own):
+            raise Unusable("the result has no complete scanned scope")
+    except (Unusable, OSError, IndexError, ValueError, TypeError, AttributeError) as error:
         print(f"FAIL the self-check result is unusable: {error}")
         return 1
     KEPT.parent.mkdir(parents=True, exist_ok=True)
     KEPT.write_text(json.dumps(own), encoding="utf-8")
+    if own["refusal"]:
+        return diff(["alone", str(KEPT)])
     if "--no-compare" in argv:
         return diff(["alone", str(KEPT)])
     try:
@@ -168,7 +233,7 @@ def gate(argv: list[str]) -> int:
         )
     except Unusable as error:
         print(f"base unavailable: {error}")
-        path, wanted = Path("missing-base-result.json"), ""
+        return 1
     labels = LABEL if os.environ.get("RATCHET_LABELED") == "true" else ""
     args = [str(path), str(KEPT), "--labels", labels, "--base-sha", wanted]
     args += [
