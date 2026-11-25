@@ -160,6 +160,9 @@ _OS_ERRORS: Final = (
 
 def fix_for(kind: str, message: str) -> str | None:
     """What to do after a refusal: a refused scan by the part its message names, else by kind."""
+    # A removed option of 5.0 names its command in the message; no release is named then.
+    if kind == "not_on_this_development_line" and "use archkeel " in message:
+        return "run the command named above instead, or leave this option out."
     if kind == "collection_refused":
         part = _refused_part(message)
         if part is _RefusedPart.CONFIG:
