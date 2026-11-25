@@ -20,6 +20,7 @@ import pytest
 from core_support import copy_native, run
 from corpus_support import commit_tree
 from frozen_native import frozen_root as frozen_root
+from rustc_dev_support import needs_rustc_dev
 
 from archkeel.cli import core_only
 
@@ -306,6 +307,7 @@ def test_each_python_upward_pair_has_a_rule_and_a_plant(runs: dict[str, Any]) ->
     assert expected == {rule for rule, _ in plants if rule.startswith("NATIVE-PY-")}
 
 
+@needs_rustc_dev
 def test_the_layer_order_fails_each_upward_requires_and_no_other(runs: dict[str, Any]) -> None:
     """AD-588: the order reads the declared `requires`, not the imports.
 

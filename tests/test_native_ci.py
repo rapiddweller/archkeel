@@ -53,11 +53,7 @@ _TOOLCHAIN_STEP = "run: rustup toolchain install\n"
 @pytest.mark.parametrize(
     ("workflow", "job", "first_make"),
     [
-        ("ci.yml", "lint", "run: make ci-pr-static"),
         ("area-checks.yml", "tests", "run: make fast-test"),
-        ("pr-gate.yml", "base", "run: make pr-gate"),
-        ("area-checks.yml", "native", "run: make cargo-deny-install"),
-        ("full-verification.yml", "full-suite-and-reports", "run: make ci-core-check"),
         ("full-verification.yml", "tests", "run: make full-test"),
         ("full-verification.yml", "shell-compat", "run: make shell-compat"),
     ],

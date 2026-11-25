@@ -46,7 +46,20 @@ with a matching `build` line, and each scanned file with its hash. `native/facts
 a descriptor path to the Rust worker in `ARCHKEEL_TYPE_REACH`. `Filter` drops a trait-impl, destructor or receiver gap
 when no config can run an impl of `b` from `a`. A `dyn Tr` counts as every implementer of `Tr` (class hierarchy). A pair
 without facts for `a` stays. Any `Unavailable` cause adds one whole-scope gap with the exact reason (UNKNOWN). Contract
-3.21.0 adds the premise `rust_type_reach`; CI installs `rustc-dev` in the two jobs that build the core.
+3.21.0 adds the premise `rust_type_reach`.
+
+**CI.** The driver links `librustc_driver` and `libLLVM`. `rustc-dev` alone is not enough: the link fails with
+`cannot find -lLLVM-22-rust-1.97.0-stable` until `llvm-tools` is also installed, and the collector reports
+only "the rustc driver did not build". The two components add about 160 MB (`rustc-dev` 122 MB, `llvm-tools`
+39 MB, compressed) to a minimal toolchain of about 130 MB, so `native/rust-toolchain.toml` does not list them and
+the six wheel jobs do not install them. `make type-reach-setup` runs `rustup toolchain install` in `native/`
+and in `tools/rustc-facts/`, so the toolchain file of the driver is the one source of the components, then `cargo fetch --locked` in `native/`: the producer runs `cargo check --offline`
+over the whole workspace, and a cold runner holds only the crates of the core build (the check then fails with
+"cargo check failed in the default configuration"). Each job that
+runs the self-check calls it once before any parallel step: PR gate `base`, main CI `lint`, `native`, the area
+`CLI and core` of the test jobs, and the Full `full-suite-and-reports` job. `tests/test_native_ci_type_reach.py`
+fails when a job runs the self-check without it. A test that needs the facts skips on a machine without them and
+fails in CI (`tests/rustc_dev_support.py`, with the oracle guard of AD-1048).
 
 **Closes of the reviews.** Each close has a fixture in `tests/rust_reach_fixtures` that runs a real dispatch with a
 counter, and a mutation proof; five controls stay excluded. A `dyn` type argument flows into its instance. A foreign

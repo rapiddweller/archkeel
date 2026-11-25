@@ -12,7 +12,7 @@ export CARGO_TERM_PROGRESS_WHEN := never
 export CARGO_TERM_QUIET := true
 endif
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: type-reach-setup gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -146,8 +146,20 @@ native-check:
 	$(MAKE) native-test
 	$(MAKE) self-validate-native
 
+# AD-1047: the compiler type-reach facts (`[scan] rust_type_reach`) need the pinned channel with the
+# components of tools/rustc-facts/rust-toolchain.toml: `rustc-dev` for the driver and `llvm-tools`, which
+# holds the libLLVM that the driver links (without it the link fails). They add about 160 MB, so only the
+# jobs that run the self-check of native/ install them; the wheel jobs do not. Each `rustup toolchain
+# install` reads the toolchain file of its directory and adds what the channel lacks. The producer runs
+# `cargo check --offline` on the whole workspace of native/, with its dev-dependencies. A cold runner has only
+# the crates of the core build, so the check fails; `cargo fetch` is the one online step that prevents it.
+type-reach-setup:
+	cd native && rustup toolchain install
+	cd tools/rustc-facts && rustup toolchain install
+	cd native && cargo fetch --locked
+
 # AD-1047: the producer tests that run the real toolchain need the pinned channel with `rustc-dev`. They are
-# ignored in `cargo test`, and CI has no `rustc-dev` yet. One thread: the tests share one driver build.
+# ignored in `cargo test`; run `make type-reach-setup` first. One thread: the tests share one driver build.
 # The collect tests produce the facts and write descriptors; the reader tests of the Rust collector read them.
 rustc-facts-e2e:
 	rm -rf native/target/e2e-facts && mkdir -p native/target/e2e-facts

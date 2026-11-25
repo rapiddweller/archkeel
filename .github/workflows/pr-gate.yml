@@ -61,10 +61,9 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      # AD-1047: the self-check reads native/ with compiler facts, so the pinned toolchain needs rustc-dev.
+      # AD-1047: the self-check reads native/ with compiler facts, so the toolchain needs rustc-dev and llvm-tools.
       - name: Install the pinned Rust toolchain
-        working-directory: native
-        run: rustup toolchain install && rustup component add rustc-dev
+        run: make type-reach-setup
 
       # AD-674: when native/ is the same as on a main run that saved its core, the PR downloads
       # that core and builds nothing. When native/ changed, it restores the target directory of

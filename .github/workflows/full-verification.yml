@@ -50,9 +50,9 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
+      # AD-1047: `make self-validate` reads native/ with compiler facts, so the toolchain needs rustc-dev and llvm-tools.
       - name: Install the pinned Rust toolchain once, before any parallel step
-        working-directory: native
-        run: rustup toolchain install
+        run: make type-reach-setup
 
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1
@@ -142,6 +142,11 @@ jobs:
       - name: Install the pinned Rust toolchain once, before any parallel step
         working-directory: native
         run: rustup toolchain install
+
+      # AD-1047: the self-check tests of native/ read compiler facts, so this area needs rustc-dev and llvm-tools.
+      - name: Install the compiler type-reach components
+        if: matrix.area == 'CLI and core'
+        run: make type-reach-setup
 
       - name: Show the runner CPU
         run: lscpu | grep -E '^(Model name|CPU\(s\)):'

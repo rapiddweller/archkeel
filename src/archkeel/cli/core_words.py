@@ -92,6 +92,7 @@ class _RefusedPart(StrEnum):
     RUST_WORKER = "rust worker"
     SCAN = "scan"
     SYSTEM = "system"
+    TYPE_REACH = "type reach"
     TYPESCRIPT_WORKER = "typescript worker"
     WORK_BUDGET = "work budget"
 
@@ -114,6 +115,7 @@ PART_FIXES: Final = {
     ),
     _RefusedPart.SYSTEM: "check the system document that --config names, and its parts.",
     _RefusedPart.RUST_WORKER: "check that the installed Rust worker matches the core and can run.",
+    _RefusedPart.TYPE_REACH: "set ARCHKEEL_FACTS_CACHE to a directory that the scan can write.",
     _RefusedPart.TYPESCRIPT_WORKER: (
         "check that the installed TypeScript worker matches the core and can run."
     ),

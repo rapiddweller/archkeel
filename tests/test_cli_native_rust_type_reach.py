@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 from rust_repository import CRATE_RULES, repository, validate
+from rustc_dev_support import needs_rustc_dev
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="the scan needs git")
 
@@ -73,6 +74,7 @@ def test_a_scan_that_asks_for_facts_without_the_premise_does_not_pass(
     assert "PASS" not in {row[1] for row in result["frame"]["rules"].values()}
 
 
+@needs_rustc_dev
 def test_a_pass_on_the_facts_names_the_premise_in_its_receipt(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
