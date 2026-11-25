@@ -109,7 +109,10 @@ pub(super) fn gaps(withheld: &[Withheld]) -> Vec<Record<GapFact>> {
             data.file = Some(file.clone());
             data.line = *line;
             data.effect = Some(GapEffect::Symbols {
-                modules: modules.iter().map(|name| ModuleName::new(name.as_str())).collect(),
+                modules: (modules.iter())
+                    .map(String::as_str)
+                    .map(ModuleName::new)
+                    .collect(),
             });
             let gap = GapFact::SourceResolutionGap(data);
             Record::unknown_gap(&reason, None, "", gap).1
