@@ -60,5 +60,8 @@ mod tests {
         assert_eq!(text("  List[int]  "), "other");
         assert_eq!(text("not valid code ("), "none");
         assert_eq!(text("x = 1"), "none");
+        // A bracket nest over the stack bound has no tree and must not overflow the stack.
+        let deep = format!("{}int{}", "(".repeat(500_000), ")".repeat(500_000));
+        assert_eq!(text(&deep), "none");
     }
 }

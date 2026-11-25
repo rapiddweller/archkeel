@@ -63,8 +63,14 @@ pub(crate) fn comments(text: &str) -> Vec<std::ops::Range<usize>> {
 }
 
 /// The expression that `eval` reads from `text` (a string annotation), or `None` when it does not
-/// parse. The newest syntax is accepted: a text that fails to parse imports nothing.
+/// parse. The newest syntax is accepted: a text that fails to parse imports nothing. A text over
+/// the work or stack bound of `parse` has no tree: CPython stops on it too, and ruff must not
+/// overflow its own stack.
 pub(crate) fn expression(text: &str) -> Option<ruff_python_ast::Expr> {
+    let found = scan(text, &Lines::new(text), PyMinor::Py314);
+    if text.len() > work::MAX_WORK || found.stack > MAX_STACK {
+        return None;
+    }
     let parsed = ruff_python_parser::parse_expression(text.trim()).ok()?;
     Some(*parsed.into_syntax().body)
 }
