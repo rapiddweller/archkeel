@@ -6,7 +6,7 @@
 
 **Decision.**
 1. The survey parses each string in an annotation position (a parameter, a return, a variable) and the first argument of `ForwardRef` as an expression. Strings inside the annotation count too (`list["..."]`).
-2. It reads the expression with the rules of the module. A hazard in it (a trojan horse name, a standard library importer of AD-1059, a re-exported name of AD-1089) is a `dynamic_import` site. The site stands at the string.
+2. It reads the expression with the rules of the module. A hazard in it (a trojan horse name, a standard library importer of AD-1059, a re-exported name of AD-1094) is a `dynamic_import` site. The site stands at the string.
 3. The text runs in the global names of its module. The walk of the text uses no proof, no inert read and no local name of the real tree. A range in the text is no range in the file.
 4. A text that does not parse is no site: CPython raises a `SyntaxError` and imports nothing.
 5. The strings of `Literal[...]` are values, not annotations. They are not read.
