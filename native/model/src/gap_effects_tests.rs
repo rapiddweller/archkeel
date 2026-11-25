@@ -50,11 +50,14 @@ fn contract() -> Result<Contract, Box<dyn std::error::Error>> {
             .ok_or("component")?
             .remove("inside");
     }
+    value["schema_version"] = json!("3.21.0");
     let rules = value["rules"].as_array_mut().ok_or("rules")?;
     let head = json!({"rationale": "r", "provenance": ["p"], "decided_by": "architect"});
     for mut rule in [
         json!({"id": "MODULE-CYCLES", "kind": "no_component_cycles", "level": "module"}),
         json!({"id": "REQUIRES", "kind": "complete_requires"}),
+        json!({"id": "DEP-APP-INDIRECT", "kind": "forbidden_dependency", "source": "shop.app",
+            "target": "shop.store", "include_type_checking": true, "indirect": true}),
         json!({"id": "SELECTOR", "kind": "forbidden_construct", "source": "shop.app",
             "constructs": ["string_literal_compare"],
             "selector": {"receiver": "Order", "member": "id", "role": "read"}}),
@@ -98,7 +101,7 @@ const STORE: &str = "shop.store.sqlite";
 const LOOSE: &str = "shop.loose";
 
 /// What each rule reads of some module, of `APP`, of `STORE` and of `LOOSE`.
-const ROWS: [(&str, [ReadSet; 4]); 22] = [
+const ROWS: [(&str, [ReadSet; 4]); 23] = [
     // The root and the source are `shop`: each module below it.
     ("ROOT-LAYOUT", [LAYOUT; 4]),
     ("ASSIGNMENT-COMPLETE", [LAYOUT; 4]),
@@ -107,6 +110,9 @@ const ROWS: [(&str, [ReadSet; 4]); 22] = [
     // The sources are the modules of `app`, and a module without an owner.
     ("DEP-APP-NO-RENDER", [EDGES, EDGES, NONE, EDGES]),
     ("DEP-STORE-NO-APP", [EDGES, NONE, EDGES, EDGES]),
+    // A chain can run through any module, so an `indirect` rule reads the edges of each one
+    // (AD-1085): `store` is no source here, and the direct rule above reads none of it.
+    ("DEP-APP-INDIRECT", [EDGES; 4]),
     // A `target_symbol` reads the code of each module.
     ("DEP-STORE-NO-MONEY", [BOTH, CODE, BOTH, BOTH]),
     ("EXTERNAL-COMPLETE", [EDGES; 4]),
@@ -157,6 +163,23 @@ fn each_rule_kind_reads_the_facts_that_its_row_states() -> Result<(), Box<dyn st
         let layout = rule(id).ok_or(id)?;
         assert_eq!(reads(&model, layout, Some("other.loose")), NONE, "{id}");
     }
+    // A pair gap between any two modules can hide a link of a chain.
+    let pair_reads = |id: &str| -> Result<_, Box<dyn std::error::Error>> {
+        let rule = rule(id).ok_or(id)?;
+        Ok(crate::pair_gaps::reads(
+            rule,
+            contract.components(),
+            contract.rules(),
+        ))
+    };
+    assert_eq!(
+        pair_reads("DEP-APP-INDIRECT")?,
+        crate::pair_gaps::Reads::Every
+    );
+    assert!(matches!(
+        pair_reads("DEP-APP-NO-RENDER")?,
+        crate::pair_gaps::Reads::Sides(_)
+    ));
     // An exact allowed source of a forbidden dependency is no source.
     let sqlite = rule("DEP-APP-NO-STORE-SQLITE").ok_or("DEP-APP-NO-STORE-SQLITE")?;
     assert_eq!(reads(&model, sqlite, Some("shop.app.maintenance")), NONE);

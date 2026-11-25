@@ -167,3 +167,25 @@ fn a_mount_without_a_complete_inventory_has_no_requires_receipt() {
         );
     }
 }
+
+#[test]
+fn a_mount_has_no_pass_for_an_indirect_rule() {
+    // A chain can leave the domain of the mount, where the mount reads no edge (AD-1085).
+    let rule = json!({"id": "IN-INDIRECT", "kind": "forbidden_dependency", "rationale": "r",
+        "provenance": ["docs/a.md"], "decided_by": "architect", "indirect": true,
+        "source": "shop.src.domain", "target": "shop.src.data", "include_type_checking": true});
+    let mounted = json!({"schema_version": "3.21.0", "components": domain_components(),
+        "rules": [rule]});
+    let found = tree("domain", None, &mounted);
+    assert_eq!(found.as_ref().map(|tree| tree.mounts().len()), Some(1));
+    for model in found.iter().flat_map(ModelTree::mounts) {
+        let rule = model.contract().rules().iter().next();
+        let why = rule.map(|rule| crate::scope_receipt::receipt(model, rule));
+        let text = why.and_then(Result::err).map(|reason| reason.to_string());
+        assert!(
+            text.as_deref()
+                .is_some_and(|text| text.contains("indirect")),
+            "{text:?}"
+        );
+    }
+}

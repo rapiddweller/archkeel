@@ -72,6 +72,18 @@ fn a_dynamic_import_of_a_forbidden_source_holds_the_rule_back() {
 }
 
 #[test]
+fn an_indirect_rule_reads_a_dynamic_import_of_any_module() {
+    // The limit lies outside the source side: only a chain can run through it (AD-1085).
+    let indirect = both(
+        set_rule("DOMAIN-NO-DATA", "indirect", json!(true)),
+        |contract: &mut Value| contract["schema_version"] = json!("3.21.0"),
+    );
+    let outside = dynamic("shop.src.data.local_x2e_ts", Some(false));
+    let found = seen("DOMAIN-NO-DATA", indirect, outside, PLAIN);
+    assert_eq!(word(found), unknown(not_complete(Cause::DynamicImport)));
+}
+
+#[test]
 fn a_type_only_dynamic_import_reaches_only_a_rule_that_includes_type_only_imports() {
     let value_only = set_rule("DOMAIN-NO-DATA", "include_type_checking", json!(false));
     let found = seen(
