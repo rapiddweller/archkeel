@@ -80,6 +80,17 @@ impl<'f> Reach<'f> {
                 .iter()
                 .for_each(|x| impls_of.entry(x.as_str()).or_default().push(imp));
         }
+        // A blanket impl has no ADT in its self type, so `impls_of` misses it: it applies to any type, and its
+        // associated types are reached whenever the module reaches a type (hole H3).
+        let blanket: Vec<&ImplFacts> = f
+            .impls
+            .iter()
+            .filter(|i| {
+                i.tr.is_some()
+                    && i.adts.is_empty()
+                    && !(i.assoc.is_empty() && i.assoc_dyns.is_empty())
+            })
+            .collect();
         let none = Names::new();
         // A `dyn` in a field of a foreign ADT holds what some body coerced to it: workspace code, or code
         // that a type of the workspace reached (`coerced`); not each implementer in the workspace.
@@ -104,7 +115,11 @@ impl<'f> Reach<'f> {
                 more.extend(fields.iter().cloned());
                 dyns.extend(field_dyns.iter().cloned());
                 // An associated type of a reached impl is reached (hole H3).
-                let impls = impls_of.get(t.as_str()).into_iter().flatten();
+                let impls = impls_of
+                    .get(t.as_str())
+                    .into_iter()
+                    .flatten()
+                    .chain(&blanket);
                 let (assoc, assoc_dyns): (Vec<_>, Vec<_>) =
                     impls.map(|imp| (&imp.assoc, &imp.assoc_dyns)).unzip();
                 more.extend(assoc.into_iter().flatten().cloned());

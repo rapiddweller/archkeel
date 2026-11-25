@@ -234,3 +234,67 @@ fn a_cargo_config_env_table_cannot_override_the_variables_of_the_driver() {
         .unwrap();
     assert!(made.runs.iter().all(|run| !run.units.is_empty()));
 }
+
+/// The text of each facts file of one configuration whose name starts with `krate-`.
+fn facts_of(run: &crate::rustc_facts::FactsRun, krate: &str) -> String {
+    let prefix = format!("{krate}-");
+    let files = std::fs::read_dir(&run.dir)
+        .unwrap()
+        .map(|e| e.unwrap().path());
+    let mine = files.filter(|f| {
+        let name = f.file_name().unwrap().to_string_lossy().to_string();
+        name.starts_with(&prefix) && !name.ends_with("-test.jsonl")
+    });
+    mine.map(|f| std::fs::read_to_string(f).unwrap()).collect()
+}
+
+/// A scan with a warm cache after an edit of a dependent crate gives the facts of a cold scan. Cargo keeps
+/// the unchanged members fresh, so the driver does not run for them: the crate ids of the members must
+/// survive in the registry, or the types of a fresh member look foreign in the dependent (a Codex review
+/// finding of #1964). `rn_pkg::erase_any` is a function of a member: the call from `fx` seeds it.
+#[test]
+#[ignore = "needs the pinned toolchain with rustc-dev; run `make rustc-facts-e2e`"]
+fn a_warm_scan_after_an_edit_gives_the_facts_of_a_cold_scan() {
+    let _one = REAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tools = real_tools();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/rust_reach_fixtures/coll");
+    let ws = real_cache().join("warm-coll");
+    std::fs::create_dir_all(real_cache()).unwrap();
+    let _ = std::fs::remove_dir_all(&ws);
+    let copied = Command::new("cp")
+        .arg("-R")
+        .arg(&source)
+        .arg(&ws)
+        .status()
+        .unwrap();
+    assert!(copied.success());
+    let ws = ws.canonicalize().unwrap();
+    let manifest = ws.join("crates/Cargo.toml");
+    let (warm_cache, cold_cache) = (real_cache().join("warm"), real_cache().join("cold"));
+    let first = tools
+        .produce(&ws, &manifest, &warm_cache)
+        .map_err(|e| e.describe())
+        .unwrap();
+    assert!(facts_of(&first.runs[0], "fx").contains("rn_pkg::erase_any"));
+    let main = ws.join("crates/fx/src/main.rs");
+    let text = std::fs::read_to_string(&main).unwrap();
+    std::fs::write(&main, format!("{text}\n// edited\n")).unwrap();
+    let warm = tools
+        .produce(&ws, &manifest, &warm_cache)
+        .map_err(|e| e.describe())
+        .unwrap();
+    let cold = tools
+        .produce(&ws, &manifest, &cold_cache)
+        .map_err(|e| e.describe())
+        .unwrap();
+    for (w, c) in warm.runs.iter().zip(&cold.runs) {
+        let (warm_fx, cold_fx) = (facts_of(w, "fx"), facts_of(c, "fx"));
+        assert_eq!(
+            warm_fx.matches("rn_pkg::erase_any").count() > 0,
+            cold_fx.matches("rn_pkg::erase_any").count() > 0,
+            "the warm facts of fx in {} differ from the cold facts",
+            w.config.cfg_name()
+        );
+        assert_eq!(warm_fx.lines().count(), cold_fx.lines().count());
+    }
+}

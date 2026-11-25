@@ -19,6 +19,9 @@ mod gdrop_c;
 mod assoc_a;
 mod assoc_b;
 mod assoc_c;
+mod blanket_a;
+mod blanket_b;
+mod blanket_c;
 mod async_a;
 mod async_b;
 mod async_w;
@@ -355,4 +358,6 @@ fn main() {
     println!("gdrop={}", api::hits(71));
     assoc_c::run();
     println!("assoc={}", api::hits(72));
+    blanket_c::run();
+    println!("blanket={}", api::hits(73));
 }

@@ -133,7 +133,7 @@ pub(crate) fn flags(config: &Config) -> Vec<String> {
 
 /// Give `cmd` the variables of the driver. A `[env]` table with `force = true` in a config file of the
 /// repository would beat a plain variable, so each one also goes through `--config`, which beats every
-/// config file. The member list and the registry directory are made in `base`. `None` when that fails.
+/// config file. The member list and the registry directory are made in `base`; an existing registry stays. `None` when that fails.
 pub(crate) fn set_driver_vars(
     cmd: &mut Command,
     base: &Path,
@@ -151,8 +151,9 @@ pub(crate) fn set_driver_vars(
         return None;
     }
     std::fs::write(&list, pairs.join("\n")).ok()?;
+    // The registry persists with the work directory: Cargo keeps an unchanged member fresh, the driver does not
+    // run for it, and a dependent must still find its crate id. A change of members resets the directory.
     let registry = base.join("registry");
-    let _ = std::fs::remove_dir_all(&registry);
     std::fs::create_dir_all(&registry).ok()?;
     let own = [
         ("AK_FACTS_MEMBERS", list.display().to_string()),

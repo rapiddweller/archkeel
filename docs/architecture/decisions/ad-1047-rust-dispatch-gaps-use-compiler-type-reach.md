@@ -12,7 +12,7 @@ when the contract declares the premise. Without facts, the gaps stay.
 **Reason.** The syntax scan sees no types, so AD-806 gives a gap to every module that reaches `b`.
 **Type reach of a module `a`.** The ADTs in the types of locals, calls, signatures, casts and constants of every
 body in `a`, with closures, their field closure, hidden types of opaque types, generic instances that flow in, and
-associated-type ADTs of reached impls. For each `dyn Tr` in reach, add each type that is coerced to `Tr`.
+associated-type ADTs of reached impls (any type reaches a blanket impl). For each `dyn Tr` in reach, add each type that is coerced to `Tr`.
 
 **Premises of a PASS (`rust_type_reach`).** This list is the one place of the premises. The contract declares the
 premise `rust_type_reach`, and each PASS that a dropped gap decides names it.
@@ -57,11 +57,11 @@ parallel step. `tests/test_native_ci_type_reach.py` fails when a job does not. A
 a machine without them and fails in CI (`tests/rustc_dev_support.py`, with the oracle guard of AD-1048).
 
 **Closes of the reviews.** Each close has a fixture in `tests/rust_reach_fixtures` that runs a real dispatch with a
-counter, and a mutation proof. Five controls stay excluded. A `dyn` type argument flows into its instance. A foreign
-ADT has an `adt` record. An open `dyn` takes each type that flows into foreign code. A raw pointer to `()`, `c_void`,
-an extern type or a number hides a type: a module or an ADT that holds one reaches the types that a cast hid. An opaque
-type or an async block in a type argument flows by its name, and so do the `dyn` traits of an associated type. A scan
-without the premise has no facts and says so (UNKNOWN). Facts that name no scan module add a gap.
+counter, and a mutation proof. A `dyn` type argument flows into its instance. A foreign ADT has an `adt` record. An open
+`dyn` takes each type that flows into foreign code. A raw pointer to `()`, `c_void`, an extern type or a number hides a
+type: a module or an ADT that holds one reaches the types that a cast hid. An opaque type or an async block in a type
+argument flows by its name, and so do the `dyn` traits of an associated type. Facts that name no scan module add a gap.
+A warm cache keeps the crate ids of fresh members.
 
 **Limits.**
 - The facts path is a hidden input of the scan: it is not part of the request.

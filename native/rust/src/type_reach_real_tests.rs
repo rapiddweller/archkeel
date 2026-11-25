@@ -53,7 +53,7 @@ fn the_reader_verifies_the_facts_of_the_native_workspace() {
 /// The cases of `tests/rust_reach_fixtures/ws`: each has `<case>_a`, whose code dispatches into an impl
 /// in `<case>_b`. The first group runs that impl at run time, so the pair is real and must stay;
 /// the controls never run it, and the filter may exclude the pair.
-const KEPT: [&str; 64] = [
+const KEPT: [&str; 65] = [
     "direct",
     "h1",
     "h2",
@@ -118,6 +118,7 @@ const KEPT: [&str; 64] = [
     "asyncg",
     "gdrop",
     "assoc",
+    "blanket",
 ];
 const CONTROLS: [&str; 5] = ["none", "dyn", "generic", "other", "unbound"];
 

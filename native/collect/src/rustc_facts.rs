@@ -323,15 +323,6 @@ fn produce(
     let work = cache
         .join("work")
         .join(format!("{channel}-{}-{}", &sha[..16], &key[..16]));
-    // Cargo keeps a unit fresh when only `Cargo.lock` changed, and its raw file would carry the old
-    // hash: one lock, one work directory.
-    let marker = work.join("lock.sha256");
-    if std::fs::read_to_string(&marker).ok().as_deref() != Some(lock_sha256.as_str()) {
-        let _ = std::fs::remove_dir_all(&work);
-        std::fs::create_dir_all(&work)
-            .and_then(|()| std::fs::write(&marker, &lock_sha256))
-            .map_err(|_| Unavailable::CargoCheckFailed(Config::Default))?;
-    }
     let metadata = sealed(&tools.rustup, channel, "metadata")
         .args([
             "--format-version",
@@ -346,6 +337,17 @@ fn produce(
         .filter(|out| out.status.success())
         .ok_or(Unavailable::MetadataFailed)?;
     let members = members(&metadata.stdout, scan_root)?;
+    // Cargo keeps a unit fresh when only `Cargo.lock` changed, and its raw file would carry the old hash. A
+    // fresh member does not run the driver, so its registry entry (its crate id) must be of this member set:
+    // one lock and one member set, one work directory.
+    let marker = work.join("identity.sha256");
+    let identity = sha256_hex(format!("{lock_sha256}\n{:?}", members.roots).as_bytes());
+    if std::fs::read_to_string(&marker).ok().as_deref() != Some(identity.as_str()) {
+        let _ = std::fs::remove_dir_all(&work);
+        std::fs::create_dir_all(&work)
+            .and_then(|()| std::fs::write(&marker, &identity))
+            .map_err(|_| Unavailable::CargoCheckFailed(Config::Default))?;
+    }
     let configs = configs(&members)?;
     let root = format!("{}/", scan_root.display());
     let job = Job {
