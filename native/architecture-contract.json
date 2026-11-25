@@ -5633,6 +5633,13 @@
           "through": [
             "native.archkeel_rust_collector.builder"
           ]
+        },
+        {
+          "component": "rs-type-reach",
+          "rationale": "State the verified type-reach facts as the provenance fact of the reply (AD-1114).",
+          "through": [
+            "native.archkeel_rust_collector.type_reach"
+          ]
         }
       ],
       "public": [
