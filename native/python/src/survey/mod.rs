@@ -126,7 +126,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         uncertain.then_some(crate::inputs::PYPROJECT),
     );
     let mut writes = class_writes::ClassWrites::default();
-    let outside = outside::written(
+    let (outside, withheld_by) = outside::written(
         &mut snapshot,
         (&mut parsed.modules, &scope.selected),
         namespace,
@@ -284,6 +284,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     }
     let unambiguous_layout = found.is_empty();
     unknowns.extend(found);
+    unknowns.extend(outside::gaps(&withheld_by));
     unknowns.extend(sites.into_values());
     unknowns.extend(layout::problems(&snapshot.problems));
     let selected: HashSet<&str> = scope.selected.iter().map(String::as_str).collect();
