@@ -69,9 +69,33 @@ fn copy(from: &Path, to: &Path) {
 }
 
 /// A copy of the H-typescript fixture with a Git directory, canonical.
-pub(crate) fn repository(name: &str) -> PathBuf {
-    let root =
-        std::env::temp_dir().join(format!("archkeel-core-scan-{name}-{}", std::process::id()));
+pub(crate) struct Scratch(PathBuf);
+
+impl std::ops::Deref for Scratch {
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl AsRef<Path> for Scratch {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+pub(crate) fn repository(name: &str) -> Scratch {
+    let root = Scratch(
+        fs::canonicalize(std::env::temp_dir())
+            .unwrap()
+            .join(format!("archkeel-core-scan-{name}-{}", std::process::id())),
+    );
     let _ = fs::remove_dir_all(&root);
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/H-typescript");
     copy(&fixture, &root);
@@ -100,7 +124,7 @@ pub(crate) fn repository(name: &str) -> PathBuf {
             .unwrap()
             .success());
     }
-    fs::canonicalize(root).unwrap()
+    root
 }
 
 pub(crate) fn request(root: &Path) -> serde_json::Value {
@@ -142,7 +166,7 @@ fn the_core_runs_the_collector_and_derives_the_request() {
     assert!(!named.contains(PRODUCER_NOT_VERIFIED), "{named}");
 }
 
-fn attribute_repository(name: &str) -> PathBuf {
+fn attribute_repository(name: &str) -> Scratch {
     let root = repository(name);
     fs::write(root.join("archkeel.toml"), "[scan]\nlanguage = \"rust\"\nroots = [\"crates\"]\nnamespace = \"app\"\ncontract = \"architecture-contract.json\"\n").unwrap();
     let files = [

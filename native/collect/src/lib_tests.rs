@@ -7,7 +7,7 @@
 
 use std::fs;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use flate2::read::ZlibDecoder;
 
@@ -36,7 +36,7 @@ pub(super) fn copy(from: &Path, to: &Path) {
 }
 
 /// A copy of a fixture with a Git directory whose `HEAD` names `HEAD` on `main`.
-pub(super) fn repository(fixture: &str) -> PathBuf {
+pub(super) fn repository(fixture: &str) -> crate::repository::tests::Scratch {
     let root = scratch(&format!("fixture-{fixture}"));
     copy(
         &Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../../fixtures/{fixture}")),
