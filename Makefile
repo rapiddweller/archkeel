@@ -12,7 +12,7 @@ export CARGO_TERM_PROGRESS_WHEN := never
 export CARGO_TERM_QUIET := true
 endif
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system self-check native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -177,8 +177,8 @@ SELFCHECK_ARGS ?=
 # The gate fails on growth against the base commit (AD-1064), not on the gaps that exist.
 self-validate-native: core
 	@mkdir -p test-artifacts/validation-native
-	@$(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || true
-	@$(UV) run --locked python tools/self_check_gate.py --result test-artifacts/validation-native/result.json --base "$(SELFCHECK_BASE)" --uv "$(UV)" $(SELFCHECK_ARGS)
+	@$(UV) run --locked archkeel report --config native/archkeel.toml --json --topology > test-artifacts/validation-native/result.json || true
+	@$(UV) run --locked python tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py --result test-artifacts/validation-native/result.json --base "$(SELFCHECK_BASE)" --uv "$(UV)" $(SELFCHECK_ARGS)
 	@echo "Native architecture rules: full result: test-artifacts/validation-native/result.json"
 
 # AD-478: Archkeel checks the Python shell of src/archkeel with its own core and its own contract.
@@ -186,7 +186,7 @@ self-validate-native: core
 # the contract at the base commit, or the loss is approved (`tools/self_check_shell.py`).
 self-validate-shell: core
 	@mkdir -p test-artifacts/validation-shell
-	@$(UV) run --locked archkeel validate --config docs/architecture/shell.toml --json > test-artifacts/validation-shell/result.json || true
+	@$(UV) run --locked archkeel report --config docs/architecture/shell.toml --json --topology > test-artifacts/validation-shell/result.json || true
 	@$(UV) run --locked python tools/self_check_shell.py test-artifacts/validation-shell/result.json docs/architecture/target/shell-contract.json --base "$(SELFCHECK_BASE)" $(SELFCHECK_ARGS)
 	@echo "Shell architecture rules: all PASS; full result: test-artifacts/validation-shell/result.json"
 
@@ -194,11 +194,24 @@ self-validate-shell: core
 # status by the status rule of the core, then one line for each part. The gate of each part
 # is above, so a FAIL or UNKNOWN (exit 1 or 2) does not stop make; a refusal does.
 SYSTEM_DOCUMENT := docs/architecture/architecture-system.json
+# AD-1088: the JSON of the same run, for `make self-check`.
+SYSTEM_RESULT := test-artifacts/validation-system/result.json
 self-validate-system: core
-	@$(UV) run --locked archkeel validate --text --config $(SYSTEM_DOCUMENT); test $$? -le 2
+	@mkdir -p $(dir $(SYSTEM_RESULT))
+	@$(UV) run --locked archkeel report --text --config $(SYSTEM_DOCUMENT) --output $(SYSTEM_RESULT) --format json; test $$? -le 2
 
 # AD-478: the shell and native/ with their own contracts, then the system line.
 self-validate: self-validate-native self-validate-shell self-validate-system
+
+# AD-1088: the first and the last command of an agent that changes ArchKeel. It runs make self-validate (the
+# gates decide the exit code), then prints at most 40 lines from the results of that run: the verdicts, what is
+# new against the base, the UNKNOWN causes, and the measured size, import and cycle facts. No checker runs twice.
+self-check: core
+	@mkdir -p test-artifacts/selfcheck
+	@rm -f test-artifacts/validation-native/result.json test-artifacts/validation-shell/result.json test-artifacts/validation-system/result.json test-artifacts/selfcheck/compared-base.json
+	@status=0; $(MAKE) -k --no-print-directory self-validate > test-artifacts/selfcheck/self-validate.log 2>&1 || status=$$?; \
+	$(UV) run --locked python tools/self_check_summary.py --status $$status --log test-artifacts/selfcheck/self-validate.log; \
+	exit $$status
 
 # AD-606: the core checks the Explorer scripts of the report page with their contract. The result is
 # shown, not gated: the gaps of the scripts stay visible until a change removes them.
@@ -245,7 +258,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/self_check_diff.py tools/self_check_gate.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
 	native/hatch_build.py
 
 lint:
@@ -256,7 +269,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/self_check_diff.py tools/self_check_gate.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
+	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 flutter-demo-check:

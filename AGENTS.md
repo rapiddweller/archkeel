@@ -4,6 +4,10 @@ Guidance for coding agents that change Archkeel. People and agents follow the sa
 
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) before you change code. It owns the setup, the
   pre-push gate, the decision-record rule and the writing standard.
+- Run `make self-check` as your first command and as your last command. It prints at most 40 lines: the
+  verdicts, what is new against the base commit, the largest UNKNOWN causes, the size of files and the
+  import hotspots. Size and hotspots are measured values and never change the exit code
+  ([AD-1088](docs/architecture/decisions/ad-1088-make-self-check-prints-the-first-minute-of-a-change-in-40-lines.md)).
 - Keep agent plans, working specs and evidence out of the repository. A final checked story may
   live at `.archkeel/stories/<id>.story.json` under
   [AD-291](docs/architecture/decisions/ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md).

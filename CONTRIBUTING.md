@@ -144,6 +144,12 @@ files with the pinned compiler output. The installed Studio serves these files w
 
 ## Inspect the native self-check
 
+`make self-check` runs `make self-validate` and prints at most 40 lines from its results: the
+verdicts, the growth against the base commit, the largest UNKNOWN causes, files over the size limit
+and near it, the import hotspots and the cycles. Run it before you change code and before you push.
+Its exit code is the one of `make self-validate`. The full output is in
+`test-artifacts/selfcheck/self-validate.log` ([AD-1088](docs/architecture/decisions/ad-1088-make-self-check-prints-the-first-minute-of-a-change-in-40-lines.md)).
+
 ArchKeel checks the Rust source of `native/` with its own core (AD-432). No file lists the accepted
 gaps: the gate compares your result with the same run on the base commit
 ([AD-1064](docs/architecture/decisions/ad-1064-the-pin-files-are-deleted-and-the-base-comparison-is-the-only-self-check-gate.md)).
