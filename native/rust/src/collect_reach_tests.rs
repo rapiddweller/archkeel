@@ -5,14 +5,13 @@
 // AD-1114: the reply carries the provenance of the type-reach facts only when the scan used them.
 
 use crate::collect::tests::{APP, BASE, WORKSPACE};
-use archkeel_facts::envelope::TypeReach;
 use archkeel_facts::envelope::{Dirty, Profile, Provenance};
 use archkeel_facts::request::{RustRequest, RustSettings, Scope, Snapshot};
 use archkeel_snapshot::test_tree::Tree;
 use archkeel_wire::protocol::Version;
 
-fn fact() -> TypeReach {
-    TypeReach {
+fn reached() -> crate::type_reach::Reached {
+    crate::type_reach::Reached {
         rustc: "rustc 1.97.0\n".to_owned(),
         target_triple: "aarch64-apple-darwin".to_owned(),
         driver_sha256: "d".repeat(64),
@@ -32,7 +31,7 @@ fn reach(module: &str) -> crate::type_reach::Announced {
         "{\"k\":\"mod\",\"m\":0,\"file\":1,\"mentions\":[],\"dyn\":[],\"opaque\":[],\"dyn_in\":[]}"
     );
     facts.absorb(&text).unwrap();
-    Some(Ok((vec![facts], fact())))
+    Some(Ok((vec![facts], reached())))
 }
 
 fn typed(announce: crate::type_reach::Announced) -> archkeel_facts::envelope::Reply {
@@ -66,7 +65,10 @@ fn typed(announce: crate::type_reach::Announced) -> archkeel_facts::envelope::Re
 #[test]
 fn a_reply_with_used_facts_carries_the_typed_fact() {
     let reply = typed(reach("app"));
-    assert_eq!(reply.facts.type_reach, Some(fact()));
+    let fact = reply.facts.type_reach.expect("a fact");
+    assert_eq!(fact.configs, reached().configs);
+    assert_eq!(fact.members, reached().members);
+    assert_eq!(fact.driver_sha256, reached().driver_sha256);
 }
 
 #[test]

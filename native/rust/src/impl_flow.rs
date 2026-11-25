@@ -140,9 +140,8 @@ pub(super) fn settle(
     let filter = (!facts.is_empty()).then(|| Filter::new(&facts, &known));
     if filter.as_ref().is_some_and(|f| f.matched() == 0) {
         builder.gap(Filter::no_module(), None, "");
-        // Facts of another scan are not used: the reply states no provenance (AD-1114).
-        builder.reach_fact = None;
     }
+    builder.reach_used = filter.as_ref().is_some_and(|f| f.matched() > 0);
     let mut open = std::mem::take(&mut pool.items);
     let mut ctx = FlowContext {
         edges: import_edges(builder),

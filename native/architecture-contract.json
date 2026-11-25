@@ -5667,7 +5667,6 @@
           "component": "facts",
           "rationale": "Name the typed cause when the facts do not match the scan (AD-1047).",
           "through": [
-            "native.archkeel_facts.envelope",
             "native.archkeel_facts.type_reach"
           ]
         }
@@ -5675,6 +5674,7 @@
       "decided_by": "architect",
       "public": [
         "native.archkeel_rust_collector.type_reach:Announced",
+        "native.archkeel_rust_collector.type_reach:Reached",
         "native.archkeel_rust_collector.type_reach:announced",
         "native.archkeel_rust_collector.type_reach_facts:Facts",
         "native.archkeel_rust_collector.type_reach_filter:Filter"

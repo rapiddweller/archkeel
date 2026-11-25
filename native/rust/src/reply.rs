@@ -17,6 +17,7 @@ use archkeel_wire::typed::assemble;
 
 use crate::builder::Builder;
 use crate::tree::Walked;
+use crate::type_reach::Reached;
 use archkeel_snapshot::Snapshot;
 
 const SECTIONS: [&str; 4] = ["imports", "symbols", "unknowns", "calls"];
@@ -63,8 +64,8 @@ pub(crate) struct Collected {
     pub evidence: Vec<Evidence>,
     /// The scan states `LOCK_PREMISE` with its verdict.
     pub lock_premise: bool,
-    /// The provenance of the type-reach facts that the scan verified and used (AD-1114).
-    pub reach_fact: Option<TypeReach>,
+    /// The binding values of the type-reach facts that the scan verified and used (AD-1114).
+    pub reached: Option<Reached>,
 }
 
 impl Collected {
@@ -82,7 +83,7 @@ impl Collected {
     /// stream keeps its frozen statement set, as the Python survey does (AD-504).
     pub(crate) fn typed(mut self, version: Version) -> Result<Reply, String> {
         let premise = self.lock_premise;
-        let reach_fact = self.reach_fact.take();
+        let reached = self.reached.take();
         let (head, records) = self.parts();
         let mut reply = assemble(version, head, |writer| records.produce(writer))?;
         reply.facts.profile_limits = Some(ProfileLimits {
@@ -92,7 +93,14 @@ impl Collected {
         });
         let features = &mut reply.facts.capabilities.resolution_features;
         features.push(ROUTES_FEATURE.to_owned());
-        reply.facts.type_reach = reach_fact;
+        reply.facts.type_reach = reached.map(|found| TypeReach {
+            rustc: found.rustc,
+            target_triple: found.target_triple,
+            driver_sha256: found.driver_sha256,
+            cargo_lock_sha256: found.cargo_lock_sha256,
+            members: found.members,
+            configs: found.configs,
+        });
         reply.facts.scope_premise = Some(
             (if premise {
                 LOCK_PREMISE
@@ -116,7 +124,7 @@ impl Collected {
             files_read,
             evidence,
             lock_premise: _,
-            reach_fact: _,
+            reached: _,
         } = self;
         (
             head,
@@ -187,7 +195,6 @@ impl Builder {
             mut symbols,
             targets,
             lock_premise,
-            reach_fact,
             ..
         } = self;
         files.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
@@ -222,7 +229,7 @@ impl Builder {
             files_read,
             evidence: evidence.into_values().collect(),
             lock_premise,
-            reach_fact,
+            reached: None,
         }
     }
 }

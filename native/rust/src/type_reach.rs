@@ -16,7 +16,6 @@
 //! unit read is listed too, because its `cfg(not(test))` code is not seen.
 
 use crate::type_reach_facts::Facts;
-use archkeel_facts::envelope::TypeReach;
 use archkeel_facts::type_reach::{Config, Field, Unavailable, ENV};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -241,8 +240,25 @@ fn verify(
     })
 }
 
+/// The binding values of verified facts: the reply states them as `TypeReach` when the scan used the facts
+/// (AD-1114). A plain value, so that no module that holds it gains a trait impl to reach.
+pub struct Reached {
+    /// The text of `rustc -vV`.
+    pub rustc: String,
+    /// The target triple.
+    pub target_triple: String,
+    /// The SHA-256 of the driver source.
+    pub driver_sha256: String,
+    /// The SHA-256 of `Cargo.lock`.
+    pub cargo_lock_sha256: String,
+    /// The directory of each workspace member.
+    pub members: Vec<String>,
+    /// The name of each configuration.
+    pub configs: Vec<String>,
+}
+
 /// The facts of the producer and their provenance, or the cause why a scan that asked has none.
-pub type Announced = Option<Result<(Vec<Facts>, TypeReach), String>>;
+pub type Announced = Option<Result<(Vec<Facts>, Reached), String>>;
 
 /// The facts that the producer announced in the descriptor that `ARCHKEEL_TYPE_REACH` names, checked
 /// against the scan, with their provenance. `None` when the variable is unset: the scan asks for no facts.
@@ -255,7 +271,7 @@ pub fn announced(scanned: impl FnOnce() -> BTreeMap<String, String>) -> Announce
 fn read_descriptor(
     path: &Path,
     scanned: &BTreeMap<String, String>,
-) -> Result<(Vec<Facts>, TypeReach), String> {
+) -> Result<(Vec<Facts>, Reached), String> {
     let text =
         std::fs::read_to_string(path).map_err(|e| format!("cannot read the descriptor: {e}"))?;
     let descriptor: Value =
@@ -328,7 +344,7 @@ fn read_descriptor(
     if all.is_empty() {
         return Err("the descriptor names no configuration".to_string());
     }
-    let fact = TypeReach {
+    let fact = Reached {
         rustc: word("rustc"),
         target_triple: word("target_triple"),
         driver_sha256: word("driver_sha256"),
