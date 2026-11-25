@@ -173,7 +173,7 @@ def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> t
             )
         except ValueError:
             hit = legacy = False
-        if legacy:
+        if legacy and isinstance(found, dict):
             message = (
                 "scope comparison: base scope not in the v1 cache; "
                 "it starts when main writes the v2 cache"
@@ -223,6 +223,8 @@ def gate(argv: list[str]) -> int:
         return 1
     KEPT.parent.mkdir(parents=True, exist_ok=True)
     KEPT.write_text(json.dumps(own), encoding="utf-8")
+    if own["refusal"]:
+        return diff(["alone", str(KEPT)])
     if "--no-compare" in argv:
         return diff(["alone", str(KEPT)])
     try:
