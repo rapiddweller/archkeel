@@ -215,6 +215,33 @@ def test_the_label_comes_as_a_boolean_and_label_text_is_ignored(repo: Path, tmp_
     assert done.returncode == 0, done.stdout
 
 
+def test_a_symlinked_artifact_directory_is_red_and_its_base_is_not_read(repo: Path) -> None:
+    """#1980: `git ls-files` shows nothing through a symlink, the path holds a planted base."""
+    keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"), "base.json")
+    (repo / "x").mkdir()
+    (repo / "test-artifacts").rename(repo / "x/test-artifacts")
+    (repo / "test-artifacts").symlink_to("x/test-artifacts")
+    done = gate(repo, "plus-one-gap.json")
+    assert done.returncode == 1, done.stdout
+    assert "is a symlink" in done.stdout and "cache hit" not in done.stdout
+
+
+def test_a_changed_scan_table_is_growth_against_the_cached_base(repo: Path) -> None:
+    """#1980: the cached base keeps the `[scan]` table of its commit; the PR differs."""
+    (repo / "native/archkeel.toml").write_text('[scan]\nroots = ["native"]\n')
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "scan")
+    sha = git(repo, "rev-parse", "HEAD~1")
+    base = json.loads(keep_base(repo, "base.json", sha).read_text())
+    base["scan"] = {"roots": ["native", "src"]}
+    (repo / "test-artifacts/selfcheck/base.json").write_text(json.dumps(base))
+    done = gate(repo, "base.json")
+    assert done.returncode == 1 and "scope changed: the [scan] table differs" in done.stdout
+    base["scan"] = {"roots": ["native"]}
+    (repo / "test-artifacts/selfcheck/base.json").write_text(json.dumps(base))
+    assert gate(repo, "base.json").returncode == 0
+
+
 PIN_NAMES = ("expected-gaps", "expected-growth", "shell-expected", "native_expected")
 
 
