@@ -132,7 +132,8 @@ CARGO_DENY_SHA256 := 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824
 CARGO_AUDITABLE_VERSION := 0.7.7
 
 # AD-674: the Python tests of native/ (tests/areas.py) run in the area jobs of the main tier, so native-check
-# holds the Rust checks and the self-check only.
+# holds the Rust checks only. The self-check of native/ runs in pr-gate, ci-check and make self-validate: with
+# compiler facts (AD-1047) its 9 cold `cargo check` runs do not fit into the 15-minute job of native-check.
 # Rust code in native/ (AD-316). Run from native/ so that rust-toolchain.toml selects the toolchain.
 native-check:
 	@cargo deny --version 2>/dev/null | grep -qx "cargo-deny $(CARGO_DENY_VERSION)" || \
@@ -144,7 +145,6 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --features dump,harness -- -D warnings
 	cd native && cargo deny --locked check
 	$(MAKE) native-test
-	$(MAKE) self-validate-native
 
 # AD-1047: the compiler type-reach facts (`[scan] rust_type_reach`) need the pinned channel with the
 # components of tools/rustc-facts/rust-toolchain.toml: `rustc-dev` for the driver and `llvm-tools`, which

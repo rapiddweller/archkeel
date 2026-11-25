@@ -15,14 +15,11 @@ import pytest
 from test_native_ci import _TOOLCHAIN_STEP, WORKFLOWS, _jobs
 
 _TYPE_REACH_STEP = "run: make type-reach-setup\n"
-_SELF_CHECK_MAKE = re.compile(
-    r"make (?:native-check|self-validate|pr-gate|ci-check|full-test|fast-test)\b"
-)
+_SELF_CHECK_MAKE = re.compile(r"make (?:self-validate|pr-gate|ci-check|full-test|fast-test)\b")
 # The jobs that run the self-check on every run, and the matrix jobs that run it in one area.
 _SINGLE = [
     ("ci.yml", "lint", "run: make ci-pr-static"),
     ("pr-gate.yml", "base", "run: make pr-gate"),
-    ("area-checks.yml", "native", "run: make cargo-deny-install"),
     ("full-verification.yml", "full-suite-and-reports", "run: make ci-core-check"),
 ]
 _MATRIX = [("area-checks.yml", "tests"), ("full-verification.yml", "tests")]
