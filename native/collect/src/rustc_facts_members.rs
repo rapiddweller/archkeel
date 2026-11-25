@@ -8,6 +8,7 @@ use archkeel_facts::type_reach::{matrix, Config, Unavailable, MAX_FEATURES};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::process::Command;
 
 /// The workspace members that `cargo metadata` names: only these crates are workspace code. A path
 /// dependency is no member, wherever its directory is.
@@ -128,4 +129,47 @@ pub(crate) fn flags(config: &Config) -> Vec<String> {
             format!("{package}/{feature}"),
         ],
     }
+}
+
+/// Give `cmd` the variables of the driver. A `[env]` table with `force = true` in a config file of the
+/// repository would beat a plain variable, so each one also goes through `--config`, which beats every
+/// config file. The member list and the registry directory are made in `base`. `None` when that fails.
+pub(crate) fn set_driver_vars(
+    cmd: &mut Command,
+    base: &Path,
+    members: &Members,
+    vars: &[(&str, String)],
+) -> Option<()> {
+    let list = base.join("members.tsv");
+    let pairs: Vec<String> = (members.roots.iter())
+        .flat_map(|(dir, roots)| roots.iter().map(move |root| format!("{dir}\t{root}")))
+        .collect();
+    if pairs
+        .iter()
+        .any(|pair| pair.matches('\t').count() != 1 || pair.contains('\n'))
+    {
+        return None;
+    }
+    std::fs::write(&list, pairs.join("\n")).ok()?;
+    let registry = base.join("registry");
+    let _ = std::fs::remove_dir_all(&registry);
+    std::fs::create_dir_all(&registry).ok()?;
+    let own = [
+        ("AK_FACTS_MEMBERS", list.display().to_string()),
+        ("AK_FACTS_REGISTRY", registry.display().to_string()),
+    ];
+    for (name, value) in vars
+        .iter()
+        .map(|(n, v)| (*n, v))
+        .chain(own.iter().map(|(n, v)| (*n, v)))
+    {
+        let text = serde_json::to_string(value).ok()?;
+        cmd.env(name, value).args([
+            "--config".to_string(),
+            format!("env.{name}.value={text}"),
+            "--config".to_string(),
+            format!("env.{name}.force=true"),
+        ]);
+    }
+    Some(())
 }
