@@ -13,7 +13,8 @@ code, with the sha and the native tree that it was computed for. The PR result m
 refusal, no FAIL, no violation and the exit code that its statuses give. Growth is a new gap (a
 multiset compare, so a growing gap counts for each occurrence), a new UNKNOWN reason kind, or a
 rule with a worse status (PASS < UNKNOWN < FAIL), fewer scanned files or a changed `[scan]`
-table. Removals do not offset additions. Growth passes only with the label `ratchet-lead` and the PR text line `Ratchet growth: <N> items: <reason>`,
+table. Removals do not offset additions. Growth passes
+only with the label `ratchet-lead` and the PR text line `Ratchet growth: <N> items: <reason>`,
 where N is the printed count. The shell gate reads its own line `Ratchet growth (shell): ...`.
 A base that is missing, corrupt, refused or for another commit
 compares as an empty base, and only the same approval passes it. The log shows the first
