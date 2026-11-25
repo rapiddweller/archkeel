@@ -71,7 +71,17 @@ _CHECK_REPLACEMENT: Final = ("validate", "--json")
 
 
 class NotOnThisLine(CoreError):
-    """A command or option of the deleted Python shell that ArchKeel 5.0 does not serve yet."""
+    """A command or option of the deleted Python shell that ArchKeel 5.0 does not serve yet.
+
+    `fix` is the fix when the message names a 5.0 command. `None` keeps the fix of the kind.
+    """
+
+    def __init__(self, message: str, *, fix: str | None = None) -> None:
+        super().__init__(message)
+        self.fix = fix
+
+
+_REPLACED_FIX: Final = "run the command named above instead, or leave this option out."
 
 
 def _remedy(released: bool) -> str:
@@ -87,11 +97,13 @@ def _use(argv: tuple[str, ...]) -> str:
     return f"use archkeel {' '.join(argv)}"
 
 
-def _refused_remedy(name: str) -> str:
-    """The 5.0 command of a removed option, else the release that has it, else no release."""
+def _removed(command: str, name: str) -> NotOnThisLine:
+    """The refusal of a removed option: the 5.0 command when one replaces it, else the release."""
     if name in _REPLACEMENTS:
-        return _use(_REPLACEMENTS[name])
-    return _remedy(name not in UNRELEASED_OPTIONS)
+        return NotOnThisLine(
+            f"{command} {name} is {_LINE}; {_use(_REPLACEMENTS[name])}", fix=_REPLACED_FIX
+        )
+    return NotOnThisLine(f"{command} {name} is {_LINE}; {_remedy(name not in UNRELEASED_OPTIONS)}")
 
 
 class Options(argparse.Namespace):
@@ -193,7 +205,9 @@ def command_of(argv: Sequence[str]) -> Command:
         return Command.EXPLORE
     if command is Command.CHECK:
         names = "; ".join(_active_checks())
-        raise NotOnThisLine(f"check is {_LINE}; {_use(_CHECK_REPLACEMENT)}; not ported: {names}")
+        raise NotOnThisLine(
+            f"check is {_LINE}; {_use(_CHECK_REPLACEMENT)}; not ported: {names}", fix=_REPLACED_FIX
+        )
     return command
 
 
@@ -314,7 +328,7 @@ def parse(argv: Sequence[str]) -> Options:
         raise
     for argument in extra:
         if (name := argument.split("=", 1)[0]) in REMOVED_OPTIONS:
-            raise NotOnThisLine(f"{command} {name} is {_LINE}; {_refused_remedy(name)}")
+            raise _removed(command, name)
     if extra:
         raise ValueError(f"unknown arguments: {' '.join(extra)}; run archkeel --help")
     if command is Command.EXPLORE and options.project is not None:
