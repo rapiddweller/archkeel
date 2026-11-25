@@ -1,4 +1,4 @@
-# AD-1093 A crate that is no workspace member is foreign code in the Rust scan
+# AD-1097 A crate that is no workspace member is foreign code in the Rust scan
 
 **Status.** Accepted. Closes #1989. It extends premise 1 of [AD-1047](ad-1047-rust-dispatch-gaps-use-compiler-type-reach.md): workspace code is a member of `cargo metadata`.
 

@@ -172,7 +172,7 @@ fn list(
     (scope, files)
 }
 
-// The files of crates that are no workspace member (#1989, AD-1093). The core runs `cargo metadata` and gives the
+// The files of crates that are no workspace member (#1989, AD-1097). The core runs `cargo metadata` and gives the
 // answer in `ARCHKEEL_WORKSPACE_MEMBERS`; this worker starts no process (AD-316).
 /// The answer of the core.
 enum Answer {
