@@ -437,7 +437,7 @@ def test_each_make_target_that_only_full_runs_is_in_the_full_fragment() -> None:
     assert "include $(MAKEFILE_DIR)tools/full.mk" in makefile
     called = _called_targets("full-verification.yml") | _called_targets("native-wheels.yml")
     assert called - fragment == SHARED_WITH_CI
-    assert SHARED_WITH_CI <= _called_targets("ci.yml")
+    assert SHARED_WITH_CI <= _called_targets("ci.yml") | _called_targets("area-checks.yml")
     assert [t for t in SHARED_WITH_CI if re.search(rf"^{t}:", makefile, re.M) is None] == []
     only_full = _closure(called) - _closure(
         _called_targets("ci.yml") | _called_targets("area-checks.yml")

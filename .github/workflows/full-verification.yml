@@ -50,9 +50,9 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      # AD-1047: `make self-validate` reads native/ with compiler facts, so the toolchain needs rustc-dev and llvm-tools.
       - name: Install the pinned Rust toolchain once, before any parallel step
-        run: make type-reach-setup
+        working-directory: native
+        run: rustup toolchain install
 
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1

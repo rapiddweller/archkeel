@@ -9,5 +9,6 @@ namespace = "native"
 contract = "native/architecture-contract.json"
 # The report and the rules read production code only (the collector owns the cfg(test) rule).
 exclude_test_sources = true
-# AD-1047: the compiler type-reach facts drop the trait-impl, destructor and receiver gaps that no body can run.
-rust_type_reach = true
+# AD-1047: off here, because 9 cold `cargo check` runs of this workspace exceed the 15-minute job cap (#1964, #1999).
+# Facts drop 33.6% of the REQUIRES-COMPLETE holds: measure with `rust_type_reach = true` (see the PR text).
+rust_type_reach = false

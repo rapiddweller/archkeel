@@ -263,11 +263,6 @@ def runs(
         root = tmp_path_factory.mktemp(name)
         copy_native(root, frozen_root)
         plants = plant(root / "native")
-        # The plants do not compile (a new crate is not in `Cargo.lock`): no type-reach facts.
-        toml = root / "native/archkeel.toml"
-        toml.write_text(
-            toml.read_text().replace("rust_type_reach = true", "rust_type_reach = false")
-        )
         found[name] = (plants, _run(root, core_binary))
     return found
 
