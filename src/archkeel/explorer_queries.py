@@ -23,6 +23,7 @@ from .explorer_source import (
 )
 from .explorer_store import open_snapshot
 from .explorer_symbols import _symbol_rows
+from .explorer_verdict import ANSWERS, VerdictRows, store
 
 _SCHEMA = (
     "CREATE TABLE element(id TEXT PRIMARY KEY,name TEXT,kind TEXT,parent TEXT,body TEXT)",
@@ -267,12 +268,15 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
     return calls
 
 
-def populate(connection: sqlite3.Connection, topology: Row, root: Path) -> None:
+def populate(
+    connection: sqlite3.Connection, topology: Row, root: Path, verdict: VerdictRows | None = None
+) -> None:
     """Project the same scan as the report and retain its coverage and truncation."""
     if topology.get("version") != 1:
         raise ValueError("unsupported topology version")
     for statement in _SCHEMA:
         connection.execute(statement)
+    store(connection, verdict)
     _coverage(connection, topology, root)
     digests: dict[str, str | None] = {}
 
@@ -380,6 +384,8 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
         saved_root, coverage = db.execute("SELECT root,coverage FROM analysis").fetchone()
         if Path(saved_root) != root.resolve():
             raise ValueError("snapshot belongs to another repository")
+        if operation in ANSWERS:
+            return ANSWERS[operation](db, root, args, path.stem)
         result = {"snapshot": path.stem, "coverage": json.loads(coverage)}
         if operation == "map":
             return result | _map_view(

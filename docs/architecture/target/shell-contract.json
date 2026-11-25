@@ -856,7 +856,8 @@
         "archkeel.explorer_map",
         "archkeel.explorer_queries",
         "archkeel.explorer_source",
-        "archkeel.explorer_symbols"
+        "archkeel.explorer_symbols",
+        "archkeel.explorer_verdict"
       ],
       "responsibilities": [
         "Project the native topology and answer bounded queries about one snapshot."
@@ -880,7 +881,11 @@
       "public": [
         "archkeel.explorer_queries:Row",
         "archkeel.explorer_queries:populate",
-        "archkeel.explorer_queries:query"
+        "archkeel.explorer_queries:query",
+        "archkeel.explorer_verdict:Basis",
+        "archkeel.explorer_verdict:Finding",
+        "archkeel.explorer_verdict:Unknown",
+        "archkeel.explorer_verdict:VerdictRows"
       ],
       "decided_by": "architect"
     },

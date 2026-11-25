@@ -41,7 +41,7 @@ def test_identity_reuse_and_format(tmp_path: Path) -> None:
         pass
 
 
-@pytest.mark.parametrize("version", [3, 4])
+@pytest.mark.parametrize("version", [3, 4, 5])
 def test_previous_snapshot_stays_readable_after_projection_upgrade(
     tmp_path: Path, version: int
 ) -> None:
@@ -60,7 +60,7 @@ def test_previous_snapshot_stays_readable_after_projection_upgrade(
         )
     publish_snapshot(path, identity, _populate, "UNKNOWN")
     with open_snapshot(path, identity) as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 6
 
 
 def test_interrupted_build_and_concurrent_reuse(tmp_path: Path) -> None:
