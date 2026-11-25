@@ -22,6 +22,9 @@ Guidance for coding agents that change Archkeel. People and agents follow the sa
   The agent explains and asks. It does not decide a verdict.
 - Run ArchKeel on the change before you open the PR (`make self-check`). For a new feature, also run it on
   a real repository and write the command and its result in the PR text. A unit test alone is not enough.
+- A change that can enable a PASS lists the counter-examples that it tried, and the review adds its own.
+  A false PASS destroys trust, so this duty is hard. The full rule is in
+  [CONTRIBUTING.md](CONTRIBUTING.md#counter-examples-for-a-pass), merge rule 1.
 - Review checks the responsibility of each new file, module and crate. It must belong to a component of the
   contract. It must not hold a `forbidden_responsibilities` item of that component. A new import between
   components needs a `requires` entry with a reason. The review does not accept a widened rule
