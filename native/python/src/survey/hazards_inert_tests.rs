@@ -5,6 +5,8 @@
 //! Inert-read and retained-trojan horse plants for the Python import survey.
 
 use super::*;
+use crate::module::Module;
+use crate::survey::hazards_split::split;
 
 #[path = "hazards_importers_tests.rs"]
 mod importers;

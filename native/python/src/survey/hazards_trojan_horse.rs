@@ -28,7 +28,7 @@ pub(in crate::survey) struct Site {
 
 impl Site {
     /// A site of a name that carries no scope and no binding.
-    pub(super) fn plain(kind: &'static str, detail: &str, range: TextRange) -> Self {
+    pub(in crate::survey) fn plain(kind: &'static str, detail: &str, range: TextRange) -> Self {
         let (trojan_horse, scope, binding) = (None, String::new(), None);
         Self {
             kind,
