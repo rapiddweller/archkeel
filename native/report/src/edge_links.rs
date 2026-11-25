@@ -6,7 +6,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_eval::{Outcome, Violation};
+use archkeel_eval::{CycleStep, Outcome, Violation};
 
 pub(crate) type Links = BTreeMap<String, BTreeSet<String>>;
 
@@ -32,11 +32,25 @@ pub(crate) fn add(links: &mut Links, outcome: &Outcome) {
             | Violation::UnusedPublic(_)
             | Violation::SymbolPlacement(_) => &[],
         };
+        let hops: &[CycleStep] = match violation {
+            Violation::Forbidden { chain, .. } => chain,
+            _ => &[],
+        };
+        let rule = outcome.rule();
         for import in imports {
-            links
-                .entry(import.clone())
-                .or_default()
-                .insert(outcome.rule().to_owned());
+            link(links, import, rule);
+        }
+        for step in hops {
+            for import in &step.imports {
+                link(links, import, rule);
+            }
         }
     }
+}
+
+fn link(links: &mut Links, import: &str, rule: &str) {
+    links
+        .entry(import.to_owned())
+        .or_default()
+        .insert(rule.to_owned());
 }

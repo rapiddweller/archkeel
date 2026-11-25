@@ -340,6 +340,10 @@
         {
           "component": "frame",
           "rationale": "Read the command and the check kinds of the frame to parse options."
+        },
+        {
+          "component": "init",
+          "rationale": "Read the preset of init and check the names of the user against it."
         }
       ],
       "public": [
@@ -743,10 +747,11 @@
         "archkeel.cli.init_draft",
         "archkeel.cli.init_areas",
         "archkeel.cli.init_binding",
-        "archkeel.cli.init_typescript"
+        "archkeel.cli.init_typescript",
+        "archkeel.cli.init_preset"
       ],
       "responsibilities": [
-        "Draft archkeel.toml, a first contract and its provenance page from the folder layout and manifests of a project, or a system document with one part for each language area (Python, Cargo, TypeScript, Dart) of a mixed repository, and write only the files that are missing. Every decision in the draft is a TODO, except an interface whose two ends the manifests state (a PyO3 binding, AD-784)."
+        "Draft archkeel.toml, a first contract and its provenance page from the folder layout and manifests of a project, or a system document with one part for each language area (Python, Cargo, TypeScript, Dart) of a mixed repository, and write only the files that are missing. Every decision in the draft is a TODO, except an interface whose two ends the manifests state (a PyO3 binding, AD-784). A preset (layered or hexagonal, AD-1087) adds rules for the layers that the user names, each with a rationale."
       ],
       "forbidden_responsibilities": [
         "Read a frame, read a source file, start the core or decide a verdict."
@@ -769,7 +774,9 @@
         "archkeel.cli.init_draft:Draft",
         "archkeel.cli.init_draft:NothingToDraft",
         "archkeel.cli.init_draft:draft",
-        "archkeel.cli.init_draft:write_missing"
+        "archkeel.cli.init_draft:write_missing",
+        "archkeel.cli.init_preset:Preset",
+        "archkeel.cli.init_preset:Shape"
       ]
     },
     {
@@ -856,7 +863,8 @@
         "archkeel.explorer_map",
         "archkeel.explorer_queries",
         "archkeel.explorer_source",
-        "archkeel.explorer_symbols"
+        "archkeel.explorer_symbols",
+        "archkeel.explorer_verdict"
       ],
       "responsibilities": [
         "Project the native topology and answer bounded queries about one snapshot."
@@ -880,7 +888,11 @@
       "public": [
         "archkeel.explorer_queries:Row",
         "archkeel.explorer_queries:populate",
-        "archkeel.explorer_queries:query"
+        "archkeel.explorer_queries:query",
+        "archkeel.explorer_verdict:Basis",
+        "archkeel.explorer_verdict:Finding",
+        "archkeel.explorer_verdict:Unknown",
+        "archkeel.explorer_verdict:VerdictRows"
       ],
       "decided_by": "architect"
     },

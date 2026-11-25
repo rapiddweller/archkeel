@@ -76,6 +76,13 @@ uv run --extra mcp archkeel-mcp --snapshot /absolute/path/to/snapshot.sqlite3 --
 The server provides overview, children, search, relations, evidence, source and story.
 Use `stories` to list saved stories, `story_read` to play a checked story, and `story_save`
 to save a new view specification.
+Use `verdict` for the contract status, the exit code, the counts and `freshness`. Use `findings`
+for one row for each violation, and `unknowns` for each part that ArchKeel did not decide.
+These tools copy the frame of the scan ([AD-1084](architecture/decisions/ad-1084-the-mcp-server-answers-verdict-findings-and-unknowns-from-the-frame-in-the-snapshot.md)).
+Each row has `basis`: `proven`, `declared` or `unknown`. A text that comes from the repository
+is an object with `untrusted: true`. An answer is at most 16 KiB, with `limit` 25 by default and 100 at most.
+`freshness: stale` means that a scanned file changed. Scan again before you trust the answer.
+`archkeel validate --json` stays the CI truth.
 A source request takes a reference from the index. It checks the file content before
 returning the excerpt. A call step describes static analysis. Runtime dispatch and
 deployment bindings require separate evidence.

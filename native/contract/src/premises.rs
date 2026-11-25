@@ -125,7 +125,7 @@ fn one(raw: &Json, version: ContractVersion, label: &str) -> Parsed<DeclaredPrem
     };
     if name == PremiseName::RustTypeReach && !supports(version, Feature::RustTypeReach) {
         return Err(invalid(format!(
-            "{label}.name rust_type_reach requires contract schema_version 3.21.0"
+            "{label}.name rust_type_reach requires contract schema_version 3.22.0"
         )));
     }
     Ok(DeclaredPremise {

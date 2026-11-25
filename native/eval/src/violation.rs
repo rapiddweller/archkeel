@@ -82,6 +82,8 @@ pub enum Violation {
         symbol: Option<String>,
         /// True when the import sits under `TYPE_CHECKING`.
         under_type_checking: bool,
+        /// The hops of an indirect chain, whose ends `cited` names; empty for a direct import.
+        chain: Vec<CycleStep>,
     },
     /// `sibling_isolation`: an import from the member `source` to another member.
     Peer {
@@ -410,6 +412,7 @@ impl Violation {
             cited,
             symbol: import.symbol().map(str::to_owned),
             under_type_checking: import.under_type_checking(),
+            chain: Vec::new(),
         }
     }
 
@@ -471,7 +474,6 @@ impl Violation {
     pub fn rule(&self) -> &str {
         self.head()[1]
     }
-
     fn head(&self) -> [&str; 2] {
         match self {
             Violation::Unassigned { id, rule, .. }

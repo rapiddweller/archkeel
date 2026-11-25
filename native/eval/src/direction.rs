@@ -17,19 +17,57 @@ use std::collections::{HashMap, HashSet};
 
 use archkeel_contract::{CompleteRequires, ForbiddenDependency, LayerOrder, SiblingIsolation};
 use archkeel_facts::identity::{stable_id, Part as IdPart};
-use archkeel_model::{Input, Judged, Model, Part, Reason};
+use archkeel_model::{Import, Input, Judged, Model, Part, Reason};
 
-use crate::violation::{Layered, Violation};
+use crate::violation::{CycleStep, Layered, Violation};
 
-/// The violations of a `forbidden_dependency` rule.
+/// The violations of a `forbidden_dependency` rule: each direct import, and with `indirect` the
+/// chains of the sources that have none (AD-1085).
 pub(crate) fn forbidden(id: &str, rule: &ForbiddenDependency, model: &Model) -> Vec<Violation> {
-    sorted(
-        archkeel_model::forbidden(model, rule)
-            .into_iter()
-            .filter(|(_, judged)| *judged == Judged::Fail)
-            .map(|(import, _)| Violation::forbidden(id, import))
-            .collect(),
-    )
+    let direct = archkeel_model::forbidden(model, rule)
+        .into_iter()
+        .filter(|(_, judged)| *judged == Judged::Fail)
+        .map(|(import, _)| Violation::forbidden(id, import));
+    let chains = (*rule.indirect())
+        .then(|| archkeel_model::forbidden_chains(model, rule))
+        .into_iter()
+        .flatten()
+        .filter_map(|chain| chained(id, &chain));
+    sorted(direct.chain(chains).collect())
+}
+
+/// The record of one chain: the violation of its first import. `cited` names the two ends of the
+/// chain and the evidence of every hop, and `chain` holds the hops (AD-1085).
+fn chained(rule: &str, chain: &[&Import]) -> Option<Violation> {
+    let (first, last) = (chain.first()?, chain.last()?);
+    let mut found = Violation::forbidden(rule, first);
+    let hops: Vec<CycleStep> = (chain.iter())
+        .map(|import| CycleStep {
+            possible: Import::declared(import),
+            from: Import::source_module(import).to_owned(),
+            to: Import::target_module(import).to_owned(),
+            from_component: None,
+            to_component: None,
+            imports: vec![Import::id(import).to_owned()],
+            evidence: Import::evidence(import).to_vec(),
+        })
+        .collect();
+    if let Violation::Forbidden {
+        cited,
+        symbol,
+        under_type_checking,
+        chain: slot,
+        ..
+    } = &mut found
+    {
+        cited.possible = hops.iter().any(|hop| hop.possible);
+        cited.target_module = Import::target_module(last).to_owned();
+        cited.evidence = hops.iter().flat_map(|hop| hop.evidence.clone()).collect();
+        *symbol = None;
+        *under_type_checking = chain.iter().any(|import| import.under_type_checking());
+        *slot = hops;
+    }
+    Some(found)
 }
 
 /// The violations of a `sibling_isolation` rule.

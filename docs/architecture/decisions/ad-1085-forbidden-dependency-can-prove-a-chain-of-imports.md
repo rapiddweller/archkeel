@@ -1,0 +1,22 @@
+# AD-1085 A `forbidden_dependency` rule can prove a chain of imports
+
+**Status.** Accepted (issue #1985).
+
+**Reason.** `forbidden_dependency` judges direct imports. A forbidden module that a middle module imports gave PASS: `shop.cli` imports `shop.app.orders`, which imports `shop.store`, and the rule `shop.cli` -> `shop.store` stayed PASS. An author had no way to ask for the stricter check. import-linter checks indirect imports by default and prints the chain.
+
+**Decision.** Contract 3.21.0 adds the optional key `indirect` on `forbidden_dependency`. The default is `false`: a rule without the key gives the result of before, byte for byte (the key is not written when it is false).
+- A chain is a path of imports from a module of the source side to a module of the target side. It runs through any module of the scan.
+- A source module with a direct import of the target keeps its direct violation and has no chain. Each other source module with a chain gets one violation: the chain with the fewest imports. On a tie the next module with the smaller name wins, and each hop cites its import with the smallest id. One run always gives the same chain.
+- The row is the `Forbidden` violation of the first import of the chain, with a new field `chain` that holds the hops. Its `cited` names the two ends of the chain and the evidence of every hop, so the baseline reads the two ends (AD-546) and the id stays stable. The detail cause is `indirect forbidden dependency`, and its `path` lists each hop with its file and line. The text report prints the chain: `shop.cli.main -> shop.app.orders -> shop.store (file:line, file:line)`.
+- `include_type_checking` applies to each hop. A declared reach of a trojan horse is a possible import, so a hop that uses it is marked `possible`.
+- `allowed_sources` exempts the first module of a chain only. A module in `allowed_sources` can still be a middle hop of the chain of another source. This keeps the meaning that the exception names who may import the target, not who may be passed through.
+- No chain: PASS only when the scope is complete. The rule reads the import edges of every selected module, not of the source side only. A gap on any module, an import by a computed name (`importlib.import_module(f"shop.{name}")`) in any module, and a kept or dropped pair gap anywhere give UNKNOWN. A guess never gives PASS.
+- `indirect: true` with `target_symbol` or `target_kind: "import_namespace"` refuses the contract. A symbol that a chain carries is not defined yet.
+- The same import graph serves all languages (Python, Rust, TypeScript, Dart): no language has its own rule code. A profile that does not read import edges holds the rule through its existing profile limit.
+- A mounted contract has no PASS for an `indirect` rule. A chain can leave the domain of the mount, and the mount reads no edge or gap outside it.
+
+**Rejected.** A separate rule kind (a second kind for the same sides). A chain per target (the list grows with each module that the source side reaches). Report the chain for each source that has a direct violation (the direct violation already names the import to remove).
+
+**Limits.** The scope reading is wide: one computed import in any module holds each `indirect` rule, as it holds a module cycle rule. A narrower reading (the modules that the source side can reach) can come later. `call_owner` and `layer_order` have no `indirect`. The `under_type_checking` flag of a chain row is true when any hop sits under `TYPE_CHECKING`.
+
+**Tests.** `tests/test_cli_native_python_indirect.py`: two hops with the file and line of each hop; the default and `false` give PASS; a computed import in the middle module gives UNKNOWN; a tie and a rerun give the same bytes; the shortest chain wins; `allowed_sources` exempts the first module only; a hop under `TYPE_CHECKING` follows `include_type_checking`; the text and the report show the chain. `indirect_needs_the_new_schema_and_a_module_target_without_a_symbol` in `native/contract/src/contract_tests.rs` checks the version gate and the refusals. The reads of every module are checked in `each_rule_kind_reads_the_facts_that_its_row_states` (`native/model/src/gap_effects_tests.rs`, edges and pair gaps) and `an_indirect_rule_reads_a_dynamic_import_of_any_module` (`native/eval/src/direction_scope_tests.rs`). `a_mount_has_no_pass_for_an_indirect_rule` in `native/model/src/receipts_mount_tests.rs` checks the mount.

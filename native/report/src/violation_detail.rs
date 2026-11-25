@@ -139,6 +139,18 @@ impl ViolationDetail {
         )
     }
 
+    /// A direct import, or an indirect chain (AD-1085): `cited` holds its two ends, which the
+    /// baseline reads, and `path` holds each hop with its import site.
+    fn forbidden(cited: &Cited, chain: &[CycleStep]) -> Self {
+        if chain.is_empty() {
+            return Self::cited("forbidden dependency", cited);
+        }
+        Self {
+            path: Some(chain.iter().map(PathStep::of).collect()),
+            ..Self::cited("indirect forbidden dependency", cited)
+        }
+    }
+
     fn cycle(cycle: &archkeel_eval::Cyclic) -> Self {
         Self {
             source: cycle.members.join(" -> "),
@@ -167,7 +179,7 @@ impl ViolationDetail {
 
     pub(crate) fn of(violation: &Violation) -> Self {
         match violation {
-            Violation::Forbidden { cited, .. } => Self::cited("forbidden dependency", cited),
+            Violation::Forbidden { cited, chain, .. } => Self::forbidden(cited, chain),
             Violation::OutsideScope { cited, .. } => Self::cited("dependency outside scope", cited),
             Violation::Undeclared { cited, .. } => {
                 Self::cited("undeclared external dependency", cited)

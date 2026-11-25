@@ -18,8 +18,7 @@ associated-type ADTs of reached impls. For each `dyn Tr` in reach, add each type
 premise `rust_type_reach`, and each PASS that a dropped gap decides names it.
 1. Whole program. The scanned Cargo workspace is the whole program. No code outside the Rust build (C, assembly,
    `dlopen`, a plug-in) runs an impl of the workspace. Workspace code is a crate that ran under the driver as a member
-   of `cargo metadata` (manifest directory and root file of one member). Any other crate is foreign. The verifier refuses
-   facts that name a non-member file. The driver variables go in by `cargo --config`.
+   of `cargo metadata`. Any other crate is foreign. The verifier refuses facts that name a non-member file.
 2. This target and this matrix. A cfg set that the matrix (default, no default features, all features, each feature alone) does not enable and a target other than this host are not seen.
    A PASS does not speak about that code. More than 16 features give no facts (`TooManyFeatures`). A `target_os = "windows"` case is stated, not tested.
 3. The repository is trusted. `cargo check` runs its build scripts and proc macros, and `--offline` does not stop
@@ -28,54 +27,44 @@ premise `rust_type_reach`, and each PASS that a dropped gap decides names it.
    same types as the toolchain of the project. The facts bind the `rustc -vV` text, the driver hash, the
    configuration, the `Cargo.lock` hash and the SHA-256 of each source file that rustc read. The collector checks each
    binding. A mismatch gives no facts, and the gaps stay.
-5. Unsafe raw-pointer code is charged with the worst case. A value behind a raw pointer to `()`, `c_void`, an
-   extern type or a number has no type here. A module, or an ADT of any crate, that holds such a pointer reaches each
-   type that a pointer cast, a transmute or an address cast hid, and each type that calls outside the workspace took
-   with that ADT in their signature. A round trip through an integer address (`ptr as usize`) is not seen, and a
-   PASS does not speak about it.
+5. Unsafe raw-pointer code is charged with the worst case. A module, or an ADT of any crate, that holds a raw pointer
+   to `()`, `c_void`, an extern type or a number reaches each type that a cast or a transmute hid, and each type that
+   calls outside the workspace took with that ADT. A round trip through an integer address (`ptr as usize`) is not
+   seen, and a PASS does not speak about it.
 
-**Stage 1.** `tools/rustc-facts` is the driver: a binary crate with no dependency, its own toolchain file
-(`rustc-dev`) and `Cargo.lock`. It hooks `mir_built` and writes one file for each unit (renamed, closed by `end`). `native/collect` (`FactsTools::produce`) checks the toolchain, builds the driver
-into the cache, and runs `cargo check --workspace --all-targets --offline --locked` for each configuration, with a
-cleared environment and an empty `RUSTFLAGS`. `native/rust` (`Expected`) needs one file for each unit that Cargo names,
-with a matching `build` line, and each scanned file with its hash. `native/facts` holds the typed cause `Unavailable`.
+**Stage 1.** `tools/rustc-facts` is the driver: a binary crate with no dependency, its own toolchain file and
+`Cargo.lock`. It hooks `mir_built` and writes one file for each unit. `native/collect` (`FactsTools::produce`) builds the
+driver into the cache and runs `cargo check --workspace --all-targets --offline --locked` for each configuration, with
+a cleared environment. `native/rust` (`Expected`) needs one file for each unit that Cargo names, and each scanned file
+with its hash. `native/facts` holds the typed cause `Unavailable`.
 
 **Rejected.** SCIP (AD-1036): no temporaries, drops or coercions. Syntax-only reach: no inferred type. The driver in
-`native/rustc-facts`: `extern crate rustc_driver` made the self-scan UNKNOWN; it lives in `tools/`.
+`native/rustc-facts`: `extern crate rustc_driver` made the self-scan UNKNOWN.
 
 **Stages 3 and 4.** `[scan] rust_type_reach = true` (Rust only) makes the core run `FactsTools::produce` and pass
 a descriptor path to the Rust worker in `ARCHKEEL_TYPE_REACH`. `Filter` drops a trait-impl, destructor or receiver gap
 when no config can run an impl of `b` from `a`. A `dyn Tr` counts as every implementer of `Tr` (class hierarchy). A pair
 without facts for `a` stays. Any `Unavailable` cause adds one whole-scope gap with the exact reason (UNKNOWN). Contract
-3.21.0 adds the premise `rust_type_reach`.
+3.22.0 adds the premise `rust_type_reach`.
 
-**CI.** The driver links `librustc_driver` and `libLLVM`. `rustc-dev` alone is not enough: the link fails with
-`cannot find -lLLVM-22-rust-1.97.0-stable` until `llvm-tools` is also installed, and the collector reports
-only "the rustc driver did not build". The two components add about 160 MB (`rustc-dev` 122 MB, `llvm-tools`
-39 MB, compressed) to a minimal toolchain of about 130 MB, so `native/rust-toolchain.toml` does not list them and
-the six wheel jobs do not install them. `make type-reach-setup` runs `rustup toolchain install` in `native/`
-and in `tools/rustc-facts/`, so the toolchain file of the driver is the one source of the components, then `cargo fetch --locked` in `native/`: the producer runs `cargo check --offline`
-over the whole workspace, and a cold runner holds only the crates of the core build (the check then fails with
-"cargo check failed in the default configuration"). Each job that
-runs the self-check calls it once before any parallel step: PR gate `base`, main CI `lint`, `native`, the area
-`CLI and core` of the test jobs, and the Full `full-suite-and-reports` job. `tests/test_native_ci_type_reach.py`
-fails when a job runs the self-check without it. A test that needs the facts skips on a machine without them and
-fails in CI (`tests/rustc_dev_support.py`, with the oracle guard of AD-1048).
+**CI.** The driver links `librustc_driver` and `libLLVM`, so it needs `rustc-dev` and `llvm-tools` (about 160 MB
+compressed). Without `llvm-tools` the link fails and the collector says only "the rustc driver did not build". The
+toolchain file of the core does not list them, and the six wheel jobs do not install them. `make type-reach-setup`
+installs them from `tools/rustc-facts/rust-toolchain.toml`, then runs `cargo fetch --locked` in `native/`, because the
+producer runs `cargo check --offline` over the workspace. Each job that runs the self-check calls it once before any
+parallel step. `tests/test_native_ci_type_reach.py` fails when a job does not. A test that needs the facts skips on
+a machine without them and fails in CI (`tests/rustc_dev_support.py`, with the oracle guard of AD-1048).
 
 **Closes of the reviews.** Each close has a fixture in `tests/rust_reach_fixtures` that runs a real dispatch with a
-counter, and a mutation proof; five controls stay excluded. A `dyn` type argument flows into its instance. A foreign
-ADT has an `adt` record: `io::Error` holds its `dyn Error`, and only what is coerced to it. An open `dyn` (an auto
-trait, or a trait with a blanket impl) takes each type that flows into foreign code. A `dyn Tr + Send` is keyed by `Tr`.
-A type flows into foreign code through a call outside the workspace, and only through a parameter that a clause names
-besides its `Sized`. A raw pointer to `()`, `c_void`, an extern type or a number hides a type (a waker, a function
-pointer, `Arc::into_raw`): a module or an ADT that holds one reaches the types that a cast hid, and those that foreign
-calls took with that ADT in their signature. A `dyn Sub` upcast in a dependency gives its types and async blocks to
-its supertraits. A scan without the premise has no facts and says so (UNKNOWN). Facts that name no scan module add a gap.
+counter, and a mutation proof. Five controls stay excluded. A `dyn` type argument flows into its instance. A foreign
+ADT has an `adt` record. An open `dyn` takes each type that flows into foreign code. A `dyn Tr + Send` is keyed by `Tr`.
+A raw pointer to `()`, `c_void`, an extern type or a number hides a type: a module or an ADT that holds one reaches the
+types that a cast hid. A `dyn Sub` upcast in a dependency gives its types to its supertraits. A scan without the
+premise has no facts and says so (UNKNOWN). Facts that name no scan module add a gap.
 
 **Limits.**
 - The facts path is a hidden input of the scan: it is not part of the request.
-- `not_built` and `test_only` of the reader are listed, not used: a module without facts keeps its pairs, and test facts only add types.
-- A value in state of a dependency that `a` never holds is not charged.
+- `not_built` and `test_only` of the reader are listed, not used. A module without facts keeps its pairs.
 - A build script that emits a `--cfg` makes the facts unverifiable (refusal). Build scripts are not read.
 - `RUSTC_BOOTSTRAP=1` builds the driver; the code digest does not read its source.
 **Tests.** A fake `rustup` tests each `Unavailable` value; `make rustc-facts-e2e` runs the fixtures.

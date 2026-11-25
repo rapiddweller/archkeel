@@ -135,6 +135,8 @@ examples:
 """
 _INIT: Final = """\
 usage: archkeel init [--root PATH] [--json]
+                     [--preset layered --layers OUTER,...,INNER]
+                     [--preset hexagonal --layers OUTER,...,INNER --adapters A,B,...]
 
 Draft the files of a first contract below the root: archkeel.toml, a contract of open decisions
 (every decision is a TODO) and its provenance page. It reads the folder layout only: the
@@ -143,6 +145,14 @@ the packages of a package.json workspace, a TypeScript or Dart project. A reposi
 several of these gets a system document with one part for each. It replaces no file and
 starts no scan. It prints text; --json prints JSON.
 
+--preset adds rules of one shape to a draft of one language area. You name the components:
+  layered     --layers lists components from the outermost to the innermost layer. An inner layer
+              must not import an outer layer.
+  hexagonal   --layers lists the core components (outermost first). --adapters lists two or more
+              adapter components. The core must not import an adapter, and adapters must not
+              import each other.
+Each rule has a rationale. A name that the layout does not have refuses the draft.
+
 exit codes:
   0  drafted
   2  nothing drafted (a file exists, or the layout is not one that init can read)
@@ -150,6 +160,8 @@ exit codes:
 examples:
   archkeel init
   archkeel init --root ../service
+  archkeel init --preset layered --layers infra,app,domain
+  archkeel init --preset hexagonal --layers app,domain --adapters db,web
 """
 _CHECK: Final = """\
 usage: archkeel check

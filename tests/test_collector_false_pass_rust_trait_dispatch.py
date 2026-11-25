@@ -134,7 +134,7 @@ def test_a_value_from_shared_state_can_run_its_destructor(
     root = repository(tmp_path / "repo", release_core, files, tuple(parts), rules)
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
-    if "declarations" not in contract:  # a contract with the type-reach premise needs 3.21.0
+    if "declarations" not in contract:  # a contract with the type-reach premise needs 3.22.0
         contract["schema_version"] = "3.4.0"
     path.write_text(json.dumps(contract))
     commit_tree(root)

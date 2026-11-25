@@ -23,6 +23,7 @@ from .explorer_source import (
 )
 from .explorer_store import open_snapshot
 from .explorer_symbols import _symbol_rows
+from .explorer_verdict import _ANSWERS, VerdictRows, _store
 
 _SCHEMA = (
     "CREATE TABLE element(id TEXT PRIMARY KEY,name TEXT,kind TEXT,parent TEXT,body TEXT)",
@@ -267,12 +268,15 @@ def _symbols(topology: Row, element: _AddElement, reference: _Reference) -> list
     return calls
 
 
-def populate(connection: sqlite3.Connection, topology: Row, root: Path) -> None:
+def populate(
+    connection: sqlite3.Connection, topology: Row, root: Path, verdict: VerdictRows | None = None
+) -> None:
     """Project the same scan as the report and retain its coverage and truncation."""
     if topology.get("version") != 1:
         raise ValueError("unsupported topology version")
     for statement in _SCHEMA:
         connection.execute(statement)
+    _store(connection, verdict)
     _coverage(connection, topology, root)
     digests: dict[str, str | None] = {}
 
@@ -374,12 +378,24 @@ def _relations(
             )
 
 
+def _story_step(db: sqlite3.Connection, args: Row) -> Row:
+    row = db.execute(
+        "SELECT body FROM relation WHERE id=? AND kind='call'", (_text(args, "id"),)
+    ).fetchone()
+    if not row:
+        return {"status": "UNKNOWN", "reason": "No call evidence for this step", "items": []}
+    hop = json.loads(row[0])
+    return {"status": hop["resolution"], "items": [hop]}
+
+
 def query(path: Path, root: Path, operation: str, args: Row) -> Row:
     """Serve one bounded operation against an immutable published database."""
     with open_snapshot(path) as db:
         saved_root, coverage = db.execute("SELECT root,coverage FROM analysis").fetchone()
         if Path(saved_root) != root.resolve():
             raise ValueError("snapshot belongs to another repository")
+        if operation in _ANSWERS:
+            return _ANSWERS[operation](db, root, args, path.stem)
         result = {"snapshot": path.stem, "coverage": json.loads(coverage)}
         if operation == "map":
             return result | _map_view(
@@ -397,17 +413,7 @@ def query(path: Path, root: Path, operation: str, args: Row) -> Row:
         if operation == "call_resolution":
             return result | _call_resolution(db, args, _call_scope, _element_status)
         if operation == "story":
-            row = db.execute(
-                "SELECT body FROM relation WHERE id=? AND kind='call'", (_text(args, "id"),)
-            ).fetchone()
-            if not row:
-                return result | {
-                    "status": "UNKNOWN",
-                    "reason": "No call evidence for this step",
-                    "items": [],
-                }
-            hop = json.loads(row[0])
-            return result | {"status": hop["resolution"], "items": [hop]}
+            return result | _story_step(db, args)
         if operation == "relations" and "aggregate" in args:
             return result | _aggregate_relations(
                 db,

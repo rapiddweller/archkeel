@@ -14,7 +14,8 @@ tracks a file under `test-artifacts/selfcheck/`: a PR must not bring its own bas
 the base in a git worktree of that commit (the core of this tree is reused when `native/` is the
 same). It never skips: when the base cannot be computed, the gate fails and names the reason. The
 label and the PR text for growth come from RATCHET_LABELED (`true`) and RATCHET_BODY_FILE.
-`BASE_RESULT=<file>` replaces the base. All grown items go to `grown.txt` in the same directory
+`BASE_RESULT=<file>` replaces the base. The base that it compares is kept in `compared-base.json`
+for `make self-check`. All grown items go to `grown.txt` in the same directory
 and the first ten to `GITHUB_STEP_SUMMARY`. The last line is `self-check gate: GREEN` or
 `self-check gate: RED (exit N)`.
 """
@@ -37,6 +38,7 @@ from self_check_diff import main as diff
 KEPT = Path("test-artifacts/selfcheck/result.json")
 GROWN = Path("test-artifacts/selfcheck/grown.txt")
 BASE = Path("test-artifacts/selfcheck/base.json")
+COMPARED = Path("test-artifacts/selfcheck/compared-base.json")
 BINARIES = ("archkeel-core", "archkeel-rust-collector", "archkeel-typescript-collector")
 
 
@@ -105,7 +107,8 @@ def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> t
     if os.environ.get("BASE_RESULT"):
         return Path(os.environ["BASE_RESULT"]), ""
     sha = git("merge-base", ref, "HEAD")
-    out = Path(tempfile.mkdtemp(prefix="selfcheck-")) / "base.json"
+    COMPARED.parent.mkdir(parents=True, exist_ok=True)
+    out = COMPARED
     if sha == own["sha"]:
         found = own
     else:

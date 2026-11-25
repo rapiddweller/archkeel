@@ -30,12 +30,24 @@ from corpus_support import commit_tree
 from filelock import FileLock
 
 ROOT = Path(__file__).resolve().parents[1]
-LISTING = ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "native"]
+# `native/collect` includes the driver sources through `concat!`, which `included()` misses.
+DRIVER = "tools/rustc-facts"
+LISTING = [
+    "git",
+    "ls-files",
+    "-z",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "--",
+    "native",
+    DRIVER,
+]
 SKIPPED = frozenset({"target", ".digests"})
 
 
 def live_files(root: Path = ROOT) -> list[str]:
-    """The files of `native/` that a checkout holds, by relative path: no build output."""
+    """The files of `native/` and of the driver that a checkout holds: no build output."""
     done = subprocess.run(LISTING, cwd=root, capture_output=True, check=False)
     if done.returncode == 0:
         names = [name for name in done.stdout.decode().split("\0") if name]

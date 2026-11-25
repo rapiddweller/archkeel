@@ -80,6 +80,8 @@ def commit_tree(root: Path, *forced: str) -> str:
     """
     git = ["git", "-c", "user.email=qa@example.invalid", "-c", "user.name=QA"]
     git += ["-c", "commit.gpgsign=false", "-c", "core.autocrlf=false"]
+    # A background `git maintenance` packs loose objects while a test copies the repository.
+    git += ["-c", "maintenance.auto=false", "-c", "gc.auto=0"]
     # A fixed date gives the same commit, so a binding to the source identity is stable.
     date = "2026-01-01T00:00:00+00:00"
     env = {**os.environ, "GIT_AUTHOR_DATE": date, "GIT_COMMITTER_DATE": date}

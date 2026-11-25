@@ -27,6 +27,7 @@ from corpus_support import commit_tree
 from archkeel.cli import core_only
 
 sys.path.insert(0, str(ROOT / "tools"))
+import self_check_summary  # noqa: E402
 from self_check_diff import absolute, condense  # noqa: E402
 
 CONFIG = "docs/architecture/shell.toml"
@@ -164,6 +165,36 @@ def test_a_contract_of_native_mounted_in_the_python_scan_decides_nothing(
     assert "PASS" not in {row[1] for row in rows.values()}
     assert "outside the namespace" in result["frame"]["scope"]
     assert (code, result["status"]) == (2, "UNKNOWN")
+
+
+def test_the_summary_lists_a_planted_import_with_its_place(
+    shell_tree: Path, built: Path, tmp_path: Path
+) -> None:
+    """AD-1088: the text of `make self-check` names a new violation with its file and line."""
+    (shell_tree / "tests").mkdir()
+    (shell_tree / "tests/file_size_baseline.json").write_text("{}")
+
+    def lines() -> list[str]:
+        commit_tree(shell_tree)
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(core_only, "locate_core", lambda: built / f"archkeel-core{SUFFIX}")
+            _code, result = run(
+                "report", "--root", str(shell_tree), "--config", CONFIG, "--topology"
+            )
+        path = tmp_path / "validation-shell/result.json"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(json.dumps(result), encoding="utf-8")
+        text = self_check_summary.summary(tmp_path, shell_tree, 0, "x.log")
+        assert len(text) <= self_check_summary.MAX_LINES
+        return text
+
+    assert "new violations: 0 (the base has none)" in lines()
+    core_json = shell_tree / "src/archkeel/cli/core_json.py"
+    core_json.write_text(core_json.read_text() + "import subprocess\n")
+    found = lines()
+    count = next(line for line in found if line.startswith("new violations: "))
+    assert count != "new violations: 0 (the base has none)"
+    assert any("src/archkeel/cli/core_json.py:" in line for line in found)
 
 
 def test_the_contract_states_every_rule_with_a_decided_kind_and_real_provenance() -> None:

@@ -260,7 +260,7 @@ def test_same_call_text_keeps_both_proven_receivers(
     root = repository(tmp_path, release_core, files, rules=(*CRATE_RULES, no_profile, source_names))
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
-    if "declarations" not in contract:  # a contract with the type-reach premise needs 3.21.0
+    if "declarations" not in contract:  # a contract with the type-reach premise needs 3.22.0
         contract["schema_version"] = "3.19.0"
     path.write_text(json.dumps(contract, indent=2))
     assert _real_target(root) == "clean/profile"

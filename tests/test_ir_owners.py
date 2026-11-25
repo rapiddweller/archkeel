@@ -46,6 +46,7 @@ SHELL = frozenset(
         "cli/init_areas.py",
         "cli/init_binding.py",
         "cli/init_typescript.py",
+        "cli/init_preset.py",
         "cli/core_init.py",
         "cli/core_schema.py",
         "cli/core_only.py",
@@ -68,6 +69,7 @@ SHELL = frozenset(
         "explorer_story_spec.py",
         "explorer_story_sql.py",
         "explorer_symbols.py",
+        "explorer_verdict.py",
     )
 )
 

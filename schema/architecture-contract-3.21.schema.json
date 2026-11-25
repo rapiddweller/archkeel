@@ -842,6 +842,37 @@
           "target_symbol"
         ]
       },
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "indirect",
+              "target_symbol"
+            ],
+            "properties": {
+              "indirect": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "indirect",
+              "target_kind"
+            ],
+            "properties": {
+              "indirect": {
+                "const": true
+              },
+              "target_kind": {
+                "const": "import_namespace"
+              }
+            }
+          }
+        }
+      ],
       "required": [
         "id",
         "kind",
@@ -907,6 +938,9 @@
             "module",
             "import_namespace"
           ]
+        },
+        "indirect": {
+          "type": "boolean"
         }
       }
     },
@@ -2833,8 +2867,7 @@
         },
         "name": {
           "enum": [
-            "standard_library_unchanged",
-            "rust_type_reach"
+            "standard_library_unchanged"
           ]
         },
         "rationale": {

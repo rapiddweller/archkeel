@@ -136,7 +136,7 @@ def repository(
         "rules": list(rules),
     }
     if reach and premise:
-        contract["schema_version"] = "3.21.0"
+        contract["schema_version"] = "3.22.0"
         contract["declarations"] = {
             "premises": [
                 {

@@ -16,7 +16,8 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
-from test_repository_hygiene import _is_size_limited
+
+from tools.file_size import is_size_limited
 
 ROOT = Path(__file__).parents[1]
 NEW_FILE_LIMIT = 400
@@ -27,7 +28,7 @@ def _is_production(relative: str) -> bool:
     name = relative.rsplit("/", 1)[-1]
     parts = relative.split("/")
     return (
-        _is_size_limited(relative)
+        is_size_limited(relative)
         and parts[0] in {"src", "native", "studio", "tools"}
         and not name.endswith("_tests.rs")
         and "tests" not in parts

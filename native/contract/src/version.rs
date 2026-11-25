@@ -90,6 +90,9 @@ pub enum ContractVersion {
     /// Contract schema 3.21.0.
     #[serde(rename = "3.21.0")]
     V3_21,
+    /// Contract schema 3.22.0.
+    #[serde(rename = "3.22.0")]
+    V3_22,
 }
 
 /// The version of its spelling, or `None` for an unknown spelling.
@@ -125,6 +128,7 @@ pub(crate) enum Feature {
     Premises,
     SourceSymbolOnly,
     TrojanHorseName,
+    IndirectDependency,
     RustTypeReach,
 }
 
@@ -151,7 +155,8 @@ fn start(feature: Feature) -> ContractVersion {
         Feature::Premises => ContractVersion::V3_17,
         Feature::SourceSymbolOnly => ContractVersion::V3_19,
         Feature::TrojanHorseName => ContractVersion::V3_20,
-        Feature::RustTypeReach => ContractVersion::V3_21,
+        Feature::IndirectDependency => ContractVersion::V3_21,
+        Feature::RustTypeReach => ContractVersion::V3_22,
     }
 }
 
