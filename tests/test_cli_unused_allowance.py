@@ -211,3 +211,16 @@ def test_boundary_types_checks_both_entry_fields(
     found = unused(verdict(release_core, root))
     assert len(found) == expected, found
     assert all(f'API-TYPES {field} "{entry}"' in gap["subject"] for gap in found), found
+
+
+def test_placement_keeps_the_entry_of_a_module_with_an_unread_class(
+    release_core: Path, tmp_path: Path
+) -> None:
+    # The collector reads no decorated class, so `app.service` can hold the class that the entry names.
+    rule = {**PLACEMENT, "class_kinds": ["class", "dataclass"], "allowed_sources": ["app.service"]}
+    files = {
+        **BASE,
+        "src/app/client.py": "class Plain: pass\n",
+        "src/app/service.py": "from dataclasses import dataclass\n\n@dataclass\nclass Data: pass\n",
+    }
+    assert unused(run(release_core, tmp_path, rule, files)) == []

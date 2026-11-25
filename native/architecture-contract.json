@@ -1113,6 +1113,7 @@
             "native.archkeel_model.constructs",
             "native.archkeel_model.graph",
             "native.archkeel_model.imports",
+            "native.archkeel_model.modules",
             "native.archkeel_model.ownership",
             "native.archkeel_model.placement_facts",
             "native.archkeel_model.published_items"

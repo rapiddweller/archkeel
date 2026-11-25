@@ -8,7 +8,9 @@ use archkeel_contract::{RuleKind, SymbolClassKind, SymbolPlacement};
 use archkeel_facts::vocab::ClassKind;
 
 use crate::graph::Graph;
+use crate::ids::Table;
 use crate::model::Model;
+use crate::modules::Module;
 use crate::ownership::in_scope;
 use crate::placement_facts::Class;
 use crate::reason::{Reason, Unsupported};
@@ -68,18 +70,27 @@ pub fn violations(model: &Model, rule: &SymbolPlacement) -> Result<Vec<Class>, R
     Ok(found)
 }
 
-/// The exception entries of a rule that name no class of its kinds (AD-1070). A rule that reads no
-/// class reports none: the collector can leave a class of an unproven kind unread.
+/// The exception entries of a rule that name no class of its kinds (AD-1070). A module whose class
+/// inventory the collector does not prove empty can hold an unread class, so its entries stay.
 pub(crate) fn unused_allowances(model: &Model, rule: &SymbolPlacement) -> Vec<UnusedAllowance> {
     let classes = named_classes(model, rule).unwrap_or_default();
     let modules: Vec<&str> = classes.iter().map(|class| class.module.as_str()).collect();
     if modules.is_empty() {
         return Vec::new();
     }
+    let table = model.graph().modules();
+    let unread: Vec<&str> = model
+        .source_modules(SymbolPlacement::source(rule).as_text())
+        .into_iter()
+        .filter_map(|id| Table::get(table, id))
+        .filter(|module| !module.class_inventory_empty())
+        .map(Module::name)
+        .collect();
+    let hidden = |entry: &str| unread.iter().any(|module| in_scope(module, entry));
     unused_by_module(
         rule.allowed_sources(),
         rule.exact_sources(),
         &modules,
-        |_| false,
+        hidden,
     )
 }
