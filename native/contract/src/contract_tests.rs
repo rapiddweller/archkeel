@@ -186,6 +186,25 @@ fn source_symbol_only_needs_the_new_schema_and_a_target_symbol() {
 }
 
 #[test]
+fn indirect_needs_the_new_schema_and_a_module_target_without_a_symbol() {
+    let sides = r#", "source": "p.a", "target": "p.b", "include_type_checking": true"#;
+    let indirect = r#", "indirect": true"#;
+    let symbol = r#", "target_symbol": "Profile""#;
+    let namespace = r#", "target_kind": "import_namespace""#;
+    for (version, fields, valid) in [
+        ("3.20.0", format!("{sides}{indirect}"), false),
+        ("3.21.0", format!("{sides}{indirect}"), true),
+        ("3.21.0", format!("{sides}{symbol}{indirect}"), false),
+        ("3.21.0", format!("{sides}{namespace}{indirect}"), false),
+        ("3.21.0", format!("{sides}{symbol}"), true),
+        ("3.21.0", format!("{sides}, \"indirect\": 1"), false),
+    ] {
+        let text = contract(version, &rule("forbidden_dependency", &fields));
+        assert_eq!(read_contract(&text).is_ok(), valid, "{text}");
+    }
+}
+
+#[test]
 fn python_white_space_and_identifiers_are_read_as_python_reads_them() {
     let blank = contract("2.1.0", &rule("complete_requires", "")).replace("Why.", "\\u001c");
     assert_eq!(kind_of(&blank), Some(ErrorKind::Invalid));

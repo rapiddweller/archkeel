@@ -91,6 +91,7 @@ pub(crate) enum Reads<'r> {
 /// reads every edge.
 pub(crate) fn reads<'r>(rule: &'r Rule, components: &'r [Component], rules: &[Rule]) -> Reads<'r> {
     match rule {
+        Rule::ForbiddenDependency(rule) if *rule.indirect() => Reads::Every,
         Rule::ForbiddenDependency(rule) if *rule.source_symbol_only() => {
             Reads::SourceNames(dependency_sides(rule, components))
         }

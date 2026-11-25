@@ -174,6 +174,11 @@ fn reads(model: &Model, rule: &Rule, module: Option<&str>) -> ReadSet {
         })),
         // The edges of the source side; a module without one owner can be on either side. A
         // `target_symbol` reads the members of the target and each binding on the way to it.
+        // A chain can run through any module, so an `indirect` rule reads the edges of each one
+        // (AD-1085). `allowed_sources` exempts only the first module of a chain.
+        Rule::ForbiddenDependency(rule) if *rule.indirect() => {
+            ReadSet::edges(on(&|name| model.selects(name)))
+        }
         Rule::ForbiddenDependency(rule) => {
             let [sources, _] = selection::dependency_sides(rule, model.contract().components());
             let unowned = |name: &str| owner_of(model.components(), name).is_none();
