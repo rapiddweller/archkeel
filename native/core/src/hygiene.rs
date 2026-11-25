@@ -22,7 +22,7 @@ use std::collections::BTreeMap;
 use std::iter;
 
 use archkeel_contract::policy::InsideMount;
-use archkeel_contract::{Contract, Rule};
+use archkeel_contract::{BudgetName, Contract, Rule};
 use archkeel_model::{
     in_scope, Graph, Hygiene, ModelTree, Reason, TrojanHorseProblem, TrojanHorses, Unsupported,
 };
@@ -50,6 +50,8 @@ pub(crate) struct Found {
     pub(crate) refusal: Option<(&'static str, String)>,
     /// The reason of each hygiene row.
     pub(crate) rules: BTreeMap<String, Reason>,
+    /// The measurement budgets that the root contract declares: the baseline compare holds them.
+    pub(crate) budgets: Vec<BudgetName>,
 }
 
 impl Found {
@@ -88,7 +90,10 @@ impl Found {
 /// The hygiene of a request without provenance documents (a dual-run or a check request): one
 /// named row for a usable contract, so such a request cannot give PASS without hygiene.
 pub(crate) fn unread(usable: Option<&Usable>) -> Found {
-    let mut found = Found::default();
+    let mut found = Found {
+        budgets: declared(usable),
+        ..Found::default()
+    };
     if usable.is_some() {
         let reason = Reason::Unsupported(Unsupported::HygieneInput);
         found.rules.insert("hygiene:request".to_owned(), reason);
@@ -109,7 +114,10 @@ pub(crate) fn check(
     path: &str,
     compares_baseline: bool,
 ) -> Found {
-    let mut found = Found::default();
+    let mut found = Found {
+        budgets: declared(usable),
+        ..Found::default()
+    };
     let Some(usable) = usable else {
         return found;
     };
@@ -179,6 +187,18 @@ pub(crate) fn check(
         (path, compares_baseline),
     );
     found
+}
+
+/// The names of the measurement budgets that the root contract declares.
+fn declared(usable: Option<&Usable>) -> Vec<BudgetName> {
+    let declarations = usable.and_then(|usable| usable.root.declarations().as_ref());
+    declarations.map_or_else(Vec::new, |found| {
+        found
+            .measurement_budgets()
+            .iter()
+            .map(|b| *b.name())
+            .collect()
+    })
 }
 
 /// AD-1070: an exception entry that no subject of its rule uses is a defect; the rule keeps its

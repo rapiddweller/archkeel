@@ -17,13 +17,12 @@ use archkeel_contract::policy::{
     ValidationBaseline,
 };
 use archkeel_contract::BudgetName;
-use archkeel_model::Graph;
+use archkeel_model::{Graph, Measures};
 use archkeel_report::{RuleReasons, Ruling, Status};
 use archkeel_store::Ingested;
 use serde::Serialize;
 
 use crate::baseline::{self, BaselineState, Budgets, Compared, Observed, Violation};
-use crate::contract::Usable;
 use crate::gap_key;
 
 /// What a request asks of the baseline (AD-731). `path` is the path of the file to compare with,
@@ -99,9 +98,8 @@ pub(crate) fn gap_rows(ruling: &Ruling) -> Vec<GapRow> {
 /// absent when a row is missing or inconsistent: then they are not measured, never 0.
 /// A hidden edge (a dynamic import, an unresolved name) is not a number here: it is an entry of
 /// the UNKNOWN list, and a new one is red, so a ceiling over the proven edges hides nothing.
-pub(crate) fn budgets(graph: &Graph, reply: &Ingested) -> Budgets {
+pub(crate) fn budgets(graph: &Graph, reply: &Ingested, counts: Option<&Measures>) -> Budgets {
     let coverage = &reply.reply().facts.coverage;
-    let counts = archkeel_model::measure_facts(&reply.reply().facts);
     let selected = u64::try_from(coverage.selected_files.len()).unwrap_or(u64::MAX);
     if selected == 0 || coverage.files_read != selected || coverage.files_parsed != selected {
         return Budgets::default();
@@ -124,9 +122,9 @@ pub(crate) fn budgets(graph: &Graph, reply: &Ingested) -> Budgets {
     Budgets {
         cycle_edges: Some(cycle_edges),
         private_crossings: u64::try_from(private_crossings).ok(),
-        calls_unresolved: counts.as_ref().map(|found| found.calls_unresolved),
-        typing_positions: counts.as_ref().map(|found| found.typing_positions),
-        untyped_private_accesses: counts.as_ref().map(|found| found.untyped_private_accesses),
+        calls_unresolved: counts.map(|found| found.calls_unresolved),
+        typing_positions: counts.map(|found| found.typing_positions),
+        untyped_private_accesses: counts.map(|found| found.untyped_private_accesses),
     }
 }
 
@@ -171,27 +169,13 @@ fn violations(ruling: &Ruling) -> BTreeMap<Violation, u64> {
         .collect()
 }
 
-/// The budgets that the root contract declares.
-pub(crate) fn declared(contract: Option<&Usable>) -> Vec<BudgetName> {
-    contract
-        .and_then(|usable| usable.root.declarations().as_ref())
-        .map(|found| {
-            found
-                .measurement_budgets()
-                .iter()
-                .map(|b| *b.name())
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
 /// What the run has: the keys, the violations and the measured budgets.
 pub(crate) fn observed(
     ruling: &Ruling,
     reply: Option<&Ingested>,
     graph: Option<&Graph>,
     refusals: Vec<String>,
-    declared: &[BudgetName],
+    (declared, counts): (&[BudgetName], Option<&Measures>),
 ) -> Observed {
     let mut gaps = gap_key::of_run(ruling, reply);
     gaps.unacceptable.extend(refusals);
@@ -201,7 +185,9 @@ pub(crate) fn observed(
         declared: declared.to_vec(),
         budgets: graph
             .zip(reply)
-            .map_or_else(Budgets::default, |(graph, reply)| budgets(graph, reply)),
+            .map_or_else(Budgets::default, |(graph, reply)| {
+                budgets(graph, reply, counts)
+            }),
         unknown_status: ruling.decided().status() == Status::Unknown,
     }
 }
