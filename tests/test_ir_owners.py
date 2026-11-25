@@ -68,6 +68,7 @@ SHELL = frozenset(
         "explorer_story_spec.py",
         "explorer_story_sql.py",
         "explorer_symbols.py",
+        "explorer_verdict.py",
     )
 )
 
