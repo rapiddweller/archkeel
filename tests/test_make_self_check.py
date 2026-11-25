@@ -32,7 +32,7 @@ def test_a_self_check_without_a_usable_core_result_fails(
     uv = tmp_path / "uv"
     uv.write_text(
         '#!/bin/sh\ncase "$*" in\n'
-        f"  *archkeel\\ validate*) printf '%s' '{printed}'; exit 2;;\n"
+        f"  *archkeel\\ report*) printf '%s' '{printed}'; exit 2;;\n"
         f'  *) shift 3; exec "{sys.executable}" "$@";;\n'
         "esac\n"
     )
