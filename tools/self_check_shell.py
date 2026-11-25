@@ -10,8 +10,9 @@ The result must be clean (no refusal, FAIL or violation, a true exit code), have
 all rules PASS. Its rule ids must equal the rule ids of the contract file, as lists: a duplicate or
 a non-string id is red. The contract must also keep each rule id that the contract of the merge
 base of `--base` and HEAD has. A rule that is gone is growth: it passes only with the label
-`ratchet-lead` and the PR text line `Ratchet growth: <N> items: <reason>` (RATCHET_LABELED and
-RATCHET_BODY_FILE, as in the native gate). A new rule is no growth. A base contract that cannot be
+`ratchet-lead` and the PR text line `Ratchet growth (shell): <N> items: <reason>` (RATCHET_LABELED
+and RATCHET_BODY_FILE, as in the native gate). The native gate reads the line without `(shell)`.
+A new rule is no growth. A base contract that cannot be
 read is red with the reason. `SHELL_BASE_CONTRACT=<file>` replaces the base. `--no-compare` (the
 nightly run) skips the base. `--report-only` (main CI) prints growth and exits 0 for it.
 """
@@ -118,7 +119,7 @@ def check(result_path: str, contract: str, argv: list[str]) -> int:
                 body = (
                     Path(file).read_text(encoding="utf-8") if file and Path(file).is_file() else ""
                 )
-                growth = approval(len(items), labels, body)
+                growth = approval(len(items), labels, body, shell=True)
         except Unusable as error:
             errors.append(f"the base contract is unavailable: {error}")
     show(f"shell self-check diff: grown {len(items)}")

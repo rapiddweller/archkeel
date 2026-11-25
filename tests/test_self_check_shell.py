@@ -17,10 +17,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from self_check_support import FIXTURES, RULE, TOOL, real, red, save
+from self_check_support import FIXTURES, RULE, TOOL, many_gaps, real, red, run, save
 
 TOOL = Path(os.environ.get("SELF_CHECK_SHELL_TOOL", TOOL.with_name("self_check_shell.py")))
-LINE = "Ratchet growth: {n} items: the contract drops a rule on purpose"
+LINE = "Ratchet growth (shell): {n} items: the contract drops a rule on purpose"
+NATIVE = "Ratchet growth: {n} items: the scan reads new public names"
 
 
 def result() -> dict[str, Any]:
@@ -195,3 +196,74 @@ def test_the_base_contract_comes_from_the_merge_base_in_git(tmp_path: Path) -> N
     git("mv", "c.json", "d.json")
     git("commit", "-qm", "move")
     red(tool("--base", "HEAD~1", name="d.json"), "the base contract is unavailable", "d.json")
+
+
+def native_run(tmp_path: Path, body: str, labeled: bool = True) -> subprocess.CompletedProcess[str]:
+    """The real native tool: three new gaps against the base."""
+    pr = save(tmp_path, "n.json", many_gaps(3))
+    return run(
+        tmp_path,
+        str(FIXTURES / "base.json"),
+        pr,
+        labels="ratchet-lead" if labeled else "",
+        body=body,
+    )
+
+
+def shell_run(tmp_path: Path, body: str) -> subprocess.CompletedProcess[str]:
+    return gate(tmp_path, [RULE], [RULE, "SHELL-GONE"], labeled=True, body=body)
+
+
+BOTH = NATIVE.format(n=3) + "\n" + LINE.format(n=1)
+
+
+def test_one_body_with_both_lines_approves_both_gates(tmp_path: Path) -> None:
+    assert native_run(tmp_path, BOTH).returncode == 0
+    assert shell_run(tmp_path, BOTH).returncode == 0
+    assert native_run(tmp_path, LINE.format(n=1) + "\n" + NATIVE.format(n=3)).returncode == 0
+
+
+def test_only_the_native_line_leaves_the_shell_gate_red_and_names_its_line(tmp_path: Path) -> None:
+    body = NATIVE.format(n=3)
+    assert native_run(tmp_path, body).returncode == 0
+    red(shell_run(tmp_path, body), "no plain line `Ratchet growth (shell): 1 items: <reason>`")
+
+
+def test_only_the_shell_line_leaves_the_native_gate_red(tmp_path: Path) -> None:
+    body = LINE.format(n=1)
+    assert shell_run(tmp_path, body).returncode == 0
+    red(native_run(tmp_path, body), "no plain line `Ratchet growth: 3 items: <reason>`")
+
+
+def test_each_gate_counts_its_own_line(tmp_path: Path) -> None:
+    red(native_run(tmp_path, NATIVE.format(n=1) + "\n" + LINE.format(n=1)), "the grown count is 3")
+    red(shell_run(tmp_path, NATIVE.format(n=3) + "\n" + LINE.format(n=3)), "the grown count is 1")
+
+
+def test_two_lines_of_one_kind_are_red_and_the_other_kind_does_not_count(tmp_path: Path) -> None:
+    twice = BOTH + "\n" + LINE.format(n=1)
+    red(shell_run(tmp_path, twice), "2 `Ratchet growth (shell)` lines; keep exactly one")
+    assert native_run(tmp_path, twice).returncode == 0
+    twice = BOTH + "\n" + NATIVE.format(n=3)
+    red(native_run(tmp_path, twice), "2 `Ratchet growth` lines; keep exactly one")
+    assert shell_run(tmp_path, twice).returncode == 0
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        LINE.format(n=1).replace("Ratchet growth (shell)", "Ratchet growth  (shell)"),
+        LINE.format(n=1).replace("(shell)", "(Shell)"),
+        "x " + LINE.format(n=1),
+        f"> {LINE.format(n=1)}",
+        "Ratchet growth (shell): 01 items: the contract drops a rule on purpose",
+        "Ratchet growth (shell): 1 items: short",
+    ],
+)
+def test_the_shell_line_stays_strict(tmp_path: Path, body: str) -> None:
+    assert shell_run(tmp_path, body).returncode == 1
+
+
+def test_a_shell_line_does_not_satisfy_the_native_gate_and_the_reverse(tmp_path: Path) -> None:
+    red(native_run(tmp_path, LINE.format(n=3)), "no plain line")
+    red(shell_run(tmp_path, NATIVE.format(n=1)), "no plain line")

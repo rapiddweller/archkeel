@@ -14,7 +14,8 @@ refusal, no FAIL, no violation and the exit code that its statuses give. Growth 
 multiset compare, so a growing gap counts for each occurrence), a new UNKNOWN reason kind, or a
 rule with a worse status (PASS < UNKNOWN < FAIL). Removals do not offset additions. Growth passes
 only with the label `ratchet-lead` and the PR text line `Ratchet growth: <N> items: <reason>`,
-where N is the printed count. A base that is missing, corrupt, refused or for another commit
+where N is the printed count. The shell gate reads its own line `Ratchet growth (shell): ...`.
+A base that is missing, corrupt, refused or for another commit
 compares as an empty base, and only the same approval passes it. The log shows the first
 `SHOWN` grown items; `--grown-file` takes all of them. `--report-only` (main CI, which cannot see
 the label) fails only on a result that is not clean.
@@ -35,7 +36,9 @@ RANK = {"PASS": 0, "UNKNOWN": 1, "FAIL": 2}
 RECEIVER_GAP = re.compile(r"A method call may reach the method (\S+) of a type in its own file")
 FORMAT = "selfcheck-v1"
 LABEL = "ratchet-lead"
-LINE = re.compile(r"Ratchet growth: (0|[1-9][0-9]*) items?: \S.{9,}")
+NUMBER = r"(0|[1-9][0-9]*) items?: \S.{9,}"
+LINE = re.compile(rf"Ratchet growth: {NUMBER}")
+SHELL_LINE = re.compile(rf"Ratchet growth \(shell\): {NUMBER}")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 SHOWN = 10
 SUMMARY_LIMIT = 60_000
@@ -212,18 +215,24 @@ def plain_lines(body: str) -> list[str]:
     return lines
 
 
-def approval(count: int, labels: list[str], body: str) -> list[str]:
-    """The reasons why growth of `count` items is not approved; empty when it is."""
-    ask = f"`Ratchet growth: {count} items: <reason>`"
+def approval(count: int, labels: list[str], body: str, shell: bool = False) -> list[str]:
+    """The reasons why growth of `count` items is not approved; empty when it is.
+
+    Each gate reads only its own line: `Ratchet growth: N items: <reason>` (native) or
+    `Ratchet growth (shell): N items: <reason>`. Both lines can stand in one PR text.
+    """
+    name = "Ratchet growth (shell)" if shell else "Ratchet growth"
+    pattern = SHELL_LINE if shell else LINE
+    ask = f"`{name}: {count} items: <reason>`"
     if LABEL not in labels:
         return [f"growth of {count} items needs the label {LABEL} and the PR text line {ask}"]
-    said = [int(m.group(1)) for line in plain_lines(body) if (m := LINE.fullmatch(line))]
+    said = [int(m.group(1)) for line in plain_lines(body) if (m := pattern.fullmatch(line))]
     if not said:
         return [f"the label {LABEL} is set, but the PR text has no plain line {ask}"]
     if len(said) > 1:
-        return [f"the PR text has {len(said)} Ratchet growth lines; keep exactly one"]
+        return [f"the PR text has {len(said)} `{name}` lines; keep exactly one"]
     if count not in said:
-        return [f"the PR text says Ratchet growth: {said[0]} items, the grown count is {count}"]
+        return [f"the PR text says {name}: {said[0]} items, the grown count is {count}"]
     return []
 
 

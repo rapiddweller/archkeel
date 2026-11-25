@@ -10,14 +10,18 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from self_check_support import FIXTURES, RULE, TOOL, real, red, run, save, violation, worse
-
-
-def many_gaps(count: int) -> dict[str, Any]:
-    more = real("base.json")
-    gap = more["gaps"][0]
-    more["gaps"] += [{**gap, "subject": f"{gap['subject']}/new{i}"} for i in range(count)]
-    return more
+from self_check_support import (
+    FIXTURES,
+    RULE,
+    TOOL,
+    many_gaps,
+    real,
+    red,
+    run,
+    save,
+    violation,
+    worse,
+)
 
 
 def test_the_log_shows_ten_items_and_the_file_holds_all_of_them(tmp_path: Path) -> None:
