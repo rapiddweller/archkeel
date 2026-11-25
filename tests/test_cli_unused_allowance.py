@@ -45,13 +45,14 @@ PLACEMENT = {
     "source": "app",
     "class_kinds": ["class"],
 }
-CONSTRUCT = {
+GETATTR = {
     **RULE,
     "id": "NO-GETATTR",
     "kind": "forbidden_construct",
     "source": "app",
     "constructs": ["getattr"],
 }
+CONSTRUCT = {**GETATTR, "id": "NO-ASSERT", "constructs": ["assert"]}
 DEMO = ROOT / "fixtures/python-newer-syntax-demo"
 
 
@@ -152,10 +153,10 @@ def test_symbol_placement_checks_both_entry_fields(
 def test_forbidden_construct_checks_both_entry_fields(
     release_core: Path, tmp_path: Path, field: str, entry: str, expected: int
 ) -> None:
-    files = {**BASE, "src/app/client.py": "VALUE = getattr(object, 'x')\n"}
+    files = {**BASE, "src/app/client.py": "assert True\n"}
     found = unused(run(release_core, tmp_path, {**CONSTRUCT, field: [entry]}, files))
     assert len(found) == expected, found
-    assert all(f'NO-GETATTR {field} "{entry}"' in gap["subject"] for gap in found), found
+    assert all(f'NO-ASSERT {field} "{entry}"' in gap["subject"] for gap in found), found
 
 
 def test_call_owner_reports_an_entry_that_no_call_uses_and_accepts_one_that_does(
@@ -216,7 +217,7 @@ def test_boundary_types_checks_both_entry_fields(
 def test_placement_keeps_the_entry_of_a_module_with_an_unread_class(
     release_core: Path, tmp_path: Path
 ) -> None:
-    # The collector reads no decorated class, so `app.service` can hold the class that the entry names.
+    # The collector reads no decorated class: `app.service` can hold a class of the entry.
     rule = {**PLACEMENT, "class_kinds": ["class", "dataclass"], "allowed_sources": ["app.service"]}
     files = {
         **BASE,
@@ -242,5 +243,18 @@ def test_call_owner_keeps_the_entries_while_a_call_has_no_exact_target(
         **BASE,
         "src/app/service.py": "def purge(): pass\n\ndef run():\n    purge()\n",
         "src/app/client.py": "def run(purge):\n    purge()\n",
+    }
+    assert unused(run(release_core, tmp_path, rule, files)) == []
+
+
+def test_forbidden_construct_keeps_the_entries_while_a_site_can_be_unread(
+    release_core: Path, tmp_path: Path
+) -> None:
+    # The collector marks `f = getattr; f(...)` as partial and omits its site.
+    rule = {**GETATTR, "allowed_sources": ["app.client", "app.service"]}
+    files = {
+        **BASE,
+        "src/app/client.py": "f = getattr\nVALUE = f(object, '__name__')\n",
+        "src/app/service.py": "VALUE = getattr(object, '__name__')\n",
     }
     assert unused(run(release_core, tmp_path, rule, files)) == []

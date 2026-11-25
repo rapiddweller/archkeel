@@ -246,9 +246,12 @@ fn ignores_at<'r>(
         .map(|(at, _)| at)
 }
 
-/// The exception entries of a rule that name no site that it judges (AD-1070). A rule that judges
-/// no site reports none: the collector can leave a construct unread.
+/// The exception entries of a rule that name no site that it judges (AD-1070). A rule whose
+/// receipt is not complete, or that judges no site, reports none: an unread site can be the one.
 pub(crate) fn unused_allowances(model: &Model, rule: &ForbiddenConstruct) -> Vec<UnusedAllowance> {
+    if receipt(model, rule).is_err() {
+        return Vec::new();
+    }
     let sites = model.graph().constructs().sites.iter();
     let sites: Vec<_> = sites
         .filter(|site| in_source(model, rule, site) && named(rule, site).is_some())
