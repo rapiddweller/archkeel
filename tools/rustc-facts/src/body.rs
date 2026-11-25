@@ -174,14 +174,18 @@ impl<'a, 'tcx> Walk<'a, 'tcx> {
         if met.erased {
             keys.push(self.st.names.text("<ptr>"));
         }
+        let opaques = self.opaque_names(&escaped.opaques);
         for key in keys {
             let flow = self.st.via.entry(key).or_default();
             flow.adts.extend(escaped.adts.iter().copied());
+            flow.adts.extend(opaques.iter().copied());
             flow.dyns.extend(escaped.dyns.iter().copied());
         }
     }
 
     fn flow(&mut self, to: u32, type_args: &Found) {
+        // An opaque type or a coroutine flows by its name: the reader expands it to its hidden types.
+        let opaques = self.opaque_names(&type_args.opaques);
         let flow: &mut Flow = if self.generic {
             self.st.edges.entry((self.me, to)).or_default()
         } else if type_args.is_empty() {
@@ -190,8 +194,18 @@ impl<'a, 'tcx> Walk<'a, 'tcx> {
             self.st.seeds.entry(to).or_default()
         };
         flow.adts.extend(type_args.adts.iter().copied());
+        flow.adts.extend(opaques);
         flow.dyns.extend(type_args.dyns.iter().copied());
         flow.param |= type_args.param;
+    }
+
+    fn opaque_names(&mut self, defs: &[DefId]) -> Vec<u32> {
+        defs.iter()
+            .map(|d| {
+                self.st.opaque_defs.insert(*d);
+                self.st.names.def(self.tcx, *d)
+            })
+            .collect()
     }
 
     /// The destructor of each ADT in a dropped type runs for the type arguments of that ADT: an edge to it.

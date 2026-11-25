@@ -150,11 +150,11 @@ impl<'f> Reach<'f> {
     /// by upcasting, every type coerced to a sub-trait.
     pub(crate) fn fold_coercions(&mut self) {
         let f = self.facts;
-        let escaped = self.inst.get("<foreign>").cloned().unwrap_or_default().0;
+        let escaped = self.expand(self.inst.get("<foreign>").cloned().unwrap_or_default().0);
         for (tr, (src, _, params)) in &f.coerce {
             let mut set = src.clone();
             for func in params {
-                set.extend(self.inst.get(func).cloned().unwrap_or_default().0);
+                set.extend(self.expand(self.inst.get(func).cloned().unwrap_or_default().0));
             }
             self.coerced.insert(tr.clone(), set);
         }
@@ -209,6 +209,26 @@ impl<'f> Reach<'f> {
                 changed |= have.len() != before;
             }
         }
+    }
+
+    /// Add the hidden types of each opaque type or coroutine in `names`, to a fixpoint: an instance can
+    /// name `impl Tr` or an async block, and code that gets it can coerce what it hides (AD-1047).
+    fn expand(&self, mut names: Names) -> Names {
+        let mut todo: Vec<String> = names.iter().cloned().collect();
+        while let Some(name) = todo.pop() {
+            let Some(hidden) = self.facts.hidden.get(&name) else {
+                continue;
+            };
+            let fresh: Vec<String> = hidden
+                .adts
+                .iter()
+                .chain(&hidden.opaques)
+                .filter(|more| names.insert((*more).clone()))
+                .cloned()
+                .collect();
+            todo.extend(fresh);
+        }
+        names
     }
 
     /// Each `dyn Sub` value can be an upcast `dyn Super`: the supers take what the sub-traits hold.

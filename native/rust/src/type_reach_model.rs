@@ -74,7 +74,7 @@ impl<'f> Reach<'f> {
         for imp in f
             .impls
             .iter()
-            .filter(|i| i.tr.is_some() && !i.assoc.is_empty())
+            .filter(|i| i.tr.is_some() && !(i.assoc.is_empty() && i.assoc_dyns.is_empty()))
         {
             imp.adts
                 .iter()
@@ -105,8 +105,13 @@ impl<'f> Reach<'f> {
                 dyns.extend(field_dyns.iter().cloned());
                 // An associated type of a reached impl is reached (hole H3).
                 let impls = impls_of.get(t.as_str()).into_iter().flatten();
-                more.extend(impls.flat_map(|imp| imp.assoc.iter().cloned()));
+                let (assoc, assoc_dyns): (Vec<_>, Vec<_>) =
+                    impls.map(|imp| (&imp.assoc, &imp.assoc_dyns)).unzip();
+                more.extend(assoc.into_iter().flatten().cloned());
+                dyns.extend(assoc_dyns.into_iter().flatten().cloned());
             }
+            // An opaque type or a coroutine in a type argument flows by its name (AD-1047).
+            opaques.extend(types.iter().filter(|t| f.hidden.contains_key(*t)).cloned());
             for t in &types {
                 held.extend(f.foreign_dyn.get(t).into_iter().flatten().cloned());
             }

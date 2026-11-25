@@ -21,9 +21,9 @@ pub(crate) struct Found {
 }
 
 impl Found {
-    /// No ADT and no `dyn` trait: nothing flows.
+    /// No ADT, no `dyn` trait and no opaque type: nothing flows.
     pub(crate) fn is_empty(&self) -> bool {
-        self.adts.is_empty() && self.dyns.is_empty()
+        self.adts.is_empty() && self.dyns.is_empty() && self.opaques.is_empty()
     }
 
     pub(crate) fn new() -> Found {

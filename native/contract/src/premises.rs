@@ -50,7 +50,7 @@ pub fn assumption_words(name: PremiseName) -> &'static str {
             "the premise that outside code leaves the standard library unchanged"
         }
         PremiseName::RustTypeReach => {
-            "rust_type_reach: the compiler type reach of the pinned rustc holds: the facts are of these files, this cfg set, this Cargo.lock and this target, the workspace is the whole program, and the scanned repository is trusted to build"
+            "rust_type_reach: the compiler type reach of the pinned rustc holds: the facts are of these files, this Cargo.lock and this target, in the dev profile and the feature matrix (default, none, all, each alone), the workspace is the whole program (a library function that only a downstream crate calls is not seen, and state that a dependency holds for the workspace is not charged), and the scanned repository is trusted to build"
         }
     }
 }

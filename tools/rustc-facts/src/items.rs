@@ -201,6 +201,11 @@ fn imp(tcx: TyCtxt<'_>, st: &mut State, did: DefId, out: &mut Vec<String>) {
             );
         }
     }
+    // An opaque type in an associated type is reached by its name, as in a type argument.
+    let mut assoc_names = assoc.adts.clone();
+    for d in &assoc.opaques {
+        assoc_names.insert(st.names.def(tcx, *d));
+    }
     let items: BTreeSet<u32> = tcx
         .associated_item_def_ids(did)
         .iter()
@@ -217,8 +222,8 @@ fn imp(tcx: TyCtxt<'_>, st: &mut State, did: DefId, out: &mut Vec<String>) {
     let trait_s = tr.map_or("null".to_string(), |t| st.names.def(tcx, t).to_string());
     let self_s = self_adt.map_or("null".to_string(), |a| a.to_string());
     out.push(format!(
-        "{{\"k\":\"impl\",\"trait\":{trait_s},\"self\":{self_s},\"self_adts\":{},\"assoc\":{},\"items\":{},\"m\":{m},\"file\":{fl},\"line\":{},\"run\":{},\"expansion\":{}}}",
-        json::ids(&self_f.adts), json::ids(&assoc.adts), json::ids(&items), line(tcx, did), runs_code(tcx, did, tr), tcx.def_span(did).from_expansion(),
+        "{{\"k\":\"impl\",\"trait\":{trait_s},\"self\":{self_s},\"self_adts\":{},\"assoc\":{},\"assoc_dyn\":{},\"items\":{},\"m\":{m},\"file\":{fl},\"line\":{},\"run\":{},\"expansion\":{}}}",
+        json::ids(&self_f.adts), json::ids(&assoc_names), json::ids(&assoc.dyns), json::ids(&items), line(tcx, did), runs_code(tcx, did, tr), tcx.def_span(did).from_expansion(),
     ));
 }
 

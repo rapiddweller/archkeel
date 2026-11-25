@@ -13,6 +13,8 @@ pub(crate) struct ImplFacts {
     pub(crate) tr: Option<String>,
     pub(crate) adts: Vec<String>,
     pub(crate) assoc: Vec<String>,
+    /// The `dyn` traits of the associated types.
+    pub(crate) assoc_dyns: Vec<String>,
     pub(crate) run: bool,
 }
 
@@ -213,6 +215,7 @@ impl Facts {
                 tr: one("trait"),
                 adts: many("self_adts").into_iter().collect(),
                 assoc: many("assoc").into_iter().collect(),
+                assoc_dyns: many("assoc_dyn").into_iter().collect(),
                 run: v.get("run").and_then(Value::as_bool).unwrap_or(true),
             }),
             "super" => {

@@ -7,6 +7,18 @@
 #![allow(dead_code)]
 
 mod api;
+mod opgen_a;
+mod opgen_b;
+mod opgen_c;
+mod asyncg_a;
+mod asyncg_b;
+mod asyncg_c;
+mod gdrop_a;
+mod gdrop_b;
+mod gdrop_c;
+mod assoc_a;
+mod assoc_b;
+mod assoc_c;
 mod async_a;
 mod async_b;
 mod async_w;
@@ -335,4 +347,12 @@ fn main() {
     println!("vtblanket={}", api::hits(67));
     cfg_feature_only_fb_a::run();
     println!("cfg_feature_only_fb={}", api::hits(68));
+    opgen_c::run();
+    println!("opgen={}", api::hits(69));
+    asyncg_c::run();
+    println!("asyncg={}", api::hits(70));
+    gdrop_c::run();
+    println!("gdrop={}", api::hits(71));
+    assoc_c::run();
+    println!("assoc={}", api::hits(72));
 }

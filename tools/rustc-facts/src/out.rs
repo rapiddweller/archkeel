@@ -17,7 +17,7 @@
 //! - `coerce`: `tr`, `src`, `src_dyn`, `param_in`: the source types of unsize casts to the `dyn` trait `tr`.
 //!   `src_dyn` holds the `dyn` traits of the source (trait upcasting).
 //! - `opaque`: `d`, `hidden`, `dyn`, `opaque` (opaque types and coroutines that the hidden type mentions). `adt`: `d`, `m`, `file`, `fields`, `dyn`.
-//! - `impl`: `trait`, `self`, `self_adts`, `assoc`, `items`, `m`, `file`, `line`, `run`, `expansion`.
+//! - `impl`: `trait`, `self`, `self_adts`, `assoc` (ADTs and opaque types), `assoc_dyn`, `items`, `m`, `file`, `line`, `run`, `expansion`.
 
 use crate::state::State;
 use crate::{items, json};
