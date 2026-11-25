@@ -347,30 +347,20 @@ impl Builder {
         self.gaps.entry(id).or_insert(record);
     }
 
-    /// A gap that leaves the edges of `sources` unknown: they depend on code that the scan does not read (#1989).
-    pub(crate) fn foreign_edges(&mut self, reason: &str, module: &str, sources: Vec<String>) {
+    /// A gap that leaves the edges of `sources` unknown: they run through code that the scan does not read.
+    pub(crate) fn edges_gap(&mut self, at: (&str, &str), sources: &[&str], evidence: Option<&str>) {
+        let (reason, module) = at;
         let mut data = GapData::at(reason, module);
-        data.effect = Some(GapEffect::Edges {
-            sources: sources
-                .iter()
-                .map(String::as_str)
-                .map(ModuleName::new)
-                .collect(),
-        });
+        let sources = sources.iter().copied().map(ModuleName::new).collect();
+        data.effect = Some(GapEffect::Edges { sources });
         let fact = GapFact::CollectionGap(data);
-        let (id, record) = Record::unknown_gap(reason, None, module, fact);
+        let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
         self.gaps.entry(id).or_insert(record);
     }
 
     pub(crate) fn external_origin(&mut self, module: &str, evidence: &str, package: &str) {
         let reason = format!("A re-export reaches unread package {package}: its origin is unknown");
-        let mut data = GapData::at(&reason, module);
-        data.effect = Some(GapEffect::Edges {
-            sources: vec![ModuleName::new(module)],
-        });
-        let fact = GapFact::CollectionGap(data);
-        let (id, record) = Record::unknown_gap(&reason, Some(evidence), module, fact);
-        self.gaps.entry(id).or_insert(record);
+        self.edges_gap((&reason, module), &[module], Some(evidence));
     }
 
     /// The gap of one pair: the scan cannot tell whether `source` uses `target` (#953). The host

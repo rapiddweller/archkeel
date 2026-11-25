@@ -231,10 +231,10 @@ fn hold_foreign_edges(
         let sources = modules
             .iter()
             .filter(|m| m.crate_index == index)
-            .map(|m| m.module.clone())
-            .collect();
+            .map(|m| m.module.as_str())
+            .collect::<Vec<_>>();
         let reason = format!("The crate {} depends on {package}, a crate that is no workspace member: the edges that pass through it are not read", krate.ident);
-        builder.foreign_edges(&reason, &root.module, sources);
+        builder.edges_gap((&reason, &root.module), &sources, None);
     }
 }
 
