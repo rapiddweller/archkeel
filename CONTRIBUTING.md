@@ -37,13 +37,25 @@ Merge with `python tools/merge_pr.py <number>` (AD-676, AD-736). One decision ta
 
 Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md), updated by [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md), 2026-11-10):
 
-1. One review per PR. The review checks the responsibility of each new file, module and crate against the contract (see "Keep the contract true"), and the PR text shows the dog-food run (AGENTS.md). A PR that can enable a PASS also gets the false-PASS probes (the five `tests/test_collector_false_pass_*.py` files; four run in each PR and all run in Full); a probe expects UNKNOWN or FAIL, never PASS. The author fixes the findings and the lead checks the fixes. There is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not perfection.
+1. One review per PR. The review checks the responsibility of each new file, module and crate against the contract (see "Keep the contract true"), and the PR text shows the dog-food run (AGENTS.md). A PR that can enable a PASS also gets the false-PASS probes (`tests/test_collector_false_pass_*.py`); a probe expects UNKNOWN or FAIL, never PASS. See "Counter-examples for a PASS". The author fixes the findings and the lead checks the fixes. There is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not perfection.
 2. Local gate on the final head: `make ci-pr-static BASE=origin/main`, the area tests, `make native-check` when `native/` changes, `make merge-check`, and the lead's merge-tree check. Push only on a green local gate.
 3. Merge only on green (AD-674): the check `PR gate` of the PR must pass, and `tools/merge_pr.py` refuses a red or missing required check. Three tiers: the PR gate (static checks, core build, self and system check, and main-tier tests of touched areas), the main tier (a push to `main`: the whole fast suite and `make native-check`, at most 15 minutes) and the nightly Full run (scaling, large scans, Windows and Python matrix, at most 45 minutes). AD-674 amends [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md).
 4. Do not update the branch unless the merge-tree shows a real conflict.
 5. Full runs on `main` nightly, and by dispatch when useful. A failure on `main` becomes a backlog issue with a priority, except when `main` no longer builds locally: then fix it at once, because no agent can work.
 6. Run `python3 tools/ci_daily.py` for the daily line. Targets: CI at most 10 min, queue wait at most 3 min.
 7. Revisit these rules when the Rust corpus is complete, or after a second red `main` of more than 1 hour.
+
+### Counter-examples for a PASS
+
+A false PASS destroys trust, so a PASS must be hard to get. A false FAIL or UNKNOWN makes someone look at it, so it finds itself.
+
+- A change **can enable a PASS** when, for some input, a rule result moves from FAIL or UNKNOWN to PASS. It also can when it removes a gap, an edge or a scanned file.
+- Such a change must list the **counter-examples** that the author tried. A counter-example is code that must break the PASS. The probe is the test file that holds it.
+- Each counter-example needs proof that its code runs (it compiles or executes on the target toolchain) and the result UNKNOWN or FAIL.
+- A counter-example that still gives PASS becomes a strict-xfail probe and a row in `docs/known-limits.md`. The PR text names it.
+- The reviewer adds its own counter-examples. The author does not wait for them.
+- Only a change that moves a PASS to a FAIL or an UNKNOWN needs no list. A change that moves a FAIL to an UNKNOWN needs one: with a baseline an accepted UNKNOWN exits 0 and hides a real violation.
+- A false FAIL is a normal bug.
 
 Each CI run (a push to `main`) runs the fast tests, one area in each job (`make fast-test AREA=...`).
 The PR gate selects areas from changed paths with the rules of `tests/areas.py`. A native or CLI
