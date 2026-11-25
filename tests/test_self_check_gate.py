@@ -236,14 +236,23 @@ def test_missing_topology_cannot_pass_the_gate(repo: Path) -> None:
     assert done.returncode == 1 and "no complete scanned scope" in done.stdout
 
 
-def test_a_legacy_cached_base_is_recomputed(repo: Path) -> None:
+def test_a_legacy_cached_base_uses_the_old_comparison(repo: Path) -> None:
     path = keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
     result = json.loads(path.read_text())
     result["format"] = "selfcheck-v1"
+    del result["scope"], result["contract_files"]
     path.write_text(json.dumps(result))
-    done = gate(repo, "base.json")
-    assert done.returncode == 1
-    assert "cache miss" in done.stdout and "cache hit" not in done.stdout
+    done = gate(repo, "base.json", GITHUB_STEP_SUMMARY=str(repo / "summary.md"))
+    message = (
+        "scope comparison: base scope not in the v1 cache; it starts when main writes the v2 cache"
+    )
+    assert done.returncode == 0, done.stdout
+    assert done.stdout.count(message) == 1 and "grown 0" in done.stdout
+    assert (repo / "summary.md").read_text().strip() == message
+    assert gate(repo, "plus-one-gap.json").returncode == 1
+    result.update(format="selfcheck-v2", scope={})
+    path.write_text(json.dumps(result))
+    assert gate(repo, "base.json").returncode == 1
 
 
 def test_a_base_without_scope_is_not_silently_accepted(repo: Path) -> None:
@@ -347,7 +356,7 @@ def test_a_base_that_cannot_be_computed_fails_and_gives_the_reason(repo: Path) -
     assert done.returncode == 1, done.stdout
     assert "cache miss" in done.stdout
     assert "base unavailable: the core of the base commit does not build" in done.stdout
-    assert "missing-base-result.json is missing" in done.stdout
+    assert done.stdout.splitlines()[-1] == "self-check gate: RED (exit 1)"
 
 
 def test_a_cached_base_of_another_commit_is_a_miss(repo: Path) -> None:
