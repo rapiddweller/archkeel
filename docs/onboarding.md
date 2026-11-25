@@ -44,6 +44,41 @@ as the import root. If the same packages sit under another directory, the draft 
 the packaging metadata. Competing import roots leave affected targets unresolved. A pytest search path
 alone does not establish the import path of the application.
 
+### Start from a layered or hexagonal shape
+
+If you know the shape that you want, add `--preset` to `archkeel init`. You name the components;
+the preset never guesses a name. The names are components of the draft: the folders in the table
+above. `--layers` lists them from the outermost layer to the innermost one. The preset works on a
+draft of one language area. It adds `layer` to the named components and rules of existing kinds.
+Each rule has a rationale of one sentence. Without `--preset` the draft is the same as before.
+
+A layered example. `cli` is the outermost layer and `model` is the innermost one. An inner layer
+must not import an outer layer:
+
+```bash
+archkeel init --preset layered --layers cli,render,app,store,model
+```
+
+The draft has one `forbidden_dependency` rule for each pair of an inner and an outer layer (here
+10). Their targets are checked against imports. It also has one `layer_order` rule. That rule
+checks the `requires` that you add later: a requirement must point from an outer layer to an inner
+one.
+
+A hexagonal example. `--layers` lists the core (`app` outside, `model` inside), and `--adapters`
+lists two or more adapters. The core must not import an adapter, and adapters must not import each
+other:
+
+```bash
+archkeel init --preset hexagonal --layers app,model --adapters store,render
+```
+
+The draft has the same rules for the core and its adapters, one `sibling_isolation` rule for the
+adapters, and one `layer_order` rule. The adapters form the outermost layer, named `adapters`.
+
+The first verdict is still `UNKNOWN`, because each responsibility is a `TODO`. A name that the
+layout does not have, a repeated name, or a count that does not fit the preset refuses the draft
+and writes nothing.
+
 ### A mixed repository: a system
 
 If the repository has several language areas (a Python backend and a Dart app; a Python platform

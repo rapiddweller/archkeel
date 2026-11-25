@@ -29,7 +29,7 @@ no gap exists and the exit code is 0 (AD-1064).
 | `gaps` | `core_gaps` | The lines of the gaps of a scan: grouped by cause with a count and one example each, and the packages that were not found. |
 | `help` | `core_help` | The help of the tool and of each command. |
 | `skill` | `skill` | Install the coding-agent skill. |
-| `init` | `init_draft`, `init_areas`, `init_binding` | Draft `archkeel.toml`, a first contract and its document from the folder layout and manifests: one configuration, or a system with one part for each language area and the interface of a stated PyO3 binding (AD-626, AD-638, AD-660, AD-784). It reads no source and writes only missing files. |
+| `init` | `init_draft`, `init_areas`, `init_binding`, `init_preset` | Draft `archkeel.toml`, a first contract and its document from the folder layout and manifests: one configuration, or a system with one part for each language area and the interface of a stated PyO3 binding (AD-626, AD-638, AD-660, AD-784). A preset adds layered or hexagonal rules for names of the user (AD-1087). It reads no source and writes only missing files. |
 
 An arrow points down only. The entry calls the commands, the commands call the other parts, and
 no part calls up. Rule `SHELL-REQUIRES-COMPLETE` allows only the arrows in the contract.
@@ -80,6 +80,7 @@ flowchart LR
     n_23["explorer-store"]
     n_24["storyboard"]
     n_0 --> n_7
+    n_0 --> n_10
     n_1 --> n_11
     n_1 --> n_18
     n_2 --> n_11

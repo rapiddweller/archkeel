@@ -26,6 +26,10 @@ DOCUMENT: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs/onboa
 _IGNORED: Final = frozenset({".git", ".venv", "venv", "node_modules", "target", "build", "dist"})
 
 
+def _slug(text: str) -> str:
+    return re.sub(r"[^A-Z0-9]+", "-", text.upper()).strip("-")
+
+
 class NothingToDraft(ValueError):
     """The layout names no components that the draft can state soundly."""
 
