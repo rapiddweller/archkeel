@@ -23,6 +23,7 @@ use archkeel_store::Ingested;
 use serde::Serialize;
 
 use crate::baseline::{self, BaselineState, Budgets, Compared, Observed, Violation};
+use crate::contract::Usable;
 use crate::gap_key;
 
 /// What a request asks of the baseline (AD-731). `path` is the path of the file to compare with,
@@ -40,6 +41,18 @@ pub(crate) enum Input {
         path: String,
         file: Result<ValidationBaseline, String>,
     },
+}
+
+impl Input {
+    /// True when the request holds the budgets of the run against a baseline: it compares with a
+    /// file that passed the check, or it writes the file from this run (AD-1090). A run with
+    /// neither has no baseline value for a declared budget.
+    pub(crate) fn holds_budgets(&self) -> bool {
+        !matches!(
+            self,
+            Self::Compare { file: Err(_), .. } | Self::CompareAndWrite { file: Err(_), .. }
+        )
+    }
 }
 
 /// The part of the frame. `file` holds the bytes to write, as text.
@@ -82,10 +95,13 @@ pub(crate) fn gap_rows(ruling: &Ruling) -> Vec<GapRow> {
 }
 
 /// The measured budgets. A run measures them only when each selected file was read and parsed.
+/// The three counts of calls and types come from the same sum as the `measures` part, which is
+/// absent when a row is missing or inconsistent: then they are not measured, never 0.
 /// A hidden edge (a dynamic import, an unresolved name) is not a number here: it is an entry of
 /// the UNKNOWN list, and a new one is red, so a ceiling over the proven edges hides nothing.
 pub(crate) fn budgets(graph: &Graph, reply: &Ingested) -> Budgets {
     let coverage = &reply.reply().facts.coverage;
+    let counts = archkeel_model::measure_facts(&reply.reply().facts);
     let selected = u64::try_from(coverage.selected_files.len()).unwrap_or(u64::MAX);
     if selected == 0 || coverage.files_read != selected || coverage.files_parsed != selected {
         return Budgets::default();
@@ -108,6 +124,9 @@ pub(crate) fn budgets(graph: &Graph, reply: &Ingested) -> Budgets {
     Budgets {
         cycle_edges: Some(cycle_edges),
         private_crossings: u64::try_from(private_crossings).ok(),
+        calls_unresolved: counts.as_ref().map(|found| found.calls_unresolved),
+        typing_positions: counts.as_ref().map(|found| found.typing_positions),
+        untyped_private_accesses: counts.as_ref().map(|found| found.untyped_private_accesses),
     }
 }
 
@@ -152,18 +171,34 @@ fn violations(ruling: &Ruling) -> BTreeMap<Violation, u64> {
         .collect()
 }
 
+/// The budgets that the root contract declares.
+pub(crate) fn declared(contract: Option<&Usable>) -> Vec<BudgetName> {
+    contract
+        .and_then(|usable| usable.root.declarations().as_ref())
+        .map(|found| {
+            found
+                .measurement_budgets()
+                .iter()
+                .map(|b| *b.name())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// What the run has: the keys, the violations and the measured budgets.
 pub(crate) fn observed(
     ruling: &Ruling,
     reply: Option<&Ingested>,
     graph: Option<&Graph>,
     refusals: Vec<String>,
+    declared: &[BudgetName],
 ) -> Observed {
     let mut gaps = gap_key::of_run(ruling, reply);
     gaps.unacceptable.extend(refusals);
     Observed {
         gaps,
         violations: violations(ruling),
+        declared: declared.to_vec(),
         budgets: graph
             .zip(reply)
             .map_or_else(Budgets::default, |(graph, reply)| budgets(graph, reply)),
@@ -281,6 +316,12 @@ fn written(run: &Observed) -> String {
     let budgets = [
         (BudgetName::CycleEdges, run.budgets.cycle_edges),
         (BudgetName::PrivateCrossings, run.budgets.private_crossings),
+        (BudgetName::CallsUnresolved, run.budgets.calls_unresolved),
+        (BudgetName::TypingPositions, run.budgets.typing_positions),
+        (
+            BudgetName::UntypedPrivateAccesses,
+            run.budgets.untyped_private_accesses,
+        ),
     ]
     .into_iter()
     .filter_map(|(name, value)| {

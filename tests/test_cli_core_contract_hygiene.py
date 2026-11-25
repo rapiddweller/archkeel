@@ -241,7 +241,7 @@ PLANTS: dict[str, tuple[str, Callable[[Path], None]]] = {
         ),
     ),
     "measurement-budget": (
-        "budget",
+        "budget.unknown",
         _declare({"measurement_budgets": [{"name": "cycle_edges"} | PAGE_BUDGET]}),
     ),
     "compat": (
@@ -300,7 +300,7 @@ REFUSED = frozenset(
     }
 )
 # A family that applies and that the core does not port: a named gap.
-NOT_PORTED = frozenset({"compat", "measurement-budget", "inside-allows-forbidden"})
+NOT_PORTED = frozenset({"compat", "inside-allows-forbidden"})
 # AD-514: the core names an interface entry that no import reaches `interface.usage_unknown`.
 USAGE_UNKNOWN = frozenset({"interface"})
 # The core holds these runs by a gap that it already had: a profile limit, a refused contract or

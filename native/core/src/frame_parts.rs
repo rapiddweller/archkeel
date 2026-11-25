@@ -181,10 +181,19 @@ pub(super) fn hygiene_of(
     (documents, sdk): (Option<&crate::provenance::Documents>, &[String]),
     namespace: &str,
     path: &str,
+    compares_baseline: bool,
 ) -> crate::hygiene::Found {
     let (usable, models) = engine.inputs();
     match documents {
-        Some(documents) => crate::hygiene::check(documents, usable, models, namespace, sdk, path),
+        Some(documents) => crate::hygiene::check(
+            documents,
+            usable,
+            models,
+            namespace,
+            sdk,
+            path,
+            compares_baseline,
+        ),
         None => crate::hygiene::unread(usable),
     }
 }

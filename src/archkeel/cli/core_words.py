@@ -52,6 +52,8 @@ GAP_KINDS: Final = {
     "trojan_horse_reach.repeated": "a trojan horse with more than one declared reach",
     "trojan_horse_reach.invalid": "a declared trojan horse reach that cannot apply",
     "trojan_horse_reach.inside": "a declared trojan horse reach in an inside contract",
+    "budget.unknown": "a declared budget that has no baseline value to compare with",
+    "budget.exceeded": "a measured budget that is above the baseline",
     "baseline.invalid": "a baseline file that is not valid",
     "baseline.older_schema": "a baseline file from release 4.0.1",
 }

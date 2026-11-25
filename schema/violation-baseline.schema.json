@@ -12,8 +12,8 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "1.3.0",
-      "description": "Current writer schema; the reader also accepts baseline schemas 1.0.0, 1.1.0 and 1.2.0, which carries scalar budgets only."
+      "enum": ["1.3.0", "1.4.0"],
+      "description": "Writer schema: 1.4.0 holds the unknowns list and the three call and type budgets, which the core compares (AD-1090). The reader also accepts 1.0.0 to 1.3.0; their three call and type budgets come from release 4.0.1 and are not compared."
     },
     "budgets": {
       "type": "object",
