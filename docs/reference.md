@@ -1,5 +1,7 @@
 # Archkeel reference
 
+For a gate that moves from 4.0.1 to 5.0, see [the migration guide](migration-4-to-5.md).
+
 ## State of `main`
 
 This page describes the development checkout. Studio and its optional MCP server are
