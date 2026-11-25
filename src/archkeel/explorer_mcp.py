@@ -88,6 +88,28 @@ def _query_tools(server: Any, path: Path, root: Path) -> None:
         server.tool(operation)
 
 
+def _verdict_tools(server: Any, path: Path, root: Path) -> None:
+    def verdict() -> Row:
+        """Show the contract verdict, its exit code, its counts and whether the files changed."""
+        return query(path, root, "verdict", {})
+
+    def findings(rule: str = "", component: str = "", cursor: str = "", limit: int = 25) -> Row:
+        """List one page of violations. Each row has a rule, a subject, a place and a basis."""
+        return query(
+            path,
+            root,
+            "findings",
+            {"rule": rule, "component": component, "cursor": cursor, "limit": limit},
+        )
+
+    def unknowns(kind: str = "", cursor: str = "", limit: int = 25) -> Row:
+        """List one page of parts that ArchKeel did not decide. Each row has a reason."""
+        return query(path, root, "unknowns", {"kind": kind, "cursor": cursor, "limit": limit})
+
+    for operation in (verdict, findings, unknowns):
+        server.tool(operation)
+
+
 def _resolution_tools(server: Any, path: Path, root: Path) -> None:
     def call_resolution(
         element: str = "",
@@ -150,6 +172,7 @@ def main() -> None:
         query(path, root, "overview", {"limit": 1})
         server = FastMCP("ArchKeel Explorer")
         _query_tools(server, path, root)
+        _verdict_tools(server, path, root)
         _story_tools(server, path, root)
         _resolution_tools(server, path, root)
         server.run(transport="stdio")

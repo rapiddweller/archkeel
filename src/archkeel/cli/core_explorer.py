@@ -12,7 +12,7 @@ import sqlite3
 import sys
 import tempfile
 import webbrowser
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
 
 from archkeel.explorer_queries import populate
@@ -23,6 +23,7 @@ from archkeel.explorer_store import (
     publish_snapshot,
     repository_writer,
 )
+from archkeel.explorer_verdict import Basis, Finding, Unknown, VerdictRows
 
 from .core_arguments import Options, OutputMode
 from .core_binding import ProjectRoot
@@ -35,8 +36,8 @@ from .core_explorer_scip import (
     _discover_rust_index,
     _store_resolution,
 )
-from .core_frame import CoreError, CoreFrame, GapKind
-from .core_json import as_object, as_text
+from .core_frame import CoreError, CoreFrame, GapKind, RuleStatus
+from .core_json import as_object, as_text, as_texts
 from .init_draft import draft, write_missing
 from .native_scan import prepare_disposable_git
 
@@ -71,6 +72,95 @@ def _observed_scan(
         write_missing(copy, layout)
         prepare_disposable_git(copy)
         return scan(ProjectRoot.of(copy, layout.entry))
+
+
+def _verdict_rows(
+    frame: CoreFrame,
+    document: Mapping[str, object],
+    digests: Mapping[str, str],
+    assessed: Iterable[str],
+) -> VerdictRows:
+    """Copy the verdict rows of the frame. The core decided them; nothing is decided again."""
+    topology = frame.topology
+    if topology is None:
+        raise CoreError("the core did not give Explorer topology")
+    owners = {module.name: module.component for module in topology.modules}
+    parents = {component.id: component.parent for component in topology.components}
+    # A cycle names its members by component name, and a module names its component by id.
+    ids = {
+        name: component.id
+        for component in topology.components
+        for name in (component.name, component.id)
+    }
+
+    def lineage(name: str) -> Iterator[str]:
+        """The component of a module or a component name, then each parent of it."""
+        current = ids.get(owners.get(name) or name)
+        while current is not None:
+            yield current
+            current = parents.get(current)
+
+    def place(keys: tuple[str, ...]) -> str | None:
+        return next(
+            (f"{found.path}:{found.line}" for key in keys if (found := frame.locations.get(key))),
+            None,
+        )
+
+    findings = tuple(
+        Finding(
+            rule,
+            detail.source if detail.target is None else f"{detail.source} -> {detail.target}",
+            place(detail.evidence),
+            Basis.DECLARED if detail.possible else Basis.PROVEN,
+            tuple(
+                sorted(
+                    {
+                        found
+                        for name in detail.members or (detail.source, detail.target or "")
+                        for found in lineage(name)
+                    }
+                )
+            ),
+        )
+        for rule, details in frame.details.items()
+        for detail in details
+    )
+    unknowns = (
+        *(Unknown(gap.kind, gap.subject, gap.reason, None) for gap in frame.gaps),
+        *(
+            Unknown(gap.kind, ", ".join(gap.subjects), gap.reason, place(gap.evidence))
+            for gap in frame.collection_gaps
+        ),
+    )
+    digest = document.get("contract_digest")
+    return VerdictRows(
+        frame.status.value,
+        exit_for(Outcome.VERDICT, frame, baseline=False),
+        sum(1 for count in frame.violations.values() if count),
+        sum(1 for verdict in frame.rules.values() if verdict.status is RuleStatus.UNKNOWN),
+        None if digest is None else as_text(digest, "contract_digest"),
+        as_texts(document.get("rule_rationales", {}), "rule_rationales"),
+        findings,
+        unknowns,
+        {name: digests[name] for name in sorted(set(assessed)) if len(digests.get(name, "")) == 64},
+    )
+
+
+def _drop_contract(topology: dict[str, object]) -> None:
+    """Keep no rule or responsibility of the drafted contract of an observed scan."""
+    topology["requires"] = []
+    for section, drop in (
+        ("components", ("responsibilities", "forbidden_responsibilities", "public")),
+        ("edges", ("rules",)),
+        ("component_edges", ("rules",)),
+    ):
+        rows = topology[section]
+        if not isinstance(rows, list):
+            raise CoreError(f"invalid topology section {section}")
+        topology[section] = [
+            {key: value for key, value in as_object(row, section).items() if key not in drop}
+            for row in rows
+        ]
 
 
 def _publish(
@@ -126,26 +216,20 @@ def _publish(
     coverage = "complete" if frame.topology.complete and not frame.topology.truncated else "UNKNOWN"
 
     if observed:
-        topology["requires"] = []
-        for section, drop in (
-            ("components", ("responsibilities", "forbidden_responsibilities", "public")),
-            ("edges", ("rules",)),
-            ("component_edges", ("rules",)),
-        ):
-            rows = topology[section]
-            if not isinstance(rows, list):
-                raise CoreError(f"invalid topology section {section}")
-            topology[section] = [
-                {key: value for key, value in as_object(row, section).items() if key not in drop}
-                for row in rows
-            ]
+        _drop_contract(topology)
+
+    # An observed scan runs against a drafted contract, so it has no verdict to keep.
+    rows = None
+    if not observed:
+        assessed = {*paths, Path(project.config).as_posix()}
+        rows = _verdict_rows(frame, document, digests, assessed)
 
     def build(connection: sqlite3.Connection) -> None:
         display = topology | {
             "verdict": None if observed else frame.status.value,
             "observed_only": observed,
         }
-        populate(connection, display, project.path)
+        populate(connection, display, project.path, rows)
         if scip is not None:
             _store_resolution(connection, scip, binary, project.path, digests, topology)
         if _current_identity(project, binary, scip) != snapshot:
