@@ -5,9 +5,9 @@
 // AD-1114: the reply carries the provenance of the type-reach facts only when the scan used them.
 
 use crate::collect::tests::{APP, BASE, WORKSPACE};
+use archkeel_facts::envelope::TypeReach;
 use archkeel_facts::envelope::{Dirty, Profile, Provenance};
 use archkeel_facts::request::{RustRequest, RustSettings, Scope, Snapshot};
-use archkeel_facts::type_reach::TypeReach;
 use archkeel_snapshot::test_tree::Tree;
 use archkeel_wire::protocol::Version;
 

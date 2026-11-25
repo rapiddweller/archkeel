@@ -11,7 +11,6 @@ use crate::measures::FileMeasures;
 use crate::record::Record;
 use crate::sections::{GapFact, Section};
 use crate::standard::StandardFacts;
-use crate::type_reach::TypeReach;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -192,7 +191,7 @@ pub struct Runtime {
 mod target_source;
 pub use target_source::TargetSource;
 mod limits;
-pub use limits::{LimitSupport, ProfileLimits};
+pub use limits::{LimitSupport, ProfileLimits, TypeReach};
 pub mod validation;
 pub use validation::Validation;
 

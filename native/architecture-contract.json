@@ -71,6 +71,7 @@
         "native.archkeel_facts.envelope:State",
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:TargetSource",
+        "native.archkeel_facts.envelope:TypeReach",
         "native.archkeel_facts.envelope:Validation",
         "native.archkeel_facts.envelope:WrittenActual",
         "native.archkeel_facts.envelope:source_digest",
@@ -125,14 +126,10 @@
         "native.archkeel_facts.standard:WrappedSlot",
         "native.archkeel_facts.surveys:gaps_are_unknowns",
         "native.archkeel_facts.type_reach:Config",
-        "native.archkeel_facts.type_reach:Descriptor",
         "native.archkeel_facts.type_reach:ENV",
         "native.archkeel_facts.type_reach:Field",
         "native.archkeel_facts.type_reach:MAX_FEATURES",
         "native.archkeel_facts.type_reach:PREMISE",
-        "native.archkeel_facts.type_reach:Produced",
-        "native.archkeel_facts.type_reach:Run",
-        "native.archkeel_facts.type_reach:TypeReach",
         "native.archkeel_facts.type_reach:Unavailable",
         "native.archkeel_facts.type_reach:matrix",
         "native.archkeel_facts.type_shape:Binding",
@@ -5413,7 +5410,6 @@
             "native.archkeel_facts.envelope",
             "native.archkeel_facts.gap",
             "native.archkeel_facts.ids",
-            "native.archkeel_facts.type_reach",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
             "native.archkeel_facts:GapFact",
@@ -5601,7 +5597,6 @@
             "native.archkeel_facts.envelope",
             "native.archkeel_facts.envelope_vocab",
             "native.archkeel_facts.request",
-            "native.archkeel_facts.type_reach",
             "native.archkeel_facts:CallFact",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
@@ -5672,6 +5667,7 @@
           "component": "facts",
           "rationale": "Name the typed cause when the facts do not match the scan (AD-1047).",
           "through": [
+            "native.archkeel_facts.envelope",
             "native.archkeel_facts.type_reach"
           ]
         }
@@ -5708,8 +5704,7 @@
           "through": [
             "native.archkeel_facts.envelope",
             "native.archkeel_facts.identity",
-            "native.archkeel_facts.request",
-            "native.archkeel_facts.type_reach"
+            "native.archkeel_facts.request"
           ]
         },
         {

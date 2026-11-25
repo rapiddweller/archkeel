@@ -4,11 +4,8 @@
 
 //! The cause when the compiler type-reach facts are not available, and the configs of the matrix (AD-1047).
 //!
-//! `Config`, `Field` and `Unavailable` are plain values: no derive and no trait impl, only inherent methods (a
-//! `Copy` value would need a `Clone` impl). The descriptor of the producer and the fact `TypeReach` that a verified
-//! and used scan carries are typed records with a wire form (AD-1114).
-
-use serde::{Deserialize, Serialize};
+//! The values are plain: no derive and no trait impl, only inherent methods (a `Copy` value would need a `Clone` impl). A reply that carries them
+//! gets its wire form in a later stage.
 
 /// The environment variable that names the descriptor of the facts for the Rust worker (AD-1047).
 pub const ENV: &str = "ARCHKEEL_TYPE_REACH";
@@ -20,83 +17,6 @@ pub const PREMISE: &str = "rust_type_reach";
 /// The most features, over all workspace members, that the matrix covers one by one. A workspace with more
 /// features gets no facts: the producer never drops a configuration silently.
 pub const MAX_FEATURES: usize = 16;
-
-/// The provenance of the compiler type-reach facts that a scan verified and used (AD-1114). The Rust worker writes
-/// it into the reply only then, and the model checks it before a rule can name the premise `rust_type_reach`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TypeReach {
-    /// The text of `rustc -vV` of the pinned toolchain.
-    pub rustc: String,
-    /// The target triple of the build.
-    pub target_triple: String,
-    /// The SHA-256 of the driver source.
-    pub driver_sha256: String,
-    /// The SHA-256 of `Cargo.lock`.
-    pub cargo_lock_sha256: String,
-    /// The directory of each workspace member, relative to the scan root, with a closing slash.
-    pub members: Vec<String>,
-    /// The name of each configuration that the facts cover (`Config::cfg_name`).
-    pub configs: Vec<String>,
-}
-
-/// One configuration that the producer ran, as the descriptor lists it.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Run {
-    /// The name of the configuration (`Config::cfg_name`).
-    pub name: String,
-    /// The directory of the facts files.
-    pub dir: String,
-    /// The Cargo units that the check reported: each needs one facts file.
-    pub units: Vec<String>,
-    /// The time of the run.
-    pub seconds: f64,
-}
-
-/// The facts that the producer made: the binding values of `TypeReach` and each run.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Produced {
-    /// The text of `rustc -vV` of the pinned toolchain.
-    pub rustc: String,
-    /// The target triple of the build.
-    pub target_triple: String,
-    /// The SHA-256 of the driver source.
-    pub driver_sha256: String,
-    /// The SHA-256 of `Cargo.lock`.
-    pub cargo_lock_sha256: String,
-    /// The directory of each workspace member, relative to the scan root, with a closing slash.
-    pub members: Vec<String>,
-    /// Each configuration that ran.
-    pub configs: Vec<Run>,
-}
-
-impl Produced {
-    /// The provenance that the reply carries when the scan used these facts.
-    pub fn fact(&self) -> TypeReach {
-        TypeReach {
-            rustc: self.rustc.clone(),
-            target_triple: self.target_triple.clone(),
-            driver_sha256: self.driver_sha256.clone(),
-            cargo_lock_sha256: self.cargo_lock_sha256.clone(),
-            members: self.members.clone(),
-            configs: self.configs.iter().map(|run| run.name.clone()).collect(),
-        }
-    }
-}
-
-/// What the producer writes for the Rust worker (`ARCHKEEL_TYPE_REACH`): the facts, or the cause why a scan
-/// that asked for them has none.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Descriptor {
-    /// No facts: the exact cause. The worker keeps every gap and says why.
-    Unavailable {
-        /// The cause in one sentence.
-        unavailable: String,
-    },
-    /// The facts of each configuration.
-    Produced(Produced),
-}
 
 /// One Cargo configuration of the matrix that the facts cover.
 pub enum Config {

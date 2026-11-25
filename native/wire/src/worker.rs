@@ -4,10 +4,9 @@
 
 //! Private same-build worker protocol. Public wire replies carry no live authority.
 
-use archkeel_facts::envelope::{ProfileLimits, Reply};
+use archkeel_facts::envelope::{ProfileLimits, Reply, TypeReach};
 use archkeel_facts::ids::FactId;
 use archkeel_facts::request::Request;
-use archkeel_facts::type_reach::TypeReach;
 use archkeel_facts::{GapFact, Record, Section};
 use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;

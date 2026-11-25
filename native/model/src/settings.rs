@@ -29,8 +29,8 @@
 //! `source.scope` (`root/**` for a directory, else the root), so the roots of the request must
 //! be exactly these labels in their order. A caller cannot widen a root by word.
 
-use archkeel_facts::envelope::Facts;
-use archkeel_facts::type_reach::{Config, TypeReach};
+use archkeel_facts::envelope::{Facts, TypeReach};
+use archkeel_facts::type_reach::Config;
 
 use crate::ownership::in_scope;
 use crate::reason::Refusal;

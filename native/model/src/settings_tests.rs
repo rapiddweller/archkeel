@@ -6,7 +6,7 @@
 
 use super::{provenance, Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
 use crate::reason::Refusal;
-use archkeel_facts::type_reach::TypeReach;
+use archkeel_facts::envelope::TypeReach;
 
 fn settings(namespace: &str, names: &[&str]) -> Settings {
     let names = names.iter().map(|name| (*name).to_owned()).collect();

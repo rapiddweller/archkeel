@@ -16,7 +16,8 @@
 //! unit read is listed too, because its `cfg(not(test))` code is not seen.
 
 use crate::type_reach_facts::Facts;
-use archkeel_facts::type_reach::{Config, Descriptor, Field, TypeReach, Unavailable, ENV};
+use archkeel_facts::envelope::TypeReach;
+use archkeel_facts::type_reach::{Config, Field, Unavailable, ENV};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -257,36 +258,85 @@ fn read_descriptor(
 ) -> Result<(Vec<Facts>, TypeReach), String> {
     let text =
         std::fs::read_to_string(path).map_err(|e| format!("cannot read the descriptor: {e}"))?;
-    let descriptor: Descriptor =
-        serde_json::from_str(&text).map_err(|e| format!("the descriptor is not valid: {e}"))?;
-    let produced = match descriptor {
-        Descriptor::Unavailable { unavailable } => return Err(unavailable),
-        Descriptor::Produced(produced) => produced,
+    let descriptor: Value =
+        serde_json::from_str(&text).map_err(|e| format!("the descriptor is no JSON: {e}"))?;
+    if let Some(why) = descriptor.get("unavailable").and_then(Value::as_str) {
+        return Err(why.to_string());
+    }
+    let word = |key: &str| {
+        descriptor
+            .get(key)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
     };
     let mut all = Vec::new();
-    for run in &produced.configs {
-        let config = Config::named(&run.name)
-            .ok_or_else(|| "the descriptor names an unknown configuration".to_string())?;
-        let want = Expected {
-            rustc: &produced.rustc,
-            driver_sha256: &produced.driver_sha256,
-            target_triple: &produced.target_triple,
-            config: &config,
-            cargo_lock_sha256: &produced.cargo_lock_sha256,
-            units: &run.units,
-            members: &produced.members,
+    let mut names = Vec::new();
+    let members: Vec<String> = descriptor
+        .get("members")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|m| m.as_str().map(str::to_string))
+        .collect();
+    for entry in descriptor
+        .get("configs")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let field = |key: &str| {
+            entry
+                .get(key)
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string()
         };
-        want.verify_dir(Path::new(&run.dir), scanned)
+        let config = Config::named(&field("name"))
+            .ok_or_else(|| "the descriptor names an unknown configuration".to_string())?;
+        let units: Vec<String> = entry
+            .get("units")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|u| u.as_str().map(str::to_string))
+            .collect();
+        let (rustc, driver, triple, lock) = (
+            word("rustc"),
+            word("driver_sha256"),
+            word("target_triple"),
+            word("cargo_lock_sha256"),
+        );
+        let want = Expected {
+            rustc: &rustc,
+            driver_sha256: &driver,
+            target_triple: &triple,
+            config: &config,
+            cargo_lock_sha256: &lock,
+            units: &units,
+            members: &members,
+        };
+        let dir = field("dir");
+        names.push(config.cfg_name());
+        want.verify_dir(Path::new(&dir), scanned)
             .map_err(|e| e.describe())?;
         all.push(
-            Facts::load_dir(Path::new(&run.dir))
+            Facts::load_dir(Path::new(&dir))
                 .ok_or_else(|| "the facts cannot be read".to_string())?,
         );
     }
     if all.is_empty() {
         return Err("the descriptor names no configuration".to_string());
     }
-    Ok((all, produced.fact()))
+    let fact = TypeReach {
+        rustc: word("rustc"),
+        target_triple: word("target_triple"),
+        driver_sha256: word("driver_sha256"),
+        cargo_lock_sha256: word("cargo_lock_sha256"),
+        members,
+        configs: names,
+    };
+    Ok((all, fact))
 }
 
 #[cfg(test)]

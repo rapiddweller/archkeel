@@ -7,10 +7,9 @@
 use archkeel_facts::envelope::validation::{InterfaceNeed, Registered};
 use archkeel_facts::envelope::{
     Evidence, Input, LimitSupport, Profile, ProfileLimits, Provenance, Reply, Role, SectionName,
-    Validation,
+    TypeReach, Validation,
 };
 use archkeel_facts::request::RustRequest;
-use archkeel_facts::type_reach::TypeReach;
 use archkeel_facts::{CallFact, GapFact, ImportFact, Record, SymbolFact};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};

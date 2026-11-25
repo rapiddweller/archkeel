@@ -235,17 +235,13 @@ fn a_descriptor_that_names_no_facts_says_why_and_never_gives_empty_facts() {
         why.err().unwrap(),
         "the pinned Rust toolchain is not installed"
     );
-    assert!(descriptor("not json").err().unwrap().contains("not valid"));
-    let produced = |configs: &str| {
-        format!("{{\"rustc\": \"r\", \"target_triple\": \"t\", \"driver_sha256\": \"d1\", \"cargo_lock_sha256\": \"c1\", \"members\": [\"a/\"], \"configs\": {configs}}}")
-    };
-    assert!(descriptor(&produced("[]"))
+    assert!(descriptor("not json").err().unwrap().contains("no JSON"));
+    assert!(descriptor("{\"configs\": []}")
         .err()
         .unwrap()
         .contains("no configuration"));
-    let unknown =
-        produced("[{\"name\": \"other\", \"dir\": \"x\", \"units\": [], \"seconds\": 0.0}]");
-    assert!(descriptor(&unknown)
+    let unknown = "{\"configs\": [{\"name\": \"other\", \"dir\": \"x\", \"units\": []}]}";
+    assert!(descriptor(unknown)
         .err()
         .unwrap()
         .contains("unknown configuration"));
@@ -262,7 +258,7 @@ fn a_descriptor_whose_facts_do_not_match_the_scan_names_the_field() {
     )
     .unwrap();
     let text = format!(
-        "{{\"rustc\": {}, \"driver_sha256\": \"d1\", \"target_triple\": \"aarch64-apple-darwin\", \"cargo_lock_sha256\": \"c1\", \"members\": [\"a/\"], \"configs\": [{{\"name\": \"default\", \"dir\": {}, \"units\": [\"a-1\"], \"seconds\": 0.0}}]}}",
+        "{{\"rustc\": {}, \"driver_sha256\": \"d1\", \"target_triple\": \"aarch64-apple-darwin\", \"cargo_lock_sha256\": \"c1\", \"configs\": [{{\"name\": \"default\", \"dir\": {}, \"units\": [\"a-1\"]}}]}}",
         json!(RUSTC),
         json!(dir.display().to_string())
     );

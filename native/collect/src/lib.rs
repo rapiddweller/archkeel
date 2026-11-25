@@ -37,7 +37,6 @@ pub use system::{System, SystemPart};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use archkeel_facts::type_reach::{Descriptor, Produced, Run};
 use archkeel_store::Ingested;
 use serde_json::{json, Value};
 
@@ -232,25 +231,13 @@ pub fn scan_with_options(
 }
 
 /// The descriptor of produced facts: what the Rust worker verifies (`ARCHKEEL_TYPE_REACH`).
-fn descriptor_of(made: &rustc_facts::FactsProduced) -> Descriptor {
-    let configs = made
+fn descriptor_of(made: &rustc_facts::FactsProduced) -> Value {
+    let configs: Vec<Value> = made
         .runs
         .iter()
-        .map(|run| Run {
-            name: run.config.cfg_name(),
-            dir: run.dir.to_string_lossy().into_owned(),
-            units: run.units.clone(),
-            seconds: run.elapsed.as_secs_f64(),
-        })
+        .map(|run| json!({"name": run.config.cfg_name(), "dir": run.dir, "units": run.units, "seconds": run.elapsed.as_secs_f64()}))
         .collect();
-    Descriptor::Produced(Produced {
-        rustc: made.rustc.clone(),
-        target_triple: made.target_triple.clone(),
-        driver_sha256: made.driver_sha256.clone(),
-        cargo_lock_sha256: made.cargo_lock_sha256.clone(),
-        members: made.members.clone(),
-        configs,
-    })
+    json!({"rustc": made.rustc, "target_triple": made.target_triple, "driver_sha256": made.driver_sha256, "cargo_lock_sha256": made.cargo_lock_sha256, "members": made.members, "configs": configs})
 }
 
 /// AD-1047: produce the compiler facts of the Rust workspace and write the descriptor that the Rust worker
@@ -298,22 +285,20 @@ fn type_reach_descriptor(
         .find(|m| m.is_file())
         .unwrap_or_else(|| root.path().join("Cargo.toml"));
     let text = match premise_missing(root.path(), &config.contract) {
-        Some(unavailable) => Descriptor::Unavailable { unavailable },
+        Some(why) => json!({"unavailable": why}),
         None => match rustc_facts::FactsTools::system().produce(root.path(), &manifest, &base) {
-            Err(cause) => Descriptor::Unavailable {
-                unavailable: cause.describe(),
-            },
+            Err(cause) => {
+                json!({"unavailable": archkeel_facts::type_reach::Unavailable::describe(&cause)})
+            }
             Ok(made) => descriptor_of(&made),
         },
     };
     static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let unique = COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    let body = serde_json::to_string(&text)
-        .map_err(|why| refused("type reach", format!("cannot encode the descriptor: {why}")))?;
     let dir = base.join("descriptors");
     let path = dir.join(format!("{}-{unique}.json", std::process::id()));
     std::fs::create_dir_all(&dir)
-        .and_then(|()| std::fs::write(&path, body))
+        .and_then(|()| std::fs::write(&path, text.to_string()))
         .map_err(|why| refused("type reach", format!("cannot write the descriptor: {why}")))?;
     Ok((path, lock))
 }
