@@ -154,7 +154,7 @@ pub use causes::{Cause, Part};
 mod direction;
 mod selection;
 
-pub use direction::{crossings, forbidden, peers, Judged};
+pub use direction::{crossings, forbidden, forbidden_chains, peers, Judged};
 
 // The run proof (lead decision L-35b, AD-381).
 mod run;

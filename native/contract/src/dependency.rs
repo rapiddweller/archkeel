@@ -28,6 +28,7 @@ pub(crate) fn forbidden_dependency(raw: &Json, label: &str) -> Parsed<ForbiddenD
             "source_match",
             "target_match",
             "target_kind",
+            "indirect",
         ],
         label,
     )?;
@@ -59,6 +60,12 @@ pub(crate) fn forbidden_dependency(raw: &Json, label: &str) -> Parsed<ForbiddenD
     let source_match = selector_word(item, "source_match", label)?;
     let target_match = selector_word(item, "target_match", label)?;
     let target_kind = selector_word(item, "target_kind", label)?;
+    let indirect = indirect(item, label)?;
+    if indirect && (target_symbol.is_some() || target_kind == Some(TargetKind::ImportNamespace)) {
+        return Err(invalid(format!(
+            "{label}.indirect needs a module target without target_symbol"
+        )));
+    }
     Ok(ForbiddenDependency {
         head,
         source: Selector(source),
@@ -70,7 +77,17 @@ pub(crate) fn forbidden_dependency(raw: &Json, label: &str) -> Parsed<ForbiddenD
         source_match: source_match.unwrap_or(SelectorMatch::Prefix),
         target_match: target_match.unwrap_or(SelectorMatch::Prefix),
         target_kind: target_kind.unwrap_or(TargetKind::Module),
+        indirect,
     })
+}
+
+/// `indirect`: absent is false; any other value must be a boolean.
+fn indirect(item: &Object, label: &str) -> Parsed<bool> {
+    match field(item, "indirect") {
+        None => Ok(false),
+        Some(Json::Bool(value)) => Ok(*value),
+        Some(_) => Err(invalid(format!("{label}.indirect must be a boolean"))),
+    }
 }
 
 /// `target_symbol`: absent or `null` is none, any other value must be an identifier.

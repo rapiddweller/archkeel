@@ -13,8 +13,6 @@ use archkeel_contract::{kind_of, CallOwner, CycleLevel, PremiseName, Rule};
 
 use crate::causes::{Cause, Held, Part};
 use crate::coverage::Incomplete;
-use crate::direction;
-use crate::dropped_gaps;
 use crate::graph::{ExactCall, Graph};
 use crate::model::Model;
 use crate::modules::Module;
@@ -25,7 +23,7 @@ use crate::receipts::{call_allowed, live_calls, named_calls, unused_call_allowan
 use crate::receipts::{GapScope, ScanProof};
 use crate::roots::Roots;
 use crate::selection::{self, UnusedAllowance};
-use crate::{boundary_surface, construct_match, placement};
+use crate::{boundary_surface, construct_match, direction, dropped_gaps, placement};
 use archkeel_facts::profile_traits::Layout;
 
 /// The gap scope of one rule, or the kept gaps that can change what it reads.
@@ -190,6 +188,7 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
                 .map(|(_, j)| j);
             undecided(direction::undecided(judged))?;
             direction::symbol_named(model, rule)?;
+            direction::chains_readable(model, rule)?;
             let [sources, _] = selection::dependency_sides(rule, model.contract().components());
             observed().any(|(_, module)| sources.matches(module.name()))
         }
@@ -387,15 +386,15 @@ pub(crate) fn dynamic_import(model: &Model, rule: &Rule) -> bool {
         }
         Rule::CompleteExternalScope(rule) => in_scope(source.module, rule.source().as_text()),
         // Slice S5 (AD-380): a rule that leaves out type-only imports does not see a type-only
-        // limit (`rule_support.py:200`).
+        // limit (`rule_support.py:200`). An `indirect` rule reads a module on any chain (AD-1085).
         Rule::ForbiddenDependency(rule) => {
             let [sources, _] = selection::dependency_sides(rule, model.contract().components());
-            sources.matches(source.module)
+            let first = sources.matches(source.module)
                 && !rule
                     .allowed_sources()
                     .iter()
-                    .any(|allowed| allowed.as_text() == source.module)
-                && !(source.type_only && !rule.include_type_checking())
+                    .any(|a| a.as_text() == source.module);
+            (first || *rule.indirect()) && !(source.type_only && !rule.include_type_checking())
         }
         Rule::SiblingIsolation(rule) => {
             rule.members()

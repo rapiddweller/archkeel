@@ -14,7 +14,7 @@
 //! `_sibling_violations`, `rules.py:1827` `_requires_import_verdicts` and `ir/model.py:318`
 //! `requires_covers`, `:340` `_required_port_assessment`, `:356` `requires_import_assessment`.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use archkeel_contract::{
     CompleteRequires, Component, ExternalDependencyScope, ForbiddenDependency, SiblingIsolation,
@@ -27,7 +27,9 @@ use crate::imports::{Import, Resolved};
 use crate::model::Model;
 use crate::ownership::{in_scope, owner_of};
 use crate::reason::Reason;
-use crate::selection::{dependency_sides, unused_by_module, unused_entries, UnusedAllowance};
+use crate::selection::{
+    dependency_sides, unused_by_module, unused_entries, Selection, UnusedAllowance,
+};
 
 /// The judgement of one import that a rule names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,6 +134,129 @@ pub(crate) fn unused_scope_allowances(
         .collect();
     let (allowed, exact) = (rule.allowed_sources(), rule.exact_sources());
     unused_by_module(allowed, exact, &modules, |entry| unresolved(model, entry))
+}
+
+/// The first import of each pair of modules, by id: the hops that a chain can use.
+type Hops<'m> = BTreeMap<&'m str, BTreeMap<&'m str, &'m Import>>;
+
+/// The shortest chain of imports from each source module that reaches the target side only through
+/// other modules, for an `indirect` rule. A source module with a direct import of the target has its
+/// direct judgement and no chain. The next hop is the smallest module name on a shortest path, and
+/// the import of a hop is the one with the smallest id, so one run gives one chain (AD-1085).
+/// `allowed_sources` exempts only the first module of a chain.
+pub fn forbidden_chains<'m>(
+    model: &'m Model,
+    rule: &'m ForbiddenDependency,
+) -> Vec<Vec<&'m Import>> {
+    let [sources, targets] = dependency_sides(rule, model.contract().components());
+    let next = hop_table(model, rule);
+    let fewest = fewest_imports(&next, &targets);
+    let allowed = |module: &str| rule.allowed_sources().iter().any(|a| a.as_text() == module);
+    let mut starts: Vec<(&str, usize)> = HashMap::iter(&fewest)
+        .filter(|(start, length)| **length >= 2 && sources.matches(start) && !allowed(start))
+        .map(|(start, length)| (*start, *length))
+        .collect();
+    starts.sort_unstable();
+    starts
+        .into_iter()
+        .map(|(start, length)| chain_from(start, length, &next, &fewest, &targets))
+        .collect()
+}
+
+/// The imports that a chain can use: a module of the model, no self import, and `TYPE_CHECKING`
+/// only when the rule counts it.
+fn hop_table<'m>(model: &'m Model, rule: &ForbiddenDependency) -> Hops<'m> {
+    let mut next: Hops<'m> = BTreeMap::new();
+    for import in model.graph().imports() {
+        let (from, to) = (Import::source_module(import), Import::target_module(import));
+        let hidden = import.under_type_checking() && !rule.include_type_checking();
+        if !model.selects(from) || from == to || hidden {
+            continue;
+        }
+        let by_target = BTreeMap::entry(&mut next, from).or_default();
+        let hop = BTreeMap::entry(by_target, to).or_insert(import);
+        if Import::id(import) < Import::id(hop) {
+            *hop = import;
+        }
+    }
+    next
+}
+
+/// For each module, the fewest imports to a module of the target side (a breadth-first walk
+/// against the direction of the imports). A module of the target side can have a count too.
+fn fewest_imports<'m>(next: &Hops<'m>, target: &Selection<'_>) -> HashMap<&'m str, usize> {
+    let mut preceding: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for (from, hops) in next {
+        for to in hops.keys() {
+            Vec::push(BTreeMap::entry(&mut preceding, to).or_default(), from);
+        }
+    }
+    let mut fewest: HashMap<&str, usize> = HashMap::new();
+    let mut level: Vec<&str> = BTreeMap::iter(next)
+        .filter(|(_, hops)| hops.keys().any(|to| target.matches(to)))
+        .map(|(from, _)| *from)
+        .collect();
+    for count in 1.. {
+        if level.is_empty() {
+            break;
+        }
+        let mut upstream = Vec::new();
+        for module in level {
+            if fewest.insert(module, count).is_none() {
+                upstream.extend(
+                    BTreeMap::get(&preceding, module)
+                        .into_iter()
+                        .flatten()
+                        .copied(),
+                );
+            }
+        }
+        level = upstream
+            .into_iter()
+            .filter(|module| !fewest.contains_key(module))
+            .collect();
+    }
+    fewest
+}
+
+/// The chain of `length` imports from `start`: at each module, the smallest name that is one
+/// import closer to the target side.
+fn chain_from<'m>(
+    start: &'m str,
+    length: usize,
+    next: &Hops<'m>,
+    fewest: &HashMap<&'m str, usize>,
+    target: &Selection<'_>,
+) -> Vec<&'m Import> {
+    let (mut chain, mut at) = (Vec::new(), start);
+    for left in (1..=length).rev() {
+        let closer = |to: &str| {
+            if left == 1 {
+                target.matches(to)
+            } else {
+                HashMap::get(fewest, to) == Some(&(left - 1))
+            }
+        };
+        let step = BTreeMap::get(next, at)
+            .into_iter()
+            .flatten()
+            .find(|(to, _)| closer(to));
+        let Some((to, import)) = step else { break };
+        Vec::push(&mut chain, *import);
+        at = to;
+    }
+    chain
+}
+
+/// A chain can run through a module outside the domain of a mount, and the mount reads none of
+/// its edges or gaps, so an `indirect` rule of a mount has no PASS (AD-1085).
+pub(crate) fn chains_readable(model: &Model, rule: &ForbiddenDependency) -> Result<(), Reason> {
+    if *rule.indirect() && model.is_mount() {
+        return Err(Reason::NotComplete(Cause::Receipt(
+            "an indirect rule reads no module outside the domain of a mounted contract",
+        )));
+    }
+    Ok(())
 }
 
 /// A PASS needs an import that names `dependency`, else a typo in the name looks like a clean

@@ -263,6 +263,9 @@ record!(
         /// Whether the target is a module or an import namespace.
         #[serde(skip_serializing_if = "is_module")]
         target_kind: TargetKind,
+        /// True when a path of imports through other modules also breaks the rule.
+        #[serde(skip_serializing_if = "is_false")]
+        indirect: bool,
     }
 );
 

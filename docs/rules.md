@@ -149,6 +149,23 @@ hold this rule when the live collector proves that distinction. An open name
 route still holds the rule. Omitting `source_symbol_only` keeps the prior
 behavior.
 
+Contract **3.21.0** adds `indirect: true` to `forbidden_dependency` (AD-1085). The rule then
+also proves a chain of imports through other modules. For the source `shop.cli` and the target
+`shop.store`, `shop.cli.main -> shop.app.orders -> shop.store` is FAIL, although no module of
+`shop.cli` imports `shop.store`. The default `false` keeps the direct check, so a rule without
+the key gives the result of before.
+- A chain gives one violation for each source module that has no direct violation. It is the
+  chain with the fewest imports. On a tie, the smaller module name wins, so one run always gives
+  one chain. The report shows each hop with its file and line.
+- `include_type_checking` applies to each hop. A declared trojan horse reach is a possible
+  import, so a chain can use it and the hop reads `possible`.
+- `allowed_sources` exempts the first module of a chain only. An allowed module can still be a
+  middle hop of the chain of another source.
+- No chain is PASS only when the scan is complete. The rule reads the imports of every module:
+  an import by a computed name or an unresolved import in any module is UNKNOWN, never PASS.
+- `indirect` needs a module target. It refuses `target_symbol` and
+  `target_kind: "import_namespace"`. `call_owner` and `layer_order` have no `indirect`.
+
 Contract **3.16.0** adds `unused_public` (AD-670). Each module-level item below
 `source` that the code declares public must have a user in another component: an
 import of that component names the item, by its own name or by a re-export route.

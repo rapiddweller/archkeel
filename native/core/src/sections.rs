@@ -322,14 +322,16 @@ fn direction_record(violation: &Violation) -> Value {
             cited,
             symbol,
             under_type_checking,
+            chain,
         } => {
             let target = target_name(cited, symbol.as_deref());
+            let verb = if chain.is_empty() { "imports" } else { "uses" };
             named_record(
                 [id, rule],
                 cited,
                 ["dependency_violations", "forbidden_dependency"],
                 &target,
-                format!("{} imports forbidden {target}", cited.source_module),
+                format!("{} {verb} forbidden {target}", cited.source_module),
                 json!({"symbol": symbol, "under_type_checking": under_type_checking}),
             )
         }
