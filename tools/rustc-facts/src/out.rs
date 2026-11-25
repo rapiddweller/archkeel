@@ -41,8 +41,10 @@ pub(crate) struct Unit {
     driver_sha256: String,
     lock_sha256: String,
     cfg: String,
-    /// The canonical root source file of each target of the workspace members: only these crates are workspace code.
-    pub(crate) members: std::collections::BTreeSet<String>,
+    /// The directory of the members' manifests with the root source files of their targets (`AK_FACTS_MEMBERS`).
+    members: std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+    /// The directory where each verified member run registers its crate id (`AK_FACTS_REGISTRY`).
+    pub(crate) registry: String,
 }
 
 fn env(name: &str) -> Option<String> {
@@ -65,6 +67,42 @@ fn canonical_root(root: &str) -> String {
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| root.to_string());
     format!("{}/", real.replace('\\', "/").trim_end_matches('/'))
+}
+
+/// One line for each root source file of a member: the canonical manifest directory, a tab, the file.
+fn member_pairs(
+    text: &str,
+) -> std::collections::BTreeMap<String, std::collections::BTreeSet<String>> {
+    let mut found: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> =
+        std::collections::BTreeMap::new();
+    for (dir, file) in text.lines().filter_map(|l| l.split_once('\t')) {
+        found
+            .entry(dir.to_string())
+            .or_default()
+            .insert(file.to_string());
+    }
+    found
+}
+
+impl Unit {
+    /// This run is a verified member: its `CARGO_MANIFEST_DIR` is the manifest directory of a workspace member,
+    /// and its root source file is a root file of that same member. Nothing else makes a crate workspace code.
+    pub(crate) fn is_member(&self, root_file: &str) -> bool {
+        let real = |text: &str| {
+            std::fs::canonicalize(text)
+                .map(|p| p.to_string_lossy().replace('\\', "/"))
+                .ok()
+        };
+        let dir = env("CARGO_MANIFEST_DIR").and_then(|d| real(&d));
+        let file = real(&items::absolute(root_file));
+        match (dir, file) {
+            (Some(dir), Some(file)) => self
+                .members
+                .get(&dir)
+                .is_some_and(|roots| roots.contains(&file)),
+            _ => false,
+        }
+    }
 }
 
 /// The sysroot that `rustc` reports.
@@ -111,11 +149,8 @@ impl Unit {
             driver_sha256: env("AK_FACTS_DRIVER_SHA256")?,
             lock_sha256: env("AK_FACTS_LOCK_SHA256")?,
             cfg: env("AK_FACTS_CFG")?,
-            members: env("AK_FACTS_MEMBERS")?
-                .split('\n')
-                .filter(|m| !m.is_empty())
-                .map(str::to_string)
-                .collect(),
+            members: member_pairs(&std::fs::read_to_string(env("AK_FACTS_MEMBERS")?).ok()?),
+            registry: env("AK_FACTS_REGISTRY")?,
         })
     }
 }

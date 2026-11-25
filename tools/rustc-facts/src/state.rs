@@ -85,8 +85,8 @@ pub(crate) struct State {
     pub(crate) workspace_defs: HashMap<DefId, bool>,
     /// The canonical workspace root, with a closing slash.
     pub(crate) root: String,
-    /// The canonical root source files of the targets of the workspace members: any other crate is foreign.
-    pub(crate) members: BTreeSet<String>,
+    /// The directory where each verified member run registers its crate id: a crate without an entry is foreign.
+    pub(crate) registry: String,
 }
 
 static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
@@ -105,7 +105,7 @@ static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
         opaque_defs: HashSet::new(),
         workspace_defs: HashMap::new(),
         root: String::new(),
-        members: BTreeSet::new(),
+        registry: String::new(),
     })
 });
 

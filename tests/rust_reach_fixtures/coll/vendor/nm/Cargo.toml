@@ -1,0 +1,16 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-1047: a path dependency that is no member. Its root file is the root file of the member `shared`.
+[package]
+name = "nm"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "../../crates/shared/src/lib.rs"
+
+[features]
+nm = []

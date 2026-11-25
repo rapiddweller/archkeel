@@ -15,3 +15,6 @@ memb = { path = "../memb" }
 m-hy = { path = "../member_hy" }
 rn_pkg = { path = "../rn_dir" }
 b-crate = { path = "../b-crate" }
+nm = { path = "../../vendor/nm", features = ["nm"] }
+nm_sym = { path = "../../vendor/nm_sym", features = ["nm"] }
+shared = { path = "../shared" }

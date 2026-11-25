@@ -40,10 +40,9 @@ fn counts(st: &mut State, tcx: TyCtxt<'_>, d: DefId) -> bool {
     tcx.trait_of_assoc(d).is_some() || inside(st, tcx, d)
 }
 
-/// The definition is workspace code: its crate is the one that the driver compiles or another member of the
-/// workspace (the wrapper reads the MIR of the members only). A crate is a member when the file of its crate
-/// root is the root file of a target of a member. No name decides: a path dependency that is no member is
-/// foreign, whatever its package name is.
+/// The definition is workspace code: its crate is the one that the driver compiles, or a crate whose own run of
+/// the driver was a verified member (its manifest directory and root file are those of one member). The crate id
+/// decides, no name and no path: a path dependency that is no member has no run and is foreign.
 fn inside(st: &mut State, tcx: TyCtxt<'_>, d: DefId) -> bool {
     if d.krate == LOCAL_CRATE {
         return true;
@@ -51,16 +50,8 @@ fn inside(st: &mut State, tcx: TyCtxt<'_>, d: DefId) -> bool {
     if let Some(known) = st.workspace_defs.get(&d) {
         return *known;
     }
-    let root = d.krate.as_def_id();
-    let name = tcx
-        .sess
-        .source_map()
-        .span_to_filename(tcx.def_span(root).source_callsite());
-    let text = name.prefer_local_unconditionally().to_string();
-    let file = crate::items::absolute(&text);
-    let real =
-        std::fs::canonicalize(&file).map_or(file, |p| p.to_string_lossy().replace('\\', "/"));
-    let inside = st.members.contains(&real);
+    let id = tcx.stable_crate_id(d.krate).as_u64();
+    let inside = std::path::Path::new(&format!("{}/{id:016x}", st.registry)).is_file();
     st.workspace_defs.insert(d, inside);
     inside
 }

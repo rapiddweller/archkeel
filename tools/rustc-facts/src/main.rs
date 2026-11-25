@@ -67,6 +67,10 @@ impl rustc_driver::Callbacks for Driver {
     }
 
     fn after_analysis<'tcx>(&mut self, _c: &Compiler, tcx: TyCtxt<'tcx>) -> Compilation {
+        // A verified member tells the later runs that its crate id is workspace code. Cargo starts a dependent
+        // only when the metadata of its dependency is there, and that comes after this callback.
+        let id = tcx.stable_crate_id(rustc_hir::def_id::LOCAL_CRATE).as_u64();
+        let _ = std::fs::write(format!("{}/{id:016x}", state::lock().registry), "");
         // A forced query is cached, so a body that analysis skipped is also covered.
         for d in tcx.hir_body_owners() {
             let covered = matches!(
@@ -127,10 +131,16 @@ fn main() {
         );
         std::process::exit(2);
     }
+    // The wrapper runs for workspace members only. A run that is no verified member makes no facts.
+    let verified = main_file.is_some_and(|file| unit.is_member(file));
+    if !verified {
+        eprintln!("archkeel-rustc-facts: this crate is no workspace member of the producer");
+        std::process::exit(2);
+    }
     {
         let mut state = state::lock();
         state.root = unit.root.clone();
-        state.members = unit.members.clone();
+        state.registry = unit.registry.clone();
     }
     rustc_driver::run_compiler(&args, &mut Driver { unit });
 }

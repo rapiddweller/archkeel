@@ -265,21 +265,41 @@ fn run_check(job: &Job<'_>, config: &Config, raw: &Path) -> Option<BTreeSet<Stri
     .current_dir(job.manifest.parent().unwrap_or(job.manifest))
     .env("CARGO_TARGET_DIR", base.join("target"))
     .env("RUSTC_WORKSPACE_WRAPPER", job.driver)
-    .env("AK_FACTS_DIR", raw)
-    .env("AK_FACTS_CFG", config.cfg_name())
-    .env(
-        "AK_FACTS_MEMBERS",
-        job.members
-            .roots
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>()
-            .join("\n"),
-    )
-    .env("AK_FACTS_ROOT", job.root)
-    .env("AK_FACTS_DRIVER_SHA256", job.driver_sha256)
-    .env("AK_FACTS_LOCK_SHA256", job.lock_sha256)
     .stderr(log);
+    // A `[env]` table with `force = true` in a config file of the repository would beat a plain variable.
+    // `--config` beats every config file, so each variable of the driver goes through it.
+    let members = base.join("members.json");
+    let pairs: Vec<String> = (job.members.roots.iter())
+        .flat_map(|(dir, roots)| roots.iter().map(move |root| format!("{dir}\t{root}")))
+        .collect();
+    if pairs
+        .iter()
+        .any(|pair| pair.matches('\t').count() != 1 || pair.contains('\n'))
+    {
+        return None;
+    }
+    std::fs::write(&members, pairs.join("\n")).ok()?;
+    let registry = base.join("registry");
+    let _ = std::fs::remove_dir_all(&registry);
+    std::fs::create_dir_all(&registry).ok()?;
+    let vars = [
+        ("AK_FACTS_DIR", raw.display().to_string()),
+        ("AK_FACTS_CFG", config.cfg_name()),
+        ("AK_FACTS_MEMBERS", members.display().to_string()),
+        ("AK_FACTS_REGISTRY", registry.display().to_string()),
+        ("AK_FACTS_ROOT", job.root.to_string()),
+        ("AK_FACTS_DRIVER_SHA256", job.driver_sha256.to_string()),
+        ("AK_FACTS_LOCK_SHA256", job.lock_sha256.to_string()),
+    ];
+    for (name, value) in vars {
+        let text = serde_json::to_string(&value).ok()?;
+        cmd.env(name, &value).args([
+            "--config".to_string(),
+            format!("env.{name}.value={text}"),
+            "--config".to_string(),
+            format!("env.{name}.force=true"),
+        ]);
+    }
     let output = cmd.output().ok()?;
     let text = String::from_utf8_lossy(&output.stdout);
     output

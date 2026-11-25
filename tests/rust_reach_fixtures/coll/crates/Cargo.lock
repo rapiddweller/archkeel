@@ -15,7 +15,10 @@ dependencies = [
  "m_hy",
  "memb 0.0.0",
  "memb 0.0.9",
+ "nm",
+ "nm_sym",
  "rn_pkg",
+ "shared",
 ]
 
 [[package]]
@@ -35,5 +38,17 @@ name = "memb"
 version = "0.0.9"
 
 [[package]]
+name = "nm"
+version = "0.0.0"
+
+[[package]]
+name = "nm_sym"
+version = "0.0.0"
+
+[[package]]
 name = "rn_pkg"
+version = "0.0.0"
+
+[[package]]
+name = "shared"
 version = "0.0.0"

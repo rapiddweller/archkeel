@@ -5,6 +5,12 @@
 //! Each case drops a value that an erasing crate hid: the counter proves the dispatch.
 
 mod api;
+mod mshared_a;
+mod mshared_b;
+mod mshared_c;
+mod msymlink_a;
+mod msymlink_b;
+mod msymlink_c;
 mod mcoll_a;
 mod mcoll_b;
 mod mcoll_c;
@@ -27,4 +33,8 @@ fn main() {
     println!("mrenamed={}", api::hits(2));
     mhyph_a::run();
     println!("mhyph={}", api::hits(3));
+    mshared_a::run();
+    println!("mshared={}", api::hits(4));
+    msymlink_a::run();
+    println!("msymlink={}", api::hits(5));
 }

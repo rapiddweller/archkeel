@@ -17,8 +17,9 @@ associated-type ADTs of reached impls. For each `dyn Tr` in reach, add each type
 **Premises of a PASS (`rust_type_reach`).** This list is the one place of the premises. The contract declares the
 premise `rust_type_reach`, and each PASS that a dropped gap decides names it.
 1. Whole program. The scanned Cargo workspace is the whole program. No code outside the Rust build (C, assembly,
-   `dlopen`, a plug-in) runs an impl of the workspace. Workspace code means the members of `cargo metadata`: a
-   path dependency is foreign, wherever its directory is. The verifier refuses facts that name its files.
+   `dlopen`, a plug-in) runs an impl of the workspace. Workspace code is a crate that ran under the driver as a member
+   of `cargo metadata` (manifest directory and root file of one member). Any other crate is foreign. The verifier refuses
+   facts that name a non-member file. The driver variables go in by `cargo --config`.
 2. This target and this matrix. A cfg set that the matrix (default, no default features, all features, each feature alone) does not enable and a target other than this host are not seen.
    A PASS does not speak about that code. More than 16 features give no facts (`TooManyFeatures`). A `target_os = "windows"` case is stated, not tested.
 3. The repository is trusted. `cargo check` runs its build scripts and proc macros, and `--offline` does not stop

@@ -199,3 +199,38 @@ fn the_producer_gives_facts_for_the_collision_workspace_and_runs_its_dispatches(
     let truth = dispatch_counts_of(channel().unwrap(), &manifest, &[]);
     write("coll-truth.json", &serde_json::to_string(&truth).unwrap());
 }
+
+/// A `[env]` table of the repository that forces the variables of the driver. The producer sets them with
+/// `--config`, which ranks above every config file, so the run is the same as without the table.
+#[test]
+#[ignore = "needs the pinned toolchain with rustc-dev; run `make rustc-facts-e2e`"]
+fn a_cargo_config_env_table_cannot_override_the_variables_of_the_driver() {
+    let _one = REAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tools = real_tools();
+    let dir = scratch("env-force").canonicalize().unwrap();
+    std::fs::create_dir_all(dir.join(".cargo")).unwrap();
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    let forced = ["AK_FACTS_MEMBERS", "AK_FACTS_DIR", "AK_FACTS_REGISTRY"]
+        .map(|name| format!("{name} = {{ value = \"/nonexistent\", force = true }}\n"));
+    std::fs::write(
+        dir.join(".cargo/config.toml"),
+        format!("[env]\n{}", forced.concat()),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("Cargo.toml"),
+        "[package]\nname = \"t\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("Cargo.lock"),
+        "version = 4\n\n[[package]]\nname = \"t\"\nversion = \"0.0.0\"\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("src/lib.rs"), "pub fn f() {}\n").unwrap();
+    let made = tools
+        .produce(&dir, &dir.join("Cargo.toml"), real_cache())
+        .map_err(|e| e.describe())
+        .unwrap();
+    assert!(made.runs.iter().all(|run| !run.units.is_empty()));
+}

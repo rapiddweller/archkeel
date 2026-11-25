@@ -174,18 +174,27 @@ fn a_vendored_crate_with_the_name_of_a_member_is_foreign_and_a_renamed_member_is
     let loaded = read_descriptor(&out("coll.json"), &scanned).unwrap();
     let truth: BTreeMap<String, usize> =
         serde_json::from_str(&std::fs::read_to_string(out("coll-truth.json")).unwrap()).unwrap();
-    let cases = ["mcoll", "mcollhy", "mrenamed", "mhyph"];
+    let cases = [
+        "mcoll", "mcollhy", "mrenamed", "mhyph", "mshared", "msymlink",
+    ];
     let known: BTreeSet<String> = cases
         .iter()
         .flat_map(|c| ["a", "b"].map(|s| format!("native.fx.{c}_{s}")))
         .collect();
     let filter = Filter::new(&loaded, &known);
+    let mut dropped = Vec::new();
     for case in cases {
         assert_eq!(truth[case], 1, "the run decides the truth of {case}");
         let excluded = filter.excluded(
             &format!("native.fx.{case}_a"),
             &format!("native.fx.{case}_b"),
         );
-        assert!(!excluded, "the filter dropped the real dispatch of {case}");
+        if excluded {
+            dropped.push(case);
+        }
     }
+    assert!(
+        dropped.is_empty(),
+        "the filter dropped the real dispatch of {dropped:?}"
+    );
 }

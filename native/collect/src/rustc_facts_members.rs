@@ -6,7 +6,7 @@
 
 use archkeel_facts::type_reach::{matrix, Config, Unavailable, MAX_FEATURES};
 use serde_json::Value;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 /// The workspace members that `cargo metadata` names: only these crates are workspace code. A path
@@ -14,8 +14,9 @@ use std::path::Path;
 pub(crate) struct Members {
     /// The `Cargo.toml` path of each member.
     pub(crate) manifests: BTreeSet<String>,
-    /// The canonical root source file of each target of the members: the driver tells a member by it.
-    pub(crate) roots: BTreeSet<String>,
+    /// For each member, its canonical manifest directory and the canonical root source files of its targets.
+    /// A member run of the driver must match one pair: the directory and a root file of the same member.
+    pub(crate) roots: BTreeMap<String, BTreeSet<String>>,
     /// The directory of each member, relative to the scan root, with a closing slash.
     pub(crate) dirs: Vec<String>,
     /// The features of the members, `default` excluded: each one alone is a configuration.
@@ -34,7 +35,7 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
         .collect();
     let mut found = Members {
         manifests: BTreeSet::new(),
-        roots: BTreeSet::new(),
+        roots: BTreeMap::new(),
         dirs: Vec::new(),
         features: Vec::new(),
     };
@@ -57,6 +58,10 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
             continue;
         }
         let dir = Path::new(&path).parent().unwrap_or(Path::new(&path));
+        let real_dir = std::fs::canonicalize(dir)
+            .map_err(|_| Unavailable::MetadataFailed)?
+            .to_string_lossy()
+            .replace('\\', "/");
         if let Ok(relative) = dir.strip_prefix(scan_root) {
             found.dirs.push(
                 format!("{}/", relative.display())
@@ -75,6 +80,8 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
             let src = text(target, "src_path").and_then(|p| std::fs::canonicalize(p).ok());
             found
                 .roots
+                .entry(real_dir.clone())
+                .or_default()
                 .extend(src.map(|p| p.to_string_lossy().replace('\\', "/")));
         }
         let features = package.get("features").and_then(Value::as_object);
