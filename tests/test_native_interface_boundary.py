@@ -165,6 +165,18 @@ def test_a_public_barrel_needs_a_witness(built: Path, tmp_path: Path, publicatio
     assert "unread import binding" in json.dumps(frame), frame
 
 
+def test_a_hold_names_the_import_and_its_form(built: Path, tmp_path: Path) -> None:
+    scan(built, tmp_path, 'import { Published } from "./api";')
+    (tmp_path / "src/api.ts").write_text('export * from "./impl";')
+    frame = run_core(built, tmp_path)
+    assert frame["explained"]["INTERFACE"] == (
+        "incomplete scope: interface_boundary: unread import binding: 1 import: "
+        "app.src.client_x2e_ts -> app.src.api_x2e_ts:Published (unread import binding)"
+    ), frame
+    # The key of the baseline stays the gap word: it holds no import.
+    assert "INTERFACE" in frame["unknown_kinds"], frame
+
+
 def test_fail_retains_import_evidence_beside_a_gap(built: Path, tmp_path: Path) -> None:
     frame = scan(
         built, tmp_path, 'import { _private } from "./api"; import * as hidden from "./impl";'
