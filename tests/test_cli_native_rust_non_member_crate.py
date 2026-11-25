@@ -119,6 +119,27 @@ def test_a_member_below_a_non_member_crate_stays_in_the_scan(
     assert not any("other" in source for source in sources), sources
 
 
+def test_a_non_member_manifest_inside_a_member_keeps_the_targets_of_the_member(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = {
+        "crates/Cargo.toml": '[workspace]\nmembers = ["base", "app"]\nexclude = ["app/src"]\n',
+        "crates/app/Cargo.toml": '[package]\nname = "app"\nversion = "0.0.0"\nedition = "2021"\n',
+        "crates/app/src/lib.rs": "pub fn run() {}\n",
+        "crates/app/src/Cargo.toml": (
+            '[package]\nname = "other"\nversion = "0.0.1"\nedition = "2021"\n'
+            '[lib]\npath = "foreign.rs"\n'
+        ),
+        "crates/app/src/foreign.rs": "pub fn f() {}\n",
+    }
+    root = repository(tmp_path / "repo", release_core, files=layout, components=PARTS)
+    result = validate(root)
+    assert result["outcome"] == "verdict", result["gaps"]
+    # The member keeps its library, and the foreign file is named as unclaimed.
+    assert not any("package_unscanned" in gap["kind"] for gap in result["gaps"]), result["gaps"]
+    assert any(r.startswith("Source file is in no module tree") for r in _reasons(result))
+
+
 def _without_cargo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()

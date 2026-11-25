@@ -28,7 +28,7 @@ use crate::toml;
 use crate::tree::walk;
 use archkeel_facts::identity::sha256_hex;
 use archkeel_facts::type_reach::MEMBERS_ENV;
-use archkeel_snapshot::paths::{dirname, within};
+use archkeel_snapshot::paths::{dirname, join, within};
 
 /// Collect the facts of one request.
 pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collected {
@@ -262,14 +262,21 @@ fn workspace_files(
         let reason = format!("The crate {dir} is no workspace member and has the package name {name} of a member: a dependency on that name is read as the member");
         builder.gap(&reason, None, "");
     }
-    // A file belongs to its nearest crate: a member below a foreign crate stays.
+    // A file belongs to its nearest crate: a member below a foreign crate stays. A foreign crate inside the directory
+    // of a member loses only its manifest: Cargo can still build the member targets there, and the files that no module
+    // tree claims add their own gap.
+    let nested: BTreeSet<&str> = foreign
+        .keys()
+        .copied()
+        .filter(|dir| inside_member(dir, &kept))
+        .collect();
     files
         .iter()
         .filter(|file| {
             let mut dir = dirname(file);
             loop {
                 if foreign.contains_key(dir) {
-                    return false;
+                    return nested.contains(dir) && join(dir, "Cargo.toml") != **file;
                 }
                 if kept.contains(dir) || dir.is_empty() {
                     return true;
@@ -279,6 +286,18 @@ fn workspace_files(
         })
         .cloned()
         .collect()
+}
+
+/// Whether a directory above `dir` is a member crate.
+fn inside_member(dir: &str, kept: &BTreeSet<&str>) -> bool {
+    let mut up = dir;
+    while !up.is_empty() {
+        up = dirname(up);
+        if kept.contains(up) {
+            return true;
+        }
+    }
+    false
 }
 
 /// The package name of a manifest. `None` for a virtual workspace manifest, which is no crate. A manifest that
