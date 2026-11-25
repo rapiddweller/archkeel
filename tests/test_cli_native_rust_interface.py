@@ -199,7 +199,7 @@ def test_each_rust_form_gets_the_verdict_of_its_route(
     files = {**BASE, "crates/app/src/lib.rs": source}
     found_status, found = _run(tmp_path, core_binary, files, (base, app))
     assert found_status == status, (name, found)
-    assert claim is None or claim in found, (name, found)
+    assert claim is None or any(c.startswith(claim) for c in found), (name, found)
 
 
 @pytest.mark.parametrize(

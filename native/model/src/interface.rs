@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use archkeel_contract::{Component, InterfaceBoundary, Rule};
 use archkeel_facts::envelope::LimitSupport;
 
-use crate::causes::InterfaceGap;
+use crate::causes::{InterfaceGap, InterfaceHold};
 use crate::direction::{Crossing, Judged};
 use crate::imports::Import;
 use crate::model::Model;
@@ -136,16 +136,27 @@ pub(crate) fn receipt(model: &Model, rule: &InterfaceBoundary) -> Result<(), Rea
         .profile_limits
         .is_some_and(|p| p.interface_boundary == LimitSupport::Supported);
     if !supported {
-        return Err(Reason::Interface(InterfaceGap::PublicationSurface));
+        return Err(Reason::Interface(InterfaceHold::bare(
+            InterfaceGap::PublicationSurface,
+        )));
     }
+    let mut undecided: Vec<(InterfaceGap, &Import, Option<&str>)> = Vec::new();
     for crossing in interface_crossings(model, rule) {
-        assess(model, rule, crossing.target, crossing.import).map_err(Reason::Interface)?;
+        if let Err(gap) = assess(model, rule, crossing.target, crossing.import) {
+            undecided.push((gap, crossing.import, crossing.import.symbol()));
+        }
     }
-    let undecided = interface_publications(model, rule)
+    for publication in interface_publications(model, rule) {
+        if publication.judged == Judged::Undecided {
+            let gap = InterfaceGap::UnreadBinding;
+            undecided.push((gap, publication.import, Some(publication.name)));
+        }
+    }
+    let listed = undecided
         .iter()
-        .any(|publication| publication.judged == Judged::Undecided);
-    if undecided {
-        return Err(Reason::Interface(InterfaceGap::UnreadBinding));
+        .map(|(gap, import, name)| (*gap, import.source_module(), import.target_module(), *name));
+    if let Some(hold) = InterfaceHold::of(listed) {
+        return Err(Reason::Interface(hold));
     }
     if model
         .graph()

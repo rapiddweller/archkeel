@@ -78,3 +78,21 @@ fn a_cut_list_shows_distinct_pairs_and_counts_them_not_the_records() {
          (showing 5): s0 -> t0, s1 -> t1, s2 -> t2, s3 -> t3, s4 -> t4 and 2 more pairs"
     ));
 }
+
+#[test]
+fn an_interface_hold_lists_its_imports_and_cuts_the_list() {
+    use super::{InterfaceGap, InterfaceHold};
+    let names: Vec<String> = (0..7).map(|n| format!("m{n}")).collect();
+    let listed = names
+        .iter()
+        .map(|n| (InterfaceGap::PublicationRoute, "a", n.as_str(), Some("X")));
+    let hold = InterfaceHold::of(listed).expect("an import");
+    assert_eq!(
+        hold.to_string(),
+        "interface_boundary: unproven publication route: 7 imports (showing 5): \
+         a -> m0:X (unproven publication route), a -> m1:X (unproven publication route), \
+         a -> m2:X (unproven publication route), a -> m3:X (unproven publication route), \
+         a -> m4:X (unproven publication route) and 2 more"
+    );
+    assert!(InterfaceHold::of(std::iter::empty()).is_none());
+}
