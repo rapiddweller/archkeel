@@ -12,7 +12,7 @@ import sqlite3
 import sys
 import tempfile
 import webbrowser
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
 
 from archkeel.explorer_queries import populate
@@ -79,7 +79,8 @@ def _verdict_rows(
     frame: CoreFrame,
     topology: Topology,
     document: Mapping[str, object],
-    sources: Mapping[str, str],
+    digests: Mapping[str, str],
+    assessed: Iterable[str],
 ) -> VerdictRows:
     """Copy the verdict rows of the frame. The core decided them; nothing is decided again."""
     owners = {module.name: module.component for module in topology.modules}
@@ -140,8 +141,25 @@ def _verdict_rows(
         as_texts(document.get("rule_rationales", {}), "rule_rationales"),
         findings,
         unknowns,
-        sources,
+        {name: digests[name] for name in sorted(set(assessed)) if len(digests.get(name, "")) == 64},
     )
+
+
+def _drop_contract(topology: dict[str, object]) -> None:
+    """Keep no rule or responsibility of the drafted contract of an observed scan."""
+    topology["requires"] = []
+    for section, drop in (
+        ("components", ("responsibilities", "forbidden_responsibilities", "public")),
+        ("edges", ("rules",)),
+        ("component_edges", ("rules",)),
+    ):
+        rows = topology[section]
+        if not isinstance(rows, list):
+            raise CoreError(f"invalid topology section {section}")
+        topology[section] = [
+            {key: value for key, value in as_object(row, section).items() if key not in drop}
+            for row in rows
+        ]
 
 
 def _publish(
@@ -197,30 +215,13 @@ def _publish(
     coverage = "complete" if frame.topology.complete and not frame.topology.truncated else "UNKNOWN"
 
     if observed:
-        topology["requires"] = []
-        for section, drop in (
-            ("components", ("responsibilities", "forbidden_responsibilities", "public")),
-            ("edges", ("rules",)),
-            ("component_edges", ("rules",)),
-        ):
-            rows = topology[section]
-            if not isinstance(rows, list):
-                raise CoreError(f"invalid topology section {section}")
-            topology[section] = [
-                {key: value for key, value in as_object(row, section).items() if key not in drop}
-                for row in rows
-            ]
+        _drop_contract(topology)
 
     # An observed scan runs against a drafted contract, so it has no verdict to keep.
     rows = None
     if not observed:
-        config = Path(project.config).as_posix()
-        sources = {
-            name: digests[name]
-            for name in sorted({*paths, config})
-            if len(digests.get(name, "")) == 64
-        }
-        rows = _verdict_rows(frame, frame.topology, document, sources)
+        assessed = {*paths, Path(project.config).as_posix()}
+        rows = _verdict_rows(frame, frame.topology, document, digests, assessed)
 
     def build(connection: sqlite3.Connection) -> None:
         display = topology | {
