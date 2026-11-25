@@ -377,8 +377,10 @@ fn a_declared_budget_that_the_file_lacks_is_red_and_never_exit_2() {
 
 #[test]
 fn a_declared_budget_that_the_file_lacks_and_the_run_does_not_measure_is_a_named_gap() {
-    let mut now = Observed::default();
-    now.declared = vec![BudgetName::CallsUnresolved];
+    let now = Observed {
+        declared: vec![BudgetName::CallsUnresolved],
+        ..Observed::default()
+    };
     let found = compare(&file(json!([]), json!([]), json!({})), &now);
     assert_eq!(found.state.exit_code(), 2);
     assert_eq!(found.gaps[0].kind, "budget.unmeasured");
