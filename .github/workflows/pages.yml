@@ -54,9 +54,9 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Install the pinned Rust toolchain
-        working-directory: native
-        run: rustup toolchain install
+      # AD-1047: the self run in `make report-gallery` reads native/ with compiler facts.
+      - name: Install the Rust toolchains with rustc-dev
+        run: make type-reach-setup
 
       - name: Restore the Rust build cache of main
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
