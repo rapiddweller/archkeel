@@ -26,7 +26,6 @@ mod python;
 mod refusal;
 mod repository;
 mod run;
-mod rust_members;
 mod rustc_facts;
 mod rustc_facts_members;
 mod rustc_facts_merge;
@@ -189,7 +188,7 @@ pub fn scan_with_options(
         .then(|| type_reach_descriptor(&root, &config))
         .transpose()?;
     let members = matches!(config.profile, Profile::Rust)
-        .then(|| rust_members::of(root.path(), &config.roots));
+        .then(|| rustc_facts_members::for_worker(root.path(), &config.roots));
     let collected_reply = run::collect_timed(
         config.profile,
         &bytes,
