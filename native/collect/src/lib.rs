@@ -221,7 +221,7 @@ pub fn scan_with_options(
         .then(|| type_reach_descriptor(&root, &config))
         .transpose()?;
     let members = matches!(config.profile, Profile::Rust)
-        .then(|| rustc_facts_members::for_worker(root.path(), &config.roots));
+        .then(|| rustc_facts_members::for_worker(root.path(), &config.roots, build_allowed()));
     let collected_reply = run::collect_timed(
         config.profile,
         &bytes,
