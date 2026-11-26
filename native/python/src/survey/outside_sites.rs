@@ -119,9 +119,11 @@ impl Uses {
     fn compare(&mut self, node: &ExprCompare) {
         let ops = node.ops.iter();
         if ops.clone().all(|op| matches!(op, CmpOp::In | CmpOp::NotIn)) {
+            // Only the last operand: an inner operand is also the left side of the next test, and
+            // its `__contains__` would get the dictionary (`x in sys.modules in sink`).
             node.operands
-                .iter()
-                .skip(1)
+                .last()
+                .into_iter()
                 .for_each(|side| self.mark(side));
         }
         let none = node.operands.iter().skip(1).all(Expr::is_none_literal_expr);

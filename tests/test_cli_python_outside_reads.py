@@ -73,6 +73,14 @@ WRITES = {
         "        sys.modules[name].f = lambda: 'hooked'\nimport app.client\n"
         "print(app.client.run())\n"
     ),
+    "membership chain": (
+        "import sys\nimport app.service\n\n\nclass Sink:\n"
+        "    def __contains__(self, modules):\n"
+        '        modules["app.service"].f = lambda: "hooked"\n'
+        "        return True\n\n\n"
+        '_ = "app.service" in sys.modules in Sink()\nimport app.client\n'
+        "print(app.client.run())\n"
+    ),
     "imported module attribute": (
         "import app.service\napp.service.f = lambda: 'hooked'\nimport app.client\n"
         "print(app.client.run())\n"
