@@ -2800,6 +2800,7 @@
     "fn imports::declared(&self)->bool",
     "fn imports::evidence(&self)->&[String]",
     "fn imports::id(&self)->&str",
+    "fn imports::opaque_surface(&self)->Option<(&str,&'static str)>",
     "fn imports::other_crate(&self)->bool",
     "fn imports::published_as(&self)->Option<&str>",
     "fn imports::reexport_chain(&self)->&[String]",
