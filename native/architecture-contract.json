@@ -7189,6 +7189,7 @@
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.module_scopes",
         "native.archkeel_python_collector.survey.external_loader",
+        "native.archkeel_python_collector.survey.outside.reads",
         "native.archkeel_python_collector.survey.outside.sites",
         "native.archkeel_python_collector.survey.class_writes"
       ],
@@ -7278,6 +7279,7 @@
         "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.external_loader",
+        "native.archkeel_python_collector.survey.outside.reads",
         "native.archkeel_python_collector.survey.outside.sites",
         "native.archkeel_python_collector.survey.stable.class_inventory"
       ],
