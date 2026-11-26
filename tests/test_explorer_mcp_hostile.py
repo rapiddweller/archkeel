@@ -4,6 +4,7 @@
 """Hostile requests to the Explorer MCP tools (#1001): a typed error, never a crash or a leak."""
 
 import asyncio
+import importlib
 import json
 import os
 import sqlite3
@@ -168,8 +169,18 @@ def test_a_story_id_or_spec_cannot_leave_the_story_folder(
     list_stories(root, path)
 
 
+def _fastmcp() -> Any:
+    """The fastmcp module. In CI a missing extra fails: a skip would hide the protocol tests."""
+    try:
+        return importlib.import_module("fastmcp")
+    except ModuleNotFoundError:
+        if os.environ.get("CI"):
+            pytest.fail("fastmcp is missing: the CI job must run `uv sync --locked --extra mcp`")
+        pytest.skip("fastmcp is not installed (the mcp extra)")
+
+
 def _server(path: Path, root: Path) -> Any:
-    fastmcp = pytest.importorskip("fastmcp")
+    fastmcp = _fastmcp()
     server = fastmcp.FastMCP("hostile")
     explorer_mcp._query_tools(server, path, root)
     explorer_mcp._verdict_tools(server, path, root)
@@ -182,7 +193,7 @@ def test_the_protocol_layer_answers_each_hostile_call_with_an_error_and_stays_up
     scan: tuple[Path, Path, dict[str, str]],
 ) -> None:
     path, root, _ = scan
-    fastmcp = pytest.importorskip("fastmcp")
+    fastmcp = _fastmcp()
     server = _server(path, root)
     calls: list[tuple[str, dict[str, Any]]] = [
         ("no_such_tool", {}),
@@ -227,7 +238,7 @@ def test_raw_frames_on_stdio_never_stop_the_server_or_grow_its_memory(
     import subprocess  # noqa: PLC0415
     import sys  # noqa: PLC0415
 
-    pytest.importorskip("fastmcp")
+    _fastmcp()
     path, root, _ = scan
     initialize = {
         "jsonrpc": "2.0",
