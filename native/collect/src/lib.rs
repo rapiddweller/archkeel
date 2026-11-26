@@ -267,6 +267,17 @@ fn premise_missing(root: &Path, contract: &str) -> Option<String> {
     (!declared).then(|| format!("the contract does not declare the premise {word}"))
 }
 
+/// AD-1130: the one operator permission to compile the scanned repository. Only the process
+/// environment can grant it. No file of the repository can, and the sealed Cargo run does not inherit it.
+pub(crate) const ALLOW_BUILD: &str = "ARCHKEEL_ALLOW_BUILD";
+
+/// The typed gap when the repository asks for compilation and the operator did not allow it.
+const NOT_ALLOWED: &str = "type reach not allowed by the operator";
+
+fn build_allowed() -> bool {
+    std::env::var_os(ALLOW_BUILD).is_some_and(|value| value == "1")
+}
+
 fn type_reach_descriptor(
     root: &repository::Root,
     config: &config::Config,
@@ -295,6 +306,7 @@ fn type_reach_descriptor(
         .find(|m| m.is_file())
         .unwrap_or_else(|| root.path().join("Cargo.toml"));
     let text = match premise_missing(root.path(), &config.contract) {
+        _ if !build_allowed() => json!({"unavailable": NOT_ALLOWED}),
         Some(why) => json!({"unavailable": why}),
         None => match rustc_facts::FactsTools::system().produce(root.path(), &manifest, &base) {
             Err(cause) => {

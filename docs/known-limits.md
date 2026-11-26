@@ -831,6 +831,12 @@ refuses with `core_binary_not_found`
 
 ### Rust: what the collector does not prove
 
+The compiler type-reach facts (`rust_type_reach`, AD-1047) need the operator's permission `ARCHKEEL_ALLOW_BUILD=1`
+(AD-1130). The setting of the scanned repository alone starts no build. Without the permission every trait-impl,
+destructor and receiver gap stays and the scan names the cause `type reach not allowed by the operator`. With the
+permission, the build of the scanned repository runs without a sandbox: allow it only for a repository that you trust
+(#1999).
+
 Explorer resolves direct calls between unconditional module functions in the
 same crate target, including proven relative module paths. It can also
 resolve a plain call on `self` when both methods share a proven inherent

@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 
 import pytest
-from test_native_ci import _TOOLCHAIN_STEP, WORKFLOWS, _jobs
+from test_native_ci import _TOOLCHAIN_STEP, ROOT, WORKFLOWS, _jobs
 
 _TYPE_REACH_STEP = "run: make type-reach-setup\n"
 _SELF_CHECK_MAKE = re.compile(
@@ -60,3 +60,16 @@ def test_each_job_that_runs_the_self_check_installs_type_reach() -> None:
     assert {(w, j) for w, j, _ in _SINGLE} | set(_MATRIX) <= checked
     for workflow, job in sorted(checked):
         assert _TYPE_REACH_STEP in _jobs(workflow)[job], (workflow, job)
+
+
+def test_the_operator_permission_to_build_is_set_in_one_place_for_the_self_runs() -> None:
+    """AD-1130: only the Makefile targets of the self runs allow compilation."""
+    root = ROOT
+    makefile = (root / "Makefile").read_text()
+    lines = [line for line in makefile.splitlines() if "ARCHKEEL_ALLOW_BUILD" in line]
+    assigned = [line for line in lines if not line.startswith("#")]
+    assert assigned == ["self-validate-native report-gallery: export ARCHKEEL_ALLOW_BUILD = 1"]
+    for path in [*WORKFLOWS.glob("*.yml"), root / "native/archkeel.toml"]:
+        assert "ARCHKEEL_ALLOW_BUILD" not in path.read_text(), path
+    # `self-check` and the gate run the native self-check through this target.
+    assert "self-validate: self-validate-native" in makefile
