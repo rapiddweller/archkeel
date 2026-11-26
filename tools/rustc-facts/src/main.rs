@@ -24,6 +24,7 @@ mod json;
 mod names;
 mod out;
 mod reach;
+mod resolved;
 mod selected;
 mod state;
 

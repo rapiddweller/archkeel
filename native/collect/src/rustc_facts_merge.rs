@@ -59,7 +59,9 @@ pub(super) fn merge(base: &str, extras: &[&str]) -> Option<String> {
     let (build, mut all) = load(base)?;
     for extra in extras {
         // A call in a test unit is test code. Only the library unit keeps its `sel` records (AD-1136).
-        let site = |r: &String| serde_json::from_str::<Value>(r).is_ok_and(|v| v["k"] == "sel");
+        let site = |r: &String| {
+            serde_json::from_str::<Value>(r).is_ok_and(|v| v["k"] == "sel" || v["k"] == "call")
+        };
         all.extend(load(extra)?.1.into_iter().filter(|r| !site(r)));
     }
     let (mut ids, mut names): (HashMap<String, u64>, Vec<Value>) = (HashMap::new(), Vec::new());

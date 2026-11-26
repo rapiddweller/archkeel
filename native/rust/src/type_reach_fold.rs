@@ -24,6 +24,9 @@ pub struct Reach<'f> {
     pub(crate) parts: Parts,
     /// The selected impls whose two ends are scan modules, with the scan names (AD-1136).
     pub(crate) selected: Vec<SelectedFacts>,
+    /// The scan module that each resolved method call at a place (file, line, column) reaches: `None` for a foreign
+    /// callee. Two callees at one place stay both (AD-1185).
+    pub(crate) callees: BTreeMap<(String, i64, i64), BTreeSet<Option<String>>>,
 }
 
 impl<'f> Reach<'f> {
@@ -41,7 +44,8 @@ impl<'f> Reach<'f> {
             .keys()
             .chain(facts.impls.iter().map(|i| &i.module))
             .chain(facts.fns.values().map(|(module, _)| module))
-            .chain(facts.selected.iter().flat_map(|s| [&s.from, &s.to]));
+            .chain(facts.selected.iter().flat_map(|s| [&s.from, &s.to]))
+            .chain(facts.calls.iter().filter_map(|c| c.to.as_ref()));
         for path in paths {
             let mut name = format!("{namespace}.{}", path.replace("::", "."));
             while !known.contains(&name) && name.contains('.') {
@@ -91,8 +95,17 @@ impl<'f> Reach<'f> {
             })
             .filter(|s| s.from != s.to && known.contains(&s.from) && known.contains(&s.to))
             .collect();
+        let mut callees: BTreeMap<(String, i64, i64), BTreeSet<Option<String>>> = BTreeMap::new();
+        for c in &facts.calls {
+            let to = c.to.as_ref().map(|t| owner[t].clone());
+            callees
+                .entry((c.file.clone(), c.line, c.column))
+                .or_default()
+                .insert(to);
+        }
         let mut reach = Reach {
             selected,
+            callees,
             facts,
             inst: BTreeMap::new(),
             coerced: BTreeMap::new(),

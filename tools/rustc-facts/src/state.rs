@@ -63,6 +63,23 @@ pub(crate) struct Selected {
     pub(crate) column: u32,
 }
 
+/// One method call `x.m()` that the compiler resolved to one function (AD-1185).
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct Resolved {
+    /// The module of the body that makes the call.
+    pub(crate) from: u32,
+    /// The module of the callee, when the callee is workspace code.
+    pub(crate) to: Option<u32>,
+    /// The compiler path of the callee.
+    pub(crate) callee: u32,
+    /// The file of the call, and the file that holds the callee (workspace code).
+    pub(crate) file: u32,
+    pub(crate) callee_file: Option<u32>,
+    /// The line (1-based) and the column (0-based) of `m(..)`.
+    pub(crate) line: u32,
+    pub(crate) column: u32,
+}
+
 /// The types that flow into a generic function: ADTs, and the `dyn` traits of its type arguments
 /// (`show::<Box<dyn Debug>>`): the instance can call a method of any implementer.
 #[derive(Default)]
@@ -102,6 +119,8 @@ pub(crate) struct State {
     pub(crate) opaque_defs: HashSet<DefId>,
     /// The calls of `PartialEq::eq` with a selected workspace impl.
     pub(crate) selected: BTreeSet<Selected>,
+    /// The method calls with a resolved callee.
+    pub(crate) calls: BTreeSet<Resolved>,
     pub(crate) workspace_defs: HashMap<DefId, bool>,
     /// The canonical workspace root, with a closing slash.
     pub(crate) root: String,
@@ -124,6 +143,7 @@ static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
         adt_fields: BTreeMap::new(),
         opaque_defs: HashSet::new(),
         selected: BTreeSet::new(),
+        calls: BTreeSet::new(),
         workspace_defs: HashMap::new(),
         root: String::new(),
         registry: String::new(),

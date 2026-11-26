@@ -227,3 +227,120 @@ fn configurations_that_select_the_impl_in_different_files_give_no_edge() {
     ]));
     assert!(selected(&found).is_empty());
 }
+
+const A_M: &str = "pub fn f() { crate::c::make().m(); }\n";
+const B_M: &str = "pub struct S;\nimpl S { pub fn m(&self) {} }\n";
+const C_M: &str = "pub fn make() -> crate::b::S { crate::b::S }\n";
+
+fn collect_methods(announce: Announced) -> Collected {
+    let tree = Tree::new(&[
+        ("crates/Cargo.toml", WORKSPACE),
+        ("crates/base/Cargo.toml", BASE),
+        ("crates/base/src/lib.rs", "pub fn f() {}"),
+        ("crates/app/Cargo.toml", APP),
+        (
+            "crates/app/src/lib.rs",
+            "pub mod a;\npub mod b;\npub mod c;\n",
+        ),
+        ("crates/app/src/a.rs", A_M),
+        ("crates/app/src/b.rs", B_M),
+        ("crates/app/src/c.rs", C_M),
+    ]);
+    let request = RustRequest {
+        protocol_version: Version::V8,
+        snapshot: Snapshot {
+            root: tree.path(),
+            git_head: "a".repeat(40),
+            dirty: Dirty::Known(false),
+        },
+        scope: Scope {
+            roots: vec!["crates".to_owned()],
+            namespace: "ns".to_owned(),
+            exclude_test_sources: Some(false),
+        },
+        resolver: RustSettings {},
+    };
+    let provenance = Provenance::native(Profile::Rust, ("1", "d"), ("1.88.0", "1.88"));
+    crate::collect::collect_with(&request, provenance, |_, _| announce)
+}
+
+/// The record of a resolved method call at the method name of `A_M`, plus a column shift.
+fn call(to: &str, callee_file: &str, shift: usize) -> String {
+    let col = A_M.find("m()").unwrap() + shift;
+    format!(
+        "{{\"k\":\"call\",\"from\":0,\"to\":{to},\"callee\":6,\"file\":3,\"callee_file\":{callee_file},\"line\":1,\"col\":{col}}}"
+    )
+}
+
+fn method_gap(found: &Collected) -> bool {
+    found.gaps.iter().any(|gap| {
+        gap.title
+            .contains("method m of a type in its own file ns.app.b")
+    })
+}
+
+fn edges_to(found: &Collected, target: &str) -> usize {
+    let edges = selected(found);
+    edges
+        .iter()
+        .filter(|r| r.data.data().target_module.as_str() == target)
+        .count()
+}
+
+#[test]
+fn an_unresolved_receiver_call_keeps_its_method_gap() {
+    let found = collect_methods(announced(false, &[]));
+    assert!(method_gap(&found), "the baseline holds the gap a -> b");
+}
+
+#[test]
+fn a_call_that_the_compiler_resolved_outside_the_workspace_drops_the_gap() {
+    let found = collect_methods(announced(false, &[&call("null", "null", 0)]));
+    assert!(!method_gap(&found));
+    assert!(selected(&found).is_empty(), "a foreign callee is no edge");
+}
+
+#[test]
+fn a_call_resolved_to_another_module_drops_the_gap_and_is_an_edge() {
+    let found = collect_methods(announced(false, &[&call("2", "10", 0)]));
+    assert!(!method_gap(&found));
+    assert_eq!(edges_to(&found, "ns.app.c"), 1);
+}
+
+#[test]
+fn a_call_resolved_to_the_candidate_keeps_the_gap_and_is_an_edge() {
+    let found = collect_methods(announced(false, &[&call("1", "9", 0)]));
+    assert!(method_gap(&found), "the named use of b stays held");
+    assert_eq!(edges_to(&found, "ns.app.b"), 1);
+}
+
+#[test]
+fn a_call_at_another_place_or_in_a_test_unit_keeps_the_gap() {
+    let moved = collect_methods(announced(false, &[&call("null", "null", 1)]));
+    assert!(method_gap(&moved), "another column is another call");
+    let test = collect_methods(announced(true, &[&call("null", "null", 0)]));
+    assert!(method_gap(&test), "test code decides nothing");
+}
+
+#[test]
+fn every_configuration_must_resolve_the_call_to_the_same_callee() {
+    let foreign = call("null", "null", 0);
+    let both = announced_in(vec![
+        facts_of(false, &[&foreign]),
+        facts_of(false, &[&foreign]),
+    ]);
+    assert!(!method_gap(&collect_methods(both)));
+    let lacking = announced_in(vec![facts_of(false, &[&foreign]), facts_of(false, &[])]);
+    assert!(
+        method_gap(&collect_methods(lacking)),
+        "a feature can drop the call"
+    );
+    let other = announced_in(vec![
+        facts_of(false, &[&foreign]),
+        facts_of(false, &[&call("2", "10", 0)]),
+    ]);
+    assert!(
+        method_gap(&collect_methods(other)),
+        "a feature can change the callee"
+    );
+}

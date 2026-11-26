@@ -6,6 +6,7 @@
 
 // Consumer: the trait-impl, destructor and receiver gaps of `impl_flow` (AD-1047).
 
+use crate::site::Site;
 use crate::type_reach_facts::{Facts, Names, SelectedFacts};
 use crate::type_reach_fold::Reach;
 use crate::type_reach_model::{Mode, Verdict};
@@ -74,6 +75,37 @@ impl<'f> Filter<'f> {
             .iter()
             .filter(|s| others.iter().all(|set| set.contains(&key(s))));
         kept.filter(|s| seen.insert(key(s))).collect()
+    }
+
+    /// The scan module that the call `x.m()` at a place reaches, or `None` for a call that some configuration does
+    /// not resolve to one callee. The inner `None` is a callee outside the workspace. Every configuration must
+    /// hold the place with one and the same callee: a feature can change a call (AD-1185).
+    fn callee(&self, file: &str, line: i64, column: i64) -> Option<Option<&str>> {
+        let key = (file.to_owned(), line, column);
+        let mut found = self.models.iter().map(|m| m.callees.get(&key));
+        let first = found.next()??;
+        let mut one = first.iter();
+        let (callee, rest) = (one.next()?, one.next());
+        let same = found.all(|set| set.is_some_and(|s| s.len() == 1 && s.contains(callee)));
+        (rest.is_none() && same).then_some(callee.as_deref())
+    }
+
+    /// True when a candidate `(a, b)` at a place falls: the facts exclude the pair, or the compiler resolved the
+    /// method call at the place to another module than `b`. An execution candidate has no written call (AD-1185).
+    pub(crate) fn drops(
+        reach: Option<&Filter<'_>>,
+        [a, b, file]: [&str; 3],
+        site: &Site,
+        execution: bool,
+    ) -> bool {
+        let Some(this) = reach else {
+            return false;
+        };
+        let elsewhere = || {
+            this.callee(file, site.line, site.column)
+                .is_some_and(|c| c != Some(b))
+        };
+        this.excluded(a, b) || (!execution && elsewhere())
     }
 
     /// True when no body of `a` can hold the self type of an impl of `b` that runs code.

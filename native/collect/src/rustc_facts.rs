@@ -35,7 +35,7 @@ macro_rules! driver_files {
 /// The toolchain file of the driver: its channel is the pin.
 const TOOLCHAIN: &str = include_str!("../../../tools/rustc-facts/rust-toolchain.toml");
 
-pub(crate) const SOURCES: [(&str, &str); 13] = driver_files![
+pub(crate) const SOURCES: [(&str, &str); 14] = driver_files![
     "Cargo.toml",
     "Cargo.lock",
     "rust-toolchain.toml",
@@ -47,6 +47,7 @@ pub(crate) const SOURCES: [(&str, &str); 13] = driver_files![
     "src/names.rs",
     "src/out.rs",
     "src/reach.rs",
+    "src/resolved.rs",
     "src/selected.rs",
     "src/state.rs"
 ];

@@ -287,11 +287,13 @@ impl<'a, 'tcx> Visitor<'tcx> for Walk<'a, 'tcx> {
 
     fn visit_terminator(&mut self, t: &Terminator<'tcx>, l: Location) {
         match &t.kind {
-            TerminatorKind::Call { func, .. } => {
+            TerminatorKind::Call { func, fn_span, .. } => {
                 let fty = func.ty(&self.body.local_decls, self.tcx);
                 self.call(fty);
                 let at = (self.root, self.module);
                 crate::selected::eq_site(self.st, self.tcx, at, fty, t.source_info.span);
+                let spans = (t.source_info.span, *fn_span);
+                crate::resolved::method_site(self.st, self.tcx, at, fty, spans);
             }
             // The glue of a drop runs the destructors of the type, also of a generic ADT.
             TerminatorKind::Drop { place, .. } => {

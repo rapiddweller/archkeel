@@ -35,6 +35,15 @@ pub(crate) struct SelectedFacts {
     pub(crate) column: i64,
 }
 
+/// A method call `x.m()` whose callee the compiler resolved (AD-1185): the place of `m(..)`, and the module of the
+/// callee when it is workspace code. A plain value, like `SelectedFacts`.
+pub(crate) struct CallFacts {
+    pub(crate) to: Option<String>,
+    pub(crate) file: String,
+    pub(crate) line: i64,
+    pub(crate) column: i64,
+}
+
 /// What a module, an opaque type or a coroutine holds: ADTs, `dyn` traits and opaque types.
 pub(crate) struct Held {
     pub(crate) adts: Names,
@@ -87,6 +96,8 @@ pub struct Facts {
     pub(crate) impls: Vec<ImplFacts>,
     /// The selected impls of the non-test units.
     pub(crate) selected: Vec<SelectedFacts>,
+    /// The resolved method calls of the non-test units.
+    pub(crate) calls: Vec<CallFacts>,
 }
 
 fn blank<T: Default>() -> T {
@@ -125,6 +136,7 @@ impl Facts {
             adts: blank(),
             impls: blank(),
             selected: blank(),
+            calls: blank(),
         }
     }
 
@@ -174,8 +186,40 @@ impl Facts {
                 self.selected.extend((!test_unit).then_some(site));
                 continue;
             }
+            if v.get("k")?.as_str()? == "call" {
+                self.call(&v, &names, test_unit)?;
+                continue;
+            }
             self.record(&v, &names)?;
         }
+        Some(())
+    }
+
+    /// One resolved method call. A workspace callee is also a selected edge of its caller (AD-1185).
+    fn call(&mut self, v: &Value, names: &[String], test_unit: bool) -> Option<()> {
+        if test_unit {
+            return Some(());
+        }
+        let number = |key: &str| v.get(key)?.as_i64();
+        let (file, line, column) = (one(v, "file", names)?, number("line")?, number("col")?);
+        let to = one(v, "to", names);
+        if let (Some(to), Some(impl_file)) = (to.clone(), one(v, "callee_file", names)) {
+            self.selected.push(SelectedFacts {
+                from: one(v, "from", names)?,
+                to,
+                imp: one(v, "callee", names)?,
+                file: file.clone(),
+                impl_file,
+                line,
+                column,
+            });
+        }
+        self.calls.push(CallFacts {
+            to,
+            file,
+            line,
+            column,
+        });
         Some(())
     }
 

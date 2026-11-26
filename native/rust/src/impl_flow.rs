@@ -153,7 +153,6 @@ pub(super) fn settle(
         pool: &pool,
         reach: filter.as_ref(),
     };
-    // After the edges of the flow are known: a selected edge never hides the gap of another site (AD-1136).
     builder.selected_edges(index, modules, ctx.reach);
     open = settle_pending(builder, open, &ctx, &homes.trait_homes, false);
     if homes.drop_homes.is_empty() {
@@ -279,7 +278,7 @@ fn emit_pending(builder: &mut Builder, pending: &Pending, ctx: &FlowContext<'_>)
         );
         return;
     }
-    if ctx.reach.is_some_and(|r| r.excluded(&source, &target)) {
+    if Filter::drops(ctx.reach, [&source, &target, &rel], site, pending.execution) {
         return;
     }
     let dimension = if pending.execution && !ctx.named.contains(&(pending.source, pending.target)) {
