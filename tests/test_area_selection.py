@@ -16,6 +16,8 @@ ROOT = Path(__file__).parents[1]
 
 def test_a_changed_test_file_selects_its_own_area_and_nothing_else() -> None:
     assert areas_of_change(["tests/test_cli_help.py"]) == ["CLI and core"]
+    assert areas_of_change(["tests/test_native_self_core_rows.py"]) == ["core scans"]
+    assert areas_of_change(["tests/test_cli_native_core_scan_large.py"]) == ["core scans"]
     assert areas_of_change(["tests/test_report_gallery.py"]) == ["reports"]
 
 
@@ -36,13 +38,21 @@ def test_a_source_change_selects_the_areas_that_it_can_reach() -> None:
         ".github/workflows/pr-gate.yml",
     ):
         assert areas_of_change([path]) == list(AREAS)
-    assert areas_of_change(["native/report/src/html.rs"]) == ["CLI and core", "reports"]
+    assert areas_of_change(["native/report/src/html.rs"]) == [
+        "core scans",
+        "CLI and core",
+        "reports",
+    ]
 
 
 def test_parallel_jobs_follow_the_changed_paths() -> None:
     assert parallel_areas(["docs/readme.md"]) == []
     assert not rust_checks(["docs/readme.md"])
-    assert parallel_areas(["native/report/src/html.rs"]) == ["CLI and core", "reports"]
+    assert parallel_areas(["native/report/src/html.rs"]) == [
+        "core scans",
+        "CLI and core",
+        "reports",
+    ]
     assert rust_checks(["native/report/assets/explorer/explorer.html"])
     assert "collectors" in parallel_areas(["native/model/src/direction.rs"])
     assert "CLI and core" in parallel_areas(["native/collect/src/lib.rs"])
