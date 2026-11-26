@@ -25,6 +25,8 @@ struct Members<'a> {
 /// Where a dependency leads: a directory, or somewhere that cannot be told.
 enum Target {
     Dir(String),
+    /// A registry or git dependency that a `[patch]` entry sends to a directory: the scan reads no edge for it.
+    Patched(String),
     Unknown,
 }
 
@@ -66,7 +68,8 @@ fn held(target: &Target, members: &Members, known: &mut BTreeMap<String, bool>) 
     match target {
         Target::Unknown => true,
         Target::Dir(dir) if members.dirs.contains_key(dir) => false,
-        Target::Dir(dir) => reaches_member(dir, members, known),
+        Target::Patched(dir) if members.dirs.contains_key(dir) => true,
+        Target::Dir(dir) | Target::Patched(dir) => reaches_member(dir, members, known),
     }
 }
 
@@ -105,7 +108,7 @@ fn targets(package: &Value, members: &Members) -> Vec<Target> {
         if let Some(path) = dependency.get("path").and_then(Value::as_str) {
             found.push(real_dir(path).map_or(Target::Unknown, Target::Dir));
         } else if let Some(patched) = name.and_then(|n| members.patches.get(n)) {
-            found.push(patched.clone().map_or(Target::Unknown, Target::Dir));
+            found.push(patched.clone().map_or(Target::Unknown, Target::Patched));
         } else if source.is_some_and(|s| s.starts_with("git+"))
             && name.is_some_and(|n| members.names.contains(n))
         {
@@ -137,7 +140,7 @@ fn reaches_member(dir: &str, members: &Members, known: &mut BTreeMap<String, boo
             // A dependency of a crate outside the scan that leads to a member is the route back.
             let by_dependency = targets.iter().any(|t| match t {
                 Target::Dir(d) if d == dir => false,
-                Target::Dir(d) if members.dirs.contains_key(d) => true,
+                Target::Dir(d) | Target::Patched(d) if members.dirs.contains_key(d) => true,
                 other => held(other, members, known),
             });
             by_dependency || sources_reach_member(Path::new(dir), members)

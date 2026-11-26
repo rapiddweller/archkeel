@@ -101,3 +101,21 @@ def test_a_git_dependency_on_the_repository_does_not_pass(
     assert _marker(root, offline=False) == "app ran\n"
     result = validate(root)
     assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
+def test_a_registry_dependency_that_a_patch_sends_to_a_member_does_not_pass(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = {
+        "crates/Cargo.toml": WORKSPACE + '[patch.crates-io]\nbase-crate = { path = "base" }\n',
+        "crates/app/Cargo.toml": _app('base-crate = "0.0.0"\n'),
+        "crates/app/src/lib.rs": "pub fn run() { base_crate::make(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+    }
+    root = repository(
+        tmp_path / "repo", release_core, files=layout, components=PARTS, rules=_forbid(False)
+    )
+    _recommit(root)
+    assert _marker(root, offline=True) == "app ran\n"
+    result = validate(root)
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
