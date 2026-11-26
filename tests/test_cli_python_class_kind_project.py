@@ -88,6 +88,23 @@ PLANTS: dict[str, tuple[dict[str, str], str, str, str]] = {
         "Base type 7",
         KIND,
     ),
+    "init-subclass-deletes-a-member-through-a-local-class": (
+        {
+            "base.py": (
+                "class Base:\n    def __init_subclass__(cls, **kw):\n"
+                "        cls.marker = 7\n        del cls.m\n"
+            ),
+            "model.py": "class Secret:\n    pass\n",
+            "derived.py": (
+                "from app.base import Base\nfrom app.model import Secret\n\n\n"
+                "class Middle(Base):\n    def m(self, a: Secret) -> int:\n        return 1\n\n\n"
+                "class Derived(Middle):\n    def m(self, a: Secret) -> int:\n        return 1\n"
+            ),
+        },
+        "import app.derived as d",
+        "Middle type 7",
+        KIND,
+    ),
     # A step that is not proven: no kind, no record.
     "base-rebound-by-a-write": (
         {

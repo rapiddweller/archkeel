@@ -335,6 +335,7 @@ impl<'m> Writer<'m, '_> {
         let local = Local {
             kind: class_kind,
             constructible,
+            foreign: found.foreign,
         };
         Ok(Some((frame, local)))
     }

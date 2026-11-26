@@ -96,6 +96,33 @@ fn a_class_with_a_base_of_another_module_keeps_no_member() {
 }
 
 #[test]
+fn a_local_subclass_of_a_class_with_a_foreign_base_keeps_no_member() {
+    let derived = (
+        "app.derived",
+        "from app.base import Base\n\n\nclass Middle(Base):\n    pass\n\n\nclass D(Middle):\n    def m(self, a: int) -> int:\n        return a\n",
+    );
+    let modules: Vec<Module> = [BASE, derived].iter().map(|(n, t)| module(n, t)).collect();
+    let binders: Vec<Binders> = modules.iter().map(|m| Binders::of(&m.tree)).collect();
+    let table = project(&modules, &binders, |_, _| true);
+    let escapes = escapes::all(&modules, &binders, &[]).remove(1);
+    let found = records(
+        &modules[1],
+        &binders[1],
+        escapes,
+        None,
+        (&mut EvidenceMap::new(), &table),
+    );
+    let names: Vec<_> = found
+        .records
+        .iter()
+        .filter_map(|r| r.data.fields().qualified_name.map(str::to_owned))
+        .collect();
+    let mut names = names;
+    names.sort();
+    assert_eq!(names, ["app.derived.D", "app.derived.Middle"]);
+}
+
+#[test]
 fn a_re_export_gives_the_module_that_defines_the_class() {
     let facade = ("app.facade", "from app.base import Base\n");
     let derived = (

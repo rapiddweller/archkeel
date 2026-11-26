@@ -54,6 +54,8 @@ const ENUM_BASES: [&str; 5] = ["Enum", "IntEnum", "StrEnum", "Flag", "IntFlag"];
 pub(super) struct Local {
     pub kind: Kind,
     pub constructible: bool,
+    /// The class, or a local base of it, has a base of another module (#2129): the members are withheld.
+    pub foreign: bool,
 }
 
 /// One base of a class: its expression, the qualified name that it resolves to, and whether that
@@ -200,15 +202,16 @@ fn add_classes(table: &mut Project, (module, binders): (&Module, &Binders), boun
         let plain = node.decorator_list.is_empty() && bound.sole(name, statement.range().start());
         let reading = Reading::top((&module.name, body), bound, binders, (&local, table));
         let found = of(node, &reading).filter(|_| plain);
-        let Some((kind, constructible)) = found.map(|class| (class.kind, class.constructible))
-        else {
+        let Some(class) = found else {
             continue;
         };
+        let (kind, constructible, foreign) = (class.kind, class.constructible, class.foreign);
         local.insert(
             name.to_owned(),
             Local {
                 kind,
                 constructible,
+                foreign,
             },
         );
         grew |= table
@@ -383,7 +386,7 @@ fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Found> {
                 target: format!("{}.{name}", reading.module),
                 protocol: local.kind == Kind::Protocol,
                 constructible: local.constructible,
-                foreign: false,
+                foreign: local.foreign,
             });
         }
         if BUILTIN_BASES.contains(&name) && reading.binders.builtin_visible(name) {
