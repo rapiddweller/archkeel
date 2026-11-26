@@ -267,7 +267,7 @@ def test_a_std_adapter_over_a_type_that_holds_a_callback_into_b_keeps_the_gap(
 def test_an_inherent_method_of_a_type_that_holds_a_callback_into_b_keeps_the_gap(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A method without generics: its receiver is no type argument, but a field holds the callback."""
+    """No generics: the receiver is no type argument, but a field holds the callback."""
     iterator = COUNTER.format(
         body="pub struct Iter {\n    pub callback: fn(()) -> usize,\n    pub done: bool,\n}\n\n"
         "impl Iter {\n"
