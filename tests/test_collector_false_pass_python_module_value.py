@@ -79,6 +79,10 @@ CONTROLS = {
         "import os\n\n\ndef same(m):\n    return m\n\n\nsame(os).getcwd()\n",
         "",
     ),
+    "object named like an alias of another module": (
+        "task = type('Runner', (), {'run': lambda self: 1})()\ntask.run()\n",
+        "import cProfile as task\n",
+    ),
     "ordinary data named like a module": (
         "profile = {'name': 'Ada'}\nname = profile['name']\n",
         "",

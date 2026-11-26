@@ -239,7 +239,6 @@ impl Walk<'_> {
             if let Some(kind) = hazard(&origin) {
                 return self.push(kind, &origin, expr);
             }
-            // A bound module with a hazard name that is read as a value flows on unseen (AD-1098).
             let value = self.bound.contains_key(id) && reexport::value(self.reexports, &origin);
             if above(&origin) || value {
                 return self.push(DYNAMIC, &origin, expr);
@@ -358,7 +357,8 @@ impl Walk<'_> {
             .iter()
             .any(|a| a.starts_with("__") && a.ends_with("__"));
         for origin in self.origins(id) {
-            if let Some((kind, name)) = reexport::find_from(self.reexports, &origin, &attributes) {
+            let hit = reexport::find_from(self.reexports, self.bound.get(id), &origin, &attributes);
+            if let Some((kind, name)) = hit {
                 return self.push(kind, &name, expr);
             }
             let trojan_horse = dunder && (hazard(&origin).is_some() || above(&origin));
