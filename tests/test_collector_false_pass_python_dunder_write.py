@@ -58,7 +58,8 @@ CONTROLS = {
     "chain-setattr": (
         HOOK
         + "e = ValueError('a')\nsetattr(e, '__cause__', KeyError('b'))\n"
-        + "object.__setattr__(e, '__context__', KeyError('c'))\nsetattr(e, '__suppress_context__', False)\n"
+        + "object.__setattr__(e, '__context__', KeyError('c'))\n"
+        + "setattr(e, '__suppress_context__', False)\n"
     ),
     # The chain write beside a class that has a loader `__call__`: the class gets no new route.
     "chain-beside-call": (
