@@ -207,22 +207,7 @@ pub(super) fn reflective(name: &str) -> bool {
 
 /// True when the attribute that a store or a delete names is a literal dunder that a site reads (#1979).
 fn written(node: &ruff_python_ast::ExprAttribute) -> bool {
-    site(Identifier::as_str(&node.attr), true)
-}
-
-/// The exception-chain names: Python reads them to print a traceback and never calls them as a hook. A write
-/// of one changes no import and no call (#2090). A read of `__traceback__` hands out frames, so only a write is clear.
-const CHAIN_WRITES: [&str; 5] = [
-    "__cause__",
-    "__context__",
-    "__traceback__",
-    "__suppress_context__",
-    "__notes__",
-];
-
-/// True when a literal name is a site: a read by `reflective`, a write unless it is an exception-chain name.
-fn site(name: &str, write: bool) -> bool {
-    reflective(name) && !(write && CHAIN_WRITES.contains(&name))
+    reflective(Identifier::as_str(&node.attr))
 }
 
 /// `vars(x)` or `x.__dict__`: the dictionary of the attributes of any value.
@@ -232,13 +217,6 @@ fn dict_view(expr: &Expr) -> bool {
         Expr::Call(call) => matches!(&*call.func, Expr::Name(n) if Name::as_str(&n.id) == "vars"),
         _ => false,
     }
-}
-
-/// A call of an access form: its form, its name and whether the form writes.
-struct Access<'c> {
-    kind: &'static str,
-    name: &'c Expr,
-    write: bool,
 }
 
 impl Trojans<'_> {
@@ -294,38 +272,31 @@ impl Trojans<'_> {
 
     /// The call that reads an attribute by a computed name: its form, its receiver and its name.
     /// A form that has no receiver to prove gives the callee for both.
-    fn computed<'c>(&self, call: &'c ExprCall) -> Option<Access<'c>> {
+    fn computed<'c>(&self, call: &'c ExprCall) -> Option<(&'static str, &'c Expr, &'c Expr)> {
         let args: &[Expr] = &call.arguments.args;
         let callee: &Expr = &call.func;
         let kind = self.form(callee)?;
-        let whole = |write| Access {
-            kind,
-            name: callee,
-            write,
-        };
-        // `x.m(name)` has the receiver `x`; `C.m(x, name)` and `getattr(x, name)` have `x`. The class of the
-        // form says whether it writes: only a write can use the exception-chain exemption (#2090).
-        let (bound, write) = match kind {
-            "__getattribute__" => (1, false),
-            "__delattr__" => (1, true),
-            "__setattr__" => (2, true),
-            "getattr" => (0, false),
-            "setattr" | "delattr" => (0, true),
-            _ => return Some(whole(false)),
+        // `x.m(name)` has the receiver `x`; `C.m(x, name)` and `getattr(x, name)` have `x`.
+        let bound = match kind {
+            "__getattribute__" | "__delattr__" => 1,
+            "__setattr__" => 2,
+            "getattr" | "setattr" | "delattr" => 0,
+            "vars" => return Some((kind, callee, callee)),
+            _ => return Some((kind, callee, callee)),
         };
         match (callee, args) {
             (Expr::Attribute(node), [name, ..]) if args.len() == bound => {
-                Some(Access { kind, name, write })
+                Some((kind, &*node.value, name))
             }
-            (_, [_, name, ..]) if args.len() > bound => Some(Access { kind, name, write }),
-            _ => Some(whole(write)),
+            (_, [receiver, name, ..]) if args.len() > bound => Some((kind, receiver, name)),
+            _ => Some((kind, callee, callee)),
         }
     }
 
     /// True when the name is a literal or a local with one literal.
-    fn resolved(&self, name: &Expr, write: bool) -> bool {
+    fn resolved(&self, name: &Expr) -> bool {
         match (name, &self.scope) {
-            (Expr::StringLiteral(text), _) => !site(text.value.to_str(), write),
+            (Expr::StringLiteral(text), _) => !reflective(text.value.to_str()),
             (Expr::Name(node), Some(literals)) => {
                 HashSet::contains(literals, Name::as_str(&node.id))
             }
@@ -339,9 +310,9 @@ impl<'a> Trojans<'_> {
     /// its arguments are visited; the result is true when the call was one.
     fn access_call(&mut self, call: &'a ExprCall) -> bool {
         let site = self.computed(call);
-        let site = site.filter(|access| !self.resolved(access.name, access.write));
-        if let Some(access) = site {
-            self.found.push((access.kind, call.range()));
+        let site = site.filter(|(_, _, name)| !self.resolved(name));
+        if let Some((kind, _, _)) = site {
+            self.found.push((kind, call.range()));
         }
         if self.form(&call.func).is_none() {
             return false;
@@ -393,7 +364,7 @@ impl<'a> Visitor<'a> for Trojans<'_> {
             // key that the scan cannot read reaches `__builtins__` and `__code__`. Only a direct
             // subscript with a literal key is no site; `d = vars(m)` is one (AD-1058).
             Expr::Subscript(node) if dict_view(&node.value) => {
-                if !self.resolved(&node.slice, false) || self.module_value(&node.value) {
+                if !self.resolved(&node.slice) || self.module_value(&node.value) {
                     self.found.push(("__dict__", node.range()));
                 }
                 match &*node.value {
