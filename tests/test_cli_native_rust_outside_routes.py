@@ -41,6 +41,21 @@ ROUTES = {
         HEAD,
         "pub fn f() { base_crate::make(); }\n",
     ),
+    "patch-alias": (
+        WORKSPACE + '[patch.crates-io]\nbase-alias = { package = "base-crate", path = "base" }\n',
+        HEAD,
+        "pub fn f() { base_crate::make(); }\n",
+    ),
+    "include-space": (
+        WORKSPACE,
+        "",
+        'include !("../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n',
+    ),
+    "include-two-hops": (
+        WORKSPACE,
+        "",
+        'include!("../../../bridge.rs");\npub fn f() { make(); }\n',
+    ),
     "include": (
         WORKSPACE,
         "",
@@ -75,6 +90,7 @@ def _marker(root: Path, offline: bool) -> str:
 
 def _scan(tmp_path: Path, release_core: Path, workspace: str, deps: str, source: str) -> Path:
     layout = {
+        "bridge.rs": 'include!("crates/base/src/lib.rs");\n',
         "crates/Cargo.toml": workspace,
         "crates/app/Cargo.toml": _app('x = { path = "../../vendor/x" }\n'),
         "crates/app/src/lib.rs": APP_LIB,
