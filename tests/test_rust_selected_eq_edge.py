@@ -296,6 +296,11 @@ NO_SITE = {
         "a.rs": "fn eq_of<T: PartialEq>(x: &T, y: &T) -> bool {\n    x == y\n}\n\n"
         "pub fn same() -> bool {\n    eq_of(&crate::c::make(), &crate::c::make())\n}\n"
     },
+    "a comparison in an inline test module": {
+        "a.rs": "pub fn same() -> bool {\n    true\n}\n\n#[cfg(test)]\nmod tests {\n"
+        "    #[test]\n    fn same_values() {\n"
+        "        assert!(crate::c::make() == crate::c::make());\n    }\n}\n"
+    },
     "a drop": {
         "b.rs": B + "\nimpl Drop for Y {\n    fn drop(&mut self) {}\n}\n",
         "a.rs": "pub fn same() -> bool {\n    let _y = crate::c::make();\n    true\n}\n",
