@@ -125,7 +125,8 @@ impl Strings {
                 self.opaque.insert(id);
             }
             Expr::Call(call) => {
-                if matches!(&*call.func, Expr::Attribute(f) if matches!(f.attr.as_str(), "format" | "join")) {
+                if matches!(&*call.func, Expr::Attribute(f) if matches!(f.attr.as_str(), "format" | "join"))
+                {
                     self.opaque.insert(id);
                 }
             }

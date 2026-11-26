@@ -132,7 +132,11 @@ fn a_string_annotation_without_a_hazard_and_a_literal_value_are_no_site() {
 
 #[test]
 fn a_text_over_the_parser_bound_a_run_time_write_and_a_string_variable_are_sites() {
-    let nest = format!("x: \"{}__import__('a.b'){}\"\n", "[".repeat(150), "]".repeat(150));
+    let nest = format!(
+        "x: \"{}__import__('a.b'){}\"\n",
+        "[".repeat(150),
+        "]".repeat(150)
+    );
     for source in [
         nest.as_str(),
         "class K: ...\nK.__annotations__ = {'x': 'int'}\n",

@@ -282,7 +282,8 @@ impl Walk<'_> {
         }
     }
 
-    fn evaluated(&mut self, string: &ruff_python_ast::ExprStringLiteral) {
+    /// The sites of the text stand at `at`.
+    fn evaluated(&mut self, string: &ruff_python_ast::ExprStringLiteral, at: TextRange) {
         let first = self.found.len();
         // The text runs in the global names of its module: no fact of the real tree applies to it.
         let outer = (
@@ -298,25 +299,23 @@ impl Walk<'_> {
         }
         (self.proof, self.reads, self.locals) = outer;
         for site in &mut self.found[first..] {
-            site.range = string.range();
+            site.range = at;
         }
     }
 
     /// A name in an annotation that holds a string: `get_type_hints` evaluates the string.
     fn held_text(&mut self, id: &str, expr: &Expr) {
-        match self.strings.held(id) {
+        let strings = take(&mut self.strings);
+        match strings.held(id) {
             annotation::Held::None => {}
             annotation::Held::Opaque => self.push_text(DYNAMIC, "annotation", expr),
             annotation::Held::Texts(texts) => {
-                for text in texts.to_vec() {
-                    let first = self.found.len();
-                    self.evaluated(&text);
-                    for site in &mut self.found[first..] {
-                        site.range = expr.range();
-                    }
-                }
+                texts
+                    .iter()
+                    .for_each(|text| self.evaluated(text, expr.range()));
             }
         }
+        self.strings = strings;
     }
 
     /// A hazard behind a name that a module of the scan binds to a standard library module.
@@ -471,7 +470,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
 
     fn visit_expr(&mut self, expr: &'a Expr) {
         if let Some(text) = annotation::evaluated(expr, self.annotation) {
-            self.evaluated(text);
+            self.evaluated(text, text.range());
         }
         if let (true, Expr::Name(name)) = (self.annotation, expr) {
             self.held_text(name.id.as_str(), expr);
