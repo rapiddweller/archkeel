@@ -141,6 +141,7 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
         "native-wheels.yml",
         "pages.yml",
         "pr-gate.yml",
+        "pr-gate-rerun.yml",
         "release.yml",
     }
 
