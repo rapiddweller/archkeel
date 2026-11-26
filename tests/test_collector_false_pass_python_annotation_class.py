@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""#2093, AD-1135: the class rule for a module that evaluates annotations.
+"""#2093, AD-1173: the class rule for a module that evaluates annotations.
 
 Consumer: `archkeel validate`. `app.consumer` may not depend on `app.lib`. `app/lib` appends a line
 to a counter file when CPython loads it. Each plant makes CPython 3.12 load it (the counter is 1),

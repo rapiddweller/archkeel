@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The class rule of AD-1135 (#2093). A module that evaluates annotations (`get_type_hints`,
+//! The class rule of AD-1173 (#2093). A module that evaluates annotations (`get_type_hints`,
 //! `get_annotations`, `ForwardRef`, `signature(eval_str=True)`) runs each string that reaches an
 //! annotation. The survey cannot follow every way that a string gets there, so in such a module:
 //! - any reach of `__annotations__` as a value is a site;
