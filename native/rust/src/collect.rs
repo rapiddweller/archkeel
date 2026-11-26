@@ -278,6 +278,11 @@ fn workspace_files(
             continue;
         };
         let dir = dirname(file);
+        if name.is_empty() {
+            // The manifest cannot be read: `discover` names the reason, and the crate stays in the scan.
+            kept.insert(dir);
+            continue;
+        }
         if !roots.iter().any(|root| within(root, dir)) {
             let reason = format!("Whether the crate {file} is a workspace member is not decided: its scan root has no Cargo.toml");
             builder.gap(&reason, None, "");

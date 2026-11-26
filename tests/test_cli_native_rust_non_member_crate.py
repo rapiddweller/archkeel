@@ -236,6 +236,32 @@ def test_an_excluded_crate_does_not_hide_an_edge_that_passes_through_it(
     assert any("depends on x, a crate that is no workspace member" in r for r in _reasons(result))
 
 
+def test_an_excluded_crate_with_an_unreadable_manifest_does_not_pass(
+    tmp_path: Path, release_core: Path
+) -> None:
+    deep = "[" * 70 + "]" * 70
+    layout = {
+        "crates/Cargo.toml": '[workspace]\nmembers = ["app", "base"]\nexclude = ["vendor/x"]\n',
+        "crates/app/Cargo.toml": _app('x = { path = "../vendor/x" }\n'),
+        "crates/app/src/lib.rs": "pub fn run() { x::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "crates/vendor/x/Cargo.toml": (
+            FOREIGN_X
+            + f"[package.metadata]\ndeep = {deep}\n"
+            + '[dependencies]\nbase-crate = { path = "../../base" }\n'
+        ),
+        "crates/vendor/x/src/lib.rs": "pub fn f() { base_crate::make(); }\n",
+    }
+    parts = (component("base", "base_crate"), component("app", "app"))
+    root = repository(
+        tmp_path / "repo", release_core, files=layout, components=parts, rules=_forbid(True)
+    )
+    _recommit(root)
+    assert _run_marker(root, "crates/app/Cargo.toml") == "app ran\n"
+    result = validate(root)
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
 def test_a_symlink_as_scan_root_does_not_hide_a_member(tmp_path: Path, release_core: Path) -> None:
     layout = {"crates/app/src/main.rs": MARKED_MAIN}
     root = repository(
