@@ -59,7 +59,7 @@ pub(crate) fn relative(root: &str, path: &str) -> String {
     abs.strip_prefix(root).map(str::to_string).unwrap_or(abs)
 }
 
-fn line(tcx: TyCtxt<'_>, d: DefId) -> usize {
+pub(crate) fn line(tcx: TyCtxt<'_>, d: DefId) -> usize {
     let sp = tcx.def_span(d).source_callsite();
     tcx.sess.source_map().lookup_char_pos(sp.lo()).line
 }

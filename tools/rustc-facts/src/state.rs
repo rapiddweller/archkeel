@@ -63,6 +63,14 @@ pub(crate) struct Selected {
     pub(crate) column: u32,
 }
 
+/// The impls of the workspace by self type, as the ids of the files that hold them (AD-1185).
+#[derive(Default)]
+pub(crate) struct ImplIndex {
+    pub(crate) by_adt: HashMap<DefId, BTreeSet<u32>>,
+    pub(crate) blanket: BTreeSet<u32>,
+    pub(crate) other: BTreeSet<u32>,
+}
+
 /// One method call `x.m()` that the compiler resolved to one function (AD-1185).
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Resolved {
@@ -75,6 +83,12 @@ pub(crate) struct Resolved {
     /// The file of the call, and the file that holds the callee (workspace code).
     pub(crate) file: u32,
     pub(crate) callee_file: Option<u32>,
+    /// The line of the callee, for the evidence.
+    pub(crate) callee_line: Option<u32>,
+    /// The files that the type arguments of the call can run (their types, closures and impls), and whether an
+    /// argument is not fully known. A candidate in such a file, or any candidate when open, is not excluded.
+    pub(crate) touch: BTreeSet<u32>,
+    pub(crate) open: bool,
     /// The line (1-based) and the column (0-based) of `m(..)`.
     pub(crate) line: u32,
     pub(crate) column: u32,
@@ -121,6 +135,8 @@ pub(crate) struct State {
     pub(crate) selected: BTreeSet<Selected>,
     /// The method calls with a resolved callee.
     pub(crate) calls: BTreeSet<Resolved>,
+    /// The impl index, built at the first resolved call.
+    pub(crate) impls: Option<ImplIndex>,
     pub(crate) workspace_defs: HashMap<DefId, bool>,
     /// The canonical workspace root, with a closing slash.
     pub(crate) root: String,
@@ -144,6 +160,7 @@ static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
         opaque_defs: HashSet::new(),
         selected: BTreeSet::new(),
         calls: BTreeSet::new(),
+        impls: None,
         workspace_defs: HashMap::new(),
         root: String::new(),
         registry: String::new(),

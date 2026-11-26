@@ -51,7 +51,9 @@ LIB = "pub mod a;\npub mod b;\npub mod c;\npub mod d;\npub mod t;\n"
 T = "pub trait Tr {\n    fn m(&self) -> usize;\n}\n"
 B = COUNTER.format(
     body="pub struct S;\n\nimpl S {\n    pub fn m(&self) -> usize {\n"
-    "        HITS.fetch_add(1, Ordering::SeqCst)\n    }\n}"
+    "        HITS.fetch_add(1, Ordering::SeqCst)\n    }\n\n"
+    "    pub fn next(&self) -> usize {\n        0\n    }\n}\n\n"
+    "pub fn mk() -> impl FnMut(()) -> usize {\n    |_| HITS.fetch_add(1, Ordering::SeqCst)\n}"
 )
 D = COUNTER.format(
     body="pub struct U;\n\nimpl crate::t::Tr for U {\n    fn m(&self) -> usize {\n"
@@ -62,11 +64,20 @@ C = (
     "pub fn other() -> crate::b::S {\n    crate::b::S\n}\n\n"
     "pub fn units() -> Vec<crate::d::U> {\n    vec![crate::d::U]\n}\n\n"
     "pub fn others() -> Vec<crate::b::S> {\n    vec![crate::b::S]\n}\n\n"
+    "pub fn pass() -> impl FnMut(()) -> usize {\n    crate::b::mk()\n}\n\n"
     "pub fn boxed() -> Vec<Box<dyn crate::t::Tr>> {\n    vec![Box::new(crate::d::U)]\n}\n"
 )
 A_D = (
     "use crate::t::Tr;\n\npub fn run() {\n    let _held = crate::c::other();\n"
     "    let make = crate::c::make;\n    make().m();\n}\n"
+)
+A_CLOSURE_B = (
+    "pub fn run() {\n    let _held = crate::c::other();\n"
+    "    std::iter::once(()).map(crate::c::pass()).next();\n}\n"
+)
+A_CLOSURE_A = (
+    "pub fn run() {\n    let _held = crate::c::other();\n"
+    "    std::iter::once(()).map(|_| 1usize).next();\n}\n"
 )
 A_B = "pub fn run() {\n    crate::c::other().m();\n}\n"
 A_DYN = (
@@ -179,3 +190,21 @@ def test_a_call_that_a_feature_changes_keeps_the_gap(
     _, found = _scan(tmp_path, release_core, monkeypatch, A_FEATURE, MANIFEST)
     assert found["NO-A-TO-B"] != "PASS"
     assert found["NO-A-TO-D"] != "PASS"
+
+
+def test_a_std_adapter_that_runs_a_closure_of_b_keeps_the_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`Map::next` is in `core`, but its type argument is a closure of `b`: `b` runs."""
+    root, found = _scan(tmp_path, release_core, monkeypatch, A_CLOSURE_B)
+    assert _cargo_run(root) == "1 0", "the closure of `b` runs"
+    assert found["NO-A-TO-B"] != "PASS"
+
+
+def test_a_std_adapter_with_a_closure_of_the_caller_closes_the_candidate(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control: the closure is written in `a`, so no type argument can run code of `b`."""
+    root, found = _scan(tmp_path, release_core, monkeypatch, A_CLOSURE_A)
+    assert _cargo_run(root) == "0 0", "nothing of `b` runs"
+    assert found["NO-A-TO-B"] == "PASS"

@@ -42,6 +42,10 @@ pub(crate) struct CallFacts {
     pub(crate) callee_file: Option<String>,
     /// The call is in a unit of test code: it can only veto.
     pub(crate) test: bool,
+    /// The files that the type arguments of the call can run (their types, closures and impls).
+    pub(crate) touch: Vec<String>,
+    /// An argument is not fully known: nothing is proven for the call.
+    pub(crate) open: bool,
     pub(crate) file: String,
     pub(crate) line: i64,
     pub(crate) column: i64,
@@ -220,6 +224,8 @@ impl Facts {
         self.calls.push(CallFacts {
             callee_file: one(v, "callee_file", names),
             test: test_unit,
+            touch: many(v, "touch", names).into_iter().collect(),
+            open: v.get("open").and_then(Value::as_bool) != Some(false),
             file,
             line,
             column,

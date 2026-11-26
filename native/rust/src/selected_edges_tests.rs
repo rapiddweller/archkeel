@@ -266,9 +266,14 @@ fn collect_methods(announce: Announced) -> Collected {
 
 /// The record of a resolved method call at the method name of `A_M`, plus a column shift.
 fn call(to: &str, callee_file: &str, shift: usize) -> String {
+    call_with(to, callee_file, shift, ("[]", false))
+}
+
+/// The same record with the files that the type arguments touch, and whether an argument is open.
+fn call_with(to: &str, callee_file: &str, shift: usize, (touch, open): (&str, bool)) -> String {
     let col = A_M.find("m()").unwrap() + shift;
     format!(
-        "{{\"k\":\"call\",\"from\":0,\"to\":{to},\"callee\":6,\"file\":3,\"callee_file\":{callee_file},\"line\":1,\"col\":{col}}}"
+        "{{\"k\":\"call\",\"from\":0,\"to\":{to},\"callee\":6,\"file\":3,\"callee_file\":{callee_file},\"touch\":{touch},\"open\":{open},\"line\":1,\"col\":{col}}}"
     )
 }
 
@@ -380,5 +385,30 @@ fn a_test_unit_that_names_another_callee_vetoes_the_decision() {
     assert!(
         method_gap(&found),
         "under `cfg(test)` the call runs the candidate"
+    );
+}
+
+#[test]
+fn a_type_argument_that_can_run_the_candidate_keeps_the_gap() {
+    // `Map<Once<()>, impl FnMut>`: the callee is `core`, but the closure is defined in `b.rs` (file 9).
+    let touching = call_with("null", "null", 0, ("[9]", false));
+    assert!(method_gap(&collect_methods(announced(false, &[&touching]))));
+    let unrelated = call_with("null", "null", 0, ("[10]", false));
+    assert!(!method_gap(&collect_methods(announced(
+        false,
+        &[&unrelated]
+    ))));
+    let open = call_with("null", "null", 0, ("[]", true));
+    assert!(
+        method_gap(&collect_methods(announced(false, &[&open]))),
+        "an open argument proves nothing"
+    );
+    let other = announced_in(vec![
+        facts_of(false, &[&unrelated]),
+        facts_of(false, &[&touching]),
+    ]);
+    assert!(
+        method_gap(&collect_methods(other)),
+        "one configuration is enough"
     );
 }

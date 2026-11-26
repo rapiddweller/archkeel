@@ -7,7 +7,7 @@
 // Consumer: the trait-impl, destructor and receiver gaps of `impl_flow` (AD-1047).
 
 use crate::type_reach_facts::{Facts, Names, SelectedFacts};
-use crate::type_reach_fold::Reach;
+use crate::type_reach_fold::{Place, Reach};
 use crate::type_reach_model::{Mode, Verdict};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -76,32 +76,37 @@ impl<'f> Filter<'f> {
         kept.filter(|s| seen.insert(key(s))).collect()
     }
 
-    /// The file that holds the callee of the call `x.m()` at a place, or `None` for a call that some configuration does
-    /// not resolve to one callee. The inner `None` is a callee outside the workspace. Every configuration must
-    /// hold the place with one and the same callee: a feature can change a call (AD-1185).
-    fn callee(&self, file: &str, line: i64, column: i64) -> Option<Option<&str>> {
-        let key = (file.to_owned(), line, column);
-        // A configuration must hold the place in a library unit, and every unit must name the same callee.
-        let mut found = self
-            .models
-            .iter()
-            .map(|m| m.callees.get(&key).filter(|c| c.1));
-        let first = &found.next()??.0;
-        let mut one = first.iter();
-        let (callee, rest) = (one.next()?, one.next());
-        let same = found.all(|c| c.is_some_and(|c| c.0.len() == 1 && c.0.contains(callee)));
-        (rest.is_none() && same).then_some(callee.as_deref())
-    }
-
     /// True when the compiler resolved the method call at `(file, line, column)` to a function that another file than
-    /// `target_file` holds: the call cannot reach a method in the file of the target (AD-1185).
+    /// `target` holds, and no type argument of the call can run code of `target`: the call cannot reach a method in
+    /// the file of the target (AD-1185). Every configuration must hold the place in a library unit with the same
+    /// callee, and no argument may be open, or defined in `target`, or carry an impl from it.
     pub(crate) fn resolved_elsewhere(
         reach: Option<&Filter<'_>>,
         target: &str,
         (file, line, column): (&str, i64, i64),
     ) -> bool {
-        let callee = reach.and_then(|r| r.callee(file, line, column));
-        callee.is_some_and(|callee| callee != Some(target))
+        let Some(this) = reach else {
+            return false;
+        };
+        let key = (file.to_owned(), line, column);
+        let mut places = this
+            .models
+            .iter()
+            .map(|m| m.callees.get(&key).filter(|p| p.library));
+        let Some(Some(first)) = places.next() else {
+            return false;
+        };
+        let mut one = first.callees.iter();
+        let (Some(callee), None) = (one.next(), one.next()) else {
+            return false;
+        };
+        let same = |p: Option<&Place>| {
+            p.is_some_and(|p| p.callees.len() == 1 && p.callees.contains(callee))
+        };
+        let all: Vec<Option<&Place>> = std::iter::once(Some(first)).chain(places).collect();
+        let held = all.iter().copied().all(same);
+        let runs = |p: &Place| p.open || p.touch.contains(target);
+        held && callee.as_deref() != Some(target) && !all.iter().flatten().any(|p| runs(p))
     }
 
     /// True when no body of `a` can hold the self type of an impl of `b` that runs code.

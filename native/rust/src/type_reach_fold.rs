@@ -8,8 +8,16 @@
 use crate::type_reach_facts::{Facts, Names, Parts, SelectedFacts};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The callee files of the resolved method calls by place (file, line, column), and whether a library unit holds it.
-type Callees = BTreeMap<(String, i64, i64), (BTreeSet<Option<String>>, bool)>;
+/// What the configuration knows of the resolved method calls at one place (AD-1185): the files of the callees, the files
+/// that the type arguments can run, whether an argument is open, and whether a library unit holds the place. A plain value.
+pub(crate) struct Place {
+    pub(crate) callees: BTreeSet<Option<String>>,
+    pub(crate) touch: BTreeSet<String>,
+    pub(crate) open: bool,
+    pub(crate) library: bool,
+}
+
+type Callees = BTreeMap<(String, i64, i64), Place>;
 
 /// The reach model of one configuration. `known` names the modules that the scan uses: a rustc module
 /// belongs to the longest of these that is a prefix of its path (an inline `mod tests` joins its file).
@@ -100,11 +108,17 @@ impl<'f> Reach<'f> {
             .collect();
         let mut callees = Callees::new();
         for c in &facts.calls {
-            let entry = callees
-                .entry((c.file.clone(), c.line, c.column))
-                .or_default();
-            entry.0.insert(c.callee_file.clone());
-            entry.1 |= !c.test;
+            let key = (c.file.clone(), c.line, c.column);
+            let entry = callees.entry(key).or_insert_with(|| Place {
+                callees: BTreeSet::new(),
+                touch: BTreeSet::new(),
+                open: false,
+                library: false,
+            });
+            entry.callees.insert(c.callee_file.clone());
+            entry.touch.extend(c.touch.iter().cloned());
+            entry.open |= c.open;
+            entry.library |= !c.test;
         }
         let mut reach = Reach {
             selected,

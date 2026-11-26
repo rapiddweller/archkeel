@@ -20,9 +20,10 @@
 //! - `sel`: `from`, `to`, `impl`, `file`, `impl_file`, `line`, `col`: a call of `PartialEq::eq` in module `from` that the
 //!   compiler resolved to the `eq` of the impl `impl` in module `to`, a workspace impl (AD-1136). `impl_file` is the file
 //!   that holds the `eq`. `line` and `col` are plain numbers.
-//! - `call`: `from`, `to`, `callee`, `file`, `callee_file`, `line`, `col`: a method call `x.m()` in module `from` that the
-//!   compiler resolved to `callee`. `to` and `callee_file` are `null` when the callee is not workspace code. `line` and
-//!   `col` are plain numbers: the place of `m(..)` (AD-1185).
+//! - `call`: `from`, `to`, `callee`, `file`, `callee_file`, `callee_line`, `touch`, `open`, `line`, `col`: a method call `x.m()` in module `from` that the
+//!   compiler resolved to `callee`. `to` and `callee_file` are `null` when the callee is not workspace code. `touch` lists the
+//!   files that the type arguments of the call can run, and `open` says that an argument is not fully known.
+//!   `callee_line`, `line` and `col` are plain numbers: the place of `m(..)` (AD-1185).
 //! - `impl`: `trait`, `self`, `self_adts`, `assoc` (ADTs and opaque types), `assoc_dyn`, `items`, `m`, `file`, `line`, `run`, `expansion`.
 
 use crate::state::State;
@@ -273,8 +274,8 @@ pub(crate) fn write(u: &Unit, tcx: TyCtxt<'_>, st: &mut State) {
     for c in &st.calls {
         let opt = |v: Option<u32>| v.map_or("null".to_string(), |n| n.to_string());
         lines.push(format!(
-            "{{\"k\":\"call\",\"from\":{},\"to\":{},\"callee\":{},\"file\":{},\"callee_file\":{},\"line\":{},\"col\":{}}}",
-            c.from, opt(c.to), c.callee, c.file, opt(c.callee_file), c.line, c.column
+            "{{\"k\":\"call\",\"from\":{},\"to\":{},\"callee\":{},\"file\":{},\"callee_file\":{},\"callee_line\":{},\"touch\":{},\"open\":{},\"line\":{},\"col\":{}}}",
+            c.from, opt(c.to), c.callee, c.file, opt(c.callee_file), opt(c.callee_line), json::ids(&c.touch), c.open, c.line, c.column
         ));
     }
     lines.push(format!(
