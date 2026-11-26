@@ -1,4 +1,4 @@
-# AD-1129: A compiler-selected `PartialEq::eq` is an edge with the compiler as evidence
+# AD-1136: A compiler-selected `PartialEq::eq` is an edge with the compiler as evidence
 
 Status: accepted. Amends AD-806 and AD-1047. Step 2 of the trait-dispatch path (step 1 is AD-1116).
 This change can turn UNKNOWN into FAIL. Owner decision 2026-11-26: an honest, decided verdict. A proven

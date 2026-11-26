@@ -127,14 +127,14 @@ impl Import {
         self.unbound_type
     }
 
-    /// True for an edge that the compiler selected: a call that runs an impl of the target module (AD-1129).
+    /// True for an edge that the compiler selected: a call that runs an impl of the target module (AD-1136).
     /// It proves a dependency on the module and names no symbol, so it adds no name to the interface.
     pub fn selected_impl(&self) -> bool {
         self.selected_impl
     }
 
     /// True when the source writes the name: no inferred receiver and no impl that the compiler selected. A rule
-    /// that counts source names only reads such imports (AD-924, AD-1129).
+    /// that counts source names only reads such imports (AD-924, AD-1136).
     pub fn written_name(&self) -> bool {
         !self.inferred_receiver && !self.selected_impl
     }

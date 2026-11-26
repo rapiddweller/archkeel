@@ -405,7 +405,7 @@ pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<
             && import.symbol() != Some("*");
         let (module, symbol) = (import.target_module(), import.symbol());
         let mut judged = assessment(source, target, module, symbol, named);
-        // The compiler names the module of the impl, not the symbol of a port (AD-1129).
+        // The compiler names the module of the impl, not the symbol of a port (AD-1136).
         if judged == Judged::Fail && import.selected_impl() && symbol_port_above(source, module) {
             judged = Judged::Undecided;
         }

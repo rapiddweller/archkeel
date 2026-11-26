@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A call of `PartialEq::eq` whose impl the compiler selected in workspace code (AD-1129).
+//! A call of `PartialEq::eq` whose impl the compiler selected in workspace code (AD-1136).
 //!
 //! The record states a fact of the compiler for one call site: the concrete operand types resolve to the
 //! `eq` of one impl, and the impl is in the workspace. A call with a type parameter, a trait object or an

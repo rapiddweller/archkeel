@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-// AD-1129: a call of `PartialEq::eq` that the compiler resolved to a workspace impl is an edge with the
+// AD-1136: a call of `PartialEq::eq` that the compiler resolved to a workspace impl is an edge with the
 // compiler as evidence. The facts here are written by hand; `tests/test_rust_selected_eq_edge.py` runs the
 // real driver.
 

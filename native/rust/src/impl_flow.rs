@@ -153,7 +153,7 @@ pub(super) fn settle(
         pool: &pool,
         reach: filter.as_ref(),
     };
-    // After the edges of the flow are known: a selected edge never hides the gap of another site (AD-1129).
+    // After the edges of the flow are known: a selected edge never hides the gap of another site (AD-1136).
     builder.selected_edges(index, modules, ctx.reach);
     open = settle_pending(builder, open, &ctx, &homes.trait_homes, false);
     if homes.drop_homes.is_empty() {

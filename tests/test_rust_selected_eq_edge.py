@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-1129: a `PartialEq::eq` call with a compiler-selected impl is an edge.
+"""AD-1136: a `PartialEq::eq` call with a compiler-selected impl is an edge.
 
 `a` compares two values with `==`. The factory `c` makes the values. `b` defines the type and its
 `PartialEq`, which counts its calls. `a` writes no name of `b`. The compiler resolves the call to

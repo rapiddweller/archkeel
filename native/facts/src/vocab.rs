@@ -64,7 +64,7 @@ closed! {
         ScriptGlobal = "script_global",
         /// An import inside a macro body.
         MacroBody = "macro_body",
-        /// A call whose impl the compiler selected in another module (AD-1129).
+        /// A call whose impl the compiler selected in another module (AD-1136).
         SelectedImpl = "selected_impl",
         /// A class symbol.
         Class = "class",

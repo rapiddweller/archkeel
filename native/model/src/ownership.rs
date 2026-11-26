@@ -37,7 +37,7 @@ pub fn claims(component: &Component, module: &str) -> bool {
 }
 
 /// True when a `requires` entry of `source` has a symbol port at `module` or above it. The name that the port
-/// publishes can be defined in `module`, so a use of `module` alone proves no violation (AD-1129).
+/// publishes can be defined in `module`, so a use of `module` alone proves no violation (AD-1136).
 pub(crate) fn symbol_port_above(source: &Component, module: &str) -> bool {
     let mut ports = source.requires().iter().flatten().flat_map(|e| e.through());
     ports.any(|port| {

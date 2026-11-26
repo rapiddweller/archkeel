@@ -48,7 +48,7 @@ impl<'f> Filter<'f> {
 
     /// The calls of `PartialEq::eq` that the compiler resolved to an impl in another scan module, in every
     /// configuration of the matrix. Two edges that a rule combines (a cycle) must come from one configuration,
-    /// and an edge does not say which. A site that one configuration lacks stays a gap (AD-1129).
+    /// and an edge does not say which. A site that one configuration lacks stays a gap (AD-1136).
     pub(crate) fn selected(&self) -> Vec<&SelectedFacts> {
         let key = |s: &SelectedFacts| {
             (

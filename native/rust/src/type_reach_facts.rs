@@ -19,7 +19,7 @@ pub(crate) struct ImplFacts {
 }
 
 /// A call of `PartialEq::eq` in module `from` that the compiler resolved to the `eq` of an impl in module `to`
-/// (AD-1129). The modules are rustc paths here; the reach model maps them to scan modules.
+/// (AD-1136). The modules are rustc paths here; the reach model maps them to scan modules.
 ///
 /// A plain value, as the others of this module are: a derive would add a trait impl here, and a gap to each module
 /// that reaches it (AD-806).

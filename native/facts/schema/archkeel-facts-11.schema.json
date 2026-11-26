@@ -5946,7 +5946,7 @@
         {
           "type": "string",
           "const": "selected_impl",
-          "description": "A call whose impl the compiler selected in another module (AD-1129)."
+          "description": "A call whose impl the compiler selected in another module (AD-1136)."
         },
         {
           "type": "string",

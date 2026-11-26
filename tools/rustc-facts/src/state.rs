@@ -45,7 +45,7 @@ pub(crate) struct Coerced {
     pub(crate) opaques: BTreeSet<u32>,
 }
 
-/// One call of `PartialEq::eq` that the compiler resolved to the `eq` of a workspace impl (AD-1129).
+/// One call of `PartialEq::eq` that the compiler resolved to the `eq` of a workspace impl (AD-1136).
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Selected {
     /// The module of the body that makes the call.

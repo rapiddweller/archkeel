@@ -18,7 +18,7 @@
 //!   `src_dyn` holds the `dyn` traits of the source (trait upcasting).
 //! - `opaque`: `d`, `hidden`, `dyn`, `opaque` (opaque types and coroutines that the hidden type mentions). `adt`: `d`, `m`, `file`, `fields`, `dyn`.
 //! - `sel`: `from`, `to`, `impl`, `file`, `line`, `col`: a call of `PartialEq::eq` in module `from` that the compiler
-//!   resolved to the `eq` of the impl `impl` in module `to`, a workspace impl (AD-1129).
+//!   resolved to the `eq` of the impl `impl` in module `to`, a workspace impl (AD-1136).
 //! - `impl`: `trait`, `self`, `self_adts`, `assoc` (ADTs and opaque types), `assoc_dyn`, `items`, `m`, `file`, `line`, `run`, `expansion`.
 
 use crate::state::State;

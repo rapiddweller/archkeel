@@ -22,7 +22,7 @@ pub struct Reach<'f> {
     pub(crate) coerced_opaque: BTreeMap<String, Names>,
     /// For each scan module: its rustc modules, its generic functions and the indexes of its impls.
     pub(crate) parts: Parts,
-    /// The selected impls whose two ends are scan modules, with the scan names (AD-1129).
+    /// The selected impls whose two ends are scan modules, with the scan names (AD-1136).
     pub(crate) selected: Vec<SelectedFacts>,
 }
 

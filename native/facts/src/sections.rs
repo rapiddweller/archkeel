@@ -82,7 +82,7 @@ section_facts! {
         ScriptGlobal(ImportData),
         /// An import inside a macro body.
         MacroBody(ImportData),
-        /// A call whose impl the compiler selected in another module (AD-1129).
+        /// A call whose impl the compiler selected in another module (AD-1136).
         SelectedImpl(ImportData),
     }
 }

@@ -4,7 +4,7 @@
 
 //! The edges that a fact other than the source syntax gives. The manifests declare dependencies: source
 //! can hide a use (a macro, a generated token), but it cannot use a crate that the manifest does not declare.
-//! The compiler selects impls: a call of `PartialEq::eq` runs the impl of another module (AD-1129).
+//! The compiler selects impls: a call of `PartialEq::eq` runs the impl of another module (AD-1136).
 
 use std::collections::BTreeSet;
 
@@ -99,7 +99,7 @@ impl Builder {
     /// One `selected_impl` import for each call that the compiler resolved to the impl of another scan module.
     /// The call is the evidence. The record names no symbol: the compiler gives the module of the impl.
     /// The edge comes after the gaps are settled and no gap leaves for it: a site that the compiler did not
-    /// resolve stays a gap (AD-806, AD-1129).
+    /// resolve stays a gap (AD-806, AD-1136).
     pub(crate) fn selected_edges(
         &mut self,
         index: &Index<'_>,
