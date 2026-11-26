@@ -234,6 +234,13 @@ fn dict_view(expr: &Expr) -> bool {
     }
 }
 
+/// A call of an access form: its form, its name and whether the form writes.
+struct Access<'c> {
+    kind: &'static str,
+    name: &'c Expr,
+    write: bool,
+}
+
 impl Trojans<'_> {
     /// The scope of an outermost function: the names that hold one literal.
     fn scope_of(&self, def: &StmtFunctionDef) -> Scope {
@@ -287,24 +294,31 @@ impl Trojans<'_> {
 
     /// The call that reads an attribute by a computed name: its form, its receiver and its name.
     /// A form that has no receiver to prove gives the callee for both.
-    fn computed<'c>(&self, call: &'c ExprCall) -> Option<(&'static str, &'c Expr, &'c Expr)> {
+    fn computed<'c>(&self, call: &'c ExprCall) -> Option<Access<'c>> {
         let args: &[Expr] = &call.arguments.args;
         let callee: &Expr = &call.func;
         let kind = self.form(callee)?;
-        // `x.m(name)` has the receiver `x`; `C.m(x, name)` and `getattr(x, name)` have `x`.
-        let bound = match kind {
-            "__getattribute__" | "__delattr__" => 1,
-            "__setattr__" => 2,
-            "getattr" | "setattr" | "delattr" => 0,
-            "vars" => return Some((kind, callee, callee)),
-            _ => return Some((kind, callee, callee)),
+        let whole = |write| Access {
+            kind,
+            name: callee,
+            write,
+        };
+        // `x.m(name)` has the receiver `x`; `C.m(x, name)` and `getattr(x, name)` have `x`. The class of the
+        // form says whether it writes: only a write can use the exception-chain exemption (#2090).
+        let (bound, write) = match kind {
+            "__getattribute__" => (1, false),
+            "__delattr__" => (1, true),
+            "__setattr__" => (2, true),
+            "getattr" => (0, false),
+            "setattr" | "delattr" => (0, true),
+            _ => return Some(whole(false)),
         };
         match (callee, args) {
             (Expr::Attribute(node), [name, ..]) if args.len() == bound => {
-                Some((kind, &*node.value, name))
+                Some(Access { kind, name, write })
             }
-            (_, [receiver, name, ..]) if args.len() > bound => Some((kind, receiver, name)),
-            _ => Some((kind, callee, callee)),
+            (_, [_, name, ..]) if args.len() > bound => Some(Access { kind, name, write }),
+            _ => Some(whole(write)),
         }
     }
 
@@ -325,10 +339,9 @@ impl<'a> Trojans<'_> {
     /// its arguments are visited; the result is true when the call was one.
     fn access_call(&mut self, call: &'a ExprCall) -> bool {
         let site = self.computed(call);
-        let write = |kind: &str| kind.contains("set") || kind.contains("del");
-        let site = site.filter(|(kind, _, name)| !self.resolved(name, write(kind)));
-        if let Some((kind, _, _)) = site {
-            self.found.push((kind, call.range()));
+        let site = site.filter(|access| !self.resolved(access.name, access.write));
+        if let Some(access) = site {
+            self.found.push((access.kind, call.range()));
         }
         if self.form(&call.func).is_none() {
             return false;
