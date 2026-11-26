@@ -2074,21 +2074,11 @@
         },
         "origins": {
           "type": "array",
-          "items": {
-            "$ref": "#/$defs/OriginCount"
-          },
+          "items": true,
           "description": "The number of held pairs of each origin, for an interface rule."
         },
         "interface": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/InterfaceHolds"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "The held imports of an `interface_boundary` rule, each with its stated cause."
+          "description": "The held imports of an interface rule, each with its stated cause."
         }
       },
       "required": [
@@ -2155,114 +2145,6 @@
         "target"
       ],
       "description": "The pair of a gap between two modules.",
-      "additionalProperties": false
-    },
-    "OriginCount": {
-      "type": "object",
-      "properties": {
-        "origin": {
-          "type": "string"
-        },
-        "count": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        }
-      },
-      "required": [
-        "origin",
-        "count"
-      ],
-      "description": "The number of held pairs of one origin (an interface rule).",
-      "additionalProperties": false
-    },
-    "InterfaceHolds": {
-      "type": "object",
-      "properties": {
-        "classes": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ClassCount"
-          }
-        },
-        "imports": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/HeldImport"
-          }
-        }
-      },
-      "required": [
-        "classes",
-        "imports"
-      ],
-      "description": "What holds an `interface_boundary` rule: the count of each class and the first imports.",
-      "additionalProperties": false
-    },
-    "ClassCount": {
-      "type": "object",
-      "properties": {
-        "gap": {
-          "type": "string"
-        },
-        "class": {
-          "type": "string"
-        },
-        "count": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        }
-      },
-      "required": [
-        "gap",
-        "class",
-        "count"
-      ],
-      "description": "The number of held imports of one gap and class.",
-      "additionalProperties": false
-    },
-    "HeldImport": {
-      "type": "object",
-      "properties": {
-        "source": {
-          "type": "string"
-        },
-        "target": {
-          "type": "string"
-        },
-        "name": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "gap": {
-          "type": "string"
-        },
-        "class": {
-          "type": "string"
-        },
-        "cause": {
-          "description": "The cause that the collector states; null when it states none."
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "source",
-        "target",
-        "name",
-        "gap",
-        "class",
-        "cause",
-        "evidence"
-      ],
-      "description": "One held import.",
       "additionalProperties": false
     },
     "GapHolds": {

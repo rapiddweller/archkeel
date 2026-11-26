@@ -19,74 +19,22 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_contract::{head_of, Rule};
 use archkeel_eval::{CycleStep, Outcome, Violation};
-use archkeel_facts::vocab::RouteWithheld;
 use archkeel_model::{
-    shape, Applied, Cause, CoverageGap, Incomplete, InterfaceGap, InterfaceHold, Model, PairOrigin,
-    Reason, Shape,
+    shape, Applied, Cause, CoverageGap, Incomplete, Model, PairOrigin, Reason, Shape,
 };
 use serde::Serialize;
 
-use crate::why::{
-    ClassCount, CyclePath, Cycles, DeclaredEdge, GapHolds, HeldImport, HoldKind, Holds,
-    InterfaceHolds, OriginCount, Pair, RuleHolds, Step, WhyUnknown,
+#[path = "explain_interface.rs"]
+mod interface;
+#[path = "explain_limits.rs"]
+mod limits;
+use interface::{distinct, interface_value, origin_counts};
+use limits::{
+    budgets_schema, version_schema, Budgets, BUDGETS, MAX_CYCLES, MAX_EVIDENCE, MAX_GAPS, MAX_HELD,
+    MAX_RULES, MAX_STEPS, VERSION,
 };
 
-const VERSION: u8 = 1;
-/// The most cycles that one rule lists.
-const MAX_CYCLES: usize = 50;
-/// The most steps that one path lists.
-const MAX_STEPS: usize = 64;
-/// The most evidence ids that one step lists.
-const MAX_EVIDENCE: usize = 5;
-/// The most gaps and pairs that one rule lists.
-const MAX_HELD: usize = 20;
-/// The most rules that one gap lists.
-const MAX_RULES: usize = 200;
-/// The most gaps that the part lists.
-const MAX_GAPS: usize = 500;
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-struct Budgets {
-    cycles_per_rule: usize,
-    path_steps: usize,
-    evidence_per_step: usize,
-    held_per_rule: usize,
-    rules_per_gap: usize,
-    gaps: usize,
-}
-
-/// The schema of the budgets: each field is a constant, the value of `BUDGETS`. The shell reads
-/// the limits from the schema and keeps no copy of them.
-fn budgets_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-    let values = serde_json::to_value(BUDGETS).unwrap_or_default();
-    let fields: serde_json::Map<String, serde_json::Value> = values
-        .as_object()
-        .into_iter()
-        .flatten()
-        .map(|(name, value)| (name.clone(), serde_json::json!({"const": value})))
-        .collect();
-    let required: Vec<&String> = fields.keys().collect();
-    schemars::json_schema!({
-        "type": "object",
-        "properties": fields,
-        "required": required,
-        "additionalProperties": false,
-    })
-}
-
-/// The schema of the version of the part: the constant `VERSION`.
-fn version_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-    schemars::json_schema!({"const": VERSION})
-}
-
-const BUDGETS: Budgets = Budgets {
-    cycles_per_rule: MAX_CYCLES,
-    path_steps: MAX_STEPS,
-    evidence_per_step: MAX_EVIDENCE,
-    held_per_rule: MAX_HELD,
-    rules_per_gap: MAX_RULES,
-    gaps: MAX_GAPS,
-};
+use crate::why::WhyUnknown;
 
 /// The shape of one rule.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
@@ -95,6 +43,69 @@ pub(crate) struct RuleShape {
     direction: &'static str,
     source: Vec<String>,
     target: Vec<String>,
+}
+
+/// One step of a cycle path.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+struct Step {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    possible: bool,
+    from: String,
+    to: String,
+    from_component: Option<String>,
+    to_component: Option<String>,
+    imports: usize,
+    /// The declared edges of the step: the declaration, the module of its site and the module that
+    /// it may load (AD-1057).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    declared: Vec<DeclaredEdge>,
+    evidence: Vec<String>,
+    evidence_total: usize,
+}
+
+/// One possible import that a declaration supplies to a cycle step.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+struct DeclaredEdge {
+    declaration: String,
+    source: String,
+    target: String,
+}
+
+/// One cycle: its members and one closed path through them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+struct CyclePath {
+    id: String,
+    /// The position of the violation in `details` of the rule.
+    index: usize,
+    members: Vec<String>,
+    path: Vec<Step>,
+    steps_total: usize,
+    truncated: bool,
+}
+
+/// The cycles of one rule.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+struct Cycles {
+    total: usize,
+    truncated: bool,
+    items: Vec<CyclePath>,
+}
+
+/// What kind of gap holds a rule.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum HoldKind {
+    CoverageGaps,
+    PairGaps,
+    AllowedPairGaps,
+    /// Gaps that state their effect, and the rule reads the effect (AD-564).
+    ScopedGaps,
+    UnknownImports,
+    /// The imports of an `interface_boundary` rule that it could not decide (`interface`).
+    InterfaceImports,
+    NoSourceFiles,
+    /// Any other cause: the text of `explained` names it.
+    Other,
 }
 
 /// What the reason of one rule says about the gaps that hold it.
@@ -106,7 +117,8 @@ struct Held {
     /// The ids of the gaps that the reason itself names (AD-564).
     ids: Vec<String>,
     unnamed_imports: usize,
-    interface: Option<InterfaceHolds>,
+    /// The held imports of an interface rule, as the frame writes them.
+    interface: Option<serde_json::Value>,
     imports_total: usize,
 }
 
@@ -125,7 +137,7 @@ impl Held {
         };
         if let Reason::Interface(hold) = reason {
             held.kind = HoldKind::InterfaceImports;
-            held.interface = Some(InterfaceHolds::of(hold));
+            held.interface = Some(interface_value(hold));
             held.imports_total = hold.total();
         }
         if let Reason::Incomplete(incomplete) = reason {
@@ -181,34 +193,6 @@ impl Collected {
         }
         (pairs, found)
     }
-}
-
-/// The pairs of the gap records, each once, in the order of their first record, with the origin
-/// of that record when the rule states one.
-fn distinct(
-    records: &[(String, String)],
-    origins: &[PairOrigin],
-) -> Vec<(String, String, Option<PairOrigin>)> {
-    let mut seen = BTreeSet::new();
-    let each = records.iter().enumerate();
-    each.filter(|(_, pair)| seen.insert(*pair))
-        .map(|(at, (source, target))| (source.clone(), target.clone(), origins.get(at).copied()))
-        .collect()
-}
-
-/// The number of pairs of each origin.
-fn origin_counts(pairs: &[(String, String, Option<PairOrigin>)]) -> Vec<OriginCount> {
-    let mut counts: BTreeMap<PairOrigin, usize> = BTreeMap::new();
-    for origin in pairs.iter().filter_map(|(_, _, origin)| *origin) {
-        *counts.entry(origin).or_default() += 1;
-    }
-    let word = PairOrigin::word;
-    (counts.into_iter())
-        .map(|(origin, count)| OriginCount {
-            origin: word(origin),
-            count,
-        })
-        .collect()
 }
 
 impl Collected {
@@ -312,6 +296,62 @@ fn step(step: &CycleStep, applied: &[Applied]) -> Step {
     }
 }
 
+/// The pair of a gap between two modules.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+struct Pair {
+    source: String,
+    target: String,
+    /// Why the pair holds an interface rule; absent for the other rules.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    origin: Option<&'static str>,
+}
+
+/// The gaps that hold one rule.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+struct RuleHolds {
+    cause: WhyUnknown,
+    kind: HoldKind,
+    /// The ids of the coverage gaps of the reply that hold the rule.
+    gaps: Vec<String>,
+    /// The first module pairs that hold the rule (a pair is two modules with a gap between them).
+    pairs: Vec<Pair>,
+    /// The number of module pairs that hold the rule. A pair can have several gap records. A
+    /// rule that no pair holds counts gap ids. `pairs` and `gaps` keep at most `held_per_rule`.
+    total: usize,
+    /// True when `total` is larger than the lists that this frame keeps.
+    truncated: bool,
+    /// The imports that the collector could not resolve and that no gap names.
+    unnamed_imports: usize,
+    /// The number of held pairs of each origin, for an interface rule.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    origins: Vec<serde_json::Value>,
+    /// The held imports of an interface rule, each with its stated cause.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    interface: Option<serde_json::Value>,
+}
+
+/// One coverage gap and the rules that it holds.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+struct GapHolds {
+    id: String,
+    kind: String,
+    reason: String,
+    rules: Vec<String>,
+    rules_total: usize,
+    truncated: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+struct Holds {
+    rules: BTreeMap<String, RuleHolds>,
+    gaps: Vec<GapHolds>,
+    /// The number of coverage gaps of the reply.
+    gaps_total: usize,
+    /// The number of coverage gaps that hold at least one rule.
+    gaps_holding: usize,
+    gaps_truncated: bool,
+}
+
 /// The `explain` part of the frame.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Explain {
@@ -353,47 +393,6 @@ fn ids_of(held: &Held, gaps: &[CoverageGap]) -> Vec<String> {
         | HoldKind::Other => Vec::new(),
     }
 }
-
-impl InterfaceHolds {
-    /// The projection of the hold of one rule.
-    fn of(hold: &InterfaceHold) -> InterfaceHolds {
-        InterfaceHolds {
-            classes: hold
-                .classes()
-                .map(|(gap, class, count)| ClassCount {
-                    gap: InterfaceGap::word(gap),
-                    class: class.map_or("not_stated", RouteWithheld::as_str),
-                    count,
-                })
-                .collect(),
-            imports: hold
-                .imports()
-                .iter()
-                .take(MAX_IMPORTS)
-                .map(|held| HeldImport {
-                    source: held.source.clone(),
-                    target: held.target.clone(),
-                    name: held.name.clone(),
-                    gap: InterfaceGap::word(held.gap),
-                    class: held
-                        .cause
-                        .as_ref()
-                        .map_or("not_stated", |(cause, _)| cause.as_str()),
-                    cause: held.cause.as_ref().map(cause_value),
-                    evidence: held.evidence.clone(),
-                })
-                .collect(),
-        }
-    }
-}
-
-/// The cause as the frame writes it: its kind and the module or hop that it names.
-fn cause_value((cause, at): &(RouteWithheld, Option<String>)) -> serde_json::Value {
-    serde_json::json!({"kind": cause.as_str(), "at": at})
-}
-
-/// The most imports that one rule lists.
-const MAX_IMPORTS: usize = 20;
 
 impl Collected {
     /// The part of the frame, with the coverage gaps of the reply that the pairs and the run
