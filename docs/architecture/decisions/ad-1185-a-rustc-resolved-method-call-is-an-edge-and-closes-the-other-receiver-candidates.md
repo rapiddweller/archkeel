@@ -20,8 +20,8 @@ such gaps (`as_str` 299, `is_empty` 92, `id` 81). The rustc driver already knows
    of `m(..)`. A call in a macro argument keeps its own place. A hidden call from a macro body has the place of
    the macro and matches nothing.
 3. **Decision.** A written candidate `(C, M)` at a place falls when every configuration holds the place with
-   one and the same callee, and that callee is not in `M`. The compiler proved another function, so the call
-   cannot reach `M`. A foreign callee (`core`, `alloc`) falls the candidate too. An unresolved call, a
+   one and the same callee, and the file of that callee is not the file of `M`. The compiler proved another
+   function, so the call cannot reach `M`. The file decides, not a module name: a name can map wrong (a binary target). A foreign callee (`core`, `alloc`) falls the candidate too. An unresolved call, a
    configuration that lacks the place or changes the callee, and a test unit decide nothing.
 4. **Edge.** A callee in another scan module is a `selected_impl` edge (AD-1136) with the call as evidence,
    under the same file checks and the every-configuration rule. A candidate that the callee confirms stays a

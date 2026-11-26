@@ -76,7 +76,7 @@ impl<'f> Filter<'f> {
         kept.filter(|s| seen.insert(key(s))).collect()
     }
 
-    /// The scan module that the call `x.m()` at a place reaches, or `None` for a call that some configuration does
+    /// The file that holds the callee of the call `x.m()` at a place, or `None` for a call that some configuration does
     /// not resolve to one callee. The inner `None` is a callee outside the workspace. Every configuration must
     /// hold the place with one and the same callee: a feature can change a call (AD-1185).
     fn callee(&self, file: &str, line: i64, column: i64) -> Option<Option<&str>> {
@@ -89,8 +89,8 @@ impl<'f> Filter<'f> {
         (rest.is_none() && same).then_some(callee.as_deref())
     }
 
-    /// True when the compiler resolved the method call at `(file, line, column)` to another module than `target`: the
-    /// call cannot reach a method of `target` (AD-1185).
+    /// True when the compiler resolved the method call at `(file, line, column)` to a function that another file than
+    /// `target_file` holds: the call cannot reach a method in the file of the target (AD-1185).
     pub(crate) fn resolved_elsewhere(
         reach: Option<&Filter<'_>>,
         target: &str,

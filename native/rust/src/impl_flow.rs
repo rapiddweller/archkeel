@@ -100,13 +100,18 @@ impl PendingPool {
 
     /// A candidate of a written call that the compiler resolved to another module: it never reaches the target.
     /// It leaves before the named pairs are read, so a pair that only such calls named is not named (AD-1185).
-    fn elsewhere(&self, builder: &Builder, reach: Option<&Filter<'_>>, pending: &Pending) -> bool {
+    fn elsewhere(
+        &self,
+        (builder, index): (&Builder, &Index<'_>),
+        reach: Option<&Filter<'_>>,
+        pending: &Pending,
+    ) -> bool {
         let Some((rel, site)) = self.site_of(pending.site) else {
             return false;
         };
-        let target = builder.interned_text(pending.target);
+        let target = index.rel(builder.interned_text(pending.target));
         let at = (builder.interned_text(rel), site.line, site.column);
-        !pending.execution && Filter::resolved_elsewhere(reach, target, at)
+        !pending.execution && target.is_some_and(|file| Filter::resolved_elsewhere(reach, file, at))
     }
 
     fn site_of(&self, id: u32) -> Option<(u32, &Site)> {
@@ -154,7 +159,7 @@ pub(super) fn settle(
     }
     builder.reach_used = filter.as_ref().is_some_and(|f| f.matched() > 0);
     let mut open = std::mem::take(&mut pool.items);
-    open.retain(|p| !pool.elsewhere(builder, filter.as_ref(), p));
+    open.retain(|p| !pool.elsewhere((builder, index), filter.as_ref(), p));
     let mut ctx = FlowContext {
         edges: import_edges(builder),
         ancestors: build_ancestors(builder),

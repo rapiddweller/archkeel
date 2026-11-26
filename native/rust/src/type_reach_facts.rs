@@ -35,10 +35,11 @@ pub(crate) struct SelectedFacts {
     pub(crate) column: i64,
 }
 
-/// A method call `x.m()` whose callee the compiler resolved (AD-1185): the place of `m(..)`, and the module of the
-/// callee when it is workspace code. A plain value, like `SelectedFacts`.
+/// A method call `x.m()` whose callee the compiler resolved (AD-1185): the place of `m(..)`, and the file that holds
+/// the callee when it is workspace code. The file decides, not a module name: a mapping of names can be wrong
+/// (a binary target has other module names). A plain value, like `SelectedFacts`.
 pub(crate) struct CallFacts {
-    pub(crate) to: Option<String>,
+    pub(crate) callee_file: Option<String>,
     pub(crate) file: String,
     pub(crate) line: i64,
     pub(crate) column: i64,
@@ -203,7 +204,7 @@ impl Facts {
         let number = |key: &str| v.get(key)?.as_i64();
         let (file, line, column) = (one(v, "file", names)?, number("line")?, number("col")?);
         let to = one(v, "to", names);
-        if let (Some(to), Some(impl_file)) = (to.clone(), one(v, "callee_file", names)) {
+        if let (Some(to), Some(impl_file)) = (to, one(v, "callee_file", names)) {
             self.selected.push(SelectedFacts {
                 from: one(v, "from", names)?,
                 to,
@@ -215,7 +216,7 @@ impl Facts {
             });
         }
         self.calls.push(CallFacts {
-            to,
+            callee_file: one(v, "callee_file", names),
             file,
             line,
             column,

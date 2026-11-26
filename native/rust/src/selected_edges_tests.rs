@@ -308,6 +308,13 @@ fn a_call_resolved_to_another_module_drops_the_gap_and_is_an_edge() {
 }
 
 #[test]
+fn a_callee_in_the_file_of_the_candidate_keeps_the_gap_whatever_its_module_name() {
+    // The module name of the callee maps to `c`, but the file is `b.rs`: only the file is verified.
+    let found = collect_methods(announced(false, &[&call("2", "9", 0)]));
+    assert!(method_gap(&found));
+}
+
+#[test]
 fn a_call_resolved_to_the_candidate_keeps_the_gap_and_is_an_edge() {
     let found = collect_methods(announced(false, &[&call("1", "9", 0)]));
     assert!(method_gap(&found), "the named use of b stays held");
