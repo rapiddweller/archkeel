@@ -4,6 +4,8 @@
 
 //! The names that are trojan horses or state of the import system (AD-450, AD-472).
 
+use std::collections::{HashMap, HashSet};
+
 /// The named gaps of the sites.
 pub(in crate::survey) const DYNAMIC: &str = "dynamic_import";
 pub(in crate::survey) const IMPORT_SYSTEM: &str = "import_system_change";
@@ -280,3 +282,27 @@ pub(super) const ANY_ATTRIBUTE: [&str; 21] = [
     "importlib",
     "__builtins__",
 ];
+
+/// True when a function binds `id` and no import binds it. A class scope is skipped by a nested
+/// lookup (AD-530).
+pub(in crate::survey) fn local(
+    bound: &HashMap<String, Vec<String>>,
+    scopes: &[(HashSet<String>, HashSet<String>, bool)],
+    id: &str,
+) -> bool {
+    if bound.contains_key(id) {
+        return false;
+    }
+    for (depth, (names, globals, class)) in scopes.iter().rev().enumerate() {
+        if *class && depth > 0 {
+            continue;
+        }
+        if globals.contains(id) {
+            return false;
+        }
+        if names.contains(id) {
+            return true;
+        }
+    }
+    false
+}
