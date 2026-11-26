@@ -400,6 +400,7 @@ fn declarations(
     admitted: impl Fn(usize, &Module) -> bool,
 ) -> Symbols {
     let mut found = Vec::new();
+    let project = declared::project(modules, binders, &admitted);
     let mut escapes = declared::scan_escapes(modules, binders, imports).into_iter();
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let own = escapes.next().unwrap_or_default();
@@ -407,8 +408,13 @@ fn declarations(
             // #1714: a class annotation reads the class namespace on 3.14, and `get_type_hints`
             // reads it for a string annotation on every version (AD-802).
             let late = lazy_314 || class_writes::future_annotations(&module.tree);
-            let mut item =
-                declared::records(module, binders, own, late.then_some(writes), evidence);
+            let mut item = declared::records(
+                module,
+                binders,
+                own,
+                late.then_some(writes),
+                (evidence, &project),
+            );
             item.index = index;
             found.push(item);
         }

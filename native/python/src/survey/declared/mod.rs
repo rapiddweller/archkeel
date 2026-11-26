@@ -28,6 +28,7 @@ use super::class_writes::ClassWrites;
 use crate::declare::{definition_id, signature};
 use crate::module::definition::Def;
 use crate::module::{EvidenceMap, Module};
+pub(crate) use kind::{project, Project};
 use kind::{BaseSite, Kind, Local, Reading};
 use members::inventory;
 use reader::{header, Reader, Unwritable};
@@ -64,7 +65,7 @@ pub(crate) fn records<'m>(
     binders: &Binders,
     escapes: Escapes,
     writes: Option<&'m ClassWrites>,
-    evidence: &mut EvidenceMap,
+    (evidence, project): (&mut EvidenceMap, &Project),
 ) -> Found<'m> {
     let mut scratch = EvidenceMap::new();
     let mut writer = Writer {
@@ -75,6 +76,7 @@ pub(crate) fn records<'m>(
             writes,
         },
         binders,
+        project,
         open: escapes.open,
         escaped: escapes.escaped,
         out: Vec::new(),
@@ -149,6 +151,7 @@ struct Frame<'a> {
 struct Writer<'m, 'b> {
     scan: Reader<'m, 'b>,
     binders: &'b Binders,
+    project: &'b Project,
     open: bool,
     escaped: HashSet<String>,
     out: Vec<Record<SymbolFact>>,
@@ -172,12 +175,22 @@ impl<'m> Writer<'m, '_> {
                     self.function(node)?;
                 }
                 Stmt::ClassDef(node) if bound.sole(node.name.as_str(), start) => {
-                    let reading = Reading::top((&module.name, body), &bound, self.binders, &local);
+                    let reading = Reading::top(
+                        (&module.name, body),
+                        &bound,
+                        self.binders,
+                        (&local, self.project),
+                    );
                     let found = self.class(node, &reading, None)?;
                     keep(found, node.name.as_str(), &mut local, &mut pending);
                 }
                 Stmt::Assign(_) | Stmt::AnnAssign(_) => {
-                    let reading = Reading::top((&module.name, body), &bound, self.binders, &local);
+                    let reading = Reading::top(
+                        (&module.name, body),
+                        &bound,
+                        self.binders,
+                        (&local, self.project),
+                    );
                     let found = values::records(&mut self.scan, statement, &bound, &reading);
                     self.out.extend(found);
                 }
@@ -185,8 +198,13 @@ impl<'m> Writer<'m, '_> {
             }
         }
         while let Some(frame) = pending.pop() {
-            let reading = Reading::top((&module.name, body), &bound, self.binders, &local)
-                .within(&frame.bound);
+            let reading = Reading::top(
+                (&module.name, body),
+                &bound,
+                self.binders,
+                (&local, self.project),
+            )
+            .within(&frame.bound);
             let inside = if frame.open {
                 Vec::new()
             } else {
@@ -497,3 +515,7 @@ impl<'m> Writer<'m, '_> {
 #[cfg(test)]
 #[path = "declared_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "kind_tests.rs"]
+mod kind_tests;
