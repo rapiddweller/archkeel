@@ -103,6 +103,11 @@ fn a_computed_attribute_name_on_an_unproved_receiver_is_a_site() {
         "class K: ...\nK.__class__, other = hook, 1\n",
         "class K: ...\nfor K.__call__ in [hook]:\n    pass\n",
         "def f(x):\n    x.__class__ = other\n",
+        // #2090: the chain names are clear for a write only. A read hands out frames.
+        "def f(e):\n    return getattr(e, '__traceback__')\n",
+        // A write of a dunder that dispatches stays a site beside the chain names.
+        "def f(e, c, hook):\n    e.__cause__ = c\n    type(e).__call__ = hook\n",
+        "def f(e, c, hook):\n    setattr(e, '__cause__', c)\n    setattr(e, '__getattr__', hook)\n",
     ] {
         // A loader call (`import_module`) is a site of its own; the access is one more.
         let found: Vec<String> = trojan_names(source)
@@ -126,6 +131,10 @@ fn a_literal_name_a_proved_receiver_or_a_local_literal_is_no_site() {
         "def f(x):\n    return getattr(x, '__name__')\n",
         // A write of a name that no behavior reads: `__doc__`, `__module__` and plain names (#1979).
         "class C: ...\nsetattr(C, '__doc__', 'text')\nC.__module__ = 'm'\nC.value = 1\ndel C.value\n",
+        // #2090: Python reads the chain of an exception to print it and never calls it as a hook.
+        "def f(e, c):\n    e.__cause__ = c\n    e.__context__ = c\n    e.__traceback__ = None\n    e.__suppress_context__ = True\n    e.__notes__ = []\n",
+        "def f(e, c):\n    setattr(e, '__cause__', c)\n    delattr(e, '__context__')\n    object.__setattr__(e, '__cause__', c)\n",
+        "def f(e, c):\n    e.__cause__, e.__context__ = c, c\n    e.__notes__ += ['n']\n    del e.__traceback__\n",
         "def f(x):\n    return getattr(x, '__doc__')\n",
         "def f(x):\n    n = 'a'\n    return getattr(x, n)\n",
         "def f(m):\n    return vars(m)['a']\n",
