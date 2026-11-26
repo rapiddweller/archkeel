@@ -93,6 +93,12 @@ ROUTES = {
         HEAD,
         "pub fn f() { base_crate::make(); }\n",
     ),
+    "include-alias": (
+        WORKSPACE,
+        "",
+        'use std::include as load;\nload!("../../../crates/base/src/lib.rs");\n'
+        "pub fn f() { make(); }\n",
+    ),
     "include": (
         WORKSPACE,
         "",
@@ -233,3 +239,15 @@ def test_a_path_attribute_inside_the_outside_crate_adds_no_gap(
     assert _marker(root, offline=True) == "app ran\n"
     result = validate(root)
     assert result["frame"]["rules"]["FORBID"][1] == "PASS", result["frame"]["rules"]
+
+
+def test_a_source_that_is_a_symlink_to_a_member_file_does_not_pass(
+    tmp_path: Path, release_core: Path
+) -> None:
+    root = _scan(tmp_path, release_core, WORKSPACE, "", "mod b;\npub fn f() { b::make(); }\n", {})
+    (root / "vendor/x/src/b.rs").symlink_to("../../../crates/base/src/lib.rs")
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+    _recommit(root)
+    assert _marker(root, offline=True) == "app ran\n"
+    result = validate(root)
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]

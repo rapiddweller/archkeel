@@ -170,12 +170,6 @@ fn sources_reach_member(dir: &Path, members: &Members, meta: &Value) -> bool {
         return true;
     };
     let mut files = target_sources(meta);
-    // A target source inside a member, or outside the crate, is the route itself: the search does not read it as the crate.
-    if files.iter().any(|f| {
-        !real_dir(f.to_str().unwrap_or_default()).is_some_and(|t| crate_owns(&t, &own, members))
-    }) {
-        return true;
-    }
     let mut pending = vec![dir.to_path_buf()];
     while let Some(next) = pending.pop() {
         let Ok(entries) = std::fs::read_dir(&next) else {
@@ -194,7 +188,12 @@ fn sources_reach_member(dir: &Path, members: &Members, meta: &Value) -> bool {
             return true;
         }
     }
-    files.iter().any(|file| file_escapes(file, &own, members))
+    // Each source, whether a target or found by the walk, must lie in the crate and in no member after its symlinks are
+    // resolved: a source that does not is the route itself.
+    let owned = |file: &std::path::PathBuf| {
+        real_dir(file.to_str().unwrap_or_default()).is_some_and(|t| crate_owns(&t, &own, members))
+    };
+    !files.iter().all(owned) || files.iter().any(|file| file_escapes(file, &own, members))
 }
 
 fn target_sources(meta: &Value) -> Vec<std::path::PathBuf> {
@@ -241,6 +240,12 @@ fn include_arguments(text: &str) -> Vec<Option<&str>> {
     let mut found = Vec::new();
     for at in word_at(text, "include") {
         let Some(rest) = trivia(&text[at + "include".len()..]).strip_prefix('!') else {
+            // `use std::include as load;` or a path to the macro: the call is not followed here, so it holds. A word
+            // in a line comment is no use.
+            let line = text[..at].rsplit('\n').next().unwrap_or_default();
+            if !line.contains("//") {
+                found.push(None);
+            }
             continue;
         };
         let rest = trivia(rest);
