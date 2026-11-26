@@ -148,7 +148,7 @@ fn unknown(pointer: String, entry: &str, records: &[&Import]) -> Row {
 }
 
 /// Why an import that reaches the module of an entry proves no use of it: the word of the cause
-/// that the collector states for its route (AD-1170), or the form of the import.
+/// that the collector states for its route (AD-1210), or the form of the import.
 fn block(record: &Import) -> &'static str {
     if record.call_form() {
         "call_form"
