@@ -39,3 +39,7 @@ fn parse(payload: &[u8]) -> Result<Request, String> {
 #[cfg(test)]
 #[path = "request_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "request_hostile_tests.rs"]
+mod hostile_tests;

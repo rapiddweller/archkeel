@@ -304,14 +304,16 @@ fn check_roots(roots: &[String]) -> Result<(), String> {
     for root in roots {
         relative(root, "scope.roots")?;
     }
-    let parts: Vec<Vec<&str>> = roots.iter().map(|root| path_parts(root)).collect();
-    for (index, root) in parts.iter().enumerate() {
-        if roots[index + 1..].contains(&roots[index]) {
-            return Err("scope.roots must not repeat".to_owned());
-        }
-        if parts[index + 1..].iter().any(|other| nested(root, other)) {
-            return Err("scope.roots must not overlap".to_owned());
-        }
+    // Linear and sorted, not pairwise: a request may carry some hundred thousand roots.
+    let mut seen = std::collections::HashSet::new();
+    if !roots.iter().all(|root| seen.insert(root)) {
+        return Err("scope.roots must not repeat".to_owned());
+    }
+    let mut parts: Vec<Vec<&str>> = roots.iter().map(|root| path_parts(root)).collect();
+    parts.sort_unstable();
+    // A path sorts directly before its extensions, so an overlap is always a neighbour pair.
+    if parts.windows(2).any(|pair| nested(&pair[0], &pair[1])) {
+        return Err("scope.roots must not overlap".to_owned());
     }
     Ok(())
 }
