@@ -39,6 +39,9 @@ jobs:
             labeled|unlabeled) [[ "$LABEL" == ratchet-lead ]] || { echo "Ignored: label $LABEL does not change the approval."; exit 0; } ;;
             edited) [[ "$BODY_CHANGED" == true || "$BASE_CHANGED" == true ]] || { echo "Ignored: no change of the body or the base."; exit 0; } ;;
           esac
+          # A push after this event started a gate for the new head; a rerun of the old head would cancel it.
+          current=$(gh api "repos/$GH_REPO/pulls/$NUMBER" --jq .head.sha)
+          [[ "$current" == "$HEAD_SHA" ]] || { echo "Ignored: the head moved to $current; its own gate run reads the approval."; exit 0; }
           if [[ "$BASE_CHANGED" == true ]]; then
             # A rerun keeps the old event, so the gate would compare with the old base sha.
             echo "The base changed: close and reopen the PR, or push, to start the gate with the new base." >&2
