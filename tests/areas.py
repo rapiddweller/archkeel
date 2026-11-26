@@ -10,6 +10,12 @@ from fnmatch import fnmatchcase
 # up to 2 times as long on one runner as on another, so the summed test time of an area on such a
 # runner must stay below about 24 minutes for 4 workers.
 AREAS: dict[str, tuple[str, ...]] = {
+    # AD-1212: the scan of native/ with compiler facts has its own job and facts cache.
+    "native self scan": (
+        "test_cli_native_core_scan.py",
+        "test_cli_native_core_scan_target_tag.py",
+        "test_cli_native_core_scan_rust.py",
+    ),
     "core scans": (
         "test_cli_native_core_scan*.py",
         "test_native_core.py",
@@ -176,13 +182,16 @@ HEAVY_FILES = frozenset(
 ALL = "all"
 TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
     ("tests/test_*.py", ()),
-    ("native/report/*", ("core scans", "CLI and core", "reports")),
-    ("studio/*", ("core scans", "CLI and core", "reports", "self-check and CI")),
+    ("native/report/*", ("native self scan", "core scans", "CLI and core", "reports")),
+    (
+        "studio/*",
+        ("native self scan", "core scans", "CLI and core", "reports", "self-check and CI"),
+    ),
     ("native/*", ALL),
     ("src/archkeel/cli/*", ALL),
-    ("src/*", ("core scans", "CLI and core", "self-check and CI")),
-    ("schema/*", ("core scans", "CLI and core", "self-check and CI")),
-    ("fixtures/*", ("core scans", "CLI and core", "collectors")),
+    ("src/*", ("native self scan", "core scans", "CLI and core", "self-check and CI")),
+    ("schema/*", ("native self scan", "core scans", "CLI and core", "self-check and CI")),
+    ("fixtures/*", ("native self scan", "core scans", "CLI and core", "collectors")),
     ("tools/*", ("self-check and CI", "reports")),
     # AD-736: a shared helper of the tests, the area table and its floors can change any area.
     ("tests/conftest.py", ALL),

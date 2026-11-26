@@ -64,6 +64,9 @@ def test_a_changed_test_file_selects_its_own_area_and_nothing_else() -> None:
     ]
     assert areas_of_change(["tests/test_native_self_core_rows.py"]) == ["core scans"]
     assert areas_of_change(["tests/test_cli_native_core_scan_large.py"]) == ["core scans"]
+    for name in ("scan", "scan_target_tag", "scan_rust"):
+        path = f"tests/test_cli_native_core_{name}.py"
+        assert areas_of_change([path]) == ["native self scan"], path
     assert areas_of_change(["tests/test_report_gallery.py"]) == ["reports"]
 
 
@@ -85,6 +88,7 @@ def test_a_source_change_selects_the_areas_that_it_can_reach() -> None:
     ):
         assert areas_of_change([path]) == list(AREAS)
     assert areas_of_change(["native/report/src/html.rs"]) == [
+        "native self scan",
         "core scans",
         "CLI and core",
         "reports",
@@ -97,6 +101,7 @@ def test_parallel_jobs_follow_the_changed_paths() -> None:
     assert parallel_areas([]) == ["self-check and CI"]
     assert not rust_checks(["docs/readme.md"])
     assert parallel_areas(["native/report/src/html.rs"]) == [
+        "native self scan",
         "core scans",
         "CLI and core",
         "reports",
