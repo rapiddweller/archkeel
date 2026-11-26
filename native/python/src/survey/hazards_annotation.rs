@@ -191,6 +191,9 @@ impl Strings {
     fn bind(&mut self, target: &Expr, value: &Expr) {
         let Expr::Name(name) = target else { return };
         let id = name.id.to_string();
+        if self.opaque.contains(&id) {
+            return;
+        }
         match value {
             Expr::StringLiteral(text) => {
                 let list = self.texts.entry(id.clone()).or_default();
@@ -199,6 +202,7 @@ impl Strings {
                 }
                 // A name with many texts costs a parse for each text at each annotation.
                 if list.len() > MAX_TEXTS {
+                    self.texts.remove(&id);
                     self.opaque.insert(id);
                 }
             }

@@ -172,3 +172,11 @@ fn many_equal_texts_of_one_name_cost_no_more_than_one() {
     let distinct: String = (0..40).map(|n| format!("s = 'int{n}'\n")).collect();
     assert!(!details(&format!("{distinct}class K:\n    x: s\n")).is_empty());
 }
+
+#[test]
+fn a_name_with_many_different_texts_stops_collecting() {
+    let many: String = (0..40_000).map(|n| format!("s = 'int{n}'\n")).collect();
+    let start = std::time::Instant::now();
+    assert!(!details(&format!("{many}class K:\n    x: s\n")).is_empty());
+    assert!(start.elapsed().as_secs() < 5);
+}
