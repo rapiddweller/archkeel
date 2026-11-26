@@ -202,8 +202,8 @@ SELFCHECK_ARGS ?=
 # AD-1130: `native/archkeel.toml` asks for compiler type reach, which runs cargo and the build scripts of the
 # scanned workspace. Only the operator allows that, by the environment: this is the one place that does it
 # for the self-check, and it covers the base-commit run of the gate, which inherits this environment.
-# `report-gallery` runs the same self run for the report pages.
-self-validate-native report-gallery: export ARCHKEEL_ALLOW_BUILD = 1
+# `self-validate-system` scans the same part; `report-gallery` runs the self run for the report pages.
+self-validate-native self-validate-system report-gallery: export ARCHKEEL_ALLOW_BUILD = 1
 
 # AD-335: Archkeel checks the Rust of native/ with its own core and its own contract (AD-432).
 # The gate fails on growth against the base commit (AD-1064), not on the gaps that exist.

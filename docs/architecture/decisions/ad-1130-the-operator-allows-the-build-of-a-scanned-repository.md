@@ -20,8 +20,8 @@ untrusted repository could run code from that repository.
    names this cause. No PASS changes and the receipt names no `rust_type_reach` premise.
 4. The sealed Cargo run clears its environment and keeps four names (`KEPT_ENV`). The switch is not one of them,
    so a build script cannot read it. A unit test pins this.
-5. ArchKeel's own self runs set the switch in one place: the Makefile line for `self-validate-native` and
-   `report-gallery`. `make self-check`, `make pr-gate`, `make ci-check` and the base-commit run of the gate reach
+5. ArchKeel's own self runs set the switch in one place: the Makefile line for `self-validate-native`, `self-validate-system`
+   and `report-gallery`. `make self-check`, `make pr-gate`, `make ci-check` and the base-commit run of the gate reach
    `self-validate-native`, so they inherit it. No workflow and no archkeel.toml sets it. A test checks this.
 
 ## Effect

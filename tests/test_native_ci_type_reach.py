@@ -68,7 +68,9 @@ def test_the_operator_permission_to_build_is_set_in_one_place_for_the_self_runs(
     makefile = (root / "Makefile").read_text()
     lines = [line for line in makefile.splitlines() if "ARCHKEEL_ALLOW_BUILD" in line]
     assigned = [line for line in lines if not line.startswith("#")]
-    assert assigned == ["self-validate-native report-gallery: export ARCHKEEL_ALLOW_BUILD = 1"]
+    assert assigned == [
+        "self-validate-native self-validate-system report-gallery: export ARCHKEEL_ALLOW_BUILD = 1"
+    ]
     for path in [*WORKFLOWS.glob("*.yml"), root / "native/archkeel.toml"]:
         assert "ARCHKEEL_ALLOW_BUILD" not in path.read_text(), path
     # `self-check` and the gate run the native self-check through this target.
