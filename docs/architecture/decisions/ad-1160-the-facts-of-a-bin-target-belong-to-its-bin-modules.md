@@ -20,7 +20,7 @@ reverse source use and a possible trait-impl dispatch. The first measurement (11
 
 1. `bin_module` in `native/rust/src/type_reach_fold.rs` maps a facts path to the module of the single scan target
    `bin_<crate>`. The facts carry no split by target: the unit of the library holds the modules of `main.rs` too
-   (measured), so the scan decides. A path keeps the library when a scan module of the library below the crate root
+   (measured), so the scan decides, for a crate with a `bin` unit in the facts. A path keeps the library when a scan module of the library below the crate root
    owns it (also by an inline module), and when no scan module below `bin_<crate>` owns it. An inline module at the
    crate root of the library therefore stays with the crate root. Two targets with the same name give no mapping.
 2. No rule, no gap text and no verdict logic changes. The reach of a module stays as it was.

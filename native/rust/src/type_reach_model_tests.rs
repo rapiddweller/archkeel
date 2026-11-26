@@ -332,9 +332,15 @@ fn the_filter_gives_the_same_answers_whatever_the_order_of_the_questions() {
     assert!(!Filter::new(&[], &known).excluded("native.k.a", "native.k.b"));
 }
 
-fn decided(scan: &[&str], records: &[Value], pair: (&str, &str)) -> &'static str {
+/// The facts of a library unit and, when `bin` is true, a bin unit of the crate `k` with no records.
+fn decided(scan: &[&str], records: &[Value], bin: bool, pair: (&str, &str)) -> &'static str {
     let scan: BTreeSet<String> = scan.iter().map(|m| m.to_string()).collect();
-    let all = facts(records);
+    let mut all = facts(records);
+    if bin {
+        let build = json!({"k": "build", "crate": "k", "crate_types": ["bin"]});
+        all.absorb(&format!("{build}\n{}", json!({"k": "str", "v": []})))
+            .unwrap();
+    }
     let reach = Reach::new(&all, &scan);
     match reach.decide(pair, &Mode::Rta, &mut BTreeMap::new()) {
         Verdict::Excluded => "excluded",
@@ -354,9 +360,9 @@ fn a_module_of_a_bin_target_is_decided_under_the_bin_module_not_the_library_root
     ];
     let pair = ("native.k.bin_k.a", "native.k.bin_k.b");
     let reads = [module("k::a", &["k::b::X"], &[], &[]), target()];
-    assert_eq!(decided(&scan, &reads, pair), "kept");
+    assert_eq!(decided(&scan, &reads, true, pair), "kept");
     let control = [module("k::a", &["k::a::Y"], &[], &[]), target()];
-    assert_eq!(decided(&scan, &control, pair), "excluded");
+    assert_eq!(decided(&scan, &control, true, pair), "excluded");
 }
 
 #[test]
@@ -364,9 +370,31 @@ fn an_inline_module_of_the_library_keeps_its_facts_beside_a_bin_target() {
     // `k::inner` is an inline module of the library root: no scan module owns it, so the bin target must not take it.
     let scan = ["native.k", "native.k.b", "native.k.bin_k"];
     let library = [module("k::inner", &["k::b::X"], &[], &[]), target()];
-    assert_eq!(decided(&scan, &library, ("native.k", "native.k.b")), "kept");
+    assert_eq!(
+        decided(&scan, &library, true, ("native.k", "native.k.b")),
+        "kept"
+    );
     // Also below a library module.
     let scan = ["native.k", "native.k.a", "native.k.b", "native.k.bin_k"];
     let below = [module("k::a::inner", &["k::b::X"], &[], &[]), target()];
-    assert_eq!(decided(&scan, &below, ("native.k.a", "native.k.b")), "kept");
+    assert_eq!(
+        decided(&scan, &below, true, ("native.k.a", "native.k.b")),
+        "kept"
+    );
+}
+
+#[test]
+fn a_library_module_named_like_a_bin_target_is_no_bin_target() {
+    // No unit of a `bin` target exists: `bin_k` is an ordinary module with a module `a` below it.
+    let scan = [
+        "native.k",
+        "native.k.b",
+        "native.k.bin_k",
+        "native.k.bin_k.a",
+    ];
+    let records = [module("k::a", &["k::b::X"], &[], &[]), target()];
+    assert_eq!(
+        decided(&scan, &records, false, ("native.k", "native.k.b")),
+        "kept"
+    );
 }

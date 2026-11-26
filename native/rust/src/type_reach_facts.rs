@@ -68,6 +68,8 @@ pub struct Facts {
     /// there can coerce a value to them, and that code gets its values from the workspace through calls.
     pub(crate) foreign_dyn: BTreeMap<String, Names>,
     pub(crate) impls: Vec<ImplFacts>,
+    /// The crates for which this configuration built a `bin` target: the provenance of a `bin_<crate>` module.
+    pub(crate) bins: Names,
 }
 
 fn blank<T: Default>() -> T {
@@ -105,6 +107,7 @@ impl Facts {
             hidden: blank(),
             adts: blank(),
             impls: blank(),
+            bins: blank(),
         }
     }
 
@@ -133,6 +136,13 @@ impl Facts {
 
     pub(crate) fn absorb(&mut self, text: &str) -> Option<()> {
         let lines: Vec<&str> = text.lines().collect();
+        let build: Option<Value> = lines.first().and_then(|l| serde_json::from_str(l).ok());
+        if let Some(build) = &build {
+            let kinds = build.get("crate_types").and_then(Value::as_array);
+            let bin = kinds.is_some_and(|all| all.iter().any(|t| t.as_str() == Some("bin")));
+            let krate = build.get("crate").and_then(Value::as_str);
+            self.bins.extend(krate.filter(|_| bin).map(str::to_owned));
+        }
         let table: Value = serde_json::from_str(lines.get(1)?).ok()?;
         // A test unit that was merged into its library file has `merged` here and no records.
         if table.get("k")?.as_str()? == "merged" {

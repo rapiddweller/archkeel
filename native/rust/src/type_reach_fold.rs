@@ -26,12 +26,19 @@ pub struct Reach<'f> {
 
 /// The scan module of a facts path that belongs to a `bin` target: the scan names the modules of that target
 /// `<namespace>.<package>.bin_<crate>.<module>` (`crates.rs`), the facts `<crate>::<module>`. The facts carry no
-/// split by target (the unit of the library holds the modules of `main.rs` too), so the scan decides. A path
+/// split by target (the unit of the library holds the modules of `main.rs` too), so the scan decides, but only for a crate with a `bin` unit in the facts (a library module that is named `bin_<crate>` is no target). A path
 /// keeps the library when a module of the library below the crate root owns it (also by an inline module), or
 /// when no scan module below `bin_<crate>` owns it. A path that no scan module owns, such as an inline module at
 /// the crate root, goes to the crate root as before. `None` when there is no single target `bin_<crate>`.
-fn bin_module(known: &BTreeSet<String>, namespace: &str, path: &str) -> Option<String> {
+fn bin_module(
+    known: &BTreeSet<String>,
+    (namespace, bins): (&str, &Names),
+    path: &str,
+) -> Option<String> {
     let (krate, rest) = path.split_once("::")?;
+    if !bins.contains(krate) {
+        return None;
+    }
     let library = format!("{namespace}.{}", path.replace("::", "."));
     if known.contains(&library) || deepest(known, &library) > depth(&format!("{namespace}.{krate}"))
     {
@@ -84,7 +91,8 @@ impl<'f> Reach<'f> {
             .chain(facts.fns.values().map(|(module, _)| module));
         for path in paths {
             let direct = format!("{namespace}.{}", path.replace("::", "."));
-            let mut name = bin_module(known, namespace, path).unwrap_or_else(|| direct.clone());
+            let mut name =
+                bin_module(known, (namespace, &facts.bins), path).unwrap_or_else(|| direct.clone());
             while !known.contains(&name) && name.contains('.') {
                 name.truncate(name.rfind('.').unwrap_or(0));
             }
