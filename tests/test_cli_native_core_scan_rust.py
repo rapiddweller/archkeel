@@ -13,6 +13,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+import pytest
 from core_support import NATIVE, NATIVE_SELF_STATUS, SUFFIX, copy_native, ensure_target_dir
 from corpus_support import commit_tree, corpus_cases, materialized
 from filelock import FileLock
@@ -82,10 +83,19 @@ def test_each_rust_corpus_request_has_equal_facts_or_a_named_refusal(
 
 
 def test_the_core_scans_its_own_workspace_with_no_shell_reply(
-    built: Path, tmp_path: Path, frozen_root: Path
+    built: Path, tmp_path: Path, frozen_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "project"
     copy_native(root, frozen_root)
+    # The frozen copy turns the compiler facts off. `docs/architecture/native.md` draws the edges
+    # that the compiler proves (AD-1136), and only a scan with facts observes them: ask for the
+    # facts, as the self-check of the gate does (#2127).
+    config = root / "native/archkeel.toml"
+    config.write_text(
+        config.read_text().replace("rust_type_reach = false", "rust_type_reach = true")
+    )
+    monkeypatch.setenv("ARCHKEEL_ALLOW_BUILD", "1")
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "facts"))
     commit_tree(root)
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     request = {
