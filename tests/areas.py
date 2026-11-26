@@ -10,20 +10,22 @@ from fnmatch import fnmatchcase
 # up to 2 times as long on one runner as on another, so the summed test time of an area on such a
 # runner must stay below about 24 minutes for 4 workers.
 AREAS: dict[str, tuple[str, ...]] = {
+    "core scans": (
+        "test_cli_native_core_scan*.py",
+        "test_native_core.py",
+        "test_native_self_*.py",
+    ),
     "CLI and core": (
         "test_cli*.py",
         "test_core_guide.py",
         "test_explorer_*.py",
-        "test_native_core.py",
         "test_native_interface_boundary.py",
-        "test_native_self_rules.py",
-        "test_native_self_contract.py",
-        "test_native_self_core_rows.py",
         "test_project_demo_snapshots.py",
     ),
     "native collector evidence": (
         "test_collector_native_catalog.py",
         "test_collector_native_rust*.py",
+        "test_collector_native_scaling_sites.py",
     ),
     "native collectors": ("test_collector_native_*.py",),
     "collectors": (
@@ -136,6 +138,7 @@ HEAVY_FILES = frozenset(
         "test_cli_native_python_imports.py",
         "test_cli_native_python_indirect.py",
         "test_cli_native_python_reexport.py",
+        "test_cli_native_rust_selected_eq_edge.py",
         "test_cli_native_ts_reference_types.py",
         "test_cli_native_type_publication.py",
         "test_cli_python_interface.py",
@@ -173,13 +176,13 @@ HEAVY_FILES = frozenset(
 ALL = "all"
 TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
     ("tests/test_*.py", ()),
-    ("native/report/*", ("CLI and core", "reports")),
-    ("studio/*", ("CLI and core", "reports", "self-check and CI")),
+    ("native/report/*", ("core scans", "CLI and core", "reports")),
+    ("studio/*", ("core scans", "CLI and core", "reports", "self-check and CI")),
     ("native/*", ALL),
     ("src/archkeel/cli/*", ALL),
-    ("src/*", ("CLI and core", "self-check and CI")),
-    ("schema/*", ("CLI and core", "self-check and CI")),
-    ("fixtures/*", ("CLI and core", "collectors")),
+    ("src/*", ("core scans", "CLI and core", "self-check and CI")),
+    ("schema/*", ("core scans", "CLI and core", "self-check and CI")),
+    ("fixtures/*", ("core scans", "CLI and core", "collectors")),
     ("tools/*", ("self-check and CI", "reports")),
     # AD-736: a shared helper of the tests, the area table and its floors can change any area.
     ("tests/conftest.py", ALL),

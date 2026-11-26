@@ -2,20 +2,28 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The edges that the manifests declare. Source can hide a use (a macro, a generated token), but
-//! it cannot use a crate that the manifest does not declare.
+//! The edges that a fact other than the source syntax gives. The manifests declare dependencies: source
+//! can hide a use (a macro, a generated token), but it cannot use a crate that the manifest does not declare.
+//! The compiler selects impls: a call of `PartialEq::eq` runs the impl of another module (AD-1136).
 
 use std::collections::BTreeSet;
 
-use archkeel_facts::envelope::Evidence;
+use archkeel_facts::data::ImportData;
+use archkeel_facts::envelope::{Evidence, Target};
+use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::ids::{ModuleName, PackageName};
+use archkeel_facts::ImportFact;
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
 
-use crate::builder::{Builder, Form, Origin};
+use crate::builder::{import_record, Builder, Form, Origin};
 use crate::crates::{Crate, Workspace};
 use crate::manifest::Kind;
+use crate::modules::Index;
 use crate::resolve::Named;
 use crate::scan::{Reference, Site};
+use crate::tree::Module;
+use crate::type_reach_filter::Filter;
 
 impl Builder {
     /// A dependency that a manifest declares is an edge of its crate, in the section that it is
@@ -85,6 +93,65 @@ impl Builder {
                 Named::Package(package)
             };
             self.import(workspace, None, from, &reference, &named);
+        }
+    }
+
+    /// One `selected_impl` import for each call that the compiler resolved to the impl of another scan module.
+    /// The call is the evidence. The record names no symbol: the compiler gives the module of the impl.
+    /// The edge comes after the gaps are settled and no gap leaves for it: a site that the compiler did not
+    /// resolve stays a gap (AD-806, AD-1136).
+    pub(crate) fn selected_edges(
+        &mut self,
+        index: &Index<'_>,
+        modules: &[Module],
+        reach: Option<&Filter<'_>>,
+    ) {
+        for found in reach.map(Filter::selected).unwrap_or_default() {
+            let source = modules.iter().find(|m| m.module == found.from);
+            // The store requires the evidence file to be the file of the source module. A call in another
+            // file (an `include!`, a `#[path]` module) has no such evidence: it stays a gap.
+            let Some(from) = source.filter(|m| m.rel == found.file) else {
+                continue;
+            };
+            // The facts name the module by its path, and the scan maps a path to the nearest scan module. The
+            // file of the `eq` proves the mapping: a module loaded from a file outside the scan is no ancestor.
+            let Some(target_rel) = index.rel(&found.to).filter(|rel| *rel == found.impl_file)
+            else {
+                continue;
+            };
+            let target_package = index.frame(&found.to).map_or("", |f| f.module.package());
+            let site = Site {
+                line: found.line,
+                end_line: found.line,
+                column: found.column,
+                excerpt: format!("the compiler selected {}", found.imp),
+            };
+            let identity = stable_id(
+                "SEL",
+                &[
+                    Part::Text(&found.from),
+                    Part::Number(found.line),
+                    Part::Number(found.column),
+                    Part::Text(&found.to),
+                    Part::Text(&found.imp),
+                ],
+            );
+            let evidence = self.cite(&found.file, &site);
+            let local = Target::local(identity.as_str(), found.to.as_str(), target_rel);
+            self.targets.push(local);
+            let data = ImportData {
+                source_module: ModuleName::new(&found.from),
+                source_package: PackageName::new(from.package()),
+                target_module: ModuleName::new(&found.to),
+                target_package: PackageName::new(target_package),
+                specifier: Some(found.imp.clone()),
+                ..ImportData::statement()
+            };
+            let subjects = vec![found.from.clone(), found.to.clone()];
+            let at = (found.from.as_str(), found.imp.as_str());
+            let fact = ImportFact::SelectedImpl(data);
+            self.imports
+                .push(import_record((&identity, evidence), at, subjects, fact));
         }
     }
 }

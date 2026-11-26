@@ -18,6 +18,23 @@ pub(crate) struct ImplFacts {
     pub(crate) run: bool,
 }
 
+/// A call of `PartialEq::eq` in module `from` that the compiler resolved to the `eq` of an impl in module `to`
+/// (AD-1136). The modules are rustc paths here; the reach model maps them to scan modules.
+///
+/// A plain value, as the others of this module are: a derive would add a trait impl here, and a gap to each module
+/// that reaches it (AD-806).
+pub(crate) struct SelectedFacts {
+    pub(crate) from: String,
+    pub(crate) to: String,
+    /// The compiler path of the selected `eq`.
+    pub(crate) imp: String,
+    pub(crate) file: String,
+    /// The file that holds the selected `eq`.
+    pub(crate) impl_file: String,
+    pub(crate) line: i64,
+    pub(crate) column: i64,
+}
+
 /// What a module, an opaque type or a coroutine holds: ADTs, `dyn` traits and opaque types.
 pub(crate) struct Held {
     pub(crate) adts: Names,
@@ -68,6 +85,8 @@ pub struct Facts {
     /// there can coerce a value to them, and that code gets its values from the workspace through calls.
     pub(crate) foreign_dyn: BTreeMap<String, Names>,
     pub(crate) impls: Vec<ImplFacts>,
+    /// The selected impls of the non-test units.
+    pub(crate) selected: Vec<SelectedFacts>,
 }
 
 fn blank<T: Default>() -> T {
@@ -105,6 +124,7 @@ impl Facts {
             hidden: blank(),
             adts: blank(),
             impls: blank(),
+            selected: blank(),
         }
     }
 
@@ -144,8 +164,16 @@ impl Facts {
             .iter()
             .filter_map(|s| s.as_str().map(str::to_string))
             .collect();
+        // A call in a test unit is test code: a scan that leaves tests out must not charge it to its module.
+        let build: Value = serde_json::from_str(lines.first()?).ok()?;
+        let test_unit = build.get("test").and_then(Value::as_bool) != Some(false);
         for line in lines.get(2..)? {
             let v: Value = serde_json::from_str(line).ok()?;
+            if v.get("k")?.as_str()? == "sel" {
+                let site = selected(&v, &names)?;
+                self.selected.extend((!test_unit).then_some(site));
+                continue;
+            }
             self.record(&v, &names)?;
         }
         Some(())
@@ -236,6 +264,19 @@ impl Facts {
         }
         Some(())
     }
+}
+
+fn selected(v: &Value, names: &[String]) -> Option<SelectedFacts> {
+    let number = |key: &str| v.get(key)?.as_i64();
+    Some(SelectedFacts {
+        from: one(v, "from", names)?,
+        to: one(v, "to", names)?,
+        imp: one(v, "impl", names)?,
+        file: one(v, "file", names)?,
+        impl_file: one(v, "impl_file", names)?,
+        line: number("line")?,
+        column: number("col")?,
+    })
 }
 
 /// The record says that its types hold a raw pointer to `()` or `c_void`.
