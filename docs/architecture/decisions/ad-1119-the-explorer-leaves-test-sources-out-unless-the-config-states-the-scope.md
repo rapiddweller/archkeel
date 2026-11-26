@@ -19,15 +19,14 @@ already writes `exclude_test_sources = true`, so only a hand-written config had 
 
 ## Effect
 
-A view that left files out never reads PASS: when the core status is PASS and `excluded_sources` is above 0, the `verdict` answer
-gives status UNKNOWN, exit code 2 and `core_status` PASS. A production file that the naming rule took for a test can hold the
-only violation, so the view cannot claim a clean scope. The path list is cut to a quarter of the answer bound.
-
 The Explorer verdict can differ from `validate` when a test source breaks a rule. The `verdict` answer names the left-out
 paths, so the view never claims the full scope. A production import into an excluded test stays UNKNOWN (AD-313).
 
 ## Not done yet
 
+- A production file that the naming rule takes for a test can hold the only violation. The Explorer verdict then reads PASS for the
+  scope that it scanned. This is the rule of an explicit `exclude_test_sources = true` (AD-313) and stays a known limit: a strict
+  xfail probe and `docs/known-limits.md` name it. The shell decides no verdict. A core-side scope hold is a later change.
 - The test rules use naming conventions. On a copy of DATAMIMIC CE the default left out two production files by name
   (`test_result_exporter.py`, `data_mimic_test.py`); the answer lists them.
 - The Studio browser view shows no count yet. The public collector stream carries no list (see #874).

@@ -535,8 +535,10 @@ These files give no gap in the core and in 4.0.1 (follow-up work):
 - `exclude_test_sources = true` removes `test`/`tests`/`__tests__` directories and `*.test.*` and
   `*.spec.*` files by design (AD-313, opt-in), also when such a file imports another component.
 - The Explorer leaves test sources out of a Python or TypeScript scan when the config does not state the scope (AD-1119). The
-  naming rule can take a production file such as `test_result_exporter.py` for a test. A view that left files out never reads
-  PASS: the `verdict` answer gives UNKNOWN with `core_status` PASS and lists the paths. `validate` keeps the tests.
+  naming rule can take a production file such as `test_result_exporter.py` for a test. If it holds the only violation, the Explorer
+  verdict reads PASS for the scope that it scanned. The `verdict` answer lists the left-out paths (`excluded_paths`) and
+  `validate` keeps the tests. Probe: `tests/test_explorer_verdict.py::test_a_production_file_with_a_test_name_cannot_make_the_view_pass`
+  (strict xfail). Set `exclude_test_sources = false` to include tests in the Explorer.
 
 Import graphs, ownership, externals, cycles and layout are measured. Lexical UML
 declarations, members, signatures and proven local relationships are available;

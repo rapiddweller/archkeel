@@ -206,11 +206,6 @@ def _verdict(db: sqlite3.Connection, root: Path, _args: Row, snapshot: str) -> R
         return {"snapshot": snapshot, "status": None, "basis": Basis.UNKNOWN, "reason": _NO_VERDICT}
     status, exit_code, rules_violated, unknown, digest = row
     scope = _scope(db)
-    if status == "PASS" and scope["excluded_sources"]:
-        # A file that the naming rule took for a test can hold the only violation (AD-1119):
-        # a view that left files out never reads PASS.
-        status, exit_code = "UNKNOWN", 2
-        scope["core_status"] = "PASS"
     return scope | {
         "status": status,
         "exit_code": exit_code,
