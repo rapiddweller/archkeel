@@ -258,7 +258,7 @@ impl Site<'_> {
             GapEffect::Modules { modules } => {
                 modules.iter().any(|module| module.as_str() == source)
             }
-            GapEffect::Edges { .. } | GapEffect::Layout { .. } => false,
+            GapEffect::Edges { .. } | GapEffect::Symbols { .. } | GapEffect::Layout { .. } => false,
         };
         names && code
     }
