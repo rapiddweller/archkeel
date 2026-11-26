@@ -287,7 +287,9 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
     }
     // The fold is offered only when it adds something: a reason that the title already says whole
     // is not repeated.
-    if ["other", "named", "scoped_gaps"].contains(&found.kind) && found.reason != title(found) {
+    if ["other", "named", "scoped_gaps", "interface_imports"].contains(&found.kind)
+        && found.reason != title(found)
+    {
         html.push_str(&format!(
             "<details class=\"rp-fold\"><summary class=\"caption\">What the core says</summary><p class=\"rp-fold__body\">{}</p></details>",
             escape(says(found))
@@ -435,5 +437,23 @@ mod tests {
         assert!(page(&frame).contains("&lt;script&gt;"));
         frame["collection_gaps"] = json!([]);
         assert!(!page(&frame).contains("Scan gap sites"));
+    }
+
+    #[test]
+    fn two_interface_holds_with_different_causes_are_two_cards() {
+        let frame = json!({
+            "status": "UNKNOWN",
+            "rules": {"A": ["interface_boundary", "UNKNOWN"], "B": ["interface_boundary", "UNKNOWN"]},
+            "explained": {
+                "A": "incomplete scope: interface_boundary: unproven publication route: 1 import: a -> b:X (unproven publication route, ambiguous re-export)",
+                "B": "incomplete scope: interface_boundary: unproven publication route: 1 import: c -> d:Y (unproven publication route, unread __all__ of d)"
+            },
+            "explain": {"holds": {"rules": {
+                "A": {"cause": "undecided", "kind": "interface_imports", "total": 1},
+                "B": {"cause": "undecided", "kind": "interface_imports", "total": 1}}}}
+        });
+        let rendered = page(&frame);
+        assert!(rendered.contains("ambiguous re-export"));
+        assert!(rendered.contains("unread __all__ of d"));
     }
 }
