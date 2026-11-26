@@ -209,7 +209,8 @@ def _code_forms(native: Path) -> list[Plant]:
     (native / "model/src/planted_free.rs").write_text("pub fn planted() {}\n")
     plants.append(("NATIVE-ASSIGNMENT-COMPLETE", "native/model/src/planted_free.rs"))
     members = native / "Cargo.toml"
-    members.write_text(members.read_text().replace('"report"]', '"report", "planted"]', 1))
+    # The scan reads only workspace members (#1989): the planted crate must be one.
+    members.write_text(members.read_text().replace("members = [", 'members = ["planted", ', 1))
     (native / "planted/src").mkdir(parents=True)
     (native / "planted/Cargo.toml").write_text(
         '[package]\nname = "archkeel-planted"\nversion = "0.0.0"\nedition = "2021"\n'

@@ -10,6 +10,10 @@
 /// The environment variable that names the descriptor of the facts for the Rust worker (AD-1047).
 pub const ENV: &str = "ARCHKEEL_TYPE_REACH";
 
+/// The environment variable that gives the Rust worker the Cargo workspace members of the scan (#1989). The
+/// worker starts no process, so the core runs `cargo metadata` and passes its answer as JSON text.
+pub const MEMBERS_ENV: &str = "ARCHKEEL_WORKSPACE_MEMBERS";
+
 /// The name of the contract premise that the use of the facts needs. The contract crate has the same word
 /// (`premise_word`); a test of the model crate holds them equal.
 pub const PREMISE: &str = "rust_type_reach";
