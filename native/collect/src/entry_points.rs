@@ -207,7 +207,9 @@ fn cargo(path: &str, text: &str, files: &[(&str, &str)], found: &mut EntryPoints
             ["bin", leaf, "main.rs"] => leaf,
             _ => continue,
         };
-        if !name.is_empty() && !paths.contains(*file) && named.insert(name.to_owned()) {
+        // Cargo skips a dot-prefixed file or directory in automatic discovery.
+        let hidden = name.starts_with('.');
+        if !name.is_empty() && !hidden && !paths.contains(*file) && named.insert(name.to_owned()) {
             found
                 .entries
                 .push(observed(EntryKind::CargoBin, name, file));

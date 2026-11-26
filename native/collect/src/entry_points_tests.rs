@@ -283,3 +283,26 @@ fn a_scoped_package_name_installs_its_last_part_as_the_command() {
         Some("bin.@acme/one")
     );
 }
+
+#[test]
+fn a_dot_prefixed_file_is_no_default_binary() {
+    let (_base, root) = tree(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"demo\"\nedition = \"2021\"\n",
+        ),
+        ("src/bin/.hidden.rs", ""),
+        ("src/bin/.dir/main.rs", ""),
+        ("src/bin/shown.rs", ""),
+    ]);
+    let files = scanned(&[
+        "src/bin/.hidden.rs",
+        "src/bin/.dir/main.rs",
+        "src/bin/shown.rs",
+    ]);
+    let found = read(&root, Profile::Rust, &files).unwrap();
+    assert_eq!(
+        names(&found),
+        [(EntryKind::CargoBin, EntryBasis::Observed, "shown")]
+    );
+}
