@@ -31,7 +31,8 @@ pub(super) fn split(
         .zip(binders)
         .map(|(m, b)| (&m.tree, b.unique(), bindings(&m.tree)))
         .collect();
-    let reexports = table(items.iter().map(|(_, _, bound)| bound));
+    let names = modules.iter().map(|m| m.name.as_str());
+    let reexports = table(names.zip(items.iter().map(|(_, _, bound)| bound)));
     let proved = proved(&items, &[&BUILTIN_TROJAN_HORSES, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {

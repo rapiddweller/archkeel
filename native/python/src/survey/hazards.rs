@@ -26,9 +26,8 @@ use super::hazards_names::{
     IMPORT_FUNCTIONS, TROJAN_HORSE_STRINGS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
-pub(super) use bind::bindings;
-pub(super) use bind::exposed;
 use bind::imported;
+pub(super) use bind::{bindings, exposed};
 pub(super) use comprehension::trojans as comprehension_trojans;
 pub(super) use inert::{cleared, BUILTINS};
 pub(super) use reexport::{table, Reexports};
@@ -296,8 +295,9 @@ impl Walk<'_> {
     }
 
     /// A hazard behind a name that a module of the scan binds to a standard library module.
-    fn reexported(&mut self, attributes: &[&str], expr: &Expr) {
-        if let Some((kind, name)) = reexport::find(self.reexports, attributes) {
+    fn reexported(&mut self, root: Option<&str>, attributes: &[&str], expr: &Expr) {
+        let via = root.and_then(|id| self.bound.get(id));
+        if let Some((kind, name)) = reexport::find(self.reexports, via, attributes) {
             self.push(kind, &name, expr);
         }
     }
@@ -346,12 +346,12 @@ impl Walk<'_> {
             return self.push(DYNAMIC, "code", expr);
         }
         let Expr::Name(root) = base else {
-            self.reexported(&attributes, expr);
+            self.reexported(None, &attributes, expr);
             return self.visit_expr(base);
         };
         let id = root.id.as_str();
         if self.local(id) {
-            self.reexported(&attributes, expr);
+            self.reexported(None, &attributes, expr);
             return;
         }
         if BUILTIN_TROJAN_HORSES.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
@@ -370,7 +370,7 @@ impl Walk<'_> {
                 return self.push(DYNAMIC, &origin, expr);
             }
         }
-        self.reexported(&attributes, expr);
+        self.reexported(Some(id), &attributes, expr);
     }
 }
 
