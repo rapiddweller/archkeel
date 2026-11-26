@@ -249,10 +249,10 @@ fn include_arguments(text: &str) -> Vec<Option<&str>> {
     let mut found = Vec::new();
     for at in word_at(text, "include") {
         let Some(rest) = trivia(&text[at + "include".len()..]).strip_prefix('!') else {
-            // `use std::include as load;` or a path to the macro: the call is not followed here, so it holds. A word
-            // in a line comment is no use.
+            // `use std::include as load;` or a path to the macro: the call is not followed here, so it holds. A line
+            // that starts with `//` is a comment, whatever it holds.
             let line = text[..at].rsplit('\n').next().unwrap_or_default();
-            if !line.contains("//") {
+            if !line.trim_start().starts_with("//") {
                 found.push(None);
             }
             continue;
@@ -264,18 +264,20 @@ fn include_arguments(text: &str) -> Vec<Option<&str>> {
     found
 }
 
-/// The literal of each `path = ".."` inside an attribute (`#[path = ".."]`, `#[cfg_attr(.., path = "..")]`).
+/// The literal of each `path = ".."` in the text, wherever it stands: an attribute can end in a place that a search
+/// without a lexer cannot tell (`cfg_attr(.., doc = "]", path = ".."`). A `path =` that is followed by `$` (a macro
+/// argument) cannot be told and gives `None`; a `path =` that is followed by another expression is no attribute.
 fn path_attributes(text: &str) -> Vec<Option<&str>> {
     let mut found = Vec::new();
-    for (at, _) in text.match_indices('#') {
-        let rest = trivia(&text[at + 1..]);
-        let Some(rest) = trivia(rest.strip_prefix('!').unwrap_or(rest)).strip_prefix('[') else {
+    for key in word_at(text, "path") {
+        let Some(value) = trivia(&text[key + "path".len()..]).strip_prefix('=') else {
             continue;
         };
-        let attribute = &rest[..rest.find(']').map_or(rest.len(), |end| end + 1)];
-        for key in word_at(attribute, "path") {
-            let value = trivia(&attribute[key + "path".len()..]).strip_prefix('=');
-            found.push(value.map(trivia).and_then(whole_literal));
+        let value = trivia(value);
+        if value.starts_with('"') {
+            found.push(whole_literal(value));
+        } else if value.starts_with('$') {
+            found.push(None);
         }
     }
     found
@@ -300,7 +302,9 @@ fn whole_literal(rest: &str) -> Option<&str> {
     let body = rest.strip_prefix('"')?;
     let literal = &body[..body.find('"')?];
     let after = trivia(&body[literal.len() + 1..]);
-    after.starts_with([')', ']', ';', '}']).then_some(literal)
+    after
+        .starts_with([')', ']', ';', '}', ','])
+        .then_some(literal)
 }
 
 /// Whether the canonical path `target` lies in the crate `own` and in no member.

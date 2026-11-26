@@ -119,6 +119,18 @@ ROUTES = {
         "",
         'include!(".git/bridge.rs");\npub fn f() { make(); }\n',
     ),
+    "cfg-attr-bracket": (
+        WORKSPACE,
+        "",
+        '#[cfg_attr(all(), doc = "[]", path = "../../../crates/base/src/lib.rs")]\n'
+        "mod b;\npub fn f() { b::make(); }\n",
+    ),
+    "include-url-comment": (
+        WORKSPACE,
+        "",
+        "use /* https://example.test */ std::include as load;\n"
+        'load!("../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n',
+    ),
     "include": (
         WORKSPACE,
         "",
