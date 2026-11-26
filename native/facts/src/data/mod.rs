@@ -26,7 +26,6 @@ pub use constructs::SignalData;
 pub use gap_data::GapData;
 pub use gap_effect::GapEffect;
 pub use imports::ImportData;
-pub use imports::{RouteWithheld, SurfaceForm};
 pub use sites::BindingData;
 pub use sites::CallData;
 pub use sites::ReferenceData;

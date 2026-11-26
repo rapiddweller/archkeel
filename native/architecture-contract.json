@@ -38,10 +38,8 @@
         "native.archkeel_facts.data:PlaceholderData",
         "native.archkeel_facts.data:PlainConstructData",
         "native.archkeel_facts.data:ReferenceData",
-        "native.archkeel_facts.data:RouteWithheld",
         "native.archkeel_facts.data:SelectorData",
         "native.archkeel_facts.data:SignalData",
-        "native.archkeel_facts.data:SurfaceForm",
         "native.archkeel_facts.data:TrojanHorseForm",
         "native.archkeel_facts.data:TrojanHorseSite",
         "native.archkeel_facts.data:ValueData",
@@ -159,6 +157,7 @@
         "native.archkeel_facts.vocab:ReferenceContext",
         "native.archkeel_facts.vocab:RelationshipKind",
         "native.archkeel_facts.vocab:ResolutionDimension",
+        "native.archkeel_facts.vocab:RouteWithheld",
         "native.archkeel_facts.vocab:SelectorRole",
         "native.archkeel_facts.vocab:Signal",
         "native.archkeel_facts.vocab:Status",
@@ -459,12 +458,11 @@
           "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result.",
           "through": [
             "native.archkeel_model.causes",
+            "native.archkeel_model.causes:InterfaceGap",
+            "native.archkeel_model.causes:InterfaceHold",
+            "native.archkeel_model.causes:PairOrigin",
             "native.archkeel_model.coverage",
             "native.archkeel_model.ids",
-            "native.archkeel_model.interface_hold:HoldClass",
-            "native.archkeel_model.interface_hold:InterfaceGap",
-            "native.archkeel_model.interface_hold:InterfaceHold",
-            "native.archkeel_model.interface_hold:PairOrigin",
             "native.archkeel_model.needs",
             "native.archkeel_model.reason",
             "native.archkeel_model.reason_key",
@@ -558,7 +556,6 @@
         "native.archkeel_model:Edge",
         "native.archkeel_model:ExactCall",
         "native.archkeel_model:Graph",
-        "native.archkeel_model:HoldClass",
         "native.archkeel_model:Hygiene",
         "native.archkeel_model:Import",
         "native.archkeel_model:Incomplete",
@@ -643,7 +640,6 @@
         "native.archkeel_model.coverage",
         "native.archkeel_model.gap_class",
         "native.archkeel_model.ids",
-        "native.archkeel_model.interface_hold",
         "native.archkeel_model.needs",
         "native.archkeel_model.reason",
         "native.archkeel_model.reason_key",
@@ -674,6 +670,7 @@
           "through": [
             "native.archkeel_facts.data",
             "native.archkeel_facts.envelope",
+            "native.archkeel_facts.vocab:RouteWithheld",
             "native.archkeel_facts:GapFact"
           ]
         }
@@ -682,6 +679,10 @@
         "native.archkeel_model.brand:Brand",
         "native.archkeel_model.causes:Cause",
         "native.archkeel_model.causes:Held",
+        "native.archkeel_model.causes:HeldImport",
+        "native.archkeel_model.causes:InterfaceGap",
+        "native.archkeel_model.causes:InterfaceHold",
+        "native.archkeel_model.causes:PairOrigin",
         "native.archkeel_model.causes:Part",
         "native.archkeel_model.coverage:Incomplete",
         "native.archkeel_model.coverage:data_of",
@@ -698,11 +699,6 @@
         "native.archkeel_model.ids:PackageId",
         "native.archkeel_model.ids:Table",
         "native.archkeel_model.ids:id_of",
-        "native.archkeel_model.interface_hold:HeldImport",
-        "native.archkeel_model.interface_hold:HoldClass",
-        "native.archkeel_model.interface_hold:InterfaceGap",
-        "native.archkeel_model.interface_hold:InterfaceHold",
-        "native.archkeel_model.interface_hold:PairOrigin",
         "native.archkeel_model.needs:Need",
         "native.archkeel_model.needs:Needs",
         "native.archkeel_model.reason:Hygiene",
@@ -935,8 +931,8 @@
           "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result.",
           "through": [
             "native.archkeel_model.causes:Held",
-            "native.archkeel_model.ids",
-            "native.archkeel_model.interface_hold:PairOrigin"
+            "native.archkeel_model.causes:PairOrigin",
+            "native.archkeel_model.ids"
           ]
         },
         {
@@ -1135,10 +1131,10 @@
           "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result.",
           "through": [
             "native.archkeel_model.causes",
+            "native.archkeel_model.causes:HeldImport",
+            "native.archkeel_model.causes:InterfaceGap",
+            "native.archkeel_model.causes:InterfaceHold",
             "native.archkeel_model.ids",
-            "native.archkeel_model.interface_hold:HeldImport",
-            "native.archkeel_model.interface_hold:InterfaceGap",
-            "native.archkeel_model.interface_hold:InterfaceHold",
             "native.archkeel_model.reason"
           ]
         },
@@ -2058,8 +2054,12 @@
           "through": [
             "native.archkeel_model:Cause",
             "native.archkeel_model:Decision",
+            "native.archkeel_model:Incomplete",
+            "native.archkeel_model:InterfaceGap",
+            "native.archkeel_model:InterfaceHold",
             "native.archkeel_model:Model",
             "native.archkeel_model:ModelTree",
+            "native.archkeel_model:PairOrigin",
             "native.archkeel_model:Reason",
             "native.archkeel_model:RunGap",
             "native.archkeel_model:RunPass",
@@ -2105,12 +2105,31 @@
             "native.archkeel_report.report",
             "native.archkeel_report.status"
           ]
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Read the held imports and the origins of an interface_boundary hold (#2086, AD-1170).",
+          "through": [
+            "native.archkeel_model.causes:InterfaceGap",
+            "native.archkeel_model.causes:InterfaceHold",
+            "native.archkeel_model.causes:PairOrigin"
+          ]
+        },
+        {
+          "component": "facts",
+          "rationale": "Read the cause that the collector states for a held import (#2086, AD-1170).",
+          "through": [
+            "native.archkeel_facts.vocab:RouteWithheld"
+          ]
         }
       ],
       "public": [
         "native.archkeel_report.build_error:BuildError",
         "native.archkeel_report.construct:construct_row",
         "native.archkeel_report.kind:word",
+        "native.archkeel_report.why:Held",
+        "native.archkeel_report.why:HoldKind",
+        "native.archkeel_report.why:InterfaceHolds",
         "native.archkeel_report.why:WhyUnknown"
       ],
       "decided_by": "architect"
@@ -2228,10 +2247,7 @@
             "native.archkeel_model:Cause",
             "native.archkeel_model:CoverageGap",
             "native.archkeel_model:Decision",
-            "native.archkeel_model:HoldClass",
             "native.archkeel_model:Incomplete",
-            "native.archkeel_model:InterfaceGap",
-            "native.archkeel_model:InterfaceHold",
             "native.archkeel_model:Model",
             "native.archkeel_model:ModelTree",
             "native.archkeel_model:PairOrigin",
@@ -2314,7 +2330,10 @@
           "through": [
             "native.archkeel_report.build_error",
             "native.archkeel_report.kind",
-            "native.archkeel_report.why"
+            "native.archkeel_report.why",
+            "native.archkeel_report.why:Held",
+            "native.archkeel_report.why:HoldKind",
+            "native.archkeel_report.why:InterfaceHolds"
           ]
         },
         {
@@ -2333,20 +2352,10 @@
           ]
         },
         {
-          "component": "facts",
-          "rationale": "Project the held imports of an interface_boundary rule with the cause that the collector states (#2086, AD-1170).",
-          "through": [
-            "native.archkeel_facts.data:RouteWithheld"
-          ]
-        },
-        {
           "component": "model-terms",
           "rationale": "Read the held imports and their classes of an interface_boundary hold (#2086, AD-1170).",
           "through": [
-            "native.archkeel_model.interface_hold:HoldClass",
-            "native.archkeel_model.interface_hold:InterfaceGap",
-            "native.archkeel_model.interface_hold:InterfaceHold",
-            "native.archkeel_model.interface_hold:PairOrigin"
+            "native.archkeel_model.causes:PairOrigin"
           ]
         }
       ],

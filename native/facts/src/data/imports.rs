@@ -6,43 +6,7 @@
 
 use crate::ids::{ModuleName, PackageName};
 use crate::nullable::Nullable;
-use crate::vocab::Visibility;
-
-/// Why the collector withholds the publication route of an import (#2086, AD-1170).
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum RouteWithheld {
-    /// The import is one of the ambiguous re-exports: the package body binds the name too, so
-    /// the name may be the attribute or the submodule.
-    AmbiguousReexport,
-    /// A hop is not proven: its binding is not one plain statement, it has two targets, or the
-    /// route is a cycle. `hop` is the dotted name of the hop.
-    UncertainHop {
-        /// The dotted name of the hop.
-        hop: String,
-    },
-    /// A module on the route has a surface that the collector cannot read.
-    OpaqueSurface {
-        /// The module.
-        module: String,
-        /// Why its surface is not read.
-        form: SurfaceForm,
-    },
-    /// The import sits under `TYPE_CHECKING` and passes a re-export.
-    TypeCheckingReexport,
-}
-
-/// Why the names that a module publishes are not read.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum SurfaceForm {
-    /// `__all__` is not one literal list of strings.
-    UnreadAll,
-    /// Code outside the scan roots can write to the module.
-    OutsideWrite,
-    /// A use inside the scan hands the module object on, so a write to it is not excluded.
-    Escaped,
-}
+use crate::vocab::{RouteWithheld, Visibility};
 
 facts_data! {
     /// An import: one record for each statement or bound name (TypeScript, Rust), or for each
@@ -79,6 +43,8 @@ facts_data! {
         /// Why the collector withholds the publication route of this import. Absent: it states
         /// no cause, or the route is not withheld.
         [live never] route_withheld: Option<RouteWithheld>,
+        /// The hop or the module that the cause names.
+        [live never] route_withheld_at: Option<String>,
         /// `false` when the collector proves only the first hops of `reexport_chain`: a later
         /// hop may follow (AD-604). Absent: the route is complete, or there is none.
         [read skip] route_complete: Option<bool>,
@@ -154,6 +120,7 @@ impl ImportData {
             reexport_chain: None,
             route_complete: None,
             route_withheld: None,
+            route_withheld_at: None,
             published_as: None,
             other_crate: None,
             inferred_receiver: false,

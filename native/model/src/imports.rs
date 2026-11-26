@@ -44,7 +44,7 @@ pub(crate) struct Published {
     pub(crate) complete: bool,
     pub(crate) outside: Option<String>,
     pub(crate) other_crate: bool,
-    pub(crate) withheld: Option<archkeel_facts::data::RouteWithheld>,
+    pub(crate) withheld: Option<(archkeel_facts::vocab::RouteWithheld, Option<String>)>,
 }
 
 /// One resolved import that is not a macro body: the input of the edges and the rules.
@@ -138,7 +138,9 @@ impl Import {
     }
 
     /// Why the collector withholds the route of this import, when it states a cause (#2086).
-    pub fn route_withheld(&self) -> Option<&archkeel_facts::data::RouteWithheld> {
+    pub fn route_withheld(
+        &self,
+    ) -> Option<&(archkeel_facts::vocab::RouteWithheld, Option<String>)> {
         self.published.withheld.as_ref()
     }
 
@@ -338,7 +340,9 @@ pub(crate) fn split(facts: &Facts, marks: TargetMarks, declared: impl Fn(&str) -
                 complete: data.route_complete != Some(false),
                 outside: data.published_as.clone(),
                 other_crate: data.other_crate == Some(true),
-                withheld: data.route_withheld.clone(),
+                withheld: data
+                    .route_withheld
+                    .map(|cause| (cause, data.route_withheld_at.clone())),
             },
             relative: data.relative_level != 0,
             resolved,

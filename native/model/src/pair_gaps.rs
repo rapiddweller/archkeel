@@ -25,10 +25,10 @@ use archkeel_contract::{
 };
 
 use crate::causes::Held;
+use crate::causes::PairOrigin;
 use crate::graph::Graph;
 use crate::ids::{ComponentId, Table};
 use crate::imports::Resolved;
-use crate::interface_hold::PairOrigin;
 use crate::ownership::{claims, in_scope, owner_of};
 use crate::selection::{dependency_sides, Selection};
 

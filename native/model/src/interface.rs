@@ -10,9 +10,9 @@ use std::collections::HashSet;
 use archkeel_contract::{Component, InterfaceBoundary, Rule};
 use archkeel_facts::envelope::LimitSupport;
 
+use crate::causes::{HeldImport, InterfaceGap, InterfaceHold};
 use crate::direction::{Crossing, Judged};
 use crate::imports::Import;
-use crate::interface_hold::{HeldImport, InterfaceGap, InterfaceHold};
 use crate::model::Model;
 use crate::ownership::owner_of;
 use crate::reason::Reason;

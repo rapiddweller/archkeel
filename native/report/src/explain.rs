@@ -22,11 +22,7 @@ use archkeel_eval::{CycleStep, Outcome, Violation};
 use archkeel_model::{shape, Applied, CoverageGap, Model, PairOrigin, Reason, Shape};
 use serde::Serialize;
 
-use crate::why::WhyUnknown;
-use held::{Held, HoldKind, InterfaceHolds};
-
-#[path = "explain_held.rs"]
-mod held;
+use crate::why::{Held, HoldKind, InterfaceHolds, WhyUnknown};
 
 const VERSION: u8 = 1;
 /// The most cycles that one rule lists.
@@ -277,13 +273,13 @@ struct Pair {
     target: String,
     /// Why the pair holds an interface rule; absent for the other rules.
     #[serde(skip_serializing_if = "Option::is_none")]
-    origin: Option<PairOrigin>,
+    origin: Option<&'static str>,
 }
 
 /// The number of held pairs of one origin (an interface rule).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 struct OriginCount {
-    origin: PairOrigin,
+    origin: &'static str,
     count: usize,
 }
 
@@ -383,7 +379,10 @@ fn origin_counts(pairs: &[(String, String, Option<PairOrigin>)]) -> Vec<OriginCo
     }
     counts
         .into_iter()
-        .map(|(origin, count)| OriginCount { origin, count })
+        .map(|(origin, count)| OriginCount {
+            origin: PairOrigin::word(origin),
+            count,
+        })
         .collect()
 }
 
@@ -422,7 +421,7 @@ impl Collected {
                         .map(|(source, target, origin)| Pair {
                             source: source.clone(),
                             target: target.clone(),
-                            origin: *origin,
+                            origin: origin.map(PairOrigin::word),
                         })
                         .collect(),
                     total,

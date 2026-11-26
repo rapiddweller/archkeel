@@ -28,8 +28,8 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use archkeel_facts::data::{RouteWithheld, SurfaceForm};
 use archkeel_facts::envelope::FileFact;
+use archkeel_facts::vocab::RouteWithheld;
 use archkeel_facts::{ImportFact, Record};
 
 use super::lazy_cover::{self, Sources};
@@ -121,34 +121,34 @@ pub(crate) fn resolve(
             &reexports,
         );
         // The first cause that withholds the route; the reply states it with the empty chain.
+        let guarded = data.under_type_checking && chain.len() > 1;
         let cause = if skipped {
-            Some(RouteWithheld::AmbiguousReexport)
+            Some((RouteWithheld::AmbiguousReexport, None))
         } else if let Some(hop) = chain.iter().find(|hop| uncertain.contains(*hop)) {
-            Some(RouteWithheld::UncertainHop { hop: hop.clone() })
+            Some((RouteWithheld::UncertainHop, Some(hop.clone())))
         } else if let Some(module) = chain
             .iter()
             .filter_map(|hop| hop.rsplit_once('.').map(|(module, _)| module))
             .find(|module| opaque.contains(*module))
         {
             let form = if causes.unread_all.contains(module) {
-                SurfaceForm::UnreadAll
+                RouteWithheld::UnreadAll
             } else if causes.outside.contains(module) {
-                SurfaceForm::OutsideWrite
+                RouteWithheld::OutsideWrite
             } else {
-                SurfaceForm::Escaped
+                RouteWithheld::Escaped
             };
-            Some(RouteWithheld::OpaqueSurface {
-                module: module.to_owned(),
-                form,
-            })
+            Some((form, Some(module.to_owned())))
         } else {
             // A route under `TYPE_CHECKING` that passes a re-export is not proven for the model,
             // which reads the first hop of a guarded import only (the TypeScript type rule).
-            (data.under_type_checking && chain.len() > 1)
-                .then_some(RouteWithheld::TypeCheckingReexport)
+            guarded.then_some((RouteWithheld::TypeCheckingReexport, None))
         };
         data.reexport_chain = Some(if cause.is_some() { Vec::new() } else { chain });
-        data.route_withheld = cause;
+        (data.route_withheld, data.route_withheld_at) = match cause {
+            Some((cause, at)) => (Some(cause), at),
+            None => (None, None),
+        };
     }
 }
 

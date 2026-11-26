@@ -27,7 +27,11 @@ fn route(files: &[(&str, &str)], source: &str, symbol: &str) -> Option<Vec<Strin
 }
 
 /// The cause that the survey states for the withheld route of the import of `symbol`.
-fn cause(files: &[(&str, &str)], source: &str, symbol: &str) -> Option<RouteWithheld> {
+fn cause(
+    files: &[(&str, &str)],
+    source: &str,
+    symbol: &str,
+) -> Option<(RouteWithheld, Option<String>)> {
     let mut found = surveyed(files);
     resolve(
         &mut found.imports,
@@ -39,7 +43,10 @@ fn cause(files: &[(&str, &str)], source: &str, symbol: &str) -> Option<RouteWith
     found.imports.iter().find_map(|record| {
         let data = record.data.data();
         (data.source_module.as_str() == source && data.symbol.as_deref() == Some(symbol))
-            .then(|| data.route_withheld.clone())
+            .then(|| {
+                data.route_withheld
+                    .zip(Some(data.route_withheld_at.clone()))
+            })
             .flatten()
     })
 }
@@ -196,7 +203,7 @@ fn the_survey_alone_writes_no_route() {
         .all(|record| record.data.data().reexport_chain.is_none()));
 }
 
-fn with_init(init: &str) -> Option<RouteWithheld> {
+fn with_init(init: &str) -> Option<(RouteWithheld, Option<String>)> {
     cause(
         &[("src/app/__init__.py", ""), (INIT, init), IMPL, USER],
         "app.user",
@@ -209,10 +216,7 @@ fn an_unread_all_is_the_stated_cause() {
     let found = with_init("from app.pkg.impl import f\n__all__ = ['f'] + other\n");
     assert_eq!(
         found,
-        Some(RouteWithheld::OpaqueSurface {
-            module: "app.pkg".to_owned(),
-            form: SurfaceForm::UnreadAll
-        })
+        Some((RouteWithheld::UnreadAll, Some("app.pkg".to_owned())))
     );
 }
 
@@ -231,10 +235,7 @@ fn a_write_from_another_module_is_the_stated_cause() {
     );
     assert_eq!(
         found,
-        Some(RouteWithheld::OpaqueSurface {
-            module: "app.pkg".to_owned(),
-            form: SurfaceForm::Escaped
-        })
+        Some((RouteWithheld::Escaped, Some("app.pkg".to_owned())))
     );
 }
 
@@ -243,9 +244,7 @@ fn a_hop_that_is_not_unique_is_the_stated_cause() {
     let found = with_init("from app.pkg.impl import f\nf = 1\n");
     assert_eq!(
         found,
-        Some(RouteWithheld::UncertainHop {
-            hop: "app.pkg.f".to_owned()
-        })
+        Some((RouteWithheld::UncertainHop, Some("app.pkg.f".to_owned())))
     );
 }
 
@@ -264,7 +263,7 @@ fn a_guarded_reexport_is_the_stated_cause() {
         "app.user",
         "f",
     );
-    assert_eq!(found, Some(RouteWithheld::TypeCheckingReexport));
+    assert_eq!(found, Some((RouteWithheld::TypeCheckingReexport, None)));
 }
 
 #[test]
@@ -285,7 +284,7 @@ fn a_name_that_is_the_attribute_or_the_submodule_is_the_stated_cause() {
         "app.user",
         "f",
     );
-    assert_eq!(found, Some(RouteWithheld::AmbiguousReexport));
+    assert_eq!(found, Some((RouteWithheld::AmbiguousReexport, None)));
 }
 
 #[test]
@@ -303,9 +302,6 @@ fn code_outside_the_scan_that_writes_a_module_is_the_stated_cause() {
     );
     assert_eq!(
         found,
-        Some(RouteWithheld::OpaqueSurface {
-            module: "app.pkg".to_owned(),
-            form: SurfaceForm::OutsideWrite
-        })
+        Some((RouteWithheld::OutsideWrite, Some("app.pkg".to_owned())))
     );
 }

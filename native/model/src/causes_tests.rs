@@ -6,7 +6,7 @@
 //! a cut list says how many pairs it shows.
 
 use super::{Cause, Held};
-use crate::interface_hold::{HeldImport, HoldClass, InterfaceGap, InterfaceHold, PairOrigin};
+use crate::causes::{HeldImport, InterfaceGap, InterfaceHold, PairOrigin};
 
 fn pairs(count: usize) -> Vec<(String, String)> {
     (0..count)
@@ -104,8 +104,8 @@ fn an_interface_hold_lists_its_imports_and_cuts_the_list() {
 
 #[test]
 fn an_interface_hold_counts_each_class_and_names_the_cause_in_its_text() {
-    use archkeel_facts::data::{RouteWithheld, SurfaceForm};
-    let held = |target: &str, cause: Option<RouteWithheld>| HeldImport {
+    use archkeel_facts::vocab::RouteWithheld;
+    let held = |target: &str, cause: Option<(RouteWithheld, Option<String>)>| HeldImport {
         gap: InterfaceGap::PublicationRoute,
         source: "a".to_owned(),
         target: target.to_owned(),
@@ -115,14 +115,11 @@ fn an_interface_hold_counts_each_class_and_names_the_cause_in_its_text() {
     };
     let hold = InterfaceHold::of(
         [
-            held("m1", Some(RouteWithheld::AmbiguousReexport)),
-            held("m2", Some(RouteWithheld::AmbiguousReexport)),
+            held("m1", Some((RouteWithheld::AmbiguousReexport, None))),
+            held("m2", Some((RouteWithheld::AmbiguousReexport, None))),
             held(
                 "m3",
-                Some(RouteWithheld::OpaqueSurface {
-                    module: "m3".to_owned(),
-                    form: SurfaceForm::OutsideWrite,
-                }),
+                Some((RouteWithheld::OutsideWrite, Some("m3".to_owned()))),
             ),
             held("m4", None),
         ]
@@ -133,18 +130,22 @@ fn an_interface_hold_counts_each_class_and_names_the_cause_in_its_text() {
     assert_eq!(
         classes,
         [
-            (InterfaceGap::PublicationRoute, HoldClass::NotStated, 1),
+            (InterfaceGap::PublicationRoute, None, 1),
             (
                 InterfaceGap::PublicationRoute,
-                HoldClass::AmbiguousReexport,
+                Some(RouteWithheld::AmbiguousReexport),
                 2
             ),
-            (InterfaceGap::PublicationRoute, HoldClass::OutsideWrite, 1),
+            (
+                InterfaceGap::PublicationRoute,
+                Some(RouteWithheld::OutsideWrite),
+                1
+            ),
         ]
     );
     let text = hold.to_string();
-    assert!(text.contains("a -> m1:X (unproven publication route, ambiguous re-export)"));
-    assert!(text.contains("code outside the scan can write m3"));
+    assert!(text.contains("a -> m1:X (unproven publication route, ambiguous_reexport)"));
+    assert!(text.contains("outside_write m3"));
     assert_eq!(hold.total(), 4);
 }
 
