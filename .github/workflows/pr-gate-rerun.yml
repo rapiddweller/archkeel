@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  # An ignored event gets its own group: it must not replace a pending approval rerun of the same PR.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null))) && 'approval' || github.run_id }}
   cancel-in-progress: false
 
 jobs:

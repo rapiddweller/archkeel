@@ -64,6 +64,7 @@ def test_pr_gate_starts_only_on_a_push_and_the_rerun_workflow_filters_the_rest()
     assert "actions: write" in rerun
     assert "ratchet-lead" in rerun
     assert "changes.body != null" in rerun and "changes.base != null" in rerun
+    assert "&& 'approval' || github.run_id" in rerun.split("\njobs:\n", 1)[0]
     assert "gh run rerun" in rerun and "pr-gate.yml" in rerun
     # No success may come from an ignored event: the rerun job holds no check named `PR gate`.
     assert "name: PR gate\n" not in rerun
