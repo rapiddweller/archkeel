@@ -191,7 +191,7 @@ const PLAIN_DUNDER: [&str; 7] = [
 /// `__class__`, `__init__`, ...) and the name of an access form. The names of
 /// `TROJAN_HORSE_STRINGS` (`__globals__`, `f_builtins`) and the trojan horse attributes have their
 /// own hazard, so they are no second site.
-pub(super) fn reflective(name: &str, write: bool) -> bool {
+pub(super) fn reflective(name: &str) -> bool {
     let dunder = name.len() > 4 && name.starts_with("__") && name.ends_with("__");
     let own = crate::survey::hazards_names::TROJAN_HORSE_STRINGS.contains(&name)
         || crate::survey::hazards_names::attribute_trojan_horse(&[name], 0);
@@ -200,8 +200,9 @@ pub(super) fn reflective(name: &str, write: bool) -> bool {
         .chain(&LIBRARY_ACCESS)
         .chain(&METHOD_ACCESS)
         .any(|each| *each == name);
-    // A write of a literal dunder (`setattr(C, '__new__', f)`) reads no reflection back.
-    (dunder && !write && !PLAIN_DUNDER.contains(&name) && !own) || access
+    // A write of a literal dunder (`setattr(C, '__call__', f)`, `C.__call__ = f`) changes what a later plain
+    // call, access or construction runs: it is a site like a read (AD-1058, #1979).
+    (dunder && !PLAIN_DUNDER.contains(&name) && !own) || access
 }
 
 /// `vars(x)` or `x.__dict__`: the dictionary of the attributes of any value.
@@ -226,7 +227,8 @@ impl Trojans<'_> {
             let id = Name::as_str(&target.id);
             // The module binds the name once: this assignment is its only binder.
             let once = !self.taken.contains(id) && self.single.contains(id);
-            let plain = matches!(&*node.value, Expr::StringLiteral(t) if !reflective(t.value.to_str(), false));
+            let plain =
+                matches!(&*node.value, Expr::StringLiteral(t) if !reflective(t.value.to_str()));
             if once && plain {
                 literals.insert(id.to_owned());
             }
@@ -287,9 +289,9 @@ impl Trojans<'_> {
     }
 
     /// True when the name is a literal or a local with one literal.
-    fn resolved(&self, name: &Expr, write: bool) -> bool {
+    fn resolved(&self, name: &Expr) -> bool {
         match (name, &self.scope) {
-            (Expr::StringLiteral(text), _) => !reflective(text.value.to_str(), write),
+            (Expr::StringLiteral(text), _) => !reflective(text.value.to_str()),
             (Expr::Name(node), Some(literals)) => {
                 HashSet::contains(literals, Name::as_str(&node.id))
             }
@@ -303,8 +305,7 @@ impl<'a> Trojans<'_> {
     /// its arguments are visited; the result is true when the call was one.
     fn access_call(&mut self, call: &'a ExprCall) -> bool {
         let site = self.computed(call);
-        let write = |kind: &str| kind.contains("set") || kind.contains("del");
-        let site = site.filter(|(kind, _, name)| !self.resolved(name, write(kind)));
+        let site = site.filter(|(_, _, name)| !self.resolved(name));
         if let Some((kind, _, _)) = site {
             self.found.push((kind, call.range()));
         }
@@ -358,7 +359,7 @@ impl<'a> Visitor<'a> for Trojans<'_> {
             // key that the scan cannot read reaches `__builtins__` and `__code__`. Only a direct
             // subscript with a literal key is no site; `d = vars(m)` is one (AD-1058).
             Expr::Subscript(node) if dict_view(&node.value) => {
-                if !self.resolved(&node.slice, false) || self.module_value(&node.value) {
+                if !self.resolved(&node.slice) || self.module_value(&node.value) {
                     self.found.push(("__dict__", node.range()));
                 }
                 match &*node.value {
@@ -372,6 +373,17 @@ impl<'a> Visitor<'a> for Trojans<'_> {
             }
             Expr::Attribute(node) if Identifier::as_str(&node.attr) == "__dict__" => {
                 self.found.push(("__dict__", expr.range()));
+            }
+            // `K.__call__ = f` and `del K.__call__` write a literal dunder: the same site as `setattr`.
+            Expr::Attribute(node) if node.ctx != ExprContext::Load => {
+                if reflective(Identifier::as_str(&node.attr)) {
+                    let kind = if node.ctx == ExprContext::Del {
+                        "delattr"
+                    } else {
+                        "setattr"
+                    };
+                    self.found.push((kind, expr.range()));
+                }
             }
             // A form that is no callee is a call that the scan does not follow: `g = getattr`,
             // `map(getattr, ...)`, `partial(getattr, f)`, `ga = f.__getattribute__` (AD-1058).
