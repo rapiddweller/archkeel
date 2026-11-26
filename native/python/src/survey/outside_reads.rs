@@ -59,6 +59,17 @@ const SYS_WALKED: [&str; 2] = ["sys.argv", "sys.path"];
 const PATH_READS: [&str; 5] = ["read_text", "read_bytes", "is_file", "is_dir", "exists"];
 
 const FILES: &str = "importlib.resources.files";
+const PACKAGE_NOT_FOUND: &str = "importlib.metadata.PackageNotFoundError";
+
+/// True for a text written in the source: no object, so no method of it runs.
+fn literal(expr: &Expr) -> bool {
+    matches!(expr, Expr::StringLiteral(_))
+}
+
+/// True when the call has only texts as arguments and no keyword.
+fn literals(call: &ExprCall) -> bool {
+    call.arguments.keywords.is_empty() && call.arguments.args.iter().all(literal)
+}
 
 #[derive(Default)]
 struct Uses {
@@ -109,9 +120,12 @@ impl Uses {
     /// module.
     fn compare(&mut self, node: &ExprCompare) {
         let ops = node.ops.iter();
-        if ops.clone().all(|op| matches!(op, CmpOp::In | CmpOp::NotIn)) {
-            // Only the last operand: an inner operand is also the left side of the next test, and
-            // its `__contains__` would get the dictionary (`x in sys.modules in sink`).
+        // Only the last operand: an inner operand is also the left side of the next test, and its
+        // `__contains__` would get the dictionary (`x in sys.modules in sink`). The tested value
+        // is a text: any other object runs its `__hash__` or `__eq__` (`Hook() in sys.modules`).
+        let tests = ops.clone().all(|op| matches!(op, CmpOp::In | CmpOp::NotIn));
+        let texts = node.operands.iter().rev().nth(1).is_some_and(literal);
+        if tests && texts {
             node.operands
                 .last()
                 .into_iter()
@@ -131,8 +145,10 @@ impl Uses {
     fn receiver(&mut self, mut expr: &Expr) {
         loop {
             match expr {
-                Expr::BinOp(node) if matches!(node.op, Operator::Div) => expr = &node.left,
-                Expr::Call(call) => match &*call.func {
+                Expr::BinOp(node) if matches!(node.op, Operator::Div) && literal(&node.right) => {
+                    expr = &node.left;
+                }
+                Expr::Call(call) if literals(call) => match &*call.func {
                     Expr::Attribute(node) if Identifier::as_str(&node.attr) == "joinpath" => {
                         expr = &node.value;
                     }
@@ -152,8 +168,12 @@ impl Uses {
 
     /// The call `x.read_text()` on a path: `x` starts a read.
     fn path_read(&mut self, call: &ExprCall) {
+        // `version(x)`, `find_spec(x)` and `files(x)` call methods of `x`: only a text is safe.
+        let read = chain(&call.func)
+            .is_some_and(|text| text != PACKAGE_NOT_FOUND && text.starts_with("importlib."));
+        self.importlib |= read && !literals(call);
         if let Expr::Attribute(node) = &*call.func {
-            if PATH_READS.contains(&Identifier::as_str(&node.attr)) {
+            if PATH_READS.contains(&Identifier::as_str(&node.attr)) && literals(call) {
                 self.receiver(&node.value);
             }
         }

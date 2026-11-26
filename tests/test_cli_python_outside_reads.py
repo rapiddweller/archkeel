@@ -51,7 +51,11 @@ print(app.client.run())
 # A file write, not an attribute write: only the rebound name can lead to it.
 HOOK = (
     "import pathlib\n\n\nclass Hook:\n    def __eq__(self, other):\n"
-    "        self.version(other)\n        return False\n\n    def __contains__(self, name):\n"
+    "        self.version(other)\n        return False\n\n    def __hash__(self):\n"
+    "        self.version(self)\n        return 0\n\n    def __fspath__(self):\n"
+    '        self.version(self)\n        return "service.py"\n\n    def startswith(self, prefix):\n'
+    "        self.version(prefix)\n        return False\n\n    def lower(self):\n"
+    '        self.version(self)\n        return "app"\n\n    def __contains__(self, name):\n'
     "        self.version(name)\n        return True\n\n    def version(self, name):\n"
     '        pathlib.Path("src/app/service.py").write_text(\n'
     "            \"def f():\\n    return 'hooked'\\n\"\n        )\n"
@@ -151,6 +155,19 @@ WRITES = {
         'found = "app.service" in sys.path\nsys.path[0] = saved\n'
         "import app.client\nprint(app.client.run())\n"
     ),
+    "object as key": (
+        HOOK + "import sys\n\nloaded = Hook() in sys.modules\nimport app.client\n"
+        "print(app.client.run())\n"
+    ),
+    "object as files argument": (
+        HOOK + "import importlib.resources\n\ntry:\n    importlib.resources.files(Hook())\n"
+        "except Exception:\n    pass\nimport app.client\nprint(app.client.run())\n"
+    ),
+    "object as joinpath argument": (
+        HOOK + "import importlib.resources\n\n"
+        'importlib.resources.files("app").joinpath(Hook()).read_text()\n'
+        "import app.client\nprint(app.client.run())\n"
+    ),
     "importlib rebound": (
         HOOK + "import importlib.metadata\n\nimportlib = Replacement()\n"
         'importlib.metadata.version("app.service")\nimport app.client\n'
@@ -169,6 +186,10 @@ HELD = {
     ),
     "spec used": (
         "import importlib.util\nspec = importlib.util.find_spec('app.service')\nprint(spec.name)\n"
+    ),
+    "object as version argument": (
+        HOOK + "import importlib.metadata\n\ntry:\n    importlib.metadata.version(Hook())\n"
+        "except Exception:\n    pass\nprint('app.service')\n"
     ),
     "files passed on": (
         'import importlib.resources\nprint("app", importlib.resources.files("app"))\n'
