@@ -64,8 +64,8 @@ CONTROLS = {
     # The chain write beside a class that has a loader `__call__`: the class gets no new route.
     "chain-beside-call": (
         HOOK
-        + "e = ValueError('a')\ne.__cause__ = KeyError('b')\nclass L:\n    def __call__(self, *a):\n"
-        + "        pass\n\n\nL()('x')\n"
+        + "e = ValueError('a')\ne.__cause__ = KeyError('b')\n"
+        + "class L:\n    def __call__(self, *a):\n        pass\n\n\nL()('x')\n"
     ),
 }
 
