@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -131,3 +132,25 @@ def test_a_repository_wide_input_of_the_scan_is_never_reused(
     done = gate(repo, "base.json")
     assert done.returncode == 1, done.stdout
     assert "reusing" not in done.stdout and "computing it in a worktree" in done.stdout
+
+
+def test_a_changed_file_name_that_is_not_utf8_does_not_crash_the_gate(repo: Path) -> None:
+    earlier_repo(repo, "docs/guide.md")
+    # The index holds the name as bytes, so the test needs no file system that accepts it.
+    done_blob = subprocess.run(
+        ["git", "hash-object", "-w", "--stdin"], cwd=repo, input=b"x\n", capture_output=True
+    )
+    blob = done_blob.stdout.decode().strip()
+    name = b"docs/odd-\xff.md"
+    subprocess.run(
+        ["git", "update-index", "--add", "--cacheinfo", b"100644," + blob.encode() + b"," + name],
+        cwd=repo,
+        check=True,
+    )
+    git(repo, "commit", "-qm", "odd name")
+    (repo / "after.txt").write_text("a\n")
+    git(repo, "add", "after.txt")
+    git(repo, "commit", "-qm", "after")
+    done = gate(repo, "base.json", base="HEAD~1")
+    assert "Traceback" not in done.stderr, done.stderr
+    assert "reusing the entry of" in done.stdout, done.stdout

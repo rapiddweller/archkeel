@@ -168,17 +168,24 @@ def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
         shutil.rmtree(work, ignore_errors=True)
 
 
+def git_bytes(*args: str) -> list[str]:
+    """The NUL-separated fields of a git command; a path need not be UTF-8."""
+    done = subprocess.run(["git", *args], capture_output=True)
+    if done.returncode != 0:
+        raise Unusable(f"git {' '.join(args)} failed: {done.stderr.decode(errors='replace')}")
+    return done.stdout.decode("utf-8", errors="surrogateescape").split("\0")
+
+
 def repository_wide_change(earlier: str, sha: str) -> bool:
     """Whether a change outside INPUTS can change the scan: a `.cargo` path, a link, a deep path."""
-    raw = git("diff", "--raw", "--no-renames", "-z", earlier, sha).split("\0")
-    changes = [(raw[i], raw[i + 1]) for i in range(0, len(raw) - 1, 2)]
-    for meta, path in changes:
+    raw = git_bytes("diff", "--raw", "--no-renames", "-z", earlier, sha)
+    for meta, path in zip(raw[0::2], raw[1::2], strict=False):
         modes = meta.lstrip(":").split()[:2]
         parts = path.split("/")
         if ".cargo" in parts or "120000" in modes or len(parts) > MAX_DEPTH:
             return True
     return any(
-        len(git("ls-tree", "-r", "--name-only", rev).splitlines()) > MAX_FILES
+        len(git_bytes("ls-tree", "-r", "-z", "--name-only", rev)) > MAX_FILES
         for rev in (earlier, sha)
     )
 
