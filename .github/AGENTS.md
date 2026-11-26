@@ -7,3 +7,4 @@ use existing Make targets or dispatch Full verification. New workflow files requ
 an explicit change to the inventory in `tests/test_make_gate.py`.
 
 To run a check on a PR, add a trigger to an existing workflow instead of a new workflow file.
+The one exception is `pr-gate-rerun.yml` (AD-1061): a label or edit trigger in `pr-gate.yml` makes runs that replace the required `PR gate` check.

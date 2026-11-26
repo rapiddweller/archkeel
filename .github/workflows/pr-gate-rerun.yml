@@ -31,6 +31,7 @@ jobs:
           BODY_CHANGED: ${{ github.event.changes.body != null }}
           BASE_CHANGED: ${{ github.event.changes.base != null }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           case "$ACTION" in
@@ -42,7 +43,9 @@ jobs:
             echo "The base changed: close and reopen the PR, or push, to start the gate with the new base." >&2
             exit 1
           fi
-          run=$(gh run list --workflow pr-gate.yml --commit "$HEAD_SHA" --event pull_request --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          # Two PRs can share a head sha: take the run that belongs to this PR number.
+          run=$(gh api "repos/$GH_REPO/actions/workflows/pr-gate.yml/runs?head_sha=$HEAD_SHA&event=pull_request&per_page=30" \
+            --jq "[.workflow_runs[] | select(any(.pull_requests[]; .number == $NUMBER))][0].id // empty")
           [[ -n "$run" ]] || { echo "No PR gate run for $HEAD_SHA: push to start one." >&2; exit 1; }
           if [[ "$(gh run view "$run" --json status --jq .status)" != completed ]]; then
             gh run cancel "$run" || true
