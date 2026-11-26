@@ -106,7 +106,7 @@ fn a_path_that_leaves_the_repository_is_refused_in_every_spelling() {
         "..",
         "../x",
         "src/../../x",
-        "/etc/passwd",
+        "/outside/secret",
         "\\\\server\\share",
         "C:\\x",
         "C:/x",
