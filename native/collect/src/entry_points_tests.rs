@@ -256,3 +256,30 @@ fn an_edition_2015_package_without_bins_still_finds_its_default_files() {
         [(EntryKind::CargoBin, EntryBasis::Observed, "demo")]
     );
 }
+
+#[test]
+fn a_scoped_package_name_installs_its_last_part_as_the_command() {
+    let (_base, root) = tree(&[
+        (
+            "package.json",
+            "{\"name\":\"@acme/tool\",\"bin\":\"cli.js\"}",
+        ),
+        (
+            "x/package.json",
+            "{\"name\":\"@acme/multi\",\"bin\":{\"@acme/one\":\"one.js\"}}",
+        ),
+    ]);
+    let found = read(&root, Profile::TypeScript, &scanned(&["x/a.ts"])).unwrap();
+    assert_eq!(
+        names(&found),
+        [
+            (EntryKind::PackageBin, EntryBasis::Declared, "tool"),
+            (EntryKind::PackageBin, EntryBasis::Declared, "one"),
+        ]
+    );
+    assert_eq!(found.entries[0].evidence.key.as_deref(), Some("bin"));
+    assert_eq!(
+        found.entries[1].evidence.key.as_deref(),
+        Some("bin.@acme/one")
+    );
+}

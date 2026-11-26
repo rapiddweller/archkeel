@@ -237,6 +237,11 @@ fn discovers_bins(
     }
 }
 
+/// The command that npm installs for a name: the part after the last `/`, so `@acme/tool` is `tool`.
+fn command(name: &str) -> &str {
+    name.rsplit('/').next().unwrap_or(name)
+}
+
 /// The `bin` and `main` keys of a `package.json`.
 fn package(path: &str, text: &str, _files: &[(&str, &str)], found: &mut EntryPoints) {
     let Ok(Value::Object(manifest)) = serde_json::from_str::<Value>(text) else {
@@ -247,7 +252,7 @@ fn package(path: &str, text: &str, _files: &[(&str, &str)], found: &mut EntryPoi
     match manifest.get("bin") {
         None => {}
         Some(Value::String(file)) => {
-            let name = package.unwrap_or(file);
+            let name = command(package.unwrap_or(file));
             found.entries.push(declared(
                 EntryKind::PackageBin,
                 name,
@@ -261,7 +266,7 @@ fn package(path: &str, text: &str, _files: &[(&str, &str)], found: &mut EntryPoi
                 match file.as_str() {
                     Some(file) => found.entries.push(declared(
                         EntryKind::PackageBin,
-                        name,
+                        command(name),
                         Some(file),
                         path,
                         format!("bin.{name}"),

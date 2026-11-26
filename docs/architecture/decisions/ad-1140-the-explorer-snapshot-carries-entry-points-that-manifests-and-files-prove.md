@@ -22,6 +22,7 @@ scanned file. The core projects the typed value. The Studio shell renders it and
 A manifest that cannot be read is named in `unread`. The list is then unknown, never empty.
 An empty `entries` with an empty `unread` means only: none of the forms above exist. Other forms
 (`setup.py`, a framework command, a `main` function that no manifest names) are not read.
+A `package.json` command is the part of its name after the last `/`, as npm installs it (`@acme/tool` is `tool`).
 A `[[bin]]` without `path` has `target` null, because Cargo can find the file in two places.
 Cargo finds binary files itself unless `autobins` is false, or the package is edition 2015 and
 declares a `[[bin]]`. An inherited edition with a `[[bin]]` is unknown and goes to `unread`. A declared
