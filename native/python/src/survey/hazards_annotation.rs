@@ -7,7 +7,7 @@
 //! names of its module, so `x: "__import__('app.lib')"` imports `app.lib`. The survey reads the
 //! text as code: the same rules find each hazard in it, and the site stands at the string.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprCall, ExprStringLiteral, Identifier, ModModule, Operator, Stmt};
@@ -95,11 +95,10 @@ pub(super) fn writes_annotations(stmt: &Stmt) -> bool {
 }
 
 /// The strings that a name holds, over the whole module (any scope: a gap is safe, a miss is not).
-#[derive(Default)]
 pub(super) struct Strings {
     texts: HashMap<String, Vec<ExprStringLiteral>>,
     /// A name that holds a string that the survey cannot read: an f-string, a join, a format.
-    opaque: std::collections::HashSet<String>,
+    opaque: HashSet<String>,
 }
 
 pub(super) enum Held<'a> {
@@ -110,7 +109,10 @@ pub(super) enum Held<'a> {
 
 impl Strings {
     pub(super) fn of(tree: &ModModule) -> Self {
-        let mut found = Self::default();
+        let mut found = Self {
+            texts: HashMap::new(),
+            opaque: HashSet::new(),
+        };
         found.visit_body(&tree.body);
         found.close();
         found
