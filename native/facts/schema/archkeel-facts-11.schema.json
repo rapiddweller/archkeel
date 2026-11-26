@@ -342,6 +342,20 @@
             "kind",
             "data"
           ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "selected_impl"
+            },
+            "data": {
+              "$ref": "#/$defs/ImportData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
         }
       ]
     },
@@ -5928,6 +5942,11 @@
           "type": "string",
           "const": "macro_body",
           "description": "An import inside a macro body."
+        },
+        {
+          "type": "string",
+          "const": "selected_impl",
+          "description": "A call whose impl the compiler selected in another module (AD-1136)."
         },
         {
           "type": "string",

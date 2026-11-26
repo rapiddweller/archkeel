@@ -82,6 +82,8 @@ section_facts! {
         ScriptGlobal(ImportData),
         /// An import inside a macro body.
         MacroBody(ImportData),
+        /// A call whose impl the compiler selected in another module (AD-1136).
+        SelectedImpl(ImportData),
     }
 }
 
@@ -92,11 +94,12 @@ macro_rules! import_data {
             ImportFact::Import(data)
             | ImportFact::Reexport(data)
             | ImportFact::ImportType(data)
-            | ImportFact::ImportEquals(data)
-            | ImportFact::Require(data)
+            | ImportFact::ImportEquals(data) => data,
+            ImportFact::Require(data)
             | ImportFact::DynamicImport(data)
             | ImportFact::ScriptGlobal(data)
-            | ImportFact::MacroBody(data) => data,
+            | ImportFact::MacroBody(data)
+            | ImportFact::SelectedImpl(data) => data,
         }
     };
 }
