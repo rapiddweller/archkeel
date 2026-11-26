@@ -59,7 +59,7 @@ facts_data! {
         /// True when one statement binds the name in the origin.
         [read skip] origin_binding_unique: Option<bool>,
         /// The id of the definition at the origin.
-        [read skip] origin_definition: Nullable<String>,
+        [read skip_nullable] origin_definition: Nullable<String>,
         /// True when no statement rebinds the member at the origin.
         [read skip] origin_member_binding_static: Option<bool>,
         /// True when the import can publish the name again.
@@ -67,13 +67,13 @@ facts_data! {
         /// The global that a script import binds.
         [read skip] script_global: Option<String>,
         /// The member of the global that a script import reads.
-        [read skip] script_member: Nullable<String>,
+        [read skip_nullable] script_member: Nullable<String>,
         /// True when one statement binds the name in the source.
         [read skip] source_binding_unique: Option<bool>,
         /// True when no statement rebinds the member.
         [read skip] source_member_binding_static: Option<bool>,
         /// The visibility of the imported symbol.
-        [read skip] symbol_visibility: Nullable<Visibility>,
+        [read skip_nullable] symbol_visibility: Nullable<Visibility>,
     }
 }
 
