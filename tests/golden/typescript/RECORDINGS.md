@@ -61,7 +61,7 @@
 | 2026-11-22 | l-nest-realworld | ceac5b108 | AD-1054 renames the gap field door to trojan_horse (cpython 3.11.12) |
 | 2026-11-22 | excalidraw-laser-pointer | ceac5b108 | AD-1054 renames the gap field door to trojan_horse (cpython 3.11.12) |
 | 2026-11-22 | synthetic-esm-forms | ceac5b108 | AD-1054 renames the gap field door to trojan_horse (cpython 3.11.12) |
-| 2026-11-26 | l-nest-realworld | da5f9e692+dirty | AD-1129 records direct callback symbols and their lexical sites in l-nest-realworld (cpython 3.11.12) |
-| 2026-11-26 | excalidraw-math | da5f9e692+dirty | AD-1129 records direct callback symbols and their lexical sites in excalidraw-math (cpython 3.11.12) |
-| 2026-11-26 | excalidraw-laser-pointer | da5f9e692+dirty | AD-1129 records the direct callback symbol and its lexical sites in excalidraw-laser-pointer (cpython 3.11.12) |
-| 2026-11-26 | synthetic-bundler | da5f9e692+dirty | AD-1129 records the direct callback symbol and its lexical sites in synthetic-bundler (cpython 3.11.12) |
+| 2026-11-26 | l-nest-realworld | da5f9e692+dirty | AD-1136 records direct callback symbols and their lexical sites in l-nest-realworld (cpython 3.11.12) |
+| 2026-11-26 | excalidraw-math | da5f9e692+dirty | AD-1136 records direct callback symbols and their lexical sites in excalidraw-math (cpython 3.11.12) |
+| 2026-11-26 | excalidraw-laser-pointer | da5f9e692+dirty | AD-1136 records the direct callback symbol and its lexical sites in excalidraw-laser-pointer (cpython 3.11.12) |
+| 2026-11-26 | synthetic-bundler | da5f9e692+dirty | AD-1136 records the direct callback symbol and its lexical sites in synthetic-bundler (cpython 3.11.12) |

@@ -25,7 +25,7 @@ use crate::causes::Cause;
 use crate::ids::ComponentId;
 use crate::imports::{Import, Resolved};
 use crate::model::Model;
-use crate::ownership::{in_scope, owner_of};
+use crate::ownership::{in_scope, may_publish, owner_of, symbol_port};
 use crate::reason::Reason;
 use crate::selection::{
     dependency_sides, unused_by_module, unused_entries, Selection, UnusedAllowance,
@@ -370,6 +370,10 @@ pub struct Crossing<'m> {
 /// rule (AD-500).
 pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<'m>> {
     let components = model.components();
+    let all = model.graph().imports().iter().filter(|i| i.reexport);
+    let reexports: Vec<_> = all
+        .map(|i| (i.source_module(), i.target_module()))
+        .collect();
     // `dependency_symbols`: a profile judges symbol ports only with the symbol feature
     // (`check/evaluation/evaluate.py:1061`).
     let observed = model.graph().observed();
@@ -403,13 +407,14 @@ pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<
         let named = import.symbols_known()
             && (!import.under_type_checking() || import.symbol().is_none())
             && import.symbol() != Some("*");
-        let judged = assessment(
-            source,
-            target,
-            import.target_module(),
-            import.symbol(),
-            named,
-        );
+        let (module, symbol) = (import.target_module(), import.symbol());
+        let mut judged = assessment(source, target, module, symbol, named);
+        if judged == Judged::Fail
+            && import.selected_impl()
+            && may_publish(source, target, module, (components, &reexports))
+        {
+            judged = Judged::Undecided;
+        }
         found.push(Crossing {
             import,
             source,
@@ -418,17 +423,6 @@ pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<
         });
     }
     found
-}
-
-/// True when a `requires` entry of `source` for `target` has a symbol port.
-fn symbol_port(source: &Component, target: &Component) -> bool {
-    source.requires().iter().flatten().any(|entry| {
-        entry.component() == target.label()
-            && entry
-                .through()
-                .iter()
-                .any(|port| port.as_text().contains(':'))
-    })
 }
 
 /// Assess a known import or a possible edge without a proven symbol.
@@ -492,6 +486,12 @@ fn port_judged(port: &str, module: &str, symbol: Option<&str>, known: bool) -> J
     } else {
         Judged::Fail
     }
+}
+
+/// True when a selected impl is undecided: a port of its component can publish the type (AD-1136, #2069).
+pub(crate) fn published_impl(found: &[Crossing<'_>]) -> bool {
+    let selected = |c: &Crossing<'_>| c.judged == Judged::Undecided && c.import.selected_impl();
+    found.iter().any(selected)
 }
 
 /// The number of undecided positions in judgements (`symbol_limits`).
