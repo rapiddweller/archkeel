@@ -72,7 +72,8 @@ jobs:
 
       - name: Install locked dependencies
         if: steps.select.outputs.selected == 'run'
-        run: uv sync --locked
+        # The Explorer MCP tests (tests/test_explorer_mcp_hostile.py) need the fastmcp extra.
+        run: uv sync --locked ${{ matrix.area == 'CLI and core' && '--extra mcp' || '' }}
 
       - name: Install the pinned Rust toolchain
         if: steps.select.outputs.selected == 'run'
