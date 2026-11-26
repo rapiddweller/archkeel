@@ -68,7 +68,7 @@ NAMES = {
     "attribute set on an object": one(
         f'import types\n\nm = types.ModuleType("m")\nm.s = "{IMPORT}"\n\n\nclass K:\n    x: m.s\n'
     ),
-    "with target": named(f'with contextlib.nullcontext("{IMPORT}") as s:\n    pass'),
+    "with as a name": named(f'with contextlib.nullcontext("{IMPORT}") as s:\n    pass'),
 }
 BUILDERS = {
     "ForwardRef of a name": HEAD
