@@ -7,7 +7,7 @@
 
 use archkeel_facts::{FactData, SymbolFact};
 
-use super::*;
+use super::super::*;
 use crate::module::Module;
 
 fn module(name: &str, text: &str) -> Module {

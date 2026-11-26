@@ -16,6 +16,13 @@ use std::collections::{HashMap, HashSet};
 use ruff_python_ast::{Expr, Stmt, StmtClassDef};
 use ruff_text_size::Ranged;
 
+use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::ids::{EvidenceId, FactId};
+use archkeel_facts::nested::BaseDeclaration;
+use archkeel_facts::vocab::{RelationshipKind, Status};
+
+use super::reader::Unwritable;
+use super::Writer;
 use crate::module::Module;
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
@@ -414,3 +421,51 @@ pub(super) fn imported(base: &Expr, reading: &Reading<'_>) -> Option<(String, St
         }
     })
 }
+
+impl Writer<'_, '_> {
+    /// `_base_declaration`: one resolved declaration for each base of a class. The list is the
+    /// class statement, so a base that it does not name is a base that the class lacks.
+    pub(super) fn bases(
+        &mut self,
+        class: &str,
+        class_kind: Kind,
+        bases: &[BaseSite<'_>],
+    ) -> Result<Vec<BaseDeclaration>, Unwritable> {
+        let module = self.scan.module;
+        let mut found = Vec::new();
+        for base in bases {
+            let expression = self.scan.text(Some(base.expr))?.unwrap_or_default();
+            let crate::module::Location { line, column, .. } = module.location(base.expr);
+            let relationship_kind = if base.protocol && class_kind != Kind::Protocol {
+                RelationshipKind::Realizes
+            } else {
+                RelationshipKind::Inherits
+            };
+            let id = stable_id(
+                "BASE",
+                &[
+                    Part::Text(class),
+                    Part::Number(line),
+                    Part::Number(column),
+                    Part::Text(&expression),
+                ],
+            );
+            found.push(BaseDeclaration {
+                candidate_count: 1,
+                candidates_truncated: None,
+                evidence_ids: vec![EvidenceId::new(self.scan.evidence(base.expr))],
+                expression,
+                id: FactId::new(id),
+                reason: Some("explicit base with a proven binding".to_owned()),
+                relationship_kind,
+                status: Status::Resolved,
+                targets: vec![base.target.clone()],
+            });
+        }
+        Ok(found)
+    }
+}
+
+#[cfg(test)]
+#[path = "kind_tests.rs"]
+mod tests;
