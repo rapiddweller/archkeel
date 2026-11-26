@@ -5,10 +5,9 @@
 //! A project module that binds a standard library module hands it to another module (AD-1094,
 //! #1973). `util.py` holds `import cProfile`, and `app.util.cProfile.run(text)` runs the text.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
-use crate::survey::hazards_names::first_hazard;
-use crate::survey::hazards_names::holds;
+use crate::survey::hazards_names::{first_hazard, holds};
 
 /// The names that the modules of the scan bind to a module that holds a hazard name (`import dis`,
 /// `from unittest import mock`), with their qualified origins.
@@ -18,15 +17,41 @@ pub(in crate::survey) type Reexports = HashMap<String, Vec<String>>;
 pub(in crate::survey) fn table<'a>(
     modules: impl Iterator<Item = &'a HashMap<String, Vec<String>>>,
 ) -> Reexports {
-    let mut found = Reexports::new();
-    for bound in modules {
-        for (name, origins) in bound {
-            let held = origins.iter().filter(|origin| holds(origin));
-            found.entry(name.clone()).or_default().extend(held.cloned());
+    let all: Vec<_> = modules.collect();
+    let mut found: HashMap<String, BTreeSet<String>> = HashMap::new();
+    for (name, origins) in all.iter().flat_map(|bound| bound.iter()) {
+        let held = origins.iter().filter(|origin| holds(origin));
+        found.entry(name.clone()).or_default().extend(held.cloned());
+    }
+    // A rename of a re-exported name (`from app.util import cp as q2`) is re-exported too: its
+    // origin ends in a name of the table. Each pass reads a snapshot, so the sets stay as small as
+    // the distinct origins, and the loop ends because the sets are finite and only grow (AD-1172).
+    loop {
+        let mut added = Vec::new();
+        for (name, origins) in all.iter().flat_map(|bound| bound.iter()) {
+            let last = |origin: &String| origin.rsplit_once('.').map(|(_, last)| last.to_owned());
+            for origin in origins.iter().filter_map(last) {
+                added.extend(
+                    found
+                        .get(&origin)
+                        .into_iter()
+                        .flatten()
+                        .map(|o| (name, o.clone())),
+                );
+            }
+        }
+        let mut grown = false;
+        for (name, origin) in added {
+            grown |= found.entry(name.clone()).or_default().insert(origin);
+        }
+        if !grown {
+            break;
         }
     }
-    found.retain(|_, origins| !origins.is_empty());
-    found
+    let nonempty = found.into_iter().filter(|(_, origins)| !origins.is_empty());
+    nonempty
+        .map(|(name, set)| (name, set.into_iter().collect()))
+        .collect()
 }
 
 /// The first hazard on `attributes` when one attribute is a re-exported name: the rest of the
@@ -93,6 +118,14 @@ mod tests {
         assert_eq!(find(&table, &["os", "path"]), None);
         assert_eq!(find(&table, &["cProfile", "Stats"]), None);
         assert_eq!(find(&table, &["run"]), None);
+    }
+
+    #[test]
+    fn many_modules_that_import_one_module_keep_one_origin() {
+        let one = bound(&[("mock", "unittest.mock")]);
+        let all = vec![one; 40];
+        let table = table(all.iter());
+        assert_eq!(table.get("mock").map(Vec::len), Some(1));
     }
 
     #[test]

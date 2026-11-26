@@ -21,7 +21,9 @@
 
 mod config;
 mod dart;
+mod entry_points;
 mod git;
+mod outside_reach;
 mod python;
 mod refusal;
 mod repository;
@@ -88,6 +90,15 @@ pub struct Scanned {
 }
 
 impl Scanned {
+    /// The entry points that the manifests and the files of the scan prove (#2040); `None` when no
+    /// reader exists for the language of the scan.
+    pub fn entry_points(&self) -> Option<archkeel_facts::data::entry_points::EntryPoints> {
+        let files: Vec<(&str, &str)> = (self.reply.reply().facts.files.iter())
+            .map(|file| (file.module.as_str(), file.rel_path.as_str()))
+            .collect();
+        entry_points::read(&self.root, self.profile, &files)
+    }
+
     /// AD-1119: a scan that left test sources out because the config states no scope holds the verdict. A file
     /// that the naming rule took for a test can hold the only violation, so the run cannot read PASS.
     pub fn test_scope_hold(&self) -> Option<String> {

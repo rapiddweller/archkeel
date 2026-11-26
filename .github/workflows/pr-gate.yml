@@ -4,7 +4,7 @@ name: PR gate
 on:
   pull_request:
     branches: [main, "ci/**"]
-    # AD-1061: a label or a text change can approve growth of the self-check, so each one runs the gate again.
+    # AD-1061: approval changes run the gate again; unrelated changes skip the jobs.
     types: [opened, synchronize, reopened, labeled, unlabeled, edited]
 
 permissions:
@@ -15,12 +15,13 @@ env:
   ARCHKEEL_CORE_PROFILE: gate
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ ((github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null))) && 'gate' || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   base:
     name: PR base checks
+    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null)) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -59,7 +60,7 @@ jobs:
         run: uv python install 3.11.12 3.12.10 3.14.7
 
       - name: Install locked dependencies
-        run: uv sync --locked
+        run: uv sync --locked --extra mcp
 
       # AD-1047: the self-check reads native/ with compiler facts, so the toolchain needs rustc-dev and llvm-tools.
       - name: Install the pinned Rust toolchain
@@ -208,14 +209,55 @@ jobs:
           key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
   area-checks:
+    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null)) }}
     uses: ./.github/workflows/area-checks.yml
     with:
       base: ${{ github.event.pull_request.base.sha }}
 
+  windows-native:
+    name: Windows native type check
+    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null)) }}
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Select Windows native check
+        id: select
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE"
+          changed="$(git diff --name-only "$BASE" HEAD -- native/ tools/rustc-facts/)"
+          if [ -n "$changed" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Restore Rust cache
+        if: steps.select.outputs.run == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/target
+          key: rust-windows-check-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+          restore-keys: |
+            rust-windows-check-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+
+      - name: Check Windows native tests
+        if: steps.select.outputs.run == 'true'
+        working-directory: native
+        run: cargo check --locked --tests
+
   pr-gate:
-    name: PR gate
-    needs: [base, area-checks]
-    if: always()
+    name: ${{ ((github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null))) && 'PR gate' || 'PR gate (ignored event)' }}
+    needs: [base, area-checks, windows-native]
+    if: always() && needs.base.result != 'skipped'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

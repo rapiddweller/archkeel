@@ -8,6 +8,26 @@ import { canOpenScope, itemKind } from "./explorer-uml.js";
 import { bindStory, reopenStory, stopStoryPlayback } from "./explorer-story.js";
 import { loadStory, showStory } from "./explorer-story-loading.js";
 import { showScipSummary } from "./explorer-scip.js";
+const entryKinds = {
+    python_script: "Python script", python_gui_script: "Python GUI script", python_main_module: "Python __main__ module",
+    cargo_bin: "Cargo binary", package_bin: "package.json bin", package_main: "package.json main",
+};
+function entryPointNotes(label, found) {
+    details.append(element("h3", label + " · Entry points"));
+    if (!found) {
+        details.append(element("p", "Unknown: this scan reads no entry points for the language."));
+        return;
+    }
+    for (const entry of found.entries) {
+        const proof = entry.evidence.path + (entry.evidence.key ? " · " + entry.evidence.key : "");
+        const target = entry.target ? " → " + entry.target : "";
+        details.append(element("p", (entryKinds[entry.kind] ?? entry.kind) + " " + entry.name + target + " · " + entry.basis + " · " + proof));
+    }
+    for (const reason of found.unread)
+        details.append(element("p", "Unknown, not read: " + reason));
+    if (!found.entries.length && !found.unread.length)
+        details.append(element("p", "None found in the manifests and default files that the scan reads. Other forms are not read."));
+}
 export function updateOverview({ coverage = {} }) {
     const displayNames = { python: "Python", rust: "Rust", dart: "Dart", typescript: "TypeScript", javascript: "JavaScript" };
     const languages = new Set((coverage.parts ?? []).flatMap((part) => part.language ? [part.language] : []).filter(Boolean));
@@ -31,6 +51,7 @@ export function updateOverview({ coverage = {} }) {
             details.append(element("p", (part.part || part.language || "Scan") + " · Call analysis unavailable."));
         else if (part.language === "rust")
             details.append(element("p", "Rust · Direct calls to local functions."));
+        entryPointNotes(part.part || part.language || "Scan", part.entry_points);
         if (part.files_indexed == null)
             continue;
         const counts = [part.files_indexed + " indexed files"];

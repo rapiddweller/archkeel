@@ -2,7 +2,8 @@
 
 Keep the reviewed workflow inventory in `tests/test_make_gate.py`. A job has no condition that
 can skip it; only an aggregate uses `if: always()`. The exceptions are `publish-gallery` (AD-462)
-and the rolling main build publisher (AD-824). Do not add temporary or diagnostic workflows;
+the rolling main build publisher (AD-824), and PR gate jobs for events that cannot change approval
+(AD-1061). Do not add temporary or diagnostic workflows;
 use existing Make targets or dispatch Full verification. New workflow files require
 an explicit change to the inventory in `tests/test_make_gate.py`.
 

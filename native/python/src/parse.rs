@@ -62,17 +62,24 @@ pub(crate) fn comments(text: &str) -> Vec<std::ops::Range<usize>> {
     }
 }
 
-/// The expression that `eval` reads from `text` (a string annotation), or `None` when it does not
-/// parse. The newest syntax is accepted: a text that fails to parse imports nothing. A text over
-/// the work or stack bound of `parse` has no tree: CPython stops on it too, and ruff must not
-/// overflow its own stack.
-pub(crate) fn expression(text: &str) -> Option<ruff_python_ast::Expr> {
+/// Why `expression` has no tree for a text.
+pub(crate) enum Unread {
+    /// The text is no expression: CPython raises a `SyntaxError` and evaluates nothing.
+    Syntax,
+    /// The text is over the work or stack bound of `parse`. CPython can still evaluate it (150
+    /// nested lists are valid), so the caller must report a gap, never nothing.
+    Bound,
+}
+
+/// The expression that `eval` reads from `text` (a string annotation). The newest syntax is
+/// accepted. A text over the bound has no tree: ruff must not overflow its own stack.
+pub(crate) fn expression(text: &str) -> Result<ruff_python_ast::Expr, Unread> {
     let found = scan(text, &Lines::new(text), PyMinor::Py314);
     if text.len() > work::MAX_WORK || found.stack > MAX_STACK {
-        return None;
+        return Err(Unread::Bound);
     }
-    let parsed = ruff_python_parser::parse_expression(text.trim()).ok()?;
-    Some(*parsed.into_syntax().body)
+    let parsed = ruff_python_parser::parse_expression(text.trim()).map_err(|_| Unread::Syntax)?;
+    Ok(*parsed.into_syntax().body)
 }
 
 /// The tree of `text` for Python 3.`minor`, or the failure that the Python collector reports.

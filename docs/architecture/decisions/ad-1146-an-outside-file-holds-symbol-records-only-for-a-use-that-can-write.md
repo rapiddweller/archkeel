@@ -1,0 +1,24 @@
+# AD-1146 An outside file holds symbol records only for a use that can write
+
+**Status.** Reverted (this change restores the hold). Accepted before. Part of #1963 and #1919. It narrows [AD-770](ad-770-code-of-the-repository-outside-the-scan-that-writes-a-module-of-the-scan-withholds-its-routes.md) and extends [AD-1118](ad-1118-a-file-outside-the-scan-that-withholds-symbols-is-named-by-a-symbols-gap.md).
+
+**Reason.** One site that is not proven harmless made every string of the outside file name modules, so the survey withheld the symbol records of each of them. On CE, `script/check_installed_authoring.py` has eight such sites: three `import importlib.*` lines, one walk over `sys.modules`, two `importlib.util.find_spec(...) is None`, `importlib.metadata.version(...)` and `importlib.resources.files(...)`. None of them writes a binding. They held 540 modules: 0 of 16,391 calls resolved, 798 `interface.usage_unknown`.
+
+**Decision.** A site is harmless when the whole file uses the name only to read:
+1. `importlib`: each chain is one of `importlib.metadata.version`, `importlib.metadata.PackageNotFoundError`, `importlib.resources.files`, or `importlib.util.find_spec` tested with `is None` or `is not None`. Any other chain, a bare name, an alias (`import importlib.x as y`) or a `from importlib import` ends the proof.
+2. `sys.modules`: each use is a test `name in sys.modules` as the last operand of the comparison as the last operand of the comparison or the iterable of a `for` or a comprehension. A subscript, `.get`, `.values`, an assignment to a name, `sys.__dict__`, `vars(sys)`, an alias or `from sys import` ends the proof. Other attributes of `sys` must be `argv`, `executable`, `exit`, `platform`, `stderr` or `stdout`.
+3. The proof is for the whole file, so a write elsewhere in the file keeps the hold for all its sites.
+
+**Why this is sound.** None of these uses gives a module object, so none can write a module attribute, a class or a `sys.modules` entry. `find_spec`, `files` and `version` can import a package. The import runs code that the scan reads; it does not change a binding.
+
+**Can it enable a PASS?** Yes: a module that was withheld is now read. The counter-examples that I ran keep the hold, and each is run with Python to show that the scanned code changes: a subscript write, a replaced module, `.get` then write, a write through an imported module, `sys.__dict__`, `vars(sys)`, a namespace in a name, a walk then a subscript. A membership chain `x in sys.modules in sink` keeps it too (Codex #2072). A membership chain `x in sys.modules in sink` keeps it too (Codex #2072). Four more keep the hold with no effect shown: `entry_points`, a used spec, an alias, `sys.modules.values()`. A mutation that makes both proofs true fails 7 of the 9 first plants.
+
+**Rejected.**
+- A list of harmless call names without the file-wide proof: one `sys.modules[...]` write in the same file would pass.
+- A proof for each site: the hold of one site names every string of the file, so the file is the unit.
+
+**Limit.** An alias or `from importlib import metadata` keeps the hold. A use through `gc`, a frame or a C extension is outside the stated premise.
+
+**Tests.** `tests/test_cli_python_outside_reads.py`.
+
+**Revert (lane F, lead decision).** Three verification rounds and three Codex rounds found the same hole in more than a dozen forms: a result stored on a class attribute, a non-literal or f-string argument, `__import__("importlib.resources")`, a plain `open(..., "w")` next to a `version(...)` read, a read compared with an object, `print(..., file=Hook())`. The design looked for bad forms in a script that it assumed harmless. That direction cannot be closed. The outside file holds the symbol records again (AD-770, AD-1118). A later change must define a closed grammar: a script is read-only only if every statement and expression belongs to a small allow-list.

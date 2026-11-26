@@ -27,6 +27,7 @@ no gap exists and the exit code is 0 (AD-1064).
 | `exit` | `core_exit` | The one exit table and the exit code of one run. |
 | `text` | `core_text` | The text of a run for a person: header with exit code and reason, then problems, violations, grouped causes. |
 | `gaps` | `core_gaps` | The lines of the gaps of a scan: grouped by cause with a count and one example each, and the packages that were not found. |
+| `guide` | `core_guide` | The Markdown guide of the topology for a person: components, requirements and layer orders (AD-1121). |
 | `help` | `core_help` | The help of the tool and of each command. |
 | `skill` | `skill` | Install the coding-agent skill. |
 | `init` | `init_draft`, `init_areas`, `init_binding`, `init_preset` | Draft `archkeel.toml`, a first contract and its document from the folder layout and manifests: one configuration, or a system with one part for each language area and the interface of a stated PyO3 binding (AD-626, AD-638, AD-660, AD-784). A preset adds layered or hexagonal rules for names of the user (AD-1087). It reads no source and writes only missing files. |
@@ -63,27 +64,28 @@ flowchart LR
     n_6["exit"]
     n_7["frame"]
     n_8["gaps"]
-    n_9["help"]
-    n_10["init"]
-    n_11["json"]
-    n_12["launch"]
-    n_13["locate"]
-    n_14["output"]
-    n_15["schema"]
-    n_16["skill"]
-    n_17["text"]
-    n_18["words"]
-    n_19["explorer-boundaries"]
-    n_20["explorer-host"]
-    n_21["explorer-mcp"]
-    n_22["explorer-query"]
-    n_23["explorer-store"]
-    n_24["storyboard"]
+    n_9["guide"]
+    n_10["help"]
+    n_11["init"]
+    n_12["json"]
+    n_13["launch"]
+    n_14["locate"]
+    n_15["output"]
+    n_16["schema"]
+    n_17["skill"]
+    n_18["text"]
+    n_19["words"]
+    n_20["explorer-boundaries"]
+    n_21["explorer-host"]
+    n_22["explorer-mcp"]
+    n_23["explorer-query"]
+    n_24["explorer-store"]
+    n_25["storyboard"]
     n_0 --> n_7
-    n_0 --> n_10
-    n_1 --> n_11
-    n_1 --> n_18
-    n_2 --> n_11
+    n_0 --> n_11
+    n_1 --> n_12
+    n_1 --> n_19
+    n_2 --> n_12
     n_3 --> n_0
     n_3 --> n_1
     n_3 --> n_2
@@ -95,56 +97,58 @@ flowchart LR
     n_3 --> n_12
     n_3 --> n_13
     n_3 --> n_14
-    n_3 --> n_16
+    n_3 --> n_15
     n_3 --> n_17
     n_3 --> n_18
-    n_3 --> n_20
-    n_4 --> n_11
-    n_4 --> n_15
+    n_3 --> n_19
+    n_3 --> n_21
+    n_4 --> n_12
+    n_4 --> n_16
     n_5 --> n_3
     n_6 --> n_7
     n_7 --> n_1
     n_7 --> n_2
     n_7 --> n_4
-    n_7 --> n_11
-    n_7 --> n_14
+    n_7 --> n_12
     n_7 --> n_15
+    n_7 --> n_16
     n_8 --> n_4
     n_8 --> n_7
-    n_8 --> n_18
-    n_9 --> n_0
-    n_9 --> n_6
-    n_9 --> n_7
-    n_10 --> n_15
-    n_12 --> n_7
-    n_12 --> n_11
-    n_13 --> n_11
-    n_14 --> n_11
-    n_15 --> n_11
-    n_17 --> n_1
-    n_17 --> n_4
-    n_17 --> n_6
-    n_17 --> n_7
-    n_17 --> n_8
-    n_17 --> n_11
-    n_17 --> n_18
-    n_18 --> n_11
-    n_20 --> n_0
-    n_20 --> n_2
-    n_20 --> n_6
-    n_20 --> n_7
-    n_20 --> n_10
-    n_20 --> n_11
-    n_20 --> n_12
-    n_20 --> n_13
-    n_20 --> n_22
-    n_20 --> n_23
-    n_21 --> n_22
+    n_8 --> n_19
+    n_9 --> n_4
+    n_10 --> n_0
+    n_10 --> n_6
+    n_10 --> n_7
+    n_11 --> n_16
+    n_13 --> n_7
+    n_13 --> n_12
+    n_14 --> n_12
+    n_15 --> n_12
+    n_16 --> n_12
+    n_18 --> n_1
+    n_18 --> n_4
+    n_18 --> n_6
+    n_18 --> n_7
+    n_18 --> n_8
+    n_18 --> n_12
+    n_18 --> n_19
+    n_19 --> n_12
+    n_21 --> n_0
+    n_21 --> n_2
+    n_21 --> n_6
+    n_21 --> n_7
+    n_21 --> n_11
+    n_21 --> n_12
+    n_21 --> n_13
+    n_21 --> n_14
     n_21 --> n_23
-    n_22 --> n_19
-    n_22 --> n_23
-    n_20 --> n_24
     n_21 --> n_24
-    n_24 --> n_14
-    n_24 --> n_23
+    n_21 --> n_25
+    n_22 --> n_23
+    n_22 --> n_24
+    n_22 --> n_25
+    n_23 --> n_20
+    n_23 --> n_24
+    n_25 --> n_15
+    n_25 --> n_24
 ```
