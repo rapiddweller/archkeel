@@ -371,7 +371,9 @@ fn config_texts(root: &Path) -> String {
 fn resolve_metadata(root: &Path) -> Option<Value> {
     // A config with an `[env]` table can set `PATH`, `RUSTUP_HOME` or a library path for the `rustc` that Cargo starts
     // to probe the host: no flag turns that table off. Such a repository is not resolved here (the fallback holds).
-    if config_texts(root).contains("env") {
+    // A backslash can write the key in an escape (`\u0065nv`), so such a config is not trusted either.
+    let configs = config_texts(root);
+    if configs.contains("env") || configs.contains('\\') {
         return None;
     }
     let mut cmd = sealed_cargo("metadata", root);

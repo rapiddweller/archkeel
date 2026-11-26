@@ -196,8 +196,9 @@ def test_a_workspace_wrapper_of_the_repository_does_not_run_without_the_permissi
     assert not marker.exists(), "the scan ran an executable of the repository"
 
 
+@pytest.mark.parametrize("header", ["env", "\\u0065nv"], ids=["plain", "escaped"])
 def test_an_env_table_of_the_repository_cannot_start_its_own_compiler(
-    tmp_path: Path, release_core: Path
+    tmp_path: Path, release_core: Path, header: str
 ) -> None:
     layout = {
         "crates/Cargo.toml": WORKSPACE,
@@ -213,7 +214,11 @@ def test_an_env_table_of_the_repository_cannot_start_its_own_compiler(
     (fake / "rustc").chmod(0o755)
     config = root / "crates/.cargo/config.toml"
     config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text(f'[env]\nPATH = {{ value = "{fake}:/usr/bin:/bin", force = true }}\n')
+    config.write_text(
+        f'["{header}"]\nPATH = {{ value = "{fake}:/usr/bin:/bin", force = true }}\n'
+        if header != "env"
+        else f'[env]\nPATH = {{ value = "{fake}:/usr/bin:/bin", force = true }}\n'
+    )
     _recommit(root)
     marker.unlink(missing_ok=True)
     outcome(root, "validate", allow_build=False)
