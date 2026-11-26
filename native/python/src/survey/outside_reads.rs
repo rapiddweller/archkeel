@@ -68,7 +68,7 @@ fn literal(expr: &Expr) -> bool {
 
 /// True when the call has only texts as arguments and no keyword.
 fn literals(call: &ExprCall) -> bool {
-    call.arguments.keywords.is_empty() && call.arguments.args.iter().all(literal)
+    matches!(&*call.arguments.keywords, []) && call.arguments.args.iter().all(literal)
 }
 
 #[derive(Default)]
