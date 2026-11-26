@@ -105,95 +105,12 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
             found.features.push((name.clone(), feature.clone()));
         }
     }
-    found.outside = path_dependents(&meta, &ids, &found.roots);
+    found.outside = crate::outside_reach::dependents(&meta, &ids, &found.roots, &found.names);
     if found.manifests.is_empty() {
         return Err(Unavailable::MetadataFailed);
     }
     found.features.sort();
     Ok(found)
-}
-
-/// The canonical directory of each member that has a path dependency on a crate that is no member and that reaches a
-/// member through path dependencies. The crate can lie anywhere, also outside every scan root: the scan does not read
-/// it, so the edges that pass through it are unknown. A crate that Cargo cannot describe counts as reaching one.
-fn path_dependents(
-    meta: &Value,
-    ids: &BTreeSet<&str>,
-    members: &BTreeMap<String, BTreeSet<String>>,
-) -> BTreeSet<String> {
-    let mut known = BTreeMap::new();
-    let mut found = BTreeSet::new();
-    let packages = meta.get("packages").and_then(Value::as_array);
-    for package in packages.into_iter().flatten() {
-        let id = package
-            .get("id")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        let manifest = package.get("manifest_path").and_then(Value::as_str);
-        let dir = manifest.and_then(|m| real_dir(Path::new(m).parent()?.to_str()?));
-        let (true, Some(dir)) = (ids.contains(id), dir) else {
-            continue;
-        };
-        for path in path_dependencies(package) {
-            let held = match real_dir(path) {
-                None => true,
-                Some(real) if members.contains_key(&real) => false,
-                Some(real) => reaches_member(&real, members, &mut known),
-            };
-            if held {
-                found.insert(dir);
-                break;
-            }
-        }
-    }
-    found
-}
-
-fn real_dir(path: &str) -> Option<String> {
-    let canonical = std::fs::canonicalize(path).ok()?;
-    Some(canonical.to_string_lossy().replace('\\', "/"))
-}
-
-fn path_dependencies(package: &Value) -> Vec<&str> {
-    let dependencies = package.get("dependencies").and_then(Value::as_array);
-    let paths = dependencies.into_iter().flatten();
-    paths
-        .filter_map(|d| d.get("path").and_then(Value::as_str))
-        .collect()
-}
-
-/// Whether the crate in `dir` (no member) reaches a member through path dependencies. `known` holds the answers; a
-/// crate on the way counts as `false` until it is decided, so a cycle ends.
-fn reaches_member(
-    dir: &str,
-    members: &BTreeMap<String, BTreeSet<String>>,
-    known: &mut BTreeMap<String, bool>,
-) -> bool {
-    if let Some(&answer) = known.get(dir) {
-        return answer;
-    }
-    known.insert(dir.to_owned(), false);
-    let described = metadata(&Path::new(dir).join("Cargo.toml"))
-        .ok()
-        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
-    let reaches = match described {
-        None => true,
-        Some(meta) => {
-            let packages = meta.get("packages").and_then(Value::as_array);
-            let paths: Vec<&str> = packages
-                .into_iter()
-                .flatten()
-                .flat_map(path_dependencies)
-                .collect();
-            paths.into_iter().any(|path| match real_dir(path) {
-                None => true,
-                Some(real) if members.contains_key(&real) => true,
-                Some(real) => real != dir && reaches_member(&real, members, known),
-            })
-        }
-    };
-    known.insert(dir.to_owned(), reaches);
-    reaches
 }
 
 /// The matrix: the three fixed configurations and each feature of a member alone. More features than the
@@ -366,7 +283,7 @@ fn listed_under_root<'a>(
 
 /// `cargo metadata --no-deps` from a neutral directory, so that neither a `rust-toolchain.toml` nor a
 /// `.cargo/config.toml` of the repository changes the run. It reads manifests only: no build script, no network.
-fn metadata(manifest: &Path) -> Result<Vec<u8>, String> {
+pub(crate) fn metadata(manifest: &Path) -> Result<Vec<u8>, String> {
     let mut cmd = Command::new("cargo");
     cmd.args([
         "metadata",
