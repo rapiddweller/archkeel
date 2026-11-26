@@ -49,11 +49,12 @@ fn walk_into(
     seen: &mut BTreeSet<String>,
     (found, deep): (&mut Vec<String>, &mut Vec<String>),
 ) {
-    if !seen.insert(snapshot.real(rel).unwrap_or_else(|| rel.to_owned())) {
-        return;
-    }
+    // The depth check comes first: a directory that is not entered must not mark its target as seen.
     if depth > MAX_DEPTH {
         deep.push(rel.to_owned());
+        return;
+    }
+    if !seen.insert(snapshot.real(rel).unwrap_or_else(|| rel.to_owned())) {
         return;
     }
     let (files, directories) = snapshot.entries(rel);

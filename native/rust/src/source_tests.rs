@@ -137,3 +137,15 @@ fn a_directory_below_the_depth_limit_is_listed_as_not_entered() {
     assert_eq!(files, ["a.rs"]);
     assert_eq!(not_entered, [vec!["d"; 129].join("/")]);
 }
+
+#[cfg(unix)]
+#[test]
+fn a_link_below_the_depth_limit_does_not_hide_its_target_from_a_later_visit() {
+    let deep = vec!["a"; 128].join("/");
+    let root = Tree::new(&[("z/x.rs", ""), (format!("{deep}/y.rs").as_str(), "")]);
+    std::os::unix::fs::symlink(root.root.join("z"), root.root.join(&deep).join("link")).unwrap();
+    let mut snapshot = Snapshot::new(&root.path());
+    let (files, not_entered) = walk(&mut snapshot, "");
+    assert!(files.contains(&"z/x.rs".to_owned()));
+    assert_eq!(not_entered, [format!("{deep}/link")]);
+}
