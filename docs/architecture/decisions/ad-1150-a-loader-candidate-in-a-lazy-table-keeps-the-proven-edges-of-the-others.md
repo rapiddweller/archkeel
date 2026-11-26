@@ -1,4 +1,4 @@
-# AD-1137: A loader candidate in a lazy table keeps the proven edges of the others
+# AD-1150: A loader candidate in a lazy table keeps the proven edges of the others
 
 Status: accepted. Amends AD-560 and AD-1096. Closes #2025.
 
