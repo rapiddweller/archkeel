@@ -22,6 +22,7 @@ struct Walk<'a, 'tcx> {
     st: &'a mut State,
     module: u32,
     me: u32,
+    root: DefId,
     generic: bool,
     /// What this body mentions: the hidden types of its future when it is a coroutine.
     hidden: Hidden,
@@ -43,7 +44,7 @@ fn counts(st: &mut State, tcx: TyCtxt<'_>, d: DefId) -> bool {
 /// The definition is workspace code: its crate is the one that the driver compiles, or a crate whose own run of
 /// the driver was a verified member (its manifest directory and root file are those of one member). The crate id
 /// decides, no name and no path: a path dependency that is no member has no run and is foreign.
-fn inside(st: &mut State, tcx: TyCtxt<'_>, d: DefId) -> bool {
+pub(crate) fn inside(st: &mut State, tcx: TyCtxt<'_>, d: DefId) -> bool {
     if d.krate == LOCAL_CRATE {
         return true;
     }
@@ -289,6 +290,8 @@ impl<'a, 'tcx> Visitor<'tcx> for Walk<'a, 'tcx> {
             TerminatorKind::Call { func, .. } => {
                 let fty = func.ty(&self.body.local_decls, self.tcx);
                 self.call(fty);
+                let at = (self.root, self.module);
+                crate::selected::eq_site(self.st, self.tcx, at, fty, t.source_info.span);
             }
             // The glue of a drop runs the destructors of the type, also of a generic ADT.
             TerminatorKind::Drop { place, .. } => {
@@ -341,6 +344,7 @@ pub(crate) fn visit<'tcx>(st: &mut State, tcx: TyCtxt<'tcx>, d: LocalDefId, body
         st: &mut *st,
         module,
         me,
+        root,
         generic,
         hidden: Hidden {
             adts: BTreeSet::new(),

@@ -434,3 +434,7 @@ pub(crate) mod tests;
 #[cfg(test)]
 #[path = "collect_reach_tests.rs"]
 mod reach_tests;
+
+#[cfg(test)]
+#[path = "selected_edges_tests.rs"]
+mod selected_tests;

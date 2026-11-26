@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use archkeel_facts::data::ImportData;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::ids::{FactId, ModuleName, PackageName};
+use archkeel_facts::ids::{ModuleName, PackageName};
 use archkeel_facts::{ImportFact, Record};
 
 use crate::builder::{import_record, Builder};
@@ -410,13 +410,8 @@ impl Builder {
             ],
         );
         let evidence = self.cite(&module.rel, site);
-        self.targets.push(Target::Local {
-            import_id: FactId::new(identity.as_str()),
-            module: ModuleName::new(edge.module.as_str()),
-            file: target_rel.to_owned(),
-            runtime_file: Some(target_rel.to_owned()),
-            declaration_file: None,
-        });
+        let local = Target::local(identity.as_str(), edge.module.as_str(), target_rel);
+        self.targets.push(local);
         let named = names::named(index, &mut self.publications, edge, &reference.via);
         let external = named.external_package();
         if let Some(package) = external.filter(|_| reference.in_macro.is_none()) {
