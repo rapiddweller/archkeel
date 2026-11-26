@@ -51,6 +51,49 @@ def test_a_path_dependency_outside_the_scan_roots_does_not_hide_an_edge(
     )
 
 
+def test_an_outside_dependency_that_reaches_no_member_adds_no_gap(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = {
+        "crates/Cargo.toml": '[workspace]\nmembers = ["app", "base"]\n',
+        "crates/app/Cargo.toml": _app('x = { path = "../../vendor/x" }\n'),
+        "crates/app/src/lib.rs": "pub fn run() { x::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "vendor/x/Cargo.toml": FOREIGN_X,
+        "vendor/x/src/lib.rs": "pub fn f() {}\n",
+    }
+    root = repository(
+        tmp_path / "repo", release_core, files=layout, components=PARTS, rules=_forbid(True)
+    )
+    _recommit(root)
+    assert _run_marker(root, "crates/app/Cargo.toml") == "app ran\n"
+    result = validate(root)
+    assert result["frame"]["rules"]["FORBID"][1] == "PASS", result["frame"]["rules"]
+
+
+def test_a_chain_of_outside_dependencies_does_not_hide_an_edge(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = {
+        "crates/Cargo.toml": '[workspace]\nmembers = ["app", "base"]\n',
+        "crates/app/Cargo.toml": _app('x = { path = "../../vendor/x" }\n'),
+        "crates/app/src/lib.rs": "pub fn run() { x::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "vendor/x/Cargo.toml": FOREIGN_X + '[dependencies]\ny = { path = "../y" }\n',
+        "vendor/x/src/lib.rs": "pub fn f() { y::g(); }\n",
+        "vendor/y/Cargo.toml": FOREIGN_X.replace('"x"', '"y"')
+        + '[dependencies]\nbase-crate = { path = "../../crates/base" }\n',
+        "vendor/y/src/lib.rs": "pub fn g() { base_crate::make(); }\n",
+    }
+    root = repository(
+        tmp_path / "repo", release_core, files=layout, components=PARTS, rules=_forbid(True)
+    )
+    _recommit(root)
+    assert _run_marker(root, "crates/app/Cargo.toml") == "app ran\n"
+    result = validate(root)
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
 def _broken_cargo(root: Path) -> None:
     """A manifest that Cargo cannot load: `cargo metadata` fails and proves no membership."""
     app = root / "crates/app/Cargo.toml"
