@@ -109,6 +109,11 @@ ROUTES = {
         HEAD,
         "pub fn f() { base_crate::make(); }\n",
     ),
+    "module-named-target": (
+        WORKSPACE,
+        "",
+        "mod target;\npub fn f() { target::f(); }\n",
+    ),
     "include": (
         WORKSPACE,
         "",
@@ -129,6 +134,11 @@ ROUTES = {
 
 
 EXTRA = {
+    "module-named-target": {
+        "vendor/x/src/target/mod.rs": (
+            'include!("../../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n'
+        )
+    },
     "patch-path-names-package": {"crates/package/keep": "x\n"},
     "lib-path-into-member": {"crates/app/src/lib.rs": "pub fn run() { x::make(); }\n"},
     "include-inc": {"vendor/x/src/internal.inc": 'include!("../../../crates/base/src/lib.rs");\n'},

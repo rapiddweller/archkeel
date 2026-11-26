@@ -185,7 +185,8 @@ fn sources_reach_member(dir: &Path, members: &Members, meta: &Value) -> bool {
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            let skip = matches!(entry.file_name().to_str(), Some("target" | ".git"));
+            // Only the build output of the crate itself: a module can be named `target`.
+            let skip = path == dir.join("target") || entry.file_name() == ".git";
             if path.is_dir() && !skip {
                 pending.push(path);
             } else if path.extension().is_some_and(|e| e == "rs") {
@@ -314,9 +315,8 @@ fn escapes(base: &Path, literal: &str, own: &str, members: &Members) -> Option<b
     let target = real_dir(base.join(literal).to_str()?)?;
     let inside = |dir: &str| target == dir || target.starts_with(&format!("{dir}/"));
     let below = target.strip_prefix(own).unwrap_or_default();
-    let unread = !target.ends_with(".rs")
-        || below
-            .split('/')
-            .any(|part| part == "target" || part == ".git");
+    // The first part below the crate: the build output and the repository are not searched.
+    let first = below.split('/').find(|part| !part.is_empty());
+    let unread = !target.ends_with(".rs") || matches!(first, Some("target" | ".git"));
     Some(!inside(own) || members.dirs.keys().any(|member| inside(member)) || unread)
 }
