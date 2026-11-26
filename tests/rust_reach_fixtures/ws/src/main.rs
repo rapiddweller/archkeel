@@ -16,6 +16,7 @@ mod fnrc_b;
 mod fnrc_m;
 mod fnhr_a;
 mod fnhr_b;
+mod fnhr_g;
 mod fnhr_m;
 mod fngen_a;
 mod fngen_b;

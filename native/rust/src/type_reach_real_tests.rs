@@ -155,8 +155,12 @@ fn each_hole_keeps_its_real_dispatch_pair_and_each_control_is_excluded() {
     let filter = Filter::new(&loaded, &known);
     let mut wrong: Vec<String> = Vec::new();
     for (case, kept) in cases {
-        // `cgen`: the generic function that the closure calls is the code that dispatches.
-        let caller = if case == &"cgen" { "g" } else { "a" };
+        // `cgen`: the generic function that the closure calls is the code that dispatches. `fnhr`: `g` drops the box.
+        let caller = if matches!(*case, "cgen" | "fnhr") {
+            "g"
+        } else {
+            "a"
+        };
         let excluded = filter.excluded(
             &format!("native.fx.{case}_{caller}"),
             &format!("native.fx.{case}_b"),
