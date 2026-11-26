@@ -241,10 +241,16 @@ def test_two_dependency_keys_that_differ_by_dash_do_not_hide_a_foreign_crate(
 ) -> None:
     app = _app(
         'x-foo = { path = "../vendor/x", package = "x" }\n'
-        '[build-dependencies]\nx_foo = { path = "../base", package = "base-crate" }\n'
+        '[build-dependencies]\nx_foo = { path = "../helper", package = "helper" }\n'
     )
     layout = {
-        "crates/Cargo.toml": '[workspace]\nmembers = ["app", "base"]\nexclude = ["vendor/x"]\n',
+        "crates/Cargo.toml": (
+            '[workspace]\nmembers = ["app", "base", "helper"]\nexclude = ["vendor/x"]\n'
+        ),
+        "crates/helper/Cargo.toml": (
+            '[package]\nname = "helper"\nversion = "0.0.0"\nedition = "2021"\n'
+        ),
+        "crates/helper/src/lib.rs": "pub fn h() {}\n",
         "crates/app/Cargo.toml": app,
         "crates/app/build.rs": "fn main() {}\n",
         "crates/app/src/lib.rs": "pub fn run() { x_foo::f(); }\n",
