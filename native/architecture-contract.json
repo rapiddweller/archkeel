@@ -1168,6 +1168,7 @@
         "native.archkeel_model.direction:forbidden",
         "native.archkeel_model.direction:forbidden_chains",
         "native.archkeel_model.direction:peers",
+        "native.archkeel_model.direction:published_impl",
         "native.archkeel_model.direction:symbol_named",
         "native.archkeel_model.direction:undecided",
         "native.archkeel_model.direction:unused_dependency_allowances",
