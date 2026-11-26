@@ -9,6 +9,10 @@ use super::*;
 #[test]
 fn explorer_projects_the_same_scan_without_changing_its_ruling() {
     let root = repository("explorer-facts");
+    // The config states the test scope: the Explorer default (AD-1119) then leaves the scan as it is.
+    let config = root.join("archkeel.toml");
+    let text = fs::read_to_string(&config).unwrap();
+    fs::write(&config, format!("{text}exclude_test_sources = false\n")).unwrap();
     fs::write(
         root.join("src/invoice.ts"),
         "export class Invoice { amount: number = 3; static total(): number { return 3; } }",
