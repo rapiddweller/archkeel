@@ -300,13 +300,13 @@ def _read_topology(value: object, scope: str, rules: Mapping[str, object]) -> To
         tuple(_layer_order(item) for item in lists["layers"]),
     )
     _check_references(topology)
-    lists = (
+    identities = (
         ("components", topology.components),
         ("modules", topology.modules),
         ("edges", topology.edges),
         ("component_edges", topology.component_edges),
     )
-    for label, items in lists:
+    for label, items in identities:
         keys = [item.name if isinstance(item, Module) else item.id for item in items]
         repeated = sorted(key for key, seen in Counter(keys).items() if seen > 1)
         if repeated:
