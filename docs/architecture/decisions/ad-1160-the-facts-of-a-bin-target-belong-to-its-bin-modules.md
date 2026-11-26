@@ -18,23 +18,23 @@ reverse source use and a possible trait-impl dispatch. The first measurement (11
 
 ## Decision
 
-1. The facts reader notes which module paths the files of a `bin` target declare (`crate_types` of the build record)
-   and which paths every other file declares. `bin_module` in `native/rust/src/type_reach_fold.rs` maps a path to the
-   module of the single scan target `bin_<crate>` only when a bin file declares it and no other file does. A path that
-   the library declares, also an inline module of the library, keeps the library module. Two targets with the same
-   name give no mapping, so the cut-back to the crate root applies as before.
+1. `bin_module` in `native/rust/src/type_reach_fold.rs` maps a facts path to the module of the single scan target
+   `bin_<crate>`. The facts carry no split by target: the unit of the library holds the modules of `main.rs` too
+   (measured), so the scan decides. A path keeps the library when a scan module of the library below the crate root
+   owns it (also by an inline module), and when no scan module below `bin_<crate>` owns it. An inline module at the
+   crate root of the library therefore stays with the crate root. Two targets with the same name give no mapping.
 2. No rule, no gap text and no verdict logic changes. The reach of a module stays as it was.
 3. The remaining pairs are not decided here. Each one stays UNKNOWN with the measured cause above. A
    contract unit option (#1013) or a weaker rule is not used.
 
-## Measured (`ARCHKEEL_ALLOW_BUILD=1`, native/archkeel.toml, same revision)
+## Measured (`ARCHKEEL_ALLOW_BUILD=1`, native/archkeel.toml, same revision, without and with the change)
 
-| | before | after |
+| | without | with |
 |---|---|---|
-| NATIVE-NO-MODULE-CYCLES held pairs | 11 | 9 |
-| NATIVE-REQUIRES-COMPLETE held pairs | 7964 | 7805 |
-| NATIVE-INTERFACE-BOUNDARY held pairs | 1202 | 1192 |
-| gaps | 12947 | 12611 |
+| NATIVE-NO-MODULE-CYCLES held pairs | 11 | 10 |
+| NATIVE-REQUIRES-COMPLETE held pairs | 8043 | 8042 |
+| NATIVE-INTERFACE-BOUNDARY held pairs | 1207 | 1207 |
+| gaps | 13049 | 13037 |
 
 Experiments on the model (unsound, a measurement and no proof): no `via` flow gives 4 pairs; no types for `dyn Fn`
 gives 1 pair and 12072 gaps.
@@ -55,4 +55,4 @@ Sibling (1): `scip_evidence.syntax` to `scip_evidence.bindings`.
 
 ## Not done yet
 
-The reach of the nine modules. A planted sibling cycle is still caught: the rule reads real edges, and the change adds none.
+The reach of the held modules. A library inline module and a bin module with the same name below the same crate root cannot be told apart by the scan alone: the facts of that name go to the library module. A planted sibling cycle is still caught: the rule reads real edges, and the change adds none.

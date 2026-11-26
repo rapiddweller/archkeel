@@ -24,29 +24,47 @@ pub struct Reach<'f> {
     pub(crate) parts: Parts,
 }
 
-/// The scan module of a facts path that only a `bin` target declares: the scan names the modules of that target
-/// `<namespace>.<package>.bin_<crate>.<module>` (`crates.rs`), the facts `<crate>::<module>`. A path that any other
-/// file declares (a library module, also an inline one) keeps the library module. `None` when the path is no
-/// bin-only path, or when the scan has no single target `bin_<crate>`.
-fn bin_module(
-    known: &BTreeSet<String>,
-    homes: &(BTreeSet<String>, BTreeSet<String>),
-    path: &str,
-) -> Option<String> {
-    if !homes.0.contains(path) || homes.1.contains(path) {
+/// The scan module of a facts path that belongs to a `bin` target: the scan names the modules of that target
+/// `<namespace>.<package>.bin_<crate>.<module>` (`crates.rs`), the facts `<crate>::<module>`. The facts carry no
+/// split by target (the unit of the library holds the modules of `main.rs` too), so the scan decides. A path
+/// keeps the library when a module of the library below the crate root owns it (also by an inline module), or
+/// when no scan module below `bin_<crate>` owns it. A path that no scan module owns, such as an inline module at
+/// the crate root, goes to the crate root as before. `None` when there is no single target `bin_<crate>`.
+fn bin_module(known: &BTreeSet<String>, namespace: &str, path: &str) -> Option<String> {
+    let (krate, rest) = path.split_once("::")?;
+    let library = format!("{namespace}.{}", path.replace("::", "."));
+    if known.contains(&library) || deepest(known, &library) > depth(&format!("{namespace}.{krate}"))
+    {
         return None;
     }
-    let (krate, rest) = path.split_once("::")?;
     let wanted = format!("bin_{krate}");
     let mut targets = known.iter().filter(|name| {
         name.rsplit_once('.')
             .is_some_and(|(_, last)| last == wanted)
     });
     let home = targets.next()?;
-    targets
-        .next()
-        .is_none()
-        .then(|| format!("{home}.{}", rest.replace("::", ".")))
+    if targets.next().is_some() {
+        return None;
+    }
+    let bin = format!("{home}.{}", rest.replace("::", "."));
+    (deepest(known, &bin) > depth(home)).then_some(bin)
+}
+
+fn depth(name: &str) -> usize {
+    name.matches('.').count()
+}
+
+/// The depth of the longest module of `known` that is `name` or a prefix of it.
+fn deepest(known: &BTreeSet<String>, name: &str) -> usize {
+    let mut prefix = name.to_owned();
+    while !known.contains(&prefix) && prefix.contains('.') {
+        prefix.truncate(prefix.rfind('.').unwrap_or(0));
+    }
+    if known.contains(&prefix) {
+        depth(&prefix)
+    } else {
+        0
+    }
 }
 
 impl<'f> Reach<'f> {
@@ -66,7 +84,7 @@ impl<'f> Reach<'f> {
             .chain(facts.fns.values().map(|(module, _)| module));
         for path in paths {
             let direct = format!("{namespace}.{}", path.replace("::", "."));
-            let mut name = bin_module(known, &facts.homes, path).unwrap_or_else(|| direct.clone());
+            let mut name = bin_module(known, namespace, path).unwrap_or_else(|| direct.clone());
             while !known.contains(&name) && name.contains('.') {
                 name.truncate(name.rfind('.').unwrap_or(0));
             }
