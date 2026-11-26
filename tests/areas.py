@@ -268,6 +268,4 @@ def fetch_sources(paths: list[str]) -> bool:
 
 
 def parallel_areas(paths: list[str]) -> list[str]:
-    if rust_checks(paths) or any(path.startswith("src/archkeel/cli/") for path in paths):
-        return areas_of_change(paths)
-    return []
+    return areas_of_change(paths) or ["self-check and CI"]
