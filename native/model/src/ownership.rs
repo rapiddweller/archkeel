@@ -88,11 +88,18 @@ fn reexported(
                 })
         })
     };
-    let from_module = |(_, target): &&(&str, &str)| *target == module;
-    reexports
-        .iter()
-        .filter(from_module)
-        .any(|(facade, _)| covers(facade))
+    // A facade can re-export through another facade: follow the chain until no module is added.
+    let mut reached = vec![module];
+    let mut next = 0;
+    while let Some(&target) = reached.get(next) {
+        next += 1;
+        for (facade, _) in reexports.iter().filter(|(_, t)| *t == target) {
+            if !reached.contains(facade) {
+                reached.push(facade);
+            }
+        }
+    }
+    reached.iter().skip(1).any(|facade| covers(facade))
 }
 
 /// The one claimant, or `None` for zero or many.

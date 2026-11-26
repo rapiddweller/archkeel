@@ -386,3 +386,31 @@ def test_an_impl_that_no_allowed_route_publishes_still_fails(
         type_reach=True,
     )
     assert statuses(validate(root))["REQUIRES"] == "FAIL"
+
+
+def test_an_impl_behind_a_two_hop_facade_is_unknown(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`b` re-exports from `c`, `c` re-exports from `d`, and `a` may use `b` only."""
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "cache"))
+    files = {
+        **FACADE_SOURCES,
+        "crates/app/src/lib.rs": "pub mod a;\npub mod b;\npub mod c;\npub mod d;\n",
+        "crates/app/src/c.rs": "pub use crate::d::{hits, Y};\n",
+        "crates/app/src/b.rs": "pub use crate::c::{hits, Y};\n\npub fn make() -> Y {\n    Y\n}\n",
+    }
+    parts = list(_facade_parts(("b",)))
+    parts.append(
+        {**component("c", "app", ("d",)), "packages": [], "exact_modules": ["native.app.c"]}
+    )
+    parts[1]["requires"].append({"component": "c", "rationale": "The root declares the module."})
+    parts[3] = {**component("b", "app", ("c",)), "packages": [], "exact_modules": ["native.app.b"]}
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        files,
+        components=tuple(parts),
+        rules=(*CRATE_RULES[1:],),
+        type_reach=True,
+    )
+    assert statuses(validate(root))["REQUIRES"] == "UNKNOWN"
