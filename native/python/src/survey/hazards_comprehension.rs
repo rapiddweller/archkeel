@@ -97,6 +97,8 @@ struct Trojans<'n> {
     scope: Option<Scope>,
     depth: usize,
     found: Vec<(&'static str, TextRange)>,
+    /// The project has no hook that a write of an exception-chain name can reach (#2090).
+    chain_clear: bool,
 }
 
 /// The sites of the module: a computed attribute name on a receiver that is not proven. `names`
@@ -104,6 +106,7 @@ struct Trojans<'n> {
 pub(in crate::survey) fn trojans(
     (tree, module): (&ModModule, &str),
     names: &(HashSet<String>, HashSet<String>, HashSet<String>),
+    chain_clear: bool,
 ) -> Vec<(&'static str, TextRange)> {
     // The premise of the run: code outside the scan roots writes no binding of the scan (AD-1053).
     // The name of such a file starts with `<`, which no module of the scan can (`outside.rs`).
@@ -119,6 +122,7 @@ pub(in crate::survey) fn trojans(
         scope: None,
         depth: 0,
         found: Vec::new(),
+        chain_clear,
     };
     let mut globals = Declared(HashSet::new());
     globals.visit_body(&tree.body);
@@ -206,23 +210,19 @@ pub(super) fn reflective(name: &str) -> bool {
 }
 
 /// True when the attribute that a store or a delete names is a literal dunder that a site reads (#1979).
-fn written(node: &ruff_python_ast::ExprAttribute) -> bool {
-    site(Identifier::as_str(&node.attr), true)
+fn written(node: &ruff_python_ast::ExprAttribute, clear: bool) -> bool {
+    site(Identifier::as_str(&node.attr), clear)
 }
 
-/// The exception-chain names: Python reads them to print a traceback and never calls them as a hook. A write
-/// of one changes no import and no call (#2090). A read of `__traceback__` hands out frames, so only a write is clear.
-const CHAIN_WRITES: [&str; 5] = [
-    "__cause__",
-    "__context__",
-    "__traceback__",
-    "__suppress_context__",
-    "__notes__",
-];
+#[path = "hazards_chain.rs"]
+mod chain;
+pub(in crate::survey) use chain::clear as chain_clear;
+use chain::CHAIN_WRITES;
 
-/// True when a literal name is a site: a read by `reflective`, a write unless it is an exception-chain name.
-fn site(name: &str, write: bool) -> bool {
-    reflective(name) && !(write && CHAIN_WRITES.contains(&name))
+/// True when a literal name is a site: a read by `reflective`, a write unless it is an exception-chain name
+/// and `exempt` holds (a write, and a project with no hook that the write can reach).
+fn site(name: &str, exempt: bool) -> bool {
+    reflective(name) && !(exempt && CHAIN_WRITES.contains(&name))
 }
 
 /// `vars(x)` or `x.__dict__`: the dictionary of the attributes of any value.
@@ -325,7 +325,7 @@ impl Trojans<'_> {
     /// True when the name is a literal or a local with one literal.
     fn resolved(&self, name: &Expr, write: bool) -> bool {
         match (name, &self.scope) {
-            (Expr::StringLiteral(text), _) => !site(text.value.to_str(), write),
+            (Expr::StringLiteral(text), _) => !site(text.value.to_str(), write && self.chain_clear),
             (Expr::Name(node), Some(literals)) => {
                 HashSet::contains(literals, Name::as_str(&node.id))
             }
@@ -409,7 +409,9 @@ impl<'a> Visitor<'a> for Trojans<'_> {
                 self.found.push(("__dict__", expr.range()));
             }
             // `K.__call__ = f` and `del K.__call__` write a literal dunder: the same site as `setattr`.
-            Expr::Attribute(node) if node.ctx != ExprContext::Load && written(node) => {
+            Expr::Attribute(node)
+                if node.ctx != ExprContext::Load && written(node, self.chain_clear) =>
+            {
                 let kind = if node.ctx == ExprContext::Del {
                     "delattr"
                 } else {

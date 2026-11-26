@@ -105,6 +105,16 @@ fn a_computed_attribute_name_on_an_unproved_receiver_is_a_site() {
         "def f(x):\n    x.__class__ = other\n",
         // #2090: the chain names are clear for a write only. A read hands out frames.
         "def f(e):\n    return getattr(e, '__traceback__')\n",
+        // #2090: the exemption holds only when the project defines no hook that such a write can reach.
+        "class K:\n    def __setattr__(self, n, v):\n        pass\n\n\ndef f(e, c):\n    e.__cause__ = c\n",
+        "class K:\n    def __delattr__(self, n):\n        pass\n\n\ndef f(e):\n    del e.__cause__\n",
+        "class D:\n    def __set__(self, o, v):\n        pass\n\n\ndef f(e, c):\n    e.__context__ = c\n",
+        "class D:\n    def __set_name__(self, o, n):\n        pass\n\n\ndef f(e, c):\n    e.__cause__ = c\n",
+        "class K:\n    @property\n    def __cause__(self):\n        return 1\n\n\ndef f(e, c):\n    e.__cause__ = c\n",
+        "class K:\n    __notes__ = []\n\n\ndef f(e):\n    e.__notes__ = []\n",
+        "class L(list):\n    pass\n\n\ndef f(e):\n    e.__notes__ = L()\n",
+        "class T:\n    def __del__(self):\n        pass\n\n\ndef f(e):\n    e.__traceback__ = None\n",
+        "K = type('K', (), {'__setattr__': print})\n\n\ndef f(e, c):\n    e.__cause__ = c\n",
         // A write of a dunder that dispatches stays a site beside the chain names.
         "def f(e, c, hook):\n    e.__cause__ = c\n    type(e).__call__ = hook\n",
         "def f(e, c, hook):\n    setattr(e, '__cause__', c)\n    setattr(e, '__getattr__', hook)\n",

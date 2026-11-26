@@ -69,10 +69,163 @@ CONTROLS = {
     ),
 }
 
+# #2090: a write of an exception-chain name can run project code through the receiver. The scan
+# reads no type, so the exemption holds only when no hook of the project can be reached. CPython
+# 3.12 runs each hook (counter file); the scan must not say PASS.
+RUN = "open('counter.txt', 'a').write('hooked')"
 
-def _runs_hook(root: Path) -> bool:
+
+def _code(*lines: str) -> str:
+    return "\n".join(lines).replace("RUN", RUN) + "\n"
+
+
+SETTER = ("class K:", "    @property", "    def __cause__(self):", "        return 1")
+CHAIN_HOOKS = {
+    "setattr-method": _code(
+        "class K:",
+        "    def __setattr__(self, n, v):",
+        "        RUN",
+        "",
+        "e = K()",
+        "e.__cause__ = 1",
+    ),
+    "setattr-call": _code(
+        "class K:",
+        "    def __setattr__(self, n, v):",
+        "        RUN",
+        "",
+        "setattr(K(), '__cause__', 1)",
+    ),
+    "descriptor-set": _code(
+        "class D:",
+        "    def __set__(self, o, v):",
+        "        RUN",
+        "",
+        "class K:",
+        "    __cause__ = D()",
+        "",
+        "K().__cause__ = 1",
+    ),
+    "property-setter": _code(
+        *SETTER,
+        "    @__cause__.setter",
+        "    def __cause__(self, v):",
+        "        RUN",
+        "",
+        "K().__cause__ = 2",
+    ),
+    "property-setter-setattr": _code(
+        *SETTER,
+        "    @__cause__.setter",
+        "    def __cause__(self, v):",
+        "        RUN",
+        "",
+        "setattr(K(), '__cause__', 2)",
+    ),
+    "property-deleter": _code(
+        *SETTER,
+        "    @__cause__.deleter",
+        "    def __cause__(self):",
+        "        RUN",
+        "",
+        "delattr(K(), '__cause__')",
+    ),
+    "property-deleter-del": _code(
+        *SETTER,
+        "    @__cause__.deleter",
+        "    def __cause__(self):",
+        "        RUN",
+        "",
+        "del K().__cause__",
+    ),
+    "metaclass-setattr": _code(
+        "class M(type):",
+        "    def __setattr__(cls, n, v):",
+        "        RUN",
+        "",
+        "class K(metaclass=M):",
+        "    pass",
+        "",
+        "K.__cause__ = 1",
+    ),
+    "notes-list-subclass": _code(
+        "class L(list):",
+        "    def append(self, x):",
+        "        RUN",
+        "",
+        "e = ValueError('a')",
+        "e.__notes__ = L()",
+        "e.__notes__.append('x')",
+    ),
+    "notes-list-subclass-attribute": _code(
+        "class L(list):",
+        "    def append(self, x):",
+        "        RUN",
+        "",
+        "class K:",
+        "    pass",
+        "",
+        "k = K()",
+        "k.__notes__ = L()",
+        "k.__notes__.append('x')",
+    ),
+    "notes-iadd": _code(
+        "class L(list):",
+        "    def __iadd__(self, x):",
+        "        RUN",
+        "        return self",
+        "",
+        "k = ValueError('a')",
+        "k.__notes__ = L()",
+        "k.__notes__ += ['x']",
+    ),
+    "traceback-finalizer": _code(
+        "class T:",
+        "    def __del__(self):",
+        "        RUN",
+        "",
+        "e = ValueError('a')",
+        "e.__traceback__ = T()",
+        "e.__traceback__ = None",
+    ),
+    "traceback-finalizer-setattr": _code(
+        "class T:",
+        "    def __del__(self):",
+        "        RUN",
+        "",
+        "class K:",
+        "    pass",
+        "",
+        "k = K()",
+        "setattr(k, '__traceback__', T())",
+        "delattr(k, '__traceback__')",
+    ),
+    "exception-subclass-setattr": _code(
+        "class E(ValueError):",
+        "    def __setattr__(self, n, v):",
+        "        RUN",
+        "",
+        "e = E('a')",
+        "e.__cause__ = KeyError('b')",
+    ),
+    "exception-subclass-property": _code(
+        "class E(ValueError):",
+        "    @property",
+        "    def __cause__(self):",
+        "        return None",
+        "    @__cause__.setter",
+        "    def __cause__(self, v):",
+        "        RUN",
+        "",
+        "e = E('a')",
+        "e.__cause__ = KeyError('b')",
+    ),
+}
+
+
+def _runs_hook(root: Path, check: bool = True) -> bool:
     code = "import sys; sys.path.insert(0, 'src'); import app.consumer"
-    subprocess.run(["python3.12", "-I", "-c", code], cwd=root, capture_output=True, check=True)
+    subprocess.run(["python3.12", "-I", "-c", code], cwd=root, capture_output=True, check=check)
     return (root / "counter.txt").is_file()
 
 
@@ -96,3 +249,17 @@ def test_a_write_that_no_behavior_reads_keeps_pass(
     frame = _verdict(root, release_core, monkeypatch)["frame"]
 
     assert frame["rules"]["NO-LIB"][1] == "PASS", frame["collection_gaps"]
+
+
+@pytest.mark.parametrize("name", sorted(CHAIN_HOOKS))
+def test_a_chain_write_that_can_reach_a_project_hook_is_never_pass(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    root = _root(tmp_path, "def _pad():\n    pass\n\n" + CHAIN_HOOKS[name])
+    # A non-exception written to a chain name raises after the hook ran: the run may end badly.
+    assert _runs_hook(root, check=False), (
+        "CPython must run the hook: the write reaches project code"
+    )
+    frame = _verdict(root, release_core, monkeypatch)["frame"]
+
+    assert frame["rules"]["NO-LIB"][1] in {"FAIL", "UNKNOWN"}, frame
