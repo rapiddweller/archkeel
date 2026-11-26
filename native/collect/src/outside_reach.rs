@@ -114,9 +114,10 @@ fn patches(meta: &Value) -> BTreeMap<String, Option<String>> {
         let dir = root
             .zip(path)
             .and_then(|(r, p)| real_dir(Path::new(r).join(p).to_str()?));
-        // Two entries of one name: an entry that cannot be placed wins, so the name holds.
+        // Two entries of one name (two versions, two aliases): an entry that cannot be placed, or another directory,
+        // makes the name hold, so the verdict does not depend on the order of the entries.
         let slot = found.entry(package.unwrap_or(key)).or_insert(dir.clone());
-        if dir.is_none() {
+        if *slot != dir {
             *slot = None;
         }
     }
@@ -383,9 +384,15 @@ fn whole_literal(rest: &str) -> Option<&str> {
     after.starts_with([')', ']', ';', '}']).then_some(literal)
 }
 
-/// Whether `literal`, read from `base`, leaves the crate in `own` or lies inside a member; `None` when it does not resolve.
+/// Whether `literal`, read from `base`, leaves the crate in `own`, lies inside a member, or names a file that the
+/// search does not read (no `.rs` file, or a file below `target` or `.git`); `None` when it does not resolve.
 fn escapes(base: &Path, literal: &str, own: &str, members: &Members) -> Option<bool> {
     let target = real_dir(base.join(literal).to_str()?)?;
     let inside = |dir: &str| target == dir || target.starts_with(&format!("{dir}/"));
-    Some(!inside(own) || members.dirs.keys().any(|member| inside(member)))
+    let below = target.strip_prefix(own).unwrap_or_default();
+    let unread = !target.ends_with(".rs")
+        || below
+            .split('/')
+            .any(|part| part == "target" || part == ".git");
+    Some(!inside(own) || members.dirs.keys().any(|member| inside(member)) || unread)
 }

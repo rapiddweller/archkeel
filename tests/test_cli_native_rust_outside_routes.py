@@ -68,6 +68,15 @@ ROUTES = {
         'include!("../../../bridge.rs");\npub fn f() { make(); }\n',
     ),
     "lib-inc": (WORKSPACE, LIB_INC, "// the target is lib.inc\n"),
+    "include-inc": (WORKSPACE, "", 'include!("internal.inc");\npub fn f() { make(); }\n'),
+    "patch-two-versions": (
+        WORKSPACE
+        + "[patch.crates-io]\n"
+        + 'old = { package = "base-crate", path = "../vendor/other" }\n'
+        + 'base-crate = { path = "base" }\n',
+        '[dependencies]\nbase-crate = "=0.0.0"\n',
+        "pub fn f() { base_crate::make(); }\n",
+    ),
     "include": (
         WORKSPACE,
         "",
@@ -88,11 +97,18 @@ ROUTES = {
 
 
 EXTRA = {
+    "include-inc": {"vendor/x/src/internal.inc": 'include!("../../../crates/base/src/lib.rs");\n'},
+    "patch-two-versions": {
+        "vendor/other/Cargo.toml": (
+            '[package]\nname = "base-crate"\nversion = "0.0.1"\nedition = "2021"\n'
+        ),
+        "vendor/other/src/lib.rs": "pub fn make() {}\n",
+    },
     "lib-inc": {
         "vendor/x/src/lib.inc": (
             'include!("../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n'
         ),
-    }
+    },
 }
 
 
