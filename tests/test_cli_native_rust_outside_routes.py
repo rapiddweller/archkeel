@@ -14,7 +14,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from rust_repository import repository, validate
+from rust_repository import outcome, repository, validate
 from test_cli_native_rust_non_member_crate import (
     FOREIGN_X,
     MARKED_MAIN,
@@ -254,15 +254,17 @@ def _scan(
     )
 
 
+@pytest.mark.parametrize("build", [True, False], ids=["build", "no-build"])
 @pytest.mark.parametrize("route", sorted(ROUTES))
 def test_a_route_from_an_outside_crate_into_a_member_does_not_pass(
-    tmp_path: Path, release_core: Path, route: str
+    tmp_path: Path, release_core: Path, route: str, build: bool
 ) -> None:
     workspace, deps, source = ROUTES[route]
     root = _scan(tmp_path, release_core, workspace, deps, source, EXTRA.get(route, {}))
     _recommit(root)
     assert _marker(root, offline=True) == "app ran\n"
-    result = validate(root)
+    # Without the permission to build no dep-info is read: the crate outside the members is not proven and holds.
+    result = outcome(root, "validate", allow_build=build)[1]
     assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
 
 

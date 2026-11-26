@@ -301,7 +301,7 @@ pub(crate) const ALLOW_BUILD: &str = "ARCHKEEL_ALLOW_BUILD";
 /// The typed gap when the repository asks for compilation and the operator did not allow it.
 const NOT_ALLOWED: &str = "type reach not allowed by the operator";
 
-fn build_allowed() -> bool {
+pub(crate) fn build_allowed() -> bool {
     std::env::var_os(ALLOW_BUILD).is_some_and(|value| value == "1")
 }
 
