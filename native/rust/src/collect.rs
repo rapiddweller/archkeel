@@ -231,10 +231,18 @@ fn answer() -> Answer {
 
 /// What the scan does not read: the package names of the crates that it dropped, and the member crates (by directory)
 /// that Cargo says have a path dependency on a crate that is no member.
-#[derive(Default)]
 struct Foreign {
     names: BTreeSet<String>,
     held: BTreeSet<String>,
+}
+
+impl Foreign {
+    fn none() -> Foreign {
+        Foreign {
+            names: BTreeSet::new(),
+            held: BTreeSet::new(),
+        }
+    }
 }
 
 /// A member that depends on a foreign crate may reach other members through it: the files of the foreign crate are
@@ -282,7 +290,7 @@ fn workspace_files(
     builder: &mut Builder,
 ) -> (Vec<String>, Foreign) {
     let (roots, members, listed_names, held) = match answer() {
-        Answer::Absent => return (files, Foreign::default()),
+        Answer::Absent => return (files, Foreign::none()),
         Answer::Unavailable(why) => {
             // Without `cargo metadata` the manifests prove a membership only for the plain layouts.
             let dirs = package_dirs(&files, source);
@@ -292,7 +300,7 @@ fn workspace_files(
                 let reason = format!("The Cargo workspace members are unavailable: {why}. The manifests do not prove that {} is a member: every crate below the scan roots is read as workspace code.", unproven.join(", "));
                 builder.gap(&reason, None, "");
             }
-            return (files, Foreign::default());
+            return (files, Foreign::none());
         }
         Answer::Listed {
             roots,
