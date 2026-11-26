@@ -36,7 +36,7 @@ def test_the_publication_runs_only_for_a_push_or_a_dispatch_on_main() -> None:
     assert condition is not None
     assert condition[1] == "github.ref == 'refs/heads/main'"
     for workflow in WORKFLOWS.glob("*.yml"):
-        if workflow.name != "pr-gate.yml":
+        if workflow.name not in {"pr-gate.yml", "pr-gate-rerun.yml"}:
             assert "pull_request:" not in workflow.read_text().split("\nconcurrency:\n", 1)[0], (
                 workflow.name
             )
