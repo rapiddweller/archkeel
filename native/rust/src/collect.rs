@@ -47,7 +47,7 @@ pub(crate) fn collect_with(
     let mut builder = Builder::with_exclude_tests(request.excludes_test_sources());
     let (scope, files) = list(&mut source, &request.scope.roots, &mut builder);
     let (unavailable, reached) = load_facts(announce(&mut source, &files), &mut builder);
-    let (files, foreign_names) = workspace_files(files, &mut source, &mut builder);
+    let (files, foreign) = workspace_files(files, &mut source, &mut builder);
     let overrides = crate::registry_overrides::configs(&mut source);
     let mut workspace = discover(&mut source, &files, &request.scope.namespace);
     for krate in &mut workspace.crates {
@@ -59,7 +59,7 @@ pub(crate) fn collect_with(
         .iter()
         .any(|krate| !krate.registry.packages.is_empty());
     let mut walked = walk(&mut source, &workspace, request.excludes_test_sources());
-    hold_foreign_edges(&workspace, &walked.modules, &foreign_names, &mut builder);
+    hold_foreign_edges(&workspace, &walked.modules, &foreign, &mut builder);
     let proven: Vec<Vec<String>> = {
         let index = index(&workspace, &walked.modules);
         walked
@@ -199,6 +199,7 @@ enum Answer {
         roots: Vec<String>,
         members: BTreeSet<String>,
         names: Vec<String>,
+        held: BTreeSet<String>,
     },
 }
 
@@ -222,8 +223,25 @@ fn answer() -> Answer {
             roots,
             members: members.into_iter().collect(),
             names: list("names").unwrap_or_default(),
+            held: list("held").unwrap_or_default().into_iter().collect(),
         },
         _ => Answer::Unavailable("the answer of the core is not readable".to_owned()),
+    }
+}
+
+/// What the scan does not read: the package names of the crates that it dropped, and the member crates (by directory)
+/// that Cargo says have a path dependency on a crate that is no member.
+struct Foreign {
+    names: BTreeSet<String>,
+    held: BTreeSet<String>,
+}
+
+impl Foreign {
+    fn none() -> Foreign {
+        Foreign {
+            names: BTreeSet::new(),
+            held: BTreeSet::new(),
+        }
     }
 }
 
@@ -232,19 +250,26 @@ fn answer() -> Answer {
 fn hold_foreign_edges(
     workspace: &Workspace,
     modules: &[Module],
-    foreign_names: &BTreeSet<String>,
+    foreign: &Foreign,
     builder: &mut Builder,
 ) {
     for (index, krate) in workspace.crates.iter().enumerate() {
         // `declared` keeps each entry: `dependencies` joins two keys that differ only by `-` and `_`.
-        let through = krate
+        let named = krate
             .manifest
             .declared
             .iter()
             .map(|entry| ident(&entry.package))
-            .find(|package| foreign_names.contains(package));
-        let (Some(package), Some(root)) = (through, krate.primary.as_ref().or(krate.roots.first()))
-        else {
+            .find(|package| foreign.names.contains(package));
+        // Cargo names a path dependency that is no member, also one outside every scan root.
+        let outside = foreign
+            .held
+            .contains(&krate.dir)
+            .then(|| "a path dependency".to_owned());
+        let (Some(package), Some(root)) = (
+            named.or(outside),
+            krate.primary.as_ref().or(krate.roots.first()),
+        ) else {
             continue;
         };
         let sources = modules
@@ -263,9 +288,9 @@ fn workspace_files(
     files: Vec<String>,
     source: &mut Snapshot,
     builder: &mut Builder,
-) -> (Vec<String>, BTreeSet<String>) {
-    let (roots, members, listed_names) = match answer() {
-        Answer::Absent => return (files, BTreeSet::new()),
+) -> (Vec<String>, Foreign) {
+    let (roots, members, listed_names, held) = match answer() {
+        Answer::Absent => return (files, Foreign::none()),
         Answer::Unavailable(why) => {
             // Without `cargo metadata` the manifests prove a membership only for the plain layouts.
             let dirs = package_dirs(&files, source);
@@ -275,13 +300,14 @@ fn workspace_files(
                 let reason = format!("The Cargo workspace members are unavailable: {why}. The manifests do not prove that {} is a member: every crate below the scan roots is read as workspace code.", unproven.join(", "));
                 builder.gap(&reason, None, "");
             }
-            return (files, BTreeSet::new());
+            return (files, Foreign::none());
         }
         Answer::Listed {
             roots,
             members,
             names,
-        } => (roots, members, names),
+            held,
+        } => (roots, members, names, held),
     };
     let mut foreign: BTreeMap<&str, String> = BTreeMap::new();
     // The member names come from Cargo: a path that the scan lists differently (a symlinked scan root) cannot hide one.
@@ -345,7 +371,7 @@ fn workspace_files(
         })
         .cloned()
         .collect();
-    (kept_files, names)
+    (kept_files, Foreign { names, held })
 }
 
 /// Whether a directory above `dir` is a member crate.
