@@ -14,7 +14,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-from rust_repository import CRATE_RULES, repository, validate
+from rust_repository import CRATE_RULES, repository, rule, validate
 from rustc_dev_support import needs_rustc_dev
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="the scan needs git")
@@ -154,3 +154,20 @@ def test_with_the_permission_the_facts_are_produced_as_before(
     frame = validate(root, allow_build=True)["frame"]
     assert frame["rules"]["REQUIRES"][1] == "PASS", frame["collection_gaps"]
     assert marker.exists()
+
+
+@needs_rustc_dev
+def test_a_sibling_cycle_in_a_bin_target_is_still_a_module_cycle(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AD-1160: the facts of `main.rs` modules are read per module; a real cycle fails."""
+    _facts_run(tmp_path, monkeypatch)
+    cycle = {
+        "crates/app/src/main.rs": "mod a;\nmod b;\nfn main() { a::f(); }\n",
+        "crates/app/src/a.rs": "pub fn f() { crate::b::g(); }\n",
+        "crates/app/src/b.rs": "pub fn g() { crate::a::f(); }\n",
+    }
+    rules = (*CRATE_RULES, rule("MODS", "no_component_cycles", level="module"))
+    root = repository(tmp_path / "repo", release_core, files=cycle, rules=rules, type_reach=True)
+    frame = validate(root)["frame"]
+    assert frame["rules"]["MODS"][1] == "FAIL", frame["collection_gaps"]
