@@ -117,6 +117,7 @@ jobs:
         area:
           - core scans
           - CLI and core
+          - native collector evidence
           - native collectors
           - collectors
           - reports

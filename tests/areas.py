@@ -22,6 +22,11 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_native_interface_boundary.py",
         "test_project_demo_snapshots.py",
     ),
+    "native collector evidence": (
+        "test_collector_native_catalog.py",
+        "test_collector_native_rust*.py",
+        "test_collector_native_scaling_sites.py",
+    ),
     "native collectors": ("test_collector_native_*.py",),
     "collectors": (
         "test_typescript_*.py",
