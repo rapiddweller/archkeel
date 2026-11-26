@@ -2,23 +2,47 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Identify arrow scopes and default functions without a written declaration name.
+//! Identify definition forms without reading or creating definition records.
 
 use tree_sitter::Node;
 
-use super::{place_of, DefinitionKind, Defs};
 use crate::ancestors::{Entry, ERROR_ABOVE, INSIDE_NAMESPACE, IN_UNMODELED_BLOCK};
 use crate::kinds::{F, K};
 use crate::pytext::has_backslash;
 use crate::tree::cx::Cx;
+use crate::tree::nodes::{children, named_children};
 
-pub(super) fn callback(
-    defs: &mut Defs,
+pub(super) fn module_array_constant(
     cx: &Cx,
     node: Node,
+    value: Node,
     stack: &[Entry],
     seen: u8,
-) -> Option<u32> {
+) -> bool {
+    if node.has_error() || seen & ERROR_ABOVE != 0 || !Entry::top_of_file(stack, 2) {
+        return false;
+    }
+    let mut value = value;
+    if cx.k(value) == K::AsExpression {
+        let parts: Vec<Node> = children(value)
+            .into_iter()
+            .filter(|item| cx.k(*item) != K::Comment)
+            .collect();
+        if parts.len() != 3 || cx.k(parts[1]) != K::As || cx.k(parts[2]) != K::Const {
+            return false;
+        }
+        value = parts[0];
+    }
+    cx.k(value) == K::Array
+        && named_children(value).into_iter().all(|item| {
+            matches!(
+                cx.k(item),
+                K::Identifier | K::String | K::Number | K::True | K::False | K::Null | K::Comment
+            )
+        })
+}
+
+pub(super) fn callback(cx: &Cx, node: Node, stack: &[Entry], seen: u8) -> Option<String> {
     if node.has_error()
         || cx.field(node, F::Parameters).is_none()
         || seen & (ERROR_ABOVE | INSIDE_NAMESPACE | IN_UNMODELED_BLOCK) != 0
@@ -30,19 +54,7 @@ pub(super) fn callback(
         return None;
     }
     let span = cx.span(node);
-    let name = format!("<callback:{}:{}>", span.line, span.column);
-    let owner = stack.last().and_then(|entry| entry.scope);
-    let parent = owner.and_then(|at| defs.scopes.0.get(at as usize).map(|scope| (at, scope)));
-    let mut definition = Defs::build(
-        cx,
-        node,
-        (name.clone(), DefinitionKind::Callback),
-        parent,
-        (stack, &place_of(stack)),
-    );
-    definition.top_level = false;
-    definition.signature_complete = false;
-    Some(defs.add_scope(name, owner, definition))
+    Some(format!("<callback:{}:{}>", span.line, span.column))
 }
 
 pub(super) fn name(cx: &Cx, node: Node, stack: &[Entry], seen: u8, top: bool) -> Option<String> {
