@@ -144,6 +144,8 @@ fn a_text_over_the_parser_bound_a_run_time_write_and_a_string_variable_are_sites
         "K.__annotations__.update(x='int')\n",
         "s = \"__import__('a.b')\"\nclass K:\n    x: s\n",
         "s = 'a' + 'b'\nclass K:\n    x: s\n",
+        "J = \"list[J]\"\ndef f(x: J): ...\n",
+        "A = \"B\"\nB = \"__import__('a.b')\"\ndef f(x: A): ...\n",
     ] {
         assert!(!details(source).is_empty(), "{source}");
     }

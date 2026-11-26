@@ -112,7 +112,24 @@ impl Strings {
     pub(super) fn of(tree: &ModModule) -> Self {
         let mut found = Self::default();
         found.visit_body(&tree.body);
+        found.close();
         found
+    }
+
+    /// A held text that names a held name is opaque: the walk would expand `J = "list[J]"` for
+    /// ever, and a chain of names needs no proof here (a gap is safe).
+    fn close(&mut self) {
+        let word = |c: char| !(c.is_alphanumeric() || c == '_');
+        let chained: Vec<String> = self
+            .texts
+            .iter()
+            .filter(|(_, texts)| {
+                let mut words = texts.iter().flat_map(|t| t.value.to_str().split(word));
+                words.any(|w| self.texts.contains_key(w) || self.opaque.contains(w))
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        self.opaque.extend(chained);
     }
 
     pub(super) fn held(&self, id: &str) -> Held<'_> {
