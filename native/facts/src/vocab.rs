@@ -64,6 +64,8 @@ closed! {
         ScriptGlobal = "script_global",
         /// An import inside a macro body.
         MacroBody = "macro_body",
+        /// A call whose impl the compiler selected in another module (AD-1136).
+        SelectedImpl = "selected_impl",
         /// A class symbol.
         Class = "class",
         /// A function symbol.
@@ -371,7 +373,7 @@ closed! {
 }
 
 closed! {
-    /// Why the collector withholds the publication route of an import (#2086, AD-1170).
+    /// Why the collector withholds the publication route of an import (#2086, AD-1200).
     pub enum RouteWithheld {
         /// The package body binds the name too, so it may be the attribute or the submodule.
         AmbiguousReexport = "ambiguous_reexport",

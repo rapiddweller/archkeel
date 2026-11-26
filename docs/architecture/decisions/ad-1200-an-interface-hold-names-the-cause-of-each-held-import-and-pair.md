@@ -1,4 +1,4 @@
-# AD-1170 An interface hold names the cause of each held import and pair
+# AD-1200 An interface hold names the cause of each held import and pair
 
 **Status.** Accepted. Builds on AD-504, AD-604 and AD-484. Part of #2086, #1963 and #1919.
 

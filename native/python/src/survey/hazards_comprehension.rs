@@ -90,6 +90,9 @@ type Scope = HashSet<String>;
 
 /// The proofs of the module and the sites found so far.
 struct Trojans<'n> {
+    /// The attributes that a call or a longer chain reads further: they are no value (AD-1152).
+    bases: HashSet<TextRange>,
+    reexports: &'n HashMap<String, Vec<String>>,
     imports: HashMap<String, Vec<String>>,
     single: &'n HashSet<String>,
     visible: &'n HashSet<String>,
@@ -104,6 +107,7 @@ struct Trojans<'n> {
 pub(in crate::survey) fn trojans(
     (tree, module): (&ModModule, &str),
     names: &(HashSet<String>, HashSet<String>, HashSet<String>),
+    reexports: &HashMap<String, Vec<String>>,
 ) -> Vec<(&'static str, TextRange)> {
     // The premise of the run: code outside the scan roots writes no binding of the scan (AD-1053).
     // The name of such a file starts with `<`, which no module of the scan can (`outside.rs`).
@@ -112,6 +116,8 @@ pub(in crate::survey) fn trojans(
     }
     let (_, single, visible) = names;
     let mut walk = Trojans {
+        bases: HashSet::new(),
+        reexports,
         imports: super::bind::bindings(tree),
         single,
         visible,
@@ -158,6 +164,9 @@ impl<'a> Visitor<'a> for Declared {
         visitor::walk_stmt(self, stmt);
     }
 }
+
+/// The access forms that write or delete an attribute.
+const WRITING: [&str; 4] = ["setattr", "delattr", "__setattr__", "__delattr__"];
 
 /// The builtins that read, write or list attributes by a name (`vars` lists them).
 const BUILTIN_ACCESS: [&str; 4] = ["getattr", "setattr", "delattr", "vars"];
@@ -207,22 +216,7 @@ pub(super) fn reflective(name: &str) -> bool {
 
 /// True when the attribute that a store or a delete names is a literal dunder that a site reads (#1979).
 fn written(node: &ruff_python_ast::ExprAttribute) -> bool {
-    site(Identifier::as_str(&node.attr), true)
-}
-
-/// The exception-chain names: Python reads them to print a traceback and never calls them as a hook. A write
-/// of one changes no import and no call (#2090). A read of `__traceback__` hands out frames, so only a write is clear.
-const CHAIN_WRITES: [&str; 5] = [
-    "__cause__",
-    "__context__",
-    "__traceback__",
-    "__suppress_context__",
-    "__notes__",
-];
-
-/// True when a literal name is a site: a read by `reflective`, a write unless it is an exception-chain name.
-fn site(name: &str, write: bool) -> bool {
-    reflective(name) && !(write && CHAIN_WRITES.contains(&name))
+    reflective(Identifier::as_str(&node.attr))
 }
 
 /// `vars(x)` or `x.__dict__`: the dictionary of the attributes of any value.
@@ -232,13 +226,6 @@ fn dict_view(expr: &Expr) -> bool {
         Expr::Call(call) => matches!(&*call.func, Expr::Name(n) if Name::as_str(&n.id) == "vars"),
         _ => false,
     }
-}
-
-/// A call of an access form: its form, its name and whether the form writes.
-struct Access<'c> {
-    kind: &'static str,
-    name: &'c Expr,
-    write: bool,
 }
 
 impl Trojans<'_> {
@@ -261,6 +248,12 @@ impl Trojans<'_> {
             }
         }
         literals
+    }
+
+    /// A literal key that names a re-exported module (`getattr(util, 'cp')`, `vars(util)['cp']`):
+    /// the read hands the module on as a value (AD-1152).
+    fn named(&self, key: &Expr) -> bool {
+        matches!(key, Expr::StringLiteral(text) if self.reexports.contains_key(text.value.to_str()))
     }
 
     /// `vars(m)` and `m.__dict__` of a name that an import binds to a module with hazard names.
@@ -294,38 +287,31 @@ impl Trojans<'_> {
 
     /// The call that reads an attribute by a computed name: its form, its receiver and its name.
     /// A form that has no receiver to prove gives the callee for both.
-    fn computed<'c>(&self, call: &'c ExprCall) -> Option<Access<'c>> {
+    fn computed<'c>(&self, call: &'c ExprCall) -> Option<(&'static str, &'c Expr, &'c Expr)> {
         let args: &[Expr] = &call.arguments.args;
         let callee: &Expr = &call.func;
         let kind = self.form(callee)?;
-        let whole = |write| Access {
-            kind,
-            name: callee,
-            write,
-        };
-        // `x.m(name)` has the receiver `x`; `C.m(x, name)` and `getattr(x, name)` have `x`. The class of the
-        // form says whether it writes: only a write can use the exception-chain exemption (#2090).
-        let (bound, write) = match kind {
-            "__getattribute__" => (1, false),
-            "__delattr__" => (1, true),
-            "__setattr__" => (2, true),
-            "getattr" => (0, false),
-            "setattr" | "delattr" => (0, true),
-            _ => return Some(whole(false)),
+        // `x.m(name)` has the receiver `x`; `C.m(x, name)` and `getattr(x, name)` have `x`.
+        let bound = match kind {
+            "__getattribute__" | "__delattr__" => 1,
+            "__setattr__" => 2,
+            "getattr" | "setattr" | "delattr" => 0,
+            "vars" => return Some((kind, callee, callee)),
+            _ => return Some((kind, callee, callee)),
         };
         match (callee, args) {
             (Expr::Attribute(node), [name, ..]) if args.len() == bound => {
-                Some(Access { kind, name, write })
+                Some((kind, &*node.value, name))
             }
-            (_, [_, name, ..]) if args.len() > bound => Some(Access { kind, name, write }),
-            _ => Some(whole(write)),
+            (_, [receiver, name, ..]) if args.len() > bound => Some((kind, receiver, name)),
+            _ => Some((kind, callee, callee)),
         }
     }
 
     /// True when the name is a literal or a local with one literal.
-    fn resolved(&self, name: &Expr, write: bool) -> bool {
+    fn resolved(&self, name: &Expr) -> bool {
         match (name, &self.scope) {
-            (Expr::StringLiteral(text), _) => !site(text.value.to_str(), write),
+            (Expr::StringLiteral(text), _) => !reflective(text.value.to_str()),
             (Expr::Name(node), Some(literals)) => {
                 HashSet::contains(literals, Name::as_str(&node.id))
             }
@@ -339,9 +325,12 @@ impl<'a> Trojans<'_> {
     /// its arguments are visited; the result is true when the call was one.
     fn access_call(&mut self, call: &'a ExprCall) -> bool {
         let site = self.computed(call);
-        let site = site.filter(|access| !self.resolved(access.name, access.write));
-        if let Some(access) = site {
-            self.found.push((access.kind, call.range()));
+        // A write of the name hands no module on; only a read does (AD-1152).
+        let site = site.filter(|(kind, _, name)| {
+            !self.resolved(name) || (!WRITING.contains(kind) && self.named(name))
+        });
+        if let Some((kind, _, _)) = site {
+            self.found.push((kind, call.range()));
         }
         if self.form(&call.func).is_none() {
             return false;
@@ -387,13 +376,32 @@ impl<'a> Visitor<'a> for Trojans<'_> {
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
+        let further = match expr {
+            Expr::Call(call) => Some(&*call.func),
+            Expr::Attribute(node) => Some(&*node.value),
+            _ => None,
+        };
+        self.bases.extend(
+            further
+                .filter(|inner| matches!(inner, Expr::Attribute(_)))
+                .map(Ranged::range),
+        );
+        // A re-exported module that is read as a value flows on unseen: `cp = util.cp`.
+        if matches!(expr, Expr::Attribute(node) if node.ctx == ExprContext::Load && self.reexports.contains_key(node.attr.as_str()))
+            && !self.bases.contains(&expr.range())
+        {
+            self.found.push(("module_value", expr.range()));
+        }
         match expr {
             Expr::Call(call) if self.access_call(call) => return,
             // `x.__dict__` and `vars(x)` hand out the dictionary of the attributes of any value: a
             // key that the scan cannot read reaches `__builtins__` and `__code__`. Only a direct
             // subscript with a literal key is no site; `d = vars(m)` is one (AD-1058).
             Expr::Subscript(node) if dict_view(&node.value) => {
-                if !self.resolved(&node.slice, false) || self.module_value(&node.value) {
+                if !self.resolved(&node.slice)
+                    || self.module_value(&node.value)
+                    || (node.ctx == ExprContext::Load && self.named(&node.slice))
+                {
                     self.found.push(("__dict__", node.range()));
                 }
                 match &*node.value {

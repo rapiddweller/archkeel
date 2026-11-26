@@ -47,6 +47,16 @@ pub(crate) struct Published {
     pub(crate) withheld: Option<(archkeel_facts::vocab::RouteWithheld, Option<String>)>,
 }
 
+impl Published {
+    /// A complete route with no name: the import of a declared reach.
+    pub(crate) fn complete() -> Self {
+        Self {
+            complete: true,
+            ..Self::default()
+        }
+    }
+}
+
 /// One resolved import that is not a macro body: the input of the edges and the rules.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Import {
@@ -67,6 +77,9 @@ pub struct Import {
     pub(crate) evidence: Vec<String>,
     pub(crate) call_by_name: bool,
     pub(crate) unbound_type: bool,
+    pub(crate) selected_impl: bool,
+    /// A re-export (`pub use`): the module publishes the names of its target (AD-1136).
+    pub(crate) reexport: bool,
 }
 
 impl Import {
@@ -125,6 +138,18 @@ impl Import {
     /// import("m")`): it proves no use of a name of the target, like a call (AD-514, AD-536).
     pub fn unbound_type(&self) -> bool {
         self.unbound_type
+    }
+
+    /// True for an edge that the compiler selected: a call that runs an impl of the target module (AD-1136).
+    /// It proves a dependency on the module and names no symbol, so it adds no name to the interface.
+    pub fn selected_impl(&self) -> bool {
+        self.selected_impl
+    }
+
+    /// True when the source writes the name: no inferred receiver and no impl that the compiler selected. A rule
+    /// that counts source names only reads such imports (AD-924, AD-1136).
+    pub fn written_name(&self) -> bool {
+        !self.inferred_receiver && !self.selected_impl
     }
 
     /// True when the collector read the imported names, so a use of a name can be judged.
@@ -335,6 +360,8 @@ pub(crate) fn split(facts: &Facts, marks: TargetMarks, declared: impl Fn(&str) -
                 && data.specifier.is_none(),
             unbound_type: matches!(record.data, ImportFact::ImportType(_))
                 && data.binding.is_none(),
+            selected_impl: matches!(record.data, ImportFact::SelectedImpl(_)),
+            reexport: matches!(record.data, ImportFact::Reexport(_)) || data.reexport,
             published: Published {
                 chain: data.reexport_chain.clone().unwrap_or_default(),
                 complete: data.route_complete != Some(false),

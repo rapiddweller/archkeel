@@ -38,6 +38,7 @@ pub fn interface_crossings<'m>(model: &'m Model, rule: &InterfaceBoundary) -> Ve
         .filter_map(|import| {
             if !model.selects(import.source_module())
                 || rejected.contains(import.id())
+                || import.selected_impl()
                 || (import.under_type_checking() && !rule.include_type_checking())
                 || namespace(model, import)
             {
