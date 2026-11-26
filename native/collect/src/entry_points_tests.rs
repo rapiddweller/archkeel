@@ -92,7 +92,7 @@ fn cargo_bins_are_declared_and_the_default_files_are_observed() {
         ("Cargo.toml", "[workspace]\nmembers = [\"app\"]\n"),
         (
             "app/Cargo.toml",
-            "[package]\nname = \"app\"\n[[bin]]\nname = \"tool\"\npath = \"src/tool_main.rs\"\n",
+            "[package]\nname = \"app\"\nedition = \"2021\"\n[[bin]]\nname = \"tool\"\npath = \"src/tool_main.rs\"\n",
         ),
         ("app/src/main.rs", "fn main() {}\n"),
         ("app/src/bin/extra.rs", "fn main() {}\n"),
@@ -203,4 +203,56 @@ fn a_package_json_that_cannot_be_read_is_unread() {
 fn a_language_without_a_reader_has_no_list() {
     let (_base, root) = tree(&[("pubspec.yaml", "name: x\n")]);
     assert_eq!(read(&root, Profile::Dart, &[]), None);
+}
+
+#[test]
+fn a_declared_path_or_an_edition_2015_package_with_bins_hides_the_default_files() {
+    let (_base, root) = tree(&[
+        (
+            "renamed/Cargo.toml",
+            "[package]\nname = \"demo\"\nedition = \"2021\"\n[[bin]]\nname = \"custom\"\npath = \"./src/main.rs\"\n",
+        ),
+        ("renamed/src/main.rs", ""),
+        (
+            "old/Cargo.toml",
+            "[package]\nname = \"demo\"\n[[bin]]\nname = \"tool\"\npath = \"src/start.rs\"\n",
+        ),
+        ("old/src/main.rs", ""),
+        ("old/src/bin/extra.rs", ""),
+        (
+            "inherited/Cargo.toml",
+            "[package]\nname = \"inh\"\nedition.workspace = true\n[[bin]]\nname = \"x\"\n",
+        ),
+        ("inherited/src/main.rs", ""),
+    ]);
+    let files = scanned(&[
+        "renamed/src/main.rs",
+        "old/src/main.rs",
+        "old/src/bin/extra.rs",
+        "inherited/src/main.rs",
+    ]);
+    let found = read(&root, Profile::Rust, &files).unwrap();
+    assert_eq!(
+        names(&found),
+        [
+            (EntryKind::CargoBin, EntryBasis::Declared, "x"),
+            (EntryKind::CargoBin, EntryBasis::Declared, "tool"),
+            (EntryKind::CargoBin, EntryBasis::Declared, "custom"),
+        ]
+    );
+    assert_eq!(found.unread.len(), 1);
+    assert!(found.unread[0].starts_with("inherited/Cargo.toml: the edition"));
+}
+
+#[test]
+fn an_edition_2015_package_without_bins_still_finds_its_default_files() {
+    let (_base, root) = tree(&[
+        ("Cargo.toml", "[package]\nname = \"demo\"\n"),
+        ("src/main.rs", ""),
+    ]);
+    let found = read(&root, Profile::Rust, &scanned(&["src/main.rs"])).unwrap();
+    assert_eq!(
+        names(&found),
+        [(EntryKind::CargoBin, EntryBasis::Observed, "demo")]
+    );
 }

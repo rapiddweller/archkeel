@@ -144,7 +144,7 @@ fn each_manifest(
     }
 }
 
-/// `[[bin]]` targets, and the `src/main.rs` and `src/bin/` files that Cargo finds itself.
+/// `[[bin]]` targets, and the binary files below `src` that Cargo finds itself.
 fn cargo(path: &str, text: &str, files: &[(&str, &str)], found: &mut EntryPoints) {
     let Ok(table) = text.parse::<Table>() else {
         found.unread.push(format!("{path}: cannot be parsed"));
@@ -153,6 +153,7 @@ fn cargo(path: &str, text: &str, files: &[(&str, &str)], found: &mut EntryPoints
     let dir = path.trim_end_matches("Cargo.toml");
     let package = table.get("package").and_then(|value| value.as_table());
     let mut named = BTreeSet::new();
+    let mut paths = BTreeSet::new();
     for entry in table
         .get("bin")
         .and_then(|value| value.as_array())
@@ -169,8 +170,9 @@ fn cargo(path: &str, text: &str, files: &[(&str, &str)], found: &mut EntryPoints
         let target = bin
             .and_then(|bin| bin.get("path"))
             .and_then(|value| value.as_str())
-            .map(|declared| format!("{dir}{declared}"));
+            .map(|declared| format!("{dir}{}", declared.trim_start_matches("./")));
         named.insert(name.to_owned());
+        paths.extend(target.clone());
         found.entries.push(declared(
             EntryKind::CargoBin,
             name,
@@ -185,7 +187,7 @@ fn cargo(path: &str, text: &str, files: &[(&str, &str)], found: &mut EntryPoints
     else {
         return;
     };
-    if package.and_then(|package| package.get("autobins")) == Some(&toml::Value::Boolean(false)) {
+    if !discovers_bins(path, package, !named.is_empty(), found) {
         return;
     }
     for (_, file) in files {
@@ -201,10 +203,36 @@ fn cargo(path: &str, text: &str, files: &[(&str, &str)], found: &mut EntryPoints
             ["bin", leaf, "main.rs"] => leaf,
             _ => continue,
         };
-        if !name.is_empty() && named.insert(name.to_owned()) {
+        if !name.is_empty() && !paths.contains(*file) && named.insert(name.to_owned()) {
             found
                 .entries
                 .push(observed(EntryKind::CargoBin, name, file));
+        }
+    }
+}
+
+/// Whether Cargo finds the default binary files itself. `autobins` decides when it is set.
+/// Else an edition 2015 package turns it off once it declares a `[[bin]]`. An edition that the
+/// manifest inherits from the workspace is not read, so that case is unknown.
+fn discovers_bins(
+    path: &str,
+    package: Option<&Table>,
+    declares_bins: bool,
+    found: &mut EntryPoints,
+) -> bool {
+    if let Some(set) = package.and_then(|package| package.get("autobins")) {
+        return set.as_bool().unwrap_or(false);
+    }
+    let edition = package.and_then(|package| package.get("edition"));
+    match edition.map(|edition| edition.as_str()) {
+        None => !declares_bins,
+        Some(Some(year)) => year != "2015" || !declares_bins,
+        Some(None) if !declares_bins => true,
+        Some(None) => {
+            found.unread.push(format!(
+                "{path}: the edition is not a string, so binary discovery is unknown"
+            ));
+            false
         }
     }
 }
