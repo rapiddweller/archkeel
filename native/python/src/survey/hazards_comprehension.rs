@@ -90,6 +90,9 @@ type Scope = HashSet<String>;
 
 /// The proofs of the module and the sites found so far.
 struct Trojans<'n> {
+    /// The attributes that a call or a longer chain reads further: they are no value (AD-1152).
+    bases: HashSet<TextRange>,
+    reexports: &'n HashMap<String, Vec<String>>,
     imports: HashMap<String, Vec<String>>,
     single: &'n HashSet<String>,
     visible: &'n HashSet<String>,
@@ -104,6 +107,7 @@ struct Trojans<'n> {
 pub(in crate::survey) fn trojans(
     (tree, module): (&ModModule, &str),
     names: &(HashSet<String>, HashSet<String>, HashSet<String>),
+    reexports: &HashMap<String, Vec<String>>,
 ) -> Vec<(&'static str, TextRange)> {
     // The premise of the run: code outside the scan roots writes no binding of the scan (AD-1053).
     // The name of such a file starts with `<`, which no module of the scan can (`outside.rs`).
@@ -112,6 +116,8 @@ pub(in crate::survey) fn trojans(
     }
     let (_, single, visible) = names;
     let mut walk = Trojans {
+        bases: HashSet::new(),
+        reexports,
         imports: super::bind::bindings(tree),
         single,
         visible,
@@ -263,6 +269,12 @@ impl Trojans<'_> {
         literals
     }
 
+    /// A literal key that names a re-exported module (`getattr(util, 'cp')`, `vars(util)['cp']`):
+    /// the read hands the module on as a value (AD-1152).
+    fn named(&self, key: &Expr) -> bool {
+        matches!(key, Expr::StringLiteral(text) if self.reexports.contains_key(text.value.to_str()))
+    }
+
     /// `vars(m)` and `m.__dict__` of a name that an import binds to a module with hazard names.
     fn module_value(&self, view: &Expr) -> bool {
         let base = match view {
@@ -339,7 +351,9 @@ impl<'a> Trojans<'_> {
     /// its arguments are visited; the result is true when the call was one.
     fn access_call(&mut self, call: &'a ExprCall) -> bool {
         let site = self.computed(call);
-        let site = site.filter(|access| !self.resolved(access.name, access.write));
+        let site = site.filter(|access| {
+            !self.resolved(access.name, access.write) || (!access.write && self.named(access.name))
+        });
         if let Some(access) = site {
             self.found.push((access.kind, call.range()));
         }
@@ -387,13 +401,32 @@ impl<'a> Visitor<'a> for Trojans<'_> {
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
+        let further = match expr {
+            Expr::Call(call) => Some(&*call.func),
+            Expr::Attribute(node) => Some(&*node.value),
+            _ => None,
+        };
+        self.bases.extend(
+            further
+                .filter(|inner| matches!(inner, Expr::Attribute(_)))
+                .map(Ranged::range),
+        );
+        // A re-exported module that is read as a value flows on unseen: `cp = util.cp`.
+        if matches!(expr, Expr::Attribute(node) if node.ctx == ExprContext::Load && self.reexports.contains_key(node.attr.as_str()))
+            && !self.bases.contains(&expr.range())
+        {
+            self.found.push(("module_value", expr.range()));
+        }
         match expr {
             Expr::Call(call) if self.access_call(call) => return,
             // `x.__dict__` and `vars(x)` hand out the dictionary of the attributes of any value: a
             // key that the scan cannot read reaches `__builtins__` and `__code__`. Only a direct
             // subscript with a literal key is no site; `d = vars(m)` is one (AD-1058).
             Expr::Subscript(node) if dict_view(&node.value) => {
-                if !self.resolved(&node.slice, false) || self.module_value(&node.value) {
+                if !self.resolved(&node.slice, false)
+                    || self.module_value(&node.value)
+                    || (node.ctx == ExprContext::Load && self.named(&node.slice))
+                {
                     self.found.push(("__dict__", node.range()));
                 }
                 match &*node.value {
