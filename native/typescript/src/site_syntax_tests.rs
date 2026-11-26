@@ -44,11 +44,11 @@ fn a_template_with_a_substitution_and_a_non_equality_are_no_comparison() {
 }
 
 #[test]
-fn only_a_named_module_arrow_has_a_certain_scope() {
+fn named_module_arrows_and_direct_callback_arguments_have_a_certain_scope() {
     assert_eq!(ambiguous("({ k: f() });"), [true, true]);
     assert_eq!(ambiguous("{ f(); }"), [true]);
     assert_eq!(ambiguous("const g = () => f();"), [false]);
-    assert_eq!(ambiguous("register(() => f());"), [false, true]);
+    assert_eq!(ambiguous("register(() => f());"), [false, false]);
     assert_eq!(ambiguous("f();"), [false]);
     // An immediately called wrapper that passes the global object keeps the scope certain.
     assert_eq!(

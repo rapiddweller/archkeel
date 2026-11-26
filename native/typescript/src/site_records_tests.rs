@@ -198,6 +198,161 @@ fn an_inline_jsx_handler_does_not_prove_the_component_calls_its_body() {
 }
 
 #[test]
+fn a_callback_argument_owns_its_calls_without_proving_registration_invokes_it() {
+    let found = run(&[(
+        "src/a.ts",
+        "function request() {} function register(f: () => void) {} \
+         function render() { register(() => request()); }",
+    )]);
+    let request = call(&found, "request");
+    assert_eq!(request.data["status"], "resolved");
+    assert!(request.data["source_definition_id"].is_string());
+    assert_ne!(request.data["source_scope"], "shop.src.a_x2e_ts.render");
+    let callback = plains(&found.symbols)
+        .into_iter()
+        .find(|item| item.id == request.data["source_definition_id"].as_str().unwrap())
+        .unwrap();
+    assert_eq!(callback.data["source_binding_unique"], false);
+    assert_eq!(plains(&found.calls).len(), 2);
+}
+
+#[test]
+fn a_callback_argument_does_not_resolve_a_shadowed_name() {
+    let found = run(&[(
+        "src/a.ts",
+        "function request() {} function register(f: () => void) {} \
+         function render(request: () => void) { register(() => request()); }",
+    )]);
+    assert_ne!(call(&found, "request").data["status"], "resolved");
+}
+
+#[test]
+fn a_callback_in_a_with_scope_does_not_resolve_a_shadowed_name() {
+    let tree = Tree::new(&[
+        (
+            "tsconfig.json",
+            r#"{"compilerOptions":{"allowJs":true},"include":["src"]}"#,
+        ),
+        (
+            "src/a.cjs",
+            "function request() {} function register(f) { f(); } \
+         function render(obj) { with (obj) register(() => request()); }",
+        ),
+    ]);
+    let found = records(&request(&tree), provenance()).unwrap().1;
+    assert_ne!(call(&found, "request").data["status"], "resolved");
+}
+
+#[test]
+fn a_destructured_callback_parameter_shadows_the_module_function() {
+    let found = run(&[(
+        "src/a.ts",
+        "function request() {} function register(f: (x: {request: () => void}) => void) {} \
+         function render() { register(({request}) => request()); }",
+    )]);
+    assert_ne!(call(&found, "request").data["status"], "resolved");
+}
+
+#[test]
+fn callback_parameters_and_local_writes_keep_targets_unresolved() {
+    let found = run(&[(
+        "src/a.ts",
+        "function request() {} function register(f: (request: () => void) => void) {} \
+         function render() { register((request: () => void) => request()); }",
+    )]);
+    assert_ne!(call(&found, "request").data["status"], "resolved");
+    let found = run(&[(
+        "src/a.ts",
+        "function request() {} function other() {} function register(f: () => void) {} \
+         function render() { register(() => { let request = other; request(); }); }",
+    )]);
+    assert_ne!(call(&found, "request").data["status"], "resolved");
+}
+
+#[test]
+fn callback_dynamic_targets_and_jsx_handlers_are_not_proven() {
+    let found = run(&[(
+        "src/a.tsx",
+        "function request() {} function register(f: () => void) {} \
+         function render(obj: { request: () => void }) { \
+         register(() => obj.request()); return <button onClick={() => request()} />; }",
+    )]);
+    assert_ne!(call(&found, "obj.request").data["status"], "resolved");
+    assert_ne!(call(&found, "request").data["status"], "resolved");
+}
+
+#[test]
+fn a_callback_write_does_not_prove_the_original_module_target() {
+    let found = run(&[(
+        "src/a.ts",
+        "let request = () => {}; function other() {} function register(f: () => void) {} \
+         function render() { register(() => { request = other; request(); }); }",
+    )]);
+    assert_ne!(call(&found, "request").data["status"], "resolved");
+}
+
+#[test]
+fn separate_callback_arguments_have_separate_owners() {
+    let found = run(&[(
+        "src/a.ts",
+        "function request() {} function register(f: () => void) {} \
+         function render() { register(() => request()); register(() => request()); }",
+    )]);
+    let calls: Vec<_> = plains(&found.calls)
+        .into_iter()
+        .filter(|item| item.title == "request")
+        .collect();
+    assert_eq!(calls.len(), 2);
+    assert!(calls.iter().all(|item| item.data["status"] == "resolved"));
+    assert_ne!(
+        calls[0].data["source_definition_id"],
+        calls[1].data["source_definition_id"]
+    );
+}
+
+#[test]
+fn registration_does_not_prove_callback_invocation() {
+    for (register, calls_saved) in [
+        ("function register(f: () => void) {}", false),
+        ("declare function register(f: () => void): void;", false),
+        (
+            "let saved: () => void; function register(f: () => void) { saved = f; } \
+         function later() { saved(); }",
+            true,
+        ),
+        (
+            "let saved: () => void; function register(f: () => void) { saved = f; } \
+         function later() { saved = () => {}; saved(); }",
+            true,
+        ),
+    ] {
+        let source = format!(
+            "function request() {{}} {register} \
+             function render() {{ register(() => request()); }}"
+        );
+        let found = run(&[("src/a.ts", &source)]);
+        let request = call(&found, "request");
+        assert_eq!(request.data["status"], "resolved");
+        assert!(request.data["source_scope"]
+            .as_str()
+            .unwrap()
+            .contains("<callback:"));
+        for item in plains(&found.calls) {
+            assert!(!item.data["targets"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|target| target
+                    .as_str()
+                    .is_some_and(|name| name.contains("<callback:"))));
+        }
+        if calls_saved {
+            assert_ne!(call(&found, "saved").data["status"], "resolved");
+        }
+    }
+}
+
+#[test]
 fn public_react_help_button_has_a_symbol_without_a_handler_call() {
     // Excalidraw, MIT, 701b901a: packages/excalidraw/components/HelpButton.tsx.
     let found = run(&[(

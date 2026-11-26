@@ -32,6 +32,7 @@ pub(crate) enum DefinitionKind {
     Enum,
     Method,
     Function,
+    Callback,
     TypeAlias,
     Constant,
 }
@@ -174,6 +175,21 @@ impl Defs {
         seen: u8,
     ) -> Option<u32> {
         if kind == K::ArrowFunction {
+            if let Some(name) = arrow::callback(cx, node, stack, seen) {
+                let owner = stack.last().and_then(|entry| entry.scope);
+                let parent =
+                    owner.and_then(|at| self.scopes.0.get(at as usize).map(|scope| (at, scope)));
+                let mut definition = Self::build(
+                    cx,
+                    node,
+                    (name.clone(), DefinitionKind::Callback),
+                    parent,
+                    (stack, &place_of(stack)),
+                );
+                definition.top_level = false;
+                definition.signature_complete = false;
+                return Some(self.add_scope(name, owner, definition));
+            }
             let name = arrow::name(cx, node, stack, seen, Entry::top_of_file(stack, 3))?;
             let place = place_of(stack);
             let named = (name.clone(), DefinitionKind::Function);
@@ -289,7 +305,7 @@ impl Defs {
             .filter(|entry| entry.kind == K::LexicalDeclaration);
         let kind_node = declaration.and_then(|entry| cx.field(entry.node, F::Kind));
         let is_array =
-            value.is_some_and(|value| module_array_constant(cx, node, value, stack, seen));
+            value.is_some_and(|value| arrow::module_array_constant(cx, node, value, stack, seen));
         let plain = value.is_some_and(|value| {
             matches!(
                 cx.k(value),
@@ -375,31 +391,6 @@ fn module_visibility(item: &mut Definition, exports: &ModuleExports) {
             Visibility::Private
         });
     }
-}
-
-/// `_module_array_constant`: a direct module declaration of an array of plain values.
-fn module_array_constant(cx: &Cx, node: Node, value: Node, stack: &[Entry], seen: u8) -> bool {
-    if node.has_error() || seen & ERROR_ABOVE != 0 || !Entry::top_of_file(stack, 2) {
-        return false;
-    }
-    let mut value = value;
-    if cx.k(value) == K::AsExpression {
-        let parts: Vec<Node> = crate::tree::nodes::children(value)
-            .into_iter()
-            .filter(|item| cx.k(*item) != K::Comment)
-            .collect();
-        if parts.len() != 3 || cx.k(parts[1]) != K::As || cx.k(parts[2]) != K::Const {
-            return false;
-        }
-        value = parts[0];
-    }
-    cx.k(value) == K::Array
-        && named_children(value).into_iter().all(|item| {
-            matches!(
-                cx.k(item),
-                K::Identifier | K::String | K::Number | K::True | K::False | K::Null | K::Comment
-            )
-        })
 }
 
 /// A name or an opaque binding: `(name, opaque)`.
