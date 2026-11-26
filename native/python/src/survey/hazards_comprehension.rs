@@ -351,8 +351,9 @@ impl<'a> Trojans<'_> {
     /// its arguments are visited; the result is true when the call was one.
     fn access_call(&mut self, call: &'a ExprCall) -> bool {
         let site = self.computed(call);
-        let site = site
-            .filter(|access| !self.resolved(access.name, access.write) || self.named(access.name));
+        let site = site.filter(|access| {
+            !self.resolved(access.name, access.write) || (!access.write && self.named(access.name))
+        });
         if let Some(access) = site {
             self.found.push((access.kind, call.range()));
         }
@@ -424,7 +425,7 @@ impl<'a> Visitor<'a> for Trojans<'_> {
             Expr::Subscript(node) if dict_view(&node.value) => {
                 if !self.resolved(&node.slice, false)
                     || self.module_value(&node.value)
-                    || self.named(&node.slice)
+                    || (node.ctx == ExprContext::Load && self.named(&node.slice))
                 {
                     self.found.push(("__dict__", node.range()));
                 }

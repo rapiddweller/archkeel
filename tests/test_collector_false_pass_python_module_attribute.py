@@ -57,6 +57,9 @@ PLANTS = {
     ),
 }
 CONTROLS = {
+    "setattr of the name": (IMPORT, "setattr(util, 'cp', 1)", UTIL, ""),
+    "delattr of the name": (IMPORT, "delattr(util, 'cp')", UTIL, ""),
+    "store through vars": (IMPORT, "vars(util)['cp'] = 1", UTIL, ""),
     "getattr of a number": (IMPORT, "getattr(util, 'value')", UTIL, ""),
     "attribute read of a number": (IMPORT, "n = util.value", UTIL, ""),
     "dict of a number": (IMPORT, "d = {'m': util.value}\n        d['m']", UTIL, ""),
