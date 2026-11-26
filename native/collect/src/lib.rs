@@ -194,6 +194,8 @@ pub fn scan_with_options(
         .rust_type_reach
         .then(|| type_reach_descriptor(&root, &config))
         .transpose()?;
+    let members = matches!(config.profile, Profile::Rust)
+        .then(|| rustc_facts_members::for_worker(root.path(), &config.roots));
     let collected_reply = run::collect_timed(
         config.profile,
         &bytes,
@@ -201,6 +203,7 @@ pub fn scan_with_options(
         (
             explorer,
             descriptor.as_ref().map(|(path, _)| path.as_path()),
+            members.as_deref(),
         ),
     );
     if let Some((path, _)) = &descriptor {

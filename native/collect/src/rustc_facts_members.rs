@@ -5,10 +5,14 @@
 //! The workspace members and the configurations of the matrix (AD-1047).
 
 use archkeel_facts::type_reach::{matrix, Config, Unavailable, MAX_FEATURES};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+
+/// The only variables that a Cargo run may inherit. `RUSTC`, `RUSTFLAGS`, `CARGO_BUILD_*` and the like
+/// would change the build that the facts claim.
+pub(crate) const KEPT_ENV: [&str; 4] = ["PATH", "HOME", "RUSTUP_HOME", "CARGO_HOME"];
 
 /// The workspace members that `cargo metadata` names: only these crates are workspace code. A path
 /// dependency is no member, wherever its directory is.
@@ -22,6 +26,8 @@ pub(crate) struct Members {
     pub(crate) dirs: Vec<String>,
     /// The features of the members, `default` excluded: each one alone is a configuration.
     features: Vec<(String, String)>,
+    /// The package name of each member.
+    pub(crate) names: BTreeSet<String>,
 }
 
 /// The members of a workspace, from the JSON that `cargo metadata --no-deps` printed.
@@ -39,6 +45,7 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
         roots: BTreeMap::new(),
         dirs: Vec::new(),
         features: Vec::new(),
+        names: BTreeSet::new(),
     };
     let text =
         |value: &Value, key: &str| value.get(key).and_then(Value::as_str).map(str::to_string);
@@ -70,6 +77,7 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
                     .to_string(),
             );
         }
+        found.names.insert(name.clone());
         found.manifests.insert(path);
 
         for target in package
@@ -173,4 +181,126 @@ pub(crate) fn set_driver_vars(
         ]);
     }
     Some(())
+}
+
+// The members of the scan for the Rust worker (#1989, AD-1097): the answer of `cargo metadata` as JSON text.
+/// The members of the workspace of each scan root that has a `Cargo.toml` at or above it. `roots` lists those scan roots and
+/// `members` the directory of each member, relative to the repository root, without a closing slash.
+pub(crate) fn for_worker(repository: &Path, scan_roots: &[String]) -> String {
+    read(repository, scan_roots)
+        .unwrap_or_else(|why| json!({ "unavailable": why }))
+        .to_string()
+}
+
+fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
+    let real = repository
+        .canonicalize()
+        .map_err(|why| format!("cannot read the repository root: {why}"))?;
+    let (mut roots, mut found, mut names) = (Vec::new(), Vec::new(), BTreeSet::new());
+    for root in scan_roots {
+        let Some(manifest) = nearest_manifest(&real, root) else {
+            continue;
+        };
+        let manifest = manifest
+            .canonicalize()
+            .map_err(|why| format!("cannot read {}: {why}", manifest.display()))?;
+        let metadata = metadata(&manifest)?;
+        let all = members(&metadata, &real).map_err(|_| {
+            format!(
+                "cargo metadata of {} names no workspace member",
+                manifest.display()
+            )
+        })?;
+        let root = root.trim_end_matches('/');
+        roots.push(root.to_owned());
+        names.extend(all.names.iter().cloned());
+        // The walk lists a file under the path of its scan root. A scan root that is a symlink has another real path
+        // than the member directory has, so each member below the real root is also listed under the root path.
+        found.extend(listed_under_root(&real, root, all.roots.keys()));
+        // The snapshot lists paths with `/`; the members reader prints the separator of the platform.
+        // A member that is a symlink has two paths: Cargo builds the one it names, and the walk lists the real one.
+        for real_dir in all.roots.keys() {
+            if let Ok(relative) = Path::new(real_dir).strip_prefix(&real) {
+                found.push(relative.to_string_lossy().replace('\\', "/"));
+            }
+        }
+        found.extend(
+            all.dirs
+                .iter()
+                .map(|d| d.replace('\\', "/").trim_end_matches('/').to_owned()),
+        );
+    }
+    found.sort();
+    found.dedup();
+    Ok(json!({ "roots": roots, "members": found, "names": names }))
+}
+
+/// The `Cargo.toml` in the scan root, else in the nearest directory above it, up to the repository root. A
+/// workspace often sits above the scan root, and `cargo metadata` of any of its members lists them all.
+fn nearest_manifest(repository: &Path, root: &str) -> Option<PathBuf> {
+    let mut dir = repository.join(root);
+    loop {
+        let manifest = dir.join("Cargo.toml");
+        if manifest.is_file() {
+            return Some(manifest);
+        }
+        if dir == repository || !dir.pop() {
+            return None;
+        }
+    }
+}
+
+/// The member directories below the real path of a scan root, under the path of the root.
+fn listed_under_root<'a>(
+    real: &Path,
+    root: &str,
+    dirs: impl Iterator<Item = &'a String>,
+) -> Vec<String> {
+    let Ok(real_root) = real.join(root).canonicalize() else {
+        return Vec::new();
+    };
+    let below = |dir: &String| {
+        let relative = Path::new(dir).strip_prefix(&real_root).ok()?;
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        Some(
+            format!("{root}/{relative}")
+                .trim_end_matches('/')
+                .to_owned(),
+        )
+    };
+    dirs.filter_map(below).collect()
+}
+
+/// `cargo metadata --no-deps` from a neutral directory, so that neither a `rust-toolchain.toml` nor a
+/// `.cargo/config.toml` of the repository changes the run. It reads manifests only: no build script, no network.
+fn metadata(manifest: &Path) -> Result<Vec<u8>, String> {
+    let mut cmd = Command::new("cargo");
+    cmd.args([
+        "metadata",
+        "--format-version",
+        "1",
+        "--no-deps",
+        "--offline",
+    ])
+    .arg("--manifest-path")
+    .arg(manifest)
+    .current_dir(std::env::temp_dir())
+    .env_clear();
+    for name in KEPT_ENV {
+        if let Some(value) = std::env::var_os(name) {
+            cmd.env(name, value);
+        }
+    }
+    let out = cmd
+        .output()
+        .map_err(|why| format!("cargo metadata did not start: {why}"))?;
+    if out.status.success() {
+        return Ok(out.stdout);
+    }
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    let first = stderr.lines().find(|l| !l.trim().is_empty()).unwrap_or("");
+    Err(format!(
+        "cargo metadata of {} failed: {first}",
+        manifest.display()
+    ))
 }
