@@ -108,7 +108,7 @@ object! {
         /// The linked producer's facts for `standard_library_unchanged` (AD-782).
         #[serde(skip)]
         pub standard: Option<StandardFacts>,
-        /// The provenance of the type-reach facts that the linked Rust worker used (AD-1116).
+        /// The provenance of the type-reach facts that the linked Rust worker used (AD-1120).
         #[serde(skip)]
         pub type_reach: Option<TypeReach>,
         /// The adapter that wrote the reply.
