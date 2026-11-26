@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A facts file: texts in the records become ids of a string table, as the driver writes them.
-fn file(records: &[Value]) -> String {
+fn file(records: &[Value], crate_types: &[&str]) -> String {
     let mut names: Vec<String> = Vec::new();
     let mut id = |text: &str| -> Value {
         let at = names.iter().position(|n| n == text).unwrap_or_else(|| {
@@ -36,14 +36,21 @@ fn file(records: &[Value]) -> String {
         }
         lines.push(record.to_string());
     }
-    lines[0] = "{\"k\":\"build\"}".to_string();
+    lines[0] = json!({"k": "build", "crate_types": crate_types}).to_string();
     lines[1] = json!({"k": "str", "v": names}).to_string();
     lines.join("\n")
 }
 
 pub(super) fn facts(records: &[Value]) -> Facts {
+    facts_of(&[(records, &[])])
+}
+
+/// The facts of several files, each with the crate types of its build record.
+pub(super) fn facts_of(files: &[(&[Value], &[&str])]) -> Facts {
     let mut facts = Facts::empty();
-    facts.absorb(&file(records)).unwrap();
+    for (records, types) in files {
+        facts.absorb(&file(records, types)).unwrap();
+    }
     facts
 }
 
@@ -270,7 +277,7 @@ fn a_directory_of_units_is_read_and_a_merged_test_unit_adds_nothing() {
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(
         dir.join("u-1.jsonl"),
-        file(&[module("k::a", &["k::b::X"], &[], &[]), target()]),
+        file(&[module("k::a", &["k::b::X"], &[], &[]), target()], &[]),
     )
     .unwrap();
     std::fs::write(
@@ -332,45 +339,45 @@ fn the_filter_gives_the_same_answers_whatever_the_order_of_the_questions() {
     assert!(!Filter::new(&[], &known).excluded("native.k.a", "native.k.b"));
 }
 
+fn decided(scan: &[&str], all: &Facts, pair: (&str, &str)) -> &'static str {
+    let scan: BTreeSet<String> = scan.iter().map(|m| m.to_string()).collect();
+    let reach = Reach::new(all, &scan);
+    match reach.decide(pair, &Mode::Rta, &mut BTreeMap::new()) {
+        Verdict::Excluded => "excluded",
+        Verdict::Kept(Cause::Reached) => "kept",
+        Verdict::Kept(_) => "other",
+    }
+}
+
+const BIN_SCAN: [&str; 4] = [
+    "native.k",
+    "native.k.bin_k",
+    "native.k.bin_k.a",
+    "native.k.bin_k.b",
+];
+
 #[test]
 fn a_module_of_a_bin_target_is_decided_under_the_bin_module_not_the_library_root() {
-    // The facts name `k::a`; the scan names the module of `src/main.rs` `native.k.bin_k.a` (`crates.rs`).
-    let scan: BTreeSet<String> = ["", ".bin_k", ".bin_k.a", ".bin_k.b"]
-        .iter()
-        .map(|m| format!("native.k{m}"))
-        .collect();
-    let pair = |records: &[Value]| {
-        let all = facts(records);
-        let reach = Reach::new(&all, &scan);
-        match reach.decide(
-            ("native.k.bin_k.a", "native.k.bin_k.b"),
-            &Mode::Rta,
-            &mut BTreeMap::new(),
-        ) {
-            Verdict::Excluded => "excluded",
-            Verdict::Kept(Cause::Reached) => "kept",
-            Verdict::Kept(_) => "other",
-        }
-    };
-    let reads = module("k::a", &["k::b::X"], &[], &[]);
-    assert_eq!(pair(&[reads, target()]), "kept");
-    let control = module("k::a", &["k::a::Y"], &[], &[]);
-    assert_eq!(pair(&[control, target()]), "excluded");
+    // The facts name `k::a`; the scan names the module of `main.rs` `native.k.bin_k.a` (`crates.rs`).
+    let pair = ("native.k.bin_k.a", "native.k.bin_k.b");
+    let reads = [module("k::a", &["k::b::X"], &[], &[]), target()];
+    assert_eq!(
+        decided(&BIN_SCAN, &facts_of(&[(&reads, &["bin"])]), pair),
+        "kept"
+    );
+    let control = [module("k::a", &["k::a::Y"], &[], &[]), target()];
+    assert_eq!(
+        decided(&BIN_SCAN, &facts_of(&[(&control, &["bin"])]), pair),
+        "excluded"
+    );
 }
 
 #[test]
 fn an_inline_module_of_the_library_keeps_its_facts_beside_a_bin_target() {
-    // `k::a::inner` is an inline module of the library module `a`; the bin target must not take it.
-    let scan: BTreeSet<String> = ["", ".a", ".b", ".bin_k"]
-        .iter()
-        .map(|m| format!("native.k{m}"))
-        .collect();
-    let all = facts(&[module("k::a::inner", &["k::b::X"], &[], &[]), target()]);
-    let reach = Reach::new(&all, &scan);
-    let kept = reach.decide(
-        ("native.k.a", "native.k.b"),
-        &Mode::Rta,
-        &mut BTreeMap::new(),
-    );
-    assert!(matches!(kept, Verdict::Kept(Cause::Reached)));
+    // `k::inner` is an inline module of the library root: it has no scan module, the bin target must not take it.
+    let scan = ["native.k", "native.k.b", "native.k.bin_k"];
+    let library = [module("k::inner", &["k::b::X"], &[], &[]), target()];
+    let bin = [module("k", &[], &[], &[])];
+    let all = facts_of(&[(&library, &["lib"]), (&bin, &["bin"])]);
+    assert_eq!(decided(&scan, &all, ("native.k", "native.k.b")), "kept");
 }

@@ -24,26 +24,26 @@ pub struct Reach<'f> {
     pub(crate) parts: Parts,
 }
 
-/// The scan module of a facts path that only a `bin` target of a package with a library declares: the scan
-/// names that target `<namespace>.<package>.bin_<crate>` (`crates.rs`), the facts `<crate>::<module>`. A path
-/// that the library of the package names too keeps the library module. `None` when no such target exists.
-fn bin_module(known: &BTreeSet<String>, namespace: &str, path: &str) -> Option<String> {
-    // A path that a module of the library owns, also by an inline module below it, keeps that module.
-    let mut owner = format!("{namespace}.{}", path.replace("::", "."));
-    while !known.contains(&owner) && owner.matches('.').count() > 1 {
-        owner.truncate(owner.rfind('.').unwrap_or(0));
-    }
-    if known.contains(&owner) && owner.matches('.').count() > 1 {
+/// The scan module of a facts path that only a `bin` target declares: the scan names the modules of that target
+/// `<namespace>.<package>.bin_<crate>.<module>` (`crates.rs`), the facts `<crate>::<module>`. A path that any other
+/// file declares (a library module, also an inline one) keeps the library module. `None` when the path is no
+/// bin-only path, or when the scan has no single target `bin_<crate>`.
+fn bin_module(
+    known: &BTreeSet<String>,
+    homes: &(BTreeSet<String>, BTreeSet<String>),
+    path: &str,
+) -> Option<String> {
+    if !homes.0.contains(path) || homes.1.contains(path) {
         return None;
     }
     let (krate, rest) = path.split_once("::")?;
     let wanted = format!("bin_{krate}");
-    let mut homes = known.iter().filter(|name| {
+    let mut targets = known.iter().filter(|name| {
         name.rsplit_once('.')
             .is_some_and(|(_, last)| last == wanted)
     });
-    let home = homes.next()?;
-    homes
+    let home = targets.next()?;
+    targets
         .next()
         .is_none()
         .then(|| format!("{home}.{}", rest.replace("::", ".")))
@@ -66,7 +66,7 @@ impl<'f> Reach<'f> {
             .chain(facts.fns.values().map(|(module, _)| module));
         for path in paths {
             let direct = format!("{namespace}.{}", path.replace("::", "."));
-            let mut name = bin_module(known, namespace, path).unwrap_or_else(|| direct.clone());
+            let mut name = bin_module(known, &facts.homes, path).unwrap_or_else(|| direct.clone());
             while !known.contains(&name) && name.contains('.') {
                 name.truncate(name.rfind('.').unwrap_or(0));
             }

@@ -68,6 +68,10 @@ pub struct Facts {
     /// there can coerce a value to them, and that code gets its values from the workspace through calls.
     pub(crate) foreign_dyn: BTreeMap<String, Names>,
     pub(crate) impls: Vec<ImplFacts>,
+    /// The module paths that the files of a `bin` target declare, and those of every other file. A path in
+    /// the first set only is a module of the bin target (`crates.rs` names it `bin_<crate>`).
+    pub(crate) homes: (BTreeSet<String>, BTreeSet<String>),
+    in_bin: bool,
 }
 
 fn blank<T: Default>() -> T {
@@ -105,7 +109,19 @@ impl Facts {
             hidden: blank(),
             adts: blank(),
             impls: blank(),
+            homes: blank(),
+            in_bin: false,
         }
+    }
+
+    /// Note the module that a record of the current file declares.
+    fn home(&mut self, module: Option<String>) {
+        let side = if self.in_bin {
+            &mut self.homes.0
+        } else {
+            &mut self.homes.1
+        };
+        side.extend(module);
     }
 
     /// Read each `*.jsonl` file of `dir`. A test unit that was merged into its library file has no records.
@@ -133,6 +149,12 @@ impl Facts {
 
     pub(crate) fn absorb(&mut self, text: &str) -> Option<()> {
         let lines: Vec<&str> = text.lines().collect();
+        let build: Option<Value> = lines.first().and_then(|l| serde_json::from_str(l).ok());
+        let types = build
+            .as_ref()
+            .and_then(|b| b.get("crate_types")?.as_array());
+        self.in_bin = types.is_some_and(|all| all.iter().all(|t| t.as_str() == Some("bin")))
+            && types.is_some_and(|all| !all.is_empty());
         let table: Value = serde_json::from_str(lines.get(1)?).ok()?;
         // A test unit that was merged into its library file has `merged` here and no records.
         if table.get("k")?.as_str()? == "merged" {
@@ -157,6 +179,7 @@ impl Facts {
         let (one, many) = (|k: &str| one(v, k, names), |k: &str| many(v, k, names));
         match kind {
             "mod" => {
+                self.home(one("m"));
                 let entry = self.mods.entry(one("m")?).or_insert_with(Held::new);
                 entry.adts.extend(many("mentions"));
                 entry
@@ -166,6 +189,7 @@ impl Facts {
                 self.erased.0.extend(one("m").filter(|_| erased_flag(v)));
             }
             "fn" => {
+                self.home(one("m"));
                 self.fns.insert(one("f")?, (one("m")?, one("implements")));
             }
             "seed" => {
@@ -210,14 +234,17 @@ impl Facts {
                 self.erased.1.extend(hidden.then(|| name.clone()));
                 self.adt(name, (many("fields"), many("dyn")), v.get("m").is_some());
             }
-            "impl" => self.impls.push(ImplFacts {
-                module: one("m")?,
-                tr: one("trait"),
-                adts: many("self_adts").into_iter().collect(),
-                assoc: many("assoc").into_iter().collect(),
-                assoc_dyns: many("assoc_dyn").into_iter().collect(),
-                run: v.get("run").and_then(Value::as_bool).unwrap_or(true),
-            }),
+            "impl" => {
+                self.home(one("m"));
+                self.impls.push(ImplFacts {
+                    module: one("m")?,
+                    tr: one("trait"),
+                    adts: many("self_adts").into_iter().collect(),
+                    assoc: many("assoc").into_iter().collect(),
+                    assoc_dyns: many("assoc_dyn").into_iter().collect(),
+                    run: v.get("run").and_then(Value::as_bool).unwrap_or(true),
+                });
+            }
             "super" => {
                 let sups = self.supers.entry(one("tr")?).or_default();
                 sups.extend(many("sup"));

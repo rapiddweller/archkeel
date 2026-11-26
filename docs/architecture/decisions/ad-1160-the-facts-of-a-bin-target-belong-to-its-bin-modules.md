@@ -18,9 +18,11 @@ reverse source use and a possible trait-impl dispatch. The first measurement (11
 
 ## Decision
 
-1. `bin_module` in `native/rust/src/type_reach_fold.rs` maps a facts path that no scan module names to the
-   module of the single scan target `bin_<crate>`. A path that the library names keeps the library module. Two
-   targets with the same name give no mapping, so the cut-back to the crate root applies as before.
+1. The facts reader notes which module paths the files of a `bin` target declare (`crate_types` of the build record)
+   and which paths every other file declares. `bin_module` in `native/rust/src/type_reach_fold.rs` maps a path to the
+   module of the single scan target `bin_<crate>` only when a bin file declares it and no other file does. A path that
+   the library declares, also an inline module of the library, keeps the library module. Two targets with the same
+   name give no mapping, so the cut-back to the crate root applies as before.
 2. No rule, no gap text and no verdict logic changes. The reach of a module stays as it was.
 3. The remaining pairs are not decided here. Each one stays UNKNOWN with the measured cause above. A
    contract unit option (#1013) or a weaker rule is not used.
