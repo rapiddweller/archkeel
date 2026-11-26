@@ -129,6 +129,7 @@
         "native.archkeel_facts.type_reach:ENV",
         "native.archkeel_facts.type_reach:Field",
         "native.archkeel_facts.type_reach:MAX_FEATURES",
+        "native.archkeel_facts.type_reach:MEMBERS_ENV",
         "native.archkeel_facts.type_reach:PREMISE",
         "native.archkeel_facts.type_reach:Unavailable",
         "native.archkeel_facts.type_reach:matrix",
@@ -5288,7 +5289,9 @@
         "native.archkeel_rust_collector.crates:Root",
         "native.archkeel_rust_collector.crates:Workspace",
         "native.archkeel_rust_collector.crates:discover",
+        "native.archkeel_rust_collector.crates:unproven_members",
         "native.archkeel_rust_collector.manifest:Kind",
+        "native.archkeel_rust_collector.manifest:ident",
         "native.archkeel_rust_collector.paths:normalize",
         "native.archkeel_rust_collector.registry:Registry",
         "native.archkeel_rust_collector.registry_overrides:Cited",
@@ -5296,7 +5299,10 @@
         "native.archkeel_rust_collector.source:read_text",
         "native.archkeel_rust_collector.source:walk",
         "native.archkeel_rust_collector.test_scope:NO_PRODUCTION_SOURCE",
-        "native.archkeel_rust_collector.test_scope:in_test_directory"
+        "native.archkeel_rust_collector.test_scope:in_test_directory",
+        "native.archkeel_rust_collector.toml:Table",
+        "native.archkeel_rust_collector.toml:Value",
+        "native.archkeel_rust_collector.toml:parse"
       ],
       "decided_by": "architect"
     },
@@ -5711,13 +5717,15 @@
           "through": [
             "native.archkeel_facts.envelope",
             "native.archkeel_facts.identity",
-            "native.archkeel_facts.request"
+            "native.archkeel_facts.request",
+            "native.archkeel_facts.type_reach"
           ]
         },
         {
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
+            "native.archkeel_snapshot.paths",
             "native.archkeel_snapshot.snapshot",
             "native.archkeel_snapshot:Snapshot"
           ]
@@ -5727,10 +5735,12 @@
           "rationale": "Read the crates and the manifests of the workspace.",
           "through": [
             "native.archkeel_rust_collector.crates",
+            "native.archkeel_rust_collector.manifest",
             "native.archkeel_rust_collector.registry",
             "native.archkeel_rust_collector.registry_overrides",
             "native.archkeel_rust_collector.source",
-            "native.archkeel_rust_collector.test_scope"
+            "native.archkeel_rust_collector.test_scope",
+            "native.archkeel_rust_collector.toml"
           ]
         },
         {

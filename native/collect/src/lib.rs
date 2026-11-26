@@ -152,7 +152,14 @@ pub fn scan_with_options(
         .path()
         .to_str()
         .ok_or_else(|| refused("root", "the root is not UTF-8"))?;
-    let config = read_config(&root, identity.config)?;
+    let mut config = read_config(&root, identity.config)?;
+    // AD-1119: the Explorer leaves test sources out unless the config states the scope. `validate` and `report` keep tests.
+    if explorer
+        && !config.test_scope_set
+        && matches!(config.profile, Profile::Python | Profile::TypeScript)
+    {
+        config.exclude_test_sources = true;
+    }
     let head = git::head(root.path()).map_err(|why| refused("git head", why))?;
     if let Some(claimed) = identity.git_head {
         if head != claimed {
@@ -187,6 +194,8 @@ pub fn scan_with_options(
         .rust_type_reach
         .then(|| type_reach_descriptor(&root, &config))
         .transpose()?;
+    let members = matches!(config.profile, Profile::Rust)
+        .then(|| rustc_facts_members::for_worker(root.path(), &config.roots));
     let collected_reply = run::collect_timed(
         config.profile,
         &bytes,
@@ -194,6 +203,7 @@ pub fn scan_with_options(
         (
             explorer,
             descriptor.as_ref().map(|(path, _)| path.as_path()),
+            members.as_deref(),
         ),
     );
     if let Some((path, _)) = &descriptor {

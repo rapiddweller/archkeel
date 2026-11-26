@@ -185,7 +185,9 @@ def _declined(result: Draft, why: str, root: Path) -> str:
     )
     return (
         f"No {CONFIG} in {root}, and nothing was written ({why}). The layout would give {what}: "
-        f"{', '.join(result.components)}. Run `archkeel init` in a folder that can be written to "
+        f"{', '.join(result.components)}. To inspect observed structure without a contract, run "
+        "`archkeel studio --root PATH` with this project root. "
+        "Run `archkeel init` in a folder that can be written to "
         f"save it, then `archkeel validate`. Guide: {DOCUMENT}"
     )
 

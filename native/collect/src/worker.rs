@@ -35,6 +35,7 @@ pub(crate) fn read(
     worker: Worker,
     request: &[u8],
     facts: Option<&std::path::Path>,
+    members: Option<&str>,
 ) -> Result<Reply, Refusal> {
     let part = match worker {
         Worker::Rust => "Rust worker",
@@ -48,6 +49,9 @@ pub(crate) fn read(
     // AD-1047: the descriptor of the compiler facts, for the Rust worker only.
     if let Some(path) = facts.filter(|_| for_rust) {
         cmd.env(archkeel_facts::type_reach::ENV, path);
+    }
+    if let Some(text) = members.filter(|_| for_rust) {
+        cmd.env(archkeel_facts::type_reach::MEMBERS_ENV, text);
     }
     #[cfg(windows)]
     if let Some(root) = std::env::var_os("SystemRoot") {

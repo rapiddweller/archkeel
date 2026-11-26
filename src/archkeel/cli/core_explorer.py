@@ -143,6 +143,7 @@ def _verdict_rows(
         findings,
         unknowns,
         {name: digests[name] for name in sorted(set(assessed)) if len(digests.get(name, "")) == 64},
+        frame.excluded_sources,
     )
 
 

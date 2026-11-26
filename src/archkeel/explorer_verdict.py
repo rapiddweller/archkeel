@@ -28,6 +28,7 @@ _SCHEMA = (
     "CREATE TABLE gap(id TEXT PRIMARY KEY,kind TEXT,body TEXT)",
     "CREATE INDEX gap_kind ON gap(kind,id)",
     "CREATE TABLE source(path TEXT PRIMARY KEY,digest TEXT)",
+    "CREATE TABLE excluded(path TEXT PRIMARY KEY)",
 )
 _Shape = Callable[[list[Row]], Row]
 
@@ -83,6 +84,8 @@ class VerdictRows:
     unknowns: tuple[Unknown, ...]
     # Digest of each file that the scan assessed, to tell later whether the verdict is stale.
     sources: Mapping[str, str]
+    # The paths that the scan left out as test sources (AD-1119).
+    excluded: tuple[str, ...] = ()
 
 
 def _located(at: str | None) -> Row:
@@ -107,6 +110,9 @@ def _store(connection: sqlite3.Connection, rows: VerdictRows | None) -> None:
     )
     connection.executemany("INSERT INTO rationale VALUES (?,?)", sorted(rows.rationales.items()))
     connection.executemany("INSERT INTO source VALUES (?,?)", sorted(rows.sources.items()))
+    connection.executemany(
+        "INSERT INTO excluded VALUES (?)", [(p,) for p in sorted(set(rows.excluded))]
+    )
     # Numbered after sorting, so the id order is the row order and equal input gives equal bytes.
     for number, finding in enumerate(
         sorted(rows.findings, key=lambda row: (row.rule, row.subject, row.at or ""))
@@ -171,12 +177,36 @@ def _stored(db: sqlite3.Connection) -> tuple[str, int, int, int, str | None] | N
     return None if row is None else tuple(row)
 
 
+def _scope(db: sqlite3.Connection) -> Row:
+    """The test sources that the scan left out; a snapshot of an older format says nothing."""
+    if db.execute("SELECT 1 FROM sqlite_schema WHERE name='excluded'").fetchone() is None:
+        return {"excluded_sources": None}
+    total = _count(db, "excluded")
+    shown = [
+        str(row[0])[:_TEXT_CHARS]
+        for row in db.execute("SELECT path FROM excluded ORDER BY path LIMIT 25")
+    ]
+    # The answer keeps its byte bound (AD-1084): the list gets a quarter of it.
+    while shown and len(json.dumps(shown).encode()) > _ANSWER_BYTES // 4:
+        shown.pop()
+    return {
+        "excluded_sources": total,
+        "excluded_paths": shown,
+        "excluded_paths_cut": len(shown) < total,
+        "scope": (
+            "test sources are left out of this view; "
+            "`validate` keeps them unless the config says otherwise"
+        ),
+    }
+
+
 def _verdict(db: sqlite3.Connection, root: Path, _args: Row, snapshot: str) -> Row:
     row = _stored(db)
     if row is None:
         return {"snapshot": snapshot, "status": None, "basis": Basis.UNKNOWN, "reason": _NO_VERDICT}
     status, exit_code, rules_violated, unknown, digest = row
-    return {
+    scope = _scope(db)
+    return scope | {
         "status": status,
         "exit_code": exit_code,
         "violations": _count(db, "violation"),

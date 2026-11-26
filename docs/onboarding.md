@@ -3,6 +3,17 @@
 Follow this page in a new project that has no `archkeel.toml`. It takes five minutes and ends in
 a verdict. You need the native-core development build installed (`archkeel --version`) and a Git repository with a commit.
 
+## 0. Inspect before drafting
+
+```bash
+archkeel studio .
+```
+
+Without a contract configuration, Studio shows observed source and groups from the folder layout.
+It does not write a contract or give a policy verdict. A layout group is not an approved component.
+Check the coverage information. An unresolved call or unsupported fact is not proof of absence.
+Open a group or an edge to inspect the source evidence. See [Explorer](explorer.md).
+
 ## 1. Run `validate`: the files are drafted for you
 
 ```bash

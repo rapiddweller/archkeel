@@ -5,15 +5,16 @@
 
 import json
 import sqlite3
+import subprocess
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from core_support import run
+from core_support import HONEST, case_root, run
 from corpus_support import REPOSITORY, Case, materialized
 
 from archkeel import explorer_mcp
@@ -335,3 +336,70 @@ def test_a_possible_import_gives_a_declared_row_never_a_proven_one() -> None:
         "R-OBSERVED": Basis.PROVEN,
         "R-DECLARED": Basis.DECLARED,
     }
+
+
+def test_a_test_source_is_left_out_of_the_explorer_view_and_the_verdict_says_so(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """AD-1119: the view skips a test file by default; `validate` keeps it and still fails."""
+    test_file = "shop/model/test_entities.py"
+    files = {test_file: "from shop.store import repository\n"}
+    with _scan(release_core, tmp_path / "cache", files) as scan:
+        code, result = _validate(release_core, scan.root)
+        assert result["frame"]["status"] == "FAIL", result["frame"]["violations"]
+        assert code != 0
+        verdict = scan.ask("verdict")
+        assert verdict["excluded_sources"] >= 1
+        assert test_file in verdict["excluded_paths"]
+        assert verdict["violations"] < sum(result["frame"]["violations"].values())
+        assert "validate" in verdict["scope"]
+
+
+def test_a_path_that_two_parts_exclude_is_stored_once(tmp_path: Path) -> None:
+    rows = replace(_rows(tmp_path), excluded=("t/test_a.py", "t/test_a.py", "t/test_b.py"))
+    answer = _synthetic(tmp_path, rows).ask("verdict")
+    assert answer["excluded_sources"] == 2
+    assert answer["excluded_paths"] == ["t/test_a.py", "t/test_b.py"]
+
+
+def _view_status(core: Path, cache: Path, root: Path) -> str:
+    """The `verdict` status of the Explorer snapshot of `root`."""
+    launched: list[tuple[object, ...]] = []
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(core_only, "locate_core", lambda: core)
+        patch.setenv("XDG_CACHE_HOME", str(cache))
+        patch.setattr(core_explorer, "launch", lambda *args: launched.append(args) or 0)
+        options = parse(["explore", "--root", str(root), "--no-open", "--no-scip"])
+        core_only._explore(options, OutputMode.TEXT)
+        options, _, project, binary, scan, render = launched[0]
+        path, _, _ = core_explorer._prepare_snapshot(
+            options, project, binary, scan, observed=render is None
+        )
+    return str(query(path, root.resolve(), "verdict", {})["status"])
+
+
+@pytest.mark.xfail(
+    strict=True, reason="a file with a test name leaves the view as a test (AD-1119)"
+)
+def test_a_production_file_with_a_test_name_cannot_make_the_view_pass(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """A file that the naming rule takes for a test holds the only violation: no PASS."""
+    with case_root(HONEST) as root:
+        (root / "src/b/protocol.test.ts").write_text('import "../a/a";\n')
+        subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t"]
+            + ["commit", "-qm", "plant"],
+            check=True,
+        )
+        code, result = _validate(release_core, root)
+        assert result["frame"]["status"] == "FAIL" and code != 0, result["frame"]["rules"]
+        assert _view_status(release_core, tmp_path / "cache", root) != "PASS"
+
+
+def test_the_excluded_paths_keep_the_answer_bound(tmp_path: Path) -> None:
+    paths = tuple(f"src/{n}/" + "目录/" * 90 + "test_file.py" for n in range(25))
+    answer = _synthetic(tmp_path, replace(_rows(tmp_path), excluded=paths)).ask("verdict")
+    assert len(json.dumps(answer, ensure_ascii=False).encode()) < 16 * 1024
+    assert answer["excluded_sources"] == 25 and answer["excluded_paths_cut"] is True
