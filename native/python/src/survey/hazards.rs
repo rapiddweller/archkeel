@@ -29,8 +29,8 @@ use super::hazards_names::{
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
 use bind::imported;
-pub(super) use bind::{bindings, exposed};
-pub(super) use comprehension::{chain_clear, trojans as comprehension_trojans};
+pub(super) use bind::{bindings, chain_clear, exposed};
+pub(super) use comprehension::trojans as comprehension_trojans;
 pub(super) use inert::{cleared, BUILTINS};
 pub(super) use reexport::{table, Reexports};
 pub(super) use reflect::proved;

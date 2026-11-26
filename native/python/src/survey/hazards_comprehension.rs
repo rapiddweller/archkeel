@@ -220,10 +220,7 @@ fn written(node: &ruff_python_ast::ExprAttribute, clear: bool) -> bool {
     site(Identifier::as_str(&node.attr), clear)
 }
 
-#[path = "hazards_chain.rs"]
-mod chain;
-pub(in crate::survey) use chain::clear as chain_clear;
-use chain::CHAIN_WRITES;
+use super::bind::CHAIN_WRITES;
 
 /// True when a literal name is a site: a read by `reflective`, a write unless it is an exception-chain name
 /// and `exempt` holds (a write, and a project with no hook that the write can reach).
