@@ -10,8 +10,8 @@ use std::collections::HashSet;
 use super::binders::Binders;
 use super::globals_read;
 use super::hazards::{
-    bindings, cleared, comprehension_trojans, proved, sites_with, table, Site, Split, BUILTINS,
-    DYNAMIC, IMPORT_SYSTEM, LITERAL,
+    bindings, cleared, comprehension_trojans, proved, sites, table, Site, Split, BUILTINS, DYNAMIC,
+    IMPORT_SYSTEM, LITERAL,
 };
 use super::hazards_names::{BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS};
 use super::lazy_cover::Lazy;
@@ -47,7 +47,7 @@ pub(super) fn split(
         let named = named
             .into_iter()
             .map(|(name, at)| Site::plain(DYNAMIC, name, at));
-        for site in sites_with(&module.tree, proof, binders, &reads[index], &reexports)
+        for site in sites(&module.tree, proof, binders, &reads[index], &reexports)
             .into_iter()
             .chain(named)
         {

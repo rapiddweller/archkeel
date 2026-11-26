@@ -25,6 +25,7 @@ fn imported_code_types_in_isinstance_keep_the_import_gap() {
             Proof::default(),
             &Binders::of(&tree),
             &HashSet::new(),
+            &Reexports::new(),
         );
         let matching: Vec<_> = found
             .iter()
@@ -42,7 +43,7 @@ fn imported_code_types_in_isinstance_keep_the_import_gap() {
         "from types import FunctionType as F\nx = isinstance(value, F)\n",
     ] {
         let tree = crate::test_tree(source, 12).expect("valid probe");
-        let found = sites(&tree, Proof::default(), &Binders::of(&tree), &HashSet::new());
+        let found = sites(&tree, Proof::default(), &Binders::of(&tree), &HashSet::new(), &Reexports::new());
         assert!(found.iter().filter(|site| site.detail == "types.FunctionType").count() >= 2, "{source}");
     }
     let source = "from types import FunctionType\nx = isinstance(eval(text), FunctionType)\n";
@@ -52,6 +53,7 @@ fn imported_code_types_in_isinstance_keep_the_import_gap() {
         Proof::default(),
         &Binders::of(&tree),
         &HashSet::new(),
+        &Reexports::new(),
     );
     assert!(found.iter().any(|site| site.detail == "eval"));
 }
@@ -72,6 +74,7 @@ fn direct_metadata_version_reads_keep_the_import_gap() {
             Proof::default(),
             &Binders::of(&tree),
             &HashSet::new(),
+            &Reexports::new(),
         );
         assert_eq!(
             found
@@ -101,6 +104,7 @@ fn direct_metadata_version_reads_keep_the_import_gap() {
             Proof::default(),
             &Binders::of(&tree),
             &HashSet::new(),
+            &Reexports::new(),
         );
         assert!(
             found.iter().any(|site| site.detail == "importlib.metadata"),
@@ -124,6 +128,7 @@ fn imported_inert_attribute_keeps_its_import_gap() {
             Proof::default(),
             &Binders::of(&tree),
             &HashSet::new(),
+            &Reexports::new(),
         );
         assert_eq!(
             found
@@ -157,6 +162,7 @@ fn imported_inert_attribute_keeps_its_import_gap() {
             Proof::default(),
             &Binders::of(&tree),
             &HashSet::new(),
+            &Reexports::new(),
         );
         assert_eq!(
             found.iter().filter(|site| site.detail == detail).count(),
@@ -181,6 +187,7 @@ fn imported_inert_attribute_keeps_its_import_gap() {
             Proof::default(),
             &Binders::of(&tree),
             &HashSet::new(),
+            &Reexports::new(),
         );
         assert!(found.len() >= 2, "{source}");
     }
@@ -198,6 +205,7 @@ fn dill_settings_reads_keep_the_import_gap() {
             Proof::default(),
             &Binders::of(&tree),
             &HashSet::new(),
+            &Reexports::new(),
         );
         assert!(
             found
@@ -223,6 +231,7 @@ fn dill_settings_reads_keep_the_import_gap() {
             Proof::default(),
             &Binders::of(&tree),
             &HashSet::new(),
+            &Reexports::new(),
         );
         assert!(
             found.iter().any(|site| site.detail == "dill.settings"),
@@ -244,6 +253,7 @@ fn trojan_horse_strings_with_unproved_equality_or_membership_keep_their_gap() {
             Proof::default(),
             &Binders::of(&tree),
             &HashSet::new(),
+            &Reexports::new(),
         );
         assert!(
             found.iter().any(|site| site.detail == "__import__"),
@@ -262,6 +272,7 @@ fn a_code_object_is_a_door_and_a_scalar_field_of_it_is_not() {
             Proof::default(),
             &Binders::of(&tree),
             &HashSet::new(),
+            &Reexports::new(),
         )
         .iter()
         .map(|site| site.kind)
