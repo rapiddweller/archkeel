@@ -64,6 +64,8 @@ def _components(topology: Topology) -> list[str]:
         lines.append(f"- Parent: {_code(item.parent) if item.parent else 'none'}")
         lines += ["", "Packages:", ""]
         lines += _bullets(item.packages, code=True)
+        lines += ["Exact modules:", ""]
+        lines += _bullets(item.exact_modules, code=True)
         lines += ["Responsibilities:", ""]
         lines += _bullets(item.responsibilities)
         lines += ["Must not:", ""]

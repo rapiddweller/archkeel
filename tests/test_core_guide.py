@@ -16,7 +16,7 @@ APP = Component(
     name="app",
     parent=None,
     packages=("app",),
-    exact_modules=(),
+    exact_modules=("app.main",),
     planned=False,
     layer="application",
     public=("app.api:Api",),
@@ -85,6 +85,10 @@ Packages:
 
 - `app`
 
+Exact modules:
+
+- `app.main`
+
 Responsibilities:
 
 - Serves requests.
@@ -107,6 +111,10 @@ Packages:
 
 - `base`
 - `base.types`
+
+Exact modules:
+
+None declared.
 
 Responsibilities:
 
