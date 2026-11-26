@@ -99,6 +99,11 @@ ROUTES = {
         'use std::include as load;\nload!("../../../crates/base/src/lib.rs");\n'
         "pub fn f() { make(); }\n",
     ),
+    "patch-escaped-name": (
+        WORKSPACE + '[patch.crates-io]\nalias = { package = "base\\u002dcrate", path = "base" }\n',
+        HEAD,
+        "pub fn f() { base_crate::make(); }\n",
+    ),
     "include": (
         WORKSPACE,
         "",

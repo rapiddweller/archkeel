@@ -101,7 +101,9 @@ fn word_at<'a>(text: &'a str, word: &'a str) -> impl Iterator<Item = usize> + 'a
 /// A registry or git dependency whose name occurs in the workspace manifest that has a `[patch]` or `[replace]`.
 fn patchable(source: Option<&str>, name: Option<&str>, members: &Members) -> bool {
     let text = members.patched.as_ref();
-    source.is_some() && name.is_some_and(|n| text.is_some_and(|t| t.contains(n)))
+    // A backslash can write a name in an escape (`\u002d`): the text cannot rule a patch out.
+    let named = |t: &String| t.contains('\\') || name.is_some_and(|n| t.contains(n));
+    source.is_some() && text.is_some_and(named)
 }
 
 /// A git dependency that names a member can lead into the repository.
@@ -209,13 +211,13 @@ fn target_sources(meta: &Value) -> Vec<std::path::PathBuf> {
 }
 
 fn file_escapes(file: &Path, own: &str, members: &Members) -> bool {
-    let large = std::fs::metadata(file).is_ok_and(|m| m.len() > MAX_BYTES);
+    // The size is read first: the limit must bound the memory.
+    if std::fs::metadata(file).is_ok_and(|m| m.len() > MAX_BYTES) {
+        return true;
+    }
     let Ok(text) = std::fs::read_to_string(file) else {
         return true;
     };
-    if large {
-        return true;
-    }
     let parent = file.parent().unwrap_or(Path::new("."));
     // `include!` is relative to the file. `#[path]` is relative to the directory of the file in a `mod.rs`, `lib.rs`
     // or `main.rs`, and to the directory of the module otherwise: an unresolved candidate is no proof of a route.
