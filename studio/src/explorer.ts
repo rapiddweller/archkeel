@@ -1,5 +1,5 @@
 import { api, type Page } from "./studio-api.js";
-import type { StudioCoverage, StudioItem, StudioEdge } from "./studio-model.js";
+import type { StudioCoverage, StudioEntryPoint, StudioItem, StudioEdge } from "./studio-model.js";
 import { state, system, known } from "./studio-state.js";
 import { breakPath, get, element, button, canvas, cards, details, viewport, notice, showError } from "./studio-dom.js";
 import { showScope, changePage } from "./explorer-navigation.js";
@@ -22,6 +22,26 @@ interface Source {
   path: string; lines: string[]; start: number; line: number;
 }
 
+const entryKinds: Record<string, string> = {
+  python_script: "Python script", python_gui_script: "Python GUI script", python_main_module: "Python __main__ module",
+  cargo_bin: "Cargo binary", package_bin: "package.json bin", package_main: "package.json main",
+};
+
+function entryPointNotes(label: string, found: { entries: StudioEntryPoint[]; unread: string[] } | null | undefined) {
+  details.append(element("h3", label + " · Entry points"));
+  if (!found) {
+    details.append(element("p", "Unknown: this scan reads no entry points for the language."));
+    return;
+  }
+  for (const entry of found.entries) {
+    const proof = entry.evidence.path + (entry.evidence.key ? " · " + entry.evidence.key : "");
+    const target = entry.target ? " → " + entry.target : "";
+    details.append(element("p", (entryKinds[entry.kind] ?? entry.kind) + " " + entry.name + target + " · " + entry.basis + " · " + proof));
+  }
+  for (const reason of found.unread) details.append(element("p", "Unknown, not read: " + reason));
+  if (!found.entries.length && !found.unread.length) details.append(element("p", "None found in the manifests and default files that the scan reads. Other forms are not read."));
+}
+
 export function updateOverview({ coverage = {} }: {coverage?: StudioCoverage}) {
   const displayNames: Record<string, string> = { python: "Python", rust: "Rust", dart: "Dart", typescript: "TypeScript", javascript: "JavaScript" };
   const languages = new Set((coverage.parts ?? []).flatMap((part) => part.language ? [part.language] : []).filter(Boolean));
@@ -39,6 +59,7 @@ export function updateOverview({ coverage = {} }: {coverage?: StudioCoverage}) {
   for (const part of coverage.parts ?? []) {
     if (part.facts?.calls == null) details.append(element("p", (part.part || part.language || "Scan") + " · Call analysis unavailable."));
     else if (part.language === "rust") details.append(element("p", "Rust · Direct calls to local functions."));
+    entryPointNotes(part.part || part.language || "Scan", part.entry_points);
     if (part.files_indexed == null) continue;
     const counts = [part.files_indexed + " indexed files"];
     if (part.files_with_symbols != null) counts.push(part.files_with_symbols + " with symbol records");

@@ -112,6 +112,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             documents: None,
             sdk_libraries: Vec::new(),
             scope_hold: None,
+            entry_points: None,
         },
         None,
     )

@@ -172,6 +172,75 @@ fn version(text: &str) -> Option<[u32; 3]> {
     Some([major, minor, patch])
 }
 
+/// The table of `pyproject.toml` as `tomllib` reads it, or `None` when it refuses the file.
+fn pyproject(snapshot: &mut Snapshot) -> Option<Table> {
+    snapshot
+        .read(PYPROJECT)
+        .and_then(|raw| String::from_utf8(raw).ok())
+        // `read_text` keeps a byte order mark, and `tomllib` refuses it.
+        .filter(|text| !text.starts_with('\u{feff}'))
+        .and_then(|text| text.parse::<Table>().ok())
+        .filter(|table| table.values().all(python_values))
+}
+
+/// The table of `pyproject.toml` that declares a script.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScriptTable {
+    /// `[project.scripts]`.
+    Console,
+    /// `[project.gui-scripts]`.
+    Gui,
+}
+
+/// One script that `pyproject.toml` declares: its name and the `module:function` target.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Script {
+    /// The table that declares it.
+    pub table: ScriptTable,
+    /// The script name, the key of the table.
+    pub name: String,
+    /// The `module:function` value.
+    pub target: String,
+}
+
+/// The scripts of `project.scripts` and `project.gui-scripts` (#2040). A missing
+/// `pyproject.toml` declares none. A file or a script value that cannot be read is an error:
+/// the list is then unknown, not empty.
+pub fn scripts(root: &str) -> Result<Vec<Script>, String> {
+    let mut snapshot = Snapshot::new(root);
+    if !snapshot.is_file(PYPROJECT) {
+        return Ok(Vec::new());
+    }
+    let table = pyproject(&mut snapshot).ok_or("cannot be read")?;
+    let project = match table.get("project") {
+        None => return Ok(Vec::new()),
+        Some(value) => value.as_table().ok_or("project is not a table")?,
+    };
+    let mut found = Vec::new();
+    for (key, kind) in [
+        ("scripts", ScriptTable::Console),
+        ("gui-scripts", ScriptTable::Gui),
+    ] {
+        let Some(declared) = project.get(key) else {
+            continue;
+        };
+        let entries = declared
+            .as_table()
+            .ok_or_else(|| format!("project.{key} is not a table"))?;
+        for (name, target) in entries {
+            let target = target
+                .as_str()
+                .ok_or_else(|| format!("project.{key}.{name} is not a string"))?;
+            found.push(Script {
+                table: kind,
+                name: name.clone(),
+                target: target.to_owned(),
+            });
+        }
+    }
+    Ok(found)
+}
+
 /// The requirement and its state.
 pub(crate) fn requirement(snapshot: &mut Snapshot) -> (Option<String>, RequirementState) {
     if !snapshot.is_file(PYPROJECT) {
@@ -184,14 +253,7 @@ pub(crate) fn requirement(snapshot: &mut Snapshot) -> (Option<String>, Requireme
         };
         return (None, state);
     }
-    let Some(table) = snapshot
-        .read(PYPROJECT)
-        .and_then(|raw| String::from_utf8(raw).ok())
-        // `read_text` keeps a byte order mark, and `tomllib` refuses it.
-        .filter(|text| !text.starts_with('\u{feff}'))
-        .and_then(|text| text.parse::<Table>().ok())
-        .filter(|table| table.values().all(python_values))
-    else {
+    let Some(table) = pyproject(snapshot) else {
         return (None, RequirementState::MetadataInvalid);
     };
     let declared = table

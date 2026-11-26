@@ -663,6 +663,17 @@
             "$ref": "#/$defs/Import"
           }
         },
+        "entry_points": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntryPoints"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The entry points that manifests and files prove; null when the language has no reader."
+        },
         "source_call_candidates": {
           "type": "array",
           "items": {
@@ -676,7 +687,8 @@
         "files",
         "symbols",
         "calls",
-        "imports"
+        "imports",
+        "entry_points"
       ],
       "additionalProperties": false
     },
@@ -1084,6 +1096,140 @@
         "reason",
         "evidence_ids"
       ],
+      "additionalProperties": false
+    },
+    "EntryPoints": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EntryPoint"
+          },
+          "description": "The entry points that the scan proved."
+        },
+        "unread": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What the scan could not read, each with its path. A part of the list is then unknown."
+        }
+      },
+      "required": [
+        "entries",
+        "unread"
+      ],
+      "description": "What the scan could read. A language that the scan does not read has no `EntryPoints` at all\n(unknown). An empty `entries` with an empty `unread` means only: none of the forms above.",
+      "additionalProperties": false
+    },
+    "EntryPoint": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/EntryKind",
+          "description": "The form of the entry point."
+        },
+        "basis": {
+          "$ref": "#/$defs/EntryBasis",
+          "description": "Declared or observed."
+        },
+        "name": {
+          "type": "string",
+          "description": "The script, binary or module name."
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "What it runs: `module:function`, a file path, or none when the manifest names none."
+        },
+        "evidence": {
+          "$ref": "#/$defs/EntryEvidence",
+          "description": "The manifest key or the file that proves it."
+        }
+      },
+      "required": [
+        "kind",
+        "basis",
+        "name",
+        "target",
+        "evidence"
+      ],
+      "description": "One entry point with its proof.",
+      "additionalProperties": false
+    },
+    "EntryKind": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "python_script",
+          "description": "`[project.scripts]` of `pyproject.toml`."
+        },
+        {
+          "type": "string",
+          "const": "python_gui_script",
+          "description": "`[project.gui-scripts]` of `pyproject.toml`."
+        },
+        {
+          "type": "string",
+          "const": "python_main_module",
+          "description": "A `__main__.py` file: `python -m <package>` runs it."
+        },
+        {
+          "type": "string",
+          "const": "cargo_bin",
+          "description": "A Cargo binary target."
+        },
+        {
+          "type": "string",
+          "const": "package_bin",
+          "description": "The `bin` key of `package.json`."
+        },
+        {
+          "type": "string",
+          "const": "package_main",
+          "description": "The `main` key of `package.json`."
+        }
+      ],
+      "description": "The form of an entry point."
+    },
+    "EntryBasis": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "declared",
+          "description": "A manifest key names it."
+        },
+        {
+          "type": "string",
+          "const": "observed",
+          "description": "A file at a fixed path that the language tooling runs."
+        }
+      ],
+      "description": "Whether the project states the entry point or the file layout shows it."
+    },
+    "EntryEvidence": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "The path of the manifest or the file, relative to the scan root."
+        },
+        "key": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The key path in the manifest, for example `project.scripts.tool`; none for a file."
+        }
+      },
+      "required": [
+        "path",
+        "key"
+      ],
+      "description": "Where the proof is: a file, and the manifest key when a manifest states it.",
       "additionalProperties": false
     },
     "SourceCallCandidate": {
