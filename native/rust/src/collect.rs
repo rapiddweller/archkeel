@@ -183,6 +183,7 @@ enum Answer {
     Listed {
         roots: Vec<String>,
         members: BTreeSet<String>,
+        names: Vec<String>,
     },
 }
 
@@ -205,6 +206,7 @@ fn answer() -> Answer {
         (Some(roots), Some(members)) => Answer::Listed {
             roots,
             members: members.into_iter().collect(),
+            names: list("names").unwrap_or_default(),
         },
         _ => Answer::Unavailable("the answer of the core is not readable".to_owned()),
     }
@@ -245,7 +247,7 @@ fn workspace_files(
     source: &mut Snapshot,
     builder: &mut Builder,
 ) -> (Vec<String>, BTreeSet<String>) {
-    let (roots, members) = match answer() {
+    let (roots, members, listed_names) = match answer() {
         Answer::Absent => return (files, BTreeSet::new()),
         Answer::Unavailable(why) => {
             // Without `cargo metadata` the manifests prove a membership only for the plain layouts.
@@ -258,10 +260,15 @@ fn workspace_files(
             }
             return (files, BTreeSet::new());
         }
-        Answer::Listed { roots, members } => (roots, members),
+        Answer::Listed {
+            roots,
+            members,
+            names,
+        } => (roots, members, names),
     };
-    let (mut foreign, mut member_names): (BTreeMap<&str, String>, BTreeSet<String>) =
-        Default::default();
+    let mut foreign: BTreeMap<&str, String> = BTreeMap::new();
+    // The member names come from Cargo: a path that the scan lists differently (a symlinked scan root) cannot hide one.
+    let mut member_names: BTreeSet<String> = listed_names.iter().map(|n| ident(n)).collect();
     let mut kept: BTreeSet<&str> = BTreeSet::new();
     for file in files
         .iter()

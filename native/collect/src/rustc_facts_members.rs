@@ -26,6 +26,8 @@ pub(crate) struct Members {
     pub(crate) dirs: Vec<String>,
     /// The features of the members, `default` excluded: each one alone is a configuration.
     features: Vec<(String, String)>,
+    /// The package name of each member.
+    pub(crate) names: BTreeSet<String>,
 }
 
 /// The members of a workspace, from the JSON that `cargo metadata --no-deps` printed.
@@ -43,6 +45,7 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
         roots: BTreeMap::new(),
         dirs: Vec::new(),
         features: Vec::new(),
+        names: BTreeSet::new(),
     };
     let text =
         |value: &Value, key: &str| value.get(key).and_then(Value::as_str).map(str::to_string);
@@ -74,6 +77,7 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
                     .to_string(),
             );
         }
+        found.names.insert(name.clone());
         found.manifests.insert(path);
 
         for target in package
@@ -192,7 +196,7 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
     let real = repository
         .canonicalize()
         .map_err(|why| format!("cannot read the repository root: {why}"))?;
-    let (mut roots, mut found) = (Vec::new(), Vec::new());
+    let (mut roots, mut found, mut names) = (Vec::new(), Vec::new(), BTreeSet::new());
     for root in scan_roots {
         let Some(manifest) = nearest_manifest(&real, root) else {
             continue;
@@ -207,7 +211,12 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
                 manifest.display()
             )
         })?;
-        roots.push(root.trim_end_matches('/').to_owned());
+        let root = root.trim_end_matches('/');
+        roots.push(root.to_owned());
+        names.extend(all.names.iter().cloned());
+        // The walk lists a file under the path of its scan root. A scan root that is a symlink has another real path
+        // than the member directory has, so each member below the real root is also listed under the root path.
+        found.extend(listed_under_root(&real, root, all.roots.keys()));
         // The snapshot lists paths with `/`; the members reader prints the separator of the platform.
         // A member that is a symlink has two paths: Cargo builds the one it names, and the walk lists the real one.
         for real_dir in all.roots.keys() {
@@ -223,7 +232,7 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
     }
     found.sort();
     found.dedup();
-    Ok(json!({ "roots": roots, "members": found }))
+    Ok(json!({ "roots": roots, "members": found, "names": names }))
 }
 
 /// The `Cargo.toml` in the scan root, else in the nearest directory above it, up to the repository root. A
@@ -239,6 +248,27 @@ fn nearest_manifest(repository: &Path, root: &str) -> Option<PathBuf> {
             return None;
         }
     }
+}
+
+/// The member directories below the real path of a scan root, under the path of the root.
+fn listed_under_root<'a>(
+    real: &Path,
+    root: &str,
+    dirs: impl Iterator<Item = &'a String>,
+) -> Vec<String> {
+    let Ok(real_root) = real.join(root).canonicalize() else {
+        return Vec::new();
+    };
+    let below = |dir: &String| {
+        let relative = Path::new(dir).strip_prefix(&real_root).ok()?;
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        Some(
+            format!("{root}/{relative}")
+                .trim_end_matches('/')
+                .to_owned(),
+        )
+    };
+    dirs.filter_map(below).collect()
 }
 
 /// `cargo metadata --no-deps` from a neutral directory, so that neither a `rust-toolchain.toml` nor a

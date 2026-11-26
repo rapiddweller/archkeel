@@ -236,6 +236,25 @@ def test_an_excluded_crate_does_not_hide_an_edge_that_passes_through_it(
     assert any("depends on x, a crate that is no workspace member" in r for r in _reasons(result))
 
 
+def test_a_symlink_as_scan_root_does_not_hide_a_member(tmp_path: Path, release_core: Path) -> None:
+    layout = {"crates/app/src/main.rs": MARKED_MAIN}
+    root = repository(
+        tmp_path / "repo", release_core, files=layout, components=(component("base", "base_crate"),)
+    )
+    (root / "alias").symlink_to("crates/app")
+    config = root / "archkeel.toml"
+    config.write_text(
+        config.read_text().replace('roots = ["crates"]', 'roots = ["crates/base", "alias"]')
+    )
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+    identity = ["-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(["git", "-C", str(root), *identity, "commit", "-qm", "alias"], check=True)
+    assert _run_marker(root, "crates/app/Cargo.toml") == "app ran\n"
+    result = validate(root)
+    # `app` is a member that no component owns: it is no foreign code, so ASSIGNED fails.
+    assert result["frame"]["rules"]["ASSIGNED"][1] == "FAIL", result["frame"]["rules"]
+
+
 def _without_cargo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
