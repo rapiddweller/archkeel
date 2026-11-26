@@ -458,9 +458,6 @@
           "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result.",
           "through": [
             "native.archkeel_model.causes",
-            "native.archkeel_model.causes:InterfaceGap",
-            "native.archkeel_model.causes:InterfaceHold",
-            "native.archkeel_model.causes:PairOrigin",
             "native.archkeel_model.coverage",
             "native.archkeel_model.ids",
             "native.archkeel_model.needs",
@@ -1131,9 +1128,6 @@
           "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result.",
           "through": [
             "native.archkeel_model.causes",
-            "native.archkeel_model.causes:HeldImport",
-            "native.archkeel_model.causes:InterfaceGap",
-            "native.archkeel_model.causes:InterfaceHold",
             "native.archkeel_model.ids",
             "native.archkeel_model.reason"
           ]
@@ -2330,10 +2324,7 @@
           "through": [
             "native.archkeel_report.build_error",
             "native.archkeel_report.kind",
-            "native.archkeel_report.why",
-            "native.archkeel_report.why:Held",
-            "native.archkeel_report.why:HoldKind",
-            "native.archkeel_report.why:InterfaceHolds"
+            "native.archkeel_report.why"
           ]
         },
         {
