@@ -5636,7 +5636,7 @@
         },
         {
           "component": "rs-type-reach",
-          "rationale": "State the verified type-reach facts as the provenance fact of the reply (AD-1120).",
+          "rationale": "State the verified type-reach facts as the provenance fact of the reply (AD-1116).",
           "through": [
             "native.archkeel_rust_collector.type_reach"
           ]
