@@ -16,7 +16,6 @@ use std::collections::HashMap;
 use archkeel_contract::Component;
 
 use crate::ids::{ComponentId, ModuleId, Table};
-use crate::imports::Import;
 use crate::modules::Module;
 
 /// True when `name` is `scope` or a dotted descendant of it (no partial segment).
@@ -48,9 +47,16 @@ pub(crate) fn symbol_port(source: &Component, target: &Component) -> bool {
 /// True when a port of `source` can publish a type that an impl in `module` of `target` belongs to: `source` has
 /// an entry for `target`, or a symbol port at `module` or above it. The core does not yet prove the publication
 /// route, so a use of `module` alone proves no violation (AD-1136, #2069). No entry and no port: false.
-pub(crate) fn may_publish(source: &Component, target: &Component, module: &str) -> bool {
+pub(crate) fn may_publish(
+    source: &Component,
+    target: &Component,
+    module: &str,
+    (components, reexports): (&Table<ComponentId, Component>, &[(&str, &str)]),
+) -> bool {
     let mut entries = source.requires().iter().flatten();
-    entries.any(|e| e.component() == target.label()) || symbol_port_above(source, module)
+    entries.any(|e| e.component() == target.label())
+        || symbol_port_above(source, module)
+        || reexported(source, components, reexports, module)
 }
 
 fn symbol_port_above(source: &Component, module: &str) -> bool {
@@ -61,12 +67,12 @@ fn symbol_port_above(source: &Component, module: &str) -> bool {
     })
 }
 
-/// True when a module that a port of `source` covers re-exports from `module`: the type of an impl in `module` can
+/// True when a module of `reexports` (facade, target) that a port of `source` covers re-exports from `module`: the type of an impl in `module` can
 /// reach `source` through that facade, so the dependency may be the one that the port allows (AD-1136, #2069).
-pub(crate) fn reexported(
+fn reexported(
     source: &Component,
     components: &Table<ComponentId, Component>,
-    imports: &[Import],
+    reexports: &[(&str, &str)],
     module: &str,
 ) -> bool {
     let entries: Vec<_> = source.requires().iter().flatten().collect();
@@ -82,11 +88,11 @@ pub(crate) fn reexported(
                 })
         })
     };
-    let from_module = |i: &&Import| i.reexport && i.target_module() == module;
-    imports
+    let from_module = |(_, target): &&(&str, &str)| *target == module;
+    reexports
         .iter()
         .filter(from_module)
-        .any(|i| covers(i.source_module()))
+        .any(|(facade, _)| covers(facade))
 }
 
 /// The one claimant, or `None` for zero or many.

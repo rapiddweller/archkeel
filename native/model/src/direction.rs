@@ -25,7 +25,7 @@ use crate::causes::Cause;
 use crate::ids::ComponentId;
 use crate::imports::{Import, Resolved};
 use crate::model::Model;
-use crate::ownership::{in_scope, may_publish, owner_of, reexported, symbol_port};
+use crate::ownership::{in_scope, may_publish, owner_of, symbol_port};
 use crate::reason::Reason;
 use crate::selection::{
     dependency_sides, unused_by_module, unused_entries, Selection, UnusedAllowance,
@@ -370,6 +370,10 @@ pub struct Crossing<'m> {
 /// rule (AD-500).
 pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<'m>> {
     let components = model.components();
+    let all = model.graph().imports().iter().filter(|i| i.reexport);
+    let reexports: Vec<_> = all
+        .map(|i| (i.source_module(), i.target_module()))
+        .collect();
     // `dependency_symbols`: a profile judges symbol ports only with the symbol feature
     // (`check/evaluation/evaluate.py:1061`).
     let observed = model.graph().observed();
@@ -405,11 +409,9 @@ pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<
             && import.symbol() != Some("*");
         let (module, symbol) = (import.target_module(), import.symbol());
         let mut judged = assessment(source, target, module, symbol, named);
-        // The compiler names the module of the impl, not the symbol or the route that a port publishes (AD-1136).
-        let facade = || reexported(source, components, model.graph().imports(), module);
         if judged == Judged::Fail
             && import.selected_impl()
-            && (may_publish(source, target, module) || facade())
+            && may_publish(source, target, module, (components, &reexports))
         {
             judged = Judged::Undecided;
         }
