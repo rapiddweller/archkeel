@@ -108,6 +108,7 @@ SLOW_FILES = frozenset(
         "test_cli_native_core_scan_large.py",
         "test_cli_native_core_scan_rust.py",
         "test_cli_phase_timings_reference.py",
+        "test_collector_native_rust_impl_oracle.py",
     }
 )
 
@@ -147,6 +148,7 @@ HEAVY_FILES = frozenset(
         "test_collector_native_digest.py",
         "test_collector_native_records.py",
         "test_collector_native_rust_definitions_oracle.py",
+        "test_collector_native_rust_impl_oracle.py",
         "test_collector_native_rust_module_oracle.py",
         "test_collector_native_rust_oracle.py",
         "test_collector_native_rust_receivers_compiled.py",
