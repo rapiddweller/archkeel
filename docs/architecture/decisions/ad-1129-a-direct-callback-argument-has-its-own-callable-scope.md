@@ -18,7 +18,8 @@ binding.
 
 **Limit.** This decision does not model single-parameter arrows without
 parentheses, JSX handlers, object properties or callbacks in unmodeled scopes.
-It does not resolve dynamic receiver dispatch or prove that a callback runs.
+It excludes callbacks inside JavaScript `with` scopes. It does not resolve
+dynamic receiver dispatch or prove that a callback runs.
 
 **Check.** The TypeScript site tests check separate callback owners, direct
 calls, parameter shadows, local bindings and the absence of a registration

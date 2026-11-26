@@ -227,6 +227,23 @@ fn a_callback_argument_does_not_resolve_a_shadowed_name() {
 }
 
 #[test]
+fn a_callback_in_a_with_scope_does_not_resolve_a_shadowed_name() {
+    let tree = Tree::new(&[
+        (
+            "tsconfig.json",
+            r#"{"compilerOptions":{"allowJs":true},"include":["src"]}"#,
+        ),
+        (
+            "src/a.cjs",
+            "function request() {} function register(f) { f(); } \
+         function render(obj) { with (obj) register(() => request()); }",
+        ),
+    ]);
+    let found = records(&request(&tree), provenance()).unwrap().1;
+    assert_ne!(call(&found, "request").data["status"], "resolved");
+}
+
+#[test]
 fn a_destructured_callback_parameter_shadows_the_module_function() {
     let found = run(&[(
         "src/a.ts",

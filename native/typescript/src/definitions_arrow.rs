@@ -6,7 +6,7 @@
 
 use tree_sitter::Node;
 
-use crate::ancestors::{Entry, ERROR_ABOVE, INSIDE_NAMESPACE, IN_UNMODELED_BLOCK};
+use crate::ancestors::{Entry, ERROR_ABOVE, INSIDE_NAMESPACE, IN_UNMODELED_BLOCK, IN_WITH};
 use crate::kinds::{F, K};
 use crate::pytext::has_backslash;
 use crate::tree::cx::Cx;
@@ -24,28 +24,33 @@ pub(super) fn module_array_constant(
     }
     let mut value = value;
     if cx.k(value) == K::AsExpression {
-        let parts: Vec<Node> = children(value)
-            .into_iter()
-            .filter(|item| cx.k(*item) != K::Comment)
-            .collect();
+        let mut parts = Vec::new();
+        for item in children(value) {
+            if cx.k(item) != K::Comment {
+                parts.push(item);
+            }
+        }
         if parts.len() != 3 || cx.k(parts[1]) != K::As || cx.k(parts[2]) != K::Const {
             return false;
         }
         value = parts[0];
     }
-    cx.k(value) == K::Array
-        && named_children(value).into_iter().all(|item| {
-            matches!(
-                cx.k(item),
-                K::Identifier | K::String | K::Number | K::True | K::False | K::Null | K::Comment
-            )
-        })
+    if cx.k(value) != K::Array {
+        return false;
+    }
+    for item in named_children(value) {
+        match cx.k(item) {
+            K::Identifier | K::String | K::Number | K::True | K::False | K::Null | K::Comment => {}
+            _ => return false,
+        }
+    }
+    true
 }
 
 pub(super) fn callback(cx: &Cx, node: Node, stack: &[Entry], seen: u8) -> Option<String> {
     if node.has_error()
         || cx.field(node, F::Parameters).is_none()
-        || seen & (ERROR_ABOVE | INSIDE_NAMESPACE | IN_UNMODELED_BLOCK) != 0
+        || seen & (ERROR_ABOVE | INSIDE_NAMESPACE | IN_UNMODELED_BLOCK | IN_WITH) != 0
         || stack
             .last()
             .is_none_or(|parent| parent.kind != K::Arguments || parent.shadow.ambiguous != 0)
