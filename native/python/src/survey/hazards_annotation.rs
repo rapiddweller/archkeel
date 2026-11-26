@@ -101,6 +101,51 @@ pub(super) struct Strings {
     opaque: HashSet<String>,
 }
 
+const MAX_TEXTS: usize = 8;
+
+fn names_a_held(texts: &[ExprStringLiteral], held: &HashSet<&String>) -> bool {
+    let mut names = Names {
+        found: HashSet::new(),
+        depth: 0,
+        deep: false,
+    };
+    for text in texts {
+        match parsed(text) {
+            Ok(code) => names.visit_expr(&code),
+            Err(Unread::Bound) => names.deep = true,
+            Err(Unread::Syntax) => {}
+        }
+    }
+    names.deep || names.found.iter().any(|name| held.contains(name))
+}
+
+/// The names of a text and of the strings in it, to the depth of a nest of strings.
+struct Names {
+    found: HashSet<String>,
+    depth: usize,
+    deep: bool,
+}
+
+impl<'a> Visitor<'a> for Names {
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        match expr {
+            Expr::Name(node) => {
+                self.found.insert(node.id.to_string());
+            }
+            Expr::StringLiteral(text) => match parsed(text) {
+                Ok(code) if self.depth < 8 => {
+                    self.depth += 1;
+                    self.visit_expr(&code);
+                    self.depth -= 1;
+                }
+                Ok(_) | Err(Unread::Bound) => self.deep = true,
+                Err(Unread::Syntax) => {}
+            },
+            _ => visitor::walk_expr(self, expr),
+        }
+    }
+}
+
 pub(super) enum Held<'a> {
     None,
     Texts(&'a [ExprStringLiteral]),
@@ -119,16 +164,15 @@ impl Strings {
     }
 
     /// A held text that names a held name is opaque: the walk would expand `J = "list[J]"` for
-    /// ever, and a chain of names needs no proof here (a gap is safe).
+    /// ever, and a chain of names needs no proof here (a gap is safe). The names are those of the
+    /// parsed tree, so a normalized identifier (`Ｊ` for `J`) counts, and so does a name inside a
+    /// nested string.
     fn close(&mut self) {
-        let word = |c: char| !(c.is_alphanumeric() || c == '_');
+        let held: HashSet<&String> = self.texts.keys().chain(&self.opaque).collect();
         let chained: Vec<String> = self
             .texts
             .iter()
-            .filter(|(_, texts)| {
-                let mut words = texts.iter().flat_map(|t| t.value.to_str().split(word));
-                words.any(|w| self.texts.contains_key(w) || self.opaque.contains(w))
-            })
+            .filter(|(_, texts)| names_a_held(texts, &held))
             .map(|(id, _)| id.clone())
             .collect();
         self.opaque.extend(chained);
@@ -148,7 +192,16 @@ impl Strings {
         let Expr::Name(name) = target else { return };
         let id = name.id.to_string();
         match value {
-            Expr::StringLiteral(text) => self.texts.entry(id).or_default().push(text.clone()),
+            Expr::StringLiteral(text) => {
+                let list = self.texts.entry(id.clone()).or_default();
+                if !list.iter().any(|t| t.value.to_str() == text.value.to_str()) {
+                    list.push(text.clone());
+                }
+                // A name with many texts costs a parse for each text at each annotation.
+                if list.len() > MAX_TEXTS {
+                    self.opaque.insert(id);
+                }
+            }
             Expr::FString(_) => {
                 self.opaque.insert(id);
             }

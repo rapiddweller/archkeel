@@ -11,6 +11,7 @@
 1. `parse::expression` tells a syntax error (`Unread::Syntax`, no site, as AD-1095 point 4) from a text over the bound (`Unread::Bound`). A text over the bound is a `dynamic_import` site at the string.
 2. A store to `__annotations__` (an assignment, a subscript store, an augmented assignment, a `del`, or a method call on it) is a `dynamic_import` site. The write puts a string where no annotation position holds it.
 3. A name in an annotation that the module assigns a string literal reads that string as code (AD-1095). A name that the module assigns an f-string, a `+` or `%` expression, or a `.format` or `.join` call is a site.
+4. A name with a text that names another such name (also through a normalized identifier or a nested string), or with more than 8 different texts, is a site and is not expanded: a recursive alias must not loop and the work of the walk stays bounded.
 
 **Limit.** A deep text that holds no hazard is a site too (precision loss: the bound cannot tell). A name that gets its string from a call, a parameter or another module is not seen. A read of `__annotations__` is no site.
 
