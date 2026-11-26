@@ -334,6 +334,7 @@ Closed by AD-1095 (#1974, #1976 case 5): a string annotation is read as code, so
 
 Still open:
 - A write of a literal dunder name (`setattr(K, '__call__', f)`, `K.__call__ = f`) gives no site (#1979). Do not clear a literal `__call__` read until #1979 is closed: `getattr(util.cProfile.run, '__call__')(...)` is a site only because of it.
+
 Closed by AD-1098 (#2016, #2024): a module that holds a hazard name is a site where it is read as a value: `return cProfile`, `same(dis)`, `util.c = cProfile`, `[cProfile]`, and `from app.util import cp as x` followed by `x.run(...)`.
 - A loader, a `Bytecode` object or a module that a parameter hands in is an unknown value: its method call is not read (see above). The import of the module in the scan stays the site (AD-1094).
 - The command line and the environment name modules too (`python -m unittest a.b`, `PYTHONWARNINGS`, `PY_SAX_PARSER`, `PYTHONBREAKPOINT`). They are outside the scan.
