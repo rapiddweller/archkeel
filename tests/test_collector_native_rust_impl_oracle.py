@@ -172,6 +172,9 @@ def _failing_files(work: Path, target: Path) -> set[str]:
         body = message.get("message", {})
         if message.get("reason") == "compiler-message" and body.get("level") == "error":
             failing |= {_site(s) for s in body["spans"] if s["is_primary"]}
+    assert checked.returncode == 0 or failing, (
+        f"cargo failed without a diagnostic:\n{checked.stderr[-2000:]}"
+    )
     return failing
 
 
