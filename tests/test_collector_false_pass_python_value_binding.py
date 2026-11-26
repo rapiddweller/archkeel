@@ -22,11 +22,6 @@ pytestmark = pytest.mark.skipif(shutil.which("python3.12") is None, reason="Pyth
 
 # name -> (consumer source, util source)
 CONTROLS = {
-    "attribute of a parameter, import elsewhere": (
-        "def f(pa):\n    types = pa.types\n    return types.is_boolean(1)\n\n\n"
-        "def g():\n    import pyarrow as pa\n\n    return pa\n",
-        "import types\n",
-    ),
     "attribute of an imported module": (
         "import pyarrow as pa\n\ntypes = pa.types\ntypes.is_boolean(1)\n",
         "import types\n",
@@ -52,6 +47,14 @@ PLANTS = {
     ),
     "attribute of a parameter, no import": (
         quiet("from app import util\n", "(lambda m: m.cProfile.run('import app.lib'))(util)"),
+        "import cProfile\n",
+    ),
+    "parameter named like an import in another function": (
+        quiet(
+            "from . import util\n\n\ndef f(m):\n    m.cProfile.run('import app.lib')\n\n\n"
+            "def unused():\n    import json as m\n\n    return m\n\n\n",
+            "f(util)",
+        ),
         "import cProfile\n",
     ),
     "attribute of the project module": (

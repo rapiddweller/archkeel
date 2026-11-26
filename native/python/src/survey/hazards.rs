@@ -16,10 +16,7 @@ use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
-use super::binders::Binders;
-use super::bound::Bound;
-use super::literal::Proof;
-use super::syspath;
+use super::{binders::Binders, bound::Bound, literal::Proof, syspath};
 
 use super::hazards_names::{
     above, attribute_trojan_horse, first_hazard, module_hazard, BUILTIN_TROJAN_HORSES,
@@ -64,6 +61,7 @@ pub(super) fn sites(
         found: Vec::new(),
         bound,
         inert_modules,
+        unique: binders.unique(),
         code_types,
         isinstance_visible: binders.builtin_visible("isinstance"),
         uncertain_code: Bound::of(&tree.body).opaque || reflect::deleted_code(tree),
@@ -97,6 +95,7 @@ struct Walk<'r> {
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
     inert_modules: HashMap<String, String>,
+    unique: HashSet<String>,
     code_types: HashSet<String>,
     isinstance_visible: bool,
     uncertain_code: bool,
@@ -296,7 +295,8 @@ impl Walk<'_> {
 
     /// A hazard behind a name that a module of the scan binds to a standard library module.
     fn reexported(&mut self, root: Option<&str>, attributes: &[&str], expr: &Expr) {
-        let via = root.and_then(|id| self.bound.get(id));
+        let proved = |n: &&str| self.unique.contains(*n);
+        let via = root.filter(proved).and_then(|n| self.bound.get(n));
         if let Some((kind, name)) = reexport::find(self.reexports, via, attributes) {
             self.push(kind, &name, expr);
         }
