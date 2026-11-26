@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The statements that a linked collector makes about its own reply (AD-500, AD-749, AD-1120).
+//! The statements that a linked collector makes about its own reply (AD-500, AD-749, AD-1116).
 //! A wire reply carries none.
 
 /// Whether a documented profile limit applies to this collection.
@@ -31,7 +31,7 @@ pub struct ProfileLimits {
     pub publication_surface: LimitSupport,
 }
 
-/// The provenance of the compiler type-reach facts that a scan verified and used (AD-1120). The model
+/// The provenance of the compiler type-reach facts that a scan verified and used (AD-1116). The model
 /// checks it before a rule can name the premise `rust_type_reach`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]

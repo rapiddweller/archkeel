@@ -221,7 +221,7 @@ impl Settings {
     }
 }
 
-/// The provenance of the type-reach facts of a reply, refused by name unless it is complete (AD-1120): a
+/// The provenance of the type-reach facts of a reply, refused by name unless it is complete (AD-1116): a
 /// rustc text, a target, two SHA-256 hashes, each configuration of the matrix and at least one member.
 pub(crate) fn check_reach(facts: &Facts) -> Result<(), Refusal> {
     facts.type_reach.as_ref().map_or(Ok(()), provenance)

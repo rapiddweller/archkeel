@@ -211,7 +211,7 @@ pub enum Refusal {
     StandardLibrary(&'static str),
     /// The scan roots are not the scope labels that the collector wrote (AD-384).
     ScanRoots,
-    /// The provenance of the compiler type-reach facts does not hold (AD-1120).
+    /// The provenance of the compiler type-reach facts does not hold (AD-1116).
     TypeReach(&'static str),
 }
 

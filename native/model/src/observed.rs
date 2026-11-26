@@ -56,7 +56,7 @@ pub(crate) struct Observed {
     pub(crate) profile_limits: Option<ProfileLimits>,
     /// The linked collector's stated assumption (AD-540), absent for a wire reply.
     pub(crate) scope_premise: Option<String>,
-    /// The provenance of the type-reach facts that the scan used, checked by `admitted` (AD-1120).
+    /// The provenance of the type-reach facts that the scan used, checked by `admitted` (AD-1116).
     pub(crate) type_reach: Option<archkeel_facts::envelope::TypeReach>,
     pub(crate) excluded_sources: Vec<String>,
     /// Each pair's source, target, dispatch flag and the two scope proofs.

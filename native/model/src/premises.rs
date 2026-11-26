@@ -100,7 +100,7 @@ fn declared(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
             | Rule::NoComponentCycles(_)
             | Rule::InterfaceBoundary(_)
     );
-    // The contract declares the premise and the reply proves that the facts were used (AD-1120): the
+    // The contract declares the premise and the reply proves that the facts were used (AD-1116): the
     // declaration alone is a wish, not evidence.
     if reads_pairs
         && Model::declares_premise(model, PremiseName::RustTypeReach)

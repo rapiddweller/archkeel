@@ -77,7 +77,7 @@ def test_a_scan_that_asks_for_facts_without_the_premise_does_not_pass(
 def test_a_declared_premise_without_facts_is_not_named_in_the_receipt(
     tmp_path: Path, release_core: Path
 ) -> None:
-    """AD-1120: a declaration alone is a wish. No facts exist, so no PASS names the premise."""
+    """AD-1116: a declaration alone is a wish. No facts exist, so no PASS names the premise."""
     root = repository(
         tmp_path / "repo", release_core, rules=CRATE_RULES, type_reach=False, declared=True
     )

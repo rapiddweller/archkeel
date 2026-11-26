@@ -241,7 +241,7 @@ fn verify(
 }
 
 /// The binding values of verified facts: the reply states them as `TypeReach` when the scan used the facts
-/// (AD-1120). A plain value, so that no module that holds it gains a trait impl to reach.
+/// (AD-1116). A plain value, so that no module that holds it gains a trait impl to reach.
 pub struct Reached {
     /// The text of `rustc -vV`.
     pub rustc: String,

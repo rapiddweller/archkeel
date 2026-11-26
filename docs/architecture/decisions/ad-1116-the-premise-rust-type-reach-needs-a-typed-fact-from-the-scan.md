@@ -1,4 +1,4 @@
-# AD-1120: The premise `rust_type_reach` needs a typed fact from the scan
+# AD-1116: The premise `rust_type_reach` needs a typed fact from the scan
 
 Status: accepted. Amends AD-1047. Part of the path in the trait-dispatch design (first PR, no verdict change).
 
