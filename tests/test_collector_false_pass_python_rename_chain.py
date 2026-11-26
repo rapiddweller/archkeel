@@ -65,3 +65,15 @@ def test_a_rename_chain_of_a_number_stays_pass(
 
     assert not _loads_lib(root), "CPython must leave app.lib unloaded: the control is clean"
     assert frame["rules"]["NO-LIB"][1] == "PASS", frame
+
+
+def test_a_rename_cycle_ends_the_table(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _root(tmp_path, "value = 1\n")
+    (root / "src/app/util.py").write_text("import cProfile as a\n")
+    (root / "src/app/m1.py").write_text("from app.m2 import b as a\nfrom app.util import a as c\n")
+    (root / "src/app/m2.py").write_text("from app.m1 import a as b\n")
+    frame = _verdict(root, release_core, monkeypatch)["frame"]
+
+    assert frame["rules"]["NO-LIB"][1] == "PASS", frame
