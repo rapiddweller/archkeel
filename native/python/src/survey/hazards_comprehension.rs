@@ -205,6 +205,11 @@ pub(super) fn reflective(name: &str) -> bool {
     (dunder && !PLAIN_DUNDER.contains(&name) && !own) || access
 }
 
+/// True when the attribute that a store or a delete names is a literal dunder that a site reads (#1979).
+fn written(node: &ruff_python_ast::ExprAttribute) -> bool {
+    reflective(Identifier::as_str(&node.attr))
+}
+
 /// `vars(x)` or `x.__dict__`: the dictionary of the attributes of any value.
 fn dict_view(expr: &Expr) -> bool {
     match expr {
@@ -375,15 +380,13 @@ impl<'a> Visitor<'a> for Trojans<'_> {
                 self.found.push(("__dict__", expr.range()));
             }
             // `K.__call__ = f` and `del K.__call__` write a literal dunder: the same site as `setattr`.
-            Expr::Attribute(node) if node.ctx != ExprContext::Load => {
-                if reflective(Identifier::as_str(&node.attr)) {
-                    let kind = if node.ctx == ExprContext::Del {
-                        "delattr"
-                    } else {
-                        "setattr"
-                    };
-                    self.found.push((kind, expr.range()));
-                }
+            Expr::Attribute(node) if node.ctx != ExprContext::Load && written(node) => {
+                let kind = if node.ctx == ExprContext::Del {
+                    "delattr"
+                } else {
+                    "setattr"
+                };
+                self.found.push((kind, expr.range()));
             }
             // A form that is no callee is a call that the scan does not follow: `g = getattr`,
             // `map(getattr, ...)`, `partial(getattr, f)`, `ga = f.__getattribute__` (AD-1058).
