@@ -31,7 +31,8 @@ pair gap `C -> M`. A contract that forbids `C -> M` stayed UNKNOWN, also when th
 6. **Model.** `Import::selected_impl()` marks the edge. A rule that counts source names (AD-924) and the
    interface rule skip it: execution is no name (`Import::written_name`). In `complete_requires` a failing
    crossing is Undecided, never FAIL, when a port of the source can publish the type: the source has an entry for
-   the target component, or a symbol port at the module of the impl or above it. The compiler names the defining
+   the target component, a symbol port at the module of the impl or above it, or a re-export from the impl
+   module in a module that a port or entry of the source covers (a facade). The compiler names the defining
    module, not the facade that re-exports the type, and the core does not prove the route yet (#2069). The rule
    is UNKNOWN. When no other hold exists, the cause is "a selected impl of a type published through a port: the publication route is not
    proven (#2069)". An impl in a component that no entry of the source names still FAILs.

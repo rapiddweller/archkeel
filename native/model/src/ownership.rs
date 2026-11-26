@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use archkeel_contract::Component;
 
 use crate::ids::{ComponentId, ModuleId, Table};
+use crate::imports::Import;
 use crate::modules::Module;
 
 /// True when `name` is `scope` or a dotted descendant of it (no partial segment).
@@ -58,6 +59,34 @@ fn symbol_port_above(source: &Component, module: &str) -> bool {
         let at = port.as_text().split_once(':');
         at.is_some_and(|(published, _)| in_scope(module, published))
     })
+}
+
+/// True when a module that a port of `source` covers re-exports from `module`: the type of an impl in `module` can
+/// reach `source` through that facade, so the dependency may be the one that the port allows (AD-1136, #2069).
+pub(crate) fn reexported(
+    source: &Component,
+    components: &Table<ComponentId, Component>,
+    imports: &[Import],
+    module: &str,
+) -> bool {
+    let entries: Vec<_> = source.requires().iter().flatten().collect();
+    let covers = |facade: &str| {
+        let owner = owner_of(components, facade).and_then(|id| components.get(id));
+        entries.iter().any(|e| {
+            let ports = e.through();
+            let named = owner.is_some_and(|o| o.label() == e.component());
+            (ports.is_empty() && named)
+                || ports.iter().any(|p| {
+                    let at = p.as_text().split_once(':').map_or(p.as_text(), |(m, _)| m);
+                    in_scope(facade, at)
+                })
+        })
+    };
+    let from_module = |i: &&Import| i.is_reexport() && i.target_module() == module;
+    imports
+        .iter()
+        .filter(from_module)
+        .any(|i| covers(i.source_module()))
 }
 
 /// The one claimant, or `None` for zero or many.

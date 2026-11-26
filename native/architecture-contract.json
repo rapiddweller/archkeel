@@ -849,6 +849,7 @@
         "native.archkeel_model.ownership:may_publish",
         "native.archkeel_model.ownership:owner_of",
         "native.archkeel_model.ownership:owners",
+        "native.archkeel_model.ownership:reexported",
         "native.archkeel_model.ownership:source_modules",
         "native.archkeel_model.ownership:symbol_port",
         "native.archkeel_model.placement_facts:Class",

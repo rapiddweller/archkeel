@@ -61,6 +61,7 @@ pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
         call_by_name: false,
         unbound_type: false,
         selected_impl: false,
+        reexport: false,
     }
 }
 

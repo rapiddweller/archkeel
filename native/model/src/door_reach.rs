@@ -492,6 +492,7 @@ fn declared(
         evidence,
         unbound_type: false,
         selected_impl: false,
+        reexport: false,
     }
 }
 

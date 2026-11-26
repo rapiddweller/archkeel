@@ -324,3 +324,65 @@ def test_a_form_without_a_resolved_site_is_no_proven_dependency(
     files = _app(NO_SITE[name])
     _, result = _scan(tmp_path, release_core, monkeypatch, files=files, rules=(NO_A_TO_B,))
     assert statuses(result)["NO-A-TO-B"] != "FAIL"
+
+
+FACADE_SOURCES = {
+    **ORACLE,
+    **_app(
+        {
+            "lib.rs": "pub mod a;\npub mod b;\npub mod d;\n",
+            "d.rs": B,
+            "b.rs": "pub use crate::d::{hits, Y};\n\npub fn make() -> Y {\n    Y\n}\n",
+            "a.rs": "pub fn same() -> bool {\n    crate::b::make() == crate::b::make()\n}\n",
+        }
+    ),
+}
+
+
+def _facade_parts(a_entries: tuple[str, ...]) -> tuple[dict[str, Any], ...]:
+    def part(label: str, modules: list[str], needs: tuple[str, ...]) -> dict[str, Any]:
+        return {**component(label, "app", needs), "packages": [], "exact_modules": modules}
+
+    found = (
+        component("base", "base_crate"),
+        part("root", ["native.app", "native.app.cargo_toml"], ("base", "a", "b", "d")),
+        part("a", ["native.app.a"], a_entries),
+        part("b", ["native.app.b"], ("d",)),
+        part("d", ["native.app.d"], ()),
+    )
+    for entry in found[2]["requires"]:
+        entry["through"] = ["native.app.b"]
+    return found
+
+
+def test_an_impl_of_a_type_that_an_allowed_facade_re_exports_is_unknown(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`Y` and its `eq` live in `d`. The facade `b` re-exports `Y`; `a` may use `b` only (#2069)."""
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "cache"))
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        FACADE_SOURCES,
+        components=_facade_parts(("b",)),
+        rules=(*CRATE_RULES[1:],),
+        type_reach=True,
+    )
+    assert _cargo_run(root) == "1", "the selected impl of d runs"
+    assert statuses(validate(root))["REQUIRES"] == "UNKNOWN"
+
+
+def test_an_impl_that_no_allowed_route_publishes_still_fails(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same code, but `a` has no entry for `b`: no allowed facade re-exports the type."""
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "cache"))
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        FACADE_SOURCES,
+        components=_facade_parts(()),
+        rules=(*CRATE_RULES[1:],),
+        type_reach=True,
+    )
+    assert statuses(validate(root))["REQUIRES"] == "FAIL"

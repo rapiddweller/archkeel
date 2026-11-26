@@ -67,6 +67,7 @@ pub struct Import {
     pub(crate) call_by_name: bool,
     pub(crate) unbound_type: bool,
     pub(crate) selected_impl: bool,
+    pub(crate) reexport: bool,
 }
 
 impl Import {
@@ -131,6 +132,11 @@ impl Import {
     /// It proves a dependency on the module and names no symbol, so it adds no name to the interface.
     pub fn selected_impl(&self) -> bool {
         self.selected_impl
+    }
+
+    /// True for a re-export (`pub use`): the module publishes the names of its target.
+    pub fn is_reexport(&self) -> bool {
+        self.reexport
     }
 
     /// True when the source writes the name: no inferred receiver and no impl that the compiler selected. A rule
@@ -341,6 +347,7 @@ pub(crate) fn split(facts: &Facts, marks: TargetMarks, declared: impl Fn(&str) -
             unbound_type: matches!(record.data, ImportFact::ImportType(_))
                 && data.binding.is_none(),
             selected_impl: matches!(record.data, ImportFact::SelectedImpl(_)),
+            reexport: matches!(record.data, ImportFact::Reexport(_)) || data.reexport,
             published: Published {
                 chain: data.reexport_chain.clone().unwrap_or_default(),
                 complete: data.route_complete != Some(false),
