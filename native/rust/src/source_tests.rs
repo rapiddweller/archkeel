@@ -32,10 +32,10 @@ fn walks_sorted_files_and_skips_the_build_output_and_hidden_directories() {
     ]);
     let mut snapshot = Snapshot::new(&root.path());
     assert_eq!(
-        walk(&mut snapshot, ""),
+        walk(&mut snapshot, "").0,
         ["Cargo.toml", "a/x.rs", "a/y.txt", "b.rs"]
     );
-    assert_eq!(walk(&mut snapshot, "a"), ["a/x.rs", "a/y.txt"]);
+    assert_eq!(walk(&mut snapshot, "a").0, ["a/x.rs", "a/y.txt"]);
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn a_module_directory_named_target_is_read_like_any_other() {
     ]);
     let mut snapshot = Snapshot::new(&root.path());
     assert_eq!(
-        walk(&mut snapshot, ""),
+        walk(&mut snapshot, "").0,
         ["src/lib.rs", "src/target/arm.rs", "src/target/mod.rs"]
     );
 }
@@ -64,7 +64,7 @@ fn a_directory_that_holds_a_cargo_marker_is_build_output_wherever_it_is() {
         ("src/target/z.rs", ""),
     ]);
     let mut snapshot = Snapshot::new(&root.path());
-    assert_eq!(walk(&mut snapshot, ""), ["src/lib.rs"]);
+    assert_eq!(walk(&mut snapshot, "").0, ["src/lib.rs"]);
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn a_link_that_stays_inside_is_followed_and_a_path_that_leaves_the_snapshot_is_n
         assert!(!snapshot.is_file(rel));
     }
     assert!(!snapshot.is_dir("linkdir"));
-    let listed = walk(&mut snapshot, "");
+    let listed = walk(&mut snapshot, "").0;
     assert_eq!(listed, ["dir/in.rs", "inside.rs", "real.rs"]);
     assert!(snapshot
         .inputs(|path, _, _| path.contains("secret"))
@@ -124,5 +124,28 @@ fn a_link_loop_inside_the_snapshot_is_walked_once() {
     let root = Tree::new(&[("a/x.rs", "")]);
     std::os::unix::fs::symlink(&root.root, root.root.join("a/up")).unwrap();
     let mut snapshot = Snapshot::new(&root.path());
-    assert_eq!(walk(&mut snapshot, ""), ["a/x.rs"]);
+    assert_eq!(walk(&mut snapshot, "").0, ["a/x.rs"]);
+}
+
+#[test]
+fn a_directory_below_the_depth_limit_is_listed_as_not_entered() {
+    let deep = vec!["d"; 130].join("/");
+    let file = format!("{deep}/x.rs");
+    let root = Tree::new(&[("a.rs", ""), (file.as_str(), "")]);
+    let mut snapshot = Snapshot::new(&root.path());
+    let (files, not_entered) = walk(&mut snapshot, "");
+    assert_eq!(files, ["a.rs"]);
+    assert_eq!(not_entered, [vec!["d"; 129].join("/")]);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_below_the_depth_limit_does_not_hide_its_target_from_a_later_visit() {
+    let deep = vec!["a"; 128].join("/");
+    let root = Tree::new(&[("z/x.rs", ""), (format!("{deep}/y.rs").as_str(), "")]);
+    std::os::unix::fs::symlink(root.root.join("z"), root.root.join(&deep).join("link")).unwrap();
+    let mut snapshot = Snapshot::new(&root.path());
+    let (files, not_entered) = walk(&mut snapshot, "");
+    assert!(files.contains(&"z/x.rs".to_owned()));
+    assert_eq!(not_entered, [format!("{deep}/link")]);
 }
