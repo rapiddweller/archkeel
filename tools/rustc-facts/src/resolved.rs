@@ -128,12 +128,14 @@ const BUDGET: usize = 300;
 
 /// Visit one type: its definition file, the files of its impls, and the types inside it. A closure shows its
 /// captured types and the arguments of its parent, not its signature (a signature is a function pointer type).
+/// `trusted` is true inside the field of an allowed type of the standard library (a container keeps raw
+/// pointers to bytes, which hide no callback).
 fn visit<'tcx>(
     st: &mut State,
     tcx: TyCtxt<'tcx>,
     env: ty::TypingEnv<'tcx>,
     ty: Ty<'tcx>,
-    found: &mut Touched,
+    (found, trusted): (&mut Touched, bool),
 ) {
     if !found.seen.insert(ty.to_string()) {
         return;
@@ -142,10 +144,13 @@ fn visit<'tcx>(
         found.open_by("<budget>");
         return;
     }
-    let nested = |args: &[ty::GenericArg<'tcx>]| -> Vec<Ty<'tcx>> {
-        args.iter().filter_map(|a| a.as_type()).collect()
+    let nested = |args: &[ty::GenericArg<'tcx>]| -> Vec<(Ty<'tcx>, bool)> {
+        args.iter()
+            .filter_map(|a| a.as_type())
+            .map(|t| (t, false))
+            .collect()
     };
-    let inner: Vec<Ty<'tcx>> = match *ty.kind() {
+    let inner: Vec<(Ty<'tcx>, bool)> = match *ty.kind() {
         ty::Adt(def, args) => {
             found.files.insert(crate::items::file(tcx, st, def.did()));
             for imp in tcx.inherent_impls(def.did()) {
@@ -160,12 +165,13 @@ fn visit<'tcx>(
             // adapter; another one (`Waker`, `Formatter`) is open.
             let standard =
                 [sym::core, sym::alloc, sym::std].contains(&tcx.crate_name(def.did().krate));
-            if standard && !holds_only_arguments(tcx, def.did()) {
+            let allowed = standard && holds_only_arguments(tcx, def.did());
+            if standard && !allowed {
                 found.open_by(&crate::names::path(tcx, def.did()));
             }
             for field in def.all_fields() {
                 match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
-                    Ok(field_ty) => all.push(field_ty),
+                    Ok(field_ty) => all.push((field_ty, allowed)),
                     Err(_) => found.open_by("<field>"),
                 }
             }
@@ -175,7 +181,7 @@ fn visit<'tcx>(
             found.files.insert(crate::items::file(tcx, st, d));
             let closure = args.as_closure();
             let mut all = nested(closure.parent_args());
-            all.extend(closure.upvar_tys());
+            all.extend(closure.upvar_tys().iter().map(|t| (t, false)));
             all
         }
         ty::FnDef(d, args) => {
@@ -186,13 +192,19 @@ fn visit<'tcx>(
             found.files.insert(crate::items::file(tcx, st, d));
             Vec::new()
         }
+        // A pointer to `()`, `c_void`, an extern type or a number erases the type of its value: a callback can hide
+        // behind it (AD-1047).
+        ty::RawPtr(t, _) if !trusted && crate::reach::erases(tcx, t) => {
+            found.open_by("<erased pointer>");
+            Vec::new()
+        }
         ty::Pat(t, _) | ty::Ref(_, t, _) | ty::RawPtr(t, _) | ty::Slice(t) | ty::Array(t, _) => {
             found.plain = true;
-            vec![t]
+            vec![(t, trusted)]
         }
         ty::Tuple(items) => {
             found.plain = true;
-            items.iter().collect()
+            items.iter().map(|t| (t, trusted)).collect()
         }
         ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str | ty::Never => {
             found.plain = true;
@@ -205,8 +217,8 @@ fn visit<'tcx>(
             Vec::new()
         }
     };
-    for t in inner {
-        visit(st, tcx, env, t, found);
+    for (t, inside) in inner {
+        visit(st, tcx, env, t, (found, inside));
     }
 }
 
@@ -249,7 +261,7 @@ fn touch<'tcx>(
             let ty = tcx
                 .try_normalize_erasing_regions(env, ty::Unnormalized::new(ty))
                 .unwrap_or(ty);
-            visit(st, tcx, env, ty, &mut found);
+            visit(st, tcx, env, ty, (&mut found, false));
         }
     }
     if let Some(index) = st.impls.as_ref() {

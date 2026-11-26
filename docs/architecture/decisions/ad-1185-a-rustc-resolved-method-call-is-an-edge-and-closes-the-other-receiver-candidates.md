@@ -24,7 +24,8 @@ such gaps (`as_str` 299, `is_empty` 92, `id` 81). The rustc driver already knows
    function, so the call cannot reach `M`. The file decides, not a module name: a name can map wrong (a binary target).
    The type arguments of the instance (Self included, opaque types revealed, closures and nested arguments) must not
    touch `M`: no argument is defined in the file of `M` or has an impl there (blanket impls always count), and none is
-   open (a trait object, a function pointer, a coroutine, a parameter: only plain data and named types are known).
+   open (a trait object, a function pointer, a coroutine, a parameter, a pointer to `()` or a number that erases a
+   type: AD-1047): only plain data and named types are known.
    The walk starts at the type arguments and at the types of the callee's inputs and output (the receiver of a method
    without generics is no argument; the caller can run what the call returns). The calls inside the receiver
    expression count too, with the `Deref` that an adjustment adds. It enters the fields of every type, with associated types normalized, up to a budget of 300 types (more is open).
