@@ -91,6 +91,18 @@ fn a_computed_attribute_name_on_an_unproved_receiver_is_a_site() {
         "class C: ...\ndef f(x, n, v):\n    object.__setattr__(x, n, v)\n",
         "class C: ...\ndef f(x, n, v):\n    C.__setattr__(x, n, v)\n",
         "def f(x, n, v):\n    x.__setattr__(n, v)\n",
+        // #1979: a write of a literal dunder changes what a later plain call or access runs.
+        "class K: ...\nsetattr(K, '__call__', hook)\n",
+        "class K: ...\nsetattr(K, '__new__', hook)\n",
+        "class K: ...\ndelattr(K, '__call__')\n",
+        "class K: ...\nK.__call__ = hook\n",
+        "class K: ...\nK.__getattr__ = hook\n",
+        "class K: ...\ndel K.__call__\n",
+        "class K: ...\nK.__init__ += hook\n",
+        "class K: ...\nK.__call__: object = hook\n",
+        "class K: ...\nK.__class__, other = hook, 1\n",
+        "class K: ...\nfor K.__call__ in [hook]:\n    pass\n",
+        "def f(x):\n    x.__class__ = other\n",
     ] {
         // A loader call (`import_module`) is a site of its own; the access is one more.
         let found: Vec<String> = trojan_names(source)
@@ -112,8 +124,8 @@ fn a_literal_name_a_proved_receiver_or_a_local_literal_is_no_site() {
     for source in [
         "def f(x):\n    return getattr(x, 'a')\n",
         "def f(x):\n    return getattr(x, '__name__')\n",
-        // A write of a literal dunder reads no reflection back (`setattr(C, '__new__', f)`).
-        "class C: ...\nsetattr(C, '__new__', lambda cls: 5)\n",
+        // A write of a name that no behavior reads: `__doc__`, `__module__` and plain names (#1979).
+        "class C: ...\nsetattr(C, '__doc__', 'text')\nC.__module__ = 'm'\nC.value = 1\ndel C.value\n",
         "def f(x):\n    return getattr(x, '__doc__')\n",
         "def f(x):\n    n = 'a'\n    return getattr(x, n)\n",
         "def f(m):\n    return vars(m)['a']\n",

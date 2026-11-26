@@ -25,7 +25,7 @@ fn outcome(files: &[(&str, &str)], module: &str, path: &str) -> Outcome {
 fn outcome_in(all: &[(&str, &str)], module: &str, path: &str) -> Outcome {
     let root = Tree::new(all);
     let mut source = Snapshot::new(&root.path());
-    let listed = list_files(&mut source, "");
+    let listed = list_files(&mut source, "").0;
     let workspace = discover(&mut source, &listed, "ns");
     let walked = walk(&mut source, &workspace, false);
     let found = index(&workspace, &walked.modules);

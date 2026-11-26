@@ -25,7 +25,7 @@ use crate::reply::Collected;
 use crate::source::{read_text, walk as list_files};
 use crate::test_scope::NO_PRODUCTION_SOURCE;
 use crate::toml;
-use crate::tree::{walk, Module};
+use crate::tree::{walk, Module, Walked};
 use archkeel_facts::identity::sha256_hex;
 use archkeel_facts::type_reach::MEMBERS_ENV;
 use archkeel_snapshot::paths::{dirname, join, within};
@@ -114,11 +114,7 @@ pub(crate) fn collect_with(
     builder_ref.calls(&walked.modules);
     let taken: BTreeSet<&str> = modules.values().copied().collect();
     builder_ref.declare_dependencies(&workspace, &request.scope.namespace, &taken, &mut source);
-    let mut selected: Vec<String> = files
-        .iter()
-        .filter(|f| f.ends_with(".rs"))
-        .cloned()
-        .collect();
+    let mut selected = rust_sources(&files, &walked);
     let listed_rust = !selected.is_empty();
     selected.retain(|rel| !walked.is_excluded(rel));
     if listed_rust && selected.is_empty() {
@@ -158,6 +154,20 @@ fn load_facts(announced: Announced, builder: &mut Builder) -> (Option<String>, O
     }
 }
 
+/// The Rust files that the scan reads. A `path` attribute can load a file that the walk did not
+/// list (below its depth limit): it is still read, so the selection holds it.
+fn rust_sources(files: &[String], walked: &Walked) -> Vec<String> {
+    let mut selected: Vec<String> = files
+        .iter()
+        .chain(&walked.claimed)
+        .filter(|f| f.ends_with(".rs"))
+        .cloned()
+        .collect();
+    selected.sort();
+    selected.dedup();
+    selected
+}
+
 /// The SHA-256 of each Rust file below the roots, by path.
 fn rust_hashes(source: &mut Snapshot, files: &[String]) -> BTreeMap<String, String> {
     let rust = files.iter().filter(|f| f.ends_with(".rs"));
@@ -177,7 +187,12 @@ fn list(
         let root = root.trim_end_matches('/');
         if source.is_dir(root) {
             scope.push(format!("{root}/**"));
-            files.extend(list_files(source, root));
+            let (listed, deep) = list_files(source, root);
+            files.extend(listed);
+            for directory in deep {
+                let reason = format!("Directory is deeper than the walk reads, so its files are not scanned: {directory}");
+                builder.gap(&reason, None, "");
+            }
         } else {
             scope.push(root.to_owned());
             builder.gap(&format!("Scan root is not a directory: {root}"), None, "");
