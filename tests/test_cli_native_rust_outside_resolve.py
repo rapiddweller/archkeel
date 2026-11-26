@@ -197,7 +197,7 @@ def test_a_workspace_wrapper_of_the_repository_does_not_run_without_the_permissi
 
 
 @pytest.mark.parametrize("header", ["env", "\\u0065nv"], ids=["plain", "escaped"])
-def test_an_env_table_of_the_repository_cannot_start_its_own_compiler(
+def test_a_config_table_of_the_repository_names_no_compiler(
     tmp_path: Path, release_core: Path, header: str
 ) -> None:
     layout = {
