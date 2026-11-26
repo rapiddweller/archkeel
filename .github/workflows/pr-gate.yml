@@ -212,9 +212,48 @@ jobs:
     with:
       base: ${{ github.event.pull_request.base.sha }}
 
+  windows-native:
+    name: Windows native type check
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Select Windows native check
+        id: select
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE"
+          changed="$(git diff --name-only "$BASE" HEAD -- native/ tools/rustc-facts/)"
+          if [ -n "$changed" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Restore Rust cache
+        if: steps.select.outputs.run == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/target
+          key: rust-windows-check-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+          restore-keys: |
+            rust-windows-check-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+
+      - name: Check Windows native tests
+        if: steps.select.outputs.run == 'true'
+        working-directory: native
+        run: cargo check --locked --tests
+
   pr-gate:
     name: PR gate
-    needs: [base, area-checks]
+    needs: [base, area-checks, windows-native]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5

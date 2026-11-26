@@ -36,6 +36,72 @@ pub fn claims(component: &Component, module: &str) -> bool {
             .any(|package| in_scope(module, package.as_text()))
 }
 
+/// True when a `requires` entry of `source` for `target` has a symbol port.
+pub(crate) fn symbol_port(source: &Component, target: &Component) -> bool {
+    source.requires().iter().flatten().any(|entry| {
+        entry.component() == target.label()
+            && entry.through().iter().any(|p| p.as_text().contains(':'))
+    })
+}
+
+/// True when a port of `source` can publish a type that an impl in `module` of `target` belongs to: `source` has
+/// an entry for `target`, or a symbol port at `module` or above it. The core does not yet prove the publication
+/// route, so a use of `module` alone proves no violation (AD-1136, #2069). No entry and no port: false.
+pub(crate) fn may_publish(
+    source: &Component,
+    target: &Component,
+    module: &str,
+    (components, reexports): (&Table<ComponentId, Component>, &[(&str, &str)]),
+) -> bool {
+    let mut entries = source.requires().iter().flatten();
+    entries.any(|e| e.component() == target.label())
+        || symbol_port_above(source, module)
+        || reexported(source, components, reexports, module)
+}
+
+fn symbol_port_above(source: &Component, module: &str) -> bool {
+    let mut ports = source.requires().iter().flatten().flat_map(|e| e.through());
+    ports.any(|port| {
+        let at = port.as_text().split_once(':');
+        at.is_some_and(|(published, _)| in_scope(module, published))
+    })
+}
+
+/// True when a module of `reexports` (facade, target) that a port of `source` covers re-exports from `module`: the type of an impl in `module` can
+/// reach `source` through that facade, so the dependency may be the one that the port allows (AD-1136, #2069).
+fn reexported(
+    source: &Component,
+    components: &Table<ComponentId, Component>,
+    reexports: &[(&str, &str)],
+    module: &str,
+) -> bool {
+    let entries: Vec<_> = source.requires().iter().flatten().collect();
+    let covers = |facade: &str| {
+        let owner = owner_of(components, facade).and_then(|id| components.get(id));
+        entries.iter().any(|e| {
+            let ports = e.through();
+            let named = owner.is_some_and(|o| o.label() == e.component());
+            (ports.is_empty() && named)
+                || ports.iter().any(|p| {
+                    let at = p.as_text().split_once(':').map_or(p.as_text(), |(m, _)| m);
+                    in_scope(facade, at)
+                })
+        })
+    };
+    // A facade can re-export through another facade: follow the chain until no module is added.
+    let mut reached = vec![module];
+    let mut next = 0;
+    while let Some(&target) = reached.get(next) {
+        next += 1;
+        for (facade, _) in reexports.iter().filter(|(_, t)| *t == target) {
+            if !reached.contains(facade) {
+                reached.push(facade);
+            }
+        }
+    }
+    reached.iter().skip(1).any(|facade| covers(facade))
+}
+
 /// The one claimant, or `None` for zero or many.
 fn sole<T: Copy>(mut claims: impl Iterator<Item = T>) -> Option<T> {
     let first = claims.next()?;

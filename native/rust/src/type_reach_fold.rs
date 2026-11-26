@@ -5,7 +5,7 @@
 //! The reach model of one configuration, and its folds: the instances of generic functions, and the types
 //! that each `dyn` trait holds (AD-1047).
 
-use crate::type_reach_facts::{Facts, Names, Parts};
+use crate::type_reach_facts::{Facts, Names, Parts, SelectedFacts};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// The reach model of one configuration. `known` names the modules that the scan uses: a rustc module
@@ -22,6 +22,8 @@ pub struct Reach<'f> {
     pub(crate) coerced_opaque: BTreeMap<String, Names>,
     /// For each scan module: its rustc modules, its generic functions and the indexes of its impls.
     pub(crate) parts: Parts,
+    /// The selected impls whose two ends are scan modules, with the scan names (AD-1136).
+    pub(crate) selected: Vec<SelectedFacts>,
 }
 
 /// The scan module of a facts path that belongs to a `bin` target: the scan names the modules of that target
@@ -88,7 +90,8 @@ impl<'f> Reach<'f> {
             .mods
             .keys()
             .chain(facts.impls.iter().map(|i| &i.module))
-            .chain(facts.fns.values().map(|(module, _)| module));
+            .chain(facts.fns.values().map(|(module, _)| module))
+            .chain(facts.selected.iter().flat_map(|s| [&s.from, &s.to]));
         for path in paths {
             let direct = format!("{namespace}.{}", path.replace("::", "."));
             let mut name =
@@ -122,7 +125,22 @@ impl<'f> Reach<'f> {
                 .2
                 .push(at);
         }
+        let selected = facts
+            .selected
+            .iter()
+            .map(|s| SelectedFacts {
+                from: owner[&s.from].clone(),
+                to: owner[&s.to].clone(),
+                imp: s.imp.clone(),
+                file: s.file.clone(),
+                impl_file: s.impl_file.clone(),
+                line: s.line,
+                column: s.column,
+            })
+            .filter(|s| s.from != s.to && known.contains(&s.from) && known.contains(&s.to))
+            .collect();
         let mut reach = Reach {
+            selected,
             facts,
             inst: BTreeMap::new(),
             coerced: BTreeMap::new(),

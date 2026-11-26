@@ -39,6 +39,8 @@ fn import(id: &str, from: (&str, &str), to: (&str, &str), type_checking: bool) -
         evidence: Vec::new(),
         call_by_name: false,
         unbound_type: false,
+        selected_impl: false,
+        reexport: false,
     }
 }
 
