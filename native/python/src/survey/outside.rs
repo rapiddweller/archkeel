@@ -30,7 +30,7 @@
 //! are UNKNOWN with the gap of the unproven publication route. A write that the repository does not
 //! show (a name built at run time, code outside the repository) is the stated premise of the run.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use archkeel_facts::data::{GapData, GapEffect};
 use archkeel_facts::ids::ModuleName;
@@ -88,31 +88,32 @@ pub(super) struct Withheld {
 /// The gap of each site that withholds symbol records. Its effect is `Symbols`: only a rule that
 /// reads symbols is held, no edge, layout or cycle rule.
 pub(super) fn gaps(withheld: &[Withheld]) -> Vec<Record<GapFact>> {
-    withheld
-        .iter()
-        .map(|found| {
-            let Withheld {
-                file,
-                line,
-                site,
-                modules,
-            } = found;
-            let count = Vec::len(modules);
+    // Two equal sites on one line give one reason and so one id; the facts allow each id once.
+    // The sites of one place join, so no module drops out of the effect.
+    let mut places: BTreeMap<(&str, Option<i64>, &str), BTreeSet<&str>> = BTreeMap::new();
+    for found in withheld {
+        let key = (found.file.as_str(), found.line, found.site.as_str());
+        places
+            .entry(key)
+            .or_default()
+            .extend(found.modules.iter().map(String::as_str));
+    }
+    places
+        .into_iter()
+        .map(|((file, line, site), modules)| {
+            let count = BTreeSet::len(&modules);
             let unit = if count == 1 { "module" } else { "modules" };
-            let at = line.map_or_else(|| file.clone(), |line| format!("{file}:{line}"));
+            let at = line.map_or_else(|| file.to_owned(), |line| format!("{file}:{line}"));
             let reason = format!(
                 "{WITHHELD}: {at} {site} names {count} {unit} of the scan; \
                  their symbol records are withheld"
             );
             let mut data = GapData::at(&reason, "");
             data.resolution_dimension = Some(ResolutionDimension::Imports);
-            data.file = Some(file.clone());
-            data.line = *line;
+            data.file = Some(file.to_owned());
+            data.line = line;
             data.effect = Some(GapEffect::Symbols {
-                modules: (modules.iter())
-                    .map(String::as_str)
-                    .map(ModuleName::new)
-                    .collect(),
+                modules: modules.into_iter().map(ModuleName::new).collect(),
             });
             let gap = GapFact::SourceResolutionGap(data);
             Record::unknown_gap(&reason, None, "", gap).1

@@ -57,7 +57,15 @@ def test_without_a_script_each_rule_passes(release_core: Path, tmp_path: Path) -
     assert found == {rule: "PASS" for rule in (*EDGE_RULES, "INTERFACE")}
 
 
-@pytest.mark.parametrize("script", [SCRIPT, "import app.service\nvalue = app.service\n"])
+@pytest.mark.parametrize(
+    "script",
+    [
+        SCRIPT,
+        "import app.service\nvalue = app.service\n",
+        # Codex #2026: two equal sites on one line must not give one id twice.
+        "import sys\nsys.modules['app.service']; sys.modules['app.service']\n",
+    ],
+)
 def test_a_script_is_named_and_holds_only_the_symbol_rules(
     release_core: Path, tmp_path: Path, script: str
 ) -> None:
