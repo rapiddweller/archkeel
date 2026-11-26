@@ -16,6 +16,40 @@ ROOT = Path(__file__).parents[1]
 REFUSED = '{"status": "UNKNOWN", "exit_code": 2, "refusal": {"kind": "core_error", "message": "x"}}'
 
 
+def test_native_self_check_requests_timings_only_when_given_a_path(tmp_path: Path) -> None:
+    timings = tmp_path / "phase timings.json"
+    for value in ("", str(timings)):
+        result = subprocess.run(
+            [
+                "make",
+                "-n",
+                "-o",
+                "core",
+                "self-validate-native",
+                f"NATIVE_SELFCHECK_TIMINGS={value}",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert ("--timings" in result.stdout) == bool(value)
+        if value:
+            assert f'--timings "{timings}"' in result.stdout
+
+
+def test_ci_records_the_native_timings_without_another_scan() -> None:
+    for workflow in ("ci.yml", "pr-gate.yml"):
+        text = (ROOT / ".github" / "workflows" / workflow).read_text()
+        assert text.count("NATIVE_SELFCHECK_TIMINGS:") == 1
+        assert "${{ runner.temp }}/native-selfcheck-timings.json" in text
+        summary = text.split("      - name: Record native self-check phase timings\n", 1)[1]
+        summary = summary.split("\n      - name:", 1)[0]
+        assert 'cat "$RUNNER_TEMP/native-selfcheck-timings.json"' in summary
+        assert "No timing file was produced." in summary
+        assert "archkeel report" not in summary
+
+
 @pytest.mark.parametrize(
     ("target", "printed", "shown"),
     [
