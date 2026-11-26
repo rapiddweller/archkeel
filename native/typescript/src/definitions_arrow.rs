@@ -2,14 +2,48 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Identify module-level callables that have no written function declaration name.
+//! Identify arrow scopes and default functions without a written declaration name.
 
 use tree_sitter::Node;
 
+use super::{place_of, DefinitionKind, Defs};
 use crate::ancestors::{Entry, ERROR_ABOVE, INSIDE_NAMESPACE, IN_UNMODELED_BLOCK};
 use crate::kinds::{F, K};
 use crate::pytext::has_backslash;
 use crate::tree::cx::Cx;
+
+pub(super) fn callback(
+    defs: &mut Defs,
+    cx: &Cx,
+    node: Node,
+    stack: &[Entry],
+    seen: u8,
+) -> Option<u32> {
+    if node.has_error()
+        || cx.field(node, F::Parameters).is_none()
+        || seen & (ERROR_ABOVE | INSIDE_NAMESPACE | IN_UNMODELED_BLOCK) != 0
+        || stack
+            .last()
+            .is_none_or(|parent| parent.kind != K::Arguments || parent.shadow.ambiguous != 0)
+        || Entry::ancestor_kind(stack, 2) != Some(K::CallExpression)
+    {
+        return None;
+    }
+    let span = cx.span(node);
+    let name = format!("<callback:{}:{}>", span.line, span.column);
+    let owner = stack.last().and_then(|entry| entry.scope);
+    let parent = owner.and_then(|at| defs.scopes.0.get(at as usize).map(|scope| (at, scope)));
+    let mut definition = Defs::build(
+        cx,
+        node,
+        (name.clone(), DefinitionKind::Callback),
+        parent,
+        (stack, &place_of(stack)),
+    );
+    definition.top_level = false;
+    definition.signature_complete = false;
+    Some(defs.add_scope(name, owner, definition))
+}
 
 pub(super) fn name(cx: &Cx, node: Node, stack: &[Entry], seen: u8, top: bool) -> Option<String> {
     if node.has_error()

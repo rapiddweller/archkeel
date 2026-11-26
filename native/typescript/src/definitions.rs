@@ -32,6 +32,7 @@ pub(crate) enum DefinitionKind {
     Enum,
     Method,
     Function,
+    Callback,
     TypeAlias,
     Constant,
 }
@@ -174,6 +175,9 @@ impl Defs {
         seen: u8,
     ) -> Option<u32> {
         if kind == K::ArrowFunction {
+            if let Some(scope) = arrow::callback(self, cx, node, stack, seen) {
+                return Some(scope);
+            }
             let name = arrow::name(cx, node, stack, seen, Entry::top_of_file(stack, 3))?;
             let place = place_of(stack);
             let named = (name.clone(), DefinitionKind::Function);
