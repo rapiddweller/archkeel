@@ -48,7 +48,7 @@ fn impl_index(st: &mut State, tcx: TyCtxt<'_>) -> ImplIndex {
 /// The modules of the standard library whose types hold only what their type arguments name: containers,
 /// options, smart pointers, cells, ranges and the iterator adapters and sources. The text of a path is the
 /// canonical one that the facts use for every definition.
-const ARGUMENT_HOLDERS: [&str; 24] = [
+const ARGUMENT_HOLDERS: [&str; 37] = [
     "alloc::vec::",
     "alloc::string::",
     "alloc::boxed::",
@@ -73,6 +73,19 @@ const ARGUMENT_HOLDERS: [&str; 24] = [
     "std::path::",
     "std::ffi::",
     "core::pin::",
+    "alloc::alloc::",
+    "alloc::slice::",
+    "alloc::str::",
+    "core::ptr::",
+    "core::mem::",
+    "core::hash::",
+    "std::hash::",
+    "core::convert::",
+    "core::ops::control_flow::",
+    "core::str::",
+    "core::slice::",
+    "core::array::",
+    "core::char::",
 ];
 
 /// True for a type of another crate that holds only what its type arguments name.
