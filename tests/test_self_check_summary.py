@@ -143,6 +143,20 @@ def test_the_counts_equal_the_counts_of_the_result_files(tmp_path: Path) -> None
     assert lines[0].startswith("self-check: native UNKNOWN (exit 2) | shell has no result")
 
 
+def test_a_gap_without_subjects_keeps_its_cause_and_gate_result(tmp_path: Path) -> None:
+    inner = frame(status="UNKNOWN")
+    inner["collection_gaps"] = [
+        {"kind": "collection_gap", "subjects": [], "reason": "no place", "evidence": []},
+        {"kind": "collection_gap", "subjects": [], "reason": "has place", "evidence": ["EVD-1"]},
+    ]
+    write(tmp_path, "native", envelope(inner))
+    root = repository(tmp_path, {}, {})
+    lines = tool.summary(tmp_path, root, 1, "x.log")
+    assert "  1 x no place (first: no subject)" in lines
+    assert "  1 x has place (first: native/a/src/lib.rs:7)" in lines
+    assert lines[-1] == "self-validate exit 1 (the gate); full output: x.log"
+
+
 def test_a_file_over_the_limit_is_listed_and_a_file_at_the_limit_is_near(tmp_path: Path) -> None:
     root = repository(
         tmp_path,

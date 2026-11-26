@@ -116,7 +116,8 @@ def unknown_causes(frames: dict[str, dict[str, Any]]) -> list[str]:
         waiting += len(frame.get("explained") or {})
         for gap in frame.get("collection_gaps") or ():
             cause = plain(gap["reason"]).split(": ", 1)[0]
-            causes.setdefault(cause, []).append(where(frame, gap["evidence"], gap["subjects"][0]))
+            subject = next(iter(gap["subjects"]), "no subject")
+            causes.setdefault(cause, []).append(where(frame, gap["evidence"], subject))
     ranked = sorted(causes.items(), key=lambda item: (-len(item[1]), item[0]))
     total = sum(len(places) for places in causes.values())
     lines = [
