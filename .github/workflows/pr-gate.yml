@@ -4,7 +4,7 @@ name: PR gate
 on:
   pull_request:
     branches: [main, "ci/**"]
-    # AD-1061: a label or a text change can approve growth of the self-check, so each one runs the gate again.
+    # AD-1061: approval changes run the gate again; unrelated changes skip the jobs.
     types: [opened, synchronize, reopened, labeled, unlabeled, edited]
 
 permissions:
@@ -15,12 +15,13 @@ env:
   ARCHKEEL_CORE_PROFILE: gate
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ ((github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null))) && 'gate' || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   base:
     name: PR base checks
+    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null)) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -208,12 +209,14 @@ jobs:
           key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
   area-checks:
+    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null)) }}
     uses: ./.github/workflows/area-checks.yml
     with:
       base: ${{ github.event.pull_request.base.sha }}
 
   windows-native:
     name: Windows native type check
+    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null)) }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -252,9 +255,9 @@ jobs:
         run: cargo check --locked --tests
 
   pr-gate:
-    name: PR gate
+    name: ${{ ((github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null))) && 'PR gate' || 'PR gate (ignored event)' }}
     needs: [base, area-checks, windows-native]
-    if: always()
+    if: always() && needs.base.result != 'skipped'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
