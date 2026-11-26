@@ -308,7 +308,8 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
   reads the code of the repository outside the scan roots (AD-770): a script or an extension source
   that writes a module of the scan, or names it beside a trojan horse, withholds its routes (UNKNOWN). A test
   file (`test_*.py`, `*_test.py`, a file below `test/` or `tests/`), a name built at run time from
-  data, and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
+  data (`files("".join(["ap", "p"]))`, `files(b"app".decode())`, `files(f"app")`: strict xfail plants in
+  `tests/test_cli_python_outside_reads.py`), and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
   the stated premise of the run: "Code outside the scan roots, including test code, hands in no
   module object of the scan and writes no binding of a module or class of the scan." In the scan, a
   write through `sys.modules` or a computed `importlib.import_module` is a survey gap, so the rule is
@@ -337,7 +338,7 @@ Still open:
 
 Closed by AD-1098 (#2016, #2024): a module that holds a hazard name is a site where it is read as a value: `return cProfile`, `same(dis)`, `util.c = cProfile`, `[cProfile]`, and `from app.util import cp as x` followed by `x.run(...)`.
 
-Closed by AD-1152 (#2079): a re-exported module read as an attribute of a project module is a site: `cp = util.cp`, `{'m': util.cp}`, `getattr(util, 'cp')`, `vars(util)['cp']`, `util.__dict__['cp']`, and a rename (`from app.util import cp as q2`).
+Closed by AD-1152 (#2079): a re-exported module read as an attribute of a project module is a site: `cp = util.cp`, `{'m': util.cp}`, `getattr(util, 'cp')`, `vars(util)['cp']`, `util.__dict__['cp']`, and a rename (`from app.util import cp as q2`). AD-1172 (#2109) follows a rename chain of any length.
 - A loader, a `Bytecode` object or a module that a parameter hands in is an unknown value: its method call is not read (see above). The import of the module in the scan stays the site (AD-1094).
 - The command line and the environment name modules too (`python -m unittest a.b`, `PYTHONWARNINGS`, `PY_SAX_PARSER`, `PYTHONBREAKPOINT`). They are outside the scan.
 
