@@ -86,7 +86,8 @@ pub(crate) struct Resolved {
     /// The files that the type arguments of the call can run (their types, closures and impls), and whether an
     /// argument is not fully known. A candidate in such a file, or any candidate when open, is not excluded.
     pub(crate) touch: BTreeSet<u32>,
-    pub(crate) open: bool,
+    /// The first type that made an argument unknown, when one did.
+    pub(crate) open: Option<u32>,
     /// The line (1-based) and the column (0-based) of `m(..)`.
     pub(crate) line: u32,
     pub(crate) column: u32,

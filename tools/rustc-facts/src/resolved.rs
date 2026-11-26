@@ -105,6 +105,15 @@ struct Touched {
     plain: bool,
     /// The types that were visited: a recursive type ends the walk.
     seen: std::collections::HashSet<String>,
+    /// The first type that made the call open, for the facts.
+    why: Option<String>,
+}
+
+impl Touched {
+    fn open_by(&mut self, ty: &str) {
+        self.open = true;
+        self.why.get_or_insert_with(|| ty.to_owned());
+    }
 }
 
 /// The most types that one call visits. A type that grows without end (`R<T>` holds `R<Vec<T>>`) is open.
@@ -123,7 +132,7 @@ fn visit<'tcx>(
         return;
     }
     if found.seen.len() > BUDGET {
-        found.open = true;
+        found.open_by("<budget>");
         return;
     }
     let nested = |args: &[ty::GenericArg<'tcx>]| -> Vec<Ty<'tcx>> {
@@ -145,12 +154,12 @@ fn visit<'tcx>(
             let standard =
                 [sym::core, sym::alloc, sym::std].contains(&tcx.crate_name(def.did().krate));
             if standard && !holds_only_arguments(tcx, def.did()) {
-                found.open = true;
+                found.open_by(&crate::names::path(tcx, def.did()));
             }
             for field in def.all_fields() {
                 match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
                     Ok(field_ty) => all.push(field_ty),
-                    Err(_) => found.open = true,
+                    Err(_) => found.open_by("<field>"),
                 }
             }
             all
@@ -185,7 +194,7 @@ fn visit<'tcx>(
         // Any other kind can carry code that the type does not name: a function pointer, a trait object, a
         // coroutine, a parameter, an alias. Nothing is proven.
         _ => {
-            found.open = true;
+            found.open_by(&ty.to_string());
             Vec::new()
         }
     };
@@ -201,7 +210,7 @@ fn touch<'tcx>(
     tcx: TyCtxt<'tcx>,
     env: ty::TypingEnv<'tcx>,
     (callee, args): (DefId, GenericArgsRef<'tcx>),
-) -> (BTreeSet<u32>, bool) {
+) -> (BTreeSet<u32>, Option<String>) {
     if st.impls.is_none() {
         let index = impl_index(st, tcx);
         st.impls = Some(index);
@@ -211,6 +220,7 @@ fn touch<'tcx>(
         open: false,
         plain: false,
         seen: std::collections::HashSet::new(),
+        why: None,
     };
     // The values that the callee can touch: its type arguments, and the types of its inputs (the receiver of a
     // method without generics is no argument, but its fields can hold callable state).
@@ -229,7 +239,7 @@ fn touch<'tcx>(
             found.files.extend(index.other.iter().copied());
         }
     }
-    (found.files, found.open)
+    (found.files, found.why)
 }
 
 /// The function that a call goes to, and the arguments of its instance, or `None` when the compiler does not
@@ -283,7 +293,7 @@ fn unresolved(st: &mut State, tcx: TyCtxt<'_>, caller: u32, fn_span: Span) {
         file,
         callee_file: None,
         touch: BTreeSet::new(),
-        open: true,
+        open: Some(st.names.text("<unresolved>")),
         line,
         column,
     });
@@ -318,7 +328,8 @@ pub(crate) fn method_site<'tcx>(
         unresolved(st, tcx, caller, fn_span);
         return;
     };
-    let (touch, open) = touch(st, tcx, env, (callee, instance_args));
+    let (touch, why) = touch(st, tcx, env, (callee, instance_args));
+    let why = why.map(|text| st.names.text(&text));
     let Some((file, line, column)) = place(st, tcx, fn_span) else {
         return;
     };
@@ -336,7 +347,7 @@ pub(crate) fn method_site<'tcx>(
         file,
         callee_file,
         touch,
-        open,
+        open: why,
         line,
         column,
     });

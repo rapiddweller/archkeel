@@ -272,6 +272,7 @@ fn call(to: &str, callee_file: &str, shift: usize) -> String {
 /// The same record with the files that the type arguments touch, and whether an argument is open.
 fn call_with(to: &str, callee_file: &str, shift: usize, (touch, open): (&str, bool)) -> String {
     let col = A_M.find("m()").unwrap() + shift;
+    let open = if open { "6" } else { "null" };
     format!(
         "{{\"k\":\"call\",\"from\":0,\"to\":{to},\"callee\":6,\"file\":3,\"callee_file\":{callee_file},\"touch\":{touch},\"open\":{open},\"line\":1,\"col\":{col}}}"
     )

@@ -225,7 +225,8 @@ impl Facts {
             callee_file: one(v, "callee_file", names),
             test: test_unit,
             touch: many(v, "touch", names).into_iter().collect(),
-            open: v.get("open").and_then(Value::as_bool) != Some(false),
+            // `open` names the first type that made an argument unknown, or is `null`.
+            open: v.get("open").is_none_or(|why| !why.is_null()),
             file,
             line,
             column,
