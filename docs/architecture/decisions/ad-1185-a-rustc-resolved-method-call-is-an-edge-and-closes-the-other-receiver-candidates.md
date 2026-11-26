@@ -26,10 +26,11 @@ such gaps (`as_str` 299, `is_empty` 92, `id` 81). The rustc driver already knows
    touch `M`: no argument is defined in the file of `M` or has an impl there (blanket impls always count), and none is
    open (a trait object, a function pointer, a coroutine, a parameter: only plain data and named types are known).
    The walk starts at the type arguments and at the types of the callee's inputs (the receiver of a method without
-   generics is no argument). It enters the fields of each type of the workspace or of a dependency. A std type is known only when it is a container, a smart pointer, a
-   cell, a range or an iterator adapter, which hold what their arguments name; another one (`Waker` holds a vtable of
+   generics is no argument). It enters the fields of every type, with associated types normalized, up to a budget of 300 types (more is open).
+   A std type must also be a container, a smart pointer, a cell, a range or an iterator adapter; another one (`Waker` holds a vtable of
    functions) is open, so a callback that a field holds (a function pointer, a closure,
-   a trait object) is seen. The rule is closed-world: what the walk cannot name keeps the candidate. A std adapter that runs a closure of `M` keeps the candidate. A foreign callee (`core`, `alloc`) falls the candidate too. An unresolved call and a
+   a trait object) is seen. The rule is closed-world: what the walk cannot name keeps the candidate. A std adapter that runs a closure of `M` keeps the candidate. A foreign callee (`core`, `alloc`) falls the candidate too. An unresolved call (a trait object, a parameter) writes an open record of its place, so a test unit that
+   dispatches differently vetoes. An unresolved call in the library and a
    configuration that lacks the place or changes the callee decide nothing. A test unit can only veto: a place that
    only test code holds decides nothing, and a test unit that names another callee keeps the candidate.
 4. **Edge.** A callee in another scan module is a `selected_impl` edge (AD-1136) with the call as evidence,

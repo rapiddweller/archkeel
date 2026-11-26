@@ -334,6 +334,67 @@ def test_a_method_of_a_std_type_that_holds_a_callback_into_b_keeps_the_gap(
     assert statuses(validate(root))["NO-A-TO-B"] != "PASS"
 
 
+def test_a_std_adapter_whose_item_type_holds_a_callback_into_b_keeps_the_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`Peekable<Outer>` holds `Outer::Item`, an associated type: its drop calls `b`."""
+    outer = COUNTER.format(
+        body="pub struct Inner {\n    pub callback: fn(),\n}\n\n"
+        "impl Drop for Inner {\n    fn drop(&mut self) {\n        (self.callback)();\n    }\n}\n\n"
+        "pub struct Outer {\n    pub done: bool,\n    pub callback: fn(),\n}\n\n"
+        "impl Iterator for Outer {\n    type Item = Inner;\n\n"
+        "    fn next(&mut self) -> Option<Inner> {\n"
+        "        if self.done {\n            return None;\n        }\n"
+        "        self.done = true;\n        Some(Inner { callback: self.callback })\n    }\n}"
+    )
+    files = {
+        "crates/app/src/d.rs": outer,
+        "crates/app/src/b.rs": B
+        + "\npub fn hit0() {\n    HITS.fetch_add(1, Ordering::SeqCst);\n}\n",
+        "crates/app/src/c.rs": "pub fn other() -> crate::b::S {\n    crate::b::S\n}\n\n"
+        "pub fn make() -> std::iter::Peekable<crate::d::Outer> {\n"
+        "    crate::d::Outer { done: false, callback: crate::b::hit0 }.peekable()\n}\n",
+        "crates/app/src/a.rs": "pub fn run() {\n    let _held = crate::c::other();\n"
+        "    let make = crate::c::make;\n    make().next();\n}\n",
+    }
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "cache"))
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        {**_sources(A_CLOSURE_B), **files},
+        components=_parts(),
+        rules=(*CRATE_RULES[1:], _forbid("b"), _forbid("d")),
+        type_reach=True,
+    )
+    assert _cargo_run(root) == "1 0", "the drop of the item runs the function of `b`"
+    assert statuses(validate(root))["NO-A-TO-B"] != "PASS"
+
+
+def test_a_type_that_grows_without_end_is_walked_with_a_bound(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`R<T>` holds `R<Vec<T>>`: the walk ends, and the scan gives a verdict."""
+    grows = (
+        "pub struct R<T> {\n    pub value: T,\n    pub next: Option<Box<R<Vec<T>>>>,\n}\n\n"
+        "impl<T> R<T> {\n    pub fn len(&self) -> usize {\n        1\n    }\n}\n"
+    )
+    files = {
+        "crates/app/src/c.rs": C + grows,
+        "crates/app/src/a.rs": "pub fn run() {\n    let _held = crate::c::other();\n"
+        "    let r = crate::c::R { value: 1u32, next: None };\n    r.len();\n}\n",
+    }
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "cache"))
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        {**_sources(A_CLOSURE_B), **files},
+        components=_parts(),
+        rules=(*CRATE_RULES[1:], _forbid("b"), _forbid("d")),
+        type_reach=True,
+    )
+    assert "NO-A-TO-B" in statuses(validate(root))
+
+
 def test_a_std_adapter_with_a_closure_of_the_caller_closes_the_candidate(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

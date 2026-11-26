@@ -107,6 +107,9 @@ struct Touched {
     seen: std::collections::HashSet<String>,
 }
 
+/// The most types that one call visits. A type that grows without end (`R<T>` holds `R<Vec<T>>`) is open.
+const BUDGET: usize = 300;
+
 /// Visit one type: its definition file, the files of its impls, and the types inside it. A closure shows its
 /// captured types and the arguments of its parent, not its signature (a signature is a function pointer type).
 fn visit<'tcx>(
@@ -117,6 +120,10 @@ fn visit<'tcx>(
     found: &mut Touched,
 ) {
     if !found.seen.insert(ty.to_string()) {
+        return;
+    }
+    if found.seen.len() > BUDGET {
+        found.open = true;
         return;
     }
     let nested = |args: &[ty::GenericArg<'tcx>]| -> Vec<Ty<'tcx>> {
@@ -132,20 +139,19 @@ fn visit<'tcx>(
             found.files.extend(own.into_iter().flatten().copied());
             let mut all = nested(&args[..]);
             // The fields of a type can hold callable state that no argument names (a function pointer, a trait
-            // object, a closure). The walk enters the fields of a type of the workspace or of a dependency. A type of
-            // the standard library is known only when it is a container or an iterator adapter that holds what
-            // its arguments name; another one (`Waker`, `Formatter`) is open.
+            // object, a closure, a type that an associated type names). The walk enters the fields of every type. A
+            // type of the standard library must also be a container, a smart pointer, a cell, a range or an iterator
+            // adapter; another one (`Waker`, `Formatter`) is open.
             let standard =
                 [sym::core, sym::alloc, sym::std].contains(&tcx.crate_name(def.did().krate));
-            if !standard {
-                for field in def.all_fields() {
-                    match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
-                        Ok(field_ty) => all.push(field_ty),
-                        Err(_) => found.open = true,
-                    }
-                }
-            } else if !holds_only_arguments(tcx, def.did()) {
+            if standard && !holds_only_arguments(tcx, def.did()) {
                 found.open = true;
+            }
+            for field in def.all_fields() {
+                match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
+                    Ok(field_ty) => all.push(field_ty),
+                    Err(_) => found.open = true,
+                }
             }
             all
         }
@@ -226,6 +232,63 @@ fn touch<'tcx>(
     (found.files, found.open)
 }
 
+/// The function that a call goes to, and the arguments of its instance, or `None` when the compiler does not
+/// resolve it to one function with concrete types.
+fn resolve<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    env: ty::TypingEnv<'tcx>,
+    (def, args): (DefId, GenericArgsRef<'tcx>),
+) -> Option<(DefId, GenericArgsRef<'tcx>)> {
+    if tcx.trait_of_assoc(def).is_none() {
+        return Some((def, args));
+    }
+    if args.has_param() || args.has_infer() {
+        return None;
+    }
+    let Ok(Some(instance)) = ty::Instance::try_resolve(tcx, env, def, args) else {
+        return None;
+    };
+    let ty::InstanceKind::Item(selected) = instance.def else {
+        return None;
+    };
+    (!instance.args.has_param()).then_some((selected, instance.args))
+}
+
+/// The place of `fn_span` as the file id and the position, when it is a real file of the workspace.
+fn place(st: &mut State, tcx: TyCtxt<'_>, fn_span: Span) -> Option<(u32, u32, u32)> {
+    let start = tcx.sess.source_map().lookup_char_pos(fn_span.lo());
+    if !matches!(start.file.name, FileName::Real(_)) {
+        return None;
+    }
+    let path = absolute(&start.file.name.prefer_local_unconditionally().to_string());
+    let rel = path.strip_prefix(&st.root)?.to_string();
+    let line = u32::try_from(start.line).unwrap_or(u32::MAX);
+    Some((
+        st.names.text(&rel),
+        line,
+        u32::try_from(start.col.0).unwrap_or(u32::MAX),
+    ))
+}
+
+/// A record for a place whose callee is not known: it is open, so it only vetoes.
+fn unresolved(st: &mut State, tcx: TyCtxt<'_>, caller: u32, fn_span: Span) {
+    let Some((file, line, column)) = place(st, tcx, fn_span) else {
+        return;
+    };
+    let callee = st.names.text("<unresolved>");
+    st.calls.insert(Resolved {
+        from: caller,
+        to: None,
+        callee,
+        file,
+        callee_file: None,
+        touch: BTreeSet::new(),
+        open: true,
+        line,
+        column,
+    });
+}
+
 /// Add a record when `func_ty` is a method call that the compiler resolves to one function. `owner` is the root
 /// of the body that makes the call, `caller` the id of its module. `span` is the whole call, `fn_span` its `m(..)`.
 pub(crate) fn method_site<'tcx>(
@@ -248,33 +311,17 @@ pub(crate) fn method_site<'tcx>(
     }
     let env = ty::TypingEnv::post_analysis(tcx, owner);
     let args = tcx.erase_and_anonymize_regions(args);
-    let (callee, instance_args) = if trait_of.is_some() {
-        if args.has_param() || args.has_infer() {
-            return;
-        }
-        let Ok(Some(instance)) = ty::Instance::try_resolve(tcx, env, def, args) else {
-            return;
-        };
-        let ty::InstanceKind::Item(selected) = instance.def else {
-            return;
-        };
-        if instance.args.has_param() {
-            return;
-        }
-        (selected, instance.args)
-    } else {
-        (def, args)
+    let resolved = resolve(tcx, env, (def, args));
+    let Some((callee, instance_args)) = resolved else {
+        // A call that is not resolved here (a trait object, a type parameter) still marks its place: another unit
+        // of the same place cannot then decide alone (AD-1185).
+        unresolved(st, tcx, caller, fn_span);
+        return;
     };
     let (touch, open) = touch(st, tcx, env, (callee, instance_args));
-    let start = tcx.sess.source_map().lookup_char_pos(fn_span.lo());
-    if !matches!(start.file.name, FileName::Real(_)) {
-        return;
-    }
-    let path = absolute(&start.file.name.prefer_local_unconditionally().to_string());
-    let Some(rel) = path.strip_prefix(&st.root).map(str::to_string) else {
+    let Some((file, line, column)) = place(st, tcx, fn_span) else {
         return;
     };
-    let file = st.names.text(&rel);
     let callee_id = st.names.def(tcx, callee);
     let inside = crate::body::inside(st, tcx, callee);
     let to = inside.then(|| {
@@ -290,7 +337,7 @@ pub(crate) fn method_site<'tcx>(
         callee_file,
         touch,
         open,
-        line: u32::try_from(start.line).unwrap_or(u32::MAX),
-        column: u32::try_from(start.col.0).unwrap_or(u32::MAX),
+        line,
+        column,
     });
 }

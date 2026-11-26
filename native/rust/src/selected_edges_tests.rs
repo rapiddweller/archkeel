@@ -412,3 +412,12 @@ fn a_type_argument_that_can_run_the_candidate_keeps_the_gap() {
         "one configuration is enough"
     );
 }
+
+#[test]
+fn an_open_record_of_a_test_unit_vetoes_the_decision() {
+    // A place that a test unit reaches through a trait object has an open record: the library cannot decide alone.
+    let same = call("null", "null", 0);
+    let open = call_with("null", "null", 0, ("[]", true));
+    let found = collect_methods(announced_in(vec![units(&[&same], &[&open])]));
+    assert!(method_gap(&found));
+}
