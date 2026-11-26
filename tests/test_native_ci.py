@@ -59,7 +59,7 @@ def test_pr_gate_filters_events_before_they_can_cancel_a_run() -> None:
     assert "types: [opened, synchronize, reopened, labeled, unlabeled, edited]" in workflow
     assert f"({condition}) && 'gate' || github.run_id" in workflow
     jobs = _jobs("pr-gate.yml")
-    for job in ("base", "area-checks"):
+    for job in ("base", "area-checks", "windows-native"):
         assert f"    if: ${{{{ {condition} }}}}" in jobs[job]
     assert f"({condition}) && 'PR gate' || 'PR gate (ignored event)'" in jobs["pr-gate"]
     assert "if: always() && needs.base.result != 'skipped'" in jobs["pr-gate"]
