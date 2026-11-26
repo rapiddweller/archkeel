@@ -91,7 +91,7 @@ pub struct Scanned {
 impl Scanned {
     /// The entry points that the manifests and the files of the scan prove (#2040); `None` when no
     /// reader exists for the language of the scan.
-    pub fn entry_points(&self) -> Option<archkeel_facts::entry_points::EntryPoints> {
+    pub fn entry_points(&self) -> Option<archkeel_facts::data::entry_points::EntryPoints> {
         let files: Vec<(&str, &str)> = (self.reply.reply().facts.files.iter())
             .map(|file| (file.module.as_str(), file.rel_path.as_str()))
             .collect();

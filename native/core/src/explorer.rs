@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use archkeel_facts::entry_points::EntryPoints;
+use archkeel_facts::data::entry_points::EntryPoints;
 use archkeel_facts::envelope::{SourceCallCandidate, Target};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::nested::MemberInventory;

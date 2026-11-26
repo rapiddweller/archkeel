@@ -20,6 +20,11 @@
         "docs/architecture/decisions/ad-345-collector-facts-have-one-typed-definition-in-archkeel-facts.md"
       ],
       "public": [
+        "native.archkeel_facts.data.entry_points:EntryBasis",
+        "native.archkeel_facts.data.entry_points:EntryEvidence",
+        "native.archkeel_facts.data.entry_points:EntryKind",
+        "native.archkeel_facts.data.entry_points:EntryPoint",
+        "native.archkeel_facts.data.entry_points:EntryPoints",
         "native.archkeel_facts.data.gap_data:GapData",
         "native.archkeel_facts.data.trojan_horse:TrojanHorseForm",
         "native.archkeel_facts.data:BindingData",
@@ -38,11 +43,6 @@
         "native.archkeel_facts.data:TrojanHorseForm",
         "native.archkeel_facts.data:TrojanHorseSite",
         "native.archkeel_facts.data:ValueData",
-        "native.archkeel_facts.entry_points:EntryBasis",
-        "native.archkeel_facts.entry_points:EntryEvidence",
-        "native.archkeel_facts.entry_points:EntryKind",
-        "native.archkeel_facts.entry_points:EntryPoint",
-        "native.archkeel_facts.entry_points:EntryPoints",
         "native.archkeel_facts.envelope.validation:InterfaceNeed",
         "native.archkeel_facts.envelope.validation:Registered",
         "native.archkeel_facts.envelope.validation:library_family",
@@ -2946,7 +2946,7 @@
           "component": "facts",
           "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422), and name the request type that the self-test of a scan echoes, so that the frame schema states it (AD-600). The Explorer projects validated source records and their evidence for navigation (AD-1017).",
           "through": [
-            "native.archkeel_facts.entry_points:EntryPoints",
+            "native.archkeel_facts.data.entry_points:EntryPoints",
             "native.archkeel_facts.envelope:Facts",
             "native.archkeel_facts.envelope:SourceCallCandidate",
             "native.archkeel_facts.envelope:Target",

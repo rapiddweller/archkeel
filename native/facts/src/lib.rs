@@ -28,7 +28,6 @@ mod construct_golden_tests;
 mod macros;
 
 pub mod data;
-pub mod entry_points;
 pub mod envelope;
 mod envelope_vocab;
 pub mod fields;

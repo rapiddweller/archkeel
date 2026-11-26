@@ -8,9 +8,11 @@
 
 use std::collections::BTreeSet;
 
-use archkeel_facts::entry_points::{EntryBasis, EntryEvidence, EntryKind, EntryPoint, EntryPoints};
+use archkeel_facts::data::entry_points::{
+    EntryBasis, EntryEvidence, EntryKind, EntryPoint, EntryPoints,
+};
 use archkeel_facts::envelope::Profile;
-use archkeel_python_collector::ScriptTable;
+use archkeel_python_collector::{Script, ScriptTable};
 use serde_json::Value;
 use toml::Table;
 
@@ -66,23 +68,25 @@ fn observed(kind: EntryKind, name: &str, path: &str) -> EntryPoint {
     }
 }
 
+fn script_entry(script: &Script) -> EntryPoint {
+    let (kind, table) = match script.table {
+        ScriptTable::Console => (EntryKind::PythonScript, "project.scripts"),
+        ScriptTable::Gui => (EntryKind::PythonGuiScript, "project.gui-scripts"),
+    };
+    let key = format!("{table}.{}", script.name);
+    declared(
+        kind,
+        &script.name,
+        Some(&script.target),
+        "pyproject.toml",
+        key,
+    )
+}
+
 fn python(root: &Root, files: &[(&str, &str)], found: &mut EntryPoints) {
     match root.path().to_str() {
         Some(text) => match archkeel_python_collector::scripts(text) {
-            Ok(scripts) => found.entries.extend(scripts.iter().map(|script| {
-                let (kind, table) = match script.table {
-                    ScriptTable::Console => (EntryKind::PythonScript, "project.scripts"),
-                    ScriptTable::Gui => (EntryKind::PythonGuiScript, "project.gui-scripts"),
-                };
-                let key = format!("{table}.{}", script.name);
-                declared(
-                    kind,
-                    &script.name,
-                    Some(&script.target),
-                    "pyproject.toml",
-                    key,
-                )
-            })),
+            Ok(scripts) => found.entries.extend(scripts.iter().map(script_entry)),
             Err(why) => found.unread.push(format!("pyproject.toml: {why}")),
         },
         None => found

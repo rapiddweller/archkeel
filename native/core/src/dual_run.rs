@@ -187,7 +187,7 @@ pub(crate) struct Run {
     /// A reason that names the whole contract: the scan left files out by default (AD-1119).
     pub(crate) scope_hold: Option<String>,
     /// The entry points of an Explorer scan, or none when its language has no reader (#2040).
-    pub(crate) entry_points: Option<archkeel_facts::entry_points::EntryPoints>,
+    pub(crate) entry_points: Option<archkeel_facts::data::entry_points::EntryPoints>,
 }
 
 /// How a check request reads its base reply: from the validated candidate reply and the inputs
