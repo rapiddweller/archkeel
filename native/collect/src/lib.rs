@@ -23,6 +23,7 @@ mod config;
 mod dart;
 mod entry_points;
 mod git;
+mod outside_reach;
 mod python;
 mod refusal;
 mod repository;
