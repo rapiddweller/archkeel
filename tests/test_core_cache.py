@@ -109,7 +109,15 @@ def test_native_collector_job_restores_the_same_core_and_builds_on_a_miss() -> N
     hash_line = next(line for line in gate.splitlines() if "hashFiles('native/**'" in line)
     assert hash_line in body
     assert "key: core-gate-${{ runner.os }}-${{ steps.native_tree.outputs.hash }}" in body
-    assert "matrix.area == 'native collectors' && steps.core.outputs.cache-hit != 'true'" in body
+    areas = "(matrix.area == 'native collectors' || matrix.area == 'native collector evidence')"
+    for name in (
+        "Hash the native tree",
+        "Restore the core of main for this native tree",
+        "Restore the Rust build cache of main",
+    ):
+        step = body.split(f"      - name: {name}\n", 1)[1].split("\n      - name:", 1)[0]
+        assert areas in step
+    assert f"{areas} && steps.core.outputs.cache-hit != 'true'" in body
     assert "rust-gate-main-${{ runner.os }}" in body
     assert "ARCHKEEL_NATIVE_TREE: ${{ steps.native_tree.outputs.hash }}" in body
     assert "steps.core.outputs.cache-hit == 'true' && 'cache' || 'build'" in body
