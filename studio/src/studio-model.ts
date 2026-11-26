@@ -42,8 +42,16 @@ export interface StudioEdge {
   evidence_total?: number;
 }
 
+export interface StudioEntryPoint {
+  kind: string;
+  basis: "declared" | "observed";
+  name: string;
+  target: string | null;
+  evidence: { path: string; key: string | null };
+}
+
 export interface StudioCoverage {
-  parts?: { part?: string; language?: string; files_indexed?: number | null; files_with_symbols?: number | null; facts?: { calls?: number | null }; files_with_calls?: number | null }[];
+  parts?: { part?: string; language?: string; files_indexed?: number | null; files_with_symbols?: number | null; facts?: { calls?: number | null }; files_with_calls?: number | null; entry_points?: { entries: StudioEntryPoint[]; unread: string[] } | null }[];
   total?: Record<string, number>;
   observed_only?: boolean;
   truncated?: boolean;

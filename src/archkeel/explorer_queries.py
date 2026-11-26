@@ -158,6 +158,7 @@ def _part_coverage(part: Row) -> Row:
         "language": part.get("language"),
         "facts": facts,
         "files_indexed": None if part.get("files") is None else len({path for _, path in files}),
+        "entry_points": part.get("entry_points"),
     }
     for kind, module_key in (("symbols", "module"), ("calls", "source_module"), ("imports", "")):
         rows = list(_records(part.get(kind)))
