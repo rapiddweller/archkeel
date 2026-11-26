@@ -22,7 +22,7 @@ use super::literal::Proof;
 use super::syspath;
 
 use super::hazards_names::{
-    above, attribute_trojan_horse, first_hazard, module_hazard, BUILTIN_TROJAN_HORSES,
+    above, attribute_trojan_horse, first_hazard, holds, module_hazard, BUILTIN_TROJAN_HORSES,
     IMPORT_FUNCTIONS, TROJAN_HORSE_STRINGS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
@@ -244,7 +244,9 @@ impl Walk<'_> {
             if let Some(kind) = hazard(&origin) {
                 return self.push(kind, &origin, expr);
             }
-            if above(&origin) {
+            // A module that holds a hazard name flows on as a value: a function returns it, a call
+            // takes it, a list holds it, a from-import of a project module names it (AD-1098).
+            if above(&origin) || holds(&origin) || reexport::named(self.reexports, &origin) {
                 return self.push(DYNAMIC, &origin, expr);
             }
         }
@@ -361,6 +363,9 @@ impl Walk<'_> {
             .iter()
             .any(|a| a.starts_with("__") && a.ends_with("__"));
         for origin in self.origins(id) {
+            if let Some((kind, name)) = reexport::find_from(self.reexports, &origin, &attributes) {
+                return self.push(kind, &name, expr);
+            }
             let trojan_horse = dunder && (hazard(&origin).is_some() || above(&origin));
             if let Some((kind, name)) = first_hazard(origin.clone(), &attributes) {
                 return self.push(kind, &name, expr);
