@@ -181,13 +181,18 @@ def _scope(db: sqlite3.Connection) -> Row:
     """The test sources that the scan left out; a snapshot of an older format says nothing."""
     if db.execute("SELECT 1 FROM sqlite_schema WHERE name='excluded'").fetchone() is None:
         return {"excluded_sources": None}
+    total = _count(db, "excluded")
     shown = [
         str(row[0])[:_TEXT_CHARS]
         for row in db.execute("SELECT path FROM excluded ORDER BY path LIMIT 25")
     ]
+    # The answer keeps its byte bound (AD-1084): the list gets a quarter of it.
+    while shown and len(json.dumps(shown).encode()) > _ANSWER_BYTES // 4:
+        shown.pop()
     return {
-        "excluded_sources": _count(db, "excluded"),
+        "excluded_sources": total,
         "excluded_paths": shown,
+        "excluded_paths_cut": len(shown) < total,
         "scope": (
             "test sources are left out of this view; "
             "`validate` keeps them unless the config says otherwise"
@@ -200,7 +205,13 @@ def _verdict(db: sqlite3.Connection, root: Path, _args: Row, snapshot: str) -> R
     if row is None:
         return {"snapshot": snapshot, "status": None, "basis": Basis.UNKNOWN, "reason": _NO_VERDICT}
     status, exit_code, rules_violated, unknown, digest = row
-    return _scope(db) | {
+    scope = _scope(db)
+    if status == "PASS" and scope["excluded_sources"]:
+        # A file that the naming rule took for a test can hold the only violation (AD-1119):
+        # a view that left files out never reads PASS.
+        status, exit_code = "UNKNOWN", 2
+        scope["core_status"] = "PASS"
+    return scope | {
         "status": status,
         "exit_code": exit_code,
         "violations": _count(db, "violation"),

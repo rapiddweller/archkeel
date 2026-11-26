@@ -359,3 +359,33 @@ def test_a_path_that_two_parts_exclude_is_stored_once(tmp_path: Path) -> None:
     answer = _synthetic(tmp_path, rows).ask("verdict")
     assert answer["excluded_sources"] == 2
     assert answer["excluded_paths"] == ["t/test_a.py", "t/test_b.py"]
+
+
+def test_a_production_file_with_a_test_name_cannot_make_the_view_pass(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """A file that the naming rule takes for a test holds the only violation: no PASS."""
+    name = "shop/model/test_result_exporter.py"
+    files = {name: "from shop.store import repository\n"}
+    with _scan(release_core, tmp_path / "cache", files) as scan:
+        code, result = _validate(release_core, scan.root)
+        assert result["frame"]["status"] == "FAIL" and code != 0
+        verdict = scan.ask("verdict")
+        assert verdict["status"] != "PASS"
+        assert name in verdict["excluded_paths"]
+
+
+def test_the_view_that_left_files_out_never_reads_pass_and_keeps_the_core_status(
+    tmp_path: Path,
+) -> None:
+    rows = replace(_rows(tmp_path), excluded=("t/test_a.py",))
+    rows = replace(rows, status="PASS", exit_code=0, unknown_rules=0)
+    answer = _synthetic(tmp_path, rows).ask("verdict")
+    assert (answer["status"], answer["exit_code"], answer["core_status"]) == ("UNKNOWN", 2, "PASS")
+
+
+def test_the_excluded_paths_keep_the_answer_bound(tmp_path: Path) -> None:
+    paths = tuple(f"src/{n}/" + "目录/" * 90 + "test_file.py" for n in range(25))
+    answer = _synthetic(tmp_path, replace(_rows(tmp_path), excluded=paths)).ask("verdict")
+    assert len(json.dumps(answer, ensure_ascii=False).encode()) < 16 * 1024
+    assert answer["excluded_sources"] == 25 and answer["excluded_paths_cut"] is True

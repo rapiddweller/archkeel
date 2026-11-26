@@ -534,6 +534,9 @@ page with plain markup is not. A file outside the scan roots is not a gap.
 These files give no gap in the core and in 4.0.1 (follow-up work):
 - `exclude_test_sources = true` removes `test`/`tests`/`__tests__` directories and `*.test.*` and
   `*.spec.*` files by design (AD-313, opt-in), also when such a file imports another component.
+- The Explorer leaves test sources out of a Python or TypeScript scan when the config does not state the scope (AD-1119). The
+  naming rule can take a production file such as `test_result_exporter.py` for a test. A view that left files out never reads
+  PASS: the `verdict` answer gives UNKNOWN with `core_status` PASS and lists the paths. `validate` keeps the tests.
 
 Import graphs, ownership, externals, cycles and layout are measured. Lexical UML
 declarations, members, signatures and proven local relationships are available;
