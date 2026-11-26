@@ -129,3 +129,23 @@ fn a_merged_edge_over_the_evidence_budget_is_truncated_and_not_complete() {
         (json!(true), json!(false))
     );
 }
+
+#[test]
+fn a_location_that_two_parts_share_counts_once() {
+    let (a, b) = (part("a"), part("b"));
+    let first = part_frame(
+        "a",
+        &[edge("unowned", "external", "external", 1, 7, "x.py")],
+    );
+    let second = part_frame(
+        "b",
+        &[edge("unowned", "external", "external", 1, 7, "x.py")],
+    );
+    let joined = topology(&[(&a, &first), (&b, &second)], None)
+        .unwrap()
+        .unwrap();
+    let row = &joined["component_edges"][0];
+    assert_eq!(row["count"], 2);
+    assert_eq!(row["evidence"].as_array().map(Vec::len), Some(1));
+    assert_eq!(row["evidence_total"], 1);
+}

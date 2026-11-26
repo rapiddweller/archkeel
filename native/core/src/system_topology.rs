@@ -68,25 +68,32 @@ fn merge_edges(rows: Vec<Value>) -> Vec<Value> {
             continue;
         };
         let held = &mut merged[at];
-        for key in ["count", "evidence_total"] {
-            let sum = held[key].as_u64().unwrap_or(0) + row[key].as_u64().unwrap_or(0);
-            held[key] = json!(sum);
-        }
-        union(held, &row, "evidence", MAX_EVIDENCE);
-        union(held, &row, "rules", usize::MAX);
+        let sum = |key: &str, held: &Value| {
+            held[key].as_u64().unwrap_or(0) + row[key].as_u64().unwrap_or(0)
+        };
+        held["count"] = json!(sum("count", held));
+        // A location that both rows list counts once, so the total stays the size of the set.
+        let shared = union(held, &row, "evidence", MAX_EVIDENCE) as u64;
+        held["evidence_total"] = json!(sum("evidence_total", held) - shared);
+        let _ = union(held, &row, "rules", usize::MAX);
     }
     merged
 }
 
-/// Add the items of `row[key]` that `held[key]` lacks, up to `cap` items.
-fn union(held: &mut Value, row: &Value, key: &str, cap: usize) {
+/// Add the items of `row[key]` that `held[key]` lacks, up to `cap` items. It returns the number
+/// of items that both hold.
+fn union(held: &mut Value, row: &Value, key: &str, cap: usize) -> usize {
     let mut items = held[key].as_array().cloned().unwrap_or_default();
+    let mut shared = 0;
     for item in row[key].as_array().into_iter().flatten() {
-        if items.len() < cap && !items.contains(item) {
+        if items.contains(item) {
+            shared += 1;
+        } else if items.len() < cap {
             items.push(item.clone());
         }
     }
     held[key] = json!(items);
+    shared
 }
 
 /// The topology of the system. `None` when no part states one (a part without it is a gap that
