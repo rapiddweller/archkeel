@@ -215,7 +215,7 @@ fn touch<'tcx>(
     st: &mut State,
     tcx: TyCtxt<'tcx>,
     env: ty::TypingEnv<'tcx>,
-    (callee, args): (DefId, GenericArgsRef<'tcx>),
+    calls: &[(DefId, GenericArgsRef<'tcx>)],
 ) -> (BTreeSet<u32>, Option<String>) {
     if st.impls.is_none() {
         let index = impl_index(st, tcx);
@@ -228,16 +228,20 @@ fn touch<'tcx>(
         seen: std::collections::HashSet::new(),
         why: None,
     };
-    // The values that the callee can touch: its type arguments, and the types of its inputs (the receiver of a
-    // method without generics is no argument, but its fields can hold callable state).
-    let sig = tcx.fn_sig(callee).instantiate(tcx, args).skip_binder();
-    let inputs: Vec<Ty<'tcx>> = sig.inputs().to_vec();
-    let given = args.iter().filter_map(|a| a.as_type());
-    for ty in given.chain(inputs) {
-        let ty = tcx
-            .try_normalize_erasing_regions(env, ty::Unnormalized::new(ty))
-            .unwrap_or(ty);
-        visit(st, tcx, env, ty, &mut found);
+    // The values that each call can touch: its type arguments, the types of its inputs (the receiver of a method
+    // without generics is no argument, but its fields can hold callable state) and of its output (the caller can
+    // run what the call returns).
+    for (callee, args) in calls {
+        let sig = tcx.fn_sig(*callee).instantiate(tcx, *args).skip_binder();
+        let mut types: Vec<Ty<'tcx>> = sig.inputs().to_vec();
+        types.push(sig.output());
+        types.extend(args.iter().filter_map(|a| a.as_type()));
+        for ty in types {
+            let ty = tcx
+                .try_normalize_erasing_regions(env, ty::Unnormalized::new(ty))
+                .unwrap_or(ty);
+            visit(st, tcx, env, ty, &mut found);
+        }
     }
     if let Some(index) = st.impls.as_ref() {
         found.files.extend(index.blanket.iter().copied());
@@ -313,6 +317,7 @@ pub(crate) fn method_site<'tcx>(
     (owner, caller): (DefId, u32),
     func_ty: Ty<'tcx>,
     (span, fn_span): (Span, Span),
+    siblings: &[(Span, Ty<'tcx>)],
 ) {
     // A path call `T::m(..)` starts where its function starts: only a dot call has a receiver before `m`.
     if fn_span.from_expansion() || fn_span.lo() == span.lo() {
@@ -334,7 +339,26 @@ pub(crate) fn method_site<'tcx>(
         unresolved(st, tcx, caller, fn_span);
         return;
     };
-    let (touch, why) = touch(st, tcx, env, (callee, instance_args));
+    // The calls inside the receiver expression belong to the site: `make()`, and the `Deref` that an adjustment
+    // adds. A call there that is not resolved opens the site.
+    let mut calls = vec![(callee, instance_args)];
+    let mut unknown = false;
+    for (other, other_ty) in siblings {
+        let inside = span.lo() <= other.lo() && other.hi() <= fn_span.lo();
+        let ty::FnDef(d, a) = *other_ty.kind() else {
+            unknown |= inside;
+            continue;
+        };
+        if !inside {
+            continue;
+        }
+        match resolve(tcx, env, (d, tcx.erase_and_anonymize_regions(a))) {
+            Some(found) => calls.push(found),
+            None => unknown = true,
+        }
+    }
+    let (touch, why) = touch(st, tcx, env, &calls);
+    let why = why.or_else(|| unknown.then(|| "<receiver>".to_owned()));
     let why = why.map(|text| st.names.text(&text));
     let Some((file, line, column)) = place(st, tcx, fn_span) else {
         return;

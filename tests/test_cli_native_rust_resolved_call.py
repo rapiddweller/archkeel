@@ -395,6 +395,69 @@ def test_a_type_that_grows_without_end_is_walked_with_a_bound(
     assert "NO-A-TO-B" in statuses(validate(root))
 
 
+def _hit0_scan(
+    tmp_path: Path,
+    core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    files: dict[str, str],
+) -> tuple[Path, dict[str, str]]:
+    """The fixture with `b::hit0` and the given `c`, `d` and `a`."""
+    hit0 = "\npub fn hit0() {\n    HITS.fetch_add(1, Ordering::SeqCst);\n}\n"
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "cache"))
+    root = repository(
+        tmp_path / "repo",
+        core,
+        {**_sources(A_CLOSURE_B), "crates/app/src/b.rs": B + hit0, **files},
+        components=_parts(),
+        rules=(*CRATE_RULES[1:], _forbid("b"), _forbid("d")),
+        type_reach=True,
+    )
+    return root, statuses(validate(root))
+
+
+def test_a_receiver_adjustment_that_runs_a_callback_of_b_keeps_the_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`make().m()` goes through `Wrapper::deref`, which calls `b::hit0` before it returns `&U`."""
+    deref = COUNTER.format(
+        body="pub struct U;\n\nimpl U {\n    pub fn m(&self) -> usize {\n        0\n    }\n}\n\n"
+        "pub struct Wrapper {\n    pub inner: U,\n    pub callback: fn(),\n}\n\n"
+        "impl std::ops::Deref for Wrapper {\n    type Target = U;\n\n"
+        "    fn deref(&self) -> &U {\n        (self.callback)();\n        &self.inner\n    }\n}"
+    )
+    files = {
+        "crates/app/src/d.rs": deref,
+        "crates/app/src/c.rs": "pub fn other() -> crate::b::S {\n    crate::b::S\n}\n\n"
+        "pub fn make() -> crate::d::Wrapper {\n"
+        "    crate::d::Wrapper { inner: crate::d::U, callback: crate::b::hit0 }\n}\n",
+        "crates/app/src/a.rs": "pub fn run() {\n    let _held = crate::c::other();\n"
+        "    let make = crate::c::make;\n    make().m();\n}\n",
+    }
+    root, found = _hit0_scan(tmp_path, release_core, monkeypatch, files)
+    assert _cargo_run(root) == "1 0", "the deref of `d` runs the function of `b`"
+    assert found["NO-A-TO-B"] != "PASS"
+
+
+def test_a_method_that_returns_a_callback_of_b_keeps_the_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`d::U::m` returns a function pointer into `b`, and `a` runs it."""
+    returns = COUNTER.format(
+        body="pub struct U {\n    pub callback: fn(),\n}\n\n"
+        "impl U {\n    pub fn m(&self) -> fn() {\n        self.callback\n    }\n}"
+    )
+    files = {
+        "crates/app/src/d.rs": returns,
+        "crates/app/src/c.rs": "pub fn other() -> crate::b::S {\n    crate::b::S\n}\n\n"
+        "pub fn make() -> crate::d::U {\n    crate::d::U { callback: crate::b::hit0 }\n}\n",
+        "crates/app/src/a.rs": "pub fn run() {\n    let _held = crate::c::other();\n"
+        "    let make = crate::c::make;\n    make().m()();\n}\n",
+    }
+    root, found = _hit0_scan(tmp_path, release_core, monkeypatch, files)
+    assert _cargo_run(root) == "1 0", "the returned function of `b` runs"
+    assert found["NO-A-TO-B"] != "PASS"
+
+
 def test_a_std_adapter_with_a_closure_of_the_caller_closes_the_candidate(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
