@@ -10,13 +10,17 @@
 2. Held pairs. The `pairs` of the rule have an `origin`, and `origins` counts the pairs of each
    origin: `dispatch`, `not_execution_only`, `unowned_end`, `unobserved_module` or `named_site`.
 
-The Python collector states the cause when it withholds a route (`ImportData.route_withheld`, a live
-field that is not on the wire): an ambiguous re-export, an unproven hop (with its name), a module
-whose `__all__` is not read, a module that code outside the scan can write to, a module whose object a
-use inside the scan hands on, or a re-export under `TYPE_CHECKING`. A cause that the collector does
-not state is `not_stated`. The cause decides nothing: the route is withheld in the same cases as before
-and no verdict changes. The core and the report project the typed value. The shell decodes it
-(`core_explain.py`) and holds no rule.
+The Python collector states the cause when it withholds a route. The cause is a word of the closed
+vocabulary `RouteWithheld` (`ambiguous_reexport`, `uncertain_hop`, `unread_all`, `outside_write`,
+`escaped`, `type_checking_reexport`) in the live field `ImportData.route_withheld`, with the hop or
+the module that it names in `route_withheld_at`. Neither is on the wire. A cause that the collector
+does not state is `not_stated`. In the frame, `cause` is `{kind, at}`. The cause decides nothing:
+the route is withheld in the same cases as before and no verdict changes. The core and the report
+project the typed value. The shell decodes it (`core_explain.py`) and holds no rule.
+
+The values are plain: no new type derives a serializer, because each such type adds a "trait impl
+may run" gap to every module that reaches it (the self-check grew by 532 items with the first
+design and by 75 with this one).
 
 **Measured** on EE `560d5c7ef` and CE `23bd48d9` (copies), and on the self-check, at the base of this change:
 
@@ -30,7 +34,7 @@ and no verdict changes. The core and the report project the typed value. The she
 **Reason.** A hold named the import but not why its route was withheld, so nobody could act on it.
 
 **Limit.** `escaped` names the module, not the use that hands its object on; recording that site is
-the next step. This change does not shrink a hold. A cause that is a gap of the collector can be closed
+the next step (#2117). This change does not shrink a hold. A cause that is a gap of the collector can be closed
 only with its own proof, in its own change.
 
 **Tests.** `routes_tests.rs` has a plant for each cause. `causes_tests.rs` covers the classes and the
