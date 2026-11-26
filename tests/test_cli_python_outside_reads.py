@@ -44,6 +44,15 @@ assert (importlib.resources.files("app") / "service.py").read_bytes()
 print(app.client.run())
 """
 
+# A file write, not an attribute write: only the rebound name can lead to it.
+HOOK = (
+    "import pathlib\n\n\nclass Hook:\n    def __contains__(self, name):\n"
+    "        self.version(name)\n        return True\n\n    def version(self, name):\n"
+    '        pathlib.Path("src/app/service.py").write_text(\n'
+    "            \"def f():\\n    return 'hooked'\\n\"\n        )\n"
+    '        return "1"\n\n\nclass Replacement:\n    modules = Hook()\n    metadata = Hook()\n\n\n'
+)
+
 WRITES = {
     "subscript write": (
         'import sys\nimport app.service\nsys.modules["app.service"].f = lambda: "hooked"\n'
@@ -112,6 +121,24 @@ WRITES = {
         'other = package\nother.joinpath("service.py").write_text(\n'
         "    \"def f():\\n    return 'hooked'\\n\"\n)\n"
         "import app.client\nprint(app.client.run())\n"
+    ),
+    "sys rebound": (
+        HOOK + "import sys\n\nsys = Replacement()\n"
+        'assert "app.service" in sys.modules\nimport app.client\nprint(app.client.run())\n'
+    ),
+    "sys loop target": (
+        HOOK + "import sys\n\nfor sys in [Replacement()]:\n"
+        '    assert "app.service" in sys.modules\nimport app.client\nprint(app.client.run())\n'
+    ),
+    "sys parameter": (
+        HOOK + "import sys\n\n\ndef check(sys):\n"
+        '    return "app.service" in sys.modules\n\n\ncheck(Replacement())\n'
+        "import app.client\nprint(app.client.run())\n"
+    ),
+    "importlib rebound": (
+        HOOK + "import importlib.metadata\n\nimportlib = Replacement()\n"
+        'importlib.metadata.version("app.service")\nimport app.client\n'
+        "print(app.client.run())\n"
     ),
     "imported module attribute": (
         "import app.service\napp.service.f = lambda: 'hooked'\nimport app.client\n"

@@ -11,8 +11,8 @@ use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    CmpOp, Comprehension, Expr, ExprCall, ExprCompare, ExprContext, ExprName, Identifier, Operator,
-    Stmt, StmtAssign,
+    CmpOp, Comprehension, ExceptHandler, Expr, ExprCall, ExprCompare, ExprContext, ExprName,
+    Identifier, Operator, Parameter, Pattern, Stmt, StmtAssign, StmtImport, StmtImportFrom,
 };
 use ruff_text_size::{Ranged, TextRange};
 
@@ -169,8 +169,40 @@ impl Uses {
             self.loads.push((id, node.range));
             return self.judge(expr);
         }
+        self.rebound(&id);
         *self.stores.entry(id).or_default() += 1;
         false
+    }
+
+    /// `import importlib.x as y` hides the chain; `import z as sys` binds another object.
+    fn import(&mut self, node: &StmtImport) {
+        for alias in &node.names {
+            let name = Identifier::as_str(&alias.name);
+            let aliased = alias.asname.is_some();
+            self.importlib |= aliased && name.starts_with("importlib");
+            self.sys_modules |= aliased && name == "sys";
+            if let Some(asname) = &alias.asname {
+                self.rebound(Identifier::as_str(asname));
+            }
+        }
+    }
+
+    /// `from importlib import x` hides the chain; `from z import sys` binds another object.
+    fn import_from(&mut self, node: &StmtImportFrom) {
+        let from = node.module.as_ref().map_or("", Identifier::as_str);
+        self.importlib |= from.starts_with("importlib");
+        self.sys_modules |= from == "sys";
+        for alias in &node.names {
+            let bound = alias.asname.as_ref().unwrap_or(&alias.name);
+            self.rebound(Identifier::as_str(bound));
+        }
+    }
+
+    /// A name that stands for `sys` or `importlib` is bound to something else: the proof for
+    /// that name ends, because the object can run any code at a test (`x in sys.modules`).
+    fn rebound(&mut self, id: &str) {
+        self.sys_modules |= id == "sys";
+        self.importlib |= id == "importlib";
     }
 
     /// A name that binds a `files(...)` result is read only when it is stored once and each load
@@ -209,24 +241,45 @@ impl Uses {
 impl<'a> Visitor<'a> for Uses {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         match stmt {
-            Stmt::Import(node) => {
-                for alias in &node.names {
-                    let name = Identifier::as_str(&alias.name);
-                    let aliased = alias.asname.is_some();
-                    self.importlib |= aliased && name.starts_with("importlib");
-                    self.sys_modules |= aliased && name == "sys";
-                }
-            }
-            Stmt::ImportFrom(node) => {
-                let from = node.module.as_ref().map_or("", Identifier::as_str);
-                self.importlib |= from.starts_with("importlib");
-                self.sys_modules |= from == "sys";
-            }
+            Stmt::Import(node) => self.import(node),
+            Stmt::ImportFrom(node) => self.import_from(node),
+            Stmt::FunctionDef(node) => self.rebound(Identifier::as_str(&node.name)),
+            Stmt::ClassDef(node) => self.rebound(Identifier::as_str(&node.name)),
             Stmt::For(node) => self.mark(&node.iter),
             Stmt::Assign(node) => self.assign(node),
             _ => {}
         }
         visitor::walk_stmt(self, stmt);
+    }
+
+    fn visit_parameter(&mut self, parameter: &'a Parameter) {
+        self.rebound(Identifier::as_str(&parameter.name));
+        visitor::walk_parameter(self, parameter);
+    }
+
+    fn visit_except_handler(&mut self, handler: &'a ExceptHandler) {
+        let ExceptHandler::ExceptHandler(node) = handler;
+        if let Some(name) = &node.name {
+            self.rebound(Identifier::as_str(name));
+        }
+        visitor::walk_except_handler(self, handler);
+    }
+
+    fn visit_pattern(&mut self, pattern: &'a Pattern) {
+        match pattern {
+            Pattern::MatchAs(node) => {
+                if let Some(name) = &node.name {
+                    self.rebound(Identifier::as_str(name));
+                }
+            }
+            Pattern::MatchStar(node) => {
+                if let Some(name) = &node.name {
+                    self.rebound(Identifier::as_str(name));
+                }
+            }
+            _ => {}
+        }
+        visitor::walk_pattern(self, pattern);
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
