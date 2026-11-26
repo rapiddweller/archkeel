@@ -304,4 +304,19 @@ fn the_explorer_excludes_test_sources_by_default_and_the_config_decides_otherwis
     fs::write(&config, format!("{text}exclude_test_sources = true\n")).unwrap();
     commit(&root);
     assert_eq!(test_scope(&root, false), serde_json::Value::Bool(true));
+    // A removed file with an implicit scope holds the verdict; a stated scope does not (AD-1119).
+    fs::write(&config, &text).unwrap();
+    fs::write(root.join("src/x.test.ts"), "export const x = 1;\n").unwrap();
+    commit(&root);
+    let hold = |explorer| {
+        let text = root.to_str().unwrap();
+        scan_with_options(&identity(text), 1 << 26, None, explorer)
+            .unwrap()
+            .test_scope_hold()
+    };
+    assert!(hold(true).is_some_and(|why| why.contains("src/x.test.ts")));
+    assert!(hold(false).is_none());
+    fs::write(&config, format!("{text}exclude_test_sources = true\n")).unwrap();
+    commit(&root);
+    assert!(hold(true).is_none());
 }

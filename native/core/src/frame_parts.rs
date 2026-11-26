@@ -208,7 +208,7 @@ pub(super) fn hold_contract(
     named: &mut archkeel_report::Named,
     trust: Option<String>,
     base: Option<String>,
-    hygiene: Option<(&'static str, String)>,
+    (hygiene, scope): (Option<(&'static str, String)>, Option<String>),
 ) {
     if named.contract.is_some() {
         return;
@@ -216,7 +216,8 @@ pub(super) fn hold_contract(
     let held = trust
         .map(|gap| (PRODUCER_NOT_VERIFIED_KIND, gap))
         .or(base.map(|base| ("base", base)))
-        .or(hygiene);
+        .or(hygiene)
+        .or(scope.map(|why| ("implicit_test_exclusion", why)));
     if let Some((kind, text)) = held {
         named.contract = Some(text);
         named.contract_kind = Some(kind);

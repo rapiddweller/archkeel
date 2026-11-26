@@ -59,7 +59,7 @@ fn category(kind: DefinitionKind) -> SymbolCategory {
             SymbolCategory::Class
         }
         DefinitionKind::Method => SymbolCategory::Method,
-        DefinitionKind::Function => SymbolCategory::Function,
+        DefinitionKind::Function | DefinitionKind::Callback => SymbolCategory::Function,
         DefinitionKind::TypeAlias => SymbolCategory::TypeAlias,
         DefinitionKind::Constant => SymbolCategory::Constant,
     }
@@ -80,7 +80,9 @@ fn record(
             let more = classifier(table, methods, cited, entry);
             SymbolFact::Class(class_data(core, more))
         }
-        DefinitionKind::Function => SymbolFact::Function(callable_data(core, entry)),
+        DefinitionKind::Function | DefinitionKind::Callback => {
+            SymbolFact::Function(callable_data(core, entry))
+        }
         DefinitionKind::Method => SymbolFact::Method(callable_data(core, entry)),
         DefinitionKind::TypeAlias => SymbolFact::TypeAlias(value_data(core, entry)),
         DefinitionKind::Constant => SymbolFact::Constant(value_data(core, entry)),
@@ -128,7 +130,9 @@ fn metadata(table: &SymbolTable, cited: &mut Cited, entry: &Entry) -> Core {
             spelling: definition.name.clone(),
         },
         symbol_category: category(definition.kind),
-        source_binding_unique: !entry.export_only && table.count(&entry.qualified) == 1,
+        source_binding_unique: definition.kind != DefinitionKind::Callback
+            && !entry.export_only
+            && table.count(&entry.qualified) == 1,
         decorators,
         decorator_evidence_ids,
         signature_complete: definition.signature_complete,
