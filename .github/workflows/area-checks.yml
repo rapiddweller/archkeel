@@ -22,6 +22,7 @@ jobs:
         area:
           - core scans
           - CLI and core
+          - native collector evidence
           - native collectors
           - collectors
           - reports
@@ -83,12 +84,12 @@ jobs:
 
       - name: Hash the native tree
         id: native_tree
-        if: steps.select.outputs.selected == 'run' && matrix.area == 'native collectors'
+        if: steps.select.outputs.selected == 'run' && (matrix.area == 'native collectors' || matrix.area == 'native collector evidence')
         run: echo "hash=${{ hashFiles('native/**', '!native/target/**', 'tools/rustc-facts/**', '!tools/rustc-facts/target/**', '!**/__pycache__/**') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore the core of main for this native tree
         id: core
-        if: steps.select.outputs.selected == 'run' && matrix.area == 'native collectors'
+        if: steps.select.outputs.selected == 'run' && (matrix.area == 'native collectors' || matrix.area == 'native collector evidence')
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -100,7 +101,7 @@ jobs:
           key: core-gate-${{ runner.os }}-${{ steps.native_tree.outputs.hash }}
 
       - name: Restore the Rust build cache of main
-        if: steps.select.outputs.selected == 'run' && matrix.area == 'native collectors' && steps.core.outputs.cache-hit != 'true'
+        if: steps.select.outputs.selected == 'run' && (matrix.area == 'native collectors' || matrix.area == 'native collector evidence') && steps.core.outputs.cache-hit != 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
