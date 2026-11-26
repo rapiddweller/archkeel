@@ -1,0 +1,54 @@
+name: PR gate rerun
+
+# AD-1061: a change of the approval inputs runs the latest PR gate run of the head again.
+# This workflow never reports a check named `PR gate`, so an ignored event cannot replace a green or red gate.
+on:
+  pull_request:
+    types: [labeled, unlabeled, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  rerun:
+    name: Run the PR gate again
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Run the latest PR gate run of the head again
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ACTION: ${{ github.event.action }}
+          LABEL: ${{ github.event.label.name }}
+          BODY_CHANGED: ${{ github.event.changes.body != null }}
+          BASE_CHANGED: ${{ github.event.changes.base != null }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          case "$ACTION" in
+            labeled|unlabeled) [[ "$LABEL" == ratchet-lead ]] || { echo "Ignored: label $LABEL does not change the approval."; exit 0; } ;;
+            edited) [[ "$BODY_CHANGED" == true || "$BASE_CHANGED" == true ]] || { echo "Ignored: no change of the body or the base."; exit 0; } ;;
+          esac
+          if [[ "$BASE_CHANGED" == true ]]; then
+            # A rerun keeps the old event, so the gate would compare with the old base sha.
+            echo "The base changed: close and reopen the PR, or push, to start the gate with the new base." >&2
+            exit 1
+          fi
+          run=$(gh run list --workflow pr-gate.yml --commit "$HEAD_SHA" --event pull_request --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          [[ -n "$run" ]] || { echo "No PR gate run for $HEAD_SHA: push to start one." >&2; exit 1; }
+          if [[ "$(gh run view "$run" --json status --jq .status)" != completed ]]; then
+            gh run cancel "$run" || true
+            for _ in $(seq 60); do
+              [[ "$(gh run view "$run" --json status --jq .status)" == completed ]] && break
+              sleep 10
+            done
+          fi
+          gh run rerun "$run"

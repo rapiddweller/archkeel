@@ -47,23 +47,26 @@ def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
     assert "run: make native-check\n" in native
 
 
-def test_pr_gate_filters_events_before_they_can_cancel_a_run() -> None:
-    workflow = (WORKFLOWS / "pr-gate.yml").read_text()
-    condition = (
-        "(github.event.action != 'labeled' && github.event.action != 'unlabeled' "
-        "&& github.event.action != 'edited') || "
-        "((github.event.action == 'labeled' || github.event.action == 'unlabeled') "
-        "&& github.event.label.name == 'ratchet-lead') || "
-        "(github.event.action == 'edited' && (github.event.changes.body != null || "
-        "github.event.changes.base != null))"
+def test_pr_gate_starts_only_on_a_push_and_the_rerun_workflow_filters_the_rest() -> None:
+    gate = (WORKFLOWS / "pr-gate.yml").read_text()
+    assert "types: [opened, synchronize, reopened]\n" in gate
+    # An ignored event must never create a PR gate run: it would supersede a green `PR gate`.
+    for word in ("labeled", "edited", "ignored event", "github.event.action"):
+        assert word not in gate
+    others = {job: body for job, body in _jobs("pr-gate.yml").items() if job != "pr-gate"}
+    assert not any(re.search(r"^    if:", body, re.MULTILINE) for body in others.values())
+    assert (
+        "    name: PR gate\n    needs: [base, area-checks, windows-native]\n    if: always()\n"
+        in gate
     )
-    assert "types: [opened, synchronize, reopened, labeled, unlabeled, edited]" in workflow
-    assert f"({condition}) && 'gate' || github.run_id" in workflow
-    jobs = _jobs("pr-gate.yml")
-    for job in ("base", "area-checks", "windows-native"):
-        assert f"    if: ${{{{ {condition} }}}}" in jobs[job]
-    assert f"({condition}) && 'PR gate' || 'PR gate (ignored event)'" in jobs["pr-gate"]
-    assert "if: always() && needs.base.result != 'skipped'" in jobs["pr-gate"]
+    rerun = (WORKFLOWS / "pr-gate-rerun.yml").read_text()
+    assert "types: [labeled, unlabeled, edited]" in rerun
+    assert "actions: write" in rerun
+    assert "ratchet-lead" in rerun
+    assert "changes.body != null" in rerun and "changes.base != null" in rerun
+    assert "gh run rerun" in rerun and "pr-gate.yml" in rerun
+    # No success may come from an ignored event: the rerun job holds no check named `PR gate`.
+    assert "name: PR gate\n" not in rerun
 
 
 _TOOLCHAIN_STEP = "run: rustup toolchain install\n"
