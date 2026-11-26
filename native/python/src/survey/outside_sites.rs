@@ -27,8 +27,8 @@ use std::collections::HashSet;
 use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    Expr, ExprCall, FStringPartRef, Identifier, InterpolatedStringElement,
-    InterpolatedStringElements, Keyword, Operator, Stmt,
+    CmpOp, Comprehension, Expr, ExprCall, ExprCompare, FStringPartRef, Identifier,
+    InterpolatedStringElement, InterpolatedStringElements, Keyword, Operator, Stmt,
 };
 use ruff_text_size::{Ranged, TextRange};
 
@@ -52,6 +52,154 @@ const LOADER_IMPORTS: [&str; 4] = [
 pub(super) struct File<'a> {
     pub module: &'a Module,
     pub foreign_specs: bool,
+    pub reads: Reads,
+}
+
+/// The names of the standard library that the whole file uses only to read (D9, #1963).
+#[derive(Clone, Copy, Default)]
+pub(super) struct Reads {
+    /// Each use of `importlib` is a call that gives text, a path or a bare answer: `metadata`
+    /// `version`, `resources` `files`, `util` `find_spec` tested against `None`.
+    importlib: bool,
+    /// Each use of `sys.modules` tests a name or walks the names: no module object leaves it.
+    sys_modules: bool,
+}
+
+/// The attribute chains of `importlib` that give no module object and write no binding.
+const IMPORTLIB_READS: [&str; 4] = [
+    "importlib.metadata.version",
+    "importlib.metadata.PackageNotFoundError",
+    "importlib.resources.files",
+    "importlib.util.find_spec",
+];
+
+/// The attributes of `sys` that hand out no namespace of modules. Any other attribute (`__dict__`
+/// holds `modules`) ends the proof for `sys.modules`.
+const SYS_READS: [&str; 6] = [
+    "sys.argv",
+    "sys.executable",
+    "sys.exit",
+    "sys.platform",
+    "sys.stderr",
+    "sys.stdout",
+];
+
+#[derive(Default)]
+struct Uses {
+    safe: HashSet<TextRange>,
+    importlib: bool,
+    sys_modules: bool,
+}
+impl Uses {
+    fn mark(&mut self, expr: &Expr) {
+        self.safe.insert(expr.range());
+    }
+    fn iterate(&mut self, generators: &[Comprehension]) {
+        for generator in generators {
+            self.mark(&generator.iter);
+        }
+    }
+}
+/// The dotted name of a chain of attributes on a name, or `None` for any other expression.
+fn chain(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::Name(name) => Some(name.id.to_string()),
+        Expr::Attribute(node) => Some(format!(
+            "{}.{}",
+            chain(&node.value)?,
+            Identifier::as_str(&node.attr)
+        )),
+        _ => None,
+    }
+}
+
+impl Uses {
+    /// A test of a name (`in`) reads no object of `sys.modules`; `find_spec(...) is None` reads no
+    /// module.
+    fn compare(&mut self, node: &ExprCompare) {
+        let ops = node.ops.iter();
+        if ops.clone().all(|op| matches!(op, CmpOp::In | CmpOp::NotIn)) {
+            // Only the last operand: an inner operand is also the left side of the next test, and
+            // its `__contains__` would get the dictionary (`x in sys.modules in sink`).
+            node.operands
+                .last()
+                .into_iter()
+                .for_each(|side| self.mark(side));
+        }
+        let none = node.operands.iter().skip(1).all(Expr::is_none_literal_expr);
+        if !(none && ops.clone().all(|op| matches!(op, CmpOp::Is | CmpOp::IsNot))) {
+            return;
+        }
+        if let Some(Expr::Call(call)) = node.operands.first() {
+            self.mark(&call.func);
+        }
+    }
+
+    /// Judge a chain rooted at `importlib` or `sys`. `false` for any other chain.
+    fn judge(&mut self, expr: &Expr) -> bool {
+        let Some(text) = chain(expr) else {
+            return false;
+        };
+        let safe = self.safe.contains(&expr.range());
+        match text.split('.').next() {
+            Some("importlib") => {
+                let spec = text == "importlib.util.find_spec";
+                self.importlib |=
+                    !(IMPORTLIB_READS.contains(&String::as_str(&text)) && (!spec || safe));
+            }
+            Some("sys") if text == "sys.modules" => self.sys_modules |= !safe,
+            Some("sys") => self.sys_modules |= !SYS_READS.contains(&String::as_str(&text)),
+            _ => return false,
+        }
+        true
+    }
+}
+
+impl<'a> Visitor<'a> for Uses {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        match stmt {
+            Stmt::Import(node) => {
+                for alias in &node.names {
+                    let name = Identifier::as_str(&alias.name);
+                    let aliased = alias.asname.is_some();
+                    self.importlib |= aliased && name.starts_with("importlib");
+                    self.sys_modules |= aliased && name == "sys";
+                }
+            }
+            Stmt::ImportFrom(node) => {
+                let from = node.module.as_ref().map_or("", Identifier::as_str);
+                self.importlib |= from.starts_with("importlib");
+                self.sys_modules |= from == "sys";
+            }
+            Stmt::For(node) => self.mark(&node.iter),
+            _ => {}
+        }
+        visitor::walk_stmt(self, stmt);
+    }
+
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        match expr {
+            Expr::Compare(node) => self.compare(node),
+            Expr::ListComp(node) => self.iterate(&node.generators),
+            Expr::SetComp(node) => self.iterate(&node.generators),
+            Expr::DictComp(node) => self.iterate(&node.generators),
+            Expr::Generator(node) => self.iterate(&node.generators),
+            Expr::Attribute(_) | Expr::Name(_) if self.judge(expr) => return,
+            _ => {}
+        }
+        visitor::walk_expr(self, expr);
+    }
+}
+
+/// What the file reads with `importlib` and `sys.modules`. A write, a subscript, an alias, a
+/// `from` import or a value that is passed on ends the proof for that name.
+pub(super) fn reads(module: &Module) -> Reads {
+    let mut uses = Uses::default();
+    uses.visit_body(&module.tree.body);
+    Reads {
+        importlib: !uses.importlib,
+        sys_modules: !uses.sys_modules,
+    }
 }
 
 /// True when the file has a `spec_from_file_location` call and each such use is a call with a
@@ -114,6 +262,12 @@ fn import_at(module: &Module, range: TextRange) -> bool {
 pub(super) fn harmless(site: &Site, file: &File, names: &HashSet<String>) -> bool {
     let module = file.module;
     let detail: &str = &site.detail;
+    let head = detail.split('.').next().unwrap_or_default();
+    if (head == "importlib" && file.reads.importlib)
+        || (detail == "sys.modules" && file.reads.sys_modules)
+    {
+        return true;
+    }
     let loader_import = file.foreign_specs && LOADER_IMPORTS.contains(&detail);
     if loader_import && import_at(module, site.range) {
         return true;
