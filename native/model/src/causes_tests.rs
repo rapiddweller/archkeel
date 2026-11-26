@@ -6,6 +6,7 @@
 //! a cut list says how many pairs it shows.
 
 use super::{Cause, Held};
+use crate::interface_hold::{HeldImport, HoldClass, InterfaceGap, InterfaceHold, PairOrigin};
 
 fn pairs(count: usize) -> Vec<(String, String)> {
     (0..count)
@@ -81,7 +82,6 @@ fn a_cut_list_shows_distinct_pairs_and_counts_them_not_the_records() {
 
 #[test]
 fn an_interface_hold_lists_its_imports_and_cuts_the_list() {
-    use crate::interface_hold::{HeldImport, InterfaceGap, InterfaceHold};
     let names: Vec<String> = (0..7).map(|n| format!("m{n}")).collect();
     let listed = names.iter().map(|n| HeldImport {
         gap: InterfaceGap::PublicationRoute,
@@ -104,7 +104,6 @@ fn an_interface_hold_lists_its_imports_and_cuts_the_list() {
 
 #[test]
 fn an_interface_hold_counts_each_class_and_names_the_cause_in_its_text() {
-    use crate::interface_hold::{HeldImport, HoldClass, InterfaceGap, InterfaceHold};
     use archkeel_facts::data::{RouteWithheld, SurfaceForm};
     let held = |target: &str, cause: Option<RouteWithheld>| HeldImport {
         gap: InterfaceGap::PublicationRoute,
@@ -151,7 +150,6 @@ fn an_interface_hold_counts_each_class_and_names_the_cause_in_its_text() {
 
 #[test]
 fn a_pair_gap_names_its_origin_from_its_flags() {
-    use crate::interface_hold::PairOrigin;
     use crate::pair_gaps::origin;
     assert_eq!(origin(false, true, true), PairOrigin::UnobservedModule);
     assert_eq!(origin(true, false, true), PairOrigin::Dispatch);
@@ -161,7 +159,6 @@ fn a_pair_gap_names_its_origin_from_its_flags() {
 
 #[test]
 fn an_interface_hold_keeps_twenty_imports_for_the_frame_and_shows_five() {
-    use crate::interface_hold::{HeldImport, InterfaceGap, InterfaceHold};
     let held = (0..30).map(|n| HeldImport {
         gap: InterfaceGap::PublicationRoute,
         source: "a".to_owned(),
