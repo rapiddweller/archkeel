@@ -43,6 +43,7 @@
     "fn scan(identity:&Identity<'_>,contract_budget:u64)->Result<Scanned,Refusal>",
     "fn scan_with_clock(identity:&Identity<'_>,contract_budget:u64,clock:Option<&dyn Fn()->Duration>,)->Result<Scanned,Refusal>",
     "fn scan_with_options(identity:&Identity<'_>,contract_budget:u64,clock:Option<&dyn Fn()->Duration>,explorer:bool,)->Result<Scanned,Refusal>",
+    "fn test_scope_hold(&self)->Option<String>",
     "struct Identity",
     "struct Scanned",
     "struct refusal::Refusal",

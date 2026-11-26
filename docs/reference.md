@@ -68,9 +68,10 @@ The rules use test naming conventions, not proof that each file is a test. Check
 before relying on the verdict. An import from production code into an excluded test source stays
 UNKNOWN. Keep the default to include test sources in architecture checks.
 The Explorer (`studio`, `explore`, `archkeel-mcp`) leaves test sources out of a Python or TypeScript scan when
-`archkeel.toml` does not state `exclude_test_sources`. Its `verdict` answer gives `excluded_sources`, `excluded_paths` and
-a `scope` note. Set `exclude_test_sources = false` to include tests in the Explorer.
-The view can then differ from `validate`, which keeps tests ([AD-1119](architecture/decisions/ad-1119-the-explorer-leaves-test-sources-out-unless-the-config-states-the-scope.md)).
+`archkeel.toml` does not state `exclude_test_sources`. If that removes a file, the core holds the verdict: UNKNOWN with the gap
+`implicit_test_exclusion`, never PASS where `validate` reads FAIL. Its `verdict` answer gives `excluded_sources`, `excluded_paths`
+and a `scope` note. State `exclude_test_sources = true` or `false` to decide the scope; the Explorer then has the ruling of
+`validate` ([AD-1119](architecture/decisions/ad-1119-the-explorer-leaves-test-sources-out-unless-the-config-states-the-scope.md)).
 For Dart, this option excludes `.dart` files under `test` or `tests` within a selected root,
 and files whose names end in `_test.dart`. It also excludes a root named `test` or `tests`,
 unless that root is a Dart package directory.

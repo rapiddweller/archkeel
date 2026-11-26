@@ -297,6 +297,7 @@ fn decide(
     .chain(documents.bound())
     .collect();
     let collector = scanned.collector();
+    let scope_hold = scanned.test_scope_hold();
     let Scanned {
         roots,
         namespace,
@@ -333,6 +334,7 @@ fn decide(
                 target,
             }),
             documents: Some(documents),
+            scope_hold,
             sdk_libraries: archkeel_store::sdk_libraries(&library_key)
                 .into_iter()
                 .map(str::to_owned)
