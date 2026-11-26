@@ -130,6 +130,15 @@ jobs:
           path: test-artifacts/selfcheck/base.json
           key: selfcheck-v2-${{ runner.os }}-${{ github.sha }}
 
+      # #2081: a local run and a CI run of one commit are compared from this file.
+      - name: Keep the self-check result for a comparison with a local run
+        if: always() && hashFiles('test-artifacts/selfcheck/result.json') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: selfcheck-result
+          path: test-artifacts/selfcheck/result.json
+          retention-days: 14
+
       - name: Save the Rust build cache
         if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
