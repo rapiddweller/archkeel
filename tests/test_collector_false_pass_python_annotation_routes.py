@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""#2039, AD-1117: three more routes to an evaluated string annotation.
+"""#2039, AD-1134: three more routes to an evaluated string annotation.
 
 Consumer: `archkeel validate`. `app.consumer` may not depend on `app.lib`. `app/lib` appends a line
 to a counter file when CPython loads it. Each plant makes CPython 3.12 load it (the counter is 1),
