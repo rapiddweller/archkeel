@@ -10,6 +10,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::type_reach::{Announced, Reached};
 use archkeel_facts::envelope::Provenance;
 use archkeel_facts::request::RustRequest;
 use archkeel_snapshot::Snapshot;
@@ -24,12 +25,23 @@ use crate::test_scope::NO_PRODUCTION_SOURCE;
 use crate::tree::walk;
 use archkeel_facts::identity::sha256_hex;
 
-/// Collect the facts of one request.
+/// Collect the facts of one request, with the type-reach facts that the descriptor of the environment names.
 pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collected {
+    collect_with(request, provenance, |source, files| {
+        crate::type_reach::announced(|| rust_hashes(source, files))
+    })
+}
+
+/// Collect the facts of one request; `announce` gives the type-reach facts (AD-1047).
+pub(crate) fn collect_with(
+    request: &RustRequest,
+    provenance: Provenance,
+    announce: impl FnOnce(&mut Snapshot, &[String]) -> Announced,
+) -> Collected {
     let mut source = Snapshot::new(&request.snapshot.root);
     let mut builder = Builder::with_exclude_tests(request.excludes_test_sources());
     let (scope, files) = list(&mut source, &request.scope.roots, &mut builder);
-    let unavailable = load_facts(&mut source, &files, &mut builder);
+    let (unavailable, reached) = load_facts(announce(&mut source, &files), &mut builder);
     let overrides = crate::registry_overrides::configs(&mut source);
     let mut workspace = discover(&mut source, &files, &request.scope.namespace);
     for krate in &mut workspace.crates {
@@ -120,18 +132,22 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
         let reason = format!("The compiler type-reach facts are unavailable: {why}. Each trait-impl, destructor and receiver gap stays (AD-1047).");
         builder.gap(&reason, None, "");
     }
-    builder.finish(request, provenance, scope, selected, walked, source)
+    let used = builder.reach_used;
+    let mut collected = builder.finish(request, provenance, scope, selected, walked, source);
+    collected.reached = reached.filter(|_| used);
+    collected
 }
 
 /// AD-1047: the type-reach facts of the producer, or the cause why a scan that asked for them has none.
 /// A failed check keeps every gap and says why; it never falls back to the old reach in silence.
-fn load_facts(source: &mut Snapshot, files: &[String], builder: &mut Builder) -> Option<String> {
-    match crate::type_reach::announced(|| rust_hashes(source, files))? {
-        Ok(facts) => {
+fn load_facts(announced: Announced, builder: &mut Builder) -> (Option<String>, Option<Reached>) {
+    match announced {
+        None => (None, None),
+        Some(Ok((facts, reached))) => {
             builder.type_reach = facts;
-            None
+            (None, Some(reached))
         }
-        Err(why) => Some(why),
+        Some(Err(why)) => (Some(why), None),
     }
 }
 
@@ -168,3 +184,7 @@ fn list(
 #[cfg(test)]
 #[path = "collect_tests.rs"]
 pub(crate) mod tests;
+
+#[cfg(test)]
+#[path = "collect_reach_tests.rs"]
+mod reach_tests;

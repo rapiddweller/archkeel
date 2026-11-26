@@ -94,6 +94,7 @@ def repository(
     drawn: str | None = None,
     type_reach: bool | None = None,
     premise: bool = True,
+    declared: bool = False,
 ) -> Path:
     """Write the fixture below `root`. A file in `files` replaces or adds a file of the default.
 
@@ -101,7 +102,7 @@ def repository(
     draws the `requires` edges, or the edges of `drawn` when the observed edges differ (AD-466).
     `type_reach` turns the compiler type-reach facts on (AD-1047); `None` reads
     `ARCHKEEL_TEST_TYPE_REACH`. The contract then declares the premise `rust_type_reach`, unless
-    `premise` is false.
+    `premise` is false. `declared` writes the declaration without the flag: a wish, no evidence.
     """
     reach = bool(os.environ.get("ARCHKEEL_TEST_TYPE_REACH")) if type_reach is None else type_reach
     assert binary.is_file(), binary
@@ -135,7 +136,7 @@ def repository(
         "components": list(parts),
         "rules": list(rules),
     }
-    if reach and premise:
+    if (reach and premise) or declared:
         contract["schema_version"] = "3.22.0"
         contract["declarations"] = {
             "premises": [
