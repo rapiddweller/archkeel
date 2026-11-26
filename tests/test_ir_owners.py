@@ -51,6 +51,7 @@ SHELL = frozenset(
         "cli/core_schema.py",
         "cli/core_only.py",
         "cli/core_delivery.py",
+        "cli/core_guide.py",
         "cli/core_topology.py",
         "cli/core_output.py",
         "cli/native_scan.py",

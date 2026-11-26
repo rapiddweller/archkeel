@@ -12,6 +12,7 @@ from fnmatch import fnmatchcase
 AREAS: dict[str, tuple[str, ...]] = {
     "CLI and core": (
         "test_cli*.py",
+        "test_core_guide.py",
         "test_explorer_*.py",
         "test_native_core.py",
         "test_native_interface_boundary.py",

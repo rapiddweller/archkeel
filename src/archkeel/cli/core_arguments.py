@@ -315,7 +315,7 @@ def parse(argv: Sequence[str]) -> Options:
         if command is Command.REPORT:
             parser.add_argument("--topology", action="store_true")
             parser.add_argument("--output", type=partial(_file_path, "--output"))
-            parser.add_argument("--format", choices=["html", "json"], default="html")
+            parser.add_argument("--format", choices=["html", "json", "markdown"], default="html")
             parser.add_argument("--part-of", type=_document_path)
             parser.add_argument("--system-href")
     try:
@@ -351,6 +351,8 @@ def parse(argv: Sequence[str]) -> Options:
         raise ValueError("--system-href needs --part-of: name the system document of this part")
     if options.part_of is not None and (options.output is None or options.format != "html"):
         raise ValueError("--part-of needs an HTML --output: only the page names its system")
+    if options.format == "markdown":
+        options.topology = True  # the guide is the topology section of the core frame
     options.shape()
     options.config_given = any(arg == "--config" or arg.startswith("--config=") for arg in argv)
     return options
