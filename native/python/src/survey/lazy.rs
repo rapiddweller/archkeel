@@ -95,11 +95,15 @@ impl World<'_> {
         found.exempt.extend(flow.exempt);
         let mut by_name = false;
         for call in &flow.calls {
-            let Some(candidates) = self.candidates(call) else {
+            let Some((candidates, loader)) = self.candidates(call) else {
                 continue;
             };
-            by_name |= call.by_name;
-            found.exempt.push(call.callee);
+            // A loader candidate (`pdb.main`) can reach more than the table names, so the call stays
+            // a site. The proven edges of the other candidates stay edges (#2025).
+            if !loader {
+                by_name |= call.by_name;
+                found.exempt.push(call.callee);
+            }
             let others = candidates.into_iter().filter(|name| name != &module.name);
             for target in others.filter(|name| self.imports(name)) {
                 found.targets.push((call.range, target));
@@ -204,9 +208,9 @@ impl World<'_> {
         Some(count)
     }
 
-    /// The modules that a call can import, or `None` when a candidate is no module name or is a
-    /// trojan horse (`hazards::hazard`).
-    fn candidates(&self, call: &Call) -> Option<BTreeSet<String>> {
+    /// The modules that a call can import, or `None` when a candidate is no module name. The flag is
+    /// true when a candidate is a trojan horse (`hazards::hazard`): that candidate is no edge.
+    fn candidates(&self, call: &Call) -> Option<(BTreeSet<String>, bool)> {
         let none = [String::new()];
         let packages: &[String] = call.packages.as_deref().unwrap_or(&none);
         let mut out = BTreeSet::new();
@@ -225,11 +229,16 @@ impl World<'_> {
                 out.insert(resolved);
             }
         }
-        let named = |name: &String| {
-            name.split('.').all(archkeel_facts::identity::is_identifier)
-                && hazards::hazard(name).is_none()
-        };
-        out.iter().all(named).then_some(out)
+        if !out
+            .iter()
+            .all(|name| name.split('.').all(archkeel_facts::identity::is_identifier))
+        {
+            return None;
+        }
+        let before = out.len();
+        out.retain(|name| hazards::hazard(name).is_none());
+        let loader = out.len() != before;
+        Some((out, loader))
     }
 
     /// True when the candidate is an import: outside the project, a module of it, or a name that
