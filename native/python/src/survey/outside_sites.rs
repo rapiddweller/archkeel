@@ -177,7 +177,7 @@ fn call_at(module: &Module, range: TextRange) -> Option<&ExprCall> {
 }
 
 /// True when each value that `expr` can have is no name of a module of `names`.
-fn foreign(expr: &Expr, names: &HashSet<String>) -> bool {
+pub(super) fn foreign(expr: &Expr, names: &HashSet<String>) -> bool {
     heads(expr).is_some_and(|heads| {
         heads.iter().all(|(head, exact)| {
             !head.starts_with('.')

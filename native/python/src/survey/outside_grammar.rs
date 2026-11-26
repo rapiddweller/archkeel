@@ -20,7 +20,7 @@ use ruff_python_ast::{
 };
 use ruff_text_size::Ranged;
 
-use super::sites::literal_elements;
+use super::sites::{foreign, literal_elements};
 use crate::module::Module;
 
 /// The text of a string written in the source. An f-string without a field is that text:
@@ -114,9 +114,10 @@ pub(super) struct ApiCall {
 
 /// The loader and resource calls of a file, by the name of the callee. A file that imports from
 /// `importlib` also has `files` and `version` as such calls (an alias hides the chain).
-pub(super) fn api_calls(module: &Module) -> Vec<ApiCall> {
+pub(super) fn api_calls(module: &Module, names: &HashSet<String>) -> Vec<ApiCall> {
     struct Calls<'m> {
         module: &'m Module,
+        names: &'m HashSet<String>,
         importlib: bool,
         found: Vec<ApiCall>,
     }
@@ -149,7 +150,7 @@ pub(super) fn api_calls(module: &Module) -> Vec<ApiCall> {
                 return;
             };
             let line = self.module.location(&call.range()).line;
-            let computed = names_computed(call, &name);
+            let computed = names_computed(call, &name) && !self.foreign_name(call, &name);
             // A name written in the source is judged by the site rules of AD-770 and AD-1049 for the
             // calls that were sites before; only the calls that are new sites are added here.
             let runpy = chain(&call.func).is_some_and(|t| t.starts_with("runpy."));
@@ -166,6 +167,16 @@ pub(super) fn api_calls(module: &Module) -> Vec<ApiCall> {
             });
         }
 
+        /// A name that every value of which is provably no module of the scan (`f"tools.{x}"`,
+        /// `"a" if c else "b"`) is no site: AD-770.
+        fn foreign_name(&self, call: &ExprCall, api: &str) -> bool {
+            let [only] = &*call.arguments.args else {
+                return false;
+            };
+            let single = call.arguments.keywords.is_empty();
+            single && matches!(api, "import_module" | "__import__") && foreign(only, self.names)
+        }
+
         fn api(&self, call: &ExprCall) -> Option<String> {
             let text = chain(&call.func);
             let last = match &*call.func {
@@ -180,6 +191,7 @@ pub(super) fn api_calls(module: &Module) -> Vec<ApiCall> {
     }
     let mut calls = Calls {
         module,
+        names,
         importlib: false,
         found: Vec::new(),
     };

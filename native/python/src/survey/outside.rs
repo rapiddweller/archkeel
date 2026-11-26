@@ -209,7 +209,7 @@ pub(super) fn written(
         }
     }
     for (module, _) in outside.iter().zip(&closed).filter(|(_, closed)| !**closed) {
-        for call in grammar::api_calls(module) {
+        for call in grammar::api_calls(module, &names) {
             let hit: Vec<String> = if call.computed {
                 names.iter().cloned().collect()
             } else {
