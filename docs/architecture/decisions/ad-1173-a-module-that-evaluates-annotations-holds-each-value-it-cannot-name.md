@@ -18,4 +18,4 @@ A string literal that a name or attribute name holds is read as code (AD-1134), 
 
 **Limit.** A module that gets its annotations evaluated only by another module (a library) is not gated: the survey reads only the module itself. A parameter name used as an annotation, and a string that another module writes into this module, are not seen. A name that the module binds to a call result (not a type factory) is a site even when the call returns a type.
 
-**Tests.** `tests/test_collector_false_pass_python_annotation_class.py` (27 plants, 5 controls; CPython 3.12 writes a counter line in each plant) and two unit tests in `hazards_importers_tests.rs`. The mutation that makes the class rule return no site fails 21 of the 27 plants. The other plants stay UNKNOWN through AD-1134.
+**Tests.** `tests/test_collector_false_pass_python_annotation_class.py` (27 plants, 5 controls; CPython 3.12 writes a counter line in each plant) and two unit tests in `hazards_importers_tests.rs`. The mutation that makes the class rule return no site fails 23 of the 27 plants. The other 4 plants stay UNKNOWN through AD-1134.

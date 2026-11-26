@@ -57,7 +57,7 @@ NAMES = {
     "walrus": named(f's = None\n(s := "{IMPORT}")'),
     "augmented": named(f's = ""\ns += "{IMPORT}"'),
     "augmented in a loop": named(f's = ""\nfor _ in range(2):\n    s = "{IMPORT}"\n    s += ""'),
-    "for target": named(f'for s in ["{IMPORT}"]:\n    pass'),
+    "for target name": named(f'for s in ["{IMPORT}"]:\n    pass'),
     "conditional": named(f's = "{IMPORT}" if typing else "int"'),
     "and": named(f's = 1 and "{IMPORT}"'),
     "str call": named(f's = str("{IMPORT}")'),
