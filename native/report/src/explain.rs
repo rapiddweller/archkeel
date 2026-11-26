@@ -19,10 +19,16 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_contract::{head_of, Rule};
 use archkeel_eval::{CycleStep, Outcome, Violation};
-use archkeel_model::{shape, Applied, CoverageGap, Model, PairOrigin, Reason, Shape};
+use archkeel_model::{
+    shape, Applied, Cause, CoverageGap, Incomplete, Model, PairOrigin, Reason, Shape,
+};
 use serde::Serialize;
 
-use crate::why::{Held, HoldKind, InterfaceHolds, WhyUnknown};
+use crate::why::WhyUnknown;
+
+#[path = "explain_holds.rs"]
+mod holds;
+use holds::{GapHolds, HoldKind, Holds, InterfaceHolds, OriginCount, Pair, RuleHolds};
 
 const VERSION: u8 = 1;
 /// The most cycles that one rule lists.
@@ -136,6 +142,63 @@ struct Cycles {
     items: Vec<CyclePath>,
 }
 
+/// What the reason of one rule says about the gaps that hold it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Held {
+    cause: WhyUnknown,
+    kind: HoldKind,
+    pairs: Vec<(String, String, Option<PairOrigin>)>,
+    /// The ids of the gaps that the reason itself names (AD-564).
+    ids: Vec<String>,
+    unnamed_imports: usize,
+    interface: Option<InterfaceHolds>,
+    imports_total: usize,
+}
+
+impl Held {
+    /// The kind of hold that a reason states, with the pairs, the gap ids and the unnamed
+    /// imports that it names.
+    fn of(reason: &Reason) -> Held {
+        let mut held = Held {
+            cause: WhyUnknown::of(reason),
+            kind: HoldKind::Other,
+            pairs: Vec::new(),
+            ids: Vec::new(),
+            unnamed_imports: 0,
+            interface: None,
+            imports_total: 0,
+        };
+        if let Reason::Interface(hold) = reason {
+            held.kind = HoldKind::InterfaceImports;
+            held.interface = Some(InterfaceHolds::of(hold));
+            held.imports_total = hold.total();
+        }
+        if let Reason::Incomplete(incomplete) = reason {
+            held.kind = match incomplete {
+                Incomplete::CoverageGaps { .. } => HoldKind::CoverageGaps,
+                Incomplete::UnknownImports(count) => {
+                    held.unnamed_imports = *count;
+                    HoldKind::UnknownImports
+                }
+                Incomplete::NoSourceFiles => HoldKind::NoSourceFiles,
+            };
+        }
+        if let Reason::NotComplete(Cause::PairGaps(pairs)) = reason {
+            held.kind = HoldKind::PairGaps;
+            held.pairs = distinct(pairs.pairs(), pairs.origins());
+        }
+        if let Reason::NotComplete(Cause::AllowedPairGaps(pairs)) = reason {
+            held.kind = HoldKind::AllowedPairGaps;
+            held.pairs = distinct(pairs.pairs(), &[]);
+        }
+        if let Reason::NotComplete(Cause::ScopedGaps(scoped)) = reason {
+            held.kind = HoldKind::ScopedGaps;
+            held.ids = scoped.ids().to_vec();
+        }
+        held
+    }
+}
+
 /// The facts that `explain` collects while the rules are decided.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Collected {
@@ -163,6 +226,34 @@ impl Collected {
         }
         (pairs, found)
     }
+}
+
+/// The pairs of the gap records, each once, in the order of their first record, with the origin
+/// of that record when the rule states one.
+fn distinct(
+    records: &[(String, String)],
+    origins: &[PairOrigin],
+) -> Vec<(String, String, Option<PairOrigin>)> {
+    let mut seen = BTreeSet::new();
+    let each = records.iter().enumerate();
+    each.filter(|(_, pair)| seen.insert(*pair))
+        .map(|(at, (source, target))| (source.clone(), target.clone(), origins.get(at).copied()))
+        .collect()
+}
+
+/// The number of pairs of each origin.
+fn origin_counts(pairs: &[(String, String, Option<PairOrigin>)]) -> Vec<OriginCount> {
+    let mut counts: BTreeMap<PairOrigin, usize> = BTreeMap::new();
+    for origin in pairs.iter().filter_map(|(_, _, origin)| *origin) {
+        *counts.entry(origin).or_default() += 1;
+    }
+    let word = PairOrigin::word;
+    (counts.into_iter())
+        .map(|(origin, count)| OriginCount {
+            origin: word(origin),
+            count,
+        })
+        .collect()
 }
 
 impl Collected {
@@ -266,69 +357,6 @@ fn step(step: &CycleStep, applied: &[Applied]) -> Step {
     }
 }
 
-/// The pair of a gap between two modules.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct Pair {
-    source: String,
-    target: String,
-    /// Why the pair holds an interface rule; absent for the other rules.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    origin: Option<&'static str>,
-}
-
-/// The number of held pairs of one origin (an interface rule).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct OriginCount {
-    origin: &'static str,
-    count: usize,
-}
-
-/// The gaps that hold one rule.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct RuleHolds {
-    cause: WhyUnknown,
-    kind: HoldKind,
-    /// The ids of the coverage gaps of the reply that hold the rule.
-    gaps: Vec<String>,
-    /// The first module pairs that hold the rule (a pair is two modules with a gap between them).
-    pairs: Vec<Pair>,
-    /// The number of module pairs that hold the rule. A pair can have several gap records. A
-    /// rule that no pair holds counts gap ids. `pairs` and `gaps` keep at most `held_per_rule`.
-    total: usize,
-    /// True when `total` is larger than the lists that this frame keeps.
-    truncated: bool,
-    /// The imports that the collector could not resolve and that no gap names.
-    unnamed_imports: usize,
-    /// The number of held pairs of each origin, for an interface rule.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    origins: Vec<OriginCount>,
-    /// The held imports of an `interface_boundary` rule, each with its stated cause.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    interface: Option<InterfaceHolds>,
-}
-
-/// One coverage gap and the rules that it holds.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct GapHolds {
-    id: String,
-    kind: String,
-    reason: String,
-    rules: Vec<String>,
-    rules_total: usize,
-    truncated: bool,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct Holds {
-    rules: BTreeMap<String, RuleHolds>,
-    gaps: Vec<GapHolds>,
-    /// The number of coverage gaps of the reply.
-    gaps_total: usize,
-    /// The number of coverage gaps that hold at least one rule.
-    gaps_holding: usize,
-    gaps_truncated: bool,
-}
-
 /// The `explain` part of the frame.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Explain {
@@ -369,21 +397,6 @@ fn ids_of(held: &Held, gaps: &[CoverageGap]) -> Vec<String> {
         | HoldKind::NoSourceFiles
         | HoldKind::Other => Vec::new(),
     }
-}
-
-/// The number of pairs of each origin.
-fn origin_counts(pairs: &[(String, String, Option<PairOrigin>)]) -> Vec<OriginCount> {
-    let mut counts: BTreeMap<PairOrigin, usize> = BTreeMap::new();
-    for origin in pairs.iter().filter_map(|(_, _, origin)| *origin) {
-        *counts.entry(origin).or_default() += 1;
-    }
-    counts
-        .into_iter()
-        .map(|(origin, count)| OriginCount {
-            origin: PairOrigin::word(origin),
-            count,
-        })
-        .collect()
 }
 
 impl Collected {

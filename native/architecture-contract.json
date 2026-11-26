@@ -2048,12 +2048,8 @@
           "through": [
             "native.archkeel_model:Cause",
             "native.archkeel_model:Decision",
-            "native.archkeel_model:Incomplete",
-            "native.archkeel_model:InterfaceGap",
-            "native.archkeel_model:InterfaceHold",
             "native.archkeel_model:Model",
             "native.archkeel_model:ModelTree",
-            "native.archkeel_model:PairOrigin",
             "native.archkeel_model:Reason",
             "native.archkeel_model:RunGap",
             "native.archkeel_model:RunPass",
@@ -2099,31 +2095,12 @@
             "native.archkeel_report.report",
             "native.archkeel_report.status"
           ]
-        },
-        {
-          "component": "model-terms",
-          "rationale": "Read the held imports and the origins of an interface_boundary hold (#2086, AD-1170).",
-          "through": [
-            "native.archkeel_model.causes:InterfaceGap",
-            "native.archkeel_model.causes:InterfaceHold",
-            "native.archkeel_model.causes:PairOrigin"
-          ]
-        },
-        {
-          "component": "facts",
-          "rationale": "Read the cause that the collector states for a held import (#2086, AD-1170).",
-          "through": [
-            "native.archkeel_facts.vocab:RouteWithheld"
-          ]
         }
       ],
       "public": [
         "native.archkeel_report.build_error:BuildError",
         "native.archkeel_report.construct:construct_row",
         "native.archkeel_report.kind:word",
-        "native.archkeel_report.why:Held",
-        "native.archkeel_report.why:HoldKind",
-        "native.archkeel_report.why:InterfaceHolds",
         "native.archkeel_report.why:WhyUnknown"
       ],
       "decided_by": "architect"
@@ -2242,6 +2219,8 @@
             "native.archkeel_model:CoverageGap",
             "native.archkeel_model:Decision",
             "native.archkeel_model:Incomplete",
+            "native.archkeel_model:InterfaceGap",
+            "native.archkeel_model:InterfaceHold",
             "native.archkeel_model:Model",
             "native.archkeel_model:ModelTree",
             "native.archkeel_model:PairOrigin",
@@ -2346,7 +2325,16 @@
           "component": "model-terms",
           "rationale": "Read the held imports and their classes of an interface_boundary hold (#2086, AD-1170).",
           "through": [
+            "native.archkeel_model.causes:InterfaceGap",
+            "native.archkeel_model.causes:InterfaceHold",
             "native.archkeel_model.causes:PairOrigin"
+          ]
+        },
+        {
+          "component": "facts",
+          "rationale": "Read the cause that the collector states for a held import (#2086, AD-1170).",
+          "through": [
+            "native.archkeel_facts.vocab:RouteWithheld"
           ]
         }
       ],
