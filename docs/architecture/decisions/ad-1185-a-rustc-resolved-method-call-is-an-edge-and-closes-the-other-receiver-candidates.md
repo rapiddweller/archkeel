@@ -24,7 +24,7 @@ such gaps (`as_str` 299, `is_empty` 92, `id` 81). The rustc driver already knows
    function, so the call cannot reach `M`. The file decides, not a module name: a name can map wrong (a binary target).
    The type arguments of the instance (Self included, opaque types revealed, closures and nested arguments) must not
    touch `M`: no argument is defined in the file of `M` or has an impl there (blanket impls always count), and none is
-   open (a trait object, a parameter). A std adapter that runs a closure of `M` keeps the candidate. A foreign callee (`core`, `alloc`) falls the candidate too. An unresolved call and a
+   open (a trait object, a function pointer, a coroutine, a parameter: only plain data and named types are known). A std adapter that runs a closure of `M` keeps the candidate. A foreign callee (`core`, `alloc`) falls the candidate too. An unresolved call and a
    configuration that lacks the place or changes the callee decide nothing. A test unit can only veto: a place that
    only test code holds decides nothing, and a test unit that names another callee keeps the candidate.
 4. **Edge.** A callee in another scan module is a `selected_impl` edge (AD-1136) with the call as evidence,

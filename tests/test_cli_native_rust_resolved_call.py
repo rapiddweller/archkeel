@@ -201,6 +201,35 @@ def test_a_std_adapter_that_runs_a_closure_of_b_keeps_the_gap(
     assert found["NO-A-TO-B"] != "PASS"
 
 
+def test_a_std_adapter_with_a_function_pointer_into_b_keeps_the_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A function pointer hides its target: the type argument is `fn(()) -> usize`, and `b` runs."""
+    closure = (
+        "pub fn mk() -> impl FnMut(()) -> usize {\n    |_| HITS.fetch_add(1, Ordering::SeqCst)\n}"
+    )
+    pointer = (
+        "fn hit(_: ()) -> usize {\n    HITS.fetch_add(1, Ordering::SeqCst)\n}\n\n"
+        "pub fn mk() -> fn(()) -> usize {\n    hit\n}"
+    )
+    assert closure in B
+    files = {
+        "crates/app/src/b.rs": B.replace(closure, pointer),
+        "crates/app/src/c.rs": C.replace("-> impl FnMut(()) -> usize", "-> fn(()) -> usize"),
+    }
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "cache"))
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        {**_sources(A_CLOSURE_B), **files},
+        components=_parts(),
+        rules=(*CRATE_RULES[1:], _forbid("b"), _forbid("d")),
+        type_reach=True,
+    )
+    assert _cargo_run(root) == "1 0", "the function of `b` runs"
+    assert statuses(validate(root))["NO-A-TO-B"] != "PASS"
+
+
 def test_a_std_adapter_with_a_closure_of_the_caller_closes_the_candidate(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

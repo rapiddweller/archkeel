@@ -45,6 +45,70 @@ fn impl_index(st: &mut State, tcx: TyCtxt<'_>) -> ImplIndex {
     index
 }
 
+/// What the type arguments of a call can run (see `touch`).
+struct Touched {
+    files: BTreeSet<u32>,
+    /// An argument is not fully known, or can hide code.
+    open: bool,
+    /// An argument is a plain type that is no ADT (a number, a reference, a tuple).
+    plain: bool,
+}
+
+/// Visit one type: its definition file, the files of its impls, and the types inside it. A closure shows its
+/// captured types and the arguments of its parent, not its signature (a signature is a function pointer type).
+fn visit<'tcx>(st: &mut State, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, found: &mut Touched) {
+    let nested = |args: &[ty::GenericArg<'tcx>]| -> Vec<Ty<'tcx>> {
+        args.iter().filter_map(|a| a.as_type()).collect()
+    };
+    let inner: Vec<Ty<'tcx>> = match *ty.kind() {
+        ty::Adt(def, args) => {
+            found.files.insert(crate::items::file(tcx, st, def.did()));
+            for imp in tcx.inherent_impls(def.did()) {
+                found.files.insert(crate::items::file(tcx, st, *imp));
+            }
+            let own = st.impls.as_ref().and_then(|i| i.by_adt.get(&def.did()));
+            found.files.extend(own.into_iter().flatten().copied());
+            nested(&args[..])
+        }
+        ty::Closure(d, args) => {
+            found.files.insert(crate::items::file(tcx, st, d));
+            let closure = args.as_closure();
+            let mut all = nested(closure.parent_args());
+            all.extend(closure.upvar_tys());
+            all
+        }
+        ty::FnDef(d, args) => {
+            found.files.insert(crate::items::file(tcx, st, d));
+            nested(&args[..])
+        }
+        ty::Foreign(d) => {
+            found.files.insert(crate::items::file(tcx, st, d));
+            Vec::new()
+        }
+        ty::Ref(_, t, _) | ty::RawPtr(t, _) | ty::Slice(t) | ty::Array(t, _) => {
+            found.plain = true;
+            vec![t]
+        }
+        ty::Tuple(items) => {
+            found.plain = true;
+            items.iter().collect()
+        }
+        ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str | ty::Never => {
+            found.plain = true;
+            Vec::new()
+        }
+        // Any other kind can carry code that the type does not name: a function pointer, a trait object, a
+        // coroutine, a parameter, an alias. Nothing is proven.
+        _ => {
+            found.open = true;
+            Vec::new()
+        }
+    };
+    for t in inner {
+        visit(st, tcx, t, found);
+    }
+}
+
 /// What the type arguments of a call can run: the files that hold the types, the closures and the impls of them.
 /// `open` when an argument is not fully known (a trait object, a type parameter): then nothing is proven.
 fn touch<'tcx>(
@@ -57,50 +121,24 @@ fn touch<'tcx>(
         let index = impl_index(st, tcx);
         st.impls = Some(index);
     }
-    let mut files = BTreeSet::new();
-    let mut open = false;
-    let mut non_adt = false;
-    for arg in args.iter() {
-        let Some(ty) = arg.as_type() else { continue };
+    let mut found = Touched {
+        files: BTreeSet::new(),
+        open: false,
+        plain: false,
+    };
+    for ty in args.iter().filter_map(|a| a.as_type()) {
         let ty = tcx
             .try_normalize_erasing_regions(env, ty::Unnormalized::new(ty))
             .unwrap_or(ty);
-        for node in ty.walk().filter_map(|g| g.as_type()) {
-            match node.kind() {
-                ty::Adt(def, _) => {
-                    files.insert(crate::items::file(tcx, st, def.did()));
-                    for imp in tcx.inherent_impls(def.did()) {
-                        files.insert(crate::items::file(tcx, st, *imp));
-                    }
-                    if let Some(found) = st.impls.as_ref().and_then(|i| i.by_adt.get(&def.did())) {
-                        files.extend(found.iter().copied());
-                    }
-                }
-                ty::Closure(d, _)
-                | ty::CoroutineClosure(d, _)
-                | ty::Coroutine(d, _)
-                | ty::FnDef(d, _)
-                | ty::Foreign(d) => {
-                    files.insert(crate::items::file(tcx, st, *d));
-                }
-                ty::Dynamic(..)
-                | ty::Param(_)
-                | ty::Infer(_)
-                | ty::Placeholder(_)
-                | ty::Bound(..)
-                | ty::Alias(..)
-                | ty::Error(_) => open = true,
-                _ => non_adt = true,
-            }
-        }
+        visit(st, tcx, ty, &mut found);
     }
     if let Some(index) = st.impls.as_ref() {
-        files.extend(index.blanket.iter().copied());
-        if non_adt {
-            files.extend(index.other.iter().copied());
+        found.files.extend(index.blanket.iter().copied());
+        if found.plain {
+            found.files.extend(index.other.iter().copied());
         }
     }
-    (files, open)
+    (found.files, found.open)
 }
 
 /// Add a record when `func_ty` is a method call that the compiler resolves to one function. `owner` is the root
