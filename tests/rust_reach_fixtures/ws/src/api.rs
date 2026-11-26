@@ -12,7 +12,7 @@ pub trait Tr: Send {
 
 pub trait Sub: Tr {}
 
-pub static HITS: [AtomicUsize; 80] = [const { AtomicUsize::new(0) }; 80];
+pub static HITS: [AtomicUsize; 90] = [const { AtomicUsize::new(0) }; 90];
 
 pub fn hit(index: usize) {
     HITS[index].fetch_add(1, Ordering::SeqCst);

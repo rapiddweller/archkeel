@@ -255,14 +255,17 @@ impl<'a, 'tcx> Walk<'a, 'tcx> {
         let src = self.found(from);
         let tgt = self.found(to);
         for tr in &tgt.dyns {
-            let c = self.st.coerce.entry(*tr).or_insert_with(|| Coerced {
+            // A site whose `dyn Fn*` signature is not written in full names the plain trait (AD-1160).
+            let site = self.st.names.fn_site.get(tr).unwrap_or(tr);
+            let c = self.st.coerce.entry(*site).or_insert_with(|| Coerced {
                 adts: BTreeSet::new(),
                 dyns: BTreeSet::new(),
                 param_in: BTreeSet::new(),
                 opaques: BTreeSet::new(),
             });
             c.adts.extend(src.adts.iter().copied());
-            c.dyns.extend(src.dyns.iter().copied());
+            // A cast from a `dyn` to the same `dyn` (an auto trait or a lifetime changes) holds no new value.
+            c.dyns.extend(src.dyns.iter().copied().filter(|d| d != tr));
             if src.param {
                 c.param_in.insert(self.me);
             }

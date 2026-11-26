@@ -64,7 +64,7 @@ fn line(tcx: TyCtxt<'_>, d: DefId) -> usize {
     tcx.sess.source_map().lookup_char_pos(sp.lo()).line
 }
 
-fn found(tcx: TyCtxt<'_>, st: &mut State, ty: rustc_middle::ty::Ty<'_>, f: &mut Found) {
+fn found<'tcx>(tcx: TyCtxt<'tcx>, st: &mut State, ty: rustc_middle::ty::Ty<'tcx>, f: &mut Found) {
     scan(tcx, &mut st.names, ty, f);
     for d in &f.opaques {
         st.opaque_defs.insert(*d);
@@ -335,6 +335,47 @@ pub(crate) fn supers(tcx: TyCtxt<'_>, st: &mut State, out: &mut Vec<String>) {
                 st.names.def(tcx, tr),
                 json::ids(&sups)
             ));
+        }
+    }
+}
+
+/// The flow between the keys of the `dyn Fn*` types (AD-1160), as `super` records: the reader gives each
+/// supertrait what its subtrait holds.
+///
+/// - A closure coerced to `Fn(S)` is a value of `FnMut(S)` and `FnOnce(S)` (upcasting, or `Box<dyn Fn>` as `FnOnce`).
+/// - A coercion site that names the plain trait (its signature is not written in full) can hold any signature:
+///   each key of the trait reads it.
+/// - A receiver with an open signature (`<*>`) can hold any closure of its trait or a subtrait: it reads each key.
+pub(crate) fn fn_keys(tcx: TyCtxt<'_>, st: &mut State, out: &mut Vec<String>) {
+    let items = tcx.lang_items();
+    let family: Vec<DefId> = [
+        items.fn_trait(),
+        items.fn_mut_trait(),
+        items.fn_once_trait(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    if st.names.fn_sigs.is_empty() && !st.names.fn_open {
+        return;
+    }
+    let mut record = |st: &mut State, sub: String, sup: String| {
+        let (sub, sup) = (st.names.text(&sub), st.names.text(&sup));
+        out.push(format!("{{\"k\":\"super\",\"tr\":{sub},\"sup\":[{sup}]}}"));
+    };
+    let base: Vec<String> = family.iter().map(|d| crate::names::path(tcx, *d)).collect();
+    let sigs: Vec<String> = st.names.fn_sigs.iter().cloned().collect();
+    for (at, name) in base.iter().enumerate() {
+        record(st, name.clone(), format!("{name}<*>"));
+        if let Some(next) = base.get(at + 1) {
+            record(st, format!("{name}<*>"), format!("{next}<*>"));
+        }
+        for sig in &sigs {
+            record(st, name.clone(), format!("{name}<{sig}>"));
+            record(st, format!("{name}<{sig}>"), format!("{name}<*>"));
+            if let Some(next) = base.get(at + 1) {
+                record(st, format!("{name}<{sig}>"), format!("{next}<{sig}>"));
+            }
         }
     }
 }

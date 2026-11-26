@@ -6,7 +6,7 @@
 
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::TyCtxt;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// Texts with their ids. An id is the index in the table that the file writes first.
 pub(crate) struct Names {
@@ -18,6 +18,13 @@ pub(crate) struct Names {
     pub(crate) foreign: HashSet<DefId>,
     /// The `dyn` traits (principal and auto) that a type walk met.
     pub(crate) dyn_traits: HashSet<DefId>,
+    /// The `Fn`, `FnMut` and `FnOnce` traits with the text of each signature that a `dyn` of them met and that the
+    /// walk could write in full (AD-1160). `crate::fn_keys` writes the flow between these keys.
+    pub(crate) fn_sigs: BTreeSet<String>,
+    /// A `dyn` of these traits met with a signature that the walk could not write: it reads every key.
+    pub(crate) fn_open: bool,
+    /// For the id of such an open receiver: the id of the plain trait. A coercion site names the plain trait.
+    pub(crate) fn_site: HashMap<u32, u32>,
 }
 
 /// The canonical `crate::module::Item` text of a definition. Local and foreign items read alike.
@@ -37,6 +44,9 @@ impl Names {
             defs: HashMap::new(),
             foreign: HashSet::new(),
             dyn_traits: HashSet::new(),
+            fn_sigs: BTreeSet::new(),
+            fn_open: false,
+            fn_site: HashMap::new(),
         }
     }
 

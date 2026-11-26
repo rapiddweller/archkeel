@@ -213,6 +213,7 @@ pub(crate) fn write(u: &Unit, tcx: TyCtxt<'_>, st: &mut State) {
     items::foreign(tcx, st, &mut lines);
     items::open(tcx, st, &mut lines);
     items::supers(tcx, st, &mut lines);
+    items::fn_keys(tcx, st, &mut lines);
     items::close_erased(st);
     let ptr = st.names.text("<ptr>");
     for (key, flow) in &st.via {
