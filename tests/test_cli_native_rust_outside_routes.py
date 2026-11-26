@@ -77,6 +77,17 @@ ROUTES = {
         '[dependencies]\nbase-crate = "=0.0.0"\n',
         "pub fn f() { base_crate::make(); }\n",
     ),
+    "patch-path-names-package": (
+        WORKSPACE
+        + '[patch.crates-io]\nbase-alias = { path = "package/../base", package = "base-crate" }\n',
+        HEAD,
+        "pub fn f() { base_crate::make(); }\n",
+    ),
+    "lib-path-into-member": (
+        WORKSPACE,
+        '[lib]\npath = "../../crates/base/src/lib.rs"\n',
+        "// the target is the file of a member\n",
+    ),
     "include": (
         WORKSPACE,
         "",
@@ -97,6 +108,8 @@ ROUTES = {
 
 
 EXTRA = {
+    "patch-path-names-package": {"crates/package/keep": "x\n"},
+    "lib-path-into-member": {"crates/app/src/lib.rs": "pub fn run() { x::make(); }\n"},
     "include-inc": {"vendor/x/src/internal.inc": 'include!("../../../crates/base/src/lib.rs");\n'},
     "patch-two-versions": {
         "vendor/other/Cargo.toml": (
@@ -134,7 +147,6 @@ def _scan(
     extra: dict[str, str],
 ) -> Path:
     layout = {
-        **extra,
         "bridge.rs": 'include!("crates/base/src/lib.rs");\n',
         "crates/Cargo.toml": workspace,
         "crates/app/Cargo.toml": _app('x = { path = "../../vendor/x" }\n'),
@@ -142,6 +154,7 @@ def _scan(
         "crates/app/src/main.rs": MARKED_MAIN,
         "vendor/x/Cargo.toml": FOREIGN_X + deps,
         "vendor/x/src/lib.rs": source,
+        **extra,
     }
     return repository(
         tmp_path / "repo", release_core, files=layout, components=PARTS, rules=_forbid(True)

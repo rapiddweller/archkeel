@@ -166,10 +166,30 @@ fn quoted(value: &str) -> Option<&str> {
     Some(&body[..body.find('"')?])
 }
 
-/// The string of `key = "..."` inside an inline table.
+/// The string of `key = "..."` inside an inline table. A word inside a string is no key: the search runs on a copy
+/// of the table in which each string body is blank.
 fn inline_value<'a>(table: &'a str, key: &str) -> Option<&'a str> {
-    let at = word_at(table, key).next()?;
-    quoted(table[at + key.len()..].trim_start().strip_prefix('=')?)
+    let blank = blank_strings(table);
+    let at =
+        word_at(&blank, key).find(|at| blank[at + key.len()..].trim_start().starts_with('='))?;
+    let rest = &table[at + key.len()..];
+    quoted(rest.trim_start().strip_prefix('=')?)
+}
+
+/// `text` with each character between two quotes replaced by a space (the same byte length is kept).
+fn blank_strings(text: &str) -> String {
+    let mut quoted = false;
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        let keep = c == '"' || !quoted;
+        quoted ^= c == '"';
+        if keep {
+            out.push(c);
+        } else {
+            out.extend(std::iter::repeat_n(' ', c.len_utf8()));
+        }
+    }
+    out
 }
 
 /// The start of each whole-word occurrence of `word` in `text`.
@@ -267,7 +287,16 @@ const MAX_BYTES: u64 = 4 << 20;
 /// the crate is not read here, so what it includes is unknown.
 fn sources_reach_member(dir: &Path, members: &Members, meta: &Value) -> bool {
     // Cargo compiles each target `src_path` as Rust, whatever its extension.
+    let Some(own) = real_dir(dir.to_str().unwrap_or_default()) else {
+        return true;
+    };
     let mut files = target_sources(meta);
+    // A target source inside a member, or outside the crate, is the route itself: the search does not read it as the crate.
+    if files.iter().any(|f| {
+        !real_dir(f.to_str().unwrap_or_default()).is_some_and(|t| crate_owns(&t, &own, members))
+    }) {
+        return true;
+    }
     let mut pending = vec![dir.to_path_buf()];
     while let Some(next) = pending.pop() {
         let Ok(entries) = std::fs::read_dir(&next) else {
@@ -286,9 +315,6 @@ fn sources_reach_member(dir: &Path, members: &Members, meta: &Value) -> bool {
             return true;
         }
     }
-    let Some(own) = real_dir(dir.to_str().unwrap_or_default()) else {
-        return true;
-    };
     files.iter().any(|file| file_escapes(file, &own, members))
 }
 
@@ -382,6 +408,12 @@ fn whole_literal(rest: &str) -> Option<&str> {
     let literal = &body[..body.find('"')?];
     let after = trivia(&body[literal.len() + 1..]);
     after.starts_with([')', ']', ';', '}']).then_some(literal)
+}
+
+/// Whether the canonical path `target` lies in the crate `own` and in no member.
+fn crate_owns(target: &str, own: &str, members: &Members) -> bool {
+    let inside = |dir: &str| target == dir || target.starts_with(&format!("{dir}/"));
+    inside(own) && !members.dirs.keys().any(|member| inside(member))
 }
 
 /// Whether `literal`, read from `base`, leaves the crate in `own`, lies inside a member, or names a file that the
