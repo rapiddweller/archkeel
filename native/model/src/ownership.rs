@@ -82,7 +82,7 @@ pub(crate) fn reexported(
                 })
         })
     };
-    let from_module = |i: &&Import| i.is_reexport() && i.target_module() == module;
+    let from_module = |i: &&Import| i.reexport && i.target_module() == module;
     imports
         .iter()
         .filter(from_module)

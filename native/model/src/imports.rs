@@ -46,6 +46,16 @@ pub(crate) struct Published {
     pub(crate) other_crate: bool,
 }
 
+impl Published {
+    /// A complete route with no name: the import of a declared reach.
+    pub(crate) fn complete() -> Self {
+        Self {
+            complete: true,
+            ..Self::default()
+        }
+    }
+}
+
 /// One resolved import that is not a macro body: the input of the edges and the rules.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Import {
@@ -67,6 +77,7 @@ pub struct Import {
     pub(crate) call_by_name: bool,
     pub(crate) unbound_type: bool,
     pub(crate) selected_impl: bool,
+    /// A re-export (`pub use`): the module publishes the names of its target (AD-1136).
     pub(crate) reexport: bool,
 }
 
@@ -132,11 +143,6 @@ impl Import {
     /// It proves a dependency on the module and names no symbol, so it adds no name to the interface.
     pub fn selected_impl(&self) -> bool {
         self.selected_impl
-    }
-
-    /// True for a re-export (`pub use`): the module publishes the names of its target.
-    pub fn is_reexport(&self) -> bool {
-        self.reexport
     }
 
     /// True when the source writes the name: no inferred receiver and no impl that the compiler selected. A rule

@@ -483,10 +483,7 @@ fn declared(
         inferred_receiver: false,
         call_form: true,
         call_by_name: true,
-        published: Published {
-            complete: true,
-            ..Published::default()
-        },
+        published: Published::complete(),
         relative: false,
         resolved,
         evidence,
