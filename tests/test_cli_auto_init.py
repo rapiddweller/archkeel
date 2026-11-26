@@ -10,6 +10,7 @@ workspace. The first verdict of a draft is UNKNOWN with the open decisions, neve
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -139,19 +140,54 @@ def test_an_existing_file_is_never_overwritten(
 
 
 @pytest.mark.parametrize("how", ["flag", "variable"])
+@pytest.mark.parametrize("command", ["validate", "report"])
 def test_opting_out_writes_nothing_and_says_what_the_layout_gives(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
     how: str,
+    command: str,
 ) -> None:
     root = plant(tmp_path)
     if how == "variable":
         monkeypatch.setenv("ARCHKEEL_NO_INIT", "1")
-    code, text = run(capsys, root, "validate", "--text", *(["--no-init"] if how == "flag" else []))
+    code, text = run(capsys, root, command, "--text", *(["--no-init"] if how == "flag" else []))
     assert code == 2 and drafted(root) == set()
     assert "nothing was written" in text and "billing, catalog, orders, root" in text
     assert "archkeel init" in text
+    assert "archkeel studio --root PATH" in text
+
+
+def test_report_refusal_points_to_studio_in_the_real_cli(tmp_path: Path) -> None:
+    root = plant(tmp_path)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "archkeel.cli",
+            "report",
+            "--root",
+            str(root),
+            "--no-init",
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2, result.stdout + result.stderr
+    document = json.loads(result.stdout)
+    assert document["status"] == "UNKNOWN"
+    assert "archkeel studio --root PATH" in document["refusal"]["message"]
+    assert drafted(root) == set()
+
+
+@pytest.mark.parametrize("command", ["init", "validate", "report"])
+def test_first_run_help_names_the_observed_studio(
+    capsys: pytest.CaptureFixture[str], command: str
+) -> None:
+    assert core_only.run([command, "--help"]) == 0
+    assert "archkeel studio" in capsys.readouterr().out
 
 
 @pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs a folder that is read-only")
