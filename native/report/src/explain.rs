@@ -19,8 +19,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_contract::{head_of, Rule};
 use archkeel_eval::{CycleStep, Outcome, Violation};
+use archkeel_facts::vocab::RouteWithheld;
 use archkeel_model::{
-    shape, Applied, Cause, CoverageGap, Incomplete, Model, PairOrigin, Reason, Shape,
+    shape, Applied, Cause, CoverageGap, Incomplete, InterfaceGap, InterfaceHold, Model, PairOrigin,
+    Reason, Shape,
 };
 use serde::Serialize;
 
@@ -28,7 +30,10 @@ use crate::why::WhyUnknown;
 
 #[path = "explain_holds.rs"]
 mod holds;
-use holds::{GapHolds, HoldKind, Holds, InterfaceHolds, OriginCount, Pair, RuleHolds};
+use holds::{
+    ClassCount, CyclePath, Cycles, DeclaredEdge, GapHolds, HeldImport, HoldKind, Holds,
+    InterfaceHolds, OriginCount, Pair, RuleHolds, Step,
+};
 
 const VERSION: u8 = 1;
 /// The most cycles that one rule lists.
@@ -94,52 +99,6 @@ pub(crate) struct RuleShape {
     direction: &'static str,
     source: Vec<String>,
     target: Vec<String>,
-}
-
-/// One step of a cycle path.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct Step {
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    possible: bool,
-    from: String,
-    to: String,
-    from_component: Option<String>,
-    to_component: Option<String>,
-    imports: usize,
-    /// The declared edges of the step: the declaration, the module of its site and the module that
-    /// it may load (AD-1057).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    declared: Vec<DeclaredEdge>,
-    evidence: Vec<String>,
-    evidence_total: usize,
-}
-
-/// One possible import that a declaration supplies to a cycle step.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct DeclaredEdge {
-    declaration: String,
-    source: String,
-    target: String,
-}
-
-/// One cycle: its members and one closed path through them.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct CyclePath {
-    id: String,
-    /// The position of the violation in `details` of the rule.
-    index: usize,
-    members: Vec<String>,
-    path: Vec<Step>,
-    steps_total: usize,
-    truncated: bool,
-}
-
-/// The cycles of one rule.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct Cycles {
-    total: usize,
-    truncated: bool,
-    items: Vec<CyclePath>,
 }
 
 /// What the reason of one rule says about the gaps that hold it.
@@ -398,6 +357,47 @@ fn ids_of(held: &Held, gaps: &[CoverageGap]) -> Vec<String> {
         | HoldKind::Other => Vec::new(),
     }
 }
+
+impl InterfaceHolds {
+    /// The projection of the hold of one rule.
+    fn of(hold: &InterfaceHold) -> InterfaceHolds {
+        InterfaceHolds {
+            classes: hold
+                .classes()
+                .map(|(gap, class, count)| ClassCount {
+                    gap: InterfaceGap::word(gap),
+                    class: class.map_or("not_stated", RouteWithheld::as_str),
+                    count,
+                })
+                .collect(),
+            imports: hold
+                .imports()
+                .iter()
+                .take(MAX_IMPORTS)
+                .map(|held| HeldImport {
+                    source: held.source.clone(),
+                    target: held.target.clone(),
+                    name: held.name.clone(),
+                    gap: InterfaceGap::word(held.gap),
+                    class: held
+                        .cause
+                        .as_ref()
+                        .map_or("not_stated", |(cause, _)| cause.as_str()),
+                    cause: held.cause.as_ref().map(cause_value),
+                    evidence: held.evidence.clone(),
+                })
+                .collect(),
+        }
+    }
+}
+
+/// The cause as the frame writes it: its kind and the module or hop that it names.
+fn cause_value((cause, at): &(RouteWithheld, Option<String>)) -> serde_json::Value {
+    serde_json::json!({"kind": cause.as_str(), "at": at})
+}
+
+/// The most imports that one rule lists.
+const MAX_IMPORTS: usize = 20;
 
 impl Collected {
     /// The part of the frame, with the coverage gaps of the reply that the pairs and the run

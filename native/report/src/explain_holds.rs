@@ -7,8 +7,6 @@
 
 use std::collections::BTreeMap;
 
-use archkeel_facts::vocab::RouteWithheld;
-use archkeel_model::{InterfaceGap, InterfaceHold};
 use serde::Serialize;
 
 use crate::why::WhyUnknown;
@@ -93,71 +91,76 @@ pub(super) struct Holds {
     pub(super) gaps_truncated: bool,
 }
 
-/// The most imports that one rule lists.
-const MAX_IMPORTS: usize = 20;
-
 /// One held import.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct HeldImport {
-    source: String,
-    target: String,
-    name: Option<String>,
-    gap: &'static str,
-    class: &'static str,
+pub(super) struct HeldImport {
+    pub(super) source: String,
+    pub(super) target: String,
+    pub(super) name: Option<String>,
+    pub(super) gap: &'static str,
+    pub(super) class: &'static str,
     /// The cause that the collector states; null when it states none.
-    cause: Option<serde_json::Value>,
-    evidence: Vec<String>,
+    pub(super) cause: Option<serde_json::Value>,
+    pub(super) evidence: Vec<String>,
 }
 
 /// The number of held imports of one gap and class.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-struct ClassCount {
-    gap: &'static str,
-    class: &'static str,
-    count: usize,
+pub(super) struct ClassCount {
+    pub(super) gap: &'static str,
+    pub(super) class: &'static str,
+    pub(super) count: usize,
 }
 
 /// What holds an `interface_boundary` rule: the count of each class and the first imports.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-pub(crate) struct InterfaceHolds {
-    classes: Vec<ClassCount>,
-    imports: Vec<HeldImport>,
+pub(super) struct InterfaceHolds {
+    pub(super) classes: Vec<ClassCount>,
+    pub(super) imports: Vec<HeldImport>,
 }
 
-impl InterfaceHolds {
-    /// The projection of the hold of one rule.
-    pub(crate) fn of(hold: &InterfaceHold) -> InterfaceHolds {
-        InterfaceHolds {
-            classes: hold
-                .classes()
-                .map(|(gap, class, count)| ClassCount {
-                    gap: InterfaceGap::word(gap),
-                    class: class.map_or("not_stated", RouteWithheld::as_str),
-                    count,
-                })
-                .collect(),
-            imports: hold
-                .imports()
-                .iter()
-                .take(MAX_IMPORTS)
-                .map(|held| HeldImport {
-                    source: held.source.clone(),
-                    target: held.target.clone(),
-                    name: held.name.clone(),
-                    gap: InterfaceGap::word(held.gap),
-                    class: held
-                        .cause
-                        .as_ref()
-                        .map_or("not_stated", |(cause, _)| cause.as_str()),
-                    cause: held.cause.as_ref().map(cause_value),
-                    evidence: held.evidence.clone(),
-                })
-                .collect(),
-        }
-    }
+/// One step of a cycle path.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+pub(super) struct Step {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(super) possible: bool,
+    pub(super) from: String,
+    pub(super) to: String,
+    pub(super) from_component: Option<String>,
+    pub(super) to_component: Option<String>,
+    pub(super) imports: usize,
+    /// The declared edges of the step: the declaration, the module of its site and the module that
+    /// it may load (AD-1057).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) declared: Vec<DeclaredEdge>,
+    pub(super) evidence: Vec<String>,
+    pub(super) evidence_total: usize,
 }
 
-/// The cause as the frame writes it: its kind and the module or hop that it names.
-fn cause_value((cause, at): &(RouteWithheld, Option<String>)) -> serde_json::Value {
-    serde_json::json!({"kind": cause.as_str(), "at": at})
+/// One possible import that a declaration supplies to a cycle step.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+pub(super) struct DeclaredEdge {
+    pub(super) declaration: String,
+    pub(super) source: String,
+    pub(super) target: String,
+}
+
+/// One cycle: its members and one closed path through them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+pub(super) struct CyclePath {
+    pub(super) id: String,
+    /// The position of the violation in `details` of the rule.
+    pub(super) index: usize,
+    pub(super) members: Vec<String>,
+    pub(super) path: Vec<Step>,
+    pub(super) steps_total: usize,
+    pub(super) truncated: bool,
+}
+
+/// The cycles of one rule.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+pub(super) struct Cycles {
+    pub(super) total: usize,
+    pub(super) truncated: bool,
+    pub(super) items: Vec<CyclePath>,
 }
