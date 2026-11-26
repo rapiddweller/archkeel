@@ -134,11 +134,11 @@ fn omitted_null_and_value_fields_keep_their_exact_wire_bytes() {
     ];
     for (member, specifier, expected) in cases {
         let mut record = import();
-        let ImportFact::Import(data) = &mut record.data else {
-            panic!("the import fixture must hold an import");
-        };
-        data.script_member = member;
-        data.specifier = specifier.map(str::to_owned);
+        assert!(matches!(record.data, ImportFact::Import(_)));
+        if let ImportFact::Import(data) = &mut record.data {
+            data.script_member = member;
+            data.specifier = specifier.map(str::to_owned);
+        }
         assert_eq!(serde_json::to_string(&record).expect("JSON"), expected);
         assert_eq!(
             serde_json::from_str::<Record<ImportFact>>(&expected).expect("decode"),
