@@ -148,6 +148,11 @@ ROUTES = {
         "/*\n// */ use std::include as load;\n"
         'load!("../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n',
     ),
+    "root-module-named-target": (
+        WORKSPACE,
+        '[lib]\npath = "lib.rs"\n',
+        "// the target is lib.rs at the crate root\n",
+    ),
     "include": (
         WORKSPACE,
         "",
@@ -168,6 +173,12 @@ ROUTES = {
 
 
 EXTRA = {
+    "root-module-named-target": {
+        "vendor/x/lib.rs": "mod target;\npub fn f() { target::f(); }\n",
+        "vendor/x/target/mod.rs": (
+            'include!("../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n'
+        ),
+    },
     "include-nested-git": {
         "vendor/x/src/.git/bridge.rs": 'include!("../../../../crates/base/src/lib.rs");\n'
     },

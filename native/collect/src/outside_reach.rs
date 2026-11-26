@@ -185,8 +185,7 @@ fn sources_reach_member(dir: &Path, members: &Members, meta: &Value) -> bool {
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            // Only the build output and the repository of the crate itself: a module can have either name (`escapes` agrees).
-            let skip = path == dir.join("target") || path == dir.join(".git");
+            let skip = is_output(&path);
             if path.is_dir() && !skip {
                 pending.push(path);
             } else if path.extension().is_some_and(|e| e == "rs") {
@@ -336,6 +335,17 @@ fn whole_literal(rest: &str) -> Option<&str> {
         .then_some(literal)
 }
 
+/// A directory that holds build output (`target` with the `CACHEDIR.TAG` that Cargo writes) or a repository (`.git`
+/// with `HEAD`). A module directory can have the same name, so the name alone decides nothing.
+fn is_output(dir: &Path) -> bool {
+    let marker = match dir.file_name().and_then(|n| n.to_str()) {
+        Some("target") => "CACHEDIR.TAG",
+        Some(".git") => "HEAD",
+        _ => return false,
+    };
+    dir.join(marker).exists()
+}
+
 /// Whether the canonical path `target` lies in the crate `own` and in no member.
 fn crate_owns(target: &str, own: &str, members: &Members) -> bool {
     let inside = |dir: &str| target == dir || target.starts_with(&format!("{dir}/"));
@@ -347,9 +357,11 @@ fn crate_owns(target: &str, own: &str, members: &Members) -> bool {
 fn escapes(base: &Path, literal: &str, own: &str, members: &Members) -> Option<bool> {
     let target = real_dir(base.join(literal).to_str()?)?;
     let inside = |dir: &str| target == dir || target.starts_with(&format!("{dir}/"));
-    let below = target.strip_prefix(own).unwrap_or_default();
-    // The first part below the crate: the build output and the repository are not searched.
-    let first = below.split('/').find(|part| !part.is_empty());
-    let unread = !target.ends_with(".rs") || matches!(first, Some("target" | ".git"));
+    // A file below the build output or the repository is not searched.
+    let below_output = Path::new(&target)
+        .ancestors()
+        .take_while(|a| a.starts_with(own))
+        .any(is_output);
+    let unread = !target.ends_with(".rs") || below_output;
     Some(!inside(own) || members.dirs.keys().any(|member| inside(member)) || unread)
 }
