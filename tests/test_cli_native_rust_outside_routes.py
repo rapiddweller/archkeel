@@ -46,6 +46,12 @@ ROUTES = {
         "",
         'include!("../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n',
     ),
+    "include-computed": (
+        WORKSPACE,
+        "",
+        'include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../crates/base/src/lib.rs"));\n'
+        "pub fn f() { make(); }\n",
+    ),
     "path-attribute": (
         WORKSPACE,
         "",

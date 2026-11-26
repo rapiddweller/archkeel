@@ -241,9 +241,10 @@ fn file_reaches_member(file: &Path, members: &Members) -> bool {
     let parent = file.parent().unwrap_or(Path::new("."));
     // `#[path]` in a file that is no `mod.rs` is relative to the directory of the module.
     let own = file.file_stem().map(|stem| parent.join(stem));
-    for pattern in ["include!", "#[path"] {
+    // The opener that must stand between the name and the literal: `include!("..")` and `#[path = ".."]`.
+    for (pattern, opener) in [("include!", '('), ("#[path", '=')] {
         for (at, _) in text.match_indices(pattern) {
-            let Some(literal) = first_literal(&text[at + pattern.len()..]) else {
+            let Some(literal) = argument_literal(&text[at + pattern.len()..], opener) else {
                 return true;
             };
             let bases = [Some(parent.to_path_buf()), own.clone()];
@@ -255,11 +256,15 @@ fn file_reaches_member(file: &Path, members: &Members) -> bool {
     false
 }
 
-/// The first string literal within 200 characters of the start of `rest`.
-fn first_literal(rest: &str) -> Option<&str> {
-    let start = rest.char_indices().take(200).find(|(_, c)| *c == '"')?.0;
-    let body = &rest[start + 1..];
-    Some(&body[..body.find('"')?])
+/// The string literal that is the whole argument: `opener`, then a quote. A computed path (`concat!`, `env!`) has
+/// no literal here, so the caller holds.
+fn argument_literal(rest: &str, opener: char) -> Option<&str> {
+    let rest = rest.trim_start().strip_prefix(opener)?;
+    let body = rest.trim_start().strip_prefix('"')?;
+    let literal = &body[..body.find('"')?];
+    // A literal that goes on as an expression (`"a".to_owned()`, `"a", ..`) is no plain path either.
+    let after = body[literal.len() + 1..].trim_start();
+    after.starts_with([')', ']', ';', '}']).then_some(literal)
 }
 
 /// Whether `literal`, read from `base`, is a path inside a member.
