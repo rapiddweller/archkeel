@@ -330,6 +330,49 @@ def test_an_erased_callback_pointer_keeps_the_gap(
     assert found["NO-A-TO-B"] != "PASS"
 
 
+@pytest.mark.parametrize(
+    ("fields", "store", "load"),
+    [
+        (
+            "pub padding: Vec<u8>,\n    pub callback: *const u8,",
+            "padding: Vec::new(),\n        callback: crate::b::hit0 as fn() as *const u8,",
+            "self.callback",
+        ),
+        (
+            "pub callback: std::ptr::NonNull<()>,",
+            "callback: std::ptr::NonNull::new(crate::b::hit0 as fn() as *mut ()).unwrap(),",
+            "self.callback.as_ptr()",
+        ),
+    ],
+    ids=["a bytes buffer beside an erased pointer", "an erased pointer in NonNull"],
+)
+def test_an_erased_pointer_beside_or_inside_a_container_keeps_the_gap(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fields: str,
+    store: str,
+    load: str,
+) -> None:
+    """A container keeps bytes behind raw pointers. That does not clear the pointer of the user."""
+    erased = COUNTER.format(
+        body=f"pub struct U {{\n    {fields}\n}}\n\n"
+        "impl U {\n    pub fn m(&self) -> usize {\n"
+        f"        let call: fn() = unsafe {{ std::mem::transmute({load}) }};\n"
+        "        call();\n        0\n    }\n}"
+    )
+    files = {
+        "crates/app/src/d.rs": erased,
+        "crates/app/src/c.rs": "pub fn other() -> crate::b::S {\n    crate::b::S\n}\n\n"
+        f"pub fn make() -> crate::d::U {{\n    crate::d::U {{\n        {store}\n    }}\n}}\n",
+        "crates/app/src/a.rs": "pub fn run() {\n    let _held = crate::c::other();\n"
+        "    let make = crate::c::make;\n    make().m();\n}\n",
+    }
+    root, found = _hit0_scan(tmp_path, release_core, monkeypatch, files)
+    assert _cargo_run(root) == "1 0", "the erased function of `b` runs"
+    assert found["NO-A-TO-B"] != "PASS"
+
+
 def test_a_std_adapter_with_a_closure_of_the_caller_closes_the_candidate(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

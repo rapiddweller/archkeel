@@ -8,6 +8,7 @@
 //! to one function. The site is the span of `m(..)` (`fn_span`), the place where the scan reads the method name.
 //! A call with a type parameter, a trait object or a call that a macro wrote gives no record.
 
+use crate::holders::holds_only_arguments;
 use crate::items::absolute;
 use crate::state::{ImplIndex, Resolved, State};
 use rustc_hir::def::DefKind;
@@ -46,63 +47,6 @@ fn impl_index(st: &mut State, tcx: TyCtxt<'_>) -> ImplIndex {
     index
 }
 
-/// The modules of the standard library whose types hold only what their type arguments name: containers,
-/// options, smart pointers, cells, ranges and the iterator adapters and sources. The text of a path is the
-/// canonical one that the facts use for every definition.
-const ARGUMENT_HOLDERS: [&str; 43] = [
-    "alloc::vec::",
-    "alloc::string::",
-    "alloc::boxed::",
-    "alloc::rc::",
-    "alloc::sync::",
-    "alloc::borrow::",
-    "alloc::collections::",
-    "std::collections::",
-    "core::option::",
-    "core::result::",
-    "core::cell::",
-    "core::ops::range::",
-    "core::iter::adapters::",
-    "core::iter::sources::",
-    "core::slice::iter::",
-    "core::str::iter::",
-    "core::marker::",
-    "core::cmp::",
-    "core::num::",
-    "core::time::",
-    "std::time::",
-    "std::path::",
-    "std::ffi::",
-    "core::pin::",
-    "alloc::alloc::",
-    "alloc::slice::",
-    "alloc::str::",
-    "core::ptr::",
-    "core::mem::",
-    "core::hash::",
-    "std::hash::",
-    "core::convert::",
-    "core::ops::control_flow::",
-    "core::str::",
-    "core::slice::",
-    "core::array::",
-    "core::char::",
-    "alloc::raw_vec::",
-    "core::ffi::",
-    "core::sync::",
-    "core::ops::",
-    "core::iter::",
-    "std::sys::",
-];
-
-/// True for a type of another crate that holds only what its type arguments name.
-fn holds_only_arguments(tcx: TyCtxt<'_>, d: DefId) -> bool {
-    let path = crate::names::path(tcx, d);
-    ARGUMENT_HOLDERS
-        .iter()
-        .any(|prefix| path.starts_with(prefix))
-}
-
 /// What the type arguments of a call can run (see `touch`).
 struct Touched {
     files: BTreeSet<u32>,
@@ -137,7 +81,8 @@ fn visit<'tcx>(
     ty: Ty<'tcx>,
     (found, trusted): (&mut Touched, bool),
 ) {
-    if !found.seen.insert(ty.to_string()) {
+    // The key holds the trust: a type that was safe inside a container is not safe in a field of a user type.
+    if !found.seen.insert(format!("{trusted}:{ty}")) {
         return;
     }
     if found.seen.len() > BUDGET {
@@ -194,7 +139,12 @@ fn visit<'tcx>(
         }
         // A pointer to `()`, `c_void`, an extern type or a number erases the type of its value: a callback can hide
         // behind it (AD-1047).
-        ty::RawPtr(t, _) if !trusted && crate::reach::erases(tcx, t) => {
+        // Inside an allowed container only a pointer to bytes is known (`Vec` keeps `*const u8`); a pointer to
+        // `()` hides the type even there (`NonNull<()>`).
+        ty::RawPtr(t, _)
+            if crate::reach::erases(tcx, t)
+                && !(trusted && matches!(t.kind(), ty::Uint(ty::UintTy::U8))) =>
+        {
             found.open_by("<erased pointer>");
             Vec::new()
         }
