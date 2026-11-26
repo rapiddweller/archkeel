@@ -679,9 +679,9 @@
         "native.archkeel_model.causes:HeldImport",
         "native.archkeel_model.causes:InterfaceGap",
         "native.archkeel_model.causes:InterfaceHold",
-        "native.archkeel_model.causes:PairOrigin",
         "native.archkeel_model.causes:Part",
         "native.archkeel_model.coverage:Incomplete",
+        "native.archkeel_model.coverage:PairOrigin",
         "native.archkeel_model.coverage:data_of",
         "native.archkeel_model.coverage:incomplete",
         "native.archkeel_model.gap_class:Class",
@@ -930,7 +930,7 @@
           "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result.",
           "through": [
             "native.archkeel_model.causes:Held",
-            "native.archkeel_model.causes:PairOrigin",
+            "native.archkeel_model.coverage:PairOrigin",
             "native.archkeel_model.ids"
           ]
         },
@@ -962,6 +962,7 @@
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
         "native.archkeel_model.pair_gaps:sides_match",
+        "native.archkeel_model.pair_gaps:triple",
         "native.archkeel_model.roots:Roots",
         "native.archkeel_model.rule_kinds:undecided_rule",
         "native.archkeel_model.selection:Selection",

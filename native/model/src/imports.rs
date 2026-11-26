@@ -20,9 +20,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use archkeel_facts::data::{GapEffect, TrojanHorseForm};
 use archkeel_facts::envelope::{Facts, FileFact, Target};
 use archkeel_facts::profile_traits::TargetMarks;
-use archkeel_facts::vocab::ResolutionDimension;
-use archkeel_facts::Record;
-use archkeel_facts::{ImportFact, Section};
+use archkeel_facts::vocab::{ResolutionDimension, RouteWithheld};
+use archkeel_facts::{ImportFact, Record, Section};
 
 /// What the typed target of a resolved import is.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -44,7 +43,7 @@ pub(crate) struct Published {
     pub(crate) complete: bool,
     pub(crate) outside: Option<String>,
     pub(crate) other_crate: bool,
-    pub(crate) withheld: Option<(archkeel_facts::vocab::RouteWithheld, Option<String>)>,
+    pub(crate) withheld: Option<(RouteWithheld, Option<String>)>,
 }
 
 impl Published {
@@ -160,13 +159,6 @@ impl Import {
     /// The publication names whose route the collector records.
     pub fn reexport_chain(&self) -> &[String] {
         &self.published.chain
-    }
-
-    /// Why the collector withholds the route of this import, when it states a cause (#2086).
-    pub fn route_withheld(
-        &self,
-    ) -> Option<&(archkeel_facts::vocab::RouteWithheld, Option<String>)> {
-        self.published.withheld.as_ref()
     }
 
     /// False when the collector proves only the first hops of the route: a later hop may follow,
@@ -367,9 +359,7 @@ pub(crate) fn split(facts: &Facts, marks: TargetMarks, declared: impl Fn(&str) -
                 complete: data.route_complete != Some(false),
                 outside: data.published_as.clone(),
                 other_crate: data.other_crate == Some(true),
-                withheld: data
-                    .route_withheld
-                    .map(|cause| (cause, data.route_withheld_at.clone())),
+                withheld: data.withheld(),
             },
             relative: data.relative_level != 0,
             resolved,

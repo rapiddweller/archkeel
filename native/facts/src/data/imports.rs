@@ -83,6 +83,12 @@ facts_data! {
 }
 
 impl ImportData {
+    /// The cause that the collector states for the withheld route, and the hop or module it names.
+    pub fn withheld(&self) -> Option<(RouteWithheld, Option<String>)> {
+        let at = self.route_withheld_at.clone();
+        self.route_withheld.map(|cause| (cause, at))
+    }
+
     /// The source, provider, declaration and binding of a direct, unique import.
     pub fn direct_symbol_route(&self) -> Option<[&str; 4]> {
         if !self.module_level_import

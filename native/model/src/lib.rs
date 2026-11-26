@@ -149,7 +149,8 @@ mod proof;
 mod subjects;
 
 pub use causes::{Cause, Part};
-pub use causes::{InterfaceGap, InterfaceHold, PairOrigin};
+pub use causes::{InterfaceGap, InterfaceHold};
+pub use coverage::PairOrigin;
 
 // Slice S5: the import matchers of the direction kinds and the sides they share (AD-380).
 mod direction;
