@@ -175,25 +175,33 @@ def repository(
     return root
 
 
-def validate(root: Path, capsys: pytest.CaptureFixture[str] | None = None) -> dict[str, Any]:
+def validate(
+    root: Path, capsys: pytest.CaptureFixture[str] | None = None, *, allow_build: bool = True
+) -> dict[str, Any]:
     """Run `archkeel validate --json` on the fixture and return the result document."""
-    return _run(root, "validate")
+    return outcome(root, "validate", allow_build=allow_build)[1]
 
 
 def report(root: Path, capsys: pytest.CaptureFixture[str] | None = None) -> dict[str, Any]:
     """Run `archkeel report --json` on the fixture and return the result document."""
-    return _run(root, "report")
+    return outcome(root, "report")[1]
 
 
-def _run(root: Path, command: str) -> dict[str, Any]:
-    return outcome(root, command)[1]
+def outcome(
+    root: Path, command: str = "validate", *, allow_build: bool = True
+) -> tuple[int, dict[str, Any]]:
+    """The exit code and the result document of `archkeel <command> --json` on the fixture.
 
-
-def outcome(root: Path, command: str = "validate") -> tuple[int, dict[str, Any]]:
-    """The exit code and the result document of `archkeel <command> --json` on the fixture."""
+    AD-1130: the operator allows compilation by the environment. A fixture run allows it unless
+    `allow_build` is false.
+    """
     binary = _CORES[root.resolve()]
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(core_only, "locate_core", lambda: binary)
+        if allow_build:
+            patch.setenv("ARCHKEEL_ALLOW_BUILD", "1")
+        else:
+            patch.delenv("ARCHKEEL_ALLOW_BUILD", raising=False)
         return run(command, "--root", str(root))
 
 

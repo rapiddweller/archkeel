@@ -121,6 +121,12 @@ fn met(effect: &GapEffect, reads: &impl Fn(Option<&str>) -> ReadSet) -> Vec<Doub
             .filter(|module| reads(Some(module)).any())
             .map(|module| Doubt::Code(module.to_owned()))
             .collect(),
+        GapEffect::Symbols { modules } => modules
+            .iter()
+            .map(|name| name.as_str())
+            .filter(|module| reads(Some(module)).code)
+            .map(|module| Doubt::Symbols(module.to_owned()))
+            .collect(),
         GapEffect::EveryModule if reads(None).any() => vec![Doubt::EveryModule],
         GapEffect::EveryModule => Vec::new(),
         GapEffect::Layout { modules } => modules

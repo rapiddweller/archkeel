@@ -30,11 +30,13 @@
 //! are UNKNOWN with the gap of the unproven publication route. A write that the repository does not
 //! show (a name built at run time, code outside the repository) is the stated premise of the run.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
+use archkeel_facts::data::{GapData, GapEffect};
 use archkeel_facts::ids::ModuleName;
 use archkeel_facts::pyminor::PyMinor;
-use archkeel_facts::ImportFact;
+use archkeel_facts::vocab::ResolutionDimension;
+use archkeel_facts::{GapFact, ImportFact, Record};
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::{Entry, Snapshot};
 
@@ -71,6 +73,54 @@ const SKIPPED: [&str; 6] = [
 /// The files that prove a directory as build output or as installed packages.
 const MARKERS: [&str; 2] = ["CACHEDIR.TAG", "pyvenv.cfg"];
 
+/// The reason word of the gap that names a file outside the scan that withholds symbol records.
+const WITHHELD: &str = "outside_file_withholds_symbols";
+
+/// One site of a file outside the scan that gives a module object by its name. Each module that
+/// the site names escapes, so the survey writes no symbol record for it (#1963).
+pub(super) struct Withheld {
+    file: String,
+    line: Option<i64>,
+    site: String,
+    modules: Vec<String>,
+}
+
+/// The gap of each site that withholds symbol records. Its effect is `Symbols`: only a rule that
+/// reads symbols is held, no edge, layout or cycle rule.
+pub(super) fn gaps(withheld: &[Withheld]) -> Vec<Record<GapFact>> {
+    // Two equal sites on one line give one reason and so one id; the facts allow each id once.
+    // The sites of one place join, so no module drops out of the effect.
+    let mut places: BTreeMap<(&str, Option<i64>, &str), BTreeSet<&str>> = BTreeMap::new();
+    for found in withheld {
+        let key = (found.file.as_str(), found.line, found.site.as_str());
+        places
+            .entry(key)
+            .or_default()
+            .extend(found.modules.iter().map(String::as_str));
+    }
+    places
+        .into_iter()
+        .map(|((file, line, site), modules)| {
+            let count = BTreeSet::len(&modules);
+            let unit = if count == 1 { "module" } else { "modules" };
+            let at = line.map_or_else(|| file.to_owned(), |line| format!("{file}:{line}"));
+            let reason = format!(
+                "{WITHHELD}: {at} {site} names {count} {unit} of the scan; \
+                 their symbol records are withheld"
+            );
+            let mut data = GapData::at(&reason, "");
+            data.resolution_dimension = Some(ResolutionDimension::Imports);
+            data.file = Some(file.to_owned());
+            data.line = line;
+            data.effect = Some(GapEffect::Symbols {
+                modules: modules.into_iter().map(ModuleName::new).collect(),
+            });
+            let gap = GapFact::SourceResolutionGap(data);
+            Record::unknown_gap(&reason, None, "", gap).1
+        })
+        .collect()
+}
+
 /// The files of the repository that the walk reads.
 #[derive(Default)]
 struct Files {
@@ -84,7 +134,7 @@ pub(super) fn written(
     (scan, selected): (&mut Vec<Module>, &[String]),
     namespace: &str,
     writes: &mut ClassWrites,
-) -> HashSet<String> {
+) -> (HashSet<String>, Vec<Withheld>) {
     let names: HashSet<String> = scan.iter().map(|module| module.name.clone()).collect();
     let selected: HashSet<&str> = selected.iter().map(String::as_str).collect();
     let mut files = walk(snapshot, &selected);
@@ -112,8 +162,17 @@ pub(super) fn written(
         .map(|module| Binders::of(&module.tree))
         .collect();
     let (literals, hazards) = super::hazards_split::split(&outside, &binders, (None, false), false);
-    for (_, _, target) in &literals {
-        found.extend(native::reached(target, &names));
+    let mut withheld = Vec::new();
+    for (index, range, target) in &literals {
+        let hit = native::reached(target, &names);
+        let module = &outside[*index];
+        withheld.extend(site_of(
+            module,
+            "import call",
+            module.location(range).line,
+            &hit,
+        ));
+        found.extend(hit);
     }
     let mut own: HashMap<usize, Vec<&Site>> = HashMap::new();
     for (index, site) in &hazards {
@@ -132,11 +191,36 @@ pub(super) fn written(
             foreign_specs: foreign[*index],
         };
         if !sites::harmless(site, &file, &names) {
-            found.extend(sites::named(module, &names));
+            let hit = sites::named(module, &names);
+            withheld.extend(site_of(
+                module,
+                &site.detail,
+                module.location(&site.range).line,
+                &hit,
+            ));
+            found.extend(hit);
         }
     }
-    found.extend(escaped(scan, outside, namespace));
-    found
+    let (names_used, uses) = escaped(scan, outside, namespace);
+    found.extend(names_used);
+    withheld.extend(uses);
+    (found, withheld)
+}
+
+/// The site of `module` that names `hit`, or `None` when it names no module of the scan.
+fn site_of(module: &Module, site: &str, line: i64, hit: &[String]) -> Option<Withheld> {
+    let modules: Vec<String> = hit
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    (!modules.is_empty()).then(|| Withheld {
+        file: module.rel.clone(),
+        line: Some(line),
+        site: site.to_owned(),
+        modules,
+    })
 }
 
 /// The directories where the modules of the scan are found: the part of the path before the
@@ -196,7 +280,11 @@ fn read(snapshot: &mut Snapshot, rel: &str, index: usize) -> Read {
 
 /// The modules of the scan that the escape rule of AD-504 finds in `outside`. Only a file that
 /// spells the first part of a module of the scan can bind one by an import.
-fn escaped(scan: &mut Vec<Module>, files: Vec<Module>, namespace: &str) -> HashSet<String> {
+fn escaped(
+    scan: &mut Vec<Module>,
+    files: Vec<Module>,
+    namespace: &str,
+) -> (HashSet<String>, Vec<Withheld>) {
     let parts: HashSet<String> = scan
         .iter()
         .map(|module| first_part(&module.name).to_owned())
@@ -208,7 +296,7 @@ fn escaped(scan: &mut Vec<Module>, files: Vec<Module>, namespace: &str) -> HashS
             .any(|part| Module::text(module).contains(String::as_str(part)))
     }));
     if Vec::len(scan) == count {
-        return HashSet::new();
+        return (HashSet::new(), Vec::new());
     }
     let binders: Vec<Binders> = scan
         .iter()
@@ -222,22 +310,63 @@ fn escaped(scan: &mut Vec<Module>, files: Vec<Module>, namespace: &str) -> HashS
     // The uses of an outside file follow its names through the records of the scan, so both
     // walks read all records; the escapes that the scan alone gives are not its own.
     let all = super::uses::settled(scan, &records.records, &mut sources.clone());
-    scan.truncate(count);
-    let own: Vec<_> = (records.records.into_iter())
-        .filter(|record| {
-            !outside(ModuleName::as_str(
-                &ImportFact::data(&record.data).source_module,
-            ))
-        })
+    let from = |record: &Record<ImportFact>| {
+        ModuleName::as_str(&ImportFact::data(&record.data).source_module).to_owned()
+    };
+    let own: Vec<_> = (records.records.iter())
+        .filter(|record| !outside(&from(record)))
+        .cloned()
         .collect();
+    let outsiders = scan.split_off(count);
+    let fresh = sources.clone();
     let inside = super::uses::settled(scan, &own, &mut sources);
     let names: HashSet<&str> = scan
         .iter()
         .map(|module| String::as_str(&module.name))
         .collect();
-    (all.into_iter())
+    let result: HashSet<String> = (all.into_iter())
         .filter(|name| names.contains(String::as_str(name)) && !inside.contains(name))
-        .collect()
+        .collect();
+    // #1963: the file of each use. One file names every module that escapes. With more files the
+    // scan runs once more for each file, with that file alone added, until each module has a file.
+    let mut uses = Vec::new();
+    let mut open: BTreeSet<&String> = result.iter().collect();
+    let single = Vec::len(&outsiders) == 1;
+    for module in outsiders {
+        if open.is_empty() {
+            break;
+        }
+        let (hit, module): (HashSet<String>, Module) = if single {
+            (result.clone(), module)
+        } else {
+            let mine = (records.records.iter())
+                .filter(|record| from(record) == module.name)
+                .cloned();
+            let both: Vec<_> = own.iter().cloned().chain(mine).collect();
+            let name = module.name.clone();
+            scan.push(module);
+            let hit = super::uses::settled(scan, &both, &mut fresh.clone());
+            let Some(module) = scan.pop() else { break };
+            debug_assert_eq!(module.name, name);
+            (hit, module)
+        };
+        let modules: Vec<String> = (hit.into_iter())
+            .filter(|name| result.contains(name) && !inside.contains(name))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        open.retain(|name| !modules.contains(*name));
+        if !modules.is_empty() {
+            let file = module.rel.clone();
+            uses.push(Withheld {
+                file,
+                line: None,
+                site: "use of a module".to_owned(),
+                modules,
+            });
+        }
+    }
+    (result, uses)
 }
 
 /// True for the name of a module of the repository outside the scan.

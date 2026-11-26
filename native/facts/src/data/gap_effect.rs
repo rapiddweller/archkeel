@@ -36,6 +36,13 @@ pub enum GapEffect {
     /// The code of every module is not known: an import of any module can give another module
     /// than the one that it names.
     EveryModule,
+    /// The symbol records of each module of `modules` are withheld: its routes, its names and its
+    /// declarations. Its files, its import edges and its layout are known, so only a rule that
+    /// reads symbols is held.
+    Symbols {
+        /// The modules whose symbol records are withheld.
+        modules: Vec<ModuleName>,
+    },
     /// The file and the place in the layout of each module of `modules` are not proven: a rule
     /// on the files of the scan cannot judge them. Their code is read and known.
     Layout {

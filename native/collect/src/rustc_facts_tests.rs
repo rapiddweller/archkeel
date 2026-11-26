@@ -479,3 +479,8 @@ fn a_test_unit_goes_into_its_library_unit_and_a_missing_or_cut_off_file_is_refus
 
 #[path = "rustc_facts_real_tests.rs"]
 mod real;
+
+#[test]
+fn the_sealed_cargo_run_cannot_inherit_the_operator_permission() {
+    assert!(!crate::rustc_facts_members::KEPT_ENV.contains(&crate::ALLOW_BUILD));
+}
