@@ -115,6 +115,7 @@ jobs:
       matrix:
         # One entry for each area in tests/areas.py.
         area:
+          - core scans
           - CLI and core
           - native collectors
           - collectors
@@ -157,7 +158,7 @@ jobs:
 
       # AD-1047: the self-check tests of native/ read compiler facts, so this area needs rustc-dev and llvm-tools.
       - name: Install the compiler type-reach components
-        if: matrix.area == 'CLI and core'
+        if: matrix.area == 'CLI and core' || matrix.area == 'core scans'
         run: make type-reach-setup
 
       - name: Show the runner CPU
