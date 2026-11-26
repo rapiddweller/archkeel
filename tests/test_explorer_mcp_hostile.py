@@ -224,7 +224,6 @@ def test_raw_frames_on_stdio_never_stop_the_server_or_grow_its_memory(
     scan: tuple[Path, Path, dict[str, str]],
 ) -> None:
     """Malformed, truncated, oversized and deeply nested frames; then a valid call still works."""
-    import resource  # noqa: PLC0415 - Unix only, like the symlink fixture
     import subprocess  # noqa: PLC0415
     import sys  # noqa: PLC0415
 
@@ -290,22 +289,27 @@ def test_raw_frames_on_stdio_never_stop_the_server_or_grow_its_memory(
             if line.startswith(b"{"):
                 answers.append(json.loads(line))
 
-    reader = threading.Thread(target=read, daemon=True)
-    reader.start()
+    def write() -> None:
+        try:
+            for frame in frames:
+                process.stdin.write(frame)  # type: ignore[union-attr]
+                process.stdin.flush()  # type: ignore[union-attr]
+        except (BrokenPipeError, ValueError):
+            pass  # the server stopped or the test killed it: the wait below reports it
+
+    # Writing runs in a thread: a server that stops reading must end at the deadline, not hang.
+    for target in (read, write):
+        threading.Thread(target=target, daemon=True).start()
+    deadline = time.monotonic() + 120
     try:
-        for frame in frames:
-            process.stdin.write(frame)
-            process.stdin.flush()
-        deadline = time.monotonic() + 120
         # The input stays open: at its end the server closes by design.
         while not any(a.get("id") == 99 for a in answers) and time.monotonic() < deadline:
             assert process.poll() is None, f"the server stopped: {answers[-3:]}"
             time.sleep(0.05)
     finally:
-        process.stdin.close()
         process.kill()
+        # wait4 reaps this child only, so its usage is the server's and not that of earlier tests.
+        _, _, usage = os.wait4(process.pid, 0)
     assert any(a.get("id") == 99 and "result" in a for a in answers), answers[-3:]
-    process.wait()
-    peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-    megabytes = peak / (1 << 20 if sys.platform == "darwin" else 1 << 10)
+    megabytes = usage.ru_maxrss / (1 << 20 if sys.platform == "darwin" else 1 << 10)
     assert megabytes < 1024, megabytes  # a 16 MiB frame and 200 000 levels peak near 170 MiB
