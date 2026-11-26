@@ -142,6 +142,12 @@ ROUTES = {
         '#[path /* outer /* inner */ outer */ = "../../../crates/base/src/lib.rs"]\n'
         "mod b;\npub fn f() { b::make(); }\n",
     ),
+    "include-block-comment-line": (
+        WORKSPACE,
+        "",
+        "/*\n// */ use std::include as load;\n"
+        'load!("../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n',
+    ),
     "include": (
         WORKSPACE,
         "",

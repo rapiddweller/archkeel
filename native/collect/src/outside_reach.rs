@@ -256,14 +256,11 @@ fn marked<'a>(
 /// The argument of each `include!` call: `Some(literal)` when it is a plain string literal.
 fn include_arguments(text: &str) -> Vec<Option<&str>> {
     let mut found = Vec::new();
-    for (at, call) in marked(text, "include", '!') {
+    for (_, call) in marked(text, "include", '!') {
         let Some(rest) = call else {
-            // `use std::include as load;` or a path to the macro: the call is not followed here, so it holds. A line
-            // that starts with `//` is a comment, whatever it holds.
-            let line = text[..at].rsplit('\n').next().unwrap_or_default();
-            if !line.trim_start().starts_with("//") {
-                found.push(None);
-            }
+            // `use std::include as load;` or a path to the macro: the call is not followed here, so it holds. A word in
+            // a comment holds as well: without a lexer a line that starts with `//` can lie inside a block comment.
+            found.push(None);
             continue;
         };
         let opened = trivia(rest).strip_prefix(['(', '[', '{']).map(trivia);
