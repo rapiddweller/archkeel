@@ -48,7 +48,7 @@ fn impl_index(st: &mut State, tcx: TyCtxt<'_>) -> ImplIndex {
 /// The modules of the standard library whose types hold only what their type arguments name: containers,
 /// options, smart pointers, cells, ranges and the iterator adapters and sources. The text of a path is the
 /// canonical one that the facts use for every definition.
-const ARGUMENT_HOLDERS: [&str; 37] = [
+const ARGUMENT_HOLDERS: [&str; 43] = [
     "alloc::vec::",
     "alloc::string::",
     "alloc::boxed::",
@@ -86,6 +86,12 @@ const ARGUMENT_HOLDERS: [&str; 37] = [
     "core::slice::",
     "core::array::",
     "core::char::",
+    "alloc::raw_vec::",
+    "core::ffi::",
+    "core::sync::",
+    "core::ops::",
+    "core::iter::",
+    "std::sys::",
 ];
 
 /// True for a type of another crate that holds only what its type arguments name.
@@ -179,7 +185,7 @@ fn visit<'tcx>(
             found.files.insert(crate::items::file(tcx, st, d));
             Vec::new()
         }
-        ty::Ref(_, t, _) | ty::RawPtr(t, _) | ty::Slice(t) | ty::Array(t, _) => {
+        ty::Pat(t, _) | ty::Ref(_, t, _) | ty::RawPtr(t, _) | ty::Slice(t) | ty::Array(t, _) => {
             found.plain = true;
             vec![t]
         }
