@@ -17,7 +17,7 @@ fn walked(files: &[(&str, &str)]) -> Walked {
     all.extend_from_slice(files);
     let root = Tree::new(&all);
     let mut source = Snapshot::new(&root.path());
-    let listed = list_files(&mut source, "");
+    let listed = list_files(&mut source, "").0;
     let workspace = discover(&mut source, &listed, "ns");
     walk(&mut source, &workspace, false)
 }
@@ -147,7 +147,7 @@ fn a_build_script_that_two_crates_name_is_walked_once_and_is_a_problem_of_both()
         ("b/build.rs", "use sha2::Digest;"),
     ]);
     let mut source = Snapshot::new(&root.path());
-    let listed = list_files(&mut source, "");
+    let listed = list_files(&mut source, "").0;
     let workspace = discover(&mut source, &listed, "ns");
     let found = walk(&mut source, &workspace, false);
     let builds: Vec<_> = found
@@ -182,7 +182,7 @@ fn a_path_attribute_that_leaves_the_crate_is_a_problem_of_both_files() {
         ("base/src/lib.rs", ""),
     ]);
     let mut source = Snapshot::new(&root.path());
-    let listed = list_files(&mut source, "");
+    let listed = list_files(&mut source, "").0;
     let workspace = discover(&mut source, &listed, "ns");
     let found = walk(&mut source, &workspace, false);
     let reason = "A path attribute leaves the crate directory: base/src/lib.rs";
@@ -244,7 +244,7 @@ fn a_test_module_is_claimed_and_not_a_module_when_the_request_excludes_tests() {
         ("src/foo_tests.rs", ""),
     ]);
     let mut source = Snapshot::new(&root.path());
-    let listed = list_files(&mut source, "");
+    let listed = list_files(&mut source, "").0;
     let workspace = discover(&mut source, &listed, "ns");
     let found = walk(&mut source, &workspace, true);
     assert_eq!(
@@ -267,7 +267,7 @@ const TEST_TARGET_INTO_SRC: [(&str, &str); 3] = [
 fn a_test_target_that_the_request_leaves_out_is_no_second_owner_of_a_production_file() {
     let root = Tree::new(&TEST_TARGET_INTO_SRC);
     let mut source = Snapshot::new(&root.path());
-    let listed = list_files(&mut source, "");
+    let listed = list_files(&mut source, "").0;
     let workspace = discover(&mut source, &listed, "ns");
     let found = walk(&mut source, &workspace, true);
     assert_eq!(reasons(&found), Vec::<&str>::new());

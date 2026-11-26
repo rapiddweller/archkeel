@@ -12,7 +12,7 @@ use archkeel_snapshot::Snapshot;
 fn found(files: &[(&str, &str)]) -> Workspace {
     let root = Tree::new(files);
     let mut source = Snapshot::new(&root.path());
-    let listed = list_files(&mut source, "");
+    let listed = list_files(&mut source, "").0;
     discover(&mut source, &listed, "ns")
 }
 
