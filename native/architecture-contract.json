@@ -725,6 +725,7 @@
         "native.archkeel_model.gaps",
         "native.archkeel_model.graph",
         "native.archkeel_model.imports",
+        "native.archkeel_model.imports_surface",
         "native.archkeel_model.measures",
         "native.archkeel_model.modules",
         "native.archkeel_model.observed",

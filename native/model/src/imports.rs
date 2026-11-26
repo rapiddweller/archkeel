@@ -169,19 +169,6 @@ impl Import {
         self.published.withheld.as_ref()
     }
 
-    /// The module whose surface the collector cannot read, and the word of the cause, when this
-    /// import states one: `unread_all`, `outside_write` or `escaped` (#2089). The survey writes no
-    /// symbol record for such a module.
-    pub fn opaque_surface(&self) -> Option<(&str, &'static str)> {
-        use archkeel_facts::vocab::RouteWithheld::{Escaped, OutsideWrite, UnreadAll};
-        match self.published.withheld.as_ref()? {
-            (cause @ (UnreadAll | OutsideWrite | Escaped), Some(module)) => {
-                Some((module.as_str(), cause.as_str()))
-            }
-            _ => None,
-        }
-    }
-
     /// False when the collector proves only the first hops of the route: a later hop may follow,
     /// so a route with no public hop proves no violation (AD-604).
     pub fn route_complete(&self) -> bool {
