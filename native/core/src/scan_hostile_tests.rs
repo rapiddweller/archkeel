@@ -108,6 +108,7 @@ fn a_repeated_key_is_not_a_second_value() {
     refused(text.as_bytes());
 }
 
+#[cfg(unix)]
 #[test]
 fn a_path_field_that_leaves_the_root_never_gives_a_pass() {
     let root = repository("hostile-paths");
