@@ -58,16 +58,20 @@ def test_without_a_script_each_rule_passes(release_core: Path, tmp_path: Path) -
 
 
 @pytest.mark.parametrize(
-    "script",
+    ("script", "names"),
     [
-        SCRIPT,
-        "import app.service\nvalue = app.service\n",
+        (SCRIPT, "names 1 module of"),
+        ("import app.service\nvalue = app.service\n", "names 1 module of"),
         # Codex #2026: two equal sites on one line must not give one id twice.
-        "import sys\nsys.modules['app.service']; sys.modules['app.service']\n",
+        # The site names the module and the package above it.
+        (
+            "import sys\nsys.modules['app.service']; sys.modules['app.service']\n",
+            "names 2 modules of",
+        ),
     ],
 )
 def test_a_script_is_named_and_holds_only_the_symbol_rules(
-    release_core: Path, tmp_path: Path, script: str
+    release_core: Path, tmp_path: Path, script: str, names: str
 ) -> None:
     result = verdict(release_core, tree(tmp_path, script))
     found = statuses(result)
@@ -75,4 +79,4 @@ def test_a_script_is_named_and_holds_only_the_symbol_rules(
     assert found["INTERFACE"] == "UNKNOWN", found
     named = [g["reason"] for g in result["frame"]["collection_gaps"]]
     assert len(named) == 1 and "scripts/tool.py" in named[0], named
-    assert "names 1 module of the scan" in named[0], named
+    assert names in named[0], named
