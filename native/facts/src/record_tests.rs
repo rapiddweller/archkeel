@@ -105,3 +105,44 @@ fn a_null_and_an_absent_field_stay_different() {
     let text = serde_json::to_string(&data).expect("JSON");
     assert!(!text.contains("script_member"));
 }
+
+#[test]
+fn omitted_null_and_value_fields_keep_their_exact_wire_bytes() {
+    let cases = [
+        (Nullable::Absent, Some("./b"), WIRE.to_owned()),
+        (
+            Nullable::Null,
+            Some("./b"),
+            WIRE.replace(
+                r#""module_level_import":true"#,
+                r#""module_level_import":true,"script_member":null"#,
+            ),
+        ),
+        (
+            Nullable::Value("member".to_owned()),
+            Some("./b"),
+            WIRE.replace(
+                r#""module_level_import":true"#,
+                r#""module_level_import":true,"script_member":"member""#,
+            ),
+        ),
+        (
+            Nullable::Absent,
+            None,
+            WIRE.replace(r#""specifier":"./b","#, ""),
+        ),
+    ];
+    for (member, specifier, expected) in cases {
+        let mut record = import();
+        let ImportFact::Import(data) = &mut record.data else {
+            panic!("the import fixture must hold an import");
+        };
+        data.script_member = member;
+        data.specifier = specifier.map(str::to_owned);
+        assert_eq!(serde_json::to_string(&record).expect("JSON"), expected);
+        assert_eq!(
+            serde_json::from_str::<Record<ImportFact>>(&expected).expect("decode"),
+            record
+        );
+    }
+}

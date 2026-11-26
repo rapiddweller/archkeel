@@ -45,7 +45,7 @@ macro_rules! closed {
 ///
 /// 1. `read` or `wire`: a rule or a view reads the field for some kind of this type (WP1), or no
 ///    reader reads it. The mark is a record of that survey; no code uses it.
-/// 2. `skip` (an `Option` or a `Nullable`): the wire omits the field when it is absent.
+/// 2. `skip` (`Option`) or `skip_nullable` (`Nullable`): omit the field when it is absent.
 ///    `required`: the wire holds the field as a key that may be null.
 ///    `never`: the wire does not hold the field.
 /// 3. `"key"`: the JSON name of the field, for a name that is a Rust keyword.
@@ -71,7 +71,12 @@ macro_rules! facts_data {
     };
     (@fields $v:tt $head:tt $done:tt [skip $($key:literal)?] $fd:tt $($rest:tt)*) => {
         facts_data!(@push $v $head $done
-            [#[serde($(rename = $key,)? default, skip_serializing_if = "crate::skip::omitted")]]
+            [#[serde($(rename = $key,)? default, skip_serializing_if = "Option::is_none")]]
+            $fd $($rest)*);
+    };
+    (@fields $v:tt $head:tt $done:tt [skip_nullable $($key:literal)?] $fd:tt $($rest:tt)*) => {
+        facts_data!(@push $v $head $done
+            [#[serde($(rename = $key,)? default, skip_serializing_if = "crate::nullable::Nullable::is_absent")]]
             $fd $($rest)*);
     };
     (@fields $v:tt $head:tt $done:tt [required] $fd:tt $($rest:tt)*) => {
