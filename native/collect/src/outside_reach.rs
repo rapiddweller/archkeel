@@ -244,11 +244,20 @@ fn file_escapes(file: &Path, own: &str, members: &Members) -> bool {
         || attributes.into_iter().any(|l| leaves(l, &attribute_bases))
 }
 
+/// Each whole-word `word` in `text` with the text after it when `mark` follows (white space and comments between).
+fn marked<'a>(
+    text: &'a str,
+    word: &'a str,
+    mark: char,
+) -> impl Iterator<Item = (usize, Option<&'a str>)> + 'a {
+    word_at(text, word).map(move |at| (at, trivia(&text[at + word.len()..]).strip_prefix(mark)))
+}
+
 /// The argument of each `include!` call: `Some(literal)` when it is a plain string literal.
 fn include_arguments(text: &str) -> Vec<Option<&str>> {
     let mut found = Vec::new();
-    for at in word_at(text, "include") {
-        let Some(rest) = trivia(&text[at + "include".len()..]).strip_prefix('!') else {
+    for (at, call) in marked(text, "include", '!') {
+        let Some(rest) = call else {
             // `use std::include as load;` or a path to the macro: the call is not followed here, so it holds. A line
             // that starts with `//` is a comment, whatever it holds.
             let line = text[..at].rsplit('\n').next().unwrap_or_default();
@@ -257,9 +266,9 @@ fn include_arguments(text: &str) -> Vec<Option<&str>> {
             }
             continue;
         };
-        let rest = trivia(rest);
-        let opened = rest.strip_prefix(['(', '[', '{']).map(trivia);
-        found.push(opened.and_then(whole_literal));
+        let opened = trivia(rest).strip_prefix(['(', '[', '{']).map(trivia);
+        // A call whose argument is no plain literal cannot be told: it holds.
+        found.push(opened.and_then(literal_argument).unwrap_or(None));
     }
     found
 }
@@ -268,19 +277,21 @@ fn include_arguments(text: &str) -> Vec<Option<&str>> {
 /// without a lexer cannot tell (`cfg_attr(.., doc = "]", path = ".."`). A `path =` that is followed by `$` (a macro
 /// argument) cannot be told and gives `None`; a `path =` that is followed by another expression is no attribute.
 fn path_attributes(text: &str) -> Vec<Option<&str>> {
-    let mut found = Vec::new();
-    for key in word_at(text, "path") {
-        let Some(value) = trivia(&text[key + "path".len()..]).strip_prefix('=') else {
-            continue;
-        };
-        let value = trivia(value);
-        if value.starts_with('"') {
-            found.push(whole_literal(value));
-        } else if value.starts_with('$') {
-            found.push(None);
-        }
+    // A value that is no string literal at all is no attribute; one that cannot be read holds.
+    let values = marked(text, "path", '=').filter_map(|(_, value)| value);
+    values
+        .filter_map(|value| literal_argument(trivia(value)))
+        .collect()
+}
+
+/// The reading of a value: `Some(Some(literal))` for a plain string literal, `Some(None)` for a value that looks like a
+/// string but cannot be read here (a raw, byte or C string, a macro argument), `None` for anything else.
+fn literal_argument(value: &str) -> Option<Option<&str>> {
+    if value.starts_with('"') {
+        return Some(whole_literal(value));
     }
-    found
+    let prefixed = value.starts_with(['r', 'b', 'c']) && value[1..].starts_with(['"', '#', 'r']);
+    (prefixed || value.starts_with('$')).then_some(None)
 }
 
 /// Skip white space and comments.
@@ -290,11 +301,32 @@ fn trivia(mut text: &str) -> &str {
         if let Some(line) = text.strip_prefix("//") {
             text = line.split_once('\n').map_or("", |(_, rest)| rest);
         } else if let Some(block) = text.strip_prefix("/*") {
-            text = block.split_once("*/").map_or("", |(_, rest)| rest);
+            text = after_block(block);
         } else {
             return text;
         }
     }
+}
+
+/// The text after the end of a block comment whose opener is already read; block comments nest in Rust.
+fn after_block(text: &str) -> &str {
+    let (mut depth, mut at) = (1, 0);
+    while depth > 0 {
+        let rest = &text[at..];
+        let (open, close) = (rest.find("/*"), rest.find("*/"));
+        match (open, close) {
+            (_, None) => return "",
+            (Some(o), Some(c)) if o < c => {
+                depth += 1;
+                at += o + 2;
+            }
+            (_, Some(c)) => {
+                depth -= 1;
+                at += c + 2;
+            }
+        }
+    }
+    &text[at..]
 }
 
 /// A string literal that is the whole argument: it is followed by a closer, not by more of an expression.

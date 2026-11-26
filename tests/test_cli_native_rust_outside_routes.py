@@ -131,6 +131,17 @@ ROUTES = {
         "use /* https://example.test */ std::include as load;\n"
         'load!("../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n',
     ),
+    "path-raw-string": (
+        WORKSPACE,
+        "",
+        '#[path = r"../../../crates/base/src/lib.rs"]\nmod b;\npub fn f() { b::make(); }\n',
+    ),
+    "path-nested-comment": (
+        WORKSPACE,
+        "",
+        '#[path /* outer /* inner */ outer */ = "../../../crates/base/src/lib.rs"]\n'
+        "mod b;\npub fn f() { b::make(); }\n",
+    ),
     "include": (
         WORKSPACE,
         "",
