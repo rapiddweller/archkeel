@@ -7,8 +7,7 @@
 
 use std::collections::HashMap;
 
-use crate::survey::hazards_names::first_hazard;
-use crate::survey::hazards_names::holds;
+use crate::survey::hazards_names::{first_hazard, holds};
 
 /// The names that the modules of the scan bind to a module that holds a hazard name (`import dis`,
 /// `from unittest import mock`), with their qualified origins.
@@ -19,13 +18,31 @@ pub(in crate::survey) fn table<'a>(
     modules: impl Iterator<Item = &'a HashMap<String, Vec<String>>>,
 ) -> Reexports {
     let mut found = Reexports::new();
-    for bound in modules {
-        for (name, origins) in bound {
+    let all: Vec<_> = modules.collect();
+    for bound in &all {
+        for (name, origins) in *bound {
             let held = origins.iter().filter(|origin| holds(origin));
             found.entry(name.clone()).or_default().extend(held.cloned());
         }
     }
+    // A rename of a re-exported name (`from app.util import cp as q2`) is re-exported too: its
+    // origin ends in a name of the table. Two passes read a rename of a rename.
+    for _ in 0..2 {
+        for bound in &all {
+            for (name, origins) in *bound {
+                let held = origins
+                    .iter()
+                    .filter_map(|o| found.get(o.rsplit_once('.')?.1));
+                let held: Vec<String> = held.flatten().cloned().collect();
+                found.entry(name.clone()).or_default().extend(held);
+            }
+        }
+    }
     found.retain(|_, origins| !origins.is_empty());
+    found.values_mut().for_each(|origins| {
+        origins.sort();
+        origins.dedup();
+    });
     found
 }
 
