@@ -21,8 +21,8 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-/// `cargo check` of package ids into a target directory: its JSON output.
-pub(crate) type Check = dyn Fn(&Path, &[String], &Path) -> Option<String>;
+/// `cargo check` of package ids into a target directory, in the dev or the release profile: its JSON output.
+pub(crate) type Check = dyn Fn(&Path, &[String], &Path, bool) -> Option<String>;
 
 /// The Cargo runs that the analysis needs: the core starts them with a sealed environment.
 pub(crate) struct Runs<'a> {
@@ -229,16 +229,23 @@ fn proven_harmless<'a>(
     }
     let target = std::env::temp_dir().join(format!("archkeel-outside-{}", std::process::id()));
     let specs: Vec<String> = plain.iter().map(|id| (*id).to_owned()).collect();
-    let output = (cx.runs.check)(root, &specs, &target);
-    let proven = output
-        .map(|out| {
-            plain
-                .iter()
-                .copied()
-                .filter(|id| reads_only_itself(id, &out, pkgs, root, cx))
-                .collect()
+    // `cfg(debug_assertions)` can hide an include: both profiles must show only the files of the package. Other `cfg`
+    // axes (a target, a custom flag) are not checked: they stay an open limit of the proof (AD-1097).
+    let outputs: Vec<Option<String>> = [false, true]
+        .iter()
+        .map(|release| (cx.runs.check)(root, &specs, &target.join(release.to_string()), *release))
+        .collect();
+    let proven = plain
+        .iter()
+        .copied()
+        .filter(|id| {
+            let read = |out: &Option<String>| {
+                out.as_ref()
+                    .is_some_and(|o| reads_only_itself(id, o, pkgs, root, cx))
+            };
+            outputs.iter().all(read)
         })
-        .unwrap_or_default();
+        .collect();
     let _ = std::fs::remove_dir_all(&target);
     proven
 }
@@ -294,21 +301,18 @@ fn dep_info(artifact: &Value, root: &Path) -> Vec<PathBuf> {
     files
 }
 
-/// The files that a rustc dep-info lists: each token of a line that is no comment, minus the outputs.
+/// The files that a rustc dep-info lists: the prerequisites of each rule (the text after the colon), whatever their
+/// name. The outputs on the left of the colon are no inputs.
 fn listed_files(body: &str) -> impl Iterator<Item = String> + '_ {
-    let lines = body.lines().filter(|l| !l.starts_with('#'));
-    let tokens = lines.flat_map(|l| {
-        l.replace("\\ ", "\u{1}")
+    let rules = body.lines().filter(|l| !l.starts_with('#'));
+    let prerequisites = rules.filter_map(|l| l.split_once(':').map(|(_, right)| right));
+    prerequisites.flat_map(|right| {
+        let escaped = right.replace("\\ ", "\u{1}");
+        let tokens: Vec<String> = escaped
             .split_whitespace()
-            .map(str::to_owned)
-            .collect::<Vec<_>>()
-    });
-    let tokens = tokens.map(|t| t.replace('\u{1}', " ").trim_end_matches(':').to_owned());
-    tokens.filter(|t| {
-        !t.is_empty()
-            && ![".rmeta", ".rlib", ".d", ".so", ".dylib"]
-                .iter()
-                .any(|e| t.ends_with(e))
+            .map(|t| t.replace('\u{1}', " "))
+            .collect();
+        tokens
     })
 }
 

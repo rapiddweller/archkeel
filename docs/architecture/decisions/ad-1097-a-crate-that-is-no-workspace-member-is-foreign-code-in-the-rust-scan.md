@@ -31,7 +31,9 @@ gets an edges gap, so indirect rules give UNKNOWN. The evidence is Cargo's, not 
 2. A local crate outside the members on the way can still read a member (`include!`, `#[path]`, a symlink, `std::fs` in
    a build script or a procedural macro). A build script or a procedural macro holds always. For other crates the
    `rustc` dep-info lists each source file that was read: with `ARCHKEEL_ALLOW_BUILD=1` the core runs `cargo check` of
-   those crates and holds the member when the list names a file outside the crate or inside a member. Without the
+   those crates (dev and release profile, all targets) and holds the member when a list names a file outside the crate
+   or inside a member. A crate with a feature is not proven. The dep-info shows only the configuration that was built:
+   a `cfg` on another axis (target, custom flag) can still hide an include (known limit, #2143). Without the
    permission the crate is not proven and holds.
 3. Without a lock file, or when Cargo cannot resolve, the core falls back to `cargo metadata --no-deps`: each path, git
    or possibly patched dependency that leads outside the members holds.

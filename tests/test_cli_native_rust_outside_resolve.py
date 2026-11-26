@@ -239,3 +239,44 @@ def test_a_crate_name_that_starts_with_lib_is_proven(tmp_path: Path, release_cor
     assert _run(root, "crates/app/Cargo.toml") == "app ran\n"
     result = outcome(root, "validate", allow_build=True)[1]
     assert result["frame"]["rules"]["FORBID"][1] == "PASS", result["frame"]["rules"]
+
+
+def test_an_include_that_only_the_release_profile_compiles_does_not_pass(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = {
+        "crates/Cargo.toml": WORKSPACE,
+        "crates/app/Cargo.toml": _app('x = { path = "../../vendor/x" }\n'),
+        "crates/app/src/lib.rs": "pub fn run() { x::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "vendor/x/Cargo.toml": FOREIGN_X,
+        "vendor/x/src/lib.rs": (
+            "#[cfg(debug_assertions)]\npub fn f() {}\n"
+            '#[cfg(not(debug_assertions))]\ninclude!("../../../crates/base/src/lib.rs");\n'
+            "#[cfg(not(debug_assertions))]\npub fn f() { make(); }\n"
+        ),
+    }
+    root = _scan(tmp_path, release_core, layout)
+    _recommit(root)
+    assert _run(root, "crates/app/Cargo.toml", "--release") == "app ran\n"
+    result = outcome(root, "validate", allow_build=True)[1]
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
+def test_an_included_file_named_like_an_output_is_still_an_input(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = {
+        "crates/Cargo.toml": WORKSPACE,
+        "crates/app/Cargo.toml": _app('x = { path = "../../vendor/x" }\n'),
+        "crates/app/src/lib.rs": "pub fn run() { x::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "vendor/x/Cargo.toml": FOREIGN_X,
+        "vendor/x/src/lib.rs": 'include!("alias.d");\npub fn f() { make(); }\n',
+    }
+    root = _scan(tmp_path, release_core, layout)
+    (root / "vendor/x/src/alias.d").symlink_to("../../../crates/base/src/lib.rs")
+    _recommit(root)
+    assert _run(root, "crates/app/Cargo.toml") == "app ran\n"
+    result = outcome(root, "validate", allow_build=True)[1]
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]

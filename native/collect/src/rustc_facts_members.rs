@@ -388,9 +388,10 @@ fn resolve_metadata(root: &Path) -> Option<Value> {
 
 /// `cargo check --message-format=json` of the packages with these ids, into `target`. It runs the build scripts and
 /// the procedural macros of their dependencies: the caller needs the permission of the operator (AD-1130).
-fn check_json(root: &Path, ids: &[String], target: &Path) -> Option<String> {
+fn check_json(root: &Path, ids: &[String], target: &Path, release: bool) -> Option<String> {
     let mut cmd = sealed_cargo("check", root);
     cmd.args(["--message-format=json", "--all-targets"])
+        .args(release.then_some("--release"))
         .env("CARGO_TARGET_DIR", target);
     for id in ids {
         cmd.args(["-p", id]);
