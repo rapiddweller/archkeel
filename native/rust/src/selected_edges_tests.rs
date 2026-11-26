@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 // AD-1136: a call of `PartialEq::eq` that the compiler resolved to a workspace impl is an edge with the
-// compiler as evidence. The facts here are written by hand; `tests/test_rust_selected_eq_edge.py` runs the
+// compiler as evidence. The facts here are written by hand; `tests/test_cli_native_rust_selected_eq_edge.py` runs the
 // real driver.
 
 use crate::collect::tests::{APP, BASE, WORKSPACE};

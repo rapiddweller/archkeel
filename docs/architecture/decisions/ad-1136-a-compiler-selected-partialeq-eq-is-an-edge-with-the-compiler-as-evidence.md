@@ -45,7 +45,7 @@ pair gap `C -> M`. A contract that forbids `C -> M` stayed UNKNOWN, also when th
 
 ## Counter-examples that were tried
 
-Each is in `tests/test_rust_selected_eq_edge.py` with the real driver, unless noted.
+Each is in `tests/test_cli_native_rust_selected_eq_edge.py` with the real driver, unless noted.
 - `==` with a counter (`cargo run` prints 1) and a derived impl: FAIL. A return edge `b -> a`: cycle FAIL.
 - `{}`, a drop, a held value, `&a == &b`, a generic helper, `Box<dyn>`, a test module: never FAIL.
 - A call behind one feature: UNKNOWN (unit test). An allowing contract and a module port: PASS.
@@ -62,4 +62,4 @@ Each is in `tests/test_rust_selected_eq_edge.py` with the real driver, unless no
 ## Checks
 
 `native/rust/src/selected_edges_tests.rs`, `native/collect/src/rustc_facts_merge_tests.rs`,
-`tests/test_rust_selected_eq_edge.py` (needs `rustc-dev`), `make rustc-facts-e2e`.
+`tests/test_cli_native_rust_selected_eq_edge.py` (needs `rustc-dev`), `make rustc-facts-e2e`.

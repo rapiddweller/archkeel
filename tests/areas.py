@@ -129,6 +129,7 @@ HEAVY_FILES = frozenset(
         "test_cli_native_python_imports.py",
         "test_cli_native_python_indirect.py",
         "test_cli_native_python_reexport.py",
+        "test_cli_native_rust_selected_eq_edge.py",
         "test_cli_native_ts_reference_types.py",
         "test_cli_native_type_publication.py",
         "test_cli_python_interface.py",
