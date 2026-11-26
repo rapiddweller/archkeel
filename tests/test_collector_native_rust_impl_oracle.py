@@ -242,15 +242,10 @@ def _candidates() -> list[Any]:
         if path.name.endswith("_tests.rs") or "/tests/" in relative or path.name == "build.rs":
             continue
         kinds = {is_trait for _, is_trait in _impl_blocks(path.read_text())}
-        for kind in sorted(kinds):
-            found.append(
-                pytest.param(
-                    relative,
-                    kind,
-                    id=f"{'trait' if kind else 'inherent'}-impls-{relative}",
-                    marks=pytest.mark.xdist_group(f"impl-oracle-{len(found) % 4}"),
-                )
-            )
+        found += [
+            pytest.param(relative, kind, id=f"{'trait' if kind else 'inherent'}-impls-{relative}")
+            for kind in sorted(kinds)
+        ]
     return found
 
 
@@ -273,17 +268,6 @@ def test_each_file_that_fails_without_the_impls_of_a_file_is_held_against_it(
     assert not unreached, f"the compiler fails in {unreached} without the impls of {relative}"
     direct_only = [other for other in others if not held.holds(other, relative)]
     assert direct_only == DIRECT_ONLY.get(relative, []), relative
-
-
-def test_oracle_candidates_have_four_worker_groups() -> None:
-    groups = {
-        mark.args[0]
-        for candidate in _candidates()
-        for mark in candidate.marks
-        if mark.name == "xdist_group"
-    }
-    assert groups == {"impl-oracle-0", "impl-oracle-1", "impl-oracle-2", "impl-oracle-3"}
-    assert all(any(mark.name == "xdist_group" for mark in item.marks) for item in _candidates())
 
 
 def test_the_scanner_finds_the_top_level_impl_blocks_and_their_kind() -> None:
