@@ -170,10 +170,15 @@ def run(root: Path, script: str) -> str:
     return done.stdout.strip() if done.returncode == 0 else done.stderr.strip()
 
 
-def check(release_core: Path, root: Path, script: str) -> dict[str, str]:
+def check(
+    release_core: Path, root: Path, script: str, extra: dict[str, str] | None = None
+) -> dict[str, str]:
     tree(root, script.replace("NEW", repr(NEW_SOURCE)))
     (root / "src/app/client.py").write_text(CLIENT)
     (root / "src/app/service.py").write_text(SERVICE)
+    for name, text in (extra or {}).items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text)
     for step in (
         ["add", "-A"],
         ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
@@ -290,3 +295,14 @@ def test_a_computed_name_in_a_loader_call_holds_every_module(
     release_core: Path, tmp_path: Path, name: str
 ) -> None:
     assert check(release_core, tmp_path, COMPUTED[name])["INTERFACE"] == "UNKNOWN"
+
+
+def test_a_folder_with_its_own_archkeel_toml_is_another_project(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """A sub-project (a fixture) is not code of this scan (AD-1211); a plain folder is read."""
+    plant = WRITES["subscript write"]
+    other = {"sub/archkeel.toml": "[scan]\n", "sub/tool.py": plant}
+    plain = {"sub/tool.py": plant}
+    assert check(release_core, tmp_path / "a", "", other)["INTERFACE"] == "PASS"
+    assert check(release_core, tmp_path / "b", "", plain)["INTERFACE"] == "UNKNOWN"

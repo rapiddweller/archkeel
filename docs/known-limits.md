@@ -308,7 +308,7 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
   reads the code of the repository outside the scan roots (AD-770): a script or an extension source
   that writes a module of the scan, or names it beside a trojan horse, withholds its routes (UNKNOWN). A test
   file (`test_*.py`, `*_test.py`, a file below `test/` or `tests/`), a name built at run time from
-  data, and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
+  data, a folder below the root with its own `archkeel.toml` (another ArchKeel project, AD-1211), and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
   the stated premise of the run: "Code outside the scan roots, including test code, hands in no
   module object of the scan and writes no binding of a module or class of the scan." In the scan, a
   write through `sys.modules` or a computed `importlib.import_module` is a survey gap, so the rule is
