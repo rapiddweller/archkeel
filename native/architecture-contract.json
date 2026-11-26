@@ -2303,20 +2303,7 @@
           "through": [
             "native.archkeel_report.build_error",
             "native.archkeel_report.kind",
-            "native.archkeel_report.why",
-            "native.archkeel_report.why:ClassCount",
-            "native.archkeel_report.why:CyclePath",
-            "native.archkeel_report.why:Cycles",
-            "native.archkeel_report.why:DeclaredEdge",
-            "native.archkeel_report.why:GapHolds",
-            "native.archkeel_report.why:HeldImport",
-            "native.archkeel_report.why:HoldKind",
-            "native.archkeel_report.why:Holds",
-            "native.archkeel_report.why:InterfaceHolds",
-            "native.archkeel_report.why:OriginCount",
-            "native.archkeel_report.why:Pair",
-            "native.archkeel_report.why:RuleHolds",
-            "native.archkeel_report.why:Step"
+            "native.archkeel_report.why"
           ]
         },
         {
@@ -2332,15 +2319,6 @@
           "through": [
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph"
-          ]
-        },
-        {
-          "component": "model-terms",
-          "rationale": "Read the held imports and their classes of an interface_boundary hold (#2086, AD-1170).",
-          "through": [
-            "native.archkeel_model.causes:InterfaceGap",
-            "native.archkeel_model.causes:InterfaceHold",
-            "native.archkeel_model.causes:PairOrigin"
           ]
         },
         {
