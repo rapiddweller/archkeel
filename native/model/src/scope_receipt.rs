@@ -213,10 +213,11 @@ pub(crate) fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         }
         // `scope_receipts_complete` reads the scan roots: `receipts::requires` (slice S7).
         Rule::CompleteRequires(rule) => {
-            let judged = direction::crossings(model, rule)
-                .into_iter()
-                .map(|c| c.judged);
-            undecided(direction::undecided(judged))?;
+            let found = direction::crossings(model, rule);
+            if direction::published_impl(&found) {
+                return Err(Reason::NotComplete(Cause::published_impl()));
+            }
+            undecided(direction::undecided(found.iter().map(|c| c.judged)))?;
             true
         }
         // AD-550: the rule has its receipt when its surface has no named gap.

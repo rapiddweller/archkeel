@@ -9,12 +9,25 @@ use serde_json::Value;
 
 use super::{
     source_digest, Capabilities, ConstructCapability, ConstructSupport, Coverage, Dirty, Evidence,
-    FileFact, Input, SectionName, Source,
+    FileFact, Input, SectionName, Source, Target,
 };
 use crate::identity::{evidence_id, package_of, stable_id, Part};
 use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use crate::record::Record;
 use crate::sections::GapFact;
+
+impl Target {
+    /// The target of an import of a module that the scan holds, run from its own file.
+    pub fn local(import_id: &str, module: &str, file: &str) -> Self {
+        Target::Local {
+            import_id: FactId::new(import_id),
+            module: ModuleName::new(module),
+            file: file.to_owned(),
+            runtime_file: Some(file.to_owned()),
+            declaration_file: None,
+        }
+    }
+}
 
 impl FileFact {
     /// The file fact of a module: the id and the package come from the module identity.

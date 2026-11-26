@@ -129,3 +129,54 @@ fn a_string_annotation_without_a_hazard_and_a_literal_value_are_no_site() {
         assert_eq!(details(source), Vec::<String>::new(), "{source}");
     }
 }
+
+#[test]
+fn a_text_over_the_parser_bound_a_run_time_write_and_a_string_variable_are_sites() {
+    let nest = format!(
+        "x: \"{}__import__('a.b'){}\"\n",
+        "[".repeat(150),
+        "]".repeat(150)
+    );
+    for source in [
+        nest.as_str(),
+        "class K: ...\nK.__annotations__ = {'x': 'int'}\n",
+        "def f(): ...\nf.__annotations__['x'] = 'int'\n",
+        "K.__annotations__.update(x='int')\n",
+        "s = \"__import__('a.b')\"\nclass K:\n    x: s\n",
+        "s = 'a' + 'b'\nclass K:\n    x: s\n",
+        "J = \"list[J]\"\ndef f(x: J): ...\n",
+        "J = \"list[Ｊ]\"\ndef f(x: J): ...\n",
+        "J = \"list['J']\"\ndef f(x: J): ...\n",
+        "A = \"B\"\nB = \"A\"\ndef f(x: A): ...\n",
+        "A = \"B\"\nB = \"__import__('a.b')\"\ndef f(x: A): ...\n",
+    ] {
+        assert!(!details(source).is_empty(), "{source}");
+    }
+}
+
+#[test]
+fn a_read_of_annotations_and_a_name_without_a_string_are_no_site() {
+    for source in [
+        "class K: ...\nprint(K.__annotations__)\n",
+        "s = 'int'\nclass K:\n    x: s\n",
+        "class A: ...\nclass K:\n    x: A\n",
+    ] {
+        assert_eq!(details(source), Vec::<String>::new(), "{source}");
+    }
+}
+
+#[test]
+fn many_equal_texts_of_one_name_cost_no_more_than_one() {
+    let source = format!("{}class K:\n    x: s\n", "s = 'int'\n".repeat(3000));
+    assert_eq!(details(&source), Vec::<String>::new());
+    let distinct: String = (0..40).map(|n| format!("s = 'int{n}'\n")).collect();
+    assert!(!details(&format!("{distinct}class K:\n    x: s\n")).is_empty());
+}
+
+#[test]
+fn a_name_with_many_different_texts_stops_collecting() {
+    let many: String = (0..40_000).map(|n| format!("s = 'int{n}'\n")).collect();
+    let start = std::time::Instant::now();
+    assert!(!details(&format!("{many}class K:\n    x: s\n")).is_empty());
+    assert!(start.elapsed().as_secs() < 5);
+}

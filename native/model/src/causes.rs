@@ -198,6 +198,15 @@ pub enum Part {
     MountParent(String),
 }
 
+impl Cause {
+    /// A selected impl of a type that a port may publish: the publication route is not proven (#2069).
+    pub(crate) fn published_impl() -> Cause {
+        Cause::Receipt(
+            "a selected impl of a type published through a port: the publication route is not proven (#2069)",
+        )
+    }
+}
+
 impl fmt::Display for Cause {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
