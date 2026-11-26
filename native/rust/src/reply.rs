@@ -64,7 +64,7 @@ pub(crate) struct Collected {
     pub evidence: Vec<Evidence>,
     /// The scan states `LOCK_PREMISE` with its verdict.
     pub lock_premise: bool,
-    /// The binding values of the type-reach facts that the scan verified and used (AD-1114).
+    /// The binding values of the type-reach facts that the scan verified and used (AD-1116).
     pub reached: Option<Reached>,
 }
 

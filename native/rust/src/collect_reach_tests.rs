@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-// AD-1114: the reply carries the provenance of the type-reach facts only when the scan used them.
+// AD-1116: the reply carries the provenance of the type-reach facts only when the scan used them.
 
 use crate::collect::tests::{APP, BASE, WORKSPACE};
 use archkeel_facts::envelope::{Dirty, Profile, Provenance};

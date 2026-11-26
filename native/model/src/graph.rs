@@ -480,7 +480,7 @@ fn symbol_counts(facts: &Facts, modules: &Table<ModuleId, Module>) -> Option<Vec
     )
 }
 
-/// The facts of the reply, when the settings of the shell hold for it (AD-372, AD-1114).
+/// The facts of the reply, when the settings of the shell hold for it (AD-372, AD-1116).
 fn admitted<'a>(reply: &'a Ingested, settings: &Settings) -> Result<&'a Facts, Reason> {
     let facts = &reply.reply().facts;
     let pinned = archkeel_store::standard_library(&facts.validation.standard_library);
