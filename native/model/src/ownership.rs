@@ -36,9 +36,23 @@ pub fn claims(component: &Component, module: &str) -> bool {
             .any(|package| in_scope(module, package.as_text()))
 }
 
-/// True when a `requires` entry of `source` has a symbol port at `module` or above it. The name that the port
-/// publishes can be defined in `module`, so a use of `module` alone proves no violation (AD-1136).
-pub(crate) fn symbol_port_above(source: &Component, module: &str) -> bool {
+/// True when a `requires` entry of `source` for `target` has a symbol port.
+pub(crate) fn symbol_port(source: &Component, target: &Component) -> bool {
+    source.requires().iter().flatten().any(|entry| {
+        entry.component() == target.label()
+            && entry.through().iter().any(|p| p.as_text().contains(':'))
+    })
+}
+
+/// True when a port of `source` can publish a type that an impl in `module` of `target` belongs to: `source` has
+/// an entry for `target`, or a symbol port at `module` or above it. The core does not yet prove the publication
+/// route, so a use of `module` alone proves no violation (AD-1136, #2069). No entry and no port: false.
+pub(crate) fn may_publish(source: &Component, target: &Component, module: &str) -> bool {
+    let mut entries = source.requires().iter().flatten();
+    entries.any(|e| e.component() == target.label()) || symbol_port_above(source, module)
+}
+
+fn symbol_port_above(source: &Component, module: &str) -> bool {
     let mut ports = source.requires().iter().flatten().flat_map(|e| e.through());
     ports.any(|port| {
         let at = port.as_text().split_once(':');

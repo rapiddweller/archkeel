@@ -25,7 +25,7 @@ use crate::causes::Cause;
 use crate::ids::ComponentId;
 use crate::imports::{Import, Resolved};
 use crate::model::Model;
-use crate::ownership::{in_scope, owner_of, symbol_port_above};
+use crate::ownership::{in_scope, may_publish, owner_of, symbol_port};
 use crate::reason::Reason;
 use crate::selection::{
     dependency_sides, unused_by_module, unused_entries, Selection, UnusedAllowance,
@@ -405,8 +405,8 @@ pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<
             && import.symbol() != Some("*");
         let (module, symbol) = (import.target_module(), import.symbol());
         let mut judged = assessment(source, target, module, symbol, named);
-        // The compiler names the module of the impl, not the symbol of a port (AD-1136).
-        if judged == Judged::Fail && import.selected_impl() && symbol_port_above(source, module) {
+        // The compiler names the module of the impl, not the symbol or the route that a port publishes (AD-1136).
+        if judged == Judged::Fail && import.selected_impl() && may_publish(source, target, module) {
             judged = Judged::Undecided;
         }
         found.push(Crossing {
@@ -417,17 +417,6 @@ pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<
         });
     }
     found
-}
-
-/// True when a `requires` entry of `source` for `target` has a symbol port.
-fn symbol_port(source: &Component, target: &Component) -> bool {
-    source.requires().iter().flatten().any(|entry| {
-        entry.component() == target.label()
-            && entry
-                .through()
-                .iter()
-                .any(|port| port.as_text().contains(':'))
-    })
 }
 
 /// Assess a known import or a possible edge without a proven symbol.
@@ -491,6 +480,12 @@ fn port_judged(port: &str, module: &str, symbol: Option<&str>, known: bool) -> J
     } else {
         Judged::Fail
     }
+}
+
+/// True when a selected impl is undecided: a port of its component can publish the type (AD-1136, #2069).
+pub(crate) fn published_impl(found: &[Crossing<'_>]) -> bool {
+    let selected = |c: &Crossing<'_>| c.judged == Judged::Undecided && c.import.selected_impl();
+    found.iter().any(selected)
 }
 
 /// The number of undecided positions in judgements (`symbol_limits`).

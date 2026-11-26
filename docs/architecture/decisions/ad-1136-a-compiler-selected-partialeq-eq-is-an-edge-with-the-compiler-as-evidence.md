@@ -30,20 +30,20 @@ pair gap `C -> M`. A contract that forbids `C -> M` stayed UNKNOWN, also when th
    forbids `C -> M` fails. `Filter::excluded` stays the single negative decision.
 6. **Model.** `Import::selected_impl()` marks the edge. A rule that counts source names (AD-924) and the
    interface rule skip it: execution is no name (`Import::written_name`). In `complete_requires` a failing
-   crossing is Undecided when the source has a symbol port at the module of the impl or above it. The compiler
-   names the module, not the symbol that a port publishes (follow-up: #2069).
+   crossing is Undecided, never FAIL, when a port of the source can publish the type: the source has an entry for
+   the target component, or a symbol port at the module of the impl or above it. The compiler names the defining
+   module, not the facade that re-exports the type, and the core does not prove the route yet (#2069). The rule
+   is UNKNOWN. When no other hold exists, the cause is "a selected impl of a type published through a port: the publication route is not
+   proven (#2069)". An impl in a component that no entry of the source names still FAILs.
 
-## Effect on the self-check (CI gate of PR #2066, base 3af4cc4c259a)
+## Effect on the self-check (base 3af4cc4c259a)
 
-- Base: 89 rules PASS, 3 UNKNOWN, 12947 gap records. This change: 89 PASS, 2 UNKNOWN, 1 FAIL, 12948 gap records.
-- A local run found 3900 sites in 9 configurations. 1327 are in every configuration: 379 pairs of rustc modules,
-  96 across crates. Most pairs are in one component or allowed by a port.
-- New FAIL: `NATIVE-REQUIRES-COMPLETE` (was UNKNOWN), 7 violations over 4 pairs. Each pair goes to
-  `typescript_collector.site_types`, where the derive of `PartialEq` for `SiteKind` runs: from `resolution`,
-  `script_deps`, `script_records` and `site_records`. The ports of `ts-sites` name `sites`, not `site_types`.
-  A local run showed one of the four pairs. The contract is not changed.
-- New gap: one `graph.drift` gap. The drawn graph misses `core-baseline -> report-payload`,
-  `core-engine -> model-terms` and `eval-rules -> model-match`.
+- Base: 89 rules PASS, 3 UNKNOWN, 12947 gap records. Before the facade rule, CI showed 1 FAIL and 7 violations
+  over 4 pairs into `typescript_collector.site_types`. The ports of `ts-sites` name `sites`, and the derive of
+  `PartialEq` for `SiteKind` runs in `site_types`: now UNKNOWN, no FAIL.
+- A local run found 3900 sites in 9 configurations. 1327 are in every configuration: 379 pairs of rustc modules.
+- `graph.drift`: the compiler proves three component edges that the drawn graph missed: `core-baseline ->
+  report-payload`, `core-engine -> model-terms`, `eval-rules -> model-match`. `native.md` draws them now.
 
 ## Counter-examples that were tried
 
@@ -51,7 +51,8 @@ Each is in `tests/test_cli_native_rust_selected_eq_edge.py` with the real driver
 - `==` with a counter (`cargo run` prints 1) and a derived impl: FAIL. A return edge `b -> a`: cycle FAIL.
 - `{}`, a drop, a held value, `&a == &b`, a generic helper, `Box<dyn>`, a test module: never FAIL.
 - A call behind one feature: UNKNOWN (unit test). An allowing contract and a module port: PASS.
-- A symbol port at the impl module or its parent: UNKNOWN. A symbol port elsewhere: FAIL.
+- A symbol port at the impl module or its parent, or a port of the target component that misses the impl
+  module (a facade): UNKNOWN with the named cause. No entry for the target component: FAIL.
 - Mutation: an edge without the compiler fact fails six unit tests. Without `written_name` the name rule turns UNKNOWN.
 
 ## Not done yet
@@ -59,7 +60,7 @@ Each is in `tests/test_cli_native_rust_selected_eq_edge.py` with the real driver
 - Only `PartialEq::eq`. `Display`, `Debug`, `Drop`, operators, `Deref` and `dyn` calls stay gaps.
 - No symbol identity, and no configuration-aware edge.
 - A saved reply carries the edge but no type-reach fact (AD-1116).
-- A facade port with the impl in the defining module (`sites`, `site_types`) is a FAIL now.
+- The publication route (#2069): a facade port with the impl in the defining module stays UNKNOWN until proven.
 
 ## Checks
 

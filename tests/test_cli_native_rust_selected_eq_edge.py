@@ -218,12 +218,13 @@ def test_a_symbol_port_at_a_parent_module_keeps_the_edge_unknown(
     assert statuses(result)["REQUIRES"] == "UNKNOWN"
 
 
-def test_a_symbol_port_in_an_unrelated_module_does_not_hide_the_violation(
+def test_a_facade_port_keeps_the_impl_in_another_module_unknown(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ports = {"b": ["native.app.c:Y"]}
+    """The entry for `b` has a port that misses the impl module: a facade can publish the type."""
+    ports = {"b": ["native.app.c"]}
     _, result = _scan(tmp_path, release_core, monkeypatch, a_needs=("c", "b", "d"), ports=ports)
-    assert statuses(result)["REQUIRES"] == "FAIL"
+    assert statuses(result)["REQUIRES"] == "UNKNOWN"
 
 
 def test_a_module_port_that_covers_the_impl_passes(
