@@ -16,13 +16,6 @@ use std::collections::{HashMap, HashSet};
 use ruff_python_ast::{Expr, Stmt, StmtClassDef};
 use ruff_text_size::Ranged;
 
-use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::ids::{EvidenceId, FactId};
-use archkeel_facts::nested::BaseDeclaration;
-use archkeel_facts::vocab::{RelationshipKind, Status};
-
-use super::reader::Unwritable;
-use super::Writer;
 use crate::module::Module;
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
@@ -73,6 +66,9 @@ pub(super) struct BaseSite<'a> {
 
 /// The proven kind and bases of a class.
 pub(super) struct Class<'a> {
+    /// A base is a class of another module: a hook of that class (`__init_subclass__`) can change this class
+    /// after its statement, so the members of this class are withheld (#2129).
+    pub foreign: bool,
     pub kind: Kind,
     pub bases: Vec<BaseSite<'a>>,
     /// Each base lets `A()` give an instance of `A`.
@@ -223,6 +219,48 @@ fn add_classes(table: &mut Project, (module, binders): (&Module, &Binders), boun
     grew
 }
 
+/// Remember a class of the module body with a record, and its body for the nested classes.
+pub(super) fn keep<'a>(
+    found: Option<(Frame<'a>, Local)>,
+    name: &str,
+    local: &mut HashMap<String, Local>,
+    pending: &mut Vec<Frame<'a>>,
+) {
+    if let Some((frame, kind)) = found {
+        local.insert(name.to_owned(), kind);
+        pending.push(frame);
+    }
+}
+
+/// The classes of a class body that bind their name once.
+pub(super) fn nested<'a>(frame: &Frame<'a>) -> Vec<&'a StmtClassDef> {
+    let found = frame
+        .node
+        .body
+        .iter()
+        .filter_map(|statement| match statement {
+            Stmt::ClassDef(node)
+                if frame
+                    .bound
+                    .sole(node.name.as_str(), statement.range().start()) =>
+            {
+                Some(node)
+            }
+            _ => None,
+        });
+    found.collect()
+}
+
+/// A class with a record whose body is not read yet.
+pub(super) struct Frame<'a> {
+    pub(super) node: &'a StmtClassDef,
+    pub(super) qualname: String,
+    pub(super) id: String,
+    pub(super) bound: Bound,
+    /// The members of the class are withheld, and so are its nested classes.
+    pub(super) open: bool,
+}
+
 /// What a class statement reads to know its bases.
 pub(super) struct Reading<'a> {
     pub module: &'a str,
@@ -278,6 +316,7 @@ struct Found {
     target: String,
     protocol: bool,
     constructible: bool,
+    foreign: bool,
 }
 
 /// The kind and the bases of `node`, or `None` when a base or a keyword leaves them open.
@@ -289,7 +328,8 @@ pub(super) fn of<'a>(node: &'a StmtClassDef, reading: &Reading<'_>) -> Option<Cl
     if arguments.is_some_and(|arguments| !arguments.keywords.is_empty()) {
         return None;
     }
-    let (mut protocol, mut enumeration, mut constructible) = (false, false, true);
+    let (mut protocol, mut enumeration, mut constructible, mut foreign) =
+        (false, false, true, false);
     let mut bases = Vec::new();
     for base in arguments.map_or(&[][..], |arguments| &arguments.args) {
         let found = classify(base, reading)?;
@@ -299,6 +339,7 @@ pub(super) fn of<'a>(node: &'a StmtClassDef, reading: &Reading<'_>) -> Option<Cl
             Is::Enum => enumeration = true,
         }
         constructible &= found.constructible;
+        foreign |= found.foreign;
         bases.push(BaseSite {
             expr: base,
             target: found.target,
@@ -312,6 +353,7 @@ pub(super) fn of<'a>(node: &'a StmtClassDef, reading: &Reading<'_>) -> Option<Cl
         (false, false) => Kind::Plain,
     };
     Some(Class {
+        foreign,
         kind,
         bases,
         constructible,
@@ -341,6 +383,7 @@ fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Found> {
                 target: format!("{}.{name}", reading.module),
                 protocol: local.kind == Kind::Protocol,
                 constructible: local.constructible,
+                foreign: false,
             });
         }
         if BUILTIN_BASES.contains(&name) && reading.binders.builtin_visible(name) {
@@ -349,6 +392,7 @@ fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Found> {
                 target: format!("builtins.{name}"),
                 protocol: false,
                 constructible: true,
+                foreign: false,
             });
         }
     }
@@ -363,6 +407,7 @@ fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Found> {
             target: format!("{defined}.{class}"),
             protocol: kind == Kind::Protocol,
             constructible: false,
+            foreign: true,
         });
     }
     let is = match (module.as_str(), symbol.as_str()) {
@@ -377,6 +422,7 @@ fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Found> {
         target: format!("{module}.{symbol}"),
         protocol: false,
         constructible: false,
+        foreign: false,
     })
 }
 
@@ -420,50 +466,6 @@ pub(super) fn imported(base: &Expr, reading: &Reading<'_>) -> Option<(String, St
             _ => None,
         }
     })
-}
-
-impl Writer<'_, '_> {
-    /// `_base_declaration`: one resolved declaration for each base of a class. The list is the
-    /// class statement, so a base that it does not name is a base that the class lacks.
-    pub(super) fn bases(
-        &mut self,
-        class: &str,
-        class_kind: Kind,
-        bases: &[BaseSite<'_>],
-    ) -> Result<Vec<BaseDeclaration>, Unwritable> {
-        let module = self.scan.module;
-        let mut found = Vec::new();
-        for base in bases {
-            let expression = self.scan.text(Some(base.expr))?.unwrap_or_default();
-            let crate::module::Location { line, column, .. } = module.location(base.expr);
-            let relationship_kind = if base.protocol && class_kind != Kind::Protocol {
-                RelationshipKind::Realizes
-            } else {
-                RelationshipKind::Inherits
-            };
-            let id = stable_id(
-                "BASE",
-                &[
-                    Part::Text(class),
-                    Part::Number(line),
-                    Part::Number(column),
-                    Part::Text(&expression),
-                ],
-            );
-            found.push(BaseDeclaration {
-                candidate_count: 1,
-                candidates_truncated: None,
-                evidence_ids: vec![EvidenceId::new(self.scan.evidence(base.expr))],
-                expression,
-                id: FactId::new(id),
-                reason: Some("explicit base with a proven binding".to_owned()),
-                relationship_kind,
-                status: Status::Resolved,
-                targets: vec![base.target.clone()],
-            });
-        }
-        Ok(found)
-    }
 }
 
 #[cfg(test)]

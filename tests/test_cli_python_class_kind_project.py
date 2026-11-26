@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: MIT
 """#2129: a class gets a kind from a base in another module only when each step is proven.
 
-A facade `app.api` exports `Derived` of `app/derived.py`. When the base has a proven kind,
-`Derived` has a record, and `boundary_types` names the inherited surface of the base (a gap that
-reads no inherited member). When any step is not proven, `Derived` has no record: the gap is
-`no_record`. Both answers are UNKNOWN; the cause tells which one the survey took. Each plant runs
-under CPython: the output shows what the class really is, so a plant that must keep `no_record`
-is a real hazard.
+A facade `app.api` exports `Derived` of `app/derived.py`. When the base has a proven kind, `Derived`
+has a record with its members withheld (a hook of the base, `__init_subclass__`, can change them),
+and `boundary_types` names that gap (`member_no_record`). When any step is not proven, `Derived`
+has no record: the gap is `no_record`. Both answers are UNKNOWN; the cause tells which one the
+survey took. Each plant runs under CPython: the output shows what the class really is, so a plant
+that must keep `no_record` is a real hazard.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ PLAIN = "class Base:\n    pass\n"
 OTHER = "class Other:\n    marker = 1\n"
 
 # name: (extra files, the Python check that prints the truth, the text that it must print)
-KIND = "inherited_surface"
+KIND = "member_no_record"
 OPEN = "no_record"
 PLANTS: dict[str, tuple[dict[str, str], str, str, str]] = {
     "plain-base": (
@@ -69,6 +69,23 @@ PLANTS: dict[str, tuple[dict[str, str], str, str, str]] = {
         },
         "import app.derived as d",
         "Base type None",
+        KIND,
+    ),
+    # A hook of the base changes the class after its statement: the members are withheld.
+    "init-subclass-deletes-a-member": (
+        {
+            "base.py": (
+                "class Base:\n    def __init_subclass__(cls, **kw):\n"
+                "        cls.marker = 7\n        del cls.m\n"
+            ),
+            "model.py": "class Secret:\n    pass\n",
+            "derived.py": (
+                "from app.base import Base\nfrom app.model import Secret\n\n\n"
+                "class Derived(Base):\n    def m(self, a: Secret) -> int:\n        return 1\n"
+            ),
+        },
+        "import app.derived as d",
+        "Base type 7",
         KIND,
     ),
     # A step that is not proven: no kind, no record.

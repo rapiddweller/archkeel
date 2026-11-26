@@ -25,10 +25,12 @@ classes of the public facades had no record for this reason, among them `AppendC
    the base (`app.base.Base`), not the re-exporting module.
 3. `abc.ABC` is a base that gives a plain class (its metaclass `ABCMeta` gives a class and no other base here has a
    metaclass). It is read like a name of `enum` or `typing`.
-4. A class of another module is never `constructible`: the survey claims no `A()` instance for it.
+4. A class of another module is never `constructible`: the survey claims no `A()` instance for it. A class with
+   such a base keeps no member record (`open`): a hook of the base (`__init_subclass__`) can change the class after
+   its statement, and the survey does not read that hook (Codex finding on #2141). The class has its record and
+   its kind, and `boundary_types` names `member_no_record`.
 5. Not changed: a decorated class, a keyword (`metaclass=`), a computed base (`importlib`, a call, a conditional),
-   a relative import and a base outside the scan keep no kind and no record. `boundary_types` still names the
-   inherited surface of a base that has a record (`inherited_surface`): the verdict stays UNKNOWN there.
+   a relative import and a base outside the scan keep no kind and no record. The verdict of a facade class with such a base stays UNKNOWN (`member_no_record`).
 
 ## Why it is sound
 
