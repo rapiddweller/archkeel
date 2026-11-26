@@ -60,6 +60,7 @@ pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
         evidence: Vec::new(),
         call_by_name: false,
         unbound_type: false,
+        selected_impl: false,
     }
 }
 

@@ -36,6 +36,16 @@ pub fn claims(component: &Component, module: &str) -> bool {
             .any(|package| in_scope(module, package.as_text()))
 }
 
+/// True when a `requires` entry of `source` has a symbol port at `module` or above it. The name that the port
+/// publishes can be defined in `module`, so a use of `module` alone proves no violation (AD-1129).
+pub(crate) fn symbol_port_above(source: &Component, module: &str) -> bool {
+    let mut ports = source.requires().iter().flatten().flat_map(|e| e.through());
+    ports.any(|port| {
+        let at = port.as_text().split_once(':');
+        at.is_some_and(|(published, _)| in_scope(module, published))
+    })
+}
+
 /// The one claimant, or `None` for zero or many.
 fn sole<T: Copy>(mut claims: impl Iterator<Item = T>) -> Option<T> {
     let first = claims.next()?;

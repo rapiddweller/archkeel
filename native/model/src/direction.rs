@@ -25,7 +25,7 @@ use crate::causes::Cause;
 use crate::ids::ComponentId;
 use crate::imports::{Import, Resolved};
 use crate::model::Model;
-use crate::ownership::{in_scope, owner_of};
+use crate::ownership::{in_scope, owner_of, symbol_port_above};
 use crate::reason::Reason;
 use crate::selection::{
     dependency_sides, unused_by_module, unused_entries, Selection, UnusedAllowance,
@@ -403,13 +403,12 @@ pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<
         let named = import.symbols_known()
             && (!import.under_type_checking() || import.symbol().is_none())
             && import.symbol() != Some("*");
-        let judged = assessment(
-            source,
-            target,
-            import.target_module(),
-            import.symbol(),
-            named,
-        );
+        let (module, symbol) = (import.target_module(), import.symbol());
+        let mut judged = assessment(source, target, module, symbol, named);
+        // The compiler names the module of the impl, not the symbol of a port (AD-1129).
+        if judged == Judged::Fail && import.selected_impl() && symbol_port_above(source, module) {
+            judged = Judged::Undecided;
+        }
         found.push(Crossing {
             import,
             source,

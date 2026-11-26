@@ -45,6 +45,22 @@ pub(crate) struct Coerced {
     pub(crate) opaques: BTreeSet<u32>,
 }
 
+/// One call of `PartialEq::eq` that the compiler resolved to the `eq` of a workspace impl (AD-1129).
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct Selected {
+    /// The module of the body that makes the call.
+    pub(crate) from: u32,
+    /// The module of the selected impl.
+    pub(crate) to: u32,
+    /// The selected `eq` of the impl.
+    pub(crate) imp: u32,
+    /// The file of the call, relative to the root.
+    pub(crate) file: u32,
+    /// The line of the call (1-based) and its column (0-based).
+    pub(crate) line: u32,
+    pub(crate) column: u32,
+}
+
 /// The types that flow into a generic function: ADTs, and the `dyn` traits of its type arguments
 /// (`show::<Box<dyn Debug>>`): the instance can call a method of any implementer.
 #[derive(Default)]
@@ -82,6 +98,8 @@ pub(crate) struct State {
     /// The ADTs in the fields of each ADT: an ADT that holds an erasing ADT erases too.
     pub(crate) adt_fields: BTreeMap<u32, BTreeSet<u32>>,
     pub(crate) opaque_defs: HashSet<DefId>,
+    /// The calls of `PartialEq::eq` with a selected workspace impl.
+    pub(crate) selected: BTreeSet<Selected>,
     pub(crate) workspace_defs: HashMap<DefId, bool>,
     /// The canonical workspace root, with a closing slash.
     pub(crate) root: String,
@@ -103,6 +121,7 @@ static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
         erased_adts: BTreeSet::new(),
         adt_fields: BTreeMap::new(),
         opaque_defs: HashSet::new(),
+        selected: BTreeSet::new(),
         workspace_defs: HashMap::new(),
         root: String::new(),
         registry: String::new(),

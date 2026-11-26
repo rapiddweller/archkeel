@@ -491,6 +491,7 @@ fn declared(
         resolved,
         evidence,
         unbound_type: false,
+        selected_impl: false,
     }
 }
 
