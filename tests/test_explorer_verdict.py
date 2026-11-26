@@ -8,7 +8,7 @@ import sqlite3
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -352,3 +352,10 @@ def test_a_test_source_is_left_out_of_the_explorer_view_and_the_verdict_says_so(
         assert test_file in verdict["excluded_paths"]
         assert verdict["violations"] < sum(result["frame"]["violations"].values())
         assert "validate" in verdict["scope"]
+
+
+def test_a_path_that_two_parts_exclude_is_stored_once(tmp_path: Path) -> None:
+    rows = replace(_rows(tmp_path), excluded=("t/test_a.py", "t/test_a.py", "t/test_b.py"))
+    answer = _synthetic(tmp_path, rows).ask("verdict")
+    assert answer["excluded_sources"] == 2
+    assert answer["excluded_paths"] == ["t/test_a.py", "t/test_b.py"]

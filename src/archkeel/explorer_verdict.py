@@ -110,7 +110,9 @@ def _store(connection: sqlite3.Connection, rows: VerdictRows | None) -> None:
     )
     connection.executemany("INSERT INTO rationale VALUES (?,?)", sorted(rows.rationales.items()))
     connection.executemany("INSERT INTO source VALUES (?,?)", sorted(rows.sources.items()))
-    connection.executemany("INSERT INTO excluded VALUES (?)", [(p,) for p in sorted(rows.excluded)])
+    connection.executemany(
+        "INSERT INTO excluded VALUES (?)", [(p,) for p in sorted(set(rows.excluded))]
+    )
     # Numbered after sorting, so the id order is the row order and equal input gives equal bytes.
     for number, finding in enumerate(
         sorted(rows.findings, key=lambda row: (row.rule, row.subject, row.at or ""))
