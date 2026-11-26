@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 
+use archkeel_facts::entry_points::EntryPoints;
 use archkeel_facts::envelope::{SourceCallCandidate, Target};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::nested::MemberInventory;
@@ -23,6 +24,8 @@ pub(crate) struct ExplorerPart {
     symbols: Option<Vec<Symbol>>,
     calls: Option<Vec<Call>>,
     imports: Option<Vec<Import>>,
+    /// The entry points that manifests and files prove; null when the language has no reader.
+    entry_points: Option<EntryPoints>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     source_call_candidates: Vec<SourceCallCandidate>,
 }
@@ -270,11 +273,18 @@ fn import(row: &Record<ImportFact>, target: Option<&Target>) -> Import {
 }
 
 /// Project only collected sections. A missing section stays null even when another was read.
-pub(crate) fn parts(reply: Option<&archkeel_store::Ingested>, enabled: bool) -> Vec<ExplorerPart> {
-    reply.filter(|_| enabled).map(project).into_iter().collect()
+pub(crate) fn parts(
+    reply: Option<&archkeel_store::Ingested>,
+    enabled: bool,
+    entry_points: Option<EntryPoints>,
+) -> Vec<ExplorerPart> {
+    let found = reply
+        .filter(|_| enabled)
+        .map(|reply| project(reply, entry_points));
+    found.into_iter().collect()
 }
 
-fn project(reply: &archkeel_store::Ingested) -> ExplorerPart {
+fn project(reply: &archkeel_store::Ingested, entry_points: Option<EntryPoints>) -> ExplorerPart {
     let facts = &reply.reply().facts;
     let language = reply.analysis_capabilities().language;
     let mut part = ExplorerPart {
@@ -292,6 +302,7 @@ fn project(reply: &archkeel_store::Ingested) -> ExplorerPart {
         calls: None,
         source_call_candidates: facts.source_call_candidates.clone(),
         imports: None,
+        entry_points,
     };
     let targets: HashMap<_, _> = facts.imports.iter().map(|t| (t.import_id(), t)).collect();
     let direct: HashMap<_, _> = facts

@@ -38,6 +38,11 @@
         "native.archkeel_facts.data:TrojanHorseForm",
         "native.archkeel_facts.data:TrojanHorseSite",
         "native.archkeel_facts.data:ValueData",
+        "native.archkeel_facts.entry_points:EntryBasis",
+        "native.archkeel_facts.entry_points:EntryEvidence",
+        "native.archkeel_facts.entry_points:EntryKind",
+        "native.archkeel_facts.entry_points:EntryPoint",
+        "native.archkeel_facts.entry_points:EntryPoints",
         "native.archkeel_facts.envelope.validation:InterfaceNeed",
         "native.archkeel_facts.envelope.validation:Registered",
         "native.archkeel_facts.envelope.validation:library_family",
@@ -2941,6 +2946,7 @@
           "component": "facts",
           "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422), and name the request type that the self-test of a scan echoes, so that the frame schema states it (AD-600). The Explorer projects validated source records and their evidence for navigation (AD-1017).",
           "through": [
+            "native.archkeel_facts.entry_points:EntryPoints",
             "native.archkeel_facts.envelope:Facts",
             "native.archkeel_facts.envelope:SourceCallCandidate",
             "native.archkeel_facts.envelope:Target",
@@ -3211,7 +3217,7 @@
         "native.archkeel_collect"
       ],
       "responsibilities": [
-        "Read the repository configuration and derive the collection request. Run the Rust and TypeScript workers or the linked Python and Dart collectors. Give the store the typed reply. Refuse a configured collector. Own the typed failures and enable the snapshot parse-work bound."
+        "Read the repository configuration and derive the collection request. Run the Rust and TypeScript workers or the linked Python and Dart collectors. Give the store the typed reply. Refuse a configured collector. Own the typed failures and enable the snapshot parse-work bound. Read the entry points that manifests declare for the Explorer (AD-1140)."
       ],
       "forbidden_responsibilities": [
         "Deciding a rule, writing a frame, and trusting a reply or a digest that a caller gives."
@@ -3224,7 +3230,12 @@
           "component": "facts",
           "rationale": "Name the profile of the reply with the typed facts (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts",
+            "native.archkeel_facts.entry_points:EntryBasis",
+            "native.archkeel_facts.entry_points:EntryEvidence",
+            "native.archkeel_facts.entry_points:EntryKind",
+            "native.archkeel_facts.entry_points:EntryPoint",
+            "native.archkeel_facts.entry_points:EntryPoints"
           ]
         },
         {
@@ -3252,7 +3263,9 @@
           "component": "py-entry",
           "rationale": "Run the Python import survey through its typed library path and bind its digests to the snapshot (AD-450).",
           "through": [
-            "native.archkeel_python_collector"
+            "native.archkeel_python_collector",
+            "native.archkeel_python_collector:ScriptTable",
+            "native.archkeel_python_collector:scripts"
           ]
         },
         {
@@ -6106,9 +6119,12 @@
         "native.archkeel_python_collector.inputs:inputs",
         "native.archkeel_python_collector.inputs:with_listings",
         "native.archkeel_python_collector.requirement:Prepared",
+        "native.archkeel_python_collector.requirement:Script",
+        "native.archkeel_python_collector.requirement:ScriptTable",
         "native.archkeel_python_collector.requirement:clamped_from",
         "native.archkeel_python_collector.requirement:lazy_annotations",
-        "native.archkeel_python_collector.requirement:requirement"
+        "native.archkeel_python_collector.requirement:requirement",
+        "native.archkeel_python_collector.requirement:scripts"
       ],
       "decided_by": "architect"
     },
@@ -6667,14 +6683,20 @@
           "component": "py-inputs",
           "rationale": "Read the declared Python requirement before deriving the target version.",
           "through": [
-            "native.archkeel_python_collector.requirement:Prepared"
+            "native.archkeel_python_collector.requirement:Prepared",
+            "native.archkeel_python_collector.requirement:Script",
+            "native.archkeel_python_collector.requirement:ScriptTable",
+            "native.archkeel_python_collector.requirement:scripts"
           ]
         }
       ],
       "public": [
         "native.archkeel_python_collector:BUILD",
+        "native.archkeel_python_collector:Script",
+        "native.archkeel_python_collector:ScriptTable",
         "native.archkeel_python_collector:TEST_FEATURES",
         "native.archkeel_python_collector:check",
+        "native.archkeel_python_collector:scripts",
         "native.archkeel_python_collector:typed_reply",
         "native.archkeel_python_collector:typed_reply_with_navigation"
       ],
@@ -7191,9 +7213,10 @@
         "native.archkeel_python_collector.requirement",
         "native.archkeel_python_collector.cargo_toml",
         "native.archkeel_collect.config",
+        "native.archkeel_collect.entry_points",
         "native.archkeel_collect.cargo_toml"
       ],
-      "rationale": "Only the Python collector reads pyproject.toml and only archkeel-collect reads archkeel.toml (AD-406); the core side (model, eval, report, core) reads no TOML.",
+      "rationale": "Only the Python collector reads pyproject.toml, and archkeel-collect reads archkeel.toml and the Cargo.toml entry targets for the Explorer (AD-406, AD-1140); the core side (model, eval, report, core) reads no TOML.",
       "provenance": [
         "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md",
         "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"

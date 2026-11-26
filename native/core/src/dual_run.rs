@@ -127,6 +127,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             documents: None,
             sdk_libraries: Vec::new(),
             scope_hold: None,
+            entry_points: None,
         },
         None,
     )
@@ -185,6 +186,8 @@ pub(crate) struct Run {
     pub(crate) sdk_libraries: Vec<String>,
     /// A reason that names the whole contract: the scan left files out by default (AD-1119).
     pub(crate) scope_hold: Option<String>,
+    /// The entry points of an Explorer scan, or none when its language has no reader (#2040).
+    pub(crate) entry_points: Option<archkeel_facts::entry_points::EntryPoints>,
 }
 
 /// How a check request reads its base reply: from the validated candidate reply and the inputs
@@ -236,7 +239,11 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
     });
     let namespace = run.namespace.clone();
     let trust = (run.trust)(run.namespace, engine.reply());
-    let explorer = crate::explorer::parts(engine.reply(), run.explorer && trust.gap.is_none());
+    let explorer = crate::explorer::parts(
+        engine.reply(),
+        run.explorer && trust.gap.is_none(),
+        run.entry_points,
+    );
     let settings = settings_of(trust.settings, &input, run.roots);
     let locations = frame_parts::locations(engine.reply(), &input.path, &input.bytes, &settings);
     let (collection_gaps, measures) = frame_parts::collection_metadata(engine.reply());
