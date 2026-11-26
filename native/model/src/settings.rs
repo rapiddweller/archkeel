@@ -238,9 +238,14 @@ fn provenance(fact: &TypeReach) -> Result<(), Refusal> {
     if !sha(&fact.driver_sha256) || !sha(&fact.cargo_lock_sha256) {
         return Err(Refusal::TypeReach("a hash that is not a SHA-256"));
     }
-    if fact.members.is_empty() || fact.members.iter().any(|dir| !dir.ends_with('/')) {
+    if fact.members.is_empty()
+        || fact
+            .members
+            .iter()
+            .any(|dir| !dir.is_empty() && !dir.ends_with('/'))
+    {
         return Err(Refusal::TypeReach(
-            "no workspace member, or a member without a closing slash",
+            "no workspace member, or a member that is neither the root nor ends with a slash",
         ));
     }
     if fact

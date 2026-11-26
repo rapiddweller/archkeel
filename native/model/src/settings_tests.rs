@@ -144,6 +144,13 @@ fn a_complete_provenance_is_admitted() {
 }
 
 #[test]
+fn a_member_at_the_scan_root_is_admitted() {
+    let mut root = fact();
+    root.members = vec![String::new()];
+    assert_eq!(provenance(&root), Ok(()));
+}
+
+#[test]
 fn each_tampered_part_of_the_provenance_is_refused_with_its_own_reason() {
     type Tamper = fn(&mut TypeReach);
     let cases: [(&str, Tamper); 7] = [
@@ -156,7 +163,7 @@ fn each_tampered_part_of_the_provenance_is_refused_with_its_own_reason() {
             f.cargo_lock_sha256 = "z".repeat(64)
         }),
         (
-            "no workspace member, or a member without a closing slash",
+            "no workspace member, or a member that is neither the root nor ends with a slash",
             |f| f.members.clear(),
         ),
         ("a configuration that the matrix does not know", |f| {

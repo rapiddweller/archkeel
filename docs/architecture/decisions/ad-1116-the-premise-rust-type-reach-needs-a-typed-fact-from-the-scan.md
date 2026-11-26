@@ -18,7 +18,7 @@ facts were unavailable or named no module of the scan. The receipt said more tha
    the filter was built and the facts name at least one module of the scan. The field is live only
    (`#[serde(skip)]`): a saved or wire reply carries none, like `scope_premise`. The private worker packet carries it.
 3. The model checks the fact before any rule reads it (`settings::check_reach`, called by `admitted`). A fact
-   without a rustc text, a target, two SHA-256 hashes, a member with a closing slash, only known configurations or
+   without a rustc text, a target, two SHA-256 hashes, a member that is the root (`""`) or ends with a slash, only known configurations or
    the three fixed configurations is refused with `Refusal::TypeReach(<rule>)`. The refusal is typed and
    holds the whole run.
 4. The premise label `rust_type_reach` is attached only when the contract declares the premise and the reply carries
