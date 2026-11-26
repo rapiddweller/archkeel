@@ -15,13 +15,13 @@ env:
   ARCHKEEL_CORE_PROFILE: gate
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ ((github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && github.event.changes.body)) && 'gate' || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ ((github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null))) && 'gate' || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   base:
     name: PR base checks
-    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && github.event.changes.body) }}
+    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null)) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -209,14 +209,14 @@ jobs:
           key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
   area-checks:
-    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && github.event.changes.body) }}
+    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null)) }}
     uses: ./.github/workflows/area-checks.yml
     with:
       base: ${{ github.event.pull_request.base.sha }}
 
   windows-native:
     name: Windows native type check
-    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && github.event.changes.body) }}
+    if: ${{ (github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null)) }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -255,7 +255,7 @@ jobs:
         run: cargo check --locked --tests
 
   pr-gate:
-    name: ${{ ((github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && github.event.changes.body)) && 'PR gate' || 'PR gate (ignored event)' }}
+    name: ${{ ((github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.action != 'edited') || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null))) && 'PR gate' || 'PR gate (ignored event)' }}
     needs: [base, area-checks, windows-native]
     if: always() && needs.base.result != 'skipped'
     runs-on: ubuntu-24.04

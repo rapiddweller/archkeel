@@ -54,7 +54,8 @@ def test_pr_gate_filters_events_before_they_can_cancel_a_run() -> None:
         "&& github.event.action != 'edited') || "
         "((github.event.action == 'labeled' || github.event.action == 'unlabeled') "
         "&& github.event.label.name == 'ratchet-lead') || "
-        "(github.event.action == 'edited' && github.event.changes.body)"
+        "(github.event.action == 'edited' && (github.event.changes.body != null || "
+        "github.event.changes.base != null))"
     )
     assert "types: [opened, synchronize, reopened, labeled, unlabeled, edited]" in workflow
     assert f"({condition}) && 'gate' || github.run_id" in workflow
