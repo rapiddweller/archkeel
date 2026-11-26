@@ -1,4 +1,4 @@
-# AD-1170 An interface hold names the cause of each held import and pair
+# AD-1200 An interface hold names the cause of each held import and pair
 
 **Status.** Accepted. Builds on AD-504, AD-604 and AD-484. Part of #2086, #1963 and #1919.
 
@@ -20,7 +20,8 @@ project the typed value. The shell decodes it (`core_explain.py`) and holds no r
 
 The values are plain: no new type derives a serializer, because each such type adds a "trait impl
 may run" gap to every module that reaches it (the self-check grew by 532 items with the first
-design and by 75 with this one).
+design and by 38 with this one). The frame values are `serde_json` values built by two small
+functions; the model types sit in the existing `causes.rs`.
 
 **Measured** on EE `560d5c7ef` and CE `23bd48d9` (copies), and on the self-check, at the base of this change:
 

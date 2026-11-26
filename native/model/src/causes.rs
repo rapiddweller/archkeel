@@ -11,6 +11,8 @@ use std::fmt;
 
 use archkeel_facts::vocab::RouteWithheld;
 
+use crate::coverage::PairOrigin;
+
 /// A cause that holds a rule or makes the scope of a run incomplete.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Cause {
@@ -476,34 +478,6 @@ impl fmt::Display for InterfaceHold {
         match self.total - shown {
             0 => Ok(()),
             more => write!(f, " and {more} more"),
-        }
-    }
-}
-
-/// Why a module pair holds an `interface_boundary` rule (#2086): the form of the gap or site.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum PairOrigin {
-    /// A module of the pair is not a module of the reply.
-    UnobservedModule,
-    /// An unresolved internal dispatch: a method call whose callee the collector does not name.
-    Dispatch,
-    /// A gap that is no internal dispatch and not only about executing an impl.
-    NotExecutionOnly,
-    /// The gap is only about executing an impl, but a module of the pair has no single owner.
-    UnownedEnd,
-    /// A named import across components whose publication is not proven.
-    NamedSite,
-}
-
-impl PairOrigin {
-    /// The word of the origin in the frame.
-    pub fn word(self) -> &'static str {
-        match self {
-            Self::UnobservedModule => "unobserved_module",
-            Self::Dispatch => "dispatch",
-            Self::NotExecutionOnly => "not_execution_only",
-            Self::UnownedEnd => "unowned_end",
-            Self::NamedSite => "named_site",
         }
     }
 }

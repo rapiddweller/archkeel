@@ -25,7 +25,7 @@ use archkeel_contract::{
 };
 
 use crate::causes::Held;
-use crate::causes::PairOrigin;
+use crate::coverage::PairOrigin;
 use crate::graph::Graph;
 use crate::ids::{ComponentId, Table};
 use crate::imports::Resolved;
@@ -451,6 +451,12 @@ pub(crate) fn origin(observed: bool, execution: bool, dispatch: bool) -> PairOri
         (true, false, false) => PairOrigin::NotExecutionOnly,
         (true, true, _) => PairOrigin::UnownedEnd,
     }
+}
+
+/// The two modules of a gap and its origin.
+pub(crate) fn triple(gap: &PairGap) -> (&str, &str, PairOrigin) {
+    let origin = origin(gap.observed, gap.execution, gap.dispatch);
+    (gap.source.as_str(), gap.target.as_str(), origin)
 }
 
 /// The kept gaps and the named sites that hold a rule, as one reason. An interface rule keeps the

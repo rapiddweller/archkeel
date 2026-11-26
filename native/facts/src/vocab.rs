@@ -373,7 +373,7 @@ closed! {
 }
 
 closed! {
-    /// Why the collector withholds the publication route of an import (#2086, AD-1170).
+    /// Why the collector withholds the publication route of an import (#2086, AD-1200).
     pub enum RouteWithheld {
         /// The package body binds the name too, so it may be the attribute or the submodule.
         AmbiguousReexport = "ambiguous_reexport",

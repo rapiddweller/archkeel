@@ -16,6 +16,7 @@ use crate::imports::Import;
 use crate::model::Model;
 use crate::ownership::owner_of;
 use crate::reason::Reason;
+use archkeel_facts::vocab::RouteWithheld;
 
 /// One judgement serves both violations and the existing scope proof.
 pub fn interface_crossings<'m>(model: &'m Model, rule: &InterfaceBoundary) -> Vec<Crossing<'m>> {
@@ -324,4 +325,11 @@ pub fn publishes(
             covers(model, &public, hop_module, hop_name) == Ok(true)
         })
     })
+}
+
+impl Import {
+    /// Why the collector withholds the route of this import, when it states a cause (#2086).
+    pub fn route_withheld(&self) -> Option<&(RouteWithheld, Option<String>)> {
+        self.published.withheld.as_ref()
+    }
 }
