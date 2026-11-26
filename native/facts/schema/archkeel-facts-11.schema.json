@@ -5736,6 +5736,32 @@
         {
           "type": "object",
           "properties": {
+            "symbols": {
+              "type": "object",
+              "properties": {
+                "modules": {
+                  "description": "The modules whose symbol records are withheld.",
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/ModuleName"
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "modules"
+              ]
+            }
+          },
+          "required": [
+            "symbols"
+          ],
+          "additionalProperties": false,
+          "description": "The symbol records of each module of `modules` are withheld: its routes, its names and its\ndeclarations. Its files, its import edges and its layout are known, so only a rule that\nreads symbols is held."
+        },
+        {
+          "type": "object",
+          "properties": {
             "layout": {
               "type": "object",
               "properties": {
