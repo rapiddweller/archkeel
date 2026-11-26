@@ -27,18 +27,36 @@ INPUT_FILES = (
 UNRELATED_FILES = ("docs/guide.md", "tests/test_x.py", "tools/other.py")
 
 
-def earlier_repo(repo: Path, changed: str, link: bool = False) -> None:
-    """Commits: earlier (all inputs), base (`changed` differs), head. The entry is earlier's."""
-    for name in (*INPUT_FILES, *UNRELATED_FILES):
+# The documents that the scanned contract cites. The cached result binds only the first one
+# (`contract_files` of the fixture); the others are read through the contract (provenance).
+BOUND_DOC = "docs/architecture/inventory.md"
+CITED_DOCS = ("docs/architecture/native.md", "docs/architecture/decisions/ad-9-a-decision.md")
+
+
+def earlier_repo(
+    repo: Path, changed: str, link: bool = False, *, delete: bool = False, absent: bool = False
+) -> None:
+    """Commits: earlier (all inputs), base (`changed` differs), head. The entry is earlier's.
+
+    `delete` removes `changed` at base; `absent` leaves it out at earlier and adds it at base.
+    """
+    contract = repo / "architecture-contract.json"
+    document = json.loads(contract.read_text())
+    document["components"][0]["provenance"] += list(CITED_DOCS)
+    contract.write_text(json.dumps(document))
+    for name in (*INPUT_FILES, *UNRELATED_FILES, BOUND_DOC, *CITED_DOCS):
         path = repo / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("one\n")
+        if not (absent and name == changed):
+            path.write_text("one\n")
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "earlier")
     earlier = git(repo, "rev-parse", "HEAD")
     target = repo / changed
     target.parent.mkdir(parents=True, exist_ok=True)
-    if link:
+    if delete:
+        target.unlink()
+    elif link:
         target.symlink_to("docs")
     else:
         target.write_text("two\n")
@@ -154,3 +172,22 @@ def test_a_changed_file_name_that_is_not_utf8_does_not_crash_the_gate(repo: Path
     done = gate(repo, "base.json", base="HEAD~1")
     assert "Traceback" not in done.stderr, done.stderr
     assert "reusing the entry of" in done.stdout, done.stdout
+
+
+@pytest.mark.parametrize(
+    ("changed", "delete", "absent"),
+    [
+        (BOUND_DOC, False, False),  # a document that the result bound: its bytes changed
+        (CITED_DOCS[0], False, False),  # the marked graph of native.md is edited
+        (CITED_DOCS[1], True, False),  # a cited decision is deleted: reference.provenance
+        (CITED_DOCS[1], False, True),  # a cited decision appears: it was unread before
+    ],
+)
+def test_a_document_that_the_scan_read_is_an_input_of_the_result(
+    repo: Path, changed: str, delete: bool, absent: bool
+) -> None:
+    """The verification run found docs/architecture read by the core and missing from INPUTS."""
+    earlier_repo(repo, changed, delete=delete, absent=absent)
+    done = gate(repo, "base.json")
+    assert done.returncode == 1, done.stdout
+    assert "reusing" not in done.stdout and "computing it in a worktree" in done.stdout

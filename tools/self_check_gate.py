@@ -190,6 +190,40 @@ def repository_wide_change(earlier: str, sha: str) -> bool:
     )
 
 
+def path_strings(value: Any) -> set[str]:
+    """Every string of a JSON value that can be a repository path: a `/` and no space."""
+    if isinstance(value, str):
+        return {value} if "/" in value and not any(c.isspace() for c in value) else set()
+    items = value.values() if isinstance(value, dict) else value if isinstance(value, list) else []
+    return set().union(*(path_strings(item) for item in items)) if items else set()
+
+
+def read_paths(found: dict[str, Any], sha: str) -> set[str]:
+    """The repository paths that the cached result read: the files it bound (`contract_files`),
+    and each path that a contract of them writes (provenance, `native/core/src/provenance.rs`).
+    A cited path that the core could not read is no bound file, so the contract names it here.
+    """
+    bound = {path for path in found["contract_files"] if isinstance(path, str)}
+    cited = set(bound)
+    for path in bound:
+        if path.endswith(".json"):
+            try:
+                cited |= path_strings(json.loads(git("show", f"{sha}:{path}")))
+            except (Unusable, ValueError):
+                continue
+    return cited
+
+
+def same_paths(earlier: str, sha: str, paths: set[str]) -> bool:
+    """Whether each path has the same object, or none, in both commits."""
+    listed = sorted(paths)
+
+    def objects(rev: str) -> list[str]:
+        return git_bytes("ls-tree", "-z", rev, "--", *listed) if listed else []
+
+    return objects(earlier) == objects(sha)
+
+
 def reuse_of_earlier(found: dict[str, Any], sha: str) -> dict[str, Any] | None:
     """The result of an earlier main commit as the base `sha`, only when no input differs.
 
@@ -206,6 +240,12 @@ def reuse_of_earlier(found: dict[str, Any], sha: str) -> dict[str, Any] | None:
         return None
     unchanged = subprocess.run(["git", "diff", "--quiet", earlier, sha, "--", *INPUTS])
     if unchanged.returncode != 0 or repository_wide_change(earlier, sha):
+        return None
+    # The documents that the core read are inputs too: a marked graph or a cited decision.
+    try:
+        if not same_paths(earlier, sha, read_paths(found, sha)):
+            return None
+    except Unusable:
         return None
     return {**found, "sha": sha, "tree": git("rev-parse", f"{sha}:native"), "reused_from": earlier}
 
