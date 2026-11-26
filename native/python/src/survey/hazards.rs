@@ -24,8 +24,8 @@ use super::literal::Proof;
 use super::syspath;
 
 use super::hazards_names::{
-    above, attribute_trojan_horse, first_hazard, module_hazard, BUILTIN_TROJAN_HORSES,
-    IMPORT_FUNCTIONS, TROJAN_HORSE_STRINGS,
+    self as names, above, attribute_trojan_horse, first_hazard, module_hazard,
+    BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS, TROJAN_HORSE_STRINGS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
 pub(super) use bind::bindings;
@@ -183,21 +183,7 @@ impl Walk<'_> {
 
     /// True when a function binds `id` and no import binds it: a local value, no trojan horse (AD-530).
     fn local(&self, id: &str) -> bool {
-        if self.bound.contains_key(id) {
-            return false;
-        }
-        for (depth, (names, globals, class)) in self.locals.iter().rev().enumerate() {
-            if *class && depth > 0 {
-                continue;
-            }
-            if globals.contains(id) {
-                return false;
-            }
-            if names.contains(id) {
-                return true;
-            }
-        }
-        false
+        names::local(&self.bound, &self.locals, id)
     }
 
     /// `getattr(name, "attr")` and `getattr(name, "attr", default)` with a literal attribute that
@@ -282,8 +268,7 @@ impl Walk<'_> {
         }
     }
 
-    /// The sites of the text stand at `at`.
-    fn evaluated(&mut self, string: &ruff_python_ast::ExprStringLiteral, at: TextRange) {
+    fn evaluated(&mut self, string: &ruff_python_ast::ExprStringLiteral) {
         let first = self.found.len();
         // The text runs in the global names of its module: no fact of the real tree applies to it.
         let outer = (
@@ -299,23 +284,8 @@ impl Walk<'_> {
         }
         (self.proof, self.reads, self.locals) = outer;
         for site in &mut self.found[first..] {
-            site.range = at;
+            site.range = string.range();
         }
-    }
-
-    /// A name in an annotation that holds a string: `get_type_hints` evaluates the string.
-    fn held_text(&mut self, id: &str, expr: &Expr) {
-        let strings = take(&mut self.strings);
-        match strings.held(id) {
-            annotation::Held::None => {}
-            annotation::Held::Opaque => self.push_text(DYNAMIC, "annotation", expr),
-            annotation::Held::Texts(texts) => {
-                texts
-                    .iter()
-                    .for_each(|text| self.evaluated(text, expr.range()));
-            }
-        }
-        self.strings = strings;
     }
 
     /// A hazard behind a name that a module of the scan binds to a standard library module.
@@ -469,11 +439,11 @@ impl<'a> Visitor<'a> for Walk<'_> {
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
-        if let Some(text) = annotation::evaluated(expr, self.annotation) {
-            self.evaluated(text, text.range());
-        }
-        if let (true, Expr::Name(name)) = (self.annotation, expr) {
-            self.held_text(name.id.as_str(), expr);
+        match annotation::evaluated(expr, self.annotation, &self.strings) {
+            annotation::Text::None => {}
+            annotation::Text::Literal(text) => self.evaluated(text),
+            annotation::Text::Held(texts) => texts.iter().for_each(|text| self.evaluated(text)),
+            annotation::Text::Opaque => self.push_text(DYNAMIC, "annotation", expr),
         }
         if let Some((first, rest, targets, values)) = comprehension::parts(expr) {
             self.visit_expr(&first.iter);

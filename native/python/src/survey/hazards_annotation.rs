@@ -14,13 +14,25 @@ use ruff_python_ast::{Expr, ExprCall, ExprStringLiteral, Identifier, ModModule, 
 
 use crate::parse::Unread;
 
-/// The string of `expr` that Python can evaluate: a string in an annotation, or the first
-/// argument of `ForwardRef`.
-pub(super) fn evaluated(expr: &Expr, in_annotation: bool) -> Option<&ExprStringLiteral> {
+/// What `expr` evaluates as code: a string in an annotation, the first argument of `ForwardRef`,
+/// or a name in an annotation that the module assigns a string.
+pub(super) enum Text<'a> {
+    None,
+    Literal(&'a ExprStringLiteral),
+    Held(Vec<ExprStringLiteral>),
+    Opaque,
+}
+
+pub(super) fn evaluated<'a>(expr: &'a Expr, in_annotation: bool, strings: &Strings) -> Text<'a> {
     match expr {
-        Expr::StringLiteral(text) if in_annotation => Some(text),
-        Expr::Call(call) => forward_ref(call),
-        _ => None,
+        Expr::StringLiteral(text) if in_annotation => Text::Literal(text),
+        Expr::Call(call) => forward_ref(call).map_or(Text::None, Text::Literal),
+        Expr::Name(name) if in_annotation => match strings.held(name.id.as_str()) {
+            Held::None => Text::None,
+            Held::Texts(texts) => Text::Held(texts.to_vec()),
+            Held::Opaque => Text::Opaque,
+        },
+        _ => Text::None,
     }
 }
 
