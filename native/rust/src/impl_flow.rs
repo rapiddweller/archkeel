@@ -17,7 +17,7 @@ use crate::builder::Builder;
 use crate::crates::Workspace;
 use crate::definitions::MethodCall;
 pub(super) use crate::impl_globs::Foreign;
-use crate::impl_globs::{build_ancestors, names_type, once_gap, visible, BitSet};
+use crate::impl_globs::{build_ancestors, build_ingress, names_type, once_gap, visible, BitSet};
 use crate::modules::Index;
 use crate::site::Site;
 use crate::tree::Module;
@@ -98,6 +98,17 @@ impl PendingPool {
         });
     }
 
+    /// A candidate of a written call that the compiler resolved to another module: it never reaches the target.
+    /// It leaves before the named pairs are read, so a pair that only such calls named is not named (AD-1185).
+    fn elsewhere(&self, builder: &Builder, reach: Option<&Filter<'_>>, pending: &Pending) -> bool {
+        let Some((rel, site)) = self.site_of(pending.site) else {
+            return false;
+        };
+        let target = builder.interned_text(pending.target);
+        let at = (builder.interned_text(rel), site.line, site.column);
+        !pending.execution && Filter::resolved_elsewhere(reach, target, at)
+    }
+
     fn site_of(&self, id: u32) -> Option<(u32, &Site)> {
         let (rel, site) = self.sites.get(usize::try_from(id).ok()?)?;
         Some((*rel, site))
@@ -143,6 +154,7 @@ pub(super) fn settle(
     }
     builder.reach_used = filter.as_ref().is_some_and(|f| f.matched() > 0);
     let mut open = std::mem::take(&mut pool.items);
+    open.retain(|p| !pool.elsewhere(builder, filter.as_ref(), p));
     let mut ctx = FlowContext {
         edges: import_edges(builder),
         ancestors: build_ancestors(builder),
@@ -173,29 +185,6 @@ fn named_pairs(open: &[Pending]) -> HashSet<(u32, u32)> {
         .filter(|pending| !pending.execution)
         .map(|pending| (pending.source, pending.target))
         .collect()
-}
-
-fn build_ingress(builder: &Builder, index: &Index<'_>, modules: &[Module]) -> BitSet {
-    let mut names = builder.opaque_values.clone();
-    names.extend(
-        modules
-            .iter()
-            .filter(|module| module.scan.has_static)
-            .map(|module| module.module.clone()),
-    );
-    let count = builder.interned_count();
-    let mut bits = BitSet::new(count);
-    if names.is_empty() {
-        return bits;
-    }
-    for raw in 0..count {
-        let id = u32::try_from(raw).unwrap_or(u32::MAX);
-        let module = builder.interned_text(id);
-        if names.contains(index.file_of(module).unwrap_or(module)) {
-            bits.set(id);
-        }
-    }
-    bits
 }
 
 fn settle_pending(
@@ -278,7 +267,7 @@ fn emit_pending(builder: &mut Builder, pending: &Pending, ctx: &FlowContext<'_>)
         );
         return;
     }
-    if Filter::drops(ctx.reach, [&source, &target, &rel], site, pending.execution) {
+    if ctx.reach.is_some_and(|r| r.excluded(&source, &target)) {
         return;
     }
     let dimension = if pending.execution && !ctx.named.contains(&(pending.source, pending.target)) {

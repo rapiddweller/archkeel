@@ -6,7 +6,6 @@
 
 // Consumer: the trait-impl, destructor and receiver gaps of `impl_flow` (AD-1047).
 
-use crate::site::Site;
 use crate::type_reach_facts::{Facts, Names, SelectedFacts};
 use crate::type_reach_fold::Reach;
 use crate::type_reach_model::{Mode, Verdict};
@@ -90,22 +89,15 @@ impl<'f> Filter<'f> {
         (rest.is_none() && same).then_some(callee.as_deref())
     }
 
-    /// True when a candidate `(a, b)` at a place falls: the facts exclude the pair, or the compiler resolved the
-    /// method call at the place to another module than `b`. An execution candidate has no written call (AD-1185).
-    pub(crate) fn drops(
+    /// True when the compiler resolved the method call at `(file, line, column)` to another module than `target`: the
+    /// call cannot reach a method of `target` (AD-1185).
+    pub(crate) fn resolved_elsewhere(
         reach: Option<&Filter<'_>>,
-        [a, b, file]: [&str; 3],
-        site: &Site,
-        execution: bool,
+        target: &str,
+        (file, line, column): (&str, i64, i64),
     ) -> bool {
-        let Some(this) = reach else {
-            return false;
-        };
-        let elsewhere = || {
-            this.callee(file, site.line, site.column)
-                .is_some_and(|c| c != Some(b))
-        };
-        this.excluded(a, b) || (!execution && elsewhere())
+        let callee = reach.and_then(|r| r.callee(file, line, column));
+        callee.is_some_and(|callee| callee != Some(target))
     }
 
     /// True when no body of `a` can hold the self type of an impl of `b` that runs code.
