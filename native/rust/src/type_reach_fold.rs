@@ -24,6 +24,27 @@ pub struct Reach<'f> {
     pub(crate) parts: Parts,
 }
 
+/// The scan module of a facts path that only a `bin` target of a package with a library declares: the scan
+/// names that target `<namespace>.<package>.bin_<crate>` (`crates.rs`), the facts `<crate>::<module>`. A path
+/// that the library of the package names too keeps the library module. `None` when no such target exists.
+fn bin_module(known: &BTreeSet<String>, namespace: &str, path: &str) -> Option<String> {
+    let direct = format!("{namespace}.{}", path.replace("::", "."));
+    if known.contains(&direct) {
+        return None;
+    }
+    let (krate, rest) = path.split_once("::")?;
+    let wanted = format!("bin_{krate}");
+    let mut homes = known.iter().filter(|name| {
+        name.rsplit_once('.')
+            .is_some_and(|(_, last)| last == wanted)
+    });
+    let home = homes.next()?;
+    homes
+        .next()
+        .is_none()
+        .then(|| format!("{home}.{}", rest.replace("::", ".")))
+}
+
 impl<'f> Reach<'f> {
     /// Fold the instances of the generic functions, the coercions and the impls of one configuration.
     pub fn new(facts: &'f Facts, known: &BTreeSet<String>) -> Reach<'f> {
@@ -40,15 +61,12 @@ impl<'f> Reach<'f> {
             .chain(facts.impls.iter().map(|i| &i.module))
             .chain(facts.fns.values().map(|(module, _)| module));
         for path in paths {
-            let mut name = format!("{namespace}.{}", path.replace("::", "."));
+            let direct = format!("{namespace}.{}", path.replace("::", "."));
+            let mut name = bin_module(known, namespace, path).unwrap_or_else(|| direct.clone());
             while !known.contains(&name) && name.contains('.') {
                 name.truncate(name.rfind('.').unwrap_or(0));
             }
-            let kept = if known.contains(&name) {
-                name
-            } else {
-                format!("{namespace}.{}", path.replace("::", "."))
-            };
+            let kept = if known.contains(&name) { name } else { direct };
             owner.insert(path.clone(), kept);
         }
         let anywhere = facts

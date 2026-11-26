@@ -839,6 +839,10 @@ destructor and receiver gap stays and the scan names the cause `type reach not a
 permission, the build of the scanned repository runs without a sandbox: allow it only for a repository that you trust
 (#1999).
 
+Nine module pairs of the ArchKeel self-check stay UNKNOWN in `NATIVE-NO-MODULE-CYCLES` (AD-1160): each has a real
+reverse source use and a possible trait-impl dispatch that the type reach cannot exclude, because the coercions to
+`dyn Fn` are keyed by the trait name only (#2096).
+
 Explorer resolves direct calls between unconditional module functions in the
 same crate target, including proven relative module paths. It can also
 resolve a plain call on `self` when both methods share a proven inherent

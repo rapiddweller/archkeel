@@ -331,3 +331,29 @@ fn the_filter_gives_the_same_answers_whatever_the_order_of_the_questions() {
     assert_eq!(answers, [false, true, false]);
     assert!(!Filter::new(&[], &known).excluded("native.k.a", "native.k.b"));
 }
+
+#[test]
+fn a_module_of_a_bin_target_is_decided_under_the_bin_module_not_the_library_root() {
+    // The facts name `k::a`; the scan names the module of `src/main.rs` `native.k.bin_k.a` (`crates.rs`).
+    let scan: BTreeSet<String> = ["", ".bin_k", ".bin_k.a", ".bin_k.b"]
+        .iter()
+        .map(|m| format!("native.k{m}"))
+        .collect();
+    let pair = |records: &[Value]| {
+        let all = facts(records);
+        let reach = Reach::new(&all, &scan);
+        match reach.decide(
+            ("native.k.bin_k.a", "native.k.bin_k.b"),
+            &Mode::Rta,
+            &mut BTreeMap::new(),
+        ) {
+            Verdict::Excluded => "excluded",
+            Verdict::Kept(Cause::Reached) => "kept",
+            Verdict::Kept(_) => "other",
+        }
+    };
+    let reads = module("k::a", &["k::b::X"], &[], &[]);
+    assert_eq!(pair(&[reads, target()]), "kept");
+    let control = module("k::a", &["k::a::Y"], &[], &[]);
+    assert_eq!(pair(&[control, target()]), "excluded");
+}
