@@ -116,6 +116,7 @@ jobs:
         # One entry for each area in tests/areas.py.
         area:
           - CLI and core
+          - native collector evidence
           - native collectors
           - collectors
           - reports

@@ -16,6 +16,13 @@ ROOT = Path(__file__).parents[1]
 
 def test_a_changed_test_file_selects_its_own_area_and_nothing_else() -> None:
     assert areas_of_change(["tests/test_cli_help.py"]) == ["CLI and core"]
+    assert areas_of_change(["tests/test_collector_native_rust_impl_oracle.py"]) == [
+        "native collector evidence"
+    ]
+    assert areas_of_change(["tests/test_collector_native_catalog.py"]) == [
+        "native collector evidence"
+    ]
+    assert areas_of_change(["tests/test_collector_native_scaling.py"]) == ["native collectors"]
     assert areas_of_change(["tests/test_report_gallery.py"]) == ["reports"]
 
 
