@@ -189,6 +189,7 @@ pub(super) fn written(
         let file = sites::File {
             module,
             foreign_specs: foreign[*index],
+            reads: sites::reads(module),
         };
         if !sites::harmless(site, &file, &names) {
             let hit = sites::named(module, &names);
