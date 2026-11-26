@@ -10,6 +10,7 @@
 
 use crate::items::absolute;
 use crate::state::{ImplIndex, Resolved, State};
+use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LOCAL_CRATE};
 use rustc_middle::ty::{self, GenericArgsRef, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::{sym, FileName, Span};
@@ -232,6 +233,14 @@ fn touch<'tcx>(
     // without generics is no argument, but its fields can hold callable state) and of its output (the caller can
     // run what the call returns).
     for (callee, args) in calls {
+        // A closure or a shim has no signature to read: it is unknown here.
+        if !matches!(
+            tcx.def_kind(*callee),
+            DefKind::Fn | DefKind::AssocFn | DefKind::Ctor(..)
+        ) {
+            found.open_by("<callee>");
+            continue;
+        }
         let sig = tcx.fn_sig(*callee).instantiate(tcx, *args).skip_binder();
         let mut types: Vec<Ty<'tcx>> = sig.inputs().to_vec();
         types.push(sig.output());

@@ -458,6 +458,30 @@ def test_a_method_that_returns_a_callback_of_b_keeps_the_gap(
     assert found["NO-A-TO-B"] != "PASS"
 
 
+def test_a_receiver_that_a_closure_makes_does_not_stop_the_facts(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A closure call in the receiver has no function signature: the driver must not fail on it."""
+    files = {
+        "crates/app/src/a.rs": "use crate::t::Tr;\n\npub fn run() {\n"
+        "    let _held = crate::c::other();\n"
+        "    let make = || crate::c::make();\n    make().m();\n}\n",
+    }
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "cache"))
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        {**_sources(A_CLOSURE_B), **files},
+        components=_parts(),
+        rules=(*CRATE_RULES[1:], _forbid("b"), _forbid("d")),
+        type_reach=True,
+    )
+    result = validate(root)
+    reasons = [gap["reason"] for gap in result["frame"]["collection_gaps"]]
+    assert not any("type-reach facts are unavailable" in reason for reason in reasons), reasons
+    assert _cargo_run(root) == "0 1"
+
+
 def test_a_std_adapter_with_a_closure_of_the_caller_closes_the_candidate(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
