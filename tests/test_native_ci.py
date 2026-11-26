@@ -47,6 +47,24 @@ def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
     assert "run: make native-check\n" in native
 
 
+def test_pr_gate_filters_events_before_they_can_cancel_a_run() -> None:
+    workflow = (WORKFLOWS / "pr-gate.yml").read_text()
+    condition = (
+        "(github.event.action != 'labeled' && github.event.action != 'unlabeled' "
+        "&& github.event.action != 'edited') || "
+        "((github.event.action == 'labeled' || github.event.action == 'unlabeled') "
+        "&& github.event.label.name == 'ratchet-lead') || "
+        "(github.event.action == 'edited' && github.event.changes.body)"
+    )
+    assert "types: [opened, synchronize, reopened, labeled, unlabeled, edited]" in workflow
+    assert f"({condition}) && 'gate' || github.run_id" in workflow
+    jobs = _jobs("pr-gate.yml")
+    for job in ("base", "area-checks"):
+        assert f"    if: ${{{{ {condition} }}}}" in jobs[job]
+    assert f"({condition}) && 'PR gate' || 'PR gate (ignored event)'" in jobs["pr-gate"]
+    assert "if: always() && needs.base.result != 'skipped'" in jobs["pr-gate"]
+
+
 _TOOLCHAIN_STEP = "run: rustup toolchain install\n"
 
 
