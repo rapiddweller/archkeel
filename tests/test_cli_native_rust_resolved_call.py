@@ -298,6 +298,42 @@ def test_an_inherent_method_of_a_type_that_holds_a_callback_into_b_keeps_the_gap
     assert statuses(validate(root))["NO-A-TO-B"] != "PASS"
 
 
+def test_a_method_of_a_std_type_that_holds_a_callback_into_b_keeps_the_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`Waker` holds a vtable of functions of `b` in a field of a std type."""
+    waker = (
+        "\nfn vtable_clone(data: *const ()) -> std::task::RawWaker {\n"
+        "    std::task::RawWaker::new(data, &VTABLE)\n}\n\n"
+        "fn vtable_wake(_: *const ()) {\n    HITS.fetch_add(1, Ordering::SeqCst);\n}\n\n"
+        "fn vtable_drop(_: *const ()) {}\n\n"
+        "static VTABLE: std::task::RawWakerVTable =\n"
+        "    std::task::RawWakerVTable::new(\n"
+        "        vtable_clone, vtable_wake, vtable_wake, vtable_drop\n    );\n\n"
+        "pub fn waker() -> std::task::Waker {\n"
+        "    let raw = std::task::RawWaker::new(std::ptr::null(), &VTABLE);\n"
+        "    unsafe { std::task::Waker::from_raw(raw) }\n}\n"
+    )
+    files = {
+        "crates/app/src/b.rs": B.replace("pub fn next(&self)", "pub fn wake(&self)") + waker,
+        "crates/app/src/c.rs": "pub fn other() -> crate::b::S {\n    crate::b::S\n}\n\n"
+        "pub fn make() -> std::task::Waker {\n    crate::b::waker()\n}\n",
+        "crates/app/src/a.rs": "pub fn run() {\n    let _held = crate::c::other();\n"
+        "    let make = crate::c::make;\n    make().wake();\n}\n",
+    }
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "cache"))
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        {**_sources(A_CLOSURE_B), **files},
+        components=_parts(),
+        rules=(*CRATE_RULES[1:], _forbid("b"), _forbid("d")),
+        type_reach=True,
+    )
+    assert _cargo_run(root) == "1 0", "the vtable function of `b` runs"
+    assert statuses(validate(root))["NO-A-TO-B"] != "PASS"
+
+
 def test_a_std_adapter_with_a_closure_of_the_caller_closes_the_candidate(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -80,14 +80,12 @@ fn visit<'tcx>(
             let own = st.impls.as_ref().and_then(|i| i.by_adt.get(&def.did()));
             found.files.extend(own.into_iter().flatten().copied());
             let mut all = nested(&args[..]);
-            // The fields of a workspace type can hold callable state (a function pointer, a closure, a trait
-            // object). The fields of a type of another crate (`Vec`) hold what its arguments name.
-            if crate::body::inside(st, tcx, def.did()) {
-                for field in def.all_fields() {
-                    match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
-                        Ok(field_ty) => all.push(field_ty),
-                        Err(_) => found.open = true,
-                    }
+            // The fields of a type can hold callable state that no argument names (a function pointer, a trait
+            // object, a closure): a workspace type, but also `Waker`. The walk enters every ADT.
+            for field in def.all_fields() {
+                match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
+                    Ok(field_ty) => all.push(field_ty),
+                    Err(_) => found.open = true,
                 }
             }
             all
