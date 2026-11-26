@@ -187,6 +187,8 @@ fn a_module_that_evaluates_annotations_holds_each_value_it_cannot_name() {
     let head = "import typing\ntyping.get_type_hints(K)\n";
     for body in [
         "class K: ...\nprint(K.__annotations__.update(x='int'))\n",
+        "def f():\n    class L:\n        x: make_type()\n",
+        "def f(x: make_type()): ...\n",
         "class K: ...\na = K.__annotations__\n",
         "K = type('K', (), {'__annotations__': {}})\n",
         "s, t = 'a', 'b'\nclass K:\n    x: s\n",
@@ -212,6 +214,7 @@ fn a_module_that_evaluates_annotations_keeps_plain_type_forms_clean() {
         "class K:\n    x: int\n    y: typing.Optional[str]\n    z: list[int] | None\n",
         "A = list[int]\nT = typing.TypeVar('T')\nclass K:\n    x: A\n    y: T\n",
         "class K:\n    x: typing.Annotated[int, f('meta')]\n",
+        "def f():\n    x: make_type()\n",
         "class A: ...\ndef f(a: A) -> A: ...\n",
         "s = 'int'\nclass K:\n    x: s\n",
     ] {

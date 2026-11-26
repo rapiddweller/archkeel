@@ -86,6 +86,8 @@ struct Scan<'a> {
     reaches: Vec<TextRange>,
     builders: Vec<TextRange>,
     annotations: Vec<&'a Expr>,
+    /// In a function body: Python neither evaluates nor stores a local variable annotation.
+    local: bool,
     /// The names and attribute names that the module binds to a value that may be a string.
     tainted: HashSet<String>,
     /// `target = source`: the target is as tainted as its sources.
@@ -105,6 +107,7 @@ fn sites(tree: &ModModule) -> Vec<Site> {
         reaches: Vec::new(),
         builders: Vec::new(),
         annotations: Vec::new(),
+        local: false,
         tainted: HashSet::new(),
         edges: Vec::new(),
     };
@@ -288,13 +291,36 @@ impl<'a> Visitor<'a> for Scan<'a> {
                 .iter()
                 .filter_map(|item| item.optional_vars.as_deref())
                 .for_each(|target| self.taint(target)),
+            Stmt::FunctionDef(node) => {
+                node.decorator_list
+                    .iter()
+                    .for_each(|d| self.visit_decorator(d));
+                node.type_params
+                    .iter()
+                    .for_each(|p| self.visit_type_params(p));
+                self.visit_parameters(&node.parameters);
+                node.returns.iter().for_each(|r| self.visit_annotation(r));
+                let outer = std::mem::replace(&mut self.local, true);
+                self.visit_body(&node.body);
+                self.local = outer;
+                return;
+            }
+            Stmt::ClassDef(_) => {
+                // A class body runs, so its annotations are evaluated, also inside a function.
+                let outer = std::mem::replace(&mut self.local, false);
+                visitor::walk_stmt(self, stmt);
+                self.local = outer;
+                return;
+            }
             _ => {}
         }
         visitor::walk_stmt(self, stmt);
     }
 
     fn visit_annotation(&mut self, expr: &'a Expr) {
-        self.annotations.push(expr);
+        if !self.local {
+            self.annotations.push(expr);
+        }
         visitor::walk_expr(self, expr);
     }
 
