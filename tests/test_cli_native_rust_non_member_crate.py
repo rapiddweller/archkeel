@@ -236,6 +236,34 @@ def test_an_excluded_crate_does_not_hide_an_edge_that_passes_through_it(
     assert any("depends on x, a crate that is no workspace member" in r for r in _reasons(result))
 
 
+def test_two_dependency_keys_that_differ_by_dash_do_not_hide_a_foreign_crate(
+    tmp_path: Path, release_core: Path
+) -> None:
+    app = _app(
+        'x-foo = { path = "../vendor/x", package = "x" }\n'
+        '[build-dependencies]\nx_foo = { path = "../base", package = "base-crate" }\n'
+    )
+    layout = {
+        "crates/Cargo.toml": '[workspace]\nmembers = ["app", "base"]\nexclude = ["vendor/x"]\n',
+        "crates/app/Cargo.toml": app,
+        "crates/app/build.rs": "fn main() {}\n",
+        "crates/app/src/lib.rs": "pub fn run() { x_foo::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "crates/vendor/x/Cargo.toml": (
+            FOREIGN_X + '[dependencies]\nbase-crate = { path = "../../base" }\n'
+        ),
+        "crates/vendor/x/src/lib.rs": "pub fn f() { base_crate::make(); }\n",
+    }
+    parts = (component("base", "base_crate"), component("app", "app"))
+    root = repository(
+        tmp_path / "repo", release_core, files=layout, components=parts, rules=_forbid(True)
+    )
+    _recommit(root)
+    assert _run_marker(root, "crates/app/Cargo.toml") == "app ran\n"
+    result = validate(root)
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
 def test_an_excluded_crate_with_an_unreadable_manifest_does_not_pass(
     tmp_path: Path, release_core: Path
 ) -> None:

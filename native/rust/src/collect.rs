@@ -236,11 +236,13 @@ fn hold_foreign_edges(
     builder: &mut Builder,
 ) {
     for (index, krate) in workspace.crates.iter().enumerate() {
+        // `declared` keeps each entry: `dependencies` joins two keys that differ only by `-` and `_`.
         let through = krate
             .manifest
-            .dependencies
-            .values()
-            .find(|package| foreign_names.contains(package.as_str()));
+            .declared
+            .iter()
+            .map(|entry| ident(&entry.package))
+            .find(|package| foreign_names.contains(package));
         let (Some(package), Some(root)) = (through, krate.primary.as_ref().or(krate.roots.first()))
         else {
             continue;
