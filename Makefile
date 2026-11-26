@@ -86,8 +86,8 @@ pr-native-lint:
 	$(UV) run --locked python -m pytest -q -p no:cacheprovider -n 0 tests/test_rust_clones.py tests/test_rust_api.py
 
 pr-selected-test: core browser-runtime-install
-	@parallel=$$($(UV) run --locked python tools/select_areas.py --job "CLI and core" "$(PR_BASE)") || exit $$?; \
-	if [ "$$parallel" = run ] && [ -n "$(PR_PARALLEL)" ]; then echo "tests run in parallel jobs"; exit 0; fi; \
+	@if [ -n "$(PR_PARALLEL)" ]; then echo "tests run in parallel jobs"; exit 0; fi; \
+	parallel=$$($(UV) run --locked python tools/select_areas.py --job "CLI and core" "$(PR_BASE)") || exit $$?; \
 	areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") || exit $$?; \
 	echo "areas: $$areas"; \
 	if [ "$$parallel" = run ]; then \

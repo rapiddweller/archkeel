@@ -46,7 +46,9 @@ def test_a_source_change_selects_the_areas_that_it_can_reach() -> None:
 
 
 def test_parallel_jobs_follow_the_changed_paths() -> None:
-    assert parallel_areas(["docs/readme.md"]) == []
+    assert parallel_areas(["docs/readme.md"]) == ["self-check and CI"]
+    assert parallel_areas(["tools/self_check_summary.py"]) == ["reports", "self-check and CI"]
+    assert parallel_areas([]) == ["self-check and CI"]
     assert not rust_checks(["docs/readme.md"])
     assert parallel_areas(["native/report/src/html.rs"]) == [
         "core scans",
@@ -70,6 +72,17 @@ def test_job_selector_reports_empty_and_rejects_unknown_areas(
     assert capsys.readouterr().out == "no matching paths\n"
     with pytest.raises(ValueError, match="unknown test area"):
         select_areas.main(["--job", "missing", "base"])
+
+
+@pytest.mark.parametrize("area", ["reports", "self-check and CI"])
+def test_tool_changes_run_each_selected_area_job(
+    area: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from tools import select_areas
+
+    monkeypatch.setattr(select_areas, "changed", lambda base: ["tools/self_check_summary.py"])
+    assert select_areas.main(["--job", area, "base"]) == 0
+    assert capsys.readouterr().out == "run\n"
 
 
 def test_pr_and_main_share_jobs_and_the_required_gate_needs_them() -> None:
