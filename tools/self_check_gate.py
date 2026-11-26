@@ -190,18 +190,31 @@ def repository_wide_change(earlier: str, sha: str) -> bool:
     )
 
 
+def normal_path(text: str) -> bool:
+    """The rule of `normal()` in `native/core/src/provenance.rs`: the strings the core may read.
+
+    Mirrored, not shared (the core is Rust). A wider rule here only blocks more reuse.
+    """
+    return (
+        bool(text)
+        and not any(char in text for char in "\\:\0")
+        and all(part not in ("", ".", "..") for part in text.split("/"))
+    )
+
+
 def path_strings(value: Any) -> set[str]:
-    """Every string of a JSON value that can be a repository path: a `/` and no space."""
+    """Every string of a JSON value that the core could read as a cited path."""
     if isinstance(value, str):
-        return {value} if "/" in value and not any(c.isspace() for c in value) else set()
+        return {value} if normal_path(value) else set()
     items = value.values() if isinstance(value, dict) else value if isinstance(value, list) else []
     return set().union(*(path_strings(item) for item in items)) if items else set()
 
 
 def read_paths(found: dict[str, Any], sha: str) -> set[str]:
-    """The repository paths that the cached result read: the files it bound (`contract_files`),
-    and each path that a contract of them writes (provenance, `native/core/src/provenance.rs`).
-    A cited path that the core could not read is no bound file, so the contract names it here.
+    """The repository paths that the cached result may have read: the files it bound
+    (`contract_files`), and each string of those contracts that the core could read as a cited
+    path (`native/core/src/provenance.rs`). A cited file that the core could not read is no bound
+    file, so the contract names it here, with any spelling that `normal_path` accepts.
     """
     bound = {path for path in found["contract_files"] if isinstance(path, str)}
     cited = set(bound)
@@ -215,11 +228,12 @@ def read_paths(found: dict[str, Any], sha: str) -> set[str]:
 
 
 def same_paths(earlier: str, sha: str, paths: set[str]) -> bool:
-    """Whether each path has the same object, or none, in both commits."""
-    listed = sorted(paths)
+    """Whether each path has the same object, or none, in both commits (a link or a file)."""
 
-    def objects(rev: str) -> list[str]:
-        return git_bytes("ls-tree", "-z", rev, "--", *listed) if listed else []
+    def objects(rev: str) -> dict[str, str]:
+        fields = git_bytes("ls-tree", "-r", "-z", rev)
+        found = (field.split("\t", 1) for field in fields if "\t" in field)
+        return {path: meta for meta, path in found if path in paths}
 
     return objects(earlier) == objects(sha)
 

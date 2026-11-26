@@ -30,7 +30,12 @@ UNRELATED_FILES = ("docs/guide.md", "tests/test_x.py", "tools/other.py")
 # The documents that the scanned contract cites. The cached result binds only the first one
 # (`contract_files` of the fixture); the others are read through the contract (provenance).
 BOUND_DOC = "docs/architecture/inventory.md"
-CITED_DOCS = ("docs/architecture/native.md", "docs/architecture/decisions/ad-9-a-decision.md")
+CITED_DOCS = (
+    "docs/architecture/native.md",
+    "docs/architecture/decisions/ad-9-a-decision.md",
+    "NOTES.md",  # no slash
+    "docs/spaced doc.md",  # a space: the core accepts it as a path
+)
 
 
 def earlier_repo(
@@ -181,6 +186,10 @@ def test_a_changed_file_name_that_is_not_utf8_does_not_crash_the_gate(repo: Path
         (CITED_DOCS[0], False, False),  # the marked graph of native.md is edited
         (CITED_DOCS[1], True, False),  # a cited decision is deleted: reference.provenance
         (CITED_DOCS[1], False, True),  # a cited decision appears: it was unread before
+        (CITED_DOCS[2], False, True),  # a name without a slash appears
+        (CITED_DOCS[3], False, True),  # a name with a space appears
+        (CITED_DOCS[2], True, False),
+        (CITED_DOCS[3], True, False),
     ],
 )
 def test_a_document_that_the_scan_read_is_an_input_of_the_result(
