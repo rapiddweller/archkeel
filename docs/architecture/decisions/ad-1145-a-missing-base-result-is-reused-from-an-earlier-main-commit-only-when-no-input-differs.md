@@ -6,7 +6,7 @@
 
 **Decision.**
 1. **Measure.** The gate prints `base result: scan took N s` after each computed base. It prints the hit, miss and reuse lines with a flush, so a cancelled job still shows them.
-2. **Restore keys.** The PR gate lists the 12 nearest first-parent commits before the base commit as restore keys, nearest first, after the key of the base commit.
+2. **Restore keys.** The PR gate lists the 8 nearest first-parent commits before the base commit as restore keys, nearest first, then the v1 key. The cache action allows 10 keys in all, with the key of the base commit.
 3. **Reuse.** The gate uses an entry of an earlier commit E as the base result of the merge base B only when all of these hold: the entry is a complete `selfcheck-v2` result; `E` is a full 40-hex sha; the entry's `tree` equals `git rev-parse E:native`; and `git diff --quiet E B -- INPUTS` finds no change. `INPUTS` is one list in `tools/self_check_gate.py`: `native`, `tools/rustc-facts`, `src`, `pyproject.toml`, `uv.lock`, `Makefile` and `tools/self_check_*.py`. The reused entry gets `sha` of B and `reused_from` E. The gate prints the reuse.
 4. **Else compute.** Any other case is a miss as before: the gate computes the base in a worktree. It never reuses an entry of a commit whose inputs differ, because that would hide growth.
 5. **No longer timeout.** The limit stays at 15 minutes. A longer limit needs a measured scan time first (point 1).

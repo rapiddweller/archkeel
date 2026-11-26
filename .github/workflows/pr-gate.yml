@@ -127,7 +127,7 @@ jobs:
         run: |
           {
             echo "keys<<KEYS"
-            git rev-list --first-parent -n 12 "$PR_BASE^" | sed "s/^/selfcheck-v2-$RUNNER_OS-/"
+            git rev-list --first-parent -n 8 "$PR_BASE^" | sed "s/^/selfcheck-v2-$RUNNER_OS-/"
             echo "selfcheck-v1-$RUNNER_OS-$PR_BASE"
             echo "KEYS"
           } >> "$GITHUB_OUTPUT"
