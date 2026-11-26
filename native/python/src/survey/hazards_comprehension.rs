@@ -28,7 +28,6 @@ use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::name::Name;
 
-use crate::survey::hazards::Reexports;
 use crate::survey::hazards_names::module_hazard;
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
@@ -93,7 +92,7 @@ type Scope = HashSet<String>;
 struct Trojans<'n> {
     /// The attributes that a call or a longer chain reads further: they are no value (AD-1152).
     bases: HashSet<TextRange>,
-    reexports: &'n Reexports,
+    reexports: &'n HashMap<String, Vec<String>>,
     imports: HashMap<String, Vec<String>>,
     single: &'n HashSet<String>,
     visible: &'n HashSet<String>,
@@ -108,7 +107,7 @@ struct Trojans<'n> {
 pub(in crate::survey) fn trojans(
     (tree, module): (&ModModule, &str),
     names: &(HashSet<String>, HashSet<String>, HashSet<String>),
-    reexports: &Reexports,
+    reexports: &HashMap<String, Vec<String>>,
 ) -> Vec<(&'static str, TextRange)> {
     // The premise of the run: code outside the scan roots writes no binding of the scan (AD-1053).
     // The name of such a file starts with `<`, which no module of the scan can (`outside.rs`).
