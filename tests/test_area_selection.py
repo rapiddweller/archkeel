@@ -138,10 +138,7 @@ def test_pr_and_main_share_jobs_and_the_required_gate_needs_them() -> None:
     shared = (workflows / "area-checks.yml").read_text()
     assert "uses: ./.github/workflows/area-checks.yml" in main
     assert "uses: ./.github/workflows/area-checks.yml" in pr
-    assert (
-        "needs: [base, area-checks, windows-native]\n"
-        "    if: always() && needs.base.result != 'skipped'"
-    ) in pr
+    assert "name: PR gate\n    needs: [base, area-checks, windows-native]\n    if: always()\n" in pr
     assert shared.count("python3 tools/select_areas.py --job") == 2
 
 

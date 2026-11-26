@@ -28,7 +28,8 @@ use super::class_writes::ClassWrites;
 use crate::declare::{definition_id, signature};
 use crate::module::definition::Def;
 use crate::module::{EvidenceMap, Module};
-use kind::{BaseSite, Kind, Local, Reading};
+use kind::{keep, nested, BaseSite, Frame, Kind, Local, Reading};
+pub(crate) use kind::{project, Project};
 use members::inventory;
 use reader::{header, Reader, Unwritable};
 
@@ -64,7 +65,7 @@ pub(crate) fn records<'m>(
     binders: &Binders,
     escapes: Escapes,
     writes: Option<&'m ClassWrites>,
-    evidence: &mut EvidenceMap,
+    (evidence, project): (&mut EvidenceMap, &Project),
 ) -> Found<'m> {
     let mut scratch = EvidenceMap::new();
     let mut writer = Writer {
@@ -75,6 +76,7 @@ pub(crate) fn records<'m>(
             writes,
         },
         binders,
+        project,
         open: escapes.open,
         escaped: escapes.escaped,
         out: Vec::new(),
@@ -104,51 +106,10 @@ pub(crate) fn records<'m>(
     }
 }
 
-/// Remember a class of the module body with a record, and its body for the nested classes.
-fn keep<'a>(
-    found: Option<(Frame<'a>, Local)>,
-    name: &str,
-    local: &mut HashMap<String, Local>,
-    pending: &mut Vec<Frame<'a>>,
-) {
-    if let Some((frame, kind)) = found {
-        local.insert(name.to_owned(), kind);
-        pending.push(frame);
-    }
-}
-
-/// The classes of a class body that bind their name once.
-fn nested<'a>(frame: &Frame<'a>) -> Vec<&'a StmtClassDef> {
-    let found = frame
-        .node
-        .body
-        .iter()
-        .filter_map(|statement| match statement {
-            Stmt::ClassDef(node)
-                if frame
-                    .bound
-                    .sole(node.name.as_str(), statement.range().start()) =>
-            {
-                Some(node)
-            }
-            _ => None,
-        });
-    found.collect()
-}
-
-/// A class with a record whose body is not read yet.
-struct Frame<'a> {
-    node: &'a StmtClassDef,
-    qualname: String,
-    id: String,
-    bound: Bound,
-    /// The members of the class are withheld, and so are its nested classes.
-    open: bool,
-}
-
 struct Writer<'m, 'b> {
     scan: Reader<'m, 'b>,
     binders: &'b Binders,
+    project: &'b Project,
     open: bool,
     escaped: HashSet<String>,
     out: Vec<Record<SymbolFact>>,
@@ -172,12 +133,22 @@ impl<'m> Writer<'m, '_> {
                     self.function(node)?;
                 }
                 Stmt::ClassDef(node) if bound.sole(node.name.as_str(), start) => {
-                    let reading = Reading::top((&module.name, body), &bound, self.binders, &local);
+                    let reading = Reading::top(
+                        (&module.name, body),
+                        &bound,
+                        self.binders,
+                        (&local, self.project),
+                    );
                     let found = self.class(node, &reading, None)?;
                     keep(found, node.name.as_str(), &mut local, &mut pending);
                 }
                 Stmt::Assign(_) | Stmt::AnnAssign(_) => {
-                    let reading = Reading::top((&module.name, body), &bound, self.binders, &local);
+                    let reading = Reading::top(
+                        (&module.name, body),
+                        &bound,
+                        self.binders,
+                        (&local, self.project),
+                    );
                     let found = values::records(&mut self.scan, statement, &bound, &reading);
                     self.out.extend(found);
                 }
@@ -185,8 +156,13 @@ impl<'m> Writer<'m, '_> {
             }
         }
         while let Some(frame) = pending.pop() {
-            let reading = Reading::top((&module.name, body), &bound, self.binders, &local)
-                .within(&frame.bound);
+            let reading = Reading::top(
+                (&module.name, body),
+                &bound,
+                self.binders,
+                (&local, self.project),
+            )
+            .within(&frame.bound);
             let inside = if frame.open {
                 Vec::new()
             } else {
@@ -292,6 +268,7 @@ impl<'m> Writer<'m, '_> {
         let id = definition_id(module, Def::Class(node), &qualname);
         let bound = Bound::of(&node.body);
         let open = self.open
+            || found.foreign
             || owner.is_some_and(|frame| frame.open)
             || (owner.is_none() && self.escaped.contains(name));
         let (attributes, methods) = if open {
@@ -358,6 +335,7 @@ impl<'m> Writer<'m, '_> {
         let local = Local {
             kind: class_kind,
             constructible,
+            foreign: found.foreign,
         };
         Ok(Some((frame, local)))
     }

@@ -25,50 +25,50 @@ pub struct GapData {
     #[serde(skip)]
     pub no_name_route: bool,
     /// The reason as written.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     /// The module that the gap is about.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub module: Option<ModuleName>,
     /// The dimension of the resolution that the collector does not prove.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resolution_dimension: Option<ResolutionDimension>,
     /// The annotation that the collector does not read.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub annotation: Option<String>,
     /// The attribute that the gap is about.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribute: Option<String>,
     /// The path of the file, relative to the root.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<String>,
     /// The function that the gap is about.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub function: Option<String>,
     /// The line of the place, counted from 1.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line: Option<i64>,
     /// The message of the failure.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     /// The parameter that the gap is about.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parameter: Option<String>,
     /// The path that the gap is about.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
     /// The module whose import the gap is about.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_module: Option<ModuleName>,
     /// True when the import sits under `TYPE_CHECKING`.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub under_type_checking: Option<bool>,
     /// The facts that the gap leaves unknown (AD-564). A gap without an effect leaves the whole
     /// scope unknown.
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effect: Option<GapEffect>,
     /// The trojan horse of the site, when the gap is a trojan horse whose reach a contract can declare
     /// (AD-664). A stored facts 11 file spells the key `door`; it reads as an alias (AD-1054).
-    #[serde(default, alias = "door", skip_serializing_if = "crate::skip::omitted")]
+    #[serde(default, alias = "door", skip_serializing_if = "Option::is_none")]
     pub trojan_horse: Option<TrojanHorseSite>,
 }

@@ -13,15 +13,15 @@ facts_data! {
     /// A call site and the targets that it resolves to.
     pub struct CallData {
         /// The arguments of the call.
-        [read skip] call_arguments: Nullable<Vec<CallArgument>>,
+        [read skip_nullable] call_arguments: Nullable<Vec<CallArgument>>,
         /// What the call binds to.
-        [read skip] call_binding: Nullable<CallBinding>,
+        [read skip_nullable] call_binding: Nullable<CallBinding>,
         /// How many targets the site can resolve to.
         [read] candidate_count: i64,
         /// True when the list of targets is cut.
         [read] candidates_truncated: bool,
         /// What a construction call builds.
-        [read skip] construction: Nullable<Construction>,
+        [read skip_nullable] construction: Nullable<Construction>,
         /// The expression as written.
         [read] expression: String,
         /// The effects that only run under a guard.
@@ -31,7 +31,7 @@ facts_data! {
         /// The bindings of the result.
         [read skip] result_bindings: Option<Vec<ResultBinding>>,
         /// The id of the definition that holds the source.
-        [read skip] source_definition_id: Nullable<FactId>,
+        [read skip_nullable] source_definition_id: Nullable<FactId>,
         /// The file that holds the source.
         [read skip] source_file: Option<String>,
         /// The module that holds the source.
@@ -111,7 +111,7 @@ facts_data! {
         /// The bindings of the result.
         [read skip] result_bindings: Option<Vec<ResultBinding>>,
         /// The id of the definition that holds the source.
-        [read skip] source_definition_id: Nullable<FactId>,
+        [read skip_nullable] source_definition_id: Nullable<FactId>,
         /// The file that holds the source.
         [read skip] source_file: Option<String>,
         /// The module that holds the source.
@@ -171,7 +171,7 @@ facts_data! {
         /// The first column of the place.
         [wire] column: i64,
         /// The constant value of the source, when it is one.
-        [wire skip] constant: Nullable<Literal>,
+        [wire skip_nullable] constant: Nullable<Literal>,
         /// The id of the declaration.
         [wire] declaration_id: FactId,
         /// The id of the owner of the declaration.
