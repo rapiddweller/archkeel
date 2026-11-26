@@ -59,6 +59,11 @@ INPUTS = (
     "Makefile",
     ":(glob)tools/self_check_*.py",
 )
+# The Rust walk of the scan reads the whole repository for Cargo settings (`registry_overrides.rs`):
+# a `.cargo` directory, a link to a directory, a path deeper than its depth limit, or a tree
+# larger than its entry limit changes the result wherever it stands. The margins stay below them.
+MAX_DEPTH = 100
+MAX_FILES = 250_000
 FULL_SHA = re.compile(r"[0-9a-f]{40}")
 BINARIES = ("archkeel-core", "archkeel-rust-collector", "archkeel-typescript-collector")
 
@@ -163,6 +168,21 @@ def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
         shutil.rmtree(work, ignore_errors=True)
 
 
+def repository_wide_change(earlier: str, sha: str) -> bool:
+    """Whether a change outside INPUTS can change the scan: a `.cargo` path, a link, a deep path."""
+    raw = git("diff", "--raw", "--no-renames", "-z", earlier, sha).split("\0")
+    changes = [(raw[i], raw[i + 1]) for i in range(0, len(raw) - 1, 2)]
+    for meta, path in changes:
+        modes = meta.lstrip(":").split()[:2]
+        parts = path.split("/")
+        if ".cargo" in parts or "120000" in modes or len(parts) > MAX_DEPTH:
+            return True
+    return any(
+        len(git("ls-tree", "-r", "--name-only", rev).splitlines()) > MAX_FILES
+        for rev in (earlier, sha)
+    )
+
+
 def reuse_of_earlier(found: dict[str, Any], sha: str) -> dict[str, Any] | None:
     """The result of an earlier main commit as the base `sha`, only when no input differs.
 
@@ -178,7 +198,7 @@ def reuse_of_earlier(found: dict[str, Any], sha: str) -> dict[str, Any] | None:
     except Unusable:
         return None
     unchanged = subprocess.run(["git", "diff", "--quiet", earlier, sha, "--", *INPUTS])
-    if unchanged.returncode != 0:
+    if unchanged.returncode != 0 or repository_wide_change(earlier, sha):
         return None
     return {**found, "sha": sha, "tree": git("rev-parse", f"{sha}:native"), "reused_from": earlier}
 

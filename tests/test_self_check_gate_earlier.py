@@ -26,7 +26,7 @@ INPUT_FILES = (
 UNRELATED_FILES = ("docs/guide.md", "tests/test_x.py", "tools/other.py")
 
 
-def earlier_repo(repo: Path, changed: str) -> None:
+def earlier_repo(repo: Path, changed: str, link: bool = False) -> None:
     """Commits: earlier (all inputs), base (`changed` differs), head. The entry is earlier's."""
     for name in (*INPUT_FILES, *UNRELATED_FILES):
         path = repo / name
@@ -35,7 +35,12 @@ def earlier_repo(repo: Path, changed: str) -> None:
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "earlier")
     earlier = git(repo, "rev-parse", "HEAD")
-    (repo / changed).write_text("two\n")
+    target = repo / changed
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if link:
+        target.symlink_to("docs")
+    else:
+        target.write_text("two\n")
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "base")
     (repo / "head.txt").write_text("h\n")
@@ -104,3 +109,25 @@ def test_a_cache_hit_and_a_computed_miss_name_their_cost(repo: Path) -> None:
     assert "scan took" not in gate(repo, "base.json").stdout
     (repo / "test-artifacts/selfcheck/base.json").unlink()
     assert "scan took" in gate(repo, "base.json").stdout
+
+
+DEEP = "/".join(["d"] * 101) + "/file.txt"
+
+
+@pytest.mark.parametrize(
+    ("changed", "link"),
+    [
+        (".cargo/config.toml", False),
+        ("fixtures/x/.cargo/config", False),
+        ("docs/linked", True),
+        (DEEP, False),
+    ],
+)
+def test_a_repository_wide_input_of_the_scan_is_never_reused(
+    repo: Path, changed: str, link: bool
+) -> None:
+    """The Rust walk reads every `.cargo` config and link of the repository (Codex, #2078)."""
+    earlier_repo(repo, changed, link)
+    done = gate(repo, "base.json")
+    assert done.returncode == 1, done.stdout
+    assert "reusing" not in done.stdout and "computing it in a worktree" in done.stdout
