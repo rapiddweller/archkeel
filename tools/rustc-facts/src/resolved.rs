@@ -45,6 +45,44 @@ fn impl_index(st: &mut State, tcx: TyCtxt<'_>) -> ImplIndex {
     index
 }
 
+/// The modules of the standard library whose types hold only what their type arguments name: containers,
+/// options, smart pointers, cells, ranges and the iterator adapters and sources. The text of a path is the
+/// canonical one that the facts use for every definition.
+const ARGUMENT_HOLDERS: [&str; 24] = [
+    "alloc::vec::",
+    "alloc::string::",
+    "alloc::boxed::",
+    "alloc::rc::",
+    "alloc::sync::",
+    "alloc::borrow::",
+    "alloc::collections::",
+    "std::collections::",
+    "core::option::",
+    "core::result::",
+    "core::cell::",
+    "core::ops::range::",
+    "core::iter::adapters::",
+    "core::iter::sources::",
+    "core::slice::iter::",
+    "core::str::iter::",
+    "core::marker::",
+    "core::cmp::",
+    "core::num::",
+    "core::time::",
+    "std::time::",
+    "std::path::",
+    "std::ffi::",
+    "core::pin::",
+];
+
+/// True for a type of another crate that holds only what its type arguments name.
+fn holds_only_arguments(tcx: TyCtxt<'_>, d: DefId) -> bool {
+    let path = crate::names::path(tcx, d);
+    ARGUMENT_HOLDERS
+        .iter()
+        .any(|prefix| path.starts_with(prefix))
+}
+
 /// What the type arguments of a call can run (see `touch`).
 struct Touched {
     files: BTreeSet<u32>,
@@ -81,12 +119,18 @@ fn visit<'tcx>(
             found.files.extend(own.into_iter().flatten().copied());
             let mut all = nested(&args[..]);
             // The fields of a type can hold callable state that no argument names (a function pointer, a trait
-            // object, a closure): a workspace type, but also `Waker`. The walk enters every ADT.
-            for field in def.all_fields() {
-                match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
-                    Ok(field_ty) => all.push(field_ty),
-                    Err(_) => found.open = true,
+            // object, a closure). The walk enters the fields of a workspace type. A type of the standard library
+            // is known only when it is a container or an iterator adapter that holds what its arguments name;
+            // another one (`Waker`, `Formatter`) is open.
+            if crate::body::inside(st, tcx, def.did()) {
+                for field in def.all_fields() {
+                    match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
+                        Ok(field_ty) => all.push(field_ty),
+                        Err(_) => found.open = true,
+                    }
                 }
+            } else if !holds_only_arguments(tcx, def.did()) {
+                found.open = true;
             }
             all
         }
