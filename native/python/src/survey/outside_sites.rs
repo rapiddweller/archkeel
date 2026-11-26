@@ -146,8 +146,8 @@ pub(super) fn named(module: &Module, names: &HashSet<String>) -> Vec<String> {
     struct Strings<'n>(&'n HashSet<String>, Vec<String>);
     impl<'a> Visitor<'a> for Strings<'_> {
         fn visit_expr(&mut self, expr: &'a Expr) {
-            if let Expr::StringLiteral(text) = expr {
-                self.1.extend(reached(text.value.to_str().trim(), self.0));
+            if let Some(text) = super::grammar::text_of(expr) {
+                self.1.extend(reached(text.trim(), self.0));
             }
             visitor::walk_expr(self, expr);
         }
@@ -256,7 +256,7 @@ fn fstring_head(node: &ruff_python_ast::ExprFString) -> String {
 }
 
 /// Add the literal elements before the first field to `head`; `false` at a field.
-fn literal_elements(head: &mut String, elements: &InterpolatedStringElements) -> bool {
+pub(super) fn literal_elements(head: &mut String, elements: &InterpolatedStringElements) -> bool {
     for element in elements.iter() {
         match element {
             InterpolatedStringElement::Literal(literal) => head.push_str(&literal.value),

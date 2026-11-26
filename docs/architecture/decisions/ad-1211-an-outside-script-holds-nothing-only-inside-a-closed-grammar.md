@@ -1,0 +1,23 @@
+# AD-1211 An outside script holds nothing only inside a closed grammar
+
+**Status.** Accepted. Part of #1963 and #1919. It replaces [AD-1146](ad-1146-an-outside-file-holds-symbol-records-only-for-a-use-that-can-write.md) (reverted) and extends [AD-770](ad-770-code-of-the-repository-outside-the-scan-that-writes-a-module-of-the-scan-withholds-its-routes.md) and [AD-1118](ad-1118-a-file-outside-the-scan-that-withholds-symbols-is-named-by-a-symbols-gap.md).
+
+**Reason.** AD-1146 looked for bad forms in a script that it assumed harmless. Review and a verification run found the same hole in more than a dozen forms (a stored path on a class attribute, a computed argument, `__import__("importlib.resources")`, a plain `open(..., "w")` next to a `version(...)` read, a read compared with an object, `print(file=object)`). That direction cannot be closed. The hold of an outside file also missed a name that the file builds at run time: `files("".join(["ap", "p"]))` named no module, so the file held nothing.
+
+**Decision.**
+1. **Closed grammar.** The sites of an outside Python file are no hold only when the whole file is in this list, and nothing else: `import` of `sys`, `importlib`, `importlib.metadata`, `importlib.resources`, `importlib.util` without an alias; `from importlib.metadata import version`, `from importlib.resources import files`, `from importlib.util import find_spec`; a name assigned once from a read; `print` of texts and reads, with no keyword; `assert` and `if` over a test of a read; `pass`. A read is `version(text)`, `files(text)` followed by `.joinpath(text)` or `/ text` and a path read (`read_text`, `read_bytes`, `is_file`, `is_dir`, `exists`), `text in sys.modules`, and `find_spec(text) is None`. A text is a string, or an f-string without a field, written in the source. No other statement, `def`, `class`, `try`, call, alias, keyword or name use is allowed. Such a file writes no path, defines nothing and hands no object to the standard library, so it can write no binding of the scan and change no file of it.
+2. **Everything else keeps the hold of AD-770.** One form outside the grammar keeps all the sites of the file, also a read next to it.
+3. **Computed names.** A call of `import_module`, `__import__`, `find_spec`, `distribution`, `exec`, `spec_from_file_location`, `run_module`, `run_path`, `runpy.*`, and `files` or `version` in a file that imports from `importlib`, with a name that is not a text written in the source, is a site for every module of the scan: the name can be any of them. The name is the first argument; `import_module`, `__import__` and `find_spec` read all arguments. A text as name keeps the older rules (AD-770, AD-1049). `files`, `version` and `distribution`, and `runpy.*`, with a text as name are new sites for the modules that a text of the file names.
+4. `f"app"` without a field names `app` like `"app"` does.
+
+**Measured.** On the CE copy the script `check_installed_authoring.py` is not in the grammar (it defines functions, runs `subprocess` and writes files), so the CE gain is 0: 0 of 16,391 calls resolved, 798 `interface.usage_unknown`, as before. Its outside gaps go from 8 to 10 (two more sites that the new rule names). On the EE copy nothing changes: 3,727 calls resolved, 1,599 `interface.usage_unknown`, no outside gap. A first version of rule 3 that checked every argument named all 1,222 modules for `spec_from_file_location("smoke_selection", path)` in two EE scripts (3,727 calls resolved to 0); the name argument alone is the fix.
+
+**Can it enable a PASS?** Yes, for a file in the grammar. The plants of `tests/test_cli_python_outside_reads.py` keep the hold for the 23 forms that wrote the scanned file or a binding (each run with Python to print `hooked`) and for nine computed names. Three plants fit the grammar and stay PASS.
+
+**Rejected.**
+- A detector of bad forms (AD-1146): no end to the forms.
+- A wider grammar (functions, `try`, `subprocess`): the CE script would pass, and it also writes files, which cannot be told from a write of the source of the scan without data flow.
+
+**Limit.** An outside script that writes the source of a scanned file with no loader or resource API (`open("src/app/service.py", "w")` alone) is the stated premise (AD-770). No hold comes from a name that the file never names.
+
+**Tests.** `tests/test_cli_python_outside_reads.py`. Mutations: `closed` always true fails 38 tests; computed names off fails 11.

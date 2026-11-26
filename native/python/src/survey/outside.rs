@@ -50,6 +50,8 @@ use crate::module::{first_part, EvidenceMap, Module};
 use crate::parse::parse;
 use crate::source::{declared_encoding, decode, newlines};
 
+#[path = "outside_grammar.rs"]
+mod grammar;
 #[path = "outside_native.rs"]
 mod native;
 #[path = "outside_sites.rs"]
@@ -184,7 +186,12 @@ pub(super) fn written(
             sites::foreign_specs(&outside[at], sites.iter().copied(), &names)
         })
         .collect();
+    // #1963, AD-1211: a file in the closed grammar of a read-only script holds nothing.
+    let closed: Vec<bool> = outside.iter().map(grammar::closed).collect();
     for (index, site) in &hazards {
+        if closed[*index] {
+            continue;
+        }
         let module = &outside[*index];
         let file = sites::File {
             module,
@@ -198,6 +205,17 @@ pub(super) fn written(
                 module.location(&site.range).line,
                 &hit,
             ));
+            found.extend(hit);
+        }
+    }
+    for (module, _) in outside.iter().zip(&closed).filter(|(_, closed)| !**closed) {
+        for call in grammar::api_calls(module) {
+            let hit: Vec<String> = if call.computed {
+                names.iter().cloned().collect()
+            } else {
+                sites::named(module, &names)
+            };
+            withheld.extend(site_of(module, &call.name, call.line, &hit));
             found.extend(hit);
         }
     }

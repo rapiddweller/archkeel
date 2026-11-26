@@ -52,7 +52,9 @@ HOOK = (
     '        return "1"\n\n\n'
 )
 
-PREMISE = {
+NEW_SOURCE = "def f():\n    return 'hooked'\n"
+
+WRITES = {
     "files of a joined name": (
         "import importlib.resources\n"
         'importlib.resources.files("".join(["ap", "p"])).joinpath("service.py").write_text(NEW)\n'
@@ -68,11 +70,6 @@ PREMISE = {
         'importlib.resources.files(f"app").joinpath("service.py").write_text(NEW)\n'
         "import app.client\nprint(app.client.run())\n"
     ),
-}
-
-NEW_SOURCE = "def f():\n    return 'hooked'\n"
-
-WRITES = {
     "subscript write": (
         'import sys\nimport app.service\nsys.modules["app.service"].f = lambda: "hooked"\n'
         "import app.client\nprint(app.client.run())\n"
@@ -188,11 +185,9 @@ def check(release_core: Path, root: Path, script: str) -> dict[str, str]:
 def test_a_read_only_script_still_holds_the_symbol_records(
     release_core: Path, tmp_path: Path
 ) -> None:
-    """The hold is restored (revert of #2072): no outside script is proven read-only today.
+    """A read-only script with a `try` is outside the closed grammar: the hold stays.
 
-    A script that only reads (`version`, `files(...).read_text()`, `in sys.modules`) is harmless,
-    but a detector of bad forms in a script assumed harmless leaked five times. A closed grammar
-    of allowed forms has to prove it first.
+    The grammar proves a script harmless; no detector of bad forms may do it (AD-1211).
     """
     found = check(release_core, tmp_path, READS)
     assert found["INTERFACE"] == "UNKNOWN", found
@@ -215,15 +210,83 @@ def test_a_use_that_can_hand_out_a_module_keeps_the_hold(
     assert check(release_core, tmp_path, HELD[name])["INTERFACE"] == "UNKNOWN"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="a name that the file does not spell as a plain string is the stated premise (AD-770): "
-    "known limit, docs/known-limits.md",
-)
-@pytest.mark.parametrize("name", sorted(PREMISE))
-def test_a_computed_name_is_a_known_limit_not_a_hold(
+# Each script is in the closed grammar: `import` of `sys` and `importlib.*`, a read of a text, a
+# path read, a test of `sys.modules`, `print` of a read. No path is written, nothing is defined.
+CLOSED = {
+    "reads": (
+        "import importlib.resources\nimport importlib.util\nimport sys\n\n"
+        'assert importlib.util.find_spec("zzz_never_installed") is None\n'
+        'assert "zzz_never_installed" not in sys.modules\n'
+        'package = importlib.resources.files("app")\n'
+        'assert package.joinpath("__init__.py").is_file()\n'
+        'print(importlib.resources.files("app").joinpath("service.py").read_text())\n'
+        'print((importlib.resources.files("app") / "service.py").read_bytes())\n'
+    ),
+    "plain f-string is the text": (
+        "import importlib.resources\n"
+        'print(f"app", importlib.resources.files(f"app").joinpath("__init__.py").read_text())\n'
+    ),
+    "from import": (
+        "from importlib.resources import files\n"
+        'print(files("app").joinpath("service.py").read_text())\n'
+        'if files("app").joinpath("service.py").exists():\n    print("service")\n'
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(CLOSED))
+def test_a_script_in_the_closed_grammar_holds_nothing(
     release_core: Path, tmp_path: Path, name: str
 ) -> None:
-    found = check(release_core, tmp_path, PREMISE[name])
-    assert run(tmp_path, PREMISE[name]) == "hooked", "the plant must change the scanned code"
-    assert found["INTERFACE"] == "UNKNOWN", found
+    found = check(release_core, tmp_path, CLOSED[name])
+    assert found == dict.fromkeys(found, "PASS"), found
+    assert "hooked" not in run(tmp_path, CLOSED[name])
+
+
+# One form outside the grammar keeps the hold of the whole file, with a read next to it.
+OUTSIDE = {
+    "a def": CLOSED["reads"] + "\n\ndef unused():\n    return 1\n",
+    "a try": (
+        "import importlib.metadata\n\ntry:\n    importlib.metadata.version('app')\n"
+        "except importlib.metadata.PackageNotFoundError:\n    pass\n"
+    ),
+    "an alias": CLOSED["reads"].replace("import sys", "import sys as system"),
+    "a call of another function": CLOSED["reads"] + 'print(len("x"))\n',
+    "a keyword of print": CLOSED["reads"] + 'print("x", end="")\n',
+    "a name used twice": CLOSED["reads"] + 'package = importlib.resources.files("app")\n',
+    "a name passed on": CLOSED["reads"] + "print(len(package))\n",
+    "a test of an object": CLOSED["reads"] + "assert package in sys.modules\n",
+}
+
+
+@pytest.mark.parametrize("name", sorted(OUTSIDE))
+def test_one_form_outside_the_grammar_keeps_the_hold(
+    release_core: Path, tmp_path: Path, name: str
+) -> None:
+    assert check(release_core, tmp_path, OUTSIDE[name])["INTERFACE"] == "UNKNOWN"
+
+
+# A loader or resource API with a name that is not a text written in the source: the name can be
+# any module of the scan, so the file holds each of them (no hook is needed to see the hold).
+COMPUTED = {
+    "import_module": "import importlib\nname = 'ap' + 'p'\nimportlib.import_module(name)\n",
+    "__import__": "name = ''.join(['ap', 'p'])\n__import__(name)\n",
+    "find_spec": "import importlib.util\nname = 'ap' + 'p'\nimportlib.util.find_spec(name)\n",
+    "version": "import importlib.metadata\nimportlib.metadata.version('a' + 'pp')\n",
+    "distribution": "from importlib.metadata import distribution\ndistribution(f'a{1}')\n",
+    "exec": "exec('a' + 'pp')\n",
+    "runpy": "import runpy\nrunpy.run_module('a' + 'pp')\n",
+    "spec_from_file_location": (
+        "import importlib.util\nimportlib.util.spec_from_file_location('a' + 'pp', 'x.py')\n"
+    ),
+    "files with an alias": (
+        "import importlib.resources as resources\nresources.files('a' + 'pp')\n"
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(COMPUTED))
+def test_a_computed_name_in_a_loader_call_holds_every_module(
+    release_core: Path, tmp_path: Path, name: str
+) -> None:
+    assert check(release_core, tmp_path, COMPUTED[name])["INTERFACE"] == "UNKNOWN"
