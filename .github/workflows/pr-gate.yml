@@ -145,7 +145,22 @@ jobs:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
           ARCHKEEL_CORE_SOURCE: ${{ steps.core.outputs.cache-hit == 'true' && 'cache' || 'build' }}
           PR_PARALLEL: "1"
+          NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
         run: make pr-gate PR_BASE="$PR_BASE" SKIP_STATIC=1
+
+      - name: Record native self-check phase timings
+        if: always()
+        run: |
+          {
+            echo '### Native self-check phase timings'
+            if [ -f "$RUNNER_TEMP/native-selfcheck-timings.json" ]; then
+              echo '```json'
+              cat "$RUNNER_TEMP/native-selfcheck-timings.json"
+              echo '```'
+            else
+              echo 'No timing file was produced.'
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       # AD-1064: the log shows the first ten grown items; the file holds all of them.
       - name: Keep the list of grown self-check items

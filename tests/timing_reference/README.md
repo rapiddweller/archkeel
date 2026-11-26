@@ -40,6 +40,11 @@ ARCHKEEL_FETCH_SOURCES=1 uv run pytest -q -n 0 -s tests/test_cli_phase_timings_r
   machine, each run and the spread) and
   `summary.md` (the table, also written to the job summary of CI). CI uploads the whole output folder.
 
+The PR gate and main CI also record one timing sidecar for the native self-check report.
+They print it in the job log and summary. It is a different workload from SymPy.
+No phase limit is applied. A refused or missing report has no timing file.
+`core_seconds` can exceed the sum of the named phases; the difference is not assigned to a phase.
+
 ## What is measured, and what is not
 
 - `cli_wall_seconds`: the command from start to exit. `core_seconds` and `phases`: inside the core.
