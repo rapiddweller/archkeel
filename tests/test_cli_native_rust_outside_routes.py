@@ -263,7 +263,7 @@ def test_a_route_from_an_outside_crate_into_a_member_does_not_pass(
     root = _scan(tmp_path, release_core, workspace, deps, source, EXTRA.get(route, {}))
     _recommit(root)
     assert _marker(root, offline=True) == "app ran\n"
-    # Without the permission to build no dep-info is read: the crate outside the members is not proven and holds.
+    # Without the permission to build no dep-info is read: the outside crate is not proven.
     result = outcome(root, "validate", allow_build=build)[1]
     assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
 

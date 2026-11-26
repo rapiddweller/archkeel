@@ -221,7 +221,7 @@ pub fn scan_with_options(
         .then(|| type_reach_descriptor(&root, &config))
         .transpose()?;
     let members = matches!(config.profile, Profile::Rust)
-        .then(|| rustc_facts_members::for_worker(root.path(), &config.roots));
+        .then(|| rustc_facts_members::for_worker(root.path(), &config.roots, build_allowed()));
     let collected_reply = run::collect_timed(
         config.profile,
         &bytes,
@@ -301,7 +301,7 @@ pub(crate) const ALLOW_BUILD: &str = "ARCHKEEL_ALLOW_BUILD";
 /// The typed gap when the repository asks for compilation and the operator did not allow it.
 const NOT_ALLOWED: &str = "type reach not allowed by the operator";
 
-pub(crate) fn build_allowed() -> bool {
+fn build_allowed() -> bool {
     std::env::var_os(ALLOW_BUILD).is_some_and(|value| value == "1")
 }
 

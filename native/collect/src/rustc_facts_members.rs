@@ -187,13 +187,13 @@ pub(crate) fn set_driver_vars(
 // The members of the scan for the Rust worker (#1989, AD-1097): the answer of `cargo metadata` as JSON text.
 /// The members of the workspace of each scan root that has a `Cargo.toml` at or above it. `roots` lists those scan roots and
 /// `members` the directory of each member, relative to the repository root, without a closing slash.
-pub(crate) fn for_worker(repository: &Path, scan_roots: &[String]) -> String {
-    read(repository, scan_roots)
+pub(crate) fn for_worker(repository: &Path, scan_roots: &[String], build: bool) -> String {
+    read(repository, scan_roots, build)
         .unwrap_or_else(|why| json!({ "unavailable": why }))
         .to_string()
 }
 
-fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
+fn read(repository: &Path, scan_roots: &[String], build: bool) -> Result<Value, String> {
     let real = repository
         .canonicalize()
         .map_err(|why| format!("cannot read the repository root: {why}"))?;
@@ -224,7 +224,7 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
         // The walk lists a file under the path of its scan root. A scan root that is a symlink has another real path
         // than the member directory has, so each member below the real root is also listed under the root path.
         found.extend(listed_under_root(&real, root, all.roots.keys()));
-        let outside = outside_of(&metadata, &all, &scanned);
+        let outside = outside_of(&metadata, &all, (&scanned, build));
         held.extend(listed_under_root(&real, root, outside.iter()));
         held.extend(outside.iter().filter_map(|dir| {
             let relative = Path::new(dir).strip_prefix(&real).ok()?;
@@ -285,7 +285,11 @@ fn listed_under_root<'a>(
 }
 
 /// The members whose edges pass through code that the scan does not read (`outside_reach`).
-fn outside_of(metadata: &[u8], all: &Members, scanned: &[String]) -> BTreeSet<String> {
+fn outside_of(
+    metadata: &[u8],
+    all: &Members,
+    (scanned, build): (&[String], bool),
+) -> BTreeSet<String> {
     let Ok(meta) = serde_json::from_slice::<Value>(metadata) else {
         return all.roots.keys().cloned().collect();
     };
@@ -299,7 +303,7 @@ fn outside_of(metadata: &[u8], all: &Members, scanned: &[String]) -> BTreeSet<St
     let runs = Runs {
         resolve: &resolve_metadata,
         check: &check_json,
-        build: crate::build_allowed(),
+        build,
     };
     let below = |dir: &String| {
         scanned

@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: MIT
 """#2105: Cargo evidence instead of a text search of outside sources.
 
-Three routes that a text search cannot see: a `[patch]` in `.cargo/config.toml`, a procedural macro outside the scan
-that reads a member with `std::fs`, and a workspace root above the scan roots that holds the `[patch]`. Each test runs
-`cargo run` (the member prints a marker) and checks that the indirect rule does not PASS.
+Three routes that a text search cannot see: a `[patch]` in `.cargo/config.toml`, a procedural macro
+outside the scan that reads a member with `std::fs`, and a workspace root above the scan roots that
+holds the `[patch]`. Each test runs `cargo run` (the member prints a marker) and checks that the
+indirect rule does not PASS.
 """
 
 from __future__ import annotations
@@ -139,6 +140,6 @@ def test_a_leaf_that_reaches_no_member_keeps_its_pass_with_the_permission_to_bui
     assert _run(root, "crates/app/Cargo.toml") == "app ran\n"
     built = outcome(root, "validate", allow_build=True)[1]
     assert built["frame"]["rules"]["FORBID"][1] == "PASS", built["frame"]["rules"]
-    # Without the permission the dep-info is not read: the leaf is not proven, so the rule does not PASS.
+    # Without the permission the dep-info is not read: the leaf is not proven, no PASS.
     unbuilt = outcome(root, "validate", allow_build=False)[1]
     assert unbuilt["frame"]["rules"]["FORBID"][1] != "PASS", unbuilt["frame"]["rules"]

@@ -157,7 +157,7 @@ def _recommit(root: Path) -> None:
     """The contract needs the schema of the `indirect` key."""
     contract = root / "architecture-contract.json"
     contract.write_text(contract.read_text().replace('"2.1.0"', '"3.21.0"'))
-    # The resolve graph needs a lock file: `cargo metadata --locked` never writes one into the scanned repository.
+    # The resolve graph needs a lock file: `cargo metadata --locked` writes none into the repo.
     lock = [
         "cargo",
         "generate-lockfile",
