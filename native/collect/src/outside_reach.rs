@@ -78,7 +78,7 @@ fn array<'a>(value: &'a Value, key: &str) -> impl Iterator<Item = &'a Value> {
 /// One package of the resolve graph.
 struct Pkg {
     dir: Option<String>,
-    /// A path package: its source is no registry and no git repository.
+    /// A path or git package: its source is no registry. It needs proof that it reads no member.
     local: bool,
     /// A procedural macro or a build script, or a feature: the dep-info of the default build does not show what it runs
     /// (`std::fs` in a macro, code under `cfg(feature)`).
@@ -111,7 +111,8 @@ fn packages(full: &Value, names: &BTreeSet<String>) -> BTreeMap<String, Pkg> {
         let source = text(package, "source");
         let named = text(package, "name").is_some_and(|n| names.contains(n));
         let git_copy = named && source.is_some_and(|s| s.starts_with("git+"));
-        let local = source.is_none();
+        // A path package and a git package are code that the scan does not read and that can include a member file.
+        let local = source.is_none_or(|s| s.starts_with("git+"));
         let pkg = Pkg {
             dir,
             local,
@@ -276,12 +277,23 @@ fn reads_only_itself(
             seen = true;
             let owned = real_dir(file.to_str().unwrap_or_default())
                 .is_some_and(|f| inside(&f, own) && !cx.dirs.keys().any(|m| inside(&f, m)));
-            if !owned {
+            if !owned || has_cfg(&file) {
                 return false;
             }
         }
     }
     seen
+}
+
+/// Whether a source file has the token `cfg` (an attribute, `cfg!`, `cfg_attr`), or cannot be read. The dep-info shows
+/// the one configuration that was built, so a crate with configuration-dependent code is not proven by it: a hit only
+/// holds, it never passes.
+fn has_cfg(file: &Path) -> bool {
+    let large = std::fs::metadata(file).is_ok_and(|m| m.len() > (4 << 20));
+    large
+        || std::fs::read_to_string(file)
+            .ok()
+            .is_none_or(|text| text.contains("cfg"))
 }
 
 /// The files that the dep-info of one compiler artifact lists, as paths from the workspace root.
@@ -346,9 +358,9 @@ fn leads_outside(dependency: &Value, patched: Option<&str>, cx: &Cx) -> bool {
     }
     // A backslash can write a name in an escape, so the text cannot rule a patch out.
     let named = |t: &str| t.contains('\\') || name.is_some_and(|n| t.contains(n));
-    let git_member = text(dependency, "source").is_some_and(|s| s.starts_with("git+"))
-        && name.is_some_and(|n| cx.names.contains(n));
-    git_member || (text(dependency, "source").is_some() && patched.is_some_and(named))
+    // A git dependency is code that the scan does not read, whatever its name.
+    let git = text(dependency, "source").is_some_and(|s| s.starts_with("git+"));
+    git || (text(dependency, "source").is_some() && patched.is_some_and(named))
 }
 
 /// The text of the manifests and configs that can hold a `[patch]` or `[replace]`: the workspace manifest and each

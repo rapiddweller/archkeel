@@ -33,7 +33,7 @@ WORKSPACE = '[workspace]\nmembers = ["app", "base"]\n'
 CONFIG_PATCH = '[patch.crates-io]\nbase-crate = { path = "base" }\n'
 
 
-def _run(directory: Path, manifest: str, *extra: str) -> str:
+def _run(directory: Path, manifest: str, *extra: str, env: dict[str, str] | None = None) -> str:
     """`cargo run` from `directory`: Cargo reads `.cargo/config.toml` from there."""
     done = subprocess.run(
         ["cargo", "run", "-q", "--offline", "--manifest-path", manifest, *extra],
@@ -41,7 +41,11 @@ def _run(directory: Path, manifest: str, *extra: str) -> str:
         capture_output=True,
         text=True,
         check=False,
-        env={"PATH": os.environ["PATH"], "CARGO_TARGET_DIR": str(directory.parent / "target")},
+        env={
+            "PATH": os.environ["PATH"],
+            "CARGO_TARGET_DIR": str(directory.parent / "target"),
+            **(env or {}),
+        },
     )
     assert done.returncode == 0, done.stderr
     return str(done.stdout)
@@ -279,4 +283,91 @@ def test_an_included_file_named_like_an_output_is_still_an_input(
     _recommit(root)
     assert _run(root, "crates/app/Cargo.toml") == "app ran\n"
     result = outcome(root, "validate", allow_build=True)[1]
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
+CFG_INCLUDE = (
+    '#[cfg({cfg})]\ninclude!("../../../crates/base/src/lib.rs");\n'
+    "#[cfg({cfg})]\npub fn f() {{ make(); }}\n#[cfg(not({cfg}))]\npub fn f() {{}}\n"
+)
+
+
+def _cfg_layout(cfg: str) -> dict[str, str]:
+    return {
+        "crates/Cargo.toml": WORKSPACE,
+        "crates/app/Cargo.toml": _app('x = { path = "../../vendor/x" }\n'),
+        "crates/app/src/lib.rs": "pub fn run() { x::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "vendor/x/Cargo.toml": FOREIGN_X,
+        "vendor/x/src/lib.rs": CFG_INCLUDE.format(cfg=cfg),
+    }
+
+
+def test_an_include_behind_a_cfg_that_the_build_sets_later_does_not_pass(
+    tmp_path: Path, release_core: Path
+) -> None:
+    root = _scan(tmp_path, release_core, _cfg_layout("foo"))
+    _recommit(root)
+    assert _run(root, "crates/app/Cargo.toml", env={"RUSTFLAGS": "--cfg foo"}) == "app ran\n"
+    result = outcome(root, "validate", allow_build=True)[1]
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
+def test_an_include_behind_a_cfg_that_a_cargo_config_sets_does_not_pass(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = _cfg_layout("foo")
+    layout["crates/.cargo/config.toml"] = '[build]\nrustflags = ["--cfg", "foo"]\n'
+    root = _scan(tmp_path, release_core, layout)
+    _recommit(root)
+    assert _run(root / "crates", "app/Cargo.toml") == "app ran\n"
+    result = outcome(root, "validate", allow_build=True)[1]
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
+@pytest.mark.parametrize("cfg", ['target_os = "windows"', 'target_arch = "riscv64"'])
+def test_an_include_behind_a_cfg_of_another_target_does_not_pass(
+    tmp_path: Path, release_core: Path, cfg: str
+) -> None:
+    # Another target cannot run here, so no marker: the include is real on that target.
+    root = _scan(tmp_path, release_core, _cfg_layout(cfg))
+    _recommit(root)
+    result = outcome(root, "validate", allow_build=True)[1]
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
+@pytest.mark.parametrize("build", [True, False], ids=["build", "no-build"])
+def test_a_git_dependency_with_another_name_that_includes_a_member_does_not_pass(
+    tmp_path: Path, release_core: Path, build: bool
+) -> None:
+    layout = {
+        "crates/Cargo.toml": WORKSPACE,
+        "crates/app/Cargo.toml": _app(""),
+        "crates/app/src/lib.rs": "pub fn run() { gitdep::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+    }
+    root = _scan(tmp_path, release_core, layout)
+    source = tmp_path / "gitdep"
+    (source / "src").mkdir(parents=True)
+    (source / "Cargo.toml").write_text(FOREIGN_X.replace('"x"', '"gitdep"'))
+    member = root / "crates/base/src/lib.rs"
+    (source / "src/lib.rs").write_text(f'include!("{member}");\npub fn f() {{ make(); }}\n')
+    git = ["git", "-C", str(source), "-c", "user.name=t", "-c", "user.email=t@t"]
+    for step in (["init", "-q", "-b", "main"], ["add", "-A"], ["commit", "-qm", "dep"]):
+        subprocess.run([*git, *step], check=True, capture_output=True)
+    manifest = root / "crates/app/Cargo.toml"
+    manifest.write_text(manifest.read_text() + f'gitdep = {{ git = "file://{source}" }}\n')
+    # A file URL needs no network: the lock file is made without `--offline`.
+    lock = ["cargo", "generate-lockfile", "--manifest-path", str(root / "crates/Cargo.toml")]
+    subprocess.run(lock, check=True, capture_output=True)
+    _recommit(root)
+    done = subprocess.run(
+        ["cargo", "run", "-q", "--manifest-path", str(manifest)],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PATH": os.environ["PATH"], "CARGO_TARGET_DIR": str(root.parent / "target")},
+    )
+    assert done.returncode == 0 and done.stdout == "app ran\n", done.stderr
+    result = outcome(root, "validate", allow_build=build)[1]
     assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]

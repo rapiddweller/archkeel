@@ -317,18 +317,15 @@ fn outside_of(
     dependents(&meta, &ids, &dirs, &all.names, &runs)
 }
 
-/// A Cargo command with a clean environment. The `--config` flags beat every config file, so a config of the
-/// repository cannot name the compiler (`build.rustc`, `build.rustc-wrapper`) or the flags, but its `[patch]` stays.
+/// A Cargo command with a clean environment. The `--config` flags beat a config file for a string key, so a config of the
+/// repository cannot name the compiler (`build.rustc`, `build.rustc-wrapper`), but its `[patch]` stays. An array key
+/// (`build.rustflags`) is not replaced: Cargo appends the arrays of all sources, so the `--cfg` flags of the repository
+/// still apply. The dep-info proof allows for this (`has_cfg`).
 /// `RUSTUP_TOOLCHAIN` is the default toolchain: a `rust-toolchain.toml` of the repository cannot install another one.
 fn sealed_cargo(subcommand: &str, cwd: &Path) -> Command {
     let mut cmd = Command::new("cargo");
     cmd.arg(subcommand).args(["--offline", "--locked"]);
-    cmd.args([
-        "--config",
-        "build.rustflags=[]",
-        "--config",
-        "build.rustc-wrapper=\"\"",
-    ]);
+    cmd.args(["--config", "build.rustc-wrapper=\"\""]);
     cmd.args(["--config", "build.rustc=\"rustc\""]);
     // Cargo runs the workspace wrapper while it probes rustc, also for `cargo metadata`.
     cmd.args(["--config", "build.rustc-workspace-wrapper=\"\""]);
