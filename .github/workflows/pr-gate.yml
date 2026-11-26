@@ -118,6 +118,20 @@ jobs:
       - name: Remove any self-check result that the checkout holds
         run: rm -f test-artifacts/selfcheck/result.json test-artifacts/selfcheck/base.json
 
+      # #2077: main CI may not have saved the base commit yet. The nearest earlier main commits come next
+      # as restore keys; the gate reuses such an entry only when no input of the result differs.
+      - name: Name the earlier main commits
+        id: earlier
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          {
+            echo "keys<<KEYS"
+            git rev-list --first-parent -n 12 "$PR_BASE^" | sed "s/^/selfcheck-v2-$RUNNER_OS-/"
+            echo "selfcheck-v1-$RUNNER_OS-$PR_BASE"
+            echo "KEYS"
+          } >> "$GITHUB_OUTPUT"
+
       # AD-1061: the result of the self-check on the base commit. A miss is computed by the gate in a
       # git worktree; the gate never skips. Only main CI saves this key.
       - name: Restore the self-check result of the base commit
@@ -125,7 +139,7 @@ jobs:
         with:
           path: test-artifacts/selfcheck/base.json
           key: selfcheck-v2-${{ runner.os }}-${{ github.event.pull_request.base.sha }}
-          restore-keys: selfcheck-v1-${{ runner.os }}-${{ github.event.pull_request.base.sha }}
+          restore-keys: ${{ steps.earlier.outputs.keys }}
 
       # AD-1061: read the labels and the text now, not from the event: a re-run must see a later label.
       - name: Read the labels and the text of the pull request
