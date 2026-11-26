@@ -138,6 +138,12 @@ The collector deadline defaults to 300 seconds. A large repository that times ou
 than the platform's thread timeout limit. It changes only how long a collector may run; a
 timeout still exits without a complete observation.
 
+`rust_type_reach = true` in `[scan]` asks for compiler type-reach facts. Producing them runs `cargo check` on the
+scanned repository, and so its build scripts and procedural macros. The repository cannot allow that for itself:
+the operator must also set `ARCHKEEL_ALLOW_BUILD=1` in the environment of the run. Without it no cargo command
+starts and the scan reports the gap `type reach not allowed by the operator`; the trait-impl, destructor and receiver
+gaps stay. See [AD-1130](architecture/decisions/ad-1130-the-operator-allows-the-build-of-a-scanned-repository.md).
+
 The host limits the memory of each collector to 4 GiB ([AD-319](architecture/decisions/ad-319-a-collector-process-has-a-memory-limit-and-a-checked-adapter-version.md)).
 Linux limits address space and Windows limits committed memory. A collector that runs out of
 memory gives an `execution_error` that names the limit. macOS has no memory limit.
