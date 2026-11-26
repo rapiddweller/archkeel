@@ -1,4 +1,4 @@
-# AD-1117: The Explorer leaves test sources out unless the config states the scope
+# AD-1119: The Explorer leaves test sources out unless the config states the scope
 
 Status: accepted. Part of #874. Amends AD-313.
 

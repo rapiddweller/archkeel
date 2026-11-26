@@ -70,7 +70,7 @@ UNKNOWN. Keep the default to include test sources in architecture checks.
 The Explorer (`studio`, `explore`, `archkeel-mcp`) leaves test sources out of a Python or TypeScript scan when
 `archkeel.toml` does not state `exclude_test_sources`. Its `verdict` answer gives `excluded_sources`, `excluded_paths` and
 a `scope` note. Set `exclude_test_sources = false` to include tests in the Explorer.
-The view can then differ from `validate`, which keeps tests ([AD-1117](architecture/decisions/ad-1117-the-explorer-leaves-test-sources-out-unless-the-config-states-the-scope.md)).
+The view can then differ from `validate`, which keeps tests ([AD-1119](architecture/decisions/ad-1119-the-explorer-leaves-test-sources-out-unless-the-config-states-the-scope.md)).
 For Dart, this option excludes `.dart` files under `test` or `tests` within a selected root,
 and files whose names end in `_test.dart`. It also excludes a root named `test` or `tests`,
 unless that root is a Dart package directory.

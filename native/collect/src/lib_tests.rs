@@ -283,7 +283,7 @@ fn a_reply_that_names_the_python_or_the_dart_profile_meets_the_check_of_that_col
     }
 }
 
-// AD-1117: the Explorer leaves test sources out of a Python or TypeScript scan unless the config
+// AD-1119: the Explorer leaves test sources out of a Python or TypeScript scan unless the config
 // states the scope. `validate` and `report` keep the tests.
 fn test_scope(root: &Path, explorer: bool) -> serde_json::Value {
     let text = root.to_str().unwrap();

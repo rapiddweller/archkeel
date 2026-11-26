@@ -153,7 +153,7 @@ pub fn scan_with_options(
         .to_str()
         .ok_or_else(|| refused("root", "the root is not UTF-8"))?;
     let mut config = read_config(&root, identity.config)?;
-    // AD-1117: the Explorer leaves test sources out unless the config states the scope. `validate` and `report` keep tests.
+    // AD-1119: the Explorer leaves test sources out unless the config states the scope. `validate` and `report` keep tests.
     if explorer
         && !config.test_scope_set
         && matches!(config.profile, Profile::Python | Profile::TypeScript)

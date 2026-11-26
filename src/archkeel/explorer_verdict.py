@@ -84,7 +84,7 @@ class VerdictRows:
     unknowns: tuple[Unknown, ...]
     # Digest of each file that the scan assessed, to tell later whether the verdict is stale.
     sources: Mapping[str, str]
-    # The paths that the scan left out as test sources (AD-1117).
+    # The paths that the scan left out as test sources (AD-1119).
     excluded: tuple[str, ...] = ()
 
 
