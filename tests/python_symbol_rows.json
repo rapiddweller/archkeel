@@ -506,8 +506,8 @@
  ],
  "unknown-base": [
   "FAIL",
-  "UNKNOWN",
-  "absent symbol: the symbol inventory is not complete"
+  "FAIL",
+  "recorded entity kind differs"
  ],
  "walrus": [
   "PASS",

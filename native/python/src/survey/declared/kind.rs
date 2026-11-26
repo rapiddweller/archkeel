@@ -5,15 +5,18 @@
 //! The kind of a class that Python binds when the class statement runs (AD-518, rule 6).
 //!
 //! A class has a kind only when each base is proven: a builtin that no statement of the module
-//! rebinds, a name of `typing` or `enum` that its one plain import binds, or a class of the same
-//! module that has a record. A keyword (`metaclass=`), a type parameter list or any other base
-//! can change what the statement gives, so the class has no kind and no record.
+//! rebinds, a name of `typing` or `enum` or `abc.ABC` that its one plain import binds, a class of the same
+//! module that has a record, or a class of another admitted module of the scan that its one plain
+//! import (and the plain imports of the modules that re-export it) binds (#2129). A keyword
+//! (`metaclass=`), a type parameter list or any other base can change what the statement gives,
+//! so the class has no kind and no record.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::{Expr, Stmt, StmtClassDef};
 use ruff_text_size::Ranged;
 
+use crate::module::Module;
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
 
@@ -51,6 +54,8 @@ const ENUM_BASES: [&str; 5] = ["Enum", "IntEnum", "StrEnum", "Flag", "IntFlag"];
 pub(super) struct Local {
     pub kind: Kind,
     pub constructible: bool,
+    /// The class, or a local base of it, has a base of another module (#2129): the members are withheld.
+    pub foreign: bool,
 }
 
 /// One base of a class: its expression, the qualified name that it resolves to, and whether that
@@ -63,10 +68,200 @@ pub(super) struct BaseSite<'a> {
 
 /// The proven kind and bases of a class.
 pub(super) struct Class<'a> {
+    /// A base is a class of another module: a hook of that class (`__init_subclass__`) can change this class
+    /// after its statement, so the members of this class are withheld (#2129).
+    pub foreign: bool,
     pub kind: Kind,
     pub bases: Vec<BaseSite<'a>>,
     /// Each base lets `A()` give an instance of `A`.
     pub constructible: bool,
+}
+
+/// The classes with a proven kind of the admitted modules of the scan, and the plain imports that
+/// bind a name to a name of another admitted module (#2129). A class that a module decorates, binds
+/// twice or builds with a keyword is not in it, and neither is a module that a hazard or an escape
+/// withholds. A module that is no admitted module of the scan has no entry: its name gives no kind.
+pub(crate) struct Project {
+    classes: HashMap<(String, String), Kind>,
+    routes: HashMap<(String, String), (String, String)>,
+}
+
+/// The hops that one name follows through re-exports.
+const HOPS: usize = 8;
+
+/// The rounds of the fixpoint. A round only adds classes, so a stop before the end only loses some.
+const ROUNDS: usize = 16;
+
+impl Project {
+    pub(super) fn empty() -> Project {
+        Project {
+            classes: HashMap::new(),
+            routes: HashMap::new(),
+        }
+    }
+
+    /// The module that defines `name` of `module`, and the kind of the class, when each hop is a
+    /// plain import of an admitted module and the last one is a class with a proven kind.
+    pub(super) fn class(&self, module: &str, name: &str) -> Option<(String, String, Kind)> {
+        let (mut module, mut name) = (module.to_owned(), name.to_owned());
+        for _ in 0..HOPS {
+            let key = (module, name);
+            if let Some(kind) = self.classes.get(&key) {
+                return Some((key.0, key.1, *kind));
+            }
+            (module, name) = self.routes.get(&key)?.clone();
+        }
+        None
+    }
+}
+
+/// The classes of other modules that a base can name (#2129): the plain imports of the admitted
+/// modules, then the kind of each class of the module body to a fixpoint. Each class uses the
+/// same reading as `of`, with the classes of this table for a base of another module.
+pub(crate) fn project(
+    modules: &[Module],
+    binders: &[Binders],
+    admitted: impl Fn(usize, &Module) -> bool,
+) -> Project {
+    let mut table = Project::empty();
+    let names: HashSet<&str> = modules
+        .iter()
+        .enumerate()
+        .filter(|(index, module)| admitted(*index, module))
+        .map(|(_, module)| module.name.as_str())
+        .filter(|name| !matches!(*name, "typing" | "typing_extensions" | "enum" | "abc"))
+        .collect();
+    let bounds: Vec<Option<Bound>> = modules
+        .iter()
+        .map(|module| {
+            names
+                .contains(module.name.as_str())
+                .then(|| Bound::of(&module.tree.body))
+        })
+        .collect();
+    for (module, bound) in modules
+        .iter()
+        .zip(&bounds)
+        .filter_map(|(m, b)| Some((m, b.as_ref()?)))
+    {
+        table.routes.extend(plain_imports(module, bound, &names));
+    }
+    for _ in 0..ROUNDS {
+        let mut grew = false;
+        let each = modules.iter().zip(binders).zip(&bounds);
+        for ((module, binders), bound) in each.filter_map(|(m, b)| Some((m, b.as_ref()?))) {
+            grew |= add_classes(&mut table, (module, binders), bound);
+        }
+        if !grew {
+            break;
+        }
+    }
+    table
+}
+
+/// The `from m import a` statements of the module body that bind their name once, with `m` an
+/// admitted module of the scan: `(module, binding)` is `(m, a)`.
+fn plain_imports(
+    module: &Module,
+    bound: &Bound,
+    names: &HashSet<&str>,
+) -> Vec<((String, String), (String, String))> {
+    let mut found = Vec::new();
+    for statement in &module.tree.body {
+        let Stmt::ImportFrom(node) = statement else {
+            continue;
+        };
+        let from = node.module.as_ref().filter(|_| node.level == 0);
+        let Some(from) = from.filter(|from| names.contains(from.as_str())) else {
+            continue;
+        };
+        let start = statement.range().start();
+        for alias in &node.names {
+            let binding = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+            if alias.name.as_str() != "*" && bound.sole(binding, start) {
+                found.push((
+                    (module.name.clone(), binding.to_owned()),
+                    (from.to_string(), alias.name.to_string()),
+                ));
+            }
+        }
+    }
+    found
+}
+
+/// The classes of one module body with a kind, given the table so far. True when one is new.
+fn add_classes(table: &mut Project, (module, binders): (&Module, &Binders), bound: &Bound) -> bool {
+    let body = &module.tree.body;
+    let mut local: HashMap<String, Local> = HashMap::new();
+    let mut grew = false;
+    for statement in body {
+        let Stmt::ClassDef(node) = statement else {
+            continue;
+        };
+        let name = node.name.as_str();
+        let plain = node.decorator_list.is_empty() && bound.sole(name, statement.range().start());
+        let reading = Reading::top((&module.name, body), bound, binders, (&local, table));
+        let found = of(node, &reading).filter(|_| plain);
+        let Some(class) = found else {
+            continue;
+        };
+        let (kind, constructible, foreign) = (class.kind, class.constructible, class.foreign);
+        local.insert(
+            name.to_owned(),
+            Local {
+                kind,
+                constructible,
+                foreign,
+            },
+        );
+        grew |= table
+            .classes
+            .insert((module.name.clone(), name.to_owned()), kind)
+            .is_none();
+    }
+    grew
+}
+
+/// Remember a class of the module body with a record, and its body for the nested classes.
+pub(super) fn keep<'a>(
+    found: Option<(Frame<'a>, Local)>,
+    name: &str,
+    local: &mut HashMap<String, Local>,
+    pending: &mut Vec<Frame<'a>>,
+) {
+    if let Some((frame, kind)) = found {
+        local.insert(name.to_owned(), kind);
+        pending.push(frame);
+    }
+}
+
+/// The classes of a class body that bind their name once.
+pub(super) fn nested<'a>(frame: &Frame<'a>) -> Vec<&'a StmtClassDef> {
+    let found = frame
+        .node
+        .body
+        .iter()
+        .filter_map(|statement| match statement {
+            Stmt::ClassDef(node)
+                if frame
+                    .bound
+                    .sole(node.name.as_str(), statement.range().start()) =>
+            {
+                Some(node)
+            }
+            _ => None,
+        });
+    found.collect()
+}
+
+/// A class with a record whose body is not read yet.
+pub(super) struct Frame<'a> {
+    pub(super) node: &'a StmtClassDef,
+    pub(super) qualname: String,
+    pub(super) id: String,
+    pub(super) bound: Bound,
+    /// The members of the class are withheld, and so are its nested classes.
+    pub(super) open: bool,
 }
 
 /// What a class statement reads to know its bases.
@@ -79,6 +274,8 @@ pub(super) struct Reading<'a> {
     pub enclosing: Option<&'a Bound>,
     /// The classes of the module body that have a record, by name (a top-level class only).
     pub local: &'a HashMap<String, Local>,
+    /// The classes of the other modules of the scan.
+    pub project: &'a Project,
 }
 
 impl<'a> Reading<'a> {
@@ -87,7 +284,7 @@ impl<'a> Reading<'a> {
         (module, body): (&'a str, &'a [Stmt]),
         bound: &'a Bound,
         binders: &'a Binders,
-        local: &'a HashMap<String, Local>,
+        (local, project): (&'a HashMap<String, Local>, &'a Project),
     ) -> Self {
         Reading {
             module,
@@ -96,6 +293,7 @@ impl<'a> Reading<'a> {
             binders,
             enclosing: None,
             local,
+            project,
         }
     }
 
@@ -121,6 +319,7 @@ struct Found {
     target: String,
     protocol: bool,
     constructible: bool,
+    foreign: bool,
 }
 
 /// The kind and the bases of `node`, or `None` when a base or a keyword leaves them open.
@@ -132,7 +331,8 @@ pub(super) fn of<'a>(node: &'a StmtClassDef, reading: &Reading<'_>) -> Option<Cl
     if arguments.is_some_and(|arguments| !arguments.keywords.is_empty()) {
         return None;
     }
-    let (mut protocol, mut enumeration, mut constructible) = (false, false, true);
+    let (mut protocol, mut enumeration, mut constructible, mut foreign) =
+        (false, false, true, false);
     let mut bases = Vec::new();
     for base in arguments.map_or(&[][..], |arguments| &arguments.args) {
         let found = classify(base, reading)?;
@@ -142,6 +342,7 @@ pub(super) fn of<'a>(node: &'a StmtClassDef, reading: &Reading<'_>) -> Option<Cl
             Is::Enum => enumeration = true,
         }
         constructible &= found.constructible;
+        foreign |= found.foreign;
         bases.push(BaseSite {
             expr: base,
             target: found.target,
@@ -155,6 +356,7 @@ pub(super) fn of<'a>(node: &'a StmtClassDef, reading: &Reading<'_>) -> Option<Cl
         (false, false) => Kind::Plain,
     };
     Some(Class {
+        foreign,
         kind,
         bases,
         constructible,
@@ -184,6 +386,7 @@ fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Found> {
                 target: format!("{}.{name}", reading.module),
                 protocol: local.kind == Kind::Protocol,
                 constructible: local.constructible,
+                foreign: local.foreign,
             });
         }
         if BUILTIN_BASES.contains(&name) && reading.binders.builtin_visible(name) {
@@ -192,13 +395,29 @@ fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Found> {
                 target: format!("builtins.{name}"),
                 protocol: false,
                 constructible: true,
+                foreign: false,
             });
         }
     }
     let (module, symbol) = imported(base, reading)?;
+    if let Some((defined, class, kind)) = reading.project.class(&module, &symbol) {
+        // The class of another module: no `__new__` is known for it, so no `A()` instance is claimed.
+        return Some(Found {
+            is: match kind {
+                Kind::Enum => Is::Enum,
+                Kind::Plain | Kind::Protocol => Is::Plain,
+            },
+            target: format!("{defined}.{class}"),
+            protocol: kind == Kind::Protocol,
+            constructible: false,
+            foreign: true,
+        });
+    }
     let is = match (module.as_str(), symbol.as_str()) {
         ("typing" | "typing_extensions", "Protocol") => Is::Protocol,
         ("enum", symbol) if ENUM_BASES.contains(&symbol) => Is::Enum,
+        // Its metaclass `ABCMeta` gives a class too, and no base here has another metaclass.
+        ("abc", "ABC") => Is::Plain,
         _ => return None,
     };
     Some(Found {
@@ -206,6 +425,7 @@ fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Found> {
         target: format!("{module}.{symbol}"),
         protocol: false,
         constructible: false,
+        foreign: false,
     })
 }
 
@@ -250,3 +470,7 @@ pub(super) fn imported(base: &Expr, reading: &Reading<'_>) -> Option<(String, St
         }
     })
 }
+
+#[cfg(test)]
+#[path = "kind_tests.rs"]
+mod tests;
