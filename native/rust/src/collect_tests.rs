@@ -200,6 +200,22 @@ fn each_place_that_cannot_be_read_is_a_gap_with_its_line() {
 }
 
 #[test]
+fn a_module_file_below_the_walk_depth_is_a_named_gap_and_stays_selected() {
+    let deep = vec!["d"; 130].join("/");
+    let lib = format!("#[path = \"{deep}/x.rs\"]\nmod x;\n");
+    let file = format!("crates/src/{deep}/x.rs");
+    let facts = facts(&[
+        ("crates/Cargo.toml", "[package]\nname = \"a\"\n"),
+        ("crates/src/lib.rs", lib.as_str()),
+        (file.as_str(), "pub fn f() {}"),
+    ]);
+    assert!(reasons(&facts)
+        .iter()
+        .any(|reason| reason.starts_with("Directory is deeper than the walk reads")));
+    assert!(facts.selected_files.contains(&file));
+}
+
+#[test]
 fn a_file_in_no_module_tree_and_a_scan_root_that_is_no_directory_are_gaps() {
     let facts = facts(&[
         ("crates/Cargo.toml", "[package]\nname = \"a\"\n"),

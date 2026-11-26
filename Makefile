@@ -199,6 +199,12 @@ core:
 SELFCHECK_BASE ?= $(PR_BASE)
 SELFCHECK_ARGS ?=
 
+# AD-1130: `native/archkeel.toml` asks for compiler type reach, which runs cargo and the build scripts of the
+# scanned workspace. Only the operator allows that, by the environment: this is the one place that does it
+# for the self-check, and it covers the base-commit run of the gate, which inherits this environment.
+# `self-validate-system` scans the same part; `report-gallery` runs the self run for the report pages.
+self-validate-native self-validate-system report-gallery: export ARCHKEEL_ALLOW_BUILD = 1
+
 # AD-335: Archkeel checks the Rust of native/ with its own core and its own contract (AD-432).
 # The gate fails on growth against the base commit (AD-1064), not on the gaps that exist.
 self-validate-native: core
@@ -284,7 +290,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/self_check_contract.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
 	native/hatch_build.py
 
 lint:
@@ -295,7 +301,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
+	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/self_check_contract.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 flutter-demo-check:

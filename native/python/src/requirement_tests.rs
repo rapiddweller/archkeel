@@ -180,3 +180,45 @@ fn annotations_are_lazy_when_the_requirement_allows_python_3_14() {
     // Without a range, a `python` setting below 3.14 is the statement of the project.
     assert!(!lazy(None, Some("3.12"), 12));
 }
+
+fn scripts_of(text: &str) -> Result<Vec<Script>, String> {
+    let tree = Tree::new(&[("pyproject.toml", text)]);
+    scripts(&tree.path())
+}
+
+#[test]
+fn the_scripts_come_from_both_script_tables() {
+    let found = scripts_of(
+        "[project.scripts]\ntool = \"pkg.cli:main\"\n[project.gui-scripts]\nwin = \"pkg.gui:run\"\n",
+    )
+    .unwrap();
+    assert_eq!(
+        found,
+        [
+            Script {
+                table: ScriptTable::Console,
+                name: "tool".to_owned(),
+                target: "pkg.cli:main".to_owned()
+            },
+            Script {
+                table: ScriptTable::Gui,
+                name: "win".to_owned(),
+                target: "pkg.gui:run".to_owned()
+            },
+        ]
+    );
+}
+
+#[test]
+fn no_script_table_and_no_file_declare_no_script() {
+    assert_eq!(scripts_of("[project]\nname = \"x\"\n"), Ok(Vec::new()));
+    let tree = Tree::new(&[("a.py", "")]);
+    assert_eq!(scripts(&tree.path()), Ok(Vec::new()));
+}
+
+#[test]
+fn a_file_or_a_value_that_cannot_be_read_is_an_error_not_an_empty_list() {
+    assert!(scripts_of("[project\n").is_err());
+    assert!(scripts_of("[project.scripts]\ntool = 3\n").is_err());
+    assert!(scripts_of("[project]\nscripts = \"x\"\n").is_err());
+}

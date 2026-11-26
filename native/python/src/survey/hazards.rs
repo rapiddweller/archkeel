@@ -28,9 +28,8 @@ use super::hazards_names::{
     BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS, TROJAN_HORSE_STRINGS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
-pub(super) use bind::bindings;
-pub(super) use bind::exposed;
 use bind::imported;
+pub(super) use bind::{bindings, exposed};
 pub(super) use comprehension::trojans as comprehension_trojans;
 pub(super) use inert::{cleared, BUILTINS};
 pub(super) use reexport::{table, Reexports};
@@ -196,7 +195,7 @@ impl Walk<'_> {
             return false;
         };
         let literal = !TROJAN_HORSE_STRINGS.contains(&attr.value.to_str())
-            && !comprehension::reflective(attr.value.to_str(), false);
+            && !comprehension::reflective(attr.value.to_str());
         let plain = named && literal && (2..=3).contains(&args.len());
         if !plain
             || !call.arguments.keywords.is_empty()
@@ -219,12 +218,8 @@ impl Walk<'_> {
 
     /// A plain name that is not the base of an attribute.
     fn name(&mut self, id: &str, expr: &Expr) {
-        if self.local(id) {
-            return;
-        }
-        if matches!(expr, Expr::Name(node) if node.ctx == ExprContext::Load)
-            && inert::read(&self.inert_modules, id, &[])
-        {
+        let load = matches!(expr, Expr::Name(node) if node.ctx == ExprContext::Load);
+        if self.local(id) || (load && inert::read(&self.inert_modules, id, &[])) {
             return;
         }
         if BUILTIN_TROJAN_HORSES.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
@@ -234,7 +229,8 @@ impl Walk<'_> {
             if let Some(kind) = hazard(&origin) {
                 return self.push(kind, &origin, expr);
             }
-            if above(&origin) {
+            let value = self.bound.contains_key(id) && reexport::value(self.reexports, &origin);
+            if above(&origin) || value {
                 return self.push(DYNAMIC, &origin, expr);
             }
         }
@@ -354,6 +350,10 @@ impl Walk<'_> {
             .iter()
             .any(|a| a.starts_with("__") && a.ends_with("__"));
         for origin in self.origins(id) {
+            let hit = reexport::find_from(self.reexports, self.bound.get(id), &origin, &attributes);
+            if let Some((kind, name)) = hit {
+                return self.push(kind, &name, expr);
+            }
             let trojan_horse = dunder && (hazard(&origin).is_some() || above(&origin));
             if let Some((kind, name)) = first_hazard(origin.clone(), &attributes) {
                 return self.push(kind, &name, expr);

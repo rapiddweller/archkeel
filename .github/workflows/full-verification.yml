@@ -71,7 +71,17 @@ jobs:
           restore-keys: selfcheck-v1-${{ runner.os }}-${{ github.sha }}
 
       - name: Check native/ and the Python shell with the core (AD-1064)
+        env:
+          NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
         run: make self-validate SELFCHECK_ARGS=--no-compare
+
+      - name: Check native self-check timing budgets
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            uv run --locked python -m tools.native_timing_budget "$RUNNER_TEMP/native-selfcheck-timings.json" test-artifacts/validation-native/result.json
+          else
+            uv run --locked python -m tools.native_timing_budget "$RUNNER_TEMP/native-selfcheck-timings.json" test-artifacts/validation-native/result.json --report-only
+          fi
 
       - name: Compare the release result with the gate-profile result of this commit
         run: |
@@ -138,7 +148,8 @@ jobs:
         run: uv python install 3.11.12 3.12.10 3.13.15 3.14.7
 
       - name: Install locked dependencies
-        run: uv sync --locked
+        # The Explorer MCP tests (tests/test_explorer_mcp_hostile.py) need the fastmcp extra.
+        run: uv sync --locked ${{ matrix.area == 'CLI and core' && '--extra mcp' || '' }}
 
       - name: Install the pinned Rust toolchain once, before any parallel step
         working-directory: native

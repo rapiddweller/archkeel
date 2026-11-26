@@ -107,3 +107,50 @@ def test_a_pass_on_the_facts_names_the_premise_in_its_receipt(
     assert "rust_type_reach: the compiler type reach of the pinned rustc holds" in frame["assuming"]
     assert "whole program" in frame["assuming"]
     assert "this target" in frame["assuming"]
+
+
+_MARKER_BUILD = """fn main() {
+    std::fs::write("MARKER", "the build script ran").unwrap();
+}
+"""
+
+
+def _marked(tmp_path: Path, release_core: Path) -> tuple[Path, Path]:
+    marker = tmp_path / "build-script-ran"
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        rules=CRATE_RULES,
+        type_reach=True,
+        files={"crates/base/build.rs": _MARKER_BUILD.replace("MARKER", str(marker))},
+    )
+    return root, marker
+
+
+def test_the_setting_of_the_repository_alone_runs_no_cargo(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AD-1130: the repository cannot grant operator trust. No permission, no build script."""
+    _facts_run(tmp_path, monkeypatch)
+    root, marker = _marked(tmp_path, release_core)
+    result = validate(root, allow_build=False)
+    frame = result["frame"]
+    cause = "The compiler type-reach facts are unavailable: type reach not allowed by the operator"
+    reasons = [gap["reason"] for gap in frame["collection_gaps"]]
+    assert any(reason.startswith(cause) for reason in reasons), reasons
+    assert not marker.exists()
+    assert frame["status"] == "UNKNOWN"
+    assert "PASS" not in {row[1] for row in frame["rules"].values()}
+    kinds = {use["kind"] for uses in frame.get("premises", {}).values() for use in uses}
+    assert "rust_type_reach" not in kinds
+
+
+@needs_rustc_dev
+def test_with_the_permission_the_facts_are_produced_as_before(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _facts_run(tmp_path, monkeypatch)
+    root, marker = _marked(tmp_path, release_core)
+    frame = validate(root, allow_build=True)["frame"]
+    assert frame["rules"]["REQUIRES"][1] == "PASS", frame["collection_gaps"]
+    assert marker.exists()

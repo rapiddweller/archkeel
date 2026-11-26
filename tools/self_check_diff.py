@@ -14,9 +14,8 @@ refusal, no FAIL, no violation and the exit code that its statuses give. Growth 
 multiset compare, so a growing gap counts for each occurrence), a new UNKNOWN reason kind, or a
 rule with a worse status (PASS < UNKNOWN < FAIL), fewer scanned files, a changed `[scan]`
 table, or a changed path or contract scope. Changed contract inputs with removed gaps also count.
-Removals do not offset additions. Growth passes
-only with the label `ratchet-lead` and the PR text line `Ratchet growth: <N> items: <reason>`,
-where N is the printed count. The shell gate reads its own line `Ratchet growth (shell): ...`.
+Removals do not offset additions. Growth needs `ratchet-lead` and `Ratchet growth: <N> items:
+<reason>`. N is the printed count. The shell gate reads its own `Ratchet growth (shell): ...` line.
 A base that is missing, corrupt, refused or for another commit
 compares as an empty base, and only the same approval passes it. The log shows the first
 `SHOWN` grown items; `--grown-file` takes all of them. `--report-only` (main CI, which cannot see

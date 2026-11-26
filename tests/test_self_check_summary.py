@@ -174,3 +174,27 @@ def test_the_ratchet_is_told_in_words(tmp_path: Path) -> None:
     assert new == 1
     assert lines[0] == "native vs base aaaaaaaaaaaa: 1 new items, 1 gaps gone"
     assert tool.ratchet(own, tmp_path / "missing.json")[1] == 0
+
+
+def test_ratchet_uses_the_gate_scan_table(tmp_path: Path) -> None:
+    own = envelope(frame(status="UNKNOWN", causes=0))
+    before = condense(own, "a" * 40, "t", {"roots": ["native"]})
+    path = tmp_path / "base.json"
+    path.write_text(json.dumps(before), encoding="utf-8")
+    (tmp_path / "native").mkdir()
+    (tmp_path / "native/archkeel.toml").write_text('[scan]\nroots = ["native"]\n')
+    assert tool.ratchet(own, path, tmp_path)[1] == 0
+
+
+def test_summary_uses_the_base_result_override(tmp_path: Path, monkeypatch: Any) -> None:
+    own = envelope(frame(status="UNKNOWN"))
+    write(tmp_path, "native", own)
+    base = condense(own, "a" * 40, "t")
+    base["gaps"] = [["collection_gap", "gone", "old"]]
+    path = tmp_path / "base.json"
+    path.write_text(json.dumps(base))
+    monkeypatch.setenv("BASE_RESULT", str(path))
+    root = repository(tmp_path, {}, {})
+    assert "native vs base aaaaaaaaaaaa: 0 new items, 1 gaps gone" in tool.summary(
+        tmp_path, root, 0, "x.log"
+    )

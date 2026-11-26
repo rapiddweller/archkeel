@@ -12,6 +12,7 @@ from fnmatch import fnmatchcase
 AREAS: dict[str, tuple[str, ...]] = {
     "CLI and core": (
         "test_cli*.py",
+        "test_core_guide.py",
         "test_explorer_*.py",
         "test_native_core.py",
         "test_native_interface_boundary.py",
@@ -34,6 +35,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_merge_pr.py",
         "test_born_small.py",
         "test_native_touched.py",
+        "test_native_timing_budget.py",
         "test_pr_report.py",
         "test_decision_index.py",
         "test_timeout_support.py",
@@ -47,7 +49,9 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_make_self_check.py",
         "test_self_check_diff.py",
         "test_self_check_gate.py",
+        "test_self_check_gate_earlier.py",
         "test_self_check_report.py",
+        "test_self_check_scope.py",
         "test_self_check_shell.py",
         "test_self_check_summary.py",
         "test_ci_budget.py",

@@ -48,6 +48,7 @@ fn class(data: &GapData, is_module: &impl Fn(&str) -> bool) -> Class {
     let named = match effect {
         GapEffect::Edges { sources: names }
         | GapEffect::Modules { modules: names }
+        | GapEffect::Symbols { modules: names }
         | GapEffect::Layout { modules: names } => {
             !names.is_empty() && names.iter().all(|name| is_module(name.as_str()))
         }
@@ -92,6 +93,8 @@ pub enum Doubt {
     Code(String),
     /// The code of every module.
     EveryModule,
+    /// The symbol records of this module.
+    Symbols(String),
     /// The file and the place in the layout of this module.
     Layout(String),
 }
@@ -111,6 +114,7 @@ impl Doubt {
             Doubt::Edges(module) => ("edges", "the import edges of", Some(module)),
             Doubt::Code(module) => ("modules", "the code of", Some(module)),
             Doubt::EveryModule => ("every_module", "the code of every module", None),
+            Doubt::Symbols(module) => ("symbols", "the symbol records of", Some(module)),
             Doubt::Layout(module) => ("layout", "the file and the layout of", Some(module)),
         }
     }

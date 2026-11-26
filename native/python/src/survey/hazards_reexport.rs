@@ -40,6 +40,31 @@ pub(super) fn find(reexports: &Reexports, attributes: &[&str]) -> Option<(&'stat
     })
 }
 
+/// The first hazard on `attributes` read from a name that `origin` gives: a project module that
+/// binds a re-exported name (`from app.util import cp`, origin `app.util.cp`). Only an import binds
+/// such an origin: a global that no import binds has no origin to expand.
+pub(super) fn find_from(
+    reexports: &Reexports,
+    bound: Option<&Vec<String>>,
+    origin: &str,
+    attributes: &[&str],
+) -> Option<(&'static str, String)> {
+    bound?;
+    let mut parts: Vec<&str> = origin.split('.').collect();
+    parts.extend(attributes);
+    find(reexports, &parts)
+}
+
+/// True when `origin` is a module with a hazard name, or a name that a module of the scan binds to
+/// one (`app.util.cp`): the origin is such a module as a value.
+pub(super) fn value(reexports: &Reexports, origin: &str) -> bool {
+    let named = origin
+        .rsplit_once('.')
+        .is_some_and(|(_, last)| reexports.contains_key(last));
+    // A bound module with a hazard name that is read as a value flows on unseen (AD-1098).
+    holds(origin) || named
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -68,5 +93,23 @@ mod tests {
         assert_eq!(find(&table, &["os", "path"]), None);
         assert_eq!(find(&table, &["cProfile", "Stats"]), None);
         assert_eq!(find(&table, &["run"]), None);
+    }
+
+    #[test]
+    fn a_from_import_of_a_re_exported_name_reads_the_chain_and_the_value() {
+        let all = [bound(&[("cp", "cProfile")])];
+        let table = table(all.iter());
+        let found = find_from(
+            &table,
+            Some(&vec!["app.util.cp".to_owned()]),
+            "app.util.cp",
+            &["run"],
+        )
+        .map(|x| x.1);
+        assert_eq!(found.as_deref(), Some("cProfile.run"));
+        assert!(value(&table, "app.util.cp"));
+        assert!(!value(&table, "app.util.other"));
+        assert!(!value(&table, "cp"));
+        assert!(value(&table, "unittest"));
     }
 }

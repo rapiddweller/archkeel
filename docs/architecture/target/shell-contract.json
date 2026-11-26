@@ -160,6 +160,36 @@
       "decided_by": "architect"
     },
     {
+      "id": "SHELL-GUIDE",
+      "label": "guide",
+      "role": "component",
+      "layer": "present",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_guide"
+      ],
+      "responsibilities": [
+        "Write the Markdown guide of the topology for a person: the components, the requirements with their reasons and the layer orders."
+      ],
+      "forbidden_responsibilities": [
+        "Decide a verdict, read a file, start a process or read a rule row."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md",
+        "docs/architecture/decisions/ad-1121-report-renders-the-topology-as-a-markdown-guide.md"
+      ],
+      "requires": [
+        {
+          "component": "display",
+          "rationale": "Read the typed topology of the frame to write the guide."
+        }
+      ],
+      "decided_by": "architect",
+      "public": [
+        "archkeel.cli.core_guide:render"
+      ]
+    },
+    {
       "id": "SHELL-GAPS",
       "label": "gaps",
       "role": "component",
@@ -277,6 +307,10 @@
         {
           "component": "output",
           "rationale": "Write the output of a run to its file."
+        },
+        {
+          "component": "guide",
+          "rationale": "Write the Markdown guide of a report with the guide function."
         },
         {
           "component": "launch",

@@ -334,6 +334,8 @@ Closed by AD-1095 (#1974, #1976 case 5): a string annotation is read as code, so
 
 Still open:
 - A write of a literal dunder name (`setattr(K, '__call__', f)`, `K.__call__ = f`) gives no site (#1979). Do not clear a literal `__call__` read until #1979 is closed: `getattr(util.cProfile.run, '__call__')(...)` is a site only because of it.
+
+Closed by AD-1098 (#2016, #2024): a module that holds a hazard name is a site where it is read as a value: `return cProfile`, `same(dis)`, `util.c = cProfile`, `[cProfile]`, and `from app.util import cp as x` followed by `x.run(...)`.
 - A loader, a `Bytecode` object or a module that a parameter hands in is an unknown value: its method call is not read (see above). The import of the module in the scan stays the site (AD-1094).
 - The command line and the environment name modules too (`python -m unittest a.b`, `PYTHONWARNINGS`, `PY_SAX_PARSER`, `PYTHONBREAKPOINT`). They are outside the scan.
 
@@ -830,6 +832,12 @@ refuses with `core_binary_not_found`
 ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 
 ### Rust: what the collector does not prove
+
+The compiler type-reach facts (`rust_type_reach`, AD-1047) need the operator's permission `ARCHKEEL_ALLOW_BUILD=1`
+(AD-1130). The setting of the scanned repository alone starts no build. Without the permission every trait-impl,
+destructor and receiver gap stays and the scan names the cause `type reach not allowed by the operator`. With the
+permission, the build of the scanned repository runs without a sandbox: allow it only for a repository that you trust
+(#1999).
 
 Explorer resolves direct calls between unconditional module functions in the
 same crate target, including proven relative module paths. It can also

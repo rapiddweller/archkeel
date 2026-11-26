@@ -26,16 +26,19 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import tomllib
 from pathlib import Path
 from typing import Any
 
-from self_check_diff import FORMAT, LABEL, Unusable, condense, scanned_scope
+from self_check_contract import normalize_contract
+from self_check_diff import FORMAT, LABEL, Unusable, condense, load, scanned_scope
 from self_check_diff import main as diff
 
 KEPT = Path("test-artifacts/selfcheck/result.json")
@@ -43,6 +46,20 @@ GROWN = Path("test-artifacts/selfcheck/grown.txt")
 BASE = Path("test-artifacts/selfcheck/base.json")
 COMPARED = Path("test-artifacts/selfcheck/compared-base.json")
 CONFIG = Path("native/archkeel.toml")
+# Everything the saved result of a commit depends on: the scanned tree and its contract and
+# config (`native`), the compiler drivers, the Python shell that runs the report, the locked
+# tools, the recipe, and the code that condenses the result. A commit that differs from the
+# saved one in any of them gets no reuse of that result.
+INPUTS = (
+    "native",
+    "tools/rustc-facts",
+    "src",
+    "pyproject.toml",
+    "uv.lock",
+    "Makefile",
+    ":(glob)tools/self_check_*.py",
+)
+FULL_SHA = re.compile(r"[0-9a-f]{40}")
 BINARIES = ("archkeel-core", "archkeel-rust-collector", "archkeel-typescript-collector")
 
 
@@ -146,10 +163,51 @@ def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
         shutil.rmtree(work, ignore_errors=True)
 
 
+def reuse_of_earlier(found: dict[str, Any], sha: str) -> dict[str, Any] | None:
+    """The result of an earlier main commit as the base `sha`, only when no input differs.
+
+    Main CI may not have saved `sha` yet (#2077). The result of an earlier commit stands for it
+    when `git diff` shows no change in INPUTS between the two. Else the caller computes the base.
+    """
+    earlier, tree = found.get("sha"), found.get("tree")
+    if not isinstance(earlier, str) or not FULL_SHA.fullmatch(earlier) or earlier == sha:
+        return None
+    try:
+        if git("rev-parse", f"{earlier}:native") != tree:
+            return None
+    except Unusable:
+        return None
+    unchanged = subprocess.run(["git", "diff", "--quiet", earlier, sha, "--", *INPUTS])
+    if unchanged.returncode != 0:
+        return None
+    return {**found, "sha": sha, "tree": git("rev-parse", f"{sha}:native"), "reused_from": earlier}
+
+
+def align_contract(base: dict[str, Any], own: dict[str, Any]) -> None:
+    """Use recorded inputs for both sides when either contract cannot be normalized."""
+    if base.get("contract_normalized") != own.get("contract_normalized"):
+        normalize_contract(base, Path(), inputs_only=True)
+        normalize_contract(own, Path(), inputs_only=True)
+        KEPT.write_text(json.dumps(own), encoding="utf-8")
+
+
 def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> tuple[Path, str]:
     """The file of the base result and the sha that it must be for ('' for BASE_RESULT)."""
     if os.environ.get("BASE_RESULT"):
-        return Path(os.environ["BASE_RESULT"]), ""
+        path = Path(os.environ["BASE_RESULT"])
+        try:
+            override = load(str(path))
+            try:
+                revision = override.get("sha") or git("merge-base", ref, "HEAD")
+                normalize_contract(override, Path(), revision)
+            except Unusable:
+                normalize_contract(override, Path(), inputs_only=True)
+            align_contract(override, own)
+            COMPARED.parent.mkdir(parents=True, exist_ok=True)
+            COMPARED.write_text(json.dumps(override), encoding="utf-8")
+            return COMPARED, ""
+        except (Unusable, OSError):
+            return path, ""
     sha = git("merge-base", ref, "HEAD")
     COMPARED.parent.mkdir(parents=True, exist_ok=True)
     out = COMPARED
@@ -184,16 +242,35 @@ def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> t
                     output.write(f"{message}\n")
             found["scope"] = own["scope"]
             found["contract_files"] = own["contract_files"]
+            found["contract_normalized"] = own.get("contract_normalized", False)
             hit = True
         elif (
             isinstance(found, dict) and found.get("format") == FORMAT and not complete_scope(found)
         ):
             raise Unusable("the cached base has no complete scanned scope")
-        if hit:
-            print(f"base result: cache hit for {sha[:12]}")
+        reused = None
+        if not hit and isinstance(found, dict) and found.get("format") == FORMAT:
+            reused = reuse_of_earlier(found, sha)
+        if reused is not None:
+            found = reused
+            print(
+                f"base result: cache miss for {sha[:12]}; reusing the entry of "
+                f"{reused['reused_from'][:12]}: no input differs",
+                flush=True,
+            )
+        elif hit:
+            print(f"base result: cache hit for {sha[:12]}", flush=True)
         else:
-            print(f"base result: cache miss for {sha[:12]}; computing it in a worktree")
-            found = compute_base(sha, uv)
+            print(f"base result: cache miss for {sha[:12]}; computing it in a worktree", flush=True)
+            started = time.monotonic()
+            try:
+                found = compute_base(sha, uv)
+            finally:
+                print(f"base result: scan took {time.monotonic() - started:.0f} s", flush=True)
+    if found is None:
+        raise Unusable("the base result is unavailable")
+    normalize_contract(found, Path(), sha)
+    align_contract(found, own)
     out.write_text(json.dumps(found), encoding="utf-8")
     return out, sha
 
@@ -218,6 +295,7 @@ def gate(argv: list[str]) -> int:
         own = condense(saved, sha, tree, scan_table(Path()))
         if not own["refusal"] and not complete_scope(own):
             raise Unusable("the result has no complete scanned scope")
+        normalize_contract(own, Path())
     except (Unusable, OSError, IndexError, ValueError, TypeError, AttributeError) as error:
         print(f"FAIL the self-check result is unusable: {error}")
         return 1

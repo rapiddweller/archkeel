@@ -21,6 +21,7 @@
 
 mod config;
 mod dart;
+mod entry_points;
 mod git;
 mod python;
 mod refusal;
@@ -88,6 +89,15 @@ pub struct Scanned {
 }
 
 impl Scanned {
+    /// The entry points that the manifests and the files of the scan prove (#2040); `None` when no
+    /// reader exists for the language of the scan.
+    pub fn entry_points(&self) -> Option<archkeel_facts::data::entry_points::EntryPoints> {
+        let files: Vec<(&str, &str)> = (self.reply.reply().facts.files.iter())
+            .map(|file| (file.module.as_str(), file.rel_path.as_str()))
+            .collect();
+        entry_points::read(&self.root, self.profile, &files)
+    }
+
     /// AD-1119: a scan that left test sources out because the config states no scope holds the verdict. A file
     /// that the naming rule took for a test can hold the only violation, so the run cannot read PASS.
     pub fn test_scope_hold(&self) -> Option<String> {
@@ -283,6 +293,17 @@ fn premise_missing(root: &Path, contract: &str) -> Option<String> {
     (!declared).then(|| format!("the contract does not declare the premise {word}"))
 }
 
+/// AD-1130: the one operator permission to compile the scanned repository. Only the process
+/// environment can grant it. No file of the repository can, and the sealed Cargo run does not inherit it.
+pub(crate) const ALLOW_BUILD: &str = "ARCHKEEL_ALLOW_BUILD";
+
+/// The typed gap when the repository asks for compilation and the operator did not allow it.
+const NOT_ALLOWED: &str = "type reach not allowed by the operator";
+
+fn build_allowed() -> bool {
+    std::env::var_os(ALLOW_BUILD).is_some_and(|value| value == "1")
+}
+
 fn type_reach_descriptor(
     root: &repository::Root,
     config: &config::Config,
@@ -311,6 +332,7 @@ fn type_reach_descriptor(
         .find(|m| m.is_file())
         .unwrap_or_else(|| root.path().join("Cargo.toml"));
     let text = match premise_missing(root.path(), &config.contract) {
+        _ if !build_allowed() => json!({"unavailable": NOT_ALLOWED}),
         Some(why) => json!({"unavailable": why}),
         None => match rustc_facts::FactsTools::system().produce(root.path(), &manifest, &base) {
             Err(cause) => {
