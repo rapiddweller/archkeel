@@ -230,6 +230,40 @@ def test_a_std_adapter_with_a_function_pointer_into_b_keeps_the_gap(
     assert statuses(validate(root))["NO-A-TO-B"] != "PASS"
 
 
+def test_a_std_adapter_over_a_type_that_holds_a_callback_into_b_keeps_the_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The callback is a function pointer in a field of `d::Iter`; no type argument shows it."""
+    iterator = COUNTER.format(
+        body="pub struct Iter {\n    pub callback: fn(()) -> usize,\n    pub done: bool,\n}\n\n"
+        "impl Iterator for Iter {\n    type Item = usize;\n\n"
+        "    fn next(&mut self) -> Option<usize> {\n"
+        "        if self.done {\n            return None;\n        }\n"
+        "        self.done = true;\n        Some((self.callback)(()))\n    }\n}"
+    )
+    files = {
+        "crates/app/src/d.rs": iterator,
+        "crates/app/src/b.rs": B
+        + "\npub fn hit(_: ()) -> usize {\n    HITS.fetch_add(1, Ordering::SeqCst)\n}\n",
+        "crates/app/src/c.rs": "pub fn other() -> crate::b::S {\n    crate::b::S\n}\n\n"
+        "pub fn make() -> crate::d::Iter {\n"
+        "    crate::d::Iter { callback: crate::b::hit, done: false }\n}\n",
+        "crates/app/src/a.rs": "pub fn run() {\n    let _held = crate::c::other();\n"
+        "    crate::c::make().map(|x| x).next();\n}\n",
+    }
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "cache"))
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        {**_sources(A_CLOSURE_B), **files},
+        components=_parts(),
+        rules=(*CRATE_RULES[1:], _forbid("b"), _forbid("d")),
+        type_reach=True,
+    )
+    assert _cargo_run(root) == "1 0", "the callback of `b` runs"
+    assert statuses(validate(root))["NO-A-TO-B"] != "PASS"
+
+
 def test_a_std_adapter_with_a_closure_of_the_caller_closes_the_candidate(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

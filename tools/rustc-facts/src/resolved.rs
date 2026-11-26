@@ -52,11 +52,22 @@ struct Touched {
     open: bool,
     /// An argument is a plain type that is no ADT (a number, a reference, a tuple).
     plain: bool,
+    /// The types that were visited: a recursive type ends the walk.
+    seen: std::collections::HashSet<String>,
 }
 
 /// Visit one type: its definition file, the files of its impls, and the types inside it. A closure shows its
 /// captured types and the arguments of its parent, not its signature (a signature is a function pointer type).
-fn visit<'tcx>(st: &mut State, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, found: &mut Touched) {
+fn visit<'tcx>(
+    st: &mut State,
+    tcx: TyCtxt<'tcx>,
+    env: ty::TypingEnv<'tcx>,
+    ty: Ty<'tcx>,
+    found: &mut Touched,
+) {
+    if !found.seen.insert(ty.to_string()) {
+        return;
+    }
     let nested = |args: &[ty::GenericArg<'tcx>]| -> Vec<Ty<'tcx>> {
         args.iter().filter_map(|a| a.as_type()).collect()
     };
@@ -68,7 +79,18 @@ fn visit<'tcx>(st: &mut State, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, found: &mut Touc
             }
             let own = st.impls.as_ref().and_then(|i| i.by_adt.get(&def.did()));
             found.files.extend(own.into_iter().flatten().copied());
-            nested(&args[..])
+            let mut all = nested(&args[..]);
+            // The fields of a workspace type can hold callable state (a function pointer, a closure, a trait
+            // object). The fields of a type of another crate (`Vec`) hold what its arguments name.
+            if crate::body::inside(st, tcx, def.did()) {
+                for field in def.all_fields() {
+                    match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
+                        Ok(field_ty) => all.push(field_ty),
+                        Err(_) => found.open = true,
+                    }
+                }
+            }
+            all
         }
         ty::Closure(d, args) => {
             found.files.insert(crate::items::file(tcx, st, d));
@@ -105,7 +127,7 @@ fn visit<'tcx>(st: &mut State, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, found: &mut Touc
         }
     };
     for t in inner {
-        visit(st, tcx, t, found);
+        visit(st, tcx, env, t, found);
     }
 }
 
@@ -125,12 +147,13 @@ fn touch<'tcx>(
         files: BTreeSet::new(),
         open: false,
         plain: false,
+        seen: std::collections::HashSet::new(),
     };
     for ty in args.iter().filter_map(|a| a.as_type()) {
         let ty = tcx
             .try_normalize_erasing_regions(env, ty::Unnormalized::new(ty))
             .unwrap_or(ty);
-        visit(st, tcx, ty, &mut found);
+        visit(st, tcx, env, ty, &mut found);
     }
     if let Some(index) = st.impls.as_ref() {
         found.files.extend(index.blanket.iter().copied());
