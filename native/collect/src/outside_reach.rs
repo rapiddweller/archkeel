@@ -185,8 +185,8 @@ fn sources_reach_member(dir: &Path, members: &Members, meta: &Value) -> bool {
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            // Only the build output of the crate itself: a module can be named `target`.
-            let skip = path == dir.join("target") || entry.file_name() == ".git";
+            // Only the build output and the repository of the crate itself: a module can have either name (`escapes` agrees).
+            let skip = path == dir.join("target") || path == dir.join(".git");
             if path.is_dir() && !skip {
                 pending.push(path);
             } else if path.extension().is_some_and(|e| e == "rs") {

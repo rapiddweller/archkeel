@@ -114,6 +114,11 @@ ROUTES = {
         "",
         "mod target;\npub fn f() { target::f(); }\n",
     ),
+    "include-nested-git": (
+        WORKSPACE,
+        "",
+        'include!(".git/bridge.rs");\npub fn f() { make(); }\n',
+    ),
     "include": (
         WORKSPACE,
         "",
@@ -134,6 +139,9 @@ ROUTES = {
 
 
 EXTRA = {
+    "include-nested-git": {
+        "vendor/x/src/.git/bridge.rs": 'include!("../../../../crates/base/src/lib.rs");\n'
+    },
     "module-named-target": {
         "vendor/x/src/target/mod.rs": (
             'include!("../../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n'
