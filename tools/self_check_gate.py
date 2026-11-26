@@ -147,13 +147,26 @@ def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
         shutil.rmtree(work, ignore_errors=True)
 
 
+def align_contract(base: dict[str, Any], own: dict[str, Any]) -> None:
+    """Use recorded inputs for both sides when either contract cannot be normalized."""
+    if base.get("contract_normalized") != own.get("contract_normalized"):
+        normalize_contract(base, Path(), inputs_only=True)
+        normalize_contract(own, Path(), inputs_only=True)
+        KEPT.write_text(json.dumps(own), encoding="utf-8")
+
+
 def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> tuple[Path, str]:
     """The file of the base result and the sha that it must be for ('' for BASE_RESULT)."""
     if os.environ.get("BASE_RESULT"):
         path = Path(os.environ["BASE_RESULT"])
         try:
             override = load(str(path))
-            normalize_contract(override, Path(), git("merge-base", ref, "HEAD"))
+            try:
+                revision = override.get("sha") or git("merge-base", ref, "HEAD")
+                normalize_contract(override, Path(), revision)
+            except Unusable:
+                normalize_contract(override, Path(), inputs_only=True)
+            align_contract(override, own)
             COMPARED.parent.mkdir(parents=True, exist_ok=True)
             COMPARED.write_text(json.dumps(override), encoding="utf-8")
             return COMPARED, ""
@@ -207,6 +220,7 @@ def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> t
     if found is None:
         raise Unusable("the base result is unavailable")
     normalize_contract(found, Path(), sha)
+    align_contract(found, own)
     out.write_text(json.dumps(found), encoding="utf-8")
     return out, sha
 

@@ -10,14 +10,14 @@ from pathlib import Path
 from typing import Any
 
 
-def normalize_contract(result: dict[str, Any], root: Path, revision: str = "") -> None:
+def normalize_contract(
+    result: dict[str, Any], root: Path, revision: str = "", *, inputs_only: bool = False
+) -> None:
     """Bind every inside contract, or conservatively bind every input if one is unavailable."""
     scope, inputs = result.get("scope"), result.get("contract_files")
-    if (
-        not isinstance(scope, dict)
-        or not isinstance(inputs, dict)
-        or result.get("contract_normalized")
-    ):
+    if not isinstance(scope, dict) or not isinstance(inputs, dict):
+        return
+    if result.get("contract_normalized") and not inputs_only:
         return
     digest = scope.get("contract")
     paths = [path for path, value in inputs.items() if value == digest and isinstance(path, str)]
@@ -25,7 +25,7 @@ def normalize_contract(result: dict[str, Any], root: Path, revision: str = "") -
         return
     fallback = json.dumps(inputs, sort_keys=True, separators=(",", ":")).encode()
     try:
-        if not paths:
+        if inputs_only or not paths:
             raise ValueError("root contract is unavailable")
         pending = [paths[0]]
         contracts: dict[str, Any] = {}
@@ -54,7 +54,8 @@ def normalize_contract(result: dict[str, Any], root: Path, revision: str = "") -
             contracts[path] = contract
         canonical = json.dumps(contracts, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         data = canonical.encode("utf-8")
+        result["contract_normalized"] = "canonical"
     except (OSError, ValueError, TypeError, subprocess.CalledProcessError):
         data = fallback
+        result["contract_normalized"] = "inputs"
     scope["contract"] = hashlib.sha256(data).hexdigest()
-    result["contract_normalized"] = True

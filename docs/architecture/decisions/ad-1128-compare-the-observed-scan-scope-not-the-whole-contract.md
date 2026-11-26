@@ -5,8 +5,9 @@
 **Decision.** Compare all contract fields, scanned paths, module ownership and component
 scope. Compare the `[scan]` table as before. Normalize JSON whitespace, object key order and
 component order. Keep array order for all other fields. Include every inside contract.
-Verify the recorded digest before reading a contract. If a contract is unavailable, compare
-all recorded input digests instead. This fallback can report cosmetic changes as growth.
+Verify the recorded digest before reading a contract. If either contract is unavailable,
+compare all recorded input digests on both sides. This fallback can report cosmetic changes
+as growth. An offline `BASE_RESULT` can supply the base without a local base ref.
 
 The existing v2 cache carries the raw digest and input paths. The gate reads the base contract
 from that commit and normalizes it without a new scan. The summary uses the gate's results

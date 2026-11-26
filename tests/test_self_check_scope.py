@@ -63,6 +63,21 @@ def test_unreadable_contract_uses_all_recorded_inputs(tmp_path: Path) -> None:
     assert before["scope"]["contract"] != after["scope"]["contract"]
 
 
+def test_offline_base_override_uses_the_same_fallback(tmp_path: Path) -> None:
+    git(tmp_path, "init", "-q")
+    (tmp_path / "native").mkdir()
+    (tmp_path / "native/stub").write_text("")
+    shutil.copy2(FIXTURES / "tiny/architecture-contract.json", tmp_path)
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "base")
+    base = keep_base(tmp_path, "base.json", "")
+    done = gate(tmp_path, "base.json", base="missing-ref", BASE_RESULT=str(base))
+    assert done.returncode == 0 and "grown 0" in done.stdout, done.stdout
+    own = json.loads((tmp_path / "test-artifacts/selfcheck/result.json").read_text())
+    compared = json.loads((tmp_path / "test-artifacts/selfcheck/compared-base.json").read_text())
+    assert own["contract_normalized"] == compared["contract_normalized"] == "inputs"
+
+
 @pytest.mark.parametrize("change", ["layer", "order", "public", "format"])
 def test_contract_changes_with_real_core(tmp_path: Path, release_core: Path, change: str) -> None:
     project = tmp_path / "project"
