@@ -49,6 +49,23 @@ CONTROLS = {
     "plain-assign": HOOK + "K.value = 1\nK()\n",
     "plain-setattr": HOOK + "setattr(K, 'value', 1)\ndelattr(K, 'value')\nK()\n",
     "doc-module": HOOK + "K.__doc__ = 'text'\nK.__module__ = 'app.consumer'\nK()\n",
+    # #2090: Python reads the chain of an exception to print it and never calls it as a hook.
+    "chain-assign": (
+        HOOK
+        + "e = ValueError('a')\ne.__cause__ = KeyError('b')\ne.__context__ = KeyError('c')\n"
+        + "e.__traceback__ = None\ne.__suppress_context__ = True\ne.__notes__ = ['n']\n"
+    ),
+    "chain-setattr": (
+        HOOK
+        + "e = ValueError('a')\nsetattr(e, '__cause__', KeyError('b'))\n"
+        + "object.__setattr__(e, '__context__', KeyError('c'))\nsetattr(e, '__suppress_context__', False)\n"
+    ),
+    # The chain write beside a class that has a loader `__call__`: the class gets no new route.
+    "chain-beside-call": (
+        HOOK
+        + "e = ValueError('a')\ne.__cause__ = KeyError('b')\nclass L:\n    def __call__(self, *a):\n"
+        + "        pass\n\n\nL()('x')\n"
+    ),
 }
 
 
