@@ -14,6 +14,42 @@ from areas import AREAS, SLOW_FILES, area_of, areas_of_change, parallel_areas, r
 ROOT = Path(__file__).parents[1]
 
 
+@pytest.mark.parametrize("cli_selection", ["run", "no matching paths"])
+def test_parallel_area_jobs_replace_the_base_area_tests(tmp_path: Path, cli_selection: str) -> None:
+    calls = tmp_path / "calls"
+    uv = tmp_path / "uv"
+    uv.write_text(
+        "#!/bin/sh\n"
+        f'echo "$*" >> "{calls}"\n'
+        'case "$*" in\n'
+        f'  *"--job CLI and core"*) echo "{cli_selection}";;\n'
+        '  *"tools/select_areas.py"*) echo "--area reports --area \\"self-check and CI\\"";;\n'
+        "esac\n"
+    )
+    uv.chmod(0o755)
+    overrides = tmp_path / "Makefile"
+    overrides.write_text(
+        ".PHONY: core browser-runtime-install\ncore browser-runtime-install:\n\t@:\n"
+    )
+    command = [
+        "make",
+        "-f",
+        str(ROOT / "Makefile"),
+        "-f",
+        str(overrides),
+        "pr-selected-test",
+        f"UV={uv}",
+    ]
+    parallel = subprocess.run(
+        [*command, "PR_PARALLEL=1"], cwd=ROOT, capture_output=True, text=True, check=False
+    )
+    assert parallel.returncode == 0, parallel.stderr
+    assert not calls.exists()
+    local = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
+    assert local.returncode == 0, local.stderr
+    assert "python -m pytest" in calls.read_text()
+
+
 def test_a_changed_test_file_selects_its_own_area_and_nothing_else() -> None:
     assert areas_of_change(["tests/test_cli_help.py"]) == ["CLI and core"]
     assert areas_of_change(["tests/test_native_self_core_rows.py"]) == ["core scans"]

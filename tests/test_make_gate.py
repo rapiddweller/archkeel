@@ -132,42 +132,6 @@ def test_pr_gate_keeps_policy_and_stops_before_later_checks(tmp_path, failed):
     assert result.returncode == (0 if failed is None else 2)
 
 
-@pytest.mark.parametrize("cli_selection", ["run", "no matching paths"])
-def test_parallel_area_jobs_replace_the_base_area_tests(tmp_path: Path, cli_selection: str) -> None:
-    calls = tmp_path / "calls"
-    uv = tmp_path / "uv"
-    uv.write_text(
-        "#!/bin/sh\n"
-        f'echo "$*" >> "{calls}"\n'
-        'case "$*" in\n'
-        f'  *"--job CLI and core"*) echo "{cli_selection}";;\n'
-        '  *"tools/select_areas.py"*) echo "--area reports --area \\"self-check and CI\\"";;\n'
-        "esac\n"
-    )
-    uv.chmod(0o755)
-    overrides = tmp_path / "Makefile"
-    overrides.write_text(
-        ".PHONY: core browser-runtime-install\ncore browser-runtime-install:\n\t@:\n"
-    )
-    command = [
-        "make",
-        "-f",
-        str(ROOT / "Makefile"),
-        "-f",
-        str(overrides),
-        "pr-selected-test",
-        f"UV={uv}",
-    ]
-    parallel = subprocess.run(
-        [*command, "PR_PARALLEL=1"], cwd=ROOT, capture_output=True, text=True, check=False
-    )
-    assert parallel.returncode == 0, parallel.stderr
-    assert not calls.exists()
-    local = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
-    assert local.returncode == 0, local.stderr
-    assert "python -m pytest" in calls.read_text()
-
-
 def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
