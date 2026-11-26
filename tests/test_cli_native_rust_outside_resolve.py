@@ -33,10 +33,10 @@ WORKSPACE = '[workspace]\nmembers = ["app", "base"]\n'
 CONFIG_PATCH = '[patch.crates-io]\nbase-crate = { path = "base" }\n'
 
 
-def _run(directory: Path, manifest: str) -> str:
+def _run(directory: Path, manifest: str, *extra: str) -> str:
     """`cargo run` from `directory`: Cargo reads `.cargo/config.toml` from there."""
     done = subprocess.run(
-        ["cargo", "run", "-q", "--offline", "--manifest-path", manifest],
+        ["cargo", "run", "-q", "--offline", "--manifest-path", manifest, *extra],
         cwd=directory,
         capture_output=True,
         text=True,
@@ -143,3 +143,54 @@ def test_a_leaf_that_reaches_no_member_keeps_its_pass_with_the_permission_to_bui
     # Without the permission the dep-info is not read: the leaf is not proven, no PASS.
     unbuilt = outcome(root, "validate", allow_build=False)[1]
     assert unbuilt["frame"]["rules"]["FORBID"][1] != "PASS", unbuilt["frame"]["rules"]
+
+
+@pytest.mark.parametrize("build", [True, False], ids=["build", "no-build"])
+def test_an_optional_dependency_that_a_feature_enables_does_not_hide_an_edge(
+    tmp_path: Path, release_core: Path, build: bool
+) -> None:
+    layout = {
+        "crates/Cargo.toml": WORKSPACE,
+        "crates/app/Cargo.toml": _app(
+            'x = { path = "../../vendor/x" }\n[features]\nbridge = ["x/bridge"]\n'
+        ),
+        "crates/app/src/lib.rs": "pub fn run() { x::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "vendor/x/Cargo.toml": (
+            FOREIGN_X
+            + '[dependencies]\nbase-crate = { path = "../../crates/base", optional = true }\n'
+            + '[features]\nbridge = ["dep:base-crate"]\n'
+        ),
+        "vendor/x/src/lib.rs": (
+            '#[cfg(feature = "bridge")]\npub fn f() { base_crate::make(); }\n'
+            '#[cfg(not(feature = "bridge"))]\npub fn f() {}\n'
+        ),
+    }
+    root = _scan(tmp_path, release_core, layout)
+    _recommit(root)
+    assert _run(root, "crates/app/Cargo.toml", "--features", "bridge") == "app ran\n"
+    result = outcome(root, "validate", allow_build=build)[1]
+    assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
+def test_a_workspace_wrapper_of_the_repository_does_not_run_without_the_permission(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = {
+        "crates/Cargo.toml": WORKSPACE,
+        "crates/app/Cargo.toml": _app(""),
+        "crates/app/src/lib.rs": "pub fn run() {}\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+    }
+    root = _scan(tmp_path, release_core, layout)
+    marker = tmp_path / "wrapper-ran"
+    wrapper = root / "wrap.sh"
+    wrapper.write_text(f'#!/bin/sh\ntouch "{marker}"\nexec "$@"\n')
+    wrapper.chmod(0o755)
+    config = root / "crates/.cargo/config.toml"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(f'[build]\nrustc-workspace-wrapper = "{wrapper}"\n')
+    _recommit(root)
+    marker.unlink(missing_ok=True)
+    outcome(root, "validate", allow_build=False)
+    assert not marker.exists(), "the scan ran an executable of the repository"

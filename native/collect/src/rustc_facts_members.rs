@@ -330,6 +330,8 @@ fn sealed_cargo(subcommand: &str, cwd: &Path) -> Command {
         "build.rustc-wrapper=\"\"",
     ]);
     cmd.args(["--config", "build.rustc=\"rustc\""]);
+    // Cargo runs the workspace wrapper while it probes rustc, also for `cargo metadata`.
+    cmd.args(["--config", "build.rustc-workspace-wrapper=\"\""]);
     cmd.current_dir(cwd).env_clear();
     for name in KEPT_ENV {
         if let Some(value) = std::env::var_os(name) {
@@ -358,7 +360,11 @@ fn sealed_cargo(subcommand: &str, cwd: &Path) -> Command {
 /// writing a `Cargo.lock` into the scanned repository: without a lock file this gives `None`.
 fn resolve_metadata(root: &Path) -> Option<Value> {
     let mut cmd = sealed_cargo("metadata", root);
-    let out = cmd.args(["--format-version", "1"]).output().ok()?;
+    // All features: an optional dependency that a feature enables is a possible edge.
+    let out = cmd
+        .args(["--format-version", "1", "--all-features"])
+        .output()
+        .ok()?;
     out.status.success().then_some(())?;
     serde_json::from_slice(&out.stdout).ok()
 }

@@ -80,7 +80,8 @@ struct Pkg {
     dir: Option<String>,
     /// A path package: its source is no registry and no git repository.
     local: bool,
-    /// A procedural macro or a build script: it runs code that no source list shows.
+    /// A procedural macro or a build script, or a feature: the dep-info of the default build does not show what it runs
+    /// (`std::fs` in a macro, code under `cfg(feature)`).
     runs_code: bool,
     /// A git package that has the name of a member: it can be a copy of the member.
     git_copy: bool,
@@ -99,9 +100,11 @@ fn packages(full: &Value, names: &BTreeSet<String>) -> BTreeMap<String, Pkg> {
         let kinds = array(package, "targets")
             .flat_map(|t| array(t, "kind"))
             .filter_map(Value::as_str);
-        let runs_code = kinds
-            .into_iter()
-            .any(|k| k == "proc-macro" || k == "custom-build");
+        let features = package.get("features").and_then(Value::as_object);
+        let runs_code = features.is_some_and(|f| !f.is_empty())
+            || kinds
+                .into_iter()
+                .any(|k| k == "proc-macro" || k == "custom-build");
         let declared = array(package, "dependencies")
             .filter_map(|d| Some((text(d, "name")?.to_owned(), d.get("path").is_some())))
             .collect();
