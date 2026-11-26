@@ -100,3 +100,32 @@ fn two_parts_that_name_one_module_stay_refused() {
     second["topology"]["components"][0]["id"] = json!("COMP-other");
     assert!(topology(&[(&a, &first), (&b, &second)], None).is_err());
 }
+
+#[test]
+fn a_merged_edge_over_the_evidence_budget_is_truncated_and_not_complete() {
+    let (a, b) = (part("a"), part("b"));
+    let many = |file: &str| {
+        let mut row = edge("unowned", "external", "external", 3, 1, file);
+        row["evidence"] = json!((1..=3)
+            .map(|line| json!({"path": file, "line": line}))
+            .collect::<Vec<_>>());
+        row["evidence_total"] = json!(3);
+        row
+    };
+    let first = part_frame("a", &[many("a.py")]);
+    let second = part_frame("b", &[many("b.py")]);
+    let joined = topology(&[(&a, &first), (&b, &second)], None)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        joined["component_edges"][0]["evidence"]
+            .as_array()
+            .map(Vec::len),
+        Some(5)
+    );
+    assert_eq!(joined["component_edges"][0]["evidence_total"], 6);
+    assert_eq!(
+        (joined["truncated"].clone(), joined["complete"].clone()),
+        (json!(true), json!(false))
+    );
+}

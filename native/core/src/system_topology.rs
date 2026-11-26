@@ -166,6 +166,7 @@ pub(crate) fn topology(
         .unwrap_or(0);
     totals.insert("evidence_per_edge".to_owned(), json!(evidence_per_edge));
     truncated |= evidence_per_edge > MAX_EVIDENCE as u64;
+    complete &= !truncated;
     // The scope of the system is open: the topology names that reason as a gap (the shell reads
     // an open scope only with its reason among the gaps).
     if let Some(reason) = open.filter(|reason| !gaps.iter().any(|gap| gap == reason)) {
