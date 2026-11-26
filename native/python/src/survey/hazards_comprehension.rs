@@ -165,6 +165,9 @@ impl<'a> Visitor<'a> for Declared {
     }
 }
 
+/// The access forms that write or delete an attribute.
+const WRITING: [&str; 4] = ["setattr", "delattr", "__setattr__", "__delattr__"];
+
 /// The builtins that read, write or list attributes by a name (`vars` lists them).
 const BUILTIN_ACCESS: [&str; 4] = ["getattr", "setattr", "delattr", "vars"];
 /// The functions of the standard library that read attributes by a name that the scan does not
@@ -322,7 +325,10 @@ impl<'a> Trojans<'_> {
     /// its arguments are visited; the result is true when the call was one.
     fn access_call(&mut self, call: &'a ExprCall) -> bool {
         let site = self.computed(call);
-        let site = site.filter(|(_, _, name)| !self.resolved(name) || self.named(name));
+        // A write of the name hands no module on; only a read does (AD-1152).
+        let site = site.filter(|(kind, _, name)| {
+            !self.resolved(name) || (!WRITING.contains(kind) && self.named(name))
+        });
         if let Some((kind, _, _)) = site {
             self.found.push((kind, call.range()));
         }
