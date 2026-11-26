@@ -21,6 +21,9 @@ fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
 #[path = "scan_explorer_tests.rs"]
 mod explorer_tests;
 
+#[path = "scan_hostile_tests.rs"]
+mod hostile_review;
+
 #[path = "scan_attribute_tests.rs"]
 mod attribute_review;
 
