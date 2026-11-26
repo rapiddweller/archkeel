@@ -51,6 +51,40 @@ fn unique(seen: &mut BTreeSet<String>, kind: &str, id: Option<&str>) -> Result<(
     }
 }
 
+/// The most evidence rows that one edge lists (`topology_projection.rs`).
+const MAX_EVIDENCE: usize = 5;
+
+/// One row for each id: the edges `unowned -> external` and the like name no component of a part,
+/// so each part writes its own row with the same id. A scan of all parts would hold one row with
+/// the sum of the counts, the evidence of both and the rules of both.
+fn merge_edges(rows: Vec<Value>) -> Vec<Value> {
+    let mut merged: Vec<Value> = Vec::new();
+    for row in rows {
+        let Some(held) = merged.iter_mut().find(|held| held["id"] == row["id"]) else {
+            merged.push(row);
+            continue;
+        };
+        for key in ["count", "evidence_total"] {
+            let sum = held[key].as_u64().unwrap_or(0) + row[key].as_u64().unwrap_or(0);
+            held[key] = json!(sum);
+        }
+        union(held, &row, "evidence", MAX_EVIDENCE);
+        union(held, &row, "rules", usize::MAX);
+    }
+    merged
+}
+
+/// Add the items of `row[key]` that `held[key]` lacks, up to `cap` items.
+fn union(held: &mut Value, row: &Value, key: &str, cap: usize) {
+    let mut items = held[key].as_array().cloned().unwrap_or_default();
+    for item in row[key].as_array().into_iter().flatten() {
+        if items.len() < cap && !items.contains(item) {
+            items.push(item.clone());
+        }
+    }
+    held[key] = json!(items);
+}
+
 /// The topology of the system. `None` when no part states one (a part without it is a gap that
 /// the frame of the part names).
 pub(crate) fn topology(
@@ -121,6 +155,17 @@ pub(crate) fn topology(
         .iter()
         .find_map(|(_, frame)| frame.get("topology").and_then(Value::as_object));
     let [edges, component_edges, requires, layers, mut gaps] = lists;
+    let component_edges = merge_edges(component_edges);
+    totals.insert("component_edges".to_owned(), json!(component_edges.len()));
+    // The largest evidence list of one edge, as the projection of one scan counts it.
+    let evidence_per_edge = edges
+        .iter()
+        .chain(&component_edges)
+        .filter_map(|edge| edge["evidence_total"].as_u64())
+        .max()
+        .unwrap_or(0);
+    totals.insert("evidence_per_edge".to_owned(), json!(evidence_per_edge));
+    truncated |= evidence_per_edge > MAX_EVIDENCE as u64;
     // The scope of the system is open: the topology names that reason as a gap (the shell reads
     // an open scope only with its reason among the gaps).
     if let Some(reason) = open.filter(|reason| !gaps.iter().any(|gap| gap == reason)) {
