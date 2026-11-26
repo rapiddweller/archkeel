@@ -22,6 +22,11 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_native_interface_boundary.py",
         "test_project_demo_snapshots.py",
     ),
+    "native collector evidence": (
+        "test_collector_native_catalog.py",
+        "test_collector_native_rust*.py",
+        "test_collector_native_scaling_sites.py",
+    ),
     "native collectors": ("test_collector_native_*.py",),
     "collectors": (
         "test_typescript_*.py",
@@ -264,6 +269,4 @@ def fetch_sources(paths: list[str]) -> bool:
 
 
 def parallel_areas(paths: list[str]) -> list[str]:
-    if rust_checks(paths) or any(path.startswith("src/archkeel/cli/") for path in paths):
-        return areas_of_change(paths)
-    return []
+    return areas_of_change(paths) or ["self-check and CI"]
