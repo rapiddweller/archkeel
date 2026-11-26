@@ -29,6 +29,8 @@ pub(crate) struct SelectedFacts {
     /// The compiler path of the selected `eq`.
     pub(crate) imp: String,
     pub(crate) file: String,
+    /// The file that holds the selected `eq`.
+    pub(crate) impl_file: String,
     pub(crate) line: i64,
     pub(crate) column: i64,
 }
@@ -271,6 +273,7 @@ fn selected(v: &Value, names: &[String]) -> Option<SelectedFacts> {
         to: one(v, "to", names)?,
         imp: one(v, "impl", names)?,
         file: one(v, "file", names)?,
+        impl_file: one(v, "impl_file", names)?,
         line: number("line")?,
         column: number("col")?,
     })

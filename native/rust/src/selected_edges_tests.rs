@@ -21,14 +21,15 @@ const B: &str = "pub struct Y;\nimpl PartialEq for Y { fn eq(&self, _o: &Y) -> b
 const C: &str = "pub fn make() -> crate::b::Y { crate::b::Y }\n";
 
 /// The string table of the hand-written facts.
-const TABLE: &str = r#"["app::a","app::b","app::c","crates/app/src/a.rs","app::b::Y","PartialEq","app::b::{impl#0}::eq","other::m","crates/app/src/generated.rs"]"#;
+const TABLE: &str = r#"["app::a","app::b","app::c","crates/app/src/a.rs","app::b::Y","PartialEq","app::b::{impl#0}::eq","other::m","crates/app/src/generated.rs","crates/app/src/b.rs","crates/app/src/c.rs"]"#;
 const MODULES: [&str; 3] = [
     r#"{"k":"mod","m":0,"file":3,"mentions":[4],"dyn":[],"opaque":[],"dyn_in":[]}"#,
     r#"{"k":"mod","m":1,"file":3,"mentions":[4],"dyn":[],"opaque":[],"dyn_in":[]}"#,
     r#"{"k":"mod","m":2,"file":3,"mentions":[4],"dyn":[],"opaque":[],"dyn_in":[]}"#,
 ];
 const IMPL: &str = r#"{"k":"impl","trait":5,"self":4,"self_adts":[4],"assoc":[],"assoc_dyn":[],"items":1,"m":1,"file":3,"line":2,"run":true}"#;
-const SITE: &str = r#"{"k":"sel","from":0,"to":1,"impl":6,"file":3,"line":1,"col":28}"#;
+const SITE: &str =
+    r#"{"k":"sel","from":0,"to":1,"impl":6,"file":3,"impl_file":9,"line":1,"col":28}"#;
 
 fn facts_of(test: bool, records: &[&str]) -> Facts {
     let mut facts = Facts::empty();
@@ -163,9 +164,10 @@ fn a_site_of_a_test_unit_gives_no_edge() {
 
 #[test]
 fn a_site_that_names_a_module_of_no_scan_gives_no_edge() {
-    let outside = r#"{"k":"sel","from":0,"to":2,"impl":6,"file":3,"line":1,"col":0}"#;
-    let same = r#"{"k":"sel","from":1,"to":1,"impl":6,"file":3,"line":1,"col":0}"#;
-    let other = r#"{"k":"sel","from":0,"to":7,"impl":6,"file":3,"line":1,"col":0}"#;
+    let outside =
+        r#"{"k":"sel","from":0,"to":2,"impl":6,"file":3,"impl_file":10,"line":1,"col":0}"#;
+    let same = r#"{"k":"sel","from":1,"to":1,"impl":6,"file":3,"impl_file":9,"line":1,"col":0}"#;
+    let other = r#"{"k":"sel","from":0,"to":7,"impl":6,"file":3,"impl_file":9,"line":1,"col":0}"#;
     let found = collect(announced(false, &[IMPL, same, other]));
     assert!(
         selected(&found).is_empty(),
@@ -177,7 +179,8 @@ fn a_site_that_names_a_module_of_no_scan_gives_no_edge() {
 
 #[test]
 fn a_site_in_another_file_than_its_module_gives_no_edge() {
-    let elsewhere = r#"{"k":"sel","from":0,"to":1,"impl":6,"file":8,"line":1,"col":0}"#;
+    let elsewhere =
+        r#"{"k":"sel","from":0,"to":1,"impl":6,"file":8,"impl_file":9,"line":1,"col":0}"#;
     let found = collect(announced(false, &[IMPL, elsewhere]));
     assert!(selected(&found).is_empty());
 }
@@ -203,4 +206,12 @@ fn a_site_that_one_configuration_lacks_gives_no_edge() {
         "a feature alone cannot make an edge"
     );
     assert!(gap_from_a_to_b(&found), "the pair stays open");
+}
+
+#[test]
+fn an_impl_in_a_module_of_another_file_than_its_scan_module_gives_no_edge() {
+    // The module `app::b` maps to `ns.app.b`, but its impl module is a file that the scan does not hold.
+    let loaded = r#"{"k":"sel","from":0,"to":1,"impl":6,"file":3,"impl_file":8,"line":1,"col":0}"#;
+    let found = collect(announced(false, &[IMPL, loaded]));
+    assert!(selected(&found).is_empty());
 }

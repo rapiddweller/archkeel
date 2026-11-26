@@ -113,7 +113,10 @@ impl Builder {
             let Some(from) = source.filter(|m| m.rel == found.file) else {
                 continue;
             };
-            let Some(target_rel) = index.rel(&found.to) else {
+            // The facts name the module by its path, and the scan maps a path to the nearest scan module. The
+            // file of the `eq` proves the mapping: a module loaded from a file outside the scan is no ancestor.
+            let Some(target_rel) = index.rel(&found.to).filter(|rel| *rel == found.impl_file)
+            else {
                 continue;
             };
             let target_package = index.frame(&found.to).map_or("", |f| f.module.package());

@@ -71,13 +71,16 @@ pub(crate) fn eq_site<'tcx>(
         return;
     };
     let file = st.names.text(&rel);
-    let to = st.names.def(tcx, module_of(tcx, selected));
+    let impl_module = module_of(tcx, selected);
+    let to = st.names.def(tcx, impl_module);
+    let impl_file = crate::items::file(tcx, st, selected);
     let imp = st.names.def(tcx, selected);
     st.selected.insert(Selected {
         from: caller,
         to,
         imp,
         file,
+        impl_file,
         line: u32::try_from(start.line).unwrap_or(u32::MAX),
         column: u32::try_from(start.col.0).unwrap_or(u32::MAX),
     });

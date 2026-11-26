@@ -85,6 +85,7 @@ impl<'f> Reach<'f> {
                 to: owner[&s.to].clone(),
                 imp: s.imp.clone(),
                 file: s.file.clone(),
+                impl_file: s.impl_file.clone(),
                 line: s.line,
                 column: s.column,
             })

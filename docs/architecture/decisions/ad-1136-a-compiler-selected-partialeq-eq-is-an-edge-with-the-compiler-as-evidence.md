@@ -23,7 +23,8 @@ pair gap `C -> M`. A contract that forbids `C -> M` stayed UNKNOWN, also when th
    feature stays a gap.
 4. **Edge.** `ImportFact::SelectedImpl` (wire kind `selected_impl`) goes from the caller to the module of the
    impl. It names no symbol and no publication route. The evidence is the call site, and only when the call is in
-   the file of the caller module: the store refuses other evidence.
+   the file of the caller module (the store refuses other evidence), and only when the selected `eq` is in the file
+   of the target scan module. A module that is loaded from a file outside the scan is no ancestor.
 5. **Open sites.** The edge comes after the flow knows its import edges, and it is not added to them. The pair
    gap stays for each site that the compiler did not resolve. One site proves the dependency, so a rule that
    forbids `C -> M` fails. `Filter::excluded` stays the single negative decision.

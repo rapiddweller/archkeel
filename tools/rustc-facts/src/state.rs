@@ -56,6 +56,8 @@ pub(crate) struct Selected {
     pub(crate) imp: u32,
     /// The file of the call, relative to the root.
     pub(crate) file: u32,
+    /// The file that holds the selected `eq`: the reader maps modules by name, and this file proves the mapping.
+    pub(crate) impl_file: u32,
     /// The line of the call (1-based) and its column (0-based).
     pub(crate) line: u32,
     pub(crate) column: u32,

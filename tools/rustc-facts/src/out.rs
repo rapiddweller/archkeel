@@ -17,8 +17,9 @@
 //! - `coerce`: `tr`, `src`, `src_dyn`, `param_in`: the source types of unsize casts to the `dyn` trait `tr`.
 //!   `src_dyn` holds the `dyn` traits of the source (trait upcasting).
 //! - `opaque`: `d`, `hidden`, `dyn`, `opaque` (opaque types and coroutines that the hidden type mentions). `adt`: `d`, `m`, `file`, `fields`, `dyn`.
-//! - `sel`: `from`, `to`, `impl`, `file`, `line`, `col`: a call of `PartialEq::eq` in module `from` that the compiler
-//!   resolved to the `eq` of the impl `impl` in module `to`, a workspace impl (AD-1136).
+//! - `sel`: `from`, `to`, `impl`, `file`, `impl_file`, `line`, `col`: a call of `PartialEq::eq` in module `from` that the
+//!   compiler resolved to the `eq` of the impl `impl` in module `to`, a workspace impl (AD-1136). `impl_file` is the file
+//!   that holds the `eq`. `line` and `col` are plain numbers.
 //! - `impl`: `trait`, `self`, `self_adts`, `assoc` (ADTs and opaque types), `assoc_dyn`, `items`, `m`, `file`, `line`, `run`, `expansion`.
 
 use crate::state::State;
@@ -262,8 +263,8 @@ pub(crate) fn write(u: &Unit, tcx: TyCtxt<'_>, st: &mut State) {
     }
     for s in &st.selected {
         lines.push(format!(
-            "{{\"k\":\"sel\",\"from\":{},\"to\":{},\"impl\":{},\"file\":{},\"line\":{},\"col\":{}}}",
-            s.from, s.to, s.imp, s.file, s.line, s.column
+            "{{\"k\":\"sel\",\"from\":{},\"to\":{},\"impl\":{},\"file\":{},\"impl_file\":{},\"line\":{},\"col\":{}}}",
+            s.from, s.to, s.imp, s.file, s.impl_file, s.line, s.column
         ));
     }
     lines.push(format!(
