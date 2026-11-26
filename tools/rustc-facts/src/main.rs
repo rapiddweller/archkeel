@@ -24,6 +24,7 @@ mod json;
 mod names;
 mod out;
 mod reach;
+mod selected;
 mod state;
 
 use rustc_data_structures::steal::Steal;

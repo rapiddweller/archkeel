@@ -11,12 +11,12 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 
 /// Replace each id of a record by its text (`ids`), or each text by an id of a new table (`!ids`); `map`
-/// decides. In a record every number is an id, except `line`; see `tools/rustc-facts/src/out.rs`.
+/// decides. In a record every number is an id, except `line` and `col`; see `tools/rustc-facts/src/out.rs`.
 pub(super) fn recode(record: &mut Value, ids: bool, map: &mut impl FnMut(&Value) -> Value) {
     let Some(fields) = record.as_object_mut() else {
         return;
     };
-    let kept = |name: &String| name != "line" && name != "k";
+    let kept = |name: &String| !["k", "line", "col"].contains(&name.as_str());
     let hit = |v: &Value| if ids { v.is_number() } else { v.is_string() };
     for (_, field) in fields.iter_mut().filter(|(name, _)| kept(name)) {
         match field {
@@ -58,7 +58,9 @@ pub(super) fn load(text: &str) -> Option<(String, Vec<String>)> {
 pub(super) fn merge(base: &str, extras: &[&str]) -> Option<String> {
     let (build, mut all) = load(base)?;
     for extra in extras {
-        all.extend(load(extra)?.1);
+        // A call in a test unit is test code. Only the library unit keeps its `sel` records (AD-1136).
+        let site = |r: &String| serde_json::from_str::<Value>(r).is_ok_and(|v| v["k"] == "sel");
+        all.extend(load(extra)?.1.into_iter().filter(|r| !site(r)));
     }
     let (mut ids, mut names): (HashMap<String, u64>, Vec<Value>) = (HashMap::new(), Vec::new());
     let mut intern = |text: &Value| {
@@ -153,3 +155,7 @@ fn crate_of(unit: &str) -> &str {
     let plain = unit.strip_suffix("-test").unwrap_or(unit);
     plain.rsplit_once('-').map_or(plain, |(name, _)| name)
 }
+
+#[cfg(test)]
+#[path = "rustc_facts_merge_tests.rs"]
+mod tests;
