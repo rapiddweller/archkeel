@@ -1,4 +1,4 @@
-# AD-1121 A Rust directory below the walk depth is a named gap
+# AD-1135 A Rust directory below the walk depth is a named gap
 
 **Status.** Accepted. Issue #1002 (one probe for each limit).
 
