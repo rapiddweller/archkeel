@@ -88,6 +88,11 @@ ROUTES = {
         '[lib]\npath = "../../crates/base/src/lib.rs"\n',
         "// the target is the file of a member\n",
     ),
+    "patch-literal-string": (
+        WORKSPACE + "[patch.crates-io]\nbase-alias = { package = 'base-crate', path = \"base\" }\n",
+        HEAD,
+        "pub fn f() { base_crate::make(); }\n",
+    ),
     "include": (
         WORKSPACE,
         "",
@@ -210,6 +215,18 @@ def test_an_include_inside_the_outside_crate_adds_no_gap(
     tmp_path: Path, release_core: Path
 ) -> None:
     source = 'include!("internal.rs");\npub fn f() { g(); }\n'
+    extra = {"vendor/x/src/internal.rs": "pub fn g() {}\n"}
+    root = _scan(tmp_path, release_core, WORKSPACE, "", source, extra)
+    _recommit(root)
+    assert _marker(root, offline=True) == "app ran\n"
+    result = validate(root)
+    assert result["frame"]["rules"]["FORBID"][1] == "PASS", result["frame"]["rules"]
+
+
+def test_a_path_attribute_inside_the_outside_crate_adds_no_gap(
+    tmp_path: Path, release_core: Path
+) -> None:
+    source = '#[path = "internal.rs"]\nmod b;\npub fn f() { b::g(); }\n'
     extra = {"vendor/x/src/internal.rs": "pub fn g() {}\n"}
     root = _scan(tmp_path, release_core, WORKSPACE, "", source, extra)
     _recommit(root)

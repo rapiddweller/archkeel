@@ -17,8 +17,8 @@ use std::path::Path;
 struct Members<'a> {
     dirs: &'a BTreeMap<String, BTreeSet<String>>,
     names: &'a BTreeSet<String>,
-    /// The dependency names that a `[patch]` entry of the workspace sends to a path (`None`: to a git source).
-    patches: BTreeMap<String, Option<String>>,
+    /// The workspace manifest, when a `[patch]` or `[replace]` can send a registry or git dependency elsewhere.
+    patched: Option<String>,
     /// `cargo metadata --no-deps` of the crate in a directory.
     describe: &'a dyn Fn(&Path) -> Option<Value>,
 }
@@ -26,8 +26,6 @@ struct Members<'a> {
 /// Where a dependency leads: a directory, or somewhere that cannot be told.
 enum Target {
     Dir(String),
-    /// A registry or git dependency that a `[patch]` entry sends to a directory: the scan reads no edge for it.
-    Patched(String),
     Unknown,
 }
 
@@ -40,11 +38,11 @@ pub(crate) fn dependents(
     names: &BTreeSet<String>,
     describe: &dyn Fn(&Path) -> Option<Value>,
 ) -> BTreeSet<String> {
-    let patches = patches(meta);
+    let patched = patch_text(meta);
     let members = Members {
         dirs,
         names,
-        patches,
+        patched,
         describe,
     };
     let mut known = BTreeMap::new();
@@ -71,8 +69,7 @@ fn held(target: &Target, members: &Members, known: &mut BTreeMap<String, bool>) 
     match target {
         Target::Unknown => true,
         Target::Dir(dir) if members.dirs.contains_key(dir) => false,
-        Target::Patched(dir) if members.dirs.contains_key(dir) => true,
-        Target::Dir(dir) | Target::Patched(dir) => reaches_member(dir, members, known),
+        Target::Dir(dir) => reaches_member(dir, members, known),
     }
 }
 
@@ -81,115 +78,12 @@ fn real_dir(path: &str) -> Option<String> {
     Some(canonical.to_string_lossy().replace('\\', "/"))
 }
 
-/// The `[patch]` entries of the workspace manifest: the dependency name (the `package` key when it renames) and the
-/// directory that it is sent to. The text is read line by line: no TOML crate may read a manifest here, and an entry
-/// that this reader does not understand (a git source, another form) leads to `None`, so it holds.
-fn patches(meta: &Value) -> BTreeMap<String, Option<String>> {
-    let root = meta.get("workspace_root").and_then(Value::as_str);
-    let text = root.and_then(|r| std::fs::read_to_string(Path::new(r).join("Cargo.toml")).ok());
-    let mut entries: Vec<Entry> = Vec::new();
-    let (mut inside, mut table) = (false, false);
-    for line in text.as_deref().unwrap_or_default().lines() {
-        let line = line.split('#').next().unwrap_or_default().trim();
-        if let Some(header) = line.strip_prefix('[') {
-            let parts = key_parts(header.trim_end_matches(']'));
-            inside = parts[0] == "patch";
-            table = inside && parts.len() > 2;
-            if table {
-                entries.push(Entry::named(unquote(&parts[parts.len() - 1])));
-            }
-        } else if line.starts_with("patch.") && !inside {
-            // A dotted key (`patch.crates-io.name.path = ..`): not read here, so every registry dependency holds.
-            entries.push(Entry::named("*".to_owned()));
-        } else if let (true, Some((key, value))) = (inside, line.split_once('=')) {
-            match (table, entries.last_mut()) {
-                (true, Some(last)) => last.set(key.trim(), value),
-                (true, None) => {}
-                (false, _) => entries.push(Entry::inline(unquote(key), value)),
-            }
-        }
-    }
-    let mut found: BTreeMap<String, Option<String>> = BTreeMap::new();
-    for Entry { key, package, path } in entries {
-        let dir = root
-            .zip(path)
-            .and_then(|(r, p)| real_dir(Path::new(r).join(p).to_str()?));
-        // Two entries of one name (two versions, two aliases): an entry that cannot be placed, or another directory,
-        // makes the name hold, so the verdict does not depend on the order of the entries.
-        let slot = found.entry(package.unwrap_or(key)).or_insert(dir.clone());
-        if *slot != dir {
-            *slot = None;
-        }
-    }
-    found
-}
-
-/// One entry of a `[patch]` table: its key, its `package` and its `path`.
-struct Entry {
-    key: String,
-    package: Option<String>,
-    path: Option<String>,
-}
-
-impl Entry {
-    fn named(key: String) -> Entry {
-        Entry {
-            key,
-            package: None,
-            path: None,
-        }
-    }
-
-    /// `name = { path = "..", package = ".." }`.
-    fn inline(key: String, table: &str) -> Entry {
-        Entry {
-            key,
-            package: inline_value(table, "package").map(str::to_owned),
-            path: inline_value(table, "path").map(str::to_owned),
-        }
-    }
-
-    /// A line of a `[patch.<source>.<name>]` table.
-    fn set(&mut self, key: &str, value: &str) {
-        let text = quoted(value).map(str::to_owned);
-        match key {
-            "path" => self.path = text,
-            "package" => self.package = text,
-            _ => {}
-        }
-    }
-}
-
-/// The string after the first quote of `value`.
-fn quoted(value: &str) -> Option<&str> {
-    let body = value.trim_start().strip_prefix('"')?;
-    Some(&body[..body.find('"')?])
-}
-
-/// The string of `key = "..."` inside an inline table. A word inside a string is no key: the search runs on a copy
-/// of the table in which each string body is blank.
-fn inline_value<'a>(table: &'a str, key: &str) -> Option<&'a str> {
-    let blank = blank_strings(table);
-    let at =
-        word_at(&blank, key).find(|at| blank[at + key.len()..].trim_start().starts_with('='))?;
-    let rest = &table[at + key.len()..];
-    quoted(rest.trim_start().strip_prefix('=')?)
-}
-
-/// `text` with each character between two quotes replaced by a space (the same byte length is kept).
-fn blank_strings(text: &str) -> String {
-    let mut quoted = false;
-    let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
-        let keep = c == '"' || !quoted;
-        quoted ^= c == '"';
-        if keep {
-            out.push(c);
-        } else {
-            out.extend(std::iter::repeat_n(' ', c.len_utf8()));
-        }
-    }
-    out
+/// The text of the workspace manifest when it has a `[patch]` or `[replace]` entry. The text is not parsed: a name that
+/// occurs anywhere in it can be patched, whatever the syntax (an alias, a literal string, a dotted key).
+fn patch_text(meta: &Value) -> Option<String> {
+    let root = meta.get("workspace_root").and_then(Value::as_str)?;
+    let text = std::fs::read_to_string(Path::new(root).join("Cargo.toml")).ok()?;
+    (text.contains("patch") || text.contains("replace")).then_some(text)
 }
 
 /// The start of each whole-word occurrence of `word` in `text`.
@@ -204,25 +98,16 @@ fn word_at<'a>(text: &'a str, word: &'a str) -> impl Iterator<Item = usize> + 'a
         })
 }
 
-/// The parts of a dotted TOML key; a dot inside quotes is no separator.
-fn key_parts(header: &str) -> Vec<String> {
-    let (mut parts, mut current, mut quoted) = (Vec::new(), String::new(), false);
-    for c in header.chars() {
-        match c {
-            '"' => {
-                quoted = !quoted;
-                current.push(c);
-            }
-            '.' if !quoted => parts.push(std::mem::take(&mut current)),
-            _ => current.push(c),
-        }
-    }
-    parts.push(current);
-    parts.iter().map(|part| unquote(part)).collect()
+/// A registry or git dependency whose name occurs in the workspace manifest that has a `[patch]` or `[replace]`.
+fn patchable(source: Option<&str>, name: Option<&str>, members: &Members) -> bool {
+    let text = members.patched.as_ref();
+    source.is_some() && name.is_some_and(|n| text.is_some_and(|t| t.contains(n)))
 }
 
-fn unquote(text: &str) -> String {
-    text.trim().trim_matches('"').trim().to_owned()
+/// A git dependency that names a member can lead into the repository.
+fn git_member(source: Option<&str>, name: Option<&str>, members: &Members) -> bool {
+    let git = source.is_some_and(|s| s.starts_with("git+"));
+    git && name.is_some_and(|n| members.names.contains(n))
 }
 
 /// What each dependency of `package` leads to. A registry or git entry has no path in the metadata: a `[patch]`
@@ -235,13 +120,7 @@ fn targets(package: &Value, members: &Members) -> Vec<Target> {
         let source = dependency.get("source").and_then(Value::as_str);
         if let Some(path) = dependency.get("path").and_then(Value::as_str) {
             found.push(real_dir(path).map_or(Target::Unknown, Target::Dir));
-        } else if source.is_some() && members.patches.contains_key("*") {
-            found.push(Target::Unknown);
-        } else if let Some(patched) = name.and_then(|n| members.patches.get(n)) {
-            found.push(patched.clone().map_or(Target::Unknown, Target::Patched));
-        } else if source.is_some_and(|s| s.starts_with("git+"))
-            && name.is_some_and(|n| members.names.contains(n))
-        {
+        } else if patchable(source, name, members) || git_member(source, name, members) {
             found.push(Target::Unknown);
         }
     }
@@ -268,7 +147,7 @@ fn reaches_member(dir: &str, members: &Members, known: &mut BTreeMap<String, boo
             // A dependency of a crate outside the scan that leads to a member is the route back.
             let by_dependency = targets.iter().any(|t| match t {
                 Target::Dir(d) if d == dir => false,
-                Target::Dir(d) | Target::Patched(d) if members.dirs.contains_key(d) => true,
+                Target::Dir(d) if members.dirs.contains_key(d) => true,
                 other => held(other, members, known),
             });
             by_dependency || sources_reach_member(Path::new(dir), members, &meta)
@@ -379,7 +258,7 @@ fn path_attributes(text: &str) -> Vec<Option<&str>> {
         let Some(rest) = trivia(rest.strip_prefix('!').unwrap_or(rest)).strip_prefix('[') else {
             continue;
         };
-        let attribute = &rest[..rest.find(']').unwrap_or(rest.len())];
+        let attribute = &rest[..rest.find(']').map_or(rest.len(), |end| end + 1)];
         for key in word_at(attribute, "path") {
             let value = trivia(&attribute[key + "path".len()..]).strip_prefix('=');
             found.push(value.map(trivia).and_then(whole_literal));
