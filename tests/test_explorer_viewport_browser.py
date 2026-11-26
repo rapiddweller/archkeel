@@ -3,15 +3,133 @@
 # SPDX-License-Identifier: MIT
 """Check that Studio modes keep their canvas inside the window when resized."""
 
+import json
+import os
+import re
+import select
+import shutil
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from core_support import ROOT
+from corpus_support import commit_tree
 from explorer_support import browser
 
 from archkeel.cli import core_explorer_http
 from archkeel.explorer_queries import populate
 from archkeel.explorer_store import SnapshotIdentity, publish_snapshot
+
+
+def test_contract_free_first_view_on_pinned_project(tmp_path: Path, release_core: Path) -> None:
+    assert release_core.is_file()
+    fixture = ROOT / "fixtures/K-python-realworld"
+    assert json.loads((fixture / "SNAPSHOT.json").read_text())["commit"] == (
+        "029eb7781c60d5f563ee8990a0cbfb79b244538c"
+    )
+    project = tmp_path / "project"
+    shutil.copytree(
+        fixture,
+        project,
+        ignore=shutil.ignore_patterns("archkeel.toml", "architecture-contract.json"),
+    )
+    commit_tree(project)
+    env = {**os.environ, "XDG_CACHE_HOME": str(tmp_path / "cache")}
+    command = [
+        sys.executable,
+        "-m",
+        "archkeel.cli",
+        "studio",
+        "--root",
+        str(project),
+        "--no-open",
+        "--json",
+    ]
+    with browser(tmp_path / "chrome", width=800, height=600) as page:
+        process = subprocess.Popen(
+            command, cwd=project, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        try:
+            assert process.stdout is not None
+            assert select.select([process.stdout], [], [], 120)[0], "Studio did not start"
+            result = json.loads(process.stdout.readline())
+            assert "url" in result, result
+            page.send("Page.navigate", url=result["url"])
+            page.wait("document.querySelectorAll('.map-plane .uml-card').length === 7")
+            assert page.evaluate(
+                "[innerWidth, innerHeight, document.documentElement.scrollWidth]"
+            ) == [800, 600, 800]
+            assert page.evaluate(
+                "[...document.querySelectorAll('.map-plane .uml-name')]"
+                ".every(n => n.textContent.trim() && n.getBoundingClientRect().width > 0)"
+            )
+            assert not re.search(r"\b(?:PASS|FAIL)\b", page.evaluate("document.body.innerText"))
+            page.press("Tab")
+            assert page.evaluate("document.activeElement.id") == "map"
+            page.evaluate("document.getElementById('search').focus()")
+            page.send("Input.insertText", text="app.main")
+            page.press("Tab")
+            assert page.evaluate("document.activeElement.textContent") == "Search"
+            page.send(
+                "Input.dispatchKeyEvent",
+                type="rawKeyDown",
+                key="Enter",
+                code="Enter",
+                windowsVirtualKeyCode=13,
+            )
+            page.send(
+                "Input.dispatchKeyEvent",
+                type="char",
+                key="Enter",
+                code="Enter",
+                text="\r",
+                windowsVirtualKeyCode=13,
+            )
+            page.send(
+                "Input.dispatchKeyEvent",
+                type="keyUp",
+                key="Enter",
+                code="Enter",
+                windowsVirtualKeyCode=13,
+            )
+            page.wait("document.querySelector('[data-element=\"module:app.main\"]') !== null")
+            page.evaluate("document.querySelector('[data-element=\"module:app.main\"]').click()")
+            page.wait("!document.getElementById('details').hidden")
+            point = page.evaluate("""(() => {
+              const button = [...document.querySelectorAll('#details button')]
+                .find(item => item.textContent === 'Open source');
+              button.scrollIntoView();
+              const r = button.getBoundingClientRect();
+              return [r.x + r.width / 2, r.y + r.height / 2];
+            })()""")
+            for action in ("mousePressed", "mouseReleased"):
+                page.send(
+                    "Input.dispatchMouseEvent",
+                    type=action,
+                    x=point[0],
+                    y=point[1],
+                    button="left",
+                    clickCount=1,
+                )
+            page.wait(
+                "document.querySelector('.source pre')?.textContent.includes('get_application')"
+            )
+            assert (
+                page.evaluate("document.querySelector('.source h2').textContent") == "app/main.py"
+            )
+            assert not (project / "archkeel.toml").exists()
+            assert not (project / "architecture-contract.json").exists()
+            assert (
+                subprocess.run(
+                    ["git", "status", "--porcelain"], cwd=project, capture_output=True, text=True
+                ).stdout
+                == ""
+            )
+        finally:
+            process.terminate()
+            process.wait(timeout=10)
 
 
 @pytest.mark.parametrize(("components", "steps"), [(1, 1), (16, 12)])
