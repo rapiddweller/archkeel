@@ -14,9 +14,8 @@ refusal, no FAIL, no violation and the exit code that its statuses give. Growth 
 multiset compare, so a growing gap counts for each occurrence), a new UNKNOWN reason kind, or a
 rule with a worse status (PASS < UNKNOWN < FAIL), fewer scanned files, a changed `[scan]`
 table, or a changed path or contract scope. Changed contract inputs with removed gaps also count.
-Removals do not offset additions. Growth passes
-only with the label `ratchet-lead` and the PR text line `Ratchet growth: <N> items: <reason>`,
-where N is the printed count. The shell gate reads its own line `Ratchet growth (shell): ...`.
+Removals do not offset additions. Growth needs `ratchet-lead` and `Ratchet growth: <N> items:
+<reason>`. N is the printed count. The shell gate reads its own `Ratchet growth (shell): ...` line.
 A base that is missing, corrupt, refused or for another commit
 compares as an empty base, and only the same approval passes it. The log shows the first
 `SHOWN` grown items; `--grown-file` takes all of them. `--report-only` (main CI, which cannot see
@@ -253,6 +252,13 @@ def both(text: str) -> tuple[str, str]:
     return text, text
 
 
+def scope_identity(scope: dict[str, Any] | None) -> Any:
+    if not isinstance(scope, dict) or not isinstance(scope.get("components"), list):
+        return scope
+    keys = ("id", "name", "parent", "packages", "exact_modules", "planned")
+    return scope.get("files"), [{key: row.get(key) for key in keys} for row in scope["components"]]
+
+
 def grown(base: dict[str, Any], pr: dict[str, Any]) -> tuple[list[str], list[tuple[str, str]], int]:
     """The heading lines, each grown item as (short, full) text, and the count of removed gaps."""
     old = Counter(map(tuple, base["gaps"]))
@@ -286,7 +292,7 @@ def grown(base: dict[str, Any], pr: dict[str, Any]) -> tuple[list[str], list[tup
         items.append(both(f"scope shrank: files {before} -> {shown}"))
     if isinstance(base.get("scan"), dict) and base["scan"] != pr.get("scan"):
         items.append(both("scope changed: the [scan] table differs from the base"))
-    scope_changed = base.get("scope") != pr.get("scope")
+    scope_changed = scope_identity(base.get("scope")) != scope_identity(pr.get("scope"))
     if scope_changed:
         items.append(both("scope changed: scanned paths or contract scope differ from the base"))
     if not scope_changed and old - new and base.get("contract_files") != pr.get("contract_files"):

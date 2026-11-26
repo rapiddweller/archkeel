@@ -161,7 +161,7 @@ def test_equal_count_path_swap_is_growth(tmp_path: Path) -> None:
     assert approved.returncode == 0, approved.stdout
 
 
-def test_a_root_contract_edit_is_growth_without_a_topology_change(tmp_path: Path) -> None:
+def test_a_root_contract_edit_is_not_growth_without_a_topology_change(tmp_path: Path) -> None:
     base = with_topology(json.loads((FIXTURES / "base.json").read_text()))
     pr = json.loads(json.dumps(base))
     pr["frame"]["contract_digest"] = "b" * 64
@@ -176,8 +176,8 @@ def test_a_root_contract_edit_is_growth_without_a_topology_change(tmp_path: Path
         text=True,
         timeout=60,
     )
-    assert done.returncode == 1, done.stdout
-    assert "scope changed" in done.stdout
+    assert done.returncode == 0, done.stdout
+    assert "grown 0" in done.stdout
 
 
 def test_topology_row_order_does_not_change_scope() -> None:

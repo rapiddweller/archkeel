@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from collections import Counter
@@ -22,6 +23,7 @@ from typing import Any
 
 from file_size import MAX_FILE_LINES, is_size_limited, line_count
 from self_check_diff import Unusable, condense, grown, load, one
+from self_check_gate import scan_table
 
 from archkeel.cli.core_exit import EXIT_TABLE
 from archkeel.cli.core_frame import Status
@@ -70,7 +72,9 @@ def where(frame: dict[str, Any], evidence: list[str], fallback: str = "?") -> st
     return f"{place['path']}:{place['line']}" if place else fallback
 
 
-def ratchet(native: dict[str, Any] | None, base: Path) -> tuple[list[str], int]:
+def ratchet(
+    native: dict[str, Any] | None, base: Path, root: Path = Path(".")
+) -> tuple[list[str], int]:
     """The growth against the base commit in words, and the count of new items."""
     if native is None or native.get("refusal"):
         return ["native vs base: no native result"], 0
@@ -78,7 +82,7 @@ def ratchet(native: dict[str, Any] | None, base: Path) -> tuple[list[str], int]:
         before = load(str(base))
     except Unusable:
         return ["native vs base: no base result; run `make self-validate-native`"], 0
-    own = condense(native)
+    own = condense(native, scan=scan_table(root))
     items, removed = grown(before, own)[1:]
     sha = str(before.get("sha") or "?")[:12]
     lines = [f"native vs base {sha}: {len(items)} new items, {removed} gaps gone"]
@@ -230,7 +234,8 @@ def summary(dir_: Path, root: Path, status: int, log: str) -> list[str]:
         name: frame_of(results[name] or {}, True) for name, _part, wrapped in PARTS if wrapped
     }
     frames = {name: frame for name, frame in frames.items() if frame}
-    ratchet_lines, new = ratchet(results["native"], dir_ / "selfcheck" / "compared-base.json")
+    base = Path(os.environ.get("BASE_RESULT") or dir_ / "selfcheck" / "compared-base.json")
+    ratchet_lines, new = ratchet(results["native"], base, root)
     violation_lines, found = violations(frames)
     lines = ["self-check: " + " | ".join(verdict(n, results[n], w) for n, _p, w in PARTS)]
     lines += ratchet_lines
