@@ -8,6 +8,7 @@
 use std::collections::BTreeMap;
 
 use archkeel_contract::policy::parse_baseline;
+use archkeel_contract::BudgetName;
 use serde_json::{json, Value};
 
 use super::{compare, Budgets, Observed, Violation};
@@ -269,6 +270,7 @@ fn a_budget_above_the_file_is_red_and_below_is_stale() {
         budgets: Budgets {
             cycle_edges: Some(cycles),
             private_crossings: Some(crossings),
+            ..Budgets::default()
         },
         ..Observed::default()
     };
@@ -309,13 +311,27 @@ fn a_budget_that_the_run_does_not_measure_is_a_named_gap_with_exit_2() {
     assert_eq!(found.gaps[0].kind, "budget.unmeasured");
 }
 
+const THREE: [&str; 3] = [
+    "calls_unresolved",
+    "typing_positions",
+    "untyped_private_accesses",
+];
+
+fn measured(value: u64) -> Observed {
+    Observed {
+        budgets: Budgets {
+            calls_unresolved: Some(value),
+            typing_positions: Some(value),
+            untyped_private_accesses: Some(value),
+            ..Budgets::default()
+        },
+        ..Observed::default()
+    }
+}
+
 #[test]
-fn a_budget_that_this_core_cannot_measure_is_never_read_as_zero_or_held() {
-    for name in [
-        "calls_unresolved",
-        "typing_positions",
-        "untyped_private_accesses",
-    ] {
+fn a_budget_that_the_run_does_not_measure_is_never_read_as_zero_or_held() {
+    for name in THREE {
         let base = file(json!([]), json!([]), json!({ name: 0 }));
         let found = compare(&base, &Observed::default());
         assert_eq!(
@@ -328,6 +344,49 @@ fn a_budget_that_this_core_cannot_measure_is_never_read_as_zero_or_held() {
 }
 
 #[test]
+fn each_of_the_three_budgets_equal_gives_no_row_above_is_red_below_is_stale() {
+    for name in THREE {
+        let base = file(json!([]), json!([]), json!({ name: 5 }));
+        let equal = compare(&base, &measured(5));
+        assert_eq!(equal.state.exit_code(), 0, "{name}");
+        assert!(equal.new.is_empty() && equal.gone.is_empty() && equal.gaps.is_empty());
+        let above = compare(&base, &measured(6));
+        assert_eq!((above.state.word(), above.state.exit_code()), ("drift", 1));
+        assert_eq!(
+            (above.new[0].kind.as_str(), above.new[0].subject.as_str()),
+            ("budget.exceeded", name)
+        );
+        let below = compare(&base, &measured(4));
+        assert_eq!(below.gone[0].subject, name);
+    }
+}
+
+#[test]
+fn a_declared_budget_that_the_file_lacks_is_red_and_never_exit_2() {
+    let mut now = measured(7);
+    now.declared = vec![BudgetName::CallsUnresolved, BudgetName::TypingPositions];
+    let base = file(json!([]), json!([]), json!({"calls_unresolved": 7}));
+    let found = compare(&base, &now);
+    assert_eq!((found.state.word(), found.state.exit_code()), ("drift", 1));
+    let row = &found.new[0];
+    assert_eq!(
+        (row.kind.as_str(), row.subject.as_str(), row.run, row.file),
+        ("budget.unknown", "typing_positions", 7, 0)
+    );
+}
+
+#[test]
+fn a_declared_budget_that_the_file_lacks_and_the_run_does_not_measure_is_a_named_gap() {
+    let now = Observed {
+        declared: vec![BudgetName::CallsUnresolved],
+        ..Observed::default()
+    };
+    let found = compare(&file(json!([]), json!([]), json!({})), &now);
+    assert_eq!(found.state.exit_code(), 2);
+    assert_eq!(found.gaps[0].kind, "budget.unmeasured");
+}
+
+#[test]
 fn an_older_schema_names_the_budgets_of_another_analyzer_and_compares_the_rest() {
     let base = older(
         json!({"calls_unresolved": 1429, "typing_positions": 178, "cycle_edges": 2,
@@ -337,6 +396,7 @@ fn an_older_schema_names_the_budgets_of_another_analyzer_and_compares_the_rest()
     now.budgets = Budgets {
         cycle_edges: Some(2),
         private_crossings: Some(0),
+        ..Budgets::default()
     };
     let found = compare(&base, &now);
     // The UNKNOWN compare is off: the new key is not red. Three named gaps hold exit 2.

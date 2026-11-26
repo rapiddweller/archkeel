@@ -225,7 +225,7 @@ fn descriptor(text: &str) -> Result<Vec<Facts>, String> {
     std::fs::write(&path, text).unwrap();
     let found = read_descriptor(&path, &scan());
     std::fs::remove_dir_all(&dir).unwrap();
-    found
+    found.map(|(facts, _)| facts)
 }
 
 #[test]

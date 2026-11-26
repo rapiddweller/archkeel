@@ -74,6 +74,20 @@ def test_a_scan_that_asks_for_facts_without_the_premise_does_not_pass(
     assert "PASS" not in {row[1] for row in result["frame"]["rules"].values()}
 
 
+def test_a_declared_premise_without_facts_is_not_named_in_the_receipt(
+    tmp_path: Path, release_core: Path
+) -> None:
+    """AD-1116: a declaration alone is a wish. No facts exist, so no PASS names the premise."""
+    root = repository(
+        tmp_path / "repo", release_core, rules=CRATE_RULES, type_reach=False, declared=True
+    )
+    frame = validate(root)["frame"]
+    assert frame["rules"]["REQUIRES"][1] == "PASS", frame["collection_gaps"]
+    kinds = {use["kind"] for uses in frame.get("premises", {}).values() for use in uses}
+    assert "rust_type_reach" not in kinds
+    assert "rust_type_reach" not in (frame.get("assuming") or "")
+
+
 @needs_rustc_dev
 def test_a_pass_on_the_facts_names_the_premise_in_its_receipt(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch

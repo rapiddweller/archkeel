@@ -7,13 +7,17 @@
 
 use super::*;
 
+/// The sites of a tree with no name that another module re-exports.
+fn sites_of(tree: &ModModule, proof: Proof, binders: &Binders) -> Vec<Site> {
+    sites(tree, proof, binders, &HashSet::new(), &Reexports::new())
+}
+
 fn kinds(source: &str) -> Vec<&'static str> {
     let tree = crate::test_tree(source, 14).expect("valid probe");
-    sites(
+    sites_of(
         &tree,
         super::super::literal::Proof::default(),
         &super::super::binders::Binders::of(&tree),
-        &HashSet::new(),
     )
     .into_iter()
     .map(|site| site.kind)
@@ -47,12 +51,7 @@ fn only_stable_direct_inert_attribute_loads_lose_their_extra_gap() {
         ),
     ] {
         let tree = crate::test_tree(source, 14).expect("valid probe");
-        let found = sites(
-            &tree,
-            Proof::default(),
-            &Binders::of(&tree),
-            &std::collections::HashSet::new(),
-        );
+        let found = sites_of(&tree, Proof::default(), &Binders::of(&tree));
         assert!(found.iter().any(|site| site.detail == import), "{source}");
         assert_eq!(
             found.iter().filter(|site| site.kind == DYNAMIC).count(),
@@ -72,12 +71,7 @@ fn only_stable_direct_inert_attribute_loads_lose_their_extra_gap() {
         "import pickle\npickle.loads(data)\n",
     ] {
         let tree = crate::test_tree(source, 14).expect("valid probe");
-        let found = sites(
-            &tree,
-            Proof::default(),
-            &Binders::of(&tree),
-            &std::collections::HashSet::new(),
-        );
+        let found = sites_of(&tree, Proof::default(), &Binders::of(&tree));
         assert!(found.len() >= 2, "{source}");
     }
 }
@@ -116,12 +110,7 @@ fn the_other_ce_dynamic_import_forms_keep_their_named_gap() {
         ("exec(text)\n", "exec"),
     ] {
         let tree = crate::test_tree(source, 14).expect("valid probe");
-        let found = sites(
-            &tree,
-            Proof::default(),
-            &Binders::of(&tree),
-            &std::collections::HashSet::new(),
-        );
+        let found = sites_of(&tree, Proof::default(), &Binders::of(&tree));
         assert!(
             found
                 .iter()
@@ -174,7 +163,7 @@ fn literal_hazard_import_keeps_both_edge_and_gap() {
     ] {
         let tree = crate::test_tree(source, 14).expect("valid probe");
         let binders = Binders::of(&tree);
-        let found = sites(&tree, Proof::of(&tree, &binders), &binders, &HashSet::new());
+        let found = sites_of(&tree, Proof::of(&tree, &binders), &binders);
         assert!(
             found
                 .iter()
@@ -194,7 +183,7 @@ fn literal_hazard_import_keeps_both_edge_and_gap() {
     ] {
         let tree = crate::test_tree(source, 14).expect("valid probe");
         let binders = Binders::of(&tree);
-        let found = sites(&tree, Proof::of(&tree, &binders), &binders, &HashSet::new());
+        let found = sites_of(&tree, Proof::of(&tree, &binders), &binders);
         assert!(found
             .iter()
             .any(|site| site.kind == LITERAL && site.detail == target));

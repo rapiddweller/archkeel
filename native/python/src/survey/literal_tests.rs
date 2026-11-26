@@ -6,7 +6,7 @@
 // must keep a `dynamic_import` gap, so each one has a case. The cases run the hazard walk, so the
 // exemption of the callee is checked too.
 
-use super::super::hazards::{sites, DYNAMIC, LITERAL};
+use super::super::hazards::{sites, Reexports, DYNAMIC, LITERAL};
 use super::*;
 
 /// The kinds and texts of the sites of a module.
@@ -18,6 +18,7 @@ fn found(source: &str) -> Vec<(&'static str, String)> {
         proof,
         &Binders::of(&tree),
         &std::collections::HashSet::new(),
+        &Reexports::new(),
     )
     .into_iter()
     .map(|site| (site.kind, site.detail))
@@ -144,6 +145,7 @@ fn a_constant_bound_uses_the_same_callee_identity_as_the_gap() {
         Proof::of(&module.tree, &binders),
         &binders,
         &std::collections::HashSet::new(),
+        &Reexports::new(),
     );
     let gap = gaps
         .iter()

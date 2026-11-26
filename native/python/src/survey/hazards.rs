@@ -10,6 +10,7 @@
 //! - A module above a hazard name used as a value is a dynamic import too.
 
 use std::collections::{HashMap, HashSet};
+use std::mem::take;
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
@@ -34,6 +35,8 @@ pub(super) use reexport::{table, Reexports};
 pub(super) use reflect::proved;
 pub(super) use trojan_horse::Site;
 
+#[path = "hazards_annotation.rs"]
+mod annotation;
 #[path = "hazards_bind.rs"]
 mod bind;
 #[path = "hazards_comprehension.rs"]
@@ -47,19 +50,8 @@ pub(super) mod reflect;
 #[path = "hazards_trojan_horse.rs"]
 mod trojan_horse;
 
-/// The sites of a module, in source order, when no other module re-exports a name.
-#[cfg(test)]
-pub(super) fn sites(
-    tree: &ModModule,
-    proof: Proof,
-    binders: &Binders,
-    reads: &HashSet<TextRange>,
-) -> Vec<Site> {
-    sites_with(tree, proof, binders, reads, &Reexports::new())
-}
-
 /// The sites of a module, in source order.
-pub(super) fn sites_with(
+pub(super) fn sites(
     tree: &ModModule,
     proof: Proof,
     binders: &Binders,
@@ -78,25 +70,22 @@ pub(super) fn sites_with(
         uncertain_code: Bound::of(&tree.body).opaque || reflect::deleted_code(tree),
         class_body: false,
         proof,
-        reads,
+        reads: reads.clone(),
         locals: Vec::new(),
         getattr_bound: !Bound::of(&tree.body).unbound("getattr"),
         scope: Vec::new(),
         code_aliases: reflect::code_aliases(tree),
         reexports,
+        annotation: false,
     };
     for stmt in &tree.body {
         // AD-538: an expression statement of the module body that appends a directory of the
         // snapshot to `sys.path` is a candidate; the survey settles it with the whole scan.
         match syspath::levels(stmt, tree, binders) {
-            Some(count) => walk.found.push(Site {
-                kind: syspath::PATH_WRITE,
-                detail: count.to_string(),
-                range: stmt.range(),
-                trojan_horse: None,
-                scope: String::new(),
-                binding: None,
-            }),
+            Some(count) => {
+                let site = Site::plain(syspath::PATH_WRITE, &count.to_string(), stmt.range());
+                walk.found.push(site);
+            }
             None => walk.visit_stmt(stmt),
         }
     }
@@ -104,8 +93,8 @@ pub(super) fn sites_with(
 }
 
 struct Walk<'r> {
-    /// The names that the modules of the scan bind to a module that holds a hazard name.
     reexports: &'r Reexports,
+    annotation: bool,
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
     inert_modules: HashMap<String, String>,
@@ -114,7 +103,7 @@ struct Walk<'r> {
     uncertain_code: bool,
     class_body: bool,
     proof: Proof,
-    reads: &'r HashSet<TextRange>,
+    reads: HashSet<TextRange>,
     // Class namespaces are skipped by nested function and comprehension lookups.
     locals: Vec<(HashSet<String>, HashSet<String>, bool)>,
     getattr_bound: bool,
@@ -289,6 +278,23 @@ impl Walk<'_> {
         }
     }
 
+    fn evaluated(&mut self, string: &ruff_python_ast::ExprStringLiteral) {
+        let first = self.found.len();
+        // The text runs in the global names of its module: no fact of the real tree applies to it.
+        let outer = (
+            take(&mut self.proof),
+            take(&mut self.reads),
+            take(&mut self.locals),
+        );
+        if let Some(code) = annotation::parsed(string) {
+            self.visit_expr(&code);
+        }
+        (self.proof, self.reads, self.locals) = outer;
+        for site in &mut self.found[first..] {
+            site.range = string.range();
+        }
+    }
+
     /// A hazard behind a name that a module of the scan binds to a standard library module.
     fn reexported(&mut self, attributes: &[&str], expr: &Expr) {
         if let Some((kind, name)) = reexport::find(self.reexports, attributes) {
@@ -392,7 +398,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
                 self.visit_type_params(params);
             }
             self.visit_parameters(&node.parameters);
-            node.returns.iter().for_each(|item| self.visit_expr(item));
+            node.returns.iter().for_each(|r| self.visit_annotation(r));
             self.class_body = false;
             let (locals, globals) = super::globals_locals::local_scope(node);
             self.locals.push((locals, globals, false));
@@ -430,7 +436,16 @@ impl<'a> Visitor<'a> for Walk<'_> {
         self.class_body = previous;
     }
 
+    fn visit_annotation(&mut self, expr: &'a Expr) {
+        let outer = std::mem::replace(&mut self.annotation, true);
+        self.visit_expr(expr);
+        self.annotation = outer;
+    }
+
     fn visit_expr(&mut self, expr: &'a Expr) {
+        if let Some(text) = annotation::evaluated(expr, self.annotation) {
+            self.evaluated(text);
+        }
         if let Some((first, rest, targets, values)) = comprehension::parts(expr) {
             self.visit_expr(&first.iter);
             self.locals.push((targets, HashSet::new(), false));
@@ -450,6 +465,12 @@ impl<'a> Visitor<'a> for Walk<'_> {
                 visitor::walk_expr(self, expr);
             }
             Expr::Attribute(_) => self.chain(expr),
+            Expr::Subscript(node) if self.annotation && annotation::literal(&node.value) => {
+                self.visit_expr(&node.value);
+                self.annotation = false;
+                self.visit_expr(&node.slice);
+                self.annotation = true;
+            }
             Expr::StringLiteral(node)
                 if TROJAN_HORSE_STRINGS.contains(&node.value.to_str())
                     && !self.reads.contains(&node.range()) =>

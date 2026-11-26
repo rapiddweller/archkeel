@@ -108,6 +108,9 @@ object! {
         /// The linked producer's facts for `standard_library_unchanged` (AD-782).
         #[serde(skip)]
         pub standard: Option<StandardFacts>,
+        /// The provenance of the type-reach facts that the linked Rust worker used (AD-1116).
+        #[serde(skip)]
+        pub type_reach: Option<TypeReach>,
         /// The adapter that wrote the reply.
         pub adapter: Adapter,
         /// The runtime that ran the adapter.
@@ -141,9 +144,7 @@ object! {
     }
 }
 
-/// A selected file that has no module of its own: its facts belong to the module `owner`.
-/// `module` is the module that its path would name. The model checks that one component claims
-/// both names; else no rule can rely on the owner (AD-468).
+/// A selected file with no module of its own: its facts belong to `owner` (AD-468).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OwnedFile {
     /// The path of the file, relative to the root.
@@ -190,12 +191,11 @@ pub struct Runtime {
 mod target_source;
 pub use target_source::TargetSource;
 mod limits;
-pub use limits::{LimitSupport, ProfileLimits};
+pub use limits::{LimitSupport, ProfileLimits, TypeReach};
 pub mod validation;
 pub use validation::Validation;
 
-/// The one runtime whose reply the host accepts a dependency scope proof from
-/// (`ir/decisions.py` `_native_scope_runtime_valid`).
+/// The one runtime whose reply the host accepts a dependency scope proof from.
 const SCOPE_PROOF_RUNTIME: &str = "python";
 
 impl Runtime {

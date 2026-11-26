@@ -141,6 +141,7 @@ pub(super) fn settle(
     if filter.as_ref().is_some_and(|f| f.matched() == 0) {
         builder.gap(Filter::no_module(), None, "");
     }
+    builder.reach_used = filter.as_ref().is_some_and(|f| f.matched() > 0);
     let mut open = std::mem::take(&mut pool.items);
     let mut ctx = FlowContext {
         edges: import_edges(builder),

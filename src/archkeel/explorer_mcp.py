@@ -165,7 +165,11 @@ def main() -> None:
     except ModuleNotFoundError as error:
         if error.name != "fastmcp":
             raise
-        parser.exit(2, "Install the MCP extra with uv sync --extra mcp.\n")
+        parser.exit(
+            2,
+            "Install the MCP extra: pip install 'archkeel[mcp]' "
+            "(or uv sync --extra mcp in a checkout).\n",
+        )
     path = session.snapshot.resolve(strict=True)
     root = session.root.resolve(strict=True)
     with open_snapshot(path):

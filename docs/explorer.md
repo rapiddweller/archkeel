@@ -64,6 +64,40 @@ a separate story. Existing stories can be opened without a model connection.
 You can share stories and an optional narrative template at `.archkeel/templates/story.md`
 with Git. SQLite snapshots stay in the bounded user cache.
 
+## Write a story
+
+Run `archkeel skill install codex` or `archkeel skill install claude` in the repository.
+It creates `.archkeel/templates/story.md` and `.archkeel/templates/example.story.json`.
+It keeps existing files. The example is not a saved story and does not claim to describe your code.
+
+Start Studio with `archkeel studio . --no-open`. Keep it running.
+Set `URL` to its printed URL without the final `/`.
+Find a function with:
+
+```sh
+curl -G "$URL/api/v1/search" --data-urlencode "text=FUNCTION"
+```
+
+Use a returned element ID to inspect its outgoing calls:
+
+```sh
+curl -G "$URL/api/v1/relations" --data-urlencode "element=ID" -d direction=out -d kind=call
+```
+
+Follow `next_cursor` with `--data-urlencode "cursor=CURSOR"` until it is null.
+Repeat for each target to explore a path. These calls do not find a complete path for you.
+A candidate is not a resolved call. Missing or unresolved calls are not proof of no runtime call.
+
+Copy the example to `.archkeel/stories/<id>.story.json` and replace its example names.
+Use the view spec `1.2.0`. Keep the example snapshot placeholders when you do not know the digests.
+Studio rebinds saved stories by node name when the digests differ. It does not rewrite the file.
+Set `story.id` to the filename stem. Declare each qualified function name in `nodes`.
+Put the steps in order. Each step names a declared `node`; its `note` holds the explanation.
+When `story.chapters` has entries, each step names a chapter. Use `claim: true` only for an
+unverified transition, never for the first step. The
+[view spec schema](../schema/view-spec.schema.json) defines the remaining fields.
+Open the saved story in Studio and inspect its checked statuses. A claim is not a proven call.
+
 ## Connect an agent
 
 From this checkout, run the local stdio server with the optional `mcp` extra. Supply the snapshot path from the Explorer and the
@@ -71,6 +105,12 @@ absolute path of the scanned repository.
 
 ```sh
 uv run --extra mcp archkeel-mcp --snapshot /absolute/path/to/snapshot.sqlite3 --root /absolute/path/to/repository
+```
+
+For an installed wheel, install its optional extra instead of running `uv sync` in a checkout:
+
+```sh
+python -m pip install '/absolute/path/to/archkeel-<version>-<tags>.whl[mcp]'
 ```
 
 The server provides overview, children, search, relations, evidence, source and story.

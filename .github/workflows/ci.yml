@@ -93,14 +93,30 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: test-artifacts/selfcheck/base.json
-          key: selfcheck-v1-${{ runner.os }}-${{ github.event_name == 'push' && github.event.before || 'none' }}
+          key: selfcheck-v2-${{ runner.os }}-${{ github.event_name == 'push' && github.event.before || 'none' }}
+          restore-keys: selfcheck-v1-${{ runner.os }}-${{ github.event_name == 'push' && github.event.before || 'none' }}
 
       # Main CI only reports the comparison: it cannot see the label of the merged pull request.
       - id: selfcheck
         name: Check native/ and the Python shell with the core (AD-1064)
         env:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
+          NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
         run: make self-validate SELFCHECK_BASE=HEAD~1 SELFCHECK_ARGS=--report-only
+
+      - name: Record native self-check phase timings
+        if: always()
+        run: |
+          {
+            echo '### Native self-check phase timings'
+            if [ -f "$RUNNER_TEMP/native-selfcheck-timings.json" ]; then
+              echo '```json'
+              cat "$RUNNER_TEMP/native-selfcheck-timings.json"
+              echo '```'
+            else
+              echo 'No timing file was produced.'
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the self-check result of this commit as the base of the next runs
         if: always() && hashFiles('test-artifacts/selfcheck/result.json') != ''
@@ -111,7 +127,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: test-artifacts/selfcheck/base.json
-          key: selfcheck-v1-${{ runner.os }}-${{ github.sha }}
+          key: selfcheck-v2-${{ runner.os }}-${{ github.sha }}
 
       - name: Save the Rust build cache
         if: always()

@@ -71,6 +71,7 @@
         "native.archkeel_facts.envelope:State",
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:TargetSource",
+        "native.archkeel_facts.envelope:TypeReach",
         "native.archkeel_facts.envelope:Validation",
         "native.archkeel_facts.envelope:WrittenActual",
         "native.archkeel_facts.envelope:source_digest",
@@ -333,6 +334,7 @@
         "native.archkeel_contract.policy:baseline_bytes",
         "native.archkeel_contract.policy:budget_word",
         "native.archkeel_contract.policy:clip_inside",
+        "native.archkeel_contract.policy:declared_budgets",
         "native.archkeel_contract.policy:parse_baseline",
         "native.archkeel_contract.policy:provenance_paths",
         "native.archkeel_contract:BoundaryAllowance",
@@ -775,6 +777,7 @@
             "native.archkeel_facts.nullable",
             "native.archkeel_facts.profile_traits",
             "native.archkeel_facts.standard",
+            "native.archkeel_facts.type_reach",
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
@@ -2661,6 +2664,7 @@
           "through": [
             "native.archkeel_model:Graph",
             "native.archkeel_model:Hygiene",
+            "native.archkeel_model:Measures",
             "native.archkeel_model:Reason",
             "native.archkeel_model:gap_kind",
             "native.archkeel_model:stable"
@@ -2735,6 +2739,7 @@
         "native.archkeel_core.baseline_frame:Part",
         "native.archkeel_core.baseline_frame:build",
         "native.archkeel_core.baseline_frame:gap_rows",
+        "native.archkeel_core.baseline_frame:holds_budgets",
         "native.archkeel_core.baseline_frame:observed"
       ],
       "decided_by": "architect"
@@ -2792,6 +2797,7 @@
           "rationale": "Parse the contract bytes that the shell sends (AD-359).",
           "through": [
             "native.archkeel_contract.policy",
+            "native.archkeel_contract:BudgetName",
             "native.archkeel_contract:Component",
             "native.archkeel_contract:Contract",
             "native.archkeel_contract:DecidedBy",
@@ -5627,6 +5633,13 @@
           "through": [
             "native.archkeel_rust_collector.builder"
           ]
+        },
+        {
+          "component": "rs-type-reach",
+          "rationale": "State the verified type-reach facts as the provenance fact of the reply (AD-1116).",
+          "through": [
+            "native.archkeel_rust_collector.type_reach"
+          ]
         }
       ],
       "public": [
@@ -5667,6 +5680,8 @@
       ],
       "decided_by": "architect",
       "public": [
+        "native.archkeel_rust_collector.type_reach:Announced",
+        "native.archkeel_rust_collector.type_reach:Reached",
         "native.archkeel_rust_collector.type_reach:announced",
         "native.archkeel_rust_collector.type_reach_facts:Facts",
         "native.archkeel_rust_collector.type_reach_filter:Filter"
@@ -5977,6 +5992,7 @@
         "native.archkeel_python_collector.parse.work:Work",
         "native.archkeel_python_collector.parse:ParseFailure",
         "native.archkeel_python_collector.parse:comments",
+        "native.archkeel_python_collector.parse:expression",
         "native.archkeel_python_collector.parse:parse"
       ],
       "decided_by": "architect"

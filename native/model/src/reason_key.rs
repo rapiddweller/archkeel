@@ -190,6 +190,7 @@ fn refusal_code(refusal: &Refusal) -> String {
         Refusal::OutsideNamespace(module) => format!("outside_namespace: {module}"),
         Refusal::StandardLibrary(rule) => format!("standard_library: {rule}"),
         Refusal::ScanRoots => "scan_roots".to_owned(),
+        Refusal::TypeReach(rule) => format!("type_reach: {rule}"),
     }
 }
 

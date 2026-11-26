@@ -240,17 +240,38 @@ fn verify(
     })
 }
 
+/// The binding values of verified facts: the reply states them as `TypeReach` when the scan used the facts
+/// (AD-1116). A plain value, so that no module that holds it gains a trait impl to reach.
+pub struct Reached {
+    /// The text of `rustc -vV`.
+    pub rustc: String,
+    /// The target triple.
+    pub target_triple: String,
+    /// The SHA-256 of the driver source.
+    pub driver_sha256: String,
+    /// The SHA-256 of `Cargo.lock`.
+    pub cargo_lock_sha256: String,
+    /// The directory of each workspace member.
+    pub members: Vec<String>,
+    /// The name of each configuration.
+    pub configs: Vec<String>,
+}
+
+/// The facts of the producer and their provenance, or the cause why a scan that asked has none.
+pub type Announced = Option<Result<(Vec<Facts>, Reached), String>>;
+
 /// The facts that the producer announced in the descriptor that `ARCHKEEL_TYPE_REACH` names, checked
-/// against the scan. `None` when the variable is unset: the scan asks for no facts. `scanned` is read
-/// only when the variable is set. An `Err` is the exact cause, and the scan keeps every gap.
-pub fn announced(
-    scanned: impl FnOnce() -> BTreeMap<String, String>,
-) -> Option<Result<Vec<Facts>, String>> {
+/// against the scan, with their provenance. `None` when the variable is unset: the scan asks for no facts.
+/// `scanned` is read only when the variable is set. An `Err` is the exact cause, and the scan keeps every gap.
+pub fn announced(scanned: impl FnOnce() -> BTreeMap<String, String>) -> Announced {
     let path = std::env::var_os(ENV)?;
     Some(read_descriptor(Path::new(&path), &scanned()))
 }
 
-fn read_descriptor(path: &Path, scanned: &BTreeMap<String, String>) -> Result<Vec<Facts>, String> {
+fn read_descriptor(
+    path: &Path,
+    scanned: &BTreeMap<String, String>,
+) -> Result<(Vec<Facts>, Reached), String> {
     let text =
         std::fs::read_to_string(path).map_err(|e| format!("cannot read the descriptor: {e}"))?;
     let descriptor: Value =
@@ -266,6 +287,14 @@ fn read_descriptor(path: &Path, scanned: &BTreeMap<String, String>) -> Result<Ve
             .to_string()
     };
     let mut all = Vec::new();
+    let mut names = Vec::new();
+    let members: Vec<String> = descriptor
+        .get("members")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|m| m.as_str().map(str::to_string))
+        .collect();
     for entry in descriptor
         .get("configs")
         .and_then(Value::as_array)
@@ -281,13 +310,6 @@ fn read_descriptor(path: &Path, scanned: &BTreeMap<String, String>) -> Result<Ve
         };
         let config = Config::named(&field("name"))
             .ok_or_else(|| "the descriptor names an unknown configuration".to_string())?;
-        let members: Vec<String> = descriptor
-            .get("members")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(|m| m.as_str().map(str::to_string))
-            .collect();
         let units: Vec<String> = entry
             .get("units")
             .and_then(Value::as_array)
@@ -311,6 +333,7 @@ fn read_descriptor(path: &Path, scanned: &BTreeMap<String, String>) -> Result<Ve
             members: &members,
         };
         let dir = field("dir");
+        names.push(config.cfg_name());
         want.verify_dir(Path::new(&dir), scanned)
             .map_err(|e| e.describe())?;
         all.push(
@@ -321,7 +344,15 @@ fn read_descriptor(path: &Path, scanned: &BTreeMap<String, String>) -> Result<Ve
     if all.is_empty() {
         return Err("the descriptor names no configuration".to_string());
     }
-    Ok(all)
+    let fact = Reached {
+        rustc: word("rustc"),
+        target_triple: word("target_triple"),
+        driver_sha256: word("driver_sha256"),
+        cargo_lock_sha256: word("cargo_lock_sha256"),
+        members,
+        configs: names,
+    };
+    Ok((all, fact))
 }
 
 #[cfg(test)]

@@ -51,6 +51,20 @@ def install_skill(root: Path, agent: InstallationAgent | str) -> Path:
         / (".claude" if agent is InstallationAgent.CLAUDE else ".agents")
         / "skills/archkeel/SKILL.md"
     )
+    templates = root.resolve()
+    for part in (".archkeel", "templates"):
+        templates = templates / part
+        if templates.is_symlink():
+            raise ValueError("story template directory cannot be a link")
+        templates.mkdir(exist_ok=True)
+        if templates.resolve() != templates:
+            raise ValueError("story template directory cannot be a link")
+    for name in ("story.md", "example.story.json"):
+        try:
+            with (templates / name).open("x", encoding="utf-8") as output:
+                output.write((_ASSETS / name).read_text(encoding="utf-8"))
+        except FileExistsError:
+            pass
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(_skill_text(), encoding="utf-8")
     if updated is not None:

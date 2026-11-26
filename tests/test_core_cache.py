@@ -95,12 +95,24 @@ def test_a_core_is_saved_only_after_its_own_build_step_succeeded() -> None:
 
 def test_each_partial_core_cache_carries_the_target_directory_marker() -> None:
     # A restore creates target before Cargo can mark it. The native self-scan then counts builds.
-    for workflow in ("ci.yml", "pr-gate.yml"):
+    for workflow in ("ci.yml", "pr-gate.yml", "area-checks.yml"):
         text = (ROOT / ".github/workflows" / workflow).read_text()
         paths = re.findall(r"path: \|\n((?:            \S+\n)+)          key: core-gate-", text)
         assert paths, workflow
         for block in paths:
             assert "native/target/CACHEDIR.TAG" in block, workflow
+
+
+def test_native_collector_job_restores_the_same_core_and_builds_on_a_miss() -> None:
+    body = _jobs("area-checks.yml")["tests"]
+    gate = _jobs("pr-gate.yml")["base"]
+    hash_line = next(line for line in gate.splitlines() if "hashFiles('native/**'" in line)
+    assert hash_line in body
+    assert "key: core-gate-${{ runner.os }}-${{ steps.native_tree.outputs.hash }}" in body
+    assert "matrix.area == 'native collectors' && steps.core.outputs.cache-hit != 'true'" in body
+    assert "rust-gate-main-${{ runner.os }}" in body
+    assert "ARCHKEEL_NATIVE_TREE: ${{ steps.native_tree.outputs.hash }}" in body
+    assert "steps.core.outputs.cache-hit == 'true' && 'cache' || 'build'" in body
 
 
 def test_the_gate_profile_builds_without_lto_and_with_16_codegen_units(tmp_path: Path) -> None:

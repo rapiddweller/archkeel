@@ -124,7 +124,8 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: test-artifacts/selfcheck/base.json
-          key: selfcheck-v1-${{ runner.os }}-${{ github.event.pull_request.base.sha }}
+          key: selfcheck-v2-${{ runner.os }}-${{ github.event.pull_request.base.sha }}
+          restore-keys: selfcheck-v1-${{ runner.os }}-${{ github.event.pull_request.base.sha }}
 
       # AD-1061: read the labels and the text now, not from the event: a re-run must see a later label.
       - name: Read the labels and the text of the pull request
@@ -144,7 +145,22 @@ jobs:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
           ARCHKEEL_CORE_SOURCE: ${{ steps.core.outputs.cache-hit == 'true' && 'cache' || 'build' }}
           PR_PARALLEL: "1"
+          NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
         run: make pr-gate PR_BASE="$PR_BASE" SKIP_STATIC=1
+
+      - name: Record native self-check phase timings
+        if: always()
+        run: |
+          {
+            echo '### Native self-check phase timings'
+            if [ -f "$RUNNER_TEMP/native-selfcheck-timings.json" ]; then
+              echo '```json'
+              cat "$RUNNER_TEMP/native-selfcheck-timings.json"
+              echo '```'
+            else
+              echo 'No timing file was produced.'
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       # AD-1064: the log shows the first ten grown items; the file holds all of them.
       - name: Keep the list of grown self-check items

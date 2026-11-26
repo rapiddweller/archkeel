@@ -17,7 +17,7 @@ use archkeel_contract::policy::{
     ValidationBaseline,
 };
 use archkeel_contract::BudgetName;
-use archkeel_model::{Graph, Hygiene, Reason};
+use archkeel_model::{Graph, Hygiene, Measures, Reason};
 use archkeel_report::{RuleReasons, Ruling, Status};
 use archkeel_store::Ingested;
 use serde::Serialize;
@@ -40,6 +40,16 @@ pub(crate) enum Input {
         path: String,
         file: Result<ValidationBaseline, String>,
     },
+}
+
+/// True when the request holds the budgets of the run against a baseline: it compares with a
+/// file that passed the check, or it writes the file from this run (AD-1090). A run with neither
+/// has no baseline value for a declared budget.
+pub(crate) fn holds_budgets(input: &Input) -> bool {
+    !matches!(
+        input,
+        Input::Compare { file: Err(_), .. } | Input::CompareAndWrite { file: Err(_), .. }
+    )
 }
 
 /// The part of the frame. `file` holds the bytes to write, as text.
@@ -98,9 +108,11 @@ fn action_of(cause: Option<&Reason>) -> Option<&'static str> {
 }
 
 /// The measured budgets. A run measures them only when each selected file was read and parsed.
+/// The three counts of calls and types come from the same sum as the `measures` part, which is
+/// absent when a row is missing or inconsistent: then they are not measured, never 0.
 /// A hidden edge (a dynamic import, an unresolved name) is not a number here: it is an entry of
 /// the UNKNOWN list, and a new one is red, so a ceiling over the proven edges hides nothing.
-pub(crate) fn budgets(graph: &Graph, reply: &Ingested) -> Budgets {
+pub(crate) fn budgets(graph: &Graph, reply: &Ingested, counts: Option<&Measures>) -> Budgets {
     let coverage = &reply.reply().facts.coverage;
     let selected = u64::try_from(coverage.selected_files.len()).unwrap_or(u64::MAX);
     if selected == 0 || coverage.files_read != selected || coverage.files_parsed != selected {
@@ -124,6 +136,9 @@ pub(crate) fn budgets(graph: &Graph, reply: &Ingested) -> Budgets {
     Budgets {
         cycle_edges: Some(cycle_edges),
         private_crossings: u64::try_from(private_crossings).ok(),
+        calls_unresolved: counts.map(|found| found.calls_unresolved),
+        typing_positions: counts.map(|found| found.typing_positions),
+        untyped_private_accesses: counts.map(|found| found.untyped_private_accesses),
     }
 }
 
@@ -174,15 +189,19 @@ pub(crate) fn observed(
     reply: Option<&Ingested>,
     graph: Option<&Graph>,
     refusals: Vec<String>,
+    (declared, counts): (&[BudgetName], Option<&Measures>),
 ) -> Observed {
     let mut gaps = gap_key::of_run(ruling, reply);
     gaps.unacceptable.extend(refusals);
     Observed {
         gaps,
         violations: violations(ruling),
+        declared: declared.to_vec(),
         budgets: graph
             .zip(reply)
-            .map_or_else(Budgets::default, |(graph, reply)| budgets(graph, reply)),
+            .map_or_else(Budgets::default, |(graph, reply)| {
+                budgets(graph, reply, counts)
+            }),
         unknown_status: ruling.decided().status() == Status::Unknown,
     }
 }
@@ -250,12 +269,16 @@ fn write(run: &Observed, compared: Option<Compared>) -> Part {
     }
     // A write without a file compares the run with its own output: no difference, and the exit
     // code is the one that `--baseline` gives for the same tree.
+    // A declared budget that the run cannot measure is not in the file: the run stays open, so a
+    // write cannot exit 0 for a budget that nothing checks.
+    let unmeasured = run.unmeasured_declared();
     let compared = compared.unwrap_or_else(|| Compared {
         // The file that this run writes holds these entries and items.
         accepted_entries: u64::try_from(run.gaps.keys.len()).unwrap_or(u64::MAX),
         accepted_unknowns: run.gaps.keys.values().sum(),
+        gaps: unmeasured.clone(),
         ..Compared::of(BaselineState::Written {
-            open: !run.gaps.keys.is_empty() || run.unknown_status,
+            open: !run.gaps.keys.is_empty() || run.unknown_status || !unmeasured.is_empty(),
         })
     });
     Part {
@@ -297,6 +320,12 @@ fn written(run: &Observed) -> String {
     let budgets = [
         (BudgetName::CycleEdges, run.budgets.cycle_edges),
         (BudgetName::PrivateCrossings, run.budgets.private_crossings),
+        (BudgetName::CallsUnresolved, run.budgets.calls_unresolved),
+        (BudgetName::TypingPositions, run.budgets.typing_positions),
+        (
+            BudgetName::UntypedPrivateAccesses,
+            run.budgets.untyped_private_accesses,
+        ),
     ]
     .into_iter()
     .filter_map(|(name, value)| {

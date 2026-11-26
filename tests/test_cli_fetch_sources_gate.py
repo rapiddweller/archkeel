@@ -74,7 +74,8 @@ def test_the_decision_runs_for_a_pull_request_in_the_cli_area_only() -> None:
 
 def test_the_sources_come_from_the_cache_that_the_gallery_fills() -> None:
     # `restore` only: a miss in a PR saves no second copy in its scope (`pages.yml` saves).
-    [restore] = [step for step in _steps() if "actions/cache/restore@" in step]
+    [restore] = [step for step in _steps() if "name: Restore the pinned sources" in step]
+    assert "actions/cache/restore@" in restore
     assert not [step for step in _steps() if "actions/cache@" in step]
     pages = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
     assert f"if: {FETCHING}" in restore
