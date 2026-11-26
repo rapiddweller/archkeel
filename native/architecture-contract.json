@@ -2101,6 +2101,19 @@
         "native.archkeel_report.build_error:BuildError",
         "native.archkeel_report.construct:construct_row",
         "native.archkeel_report.kind:word",
+        "native.archkeel_report.why:ClassCount",
+        "native.archkeel_report.why:CyclePath",
+        "native.archkeel_report.why:Cycles",
+        "native.archkeel_report.why:DeclaredEdge",
+        "native.archkeel_report.why:GapHolds",
+        "native.archkeel_report.why:HeldImport",
+        "native.archkeel_report.why:HoldKind",
+        "native.archkeel_report.why:Holds",
+        "native.archkeel_report.why:InterfaceHolds",
+        "native.archkeel_report.why:OriginCount",
+        "native.archkeel_report.why:Pair",
+        "native.archkeel_report.why:RuleHolds",
+        "native.archkeel_report.why:Step",
         "native.archkeel_report.why:WhyUnknown"
       ],
       "decided_by": "architect"
@@ -2303,7 +2316,20 @@
           "through": [
             "native.archkeel_report.build_error",
             "native.archkeel_report.kind",
-            "native.archkeel_report.why"
+            "native.archkeel_report.why",
+            "native.archkeel_report.why:ClassCount",
+            "native.archkeel_report.why:CyclePath",
+            "native.archkeel_report.why:Cycles",
+            "native.archkeel_report.why:DeclaredEdge",
+            "native.archkeel_report.why:GapHolds",
+            "native.archkeel_report.why:HeldImport",
+            "native.archkeel_report.why:HoldKind",
+            "native.archkeel_report.why:Holds",
+            "native.archkeel_report.why:InterfaceHolds",
+            "native.archkeel_report.why:OriginCount",
+            "native.archkeel_report.why:Pair",
+            "native.archkeel_report.why:RuleHolds",
+            "native.archkeel_report.why:Step"
           ]
         },
         {

@@ -26,13 +26,9 @@ use archkeel_model::{
 };
 use serde::Serialize;
 
-use crate::why::WhyUnknown;
-
-#[path = "explain_holds.rs"]
-mod holds;
-use holds::{
+use crate::why::{
     ClassCount, CyclePath, Cycles, DeclaredEdge, GapHolds, HeldImport, HoldKind, Holds,
-    InterfaceHolds, OriginCount, Pair, RuleHolds, Step,
+    InterfaceHolds, OriginCount, Pair, RuleHolds, Step, WhyUnknown,
 };
 
 const VERSION: u8 = 1;
