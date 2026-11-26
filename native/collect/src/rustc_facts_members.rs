@@ -4,12 +4,15 @@
 
 //! The workspace members and the configurations of the matrix (AD-1047).
 
-use crate::rustc_facts::KEPT_ENV;
 use archkeel_facts::type_reach::{matrix, Config, Unavailable, MAX_FEATURES};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+/// The only variables that a Cargo run may inherit. `RUSTC`, `RUSTFLAGS`, `CARGO_BUILD_*` and the like
+/// would change the build that the facts claim.
+pub(crate) const KEPT_ENV: [&str; 4] = ["PATH", "HOME", "RUSTUP_HOME", "CARGO_HOME"];
 
 /// The workspace members that `cargo metadata` names: only these crates are workspace code. A path
 /// dependency is no member, wherever its directory is.

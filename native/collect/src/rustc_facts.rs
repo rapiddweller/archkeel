@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use crate::rustc_facts_members::{configs, flags, members, set_driver_vars, Members};
+use crate::rustc_facts_members::{configs, flags, members, set_driver_vars, Members, KEPT_ENV};
 use crate::rustc_facts_merge::compact;
 
 /// Each file of `tools/rustc-facts` that a build needs, with its path inside that crate.
@@ -73,9 +73,6 @@ pub(crate) fn sha256() -> String {
     sha256_hex(&all)
 }
 
-/// The only variables that a Cargo run may inherit. `RUSTC`, `RUSTFLAGS`, `CARGO_BUILD_*` and the like
-/// would change the build that the facts claim.
-pub(crate) const KEPT_ENV: [&str; 4] = ["PATH", "HOME", "RUSTUP_HOME", "CARGO_HOME"];
 const WORK_CACHE_LIMIT: usize = 3;
 
 fn prune_work(work: &Path) {
