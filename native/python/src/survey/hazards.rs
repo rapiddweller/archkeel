@@ -41,8 +41,6 @@ mod annotation;
 mod bind;
 #[path = "hazards_comprehension.rs"]
 mod comprehension;
-#[path = "hazards_getattr.rs"]
-mod getattr;
 #[path = "hazards_inert.rs"]
 mod inert;
 #[path = "hazards_reexport.rs"]
@@ -198,6 +196,37 @@ impl Walk<'_> {
         false
     }
 
+    /// `getattr(name, "attr")` and `getattr(name, "attr", default)` with a literal attribute that
+    /// is no trojan horse string read the one attribute `name.attr` (AD-530). Other forms: as before.
+    fn literal_getattr(&mut self, call: &ruff_python_ast::ExprCall) -> bool {
+        let args = &call.arguments.args;
+        let named = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "getattr");
+        let (Some(Expr::Name(root)), Some(Expr::StringLiteral(attr))) = (args.first(), args.get(1))
+        else {
+            return false;
+        };
+        let literal = !TROJAN_HORSE_STRINGS.contains(&attr.value.to_str())
+            && !comprehension::reflective(attr.value.to_str(), false);
+        let plain = named && literal && (2..=3).contains(&args.len());
+        if !plain
+            || !call.arguments.keywords.is_empty()
+            || self.local("getattr")
+            || self.getattr_bound
+            || self.bound.contains_key("getattr")
+        {
+            return false;
+        }
+        let id = root.id.as_str();
+        if !self.local(id) {
+            let first = |origin: String| first_hazard(origin, &[attr.value.to_str()]);
+            if let Some((kind, name)) = self.origins(id).into_iter().find_map(first) {
+                self.push(kind, &name, call);
+            }
+        }
+        args.iter().skip(2).for_each(|item| self.visit_expr(item));
+        true
+    }
+
     /// A plain name that is not the base of an attribute.
     fn name(&mut self, id: &str, expr: &Expr) {
         if self.local(id) {
@@ -215,7 +244,8 @@ impl Walk<'_> {
             if let Some(kind) = hazard(&origin) {
                 return self.push(kind, &origin, expr);
             }
-            // A module with a hazard name that is read as a value flows on unseen (AD-1098).
+            // A module that holds a hazard name flows on as a value: a function returns it, a call
+            // takes it, a list holds it, a from-import of a project module names it (AD-1098).
             if above(&origin) || holds(&origin) || reexport::named(self.reexports, &origin) {
                 return self.push(DYNAMIC, &origin, expr);
             }
@@ -233,7 +263,7 @@ impl Walk<'_> {
             None if inert::code_type_check(call, &self.code_types, self.isinstance_visible) => {
                 self.visit_expr(&call.arguments.args[0]);
             }
-            None if !reflect::code(expr, &self.bound) && getattr::read(self, call) => {}
+            None if !reflect::code(expr, &self.bound) && self.literal_getattr(call) => {}
             None if inert::names_no_module(call, &|id| self.origins(id)) => {
                 visitor::walk_arguments(self, &call.arguments);
             }
