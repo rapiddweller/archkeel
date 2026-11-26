@@ -48,6 +48,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_self_check_diff.py",
         "test_self_check_gate.py",
         "test_self_check_report.py",
+        "test_self_check_scope.py",
         "test_self_check_shell.py",
         "test_self_check_summary.py",
         "test_ci_budget.py",
