@@ -356,9 +356,24 @@ fn sealed_cargo(subcommand: &str, cwd: &Path) -> Command {
     cmd
 }
 
+/// The text of each `.cargo/config(.toml)` from `root` upwards.
+fn config_texts(root: &Path) -> String {
+    let files = root
+        .ancestors()
+        .flat_map(|d| [d.join(".cargo/config.toml"), d.join(".cargo/config")]);
+    files
+        .filter_map(|f| std::fs::read_to_string(f).ok())
+        .collect()
+}
+
 /// `cargo metadata` with the resolve graph, from the workspace root. It runs no build script. `--locked` keeps Cargo from
 /// writing a `Cargo.lock` into the scanned repository: without a lock file this gives `None`.
 fn resolve_metadata(root: &Path) -> Option<Value> {
+    // A config with an `[env]` table can set `PATH`, `RUSTUP_HOME` or a library path for the `rustc` that Cargo starts
+    // to probe the host: no flag turns that table off. Such a repository is not resolved here (the fallback holds).
+    if config_texts(root).contains("env") {
+        return None;
+    }
     let mut cmd = sealed_cargo("metadata", root);
     // All features: an optional dependency that a feature enables is a possible edge.
     let out = cmd

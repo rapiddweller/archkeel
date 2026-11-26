@@ -194,3 +194,43 @@ def test_a_workspace_wrapper_of_the_repository_does_not_run_without_the_permissi
     marker.unlink(missing_ok=True)
     outcome(root, "validate", allow_build=False)
     assert not marker.exists(), "the scan ran an executable of the repository"
+
+
+def test_an_env_table_of_the_repository_cannot_start_its_own_compiler(
+    tmp_path: Path, release_core: Path
+) -> None:
+    layout = {
+        "crates/Cargo.toml": WORKSPACE,
+        "crates/app/Cargo.toml": _app(""),
+        "crates/app/src/lib.rs": "pub fn run() {}\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+    }
+    root = _scan(tmp_path, release_core, layout)
+    marker = tmp_path / "compiler-ran"
+    fake = root / "bin"
+    fake.mkdir()
+    (fake / "rustc").write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 1\n')
+    (fake / "rustc").chmod(0o755)
+    config = root / "crates/.cargo/config.toml"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(f'[env]\nPATH = {{ value = "{fake}:/usr/bin:/bin", force = true }}\n')
+    _recommit(root)
+    marker.unlink(missing_ok=True)
+    outcome(root, "validate", allow_build=False)
+    assert not marker.exists(), "the scan ran a compiler that the repository named"
+
+
+def test_a_crate_name_that_starts_with_lib_is_proven(tmp_path: Path, release_core: Path) -> None:
+    layout = {
+        "crates/Cargo.toml": WORKSPACE,
+        "crates/app/Cargo.toml": _app('liberty = { path = "../../vendor/liberty" }\n'),
+        "crates/app/src/lib.rs": "pub fn run() { liberty::f(); }\n",
+        "crates/app/src/main.rs": MARKED_MAIN,
+        "vendor/liberty/Cargo.toml": FOREIGN_X.replace('"x"', '"liberty"'),
+        "vendor/liberty/src/lib.rs": "pub fn f() {}\n",
+    }
+    root = _scan(tmp_path, release_core, layout)
+    _recommit(root)
+    assert _run(root, "crates/app/Cargo.toml") == "app ran\n"
+    result = outcome(root, "validate", allow_build=True)[1]
+    assert result["frame"]["rules"]["FORBID"][1] == "PASS", result["frame"]["rules"]

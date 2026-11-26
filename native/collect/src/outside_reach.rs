@@ -284,7 +284,8 @@ fn dep_info(artifact: &Value, root: &Path) -> Vec<PathBuf> {
         let Some(stem) = Path::new(name).file_stem().and_then(|s| s.to_str()) else {
             continue;
         };
-        let info = Path::new(name).with_file_name(format!("{}.d", stem.trim_start_matches("lib")));
+        let info = Path::new(name)
+            .with_file_name(format!("{}.d", stem.strip_prefix("lib").unwrap_or(stem)));
         let Ok(body) = std::fs::read_to_string(info) else {
             return vec![PathBuf::from("\0unreadable")];
         };
