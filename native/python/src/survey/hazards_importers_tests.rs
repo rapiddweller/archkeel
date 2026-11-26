@@ -146,6 +146,7 @@ fn a_text_over_the_parser_bound_a_run_time_write_and_a_string_variable_are_sites
         "s = 'a' + 'b'\nclass K:\n    x: s\n",
         "J = \"list[J]\"\ndef f(x: J): ...\n",
         "J = \"list[Ｊ]\"\ndef f(x: J): ...\n",
+        "class C:\n    s = \"list[C.s]\"\nclass K:\n    x: C.s\n",
         "J = \"list['J']\"\ndef f(x: J): ...\n",
         "A = \"B\"\nB = \"A\"\ndef f(x: A): ...\n",
         "A = \"B\"\nB = \"__import__('a.b')\"\ndef f(x: A): ...\n",

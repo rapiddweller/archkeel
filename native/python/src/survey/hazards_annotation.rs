@@ -130,6 +130,10 @@ impl<'a> Visitor<'a> for Names {
             Expr::Name(node) => {
                 self.found.insert(node.id.to_string());
             }
+            Expr::Attribute(node) => {
+                self.found.insert(node.attr.to_string());
+                visitor::walk_expr(self, expr);
+            }
             Expr::StringLiteral(text) => match parsed(text) {
                 Ok(code) if self.depth < 8 => {
                     self.depth += 1;
@@ -225,15 +229,7 @@ impl Strings {
 
 impl<'a> Visitor<'a> for Strings {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        match stmt {
-            Stmt::Assign(node) => node.targets.iter().for_each(|t| self.bind(t, &node.value)),
-            Stmt::AnnAssign(node) => {
-                if let Some(value) = &node.value {
-                    self.bind(&node.target, value);
-                }
-            }
-            _ => {}
-        }
+        class::assigned(stmt, |target, value| self.bind(target, value));
         visitor::walk_stmt(self, stmt);
     }
 }

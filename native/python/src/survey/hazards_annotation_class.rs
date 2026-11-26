@@ -15,10 +15,13 @@
 use std::collections::HashSet;
 
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Comprehension, Expr, Identifier, ModModule, Operator, Pattern, Stmt};
+use ruff_python_ast::{
+    Comprehension, Expr, Identifier, ModModule, Operator, Pattern, PatternMatchAs,
+    PatternMatchMapping, PatternMatchStar, Stmt,
+};
 use ruff_text_size::{Ranged, TextRange};
 
-use crate::survey::hazards::Site;
+use super::super::trojan_horse::Site;
 use crate::survey::hazards_names::DYNAMIC;
 
 /// The names that hold or run annotations.
@@ -66,6 +69,15 @@ pub(super) fn last(expr: &Expr) -> Option<&str> {
         Expr::Name(node) => Some(node.id.as_str()),
         Expr::Attribute(node) => Some(Identifier::as_str(&node.attr)),
         _ => None,
+    }
+}
+
+/// Each `target = value` of a statement: an assignment, or an annotated assignment with a value.
+pub(super) fn assigned<'a>(stmt: &'a Stmt, mut each: impl FnMut(&'a Expr, &'a Expr)) {
+    match stmt {
+        Stmt::Assign(node) => node.targets.iter().for_each(|t| each(t, &node.value)),
+        Stmt::AnnAssign(node) => node.value.iter().for_each(|v| each(&node.target, v)),
+        _ => {}
     }
 }
 
@@ -139,17 +151,15 @@ impl<'a> Scan<'a> {
 
     fn taint(&mut self, target: &Expr) {
         match target {
-            Expr::Name(node) => {
-                self.tainted.insert(node.id.to_string());
-            }
-            Expr::Attribute(node) => {
-                self.tainted.insert(node.attr.to_string());
-            }
             Expr::Subscript(node) => self.taint(&node.value),
             Expr::Tuple(node) => node.elts.iter().for_each(|e| self.taint(e)),
             Expr::List(node) => node.elts.iter().for_each(|e| self.taint(e)),
             Expr::Starred(node) => self.taint(&node.value),
-            _ => {}
+            other => {
+                if let Some(id) = last(other) {
+                    self.tainted.insert(id.to_owned());
+                }
+            }
         }
     }
 
@@ -269,13 +279,8 @@ fn inert(value: &Expr) -> bool {
 
 impl<'a> Visitor<'a> for Scan<'a> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        assigned(stmt, |target, value| self.bind(target, value));
         match stmt {
-            Stmt::Assign(node) => node.targets.iter().for_each(|t| self.bind(t, &node.value)),
-            Stmt::AnnAssign(node) => {
-                if let Some(value) = &node.value {
-                    self.bind(&node.target, value);
-                }
-            }
             Stmt::AugAssign(node) => self.taint(&node.target),
             Stmt::For(node) => self.taint(&node.target),
             Stmt::With(node) => node
@@ -299,13 +304,16 @@ impl<'a> Visitor<'a> for Scan<'a> {
     }
 
     fn visit_pattern(&mut self, pattern: &'a Pattern) {
-        let name = match pattern {
-            Pattern::MatchAs(node) => node.name.as_ref(),
-            Pattern::MatchStar(node) => node.name.as_ref(),
-            Pattern::MatchMapping(node) => node.rest.as_ref(),
-            _ => None,
-        };
-        if let Some(name) = name {
+        if let Pattern::MatchAs(PatternMatchAs {
+            name: Some(name), ..
+        })
+        | Pattern::MatchStar(PatternMatchStar {
+            name: Some(name), ..
+        })
+        | Pattern::MatchMapping(PatternMatchMapping {
+            rest: Some(name), ..
+        }) = pattern
+        {
             self.tainted.insert(name.to_string());
         }
         visitor::walk_pattern(self, pattern);
