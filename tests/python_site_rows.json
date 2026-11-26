@@ -257,7 +257,7 @@
  "new-class-attr-written": [
   "UNKNOWN",
   "UNKNOWN",
-  "unresolved instance_of site"
+  "absent symbol: the symbol inventory is not complete"
  ],
  "new-returns-other": [
   "UNKNOWN",
@@ -267,7 +267,7 @@
  "new-setattr-written": [
   "PASS",
   "UNKNOWN",
-  "unresolved instance_of site"
+  "absent symbol: the symbol inventory is not complete"
  ],
  "realizes": [
   "PASS",
