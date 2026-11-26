@@ -21,4 +21,4 @@
 **Tests.**
 - `system_topology::tests::a_label_edge_of_two_parts_is_one_row_with_the_sum_of_both`
 - `system_topology::tests::two_parts_that_name_one_module_stay_refused`
-- `tests/test_core_topology_identity.py`
+- `tests/test_cli_core_topology_identity.py`

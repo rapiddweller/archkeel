@@ -7,7 +7,7 @@
 //! language of each module is the collector value of its part. No id may name two things: a
 //! component, a module or a rule that two parts use refuses the run.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use archkeel_collect::SystemPart;
 use serde_json::{json, Map, Value};
@@ -59,11 +59,15 @@ const MAX_EVIDENCE: usize = 5;
 /// the sum of the counts, the evidence of both and the rules of both.
 fn merge_edges(rows: Vec<Value>) -> Vec<Value> {
     let mut merged: Vec<Value> = Vec::new();
+    let mut place: HashMap<String, usize> = HashMap::new();
     for row in rows {
-        let Some(held) = merged.iter_mut().find(|held| held["id"] == row["id"]) else {
+        let id = row["id"].as_str().unwrap_or_default().to_owned();
+        let Some(&at) = place.get(&id) else {
+            place.insert(id, merged.len());
             merged.push(row);
             continue;
         };
+        let held = &mut merged[at];
         for key in ["count", "evidence_total"] {
             let sum = held[key].as_u64().unwrap_or(0) + row[key].as_u64().unwrap_or(0);
             held[key] = json!(sum);
