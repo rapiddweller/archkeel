@@ -335,3 +335,20 @@ def test_a_possible_import_gives_a_declared_row_never_a_proven_one() -> None:
         "R-OBSERVED": Basis.PROVEN,
         "R-DECLARED": Basis.DECLARED,
     }
+
+
+def test_a_test_source_is_left_out_of_the_explorer_view_and_the_verdict_says_so(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """AD-1117: the view skips a test file by default; `validate` keeps it and still fails."""
+    test_file = "shop/model/test_entities.py"
+    files = {test_file: "from shop.store import repository\n"}
+    with _scan(release_core, tmp_path / "cache", files) as scan:
+        code, result = _validate(release_core, scan.root)
+        assert result["frame"]["status"] == "FAIL", result["frame"]["violations"]
+        assert code != 0
+        verdict = scan.ask("verdict")
+        assert verdict["excluded_sources"] >= 1
+        assert test_file in verdict["excluded_paths"]
+        assert verdict["violations"] < sum(result["frame"]["violations"].values())
+        assert "validate" in verdict["scope"]

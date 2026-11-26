@@ -56,6 +56,8 @@ pub(crate) struct Config {
     pub tsconfig: String,
     pub bundler: bool,
     pub exclude_test_sources: bool,
+    /// The config states `exclude_test_sources`, true or false: the Explorer default then does not apply.
+    pub test_scope_set: bool,
     pub python: Option<String>,
     pub import_roots_ambiguous: bool,
     pub rust_type_reach: bool,
@@ -156,6 +158,7 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         tsconfig,
         bundler,
         exclude_test_sources,
+        test_scope_set: scan.contains_key("exclude_test_sources"),
         python,
         import_roots_ambiguous,
         rust_type_reach,

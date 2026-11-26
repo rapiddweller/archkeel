@@ -152,7 +152,14 @@ pub fn scan_with_options(
         .path()
         .to_str()
         .ok_or_else(|| refused("root", "the root is not UTF-8"))?;
-    let config = read_config(&root, identity.config)?;
+    let mut config = read_config(&root, identity.config)?;
+    // AD-1117: the Explorer leaves test sources out unless the config states the scope. `validate` and `report` keep tests.
+    if explorer
+        && !config.test_scope_set
+        && matches!(config.profile, Profile::Python | Profile::TypeScript)
+    {
+        config.exclude_test_sources = true;
+    }
     let head = git::head(root.path()).map_err(|why| refused("git head", why))?;
     if let Some(claimed) = identity.git_head {
         if head != claimed {

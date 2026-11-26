@@ -282,3 +282,26 @@ fn a_reply_that_names_the_python_or_the_dart_profile_meets_the_check_of_that_col
         assert!(refused.contains(reason), "{profile:?}: {refused}");
     }
 }
+
+// AD-1117: the Explorer leaves test sources out of a Python or TypeScript scan unless the config
+// states the scope. `validate` and `report` keep the tests.
+fn test_scope(root: &Path, explorer: bool) -> serde_json::Value {
+    let text = root.to_str().unwrap();
+    let scanned = scan_with_options(&identity(text), 1 << 26, None, explorer).unwrap();
+    scanned.request["scope"]["exclude_test_sources"].clone()
+}
+
+#[test]
+fn the_explorer_excludes_test_sources_by_default_and_the_config_decides_otherwise() {
+    let root = repository("H-typescript");
+    assert_eq!(test_scope(&root, false), serde_json::Value::Null);
+    assert_eq!(test_scope(&root, true), serde_json::Value::Bool(true));
+    let config = root.join("archkeel.toml");
+    let text = fs::read_to_string(&config).unwrap();
+    fs::write(&config, format!("{text}exclude_test_sources = false\n")).unwrap();
+    commit(&root);
+    assert_eq!(test_scope(&root, true), serde_json::Value::Null);
+    fs::write(&config, format!("{text}exclude_test_sources = true\n")).unwrap();
+    commit(&root);
+    assert_eq!(test_scope(&root, false), serde_json::Value::Bool(true));
+}
