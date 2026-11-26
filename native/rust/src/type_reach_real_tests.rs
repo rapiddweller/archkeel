@@ -46,7 +46,7 @@ fn the_reader_verifies_the_facts_of_the_native_workspace() {
         .unwrap();
     let mut scanned = BTreeMap::new();
     scan_rust_files(&root, &root.join("native"), &mut scanned);
-    let facts = read_descriptor(&out("native.json"), &scanned).unwrap();
+    let facts = read_descriptor(&out("native.json"), &scanned).unwrap().0;
     assert_eq!(facts.len(), 9);
 }
 
@@ -131,7 +131,7 @@ fn each_hole_keeps_its_real_dispatch_pair_and_each_control_is_excluded() {
         .unwrap();
     let mut scanned = BTreeMap::new();
     scan_rust_files(&root, &root, &mut scanned);
-    let loaded = read_descriptor(&out("fixtures.json"), &scanned).unwrap();
+    let loaded = read_descriptor(&out("fixtures.json"), &scanned).unwrap().0;
     let truth: BTreeMap<String, usize> =
         serde_json::from_str(&std::fs::read_to_string(out("truth.json")).unwrap()).unwrap();
     let cases = KEPT
@@ -176,7 +176,7 @@ fn a_vendored_crate_with_the_name_of_a_member_is_foreign_and_a_renamed_member_is
         .unwrap();
     let mut scanned = BTreeMap::new();
     scan_rust_files(&root, &root, &mut scanned);
-    let loaded = read_descriptor(&out("coll.json"), &scanned).unwrap();
+    let loaded = read_descriptor(&out("coll.json"), &scanned).unwrap().0;
     let truth: BTreeMap<String, usize> =
         serde_json::from_str(&std::fs::read_to_string(out("coll-truth.json")).unwrap()).unwrap();
     let cases = [

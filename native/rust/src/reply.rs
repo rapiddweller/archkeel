@@ -7,7 +7,7 @@
 use archkeel_facts::envelope::validation::{InterfaceNeed, Registered};
 use archkeel_facts::envelope::{
     Evidence, Input, LimitSupport, Profile, ProfileLimits, Provenance, Reply, Role, SectionName,
-    Validation,
+    TypeReach, Validation,
 };
 use archkeel_facts::request::RustRequest;
 use archkeel_facts::{CallFact, GapFact, ImportFact, Record, SymbolFact};
@@ -17,6 +17,7 @@ use archkeel_wire::typed::assemble;
 
 use crate::builder::Builder;
 use crate::tree::Walked;
+use crate::type_reach::Reached;
 use archkeel_snapshot::Snapshot;
 
 const SECTIONS: [&str; 4] = ["imports", "symbols", "unknowns", "calls"];
@@ -63,6 +64,8 @@ pub(crate) struct Collected {
     pub evidence: Vec<Evidence>,
     /// The scan states `LOCK_PREMISE` with its verdict.
     pub lock_premise: bool,
+    /// The binding values of the type-reach facts that the scan verified and used (AD-1116).
+    pub reached: Option<Reached>,
 }
 
 impl Collected {
@@ -78,8 +81,9 @@ impl Collected {
     /// states that each import names its item with its publication route, so the core can
     /// decide the symbol selectors and the interface rule (AD-500, AD-604). The compressed
     /// stream keeps its frozen statement set, as the Python survey does (AD-504).
-    pub(crate) fn typed(self, version: Version) -> Result<Reply, String> {
+    pub(crate) fn typed(mut self, version: Version) -> Result<Reply, String> {
         let premise = self.lock_premise;
+        let reached = self.reached.take();
         let (head, records) = self.parts();
         let mut reply = assemble(version, head, |writer| records.produce(writer))?;
         reply.facts.profile_limits = Some(ProfileLimits {
@@ -89,6 +93,14 @@ impl Collected {
         });
         let features = &mut reply.facts.capabilities.resolution_features;
         features.push(ROUTES_FEATURE.to_owned());
+        reply.facts.type_reach = reached.map(|found| TypeReach {
+            rustc: found.rustc,
+            target_triple: found.target_triple,
+            driver_sha256: found.driver_sha256,
+            cargo_lock_sha256: found.cargo_lock_sha256,
+            members: found.members,
+            configs: found.configs,
+        });
         reply.facts.scope_premise = Some(
             (if premise {
                 LOCK_PREMISE
@@ -112,6 +124,7 @@ impl Collected {
             files_read,
             evidence,
             lock_premise: _,
+            reached: _,
         } = self;
         (
             head,
@@ -216,6 +229,7 @@ impl Builder {
             files_read,
             evidence: evidence.into_values().collect(),
             lock_premise,
+            reached: None,
         }
     }
 }

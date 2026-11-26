@@ -101,7 +101,22 @@ jobs:
         name: Check native/ and the Python shell with the core (AD-1064)
         env:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
+          NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
         run: make self-validate SELFCHECK_BASE=HEAD~1 SELFCHECK_ARGS=--report-only
+
+      - name: Record native self-check phase timings
+        if: always()
+        run: |
+          {
+            echo '### Native self-check phase timings'
+            if [ -f "$RUNNER_TEMP/native-selfcheck-timings.json" ]; then
+              echo '```json'
+              cat "$RUNNER_TEMP/native-selfcheck-timings.json"
+              echo '```'
+            else
+              echo 'No timing file was produced.'
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the self-check result of this commit as the base of the next runs
         if: always() && hashFiles('test-artifacts/selfcheck/result.json') != ''

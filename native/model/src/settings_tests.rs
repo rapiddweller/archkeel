@@ -4,8 +4,9 @@
 
 //! The settings of the shell are bound to the reply by a check (AD-372, review of #1058).
 
-use super::{Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
+use super::{provenance, Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
 use crate::reason::Refusal;
+use archkeel_facts::envelope::TypeReach;
 
 fn settings(namespace: &str, names: &[&str]) -> Settings {
     let names = names.iter().map(|name| (*name).to_owned()).collect();
@@ -117,4 +118,64 @@ fn a_trusted_claim_holds_only_for_the_collector_of_the_profile() {
     assert_eq!(claimed.bound("evil", "p").producer(), Producer::External);
     let external = settings("shop", &[]);
     assert_eq!(external.bound("p", "p").producer(), Producer::External);
+}
+
+fn fact() -> TypeReach {
+    TypeReach {
+        rustc: "rustc 1.97.0 (2d8144b78 2026-07-07)\nhost: aarch64-apple-darwin\n".to_owned(),
+        target_triple: "aarch64-apple-darwin".to_owned(),
+        driver_sha256: "a".repeat(64),
+        cargo_lock_sha256: "b".repeat(64),
+        members: vec!["native/".to_owned()],
+        configs: [
+            "default",
+            "no-default-features",
+            "all-features",
+            "feature:app/x",
+        ]
+        .map(str::to_owned)
+        .to_vec(),
+    }
+}
+
+#[test]
+fn a_complete_provenance_is_admitted() {
+    assert_eq!(provenance(&fact()), Ok(()));
+}
+
+#[test]
+fn a_member_at_the_scan_root_is_admitted() {
+    let mut root = fact();
+    root.members = vec![String::new()];
+    assert_eq!(provenance(&root), Ok(()));
+}
+
+#[test]
+fn each_tampered_part_of_the_provenance_is_refused_with_its_own_reason() {
+    type Tamper = fn(&mut TypeReach);
+    let cases: [(&str, Tamper); 7] = [
+        ("no rustc version text", |f| f.rustc = String::new()),
+        ("no target triple", |f| f.target_triple = String::new()),
+        ("a hash that is not a SHA-256", |f| {
+            f.driver_sha256 = "d1".to_owned()
+        }),
+        ("a hash that is not a SHA-256", |f| {
+            f.cargo_lock_sha256 = "z".repeat(64)
+        }),
+        (
+            "no workspace member, or a member that is neither the root nor ends with a slash",
+            |f| f.members.clear(),
+        ),
+        ("a configuration that the matrix does not know", |f| {
+            f.configs.push("other".to_owned())
+        }),
+        ("a matrix that misses a fixed configuration", |f| {
+            f.configs.retain(|name| name != "all-features");
+        }),
+    ];
+    for (rule, tamper) in cases {
+        let mut found = fact();
+        tamper(&mut found);
+        assert_eq!(provenance(&found), Err(Refusal::TypeReach(rule)), "{rule}");
+    }
 }

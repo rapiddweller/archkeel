@@ -203,7 +203,7 @@ SELFCHECK_ARGS ?=
 # The gate fails on growth against the base commit (AD-1064), not on the gaps that exist.
 self-validate-native: core
 	@mkdir -p test-artifacts/validation-native
-	@$(UV) run --locked archkeel report --config native/archkeel.toml --json --topology > test-artifacts/validation-native/result.json || true
+	@$(UV) run --locked archkeel report --config native/archkeel.toml --json --topology $(if $(NATIVE_SELFCHECK_TIMINGS),--timings "$(NATIVE_SELFCHECK_TIMINGS)") > test-artifacts/validation-native/result.json || true
 	@$(UV) run --locked python tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py --result test-artifacts/validation-native/result.json --base "$(SELFCHECK_BASE)" --uv "$(UV)" $(SELFCHECK_ARGS)
 	@echo "Native architecture rules: full result: test-artifacts/validation-native/result.json"
 

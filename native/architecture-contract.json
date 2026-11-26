@@ -71,6 +71,7 @@
         "native.archkeel_facts.envelope:State",
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:TargetSource",
+        "native.archkeel_facts.envelope:TypeReach",
         "native.archkeel_facts.envelope:Validation",
         "native.archkeel_facts.envelope:WrittenActual",
         "native.archkeel_facts.envelope:source_digest",
@@ -777,6 +778,7 @@
             "native.archkeel_facts.nullable",
             "native.archkeel_facts.profile_traits",
             "native.archkeel_facts.standard",
+            "native.archkeel_facts.type_reach",
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
@@ -5637,6 +5639,13 @@
           "through": [
             "native.archkeel_rust_collector.builder"
           ]
+        },
+        {
+          "component": "rs-type-reach",
+          "rationale": "State the verified type-reach facts as the provenance fact of the reply (AD-1116).",
+          "through": [
+            "native.archkeel_rust_collector.type_reach"
+          ]
         }
       ],
       "public": [
@@ -5677,6 +5686,8 @@
       ],
       "decided_by": "architect",
       "public": [
+        "native.archkeel_rust_collector.type_reach:Announced",
+        "native.archkeel_rust_collector.type_reach:Reached",
         "native.archkeel_rust_collector.type_reach:announced",
         "native.archkeel_rust_collector.type_reach_facts:Facts",
         "native.archkeel_rust_collector.type_reach_filter:Filter"
@@ -5991,6 +6002,7 @@
         "native.archkeel_python_collector.parse.work:Work",
         "native.archkeel_python_collector.parse:ParseFailure",
         "native.archkeel_python_collector.parse:comments",
+        "native.archkeel_python_collector.parse:expression",
         "native.archkeel_python_collector.parse:parse"
       ],
       "decided_by": "architect"

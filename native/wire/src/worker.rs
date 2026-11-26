@@ -4,7 +4,7 @@
 
 //! Private same-build worker protocol. Public wire replies carry no live authority.
 
-use archkeel_facts::envelope::{ProfileLimits, Reply};
+use archkeel_facts::envelope::{ProfileLimits, Reply, TypeReach};
 use archkeel_facts::ids::FactId;
 use archkeel_facts::request::Request;
 use archkeel_facts::{GapFact, Record, Section};
@@ -96,6 +96,7 @@ struct Packet {
     coverage_name_free: Vec<u32>,
     inferred_receivers: BTreeSet<FactId>,
     excluded_sources: Vec<String>,
+    type_reach: Option<TypeReach>,
 }
 
 fn first_unknowns(sections: &[Section]) -> Option<&[Record<GapFact>]> {
@@ -173,6 +174,7 @@ impl Packet {
             .map(|record| record.id.clone())
             .collect();
         let excluded_sources = std::mem::take(&mut reply.facts.excluded_sources);
+        let type_reach = reply.facts.type_reach.take();
         Ok(Self {
             limits: reply
                 .facts
@@ -192,6 +194,7 @@ impl Packet {
             coverage_name_free,
             inferred_receivers,
             excluded_sources,
+            type_reach,
         })
     }
 
@@ -208,6 +211,7 @@ impl Packet {
             coverage_name_free,
             mut inferred_receivers,
             excluded_sources,
+            type_reach,
         } = self;
         let mut unknowns: Vec<&mut Record<GapFact>> = Vec::new();
         for section in &mut reply.facts.sections {
@@ -239,6 +243,7 @@ impl Packet {
         reply.facts.profile_limits = Some(limits);
         reply.facts.scope_premise = Some(premise);
         reply.facts.excluded_sources = excluded_sources;
+        reply.facts.type_reach = type_reach;
         Ok(reply)
     }
 }

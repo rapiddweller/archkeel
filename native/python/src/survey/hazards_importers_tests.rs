@@ -95,3 +95,37 @@ fn a_star_import_of_a_module_that_holds_no_hazard_name_is_no_site() {
         assert_eq!(details(source), Vec::<String>::new(), "{source}");
     }
 }
+
+#[test]
+fn a_string_annotation_is_read_as_code_and_a_hazard_in_it_is_a_site() {
+    for source in [
+        "class K:\n    x: \"__import__('a.b')\"\n",
+        "def f(x: \"__import__('a.b')\"): ...\n",
+        "def f() -> \"__import__('a.b')\": ...\n",
+        "def f(*, x: \"__import__('a.b')\" = 1): ...\n",
+        "x: \"List[__import__('a.b')]\" = []\n",
+        "x: List[\"__import__('a.b')\"] = []\n",
+        "import unittest\nx: \"unittest.main(module='a')\"\n",
+        "from typing import ForwardRef\nForwardRef(\"__import__('a.b')\")\n",
+        "import typing\ntyping.ForwardRef(\"eval('x')\")\n",
+    ] {
+        assert!(!details(source).is_empty(), "{source}");
+    }
+}
+
+#[test]
+fn a_string_annotation_without_a_hazard_and_a_literal_value_are_no_site() {
+    for source in [
+        "x: \"List[int]\" = []\n",
+        "x: \"Annotated[int, Field(gt=0)]\"\n",
+        "def f(x: \"Foo\") -> \"Bar\": ...\n",
+        "from typing import Literal\nx: Literal[\"eval\", \"exec\"]\n",
+        "import typing\nx: typing.Literal[\"help\"]\n",
+        "x: \"not valid code (\"\n",
+        "x: \"a b\"\n",
+        "from typing import ForwardRef\nForwardRef(\"Foo\")\n",
+        "s = \"__import__('a.b')\"\n",
+    ] {
+        assert_eq!(details(source), Vec::<String>::new(), "{source}");
+    }
+}
