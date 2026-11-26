@@ -229,12 +229,8 @@ impl Walk<'_> {
 
     /// A plain name that is not the base of an attribute.
     fn name(&mut self, id: &str, expr: &Expr) {
-        if self.local(id) {
-            return;
-        }
-        if matches!(expr, Expr::Name(node) if node.ctx == ExprContext::Load)
-            && inert::read(&self.inert_modules, id, &[])
-        {
+        let load = matches!(expr, Expr::Name(node) if node.ctx == ExprContext::Load);
+        if self.local(id) || (load && inert::read(&self.inert_modules, id, &[])) {
             return;
         }
         if BUILTIN_TROJAN_HORSES.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
@@ -244,8 +240,7 @@ impl Walk<'_> {
             if let Some(kind) = hazard(&origin) {
                 return self.push(kind, &origin, expr);
             }
-            // A module that holds a hazard name flows on as a value: a function returns it, a call
-            // takes it, a list holds it, a from-import of a project module names it (AD-1098).
+            // A module with a hazard name that is read as a value flows on unseen (AD-1098).
             if above(&origin) || holds(&origin) || reexport::named(self.reexports, &origin) {
                 return self.push(DYNAMIC, &origin, expr);
             }
