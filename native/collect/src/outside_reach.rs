@@ -343,7 +343,11 @@ fn is_output(dir: &Path) -> bool {
         Some(".git") => "HEAD",
         _ => return false,
     };
-    dir.join(marker).exists()
+    // Build output holds no Rust source at its top; a module directory with a stray marker does.
+    let module = std::fs::read_dir(dir).is_ok_and(|mut entries| {
+        entries.any(|e| e.is_ok_and(|e| e.path().extension().is_some_and(|x| x == "rs")))
+    });
+    dir.join(marker).exists() && !module
 }
 
 /// Whether the canonical path `target` lies in the crate `own` and in no member.

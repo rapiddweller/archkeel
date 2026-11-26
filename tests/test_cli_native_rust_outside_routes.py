@@ -175,6 +175,7 @@ ROUTES = {
 EXTRA = {
     "root-module-named-target": {
         "vendor/x/lib.rs": "mod target;\npub fn f() { target::f(); }\n",
+        "vendor/x/target/CACHEDIR.TAG": "Signature: 8a477f597d28d172789f06886806bc55\n",
         "vendor/x/target/mod.rs": (
             'include!("../../../crates/base/src/lib.rs");\npub fn f() { make(); }\n'
         ),
