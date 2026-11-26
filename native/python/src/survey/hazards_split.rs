@@ -45,7 +45,12 @@ pub(super) fn split(
         for (range, target) in covered.iter().flat_map(|item| &item.targets) {
             literals.push((index, *range, target.clone()));
         }
-        let named = comprehension_trojans((&module.tree, &module.name), &facts, chain_clear);
+        let named = comprehension_trojans(
+            (&module.tree, &module.name),
+            &facts,
+            &reexports,
+            chain_clear,
+        );
         let named = named
             .into_iter()
             .map(|(name, at)| Site::plain(DYNAMIC, name, at));

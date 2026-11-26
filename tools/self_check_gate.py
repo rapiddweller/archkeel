@@ -59,6 +59,11 @@ INPUTS = (
     "Makefile",
     ":(glob)tools/self_check_*.py",
 )
+# The Rust walk of the scan reads the whole repository for Cargo settings (`registry_overrides.rs`):
+# a `.cargo` directory, a link to a directory, a path deeper than its depth limit, or a tree
+# larger than its entry limit changes the result wherever it stands. The margins stay below them.
+MAX_DEPTH = 100
+MAX_FILES = 250_000
 FULL_SHA = re.compile(r"[0-9a-f]{40}")
 BINARIES = ("archkeel-core", "archkeel-rust-collector", "archkeel-typescript-collector")
 
@@ -163,6 +168,76 @@ def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
         shutil.rmtree(work, ignore_errors=True)
 
 
+def git_bytes(*args: str) -> list[str]:
+    """The NUL-separated fields of a git command; a path need not be UTF-8."""
+    done = subprocess.run(["git", *args], capture_output=True)
+    if done.returncode != 0:
+        raise Unusable(f"git {' '.join(args)} failed: {done.stderr.decode(errors='replace')}")
+    return done.stdout.decode("utf-8", errors="surrogateescape").split("\0")
+
+
+def repository_wide_change(earlier: str, sha: str) -> bool:
+    """Whether a change outside INPUTS can change the scan: a `.cargo` path, a link, a deep path."""
+    raw = git_bytes("diff", "--raw", "--no-renames", "-z", earlier, sha)
+    for meta, path in zip(raw[0::2], raw[1::2], strict=False):
+        modes = meta.lstrip(":").split()[:2]
+        parts = path.split("/")
+        if ".cargo" in parts or "120000" in modes or len(parts) > MAX_DEPTH:
+            return True
+    return any(
+        len(git_bytes("ls-tree", "-r", "-z", "--name-only", rev)) > MAX_FILES
+        for rev in (earlier, sha)
+    )
+
+
+def normal_path(text: str) -> bool:
+    """The rule of `normal()` in `native/core/src/provenance.rs`: the strings the core may read.
+
+    Mirrored, not shared (the core is Rust). A wider rule here only blocks more reuse.
+    """
+    return (
+        bool(text)
+        and not any(char in text for char in "\\:\0")
+        and all(part not in ("", ".", "..") for part in text.split("/"))
+    )
+
+
+def path_strings(value: Any) -> set[str]:
+    """Every string of a JSON value that the core could read as a cited path."""
+    if isinstance(value, str):
+        return {value} if normal_path(value) else set()
+    items = value.values() if isinstance(value, dict) else value if isinstance(value, list) else []
+    return set().union(*(path_strings(item) for item in items)) if items else set()
+
+
+def read_paths(found: dict[str, Any], sha: str) -> set[str]:
+    """The repository paths that the cached result may have read: the files it bound
+    (`contract_files`), and each string of those contracts that the core could read as a cited
+    path (`native/core/src/provenance.rs`). A cited file that the core could not read is no bound
+    file, so the contract names it here, with any spelling that `normal_path` accepts.
+    """
+    bound = {path for path in found["contract_files"] if isinstance(path, str)}
+    cited = set(bound)
+    for path in bound:
+        if path.endswith(".json"):
+            try:
+                cited |= path_strings(json.loads(git("show", f"{sha}:{path}")))
+            except (Unusable, ValueError):
+                continue
+    return cited
+
+
+def same_paths(earlier: str, sha: str, paths: set[str]) -> bool:
+    """Whether each path has the same object, or none, in both commits (a link or a file)."""
+
+    def objects(rev: str) -> dict[str, str]:
+        fields = git_bytes("ls-tree", "-r", "-z", rev)
+        found = (field.split("\t", 1) for field in fields if "\t" in field)
+        return {path: meta for meta, path in found if path in paths}
+
+    return objects(earlier) == objects(sha)
+
+
 def reuse_of_earlier(found: dict[str, Any], sha: str) -> dict[str, Any] | None:
     """The result of an earlier main commit as the base `sha`, only when no input differs.
 
@@ -178,7 +253,13 @@ def reuse_of_earlier(found: dict[str, Any], sha: str) -> dict[str, Any] | None:
     except Unusable:
         return None
     unchanged = subprocess.run(["git", "diff", "--quiet", earlier, sha, "--", *INPUTS])
-    if unchanged.returncode != 0:
+    if unchanged.returncode != 0 or repository_wide_change(earlier, sha):
+        return None
+    # The documents that the core read are inputs too: a marked graph or a cited decision.
+    try:
+        if not same_paths(earlier, sha, read_paths(found, sha)):
+            return None
+    except Unusable:
         return None
     return {**found, "sha": sha, "tree": git("rev-parse", f"{sha}:native"), "reused_from": earlier}
 
