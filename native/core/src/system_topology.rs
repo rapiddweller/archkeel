@@ -7,7 +7,7 @@
 //! language of each module is the collector value of its part. No id may name two things: a
 //! component, a module or a rule that two parts use refuses the run.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use archkeel_collect::SystemPart;
 use serde_json::{json, Map, Value};
@@ -49,6 +49,51 @@ fn unique(seen: &mut BTreeSet<String>, kind: &str, id: Option<&str>) -> Result<(
     } else {
         Err(format!("system: two parts name the {kind} {id}"))
     }
+}
+
+/// The most evidence rows that one edge lists (`topology_projection.rs`).
+const MAX_EVIDENCE: usize = 5;
+
+/// One row for each id: the edges `unowned -> external` and the like name no component of a part,
+/// so each part writes its own row with the same id. A scan of all parts would hold one row with
+/// the sum of the counts, the evidence of both and the rules of both.
+fn merge_edges(rows: Vec<Value>) -> Vec<Value> {
+    let mut merged: Vec<Value> = Vec::new();
+    let mut place: HashMap<String, usize> = HashMap::new();
+    for row in rows {
+        let id = row["id"].as_str().unwrap_or_default().to_owned();
+        let Some(&at) = place.get(&id) else {
+            place.insert(id, merged.len());
+            merged.push(row);
+            continue;
+        };
+        let held = &mut merged[at];
+        let sum = |key: &str, held: &Value| {
+            held[key].as_u64().unwrap_or(0) + row[key].as_u64().unwrap_or(0)
+        };
+        held["count"] = json!(sum("count", held));
+        // A location that both rows list counts once, so the total stays the size of the set.
+        let shared = union(held, &row, "evidence", MAX_EVIDENCE) as u64;
+        held["evidence_total"] = json!(sum("evidence_total", held) - shared);
+        let _ = union(held, &row, "rules", usize::MAX);
+    }
+    merged
+}
+
+/// Add the items of `row[key]` that `held[key]` lacks, up to `cap` items. It returns the number
+/// of items that both hold.
+fn union(held: &mut Value, row: &Value, key: &str, cap: usize) -> usize {
+    let mut items = held[key].as_array().cloned().unwrap_or_default();
+    let mut shared = 0;
+    for item in row[key].as_array().into_iter().flatten() {
+        if items.contains(item) {
+            shared += 1;
+        } else if items.len() < cap {
+            items.push(item.clone());
+        }
+    }
+    held[key] = json!(items);
+    shared
 }
 
 /// The topology of the system. `None` when no part states one (a part without it is a gap that
@@ -121,6 +166,18 @@ pub(crate) fn topology(
         .iter()
         .find_map(|(_, frame)| frame.get("topology").and_then(Value::as_object));
     let [edges, component_edges, requires, layers, mut gaps] = lists;
+    let component_edges = merge_edges(component_edges);
+    totals.insert("component_edges".to_owned(), json!(component_edges.len()));
+    // The largest evidence list of one edge, as the projection of one scan counts it.
+    let evidence_per_edge = edges
+        .iter()
+        .chain(&component_edges)
+        .filter_map(|edge| edge["evidence_total"].as_u64())
+        .max()
+        .unwrap_or(0);
+    totals.insert("evidence_per_edge".to_owned(), json!(evidence_per_edge));
+    truncated |= evidence_per_edge > MAX_EVIDENCE as u64;
+    complete &= !truncated;
     // The scope of the system is open: the topology names that reason as a gap (the shell reads
     // an open scope only with its reason among the gaps).
     if let Some(reason) = open.filter(|reason| !gaps.iter().any(|gap| gap == reason)) {

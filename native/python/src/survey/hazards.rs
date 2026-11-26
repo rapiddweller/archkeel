@@ -16,14 +16,16 @@ use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
+use crate::parse::Unread;
+
 use super::binders::Binders;
 use super::bound::Bound;
 use super::literal::Proof;
 use super::syspath;
 
 use super::hazards_names::{
-    above, attribute_trojan_horse, first_hazard, module_hazard, BUILTIN_TROJAN_HORSES,
-    IMPORT_FUNCTIONS, TROJAN_HORSE_STRINGS,
+    self as names, above, attribute_trojan_horse, first_hazard, module_hazard,
+    BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS, TROJAN_HORSE_STRINGS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
 use bind::imported;
@@ -76,6 +78,7 @@ pub(super) fn sites(
         code_aliases: reflect::code_aliases(tree),
         reexports,
         annotation: false,
+        strings: annotation::Strings::of(tree),
     };
     for stmt in &tree.body {
         // AD-538: an expression statement of the module body that appends a directory of the
@@ -94,6 +97,7 @@ pub(super) fn sites(
 struct Walk<'r> {
     reexports: &'r Reexports,
     annotation: bool,
+    strings: annotation::Strings,
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
     inert_modules: HashMap<String, String>,
@@ -178,21 +182,7 @@ impl Walk<'_> {
 
     /// True when a function binds `id` and no import binds it: a local value, no trojan horse (AD-530).
     fn local(&self, id: &str) -> bool {
-        if self.bound.contains_key(id) {
-            return false;
-        }
-        for (depth, (names, globals, class)) in self.locals.iter().rev().enumerate() {
-            if *class && depth > 0 {
-                continue;
-            }
-            if globals.contains(id) {
-                return false;
-            }
-            if names.contains(id) {
-                return true;
-            }
-        }
-        false
+        names::local(&self.bound, &self.locals, id)
     }
 
     /// `getattr(name, "attr")` and `getattr(name, "attr", default)` with a literal attribute that
@@ -282,8 +272,11 @@ impl Walk<'_> {
             take(&mut self.reads),
             take(&mut self.locals),
         );
-        if let Some(code) = annotation::parsed(string) {
-            self.visit_expr(&code);
+        match annotation::parsed(string) {
+            Ok(code) => self.visit_expr(&code),
+            // CPython can evaluate a text that the parser bound refuses: a gap, never nothing.
+            Err(Unread::Bound) => self.push_text(DYNAMIC, "annotation", string),
+            Err(Unread::Syntax) => {}
         }
         (self.proof, self.reads, self.locals) = outer;
         for site in &mut self.found[first..] {
@@ -376,6 +369,9 @@ impl Walk<'_> {
 
 impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if annotation::writes_annotations(stmt) {
+            self.push_text(DYNAMIC, "__annotations__", stmt);
+        }
         if matches!(stmt, Stmt::ImportFrom(node)
             if node.level > 0 && node.names.iter().any(|alias| alias.name.as_str() == "code"))
         {
@@ -443,8 +439,11 @@ impl<'a> Visitor<'a> for Walk<'_> {
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
-        if let Some(text) = annotation::evaluated(expr, self.annotation) {
-            self.evaluated(text);
+        match annotation::evaluated(expr, self.annotation, &self.strings) {
+            annotation::Text::None => {}
+            annotation::Text::Literal(text) => self.evaluated(text),
+            annotation::Text::Held(texts) => texts.iter().for_each(|text| self.evaluated(text)),
+            annotation::Text::Opaque => self.push_text(DYNAMIC, "annotation", expr),
         }
         if let Some((first, rest, targets, values)) = comprehension::parts(expr) {
             self.visit_expr(&first.iter);

@@ -234,7 +234,7 @@ impl Graph {
         let live = self.settings.producer() == Producer::Trusted;
         self.imports
             .iter()
-            .filter(move |import| !source_names_only || live && !import.inferred_receiver)
+            .filter(move |import| !source_names_only || live && import.written_name())
     }
 
     /// The source and target module of each resolved macro body (AD-670).

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Decode the optional topology display. It cannot supply a verdict or a scope proof."""
 
+from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -299,10 +300,17 @@ def _read_topology(value: object, scope: str, rules: Mapping[str, object]) -> To
         tuple(_layer_order(item) for item in lists["layers"]),
     )
     _check_references(topology)
-    for items in (topology.components, topology.modules, topology.edges, topology.component_edges):
+    identities = (
+        ("components", topology.components),
+        ("modules", topology.modules),
+        ("edges", topology.edges),
+        ("component_edges", topology.component_edges),
+    )
+    for label, items in identities:
         keys = [item.name if isinstance(item, Module) else item.id for item in items]
-        if len(set(keys)) != len(keys):
-            raise CoreError("topology: repeated identity")
+        repeated = sorted(key for key, seen in Counter(keys).items() if seen > 1)
+        if repeated:
+            raise CoreError(f"topology: repeated identity in {label}: {', '.join(repeated[:5])}")
     pairs = [(item.source, item.target) for item in topology.requires]
     orders = [item.rule for item in topology.layers]
     if len(set(pairs)) != len(pairs) or len(set(orders)) != len(orders):

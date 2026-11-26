@@ -6,7 +6,7 @@
 
 // Consumer: the trait-impl, destructor and receiver gaps of `impl_flow` (AD-1047).
 
-use crate::type_reach_facts::{Facts, Names};
+use crate::type_reach_facts::{Facts, Names, SelectedFacts};
 use crate::type_reach_fold::Reach;
 use crate::type_reach_model::{Mode, Verdict};
 use std::cell::RefCell;
@@ -44,6 +44,36 @@ impl<'f> Filter<'f> {
     /// are of another scan (another namespace or crate names): no pair can be decided.
     pub fn matched(&self) -> usize {
         self.matched
+    }
+
+    /// The calls of `PartialEq::eq` that the compiler resolved to an impl in another scan module, in every
+    /// configuration of the matrix. Two edges that a rule combines (a cycle) must come from one configuration,
+    /// and an edge does not say which. A site that one configuration lacks stays a gap (AD-1136).
+    pub(crate) fn selected(&self) -> Vec<&SelectedFacts> {
+        let key = |s: &SelectedFacts| {
+            (
+                s.from.clone(),
+                s.to.clone(),
+                s.imp.clone(),
+                s.file.clone(),
+                s.impl_file.clone(),
+                s.line,
+                s.column,
+            )
+        };
+        let Some((first, rest)) = self.models.split_first() else {
+            return Vec::new();
+        };
+        let others: Vec<BTreeSet<_>> = rest
+            .iter()
+            .map(|m| m.selected.iter().map(key).collect())
+            .collect();
+        let mut seen = BTreeSet::new();
+        let kept = first
+            .selected
+            .iter()
+            .filter(|s| others.iter().all(|set| set.contains(&key(s))));
+        kept.filter(|s| seen.insert(key(s))).collect()
     }
 
     /// True when no body of `a` can hold the self type of an impl of `b` that runs code.

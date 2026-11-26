@@ -101,9 +101,9 @@ fn windows_disk_roots_and_contained_reads_share_the_real_canonical_form() {
         matches!(verbatim.components().next(), Some(Component::Prefix(prefix))
         if matches!(prefix.kind(), std::path::Prefix::VerbatimDisk(_)))
     );
-    for path in [&base, &verbatim] {
+    for path in [base.as_ref(), verbatim.as_path()] {
         let root = Root::of(path.to_str().unwrap()).unwrap();
-        assert_eq!(root.path(), base);
+        assert_eq!(root.path(), base.as_ref());
         fs::write(base.join("inside.json"), "{}").unwrap();
         assert_eq!(
             root.read("inside.json", 10),
