@@ -224,3 +224,15 @@ fn a_module_that_evaluates_annotations_keeps_plain_type_forms_clean() {
         Vec::<String>::new()
     );
 }
+
+#[test]
+fn a_long_chain_of_aliases_costs_no_more_than_one_pass() {
+    let mut source = String::from("import typing\ntyping.get_type_hints(K)\ns0 = str('int')\n");
+    for n in 1..30_000 {
+        source.push_str(&format!("s{n} = s{}\n", n - 1));
+    }
+    source.push_str("class K:\n    x: s29999\n");
+    let start = std::time::Instant::now();
+    assert!(!details(&source).is_empty());
+    assert!(start.elapsed().as_secs() < 5);
+}

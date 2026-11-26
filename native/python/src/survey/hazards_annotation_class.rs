@@ -12,7 +12,7 @@
 //!   condition, a computed string, a name that the module binds to anything but a string literal
 //!   or a type form.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
@@ -131,22 +131,22 @@ fn sites(tree: &ModModule) -> Vec<Site> {
 }
 
 impl<'a> Scan<'a> {
+    /// Taint flows from a source to each target that is an alias of it; one pass over the edges.
     fn close(&mut self) {
-        loop {
-            let grown: Vec<String> = self
-                .edges
-                .iter()
-                .filter(|(target, sources)| {
-                    !self.tainted.contains(target)
-                        && sources.iter().any(|s| self.tainted.contains(s))
-                })
-                .map(|(target, _)| target.clone())
-                .collect();
-            if grown.is_empty() {
-                return;
+        let mut targets: HashMap<&str, Vec<&str>> = HashMap::new();
+        for (target, sources) in &self.edges {
+            for source in sources {
+                targets.entry(source).or_default().push(target);
             }
-            self.tainted.extend(grown);
         }
+        let mut seen: HashSet<&str> = self.tainted.iter().map(String::as_str).collect();
+        let mut queue: Vec<&str> = seen.iter().copied().collect();
+        while let Some(source) = queue.pop() {
+            let next = targets.get(source).into_iter().flatten();
+            queue.extend(next.filter(|target| seen.insert(**target)).copied());
+        }
+        let grown: Vec<String> = seen.into_iter().map(str::to_owned).collect();
+        self.tainted.extend(grown);
     }
 
     fn taint(&mut self, target: &Expr) {

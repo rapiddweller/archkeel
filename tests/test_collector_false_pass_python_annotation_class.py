@@ -38,7 +38,9 @@ def named(value: str) -> str:
 WRITES = {
     "print of update": one(EMPTY + f'print(K.__annotations__.update(x="{IMPORT}"))\n'),
     "lambda": one(EMPTY + f'(lambda: K.__annotations__.update(x="{IMPORT}"))()\n'),
-    "comprehension": one(EMPTY + f'[K.__annotations__.__setitem__("x", "{IMPORT}") for _ in [0]]\n'),
+    "comprehension": one(
+        EMPTY + f'[K.__annotations__.__setitem__("x", "{IMPORT}") for _ in [0]]\n'
+    ),
     "return": one(
         EMPTY + f'def f():\n    return K.__annotations__.update(x="{IMPORT}")\n\n\nf()\n'
     ),
@@ -74,12 +76,8 @@ BUILDERS = {
     "ForwardRef of a name": HEAD
     + f's = "{IMPORT}"\nref = typing.ForwardRef(s)\n'
     + "try:\n    typing._eval_type(ref, globals(), None)\nexcept Exception:\n    pass\n",
-    "TypedDict": HEAD
-    + f'K = typing.TypedDict("K", {{"x": "{IMPORT}"}})\n'
-    + HINTS,
-    "NamedTuple": HEAD
-    + f'K = typing.NamedTuple("K", [("x", "{IMPORT}")])\n'
-    + HINTS,
+    "TypedDict": HEAD + f'K = typing.TypedDict("K", {{"x": "{IMPORT}"}})\n' + HINTS,
+    "NamedTuple": HEAD + f'K = typing.NamedTuple("K", [("x", "{IMPORT}")])\n' + HINTS,
 }
 LOOKUP = {
     "evaluator looked up by name": HEAD
