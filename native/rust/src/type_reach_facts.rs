@@ -40,6 +40,8 @@ pub(crate) struct SelectedFacts {
 /// (a binary target has other module names). A plain value, like `SelectedFacts`.
 pub(crate) struct CallFacts {
     pub(crate) callee_file: Option<String>,
+    /// The call is in a unit of test code: it can only veto.
+    pub(crate) test: bool,
     pub(crate) file: String,
     pub(crate) line: i64,
     pub(crate) column: i64,
@@ -198,13 +200,13 @@ impl Facts {
 
     /// One resolved method call. A workspace callee is also a selected edge of its caller (AD-1185).
     fn call(&mut self, v: &Value, names: &[String], test_unit: bool) -> Option<()> {
-        if test_unit {
-            return Some(());
-        }
+        // A call of test code decides no edge, but it can veto: the same place can run another callee (AD-1185).
+        let test_unit = test_unit || v.get("test").and_then(Value::as_bool) == Some(true);
         let number = |key: &str| v.get(key)?.as_i64();
         let (file, line, column) = (one(v, "file", names)?, number("line")?, number("col")?);
         let to = one(v, "to", names);
-        if let (Some(to), Some(impl_file)) = (to, one(v, "callee_file", names)) {
+        let edge = (!test_unit).then(|| (to, one(v, "callee_file", names)));
+        if let Some((Some(to), Some(impl_file))) = edge {
             self.selected.push(SelectedFacts {
                 from: one(v, "from", names)?,
                 to,
@@ -217,6 +219,7 @@ impl Facts {
         }
         self.calls.push(CallFacts {
             callee_file: one(v, "callee_file", names),
+            test: test_unit,
             file,
             line,
             column,

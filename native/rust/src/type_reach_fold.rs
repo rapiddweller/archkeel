@@ -8,6 +8,9 @@
 use crate::type_reach_facts::{Facts, Names, Parts, SelectedFacts};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// The callee files of the resolved method calls by place (file, line, column), and whether a library unit holds it.
+type Callees = BTreeMap<(String, i64, i64), (BTreeSet<Option<String>>, bool)>;
+
 /// The reach model of one configuration. `known` names the modules that the scan uses: a rustc module
 /// belongs to the longest of these that is a prefix of its path (an inline `mod tests` joins its file).
 pub struct Reach<'f> {
@@ -25,8 +28,9 @@ pub struct Reach<'f> {
     /// The selected impls whose two ends are scan modules, with the scan names (AD-1136).
     pub(crate) selected: Vec<SelectedFacts>,
     /// The file that holds the callee of each resolved method call at a place (file, line, column): `None` for a
-    /// foreign callee. Two callees at one place stay both (AD-1185).
-    pub(crate) callees: BTreeMap<(String, i64, i64), BTreeSet<Option<String>>>,
+    /// foreign callee. Two callees at one place stay both, and a place that only test code holds is kept for the
+    /// veto alone (AD-1185).
+    pub(crate) callees: Callees,
 }
 
 impl<'f> Reach<'f> {
@@ -94,12 +98,13 @@ impl<'f> Reach<'f> {
             })
             .filter(|s| s.from != s.to && known.contains(&s.from) && known.contains(&s.to))
             .collect();
-        let mut callees: BTreeMap<(String, i64, i64), BTreeSet<Option<String>>> = BTreeMap::new();
+        let mut callees = Callees::new();
         for c in &facts.calls {
-            callees
+            let entry = callees
                 .entry((c.file.clone(), c.line, c.column))
-                .or_default()
-                .insert(c.callee_file.clone());
+                .or_default();
+            entry.0.insert(c.callee_file.clone());
+            entry.1 |= !c.test;
         }
         let mut reach = Reach {
             selected,

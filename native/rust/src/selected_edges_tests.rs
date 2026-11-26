@@ -326,7 +326,10 @@ fn a_call_at_another_place_or_in_a_test_unit_keeps_the_gap() {
     let moved = collect_methods(announced(false, &[&call("null", "null", 1)]));
     assert!(method_gap(&moved), "another column is another call");
     let test = collect_methods(announced(true, &[&call("null", "null", 0)]));
-    assert!(method_gap(&test), "test code decides nothing");
+    assert!(
+        method_gap(&test),
+        "a place that only test code holds decides nothing"
+    );
 }
 
 #[test]
@@ -349,5 +352,33 @@ fn every_configuration_must_resolve_the_call_to_the_same_callee() {
     assert!(
         method_gap(&collect_methods(other)),
         "a feature can change the callee"
+    );
+}
+
+/// The facts of one configuration that holds a library unit and a test unit.
+fn units(library: &[&str], test: &[&str]) -> Facts {
+    let mut facts = facts_of(false, library);
+    let mut lines = vec![
+        "{\"k\":\"build\",\"test\":true}".to_owned(),
+        format!("{{\"k\":\"str\",\"v\":{TABLE}}}"),
+    ];
+    lines.extend(test.iter().map(|r| (*r).to_owned()));
+    facts.absorb(&lines.join("\n")).unwrap();
+    facts
+}
+
+#[test]
+fn a_test_unit_that_names_another_callee_vetoes_the_decision() {
+    let same = call("null", "null", 0);
+    let found = collect_methods(announced_in(vec![units(&[&same], &[&same])]));
+    assert!(
+        !method_gap(&found),
+        "a test unit with the same callee agrees"
+    );
+    let other = call("1", "9", 0);
+    let found = collect_methods(announced_in(vec![units(&[&same], &[&other])]));
+    assert!(
+        method_gap(&found),
+        "under `cfg(test)` the call runs the candidate"
     );
 }

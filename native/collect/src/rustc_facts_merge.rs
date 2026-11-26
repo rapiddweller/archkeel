@@ -58,11 +58,17 @@ pub(super) fn load(text: &str) -> Option<(String, Vec<String>)> {
 pub(super) fn merge(base: &str, extras: &[&str]) -> Option<String> {
     let (build, mut all) = load(base)?;
     for extra in extras {
-        // A call in a test unit is test code. Only the library unit keeps its `sel` records (AD-1136).
-        let site = |r: &String| {
-            serde_json::from_str::<Value>(r).is_ok_and(|v| v["k"] == "sel" || v["k"] == "call")
-        };
-        all.extend(load(extra)?.1.into_iter().filter(|r| !site(r)));
+        // A call in a test unit is test code. Only the library unit keeps its `sel` records (AD-1136). A resolved
+        // method call of a test unit stays, marked `test`: it can only veto a decision (AD-1185).
+        for record in load(extra)?.1 {
+            let mut value: Value = serde_json::from_str(&record).ok()?;
+            match value["k"].as_str() {
+                Some("sel") => continue,
+                Some("call") => value["test"] = Value::Bool(true),
+                _ => {}
+            }
+            all.push(value.to_string());
+        }
     }
     let (mut ids, mut names): (HashMap<String, u64>, Vec<Value>) = (HashMap::new(), Vec::new());
     let mut intern = |text: &Value| {

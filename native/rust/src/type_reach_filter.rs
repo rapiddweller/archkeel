@@ -81,11 +81,15 @@ impl<'f> Filter<'f> {
     /// hold the place with one and the same callee: a feature can change a call (AD-1185).
     fn callee(&self, file: &str, line: i64, column: i64) -> Option<Option<&str>> {
         let key = (file.to_owned(), line, column);
-        let mut found = self.models.iter().map(|m| m.callees.get(&key));
-        let first = found.next()??;
+        // A configuration must hold the place in a library unit, and every unit must name the same callee.
+        let mut found = self
+            .models
+            .iter()
+            .map(|m| m.callees.get(&key).filter(|c| c.1));
+        let first = &found.next()??.0;
         let mut one = first.iter();
         let (callee, rest) = (one.next()?, one.next());
-        let same = found.all(|set| set.is_some_and(|s| s.len() == 1 && s.contains(callee)));
+        let same = found.all(|c| c.is_some_and(|c| c.0.len() == 1 && c.0.contains(callee)));
         (rest.is_none() && same).then_some(callee.as_deref())
     }
 
