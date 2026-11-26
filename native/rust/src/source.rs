@@ -32,12 +32,14 @@ pub(crate) const BUILD_MARKERS: [&str; 2] = ["CACHEDIR.TAG", ".rustc_info.json"]
 /// The files below `rel`, relative to the snapshot, sorted. A hidden directory and the build
 /// output are not entered: a directory with a Cargo marker file, and the `target` directory
 /// beside a `Cargo.toml`. A module directory named `target` is read like any other. A directory is entered once, so a link cannot make a loop.
-pub(crate) fn walk(snapshot: &mut Snapshot, rel: &str) -> Vec<String> {
+/// The second list holds each directory below `MAX_DEPTH` that the walk did not enter: its files are not read, so the caller names a gap (#1002).
+pub(crate) fn walk(snapshot: &mut Snapshot, rel: &str) -> (Vec<String>, Vec<String>) {
     let mut found = Vec::new();
+    let mut deep = Vec::new();
     let mut seen = BTreeSet::new();
-    walk_into(snapshot, rel, 0, &mut seen, &mut found);
+    walk_into(snapshot, rel, 0, &mut seen, (&mut found, &mut deep));
     found.sort();
-    found
+    (found, deep)
 }
 
 fn walk_into(
@@ -45,9 +47,13 @@ fn walk_into(
     rel: &str,
     depth: usize,
     seen: &mut BTreeSet<String>,
-    found: &mut Vec<String>,
+    (found, deep): (&mut Vec<String>, &mut Vec<String>),
 ) {
-    if depth > MAX_DEPTH || !seen.insert(snapshot.real(rel).unwrap_or_else(|| rel.to_owned())) {
+    if !seen.insert(snapshot.real(rel).unwrap_or_else(|| rel.to_owned())) {
+        return;
+    }
+    if depth > MAX_DEPTH {
+        deep.push(rel.to_owned());
         return;
     }
     let (files, directories) = snapshot.entries(rel);
@@ -62,7 +68,7 @@ fn walk_into(
     found.extend(files.iter().map(|name| child(name)));
     for name in directories {
         if !(manifest_here && name == "target") && !name.starts_with('.') {
-            walk_into(snapshot, &child(&name), depth + 1, seen, found);
+            walk_into(snapshot, &child(&name), depth + 1, seen, (found, deep));
         }
     }
 }
