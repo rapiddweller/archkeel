@@ -4,6 +4,7 @@
 
 //! The workspace members and the configurations of the matrix (AD-1047).
 
+use crate::outside_reach::{dependents, Runs};
 use archkeel_facts::type_reach::{matrix, Config, Unavailable, MAX_FEATURES};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -28,8 +29,6 @@ pub(crate) struct Members {
     features: Vec<(String, String)>,
     /// The package name of each member.
     pub(crate) names: BTreeSet<String>,
-    /// The canonical directory of each member that has a path dependency on a crate that is no member.
-    pub(crate) outside: BTreeSet<String>,
 }
 
 /// The members of a workspace, from the JSON that `cargo metadata --no-deps` printed.
@@ -48,7 +47,6 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
         dirs: Vec::new(),
         features: Vec::new(),
         names: BTreeSet::new(),
-        outside: BTreeSet::new(),
     };
     let text =
         |value: &Value, key: &str| value.get(key).and_then(Value::as_str).map(str::to_string);
@@ -105,95 +103,11 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
             found.features.push((name.clone(), feature.clone()));
         }
     }
-    found.outside = path_dependents(&meta, &ids, &found.roots);
     if found.manifests.is_empty() {
         return Err(Unavailable::MetadataFailed);
     }
     found.features.sort();
     Ok(found)
-}
-
-/// The canonical directory of each member that has a path dependency on a crate that is no member and that reaches a
-/// member through path dependencies. The crate can lie anywhere, also outside every scan root: the scan does not read
-/// it, so the edges that pass through it are unknown. A crate that Cargo cannot describe counts as reaching one.
-fn path_dependents(
-    meta: &Value,
-    ids: &BTreeSet<&str>,
-    members: &BTreeMap<String, BTreeSet<String>>,
-) -> BTreeSet<String> {
-    let mut known = BTreeMap::new();
-    let mut found = BTreeSet::new();
-    let packages = meta.get("packages").and_then(Value::as_array);
-    for package in packages.into_iter().flatten() {
-        let id = package
-            .get("id")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        let manifest = package.get("manifest_path").and_then(Value::as_str);
-        let dir = manifest.and_then(|m| real_dir(Path::new(m).parent()?.to_str()?));
-        let (true, Some(dir)) = (ids.contains(id), dir) else {
-            continue;
-        };
-        for path in path_dependencies(package) {
-            let held = match real_dir(path) {
-                None => true,
-                Some(real) if members.contains_key(&real) => false,
-                Some(real) => reaches_member(&real, members, &mut known),
-            };
-            if held {
-                found.insert(dir);
-                break;
-            }
-        }
-    }
-    found
-}
-
-fn real_dir(path: &str) -> Option<String> {
-    let canonical = std::fs::canonicalize(path).ok()?;
-    Some(canonical.to_string_lossy().replace('\\', "/"))
-}
-
-fn path_dependencies(package: &Value) -> Vec<&str> {
-    let dependencies = package.get("dependencies").and_then(Value::as_array);
-    let paths = dependencies.into_iter().flatten();
-    paths
-        .filter_map(|d| d.get("path").and_then(Value::as_str))
-        .collect()
-}
-
-/// Whether the crate in `dir` (no member) reaches a member through path dependencies. `known` holds the answers; a
-/// crate on the way counts as `false` until it is decided, so a cycle ends.
-fn reaches_member(
-    dir: &str,
-    members: &BTreeMap<String, BTreeSet<String>>,
-    known: &mut BTreeMap<String, bool>,
-) -> bool {
-    if let Some(&answer) = known.get(dir) {
-        return answer;
-    }
-    known.insert(dir.to_owned(), false);
-    let described = metadata(&Path::new(dir).join("Cargo.toml"))
-        .ok()
-        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
-    let reaches = match described {
-        None => true,
-        Some(meta) => {
-            let packages = meta.get("packages").and_then(Value::as_array);
-            let paths: Vec<&str> = packages
-                .into_iter()
-                .flatten()
-                .flat_map(path_dependencies)
-                .collect();
-            paths.into_iter().any(|path| match real_dir(path) {
-                None => true,
-                Some(real) if members.contains_key(&real) => true,
-                Some(real) => real != dir && reaches_member(&real, members, known),
-            })
-        }
-    };
-    known.insert(dir.to_owned(), reaches);
-    reaches
 }
 
 /// The matrix: the three fixed configurations and each feature of a member alone. More features than the
@@ -273,18 +187,23 @@ pub(crate) fn set_driver_vars(
 // The members of the scan for the Rust worker (#1989, AD-1097): the answer of `cargo metadata` as JSON text.
 /// The members of the workspace of each scan root that has a `Cargo.toml` at or above it. `roots` lists those scan roots and
 /// `members` the directory of each member, relative to the repository root, without a closing slash.
-pub(crate) fn for_worker(repository: &Path, scan_roots: &[String]) -> String {
-    read(repository, scan_roots)
+pub(crate) fn for_worker(repository: &Path, scan_roots: &[String], build: bool) -> String {
+    read(repository, scan_roots, build)
         .unwrap_or_else(|why| json!({ "unavailable": why }))
         .to_string()
 }
 
-fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
+fn read(repository: &Path, scan_roots: &[String], build: bool) -> Result<Value, String> {
     let real = repository
         .canonicalize()
         .map_err(|why| format!("cannot read the repository root: {why}"))?;
     let (mut roots, mut found, mut names) = (Vec::new(), Vec::new(), BTreeSet::new());
     let mut held = BTreeSet::new();
+    // A member below no scan root is not read: the scan treats it as code outside.
+    let scanned: Vec<String> = (scan_roots.iter())
+        .filter_map(|r| real.join(r).canonicalize().ok())
+        .map(|r| r.to_string_lossy().replace('\\', "/"))
+        .collect();
     for root in scan_roots {
         let Some(manifest) = nearest_manifest(&real, root) else {
             continue;
@@ -305,8 +224,9 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
         // The walk lists a file under the path of its scan root. A scan root that is a symlink has another real path
         // than the member directory has, so each member below the real root is also listed under the root path.
         found.extend(listed_under_root(&real, root, all.roots.keys()));
-        held.extend(listed_under_root(&real, root, all.outside.iter()));
-        held.extend(all.outside.iter().filter_map(|dir| {
+        let outside = outside_of(&metadata, &all, (&scanned, build));
+        held.extend(listed_under_root(&real, root, outside.iter()));
+        held.extend(outside.iter().filter_map(|dir| {
             let relative = Path::new(dir).strip_prefix(&real).ok()?;
             Some(relative.to_string_lossy().replace('\\', "/"))
         }));
@@ -362,6 +282,121 @@ fn listed_under_root<'a>(
         )
     };
     dirs.filter_map(below).collect()
+}
+
+/// The members whose edges pass through code that the scan does not read (`outside_reach`).
+fn outside_of(
+    metadata: &[u8],
+    all: &Members,
+    (scanned, build): (&[String], bool),
+) -> BTreeSet<String> {
+    let Ok(meta) = serde_json::from_slice::<Value>(metadata) else {
+        return all.roots.keys().cloned().collect();
+    };
+    let ids: BTreeSet<&str> = (meta
+        .get("workspace_members")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten())
+    .filter_map(Value::as_str)
+    .collect();
+    let runs = Runs {
+        resolve: &resolve_metadata,
+        check: &check_json,
+        build,
+    };
+    let below = |dir: &String| {
+        scanned
+            .iter()
+            .any(|r| dir == r || dir.starts_with(&format!("{r}/")))
+    };
+    let dirs: BTreeMap<String, BTreeSet<String>> = (all.roots.iter())
+        .filter(|(dir, _)| below(dir))
+        .map(|(dir, files)| (dir.clone(), files.clone()))
+        .collect();
+    dependents(&meta, &ids, &dirs, &all.names, &runs)
+}
+
+/// A Cargo command with a clean environment. The `--config` flags beat a config file for a string key, so a config of the
+/// repository cannot name the compiler (`build.rustc`, `build.rustc-wrapper`), but its `[patch]` stays. An array key
+/// (`build.rustflags`) is not replaced: Cargo appends the arrays of all sources, so the `--cfg` flags of the repository
+/// still apply. The dep-info proof allows for this (`has_cfg`).
+/// `RUSTUP_TOOLCHAIN` is the default toolchain: a `rust-toolchain.toml` of the repository cannot install another one.
+fn sealed_cargo(subcommand: &str, cwd: &Path) -> Command {
+    let mut cmd = Command::new("cargo");
+    cmd.arg(subcommand).args(["--offline", "--locked"]);
+    cmd.args(["--config", "build.rustc-wrapper=\"\""]);
+    cmd.args(["--config", "build.rustc=\"rustc\""]);
+    // Cargo runs the workspace wrapper while it probes rustc, also for `cargo metadata`.
+    cmd.args(["--config", "build.rustc-workspace-wrapper=\"\""]);
+    cmd.current_dir(cwd).env_clear();
+    for name in KEPT_ENV {
+        if let Some(value) = std::env::var_os(name) {
+            cmd.env(name, value);
+        }
+    }
+    let active = Command::new("rustup")
+        .args(["show", "active-toolchain"])
+        .current_dir(std::env::temp_dir())
+        .output()
+        .ok();
+    let toolchain = active.map(|o| {
+        String::from_utf8_lossy(&o.stdout)
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .to_owned()
+    });
+    if let Some(name) = toolchain.filter(|n| !n.is_empty()) {
+        cmd.env("RUSTUP_TOOLCHAIN", name);
+    }
+    cmd
+}
+
+/// The text of each `.cargo/config(.toml)` from `root` upwards.
+fn config_texts(root: &Path) -> String {
+    let files = root
+        .ancestors()
+        .flat_map(|d| [d.join(".cargo/config.toml"), d.join(".cargo/config")]);
+    files
+        .filter_map(|f| std::fs::read_to_string(f).ok())
+        .collect()
+}
+
+/// `cargo metadata` with the resolve graph, from the workspace root. It runs no build script. `--locked` keeps Cargo from
+/// writing a `Cargo.lock` into the scanned repository: without a lock file this gives `None`.
+fn resolve_metadata(root: &Path) -> Option<Value> {
+    // A config with an `[env]` table can set `PATH`, `RUSTUP_HOME` or a library path for the `rustc` that Cargo starts
+    // to probe the host: no flag turns that table off. Such a repository is not resolved here (the fallback holds).
+    // A backslash can write the key in an escape (`\u0065nv`), so such a config is not trusted either.
+    let configs = config_texts(root);
+    if configs.contains("env") || configs.contains('\\') {
+        return None;
+    }
+    let mut cmd = sealed_cargo("metadata", root);
+    // All features: an optional dependency that a feature enables is a possible edge.
+    let out = cmd
+        .args(["--format-version", "1", "--all-features"])
+        .output()
+        .ok()?;
+    out.status.success().then_some(())?;
+    serde_json::from_slice(&out.stdout).ok()
+}
+
+/// `cargo check --message-format=json` of the packages with these ids, into `target`. It runs the build scripts and
+/// the procedural macros of their dependencies: the caller needs the permission of the operator (AD-1130).
+fn check_json(root: &Path, ids: &[String], target: &Path, release: bool) -> Option<String> {
+    let mut cmd = sealed_cargo("check", root);
+    cmd.args(["--message-format=json", "--all-targets"])
+        .args(release.then_some("--release"))
+        .env("CARGO_TARGET_DIR", target);
+    for id in ids {
+        cmd.args(["-p", id]);
+    }
+    let out = cmd.output().ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
 /// `cargo metadata --no-deps` from a neutral directory, so that neither a `rust-toolchain.toml` nor a

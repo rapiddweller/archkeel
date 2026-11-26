@@ -36,6 +36,13 @@
     "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
     "tokens": 91
   },
+  "facts/src/macros.rs|facts/src/macros.rs|168360fceb": {
+    "files": [
+      "facts/src/macros.rs"
+    ],
+    "reason": "Serde needs a literal predicate for each field type. Separate arms avoid deeper macro expansion that exceeds the Rust and API scanner limits.",
+    "tokens": 87
+  },
   "facts/src/sections.rs|python/src/pyast/node.rs|5d42269720": {
     "files": [
       "facts/src/sections.rs",

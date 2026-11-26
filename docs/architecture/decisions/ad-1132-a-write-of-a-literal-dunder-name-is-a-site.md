@@ -17,11 +17,7 @@ that the hook ran (`tests/test_collector_false_pass_python_dunder_write.py`).
    `__doc__`, `__file__`, `__version__`, `__all__`, `__module__`, `__qualname__`) stay clear.
 2. An attribute in a store or delete context (`K.__call__ = f`, `del K.__call__`, `K.__init__ += g`, a tuple or `for`
    target) is a site with the kind `setattr` or `delattr`. The receiver is not proven, as in AD-1058.
-3. A write of an exception-chain name (`__cause__`, `__context__`, `__traceback__`, `__suppress_context__`, `__notes__`)
-   through `x.name = v`, `setattr`, `delattr` or `object.__setattr__` gives no site (#2090). Python reads these names to print
-   a traceback and never calls them as a hook. A read stays a site: `__traceback__` hands out frames. EE had 2 and CE had 8
-   such sites (`err.__cause__ = original`).
-4. The change only adds sites. No site is removed and no other proof is narrowed.
+3. The change only adds sites. No site is removed and no other proof is narrowed.
 
 ## Known limit
 

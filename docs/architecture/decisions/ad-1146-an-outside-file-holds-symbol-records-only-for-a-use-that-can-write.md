@@ -1,6 +1,6 @@
 # AD-1146 An outside file holds symbol records only for a use that can write
 
-**Status.** Accepted. Part of #1963 and #1919. It narrows [AD-770](ad-770-code-of-the-repository-outside-the-scan-that-writes-a-module-of-the-scan-withholds-its-routes.md) and extends [AD-1118](ad-1118-a-file-outside-the-scan-that-withholds-symbols-is-named-by-a-symbols-gap.md).
+**Status.** Reverted (this change restores the hold). Accepted before. Part of #1963 and #1919. It narrows [AD-770](ad-770-code-of-the-repository-outside-the-scan-that-writes-a-module-of-the-scan-withholds-its-routes.md) and extends [AD-1118](ad-1118-a-file-outside-the-scan-that-withholds-symbols-is-named-by-a-symbols-gap.md).
 
 **Reason.** One site that is not proven harmless made every string of the outside file name modules, so the survey withheld the symbol records of each of them. On CE, `script/check_installed_authoring.py` has eight such sites: three `import importlib.*` lines, one walk over `sys.modules`, two `importlib.util.find_spec(...) is None`, `importlib.metadata.version(...)` and `importlib.resources.files(...)`. None of them writes a binding. They held 540 modules: 0 of 16,391 calls resolved, 798 `interface.usage_unknown`.
 
@@ -20,3 +20,5 @@
 **Limit.** An alias or `from importlib import metadata` keeps the hold. A use through `gc`, a frame or a C extension is outside the stated premise.
 
 **Tests.** `tests/test_cli_python_outside_reads.py`.
+
+**Revert (lane F, lead decision).** Three verification rounds and three Codex rounds found the same hole in more than a dozen forms: a result stored on a class attribute, a non-literal or f-string argument, `__import__("importlib.resources")`, a plain `open(..., "w")` next to a `version(...)` read, a read compared with an object, `print(..., file=Hook())`. The design looked for bad forms in a script that it assumed harmless. That direction cannot be closed. The outside file holds the symbol records again (AD-770, AD-1118). A later change must define a closed grammar: a script is read-only only if every statement and expression belongs to a small allow-list.

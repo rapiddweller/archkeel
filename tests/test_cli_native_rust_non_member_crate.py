@@ -157,6 +157,16 @@ def _recommit(root: Path) -> None:
     """The contract needs the schema of the `indirect` key."""
     contract = root / "architecture-contract.json"
     contract.write_text(contract.read_text().replace('"2.1.0"', '"3.21.0"'))
+    # The resolve graph needs a lock file: `cargo metadata --locked` writes none into the repo.
+    lock = [
+        "cargo",
+        "generate-lockfile",
+        "--offline",
+        "--manifest-path",
+        str(root / "crates/Cargo.toml"),
+    ]
+    subprocess.run(lock, check=False, capture_output=True)
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
     identity = ["-c", "user.name=t", "-c", "user.email=t@t"]
     subprocess.run(["git", "-C", str(root), *identity, "commit", "-qam", "3.21"], check=True)
 

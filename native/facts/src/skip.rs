@@ -2,26 +2,31 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The test of a skippable field: the wire omits an `Option` or a `Nullable` that is absent.
+//! Wire checks for fields omitted when their value is absent.
 
-/// A field that the wire can skip.
-pub(crate) trait Present {
-    fn present(&self) -> bool;
-}
+#[cfg(test)]
+mod tests {
+    use crate::data::GapData;
 
-/// Whether the wire omits a skippable field: the `serde` test of each `skip` field.
-pub(crate) fn omitted<T: Present>(value: &T) -> bool {
-    !value.present()
-}
-
-impl<T> Present for Option<T> {
-    fn present(&self) -> bool {
-        self.is_some()
-    }
-}
-
-impl<T> Present for crate::nullable::Nullable<T> {
-    fn present(&self) -> bool {
-        !self.is_absent()
+    #[test]
+    fn gap_options_keep_their_wire_bytes() {
+        let mut gap = GapData::at("why", "ns.mod");
+        assert_eq!(
+            serde_json::to_string(&gap).expect("JSON"),
+            r#"{"reason":"why","module":"ns.mod"}"#
+        );
+        gap.line = Some(0);
+        gap.under_type_checking = Some(false);
+        assert_eq!(
+            serde_json::to_string(&gap).expect("JSON"),
+            r#"{"reason":"why","module":"ns.mod","line":0,"under_type_checking":false}"#
+        );
+        assert_eq!(
+            serde_json::from_str::<GapData>(
+                r#"{"reason":"why","module":"ns.mod","line":0,"under_type_checking":false}"#
+            )
+            .expect("decode"),
+            gap
+        );
     }
 }

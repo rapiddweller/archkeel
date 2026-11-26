@@ -21,3 +21,23 @@ count as workspace code. The facts side already used the member list.
 
 **Not decided here.** A glob other than `<directory>/*`, a path dependency that is a member implicitly, and a crate
 that the workspace excludes are decided by `cargo metadata` only.
+
+**Routes back into a member (#2028, #2060, #2105).** A member whose edges pass through code that the scan does not read
+gets an edges gap, so indirect rules give UNKNOWN. The evidence is Cargo's, not a text search of source:
+1. The resolve graph of `cargo metadata`, run from the real workspace root with its `.cargo/config.toml` (the `--config`
+   flags beat the compiler keys of every config, AD-1130; an array such as `build.rustflags` is appended, so a `--cfg` of the
+   repository still applies). A path, patched or git source is an edge. A chain from a
+   member through a crate that is no member back to a member holds the first member. A workspace member below no scan
+   root counts as outside. A git package with the name of a member counts as a copy of it.
+2. A local crate outside the members on the way can still read a member (`include!`, `#[path]`, a symlink, `std::fs` in
+   a build script or a procedural macro). A build script or a procedural macro holds always. For other crates the
+   `rustc` dep-info lists each source file that was read: with `ARCHKEEL_ALLOW_BUILD=1` the core runs `cargo check` of
+   those crates (dev and release profile, all targets) and holds the member when a list names a file outside the crate
+   or inside a member. A git package is treated like a local crate. A crate with a feature is not proven. The dep-info
+   shows one configuration, so a crate whose files (the listed ones) contain the token `cfg` (an attribute, `cfg!`,
+   `cfg_attr`) is not proven either: code for another target or a later `--cfg` could include a member (#2143). A hit
+   only holds. Without the permission the crate is not proven and holds.
+3. Without a lock file, or when Cargo cannot resolve, the core falls back to `cargo metadata --no-deps`: each path, git
+   or possibly patched dependency that leads outside the members holds.
+An outside crate that is proven to read no member adds no gap. `cargo metadata --locked` never writes a lock file into
+the scanned repository.
