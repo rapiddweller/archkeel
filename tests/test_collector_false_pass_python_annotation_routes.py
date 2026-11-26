@@ -40,6 +40,10 @@ PLANTS = {
     + "class K:\n    pass\n\n\n"
     + f'K.__annotations__.update(x="{IMPORT}")\n'
     + HINTS.format(name="K"),
+    "setattr of annotations (#2062 must keep it)": HEAD
+    + "class K:\n    pass\n\n\n"
+    + f'setattr(K, "__annotations__", {{"x": "{IMPORT}"}})\n'
+    + HINTS.format(name="K"),
     "string in a variable": HEAD
     + f's = "{IMPORT}"\n\n\nclass K:\n    x: s\n\n\n'
     + HINTS.format(name="K"),
