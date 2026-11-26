@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -26,16 +27,44 @@ INPUT_FILES = (
 UNRELATED_FILES = ("docs/guide.md", "tests/test_x.py", "tools/other.py")
 
 
-def earlier_repo(repo: Path, changed: str) -> None:
-    """Commits: earlier (all inputs), base (`changed` differs), head. The entry is earlier's."""
-    for name in (*INPUT_FILES, *UNRELATED_FILES):
+# The documents that the scanned contract cites. The cached result binds only the first one
+# (`contract_files` of the fixture); the others are read through the contract (provenance).
+BOUND_DOC = "docs/architecture/inventory.md"
+CITED_DOCS = (
+    "docs/architecture/native.md",
+    "docs/architecture/decisions/ad-9-a-decision.md",
+    "NOTES.md",  # no slash
+    "docs/spaced doc.md",  # a space: the core accepts it as a path
+)
+
+
+def earlier_repo(
+    repo: Path, changed: str, link: bool = False, *, delete: bool = False, absent: bool = False
+) -> None:
+    """Commits: earlier (all inputs), base (`changed` differs), head. The entry is earlier's.
+
+    `delete` removes `changed` at base; `absent` leaves it out at earlier and adds it at base.
+    """
+    contract = repo / "architecture-contract.json"
+    document = json.loads(contract.read_text())
+    document["components"][0]["provenance"] += list(CITED_DOCS)
+    contract.write_text(json.dumps(document))
+    for name in (*INPUT_FILES, *UNRELATED_FILES, BOUND_DOC, *CITED_DOCS):
         path = repo / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("one\n")
+        if not (absent and name == changed):
+            path.write_text("one\n")
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "earlier")
     earlier = git(repo, "rev-parse", "HEAD")
-    (repo / changed).write_text("two\n")
+    target = repo / changed
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if delete:
+        target.unlink()
+    elif link:
+        target.symlink_to("docs")
+    else:
+        target.write_text("two\n")
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "base")
     (repo / "head.txt").write_text("h\n")
@@ -104,3 +133,70 @@ def test_a_cache_hit_and_a_computed_miss_name_their_cost(repo: Path) -> None:
     assert "scan took" not in gate(repo, "base.json").stdout
     (repo / "test-artifacts/selfcheck/base.json").unlink()
     assert "scan took" in gate(repo, "base.json").stdout
+
+
+DEEP = "/".join(["d"] * 101) + "/file.txt"
+
+
+@pytest.mark.parametrize(
+    ("changed", "link"),
+    [
+        (".cargo/config.toml", False),
+        ("fixtures/x/.cargo/config", False),
+        ("docs/linked", True),
+        (DEEP, False),
+    ],
+)
+def test_a_repository_wide_input_of_the_scan_is_never_reused(
+    repo: Path, changed: str, link: bool
+) -> None:
+    """The Rust walk reads every `.cargo` config and link of the repository (Codex, #2078)."""
+    earlier_repo(repo, changed, link)
+    done = gate(repo, "base.json")
+    assert done.returncode == 1, done.stdout
+    assert "reusing" not in done.stdout and "computing it in a worktree" in done.stdout
+
+
+def test_a_changed_file_name_that_is_not_utf8_does_not_crash_the_gate(repo: Path) -> None:
+    earlier_repo(repo, "docs/guide.md")
+    # The index holds the name as bytes, so the test needs no file system that accepts it.
+    done_blob = subprocess.run(
+        ["git", "hash-object", "-w", "--stdin"], cwd=repo, input=b"x\n", capture_output=True
+    )
+    blob = done_blob.stdout.decode().strip()
+    name = b"docs/odd-\xff.md"
+    subprocess.run(
+        ["git", "update-index", "--add", "--cacheinfo", b"100644," + blob.encode() + b"," + name],
+        cwd=repo,
+        check=True,
+    )
+    git(repo, "commit", "-qm", "odd name")
+    (repo / "after.txt").write_text("a\n")
+    git(repo, "add", "after.txt")
+    git(repo, "commit", "-qm", "after")
+    done = gate(repo, "base.json", base="HEAD~1")
+    assert "Traceback" not in done.stderr, done.stderr
+    assert "reusing the entry of" in done.stdout, done.stdout
+
+
+@pytest.mark.parametrize(
+    ("changed", "delete", "absent"),
+    [
+        (BOUND_DOC, False, False),  # a document that the result bound: its bytes changed
+        (CITED_DOCS[0], False, False),  # the marked graph of native.md is edited
+        (CITED_DOCS[1], True, False),  # a cited decision is deleted: reference.provenance
+        (CITED_DOCS[1], False, True),  # a cited decision appears: it was unread before
+        (CITED_DOCS[2], False, True),  # a name without a slash appears
+        (CITED_DOCS[3], False, True),  # a name with a space appears
+        (CITED_DOCS[2], True, False),
+        (CITED_DOCS[3], True, False),
+    ],
+)
+def test_a_document_that_the_scan_read_is_an_input_of_the_result(
+    repo: Path, changed: str, delete: bool, absent: bool
+) -> None:
+    """The verification run found docs/architecture read by the core and missing from INPUTS."""
+    earlier_repo(repo, changed, delete=delete, absent=absent)
+    done = gate(repo, "base.json")
+    assert done.returncode == 1, done.stdout
+    assert "reusing" not in done.stdout and "computing it in a worktree" in done.stdout
