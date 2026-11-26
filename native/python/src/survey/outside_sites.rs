@@ -146,7 +146,7 @@ pub(super) fn named(module: &Module, names: &HashSet<String>) -> Vec<String> {
     struct Strings<'n>(&'n HashSet<String>, Vec<String>);
     impl<'a> Visitor<'a> for Strings<'_> {
         fn visit_expr(&mut self, expr: &'a Expr) {
-            if let Some(text) = super::grammar::text_of(expr) {
+            if let Some(text) = text_of(expr) {
                 self.1.extend(reached(text.trim(), self.0));
             }
             visitor::walk_expr(self, expr);
@@ -256,7 +256,7 @@ fn fstring_head(node: &ruff_python_ast::ExprFString) -> String {
 }
 
 /// Add the literal elements before the first field to `head`; `false` at a field.
-pub(super) fn literal_elements(head: &mut String, elements: &InterpolatedStringElements) -> bool {
+fn literal_elements(head: &mut String, elements: &InterpolatedStringElements) -> bool {
     for element in elements.iter() {
         match element {
             InterpolatedStringElement::Literal(literal) => head.push_str(&literal.value),
@@ -296,4 +296,31 @@ fn inert(text: &str) -> bool {
         }
     }
     !names.0
+}
+
+/// The text of a string written in the source. An f-string without a field is that text:
+/// `f"app"` names `app` like `"app"` does.
+pub(super) fn text_of(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::StringLiteral(text) => Some(text.value.to_str().to_owned()),
+        Expr::FString(node) => {
+            let mut text = String::new();
+            for part in node.value.iter() {
+                let plain = match part {
+                    FStringPartRef::Literal(literal) => {
+                        text.push_str(&literal.value);
+                        true
+                    }
+                    FStringPartRef::FString(fstring) => {
+                        literal_elements(&mut text, &fstring.elements)
+                    }
+                };
+                if !plain {
+                    return None;
+                }
+            }
+            Some(text)
+        }
+        _ => None,
+    }
 }

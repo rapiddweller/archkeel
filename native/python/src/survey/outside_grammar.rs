@@ -15,40 +15,14 @@ use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    CmpOp, ElifElseClause, Expr, ExprCall, ExprCompare, FStringPartRef, Identifier, Keyword,
-    Operator, Stmt, UnaryOp,
+    CmpOp, ElifElseClause, Expr, ExprCall, ExprCompare, Identifier, Keyword, Operator, Stmt,
+    UnaryOp,
 };
 use ruff_text_size::Ranged;
 
-use super::sites::{foreign, literal_elements};
+use super::super::hazards_names::IMPORT_FUNCTIONS;
+use super::sites::{foreign, text_of};
 use crate::module::Module;
-
-/// The text of a string written in the source. An f-string without a field is that text:
-/// `f"app"` names `app` like `"app"` does.
-pub(super) fn text_of(expr: &Expr) -> Option<String> {
-    match expr {
-        Expr::StringLiteral(text) => Some(text.value.to_str().to_owned()),
-        Expr::FString(node) => {
-            let mut text = String::new();
-            for part in node.value.iter() {
-                let plain = match part {
-                    FStringPartRef::Literal(literal) => {
-                        text.push_str(&literal.value);
-                        true
-                    }
-                    FStringPartRef::FString(fstring) => {
-                        literal_elements(&mut text, &fstring.elements)
-                    }
-                };
-                if !plain {
-                    return None;
-                }
-            }
-            Some(text)
-        }
-        _ => None,
-    }
-}
 
 /// The dotted name of a name or a chain of attributes on a name.
 fn chain(expr: &Expr) -> Option<String> {
@@ -69,22 +43,15 @@ fn texts(call: &ExprCall) -> bool {
     keywords.is_empty() && call.arguments.args.iter().all(|arg| text_of(arg).is_some())
 }
 
-/// The calls that load a module, read a resource or run code by a name. A name that is not a
-/// text written in the source can be any module of the scan (#1963, AD-1211).
-const NAME_APIS: [&str; 8] = [
-    "import_module",
-    "__import__",
-    "spec_from_file_location",
-    "find_spec",
-    "distribution",
-    "exec",
-    "run_module",
-    "run_path",
-];
+/// The calls that load a module, read a resource or run code by a name, besides the import
+/// functions of `hazards_names` (`IMPORT_FUNCTIONS`). A name that is not a text written in the
+/// source can be any module of the scan (#1963, AD-1211).
+const NAME_APIS: [&str; 3] = ["find_spec", "distribution", "exec"];
 
-/// The calls that were no site before: with a text as name they are a site for the modules that
-/// a text of the file names.
-const NEW_SITES: [&str; 3] = ["files", "version", "distribution"];
+/// The import functions that take an object and no name: they are no site here.
+fn takes_a_name(api: &str) -> bool {
+    !matches!(api, "load_module" | "exec_module" | "module_from_spec")
+}
 
 /// The calls that are an API only through `importlib`: the names are common.
 const IMPORTLIB_APIS: [&str; 2] = ["files", "version"];
@@ -154,8 +121,13 @@ pub(super) fn api_calls(module: &Module, names: &HashSet<String>) -> Vec<ApiCall
             // A name written in the source is judged by the site rules of AD-770 and AD-1049 for the
             // calls that were sites before; only the calls that are new sites are added here.
             let runpy = chain(&call.func).is_some_and(|t| t.starts_with("runpy."));
-            let new_site = NEW_SITES.contains(&String::as_str(&name))
-                || matches!(String::as_str(&name), "run_module" | "run_path")
+            // The calls that were no site before: a text as name names the modules that a text of
+            // the file names. The other calls keep the site rules of AD-770 and AD-1049.
+            let new_site = IMPORTLIB_APIS.contains(&String::as_str(&name))
+                || matches!(
+                    String::as_str(&name),
+                    "distribution" | "run_module" | "run_path"
+                )
                 || runpy;
             if !computed && !new_site {
                 return;
@@ -186,7 +158,9 @@ pub(super) fn api_calls(module: &Module, names: &HashSet<String>) -> Vec<ApiCall
             };
             let runpy = text.as_deref().is_some_and(|t| t.starts_with("runpy."));
             let common = IMPORTLIB_APIS.contains(&String::as_str(&last)) && self.importlib;
-            (NAME_APIS.contains(&String::as_str(&last)) || runpy || common).then_some(last)
+            let named = NAME_APIS.contains(&String::as_str(&last))
+                || (IMPORT_FUNCTIONS.contains(&String::as_str(&last)) && takes_a_name(&last));
+            (named || runpy || common).then_some(last)
         }
     }
     let mut calls = Calls {
