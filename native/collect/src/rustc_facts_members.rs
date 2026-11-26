@@ -28,6 +28,8 @@ pub(crate) struct Members {
     features: Vec<(String, String)>,
     /// The package name of each member.
     pub(crate) names: BTreeSet<String>,
+    /// The canonical directory of each member that has a path dependency on a crate that is no member.
+    pub(crate) outside: BTreeSet<String>,
 }
 
 /// The members of a workspace, from the JSON that `cargo metadata --no-deps` printed.
@@ -46,6 +48,7 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
         dirs: Vec::new(),
         features: Vec::new(),
         names: BTreeSet::new(),
+        outside: BTreeSet::new(),
     };
     let text =
         |value: &Value, key: &str| value.get(key).and_then(Value::as_str).map(str::to_string);
@@ -102,11 +105,47 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
             found.features.push((name.clone(), feature.clone()));
         }
     }
+    found.outside = path_dependents(&meta, &ids, &found.roots);
     if found.manifests.is_empty() {
         return Err(Unavailable::MetadataFailed);
     }
     found.features.sort();
     Ok(found)
+}
+
+/// The canonical directory of each member that has a path dependency whose directory is no member. The crate can lie
+/// anywhere, also outside every scan root: the scan does not read it, so the edges that pass through it are unknown.
+fn path_dependents(
+    meta: &Value,
+    ids: &BTreeSet<&str>,
+    members: &BTreeMap<String, BTreeSet<String>>,
+) -> BTreeSet<String> {
+    let real = |path: &str| {
+        let canonical = std::fs::canonicalize(path).ok()?;
+        Some(canonical.to_string_lossy().replace('\\', "/"))
+    };
+    let mut found = BTreeSet::new();
+    let packages = meta.get("packages").and_then(Value::as_array);
+    for package in packages.into_iter().flatten() {
+        let id = package
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let manifest = package.get("manifest_path").and_then(Value::as_str);
+        let dir = manifest.and_then(|m| Path::new(m).parent()?.to_str().and_then(real));
+        let (true, Some(dir)) = (ids.contains(id), dir) else {
+            continue;
+        };
+        let dependencies = package.get("dependencies").and_then(Value::as_array);
+        for dependency in dependencies.into_iter().flatten() {
+            let path = dependency.get("path").and_then(Value::as_str);
+            // A path that cannot be resolved is unknown, so it counts as outside.
+            if path.is_some_and(|p| real(p).is_none_or(|r| !members.contains_key(&r))) {
+                found.insert(dir.clone());
+            }
+        }
+    }
+    found
 }
 
 /// The matrix: the three fixed configurations and each feature of a member alone. More features than the
@@ -197,6 +236,7 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
         .canonicalize()
         .map_err(|why| format!("cannot read the repository root: {why}"))?;
     let (mut roots, mut found, mut names) = (Vec::new(), Vec::new(), BTreeSet::new());
+    let mut held = BTreeSet::new();
     for root in scan_roots {
         let Some(manifest) = nearest_manifest(&real, root) else {
             continue;
@@ -217,6 +257,11 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
         // The walk lists a file under the path of its scan root. A scan root that is a symlink has another real path
         // than the member directory has, so each member below the real root is also listed under the root path.
         found.extend(listed_under_root(&real, root, all.roots.keys()));
+        held.extend(listed_under_root(&real, root, all.outside.iter()));
+        held.extend(all.outside.iter().filter_map(|dir| {
+            let relative = Path::new(dir).strip_prefix(&real).ok()?;
+            Some(relative.to_string_lossy().replace('\\', "/"))
+        }));
         // The snapshot lists paths with `/`; the members reader prints the separator of the platform.
         // A member that is a symlink has two paths: Cargo builds the one it names, and the walk lists the real one.
         for real_dir in all.roots.keys() {
@@ -232,7 +277,7 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
     }
     found.sort();
     found.dedup();
-    Ok(json!({ "roots": roots, "members": found, "names": names }))
+    Ok(json!({ "roots": roots, "members": found, "names": names, "held": held }))
 }
 
 /// The `Cargo.toml` in the scan root, else in the nearest directory above it, up to the repository root. A
