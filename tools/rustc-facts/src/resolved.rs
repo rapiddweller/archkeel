@@ -62,7 +62,9 @@ fn touch<'tcx>(
     let mut non_adt = false;
     for arg in args.iter() {
         let Some(ty) = arg.as_type() else { continue };
-        let ty = tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new(ty)).unwrap_or(ty);
+        let ty = tcx
+            .try_normalize_erasing_regions(env, ty::Unnormalized::new(ty))
+            .unwrap_or(ty);
         for node in ty.walk().filter_map(|g| g.as_type()) {
             match node.kind() {
                 ty::Adt(def, _) => {
@@ -163,9 +165,6 @@ pub(crate) fn method_site<'tcx>(
         callee: callee_id,
         file,
         callee_file,
-        callee_line: inside
-            .then(|| crate::items::line(tcx, callee))
-            .and_then(|l| u32::try_from(l).ok()),
         touch,
         open,
         line: u32::try_from(start.line).unwrap_or(u32::MAX),

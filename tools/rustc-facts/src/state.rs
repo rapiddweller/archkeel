@@ -83,8 +83,6 @@ pub(crate) struct Resolved {
     /// The file of the call, and the file that holds the callee (workspace code).
     pub(crate) file: u32,
     pub(crate) callee_file: Option<u32>,
-    /// The line of the callee, for the evidence.
-    pub(crate) callee_line: Option<u32>,
     /// The files that the type arguments of the call can run (their types, closures and impls), and whether an
     /// argument is not fully known. A candidate in such a file, or any candidate when open, is not excluded.
     pub(crate) touch: BTreeSet<u32>,
