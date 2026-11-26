@@ -162,6 +162,22 @@ jobs:
         if: matrix.area == 'CLI and core' || matrix.area == 'core scans'
         run: make type-reach-setup
 
+      # AD-1212: the own-workspace scan test makes compiler facts from a cold cache in more than the 600 s
+      # that the core allows. The cache holds the work directories of the facts. It checks its own
+      # inputs (driver hash and toolchain in the directory name, `Cargo.lock` and member roots in a
+      # marker, cargo fingerprints for each unit), so a restore key can only cost time, never a result.
+      - name: Name the compiler facts cache of the core scans
+        if: matrix.area == 'core scans'
+        run: echo "ARCHKEEL_FACTS_CACHE=$RUNNER_TEMP/facts-cache" >> "$GITHUB_ENV"
+
+      - name: Restore the compiler facts cache
+        if: matrix.area == 'core scans'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/facts-cache
+          key: facts-${{ runner.os }}-${{ hashFiles('native/**', '!native/target/**', 'tools/rustc-facts/**', '!tools/rustc-facts/target/**', '!**/__pycache__/**') }}
+          restore-keys: facts-${{ runner.os }}-
+
       - name: Show the runner CPU
         run: lscpu | grep -E '^(Model name|CPU\(s\)):'
 
@@ -172,6 +188,13 @@ jobs:
           # does not touch the network); the fixture matrix pins their result.
           ARCHKEEL_FETCH_SOURCES: "1"
         run: make full-test AREA="$AREA"
+
+      - name: Save the compiler facts cache
+        if: always() && matrix.area == 'core scans'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/facts-cache
+          key: facts-${{ runner.os }}-${{ hashFiles('native/**', '!native/target/**', 'tools/rustc-facts/**', '!tools/rustc-facts/target/**', '!**/__pycache__/**') }}
 
       - name: Name the first failing test in the job summary
         if: failure()

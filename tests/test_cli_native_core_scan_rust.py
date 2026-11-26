@@ -8,6 +8,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import shutil
 import subprocess
 import tomllib
 from pathlib import Path
@@ -85,7 +86,11 @@ def test_each_rust_corpus_request_has_equal_facts_or_a_named_refusal(
 def test_the_core_scans_its_own_workspace_with_no_shell_reply(
     built: Path, tmp_path: Path, frozen_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    root = tmp_path / "project"
+    # A facts cache from the environment (the Full job restores one, AD-1212) names its work
+    # directory after the path of the manifest, so the copy sits at a path that does not change.
+    cache = os.environ.get("ARCHKEEL_FACTS_CACHE")
+    root = Path(cache).with_name("own-workspace") if cache else tmp_path / "project"
+    shutil.rmtree(root, ignore_errors=True)
     copy_native(root, frozen_root)
     # The frozen copy turns the compiler facts off. `docs/architecture/native.md` draws the edges
     # that the compiler proves (AD-1136), and only a scan with facts observes them: ask for the
@@ -95,7 +100,7 @@ def test_the_core_scans_its_own_workspace_with_no_shell_reply(
         config.read_text().replace("rust_type_reach = false", "rust_type_reach = true")
     )
     monkeypatch.setenv("ARCHKEEL_ALLOW_BUILD", "1")
-    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", str(tmp_path / "facts"))
+    monkeypatch.setenv("ARCHKEEL_FACTS_CACHE", cache or str(tmp_path / "facts"))
     commit_tree(root)
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     request = {
