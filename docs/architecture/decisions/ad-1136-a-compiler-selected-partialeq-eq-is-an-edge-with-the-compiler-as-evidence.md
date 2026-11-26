@@ -33,16 +33,17 @@ pair gap `C -> M`. A contract that forbids `C -> M` stayed UNKNOWN, also when th
    crossing is Undecided when the source has a symbol port at the module of the impl or above it. The compiler
    names the module, not the symbol that a port publishes (follow-up: #2069).
 
-## Effect on the self-check (`make self-check`, base 3af4cc4c259a)
+## Effect on the self-check (CI gate of PR #2066, base 3af4cc4c259a)
 
 - Base: 89 rules PASS, 3 UNKNOWN, 12947 gap records. This change: 89 PASS, 2 UNKNOWN, 1 FAIL, 12948 gap records.
-- The driver wrote 3900 sites in 9 configurations. 1327 are in every configuration: 379 pairs of rustc modules,
+- A local run found 3900 sites in 9 configurations. 1327 are in every configuration: 379 pairs of rustc modules,
   96 across crates. Most pairs are in one component or allowed by a port.
-- New FAIL: `NATIVE-REQUIRES-COMPLETE` (was UNKNOWN), one pair:
-  `typescript_collector.site_records -> typescript_collector.site_types` (`site_records.rs:295`). The ports of
-  `ts-sites` name `sites` and not `site_types`, where the derive of `PartialEq` for `SiteKind` runs.
-- New gap: one `graph.drift` gap. The drawn graph misses `core-baseline -> report-payload` and
-  `eval-rules -> model-match`.
+- New FAIL: `NATIVE-REQUIRES-COMPLETE` (was UNKNOWN), 7 violations over 4 pairs. Each pair goes to
+  `typescript_collector.site_types`, where the derive of `PartialEq` for `SiteKind` runs: from `resolution`,
+  `script_deps`, `script_records` and `site_records`. The ports of `ts-sites` name `sites`, not `site_types`.
+  A local run showed one of the four pairs. The contract is not changed.
+- New gap: one `graph.drift` gap. The drawn graph misses `core-baseline -> report-payload`,
+  `core-engine -> model-terms` and `eval-rules -> model-match`.
 
 ## Counter-examples that were tried
 
