@@ -98,6 +98,9 @@ fn patches(meta: &Value) -> BTreeMap<String, Option<String>> {
             if table {
                 entries.push(Entry::named(unquote(&parts[parts.len() - 1])));
             }
+        } else if line.starts_with("patch.") && !inside {
+            // A dotted key (`patch.crates-io.name.path = ..`): not read here, so every registry dependency holds.
+            entries.push(Entry::named("*".to_owned()));
         } else if let (true, Some((key, value))) = (inside, line.split_once('=')) {
             match (table, entries.last_mut()) {
                 (true, Some(last)) => last.set(key.trim(), value),
@@ -194,11 +197,11 @@ fn key_parts(header: &str) -> Vec<String> {
         }
     }
     parts.push(current);
-    parts
+    parts.iter().map(|part| unquote(part)).collect()
 }
 
 fn unquote(text: &str) -> String {
-    text.trim().trim_matches('"').to_owned()
+    text.trim().trim_matches('"').trim().to_owned()
 }
 
 /// What each dependency of `package` leads to. A registry or git entry has no path in the metadata: a `[patch]`
@@ -211,6 +214,8 @@ fn targets(package: &Value, members: &Members) -> Vec<Target> {
         let source = dependency.get("source").and_then(Value::as_str);
         if let Some(path) = dependency.get("path").and_then(Value::as_str) {
             found.push(real_dir(path).map_or(Target::Unknown, Target::Dir));
+        } else if source.is_some() && members.patches.contains_key("*") {
+            found.push(Target::Unknown);
         } else if let Some(patched) = name.and_then(|n| members.patches.get(n)) {
             found.push(patched.clone().map_or(Target::Unknown, Target::Patched));
         } else if source.is_some_and(|s| s.starts_with("git+"))
@@ -245,7 +250,7 @@ fn reaches_member(dir: &str, members: &Members, known: &mut BTreeMap<String, boo
                 Target::Dir(d) | Target::Patched(d) if members.dirs.contains_key(d) => true,
                 other => held(other, members, known),
             });
-            by_dependency || sources_reach_member(Path::new(dir), members)
+            by_dependency || sources_reach_member(Path::new(dir), members, &meta)
         }
     };
     known.insert(dir.to_owned(), reaches);
@@ -259,8 +264,9 @@ const MAX_BYTES: u64 = 4 << 20;
 /// Whether an `include!` or a `#[path]` in a Rust file below `dir` names a file outside the crate or inside a member,
 /// or names a path that the search cannot tell (more files or bytes than the limits, a computed path). A file outside
 /// the crate is not read here, so what it includes is unknown.
-fn sources_reach_member(dir: &Path, members: &Members) -> bool {
-    let mut files = Vec::new();
+fn sources_reach_member(dir: &Path, members: &Members, meta: &Value) -> bool {
+    // Cargo compiles each target `src_path` as Rust, whatever its extension.
+    let mut files = target_sources(meta);
     let mut pending = vec![dir.to_path_buf()];
     while let Some(next) = pending.pop() {
         let Ok(entries) = std::fs::read_dir(&next) else {
@@ -285,6 +291,18 @@ fn sources_reach_member(dir: &Path, members: &Members) -> bool {
     files.iter().any(|file| file_escapes(file, &own, members))
 }
 
+fn target_sources(meta: &Value) -> Vec<std::path::PathBuf> {
+    let packages = meta.get("packages").and_then(Value::as_array);
+    let targets = packages
+        .into_iter()
+        .flatten()
+        .filter_map(|p| p.get("targets")?.as_array());
+    let paths = targets
+        .flatten()
+        .filter_map(|t| t.get("src_path")?.as_str());
+    paths.map(std::path::PathBuf::from).collect()
+}
+
 fn file_escapes(file: &Path, own: &str, members: &Members) -> bool {
     let large = std::fs::metadata(file).is_ok_and(|m| m.len() > MAX_BYTES);
     let Ok(text) = std::fs::read_to_string(file) else {
@@ -294,19 +312,22 @@ fn file_escapes(file: &Path, own: &str, members: &Members) -> bool {
         return true;
     }
     let parent = file.parent().unwrap_or(Path::new("."));
-    // `#[path]` in a file that is no `mod.rs` is relative to the directory of the module.
-    let bases = [
-        Some(parent.to_path_buf()),
-        file.file_stem().map(|s| parent.join(s)),
-    ];
-    let named = include_arguments(&text)
-        .into_iter()
-        .chain(path_attributes(&text));
-    // `None`: the argument is no plain string literal, so the path cannot be told.
-    named.into_iter().any(|literal| {
+    // `include!` is relative to the file. `#[path]` is relative to the directory of the file in a `mod.rs`, `lib.rs`
+    // or `main.rs`, and to the directory of the module otherwise: an unresolved candidate is no proof of a route.
+    let stem = file.file_stem().map(|s| parent.join(s));
+    let attributes = path_attributes(&text);
+    let attribute_bases = [Some(parent.to_path_buf()), stem];
+    let includes = include_arguments(&text);
+    let leaves = |literal: Option<&str>, bases: &[Option<std::path::PathBuf>]| {
         let Some(literal) = literal else { return true };
-        (bases.iter().flatten()).any(|base| escapes(base, literal, own, members))
-    })
+        let reads: Vec<Option<bool>> = (bases.iter().flatten())
+            .map(|base| escapes(base, literal, own, members))
+            .collect();
+        reads.contains(&Some(true)) || reads.iter().all(Option::is_none)
+    };
+    let include_base = [Some(parent.to_path_buf())];
+    includes.into_iter().any(|l| leaves(l, &include_base))
+        || attributes.into_iter().any(|l| leaves(l, &attribute_bases))
 }
 
 /// The argument of each `include!` call: `Some(literal)` when it is a plain string literal.
@@ -362,11 +383,9 @@ fn whole_literal(rest: &str) -> Option<&str> {
     after.starts_with([')', ']', ';', '}']).then_some(literal)
 }
 
-/// Whether `literal`, read from `base`, leaves the crate in `own`, lies inside a member, or cannot be resolved.
-fn escapes(base: &Path, literal: &str, own: &str, members: &Members) -> bool {
-    let Some(target) = real_dir(base.join(literal).to_str().unwrap_or_default()) else {
-        return true;
-    };
+/// Whether `literal`, read from `base`, leaves the crate in `own` or lies inside a member; `None` when it does not resolve.
+fn escapes(base: &Path, literal: &str, own: &str, members: &Members) -> Option<bool> {
+    let target = real_dir(base.join(literal).to_str()?)?;
     let inside = |dir: &str| target == dir || target.starts_with(&format!("{dir}/"));
-    !inside(own) || members.dirs.keys().any(|member| inside(member))
+    Some(!inside(own) || members.dirs.keys().any(|member| inside(member)))
 }
