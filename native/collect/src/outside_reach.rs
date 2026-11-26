@@ -83,7 +83,8 @@ fn real_dir(path: &str) -> Option<String> {
 fn patch_text(meta: &Value) -> Option<String> {
     let root = meta.get("workspace_root").and_then(Value::as_str)?;
     let text = std::fs::read_to_string(Path::new(root).join("Cargo.toml")).ok()?;
-    (text.contains("patch") || text.contains("replace")).then_some(text)
+    // A backslash can write the table name in an escape (`pa\u0074ch`), so such a manifest is kept too.
+    (text.contains("patch") || text.contains("replace") || text.contains('\\')).then_some(text)
 }
 
 /// The start of each whole-word occurrence of `word` in `text`.
@@ -173,7 +174,12 @@ fn sources_reach_member(dir: &Path, members: &Members, meta: &Value) -> bool {
     };
     let mut files = target_sources(meta);
     let mut pending = vec![dir.to_path_buf()];
+    // A directory symlink can lead back: each real directory is read once.
+    let mut seen = std::collections::BTreeSet::new();
     while let Some(next) = pending.pop() {
+        if !real_dir(next.to_str().unwrap_or_default()).is_some_and(|real| seen.insert(real)) {
+            continue;
+        }
         let Ok(entries) = std::fs::read_dir(&next) else {
             return true;
         };

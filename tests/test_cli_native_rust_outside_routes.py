@@ -104,6 +104,11 @@ ROUTES = {
         HEAD,
         "pub fn f() { base_crate::make(); }\n",
     ),
+    "patch-escaped-table": (
+        WORKSPACE + '["pa\\u0074ch".crates-io]\nbase-crate = { path = "base" }\n',
+        HEAD,
+        "pub fn f() { base_crate::make(); }\n",
+    ),
     "include": (
         WORKSPACE,
         "",
@@ -256,3 +261,16 @@ def test_a_source_that_is_a_symlink_to_a_member_file_does_not_pass(
     assert _marker(root, offline=True) == "app ran\n"
     result = validate(root)
     assert result["frame"]["rules"]["FORBID"][1] != "PASS", result["frame"]["rules"]
+
+
+def test_directory_symlinks_that_lead_back_do_not_stop_the_search(
+    tmp_path: Path, release_core: Path
+) -> None:
+    root = _scan(tmp_path, release_core, WORKSPACE, "", "pub fn f() {}\n", {})
+    for name in ("loop-a", "loop-b", "loop-c"):
+        (root / "vendor/x" / name).symlink_to(".")
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+    _recommit(root)
+    result = validate(root)
+    # The links lead to the crate itself: no source lies outside it, so no gap and the rule decides.
+    assert result["frame"]["rules"]["FORBID"][1] == "PASS", result["frame"]["rules"]
