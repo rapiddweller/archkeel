@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The pairs and the imports that hold a rule, as the `explain` part writes them: the origin of
-//! each pair and the cause of each import of an interface rule (#2086, AD-1200). It decides nothing.
+//! each pair and the cause of each import of an interface rule (#2086, AD-1210). It decides nothing.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -38,7 +38,7 @@ pub(super) fn origin_counts(
 }
 
 /// The held imports of an interface rule: the count of each gap and class, and the first 20 with
-/// the cause that the collector states (#2086, AD-1200).
+/// the cause that the collector states (#2086, AD-1210).
 pub(super) fn interface_value(hold: &InterfaceHold) -> serde_json::Value {
     let class = |cause: Option<&(RouteWithheld, Option<String>)>| {
         cause.map_or("not_stated", |(cause, _)| cause.as_str())

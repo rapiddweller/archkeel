@@ -2327,7 +2327,7 @@
         },
         {
           "component": "facts",
-          "rationale": "Read the cause that the collector states for a held import (#2086, AD-1200).",
+          "rationale": "Read the cause that the collector states for a held import (#2086, AD-1210).",
           "through": [
             "native.archkeel_facts.vocab:RouteWithheld"
           ]
