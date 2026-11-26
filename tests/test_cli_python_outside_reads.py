@@ -33,10 +33,14 @@ try:
     version = importlib.metadata.version("app")
 except importlib.metadata.PackageNotFoundError:
     version = ""
-assert importlib.util.find_spec("fastmcp") is None
-assert "fastmcp" not in sys.modules
+assert importlib.util.find_spec("zzz_never_installed") is None
+assert "zzz_never_installed" not in sys.modules
+isolated = sys.flags.isolated
 assert not any(name.startswith("zzz") for name in sys.modules)
 package = importlib.resources.files("app")
+assert package.joinpath("__init__.py").is_file()
+assert importlib.resources.files("app").joinpath("service.py").read_text()
+assert (importlib.resources.files("app") / "service.py").read_bytes()
 print(app.client.run())
 """
 
@@ -81,6 +85,34 @@ WRITES = {
         '_ = "app.service" in sys.modules in Sink()\nimport app.client\n'
         "print(app.client.run())\n"
     ),
+    "files write": (
+        "import importlib.resources\n"
+        'importlib.resources.files("app").joinpath("service.py").write_text(\n'
+        "    \"def f():\\n    return 'hooked'\\n\"\n)\n"
+        "import app.client\nprint(app.client.run())\n"
+    ),
+    "files slash write": (
+        "import importlib.resources\n"
+        '(importlib.resources.files("app") / "service.py").write_text(\n'
+        "    \"def f():\\n    return 'hooked'\\n\"\n)\n"
+        "import app.client\nprint(app.client.run())\n"
+    ),
+    "files in a name": (
+        "import importlib.resources\n"
+        'package = importlib.resources.files("app")\n'
+        'assert package.joinpath("__init__.py").is_file()\n'
+        'package.joinpath("service.py").write_text(\n'
+        "    \"def f():\\n    return 'hooked'\\n\"\n)\n"
+        "import app.client\nprint(app.client.run())\n"
+    ),
+    "files write after a read": (
+        "import importlib.resources\n"
+        'package = importlib.resources.files("app")\n'
+        'assert package.joinpath("service.py").read_text()\n'
+        'other = package\nother.joinpath("service.py").write_text(\n'
+        "    \"def f():\\n    return 'hooked'\\n\"\n)\n"
+        "import app.client\nprint(app.client.run())\n"
+    ),
     "imported module attribute": (
         "import app.service\napp.service.f = lambda: 'hooked'\nimport app.client\n"
         "print(app.client.run())\n"
@@ -94,6 +126,12 @@ HELD = {
     ),
     "spec used": (
         "import importlib.util\nspec = importlib.util.find_spec('app.service')\nprint(spec.name)\n"
+    ),
+    "files passed on": (
+        'import importlib.resources\nprint("app", importlib.resources.files("app"))\n'
+    ),
+    "files listed": (
+        'import importlib.resources\nprint(list(importlib.resources.files("app").iterdir()))\n'
     ),
     "alias": "import importlib.util as util\nprint(util.find_spec('app.service') is None)\n",
     "module values": "import sys\nprint('app.service', list(sys.modules.values()))\n",

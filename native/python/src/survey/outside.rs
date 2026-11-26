@@ -52,6 +52,8 @@ use crate::source::{declared_encoding, decode, newlines};
 
 #[path = "outside_native.rs"]
 mod native;
+#[path = "outside_reads.rs"]
+mod reads;
 #[path = "outside_sites.rs"]
 mod sites;
 
@@ -189,7 +191,7 @@ pub(super) fn written(
         let file = sites::File {
             module,
             foreign_specs: foreign[*index],
-            reads: sites::reads(module),
+            reads: reads::of(module),
         };
         if !sites::harmless(site, &file, &names) {
             let hit = sites::named(module, &names);
