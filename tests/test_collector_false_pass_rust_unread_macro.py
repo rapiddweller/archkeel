@@ -150,11 +150,13 @@ def _rustc_rejects_a_without_d(root: Path) -> None:
     lib.write_text(LIB)
 
 
-def _files(a: str, d: str) -> dict[str, str]:
+def _files(a: str, d: str, proc: bool = True) -> dict[str, str]:
+    """A procedural macro crate outside the scan holds its dependent (#2105): a twin omits it."""
     source = {"lib.rs": LIB, "c.rs": "pub struct S;\n", "d.rs": d, "a.rs": a}
+    dependencies = DEPENDENCIES if proc else DEPENDENCIES.split("\n")[1] + "\n"
     return {
-        "crates/app/Cargo.toml": APP + DEPENDENCIES,
-        **PROC,
+        "crates/app/Cargo.toml": APP + dependencies,
+        **(PROC if proc else {}),
         **DEP,
         **{SRC + name: text for name, text in source.items()},
     }
@@ -193,6 +195,6 @@ def test_an_unread_macro_expansion_gives_a_gap(
 def test_a_std_macro_keeps_the_pass(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], name: str
 ) -> None:
-    found, _ = _verdict(tmp_path, core_binary, capsys, _files(TWINS[name], D))
+    found, _ = _verdict(tmp_path, core_binary, capsys, _files(TWINS[name], D, proc=False))
 
     assert found == "PASS", (name, found)

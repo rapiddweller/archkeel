@@ -158,8 +158,9 @@ def repository(
         # AD-1047: `ARCHKEEL_TEST_TYPE_REACH=1` runs each fixture with the compiler type-reach
         # facts, so a plant that must never PASS proves that the filter keeps its real edge.
     )
-    if reach:
-        # The producer runs `cargo check --locked`: the fixture needs its lock file.
+    # The producer runs `cargo check --locked`; the resolve graph (#2105) needs a lock file too.
+    # Cargo never writes one into the scanned repository. No lock: no facts, no graph, UNKNOWN.
+    if not (root / "crates/Cargo.lock").exists():
         subprocess.run(
             [
                 "cargo",
@@ -168,7 +169,7 @@ def repository(
                 "--manifest-path",
                 str(root / "crates/Cargo.toml"),
             ],
-            check=False,  # no lock offline: no facts, UNKNOWN with the reason
+            check=False,
             capture_output=True,
         )
     commit_tree(root)
