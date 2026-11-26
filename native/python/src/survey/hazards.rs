@@ -22,13 +22,12 @@ use super::literal::Proof;
 use super::syspath;
 
 use super::hazards_names::{
-    above, attribute_trojan_horse, first_hazard, holds, module_hazard, BUILTIN_TROJAN_HORSES,
+    above, attribute_trojan_horse, first_hazard, module_hazard, BUILTIN_TROJAN_HORSES,
     IMPORT_FUNCTIONS, TROJAN_HORSE_STRINGS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
-pub(super) use bind::bindings;
-pub(super) use bind::exposed;
 use bind::imported;
+pub(super) use bind::{bindings, exposed};
 pub(super) use comprehension::trojans as comprehension_trojans;
 pub(super) use inert::{cleared, BUILTINS};
 pub(super) use reexport::{table, Reexports};
@@ -240,8 +239,9 @@ impl Walk<'_> {
             if let Some(kind) = hazard(&origin) {
                 return self.push(kind, &origin, expr);
             }
-            // A module with a hazard name that is read as a value flows on unseen (AD-1098).
-            if above(&origin) || holds(&origin) || reexport::named(self.reexports, &origin) {
+            // A bound module with a hazard name that is read as a value flows on unseen (AD-1098).
+            let value = self.bound.contains_key(id) && reexport::value(self.reexports, &origin);
+            if above(&origin) || value {
                 return self.push(DYNAMIC, &origin, expr);
             }
         }

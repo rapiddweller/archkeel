@@ -52,12 +52,13 @@ pub(super) fn find_from(
     find(reexports, &parts)
 }
 
-/// True when the last name of `origin` is a name that a module of the scan binds to a module with
-/// a hazard name: the origin is that module as a value.
-pub(super) fn named(reexports: &Reexports, origin: &str) -> bool {
-    origin
+/// True when `origin` is a module with a hazard name, or a name that a module of the scan binds to
+/// one (`app.util.cp`): the origin is such a module as a value.
+pub(super) fn value(reexports: &Reexports, origin: &str) -> bool {
+    let named = origin
         .rsplit_once('.')
-        .is_some_and(|(_, last)| reexports.contains_key(last))
+        .is_some_and(|(_, last)| reexports.contains_key(last));
+    holds(origin) || named
 }
 
 #[cfg(test)]
@@ -96,8 +97,9 @@ mod tests {
         let table = table(all.iter());
         let found = find_from(&table, "app.util.cp", &["run"]).map(|x| x.1);
         assert_eq!(found.as_deref(), Some("cProfile.run"));
-        assert!(named(&table, "app.util.cp"));
-        assert!(!named(&table, "app.util.other"));
-        assert!(!named(&table, "cp"));
+        assert!(value(&table, "app.util.cp"));
+        assert!(!value(&table, "app.util.other"));
+        assert!(!value(&table, "cp"));
+        assert!(value(&table, "unittest"));
     }
 }

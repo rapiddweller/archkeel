@@ -79,6 +79,10 @@ CONTROLS = {
         "import os\n\n\ndef same(m):\n    return m\n\n\nsame(os).getcwd()\n",
         "",
     ),
+    "ordinary data named like a module": (
+        "profile = {'name': 'Ada'}\nname = profile['name']\n",
+        "",
+    ),
     "assignment of json": (
         "import json\n\nalias = json\nalias.dumps({})\n",
         "",
