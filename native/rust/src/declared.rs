@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 use archkeel_facts::data::ImportData;
 use archkeel_facts::envelope::{Evidence, Target};
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::ids::{FactId, ModuleName, PackageName};
+use archkeel_facts::ids::{ModuleName, PackageName};
 use archkeel_facts::ImportFact;
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
@@ -134,13 +134,8 @@ impl Builder {
                 ],
             );
             let evidence = self.cite(&found.file, &site);
-            self.targets.push(Target::Local {
-                import_id: FactId::new(identity.as_str()),
-                module: ModuleName::new(found.to.as_str()),
-                file: target_rel.to_owned(),
-                runtime_file: Some(target_rel.to_owned()),
-                declaration_file: None,
-            });
+            let local = Target::local(identity.as_str(), found.to.as_str(), target_rel);
+            self.targets.push(local);
             let data = ImportData {
                 source_module: ModuleName::new(&found.from),
                 source_package: PackageName::new(from.package()),

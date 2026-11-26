@@ -94,8 +94,8 @@ macro_rules! import_data {
             ImportFact::Import(data)
             | ImportFact::Reexport(data)
             | ImportFact::ImportType(data)
-            | ImportFact::ImportEquals(data)
-            | ImportFact::Require(data)
+            | ImportFact::ImportEquals(data) => data,
+            ImportFact::Require(data)
             | ImportFact::DynamicImport(data)
             | ImportFact::ScriptGlobal(data)
             | ImportFact::MacroBody(data)
