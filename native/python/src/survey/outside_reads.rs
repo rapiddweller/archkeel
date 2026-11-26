@@ -38,20 +38,21 @@ const IMPORTLIB_READS: [&str; 4] = [
 
 /// The attributes of `sys` that hand out no namespace of modules. Any other attribute (`__dict__`
 /// holds `modules`) ends the proof for `sys.modules`.
-const SYS_READS: [&str; 12] = [
-    "sys.argv",
+const SYS_READS: [&str; 9] = [
     "sys.base_prefix",
     "sys.executable",
     "sys.exit",
-    "sys.flags",
     "sys.flags.isolated",
-    "sys.path",
     "sys.platform",
     "sys.prefix",
     "sys.stderr",
     "sys.stdout",
     "sys.version_info",
 ];
+
+/// The lists of `sys` that a `for` or a comprehension may walk. A test (`x in sys.path`) compares
+/// the items, and an item that a store put there runs code.
+const SYS_WALKED: [&str; 2] = ["sys.argv", "sys.path"];
 
 /// The calls on a `files(...)` path that give text, bytes or a bare answer. Any other call (a
 /// write, an `open`, `iterdir`) can change the file of a module of the scan.
@@ -62,6 +63,9 @@ const FILES: &str = "importlib.resources.files";
 #[derive(Default)]
 struct Uses {
     safe: HashSet<TextRange>,
+    /// The expressions that a `for` or a comprehension walks: a list walks its items, it does not
+    /// compare them.
+    iterated: HashSet<TextRange>,
     importlib: bool,
     sys_modules: bool,
     /// The names that bind a `files(...)` result, with the range of each such call.
@@ -79,8 +83,12 @@ impl Uses {
     }
     fn iterate(&mut self, generators: &[Comprehension]) {
         for generator in generators {
-            self.mark(&generator.iter);
+            self.walk(&generator.iter);
         }
+    }
+    fn walk(&mut self, expr: &Expr) {
+        self.mark(expr);
+        self.iterated.insert(expr.range());
     }
 }
 /// The dotted name of a chain of attributes on a name, or `None` for any other expression.
@@ -222,16 +230,23 @@ impl Uses {
         let Some(text) = chain(expr) else {
             return false;
         };
-        let safe = self.safe.contains(&expr.range());
+        let text = String::as_str(&text);
+        // A store or a delete changes what a later test runs: `sys.prefix = Hook()`.
+        let load = !matches!(expr, Expr::Attribute(node) if node.ctx != ExprContext::Load);
+        let safe = load && self.safe.contains(&expr.range());
+        let walked = load && self.iterated.contains(&expr.range());
         match text.split('.').next() {
             Some("importlib") => {
                 let proved = safe || self.pending.contains(&expr.range());
                 let guarded = text == "importlib.util.find_spec" || text == FILES;
                 self.importlib |=
-                    !(IMPORTLIB_READS.contains(&String::as_str(&text)) && (!guarded || proved));
+                    !(load && IMPORTLIB_READS.contains(&text) && (!guarded || proved));
             }
             Some("sys") if text == "sys.modules" => self.sys_modules |= !safe,
-            Some("sys") => self.sys_modules |= !SYS_READS.contains(&String::as_str(&text)),
+            Some("sys") => {
+                let scalar = load && SYS_READS.contains(&text);
+                self.sys_modules |= !(scalar || (walked && SYS_WALKED.contains(&text)));
+            }
             _ => return false,
         }
         true
@@ -245,7 +260,7 @@ impl<'a> Visitor<'a> for Uses {
             Stmt::ImportFrom(node) => self.import_from(node),
             Stmt::FunctionDef(node) => self.rebound(Identifier::as_str(&node.name)),
             Stmt::ClassDef(node) => self.rebound(Identifier::as_str(&node.name)),
-            Stmt::For(node) => self.mark(&node.iter),
+            Stmt::For(node) => self.walk(&node.iter),
             Stmt::Assign(node) => self.assign(node),
             _ => {}
         }

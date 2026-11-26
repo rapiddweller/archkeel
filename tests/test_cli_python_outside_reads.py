@@ -39,6 +39,7 @@ except importlib.metadata.PackageNotFoundError:
 assert importlib.util.find_spec("{ABSENT}") is None
 assert "{ABSENT}" not in sys.modules
 isolated = sys.flags.isolated
+assert all(entry for entry in sys.path)
 assert not any(name.startswith("zzz") for name in sys.modules)
 package = importlib.resources.files("app")
 assert package.joinpath("__init__.py").is_file()
@@ -49,7 +50,8 @@ print(app.client.run())
 
 # A file write, not an attribute write: only the rebound name can lead to it.
 HOOK = (
-    "import pathlib\n\n\nclass Hook:\n    def __contains__(self, name):\n"
+    "import pathlib\n\n\nclass Hook:\n    def __eq__(self, other):\n"
+    "        self.version(other)\n        return False\n\n    def __contains__(self, name):\n"
     "        self.version(name)\n        return True\n\n    def version(self, name):\n"
     '        pathlib.Path("src/app/service.py").write_text(\n'
     "            \"def f():\\n    return 'hooked'\\n\"\n        )\n"
@@ -136,6 +138,17 @@ WRITES = {
     "sys parameter": (
         HOOK + "import sys\n\n\ndef check(sys):\n"
         '    return "app.service" in sys.modules\n\n\ncheck(Replacement())\n'
+        "import app.client\nprint(app.client.run())\n"
+    ),
+    "sys attribute store": (
+        HOOK + "import sys\n\nsaved = sys.prefix\nsys.prefix = Hook()\n"
+        'assert "app.service" in sys.prefix\nsys.prefix = saved\n'
+        'for name in sys.modules:\n    pass\nloaded = "app.service" in sys.modules\n'
+        "import app.client\nprint(app.client.run())\n"
+    ),
+    "sys path item": (
+        HOOK + "import sys\n\nsaved = sys.path[0]\nsys.path[0] = Hook()\n"
+        'found = "app.service" in sys.path\nsys.path[0] = saved\n'
         "import app.client\nprint(app.client.run())\n"
     ),
     "importlib rebound": (
