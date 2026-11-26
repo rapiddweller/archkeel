@@ -73,7 +73,7 @@ def where(frame: dict[str, Any], evidence: list[str], fallback: str = "?") -> st
 
 
 def ratchet(
-    native: dict[str, Any] | None, base: Path, root: Path = Path(".")
+    native: dict[str, Any] | None, base: Path, root: Path = Path("."), kept: Path | None = None
 ) -> tuple[list[str], int]:
     """The growth against the base commit in words, and the count of new items."""
     if native is None or native.get("refusal"):
@@ -82,7 +82,10 @@ def ratchet(
         before = load(str(base))
     except Unusable:
         return ["native vs base: no base result; run `make self-validate-native`"], 0
-    own = condense(native, scan=scan_table(root))
+    try:
+        own = load(str(kept)) if kept is not None else condense(native, scan=scan_table(root))
+    except Unusable:
+        return ["native vs base: no gate result; run `make self-validate-native`"], 0
     items, removed = grown(before, own)[1:]
     sha = str(before.get("sha") or "?")[:12]
     lines = [f"native vs base {sha}: {len(items)} new items, {removed} gaps gone"]
@@ -234,8 +237,10 @@ def summary(dir_: Path, root: Path, status: int, log: str) -> list[str]:
         name: frame_of(results[name] or {}, True) for name, _part, wrapped in PARTS if wrapped
     }
     frames = {name: frame for name, frame in frames.items() if frame}
-    base = Path(os.environ.get("BASE_RESULT") or dir_ / "selfcheck" / "compared-base.json")
-    ratchet_lines, new = ratchet(results["native"], base, root)
+    compared = dir_ / "selfcheck" / "compared-base.json"
+    base = compared if compared.is_file() else Path(os.environ.get("BASE_RESULT") or compared)
+    kept = dir_ / "selfcheck" / "result.json"
+    ratchet_lines, new = ratchet(results["native"], base, root, kept if kept.is_file() else None)
     violation_lines, found = violations(frames)
     lines = ["self-check: " + " | ".join(verdict(n, results[n], w) for n, _p, w in PARTS)]
     lines += ratchet_lines

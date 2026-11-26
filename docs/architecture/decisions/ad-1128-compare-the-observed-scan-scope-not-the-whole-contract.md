@@ -1,26 +1,27 @@
-# AD-1128 Compare the observed scan scope, not the whole contract
+# AD-1128 Compare the contract without cosmetic JSON changes
 
 **Status.** Accepted. Amends AD-1113.
 
-**Decision.** Compare the scanned paths, module ownership, component identities and component
-scope. Compare the `[scan]` table as before. Do not count the contract digest, public items,
-planned public items or component layer as scan scope. The condensed result keeps these fields
-for validation and same-commit comparison. When contract inputs change and gaps disappear,
-the existing growth check still applies.
+**Decision.** Compare all contract fields, scanned paths, module ownership and component
+scope. Compare the `[scan]` table as before. Normalize JSON whitespace, object key order and
+component order. Keep array order for all other fields. Include every inside contract.
+Verify the recorded digest before reading a contract. If a contract is unavailable, compare
+all recorded input digests instead. This fallback can report cosmetic changes as growth.
 
-The summary reads the same scan table as the gate. Both use the same growth comparison.
+The existing v2 cache carries the raw digest and input paths. The gate reads the base contract
+from that commit and normalizes it without a new scan. The summary uses the gate's results
+and the same growth comparison. Changed contract inputs and removed gaps still count.
 
-**Reason.** Public items and dependency declarations do not change which files a component
-owns. Their edits must not need scope approval when the observed scope and gaps stay unchanged.
+**Reason.** A public item, dependency, layer or rule can change a verdict. Even rationale and
+responsibility text affect contract hygiene. None of these fields is safe to ignore.
 The old summary compared a missing scan table against the base table.
 
-**Rejected.** Compare the whole contract digest: it reports unrelated edits as scope changes.
-Compare only file counts: a path swap or narrowed component can keep the same count.
+**Rejected.** Compare only paths and ownership: it allows a changed rule to hide a violation.
+Compare raw JSON bytes: it counts whitespace and key order as scope changes.
 
-**Limit.** The comparison detects the scope represented by the complete core topology.
-It does not prove that the core topology itself is correct. A changed contract input that
-removes gaps still needs approval, even when the observed scope does not change.
+**Limit.** The fallback also counts changes to provenance documents. The comparison does
+not prove that the core topology is correct. A v1 cache still uses the AD-1113 migration limit.
 
 **Tests.** `tests/test_self_check_gate.py` checks a narrowed component with the real core and
-path swaps. `tests/test_self_check_scope.py` checks public items, dependency declarations and
-the summary against the gate. `tests/test_self_check_summary.py` checks the scan table.
+path swaps. `tests/test_self_check_scope.py` checks layer changes, rule order, public items,
+dependency declarations, cosmetic JSON changes and the summary against the gate.

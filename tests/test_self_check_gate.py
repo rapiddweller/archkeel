@@ -9,6 +9,7 @@ The results are the real ones of `tests/selfcheck_fixtures/`.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -48,7 +49,9 @@ def with_topology(result: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(frame, dict):
         return result
     count = frame["self_test"]["reply"]["files"]
-    frame["contract_digest"] = "a" * 64
+    digest = hashlib.sha256((FIXTURES / "tiny/architecture-contract.json").read_bytes()).hexdigest()
+    frame["contract_digest"] = digest
+    frame["self_test"]["collect"]["contract_files"] = {"architecture-contract.json": digest}
     frame["topology"] = {
         "total": {"modules": count, "components": 0},
         "modules": [
@@ -161,25 +164,6 @@ def test_equal_count_path_swap_is_growth(tmp_path: Path) -> None:
     assert approved.returncode == 0, approved.stdout
 
 
-def test_a_root_contract_edit_is_not_growth_without_a_topology_change(tmp_path: Path) -> None:
-    base = with_topology(json.loads((FIXTURES / "base.json").read_text()))
-    pr = json.loads(json.dumps(base))
-    pr["frame"]["contract_digest"] = "b" * 64
-    paths = []
-    for name, result in (("base", base), ("pr", pr)):
-        path = tmp_path / f"{name}.json"
-        path.write_text(json.dumps(result))
-        paths.append(str(path))
-    done = subprocess.run(
-        [sys.executable, str(ROOT / "tools/self_check_diff.py"), *paths],
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert done.returncode == 0, done.stdout
-    assert "grown 0" in done.stdout
-
-
 def test_topology_row_order_does_not_change_scope() -> None:
     sys.path.insert(0, str(GATE.parent))
     from self_check_diff import condense
@@ -264,7 +248,7 @@ def test_a_base_without_scope_is_not_silently_accepted(repo: Path) -> None:
 def test_removed_gaps_with_changed_contract_inputs_are_growth(repo: Path) -> None:
     path = keep_base(repo, "plus-one-gap.json", git(repo, "rev-parse", "HEAD~1"))
     result = json.loads(path.read_text())
-    result["contract_files"] = {"architecture-contract.json": "old"}
+    result["contract_files"]["old-doc.md"] = "old"
     path.write_text(json.dumps(result))
     done = gate(repo, "base.json")
     assert done.returncode == 1
@@ -277,6 +261,7 @@ def repo(tmp_path: Path) -> Path:
     git(tmp_path, "init", "-q")
     (tmp_path / "native").mkdir()
     (tmp_path / "native/lib.rs").write_text("// one\n")
+    shutil.copy2(FIXTURES / "tiny/architecture-contract.json", tmp_path)
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-qm", "base")
     (tmp_path / "other.txt").write_text("two\n")

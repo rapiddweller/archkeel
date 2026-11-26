@@ -35,7 +35,8 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from self_check_diff import FORMAT, LABEL, Unusable, condense, scanned_scope
+from self_check_contract import normalize_contract
+from self_check_diff import FORMAT, LABEL, Unusable, condense, load, scanned_scope
 from self_check_diff import main as diff
 
 KEPT = Path("test-artifacts/selfcheck/result.json")
@@ -149,7 +150,15 @@ def compute_base(sha: str, uv: list[str]) -> dict[str, Any]:
 def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> tuple[Path, str]:
     """The file of the base result and the sha that it must be for ('' for BASE_RESULT)."""
     if os.environ.get("BASE_RESULT"):
-        return Path(os.environ["BASE_RESULT"]), ""
+        path = Path(os.environ["BASE_RESULT"])
+        try:
+            override = load(str(path))
+            normalize_contract(override, Path(), git("merge-base", ref, "HEAD"))
+            COMPARED.parent.mkdir(parents=True, exist_ok=True)
+            COMPARED.write_text(json.dumps(override), encoding="utf-8")
+            return COMPARED, ""
+        except (Unusable, OSError):
+            return path, ""
     sha = git("merge-base", ref, "HEAD")
     COMPARED.parent.mkdir(parents=True, exist_ok=True)
     out = COMPARED
@@ -184,6 +193,7 @@ def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> t
                     output.write(f"{message}\n")
             found["scope"] = own["scope"]
             found["contract_files"] = own["contract_files"]
+            found["contract_normalized"] = own.get("contract_normalized", False)
             hit = True
         elif (
             isinstance(found, dict) and found.get("format") == FORMAT and not complete_scope(found)
@@ -194,6 +204,9 @@ def base_file(ref: str, own: dict[str, Any], uv: list[str], candidate: str) -> t
         else:
             print(f"base result: cache miss for {sha[:12]}; computing it in a worktree")
             found = compute_base(sha, uv)
+    if found is None:
+        raise Unusable("the base result is unavailable")
+    normalize_contract(found, Path(), sha)
     out.write_text(json.dumps(found), encoding="utf-8")
     return out, sha
 
@@ -218,6 +231,7 @@ def gate(argv: list[str]) -> int:
         own = condense(saved, sha, tree, scan_table(Path()))
         if not own["refusal"] and not complete_scope(own):
             raise Unusable("the result has no complete scanned scope")
+        normalize_contract(own, Path())
     except (Unusable, OSError, IndexError, ValueError, TypeError, AttributeError) as error:
         print(f"FAIL the self-check result is unusable: {error}")
         return 1
