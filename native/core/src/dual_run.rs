@@ -126,6 +126,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             collect: None,
             documents: None,
             sdk_libraries: Vec::new(),
+            scope_hold: None,
         },
         None,
     )
@@ -182,6 +183,8 @@ pub(crate) struct Run {
     pub(crate) documents: Option<crate::provenance::Documents>,
     /// The SDK libraries of the profile that a contract can forbid by name (`reference.namespace`).
     pub(crate) sdk_libraries: Vec<String>,
+    /// A reason that names the whole contract: the scan left files out by default (AD-1119).
+    pub(crate) scope_hold: Option<String>,
 }
 
 /// How a check request reads its base reply: from the validated candidate reply and the inputs
@@ -260,7 +263,12 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
             .is_some_and(baseline_frame::holds_budgets),
     );
     let mut named = named(&contract, run.baseline, &engine, &path);
-    frame_parts::hold_contract(&mut named, trust.gap, base, hygiene.refusal);
+    frame_parts::hold_contract(
+        &mut named,
+        trust.gap,
+        base,
+        (hygiene.refusal, run.scope_hold),
+    );
     named.rules.extend(hygiene.rules);
     let (ruling, links) = engine
         .ruled(named, run.topology)

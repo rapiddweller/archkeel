@@ -61,7 +61,7 @@ pub(crate) fn kind_value(kind: DefinitionKind) -> &'static str {
         DefinitionKind::Interface => "interface",
         DefinitionKind::Enum => "enum",
         DefinitionKind::Method => "method",
-        DefinitionKind::Function => "function",
+        DefinitionKind::Function | DefinitionKind::Callback => "function",
         DefinitionKind::TypeAlias => "type_alias",
         DefinitionKind::Constant => "constant",
     }

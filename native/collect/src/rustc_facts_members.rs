@@ -28,6 +28,8 @@ pub(crate) struct Members {
     features: Vec<(String, String)>,
     /// The package name of each member.
     pub(crate) names: BTreeSet<String>,
+    /// The canonical directory of each member that has a path dependency on a crate that is no member.
+    pub(crate) outside: BTreeSet<String>,
 }
 
 /// The members of a workspace, from the JSON that `cargo metadata --no-deps` printed.
@@ -46,6 +48,7 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
         dirs: Vec::new(),
         features: Vec::new(),
         names: BTreeSet::new(),
+        outside: BTreeSet::new(),
     };
     let text =
         |value: &Value, key: &str| value.get(key).and_then(Value::as_str).map(str::to_string);
@@ -102,11 +105,95 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
             found.features.push((name.clone(), feature.clone()));
         }
     }
+    found.outside = path_dependents(&meta, &ids, &found.roots);
     if found.manifests.is_empty() {
         return Err(Unavailable::MetadataFailed);
     }
     found.features.sort();
     Ok(found)
+}
+
+/// The canonical directory of each member that has a path dependency on a crate that is no member and that reaches a
+/// member through path dependencies. The crate can lie anywhere, also outside every scan root: the scan does not read
+/// it, so the edges that pass through it are unknown. A crate that Cargo cannot describe counts as reaching one.
+fn path_dependents(
+    meta: &Value,
+    ids: &BTreeSet<&str>,
+    members: &BTreeMap<String, BTreeSet<String>>,
+) -> BTreeSet<String> {
+    let mut known = BTreeMap::new();
+    let mut found = BTreeSet::new();
+    let packages = meta.get("packages").and_then(Value::as_array);
+    for package in packages.into_iter().flatten() {
+        let id = package
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let manifest = package.get("manifest_path").and_then(Value::as_str);
+        let dir = manifest.and_then(|m| real_dir(Path::new(m).parent()?.to_str()?));
+        let (true, Some(dir)) = (ids.contains(id), dir) else {
+            continue;
+        };
+        for path in path_dependencies(package) {
+            let held = match real_dir(path) {
+                None => true,
+                Some(real) if members.contains_key(&real) => false,
+                Some(real) => reaches_member(&real, members, &mut known),
+            };
+            if held {
+                found.insert(dir);
+                break;
+            }
+        }
+    }
+    found
+}
+
+fn real_dir(path: &str) -> Option<String> {
+    let canonical = std::fs::canonicalize(path).ok()?;
+    Some(canonical.to_string_lossy().replace('\\', "/"))
+}
+
+fn path_dependencies(package: &Value) -> Vec<&str> {
+    let dependencies = package.get("dependencies").and_then(Value::as_array);
+    let paths = dependencies.into_iter().flatten();
+    paths
+        .filter_map(|d| d.get("path").and_then(Value::as_str))
+        .collect()
+}
+
+/// Whether the crate in `dir` (no member) reaches a member through path dependencies. `known` holds the answers; a
+/// crate on the way counts as `false` until it is decided, so a cycle ends.
+fn reaches_member(
+    dir: &str,
+    members: &BTreeMap<String, BTreeSet<String>>,
+    known: &mut BTreeMap<String, bool>,
+) -> bool {
+    if let Some(&answer) = known.get(dir) {
+        return answer;
+    }
+    known.insert(dir.to_owned(), false);
+    let described = metadata(&Path::new(dir).join("Cargo.toml"))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
+    let reaches = match described {
+        None => true,
+        Some(meta) => {
+            let packages = meta.get("packages").and_then(Value::as_array);
+            let paths: Vec<&str> = packages
+                .into_iter()
+                .flatten()
+                .flat_map(path_dependencies)
+                .collect();
+            paths.into_iter().any(|path| match real_dir(path) {
+                None => true,
+                Some(real) if members.contains_key(&real) => true,
+                Some(real) => real != dir && reaches_member(&real, members, known),
+            })
+        }
+    };
+    known.insert(dir.to_owned(), reaches);
+    reaches
 }
 
 /// The matrix: the three fixed configurations and each feature of a member alone. More features than the
@@ -197,6 +284,7 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
         .canonicalize()
         .map_err(|why| format!("cannot read the repository root: {why}"))?;
     let (mut roots, mut found, mut names) = (Vec::new(), Vec::new(), BTreeSet::new());
+    let mut held = BTreeSet::new();
     for root in scan_roots {
         let Some(manifest) = nearest_manifest(&real, root) else {
             continue;
@@ -217,6 +305,11 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
         // The walk lists a file under the path of its scan root. A scan root that is a symlink has another real path
         // than the member directory has, so each member below the real root is also listed under the root path.
         found.extend(listed_under_root(&real, root, all.roots.keys()));
+        held.extend(listed_under_root(&real, root, all.outside.iter()));
+        held.extend(all.outside.iter().filter_map(|dir| {
+            let relative = Path::new(dir).strip_prefix(&real).ok()?;
+            Some(relative.to_string_lossy().replace('\\', "/"))
+        }));
         // The snapshot lists paths with `/`; the members reader prints the separator of the platform.
         // A member that is a symlink has two paths: Cargo builds the one it names, and the walk lists the real one.
         for real_dir in all.roots.keys() {
@@ -232,7 +325,7 @@ fn read(repository: &Path, scan_roots: &[String]) -> Result<Value, String> {
     }
     found.sort();
     found.dedup();
-    Ok(json!({ "roots": roots, "members": found, "names": names }))
+    Ok(json!({ "roots": roots, "members": found, "names": names, "held": held }))
 }
 
 /// The `Cargo.toml` in the scan root, else in the nearest directory above it, up to the repository root. A

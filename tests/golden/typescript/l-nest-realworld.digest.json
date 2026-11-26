@@ -28,14 +28,14 @@
   "rest": {
     "counts": {
       "candidate_evidence": 0,
-      "evidence": 1668,
+      "evidence": 1672,
       "files": 41,
       "imports": 248,
       "inputs": 108,
       "type_shapes": 0,
       "uncertain_reexports": 0
     },
-    "sha256": "76c8a8bd5f5b05cd744389874c63f9d880216c1f849decdfc08642cb8b48a049"
+    "sha256": "24565bcb11eacfc57e069dbcba05eba7ee8440164b5a4b157a61059dc1b8b906"
   },
   "sections": {
     "bindings": {
@@ -50,7 +50,7 @@
         "calls": 387
       },
       "records": 387,
-      "sha256": "82e9309d9bbce9e9d60afed90b97b919266c5b0ff882b71cab3e0b31e93bc617"
+      "sha256": "0d58a731b5153cde2b50dcfeba9c71c682de31c4a4cc6f2f7e906fbd1c2c6213"
     },
     "constructs": {
       "kinds": {},
@@ -70,18 +70,18 @@
         "references": 748
       },
       "records": 748,
-      "sha256": "c92b83494b738254b210f2001951220f944345bb109493ee83e87983318628a1"
+      "sha256": "cb430c758fa10376a35e9b114c6dfd6e5693c2a79433c1461f8c840080c08f1a"
     },
     "symbols": {
       "kinds": {
         "class": 41,
         "constant": 3,
-        "function": 1,
+        "function": 5,
         "method": 76,
         "type_alias": 4
       },
-      "records": 125,
-      "sha256": "412581e0f9fd39ec8c3860dfdbd03df13f0370d016fef4eafa3901d6b8a21914"
+      "records": 129,
+      "sha256": "a7f43150daa71ca88c4c99b1a02a26c715c0d01c59c2d723598e18d93c1bcba5"
     },
     "unknowns": {
       "kinds": {
@@ -92,6 +92,6 @@
       "sha256": "bbbcd268b6abcfdb3c7f2edc870dd9521f0b46dba003bf2fc251a1f83931f3a8"
     }
   },
-  "sha256": "410f8b53c6c552c73f6877a646df6ec0c90d34aa241e5f6ac162ab97fba5fc27",
-  "sha256_at_3": "476999349a3543195a51d0b285427e4e6769d5fb41baa2fcdcab2d58ab900dea"
+  "sha256": "7ae1855a0af3b8fcc0aa18058fba9aef803ae2d9e86c0312323965c9bf295a7f",
+  "sha256_at_3": "4ecb81c13514798907d73cedc3b8bceedcdbd83445e7696504741f8ae363c00a"
 }

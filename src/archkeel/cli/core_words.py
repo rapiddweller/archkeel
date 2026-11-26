@@ -40,6 +40,7 @@ GAP_KINDS: Final = {
     "boundary_type_position": "a type at a declared boundary that cannot be resolved",
     "contract_refused": "the contract file cannot be read",
     "producer_not_verified": "a scan result that the core cannot verify",
+    "implicit_test_exclusion": "test files left out by default, so the verdict is held",
     "inside_contract_missing": "a contract file that the tree names and that is missing",
     "decision.open": "an open decision in the contract (a TODO)",
     "responsibility.missing": "a component without a written responsibility",

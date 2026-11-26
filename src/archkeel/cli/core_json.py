@@ -22,6 +22,8 @@ class GapKind(StrEnum):
     """Why a part of a run has no decision of the core."""
 
     PRODUCER_NOT_VERIFIED = "producer_not_verified"
+    # AD-1119: the Explorer left test sources out by default, so the core holds the verdict.
+    IMPLICIT_TEST_EXCLUSION = "implicit_test_exclusion"
     REPLY_REFUSED = "reply_refused"
     REPLY_ABSENT = "reply_absent"
     RULE_KIND_NOT_PORTED = "rule_kind_not_ported"

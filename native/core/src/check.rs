@@ -111,6 +111,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             collect: None,
             documents: None,
             sdk_libraries: Vec::new(),
+            scope_hold: None,
         },
         None,
     )

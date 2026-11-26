@@ -172,7 +172,16 @@ impl Sites {
                 .map(|item| (item.start_byte(), item.end_byte()))
         };
         if visit.opened {
-            let chain = self.names.open(None, range(F::Parameters), range(F::Body));
+            let parent = if visit.kind == K::ArrowFunction
+                && near.0.is_some_and(|entry| entry.kind == K::Arguments)
+            {
+                near.0.and_then(|entry| entry.shadow.chain)
+            } else {
+                None
+            };
+            let chain = self
+                .names
+                .open(parent, range(F::Parameters), range(F::Body));
             return Shadow {
                 chain: Some(chain),
                 ambiguous: 0,

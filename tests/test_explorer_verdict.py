@@ -351,8 +351,10 @@ def test_a_test_source_is_left_out_of_the_explorer_view_and_the_verdict_says_so(
         verdict = scan.ask("verdict")
         assert verdict["excluded_sources"] >= 1
         assert test_file in verdict["excluded_paths"]
-        assert verdict["violations"] < sum(result["frame"]["violations"].values())
+        assert verdict["status"] == "UNKNOWN"
         assert "validate" in verdict["scope"]
+        kinds = {item["kind"] for item in scan.ask("unknowns", limit=100)["items"]}
+        assert "implicit_test_exclusion" in kinds
 
 
 def test_a_path_that_two_parts_exclude_is_stored_once(tmp_path: Path) -> None:
@@ -378,24 +380,43 @@ def _view_status(core: Path, cache: Path, root: Path) -> str:
     return str(query(path, root.resolve(), "verdict", {})["status"])
 
 
-@pytest.mark.xfail(
-    strict=True, reason="a file with a test name leaves the view as a test (AD-1119)"
-)
-def test_a_production_file_with_a_test_name_cannot_make_the_view_pass(
+def _honest_with_test_file(root: Path, scope: str = "") -> None:
+    """The honest TypeScript project plus `protocol.test.ts`, which holds the only violation."""
+    (root / "src/b/protocol.test.ts").write_text('import "../a/a";\n')
+    if scope:
+        with (root / "archkeel.toml").open("a") as stream:
+            stream.write(scope)
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t"]
+        + ["commit", "-qm", "plant"],
+        check=True,
+    )
+
+
+def test_a_file_with_a_test_name_cannot_make_the_view_pass_when_the_scope_is_implicit(
     release_core: Path, tmp_path: Path
 ) -> None:
-    """A file that the naming rule takes for a test holds the only violation: no PASS."""
+    """The view is never PASS where `validate` is FAIL (AD-1119): the core holds the ruling."""
     with case_root(HONEST) as root:
-        (root / "src/b/protocol.test.ts").write_text('import "../a/a";\n')
-        subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-        subprocess.run(
-            ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t"]
-            + ["commit", "-qm", "plant"],
-            check=True,
-        )
+        _honest_with_test_file(root)
         code, result = _validate(release_core, root)
         assert result["frame"]["status"] == "FAIL" and code != 0, result["frame"]["rules"]
-        assert _view_status(release_core, tmp_path / "cache", root) != "PASS"
+        assert _view_status(release_core, tmp_path / "cache", root) == "UNKNOWN"
+
+
+def test_a_stated_test_scope_gives_the_view_the_ruling_of_validate(
+    release_core: Path, tmp_path: Path
+) -> None:
+    for scope, expected in (
+        ("exclude_test_sources = false\n", "FAIL"),
+        ("exclude_test_sources = true\n", "PASS"),
+    ):
+        with case_root(HONEST) as root:
+            _honest_with_test_file(root, scope)
+            _, result = _validate(release_core, root)
+            view = _view_status(release_core, tmp_path / f"cache-{expected}", root)
+            assert result["frame"]["status"] == view == expected
 
 
 def test_the_excluded_paths_keep_the_answer_bound(tmp_path: Path) -> None:

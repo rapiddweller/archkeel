@@ -82,10 +82,27 @@ pub struct Scanned {
     pub collected: Duration,
     /// The time of the one validation of the reply by the store, with the checks of its profile.
     pub validated: Duration,
+    /// The Explorer default left test sources out because the config states no scope (AD-1119).
+    implicit_test_exclusion: bool,
     root: repository::Root,
 }
 
 impl Scanned {
+    /// AD-1119: a scan that left test sources out because the config states no scope holds the verdict. A file
+    /// that the naming rule took for a test can hold the only violation, so the run cannot read PASS.
+    pub fn test_scope_hold(&self) -> Option<String> {
+        let excluded = &self.reply.reply().facts.excluded_sources;
+        let first: Vec<&str> = excluded.iter().take(3).map(String::as_str).collect();
+        (self.implicit_test_exclusion && !excluded.is_empty()).then(|| {
+            format!(
+                "implicit test exclusion hides {} files ({}): the config states no exclude_test_sources, \
+                 so the verdict is held; state it in archkeel.toml to decide the scope",
+                excluded.len(),
+                first.join(", ")
+            )
+        })
+    }
+
     /// The name of the collector that made the reply: the adapter name that its reply must have.
     pub fn collector(&self) -> &'static str {
         self.profile.as_str()
@@ -154,12 +171,10 @@ pub fn scan_with_options(
         .ok_or_else(|| refused("root", "the root is not UTF-8"))?;
     let mut config = read_config(&root, identity.config)?;
     // AD-1119: the Explorer leaves test sources out unless the config states the scope. `validate` and `report` keep tests.
-    if explorer
+    let implicit = explorer
         && !config.test_scope_set
-        && matches!(config.profile, Profile::Python | Profile::TypeScript)
-    {
-        config.exclude_test_sources = true;
-    }
+        && matches!(config.profile, Profile::Python | Profile::TypeScript);
+    config.exclude_test_sources |= implicit;
     let head = git::head(root.path()).map_err(|why| refused("git head", why))?;
     if let Some(claimed) = identity.git_head {
         if head != claimed {
@@ -236,6 +251,7 @@ pub fn scan_with_options(
         prepared,
         collected,
         validated,
+        implicit_test_exclusion: implicit,
         root,
     })
 }
