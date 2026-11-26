@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,9 @@ from test_cli_python_outside_withheld import statuses, tree
 CLIENT = "from app.service import f\n\n\ndef run() -> str:\n    return f()\n"
 SERVICE = 'def f() -> str:\n    return "orig"\n'
 
-READS = """\
+ABSENT = f"archkeel_absent_{uuid.uuid4().hex}"
+
+READS = f"""\
 import importlib.metadata
 import importlib.resources
 import importlib.util
@@ -33,8 +36,8 @@ try:
     version = importlib.metadata.version("app")
 except importlib.metadata.PackageNotFoundError:
     version = ""
-assert importlib.util.find_spec("fastmcp") is None
-assert "fastmcp" not in sys.modules
+assert importlib.util.find_spec("{ABSENT}") is None
+assert "{ABSENT}" not in sys.modules
 assert not any(name.startswith("zzz") for name in sys.modules)
 package = importlib.resources.files("app")
 print(app.client.run())
