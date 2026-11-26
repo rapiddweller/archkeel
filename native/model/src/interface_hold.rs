@@ -12,6 +12,8 @@ use archkeel_facts::data::{RouteWithheld, SurfaceForm};
 
 /// The largest number of imports that a hold shows.
 const HELD_SHOWN: usize = 5;
+/// The most held imports that a hold keeps for the frame.
+const HELD_KEPT: usize = 20;
 
 /// A missing fact of the interface import verdict, not a lifecycle diagnosis.
 #[derive(
@@ -163,7 +165,7 @@ impl InterfaceHold {
             hold.total += 1;
             let class = HoldClass::of(held.cause.as_ref());
             *hold.classes.entry((held.gap, class)).or_default() += 1;
-            if Vec::len(&hold.shown) < HELD_SHOWN {
+            if Vec::len(&hold.shown) < HELD_KEPT {
                 hold.shown.push(held);
             }
         }
@@ -201,11 +203,16 @@ impl fmt::Display for InterfaceHold {
         }
         let unit = if self.total == 1 { "import" } else { "imports" };
         write!(f, ": {} {unit}", self.total)?;
-        let shown = Vec::len(&self.shown);
+        let shown = Vec::len(&self.shown).min(HELD_SHOWN);
         if self.total > shown {
             write!(f, " (showing {shown})")?;
         }
-        let lines: Vec<String> = self.shown.iter().map(HeldImport::line).collect();
+        let lines: Vec<String> = self
+            .shown
+            .iter()
+            .take(shown)
+            .map(HeldImport::line)
+            .collect();
         write!(f, ": {}", lines.join(", "))?;
         match self.total - shown {
             0 => Ok(()),
