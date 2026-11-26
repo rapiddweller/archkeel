@@ -129,3 +129,29 @@ fn a_string_annotation_without_a_hazard_and_a_literal_value_are_no_site() {
         assert_eq!(details(source), Vec::<String>::new(), "{source}");
     }
 }
+
+#[test]
+fn a_text_over_the_parser_bound_a_run_time_write_and_a_string_variable_are_sites() {
+    let nest = format!("x: \"{}__import__('a.b'){}\"\n", "[".repeat(150), "]".repeat(150));
+    for source in [
+        nest.as_str(),
+        "class K: ...\nK.__annotations__ = {'x': 'int'}\n",
+        "def f(): ...\nf.__annotations__['x'] = 'int'\n",
+        "K.__annotations__.update(x='int')\n",
+        "s = \"__import__('a.b')\"\nclass K:\n    x: s\n",
+        "s = 'a' + 'b'\nclass K:\n    x: s\n",
+    ] {
+        assert!(!details(source).is_empty(), "{source}");
+    }
+}
+
+#[test]
+fn a_read_of_annotations_and_a_name_without_a_string_are_no_site() {
+    for source in [
+        "class K: ...\nprint(K.__annotations__)\n",
+        "s = 'int'\nclass K:\n    x: s\n",
+        "class A: ...\nclass K:\n    x: A\n",
+    ] {
+        assert_eq!(details(source), Vec::<String>::new(), "{source}");
+    }
+}

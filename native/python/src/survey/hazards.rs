@@ -16,6 +16,8 @@ use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
+use crate::parse::Unread;
+
 use super::binders::Binders;
 use super::bound::Bound;
 use super::literal::Proof;
@@ -77,6 +79,7 @@ pub(super) fn sites(
         code_aliases: reflect::code_aliases(tree),
         reexports,
         annotation: false,
+        strings: annotation::Strings::of(tree),
     };
     for stmt in &tree.body {
         // AD-538: an expression statement of the module body that appends a directory of the
@@ -95,6 +98,7 @@ pub(super) fn sites(
 struct Walk<'r> {
     reexports: &'r Reexports,
     annotation: bool,
+    strings: annotation::Strings,
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
     inert_modules: HashMap<String, String>,
@@ -286,12 +290,32 @@ impl Walk<'_> {
             take(&mut self.reads),
             take(&mut self.locals),
         );
-        if let Some(code) = annotation::parsed(string) {
-            self.visit_expr(&code);
+        match annotation::parsed(string) {
+            Ok(code) => self.visit_expr(&code),
+            // CPython can evaluate a text that the parser bound refuses: a gap, never nothing.
+            Err(Unread::Bound) => self.push_text(DYNAMIC, "annotation", string),
+            Err(Unread::Syntax) => {}
         }
         (self.proof, self.reads, self.locals) = outer;
         for site in &mut self.found[first..] {
             site.range = string.range();
+        }
+    }
+
+    /// A name in an annotation that holds a string: `get_type_hints` evaluates the string.
+    fn held_text(&mut self, id: &str, expr: &Expr) {
+        match self.strings.held(id) {
+            annotation::Held::None => {}
+            annotation::Held::Opaque => self.push_text(DYNAMIC, "annotation", expr),
+            annotation::Held::Texts(texts) => {
+                for text in texts.to_vec() {
+                    let first = self.found.len();
+                    self.evaluated(&text);
+                    for site in &mut self.found[first..] {
+                        site.range = expr.range();
+                    }
+                }
+            }
         }
     }
 
@@ -376,6 +400,9 @@ impl Walk<'_> {
 
 impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if annotation::writes_annotations(stmt) {
+            self.push_text(DYNAMIC, "__annotations__", stmt);
+        }
         if matches!(stmt, Stmt::ImportFrom(node)
             if node.level > 0 && node.names.iter().any(|alias| alias.name.as_str() == "code"))
         {
@@ -445,6 +472,9 @@ impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_expr(&mut self, expr: &'a Expr) {
         if let Some(text) = annotation::evaluated(expr, self.annotation) {
             self.evaluated(text);
+        }
+        if let (true, Expr::Name(name)) = (self.annotation, expr) {
+            self.held_text(name.id.as_str(), expr);
         }
         if let Some((first, rest, targets, values)) = comprehension::parts(expr) {
             self.visit_expr(&first.iter);
