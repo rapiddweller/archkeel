@@ -1066,6 +1066,7 @@
     "const request::ALL",
     "const type_reach::ENV",
     "const type_reach::MAX_FEATURES",
+    "const type_reach::MEMBERS_ENV",
     "const type_reach::PREMISE",
     "const type_shape::ALL",
     "const type_shape::ALL",

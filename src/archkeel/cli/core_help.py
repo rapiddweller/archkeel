@@ -34,6 +34,7 @@ _COMMON: Final = """\
   --all           List every violation, rule and gap, not the first few of each group.
   --verbose       Also print the core binary, its engine and its code digest.
   --no-init       Without archkeel.toml, write nothing (ARCHKEEL_NO_INIT=1 does the same).
+                  To inspect observed structure without a contract, use archkeel studio.
   --timings FILE  Write the seconds of the core phases (prepare, collect, validate, evaluate,
                   render, join) to this JSON file. The output and the verdict do not change.
                   It creates a new file and never replaces one: use a new name for each run."""
@@ -144,6 +145,7 @@ top-level Python packages (or the subpackages of the one package), the crates of
 the packages of a package.json workspace, a TypeScript or Dart project. A repository with
 several of these gets a system document with one part for each. It replaces no file and
 starts no scan. It prints text; --json prints JSON.
+Before drafting, use `archkeel studio` to inspect the observed structure without a contract.
 
 --preset adds rules of one shape to a draft of one language area. You name the components:
   layered     --layers lists components from the outermost to the innermost layer. An inner layer

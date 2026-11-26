@@ -25,7 +25,7 @@ const STACK_BYTES: usize = 256 << 20;
 /// The typed reply of the request bytes, validated by the store, or why there is none.
 #[cfg(test)]
 pub(crate) fn collect(profile: Profile, request: &[u8]) -> Result<Ingested, Refusal> {
-    collect_timed(profile, request, None, (false, None)).map(|(ingested, _, _)| ingested)
+    collect_timed(profile, request, None, (false, None, None)).map(|(ingested, _, _)| ingested)
 }
 
 /// The typed reply, and the time of the collector and of the validation of its reply (#659).
@@ -33,12 +33,12 @@ pub(crate) fn collect_timed(
     profile: Profile,
     request: &[u8],
     clock: Option<&dyn Fn() -> Duration>,
-    (explorer, facts): (bool, Option<&std::path::Path>),
+    (explorer, facts, members): (bool, Option<&std::path::Path>, Option<&str>),
 ) -> Result<(Ingested, Duration, Duration), Refusal> {
     let started = clock.map(|now| now());
     let reply = match profile {
-        Profile::Rust => worker::read(Worker::Rust, request, facts)?,
-        Profile::TypeScript => worker::read(Worker::TypeScript, request, None)?,
+        Profile::Rust => worker::read(Worker::Rust, request, facts, members)?,
+        Profile::TypeScript => worker::read(Worker::TypeScript, request, None, None)?,
         Profile::Python | Profile::Dart => {
             let request = request.to_vec();
             isolated(move || linked_reply(profile, &request, explorer))?
@@ -124,9 +124,9 @@ pub(crate) fn reply_of(profile: Profile, request: &[u8]) -> Result<Reply, String
 
 fn linked_reply(profile: Profile, request: &[u8], explorer: bool) -> Result<Reply, String> {
     archkeel_snapshot::work::bounded(|| match profile {
-        Profile::Rust => worker::read(Worker::Rust, request, None).map_err(|e| e.to_string()),
+        Profile::Rust => worker::read(Worker::Rust, request, None, None).map_err(|e| e.to_string()),
         Profile::TypeScript => {
-            worker::read(Worker::TypeScript, request, None).map_err(|e| e.to_string())
+            worker::read(Worker::TypeScript, request, None, None).map_err(|e| e.to_string())
         }
         Profile::Python => {
             let request = archkeel_wire::request::decode_python(request)?;

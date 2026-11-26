@@ -25,7 +25,7 @@ mod redirects;
 pub(crate) struct Parsed {
     pub(crate) table: Table,
     text: String,
-    dir: String,
+    pub(crate) dir: String,
 }
 
 /// A place that the scan cannot read: the file (or none) and the reason.
@@ -153,6 +153,41 @@ fn workspace_manifest(
         }
         at = dirname(&at).to_owned();
     }
+}
+
+/// The directories of `dirs` whose manifests alone do not prove a workspace membership. This is the check without
+/// `cargo metadata` (#1989): a crate is proven when no workspace manifest is above it, when it holds the workspace, or
+/// when the workspace names it in `members` (a name, or `<directory>/*`) and has no `exclude`.
+pub(crate) fn unproven_members<'a>(source: &mut Snapshot, dirs: &[&'a str]) -> Vec<&'a str> {
+    let mut tables = BTreeMap::new();
+    let mut unproven = Vec::new();
+    for dir in dirs {
+        let Some(above) = workspace_manifest(source, &mut tables, dir) else {
+            continue;
+        };
+        let table = &above.table;
+        let relative = dir
+            .strip_prefix(above.dir.as_str())
+            .map(|r| r.trim_start_matches('/'));
+        let listed = manifest::get(table, &["workspace", "members"]);
+        let names = |entry: &toml::Value| -> Option<bool> {
+            let entry = entry.text()?;
+            let relative = relative?;
+            Some(match entry.strip_suffix("/*") {
+                Some(parent) => dirname(relative) == parent,
+                None => relative == entry,
+            })
+        };
+        let named = match listed {
+            Some(toml::Value::Array(all)) => all.iter().any(|e| names(e) == Some(true)),
+            _ => false,
+        };
+        let excluded = manifest::get(table, &["workspace", "exclude"]).is_some();
+        if relative != Some("") && !(named && !excluded) {
+            unproven.push(*dir);
+        }
+    }
+    unproven
 }
 
 impl Workspace {
