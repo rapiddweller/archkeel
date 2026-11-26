@@ -142,10 +142,11 @@ impl Uses {
         match text.split('.').next() {
             Some("importlib") => {
                 let spec = text == "importlib.util.find_spec";
-                self.importlib |= !(IMPORTLIB_READS.contains(&text.as_str()) && (!spec || safe));
+                self.importlib |=
+                    !(IMPORTLIB_READS.contains(&String::as_str(&text)) && (!spec || safe));
             }
             Some("sys") if text == "sys.modules" => self.sys_modules |= !safe,
-            Some("sys") => self.sys_modules |= !SYS_READS.contains(&text.as_str()),
+            Some("sys") => self.sys_modules |= !SYS_READS.contains(&String::as_str(&text)),
             _ => return false,
         }
         true
@@ -157,7 +158,7 @@ impl<'a> Visitor<'a> for Uses {
         match stmt {
             Stmt::Import(node) => {
                 for alias in &node.names {
-                    let name = alias.name.as_str();
+                    let name = Identifier::as_str(&alias.name);
                     let aliased = alias.asname.is_some();
                     self.importlib |= aliased && name.starts_with("importlib");
                     self.sys_modules |= aliased && name == "sys";
