@@ -10,9 +10,9 @@ use std::collections::HashSet;
 use archkeel_contract::{Component, InterfaceBoundary, Rule};
 use archkeel_facts::envelope::LimitSupport;
 
-use crate::causes::{InterfaceGap, InterfaceHold};
 use crate::direction::{Crossing, Judged};
 use crate::imports::Import;
+use crate::interface_hold::{HeldImport, InterfaceGap, InterfaceHold};
 use crate::model::Model;
 use crate::ownership::owner_of;
 use crate::reason::Reason;
@@ -156,9 +156,14 @@ pub(crate) fn receipt(model: &Model, rule: &InterfaceBoundary) -> Result<(), Rea
             undecided.push((gap, publication.import, Some(publication.name)));
         }
     }
-    let listed = undecided
-        .iter()
-        .map(|(gap, import, name)| (*gap, import.source_module(), import.target_module(), *name));
+    let listed = undecided.iter().map(|(gap, import, name)| HeldImport {
+        gap: *gap,
+        source: import.source_module().to_owned(),
+        target: import.target_module().to_owned(),
+        name: name.map(str::to_owned),
+        cause: import.route_withheld().cloned(),
+        evidence: import.evidence().to_vec(),
+    });
     if let Some(hold) = InterfaceHold::of(listed) {
         return Err(Reason::Interface(hold));
     }

@@ -38,8 +38,10 @@
         "native.archkeel_facts.data:PlaceholderData",
         "native.archkeel_facts.data:PlainConstructData",
         "native.archkeel_facts.data:ReferenceData",
+        "native.archkeel_facts.data:RouteWithheld",
         "native.archkeel_facts.data:SelectorData",
         "native.archkeel_facts.data:SignalData",
+        "native.archkeel_facts.data:SurfaceForm",
         "native.archkeel_facts.data:TrojanHorseForm",
         "native.archkeel_facts.data:TrojanHorseSite",
         "native.archkeel_facts.data:ValueData",
@@ -459,6 +461,10 @@
             "native.archkeel_model.causes",
             "native.archkeel_model.coverage",
             "native.archkeel_model.ids",
+            "native.archkeel_model.interface_hold:HoldClass",
+            "native.archkeel_model.interface_hold:InterfaceGap",
+            "native.archkeel_model.interface_hold:InterfaceHold",
+            "native.archkeel_model.interface_hold:PairOrigin",
             "native.archkeel_model.needs",
             "native.archkeel_model.reason",
             "native.archkeel_model.reason_key",
@@ -552,10 +558,13 @@
         "native.archkeel_model:Edge",
         "native.archkeel_model:ExactCall",
         "native.archkeel_model:Graph",
+        "native.archkeel_model:HoldClass",
         "native.archkeel_model:Hygiene",
         "native.archkeel_model:Import",
         "native.archkeel_model:Incomplete",
         "native.archkeel_model:Input",
+        "native.archkeel_model:InterfaceGap",
+        "native.archkeel_model:InterfaceHold",
         "native.archkeel_model:Judged",
         "native.archkeel_model:Level",
         "native.archkeel_model:Link",
@@ -566,6 +575,7 @@
         "native.archkeel_model:ModuleId",
         "native.archkeel_model:Need",
         "native.archkeel_model:Needs",
+        "native.archkeel_model:PairOrigin",
         "native.archkeel_model:Part",
         "native.archkeel_model:Position",
         "native.archkeel_model:PremiseKind",
@@ -633,6 +643,7 @@
         "native.archkeel_model.coverage",
         "native.archkeel_model.gap_class",
         "native.archkeel_model.ids",
+        "native.archkeel_model.interface_hold",
         "native.archkeel_model.needs",
         "native.archkeel_model.reason",
         "native.archkeel_model.reason_key",
@@ -671,8 +682,6 @@
         "native.archkeel_model.brand:Brand",
         "native.archkeel_model.causes:Cause",
         "native.archkeel_model.causes:Held",
-        "native.archkeel_model.causes:InterfaceGap",
-        "native.archkeel_model.causes:InterfaceHold",
         "native.archkeel_model.causes:Part",
         "native.archkeel_model.coverage:Incomplete",
         "native.archkeel_model.coverage:data_of",
@@ -689,6 +698,11 @@
         "native.archkeel_model.ids:PackageId",
         "native.archkeel_model.ids:Table",
         "native.archkeel_model.ids:id_of",
+        "native.archkeel_model.interface_hold:HeldImport",
+        "native.archkeel_model.interface_hold:HoldClass",
+        "native.archkeel_model.interface_hold:InterfaceGap",
+        "native.archkeel_model.interface_hold:InterfaceHold",
+        "native.archkeel_model.interface_hold:PairOrigin",
         "native.archkeel_model.needs:Need",
         "native.archkeel_model.needs:Needs",
         "native.archkeel_model.reason:Hygiene",
@@ -920,7 +934,9 @@
           "component": "model-terms",
           "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result.",
           "through": [
-            "native.archkeel_model.ids"
+            "native.archkeel_model.causes:Held",
+            "native.archkeel_model.ids",
+            "native.archkeel_model.interface_hold:PairOrigin"
           ]
         },
         {
@@ -946,6 +962,8 @@
         "native.archkeel_model.limits:word",
         "native.archkeel_model.pair_gaps:Pairs",
         "native.archkeel_model.pair_gaps:Reads",
+        "native.archkeel_model.pair_gaps:hold",
+        "native.archkeel_model.pair_gaps:origin",
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
         "native.archkeel_model.pair_gaps:sides_match",
@@ -1118,6 +1136,9 @@
           "through": [
             "native.archkeel_model.causes",
             "native.archkeel_model.ids",
+            "native.archkeel_model.interface_hold:HeldImport",
+            "native.archkeel_model.interface_hold:InterfaceGap",
+            "native.archkeel_model.interface_hold:InterfaceHold",
             "native.archkeel_model.reason"
           ]
         },
@@ -2207,9 +2228,13 @@
             "native.archkeel_model:Cause",
             "native.archkeel_model:CoverageGap",
             "native.archkeel_model:Decision",
+            "native.archkeel_model:HoldClass",
             "native.archkeel_model:Incomplete",
+            "native.archkeel_model:InterfaceGap",
+            "native.archkeel_model:InterfaceHold",
             "native.archkeel_model:Model",
             "native.archkeel_model:ModelTree",
+            "native.archkeel_model:PairOrigin",
             "native.archkeel_model:PremiseKind",
             "native.archkeel_model:Reason",
             "native.archkeel_model:RunPass",
@@ -2305,6 +2330,23 @@
           "through": [
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph"
+          ]
+        },
+        {
+          "component": "facts",
+          "rationale": "Project the held imports of an interface_boundary rule with the cause that the collector states (#2086, AD-1170).",
+          "through": [
+            "native.archkeel_facts.data:RouteWithheld"
+          ]
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Read the held imports and their classes of an interface_boundary hold (#2086, AD-1170).",
+          "through": [
+            "native.archkeel_model.interface_hold:HoldClass",
+            "native.archkeel_model.interface_hold:InterfaceGap",
+            "native.archkeel_model.interface_hold:InterfaceHold",
+            "native.archkeel_model.interface_hold:PairOrigin"
           ]
         }
       ],

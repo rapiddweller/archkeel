@@ -9,98 +9,7 @@
 use std::collections::HashSet;
 use std::fmt;
 
-/// A missing fact of the interface import verdict, not a lifecycle diagnosis.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum InterfaceGap {
-    /// The binding of the import is not read.
-    UnreadBinding,
-    /// The route by which the target publishes the name is not proven.
-    PublicationRoute,
-    /// The published surface of the target is not read.
-    PublicationSurface,
-    /// The type that the interface publishes is not proven.
-    TypePublication,
-}
-
-impl InterfaceGap {
-    /// The short form of the gap, as one import reads it.
-    pub fn form(&self) -> &'static str {
-        match self {
-            Self::UnreadBinding => "unread import binding",
-            Self::PublicationRoute => "unproven publication route",
-            Self::PublicationSurface => "incomplete publication surface",
-            Self::TypePublication => "unproven named type publication",
-        }
-    }
-}
-
-impl fmt::Display for InterfaceGap {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "interface_boundary: {}", self.form())
-    }
-}
-
-/// The imports that an `interface_boundary` rule could not decide. The gap of the first one is the
-/// stable key of the reason; the display lists the imports (#1963).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct InterfaceHold {
-    gap: InterfaceGap,
-    shown: Vec<String>,
-    total: usize,
-}
-
-impl InterfaceHold {
-    /// A hold with no import: the gap holds the rule before any import is read.
-    pub fn bare(gap: InterfaceGap) -> InterfaceHold {
-        InterfaceHold {
-            gap,
-            shown: Vec::new(),
-            total: 0,
-        }
-    }
-
-    /// The hold of the undecided imports `(gap, source, target, name)`, or `None` for no import.
-    pub fn of<'a>(
-        undecided: impl Iterator<Item = (InterfaceGap, &'a str, &'a str, Option<&'a str>)>,
-    ) -> Option<InterfaceHold> {
-        let mut found: Option<InterfaceHold> = None;
-        for (gap, source, target, name) in undecided {
-            let hold: &mut InterfaceHold = found.get_or_insert_with(|| InterfaceHold::bare(gap));
-            hold.total += 1;
-            if Vec::len(&hold.shown) < HELD_SHOWN {
-                let name = name.map_or_else(String::new, |name| format!(":{name}"));
-                hold.shown
-                    .push(format!("{source} -> {target}{name} ({})", gap.form()));
-            }
-        }
-        found
-    }
-
-    /// The gap of the first undecided import.
-    pub fn gap(&self) -> InterfaceGap {
-        self.gap
-    }
-}
-
-impl fmt::Display for InterfaceHold {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.gap)?;
-        if self.total == 0 {
-            return Ok(());
-        }
-        let unit = if self.total == 1 { "import" } else { "imports" };
-        write!(f, ": {} {unit}", self.total)?;
-        let shown = Vec::len(&self.shown);
-        if self.total > shown {
-            write!(f, " (showing {shown})")?;
-        }
-        write!(f, ": {}", self.shown.join(", "))?;
-        match self.total - shown {
-            0 => Ok(()),
-            more => write!(f, " and {more} more"),
-        }
-    }
-}
+use crate::interface_hold::PairOrigin;
 
 /// A cause that holds a rule or makes the scope of a run incomplete.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -157,6 +66,8 @@ pub struct Held {
     distinct: usize,
     records: usize,
     pairs: Vec<(String, String)>,
+    /// The origin of each record, when the rule states it (an interface rule); else empty.
+    origins: Vec<PairOrigin>,
 }
 
 /// The largest number of gaps that a reason shows.
@@ -166,13 +77,28 @@ impl Held {
     /// The gap records `(source, target)` that hold a rule, or `None` for no gap. A `Held` is a
     /// reason, not a proof: it can only make a rule UNKNOWN.
     pub fn of<'a>(gaps: impl Iterator<Item = (&'a str, &'a str)>) -> Option<Held> {
+        Held::collect(gaps.map(|(source, target)| (source, target, None)))
+    }
+
+    /// The records of an interface rule, each with its origin.
+    pub fn with_origins<'a>(
+        gaps: impl Iterator<Item = (&'a str, &'a str, PairOrigin)>,
+    ) -> Option<Held> {
+        Held::collect(gaps.map(|(source, target, origin)| (source, target, Some(origin))))
+    }
+
+    fn collect<'a>(
+        gaps: impl Iterator<Item = (&'a str, &'a str, Option<PairOrigin>)>,
+    ) -> Option<Held> {
         let mut shown = Vec::new();
         let mut pairs = Vec::new();
+        let mut origins = Vec::new();
         let mut seen: HashSet<(&str, &str)> = HashSet::new();
         let mut distinct = 0;
         let mut records = 0;
-        for (source, target) in gaps {
+        for (source, target, origin) in gaps {
             pairs.push((source.to_owned(), target.to_owned()));
+            origins.extend(origin);
             records += 1;
             if !seen.insert((source, target)) {
                 continue;
@@ -187,7 +113,13 @@ impl Held {
             distinct,
             records,
             pairs,
+            origins,
         })
+    }
+
+    /// The origin of each record, in the order of `pairs`; empty when the rule states none.
+    pub fn origins(&self) -> &[PairOrigin] {
+        &self.origins
     }
 
     /// The number of distinct module pairs.

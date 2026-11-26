@@ -8,8 +8,9 @@ use std::fmt;
 
 use archkeel_contract::RuleKind;
 
-use crate::causes::{Cause, InterfaceHold, Part};
+use crate::causes::{Cause, Part};
 use crate::coverage::Incomplete;
+use crate::interface_hold::InterfaceHold;
 use crate::section::{Porting, Section};
 
 /// A part of the core that no slice has ported yet. It is a named answer, never an empty one.

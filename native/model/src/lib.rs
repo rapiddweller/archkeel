@@ -143,12 +143,14 @@ pub use verdict::{Decision, Verdict};
 
 // Slice S4: the scope proof (AD-378).
 mod causes;
+mod interface_hold;
 mod limits;
 mod observed;
 mod proof;
 mod subjects;
 
 pub use causes::{Cause, Part};
+pub use interface_hold::{HoldClass, InterfaceGap, InterfaceHold, PairOrigin};
 
 // Slice S5: the import matchers of the direction kinds and the sides they share (AD-380).
 mod direction;

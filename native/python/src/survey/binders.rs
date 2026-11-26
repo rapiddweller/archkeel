@@ -11,6 +11,8 @@
 use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
+
+use crate::module::Module;
 use ruff_python_ast::{
     Alias, ExceptHandler, Expr, ExprContext, Identifier, ModModule, Parameter, Pattern, Stmt,
     StmtImportFrom, TypeParams,
@@ -432,6 +434,16 @@ fn one_literal(body: &[Stmt], all_names: usize) -> bool {
         (Some((_, value)), None) => all_strings(value),
         _ => false,
     }
+}
+
+/// The modules whose `__all__` the survey cannot read.
+pub(super) fn unread_all(modules: &[Module], binders: &[Binders]) -> HashSet<String> {
+    modules
+        .iter()
+        .zip(binders)
+        .filter(|(_, binders)| binders.all_unread)
+        .map(|(module, _)| module.name.clone())
+        .collect()
 }
 
 /// The module visit of `ImportCollector`: an optional docstring, imports, and one literal

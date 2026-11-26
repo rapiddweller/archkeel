@@ -44,6 +44,7 @@ pub(crate) struct Published {
     pub(crate) complete: bool,
     pub(crate) outside: Option<String>,
     pub(crate) other_crate: bool,
+    pub(crate) withheld: Option<archkeel_facts::data::RouteWithheld>,
 }
 
 /// One resolved import that is not a macro body: the input of the edges and the rules.
@@ -134,6 +135,11 @@ impl Import {
     /// The publication names whose route the collector records.
     pub fn reexport_chain(&self) -> &[String] {
         &self.published.chain
+    }
+
+    /// Why the collector withholds the route of this import, when it states a cause (#2086).
+    pub fn route_withheld(&self) -> Option<&archkeel_facts::data::RouteWithheld> {
+        self.published.withheld.as_ref()
     }
 
     /// False when the collector proves only the first hops of the route: a later hop may follow,
@@ -332,6 +338,7 @@ pub(crate) fn split(facts: &Facts, marks: TargetMarks, declared: impl Fn(&str) -
                 complete: data.route_complete != Some(false),
                 outside: data.published_as.clone(),
                 other_crate: data.other_crate == Some(true),
+                withheld: data.route_withheld.clone(),
             },
             relative: data.relative_level != 0,
             resolved,

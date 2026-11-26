@@ -81,11 +81,16 @@ fn a_cut_list_shows_distinct_pairs_and_counts_them_not_the_records() {
 
 #[test]
 fn an_interface_hold_lists_its_imports_and_cuts_the_list() {
-    use super::{InterfaceGap, InterfaceHold};
+    use crate::interface_hold::{HeldImport, InterfaceGap, InterfaceHold};
     let names: Vec<String> = (0..7).map(|n| format!("m{n}")).collect();
-    let listed = names
-        .iter()
-        .map(|n| (InterfaceGap::PublicationRoute, "a", n.as_str(), Some("X")));
+    let listed = names.iter().map(|n| HeldImport {
+        gap: InterfaceGap::PublicationRoute,
+        source: "a".to_owned(),
+        target: n.clone(),
+        name: Some("X".to_owned()),
+        cause: None,
+        evidence: Vec::new(),
+    });
     let hold = InterfaceHold::of(listed).expect("an import");
     assert_eq!(
         hold.to_string(),
@@ -95,4 +100,61 @@ fn an_interface_hold_lists_its_imports_and_cuts_the_list() {
          a -> m4:X (unproven publication route) and 2 more"
     );
     assert!(InterfaceHold::of(std::iter::empty()).is_none());
+}
+
+#[test]
+fn an_interface_hold_counts_each_class_and_names_the_cause_in_its_text() {
+    use crate::interface_hold::{HeldImport, HoldClass, InterfaceGap, InterfaceHold};
+    use archkeel_facts::data::{RouteWithheld, SurfaceForm};
+    let held = |target: &str, cause: Option<RouteWithheld>| HeldImport {
+        gap: InterfaceGap::PublicationRoute,
+        source: "a".to_owned(),
+        target: target.to_owned(),
+        name: Some("X".to_owned()),
+        cause,
+        evidence: vec!["EVD-1".to_owned()],
+    };
+    let hold = InterfaceHold::of(
+        [
+            held("m1", Some(RouteWithheld::AmbiguousReexport)),
+            held("m2", Some(RouteWithheld::AmbiguousReexport)),
+            held(
+                "m3",
+                Some(RouteWithheld::OpaqueSurface {
+                    module: "m3".to_owned(),
+                    form: SurfaceForm::OutsideWrite,
+                }),
+            ),
+            held("m4", None),
+        ]
+        .into_iter(),
+    )
+    .expect("an import");
+    let classes: Vec<_> = hold.classes().collect();
+    assert_eq!(
+        classes,
+        [
+            (InterfaceGap::PublicationRoute, HoldClass::NotStated, 1),
+            (
+                InterfaceGap::PublicationRoute,
+                HoldClass::AmbiguousReexport,
+                2
+            ),
+            (InterfaceGap::PublicationRoute, HoldClass::OutsideWrite, 1),
+        ]
+    );
+    let text = hold.to_string();
+    assert!(text.contains("a -> m1:X (unproven publication route, ambiguous re-export)"));
+    assert!(text.contains("code outside the scan can write m3"));
+    assert_eq!(hold.total(), 4);
+}
+
+#[test]
+fn a_pair_gap_names_its_origin_from_its_flags() {
+    use crate::interface_hold::PairOrigin;
+    use crate::pair_gaps::origin;
+    assert_eq!(origin(false, true, true), PairOrigin::UnobservedModule);
+    assert_eq!(origin(true, false, true), PairOrigin::Dispatch);
+    assert_eq!(origin(true, false, false), PairOrigin::NotExecutionOnly);
+    assert_eq!(origin(true, true, false), PairOrigin::UnownedEnd);
 }

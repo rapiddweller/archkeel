@@ -15,7 +15,7 @@ fn route(files: &[(&str, &str)], source: &str, symbol: &str) -> Option<Vec<Strin
     resolve(
         &mut found.imports,
         &found.files,
-        &found.opaque_surface,
+        (&found.opaque_surface, &found.surface),
         (&found.sole_binders, &found.ambiguous),
         &found.sources,
     );
@@ -23,6 +23,24 @@ fn route(files: &[(&str, &str)], source: &str, symbol: &str) -> Option<Vec<Strin
         let data = record.data.data();
         (data.source_module.as_str() == source && data.symbol.as_deref() == Some(symbol))
             .then(|| data.reexport_chain.clone().unwrap_or_default())
+    })
+}
+
+/// The cause that the survey states for the withheld route of the import of `symbol`.
+fn cause(files: &[(&str, &str)], source: &str, symbol: &str) -> Option<RouteWithheld> {
+    let mut found = surveyed(files);
+    resolve(
+        &mut found.imports,
+        &found.files,
+        (&found.opaque_surface, &found.surface),
+        (&found.sole_binders, &found.ambiguous),
+        &found.sources,
+    );
+    found.imports.iter().find_map(|record| {
+        let data = record.data.data();
+        (data.source_module.as_str() == source && data.symbol.as_deref() == Some(symbol))
+            .then(|| data.route_withheld.clone())
+            .flatten()
     })
 }
 
@@ -176,4 +194,118 @@ fn the_survey_alone_writes_no_route() {
         .imports
         .iter()
         .all(|record| record.data.data().reexport_chain.is_none()));
+}
+
+fn with_init(init: &str) -> Option<RouteWithheld> {
+    cause(
+        &[("src/app/__init__.py", ""), (INIT, init), IMPL, USER],
+        "app.user",
+        "f",
+    )
+}
+
+#[test]
+fn an_unread_all_is_the_stated_cause() {
+    let found = with_init("from app.pkg.impl import f\n__all__ = ['f'] + other\n");
+    assert_eq!(
+        found,
+        Some(RouteWithheld::OpaqueSurface {
+            module: "app.pkg".to_owned(),
+            form: SurfaceForm::UnreadAll
+        })
+    );
+}
+
+#[test]
+fn a_write_from_another_module_is_the_stated_cause() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\nimport app.pkg._patch\n"),
+            ("src/app/pkg/_patch.py", "from app import pkg\npkg.f = 1\n"),
+            IMPL,
+            USER,
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(
+        found,
+        Some(RouteWithheld::OpaqueSurface {
+            module: "app.pkg".to_owned(),
+            form: SurfaceForm::Escaped
+        })
+    );
+}
+
+#[test]
+fn a_hop_that_is_not_unique_is_the_stated_cause() {
+    let found = with_init("from app.pkg.impl import f\nf = 1\n");
+    assert_eq!(
+        found,
+        Some(RouteWithheld::UncertainHop {
+            hop: "app.pkg.f".to_owned()
+        })
+    );
+}
+
+#[test]
+fn a_guarded_reexport_is_the_stated_cause() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            IMPL,
+            (
+                "src/app/user.py",
+                "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from app.pkg import f\n",
+            ),
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(found, Some(RouteWithheld::TypeCheckingReexport));
+}
+
+#[test]
+fn a_proven_route_states_no_cause() {
+    assert_eq!(with_init("from app.pkg.impl import f\n"), None);
+}
+
+#[test]
+fn a_name_that_is_the_attribute_or_the_submodule_is_the_stated_cause() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            ("src/app/pkg/f.py", "x = 1\n"),
+            IMPL,
+            USER,
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(found, Some(RouteWithheld::AmbiguousReexport));
+}
+
+#[test]
+fn code_outside_the_scan_that_writes_a_module_is_the_stated_cause() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            IMPL,
+            USER,
+            ("tools/patch.py", "import app.pkg\napp.pkg.f = 1\n"),
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(
+        found,
+        Some(RouteWithheld::OpaqueSurface {
+            module: "app.pkg".to_owned(),
+            form: SurfaceForm::OutsideWrite
+        })
+    );
 }

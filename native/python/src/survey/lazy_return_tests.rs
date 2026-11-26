@@ -310,7 +310,7 @@ fn a_proven_key_is_a_route_hop() {
     crate::survey::routes::resolve(
         &mut found.imports,
         &found.files,
-        &found.opaque_surface,
+        (&found.opaque_surface, &found.surface),
         (&found.sole_binders, &found.ambiguous),
         &found.sources,
     );

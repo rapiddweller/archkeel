@@ -19,10 +19,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_contract::{head_of, Rule};
 use archkeel_eval::{CycleStep, Outcome, Violation};
-use archkeel_model::{shape, Applied, Cause, CoverageGap, Incomplete, Model, Reason, Shape};
+use archkeel_model::{shape, Applied, CoverageGap, Model, PairOrigin, Reason, Shape};
 use serde::Serialize;
 
 use crate::why::WhyUnknown;
+use held::{Held, HoldKind, InterfaceHolds};
+
+#[path = "explain_held.rs"]
+mod held;
 
 const VERSION: u8 = 1;
 /// The most cycles that one rule lists.
@@ -136,69 +140,6 @@ struct Cycles {
     items: Vec<CyclePath>,
 }
 
-/// What kind of gap holds a rule.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-enum HoldKind {
-    CoverageGaps,
-    PairGaps,
-    AllowedPairGaps,
-    /// Gaps that state their effect, and the rule reads the effect (AD-564).
-    ScopedGaps,
-    UnknownImports,
-    NoSourceFiles,
-    /// Any other cause: the text of `explained` names it.
-    Other,
-}
-
-/// What the reason of one rule says about the gaps that hold it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct Held {
-    cause: WhyUnknown,
-    kind: HoldKind,
-    pairs: Vec<(String, String)>,
-    /// The ids of the gaps that the reason itself names (AD-564).
-    ids: Vec<String>,
-    unnamed_imports: usize,
-}
-
-impl Held {
-    /// The kind of hold that a reason states, with the pairs, the gap ids and the unnamed
-    /// imports that it names.
-    fn of(reason: &Reason) -> Held {
-        let mut held = Held {
-            cause: WhyUnknown::of(reason),
-            kind: HoldKind::Other,
-            pairs: Vec::new(),
-            ids: Vec::new(),
-            unnamed_imports: 0,
-        };
-        if let Reason::Incomplete(incomplete) = reason {
-            held.kind = match incomplete {
-                Incomplete::CoverageGaps { .. } => HoldKind::CoverageGaps,
-                Incomplete::UnknownImports(count) => {
-                    held.unnamed_imports = *count;
-                    HoldKind::UnknownImports
-                }
-                Incomplete::NoSourceFiles => HoldKind::NoSourceFiles,
-            };
-        }
-        if let Reason::NotComplete(Cause::PairGaps(pairs)) = reason {
-            held.kind = HoldKind::PairGaps;
-            held.pairs = distinct(pairs.pairs());
-        }
-        if let Reason::NotComplete(Cause::AllowedPairGaps(pairs)) = reason {
-            held.kind = HoldKind::AllowedPairGaps;
-            held.pairs = distinct(pairs.pairs());
-        }
-        if let Reason::NotComplete(Cause::ScopedGaps(scoped)) = reason {
-            held.kind = HoldKind::ScopedGaps;
-            held.ids = scoped.ids().to_vec();
-        }
-        held
-    }
-}
-
 /// The facts that `explain` collects while the rules are decided.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Collected {
@@ -226,16 +167,6 @@ impl Collected {
         }
         (pairs, found)
     }
-}
-
-/// The pairs of the gap records, each once, in the order of their first record.
-fn distinct(records: &[(String, String)]) -> Vec<(String, String)> {
-    let mut seen = BTreeSet::new();
-    records
-        .iter()
-        .filter(|pair| seen.insert(*pair))
-        .cloned()
-        .collect()
 }
 
 impl Collected {
@@ -344,6 +275,16 @@ fn step(step: &CycleStep, applied: &[Applied]) -> Step {
 struct Pair {
     source: String,
     target: String,
+    /// Why the pair holds an interface rule; absent for the other rules.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    origin: Option<PairOrigin>,
+}
+
+/// The number of held pairs of one origin (an interface rule).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+struct OriginCount {
+    origin: PairOrigin,
+    count: usize,
 }
 
 /// The gaps that hold one rule.
@@ -362,6 +303,12 @@ struct RuleHolds {
     truncated: bool,
     /// The imports that the collector could not resolve and that no gap names.
     unnamed_imports: usize,
+    /// The number of held pairs of each origin, for an interface rule.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    origins: Vec<OriginCount>,
+    /// The held imports of an `interface_boundary` rule, each with its stated cause.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    interface: Option<InterfaceHolds>,
 }
 
 /// One coverage gap and the rules that it holds.
@@ -410,7 +357,7 @@ fn ids_of(held: &Held, gaps: &[CoverageGap]) -> Vec<String> {
             let pairs: BTreeSet<(&str, &str)> = held
                 .pairs
                 .iter()
-                .map(|(source, target)| (source.as_str(), target.as_str()))
+                .map(|(source, target, _)| (source.as_str(), target.as_str()))
                 .collect();
             gaps.iter()
                 .filter(|gap| match (&gap.source, &gap.module) {
@@ -421,8 +368,23 @@ fn ids_of(held: &Held, gaps: &[CoverageGap]) -> Vec<String> {
                 .collect()
         }
         HoldKind::ScopedGaps => held.ids.clone(),
-        HoldKind::UnknownImports | HoldKind::NoSourceFiles | HoldKind::Other => Vec::new(),
+        HoldKind::UnknownImports
+        | HoldKind::InterfaceImports
+        | HoldKind::NoSourceFiles
+        | HoldKind::Other => Vec::new(),
     }
+}
+
+/// The number of pairs of each origin.
+fn origin_counts(pairs: &[(String, String, Option<PairOrigin>)]) -> Vec<OriginCount> {
+    let mut counts: BTreeMap<PairOrigin, usize> = BTreeMap::new();
+    for origin in pairs.iter().filter_map(|(_, _, origin)| *origin) {
+        *counts.entry(origin).or_default() += 1;
+    }
+    counts
+        .into_iter()
+        .map(|(origin, count)| OriginCount { origin, count })
+        .collect()
 }
 
 impl Collected {
@@ -439,6 +401,7 @@ impl Collected {
             // A pair rule counts distinct pairs; a record count would not match the noun.
             let total = match held.kind {
                 HoldKind::PairGaps | HoldKind::AllowedPairGaps => held.pairs.len(),
+                HoldKind::InterfaceImports => held.imports_total,
                 HoldKind::CoverageGaps
                 | HoldKind::ScopedGaps
                 | HoldKind::UnknownImports
@@ -456,14 +419,17 @@ impl Collected {
                         .pairs
                         .iter()
                         .take(MAX_HELD)
-                        .map(|(source, target)| Pair {
+                        .map(|(source, target, origin)| Pair {
                             source: source.clone(),
                             target: target.clone(),
+                            origin: *origin,
                         })
                         .collect(),
                     total,
                     truncated: total > MAX_HELD,
                     unnamed_imports: held.unnamed_imports,
+                    origins: origin_counts(&held.pairs),
+                    interface: held.interface.clone(),
                 },
             );
         }

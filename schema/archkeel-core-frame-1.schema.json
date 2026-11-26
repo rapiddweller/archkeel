@@ -2071,6 +2071,24 @@
           "format": "uint",
           "minimum": 0,
           "description": "The imports that the collector could not resolve and that no gap names."
+        },
+        "origins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OriginCount"
+          },
+          "description": "The number of held pairs of each origin, for an interface rule."
+        },
+        "interface": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InterfaceHolds"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The held imports of an `interface_boundary` rule, each with its stated cause."
         }
       },
       "required": [
@@ -2104,6 +2122,11 @@
         },
         {
           "type": "string",
+          "const": "interface_imports",
+          "description": "The imports of an `interface_boundary` rule that it could not decide (`interface`)."
+        },
+        {
+          "type": "string",
           "const": "other",
           "description": "Any other cause: the text of `explained` names it."
         }
@@ -2118,6 +2141,17 @@
         },
         "target": {
           "type": "string"
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PairOrigin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Why the pair holds an interface rule; absent for the other rules."
         }
       },
       "required": [
@@ -2126,6 +2160,313 @@
       ],
       "description": "The pair of a gap between two modules.",
       "additionalProperties": false
+    },
+    "PairOrigin": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "unobserved_module",
+          "description": "A module of the pair is not a module of the reply."
+        },
+        {
+          "type": "string",
+          "const": "dispatch",
+          "description": "An unresolved internal dispatch: a method call whose callee the collector does not name."
+        },
+        {
+          "type": "string",
+          "const": "not_execution_only",
+          "description": "A gap that is no internal dispatch and not only about executing an impl."
+        },
+        {
+          "type": "string",
+          "const": "unowned_end",
+          "description": "The gap is only about executing an impl, but a module of the pair has no single owner."
+        },
+        {
+          "type": "string",
+          "const": "named_site",
+          "description": "A named import across components whose publication is not proven."
+        }
+      ],
+      "description": "Why a module pair holds an `interface_boundary` rule (#2086): the form of the gap or site."
+    },
+    "OriginCount": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/PairOrigin"
+        },
+        "count": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "origin",
+        "count"
+      ],
+      "description": "The number of held pairs of one origin (an interface rule).",
+      "additionalProperties": false
+    },
+    "InterfaceHolds": {
+      "type": "object",
+      "properties": {
+        "classes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ClassCount"
+          }
+        },
+        "imports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HeldImport"
+          }
+        }
+      },
+      "required": [
+        "classes",
+        "imports"
+      ],
+      "description": "What holds an `interface_boundary` rule: the count of each class and the first imports.",
+      "additionalProperties": false
+    },
+    "ClassCount": {
+      "type": "object",
+      "properties": {
+        "gap": {
+          "$ref": "#/$defs/InterfaceGap"
+        },
+        "class": {
+          "$ref": "#/$defs/HoldClass"
+        },
+        "count": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "gap",
+        "class",
+        "count"
+      ],
+      "description": "The number of held imports of one gap and class.",
+      "additionalProperties": false
+    },
+    "InterfaceGap": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "unread_binding",
+          "description": "The binding of the import is not read."
+        },
+        {
+          "type": "string",
+          "const": "publication_route",
+          "description": "The route by which the target publishes the name is not proven."
+        },
+        {
+          "type": "string",
+          "const": "publication_surface",
+          "description": "The published surface of the target is not read."
+        },
+        {
+          "type": "string",
+          "const": "type_publication",
+          "description": "The type that the interface publishes is not proven."
+        }
+      ],
+      "description": "A missing fact of the interface import verdict, not a lifecycle diagnosis."
+    },
+    "HoldClass": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "not_stated",
+          "description": "The collector states no cause for the gap."
+        },
+        {
+          "type": "string",
+          "const": "ambiguous_reexport",
+          "description": "An ambiguous re-export."
+        },
+        {
+          "type": "string",
+          "const": "uncertain_hop",
+          "description": "A hop that is not proven."
+        },
+        {
+          "type": "string",
+          "const": "unread_all",
+          "description": "A module whose `__all__` is not one literal list."
+        },
+        {
+          "type": "string",
+          "const": "outside_write",
+          "description": "A module that code outside the scan roots can write to."
+        },
+        {
+          "type": "string",
+          "const": "escaped",
+          "description": "A module whose object a use inside the scan hands on."
+        },
+        {
+          "type": "string",
+          "const": "type_checking_reexport",
+          "description": "A re-export under `TYPE_CHECKING`."
+        }
+      ],
+      "description": "How a held import is classed in the frame: the cause that the collector states, or that it\nstates none (#2086)."
+    },
+    "HeldImport": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "gap": {
+          "$ref": "#/$defs/InterfaceGap"
+        },
+        "class": {
+          "$ref": "#/$defs/HoldClass"
+        },
+        "cause": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RouteWithheld"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The cause that the collector states; null when it states none."
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "name",
+        "gap",
+        "class",
+        "cause",
+        "evidence"
+      ],
+      "description": "One held import.",
+      "additionalProperties": false
+    },
+    "RouteWithheld": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "ambiguous_reexport"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "description": "The import is one of the ambiguous re-exports: the package body binds the name too, so\nthe name may be the attribute or the submodule.",
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "uncertain_hop"
+            },
+            "hop": {
+              "type": "string",
+              "description": "The dotted name of the hop."
+            }
+          },
+          "required": [
+            "kind",
+            "hop"
+          ],
+          "description": "A hop is not proven: its binding is not one plain statement, it has two targets, or the\nroute is a cycle. `hop` is the dotted name of the hop.",
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "opaque_surface"
+            },
+            "module": {
+              "type": "string",
+              "description": "The module."
+            },
+            "form": {
+              "$ref": "#/$defs/SurfaceForm",
+              "description": "Why its surface is not read."
+            }
+          },
+          "required": [
+            "kind",
+            "module",
+            "form"
+          ],
+          "description": "A module on the route has a surface that the collector cannot read.",
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "type_checking_reexport"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "description": "The import sits under `TYPE_CHECKING` and passes a re-export.",
+          "additionalProperties": false
+        }
+      ],
+      "description": "Why the collector withholds the publication route of an import (#2086, AD-1170)."
+    },
+    "SurfaceForm": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "unread_all",
+          "description": "`__all__` is not one literal list of strings."
+        },
+        {
+          "type": "string",
+          "const": "outside_write",
+          "description": "Code outside the scan roots can write to the module."
+        },
+        {
+          "type": "string",
+          "const": "escaped",
+          "description": "A use inside the scan hands the module object on, so a write to it is not excluded."
+        }
+      ],
+      "description": "Why the names that a module publishes are not read."
     },
     "GapHolds": {
       "type": "object",

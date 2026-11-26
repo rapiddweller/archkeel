@@ -7,8 +7,6 @@
 //! of its reading and the scan proof of the model. `scope_order.rs` reads these in its one order;
 //! `scope.rs` keeps the brand and the proof.
 
-use std::collections::HashSet;
-
 use archkeel_contract::{kind_of, CallOwner, CycleLevel, PremiseName, Rule};
 
 use crate::causes::{Cause, Held, Part};
@@ -71,16 +69,19 @@ pub(crate) fn gap_scope<'id>(model: &Model, rule: &Rule) -> Result<GapScope<'id>
                 != direction::Judged::Pass
         })
         .filter(|gap| gap.holds(&reading))
-        .map(|gap| (gap.source.as_str(), gap.target.as_str()));
+        .map(|gap| {
+            (
+                gap.source.as_str(),
+                gap.target.as_str(),
+                crate::pair_gaps::origin(gap.observed, gap.execution, gap.dispatch),
+            )
+        });
     let named = matches!(reading, Reads::Interface | Reads::SourceNames(_))
         .then(|| open_sites(model, &reading))
         .into_iter()
         .flatten();
-    let mut seen = HashSet::new();
-    let distinct = held
-        .chain(named)
-        .filter(|pair| !matches!(reading, Reads::SourceNames(_)) || seen.insert(*pair));
-    if let Some(held) = Held::of(distinct) {
+    let held = crate::pair_gaps::hold(&reading, held, named);
+    if let Some(held) = held {
         return Err(Reason::NotComplete(Cause::PairGaps(held)));
     }
     let dropped = pairs
