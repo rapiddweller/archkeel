@@ -215,3 +215,15 @@ fn an_impl_in_a_module_of_another_file_than_its_scan_module_gives_no_edge() {
     let found = collect(announced(false, &[IMPL, loaded]));
     assert!(selected(&found).is_empty());
 }
+
+#[test]
+fn configurations_that_select_the_impl_in_different_files_give_no_edge() {
+    // `#[cfg_attr(.., path = ..)]` loads module `b` from another file in one configuration: the sites look alike.
+    let cold = r#"{"k":"sel","from":0,"to":1,"impl":6,"file":3,"impl_file":9,"line":1,"col":28}"#;
+    let hot = r#"{"k":"sel","from":0,"to":1,"impl":6,"file":3,"impl_file":8,"line":1,"col":28}"#;
+    let found = collect(announced_in(vec![
+        facts_of(false, &[IMPL, cold]),
+        facts_of(false, &[IMPL, hot]),
+    ]));
+    assert!(selected(&found).is_empty());
+}

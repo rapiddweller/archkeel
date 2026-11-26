@@ -56,6 +56,7 @@ impl<'f> Filter<'f> {
                 s.to.clone(),
                 s.imp.clone(),
                 s.file.clone(),
+                s.impl_file.clone(),
                 s.line,
                 s.column,
             )
