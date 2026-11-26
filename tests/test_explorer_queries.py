@@ -109,6 +109,7 @@ def test_call_step_uses_the_collectors_evidence(tmp_path: Path) -> None:
         "part": None,
         "language": "typescript",
         "facts": {"symbols": 1, "calls": 1, "imports": None},
+        "entry_points": None,
         "files_indexed": 2,
         "files_with_symbols": 1,
         "files_with_calls": 1,

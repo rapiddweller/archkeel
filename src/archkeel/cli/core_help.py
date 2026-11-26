@@ -71,7 +71,7 @@ examples:
   archkeel validate --baseline archkeel-baseline.json --text
 """
 _REPORT: Final = """\
-usage: archkeel report [--root PATH] [--config PATH] [--output FILE [--format html|json]]
+usage: archkeel report [--root PATH] [--config PATH] [--output FILE [--format html|json|markdown]]
                        [--part-of DOCUMENT [--system-href URL]]
                        [--topology] [--timings FILE] [--json | --text | --summary] [--all]
                        [--verbose]
@@ -81,7 +81,8 @@ Print the frame of the core as a report. With --output, write one file and print
 options:
 {common}
   --output FILE   Write the report to this file. No file is written by default.
-  --format FORMAT With --output: html (default, a page with the architecture) or json.
+  --format FORMAT With --output: html (default, a page with the architecture), json, or
+                  markdown (a guide of the components, requirements and layer orders).
   --topology      Add the bounded topology to the printed result (the JSON field `topology`,
                   and a count line in text). The HTML page always draws the architecture.
   --part-of DOCUMENT

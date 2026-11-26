@@ -20,6 +20,7 @@ from urllib.parse import quote
 from .core_arguments import Options
 from .core_baseline import BaselineResult, BaselineState
 from .core_frame import CoreError, CoreFrame, RefusalKind
+from .core_guide import render
 from .core_json import as_object
 from .core_output import write_new, write_output
 
@@ -129,6 +130,10 @@ def _write_report(
             page = page.replace(_GAP_MARKER, markup, 1)
             companion = (path, content)
         payload = page.encode("utf-8")
+    elif options.format == "markdown":
+        if frame.topology is None:
+            raise CoreError("the core frame lacks the requested topology")
+        payload = render(frame.topology).encode("utf-8")
     else:
         payload = stdout
     write_output(options.output, payload, companion=companion)

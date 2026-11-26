@@ -207,6 +207,12 @@ COLLECT_TO_COLLECTORS = {
     ("native.archkeel_collect.run", "archkeel_python_collector::typed_reply_with_navigation", PY),
     # AD-688: the check of the collector gives the core only a refusal text.
     ("native.archkeel_collect.run", "archkeel_python_collector::check", PY),
+    # AD-1140: the Explorer entry points read the scripts of pyproject.toml (collector API).
+    ("native.archkeel_collect.entry_points", "archkeel_python_collector::Script", PY),
+    ("native.archkeel_collect.entry_points", "archkeel_python_collector::ScriptTable", PY),
+    ("native.archkeel_collect.entry_points", "archkeel_python_collector::scripts", PY),
+    ("native.archkeel_collect.entry_points", "ScriptTable::Console", PY),
+    ("native.archkeel_collect.entry_points", "ScriptTable::Gui", PY),
     ("native.archkeel_collect", "archkeel_dart_collector::TEST_FEATURES", DART),
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-dart-collector", DART),
     ("native.archkeel_collect.run", "archkeel_dart_collector::provenance", DART),

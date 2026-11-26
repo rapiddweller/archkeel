@@ -9,6 +9,7 @@
 //! not write is an `Option` that the wire skips. A `[read]` field is in the read-set.
 
 mod constructs;
+pub mod entry_points;
 pub(crate) mod gap_data;
 pub(crate) mod gap_effect;
 mod imports;

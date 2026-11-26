@@ -38,6 +38,7 @@ mod inputs;
 mod names;
 mod parse;
 mod requirement;
+pub use crate::requirement::{scripts, Script, ScriptTable};
 
 mod claims;
 pub use crate::claims::check;
