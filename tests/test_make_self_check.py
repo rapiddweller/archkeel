@@ -72,6 +72,7 @@ def test_a_self_check_without_a_usable_core_result_fails(
     )
     uv.chmod(0o755)
     for name in (
+        "tools/self_check_contract.py",
         "tools/self_check_gate.py",
         "tools/self_check_diff.py",
         "tools/self_check_shell.py",
