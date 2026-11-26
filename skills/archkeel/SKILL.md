@@ -33,6 +33,15 @@ Release 4.0.1 has `check`. Saved reports, `architecture.json`, amendments, `--co
 `--write-graph` are refused by option name. A refusal is not a result: never report PASS after one,
 and never run a refused command in a loop. Tell the owner and use release 4.0.1 when they need it.
 
+## Find a story path
+
+Run `archkeel studio PATH --no-open` and keep it running. Set `URL` to its URL without the final `/`.
+Search with `curl -G "$URL/api/v1/search" --data-urlencode "text=FUNCTION"`.
+Follow each returned element ID with
+`curl -G "$URL/api/v1/relations" --data-urlencode "element=ID" -d direction=out -d kind=call`.
+Follow `next_cursor` pages. A candidate or missing call is not a proven path.
+See the [story format and query guide](https://github.com/rapiddweller/archkeel/blob/main/docs/explorer.md#write-a-story).
+
 ## Which projects get a verdict
 
 ArchKeel collects source evidence for Rust, TypeScript, Python and Dart.
