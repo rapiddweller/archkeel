@@ -12,7 +12,7 @@ use crate::items::absolute;
 use crate::state::{ImplIndex, Resolved, State};
 use rustc_hir::def_id::{DefId, LOCAL_CRATE};
 use rustc_middle::ty::{self, GenericArgsRef, Ty, TyCtxt, TypeVisitableExt};
-use rustc_span::{FileName, Span};
+use rustc_span::{sym, FileName, Span};
 use std::collections::BTreeSet;
 
 /// The impls of the workspace by the self type that they name: an ADT, a type parameter (blanket) or another type.
@@ -119,10 +119,12 @@ fn visit<'tcx>(
             found.files.extend(own.into_iter().flatten().copied());
             let mut all = nested(&args[..]);
             // The fields of a type can hold callable state that no argument names (a function pointer, a trait
-            // object, a closure). The walk enters the fields of a workspace type. A type of the standard library
-            // is known only when it is a container or an iterator adapter that holds what its arguments name;
-            // another one (`Waker`, `Formatter`) is open.
-            if crate::body::inside(st, tcx, def.did()) {
+            // object, a closure). The walk enters the fields of a type of the workspace or of a dependency. A type of
+            // the standard library is known only when it is a container or an iterator adapter that holds what
+            // its arguments name; another one (`Waker`, `Formatter`) is open.
+            let standard =
+                [sym::core, sym::alloc, sym::std].contains(&tcx.crate_name(def.did().krate));
+            if !standard {
                 for field in def.all_fields() {
                     match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
                         Ok(field_ty) => all.push(field_ty),
