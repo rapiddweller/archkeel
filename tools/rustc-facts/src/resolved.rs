@@ -137,7 +137,7 @@ fn touch<'tcx>(
     st: &mut State,
     tcx: TyCtxt<'tcx>,
     env: ty::TypingEnv<'tcx>,
-    args: GenericArgsRef<'tcx>,
+    (callee, args): (DefId, GenericArgsRef<'tcx>),
 ) -> (BTreeSet<u32>, bool) {
     if st.impls.is_none() {
         let index = impl_index(st, tcx);
@@ -149,7 +149,12 @@ fn touch<'tcx>(
         plain: false,
         seen: std::collections::HashSet::new(),
     };
-    for ty in args.iter().filter_map(|a| a.as_type()) {
+    // The values that the callee can touch: its type arguments, and the types of its inputs (the receiver of a
+    // method without generics is no argument, but its fields can hold callable state).
+    let sig = tcx.fn_sig(callee).instantiate(tcx, args).skip_binder();
+    let inputs: Vec<Ty<'tcx>> = sig.inputs().to_vec();
+    let given = args.iter().filter_map(|a| a.as_type());
+    for ty in given.chain(inputs) {
         let ty = tcx
             .try_normalize_erasing_regions(env, ty::Unnormalized::new(ty))
             .unwrap_or(ty);
@@ -203,7 +208,7 @@ pub(crate) fn method_site<'tcx>(
     } else {
         (def, args)
     };
-    let (touch, open) = touch(st, tcx, env, instance_args);
+    let (touch, open) = touch(st, tcx, env, (callee, instance_args));
     let start = tcx.sess.source_map().lookup_char_pos(fn_span.lo());
     if !matches!(start.file.name, FileName::Real(_)) {
         return;
