@@ -24,9 +24,9 @@ pub(in crate::survey) fn table<'a>(
         found.entry(name.clone()).or_default().extend(held.cloned());
     }
     // A rename of a re-exported name (`from app.util import cp as q2`) is re-exported too: its
-    // origin ends in a name of the table. Two passes read a rename of a rename; each pass reads a
-    // snapshot, so the sets stay as small as the distinct origins.
-    for _ in 0..2 {
+    // origin ends in a name of the table. Each pass reads a snapshot, so the sets stay as small as
+    // the distinct origins, and the loop ends because the sets are finite and only grow (AD-1172).
+    loop {
         let mut added = Vec::new();
         for (name, origins) in all.iter().flat_map(|bound| bound.iter()) {
             let last = |origin: &String| origin.rsplit_once('.').map(|(_, last)| last.to_owned());
@@ -40,8 +40,12 @@ pub(in crate::survey) fn table<'a>(
                 );
             }
         }
+        let mut grown = false;
         for (name, origin) in added {
-            found.entry(name.clone()).or_default().insert(origin);
+            grown |= found.entry(name.clone()).or_default().insert(origin);
+        }
+        if !grown {
+            break;
         }
     }
     let nonempty = found.into_iter().filter(|(_, origins)| !origins.is_empty());

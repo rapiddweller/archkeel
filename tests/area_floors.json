@@ -4,7 +4,8 @@
     "core scans": 127,
     "CLI and core": 2394,
     "collectors": 451,
-    "native collectors": 521,
+    "native collector evidence": 157,
+    "native collectors": 364,
     "reports": 60
   },
   "pr": {
@@ -12,7 +13,8 @@
     "core scans": 10,
     "CLI and core": 574,
     "collectors": 44,
-    "native collectors": 144,
+    "native collector evidence": 4,
+    "native collectors": 140,
     "reports": 60
   }
 }
