@@ -1412,6 +1412,7 @@
           "through": [
             "native.archkeel_model.graph",
             "native.archkeel_model.imports",
+            "native.archkeel_model.imports_surface",
             "native.archkeel_model.modules",
             "native.archkeel_model.symbols"
           ]
@@ -2861,7 +2862,8 @@
           "through": [
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph",
-            "native.archkeel_model.imports"
+            "native.archkeel_model.imports",
+            "native.archkeel_model.imports_surface"
           ]
         },
         {

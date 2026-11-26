@@ -156,8 +156,8 @@ fn block(record: &Import) -> &'static str {
         "unbound_type"
     } else if record.symbol().is_some() && record.reexport_chain().is_empty() {
         record
-            .route_withheld()
-            .map_or("not_stated", |(cause, _)| cause.as_str())
+            .withheld_cause()
+            .map_or("not_stated", |(word, _)| word)
     } else {
         "other_symbol"
     }
@@ -181,8 +181,8 @@ fn import_seen(seen: &[&&Import]) -> String {
         .min_by_key(|r| (r.source_module(), r.symbol()))
         .map(|record| {
             let at = record
-                .route_withheld()
-                .and_then(|(_, at)| at.as_deref())
+                .withheld_cause()
+                .and_then(|(_, at)| at)
                 .map(|at| format!(" ({at})"))
                 .unwrap_or_default();
             format!(
