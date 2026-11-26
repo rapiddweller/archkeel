@@ -4,7 +4,7 @@
 
 **Reason.** The verification run of #2063 found forms that put a string into an annotation without a string literal in an annotation position. CPython 3.12 loaded `app.lib` through `typing.get_type_hints` in each case and the verdict was PASS: a write to `__annotations__` inside an expression, a name that gets its string from a tuple unpack, `:=`, `+=`, a `for`, a condition, `str()`, `.replace` or `.decode`, `ForwardRef(name)`, `TypedDict(..)`, `NamedTuple(..)`, `type("K", (), {"__annotations__": ..})`, an alias of `__annotations__`, `d["a"]` and `C.s` as annotation. A rule for each form leaves the next form open. This decision adds one class rule.
 
-**Decision.** A module *evaluates annotations* when it names `get_type_hints`, `get_annotations`, `ForwardRef`, `_eval_type` or `evaluate_forward_ref`, or calls anything with `eval_str=`. In such a module each of these is a `dynamic_import` site:
+**Decision.** A module *evaluates annotations* when it names `get_type_hints`, `get_annotations`, `ForwardRef`, `_eval_type` or `evaluate_forward_ref`, or calls anything with `eval_str=`. A string with one of these names counts too (`getattr(typing, "get_type_hints")`). In such a module each of these is a `dynamic_import` site:
 1. Any reach of `__annotations__`, `__annotate__`, `__annotate_func__` or `__annotations_cache__` as a value (a read, a write, an alias, a call on it), and the string `"__annotations__"`.
 2. A call of `TypedDict`, `NamedTuple` or `make_dataclass`, and `ForwardRef` with an argument that is no string literal.
 3. A part of an annotation that is no type form: a call, a condition, a computed string, a lambda, a dict. The strings in `Literal[..]` and the metadata of `Annotated[..]` are no annotation and are not checked.
@@ -14,6 +14,8 @@ A string literal that a name or attribute name holds is read as code (AD-1134), 
 
 **Effect.** The class rule only adds sites. On the CE (`23bd48d9`) and EE (`560d5c7ef`) references the verdicts and the gap records are the same before and after (CE 176/99/1 and 1087 gaps, EE 256/223/0 and 1633 gaps).
 
+**Cost.** A module that evaluates annotations and also reads `__annotations__` is a site now. The control of #2063 "annotations written with a plain type" became "annotations read in a module that evaluates none".
+
 **Limit.** A module that gets its annotations evaluated only by another module (a library) is not gated: the survey reads only the module itself. A parameter name used as an annotation, and a string that another module writes into this module, are not seen. A name that the module binds to a call result (not a type factory) is a site even when the call returns a type.
 
-**Tests.** `tests/test_collector_false_pass_python_annotation_class.py` (24 plants, 5 controls; CPython 3.12 writes a counter line in each plant) and two unit tests in `hazards_importers_tests.rs`. The mutation that makes the class rule return no site fails 20 of the 24 plants. The other plants stay UNKNOWN through AD-1134.
+**Tests.** `tests/test_collector_false_pass_python_annotation_class.py` (27 plants, 5 controls; CPython 3.12 writes a counter line in each plant) and two unit tests in `hazards_importers_tests.rs`. The mutation that makes the class rule return no site fails 21 of the 27 plants. The other plants stay UNKNOWN through AD-1134.

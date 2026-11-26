@@ -52,10 +52,8 @@ PLANTS = {
     + HINTS.format(name="K"),
 }
 CONTROLS = {
-    "annotations written with a plain type": HEAD
-    + "class K:\n    pass\n\n\n"
-    + "print(K.__annotations__)\n"
-    + HINTS.format(name="K"),
+    "annotations read in a module that evaluates none": "class K:\n    pass\n\n\n"
+    + "print(K.__annotations__)\n",
     "variable with a harmless string": HEAD
     + 's = "int"\n\n\nclass K:\n    x: s\n\n\n'
     + HINTS.format(name="K"),

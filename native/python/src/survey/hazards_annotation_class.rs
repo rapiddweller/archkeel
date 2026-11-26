@@ -320,8 +320,13 @@ impl<'a> Visitor<'a> for Scan<'a> {
             self.evaluates = true;
         }
         match expr {
-            Expr::StringLiteral(text) if text.value.to_str() == "__annotations__" => {
-                self.reaches.push(expr.range());
+            Expr::StringLiteral(text) => {
+                let text = text.value.to_str();
+                if RESERVED.contains(&text) {
+                    self.reaches.push(expr.range());
+                }
+                // An evaluator that the module looks up by name is an evaluator.
+                self.evaluates |= EVALUATORS.contains(&text);
             }
             Expr::Call(call) => {
                 let callee = last(&call.func);

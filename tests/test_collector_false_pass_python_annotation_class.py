@@ -81,7 +81,12 @@ BUILDERS = {
     + f'K = typing.NamedTuple("K", [("x", "{IMPORT}")])\n'
     + HINTS,
 }
-PLANTS = {**WRITES, **NAMES, **BUILDERS}
+LOOKUP = {
+    "evaluator looked up by name": HEAD
+    + f's, t = "{IMPORT}", "int"\n\n\nclass K:\n    x: s\n\n\n'
+    + 'try:\n    getattr(typing, "get_type_hints")(K)\nexcept Exception:\n    pass\n',
+}
+PLANTS = {**WRITES, **NAMES, **BUILDERS, **LOOKUP}
 CONTROLS = {
     "plain forms": HEAD
     + "class K:\n    x: int\n    y: typing.Optional[str]\n    z: list[int] | None\n"
