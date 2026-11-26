@@ -8,7 +8,7 @@ The nine NATIVE-NO-MODULE-CYCLES candidates of the self-check (AD-1047, `designs
 reverse source use and a possible trait-impl dispatch. The first measurement (11 pairs on 2026-11-26) found two causes.
 
 1. Three pairs in `scip_evidence` had no compiler facts (`Cause::NoFacts`). The scan names the modules of
-   `src/main.rs` `<namespace>.<package>.bin_<crate>.<module>` (`crates.rs`). The facts name them
+   the `main.rs` of a package `<namespace>.<package>.bin_<crate>.<module>` (`crates.rs`). The facts name them
    `<crate>::<module>`. The reader found no such scan module and cut the name back to the crate root, so the facts of
    a bin module were counted under the library root.
 2. The other pairs are kept as `Reached`. The reach of a module of 28 to 50 own types grows to about 1200 types: the

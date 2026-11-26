@@ -28,8 +28,12 @@ pub struct Reach<'f> {
 /// names that target `<namespace>.<package>.bin_<crate>` (`crates.rs`), the facts `<crate>::<module>`. A path
 /// that the library of the package names too keeps the library module. `None` when no such target exists.
 fn bin_module(known: &BTreeSet<String>, namespace: &str, path: &str) -> Option<String> {
-    let direct = format!("{namespace}.{}", path.replace("::", "."));
-    if known.contains(&direct) {
+    // A path that a module of the library owns, also by an inline module below it, keeps that module.
+    let mut owner = format!("{namespace}.{}", path.replace("::", "."));
+    while !known.contains(&owner) && owner.matches('.').count() > 1 {
+        owner.truncate(owner.rfind('.').unwrap_or(0));
+    }
+    if known.contains(&owner) && owner.matches('.').count() > 1 {
         return None;
     }
     let (krate, rest) = path.split_once("::")?;

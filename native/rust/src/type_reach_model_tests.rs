@@ -357,3 +357,20 @@ fn a_module_of_a_bin_target_is_decided_under_the_bin_module_not_the_library_root
     let control = module("k::a", &["k::a::Y"], &[], &[]);
     assert_eq!(pair(&[control, target()]), "excluded");
 }
+
+#[test]
+fn an_inline_module_of_the_library_keeps_its_facts_beside_a_bin_target() {
+    // `k::a::inner` is an inline module of the library module `a`; the bin target must not take it.
+    let scan: BTreeSet<String> = ["", ".a", ".b", ".bin_k"]
+        .iter()
+        .map(|m| format!("native.k{m}"))
+        .collect();
+    let all = facts(&[module("k::a::inner", &["k::b::X"], &[], &[]), target()]);
+    let reach = Reach::new(&all, &scan);
+    let kept = reach.decide(
+        ("native.k.a", "native.k.b"),
+        &Mode::Rta,
+        &mut BTreeMap::new(),
+    );
+    assert!(matches!(kept, Verdict::Kept(Cause::Reached)));
+}
