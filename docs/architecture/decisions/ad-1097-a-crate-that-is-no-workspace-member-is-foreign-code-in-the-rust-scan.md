@@ -21,3 +21,10 @@ count as workspace code. The facts side already used the member list.
 
 **Not decided here.** A glob other than `<directory>/*`, a path dependency that is a member implicitly, and a crate
 that the workspace excludes are decided by `cargo metadata` only.
+
+**Routes back into a member (#2028, #2060).** A member whose edges pass through code that the scan does not read gets
+an edges gap, so indirect rules give UNKNOWN. The core finds the routes with `cargo metadata --no-deps` and the text
+of the crates: a path dependency anywhere that reaches a member; a registry or git dependency that a `[patch]` entry
+of the workspace sends to a path; a git dependency that names a member; an `include!` or `#[path]` in a crate outside
+the scan that names a file of a member or a path that the search cannot tell. A crate that Cargo cannot describe counts
+as a route. An outside crate that reaches no member adds no gap.

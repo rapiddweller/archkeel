@@ -105,7 +105,8 @@ pub(crate) fn members(metadata: &[u8], scan_root: &Path) -> Result<Members, Unav
             found.features.push((name.clone(), feature.clone()));
         }
     }
-    found.outside = crate::outside_reach::dependents(&meta, &ids, &found.roots, &found.names);
+    found.outside =
+        crate::outside_reach::dependents(&meta, &ids, &found.roots, &found.names, &describe);
     if found.manifests.is_empty() {
         return Err(Unavailable::MetadataFailed);
     }
@@ -281,9 +282,14 @@ fn listed_under_root<'a>(
     dirs.filter_map(below).collect()
 }
 
+/// The metadata of one manifest as JSON, or `None` when Cargo cannot describe it.
+fn describe(manifest: &Path) -> Option<Value> {
+    serde_json::from_slice(&metadata(manifest).ok()?).ok()
+}
+
 /// `cargo metadata --no-deps` from a neutral directory, so that neither a `rust-toolchain.toml` nor a
 /// `.cargo/config.toml` of the repository changes the run. It reads manifests only: no build script, no network.
-pub(crate) fn metadata(manifest: &Path) -> Result<Vec<u8>, String> {
+fn metadata(manifest: &Path) -> Result<Vec<u8>, String> {
     let mut cmd = Command::new("cargo");
     cmd.args([
         "metadata",

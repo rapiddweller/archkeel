@@ -9,7 +9,6 @@
 //! dependency on a member, or an `include!` or `#[path]` that names a file of a member. The edges of such a member are
 //! unknown, so the worker holds them with a gap.
 
-use crate::rustc_facts_members::metadata;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -20,6 +19,8 @@ struct Members<'a> {
     names: &'a BTreeSet<String>,
     /// The dependency names that a `[patch]` entry of the workspace sends to a path (`None`: to a git source).
     patches: BTreeMap<String, Option<String>>,
+    /// `cargo metadata --no-deps` of the crate in a directory.
+    describe: &'a dyn Fn(&Path) -> Option<Value>,
 }
 
 /// Where a dependency leads: a directory, or somewhere that cannot be told.
@@ -37,12 +38,14 @@ pub(crate) fn dependents(
     ids: &BTreeSet<&str>,
     dirs: &BTreeMap<String, BTreeSet<String>>,
     names: &BTreeSet<String>,
+    describe: &dyn Fn(&Path) -> Option<Value>,
 ) -> BTreeSet<String> {
     let patches = patches(meta);
     let members = Members {
         dirs,
         names,
         patches,
+        describe,
     };
     let mut known = BTreeMap::new();
     let mut found = BTreeSet::new();
@@ -78,23 +81,73 @@ fn real_dir(path: &str) -> Option<String> {
     Some(canonical.to_string_lossy().replace('\\', "/"))
 }
 
-/// The `[patch]` entries of the workspace manifest: the dependency name and the directory that it is sent to.
+/// The `[patch]` entries of the workspace manifest: the dependency name and the directory that it is sent to. The
+/// text is read line by line: no TOML crate may read a manifest here, and an entry that this reader does not
+/// understand (a git source, another form) leads to `None`, so it holds.
 fn patches(meta: &Value) -> BTreeMap<String, Option<String>> {
     let root = meta.get("workspace_root").and_then(Value::as_str);
     let text = root.and_then(|r| std::fs::read_to_string(Path::new(r).join("Cargo.toml")).ok());
-    let table = text.and_then(|t| t.parse::<toml::Table>().ok());
     let mut found = BTreeMap::new();
-    let sources = table.as_ref().and_then(|t| t.get("patch")?.as_table());
-    for entries in sources.into_iter().flat_map(|s| s.values()) {
-        for (name, entry) in entries.as_table().into_iter().flatten() {
-            let path = entry.get("path").and_then(toml::Value::as_str);
-            let dir = path
-                .zip(root)
-                .and_then(|(p, r)| real_dir(Path::new(r).join(p).to_str()?));
-            found.insert(name.clone(), dir);
+    // The entry of a `[patch.<source>.<name>]` header, or `None` inside a `[patch.<source>]` table.
+    let (mut inside, mut named): (bool, Option<String>) = (false, None);
+    for line in text.as_deref().unwrap_or_default().lines() {
+        let line = line.split('#').next().unwrap_or_default().trim();
+        if let Some(header) = line.strip_prefix('[') {
+            let header = header.trim_end_matches(']');
+            inside = header == "patch" || header.starts_with("patch.");
+            let parts = key_parts(header);
+            named = (inside && parts.len() > 2).then(|| unquote(&parts[parts.len() - 1]));
+            if let Some(name) = &named {
+                found.entry(name.clone()).or_insert(None);
+            }
+        } else if inside {
+            let Some((key, value)) = line.split_once('=') else {
+                continue;
+            };
+            let name = named.clone().unwrap_or_else(|| unquote(key.trim()));
+            let path = quoted_path(key.trim(), value);
+            let dir = root
+                .zip(path)
+                .and_then(|(r, p)| real_dir(Path::new(r).join(p).to_str()?));
+            if named.is_none() || dir.is_some() {
+                found.insert(name, dir);
+            }
         }
     }
     found
+}
+
+/// The parts of a dotted TOML key; a dot inside quotes is no separator.
+fn key_parts(header: &str) -> Vec<String> {
+    let (mut parts, mut current, mut quoted) = (Vec::new(), String::new(), false);
+    for c in header.chars() {
+        match c {
+            '"' => {
+                quoted = !quoted;
+                current.push(c);
+            }
+            '.' if !quoted => parts.push(std::mem::take(&mut current)),
+            _ => current.push(c),
+        }
+    }
+    parts.push(current);
+    parts
+}
+
+fn unquote(text: &str) -> String {
+    text.trim().trim_matches('"').to_owned()
+}
+
+/// The value of `path = "..."` in an inline table, or of the key `path` in a `[patch.<source>.<name>]` table.
+fn quoted_path<'a>(key: &str, value: &'a str) -> Option<&'a str> {
+    let text = if key == "path" {
+        value
+    } else {
+        let after = value.split("path").nth(1)?;
+        after.trim_start().strip_prefix('=')?
+    };
+    let body = text.trim_start().strip_prefix('"')?;
+    Some(&body[..body.find('"')?])
 }
 
 /// What each dependency of `package` leads to. A registry or git entry has no path in the metadata: a `[patch]`
@@ -125,9 +178,7 @@ fn reaches_member(dir: &str, members: &Members, known: &mut BTreeMap<String, boo
         return answer;
     }
     known.insert(dir.to_owned(), false);
-    let described = metadata(&Path::new(dir).join("Cargo.toml"))
-        .ok()
-        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
+    let described = (members.describe)(&Path::new(dir).join("Cargo.toml"));
     let reaches = match described {
         None => true,
         Some(meta) => {

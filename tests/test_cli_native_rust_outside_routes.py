@@ -36,6 +36,11 @@ ROUTES = {
         HEAD,
         "pub fn f() { base_crate::make(); }\n",
     ),
+    "patch-table": (
+        WORKSPACE + '[patch.crates-io.base-crate]\npath = "base"\n',
+        HEAD,
+        "pub fn f() { base_crate::make(); }\n",
+    ),
     "include": (
         WORKSPACE,
         "",
