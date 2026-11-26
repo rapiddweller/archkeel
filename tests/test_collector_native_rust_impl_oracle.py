@@ -33,7 +33,17 @@ from frozen_native import frozen_root as frozen_root
 Block = tuple[int, int]
 HEAD = re.compile(r"\bimpl\b")
 TRAIT_IMPL = re.compile(r"\bfor\b(?!\s*<)")
-CHECK = ["cargo", "check", "--offline", "--workspace", "--all-features", "--message-format=json"]
+# --keep-going: without it cargo stops scheduling crates after the first failure, so the failing set
+# depends on the CPU count (CI has 4, a laptop 18) and the pin below could not hold on both.
+CHECK = [
+    "cargo",
+    "check",
+    "--offline",
+    "--keep-going",
+    "--workspace",
+    "--all-features",
+    "--message-format=json",
+]
 
 
 # The files that fail without the inherent impls of a file, and hold no pair into it: they reach it
@@ -47,6 +57,7 @@ DIRECT_ONLY = {
         "native/dart/src/import_survey/edges.rs",
         "native/python/src/survey/declared/direct_calls.rs",
         "native/python/src/survey/imports.rs",
+        "native/rust/src/declared.rs",
         "native/rust/src/edges.rs",
         "native/rust/src/module_edges.rs",
         "native/store/src/call_owners.rs",
