@@ -349,14 +349,13 @@ impl Builder {
         self.gaps.entry(id).or_insert(record);
     }
 
-    /// A gap that leaves the edges of `sources` unknown: they run through code that the scan does not read.
-    pub(crate) fn edges_gap(&mut self, at: (&str, &str), sources: &[&str], evidence: Option<&str>) {
+    pub(crate) fn edges_gap(&mut self, at: (&str, &str), sources: &[&str], note: Option<&str>) {
         let (reason, module) = at;
         let mut data = GapData::at(reason, module);
         let sources = sources.iter().copied().map(ModuleName::new).collect();
         data.effect = Some(GapEffect::Edges { sources });
         let fact = GapFact::CollectionGap(data);
-        let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
+        let (id, record) = Record::unknown_gap(reason, note, module, fact);
         self.gaps.entry(id).or_insert(record);
     }
 
