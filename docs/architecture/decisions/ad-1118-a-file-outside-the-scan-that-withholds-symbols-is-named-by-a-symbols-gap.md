@@ -1,4 +1,4 @@
-# AD-1114 A file outside the scan that withholds symbols is named by a `symbols` gap
+# AD-1118 A file outside the scan that withholds symbols is named by a `symbols` gap
 
 **Status.** Accepted. Part of #1963. It extends [AD-564](ad-564-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) (gap effects) and [AD-770](ad-770-code-of-the-repository-outside-the-scan-that-writes-a-module-of-the-scan-withholds-its-routes.md) (outside code).
 
