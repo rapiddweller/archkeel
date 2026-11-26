@@ -52,7 +52,7 @@ such gaps (`as_str` 299, `is_empty` 92, `id` 81). The rustc driver already knows
 
 ## Counter-examples that were tried
 
-Each is in `tests/test_cli_native_rust_resolved_call.py` with the real driver and a `cargo run` counter, or in
+Each is in `tests/test_cli_native_rust_resolved_call*.py` with the real driver and a `cargo run` counter, or in
 `native/rust/src/selected_edges_tests.rs`.
 - A call through a local function value that `d::U` answers: `b` falls (PASS), `d` is an edge (FAIL).
 - The same call that `b::S` answers: the counter shows `b` runs, `b` FAILs, `d` falls.
