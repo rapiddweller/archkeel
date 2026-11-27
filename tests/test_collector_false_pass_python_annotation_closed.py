@@ -1,0 +1,158 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""#2156, #2157, AD-1175: the closed-binding rule for a module that evaluates annotations.
+
+Consumer: `archkeel validate`. `app.consumer` may not depend on `app.lib`. `app/lib` appends a line
+to a counter file when CPython loads it. Each plant makes CPython 3.12 load it (the counter is 1),
+so the rule `NO-LIB` must be UNKNOWN or FAIL, never PASS. Each control makes CPython leave the
+counter at 0 and the rule is PASS. A plant may bring more files of the project.
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+from pathlib import Path
+
+import pytest
+from python_interface_plants import Plant, build
+from rust_repository import rule
+from test_collector_false_pass_python_annotation_routes import _counter
+from test_collector_false_pass_python_trojan_attribute import _verdict
+
+pytestmark = pytest.mark.skipif(shutil.which("python3.12") is None, reason="Python is the oracle")
+
+IMPORT = "__import__('app.lib')"
+HEAD = "import types\nimport typing\n\n\n"
+HINTS = "\n\ntry:\n    typing.get_type_hints(K)\nexcept Exception:\n    pass\n"
+USE = "\n\nclass K:\n    x: {ref}\n"
+
+
+def consumer(body: str, ref: str, head: str = HEAD) -> str:
+    return head + body + USE.format(ref=ref) + HINTS
+
+
+CFG = {"src/app/cfg.py": f's = "{IMPORT}"\n'}
+PLANTS = {
+    "receiver taint behind an unrelated held attribute": (
+        consumer(
+            f"class C:\n    s = 'int'\n\n\nbox = types.SimpleNamespace(s=str(\"{IMPORT}\"))\n",
+            "box.s",
+        ),
+        {},
+    ),
+    "TypeVar bound is a string": (
+        consumer(f"T = typing.TypeVar('T', bound=\"{IMPORT}\")\n", "T.__bound__"),
+        {},
+    ),
+    "class attribute rebound by a store": (
+        consumer(f"class C:\n    s = 'int'\n\n\nC.s = str(\"{IMPORT}\")\n", "C.s"),
+        {},
+    ),
+    "class attribute set by a computed setattr": (
+        consumer(
+            f"class C:\n    s = 'int'\n\n\nname = 's'.strip()\nsetattr(C, name, \"{IMPORT}\")\n",
+            "C.s",
+        ),
+        {},
+    ),
+    "name written through globals()": (
+        consumer(f"globals()['s'] = \"{IMPORT}\"\n", "s"),
+        {},
+    ),
+    "parameter used as annotation": (
+        HEAD
+        + "def make(s):\n    class K:\n        x: s\n\n    return K\n\n\n"
+        + f'K = make("{IMPORT}")\n'
+        + HINTS,
+        {},
+    ),
+    "string of another module by from-import": (consumer("from app.cfg import s\n", "s"), CFG),
+    "string of another module by module attribute": (
+        consumer("import app.cfg as cfg\n", "cfg.s"),
+        CFG,
+    ),
+    "string of another module by a relative import": (
+        consumer("from .cfg import s\n", "s"),
+        CFG,
+    ),
+    "string of another module through a re-export": (
+        consumer("from app.mid import s\n", "s"),
+        {**CFG, "src/app/mid.py": "from app.cfg import s\n"},
+    ),
+    "string of another module through an alias": (
+        consumer("from app.cfg import s as t\n", "t"),
+        CFG,
+    ),
+}
+CONTROLS = {
+    "nine equal texts": (consumer("s = 'int'\n" * 9, "s"), {}),
+    "class of another module": (
+        consumer("from app.cfg import T\n", "T"),
+        {"src/app/cfg.py": "class T:\n    pass\n"},
+    ),
+    "clean text of another module": (
+        consumer("from app.cfg import s\n", "s"),
+        {"src/app/cfg.py": "s = 'int'\n"},
+    ),
+    "module attribute class of another module": (
+        consumer("import app.cfg as cfg\n", "cfg.T"),
+        {"src/app/cfg.py": "class T:\n    pass\n"},
+    ),
+    "typing alias": (consumer("Alias = typing.Optional[int]\n", "Alias"), {}),
+    "name of a parameter elsewhere": (
+        HEAD + "def f(list):\n    return list\n\n\nclass K:\n    x: list[int]\n" + HINTS,
+        {},
+    ),
+}
+
+
+def _root_with(tmp: Path, source: str, files: dict[str, str]) -> Path:
+    root = tmp / "repo"
+    root.mkdir(parents=True)
+    extra = {"src/app/lib/__init__.py": "value = 1\n", **files}
+    build(root, Plant("trojan", source, ("app.lib",), extra))
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    forbidden = rule("NO-LIB", "forbidden_dependency", source="app.consumer", target="app.lib")
+    forbidden["include_type_checking"] = True
+    forbidden["provenance"] = ["docs/target.md"]
+    contract["rules"] = [forbidden]
+    path.write_text(json.dumps(contract))
+    return root
+
+
+@pytest.mark.parametrize("name", sorted(PLANTS))
+def test_a_binding_the_rule_cannot_close_is_never_pass(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    source, files = PLANTS[name]
+    root = _root_with(tmp_path, source, files)
+    assert _counter(root) == 1, "CPython must load app.lib once: the plant is real"
+    frame = _verdict(root, release_core, monkeypatch)["frame"]
+
+    assert frame["rules"]["NO-LIB"][1] in {"FAIL", "UNKNOWN"}, frame
+
+
+@pytest.mark.parametrize("name", sorted(CONTROLS))
+def test_a_closed_binding_stays_pass(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    source, files = CONTROLS[name]
+    root = _root_with(tmp_path, source, files)
+    assert _counter(root) == 0, "CPython must leave app.lib unloaded: the control is clean"
+    frame = _verdict(root, release_core, monkeypatch)["frame"]
+
+    assert frame["rules"]["NO-LIB"][1] == "PASS", frame
+
+
+def test_an_import_that_no_record_proves_is_a_site(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A name of a module outside the fixed list and the scan has no proof: UNKNOWN (AD-1175 c)."""
+    source = consumer("from json import JSONDecoder as D\n", "D")
+    root = _root_with(tmp_path, source, {})
+    frame = _verdict(root, release_core, monkeypatch)["frame"]
+
+    assert frame["rules"]["NO-LIB"][1] == "UNKNOWN", frame

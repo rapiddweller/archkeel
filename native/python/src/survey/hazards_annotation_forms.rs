@@ -5,9 +5,7 @@
 //! The shapes of expressions that the annotation rules read (AD-1173): names, paths, aliases and
 //! the parts of a subscript that are annotations.
 
-use ruff_python_ast::{
-    Expr, ExprCall, ExprList, ExprSubscript, ExprTuple, Identifier, Operator, Stmt,
-};
+use ruff_python_ast::{Expr, ExprSubscript, Identifier, Stmt};
 
 /// A call of these makes a type form, not a string.
 pub(super) const TYPE_FORMS: [&str; 7] = [
@@ -50,29 +48,6 @@ pub(super) fn assigned<'a>(stmt: &'a Stmt, mut each: impl FnMut(&'a Expr, &'a Ex
     }
 }
 
-/// A name, an attribute path, a subscript of one, or a union of them: a type form alias. A string
-/// inside the subscript is no type form: Python evaluates it when it reads the alias.
-pub(super) fn path(value: &Expr) -> bool {
-    match value {
-        Expr::Name(_) | Expr::NoneLiteral(_) => true,
-        Expr::Attribute(node) => path(&node.value),
-        Expr::Subscript(node) => {
-            path(&node.value) && (literal(&node.value) || items(node).into_iter().all(typeish))
-        }
-        Expr::BinOp(node) => node.op == Operator::BitOr && path(&node.left) && path(&node.right),
-        _ => false,
-    }
-}
-
-fn typeish(value: &Expr) -> bool {
-    match value {
-        Expr::Tuple(node) => node.elts.iter().all(typeish),
-        Expr::List(node) => node.elts.iter().all(typeish),
-        Expr::NumberLiteral(_) | Expr::BooleanLiteral(_) | Expr::EllipsisLiteral(_) => true,
-        other => path(other),
-    }
-}
-
 /// The parts of a subscript that are annotations: the metadata of `Annotated` is none.
 pub(super) fn items(node: &ExprSubscript) -> Vec<&Expr> {
     let all = match &*node.slice {
@@ -85,46 +60,4 @@ pub(super) fn items(node: &ExprSubscript) -> Vec<&Expr> {
         all.len()
     };
     all.into_iter().take(count).collect()
-}
-
-/// The names that a path holds: each attribute name and the root name.
-pub(super) fn ids(value: &Expr, out: &mut Vec<String>) {
-    match value {
-        Expr::Name(node) => out.push(node.id.to_string()),
-        Expr::Attribute(node) => {
-            out.push(node.attr.to_string());
-            ids(&node.value, out);
-        }
-        Expr::Subscript(node) => {
-            ids(&node.value, out);
-            items(node).into_iter().for_each(|i| ids(i, out));
-        }
-        Expr::Tuple(ExprTuple { elts, .. }) | Expr::List(ExprList { elts, .. }) => {
-            for elt in elts {
-                ids(elt, out);
-            }
-        }
-        Expr::BinOp(node) => [&node.left, &node.right].iter().for_each(|e| ids(e, out)),
-        _ => {}
-    }
-}
-
-/// A value that is no string the survey could miss: a literal, a type factory, a function.
-pub(super) fn inert(value: &Expr, factory: &dyn Fn(&ExprCall) -> bool) -> bool {
-    match value {
-        Expr::Call(call) => factory(call),
-        Expr::Lambda(_) => true,
-        other => constant(other),
-    }
-}
-
-fn constant(value: &Expr) -> bool {
-    matches!(
-        value,
-        Expr::StringLiteral(_)
-            | Expr::NumberLiteral(_)
-            | Expr::BooleanLiteral(_)
-            | Expr::BytesLiteral(_)
-            | Expr::EllipsisLiteral(_)
-    )
 }

@@ -10,8 +10,8 @@ use std::collections::HashSet;
 use super::binders::Binders;
 use super::globals_read;
 use super::hazards::{
-    bindings, cleared, comprehension_trojans, proved, sites, table, Site, Split, BUILTINS, DYNAMIC,
-    IMPORT_SYSTEM, LITERAL,
+    bindings, cleared, comprehension_trojans, proved, sites, table, Project, Site, Split, BUILTINS,
+    DYNAMIC, IMPORT_SYSTEM, LITERAL,
 };
 use super::hazards_names::{BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS};
 use super::lazy_cover::Lazy;
@@ -34,6 +34,7 @@ pub(super) fn split(
     let reexports = table(items.iter().map(|(_, _, bound)| bound));
     let proved = proved(&items, &[&BUILTIN_TROJAN_HORSES, &IMPORT_FUNCTIONS]);
     let reads = globals_read::inert_reads(modules);
+    let annotations = Project::of(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let facts = binders.proof_facts(&BUILTINS);
         let cleared = cleared(&module.tree, &items[index].2, &facts);
@@ -50,6 +51,7 @@ pub(super) fn split(
         for site in sites(&module.tree, proof, binders, &reads[index], &reexports)
             .into_iter()
             .chain(named)
+            .chain(annotations.sites(index))
         {
             let exempt = covered.iter().flat_map(|item| &item.exempt);
             let kind = (site.kind == DYNAMIC, site.kind == IMPORT_SYSTEM);

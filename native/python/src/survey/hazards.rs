@@ -28,6 +28,7 @@ use super::hazards_names::{
     BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS, TROJAN_HORSE_STRINGS,
 };
 pub(super) use super::hazards_names::{hazard, DYNAMIC, IMPORT_SYSTEM, LITERAL};
+pub(super) use annotation::clean::Project;
 use bind::imported;
 pub(super) use bind::{bindings, exposed};
 pub(super) use comprehension::trojans as comprehension_trojans;
@@ -91,7 +92,7 @@ pub(super) fn sites(
             None => walk.visit_stmt(stmt),
         }
     }
-    annotation::class::with(walk.found, tree)
+    walk.found
 }
 
 struct Walk<'r> {

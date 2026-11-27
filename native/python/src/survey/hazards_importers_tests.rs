@@ -185,7 +185,7 @@ fn a_name_with_many_different_texts_stops_collecting() {
 #[test]
 fn a_module_that_evaluates_annotations_holds_each_value_it_cannot_name() {
     let head = "import typing\ntyping.get_type_hints(K)\n";
-    for body in [
+    let bodies = [
         "class K: ...\nprint(K.__annotations__.update(x='int'))\n",
         "def f():\n    class L:\n        x: make_type()\n",
         "def f(x: make_type()): ...\n",
@@ -195,10 +195,9 @@ fn a_module_that_evaluates_annotations_holds_each_value_it_cannot_name() {
         "def TypeVar(v): return v\ns = TypeVar('a')\nclass K:\n    x: s\n",
         "from mylib import TypeVar\ns = TypeVar('a')\nclass K:\n    x: s\n",
         "s = str('a')\nAlias = list[s]\nclass K:\n    x: Alias\n",
-        "Alias = list['int']\nclass K:\n    x: Alias\n",
+        "Alias = list[\"__import__('a.b')\"]\nclass K:\n    x: Alias\n",
         "TD = typing.TypedDict\nK = TD('K', {'x': 'int'})\n",
         "s = str('a')\nclass K:\n    x: 's'\n",
-        "s = 'int'\nt = s\nclass K:\n    x: t\n",
         "from typing import TypedDict as TD\nK = TD('K', {'x': 'int'})\n",
         "from typing import ForwardRef as FR\nr = FR(s)\n",
         "def f():\n    def g(x: make_type()): ...\n",
@@ -216,10 +215,13 @@ fn a_module_that_evaluates_annotations_holds_each_value_it_cannot_name() {
         "K = typing.TypedDict('K', {'x': 'int'})\n",
         "r = typing.ForwardRef(s)\n",
         "class C:\n    s = 'int'\n    s = f()\nclass K:\n    x: C.s\n",
-    ] {
-        let source = format!("{head}{body}");
-        assert!(!details(&source).is_empty(), "{source}");
-    }
+    ];
+    let missed: Vec<String> = bodies
+        .iter()
+        .map(|body| format!("{head}{body}"))
+        .filter(|source| details(source).is_empty())
+        .collect();
+    assert!(missed.is_empty(), "{missed:#?}");
 }
 
 #[test]
@@ -229,6 +231,8 @@ fn a_module_that_evaluates_annotations_keeps_plain_type_forms_clean() {
         "class K:\n    x: int\n    y: typing.Optional[str]\n    z: list[int] | None\n",
         "A = list[int]\nT = typing.TypeVar('T')\nclass K:\n    x: A\n    y: T\n",
         "from typing import TypeVar as TV\nT = TV('T')\nclass K:\n    y: T\n",
+        "Alias = list['int']\nclass K:\n    x: Alias\n",
+        "s = 'int'\nt = s\nclass K:\n    x: t\n",
         "class K:\n    x: typing.Annotated[int, f('meta')]\n",
         "def f():\n    x: make_type()\n",
         "class A: ...\ndef f(a: A) -> A: ...\n",
