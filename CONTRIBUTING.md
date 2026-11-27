@@ -147,7 +147,7 @@ There is no central utils module. A helper lives in the component that owns its 
 several crates share lives in the lowest crate that owns that meaning, as `pytext`, `snapshot`,
 `facts` and `build-support` do. A helper that one crate uses stays in that crate. No module,
 file, directory or crate is named `util`, `utils`, `common`, `helper`, `helpers`, `misc` or
-`shared`. `tests/test_native_conventions.py` checks both rules.
+`shared`.
 
 ## Browser assets
 
