@@ -29,6 +29,7 @@
 //! `source.scope` (`root/**` for a directory, else the root), so the roots of the request must
 //! be exactly these labels in their order. A caller cannot widen a root by word.
 
+use archkeel_contract::BudgetName;
 use archkeel_facts::envelope::{Facts, TypeReach};
 use archkeel_facts::type_reach::Config;
 
@@ -49,6 +50,8 @@ pub struct Settings {
     producer: Producer,
     contract_source: Option<ContractSource>,
     roots: Option<Vec<String>>,
+    /// The declared budgets that a checked baseline compares in this run: each has a value in the file and in the run.
+    compared_budgets: Vec<BudgetName>,
 }
 
 /// The evidence of the contract file and the digest of the bytes that it cites.
@@ -79,7 +82,21 @@ impl Settings {
             producer: Producer::External,
             contract_source: None,
             roots: None,
+            compared_budgets: Vec::new(),
         }
+    }
+
+    /// The same settings with the budgets that the baseline of the run compares (AD-1090). Such a
+    /// budget is decided by the comparison, so the profile does not hold the run for it.
+    pub fn with_compared_budgets(self, compared_budgets: Vec<BudgetName>) -> Self {
+        Settings {
+            compared_budgets,
+            ..self
+        }
+    }
+
+    pub(crate) fn compared_budgets(&self) -> &[BudgetName] {
+        &self.compared_budgets
     }
 
     /// The same settings with the scan roots of the configuration, in their order.

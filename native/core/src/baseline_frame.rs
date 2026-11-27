@@ -142,6 +142,38 @@ pub(crate) fn budgets(graph: &Graph, reply: &Ingested, counts: Option<&Measures>
     }
 }
 
+/// The budgets that the baseline of this run compares within their ceiling: the file is checked
+/// and of schema 1.4.0, it holds a ceiling for the budget, and the run measures a value within it.
+/// This is evidence of the comparison only. The model decides what it discharges (AD-1231). A value
+/// over the ceiling is `budget.exceeded` and is not listed; a write alone compares nothing.
+pub(crate) fn compared_budgets(
+    input: Option<&Input>,
+    run: (Option<&Graph>, Option<&Ingested>, Option<&Measures>),
+) -> Vec<BudgetName> {
+    let file = match input {
+        Some(
+            Input::Compare { file: Ok(file), .. } | Input::CompareAndWrite { file: Ok(file), .. },
+        ) => file,
+        _ => return Vec::new(),
+    };
+    let (Some(graph), Some(reply), counts) = run else {
+        return Vec::new();
+    };
+    if file.unknowns().is_none() {
+        return Vec::new();
+    }
+    let measured = budgets(graph, reply, counts);
+    file.budgets()
+        .iter()
+        .filter_map(|budget| match budget {
+            BaselineBudget::Scalar { name, value } => Some((*name, *value)),
+            BaselineBudget::Names { .. } => None,
+        })
+        .filter(|(name, ceiling)| measured.of(*name).is_some_and(|value| value <= *ceiling))
+        .map(|(name, _)| name)
+        .collect()
+}
+
 /// The rule and the sorted subjects of one violation.
 type Identity = (String, Vec<String>);
 

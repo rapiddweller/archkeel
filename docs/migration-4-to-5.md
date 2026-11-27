@@ -145,9 +145,10 @@ Steps, each measured on the copy:
 6. Raise or lower a budget only by writing the file again. A run above the file is `budget.exceeded`,
    exit 1. A run below the file is stale, `drift`, exit 1.
 
-A declared budget keeps the run status UNKNOWN even when the baseline compares it
-("the profile cannot decide declarations.measurement_budgets.<name>"), so the run cannot exit 0 for CE ([#2162](https://github.com/rapiddweller/archkeel/issues/2162)).
-CE accepts exit 2, as the 4.0.1 gate did.
+A declared budget that the baseline compares within its ceiling is decided
+([AD-1231](architecture/decisions/ad-1231-a-baseline-that-compares-a-declared-budget-within-its-ceiling-decides-it.md)).
+A budget over its ceiling, a budget that the file lacks, an older file, a write alone and a run with no file keep
+the run UNKNOWN. CE still exits 2 while its UNKNOWN rules remain.
 
 ## Commands the guide runs
 

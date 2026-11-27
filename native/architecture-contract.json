@@ -759,6 +759,7 @@
           "component": "contract",
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
+            "native.archkeel_contract:BudgetName",
             "native.archkeel_contract:Component",
             "native.archkeel_contract:EntityKind",
             "native.archkeel_contract:ModifierKind",
@@ -2781,6 +2782,7 @@
         "native.archkeel_core.baseline_frame:Input",
         "native.archkeel_core.baseline_frame:Part",
         "native.archkeel_core.baseline_frame:build",
+        "native.archkeel_core.baseline_frame:compared_budgets",
         "native.archkeel_core.baseline_frame:gap_rows",
         "native.archkeel_core.baseline_frame:holds_budgets",
         "native.archkeel_core.baseline_frame:observed"
@@ -3040,6 +3042,13 @@
           "through": [
             "native.archkeel_core.hygiene",
             "native.archkeel_core.provenance"
+          ]
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Hand the budgets that the baseline compares to the settings of the run, which the model reads for its scope proof (AD-1231).",
+          "through": [
+            "native.archkeel_model.settings"
           ]
         }
       ],
