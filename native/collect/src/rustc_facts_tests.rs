@@ -484,3 +484,16 @@ mod real;
 fn the_sealed_cargo_run_cannot_inherit_the_operator_permission() {
     assert!(!crate::rustc_facts_members::KEPT_ENV.contains(&crate::ALLOW_BUILD));
 }
+
+#[test]
+fn the_sealed_cargo_run_does_not_keep_incremental_state() {
+    // One check of a tree writes about 540 MB of incremental state per configuration and runs 30 % slower (#2140).
+    let command = crate::rustc_facts::sealed(Path::new("rustup"), "stable", "check");
+    let args: Vec<_> = command
+        .get_args()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    assert!(args
+        .windows(2)
+        .any(|w| w == ["--config", "build.incremental=false"]));
+}

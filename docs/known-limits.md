@@ -242,9 +242,9 @@ See the [CLI reference](reference.md) for current commands and baselines.
   provenance file. A file that it cannot read refuses the contract. A missing, repeated or stale marked
   graph, and the reference, rationale, responsibility, closed-world and `public_api` defects of 4.0.1,
   give a row that keeps the run from PASS. A cited path must be in normal form. An `interface_boundary`
-  rule gets the interface lifecycle rows of AD-514. A contract with `declarations.compat` or
-  `declarations.measurement_budgets`, and a mounted contract with an `allowed_dependency` rule, get
-  a named gap: these checks are not ported.
+  rule gets the interface lifecycle rows of AD-514. A contract with `declarations.compat`, and a mounted
+  contract with an `allowed_dependency` rule, get a named gap: these checks are not ported. The
+  `declarations.measurement_budgets` are compared with a baseline of schema 1.4.0 (AD-1090).
 - Source that nests deeper than the parse work limit is the typed refusal `parse_work_limit` (AD-735).
 - A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
 - The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.
