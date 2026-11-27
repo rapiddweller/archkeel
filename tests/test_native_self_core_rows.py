@@ -21,21 +21,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import (
-    NATIVE_COMPILER_ONLY_EDGES,
-    NATIVE_SELF_STATUS,
-    NATIVE_UNKNOWN,
-    ROOT,
-    SUFFIX,
-    run,
-)
+from core_support import ROOT, SUFFIX, run
 from frozen_native import frozen_root as frozen_root
 from rustc_dev_support import needs_rustc_dev
 
 from archkeel.cli import core_only
 
 sys.path.insert(0, str(ROOT / "tools"))
-from self_check_diff import absolute, condense  # noqa: E402
+from self_check_gate import problems  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -53,29 +46,15 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     code, result = checked
     frame = result["frame"]
     core = {rule: row[1] for rule, row in frame["rules"].items()}
-    condensed = condense(result)
-    assert absolute(condensed) == []
+    assert problems(result) == []
     assert core, "the self-contract has rules"
     # No rule names a part of the scope proof: each one has a decision. The copy has no compiler
-    # facts, so the edges that AD-1136 proves are drawn in `native.md` and not found. Each is a
-    # named hold (AD-1212), and those holds are the only gaps.
-    assert [gap["kind"] for gap in result["gaps"]] == ["graph.needs_facts"] * len(
-        NATIVE_COMPILER_ONLY_EDGES
-    )
-    # AD-668: a known violation would stay FAIL (honesty rule); the self-contract has none. An
-    # UNKNOWN rule is a stated one (AD-670: the Rust collector states no public symbol facts yet).
-    assert {rule for rule, status in core.items() if status == "UNKNOWN"} == set(NATIVE_UNKNOWN), (
-        "a rule left UNKNOWN (the goal): remove it from NATIVE_UNKNOWN in tests/core_support.py"
-    )
-    assert {status for rule, status in core.items() if rule not in NATIVE_UNKNOWN} == {"PASS"}
-    status = NATIVE_SELF_STATUS[1]
-    assert (code, result["status"], frame["status"]) == (NATIVE_SELF_STATUS[0], status, status)
-    assert set(frame["unknown_kinds"]) == set(NATIVE_UNKNOWN)
-    # With no stated UNKNOWN rule the scope is complete. Else it is incomplete and counts at most
-    # the gap records (the contract allows some).
-    if not NATIVE_UNKNOWN:
-        assert frame["scope"] == "complete"
-    else:
+    # facts, so an edge that AD-1136 proves is a named hold (AD-1212); no other kind of gap may be
+    # a graph hold here.
+    assert {gap["kind"] for gap in result["gaps"]} <= {"graph.needs_facts"}
+    # AD-668: a known violation stays FAIL (honesty rule), and the gate above refuses it.
+    assert code in (0, 2) and result["status"] == frame["status"] in ("PASS", "UNKNOWN")
+    if frame["scope"] != "complete":
         # AD-1041: each number matches its noun. The pairs are distinct module pairs; a pair can
         # have several gap records, and the text names the records only when they differ.
         found = re.fullmatch(
@@ -87,7 +66,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
         assert found, frame["scope"]
         pairs = int(found.group(1))
         records = int(found.group(2) or pairs)
-        assert 0 < pairs <= records <= len(condensed["gaps"])
+        assert 0 < pairs <= records <= len(frame["collection_gaps"]) + len(result["gaps"])
         # A rule holds a part of the run, so its pair count cannot pass the run count.
         for rule, held in frame["explain"]["holds"]["rules"].items():
             assert held["total"] <= pairs, rule

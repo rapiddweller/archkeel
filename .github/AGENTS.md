@@ -7,5 +7,4 @@ use existing Make targets or dispatch Full verification. New workflow files requ
 an explicit change to the inventory in `tests/test_make_gate.py`.
 
 To run a check on a PR, add a trigger to an existing workflow instead of a new workflow file.
-After the label `ratchet-lead`, the lead runs the latest PR gate run of the head again by hand: `gh run rerun <id>`.
 No label or edit trigger may start `pr-gate.yml`: a skipped run replaces the required `PR gate` check (AD-1061).

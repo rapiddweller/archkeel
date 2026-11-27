@@ -1,5 +1,0 @@
-[scan]
-language = "rust"
-roots = ["."]
-namespace = "inventory"
-contract = "architecture-contract.json"
