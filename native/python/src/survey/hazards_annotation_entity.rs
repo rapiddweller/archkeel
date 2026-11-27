@@ -67,4 +67,23 @@ impl<'a> Project<'a> {
     pub(super) fn facts(&self, at: usize) -> &Facts<'a> {
         self.facts[at].get_or_init(|| build(&self.modules[at]))
     }
+
+    /// All entities agree: that one; all are clean but differ: a type form that is no receiver.
+    pub(super) fn merge_all(&self, entities: impl Iterator<Item = Entity>) -> Entity {
+        let all: Vec<Entity> = entities.collect();
+        match all.first() {
+            None => Entity::Standard(String::new()),
+            Some(_) if all.contains(&Entity::Unknown) => Entity::Unknown,
+            Some(first) if all.iter().all(|e| e == first) => first.clone(),
+            Some(_) => Entity::Clean,
+        }
+    }
+
+    /// `import m`: a module that the scan holds, or a standard one, or a prefix of one.
+    pub(super) fn module(&self, name: &str) -> Entity {
+        if typing_style(name) || self.by_name.contains_key(name) {
+            return Entity::Module(name.to_owned());
+        }
+        Entity::Unknown
+    }
 }

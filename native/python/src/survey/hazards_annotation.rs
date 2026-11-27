@@ -22,12 +22,12 @@ pub(in crate::survey::hazards) mod entity;
 mod facts;
 #[path = "hazards_annotation_forms.rs"]
 mod forms;
-#[path = "hazards_annotation_resolve.rs"]
-mod resolve;
 #[path = "hazards_annotation_scopes.rs"]
 mod scopes;
 #[path = "hazards_annotation_stdlib.rs"]
 mod stdlib;
+#[path = "hazards_annotation_writes.rs"]
+mod writes;
 
 pub(in crate::survey::hazards) use forms::literal;
 

@@ -133,3 +133,12 @@ impl<'a> Scope<'a> {
         }
     }
 }
+
+impl Facts<'_> {
+    /// The scope that binds `id` for code in `scope`: a class scope is read only by its own body.
+    pub(super) fn holder(&self, scope: ScopeId, id: &str) -> Option<ScopeId> {
+        let chain = std::iter::successors(Some(scope), |at| self.scopes[*at].parent);
+        let mut visible = chain.filter(|at| self.scopes[*at].kind != Kind::Class || *at == scope);
+        visible.find(|at| self.scopes[*at].names.contains_key(id))
+    }
+}
