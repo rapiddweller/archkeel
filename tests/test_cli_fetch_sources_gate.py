@@ -11,6 +11,7 @@ turn the fetch on, and the area job of the CLI tests is the only one that receiv
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
