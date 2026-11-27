@@ -15,9 +15,11 @@ on:
 permissions:
   contents: read
 
+# AD-1223: a run that can publish the main build has its own group and is never cancelled, so a
+# check run by dispatch cannot stop a publication half way.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ (github.event_name == 'schedule' || inputs.publish) && 'publish' || 'check' }}
+  cancel-in-progress: ${{ !(github.event_name == 'schedule' || inputs.publish) }}
 
 jobs:
   full-suite-and-reports:
