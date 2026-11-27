@@ -1,10 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-678: a new production file starts with headroom, and a suppression is a reviewed entry.
-
-Existing files keep the limit of 500 lines (`test_repository_hygiene`). A file that this branch adds
-may have 400 lines at most, so the next change does not have to squeeze it. No `allow` attribute may
+"""AD-678: a suppression is a reviewed entry. No `allow` attribute may
 enter production Rust code: the reviewed entries of `native/suppressions.json` are the debt that
 exists, each with a reason, and the list may only shrink.
 """
@@ -17,55 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from tools.file_size import is_size_limited
-
 ROOT = Path(__file__).parents[1]
-NEW_FILE_LIMIT = 400
 ALLOW = re.compile(r"#!?\[(?:cfg_attr\([^\]]*?,\s*)?allow\(")
-
-
-def _is_production(relative: str) -> bool:
-    name = relative.rsplit("/", 1)[-1]
-    parts = relative.split("/")
-    return (
-        is_size_limited(relative)
-        and parts[0] in {"src", "native", "studio", "tools"}
-        and not name.endswith("_tests.rs")
-        and "tests" not in parts
-    )
-
-
-def _added(base: str) -> list[str] | None:
-    done = subprocess.run(
-        ["git", "diff", "--diff-filter=A", "--name-only", f"{base}...HEAD"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return done.stdout.splitlines() if done.returncode == 0 else None
-
-
-def test_a_production_file_that_this_branch_adds_has_at_most_400_lines() -> None:
-    added = _added("origin/main")
-    if added is None:
-        pytest.skip("no origin/main to compare with; the PR gate has it")
-    long = [
-        f"{relative} has {lines} lines: a new file starts at {NEW_FILE_LIMIT} at most"
-        for relative in added
-        if _is_production(relative)
-        and (ROOT / relative).is_file()
-        and (lines := len((ROOT / relative).read_text(encoding="utf-8").splitlines()))
-        > NEW_FILE_LIMIT
-    ]
-    assert long == []
-
-
-def test_the_born_small_rule_picks_production_files_only() -> None:
-    assert _is_production("native/core/src/new.rs") and _is_production("tools/new.py")
-    assert _is_production("studio/src/explorer.ts")
-    assert not _is_production("native/core/src/new_tests.rs")
-    assert not _is_production("tests/test_new.py") and not _is_production("native/core/tests/a.rs")
 
 
 def _suppressions() -> Counter[tuple[str, str]]:

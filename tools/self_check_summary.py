@@ -34,7 +34,6 @@ AT_LIMIT_LISTED = 30
 CYCLE_KIND = "no_component_cycles"
 NEAR_LIMIT = MAX_FILE_LINES * 9 // 10
 EXIT_OF = {word: code for code, (word, _) in EXIT_TABLE.items()}
-BASELINE = "tests/file_size_baseline.json"
 # The three checks, the folder of each result, and whether `archkeel report --json` wraps the frame.
 PARTS = (
     ("native", "validation-native", True),
@@ -111,7 +110,7 @@ def unknown_causes(frames: dict[str, dict[str, Any]]) -> list[str]:
 
 
 def sizes(root: Path) -> list[str]:
-    """Files over the limit that the baseline does not hold, and files within 10 % of it."""
+    """Files over the limit and files within 10 % of it. Measured only: no verdict."""
     names = subprocess.run(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--deduplicate", "-z"],
         cwd=root,
@@ -119,14 +118,11 @@ def sizes(root: Path) -> list[str]:
         text=True,
         check=True,
     ).stdout.split("\0")
-    held = json.loads((root / BASELINE).read_text(encoding="utf-8"))
     counted = {n: line_count(root / n) for n in names if n and is_size_limited(n)}
-    over = sorted((n for n, k in counted.items() if k > MAX_FILE_LINES and n not in held), key=str)
+    over = sorted((n for n, k in counted.items() if k > MAX_FILE_LINES), key=str)
     near = [n for n, k in counted.items() if NEAR_LIMIT <= k <= MAX_FILE_LINES]
     full = sorted(n for n in near if counted[n] == MAX_FILE_LINES)
-    lines = [
-        f"size (measured, limit {MAX_FILE_LINES}): {len(over)} files over it, not in the baseline"
-    ]
+    lines = [f"size (measured, limit {MAX_FILE_LINES}): {len(over)} files over it"]
     lines += [f"  over: {name} ({counted[name]} lines)" for name in over[:3]]
     if len(over) > 3:
         lines.append(f"  and {len(over) - 3} more")
@@ -137,7 +133,7 @@ def sizes(root: Path) -> list[str]:
         f"{len(full)} at {MAX_FILE_LINES}: {named}{more}"
     )
     lines.append(
-        "  next: split each file over the limit at a responsibility seam; never raise the baseline."
+        "  next: split each file over the limit at a responsibility seam."
         if over
         else "  next: a file at the limit has no room: split it by responsibility before it grows."
     )

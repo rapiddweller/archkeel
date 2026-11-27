@@ -29,7 +29,7 @@ Python collectors are deleted; the Python collectors are gone, and a release 4.0
 make ci-pr-check BASE=origin/main        # lint, types and a fixed set of tests
 ```
 
-`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the 500-line rule, `cargo fmt` and the clone and API gates. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
+`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the hygiene test, `cargo fmt` and the clone and API gates. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
 
 Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, warns when the branch is behind `main`, and adds the reasons of the merge decision table (below).
 
@@ -203,10 +203,8 @@ Studio UI contract at `studio/architecture-contract.json`. The tools have no arc
   and to the closed set of shell modules (AD-432). Its first docstring or `//!` line names one
   responsibility, and no `forbidden_responsibilities` item of its component applies to it.
   Never widen a rule to make a check pass.
-- **Keep a source file at 500 lines or less.** This covers each Python file under `src/` and each
-  Rust file under `native/` and `crates/` ([AD-314](docs/architecture/decisions/ad-314-source-files-have-at-most-500-lines-and-legacy-files-only-shrink.md)).
-  A split must follow a responsibility seam. A legacy file over the limit is in
-  `tests/file_size_baseline.json`. It must not grow. Remove its entry when it reaches 500 lines.
+- **Keep a source file near 500 lines or less.** `make self-check` prints the sizes (AD-1088). No test
+  fails on size (owner decision 2026-11-27). A split must follow a responsibility seam.
 - **A change in `native/` needs a Rust toolchain.** `native/rust-toolchain.toml` pins it. Run
   `make native-tools` once for the pinned `cargo-deny` and `cargo-auditable`. Then run
   `make native-check` ([AD-316](docs/architecture/decisions/ad-316-native-collectors-live-in-native-and-reply-with-protocol-8.md)).
