@@ -29,7 +29,7 @@ Python collectors are deleted; the Python collectors are gone, and a release 4.0
 make ci-pr-check BASE=origin/main        # lint, types and a fixed set of tests
 ```
 
-`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the hygiene and 500-line rule, `cargo fmt` and the clone and API gates. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
+`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the 500-line rule, `cargo fmt` and the clone and API gates. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
 
 Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, warns when the branch is behind `main`, and adds the reasons of the merge decision table (below).
 
@@ -80,8 +80,8 @@ Jobs run on pinned images (`ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `
 `macos-15-intel`). The Linux wheel jobs use manylinux and musllinux images pinned by digest. A move
 to a new image is a deliberate change. The PR needs the local gate; CI and Full on `main` check the image after the merge.
 
-Keep the reviewed workflow inventory in `tests/test_make_gate.py`. Use existing Make targets
-or dispatch Full verification for diagnostics; do not add temporary workflows.
+Use existing Make targets or dispatch Full verification for diagnostics; do not add temporary
+workflows. A new workflow file needs the approval of the owner in its PR text (AD-1251).
 
 ## Where things run
 
@@ -96,7 +96,7 @@ aggregate would count as passed.
 | CI: Docs diagrams | each push to `main` | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check` |
 | Pages: Publish the report gallery | a push to `main` that changes a gallery input (AD-1223), nightly, and dispatch on `main` | `make report-gallery` |
-| CI: All checks passed | each push to `main` | none: it needs every CI job and reports each job time against the budget ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
+| CI: All checks passed | each push to `main` | none: it needs every CI job and reports the time of each job ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
 | Full: Architecture, build and report checks | nightly, dispatch, release | `make ci-core-check SKIP_TESTS=1`, `make self-validate`, `make mermaid` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Publish the latest main build | nightly and dispatch with `publish`, on `main` only | `python3 tools/publish_main_build.py` after the wheels of Full |
@@ -185,8 +185,6 @@ full result is in ignored `test-artifacts/validation-native/result.json`.
 `docs/architecture/target/shell-contract.json` ([shell](docs/architecture/shell.md), AD-478) with the
 same gate. `make self-validate` runs both checks and the system check. The system check includes the
 Studio UI contract at `studio/architecture-contract.json`. The tools have no architecture contract.
-The hygiene test also fails on an untracked local file that is named like a pin (`*expected-gaps*`,
-`*expected-growth*`, `*shell-expected*`): delete it.
 
 ## A behaviour change carries its decision
 

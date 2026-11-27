@@ -1,11 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-341: the aggregate jobs report each job time against the time budget and never fail."""
+"""AD-341, AD-1251: the aggregate jobs report the time of each job; no limit warns or fails."""
 
 import io
 import json
-import re
 from pathlib import Path
 
 import pytest
@@ -43,46 +42,18 @@ def test_only_complete_jobs_count_and_the_longest_comes_first() -> None:
     ]
 
 
-def test_a_job_and_the_critical_path_over_the_budget_are_warnings() -> None:
-    table, warnings = report(complete_jobs(LINES), job_minutes=7, path_minutes=8)
-    assert table.startswith("Critical path without queue: 8.5 min (budget 8). Longest queue: 3.0")
-    assert "| Tests: collectors | 8.5 | 3.0 |" in table
-    assert warnings == [
-        "Tests: collectors ran 8.5 min; the budget of a job is 7 min.",
-        "The critical path is 8.5 min; the budget is 8 min.",
-    ]
-    assert report(complete_jobs(LINES), job_minutes=9, path_minutes=9)[1] == []
+def test_the_table_names_the_times_and_no_limit() -> None:
+    table = report(complete_jobs(LINES))
+    assert table.startswith("Critical path without queue: 8.5 min. Longest queue: 3.0")
+    assert "| Tests: collectors | 8.5 | 3.0 |" in table and "budget" not in table
+    assert report([]) == "No complete job.\n"
 
 
 def test_the_tool_never_fails_and_writes_the_summary(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     summary = tmp_path / "summary.md"
     for lines in (LINES, []):
         monkeypatch.setattr("sys.stdin", io.StringIO("\n".join(lines)))
-        argv = ["--job-minutes", "7", "--path-minutes", "10", "--summary", str(summary)]
-        assert main(argv) == 0
-    out = capsys.readouterr().out
-    assert "::warning title=Time budget (AD-341)::Tests: collectors ran 8.5 min" in out
-    assert "::warning title=Time budget (AD-341)::No complete job" in out
+        assert main(["--summary", str(summary)]) == 0
     assert summary.read_text().count("| Job | Run (min) | Queue (min) |") == 1
-
-
-@pytest.mark.parametrize(
-    ("workflow", "aggregate", "limits"),
-    [
-        ("ci.yml", "check", "--job-minutes 7 --path-minutes 10"),
-        ("full-verification.yml", "verified", "--job-minutes 15 --path-minutes 30"),
-    ],
-)
-def test_each_aggregate_reports_its_run_before_it_requires_every_job(
-    workflow: str, aggregate: str, limits: str
-) -> None:
-    text = (ROOT / ".github/workflows" / workflow).read_text()
-    body = re.split(r"^  ([\w-]+):\n", text.split("\njobs:\n", 1)[1], flags=re.MULTILINE)
-    jobs = dict(zip(body[1::2], body[2::2], strict=True))
-    steps = jobs[aggregate]
-    assert "      actions: read\n" in steps
-    budget = steps.index("tools/ci_budget.py")
-    assert steps.index("continue-on-error: true") < budget < steps.index("run: |")
-    assert f"python3 tools/ci_budget.py {limits}" in steps

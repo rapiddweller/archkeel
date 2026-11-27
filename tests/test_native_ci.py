@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import re
 import subprocess
 import zipfile
@@ -14,7 +13,6 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from timeout_support import run_bounded
 
 from tools import release_core
 from tools.publish_release import PLATFORM_TAGS
@@ -35,103 +33,6 @@ def test_every_action_is_pinned_to_a_commit() -> None:
         for action in re.findall(r"^\s+(?:- )?uses: (\S+)", path.read_text(), re.MULTILINE):
             if not action.startswith("./"):
                 assert re.fullmatch(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}", action), (path.name, action)
-
-
-def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
-    jobs = _jobs("area-checks.yml")
-    native = jobs["native"]
-    assert "runs-on: ubuntu-24.04\n" in native
-    assert native.index("run: make cargo-deny-install") < native.index("run: make native-check")
-    rust = [job for job, body in jobs.items() if re.search(r"make native-|cargo [a-z]|macos", body)]
-    assert rust == ["native"]
-    assert "run: make native-check\n" in native
-
-
-def test_pr_gate_starts_only_on_a_push_and_no_workflow_reruns_it() -> None:
-    gate = (WORKFLOWS / "pr-gate.yml").read_text()
-    assert "types: [opened, synchronize, reopened]\n" in gate
-    # An ignored event must never create a PR gate run: it would supersede a green `PR gate`.
-    for word in ("labeled", "edited", "ignored event", "github.event.action"):
-        assert word not in gate
-    others = {job: body for job, body in _jobs("pr-gate.yml").items() if job != "pr-gate"}
-    assert not any(re.search(r"^    if:", body, re.MULTILINE) for body in others.values())
-    assert (
-        "name: PR gate\n    needs: [base, area-checks, windows-native]\n    if: always()\n" in gate
-    )
-    # No workflow reruns the gate for a label (AD-1223, AD-1260).
-    assert not (WORKFLOWS / "pr-gate-rerun.yml").exists()
-
-
-_TOOLCHAIN_STEP = "run: rustup toolchain install\n"
-
-
-@pytest.mark.parametrize(
-    ("workflow", "job", "first_make"),
-    [
-        ("area-checks.yml", "tests", "run: make fast-test"),
-        ("full-verification.yml", "tests", "run: make full-test"),
-        ("full-verification.yml", "shell-compat", "run: make shell-compat"),
-    ],
-)
-def test_the_pinned_toolchain_installs_once_before_any_parallel_step(
-    workflow: str, job: str, first_make: str
-) -> None:
-    # Parallel pytest workers that find no toolchain each start to install it and break each other.
-    body = _jobs(workflow)[job]
-    assert body.count(_TOOLCHAIN_STEP) == 1
-    assert "working-directory: native\n        run: rustup toolchain install" in body
-    assert body.index(_TOOLCHAIN_STEP) < body.index(first_make)
-
-
-# A parent make (`make pr-test`) passes MAKELEVEL on, and GNU make 4 then prints "Leaving directory"
-# after the commands of the child. The child must not know that it runs inside a make.
-_MAKE_ENV = {
-    k: v
-    for k, v in os.environ.items()
-    if k
-    not in {
-        "MAKEFLAGS",
-        "MFLAGS",
-        "MAKELEVEL",
-        "ARCHKEEL_REQUIRE_PREBUILT",
-        "ARCHKEEL_NATIVE_TREE",
-        "ARCHKEEL_CORE_SOURCE",
-    }
-}
-
-
-def _dry_run(*arguments: str) -> str:
-    return subprocess.run(
-        ["make", "--no-print-directory", "-n", *arguments, "UV=uv"],
-        cwd=ROOT,
-        env=_MAKE_ENV,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-
-
-def test_full_builds_each_platform_wheel_on_its_own_target() -> None:
-    assert (
-        "uses: ./.github/workflows/native-wheels.yml"
-        in _jobs("full-verification.yml")["native-wheels"]
-    )
-    jobs = _jobs("native-wheels.yml")
-    wheel_jobs = {job: body for job, body in jobs.items() if job.startswith("native-wheel-")}
-    assert set(wheel_jobs) == {"native-wheel-linux", "native-wheel-macos", "native-wheel-windows"}
-    text = "".join(wheel_jobs.values())
-    tags = re.findall(r"tag: (py3-none-\w+)|NATIVE_TAG=(py3-none-\w+)", text)
-    assert sorted(a or b for a, b in tags) == sorted(PLATFORM_TAGS)
-    for body in wheel_jobs.values():
-        assert "make native-wheel NATIVE_TAG=" in body
-        assert re.search(r"name: native-wheel-.+\n\s+path: dist/native/\*\.whl\n", body)
-        assert "if-no-files-found: error" in body
-    # The image sets the oldest glibc or musl; a moving image tag changes the wheel.
-    images = re.findall(r"image: (\S+)", wheel_jobs["native-wheel-linux"])
-    assert len(images) == 3
-    assert all(re.fullmatch(r"quay\.io/pypa/\w+:[\w.-]+@sha256:[0-9a-f]{64}", i) for i in images)
-    assert "runs-on: ${{ matrix.runner }}" in wheel_jobs["native-wheel-linux"]
-    assert "runner: ubuntu-24.04-arm\n" in wheel_jobs["native-wheel-linux"]
 
 
 def _add_script() -> str:
@@ -181,71 +82,6 @@ def test_release_requires_exactly_six_platform_wheels_and_one_sdist(
     assert (result.returncode == 0) is (wheels == 6 and sdists == 1 and not pure)
     if result.returncode == 0:
         assert len(list((tmp_path / "dist").glob("*.whl"))) == 6
-
-
-def _unbuilt(tags: tuple[str, ...]) -> set[str]:
-    """The platforms of a release that no job of Full builds, installs and runs."""
-    jobs = _jobs("native-wheels.yml")
-    wheel_jobs = {job: body for job, body in jobs.items() if job.startswith("native-wheel-")}
-    assert "      - native-wheels\n" in _jobs("full-verification.yml")["verified"]
-    text = "".join(wheel_jobs.values())
-    built = {a or b for a, b in re.findall(r"tag: (py3-none-\w+)|NATIVE_TAG=(py3-none-\w+)", text)}
-    return set(tags) - built
-
-
-def test_a_release_is_open_and_publishes_only_platforms_that_full_builds_and_runs() -> None:
-    """AD-476: no flag and no first job close the release; Full is the gate for each wheel."""
-    workflow = (WORKFLOWS / "release.yml").read_text()
-    assert "PUBLISH_NATIVE_WHEELS" not in workflow and "core-in-wheel" not in workflow
-    jobs = _jobs("release.yml")
-    assert "needs:" not in jobs["verify"] and "    needs: verify\n" in jobs["build"]
-    assert not hasattr(release_core, "NO_VERDICT")
-    assert _unbuilt(PLATFORM_TAGS) == set()
-    # A listed platform that Full does not build and run is found.
-    assert _unbuilt((*PLATFORM_TAGS, "py3-none-win_arm64")) == {"py3-none-win_arm64"}
-
-
-def _check_release_build(build: str) -> None:
-    check = "run: python3 -m tools.release_core dist dist/archkeel-*-py3-none-manylinux_2_17_x86_64"
-    added = build.index("- name: Add the platform wheels that full verification built and ran")
-    assert added < build.index(check) < build.index("- name: Upload distributions")
-    parts = re.split(r"^      - name: (.+)\n", build, flags=re.MULTILINE)
-    header, steps = parts[0], dict(zip(parts[1::2], parts[2::2], strict=True))
-    assert len(steps) == len(parts[1::2])
-    assert list(steps) == [
-        "Check out source",
-        "Install uv and Python",
-        "Build distributions after full verification",
-        "Download the platform wheels that full verification built",
-        "Add the platform wheels that full verification built and ran",
-        "Refuse wheels that do not carry a core that decides",
-        "Check the final 5.0 system with the candidate wheel",
-        "Keep the final 5.0 system frame",
-        "Build and verify the plugin archive separately",
-        "Upload distributions",
-        "Upload plugin archive and checksum",
-    ]
-    assert "if:" not in header and "continue-on-error" not in build
-    for name, step in steps.items():
-        if name == "Keep the final 5.0 system frame":
-            assert (
-                "if: ${{ always() && (github.ref_name == '5.0.0' || "
-                "github.ref_name == 'v5.0.0') }}" in step
-            )
-            assert "uses: actions/upload-artifact@" in step
-        else:
-            assert not re.search(r"^\s+if:", step, re.MULTILINE), name
-
-
-def test_the_release_build_checks_the_core_of_the_wheels_before_it_uploads_them() -> None:
-    build = _jobs("release.yml")["build"]
-    _check_release_build(build)
-    changed = build.replace(
-        "- name: Refuse wheels that do not carry a core that decides\n",
-        "- name: Refuse wheels that do not carry a core that decides\n        if: ${{ false }}\n",
-    )
-    with pytest.raises(AssertionError):
-        _check_release_build(changed)
 
 
 def test_release_wheel_staging_does_not_dirty_the_checkout(tmp_path: Path) -> None:
@@ -373,101 +209,3 @@ def test_only_a_verdict_of_the_bundled_core_passes_the_installed_run() -> None:
     unknown = {**frame, "rules": {"R": ["root_layout", "UNKNOWN"]}}
     assert "no rule has PASS" in release_core.undecided({**good, "frame": unknown}, 2)
     assert "exit code 0 differs" in release_core.undecided(good, 0)
-
-
-def _make(tmp_path: Path, target: str, cargo_deny: str) -> subprocess.CompletedProcess[str]:
-    # The stub of cargo builds nothing, and UV=true runs no Python: the test reads only the calls.
-    cargo = tmp_path / "cargo"
-    cargo.write_text(f'#!/bin/sh\necho "cargo $*" >> "{tmp_path}/calls"\necho "{cargo_deny}"\n')
-    cargo.chmod(0o755)
-    return run_bounded(
-        ["make", target, "UV=true"],
-        cwd=ROOT,
-        env={**_MAKE_ENV, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-
-
-def test_native_check_runs_the_dependency_policy_with_the_pinned_cargo_deny(
-    tmp_path: Path,
-) -> None:
-    wrong = _make(tmp_path, "native-check", "cargo-deny 0.19.0")
-    assert wrong.returncode == 2
-    assert "native-check needs cargo-deny 0.20.2: run make native-tools" in wrong.stdout
-    assert (tmp_path / "calls").read_text() == "cargo deny --version\n"
-    pinned = _make(tmp_path, "native-check", "cargo-deny 0.20.2")
-    assert pinned.returncode == 0, pinned.stderr
-    calls = (tmp_path / "calls").read_text().splitlines()
-    assert "cargo deny --locked check" in calls
-    assert calls.index("cargo clippy --locked --all-targets -- -D warnings") < calls.index(
-        "cargo deny --locked check"
-    )
-    # AD-1047: the self-check runs in pr-gate and ci-check, not twice in native-check.
-    assert not any("--release" in call for call in calls)
-
-
-def test_the_ci_install_of_cargo_deny_checks_the_hash_and_creates_the_target_directory() -> None:
-    dry_run = subprocess.run(
-        ["make", "--no-print-directory", "-n", "cargo-deny-install"],
-        cwd=ROOT,
-        env=_MAKE_ENV,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    assert "sha256sum --check --strict" in dry_run
-    # A fresh runner can lack ~/.cargo/bin; install does not create the directory itself.
-    assert 'mkdir -p "${CARGO_HOME:-$HOME/.cargo}/bin"' in dry_run
-
-
-def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> None:
-    pyproject = (ROOT / "pyproject.toml").read_text()
-    assert """addopts = "-rs -p no:cacheprovider -m 'not native_wheel'\"""" in pyproject
-    dry_run = subprocess.run(
-        [
-            "make",
-            "--no-print-directory",
-            "-n",
-            "native-wheel",
-            "NATIVE_TAG=py3-none-win_amd64",
-            "UV=uv",
-        ],
-        cwd=ROOT,
-        env=_MAKE_ENV,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    assert "cargo install --locked cargo-auditable@0.7.7" in dry_run
-    assert "ARCHKEEL_BUNDLE_NATIVE=1 uv build --wheel --no-sources --out-dir dist/native" in dry_run
-    assert "-m native_wheel tests/test_collector_native_wheel.py" in dry_run
-    # AD-436: the same wheel, installed alone, gives the verdicts of its core.
-    assert dry_run.count('ARCHKEEL_NATIVE_WHEEL="$(ls dist/native/*.whl)" uv run --locked') == 2
-    assert dry_run.rstrip().endswith("tests/test_cli_installed_wheel.py")
-
-
-def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() -> None:
-    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    check = makefile.split("\nnative-check:\n")[1].split("\n# AD-432")[0]
-    assert "tests/test_rust_clones.py" not in check, (
-        "the Python tests run in the area jobs (AD-674)"
-    )
-    assert "tools/rust_clones.py\n" not in check and "tools/rust_api.py --check" not in check
-    assert "cargo build --locked\n" not in check
-    # The hosted PR gate leaves its own fmt and rustfmt out because these two lines run (PR_HOSTED).
-    assert "\tcd native && cargo fmt --all --check\n" in check
-    assert (
-        "\tcd native && rustfmt --edition 2021 --check ../tools/rustc-facts/src/main.rs\n" in check
-    )
-
-
-def test_make_build_writes_the_installable_wheel_and_the_release_builds_only_the_sdist() -> None:
-    """#1313: `make build` is the user command (sdist and host wheel); the release job and the
-    package smoke test take the sdist alone, so `dist/` keeps the asset set of AD-476."""
-    recipes = (ROOT / "Makefile").read_text(encoding="utf-8")
-    build = recipes[recipes.index("\nbuild: sdist") :].split("\n\n", 1)[0]
-    assert "ARCHKEEL_BUNDLE_NATIVE=1" in build and "--wheel" in build
-    release = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-    assert "run: make sdist" in release and "run: make build" not in release

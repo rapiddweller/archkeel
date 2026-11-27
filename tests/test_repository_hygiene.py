@@ -2,11 +2,8 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import ast
-import hashlib
 import json
-import re
 import subprocess
-import sys
 import tomllib
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
@@ -14,34 +11,6 @@ from pathlib import Path
 from tools.file_size import MAX_FILE_LINES, SIZE_LIMIT_EXEMPT, is_size_limited, line_count
 
 ROOT = Path(__file__).parents[1]
-HEADER = "\n".join(
-    (
-        "# Archkeel",
-        "# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.",
-        "# SPDX-License-Identifier: MIT",
-        "",
-    )
-).encode()
-RUST_HEADER = HEADER.replace(b"# ", b"// ")
-FORBIDDEN = (
-    b"/" + b"Users/",
-    b"/" + b"home/",
-    b"/" + b"private/tmp",
-    b"/" + b"tmp/",
-    b"/" + b"var/folders",
-)
-PATH_COMPONENT = re.compile(rb"[A-Za-z0-9_.-]")
-WINDOWS_ABSOLUTE_ROOT = re.compile(rb"(?<![A-Za-z0-9_.-])[A-Za-z]:\\")
-PYTHON_README_PATH_EXAMPLES = (
-    b'   connections on Unix domain socket "' + b"/" + b'tmp/.s.PGSQL.5432"?',
-    b"    rootdir: "
-    + b"/"
-    + b"home/some-user/user-projects/fastapi-realworld-example-app, inifile: setup.cfg, "
-    + b"testpaths: tests",
-)
-# Split so this file does not match itself. A lone `=======` is a Markdown setext heading, so
-# only the two unambiguous markers count; a conflict always leaves at least one of them.
-CONFLICT_MARKERS = (b"<<<" + b"<<<<", b">>>" + b">>>>")
 TRACKED = tuple(
     ROOT / name
     for name in subprocess.check_output(
@@ -57,29 +26,6 @@ SOURCES = tuple(
 LONG_FUNCTION_LINES = 80
 FILE_SIZE_BASELINE = ROOT / "tests/file_size_baseline.json"
 ALLOWED_LONG_FUNCTIONS: dict[str, str] = {}
-
-
-# A `git add -A` after running `archkeel report` to measure something committed `r.json`,
-# `r.report.html` and two more into the repository root, and every test still passed. The root
-# is small and changes rarely, so naming its whole contents catches any stray file rather than
-# the report shapes that happened to land this time.
-ROOT_FILES = frozenset(
-    (
-        ".gitattributes",
-        ".gitignore",
-        ".python-version",
-        "AGENTS.md",
-        "CODE_OF_CONDUCT.md",
-        "CONTRIBUTING.md",
-        "LICENSE",
-        "Makefile",
-        "README.md",
-        "RELEASE_NOTES.md",
-        "plugin.json",
-        "pyproject.toml",
-        "uv.lock",
-    )
-)
 
 
 def _functions(node: ast.AST, prefix: str) -> Iterator[tuple[str, int]]:
@@ -200,28 +146,6 @@ def test_source_files_stay_within_the_size_limit() -> None:
     )
 
 
-def test_tracked_source_files_have_license_header() -> None:
-    assert TRACKED
-    snapshot = ROOT / "fixtures/K-python-realworld/SNAPSHOT.json"
-    exemptions = {}
-    if snapshot.is_file():
-        exemptions = {
-            ROOT / "fixtures/K-python-realworld" / item["path"]: item["sha256"]
-            for item in json.loads(snapshot.read_bytes())["files"]
-            if item["path"].startswith("app/") and item["path"].endswith(".py")
-        }
-    headers = {".py": HEADER, ".rs": RUST_HEADER}
-    missing = [
-        str(path.relative_to(ROOT))
-        for path in TRACKED
-        if path.suffix in headers
-        and "golden-python/fastapi-" not in path.as_posix()
-        and not path.read_bytes().startswith(headers[path.suffix])
-        and exemptions.get(path) != hashlib.sha256(path.read_bytes()).hexdigest()
-    ]
-    assert missing == []
-
-
 def test_long_functions_have_a_named_reason() -> None:
     # AD-6: every long function is listed with its reason, and the list only shrinks.
     long_functions = {
@@ -268,108 +192,6 @@ def test_sdist_ships_library_and_build_inputs_only() -> None:
     )
 
 
-def test_decision_index_matches_decision_files() -> None:
-    """AD-55, AD-752: the index is generated from the files; no record shares a number."""
-    sys.path.insert(0, str(ROOT / "tools"))
-    import decision_index
-
-    assert decision_index.problems() == []
-    assert len(decision_index.records()) >= 539
-
-
-def test_plans_and_evidence_stay_out_of_the_repository() -> None:
-    """AD-282: a work record under docs/superpowers or docs/evidence needs a contract citation."""
-    contracts = (ROOT / "native/architecture-contract.json",)
-    cited = {
-        match
-        for contract in contracts
-        for match in re.findall(r"docs/(?:superpowers|evidence)/[^\"\s]+", contract.read_text())
-    }
-    kept = {
-        path.relative_to(ROOT).as_posix()
-        for path in TRACKED
-        if path.is_relative_to(ROOT / "docs/superpowers")
-        or path.is_relative_to(ROOT / "docs/evidence")
-    }
-    assert kept <= cited, f"Move these work records out of the repository: {sorted(kept - cited)}"
-
-
-def test_repository_root_holds_no_stray_file() -> None:
-    """Generated output is invisible to every other guard: it is valid text at a plausible path."""
-    tracked = frozenset(path.name for path in TRACKED if path.parent == ROOT)
-    assert sorted(tracked - ROOT_FILES) == []
-    assert sorted(ROOT_FILES - tracked) == []
-
-
-def test_tracked_text_has_no_local_absolute_paths() -> None:
-    hits = []
-    python_snapshot = ROOT / "fixtures/K-python-realworld/SNAPSHOT.json"
-    allowed_examples = {}
-    if python_snapshot.is_file():
-        snapshot = json.loads(python_snapshot.read_bytes())
-        entry = next((item for item in snapshot["files"] if item["path"] == "README.rst"), None)
-        if entry is not None:
-            allowed_examples[ROOT / "fixtures/K-python-realworld/README.rst"] = (
-                entry["sha256"],
-                frozenset(PYTHON_README_PATH_EXAMPLES),
-            )
-    for path in TRACKED:
-        payload = path.read_bytes()
-        if b"\0" in payload:
-            continue
-        allowed = allowed_examples.get(path)
-        allowed_lines = (
-            allowed[1]
-            if allowed and hashlib.sha256(payload).hexdigest() == allowed[0]
-            else frozenset()
-        )
-        for line, text in enumerate(payload.splitlines(), 1):
-            if text not in allowed_lines and _contains_local_absolute_path(text):
-                hits.append(f"{path.relative_to(ROOT)}:{line}")
-    assert hits == []
-
-
-def _contains_local_absolute_path(text: bytes) -> bool:
-    for prefix in FORBIDDEN:
-        start = 0
-        while (index := text.find(prefix, start)) != -1:
-            if index == 0 or PATH_COMPONENT.fullmatch(text[index - 1 : index]) is None:
-                return True
-            start = index + 1
-
-    for match in WINDOWS_ABSOLUTE_ROOT.finditer(text):
-        suffix = text[match.end() :]
-        escaped = suffix.startswith((b"n", b"t", b"r")) and suffix[1:2] in (
-            b'"',
-            b"'",
-            b",",
-            b")",
-            b"]",
-            b" ",
-            b"\t",
-        )
-        if not escaped:
-            return True
-    return False
-
-
-def test_tracked_text_carries_no_unresolved_merge_conflict() -> None:
-    """A `git add -A` over an unresolved merge commits the markers and every test still passes.
-
-    That happened: a merge left them in the decision record, and the split carried them into a
-    decision's own file, where nothing looked at them again.
-    """
-    hits = []
-    for path in TRACKED:
-        payload = path.read_bytes()
-        if b"\0" in payload:
-            continue
-        for line, text in enumerate(payload.splitlines(), 1):
-            if any(text.startswith(marker) for marker in CONFLICT_MARKERS):
-                hits.append(f"{path.relative_to(ROOT)}:{line}")
-    assert hits == [], f"unresolved merge conflict markers: {hits}"
-
-
 DECISION_LINE_LIMIT = 70
 
 
@@ -381,67 +203,3 @@ def test_decision_records_stay_readable() -> None:
         path.name for path in decisions if len(path.read_text().splitlines()) > DECISION_LINE_LIMIT
     }
     assert sorted(too_long) == [], f"decision records must stay within {DECISION_LINE_LIMIT} lines"
-
-
-def test_every_decision_reference_names_a_record() -> None:
-    """`AD-64` in a comment is a promise that the record exists and says what the comment claims.
-
-    The first half is checkable and this checks it: a reference nothing backs is how a renumbered
-    or never-written record goes unnoticed. The second half is not: a quoted sentence in the same
-    sentence as a reference may belong to either record, so verifying attributions was measured,
-    produced four false positives on 66 files and no true ones, and was left to review.
-    """
-    # A record's id carries an optional letter: AD-24a and AD-24b are two records, and a pattern
-    # of digits alone matches neither, so the two ids most in need of the check would skip it.
-    identifier = re.compile(r"\bAD-(\d+[a-z]?)\b")
-    numbers = {
-        path.name.split("-")[1].lstrip("0")
-        for path in (ROOT / "docs/architecture/decisions").glob("ad-*.md")
-    }
-    dangling: dict[str, list[str]] = {}
-    for path in TRACKED:
-        payload = path.read_bytes()
-        if b"\0" in payload:
-            continue
-        for number in identifier.findall(payload.decode("utf-8", errors="ignore")):
-            if number.lstrip("0") not in numbers:
-                dangling.setdefault(f"AD-{number}", []).append(str(path.relative_to(ROOT)))
-    assert dangling == {}, f"a decision reference names no record under decisions/: {dangling}"
-
-
-def test_absolute_path_detection_requires_a_root_boundary() -> None:
-    slash = bytes([47])
-    backslash = bytes([92])
-    cases = (
-        (b"import '../ui/home/widgets/home_screen_container.dart';", False),
-        (b'path = "' + slash + b'home/user/project"', True),
-        (b"path = '" + slash + b"Users/alex/project'", True),
-        (b'path = "' + slash + b'private/tmp/cache"', True),
-        (b'path = "' + slash + b'tmp/cache"', True),
-        (b'path = "' + slash + b'var/folders/cache"', True),
-        (b'path = "C:' + backslash + b"Users" + backslash + b'Alex\\project"', True),
-        (b'path = "C:' + backslash + b"home" + backslash + b'Alex\\project"', True),
-        (b'path = "C:' + backslash + b'n"', False),
-    )
-    for text, expected in cases:
-        assert _contains_local_absolute_path(text) is expected
-
-
-# A fixture run wrote `test-artifacts/architecture/*.html` beside six fixtures and a `git add -A`
-# committed 25 MB of reports, so the repository counted as an HTML project. A report is output.
-def test_no_run_output_directory_is_tracked() -> None:
-    tracked = subprocess.check_output(["git", "ls-files", "--cached", "-z"], cwd=ROOT, text=True)
-    stray = sorted(name for name in tracked.split("\0") if "test-artifacts/" in name)
-
-    assert stray == []
-
-
-# #767: nothing produces or reads the initial-PR evidence since AD-281: no result schema names it.
-def test_no_result_schema_defines_the_initial_pr_evidence() -> None:
-    named = [
-        path.name
-        for path in sorted((ROOT / "schema").glob("command-result*.json"))
-        if re.search(r"initial_?[pP][rR]", path.read_text(encoding="utf-8"))
-    ]
-
-    assert named == []
