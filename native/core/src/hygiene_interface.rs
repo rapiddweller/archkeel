@@ -41,6 +41,11 @@ const NO_IMPORT: (&str, &str) = (
      signature that could reach it. Remove the entry from `public`, or name the component that \
      imports it.",
 );
+const ROUTE_HELD: (&str, &str) = (
+    "route_held",
+    "A route from an import to this entry is held, not absent: the core cannot prove it. The \
+     entry may be in use, so the core does not recommend removing it",
+);
 const IMPORT_SEEN: (&str, &str) = (
     "import_seen",
     "An import of this module reaches the component, but the core proves no use of this entry",
@@ -138,10 +143,25 @@ fn unknown(pointer: String, entry: &str, records: &[&Import]) -> Row {
         .iter()
         .filter(|r| r.target_module() == module || r.reexport_chain().iter().any(touches))
         .collect();
-    let (action, claim) = if seen.is_empty() {
+    // A route that the collector withholds (AD-1210) may pass a facade to this entry: an import
+    // of the entry's name with a stated cause is a held route, not an absent one (#2198).
+    let name = entry.split_once(':').map(|(_, name)| name);
+    let held: Vec<&&Import> = records
+        .iter()
+        .filter(|r| withheld_cause(r).is_some())
+        .filter(|r| {
+            name.map_or_else(
+                || seen.iter().any(|s| std::ptr::eq(*s, *r)),
+                |n| r.symbol() == Some(n),
+            )
+        })
+        .collect();
+    let (action, claim) = if !held.is_empty() {
+        (ROUTE_HELD.0, import_seen(ROUTE_HELD.1, &held))
+    } else if seen.is_empty() {
         (NO_IMPORT.0, NO_IMPORT.1.to_owned())
     } else {
-        (IMPORT_SEEN.0, import_seen(&seen))
+        (IMPORT_SEEN.0, import_seen(IMPORT_SEEN.1, &seen))
     };
     (
         ("interface.usage_unknown", pointer, entry.to_owned(), claim),
@@ -165,7 +185,7 @@ fn block(record: &Import) -> &'static str {
 
 /// The text of an `import_seen` hold: the number of imports for each cause, and the first import
 /// with the module or hop that withheld its route.
-fn import_seen(seen: &[&&Import]) -> String {
+fn import_seen(claim: &str, seen: &[&&Import]) -> String {
     let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
     for record in seen {
         *counts.entry(block(record)).or_default() += 1;
@@ -194,7 +214,7 @@ fn import_seen(seen: &[&&Import]) -> String {
         .unwrap_or_default();
     format!(
         "{}. Cause of each of {} imports: {}.{first}",
-        IMPORT_SEEN.1,
+        claim,
         seen.len(),
         causes.join(", ")
     )

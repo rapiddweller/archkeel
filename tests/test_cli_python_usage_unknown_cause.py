@@ -57,7 +57,7 @@ def usage_unknown(result: dict[str, object]) -> list[str]:
 
 
 @pytest.mark.parametrize("cause", sorted(PLANTS))
-def test_an_import_seen_hold_names_its_cause_its_import_and_its_module(
+def test_a_held_route_names_its_cause_its_import_and_its_module(
     release_core: Path, tmp_path: Path, cause: str
 ) -> None:
     root = tmp_path / "p"
@@ -66,7 +66,8 @@ def test_an_import_seen_hold_names_its_cause_its_import_and_its_module(
     reasons = usage_unknown(result)
     assert len(reasons) == 1, result["frame"]["unsupported"]["rules"]
     text = reasons[0]
-    assert "reaches the component, but the core proves no use of this entry" in text, text
+    # #2198: an import of the entry's own name with a stated cause is a held route.
+    assert "held, not absent" in text and "does not recommend removing" in text, text
     assert f"Cause of each of 1 imports: 1 {cause}." in text, text
     assert f"First: app.consumer imports f, {cause} ({EXPECTED[cause]})." in text, text
     assert result["status"] != "PASS"
