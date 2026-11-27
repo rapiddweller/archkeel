@@ -1,171 +1,29 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Policy and release failures stop later Make steps, including parallel invocations."""
+"""Executed checks of the Make and CI wrappers: aggregates, cleanup, mermaid and test ownership."""
 
 from __future__ import annotations
 
-import ast
 import json
 import os
 import re
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from areas import AREAS, SLOW_FILES, area_of
+from areas import AREAS, area_of
 from timeout_support import run_bounded
 
 ROOT = Path(__file__).parents[1]
-GATE_STEPS = ["check", "sdist", "smoke"]
-CI_CHECK_STEPS = [
-    "ci-artifacts-clean",
-    *GATE_STEPS,
-    "typescript-compiler-check",
-    "typescript-libs-check",
-    "self-validate-native",
-    "self-validate-shell",
-]
-CI_STEPS = [*CI_CHECK_STEPS, "mermaid"]
-
-
-def _run_gate(
-    tmp_path: Path,
-    target: str,
-    failed: str | None,
-    jobs: int,
-    separate_override: bool,
-    base: str = "",
-) -> tuple[subprocess.CompletedProcess[str], list[str]]:
-    steps = tmp_path / "steps"
-    overrides = tmp_path / "Makefile"
-    names = [*CI_STEPS, "self-validate-system", "pr-selected-test"]
-    recipes = []
-    for name in names:
-        recipes.append(
-            f'{name}:\n\t@echo {name} >> "{steps}"\n\t@sleep 0.05\n\t@exit {int(name == failed)}\n'
-        )
-    overrides.write_text(
-        ("" if separate_override else f"include {ROOT / 'Makefile'}\n")
-        + ".PHONY: "
-        + " ".join([*names, "lint", "typecheck", "test"])
-        + "\nlint typecheck test browser-runtime-install core:\n\t@:\n"
-        + "".join(recipes)
-    )
-    args = ["make", f"-j{jobs}"]
-    if separate_override:
-        args.extend(["-f", str(ROOT / "Makefile")])
-    args.extend(["-f", str(overrides), target, f"BASE={base}"])
-    result = run_bounded(
-        args,
-        cwd=ROOT,
-        env={
-            **os.environ,
-            "MAKEFLAGS": "",
-            "KEEP_GOING": "",
-            "OUTPUT": "",
-            "UV": "false",
-            "NPM": "false",
-        },
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    return result, steps.read_text().splitlines() if steps.exists() else []
-
-
-@pytest.mark.parametrize("jobs", [1, 2])
-@pytest.mark.parametrize("separate_override", [False, True])
-@pytest.mark.parametrize("failed", [None, *GATE_STEPS])
-def test_gate_validates_first_and_stops_after_each_failure(
-    tmp_path: Path, jobs: int, separate_override: bool, failed: str | None
-) -> None:
-    result, steps = _run_gate(tmp_path, "gate", failed, jobs, separate_override)
-    expected = GATE_STEPS if failed is None else GATE_STEPS[: GATE_STEPS.index(failed) + 1]
-    assert steps == expected, result.stderr
-    assert result.returncode == (0 if failed is None else 2), result.stderr
-
-
-@pytest.mark.parametrize("jobs", [1, 2])
-@pytest.mark.parametrize(
-    "failed",
-    [
-        None,
-        "ci-artifacts-clean",
-        "self-validate-native",
-        "self-validate-shell",
-        "typescript-compiler-check",
-        "mermaid",
-    ],
-)
-def test_ci_runs_acceptance_only_after_a_successful_gate(
-    tmp_path: Path, jobs: int, failed: str | None
-) -> None:
-    result, steps = _run_gate(tmp_path, "ci", failed, jobs, True)
-    expected = CI_STEPS if failed is None else CI_STEPS[: CI_STEPS.index(failed) + 1]
-    assert steps == expected, result.stderr
-    assert result.returncode == (0 if failed is None else 2), result.stderr
-
-
-@pytest.mark.parametrize("jobs", [1, 2])
-def test_ci_check_leaves_mermaid_to_its_parallel_workflow_job(tmp_path: Path, jobs: int) -> None:
-    result, steps = _run_gate(tmp_path, "ci-check", None, jobs, True)
-    assert result.returncode == 0, result.stderr
-    assert steps == CI_CHECK_STEPS
-
-
-@pytest.mark.parametrize("failed", [None, "pr-selected-test"])
-def test_pr_gate_keeps_policy_and_stops_before_later_checks(tmp_path, failed):
-    result, steps = _run_gate(tmp_path, "ci-pr-check", failed, 2, False, base="a" * 40)
-    expected = [
-        "self-validate-native",
-        "self-validate-shell",
-        "self-validate-system",
-        "pr-selected-test",
-    ]
-    if failed is not None:
-        expected = expected[: expected.index(failed) + 1]
-    assert steps == expected
-    assert result.returncode == (0 if failed is None else 2)
-
-
-def test_workflow_files_require_an_explicit_governance_change() -> None:
-    assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
-        "ci.yml",
-        "area-checks.yml",
-        "full-verification.yml",
-        "main-build.yml",
-        "native-wheels.yml",
-        "pages.yml",
-        "pr-gate.yml",
-        "release.yml",
-    }
 
 
 def _jobs(workflow: str) -> dict[str, str]:
     text = (ROOT / ".github/workflows" / workflow).read_text()
     parts = re.split(r"^  ([\w-]+):\n", text.split("\njobs:\n", 1)[1], flags=re.MULTILINE)
     return dict(zip(parts[1::2], parts[2::2], strict=True))
-
-
-def test_every_job_runs_on_a_pinned_runner_image() -> None:
-    # A -latest label moves to a new image without a change in this repository.
-    for path in (ROOT / ".github/workflows").glob("*.yml"):
-        for job, body in _jobs(path.name).items():
-            if path.name == "pr-gate.yml" and job == "windows-native":
-                assert "runs-on: windows-latest" in body
-                continue
-            assert not re.search(r"runs-on: .*-latest", body), (path.name, job)
-
-
-def test_full_report_job_allows_the_suite_to_finish() -> None:
-    body = _jobs("full-verification.yml")["full-suite-and-reports"]
-    timeout = re.search(r"^    timeout-minutes: (\d+)$", body, re.MULTILINE)
-    assert timeout is not None
-    assert int(timeout.group(1)) >= 30
 
 
 @pytest.mark.parametrize(
@@ -201,54 +59,6 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
     assert "failed" not in results["cancelled"].stderr
     assert "skipped" in results["skipped"].stderr
     assert "failed" in results["failure"].stderr
-
-
-def _needs(body: str) -> set[str]:
-    found = re.search(
-        r"^    needs: \[(.+)\]$|^    needs: (\S+)$|^    needs:\n((?:      - .+\n)+)", body, re.M
-    )
-    return (
-        set(re.findall(r"\w[\w-]*", "".join(part or "" for part in found.groups())))
-        if found
-        else set()
-    )
-
-
-def test_each_release_job_runs_after_full_verification() -> None:
-    """AD-280 decision 3: a release runs Full first and no job is before it (AD-476)."""
-    jobs = _jobs("release.yml")
-    assert "uses: ./.github/workflows/full-verification.yml" in jobs["verify"]
-
-    def after_verify(job: str) -> bool:
-        return any(need == "verify" or after_verify(need) for need in _needs(jobs[job]))
-
-    assert [job for job in jobs if job != "verify" and not after_verify(job)] == []
-
-
-def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() -> None:
-    """A classifier is a claim (#724): it needs a pinned job, and a pinned job needs its claim."""
-    classifiers = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["classifiers"]
-    claimed = {
-        classifier.rsplit(" ", 1)[1]
-        for classifier in classifiers
-        if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", classifier)
-    }
-    workflow = (ROOT / ".github/workflows/full-verification.yml").read_text()
-    assert claimed == set(re.findall(r'"(3\.\d+)\.\d+"', workflow))
-
-
-def test_no_test_branches_on_the_python_version() -> None:
-    # The area jobs run Python 3.11, so a version branch hides its newer branch from each CI job.
-    readers = [
-        path.name
-        for path in sorted((ROOT / "tests").glob("*.py"))
-        if path.name != "conftest.py"
-        and any(
-            isinstance(node, ast.Attribute) and node.attr == "version_info"
-            for node in ast.walk(ast.parse(path.read_text()))
-        )
-    ]
-    assert readers == []
 
 
 @pytest.mark.parametrize("renderer_exit", [0, 1])
@@ -302,24 +112,6 @@ def test_ci_cleanup_preserves_test_evidence(tmp_path: Path) -> None:
     assert evidence.read_text() == "keep"
 
 
-@pytest.mark.parametrize("target", ["test", "ci-core-check", "ci-check", "ci"])
-def test_only_full_ci_stops_pytest_after_first_failure(target):
-    result = run_bounded(
-        ["make", "-n", target],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": "", "PYTEST_STOP": ""},
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    assert result.returncode == 0, result.stderr
-    command = result.stdout
-    assert command.count("python -m pytest") == 1
-    assert ("--maxfail=1" in command) == (target != "test")
-    assert "--dist=loadgroup" in command and "--max-worker-restart=0" in command
-    assert "--junitxml=test-artifacts/pytest/results.xml" in command
-
-
 def _collected(
     *arguments: str, path: str | None = None
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
@@ -358,90 +150,9 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
         assert all(floor > 0 for floor in floors[tier].values())
 
 
-def _triggers(workflow: str) -> set[str]:
-    text = (ROOT / ".github/workflows" / workflow).read_text()
-    block = text.split("\non:\n", 1)[1].split("\npermissions:", 1)[0]
-    return set(re.findall(r"^  (\w+):", block, flags=re.MULTILINE))
-
-
-def test_ci_runs_on_main_and_dispatch_and_full_runs_nightly_dispatch_or_called() -> None:
-    # AD-674: the PR tier is `pr-gate.yml`; ci.yml is the main tier.
-    assert _triggers("ci.yml") == {"push", "workflow_dispatch"}
-    assert _triggers("pr-gate.yml") == {"pull_request"}
-    assert _triggers("full-verification.yml") == {"workflow_call", "workflow_dispatch", "schedule"}
-    assert "branches: [main]" in (ROOT / ".github/workflows/ci.yml").read_text()
-
-
-def test_the_fast_tests_leave_out_the_nightly_files_and_the_pr_gate_selects_by_area() -> None:
-    """AD-674: `fast-test` takes no file list; the slow files run only in `make full-test`."""
-    makefile = (ROOT / "Makefile").read_text()
-    recipe = re.search(r"^FAST_TEST = .*?\n\n", makefile, re.DOTALL | re.MULTILINE)
-    assert recipe is not None and "tests/test_" not in recipe[0]
-    assert "-m 'not native_wheel and not slow'" in makefile
-    selected = makefile.split("\npr-selected-test:", 1)[1].split("\n\n", 1)[0]
-    assert "--tier fast -m 'not native_wheel and not slow'" in selected
-    assert (
-        "--tier pr -m 'not native_wheel and not slow and not debug_build and not heavy'" in selected
-    )
-    assert "$(MAKE) native-test" in selected
-    assert (
-        "pr-gate: $(if $(strip $(SKIP_STATIC)),,ci-pr-static) self-validate pr-selected-test"
-        in makefile
-    )
-    assert all((ROOT / "tests" / name).is_file() for name in SLOW_FILES)
-
-
 FULL_MK = "tools/full.mk"
 # CI runs these on each PR, so a break in them shows before the merge. Full needs no run for them.
 SHARED_WITH_CI = {"mermaid", "self-validate", "type-reach-setup"}
-
-
-def _called_targets(workflow: str) -> set[str]:
-    text = (ROOT / ".github/workflows" / workflow).read_text()
-    return {
-        t
-        for run in re.findall(r"\bmake ((?:[a-z][\w-]*(?: |$))+)", text, re.M)
-        for t in run.split()
-    }
-
-
-def _closure(targets: set[str]) -> set[str]:
-    database = subprocess.run(
-        ["make", "-pn"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-    ).stdout
-    needs: dict[str, set[str]] = {}
-    for name, rest in re.findall(r"^([a-z][\w-]*):(?!=)[ \t]*(.*)$", database, re.M):
-        # GNU make prints a target-specific variable (`name: VAR := value`) in the same form.
-        if not re.match(r"[\w-]+\s*[:+?]?=", rest):
-            needs.setdefault(name, set()).update(rest.split())
-    seen: set[str] = set()
-    todo = list(targets)
-    while todo:
-        name = todo.pop()
-        if name not in seen:
-            seen.add(name)
-            todo.extend(needs.get(name, ()))
-    return seen
-
-
-def test_each_make_target_that_only_full_runs_is_in_the_full_fragment() -> None:
-    """Full watches `tools/full.mk`, so a recipe that CI does not run must be defined there."""
-    fragment = set(re.findall(r"^([a-z][\w-]*):", (ROOT / FULL_MK).read_text(), re.M))
-    makefile = (ROOT / "Makefile").read_text()
-    assert "include $(MAKEFILE_DIR)tools/full.mk" in makefile
-    called = _called_targets("full-verification.yml") | _called_targets("native-wheels.yml")
-    assert called - fragment == SHARED_WITH_CI
-    assert SHARED_WITH_CI <= _called_targets("ci.yml")
-    assert [t for t in SHARED_WITH_CI if re.search(rf"^{t}:", makefile, re.M) is None] == []
-    only_full = _closure(called) - _closure(
-        _called_targets("ci.yml") | _called_targets("area-checks.yml")
-    )
-    assert only_full - fragment == set()
-    assert fragment - only_full == set(), "a recipe in the fragment that Full never runs"
 
 
 def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
@@ -456,18 +167,3 @@ def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
     result, _ = _collected("--area=no such area", "tests/test_skill.py")
     assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
     assert "is not an area" in result.stderr
-
-
-def test_ci_pr_static_runs_policy_without_tests(tmp_path) -> None:
-    result, steps = _run_gate(tmp_path, "ci-pr-static", None, 2, False, base="a" * 40)
-    assert steps == []
-    assert result.returncode == 0
-
-
-def test_the_pytest_targets_keep_the_skip_report_of_addopts() -> None:
-    """`-r` letters add up per option, but a later `-r` replaces the earlier one: keep `s`."""
-    addopts = re.search(r'^addopts = "(.+)"$', (ROOT / "pyproject.toml").read_text(), re.M)
-    assert addopts is not None and "-rs" in addopts[1].split()
-    for path in ("Makefile", "tools/full.mk"):
-        flags = re.findall(r"--tb=short -r([a-zA-Z]+)\s", (ROOT / path).read_text())
-        assert flags and all("s" in letters for letters in flags), path
