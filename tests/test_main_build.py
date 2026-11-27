@@ -224,7 +224,7 @@ def test_the_builds_past_the_newest_keep_are_pruned(
 
 
 def test_the_inventory_reads_every_page(hub: Hub, monkeypatch: pytest.MonkeyPatch) -> None:
-    # The real API gives at most 100 assets in a page. A page of 7 makes four builds need many pages.
+    # The real API gives at most 100 assets in a page. A page of 7 needs many pages for four builds.
     hub.page_size = 7
     _publish(hub, monkeypatch, 1)
     _publish(hub, monkeypatch, 2)
