@@ -76,13 +76,24 @@ pr-gate-report: core browser-runtime-install
 # AD-756: Rust format and lint in the PR gate when the change touches native/: `cargo fmt --check` for the
 # whole workspace (about 2 s), `clippy -D warnings` for the touched crates only (tools/native_touched.py), and
 # the clone gate and the API gate of the Rust sources (about 12 s; they sit in the main tier otherwise).
+# PR_HOSTED=1 (the hosted PR gate): the `native` job runs `native-check` (the same fmt, the driver rustfmt and
+# the workspace clippy) and the area job `self-check and CI` runs the clone and API tests, so this recipe
+# leaves out each of them when its keeper runs. A local run keeps all of them.
 pr-native-lint:
 	@crates="$$($(UV) run --locked python tools/native_touched.py "$(PR_BASE)")"; \
 	if [ -z "$$crates" ]; then echo "native lint: native/ is unchanged, nothing to check"; exit 0; fi; \
 	echo "native lint: fmt and clippy for '$$crates'"; \
-	(cd native && cargo fmt --all -- --check) && \
-	(cd native && rustfmt --edition 2021 --check ../tools/rustc-facts/src/main.rs) && \
-	{ [ "$$crates" = "-" ] || (cd native && cargo clippy --locked --all-targets $$crates -- -D warnings); } && \
+	if [ -z "$(PR_HOSTED)" ]; then \
+		(cd native && cargo fmt --all -- --check) && \
+		(cd native && rustfmt --edition 2021 --check ../tools/rustc-facts/src/main.rs) || exit $$?; \
+	fi; \
+	if [ "$$crates" != "-" ] && { [ -z "$(PR_HOSTED)" ] || [ "$$crates" != "--workspace" ]; }; then \
+		(cd native && cargo clippy --locked --all-targets $$crates -- -D warnings) || exit $$?; \
+	fi; \
+	if [ -n "$(PR_HOSTED)" ]; then \
+		area=$$($(UV) run --locked python tools/select_areas.py --job "self-check and CI" "$(PR_BASE)") || exit $$?; \
+		if [ "$$area" = run ]; then echo "native lint: the area job runs the clone and API gates"; exit 0; fi; \
+	fi; \
 	$(UV) run --locked python -m pytest -q -p no:cacheprovider -n 0 tests/test_rust_clones.py tests/test_rust_api.py
 
 pr-selected-test: core browser-runtime-install

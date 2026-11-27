@@ -10,6 +10,10 @@
 //! the edges of the target block the permitted component pairs (`graph.drift`). A block with a
 //! line that is not an edge, a node, a declaration or a comment, or with an ambiguous node label,
 //! is a drift too. The text is read with universal newlines, as the reference engine reads it.
+//!
+//! A drawn edge that the code does not show can be a stale edge or an edge that only compiler facts
+//! prove (AD-1136). When the scan has no facts and an executed-impl pair gap joins the two components,
+//! it is `graph.needs_facts`: a named hold, neither a drift nor a confirmation (AD-1212).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -27,10 +31,15 @@ pub(crate) type Finding = (&'static str, String, String);
 /// The findings of both markers over the documents, in path order. `observed` are the component
 /// edges of the code; `unconfirmed` holds the allowed edges that only a dropped pair gap names, with
 /// the module of the call: a drawn edge in it can be neither confirmed nor refuted (#1021);
-/// `permitted` are the pairs that the contract permits.
+/// `compiler_only` holds the edges that only compiler facts can confirm, and is empty when the scan
+/// has facts; `permitted` are the pairs that the contract permits.
 pub(crate) fn findings(
     documents: &[(String, String)],
-    (observed, unconfirmed): (&BTreeSet<Pair>, &BTreeMap<Pair, String>),
+    (observed, unconfirmed, compiler_only): (
+        &BTreeSet<Pair>,
+        &BTreeMap<Pair, String>,
+        &BTreeSet<Pair>,
+    ),
     permitted: &BTreeSet<Pair>,
 ) -> Vec<Finding> {
     let mut found = Vec::new();
@@ -53,6 +62,7 @@ pub(crate) fn findings(
     for (marker, noun, required, edges, source) in markers {
         // Only the component graph draws what the code uses; the target graph draws permissions.
         let held = if required { Some(unconfirmed) } else { None };
+        let needs = required.then_some(compiler_only);
         let graphs: Vec<(&str, &str)> = documents
             .iter()
             .flat_map(|(path, text)| {
@@ -75,11 +85,20 @@ pub(crate) fn findings(
         let declared = declared_edges(body);
         let unwritable = unwritable_line(body);
         let not_found: Vec<&Pair> = declared.difference(edges).collect();
-        let is_held = |pair: &&&Pair| held.is_some_and(|held| held.contains_key(**pair));
-        let (unproven, absent): (Vec<&Pair>, Vec<&Pair>) =
-            not_found.iter().copied().partition(|pair| is_held(&pair));
+        let is_held = |pair: &&Pair| held.is_some_and(|held| held.contains_key(*pair));
+        let (unproven, rest): (Vec<&Pair>, Vec<&Pair>) = not_found.into_iter().partition(is_held);
+        let (needs_facts, absent): (Vec<&Pair>, Vec<&Pair>) = rest
+            .into_iter()
+            .partition(|pair| needs.is_some_and(|needs| needs.contains(*pair)));
         let missing: Vec<&Pair> = edges.difference(&declared).collect();
-        if not_found.is_empty() && missing.is_empty() && unwritable.is_none() {
+        for (a, b) in &needs_facts {
+            let claim = format!(
+                "Drawn edge {a} -> {b} needs compiler facts: the scan has none, and only the compiler can \
+                 confirm or refute it."
+            );
+            found.push(("graph.needs_facts", format!("{path} {a}->{b}"), claim));
+        }
+        if absent.is_empty() && unproven.is_empty() && missing.is_empty() && unwritable.is_none() {
             continue;
         }
         let list = |pairs: Vec<&Pair>| {

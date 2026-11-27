@@ -1,6 +1,6 @@
 name: PR gate rerun
 
-# AD-1061: a change of the approval inputs runs the latest PR gate run of the head again.
+# AD-1061, AD-1221: a change of the label ratchet-lead runs the latest PR gate run of the head again.
 # This workflow never reports a check named `PR gate`, so an ignored event cannot replace a green or red gate.
 on:
   pull_request:
@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   # An ignored event gets its own group: it must not replace a pending approval rerun of the same PR.
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && (github.event.changes.body != null || github.event.changes.base != null))) && 'approval' || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'ratchet-lead') || (github.event.action == 'edited' && github.event.changes.base != null)) && 'approval' || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -29,7 +29,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ACTION: ${{ github.event.action }}
           LABEL: ${{ github.event.label.name }}
-          BODY_CHANGED: ${{ github.event.changes.body != null }}
           BASE_CHANGED: ${{ github.event.changes.base != null }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           NUMBER: ${{ github.event.pull_request.number }}
@@ -37,7 +36,7 @@ jobs:
           set -euo pipefail
           case "$ACTION" in
             labeled|unlabeled) [[ "$LABEL" == ratchet-lead ]] || { echo "Ignored: label $LABEL does not change the approval."; exit 0; } ;;
-            edited) [[ "$BODY_CHANGED" == true || "$BASE_CHANGED" == true ]] || { echo "Ignored: no change of the body or the base."; exit 0; } ;;
+            edited) [[ "$BASE_CHANGED" == true ]] || { echo "Ignored: nothing reads the PR text; only a base change counts."; exit 0; } ;;
           esac
           # A push after this event started a gate for the new head; a rerun of the old head would cancel it.
           current=$(gh api "repos/$GH_REPO/pulls/$NUMBER" --jq .head.sha)
