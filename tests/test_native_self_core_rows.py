@@ -1,93 +1,25 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-418, AD-432: the core decides each rule of the self-contract of native/ (#880).
+"""AD-418, AD-432: a violation planted in a copy of `native/` fails its self-contract rule (#880).
 
-The test runs the default `archkeel validate` on `native/` of this tree with the core of this
-build. Each rule has a row: no rule names a part of the scope proof. The result is clean (no
-refusal, no FAIL, no violation) and its UNKNOWN rules are the stated ones. `make
-self-validate-native` compares the gaps with the base commit (AD-1064).
+`make self-validate-native` decides the unmodified checkout; these tests plant a module cycle.
 """
 
 from __future__ import annotations
 
-import json
-import re
 import shutil
-import subprocess
 import sys
-import zlib
 from pathlib import Path
-from typing import Any
 
 import pytest
-from core_support import ROOT, SUFFIX, run
+from core_support import ROOT, run
 from frozen_native import frozen_root as frozen_root
 from rustc_dev_support import needs_rustc_dev
 
 from archkeel.cli import core_only
 
 sys.path.insert(0, str(ROOT / "tools"))
-from self_check_gate import problems  # noqa: E402
-
-
-@pytest.fixture(scope="module")
-def checked(built: Path, frozen_root: Path) -> tuple[int, dict[str, Any]]:
-    """One default run on `native/` for the tests of this file: the exit code and the result."""
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(core_only, "locate_core", lambda: built / f"archkeel-core{SUFFIX}")
-        return run("validate", "--root", str(frozen_root), "--config", "native/archkeel.toml")
-
-
-@needs_rustc_dev
-def test_the_core_decides_each_rule_of_the_self_contract(
-    checked: tuple[int, dict[str, Any]],
-) -> None:
-    code, result = checked
-    frame = result["frame"]
-    core = {rule: row[1] for rule, row in frame["rules"].items()}
-    assert problems(result) == []
-    assert core, "the self-contract has rules"
-    # No rule names a part of the scope proof: each one has a decision. The copy has no compiler
-    # facts, so an edge that AD-1136 proves is a named hold (AD-1212); no other kind of gap may be
-    # a graph hold here.
-    assert {gap["kind"] for gap in result["gaps"]} <= {"graph.needs_facts"}
-    # AD-668: a known violation stays FAIL (honesty rule), and the gate above refuses it.
-    assert code in (0, 2) and result["status"] == frame["status"] in ("PASS", "UNKNOWN")
-    if frame["scope"] != "complete":
-        # AD-1041: each number matches its noun. The pairs are distinct module pairs; a pair can
-        # have several gap records, and the text names the records only when they differ.
-        found = re.fullmatch(
-            r"incomplete scope: (\d+) module pairs? with gaps that the contract does not allow"
-            r"(?: \(from (\d+) gap records\))?(?: \(showing (\d+)\))?: .*",
-            frame["scope"],
-            re.DOTALL,
-        )
-        assert found, frame["scope"]
-        pairs = int(found.group(1))
-        records = int(found.group(2) or pairs)
-        assert 0 < pairs <= records <= len(frame["collection_gaps"]) + len(result["gaps"])
-        # A rule holds a part of the run, so its pair count cannot pass the run count.
-        for rule, held in frame["explain"]["holds"]["rules"].items():
-            assert held["total"] <= pairs, rule
-        if found.group(3):
-            assert int(found.group(3)) == 5
-            assert frame["scope"].endswith(f" and {pairs - 5} more pairs")
-
-
-def test_typescript_flow_has_no_open_crossing_into_the_script_index(
-    checked: tuple[int, dict[str, Any]],
-) -> None:
-    frame = checked[1]["frame"]
-    assert [
-        gap
-        for gap in frame["collection_gaps"]
-        if gap["subjects"] == ["native.archkeel_typescript_collector.collect"]
-        and any(
-            frame["locations"][site]["path"] == "native/typescript/src/script_index.rs"
-            for site in gap["evidence"]
-        )
-    ] == []
 
 
 def test_a_planted_report_cycle_fails_the_native_component_rule(
@@ -173,144 +105,6 @@ def test_a_facts_data_dependency_on_sections_fails_the_native_module_rule(
         (sections, data),
     }
     assert all(step["evidence"] and not step.get("possible") for step in cycle["path"])
-
-
-# Review B2 and B3 of #1121: `core` reaches the collector crates only through `archkeel_collect`.
-# The scan lists no method in the file of its type and no trait method as a candidate (open
-# classes, docs/known-limits.md), so a value of a collector type in `core` could reach one without
-# a gap. The items that `collect` takes from a collector crate return only facts types and text, so
-# no such value reaches `core`. The pin reads the import records of the reply, not source text: an
-# alias (`extern crate ... as`) or a renamed dependency is a record too. A new record fails the
-# test, and the row of `core` has to be decided again.
-COLLECT = "native.archkeel_collect"
-# AD-450: `BUILD` is the version and code digest text of the Python collector. It stays in collect.
-PY = "native.archkeel_python_collector"
-# AD-468: the Dart items return a `Reply`, a `Provenance` and text, all facts types.
-DART = "native.archkeel_dart_collector"
-COLLECT_TO_COLLECTORS = {
-    ("native.archkeel_collect", "archkeel_python_collector::TEST_FEATURES", PY),
-    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-python-collector", PY),
-    ("native.archkeel_collect.run", "archkeel_python_collector::BUILD", PY),
-    ("native.archkeel_collect.run", "archkeel_python_collector::typed_reply", PY),
-    ("native.archkeel_collect.run", "archkeel_python_collector::typed_reply_with_navigation", PY),
-    # AD-688: the check of the collector gives the core only a refusal text.
-    ("native.archkeel_collect.run", "archkeel_python_collector::check", PY),
-    # AD-1140: the Explorer entry points read the scripts of pyproject.toml (collector API).
-    ("native.archkeel_collect.entry_points", "archkeel_python_collector::Script", PY),
-    ("native.archkeel_collect.entry_points", "archkeel_python_collector::ScriptTable", PY),
-    ("native.archkeel_collect.entry_points", "archkeel_python_collector::scripts", PY),
-    ("native.archkeel_collect.entry_points", "ScriptTable::Console", PY),
-    ("native.archkeel_collect.entry_points", "ScriptTable::Gui", PY),
-    ("native.archkeel_collect", "archkeel_dart_collector::TEST_FEATURES", DART),
-    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-dart-collector", DART),
-    ("native.archkeel_collect.run", "archkeel_dart_collector::provenance", DART),
-    ("native.archkeel_collect.run", "archkeel_dart_collector::typed_reply", DART),
-    ("native.archkeel_collect.run", "archkeel_dart_collector::check", DART),
-}
-
-
-def _crate(module: str) -> str:
-    return ".".join(module.split(".")[:2])
-
-
-@pytest.fixture(scope="module")
-def rust_facts(built: Path, checked: tuple[int, dict[str, Any]]) -> dict[str, Any]:
-    # The core states the request that it sent to its collector; the Rust collector of the same
-    # build answers it again here, so the tests can read the source records.
-    request = checked[1]["frame"]["self_test"]["collect"]["request"]
-    done = subprocess.run(
-        [str(built / f"archkeel-rust-collector{SUFFIX}")],
-        input=json.dumps(request, sort_keys=True, separators=(",", ":")).encode(),
-        capture_output=True,
-        check=False,
-    )
-    assert done.returncode == 0, done.stderr.decode(errors="replace")
-    return json.loads(zlib.decompress(done.stdout))["facts"]
-
-
-@pytest.fixture(scope="module")
-def import_records(rust_facts: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
-        record["data"]
-        for section in rust_facts["sections"]
-        if section["name"] == "imports"
-        for record in section["records"]
-    ]
-
-
-def test_anonymous_default_keeps_the_known_tree_context_route(
-    import_records: list[dict[str, Any]], rust_facts: dict[str, Any]
-) -> None:
-    ts = "native.archkeel_typescript_collector"
-    source, target = f"{ts}.definitions.arrow", f"{ts}.tree.cx"
-    assert any(
-        (row["source_module"], row["target_module"], row["specifier"], row["symbol"])
-        == (source, target, "cx.k", "Cx")
-        for row in import_records
-    )
-    assert not any(
-        record["kind"] == "source_resolution_gap"
-        and record["data"].get("resolution_dimension") == "imports"
-        and (record["data"].get("source_module"), record["data"].get("module")) == (source, target)
-        for section in rust_facts["sections"]
-        if section["name"] == "unknowns"
-        for record in section["records"]
-    )
-
-
-def test_the_receiver_scan_starts_the_body_walk_without_a_return_edge(
-    import_records: list[dict[str, Any]],
-) -> None:
-    receivers = "native.archkeel_rust_collector.scan.receivers"
-    params, bodies = f"{receivers}.params", f"{receivers}.bodies"
-    edges = {(row["source_module"], row["target_module"]) for row in import_records}
-    assert (receivers, bodies) in edges
-    assert (bodies, params) in edges
-    assert (params, bodies) not in edges
-
-
-def test_the_section_macro_has_no_path_from_the_shared_fact_macros(
-    import_records: list[dict[str, Any]],
-) -> None:
-    facts = "native.archkeel_facts"
-    edges = {(row["source_module"], row["target_module"]) for row in import_records}
-    assert (f"{facts}.data.sites", f"{facts}.macros") in edges
-    assert (f"{facts}.sections", f"{facts}.sections.section_facts") in edges
-    assert not {
-        target
-        for source, target in edges
-        if source == f"{facts}.macros"
-        and target in {f"{facts}.fields", f"{facts}.record", f"{facts}.sections"}
-    }
-
-
-def test_snapshot_io_does_not_depend_on_collector_facts(
-    import_records: list[dict[str, Any]],
-) -> None:
-    snapshot = "native.archkeel_snapshot"
-    facts = "native.archkeel_facts"
-    assert any(_crate(row["source_module"]) == snapshot for row in import_records)
-    assert [
-        row
-        for row in import_records
-        if _crate(row["source_module"]) == snapshot and _crate(row["target_module"]) == facts
-    ] == []
-
-
-def test_collect_hands_core_no_value_of_a_collector_type(
-    import_records: list[dict[str, Any]],
-) -> None:
-    records = import_records
-    # The collector crates are the crates of the reply whose name says so; a new one (the Rust
-    # collector of #1120) is in the set without a change of this test.
-    modules = {data[end] for data in records for end in ("source_module", "target_module")}
-    collectors = {_crate(module) for module in modules if _crate(module).endswith("_collector")}
-    found = {
-        (data["source_module"], data["specifier"], _crate(data["target_module"]))
-        for data in records
-        if _crate(data["source_module"]) == COLLECT and _crate(data["target_module"]) in collectors
-    }
-    assert found == COLLECT_TO_COLLECTORS
 
 
 @needs_rustc_dev

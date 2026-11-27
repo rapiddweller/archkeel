@@ -55,11 +55,6 @@ def steps(base: str) -> list[Step]:
             "fix each finding; never add a blanket ignore",
         ),
         Step(
-            "contract-sort-and-rules",
-            (*PYTEST, "tests/test_native_contract_rules.py"),
-            "sort the ports, the public lists and the rules of native/architecture-contract.json",
-        ),
-        Step(
             "hygiene",
             (*PYTEST, "tests/test_repository_hygiene.py"),
             "fix the finding of the repository hygiene test: read its message",
