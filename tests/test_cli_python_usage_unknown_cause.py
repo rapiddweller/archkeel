@@ -26,10 +26,15 @@ def plant(name: str, consumer: str, files: dict[str, str]) -> Plant:
     return Plant(name, consumer, ENTRY, files, core=("UNKNOWN",))
 
 
+# The cause word and the place that it names, as the first import of the hold reads them.
+EXPECTED = {
+    "escaped_value": "app.lib <- src/app/consumer.py:4",
+    "unread_all": "app.lib.impl",
+}
 PLANTS = {
     # A use inside the scan hands the package object on: a write below it is not excluded.
     # The import of the package is no import of the module of the entry.
-    "escaped": plant(
+    "escaped_value": plant(
         "module object handed on",
         "from app.lib.impl import f\nimport app.lib as pkg\nfrom app.sink import sink\n"
         "sink(pkg)\nf()\n",
@@ -63,7 +68,7 @@ def test_an_import_seen_hold_names_its_cause_its_import_and_its_module(
     text = reasons[0]
     assert "reaches the component, but the core proves no use of this entry" in text, text
     assert f"Cause of each of 1 imports: 1 {cause}." in text, text
-    assert f"First: app.consumer imports f, {cause} (app.lib.impl)." in text, text
+    assert f"First: app.consumer imports f, {cause} ({EXPECTED[cause]})." in text, text
     assert result["status"] != "PASS"
 
 

@@ -334,16 +334,18 @@ pub fn withheld_cause(import: &Import) -> Option<(&'static str, Option<&str>)> {
     Some((cause.as_str(), at.as_deref()))
 }
 
-/// The module whose surface the collector cannot read, and the word of the cause, when the import
-/// states one: `unread_all`, `outside_write` or `escaped`. The survey writes no symbol record for
-/// such a module (#2089).
-pub(crate) fn opaque_surface(import: &Import) -> Option<(&str, &'static str)> {
-    use archkeel_facts::vocab::RouteWithheld::{Escaped, OutsideWrite, UnreadAll};
-    match import.route_withheld()? {
-        (cause @ (UnreadAll | OutsideWrite | Escaped), Some(module)) => {
-            Some((module.as_str(), cause.as_str()))
-        }
-        _ => None,
+/// The word of the cause and the place that it names, when an import states a cause that comes
+/// from a module with an opaque surface (`unread_all`, `outside_write` and each escape): the
+/// survey writes no symbol record for such a module (#2089). The import names its own module;
+/// the cause may sit on a module of the route.
+pub(crate) fn opaque_surface(import: &Import) -> Option<(&'static str, Option<&str>)> {
+    use archkeel_facts::vocab::RouteWithheld::{
+        AmbiguousReexport, TypeCheckingReexport, UncertainHop,
+    };
+    let (cause, at) = import.route_withheld()?;
+    match cause {
+        AmbiguousReexport | UncertainHop | TypeCheckingReexport => None,
+        _ => Some((cause.as_str(), at.as_deref())),
     }
 }
 

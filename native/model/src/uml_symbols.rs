@@ -130,15 +130,19 @@ fn absent(facts: &Facts<'_>, symbol: &str) -> String {
                 .is_some_and(|rest| rest.starts_with('.'))
         })
         .max_by_key(|name| name.len());
+    // The import of the module itself states the cause; the cause may sit on a module of its route.
     let cause = module.and_then(|name| {
         graph
             .imports()
             .iter()
-            .filter_map(opaque_surface)
-            .find_map(|(module, word)| (module == name).then_some(word))
+            .filter(|import| import.target_module() == name)
+            .find_map(opaque_surface)
     });
     match (module, cause) {
-        (Some(name), Some(word)) => format!("{symbol} (module {name}: {word})"),
+        (Some(name), Some((word, Some(at)))) => {
+            format!("{symbol} (module {name}: {word}, {at})")
+        }
+        (Some(name), Some((word, None))) => format!("{symbol} (module {name}: {word})"),
         (Some(name), None) => format!("{symbol} (module {name}: no cause stated)"),
         _ => symbol.to_owned(),
     }
