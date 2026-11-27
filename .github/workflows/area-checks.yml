@@ -34,8 +34,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          # AD-1222: a PR reads the merge base and `origin/main` only. A push to main keeps all branches.
+          fetch-depth: ${{ inputs.base != '' && 1 || 0 }}
           persist-credentials: false
+
+      - name: Fetch the history that the selection reads
+        if: inputs.base != ''
+        env:
+          BASE: ${{ inputs.base }}
+        run: python3 tools/fetch_history.py "$BASE"
 
       - name: Select this area
         id: select
@@ -185,8 +192,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          # AD-1222: a PR reads the merge base and `origin/main` only. A push to main keeps all branches.
+          fetch-depth: ${{ inputs.base != '' && 1 || 0 }}
           persist-credentials: false
+
+      - name: Fetch the history that the selection reads
+        if: inputs.base != ''
+        env:
+          BASE: ${{ inputs.base }}
+        run: python3 tools/fetch_history.py "$BASE"
 
       - name: Select native checks
         id: select

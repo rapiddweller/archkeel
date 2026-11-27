@@ -30,8 +30,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           persist-credentials: false
+
+      # AD-1222: the gate reads the merge base and `origin/main`, not every branch. The tool deepens the
+      # fetch until the merge base is exact, and fails when it cannot.
+      - name: Fetch the history that the gate reads
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: python3 tools/fetch_history.py "$PR_BASE"
 
       # The hash is taken right after the checkout, before any build writes into native/.
       - name: Hash the native tree
