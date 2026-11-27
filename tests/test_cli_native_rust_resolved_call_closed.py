@@ -427,6 +427,26 @@ def test_a_static_callback_of_the_callee_file_keeps_the_gap(
     assert found["NO-A-TO-B"] != "PASS"
 
 
+def test_a_constant_callback_of_the_callee_file_keeps_the_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`d::U::m` calls `CALLBACK`, a constant of `d` that holds `b::hit0`: no signature names it."""
+    holds = COUNTER.format(
+        body="pub struct U;\n\nconst CALLBACK: fn() = crate::b::hit0;\n\n"
+        "impl U {\n    pub fn m(&self) -> usize {\n        CALLBACK();\n        0\n    }\n}"
+    )
+    files = {
+        "crates/app/src/d.rs": holds,
+        "crates/app/src/c.rs": "pub fn other() -> crate::b::S {\n    crate::b::S\n}\n\n"
+        "pub fn make() -> crate::d::U {\n    crate::d::U\n}\n",
+        "crates/app/src/a.rs": "pub fn run() {\n    let _held = crate::c::other();\n"
+        "    let make = crate::c::make;\n    make().m();\n}\n",
+    }
+    root, found = _hit0_scan(tmp_path, release_core, monkeypatch, files)
+    assert _cargo_run(root) == "1 0", "the constant function of `b` runs"
+    assert found["NO-A-TO-B"] != "PASS"
+
+
 def test_a_static_callback_that_a_second_file_holds_keeps_the_gap(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

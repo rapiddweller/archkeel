@@ -17,39 +17,28 @@ use rustc_middle::ty::{self, GenericArgsRef, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::{sym, FileName, Span};
 use std::collections::BTreeSet;
 
-/// The impls of the workspace by the self type that they name: an ADT, a type parameter (blanket) or another type.
+/// The impls, the statics and the constants of the library: a call into another crate is open (`foreign_member`).
 fn impl_index(st: &mut State, tcx: TyCtxt<'_>) -> ImplIndex {
     let mut index = ImplIndex::default();
-    let crates = std::iter::once(LOCAL_CRATE).chain(tcx.crates(()).iter().copied());
-    for cnum in crates {
-        let root = DefId {
-            krate: cnum,
-            index: rustc_hir::def_id::CRATE_DEF_INDEX,
-        };
-        if cnum != LOCAL_CRATE && !crate::body::inside(st, tcx, root) {
-            continue;
+    for id in tcx.hir_crate_items(()).free_items() {
+        let kind = tcx.def_kind(id.owner_id);
+        if matches!(kind, DefKind::Static { .. } | DefKind::Const { .. }) {
+            let did = id.owner_id.to_def_id();
+            let file = crate::items::file(tcx, st, did);
+            index.statics.entry(file).or_default().push(did);
         }
-        if cnum == LOCAL_CRATE {
-            for id in tcx.hir_crate_items(()).free_items() {
-                if matches!(tcx.def_kind(id.owner_id), DefKind::Static { .. }) {
-                    let did = id.owner_id.to_def_id();
-                    let file = crate::items::file(tcx, st, did);
-                    index.statics.entry(file).or_default().push(did);
-                }
+    }
+    for imp in tcx.trait_impls_in_crate(LOCAL_CRATE) {
+        let file = crate::items::file(tcx, st, *imp);
+        match tcx.type_of(*imp).skip_binder().kind() {
+            ty::Adt(def, _) => {
+                index.by_adt.entry(def.did()).or_default().insert(file);
             }
-        }
-        for imp in tcx.trait_impls_in_crate(cnum) {
-            let file = crate::items::file(tcx, st, *imp);
-            match tcx.type_of(*imp).skip_binder().kind() {
-                ty::Adt(def, _) => {
-                    index.by_adt.entry(def.did()).or_default().insert(file);
-                }
-                ty::Param(_) => {
-                    index.blanket.insert(file);
-                }
-                _ => {
-                    index.other.insert(file);
-                }
+            ty::Param(_) => {
+                index.blanket.insert(file);
+            }
+            _ => {
+                index.other.insert(file);
             }
         }
     }
@@ -80,9 +69,10 @@ impl Touched<'_> {
 /// The most types that one call visits. A type that grows without end (`R<T>` holds `R<Vec<T>>`) is open.
 const BUDGET: usize = 300;
 
-/// The definition is in another crate of the workspace than the one that the driver compiles.
-fn foreign_member(st: &mut State, tcx: TyCtxt<'_>, d: DefId) -> bool {
-    d.krate != LOCAL_CRATE && crate::body::inside(st, tcx, d)
+/// The definition is in a crate other than the one that the driver compiles and than the standard library. Its
+/// statics are not indexed, and they can hold a callback that the library installs.
+fn foreign_member(tcx: TyCtxt<'_>, d: DefId) -> bool {
+    d.krate != LOCAL_CRATE && ![sym::core, sym::alloc, sym::std].contains(&tcx.crate_name(d.krate))
 }
 
 /// Visit one type: its definition file, the files of its impls, and the types inside it. A closure shows its
@@ -113,7 +103,7 @@ fn visit<'tcx>(
     let inner: Vec<(Ty<'tcx>, bool)> = match *ty.kind() {
         ty::Adt(def, args) => {
             found.files.insert(crate::items::file(tcx, st, def.did()));
-            if foreign_member(st, tcx, def.did()) {
+            if foreign_member(tcx, def.did()) {
                 found.open_by("<member>");
             }
             for imp in tcx.inherent_impls(def.did()) {
@@ -225,9 +215,9 @@ fn touch<'tcx>(
             found.open_by("<callee>");
             continue;
         }
-        // The statics of another member of the workspace are not indexed, so its code is unknown here.
+        // The globals of another crate are not indexed, so its code is unknown here.
         found.files.insert(crate::items::file(tcx, st, *callee));
-        if foreign_member(st, tcx, *callee) {
+        if foreign_member(tcx, *callee) {
             found.open_by("<member>");
         }
         let sig = tcx.fn_sig(*callee).instantiate(tcx, *args).skip_binder();
@@ -247,8 +237,8 @@ fn touch<'tcx>(
             found.files.extend(index.other.iter().copied());
         }
     }
-    // A static of a touched file can hold a callback (`static CALLBACK: fn()`): its type is part of the proof. The
-    // walk of a static can touch more files, so the loop ends when no file is new.
+    // A static or a constant of a touched file can hold a callback: its type is part of the proof. Its walk can
+    // touch more files, so the loop ends when no file is new.
     let mut done = BTreeSet::new();
     while let Some(file) = found.files.iter().find(|f| !done.contains(*f)).copied() {
         done.insert(file);

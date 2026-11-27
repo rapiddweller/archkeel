@@ -30,8 +30,8 @@ such gaps (`as_str` 299, `is_empty` 92, `id` 81). The rustc driver already knows
    without generics is no argument; the caller can run what the call returns). The calls inside the receiver
    and the arguments count too, with the `Deref` that an adjustment adds. A visited type is keyed with its
    trust. Only an owner of `alloc` grants trust to its raw pointers.
-   The types of the statics of each touched file count too (a callback in a global), also the file of each
-   callee. A callee or a type of another member crate is open: its statics are not indexed. It enters the fields of every type, with associated types normalized, up to a budget of 300 types (more is open).
+   The types of the statics and constants of each touched file count too (a callback in a global), also the file of each
+   callee. A callee or a type of another crate (not std) is open: its globals are not indexed. It enters the fields of every type, with associated types normalized, up to a budget of 300 types (more is open).
    A std type must also be a container, a smart pointer, a cell, a range or an iterator adapter; another one (`Waker` holds a vtable of
    functions) is open, so a callback that a field holds (a function pointer, a closure,
    a trait object) is seen. The rule is closed-world: what the walk cannot name keeps the candidate. A std adapter that runs a closure of `M` keeps the candidate. A foreign callee (`core`, `alloc`) falls the candidate too. An unresolved call (a trait object, a parameter) writes an open record of its place, so a test unit that

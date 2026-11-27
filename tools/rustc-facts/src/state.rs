@@ -69,7 +69,7 @@ pub(crate) struct ImplIndex {
     pub(crate) by_adt: HashMap<DefId, BTreeSet<u32>>,
     pub(crate) blanket: BTreeSet<u32>,
     pub(crate) other: BTreeSet<u32>,
-    /// The statics of the workspace by file: a function can read a callback that no signature names.
+    /// The statics and constants of the library by file: a function can read a callback that no signature names.
     pub(crate) statics: HashMap<u32, Vec<DefId>>,
 }
 
