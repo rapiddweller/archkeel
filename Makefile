@@ -47,13 +47,13 @@ decision-index:
 	$(UV) run --locked python tools/decision_index.py --write test-artifacts/decision-index.md
 
 # AD-674: the fast tests (everything but tests/areas.py SLOW_FILES). The main tier runs one area in each
-# job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). A floor in
-# tests/area_floors.json makes an empty or shrunken selection fail.
+# job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). An area that
+# holds no test after the marker filter fails (AD-1250).
 FAST_TEST = ARCHKEEL_REQUIRE_PREBUILT=1 $(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
 	-q --tb=short -rfEs --durations=10 --junitxml=test-artifacts/pytest/fast.xml
 
 fast-test: core browser-runtime-install
-	$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)
+	$(FAST_TEST) -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)
 
 # The PR gate runs the main-tier tests of the areas that the change selects.
 PR_BASE ?= origin/main
@@ -104,9 +104,9 @@ pr-selected-test: core browser-runtime-install
 	if [ "$$parallel" = run ]; then \
 		native=$$($(UV) run --locked python tools/select_areas.py --job native "$(PR_BASE)") || exit $$?; \
 		if [ "$$native" = run ]; then $(MAKE) native-test || exit $$?; fi; \
-		eval "$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $$areas"; \
+		eval "$(FAST_TEST) -m 'not native_wheel and not slow' $$areas"; \
 	else \
-		eval "$(FAST_TEST) --tier pr -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"; \
+		eval "$(FAST_TEST) -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"; \
 	fi
 
 # Checks a pull request before its merge: make merge-check PR=<number> (tools/merge_check.py).

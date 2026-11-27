@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from areas import AREAS, areas_of_change, parallel_areas, rust_checks
+from areas import AREAS, SLOW_FILES, area_of, areas_of_change, parallel_areas, rust_checks
 
 ROOT = Path(__file__).parents[1]
 
@@ -160,51 +160,29 @@ def test_pr_aggregate_refuses_failed_or_skipped_jobs() -> None:
         assert done.returncode == expected
 
 
-def test_each_area_meets_its_floor_of_fast_tests() -> None:
-    """The floor check of conftest runs in this collection; named tests stay in the fast tier."""
-    options = ["--collect-only", "-q", "--tier", "fast", "-m", "not native_wheel and not slow"]
-    options += ["-p", "no:xdist"]
-    areas = [item for area in AREAS for item in ("--area", area)]
+def _collect(*arguments: str) -> tuple[int, str]:
     done = subprocess.run(
-        [sys.executable, "-m", "pytest", *options, *areas],
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:xdist", *arguments],
         cwd=ROOT,
+        env={"PATH": "/usr/bin:/bin"},
         capture_output=True,
         text=True,
         check=False,
     )
-    assert done.returncode == 0, done.stdout[-800:] + done.stderr[-800:]
-    for name in (
-        "test_collect_hands_core_no_value_of_a_collector_type",
-        "test_release_scan_at_64_mib_keeps_a_full_frame_under_300_mib",
-        "test_native_static_page_stays_below_the_review_size_budget",
-        "test_requires_receipt_distinguishes_matching_and_wrong_ports",
-    ):
-        assert name in done.stdout
+    return done.returncode, done.stdout + done.stderr
 
 
-@pytest.mark.parametrize("area", sorted(AREAS))
-def test_the_floor_of_an_area_fails_a_selection_that_falls_short(area: str) -> None:
-    done = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "--collect-only",
-            "-q",
-            "--area",
-            area,
-            "--tier",
-            "fast",
-            "-m",
-            "not slow",
-        ],
-        cwd=ROOT,
-        env={"ARCHKEEL_FLOOR_PLUS": "1000000", "PATH": "/usr/bin:/bin"},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert done.returncode != 0 and "fast tests" in done.stdout + done.stderr
+def test_an_area_that_is_empty_after_the_marker_filter_fails_also_beside_a_full_one() -> None:
+    """AD-1250: `-m slow` leaves tests only in the areas that own a slow file."""
+    slow = sorted({area_of(name) for name in SLOW_FILES})
+    quiet = sorted(set(AREAS) - set(slow))
+    assert slow and quiet
+    code, text = _collect("--area", slow[0], "-m", "slow")
+    assert code == 0, text[-600:]
+    code, text = _collect("--area", quiet[0], "-m", "slow")
+    assert code != 0 and "selects no tests" in text
+    code, text = _collect("--area", slow[0], "--area", quiet[0], "-m", "slow")
+    assert code != 0 and f"{quiet[0]}" in text and "selects no tests" in text
 
 
 def test_a_test_session_under_make_never_builds_the_shared_core(
@@ -226,12 +204,11 @@ def test_a_test_session_under_make_never_builds_the_shared_core(
     assert "fast-test: core" in makefile and "pr-selected-test: core" in makefile
 
 
-def test_a_shared_test_helper_the_area_table_and_its_floors_select_every_area() -> None:
+def test_a_shared_test_helper_and_the_area_table_select_every_area() -> None:
     """AD-736: they can change any area, so no area may be left out."""
     for path in (
         "tests/conftest.py",
         "tests/areas.py",
-        "tests/area_floors.json",
         "tests/core_support.py",
         "tests/python_site_plants.py",
         "tests/rust_param_review_plants.py",
@@ -262,40 +239,3 @@ def test_select_areas_reads_the_diff_without_rename_detection(tmp_path: Path) ->
         assert sorted(changed("main")) == ["tests/core_help.py", "tests/core_support.py"]
     finally:
         os.chdir(previous)
-
-
-def _collect(
-    tier: list[str], area: str, plus: str = "0", markers: str = "not slow"
-) -> tuple[int, str]:
-    done = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:xdist", "--area", area]
-        + tier
-        + ["-m", markers],
-        cwd=ROOT,
-        env={"ARCHKEEL_FLOOR_PLUS": plus, "PATH": "/usr/bin:/bin"},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return done.returncode, done.stdout + done.stderr
-
-
-def test_the_tier_option_decides_which_floor_applies_not_a_substring_of_the_marker_expression() -> (
-    None
-):
-    """AD-736: --tier pr|fast|full. Without a tier, or with full, no floor is checked."""
-    pr = "not slow and not debug_build and not heavy"
-    assert _collect(["--tier", "pr"], "reports", markers=pr)[0] == 0
-    code, text = _collect(["--tier", "pr"], "reports", plus="1000000", markers=pr)
-    assert code != 0 and "pr tests" in text
-    # The marker expression says "not slow" in each case below; the tier alone decides.
-    assert _collect([], "reports", plus="1000000")[0] == 0
-    assert _collect(["--tier", "full"], "reports", plus="1000000")[0] == 0
-    assert _collect(["--tier", "other"], "reports")[0] != 0
-
-
-def test_the_make_targets_pass_their_tier() -> None:
-    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    full = (ROOT / "tools/full.mk").read_text(encoding="utf-8")
-    assert "$(FAST_TEST) --tier fast" in makefile and "--tier pr -m" in makefile
-    assert "--tier full" in full

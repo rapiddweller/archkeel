@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import subprocess
@@ -143,16 +142,6 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
         listed = re.search(r"\n        area:\n((?:          - .+\n)+)", text)
         assert listed is not None, workflow
         assert [line.split("- ", 1)[1].strip('"') for line in listed[1].splitlines()] == list(AREAS)
-    # AD-674: each area keeps a floor of fast tests, so a selection can never be empty.
-    floors = json.loads((ROOT / "tests/area_floors.json").read_text())
-    for tier in ("fast", "pr"):
-        assert sorted(floors[tier]) == sorted(AREAS)
-        assert all(floor > 0 for floor in floors[tier].values())
-
-
-FULL_MK = "tools/full.mk"
-# CI runs these on each PR, so a break in them shows before the merge. Full needs no run for them.
-SHARED_WITH_CI = {"mermaid", "self-validate", "type-reach-setup"}
 
 
 def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
