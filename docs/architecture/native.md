@@ -136,7 +136,7 @@ The store still refuses Python replies; recorded-input unit tests do not change 
 > **History.** The Python engine, `make dual-run` and the harness `tools/dual_run*.py` are deleted
 > ([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)). The text about them below is the record of how the
 > core was compared with that engine. The request kinds `archkeel-core dual-run` and `check`
-> and `tools/dual_run_schema.json` stay for the Rust tests. A release binary has neither kind: they
+> stay for the Rust tests (`tools/dual_run_schema.json` is deleted, AD-1264). A release binary has neither kind: they
 > are compiled in test builds and with the cargo feature `harness` only (#1095).
 
 The Rust model and evaluator (WP6 of #880) had to give the verdicts and rows of the Python engine.
@@ -155,8 +155,8 @@ The engine command reads one JSON request on standard input: `protocol`, `case`,
 `archkeel-dual-run-3`, `insides` (AD-379), and, from `archkeel-dual-run-4`, `roots` (AD-384). It writes
 one frame on standard output: `rules` (rule id to kind and status) and the columnar
 `architecture` or the canonical `sections`. A failed or slow engine is a difference
-(`--engine-timeout`, default 600 s). The sections and rule families are in
-`tools/dual_run_schema.json`.
+(`--engine-timeout`, default 600 s). The sections and rule families were in
+`tools/dual_run_schema.json` (deleted, AD-1264).
 `python -m tools.dual_run serve-python` is the reference: it serves the Python engine.
 
 `archkeel-core dual-run` is the Rust engine ([AD-363](decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md)).

@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The compared sections of `architecture.json` (`tools/dual_run_schema.json`) and the slice of
-//! WP6 that ports each one (design WP6-0, section C).
+//! The sections of `architecture.json` that the model owns or compares, and the slice of WP6 that
+//! ports each one (design WP6-0, section C). The list was compared with the schema of the deleted
+//! dual-run harness; no file keeps that second list (AD-1264).
 
 /// A WP6 slice that ports a derived section.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
