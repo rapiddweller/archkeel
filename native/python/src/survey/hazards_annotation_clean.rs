@@ -368,33 +368,31 @@ impl<'a> Project<'a> {
         active: &mut Active,
     ) -> Entity {
         let facts = self.facts(m);
-        if facts.opaque || depth > MAX_DEPTH * 2 {
-            return Entity::Unknown;
-        }
-        if !self.plain_class(m, body, depth, active) {
+        if facts.opaque || depth > MAX_DEPTH * 2 || !self.plain_class(m, body, depth, active) {
             return Entity::Unknown;
         }
         let scope = &facts.scopes[body];
-        let own = scope.names.get(attr).into_iter().flatten().map(|b| (m, b));
-        let bound: Vec<(usize, &Binding<'a>)> = own.chain(self.stores_of(attr)).collect();
-        if !bound.is_empty() {
-            let found = bound
-                .into_iter()
-                .map(|(at, b)| self.binding(at, b, depth, active));
-            return self.merge_all(found.collect::<Vec<_>>().into_iter());
-        }
         let Some(class) = scope.class else {
             return Entity::Unknown;
         };
+        let own: Vec<&Binding<'a>> = scope.names.get(attr).into_iter().flatten().collect();
+        let mut found: Vec<Entity> = own
+            .iter()
+            .map(|b| self.binding(m, b, depth, active))
+            .collect();
+        // A store matches by name only: it proves no override of the bases.
+        for (at, binding) in self.stores_of(attr) {
+            found.push(self.binding(at, binding, depth, active));
+        }
         let parent = scope.parent.unwrap_or(0);
         let bases = class.arguments.iter().flat_map(|a| &a.args);
-        let found: Vec<Entity> = bases
-            .map(|base| match self.path(base, m, parent, depth + 1, active) {
+        for base in bases.filter(|_| own.is_empty()) {
+            found.push(match self.path(base, m, parent, depth + 1, active) {
                 Entity::Standard(path) => Entity::Standard(format!("{path}.{attr}")),
                 Entity::Class(m2, b2) => self.attribute(m2, b2, attr, depth + 1, active),
                 _ => Entity::Unknown,
-            })
-            .collect();
+            });
+        }
         self.merge_all(found.into_iter())
     }
 }

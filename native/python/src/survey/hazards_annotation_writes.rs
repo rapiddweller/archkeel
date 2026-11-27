@@ -23,7 +23,7 @@ impl<'a> Project<'a> {
             let named = writes.filter_map(|(at, w)| {
                 let attr = w.attr.clone()?;
                 match self.dotted(w.receiver, at, w.scope, 0) {
-                    Some(path) => Some((path, attr)),
+                    Some(path) => Some((self.canonical(path, 0), attr)),
                     None => Some(("*".to_owned(), attr)),
                 }
             });
@@ -31,6 +31,24 @@ impl<'a> Project<'a> {
         });
         let key = |m: &str| (m.to_owned(), name.to_owned());
         all.contains(&key(module)) || all.contains(&key("*"))
+    }
+
+    /// The dotted module that all `bindings` name, if they agree.
+    fn agree(&self, m: usize, bindings: &[Binding<'a>], depth: usize) -> Option<String> {
+        let paths: Vec<Option<String>> = bindings
+            .iter()
+            .map(|b| match b {
+                Binding::Import(module, None) => Some(module.clone()),
+                Binding::Import(module, Some(name)) => Some(format!("{module}.{name}")),
+                Binding::Value(value, home) => self.dotted(value, m, *home, depth + 1),
+                _ => None,
+            })
+            .collect();
+        let first = paths.first()?.clone()?;
+        paths
+            .iter()
+            .all(|p| p.as_deref() == Some(first.as_str()))
+            .then_some(first)
     }
 
     /// The dotted name of the module that `receiver` names through its imports or through an
@@ -53,20 +71,7 @@ impl<'a> Project<'a> {
             Expr::Name(node) => {
                 let facts = self.facts(m);
                 let at = facts.holder(scope, node.id.as_str())?;
-                let paths: Vec<Option<String>> = facts.scopes[at].names[node.id.as_str()]
-                    .iter()
-                    .map(|b| match b {
-                        Binding::Import(module, None) => Some(module.clone()),
-                        Binding::Import(module, Some(name)) => Some(format!("{module}.{name}")),
-                        Binding::Value(value, home) => self.dotted(value, m, *home, depth + 1),
-                        _ => None,
-                    })
-                    .collect();
-                let first = paths.first()?.clone()?;
-                paths
-                    .iter()
-                    .all(|p| p.as_deref() == Some(first.as_str()))
-                    .then_some(first)
+                self.agree(m, &facts.scopes[at].names[node.id.as_str()], depth)
             }
             _ => None,
         }
@@ -93,5 +98,21 @@ impl<'a> Project<'a> {
         places
             .map(|(at, i)| (*at, &self.facts(*at).stores[attr][*i]))
             .collect()
+    }
+
+    /// `app.cfg.alias` where `app.cfg` binds `alias` to a module (`import contextlib as alias`):
+    /// the module that the path names in the end.
+    fn canonical(&self, path: String, depth: usize) -> String {
+        let named = path.rsplit_once('.').and_then(|(module, name)| {
+            let at = *self.by_name.get(module)?;
+            let facts = self.facts(at);
+            let home = facts.holder(0, name)?;
+            let bindings = facts.scopes[home].names.get(name)?;
+            self.agree(at, bindings, depth + 1)
+        });
+        match named {
+            Some(next) if depth < 8 && next != path => self.canonical(next, depth + 1),
+            _ => path,
+        }
     }
 }

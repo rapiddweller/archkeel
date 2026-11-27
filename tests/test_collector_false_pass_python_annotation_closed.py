@@ -503,6 +503,53 @@ SCOPES = {
             x: 's'
         """
     ),
+    "annotation without a value makes the name local to the class": source(
+        """
+        s = str(PAYLOAD)
+
+
+        def make():
+            s = 'int'
+
+            class K:
+                x: s
+                s: int
+
+            return K
+
+
+        K = make()
+        """
+    ),
+    "module of a standard alias re-exported by a scanned module": (
+        consumer(
+            'from app.cfg import alias\nalias.AbstractContextManager = str("' + IMPORT + '")\n',
+            "contextlib.AbstractContextManager",
+            HEAD + "import contextlib\n",
+        ),
+        {"src/app/cfg.py": "import contextlib as alias\n"},
+    ),
+    "inherited string next to an unrelated store": source(
+        """
+        class B:
+            s = str(PAYLOAD)
+
+
+        class C(B):
+            pass
+
+
+        class D:
+            pass
+
+
+        D.s = 'int'
+
+
+        class K:
+            x: C.s
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

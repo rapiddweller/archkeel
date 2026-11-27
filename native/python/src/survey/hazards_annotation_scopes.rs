@@ -265,11 +265,12 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
                 .targets
                 .iter()
                 .for_each(|t| self.target(t, Some(&node.value))),
-            Stmt::AnnAssign(node) => {
-                if let Some(value) = &node.value {
-                    self.target(&node.target, Some(value));
-                }
-            }
+            Stmt::AnnAssign(node) => match (&node.value, &*node.target) {
+                (Some(value), target) => self.target(target, Some(value)),
+                // `s: int` binds no value, yet makes `s` local to a class.
+                (None, Expr::Name(name)) => self.bind(name.id.as_str(), Binding::Inert),
+                (None, _) => {}
+            },
             Stmt::AugAssign(node) => self.target(&node.target, None),
             Stmt::Delete(node) => node.targets.iter().for_each(|t| self.target(t, None)),
             Stmt::For(node) => {
