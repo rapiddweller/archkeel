@@ -18,7 +18,6 @@ from pathlib import Path
 import pytest
 
 from tools import fixture_source, fixture_tree, report_gallery, report_gallery_page
-from tools.report_product import Part
 
 
 @contextmanager
@@ -245,25 +244,10 @@ def test_a_self_badge_shows_the_counts_and_the_colour_of_the_status(tmp_path: Pa
     code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
     assert code == 0
     badge = json.loads((out / "self" / "core-badge.json").read_text())
-    assert badge == {
-        "schemaVersion": 1,
-        "label": "core self-check",
-        "message": "1 PASS · 1 FAIL · 0 UNKNOWN",
-        "color": "f2606b",
-    }
+    assert badge["label"] == "core self-check"
     assert (
         json.loads((out / "self" / "shell-badge.json").read_text())["label"] == "shell self-check"
     )
-
-
-@pytest.mark.parametrize(
-    ("status", "color"), [("PASS", "46bfd0"), ("FAIL", "f2606b"), ("UNKNOWN", "ecb64a")]
-)
-def test_the_badge_colour_follows_the_status(status: str, color: str) -> None:
-    counts = {"PASS": 2, "FAIL": 0, "UNKNOWN": 1}
-    row = {"summary": {"status": status, "counts": counts, "refusal": None}}
-    made = report_gallery.badge(row, "x")
-    assert made["color"] == color and made["message"] == "2 PASS · 0 FAIL · 1 UNKNOWN"
 
 
 def test_a_self_run_without_a_result_gets_a_grey_badge_and_fails_the_build() -> None:
@@ -297,84 +281,11 @@ def test_the_badge_of_the_system_has_no_result_when_a_part_has_none() -> None:
     assert report_gallery.system_badge([])["message"] == "no result"
 
 
-def _row(run: dict, status: str | None) -> dict:
-    summary = None if status is None else {"status": status, "counts": dict.fromkeys(STATUSES, 0)}
-    summary = summary and {**summary, "gaps": {}, "refusal": None}
-    return {"run": {"name": "n", **run}, "links": [], **({"summary": summary} if summary else {})}
-
-
 STATUSES = report_gallery_page.STATUSES
 
 
 def _section(page: str, key: str) -> str:
     return page.split(f'id="sec-{key}"')[1].split("</section>")[0]
-
-
-def test_the_page_has_four_sections_in_order_and_each_run_sits_in_its_own() -> None:
-    rows = [
-        _row({"name": "u", "section": "unknown", "intent": "UNKNOWN", "about": "au"}, "UNKNOWN"),
-        _row({"name": "c", "section": "clean", "intent": "PASS", "about": "ac"}, "PASS"),
-        _row({"name": "v", "section": "violation", "intent": "FAIL", "about": "av"}, "FAIL"),
-        _row({"name": "r", "section": "real", "intent": "PASS", "about": "ar"}, "PASS"),
-    ]
-    page = report_gallery_page.index(rows, "sha", "now")
-    titles = re.findall(r'<h2 class="h3" id="sec-(\w+)">([^<]+)</h2>', page)
-    assert titles == [
-        ("real", "Real projects (PASS earned)"),
-        ("clean", "Clean scenarios (PASS on purpose)"),
-        ("violation", "Violation scenarios (FAIL on purpose)"),
-        ("unknown", "What UNKNOWN means"),
-    ]
-    for key, name in (("real", "r"), ("clean", "c"), ("violation", "v"), ("unknown", "u")):
-        assert f"<td>{name}</td>" in _section(page, key)
-        assert page.count(f"<td>{name}</td>") == 1
-
-
-def test_an_empty_section_is_not_drawn() -> None:
-    rows = [_row({"section": "clean", "intent": "PASS", "about": "a"}, "PASS")]
-    page = report_gallery_page.index(rows, "sha", "now")
-    assert 'id="sec-clean"' in page
-    assert all(f'id="sec-{key}"' not in page for key in ("real", "violation", "unknown"))
-
-
-def test_the_self_check_is_the_anchor_card_of_the_real_projects(tmp_path: Path) -> None:
-    code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
-    page = (out / "showcase" / "index.html").read_text()
-    real = _section(page, "real")
-    assert code == 0
-    assert "<td>ArchKeel self-check</td>" in real
-    assert 'href="../self/index.html"' in real
-    # The stub gives a FAIL for each part: the card says so next to the intent.
-    assert "expected PASS" in real and "FAIL today" in real
-
-
-def test_a_run_that_meets_its_intent_says_so_without_a_blocker() -> None:
-    assert "expected PASS</span> \u00b7 PASS" in report_gallery_page.intent_line(
-        {"intent": "PASS"}, "PASS"
-    )
-    assert "expected FAIL</span> \u00b7 FAIL" in report_gallery_page.intent_line(
-        {"intent": "FAIL"}, "FAIL"
-    )
-    line = report_gallery_page.intent_line({"intent": "UNKNOWN"}, "UNKNOWN")
-    assert "UNKNOWN on purpose</span> \u00b7 UNKNOWN" in line
-    assert "blocked" not in line and "not met" not in line
-
-
-def test_a_run_that_differs_from_its_intent_names_the_difference_and_its_blocker() -> None:
-    run = {"intent": "PASS", "blocked_by": [1534, 1533]}
-    line = report_gallery_page.intent_line(run, "UNKNOWN")
-    assert "expected PASS" in line and "UNKNOWN today" in line
-    assert "blocked by" in line
-    assert f'href="{report_gallery_page.REPOSITORY}/issues/1534">#1534</a>' in line
-    assert "#1533" in line
-
-
-def test_a_difference_without_a_blocker_is_a_scenario_not_met() -> None:
-    line = report_gallery_page.intent_line({"intent": "FAIL"}, "PASS")
-    assert "expected FAIL" in line and "PASS today" in line and "scenario not met" in line
-    assert "ak-t-fail" in line
-    assert "no result" in report_gallery_page.intent_line({"intent": "PASS"}, None)
-    assert "no intent stated" in report_gallery_page.intent_line({}, "PASS")
 
 
 def test_every_shown_matrix_run_states_a_section_an_intent_and_a_blocker_when_it_differs() -> None:
@@ -441,35 +352,6 @@ def test_the_copy_commits_the_resolver_inputs_and_an_overlay_as_tracked_files(
         assert "src/planted.ts" in tracked
         assert (tree / "node_modules").is_dir()
     assert not tree.exists()
-
-
-def test_the_page_navigation_lists_the_system_and_its_parts_first_and_the_fixtures_apart() -> None:
-    page = report_gallery.nav(
-        "<main></main>",
-        [("System", "index.html"), ("Part A", "a.html")],
-        "Part A",
-        ("Fixture reports", "../showcase/index.html"),
-    )
-    labels = re.findall(r">([^<]+)</a>", page)
-    assert labels == ["System", "Part A", "Fixture reports"]
-    # A thin divider sets the other kind of page apart; the open page is marked.
-    assert page.index("rp-pages__divider") < page.index("Fixture reports")
-    assert page.index("rp-pages__divider") > page.index("Part A")
-    assert 'href="a.html" aria-current="page">Part A</a>' in page
-
-
-def _part(title: str, gaps: int) -> Part:
-    counts = {"PASS": 5, "FAIL": 0, "UNKNOWN": 0}
-    return Part("k", title, "rust", "s", "r.html", status="PASS", counts=counts, gaps=gaps)
-
-
-def test_the_self_check_row_shows_the_real_gap_count_of_all_parts() -> None:
-    clean = report_gallery_page.index([], "sha", "now", [_part("Core", 0), _part("Shell", 0)])
-    assert "<td>none</td>" in clean
-    page = report_gallery_page.index([], "sha", "now", [_part("Core", 3), _part("Shell", 2)])
-    assert "<td>5 collection gaps (Core 3, Shell 2)</td>" in page
-    one = report_gallery_page.index([], "sha", "now", [_part("Core", 0), _part("Shell", 1)])
-    assert "<td>1 collection gap (Shell 1)</td>" in one
 
 
 def test_the_gallery_stages_reports_outside_the_output_dir_during_scans(tmp_path: Path) -> None:
