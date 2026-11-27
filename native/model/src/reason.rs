@@ -142,6 +142,9 @@ impl Hygiene {
     }
 }
 
+/// The largest number of absent symbols that the reason of a UML target names.
+const UML_ABSENT_SHOWN: usize = 5;
+
 /// Why the UML target row of a contract tree is UNKNOWN (AD-470, AD-494).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UmlGap {
@@ -167,6 +170,8 @@ pub enum UmlGap {
         count: usize,
         /// The element kinds that need other facts.
         kinds: Vec<String>,
+        /// The symbols of the target that the symbol inventory does not hold, sorted (#2089).
+        absent: Vec<String>,
     },
     /// Each assessment passes, but the scope of the run is not complete: its reason.
     Incomplete(String),
@@ -189,11 +194,34 @@ impl fmt::Display for UmlGap {
             UmlGap::NothingCompared => {
                 formatter.write_str("the target gives no assessment that the core can make")
             }
-            UmlGap::Undecided { count, kinds } => write!(
-                formatter,
-                "{count} assessments cannot be decided: {}",
-                kinds.join(", ")
-            ),
+            UmlGap::Undecided {
+                count,
+                kinds,
+                absent,
+            } => {
+                write!(
+                    formatter,
+                    "{count} assessments cannot be decided: {}",
+                    kinds.join(", ")
+                )?;
+                if absent.is_empty() {
+                    return Ok(());
+                }
+                let shown: Vec<&str> = absent
+                    .iter()
+                    .take(UML_ABSENT_SHOWN)
+                    .map(String::as_str)
+                    .collect();
+                write!(
+                    formatter,
+                    "; not in the symbol inventory: {}",
+                    shown.join(", ")
+                )?;
+                match absent.len() - shown.len() {
+                    0 => Ok(()),
+                    more => write!(formatter, " and {more} more"),
+                }
+            }
             UmlGap::Incomplete(reason) => {
                 write!(formatter, "the scope of the run is not complete: {reason}")
             }
