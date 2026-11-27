@@ -427,6 +427,30 @@ def test_a_static_callback_of_the_callee_file_keeps_the_gap(
     assert found["NO-A-TO-B"] != "PASS"
 
 
+def test_a_static_callback_that_a_second_file_holds_keeps_the_gap(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`d` holds a static of type `c::State`, and `c` holds the static callback into `b`."""
+    state = COUNTER.format(
+        body="pub struct State;\n\npub static CALLBACK: fn() = crate::b::hit0;\n\n"
+        "impl State {\n    pub fn run(&self) {\n        CALLBACK();\n    }\n}"
+    )
+    holds = COUNTER.format(
+        body="pub struct U;\n\nstatic STATE: crate::c::State = crate::c::State;\n\n"
+        "impl U {\n    pub fn m(&self) -> usize {\n        STATE.run();\n        0\n    }\n}"
+    )
+    files = {
+        "crates/app/src/d.rs": holds,
+        "crates/app/src/c.rs": state + "\npub fn other() -> crate::b::S {\n    crate::b::S\n}\n\n"
+        "pub fn make() -> crate::d::U {\n    crate::d::U\n}\n",
+        "crates/app/src/a.rs": "pub fn run() {\n    let _held = crate::c::other();\n"
+        "    let make = crate::c::make;\n    make().m();\n}\n",
+    }
+    root, found = _hit0_scan(tmp_path, release_core, monkeypatch, files)
+    assert _cargo_run(root) == "1 0", "the static function of `b` runs"
+    assert found["NO-A-TO-B"] != "PASS"
+
+
 def test_a_std_adapter_with_a_closure_of_the_caller_closes_the_candidate(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

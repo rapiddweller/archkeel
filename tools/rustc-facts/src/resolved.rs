@@ -234,24 +234,19 @@ fn touch<'tcx>(
             found.files.extend(index.other.iter().copied());
         }
     }
-    // A static of a touched file can hold a callback (`static CALLBACK: fn()`): its type is part of the proof.
-    let statics: Vec<DefId> = st.impls.as_ref().map_or_else(Vec::new, |index| {
-        found
-            .files
-            .iter()
-            .filter_map(|f| index.statics.get(f))
-            .flatten()
-            .copied()
-            .collect()
-    });
-    for did in statics {
-        let Ok(ty) =
-            tcx.try_normalize_erasing_regions(env, tcx.type_of(did).instantiate_identity())
-        else {
-            found.open_by("<static>");
-            continue;
-        };
-        visit(st, tcx, env, ty, (&mut found, false));
+    // A static of a touched file can hold a callback (`static CALLBACK: fn()`): its type is part of the proof. The
+    // walk of a static can touch more files, so the loop ends when no file is new.
+    let mut done = BTreeSet::new();
+    while let Some(file) = found.files.iter().find(|f| !done.contains(*f)).copied() {
+        done.insert(file);
+        let statics = st.impls.as_ref().and_then(|index| index.statics.get(&file));
+        for did in statics.cloned().unwrap_or_default() {
+            let declared = tcx.type_of(did).instantiate_identity();
+            match tcx.try_normalize_erasing_regions(env, declared) {
+                Ok(ty) => visit(st, tcx, env, ty, (&mut found, false)),
+                Err(_) => found.open_by("<static>"),
+            }
+        }
     }
     (found.files, found.why)
 }
