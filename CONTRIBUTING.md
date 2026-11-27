@@ -65,7 +65,7 @@ also runs `native-check`. Changes to the gate run all areas and the native check
 keep the PR-tier selection. A path that no rule names selects every area.
 The slow files of `SLOW_FILES` in
 `tests/areas.py` (scaling, memory, large scans) carry the marker `slow` and run only in the nightly Full run.
-`tests/area_floors.json` gives each area a floor of fast tests, so an empty selection fails. Samples do not replace testing the behavior you change.
+A requested area that holds no test after the marker filter fails. Samples do not replace testing the behavior you change.
 Python import rules run through the release core in `tests/test_cli_native_python_imports.py`.
 Dart import rules run through the release core in `tests/test_cli_native_dart_imports.py`.
 No new recordings replace the other Dart project tests.

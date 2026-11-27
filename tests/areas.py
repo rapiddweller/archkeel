@@ -182,13 +182,12 @@ TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
     ("schema/*", ("core scans", "CLI and core", "self-check and CI")),
     ("fixtures/*", ("core scans", "CLI and core", "collectors")),
     ("tools/*", ("self-check and CI", "reports")),
-    # AD-736: a shared helper of the tests, the area table and its floors can change any area.
+    # AD-736: a shared helper of the tests and the area table can change any area.
     ("tests/conftest.py", ALL),
     ("tests/areas.py", ALL),
     ("tools/select_areas.py", ALL),
     (".github/workflows/area-checks.yml", ALL),
     (".github/workflows/ci.yml", ALL),
-    ("tests/area_floors.json", ALL),
     (".github/workflows/pr-gate.yml", ALL),
     ("tests/*_support.py", ALL),
     ("tests/*_plants.py", ALL),
