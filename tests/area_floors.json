@@ -1,22 +1,20 @@
 {
   "fast": {
     "self-check and CI": 437,
-    "core scans": 122,
+    "core scans": 127,
     "CLI and core": 2394,
     "collectors": 451,
     "native collector evidence": 157,
     "native collectors": 364,
-    "reports": 60,
-    "native self scan": 5
+    "reports": 60
   },
   "pr": {
     "self-check and CI": 396,
-    "core scans": 8,
+    "core scans": 10,
     "CLI and core": 574,
     "collectors": 44,
     "native collector evidence": 4,
     "native collectors": 140,
-    "reports": 60,
-    "native self scan": 2
+    "reports": 60
   }
 }

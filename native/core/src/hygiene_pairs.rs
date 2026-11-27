@@ -67,6 +67,26 @@ pub(crate) fn unconfirmed<'a>(
     held
 }
 
+/// The component edges that only compiler facts can confirm (AD-1212): a pair gap of an executed
+/// impl joins a module of each component, and the code shows no edge. A scan with facts has none.
+pub(crate) fn compiler_only<'a>(
+    contract: &Contract,
+    observed: &BTreeSet<Pair>,
+    execution: impl Iterator<Item = (&'a str, &'a str)>,
+) -> BTreeSet<Pair> {
+    let components = contract.components();
+    let mut edges = BTreeSet::new();
+    for (source, target) in execution {
+        if let (Some(from), Some(to)) = (owner(components, source), owner(components, target)) {
+            let pair = (from.to_owned(), to.to_owned());
+            if from != to && !observed.contains(&pair) {
+                edges.insert(pair);
+            }
+        }
+    }
+    edges
+}
+
 /// The pair that a whole-package rule decides (`component_pair`).
 fn pair(components: &[Component], source: &str, target: &str) -> Option<Pair> {
     let labels = |name: &str| -> BTreeSet<&str> {

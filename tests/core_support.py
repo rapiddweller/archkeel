@@ -40,6 +40,14 @@ NATIVE_UNKNOWN = (
     "NATIVE-NO-MODULE-CYCLES",
     "NATIVE-REQUIRES-COMPLETE",
 )
+# AD-1212: the edges that `docs/architecture/native.md` draws and that only the compiler proves
+# (AD-1136). A scan without compiler facts holds each one as `graph.needs_facts`. A new one is added
+# here; a stale edge is a `graph.drift` and is never added.
+NATIVE_COMPILER_ONLY_EDGES = (
+    "core-baseline->report-payload",
+    "core-engine->model-terms",
+    "eval-rules->model-match",
+)
 NATIVE_SELF_STATUS = (2, "UNKNOWN") if NATIVE_UNKNOWN else (0, "PASS")
 SHELL_SELF_STATUS = (0, "PASS")
 
