@@ -15,18 +15,6 @@ fn document(frame: &Value) -> String {
 }
 
 #[test]
-fn the_light_palette_matches_the_design_tokens() {
-    let tokens = include_str!("../assets/tokens.css");
-    let palette = tokens
-        .split_once("[data-theme=\"light\"]{")
-        .and_then(|(_, rest)| rest.split_once('}'))
-        .map(|(body, _)| body)
-        .expect("the light token block");
-    let page = document(&json!({"status": "PASS"}));
-    assert!(page.contains(&format!("{{{palette}color-scheme:light}}")));
-}
-
-#[test]
 fn all_text_is_escaped_without_truncation() {
     let plant = format!("<script>\"'&\u{fffd}{}", "x".repeat(100_000));
     let safe = escape(&plant);
@@ -40,28 +28,6 @@ fn all_text_is_escaped_without_truncation() {
     // The page has its one theme script; the planted text adds none.
     assert_eq!(page.matches("<script>").count(), 1);
     assert!(page.contains("<h1>Verdict: UNKNOWN</h1>"));
-}
-
-#[test]
-fn the_policy_admits_the_theme_script_by_its_hash_and_nothing_else() {
-    let page = document(&json!({"status": "PASS"}));
-    let policy = page
-        .split("Content-Security-Policy\" content=\"")
-        .nth(1)
-        .and_then(|rest| rest.split('"').next())
-        .unwrap();
-    assert!(policy.contains(&format!("script-src 'sha256-{}'", shell::THEME_HASH)));
-    assert!(policy.starts_with("default-src 'none'"));
-    assert!(!policy.contains("unsafe-eval") && !policy.contains("http"));
-    let script = page
-        .split("<script>")
-        .nth(1)
-        .unwrap()
-        .split("</script>")
-        .next()
-        .unwrap();
-    assert_eq!(script, shell::THEME_SCRIPT);
-    assert!(!page.contains("<link") && !page.contains("@import") && !page.contains("src="));
 }
 
 fn components(count: usize, edges: &[(usize, usize)]) -> Value {

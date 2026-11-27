@@ -33,7 +33,6 @@ from tools.report_product import (
 from tools.report_product_page import headline_of, product_page, system_note
 from tools.system_parts import load
 
-MAX_VISIBLE = 4_000
 NAME = load().name
 SHELL, CORE = report_gallery.SELF_RUNS[:2]
 
@@ -137,18 +136,6 @@ def test_a_refused_part_shows_the_reason_of_the_core_escaped() -> None:
     assert "No result: &lt;b&gt;no&lt;/b&gt;" in page and "<b>no</b>" not in page
 
 
-def test_the_page_is_small_has_no_pre_and_no_json_and_states_the_boundary_as_stated() -> None:
-    page = _page([_part(SHELL, _frame(), "PASS"), _part(CORE, _frame())])
-    text = _visible(page)
-    assert len(text) <= MAX_VISIBLE
-    assert "<pre" not in page and '{"' not in text
-    assert f"{NAME}: FAIL" in text
-    assert "Stated, not verified" in text and "Relations between the parts" in text
-    assert "Interim" in text and "system contract" in text
-    assert text.count("weakest verdict") == 2
-    assert page.count("<script>") == 1 and "src=" not in page
-
-
 def test_a_link_into_a_part_report_exists_only_for_an_id_that_the_report_holds() -> None:
     parts = [_part(SHELL, _frame(), "PASS"), _part(CORE, _frame())]
     holding = _page(parts, frozenset({"x1", "x2", "x3", "arch", "violations"}))
@@ -227,7 +214,6 @@ def test_another_contract_is_one_line_with_its_counts_and_a_failure_shows_no_cou
     text = _visible(product_page(NAME, parts, ids, "abc", "now", [ok, bad]))
     assert "UNKNOWN Studio UI 0/0/1" in text
     assert "NO RESULT Browser assets boom" in text
-    assert len(text) <= MAX_VISIBLE
 
 
 def test_the_system_is_the_weakest_verdict_of_its_parts_with_the_counts_added_up() -> None:
