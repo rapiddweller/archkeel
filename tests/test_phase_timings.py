@@ -212,7 +212,8 @@ def test_a_failed_fetch_or_a_refused_cache_leaves_the_output_folder_as_it_was(
     phase_timings.reference_run(
         reference, _command, runs=2, out=tmp_path / "o2", cache=cache, env={}
     )
-    (next(cache.iterdir()) / "pkg" / "a.py").write_text("x = 2\n")
+    checkout = next(path for path in cache.iterdir() if path.is_dir())
+    (checkout / "pkg" / "a.py").write_text("x = 2\n")
     before = {path.name for path in out.iterdir()}
     with pytest.raises(SourceError, match="differs from the pinned commit"):
         phase_timings.reference_run(reference, _command, runs=2, out=out, cache=cache, env={})

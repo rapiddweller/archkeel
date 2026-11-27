@@ -82,3 +82,15 @@ pub fn within(scope: &str, path: &str) -> bool {
 #[cfg(test)]
 #[path = "paths_tests.rs"]
 mod tests;
+
+/// The name of a cache directory tag (<https://bford.info/cachedir/>), and how its text starts.
+/// Cargo writes the tag into each target directory; other build tools write it into their caches.
+pub const CACHE_TAG: &str = "CACHEDIR.TAG";
+/// The start of a valid cache tag.
+pub const CACHE_SIGNATURE: [u8; 43] = *b"Signature: 8a477f597d28d172789f06886806bc55";
+
+/// Whether the start of a `CACHEDIR.TAG` file proves a cache. The repository walk and the walk of
+/// the outside files use this one rule (AD-432), so an empty or a wrong tag skips nothing in both.
+pub fn is_cache_tag(start: &[u8]) -> bool {
+    start.starts_with(&CACHE_SIGNATURE)
+}
