@@ -176,7 +176,8 @@ def test_two_builds_that_fetch_the_same_pin_at_once_leave_one_clean_checkout(
     for thread in threads:
         thread.join()
     assert all(isinstance(result, Path) for result in results), results
-    assert [path.name for path in cache.iterdir()] == [results[0].name], "one folder, no leftover"
+    folders = sorted(path.name for path in cache.iterdir() if path.name != "CACHEDIR.TAG")
+    assert folders == [results[0].name], "one folder, no leftover"
     verify_checkout(results[0], spec["commit"])
 
 

@@ -16,10 +16,15 @@ use std::collections::BTreeSet;
 
 /// The id of the source file text of a definition, relative to the workspace root when it is inside.
 pub(crate) fn file(tcx: TyCtxt<'_>, st: &mut State, d: DefId) -> u32 {
+    if let Some(id) = st.files.get(&d) {
+        return *id;
+    }
     let sm = tcx.sess.source_map();
     let name = sm.span_to_filename(tcx.def_span(d).source_callsite());
     let text = relative(&st.root, &name.prefer_local_unconditionally().to_string());
-    st.names.text(&text)
+    let id = st.names.text(&text);
+    st.files.insert(d, id);
+    id
 }
 
 /// The working directory of this process. Cargo runs rustc in the workspace, with relative paths.

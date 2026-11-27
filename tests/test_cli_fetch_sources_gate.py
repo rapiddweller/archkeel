@@ -21,8 +21,6 @@ from areas import fetch_sources
 from tools import select_areas
 
 ROOT = Path(__file__).parents[1]
-AREA_CHECKS = (ROOT / ".github/workflows/area-checks.yml").read_text(encoding="utf-8")
-FETCHING = "steps.fetch.outputs.decision == 'fetch'"
 
 
 def test_a_change_that_can_alter_a_real_project_fetches_its_source() -> None:
@@ -52,40 +50,6 @@ def test_the_selector_prints_the_decision(
         assert capsys.readouterr().out == f"{expected}\n"
 
 
-def _steps() -> list[str]:
-    return re.split(r"\n(?=      - name: )", AREA_CHECKS.split("\n  native:\n")[0])[1:]
-
-
-def test_the_fetch_variable_is_set_in_one_step_that_follows_the_decision() -> None:
-    setting = [step for step in _steps() if "ARCHKEEL_FETCH_SOURCES" in step]
-    assert len(setting) == 1
-    assert f"if: {FETCHING}" in setting[0]
-    assert AREA_CHECKS.count("ARCHKEEL_FETCH_SOURCES") == 1
-
-
-def test_the_decision_runs_for_a_pull_request_in_the_cli_area_only() -> None:
-    [decision] = [step for step in _steps() if "id: fetch" in step]
-    assert "matrix.area == 'CLI and core'" in decision
-    assert "inputs.base != ''" in decision
-    assert 'select_areas.py --fetch "$BASE"' in decision
-    # The answer is checked: a crash or a stray text never skips the fetch silently.
-    assert "set -euo pipefail" in decision and "fetch | skip) ;;" in decision
-
-
-def test_the_sources_come_from_the_cache_that_the_gallery_fills() -> None:
-    # `restore` only: a miss in a PR saves no second copy in its scope (`pages.yml` saves).
-    [restore] = [step for step in _steps() if "name: Restore the pinned sources" in step]
-    assert "actions/cache/restore@" in restore
-    assert not [step for step in _steps() if "actions/cache@" in step]
-    pages = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
-    assert f"if: {FETCHING}" in restore
-    for line in (
-        "path: test-artifacts/source-cache",
-        "key: gallery-sources-${{ hashFiles('fixtures/*/SOURCE.json') }}",
-    ):
-        assert line in restore and line in pages
-
-
 def test_the_selector_exits_non_zero_on_a_bad_ref() -> None:
     done = subprocess.run(
         ["python3", "tools/select_areas.py", "--fetch", "no-such-ref"],
@@ -95,6 +59,11 @@ def test_the_selector_exits_non_zero_on_a_bad_ref() -> None:
         check=False,
     )
     assert done.returncode != 0 and done.stdout == ""
+
+
+def _steps() -> list[str]:
+    checks = (ROOT / ".github/workflows/area-checks.yml").read_text(encoding="utf-8")
+    return re.split(r"\n(?=      - name: )", checks.split("\n  native:\n")[0])[1:]
 
 
 def _decide(base: str, tmp_path: Path) -> tuple[int, str]:

@@ -7,14 +7,13 @@ Run: `python tools/self_check_summary.py --status <make exit code> --log <file> 
 [--root R]`. `make self-check` calls it after `make self-validate`. It reads the results of that
 run and runs no checker. Each group ends with one `next:` line. The groups `size`, `hotspots`
 and `cycles` are measurements: they never change the exit code. The exit code of the make target
-is the one of `make self-validate`, which owns the ratchet against the base commit.
+is the one of `make self-validate` (AD-1260): FAIL, a violation or no usable result.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 from collections import Counter
@@ -22,8 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from file_size import MAX_FILE_LINES, is_size_limited, line_count
-from self_check_diff import Unusable, condense, grown, load, one
-from self_check_gate import scan_table
+from self_check_gate import one
 
 from archkeel.cli.core_exit import EXIT_TABLE
 from archkeel.cli.core_frame import Status
@@ -72,30 +70,6 @@ def where(frame: dict[str, Any], evidence: list[str], fallback: str = "?") -> st
     return f"{place['path']}:{place['line']}" if place else fallback
 
 
-def ratchet(
-    native: dict[str, Any] | None, base: Path, root: Path = Path("."), kept: Path | None = None
-) -> tuple[list[str], int]:
-    """The growth against the base commit in words, and the count of new items."""
-    if native is None or native.get("refusal"):
-        return ["native vs base: no native result"], 0
-    try:
-        before = load(str(base))
-    except Unusable:
-        return ["native vs base: no base result; run `make self-validate-native`"], 0
-    try:
-        own = load(str(kept)) if kept is not None else condense(native, scan=scan_table(root))
-    except Unusable:
-        return ["native vs base: no gate result; run `make self-validate-native`"], 0
-    _lines, gaps, blocking, removed = grown(before, own)
-    items = [*blocking, *gaps]
-    sha = str(before.get("sha") or "?")[:12]
-    lines = [f"native vs base {sha}: {len(items)} new items, {removed} gaps gone"]
-    lines += [f"  new: {item[0]}" for item in items[:3]]
-    if len(items) > 3:
-        lines.append(f"  and {len(items) - 3} more in test-artifacts/selfcheck/grown.txt")
-    return lines, len(items)
-
-
 def violations(frames: dict[str, dict[str, Any]]) -> tuple[list[str], int]:
     rows = [
         f"{rule}: {one(row['source'])} -> {one(row['target'])} ({where(frame, row['evidence'])})"
@@ -103,7 +77,7 @@ def violations(frames: dict[str, dict[str, Any]]) -> tuple[list[str], int]:
         for rule, found in (frame.get("details") or {}).items()
         for row in found
     ]
-    lines = [f"new violations: {len(rows)} (the base has none)"] + [f"  {row}" for row in rows[:4]]
+    lines = [f"violations: {len(rows)}"] + [f"  {row}" for row in rows[:4]]
     if len(rows) > 4:
         lines.append(f"  and {len(rows) - 4} more")
     return lines, len(rows)
@@ -117,7 +91,8 @@ def unknown_causes(frames: dict[str, dict[str, Any]]) -> list[str]:
         waiting += len(frame.get("explained") or {})
         for gap in frame.get("collection_gaps") or ():
             cause = plain(gap["reason"]).split(": ", 1)[0]
-            causes.setdefault(cause, []).append(where(frame, gap["evidence"], gap["subjects"][0]))
+            subject = next(iter(gap["subjects"]), "no subject")
+            causes.setdefault(cause, []).append(where(frame, gap["evidence"], subject))
     ranked = sorted(causes.items(), key=lambda item: (-len(item[1]), item[0]))
     total = sum(len(places) for places in causes.values())
     lines = [
@@ -128,7 +103,7 @@ def unknown_causes(frames: dict[str, dict[str, Any]]) -> list[str]:
         f"  {len(places)} x {one(cause)} (first: {places[0]})" for cause, places in ranked[:LISTED]
     ]
     lines.append(
-        "  next: open the first place of the top cause. A new cause is growth against the base."
+        "  next: open the first place of the top cause."
         if ranked
         else "  next: none, no gap in the scan."
     )
@@ -238,22 +213,10 @@ def summary(dir_: Path, root: Path, status: int, log: str) -> list[str]:
         name: frame_of(results[name] or {}, True) for name, _part, wrapped in PARTS if wrapped
     }
     frames = {name: frame for name, frame in frames.items() if frame}
-    compared = dir_ / "selfcheck" / "compared-base.json"
-    base = compared if compared.is_file() else Path(os.environ.get("BASE_RESULT") or compared)
-    kept = dir_ / "selfcheck" / "result.json"
-    ratchet_lines, new = ratchet(results["native"], base, root, kept if kept.is_file() else None)
     violation_lines, found = violations(frames)
     lines = ["self-check: " + " | ".join(verdict(n, results[n], w) for n, _p, w in PARTS)]
-    lines += ratchet_lines
-    lines.append(
-        "  next: remove each new item before you push; the gate fails on it."
-        if new
-        else "  next: nothing new against the base."
-    )
     lines += violation_lines
-    lines.append(
-        "  next: fix each violation; it has no approval path." if found else "  next: none."
-    )
+    lines.append("  next: fix each violation." if found else "  next: none.")
     lines += unknown_causes(frames)
     lines += sizes(root)
     lines += hotspots(frames)

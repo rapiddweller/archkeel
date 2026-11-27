@@ -8,7 +8,9 @@ file `m` of `native/`, delete its impl blocks from a copy and check the workspac
 `m` that then fails to compile runs code of an impl in `m`. The collector must hold that pair: an
 import edge into `m`, or a pair gap `file -> m` of the trait-impl and method-call rules (AD-806).
 A failing file that the collector does not reach over its held pairs is a missed edge, a
-candidate for a false PASS. A file that it reaches only over a path is pinned in `DIRECT_ONLY`.
+candidate for a false PASS. A file that it reaches only over a re-exporting module has no direct
+pair. That meaning is tested on a controlled case in `test_collector_rust_facade_reexport.py`
+(AD-772, AD-1085), and no list of such files is kept here.
 
 The oracle only finds disagreements. It never decides a verdict. The module oracle in
 `test_collector_native_rust_module_oracle.py` deletes a `mod` line and runs on seven modules; this
@@ -34,7 +36,7 @@ Block = tuple[int, int]
 HEAD = re.compile(r"\bimpl\b")
 TRAIT_IMPL = re.compile(r"\bfor\b(?!\s*<)")
 # --keep-going: without it cargo stops scheduling crates after the first failure, so the failing set
-# depends on the CPU count (CI has 4, a laptop 18) and the pin below could not hold on both.
+# depends on the CPU count (CI has 4, a laptop 18).
 CHECK = [
     "cargo",
     "check",
@@ -44,43 +46,6 @@ CHECK = [
     "--all-features",
     "--message-format=json",
 ]
-
-
-# The files that fail without the inherent impls of a file, and hold no pair into it: they reach it
-# over a re-exporting module (`data` for `data::imports`), so a cycle rule sees the path, and a
-# rule on the direct pair `file -> impl file` gives no edge. Measured on this tree; a difference
-# fails the test, so a closed gap is removed here.
-DIRECT_ONLY = {
-    "native/contract/src/unused_public.rs": ["native/eval/src/unused_public.rs"],
-    "native/facts/src/data/imports.rs": [
-        "native/dart/src/collection/imports.rs",
-        "native/dart/src/import_survey/edges.rs",
-        "native/python/src/survey/declared/direct_calls.rs",
-        "native/python/src/survey/imports.rs",
-        "native/rust/src/declared.rs",
-        "native/rust/src/edges.rs",
-        "native/rust/src/module_edges.rs",
-        "native/store/src/call_owners.rs",
-        "native/typescript/src/import_record.rs",
-        "native/typescript/src/script_records.rs",
-    ],
-    "native/facts/src/data/sites.rs": [
-        "native/python/src/survey/declared/sites.rs",
-        "native/rust/src/calls.rs",
-        "native/typescript/src/bound_names.rs",
-        "native/typescript/src/records_lists.rs",
-        "native/typescript/src/script_depend.rs",
-        "native/typescript/src/script_effects.rs",
-        "native/typescript/src/script_global.rs",
-        "native/typescript/src/script_proof.rs",
-        "native/typescript/src/site_records.rs",
-    ],
-    "native/python/src/survey/declared/direct_calls.rs": ["native/python/src/survey/mod.rs"],
-    "native/python/src/survey/declared/sites.rs": ["native/python/src/survey/mod.rs"],
-    "native/python/src/survey/hazards_trojan_horse.rs": [
-        "native/python/src/survey/hazards_split.rs"
-    ],
-}
 
 
 def _code(text: str) -> list[tuple[int, str]]:
@@ -218,14 +183,6 @@ class Held:
                     todo.append(t)
         return any(t in goal or any(t.startswith(m + ".") for m in goal) for t in seen)
 
-    def holds(self, source: str, target: str) -> bool:
-        """True when a module of `source` holds a pair into a module of the file `target`."""
-        into = self.modules[target]
-        return any(
-            s in self.modules[source] and (t in into or any(t.startswith(m + ".") for m in into))
-            for s, t in self.pairs
-        )
-
 
 @pytest.fixture(scope="module")
 def facts(rust_binary: Path, frozen_root: Path) -> dict[str, Any]:
@@ -277,8 +234,6 @@ def test_each_file_that_fails_without_the_impls_of_a_file_is_held_against_it(
     others = [other for other in sorted(failing - {relative}) if other in held.modules]
     unreached = [other for other in others if not held.reaches(other, relative)]
     assert not unreached, f"the compiler fails in {unreached} without the impls of {relative}"
-    direct_only = [other for other in others if not held.holds(other, relative)]
-    assert direct_only == DIRECT_ONLY.get(relative, []), relative
 
 
 def test_the_scanner_finds_the_top_level_impl_blocks_and_their_kind() -> None:

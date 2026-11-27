@@ -10,6 +10,7 @@
 //! environment variable, `PATH` or a directory beside the binary.
 
 use crate::refusal::{refused, Refusal};
+use archkeel_snapshot::paths::{is_cache_tag, CACHE_SIGNATURE, CACHE_TAG};
 use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
@@ -205,11 +206,6 @@ impl Root {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Over(pub String);
 
-/// The name of a cache directory tag (<https://bford.info/cachedir/>), and how its text starts.
-/// Cargo writes the tag into each target directory; other build tools write it into their caches.
-const CACHE_TAG: &str = "CACHEDIR.TAG";
-const CACHE_SIGNATURE: [u8; 43] = *b"Signature: 8a477f597d28d172789f06886806bc55";
-
 /// Whether a tag proves `directory` as a cache: a regular file, not a link, with the signature.
 fn is_cache(directory: &Path) -> bool {
     let tag = directory.join(CACHE_TAG);
@@ -218,7 +214,7 @@ fn is_cache(directory: &Path) -> bool {
         && fs::File::open(&tag)
             .and_then(|mut file| file.read_exact(&mut start))
             .is_ok()
-        && start == CACHE_SIGNATURE
+        && is_cache_tag(&start)
 }
 
 /// The work budget of a collection: each directory entry below the root is charged one unit,

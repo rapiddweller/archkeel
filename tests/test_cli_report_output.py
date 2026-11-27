@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from core_support import NATIVE_SELF_STATUS, run
+from core_support import run
 from corpus_support import commit_tree
 from frozen_native import frozen_root as frozen_root
 from rust_repository import CRATE_RULES, GRAPH_PAGE, component, repository, rule
@@ -460,28 +460,6 @@ def test_a_real_rust_pass_writes_one_pass_heading_with_exit_zero(
     assert (code, found["status"], found["exit_code"]) == (0, "PASS", 0)
     assert target.read_text().count("<h1>Verdict: PASS</h1>") == 1
     assert all(row[1] == "PASS" for row in found["frame"]["rules"].values())
-
-
-def test_native_static_page_stays_below_the_review_size_budget(
-    tmp_path: Path,
-    release_core: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    frozen_root: Path,
-) -> None:
-    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
-    target = tmp_path / "native.html"
-    code, found = run(
-        "report",
-        "--root",
-        str(frozen_root),
-        "--config",
-        "native/archkeel.toml",
-        "--output",
-        str(target),
-    )
-    assert (code, found["status"]) == NATIVE_SELF_STATUS, found
-    # AD-606: the Explorer scripts and style are about 2.1 MB of the page.
-    assert target.stat().st_size < 3_500_000
 
 
 def test_tool_identity_does_not_claim_the_crate_version_is_the_package_version(

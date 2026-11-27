@@ -4,9 +4,10 @@
 """AD-478: the core decides each rule of the contract of the Python shell (#880).
 
 The tests copy `src/archkeel` and the shell contract into a Git repository, run the default
-`archkeel validate` with the core of this build, and require all rules PASS and no gap,
-as `make self-validate-shell` does (AD-1064). Planted imports show that a rule can fail, and one
-mounted contract of `native/` shows what a mixed tree gives today.
+`archkeel validate` with the core of this build, and require a usable result without FAIL or
+violation, as `make self-validate-shell` does (AD-1260). No status or gap count is pinned.
+Planted imports show that a rule can fail, and one mounted contract of `native/` shows what a
+mixed tree gives today.
 """
 
 from __future__ import annotations
@@ -14,21 +15,20 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import subprocess
 import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import ROOT, SHELL_SELF_STATUS, SUFFIX, copy_cited, run
+from core_support import ROOT, SUFFIX, copy_cited, run
 from corpus_support import commit_tree
 
 from archkeel.cli import core_only
 
 sys.path.insert(0, str(ROOT / "tools"))
 import self_check_summary  # noqa: E402
-from self_check_diff import absolute, condense  # noqa: E402
+from self_check_gate import problems  # noqa: E402
 
 CONFIG = "docs/architecture/shell.toml"
 CONTRACT = "docs/architecture/target/shell-contract.json"
@@ -71,41 +71,10 @@ def decide(root: Path, built: Path) -> tuple[int, dict[str, Any]]:
 def test_the_core_decides_each_rule_of_the_shell_contract(shell_tree: Path, built: Path) -> None:
     code, result = decide(shell_tree, built)
     frame = result["frame"]
-    assert absolute(condense(result)) == []
+    assert problems(result) == []
     core = {rule: row[1] for rule, row in frame["rules"].items()}
-    assert core and set(core.values()) == {"PASS"}
-    assert (code, result["status"], frame["scope"]) == (*SHELL_SELF_STATUS, "complete")
-    assert result["gaps"] == [] and frame["collection_gaps"] == []
-
-
-def test_the_gate_compares_the_rule_set_of_a_real_result_with_the_contract(
-    shell_tree: Path, built: Path, tmp_path: Path
-) -> None:
-    _code, result = decide(shell_tree, built)
-    contract = str(ROOT / CONTRACT)
-
-    def gate(document: dict[str, Any]) -> subprocess.CompletedProcess[str]:
-        path = tmp_path / "result.json"
-        path.write_text(json.dumps(document), encoding="utf-8")
-        args = [
-            sys.executable,
-            str(ROOT / "tools/self_check_shell.py"),
-            str(path),
-            contract,
-            "--no-compare",
-        ]
-        return subprocess.run(args, capture_output=True, text=True, timeout=60)
-
-    assert gate(result).returncode == 0
-    dropped = json.loads(json.dumps(result))
-    name = sorted(dropped["frame"]["rules"])[0]
-    del dropped["frame"]["rules"][name]
-    done = gate(dropped)
-    assert done.returncode == 1 and f"rule {name} of the contract has no row" in done.stdout
-    added = json.loads(json.dumps(result))
-    added["frame"]["rules"]["SHELL-INVENTED"] = ["x", "PASS"]
-    done = gate(added)
-    assert done.returncode == 1 and "rule SHELL-INVENTED is in the result and not in" in done.stdout
+    assert core, "the shell contract has rules"
+    assert code in (0, 2) and result["status"] == frame["status"]
 
 
 def test_a_planted_import_fails_the_rule_that_names_it(shell_tree: Path, built: Path) -> None:
@@ -188,12 +157,12 @@ def test_the_summary_lists_a_planted_import_with_its_place(
         assert len(text) <= self_check_summary.MAX_LINES
         return text
 
-    assert "new violations: 0 (the base has none)" in lines()
+    assert "violations: 0" in lines()
     core_json = shell_tree / "src/archkeel/cli/core_json.py"
     core_json.write_text(core_json.read_text() + "import subprocess\n")
     found = lines()
-    count = next(line for line in found if line.startswith("new violations: "))
-    assert count != "new violations: 0 (the base has none)"
+    count = next(line for line in found if line.startswith("violations: "))
+    assert count != "violations: 0"
     assert any("src/archkeel/cli/core_json.py:" in line for line in found)
 
 

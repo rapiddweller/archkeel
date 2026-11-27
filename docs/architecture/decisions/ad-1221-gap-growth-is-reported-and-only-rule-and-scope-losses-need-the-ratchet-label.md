@@ -1,6 +1,6 @@
 # AD-1221 Gap growth is reported, and only rule and scope losses need the ratchet label
 
-**Status.** Accepted. Owner decision of 2026-11-27 after two gate reviews. Supersedes the growth part of
+**Status.** Accepted. Owner decision of 2026-11-27 after two gate reviews. Supersedes the growth part of Superseded by [AD-1260](ad-1260-the-self-check-gate-checks-one-run-and-compares-nothing.md): the self-check compares nothing.
 [AD-1061](ad-1061-the-self-check-is-compared-with-its-base-commit-beside-the-pins.md) (point 4) and
 [AD-944](ad-944-gap-growth-approvals-count-occurrences.md).
 

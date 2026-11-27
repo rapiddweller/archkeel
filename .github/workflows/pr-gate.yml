@@ -4,7 +4,7 @@ name: PR gate
 on:
   pull_request:
     branches: [main, "ci/**"]
-    # AD-1061, AD-1221: only a push or a reopen starts the gate. After a ratchet-lead label the lead runs `gh run rerun <id>`.
+    # AD-1061: only a push or a reopen starts the gate. A label or an edit must not start it.
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -123,42 +123,6 @@ jobs:
         if: steps.build.outcome == 'success'
         run: test "${{ steps.build.outputs.static }}" = 0
 
-      - name: Remove any self-check result that the checkout holds
-        run: rm -f test-artifacts/selfcheck/result.json test-artifacts/selfcheck/base.json
-
-      # #2077: main CI may not have saved the base commit yet. The nearest earlier main commits come next
-      # as restore keys; the gate reuses such an entry only when no input of the result differs.
-      - name: Name the earlier main commits
-        id: earlier
-        env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-        run: |
-          {
-            echo "keys<<KEYS"
-            git rev-list --first-parent -n 8 "$PR_BASE^" | sed "s/^/selfcheck-v2-$RUNNER_OS-/"
-            echo "selfcheck-v1-$RUNNER_OS-$PR_BASE"
-            echo "KEYS"
-          } >> "$GITHUB_OUTPUT"
-
-      # AD-1061: the result of the self-check on the base commit. A miss is computed by the gate in a
-      # git worktree; the gate never skips. Only main CI saves this key.
-      - name: Restore the self-check result of the base commit
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: test-artifacts/selfcheck/base.json
-          key: selfcheck-v2-${{ runner.os }}-${{ github.event.pull_request.base.sha }}
-          restore-keys: ${{ steps.earlier.outputs.keys }}
-
-      # AD-1061, AD-1221: read the labels now, not from the event: a re-run must see a later label.
-      - name: Read the labels of the pull request
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$NUMBER" > "$RUNNER_TEMP/pull.json"
-          # A boolean only: label text never reaches GITHUB_ENV.
-          echo "RATCHET_LABELED=$(jq '[.labels[].name] | index("ratchet-lead") != null' "$RUNNER_TEMP/pull.json")" >> "$GITHUB_ENV"
-
       - name: Run the PR gate
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
@@ -180,16 +144,7 @@ jobs:
             else
               echo 'No timing file was produced.'
             fi
-            uv run --locked python -m tools.native_timing_budget "$RUNNER_TEMP/native-selfcheck-timings.json" test-artifacts/validation-native/result.json --report-only 2>&1
           } | tee -a "$GITHUB_STEP_SUMMARY"
-
-      # AD-1064: the log shows the first ten grown items; the file holds all of them.
-      - name: Keep the list of grown self-check items
-        if: always() && hashFiles('test-artifacts/selfcheck/grown.txt') != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: selfcheck-grown
-          path: test-artifacts/selfcheck/grown.txt
 
       - name: Save the Rust build cache
         if: always() && steps.core.outputs.cache-hit != 'true'
