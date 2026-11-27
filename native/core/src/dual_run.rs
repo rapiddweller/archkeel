@@ -258,16 +258,16 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
     // profile does not hold the run for it. The values come from a first derivation (#2162).
     let _ = engine.inputs();
     let derived = engine.graph().zip(engine.reply());
-    if let Some(compared) = baseline_frame::with_compared_budgets(
-        &settings,
+    let compared = baseline_frame::compared_budgets(
         run.accept.as_ref(),
         (
             derived.map(|(graph, _)| graph),
             derived.map(|(_, reply)| reply),
             measures.as_ref(),
         ),
-    ) {
-        engine.answer(Request::Settings(compared));
+    );
+    if !compared.is_empty() {
+        engine.answer(Request::Settings(settings.with_compared_budgets(compared)));
     }
     let rows = match engine.answer(Request::Sections(run.sections)) {
         Answer::Sections(rows) => rows,

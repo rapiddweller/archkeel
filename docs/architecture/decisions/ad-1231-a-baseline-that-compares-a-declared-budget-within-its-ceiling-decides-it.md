@@ -14,9 +14,9 @@ of `tests/test_cli_baseline_budgets.py` and the CE copy `ce-23bd48d9` (the scope
 
 1. A declared budget is **compared** in a run when all of these hold: the request has `--baseline`, the file passed
    the check and has schema 1.4.0, it holds a ceiling for the budget, and the run measures a value that is at most
-   the ceiling. The baseline code decides this (`baseline_frame::compared_budgets`). No name is matched.
-2. The core passes the compared budgets to the model as a setting (`Settings::with_compared_budgets`). The profile
-   limit of `limits::run_limits` skips a compared budget. The run needs the graph to measure `private_crossings`, so
+   the ceiling. The baseline code only lists the evidence (`baseline_frame::compared_budgets`). No name is matched.
+2. The run assembly (`dual_run`) passes the list to the model as a setting (`Settings::with_compared_budgets`). The
+   model decides: the profile limit of `limits::run_limits` skips a compared budget. The baseline decides no verdict. The run needs the graph to measure `private_crossings`, so
    the core derives the model one time, reads the budgets, and sets the settings again when one budget is compared.
 3. A budget that is not compared keeps the hold: no file, a write alone, a file of schema 1.0.0 to 1.3.0, a budget
    that the file lacks (`budget.unknown`), a budget that the run does not measure (`budget.unmeasured`), and a value

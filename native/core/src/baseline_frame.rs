@@ -17,7 +17,7 @@ use archkeel_contract::policy::{
     ValidationBaseline,
 };
 use archkeel_contract::BudgetName;
-use archkeel_model::{Graph, Hygiene, Measures, Reason, Settings};
+use archkeel_model::{Graph, Hygiene, Measures, Reason};
 use archkeel_report::{RuleReasons, Ruling, Status};
 use archkeel_store::Ingested;
 use serde::Serialize;
@@ -142,31 +142,28 @@ pub(crate) fn budgets(graph: &Graph, reply: &Ingested, counts: Option<&Measures>
     }
 }
 
-/// The settings with the budgets that the baseline of this run decides, or `None` when it decides
-/// none: the file is checked and of schema 1.4.0, it holds a ceiling for the budget, and the run
-/// measures a value within it. A value over the ceiling is `budget.exceeded` and stays held; a
-/// write alone compares nothing (AD-1231). The run values come from the model that `settings`
-/// derived first, so the caller sets the returned settings again.
-pub(crate) fn with_compared_budgets(
-    settings: &Settings,
+/// The budgets that the baseline of this run compares within their ceiling: the file is checked
+/// and of schema 1.4.0, it holds a ceiling for the budget, and the run measures a value within it.
+/// This is evidence of the comparison only. The model decides what it discharges (AD-1231). A value
+/// over the ceiling is `budget.exceeded` and is not listed; a write alone compares nothing.
+pub(crate) fn compared_budgets(
     input: Option<&Input>,
     run: (Option<&Graph>, Option<&Ingested>, Option<&Measures>),
-) -> Option<Settings> {
+) -> Vec<BudgetName> {
     let file = match input {
         Some(
             Input::Compare { file: Ok(file), .. } | Input::CompareAndWrite { file: Ok(file), .. },
         ) => file,
-        _ => return None,
+        _ => return Vec::new(),
     };
     let (Some(graph), Some(reply), counts) = run else {
-        return None;
+        return Vec::new();
     };
     if file.unknowns().is_none() {
-        return None;
+        return Vec::new();
     }
     let measured = budgets(graph, reply, counts);
-    let compared: Vec<BudgetName> = file
-        .budgets()
+    file.budgets()
         .iter()
         .filter_map(|budget| match budget {
             BaselineBudget::Scalar { name, value } => Some((*name, *value)),
@@ -174,8 +171,7 @@ pub(crate) fn with_compared_budgets(
         })
         .filter(|(name, ceiling)| measured.of(*name).is_some_and(|value| value <= *ceiling))
         .map(|(name, _)| name)
-        .collect();
-    (!compared.is_empty()).then(|| settings.clone().with_compared_budgets(compared))
+        .collect()
 }
 
 /// The rule and the sorted subjects of one violation.

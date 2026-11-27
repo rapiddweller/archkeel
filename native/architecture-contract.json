@@ -2710,7 +2710,6 @@
             "native.archkeel_model:Hygiene",
             "native.archkeel_model:Measures",
             "native.archkeel_model:Reason",
-            "native.archkeel_model:Settings",
             "native.archkeel_model:gap_kind",
             "native.archkeel_model:stable"
           ]
@@ -2783,10 +2782,10 @@
         "native.archkeel_core.baseline_frame:Input",
         "native.archkeel_core.baseline_frame:Part",
         "native.archkeel_core.baseline_frame:build",
+        "native.archkeel_core.baseline_frame:compared_budgets",
         "native.archkeel_core.baseline_frame:gap_rows",
         "native.archkeel_core.baseline_frame:holds_budgets",
-        "native.archkeel_core.baseline_frame:observed",
-        "native.archkeel_core.baseline_frame:with_compared_budgets"
+        "native.archkeel_core.baseline_frame:observed"
       ],
       "decided_by": "architect"
     },
@@ -3043,6 +3042,13 @@
           "through": [
             "native.archkeel_core.hygiene",
             "native.archkeel_core.provenance"
+          ]
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Hand the budgets that the baseline compares to the settings of the run, which the model reads for its scope proof (AD-1231).",
+          "through": [
+            "native.archkeel_model.settings"
           ]
         }
       ],
