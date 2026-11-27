@@ -48,19 +48,20 @@ fn impl_index(st: &mut State, tcx: TyCtxt<'_>) -> ImplIndex {
 }
 
 /// What the type arguments of a call can run (see `touch`).
-struct Touched {
+struct Touched<'tcx> {
     files: BTreeSet<u32>,
     /// An argument is not fully known, or can hide code.
     open: bool,
     /// An argument is a plain type that is no ADT (a number, a reference, a tuple).
     plain: bool,
-    /// The types that were visited: a recursive type ends the walk.
-    seen: std::collections::HashSet<String>,
+    /// The types that were visited, with their trust: a recursive type ends the walk. The type itself is the key,
+    /// because two closures of one definition print the same text.
+    seen: std::collections::HashSet<(Ty<'tcx>, bool)>,
     /// The first type that made the call open, for the facts.
     why: Option<String>,
 }
 
-impl Touched {
+impl Touched<'_> {
     fn open_by(&mut self, ty: &str) {
         self.open = true;
         self.why.get_or_insert_with(|| ty.to_owned());
@@ -79,10 +80,10 @@ fn visit<'tcx>(
     tcx: TyCtxt<'tcx>,
     env: ty::TypingEnv<'tcx>,
     ty: Ty<'tcx>,
-    (found, trusted): (&mut Touched, bool),
+    (found, trusted): (&mut Touched<'tcx>, bool),
 ) {
     // The key holds the trust: a type that was safe inside a container is not safe in a field of a user type.
-    if !found.seen.insert(format!("{trusted}:{ty}")) {
+    if !found.seen.insert((ty, trusted)) {
         return;
     }
     if found.seen.len() > BUDGET {
@@ -114,6 +115,10 @@ fn visit<'tcx>(
             if standard && !allowed {
                 found.open_by(&crate::names::path(tcx, def.did()));
             }
+            // Only an owner of `alloc` (`Vec`, `Box`, `Rc`) or what it holds is trusted to keep bytes in raw
+            // pointers. A pointer wrapper that a user type names (`NonNull<u8>`) can hide a callback.
+            let allowed =
+                allowed && (trusted || crate::names::path(tcx, def.did()).starts_with("alloc::"));
             for field in def.all_fields() {
                 match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
                     Ok(field_ty) => all.push((field_ty, allowed)),
@@ -310,12 +315,13 @@ pub(crate) fn method_site<'tcx>(
         unresolved(st, tcx, caller, fn_span);
         return;
     };
-    // The calls inside the receiver expression belong to the site: `make()`, and the `Deref` that an adjustment
-    // adds. A call there that is not resolved opens the site.
+    // The calls inside the receiver and the arguments belong to the site: `make()`, and the `Deref` that an
+    // adjustment adds. A call there that is not resolved opens the site.
     let mut calls = vec![(callee, instance_args)];
     let mut unknown = false;
     for (other, other_ty) in siblings {
-        let inside = span.lo() <= other.lo() && other.hi() <= fn_span.lo();
+        // The receiver and the arguments, with the adjustments (`Deref`) that coerce them.
+        let inside = span.lo() <= other.lo() && other.hi() <= span.hi() && *other != span;
         let ty::FnDef(d, a) = *other_ty.kind() else {
             unknown |= inside;
             continue;
@@ -329,7 +335,7 @@ pub(crate) fn method_site<'tcx>(
         }
     }
     let (touch, why) = touch(st, tcx, env, &calls);
-    let why = why.or_else(|| unknown.then(|| "<receiver>".to_owned()));
+    let why = why.or_else(|| unknown.then(|| "<operand>".to_owned()));
     let why = why.map(|text| st.names.text(&text));
     let Some((file, line, column)) = place(st, tcx, fn_span) else {
         return;
