@@ -28,26 +28,22 @@
 
 use std::collections::{HashMap, HashSet};
 
+use archkeel_facts::vocab::RouteWithheld;
+
 use archkeel_facts::{ImportFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprAttribute, ExprContext, Stmt};
+use ruff_python_ast::{Expr, Stmt};
 
 use super::bound::Bound;
 use super::bound_kind::Kind;
 use super::lazy_cover::{view, Sources};
 use super::uses_scan::{class_patch, Scan};
+pub(crate) use visit::Escapes;
+use visit::{Binding, Uses, NAMESPACE};
+
+#[path = "uses_visit.rs"]
+mod visit;
 use crate::module::Module;
-
-/// The attributes of a module that are its namespace.
-const NAMESPACE: [&str; 4] = ["__dict__", "__all__", "__setattr__", "__delattr__"];
-
-/// What one imported name is in a module.
-enum Binding {
-    /// `import a.b` (the name `a`), `import a.b as c`, `from a import b` where `a.b` is a module.
-    Module(String),
-    /// `from a import x` where `a.x` is no module of the scan: the origin of the name.
-    Attribute(String, String),
-}
 
 /// The escaped modules once no escaped module keeps the proof of its keys (AD-654).
 pub(super) fn settled(
@@ -55,10 +51,21 @@ pub(super) fn settled(
     imports: &[Record<ImportFact>],
     sources: &mut Sources,
 ) -> HashSet<String> {
+    settled_sites(modules, imports, sources)
+        .into_keys()
+        .collect()
+}
+
+/// `settled`, with the use that escapes each module.
+pub(super) fn settled_sites(
+    modules: &[Module],
+    imports: &[Record<ImportFact>],
+    sources: &mut Sources,
+) -> Escapes {
     loop {
         let found = escaped_with(modules, imports, sources);
         let before = sources.len();
-        sources.retain(|module, _| !found.contains(module));
+        sources.retain(|module, _| !found.contains_key(module));
         if sources.len() == before {
             return found;
         }
@@ -66,11 +73,7 @@ pub(super) fn settled(
 }
 
 /// The modules that a use of a module binding in `modules` can change.
-fn escaped_with(
-    modules: &[Module],
-    imports: &[Record<ImportFact>],
-    sources: &Sources,
-) -> HashSet<String> {
+fn escaped_with(modules: &[Module], imports: &[Record<ImportFact>], sources: &Sources) -> Escapes {
     let binders: Vec<_> = modules
         .iter()
         .map(|module| super::binders::Binders::of(&module.tree))
@@ -93,7 +96,7 @@ fn escaped_with(
         imports: HashMap::new(),
     };
     let mut bindings: HashMap<&str, HashMap<&str, Vec<Binding>>> = HashMap::new();
-    let mut found = HashSet::new();
+    let mut found = Escapes::new();
     for record in imports {
         let data = record.data.data();
         let source = data.source_module.as_str();
@@ -106,7 +109,14 @@ fn escaped_with(
             .or_default()
             .push((target, symbol));
         if symbol.is_some_and(|name| NAMESPACE.contains(&name)) {
-            found.extend(scan.below(target));
+            let rel = (modules.iter()).find(|module| module.name == source);
+            let place = rel.map_or(source, |module| module.rel.as_str());
+            let name = symbol.unwrap_or_default();
+            let at = format!("{target} <- {place} (import of {name})");
+            let use_of = (RouteWithheld::EscapedNamespace, at);
+            for module in scan.below(target) {
+                found.entry(module).or_insert_with(|| use_of.clone());
+            }
         }
         let kind = match symbol {
             None if binding == target.split('.').next().unwrap_or(target) => {
@@ -130,6 +140,7 @@ fn escaped_with(
     scan.typing_values = typing_values(modules, imports, &scan);
     for module in modules {
         let mut walk = Uses {
+            module,
             scan: &scan,
             names: bindings.get(module.name.as_str()),
             found: &mut found,
@@ -349,127 +360,6 @@ impl TypingWatch<'_> {
         self.names
             .get(name.id.as_str())
             .is_some_and(|factory| factory_form(&factory.1) == Some(form))
-    }
-}
-
-struct Uses<'s, 'm> {
-    scan: &'s Scan<'m>,
-    names: Option<&'s HashMap<&'m str, Vec<Binding>>>,
-    found: &'s mut HashSet<String>,
-}
-
-impl Uses<'_, '_> {
-    /// The modules that the expression denotes (the module itself, not a name inside it), and
-    /// whether each of them is certain (a module binding) or unknown (an imported name).
-    fn denotes(&self, expr: &Expr) -> Vec<String> {
-        match expr {
-            Expr::Name(node) => {
-                let kinds = self.names.and_then(|names| names.get(node.id.as_str()));
-                kinds
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|kind| self.name(kind))
-                    .collect()
-            }
-            Expr::Attribute(node) => self
-                .exact(&node.value)
-                .into_iter()
-                .map(|module| format!("{module}.{}", node.attr.as_str()))
-                .filter(|child| self.scan.modules.contains(child.as_str()))
-                .collect(),
-            Expr::Call(_) => literal_import(expr)
-                .filter(|name| self.scan.modules.contains(name.as_str()))
-                .into_iter()
-                .collect(),
-            _ => Vec::new(),
-        }
-    }
-
-    /// The modules that a binding may denote; a proven non-module denotes none.
-    fn name(&self, kind: &Binding) -> Option<String> {
-        match kind {
-            Binding::Module(module) => Some(module.clone()),
-            Binding::Attribute(anchor, symbol) => {
-                (!self.scan.callable(anchor, symbol, 0)).then(|| anchor.clone())
-            }
-        }
-    }
-
-    /// The modules that a chain certainly denotes: bindings of a module, not of an unknown name.
-    fn exact(&self, expr: &Expr) -> Vec<String> {
-        match expr {
-            Expr::Name(node) => {
-                let kinds = self.names.and_then(|names| names.get(node.id.as_str()));
-                let modules = kinds.into_iter().flatten();
-                modules
-                    .filter_map(|kind| match kind {
-                        Binding::Module(module) => Some(module.clone()),
-                        Binding::Attribute(..) => None,
-                    })
-                    .collect()
-            }
-            _ => self.denotes(expr),
-        }
-    }
-
-    fn escape(&mut self, modules: Vec<String>) {
-        for module in modules {
-            self.found.extend(self.scan.below(&module));
-        }
-    }
-}
-
-impl Uses<'_, '_> {
-    /// An attribute of a module binding: true when the use is decided (harmless or escaped).
-    fn attribute(&mut self, node: &ExprAttribute, expr: &Expr) -> bool {
-        let base = self.denotes(&node.value);
-        if base.is_empty() {
-            return false;
-        }
-        let load = node.ctx == ExprContext::Load && !NAMESPACE.contains(&node.attr.as_str());
-        let child = self.denotes(expr);
-        // The one harmless use: a direct load of a name that is no module. A load of a child
-        // module is a bare use of that module; each other use escapes the base.
-        if !load {
-            self.escape(base);
-        } else if !child.is_empty() {
-            self.escape(child);
-        }
-        true
-    }
-}
-
-impl<'a> Visitor<'a> for Uses<'_, '_> {
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        if let Expr::Attribute(node) = expr {
-            if self.attribute(node, expr) {
-                return;
-            }
-        }
-        let bare = self.denotes(expr);
-        if !bare.is_empty() {
-            self.escape(bare);
-        }
-        visitor::walk_expr(self, expr);
-    }
-}
-
-/// The module that `importlib.import_module("m")` or `__import__("m")` names.
-fn literal_import(expr: &Expr) -> Option<String> {
-    let Expr::Call(call) = expr else {
-        return None;
-    };
-    let name = match &*call.func {
-        Expr::Name(node) => node.id.to_string(),
-        Expr::Attribute(node) => node.attr.to_string(),
-        _ => return None,
-    };
-    if name != "import_module" && name != "__import__" {
-        return None;
-    }
-    match call.arguments.args.first()? {
-        Expr::StringLiteral(text) => Some(text.value.to_str().to_owned()),
-        _ => None,
     }
 }
 

@@ -402,6 +402,7 @@ pub struct InterfaceHold {
     shown: Vec<HeldImport>,
     total: usize,
     classes: BTreeMap<(InterfaceGap, Option<RouteWithheld>), usize>,
+    places: BTreeMap<(RouteWithheld, String), usize>,
 }
 
 impl InterfaceHold {
@@ -412,6 +413,7 @@ impl InterfaceHold {
             shown: Vec::new(),
             total: 0,
             classes: BTreeMap::new(),
+            places: BTreeMap::new(),
         }
     }
 
@@ -424,6 +426,9 @@ impl InterfaceHold {
             hold.total += 1;
             let class = held.cause.as_ref().map(|(cause, _)| *cause);
             *hold.classes.entry((held.gap, class)).or_default() += 1;
+            if let Some((cause, Some(at))) = &held.cause {
+                *hold.places.entry((*cause, at.clone())).or_default() += 1;
+            }
             if Vec::len(&hold.shown) < HELD_KEPT {
                 hold.shown.push(held);
             }
@@ -444,6 +449,12 @@ impl InterfaceHold {
     /// The first undecided imports.
     pub fn imports(&self) -> &[HeldImport] {
         &self.shown
+    }
+
+    /// The places that the causes name, with the number of undecided imports for each.
+    pub fn places(&self) -> impl Iterator<Item = (RouteWithheld, &str, usize)> + '_ {
+        let each = self.places.iter();
+        each.map(|((cause, at), count)| (*cause, at.as_str(), *count))
     }
 
     /// The count of undecided imports for each gap and class.

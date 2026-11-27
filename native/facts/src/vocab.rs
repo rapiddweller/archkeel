@@ -383,8 +383,19 @@ closed! {
         UnreadAll = "unread_all",
         /// Code outside the scan roots can write to a module on the route.
         OutsideWrite = "outside_write",
-        /// A use inside the scan hands the object of a module on the route on.
+        /// A use inside the scan hands a module on the route on, and the survey does not locate it.
         Escaped = "escaped",
+        /// A use inside the scan writes or deletes an attribute of a module on the route.
+        EscapedWrite = "escaped_write",
+        /// A use inside the scan reads the namespace of a module on the route (`__dict__`).
+        EscapedNamespace = "escaped_namespace",
+        /// A use inside the scan hands a child module of a module on the route on.
+        EscapedChildModule = "escaped_child_module",
+        /// A use inside the scan hands the object of a module on the route on as a value.
+        EscapedValue = "escaped_value",
+        /// A use inside the scan hands on a name imported from a module on the route that the
+        /// survey cannot prove to be no module (a call result, a constant of unproven kind).
+        EscapedName = "escaped_name",
         /// The import sits under `TYPE_CHECKING` and passes a re-export.
         TypeCheckingReexport = "type_checking_reexport",
     }

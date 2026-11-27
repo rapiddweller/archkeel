@@ -12,6 +12,9 @@ use archkeel_model::{InterfaceGap, InterfaceHold, PairOrigin};
 
 use super::limits::MAX_HELD;
 
+/// The most places that one rule lists: the causes that hold the most imports.
+const MAX_PLACES: usize = 10;
+
 /// The pairs of the gap records, each once, in the order of their first record, with the origin
 /// of that record when the rule states one.
 pub(super) fn distinct(
@@ -57,5 +60,14 @@ pub(super) fn interface_value(hold: &InterfaceHold) -> serde_json::Value {
             "evidence": held.evidence,
         })
     });
-    serde_json::json!({"classes": classes.collect::<Vec<_>>(), "imports": imports.collect::<Vec<_>>()})
+    let mut places: Vec<_> = hold.places().collect();
+    places.sort_by_key(|(_, at, count)| (std::cmp::Reverse(*count), *at));
+    let places = places.into_iter().take(MAX_PLACES).map(
+        |(cause, at, count)| serde_json::json!({"class": cause.as_str(), "at": at, "count": count}),
+    );
+    serde_json::json!({
+        "classes": classes.collect::<Vec<_>>(),
+        "imports": imports.collect::<Vec<_>>(),
+        "places": places.collect::<Vec<_>>(),
+    })
 }
