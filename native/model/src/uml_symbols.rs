@@ -14,6 +14,7 @@
 use archkeel_contract::{Entity, EntityKind, PresenceKind, Relationship, RelationshipKind};
 use archkeel_contract::{ResolutionKind, Target};
 
+use crate::interface::opaque_surface;
 use crate::symbols::{self, Symbols};
 use crate::uml_facts::{entity, word, Assessed, Facts, UmlDiff};
 
@@ -88,7 +89,12 @@ pub(crate) fn assess(facts: &Facts<'_>, target: &Target, wanted: &Entity) -> Vec
         };
     }
     let actual = match found.as_slice() {
-        [] => return unknown("absent symbol: the symbol inventory is not complete"),
+        [] => {
+            return vec![Assessed::Absent(absent(
+                facts,
+                wanted.qualified_name().as_str(),
+            ))]
+        }
         [actual] => *actual,
         _ => return unknown("several definitions share a declared name"),
     };
@@ -107,6 +113,39 @@ pub(crate) fn assess(facts: &Facts<'_>, target: &Target, wanted: &Entity) -> Vec
     result.extend(containment(facts, target, wanted, actual));
     result.extend(crate::uml_details::details(wanted, actual));
     result
+}
+
+/// The name of a symbol that the inventory lacks, and why its module may have no symbol record:
+/// the cause that an import states for the module (#2089). The survey writes no symbol record
+/// for a module with an opaque surface, and an import of it states that cause.
+fn absent(facts: &Facts<'_>, symbol: &str) -> String {
+    let graph = facts.model.graph();
+    let module = graph
+        .modules()
+        .iter()
+        .map(|(_, module)| module.name())
+        .filter(|name| {
+            symbol
+                .strip_prefix(name)
+                .is_some_and(|rest| rest.starts_with('.'))
+        })
+        .max_by_key(|name| name.len());
+    // The import of the module itself states the cause; the cause may sit on a module of its route.
+    let cause = module.and_then(|name| {
+        graph
+            .imports()
+            .iter()
+            .filter(|import| import.target_module() == name)
+            .find_map(opaque_surface)
+    });
+    match (module, cause) {
+        (Some(name), Some((word, Some(at)))) => {
+            format!("{symbol} (module {name}: {word}, {at})")
+        }
+        (Some(name), Some((word, None))) => format!("{symbol} (module {name}: {word})"),
+        (Some(name), None) => format!("{symbol} (module {name}: no cause stated)"),
+        _ => symbol.to_owned(),
+    }
 }
 
 fn unknown(cause: &str) -> Vec<Assessed> {
