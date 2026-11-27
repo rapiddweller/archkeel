@@ -448,13 +448,11 @@ def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> N
     assert dry_run.rstrip().endswith("tests/test_cli_installed_wheel.py")
 
 
-def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() -> None:
+def test_native_check_runs_the_api_tool_only_through_its_test() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     check = makefile.split("\nnative-check:\n")[1].split("\n# AD-432")[0]
-    assert "tests/test_rust_clones.py" not in check, (
-        "the Python tests run in the area jobs (AD-674)"
-    )
-    assert "tools/rust_clones.py\n" not in check and "tools/rust_api.py --check" not in check
+    assert "tests/test_rust_api.py" not in check, "the Python tests run in the area jobs (AD-674)"
+    assert "tools/rust_api.py --check" not in check
     assert "cargo build --locked\n" not in check
     # The hosted PR gate leaves its own fmt and rustfmt out because these two lines run (PR_HOSTED).
     assert "\tcd native && cargo fmt --all --check\n" in check

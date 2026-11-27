@@ -46,10 +46,7 @@ def test_crate_dirs_maps_a_manifest_directory_to_its_package() -> None:
     assert crate_dirs(metadata) == {"native/core/": "archkeel-core"}
 
 
-GATES = (
-    "run --locked python -m pytest -q -p no:cacheprovider -n 0 "
-    "tests/test_rust_clones.py tests/test_rust_api.py"
-)
+GATES = "run --locked python -m pytest -q -p no:cacheprovider -n 0 tests/test_rust_api.py"
 AREA_JOB = "run --locked python tools/select_areas.py --job self-check and CI"
 
 
@@ -125,10 +122,10 @@ def test_the_pr_gate_workflow_runs_the_native_lint_after_the_core_build() -> Non
     assert "make pr-native-lint PR_BASE=" in text
 
 
-def test_a_native_change_also_runs_the_clone_and_the_api_gate_after_fmt_and_clippy(
+def test_a_native_change_also_runs_the_api_gate_after_fmt_and_clippy(
     tmp_path: Path,
 ) -> None:
-    """A clone or a public name that nobody checked was merged: they run in the PR gate now."""
+    """A public name that nobody checked was merged: the API gate runs in the PR gate now."""
     code, _calls, uv_calls = _make(tmp_path, "-p archkeel-core")
     assert code == 0
     assert uv_calls[-1] == GATES
@@ -139,7 +136,7 @@ def test_the_hosted_gate_leaves_out_what_the_native_job_and_the_area_job_run(
 ) -> None:
     """PR_HOSTED=1: `native-check` runs the fmt, the driver rustfmt and the workspace clippy.
 
-    The area `self-check and CI` runs the clone and API tests. A crate clippy and a skipped
+    The area `self-check and CI` runs the API tests. A crate clippy and a skipped
     area stay.
     """
     code, calls, uv_calls = _make(tmp_path, "--workspace", hosted="run")

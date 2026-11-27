@@ -29,7 +29,7 @@ Python collectors are deleted; the Python collectors are gone, and a release 4.0
 make ci-pr-check BASE=origin/main        # lint, types and a fixed set of tests
 ```
 
-`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the hygiene and 500-line rule, `cargo fmt` and the clone and API gates. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
+`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the hygiene and 500-line rule, `cargo fmt` and the API gate. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
 
 Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, warns when the branch is behind `main`, and adds the reasons of the merge decision table (below).
 

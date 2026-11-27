@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """One fact has one table: two literal tables that share most names are one table written twice.
 
-The clone gate skips tables of literals by design (`tests/test_rust_clones.py`), so a list of names
+A clone check skips tables of literals by design, so a list of names
 can be copied into a second file without a finding. The hygiene audit found a door list and a
 builtin list written twice in the Python collector. A new name added to one copy and not to the
 other is a wrong-PASS route.

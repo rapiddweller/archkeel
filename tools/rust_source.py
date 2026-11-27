@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The Rust tokenizer and the test-file rule that `rust_clones.py` and `rust_api.py` share (AD-327).
+"""The Rust tokenizer and the test-file rule that `rust_api.py` reads (AD-327).
 
 The tokenizer drops comments (a block comment may nest) and white space. It keeps a string, a raw
 string, a byte string and a character as one literal token, and a lifetime as one name token.

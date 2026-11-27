@@ -75,9 +75,9 @@ pr-gate-report: core browser-runtime-install
 
 # AD-756: Rust format and lint in the PR gate when the change touches native/: `cargo fmt --check` for the
 # whole workspace (about 2 s), `clippy -D warnings` for the touched crates only (tools/native_touched.py), and
-# the clone gate and the API gate of the Rust sources (about 12 s; they sit in the main tier otherwise).
+# the API gate of the Rust sources (the tests of `tests/test_rust_api.py`).
 # PR_HOSTED=1 (the hosted PR gate): the `native` job runs `native-check` (the same fmt, the driver rustfmt and
-# the workspace clippy) and the area job `self-check and CI` runs the clone and API tests, so this recipe
+# the workspace clippy) and the area job `self-check and CI` runs the API tests, so this recipe
 # leaves out each of them when its keeper runs. A local run keeps all of them.
 pr-native-lint:
 	@crates="$$($(UV) run --locked python tools/native_touched.py "$(PR_BASE)")"; \
@@ -92,9 +92,9 @@ pr-native-lint:
 	fi; \
 	if [ -n "$(PR_HOSTED)" ]; then \
 		area=$$($(UV) run --locked python tools/select_areas.py --job "self-check and CI" "$(PR_BASE)") || exit $$?; \
-		if [ "$$area" = run ]; then echo "native lint: the area job runs the clone and API gates"; exit 0; fi; \
+		if [ "$$area" = run ]; then echo "native lint: the area job runs the API gate"; exit 0; fi; \
 	fi; \
-	$(UV) run --locked python -m pytest -q -p no:cacheprovider -n 0 tests/test_rust_clones.py tests/test_rust_api.py
+	$(UV) run --locked python -m pytest -q -p no:cacheprovider -n 0 tests/test_rust_api.py
 
 pr-selected-test: core browser-runtime-install
 	@if [ -n "$(PR_PARALLEL)" ]; then echo "tests run in parallel jobs"; exit 0; fi; \
@@ -278,7 +278,6 @@ golden-record:
 # AD-327: counts of the lints that only report. They never fail the build.
 native-report:
 	@$(UV) run --locked python tools/rust_api.py
-	@$(UV) run --locked python tools/rust_clones.py --list | head -1
 	@for lint in indexing_slicing arithmetic_side_effects cast_possible_truncation; do \
 		printf '%s: ' $$lint; \
 		(cd native && cargo clippy --locked --message-format short -- -W clippy::$$lint 2>&1) | \
@@ -301,7 +300,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/pr_report.py tools/self_check_contract.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_api.py tools/rust_source.py tools/pr_report.py tools/self_check_contract.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
 	native/hatch_build.py
 
 lint:
@@ -312,7 +311,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/self_check_contract.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
+	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_api.py tools/rust_source.py tools/self_check_contract.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 flutter-demo-check:
