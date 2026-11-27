@@ -101,11 +101,8 @@ SLOW_FILES = frozenset(
     {
         "test_collector_native_scaling.py",
         "test_collector_native_scaling_sites.py",
-        "test_collector_native_scaling_real.py",
         "test_collector_native_script_scaling.py",
-        "test_collector_native_script_deps_scaling.py",
         "test_collector_native_rust_scaling.py",
-        "test_collector_native_syntax_scaling.py",
         "test_cli_native_core_scan_large.py",
         "test_cli_native_core_scan_rust.py",
         "test_cli_phase_timings_reference.py",

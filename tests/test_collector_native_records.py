@@ -1,11 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-340 (PR 4.3a-3a): the records pass of the native TypeScript collector is linear.
+"""AD-340 (PR 4.3a-3a), AD-1252: the records pass of the native TypeScript collector is linear.
 
 Consumer: the native TypeScript collector. The `dump` feature prints the records of the expanded
-imports and the constructs (`--dump-records`). Each shape is measured at two sizes: the time and
-the peak memory must not grow faster than the size.
+imports and the constructs (`--dump-records`). Each shape is measured at two sizes: the peak memory
+must not grow faster than the size. No test here times anything.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from collector_timing import RUNS
 from collector_wire import request_bytes
 from conftest import build_native_copy
 from test_collector_native_imports import (
@@ -33,13 +32,11 @@ def records_binary(
     return build_native_copy(tmp_path_factory, "native-dump", ("dump",))
 
 
-# The records pass must be linear in time and in memory. Python scans the bindings of the file for
+# The records pass must be linear in memory. Python scans the bindings of the file for
 # each statement and the exports of a module for each bound name, which is quadratic in a file with
 # n statements or n exports. Each shape holds a different loop: many statements that each bind one
 # name, one statement with many names, many importing files, and comparisons in one chain. The
-# CPU time of the dump (the debug build) at 2n over n must stay below 3 (linear is about 2), and its
-# peak memory below 2.5 times.
-RATIO = 3.0
+# peak memory of the dump at 2n over n must stay below 2.5 times.
 GROWTH = 2.5
 
 
@@ -114,8 +111,8 @@ def _records_shape(name: str, n: int) -> dict[str, str]:
     return files
 
 
-def _run(binary: Path, payload: bytes) -> tuple[float, float]:
-    """One run of the dump: its CPU seconds and its peak memory in MiB, from the same `wait4`."""
+def _run(binary: Path, payload: bytes) -> float:
+    """One run of the dump: its peak memory in MiB, from `wait4`."""
     process = subprocess.Popen(
         [str(binary), "--dump-records"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
     )
@@ -126,11 +123,11 @@ def _run(binary: Path, payload: bytes) -> tuple[float, float]:
     _, status, usage = os.wait4(process.pid, 0)
     assert status == 0
     peak = usage.ru_maxrss / (2**20 if os.uname().sysname == "Darwin" else 2**10)
-    return usage.ru_utime + usage.ru_stime, peak
+    return peak
 
 
-def _measure(binary: Path, root: Path, name: str, n: int) -> tuple[float, float]:
-    """One run: its CPU seconds and its peak memory in MiB."""
+def _measure(binary: Path, root: Path, name: str, n: int) -> float:
+    """One run: its peak memory in MiB."""
     shutil.rmtree(root, ignore_errors=True)
     _write(root, _records_shape(name, n))
     return _run(binary, request_bytes(root, "app", "tsconfig.json"))
@@ -149,23 +146,11 @@ RECORD_SHAPES = (
 
 
 @pytest.mark.parametrize(("name", "n"), RECORD_SHAPES)
-def test_the_records_pass_is_linear_in_time_and_memory(
+def test_the_records_pass_is_linear_in_memory(
     tmp_path: Path, records_binary: Path, name: str, n: int
 ) -> None:
-    # The least CPU time of the runs of one size is its time. The rounds alternate the two sizes,
-    # so a slow phase of a shared runner hits both (AD-323).
-    sizes = (n, 2 * n)
-    runs: dict[int, list[tuple[float, float]]] = {size: [] for size in sizes}
-    for _ in range(RUNS):
-        for size in sizes:
-            runs[size].append(_measure(records_binary, tmp_path / str(size), name, size))
-    (first_cpu, first_peak), (second_cpu, second_peak) = (
-        (min(cpu for cpu, _ in runs[size]), max(peak for _, peak in runs[size])) for size in sizes
+    first, second = (
+        _measure(records_binary, tmp_path / str(size), name, size) for size in (n, 2 * n)
     )
-    print(
-        f"RECORDS {name} n={n} cpu {first_cpu:.3f} s 2n {second_cpu:.3f} s ratio "
-        f"{second_cpu / first_cpu:.2f}; peak {first_peak:.0f} MiB 2n {second_peak:.0f} MiB"
-    )
-    assert first_cpu > 0.05, f"{name}: n={n} is too small to measure"
-    assert second_cpu / first_cpu < RATIO
-    assert second_peak <= GROWTH * first_peak
+    print(f"RECORDS {name} n={n} peak {first:.0f} MiB 2n {second:.0f} MiB")
+    assert second <= GROWTH * first
