@@ -327,6 +327,28 @@ pub fn publishes(
     })
 }
 
+/// The word of the cause that the collector states for the withheld route of an import
+/// (AD-1210), and the module or hop that it names, when it names one (#2089).
+pub fn withheld_cause(import: &Import) -> Option<(&'static str, Option<&str>)> {
+    let (cause, at) = import.route_withheld()?;
+    Some((cause.as_str(), at.as_deref()))
+}
+
+/// The word of the cause and the place that it names, when an import states a cause that comes
+/// from a module with an opaque surface (`unread_all`, `outside_write` and each escape): the
+/// survey writes no symbol record for such a module (#2089). The import names its own module;
+/// the cause may sit on a module of the route.
+pub(crate) fn opaque_surface(import: &Import) -> Option<(&'static str, Option<&str>)> {
+    use archkeel_facts::vocab::RouteWithheld::{
+        AmbiguousReexport, TypeCheckingReexport, UncertainHop,
+    };
+    let (cause, at) = import.route_withheld()?;
+    match cause {
+        AmbiguousReexport | UncertainHop | TypeCheckingReexport => None,
+        _ => Some((cause.as_str(), at.as_deref())),
+    }
+}
+
 impl Import {
     /// Why the collector withholds the route of this import, when it states a cause (#2086).
     pub fn route_withheld(&self) -> Option<&(RouteWithheld, Option<String>)> {

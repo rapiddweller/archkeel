@@ -85,7 +85,7 @@ mod graph;
 mod ids;
 mod imports;
 mod interface;
-pub use interface::{interface_crossings, interface_publications, publishes};
+pub use interface::{interface_crossings, interface_publications, publishes, withheld_cause};
 mod measures;
 mod model;
 pub use measures::{measure_facts, Measures};

@@ -4,7 +4,7 @@ name: PR gate
 on:
   pull_request:
     branches: [main, "ci/**"]
-    # AD-1061: only a push or a reopen starts the gate; pr-gate-rerun.yml runs it again for an approval change.
+    # AD-1061, AD-1221: only a push or a reopen starts the gate. After a ratchet-lead label the lead runs `gh run rerun <id>`.
     types: [opened, synchronize, reopened]
 
 permissions:

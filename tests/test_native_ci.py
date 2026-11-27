@@ -47,7 +47,7 @@ def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
     assert "run: make native-check\n" in native
 
 
-def test_pr_gate_starts_only_on_a_push_and_the_rerun_workflow_filters_the_rest() -> None:
+def test_pr_gate_starts_only_on_a_push_and_no_workflow_reruns_it() -> None:
     gate = (WORKFLOWS / "pr-gate.yml").read_text()
     assert "types: [opened, synchronize, reopened]\n" in gate
     # An ignored event must never create a PR gate run: it would supersede a green `PR gate`.
@@ -56,19 +56,10 @@ def test_pr_gate_starts_only_on_a_push_and_the_rerun_workflow_filters_the_rest()
     others = {job: body for job, body in _jobs("pr-gate.yml").items() if job != "pr-gate"}
     assert not any(re.search(r"^    if:", body, re.MULTILINE) for body in others.values())
     assert (
-        "    name: PR gate\n    needs: [base, area-checks, windows-native]\n    if: always()\n"
-        in gate
+        "name: PR gate\n    needs: [base, area-checks, windows-native]\n    if: always()\n" in gate
     )
-    rerun = (WORKFLOWS / "pr-gate-rerun.yml").read_text()
-    assert "types: [labeled, unlabeled, edited]" in rerun
-    assert "actions: write" in rerun
-    assert "ratchet-lead" in rerun
-    assert "changes.base != null" in rerun and "changes.body" not in rerun
-    assert "&& 'approval' || github.run_id" in rerun.split("\njobs:\n", 1)[0]
-    assert 'pulls/$NUMBER" --jq .head.sha' in rerun and "the head moved" in rerun
-    assert "gh run rerun" in rerun and "pr-gate.yml" in rerun
-    # No success may come from an ignored event: the rerun job holds no check named `PR gate`.
-    assert "name: PR gate\n" not in rerun
+    # After a ratchet-lead label the lead reruns the gate by hand (AD-1221).
+    assert not (WORKFLOWS / "pr-gate-rerun.yml").exists()
 
 
 _TOOLCHAIN_STEP = "run: rustup toolchain install\n"

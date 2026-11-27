@@ -141,7 +141,6 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
         "native-wheels.yml",
         "pages.yml",
         "pr-gate.yml",
-        "pr-gate-rerun.yml",
         "release.yml",
     }
 
@@ -180,7 +179,8 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
     needs = re.search(r"needs: \[(.+)\]|needs:\n((?:      - .+\n)+)", body)
     assert needs is not None
     listed = re.findall(r"\w[\w-]*", needs[1] or needs[2])
-    assert set(listed) == set(jobs) - {aggregate, "publish-gallery"}  # AD-462: not required
+    # AD-462, AD-1223: the gallery and the main build publication are not required.
+    assert set(listed) == set(jobs) - {aggregate, "publish-gallery", "publish-main-build"}
     script = dedent(body.split("        run: |\n", 1)[1])
     ok = " ".join(["success"] * len(listed))
 

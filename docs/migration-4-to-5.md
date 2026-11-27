@@ -103,6 +103,52 @@ Use `--format json` with `--output` to write the JSON frame to a file.
    `archkeel report --output architecture.html` for the page.
 4. Read the keys of section 2 in the gate script.
 
+## 8. Measured on DATAMIMIC CE (`ce-23bd48d9`, core `0840b4d62`)
+
+CE declares `measurement_budgets` (all five names). It declares no `compat` and has no mounted contract,
+so these two unported hygiene checks do not apply to it. The checks of 4.0.1 map as follows:
+
+| 4.0.1 | 5.0 | CE file of 4.0.1 | 5.0 run |
+|---|---|---:|---:|
+| `baseline.invalid` | state `invalid`, exit 1 | n/a | n/a |
+| `budget.exceeded` | row in `baseline.new`, exit 1 | n/a | n/a |
+| `budget.unknown` | row in `baseline.new`, exit 1 | n/a | n/a |
+| budget `cycle_edges` | same name | 2 | 2 |
+| budget `private_crossings` | same name | 0 | 3 (three `INTERFACES-ONLY` reads of `dryrun.py`) |
+| budget `typing_positions` | same name | 187 | 1,580 |
+| budget `calls_unresolved` | same name | 1,417 | 10,718 |
+| budget `untyped_private_accesses` | same name | 0 | 1,134 |
+
+The three call and type numbers come from another analyzer. They are not comparable with the 4.0.1
+numbers: the schema is the measure ([AD-1090](architecture/decisions/ad-1090-baseline-1-4-0-compares-the-three-call-and-type-budgets.md)).
+Run against the 4.0.1 file, the run gives the state `drift` and the gaps `baseline.older_schema` and
+`baseline.budget_of_older_schema`. It also gives `budget.exceeded` for `private_crossings`.
+
+Steps, each measured on the copy:
+
+1. Set `schema_version` to `3.20.0` and add one `declarations.trojan_horse_reach` record for each loader
+   site that the core names. Without them the verdicts are 176 PASS, 99 UNKNOWN, 1 FAIL. With 84 records
+   they are 213, 62, 1. A record names a site by module, name and line, so an edit of a declared file
+   moves the site: write the records again.
+2. Decide the three `INTERFACES-ONLY` reads (CE issue 741): publish the names or remove the reads.
+   The baseline would accept them as debt, and the CE gate accepts none.
+3. Run `archkeel validate --write-baseline known-violations.json`. The file is deterministic: two runs give
+   the same bytes. It holds 8,601 accepted UNKNOWN entries (1.4 MB) while the script
+   `script/check_installed_authoring.py` hides the symbol records of the package. Review the diff once the
+   script is fixed, or the review reads 8,601 lines.
+4. Run `archkeel validate --baseline known-violations.json --json`. The result is `baseline.state: current`
+   with exit 2, until a rule changes.
+5. Replace the gate. Read these keys of the result: `outcome` is `verdict`, `exit_code` is 0 or 2,
+   `baseline.state` is `current`, and `baseline.new`, `baseline.gone` and `baseline.gaps` are empty.
+   `frame.violations` is empty. The file has schema `1.4.0` and its `budgets` object. Keep the review
+   digest of `known-violations.json` and compare `frame.contract_digest` with the review.
+6. Raise or lower a budget only by writing the file again. A run above the file is `budget.exceeded`,
+   exit 1. A run below the file is stale, `drift`, exit 1.
+
+A declared budget keeps the run status UNKNOWN even when the baseline compares it
+("the profile cannot decide declarations.measurement_budgets.<name>"), so the run cannot exit 0 for CE ([#2162](https://github.com/rapiddweller/archkeel/issues/2162)).
+CE accepts exit 2, as the 4.0.1 gate did.
+
 ## Commands the guide runs
 
 The test runs each line of the next block in a new fixture folder, in the order of the lines. The
