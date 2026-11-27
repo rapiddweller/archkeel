@@ -10,7 +10,7 @@ use ruff_python_ast::{
 };
 
 /// A call of these makes a type form, not a string.
-const TYPE_FORMS: [&str; 7] = [
+pub(super) const TYPE_FORMS: [&str; 7] = [
     "TypeVar",
     "ParamSpec",
     "TypeVarTuple",
@@ -110,10 +110,9 @@ pub(super) fn ids(value: &Expr, out: &mut Vec<String>) {
 }
 
 /// A value that is no string the survey could miss: a literal, a type factory, a function.
-pub(super) fn inert(value: &Expr) -> bool {
-    let made = |call: &ExprCall| last(&call.func).is_some_and(|name| TYPE_FORMS.contains(&name));
+pub(super) fn inert(value: &Expr, factory: &dyn Fn(&ExprCall) -> bool) -> bool {
     match value {
-        Expr::Call(call) => made(call),
+        Expr::Call(call) => factory(call),
         Expr::Lambda(_) => true,
         other => constant(other),
     }

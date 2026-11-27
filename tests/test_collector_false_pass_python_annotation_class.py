@@ -114,7 +114,14 @@ REVIEW3 = {
     + f'K = TD("K", {{"x": "{IMPORT}"}})\n'
     + HINTS,
 }
-PLANTS = {**WRITES, **NAMES, **BUILDERS, **LOOKUP, **REVIEW, **REVIEW2, **REVIEW3}
+REVIEW4 = {
+    "literal ForwardRef under an alias": "from typing import ForwardRef as FR, _eval_type\n\n\n"
+    + f'ref = FR("{IMPORT}")\n'
+    + "try:\n    _eval_type(ref, {}, {})\nexcept Exception:\n    pass\n",
+    "held text names a computed name": named(f't = str("{IMPORT}")\ns = "t"'),
+    "shadowed type factory": named(f'def TypeVar(v):\n    return v\n\n\ns = TypeVar("{IMPORT}")'),
+}
+PLANTS = {**WRITES, **NAMES, **BUILDERS, **LOOKUP, **REVIEW, **REVIEW2, **REVIEW3, **REVIEW4}
 CONTROLS = {
     "plain forms": HEAD
     + "class K:\n    x: int\n    y: typing.Optional[str]\n    z: list[int] | None\n"

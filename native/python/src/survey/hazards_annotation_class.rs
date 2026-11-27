@@ -16,13 +16,14 @@ use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    Alias, Comprehension, Expr, ExprStringLiteral, ModModule, Operator, Pattern, PatternMatchAs,
+    Comprehension, Expr, ExprCall, ExprStringLiteral, ModModule, Operator, Pattern, PatternMatchAs,
     PatternMatchMapping, PatternMatchStar, Stmt,
 };
 use ruff_text_size::{Ranged, TextRange};
 
 use super::super::trojan_horse::Site;
-use super::forms::{assigned, ids, inert, items, last, literal, path};
+use super::forms::{assigned, ids, inert, items, last, literal, path, TYPE_FORMS};
+use super::imports::{Imports, EVALUATORS};
 use crate::parse::Unread;
 use crate::survey::hazards_names::DYNAMIC;
 
@@ -33,23 +34,20 @@ const RESERVED: [&str; 4] = [
     "__annotate_func__",
     "__annotations_cache__",
 ];
-const EVALUATORS: [&str; 5] = [
-    "get_type_hints",
-    "get_annotations",
-    "ForwardRef",
-    "_eval_type",
-    "evaluate_forward_ref",
-];
+/// The texts that one name may hold before the name is a site.
+const MAX_TEXTS: usize = 8;
 const BUILDERS: [&str; 3] = ["TypedDict", "NamedTuple", "make_dataclass"];
 struct Scan<'a> {
-    evaluates: bool,
+    imports: Imports,
     reaches: Vec<TextRange>,
     /// `(callee, first argument is a string literal, range)` of each call.
     calls: Vec<(String, bool, TextRange)>,
-    /// `import a as b`: `b` is `a`.
-    aliases: HashMap<String, String>,
     /// The names and attribute names that the module binds to a string literal.
-    held: HashSet<String>,
+    texts: HashMap<String, Vec<&'a ExprStringLiteral>>,
+    /// Each `target = value`, read when the walk is over: the imports are known then.
+    binds: Vec<(&'a Expr, &'a Expr)>,
+    /// The names that the module defines or assigns: they may shadow a type factory.
+    defs: HashSet<String>,
     annotations: Vec<&'a Expr>,
     /// In a function body: Python neither evaluates nor stores a local variable annotation.
     local: bool,
@@ -68,20 +66,22 @@ pub(in crate::survey::hazards) fn with(mut found: Vec<Site>, tree: &ModModule) -
 /// The sites of the class rule for one module, none when it evaluates no annotation.
 fn sites(tree: &ModModule) -> Vec<Site> {
     let mut scan = Scan {
-        evaluates: false,
+        imports: Imports::new(),
         reaches: Vec::new(),
         calls: Vec::new(),
-        aliases: HashMap::new(),
-        held: HashSet::new(),
+        texts: HashMap::new(),
+        binds: Vec::new(),
+        defs: HashSet::new(),
         annotations: Vec::new(),
         local: false,
         tainted: HashSet::new(),
         edges: Vec::new(),
     };
     scan.visit_body(&tree.body);
-    if !scan.evaluates {
+    if !scan.imports.evaluates {
         return Vec::new();
     }
+    scan.settle();
     scan.close();
     let mut found = Vec::new();
     let mut add = |detail: &str, range: TextRange| {
@@ -89,8 +89,10 @@ fn sites(tree: &ModModule) -> Vec<Site> {
     };
     scan.reaches.iter().for_each(|r| add("__annotations__", *r));
     for (callee, literal_ref, range) in &scan.calls {
-        let name = scan.aliases.get(callee).unwrap_or(callee).as_str();
-        if BUILDERS.contains(&name) || (name == "ForwardRef" && !literal_ref) {
+        let name = scan.imports.real(callee);
+        // The walker of AD-1095 reads a literal argument only under the spelling `ForwardRef`.
+        let read = *literal_ref && callee == "ForwardRef";
+        if BUILDERS.contains(&name) || (name == "ForwardRef" && !read) {
             add("annotation builder", *range);
         }
     }
@@ -113,7 +115,7 @@ impl<'a> Scan<'a> {
             }
         }
         // An alias of a held string is as uncertain as an alias of a tainted name.
-        let seeds = self.tainted.iter().chain(&self.held);
+        let seeds = self.tainted.iter().chain(self.texts.keys());
         let mut queue: Vec<&str> = seeds.map(String::as_str).collect();
         let mut seen: HashSet<&str> = queue.iter().copied().collect();
         let mut grown: Vec<String> = Vec::new();
@@ -127,14 +129,21 @@ impl<'a> Scan<'a> {
         self.tainted.extend(grown);
     }
 
-    fn imports(&mut self, aliases: &[Alias]) {
-        for alias in aliases {
-            let name = alias.name.rsplit('.').next().unwrap_or_default();
-            self.evaluates |= EVALUATORS.contains(&name);
-            if let Some(local) = &alias.asname {
-                self.aliases.insert(local.to_string(), name.to_owned());
+    fn settle(&mut self) {
+        for (target, value) in std::mem::take(&mut self.binds) {
+            if let Expr::Name(name) = target {
+                self.defs.insert(name.id.to_string());
             }
+            self.bind(target, value);
         }
+    }
+
+    /// A call that makes a type form: the callee is a factory of `typing`, `enum` or
+    /// `collections` that the module does not define or assign.
+    fn factory(&self, call: &ExprCall) -> bool {
+        let real = self.imports.standard(&call.func);
+        real.is_some_and(|name| TYPE_FORMS.contains(&name))
+            && !last(&call.func).is_some_and(|n| self.defs.contains(n))
     }
 
     fn taint(&mut self, target: &Expr) {
@@ -153,19 +162,25 @@ impl<'a> Scan<'a> {
 
     /// `target = value`. A string literal is read by the string table; a type form taints no
     /// name; a path (`Alias = other`) taints as `other` does; anything else may be a string.
-    fn bind(&mut self, target: &Expr, value: &Expr) {
+    fn bind(&mut self, target: &'a Expr, value: &'a Expr) {
         if !matches!(target, Expr::Name(_) | Expr::Attribute(_)) {
             return self.taint(target);
         }
         if let (true, Some(id), Some(source)) = (path(value), last(target), last(value)) {
             // `TD = typing.TypedDict`: the alias builds annotations as the original does.
-            let real = self.aliases.get(source).map_or(source, String::as_str);
+            let real = self.imports.real(source);
             if BUILDERS.contains(&real) || real == "ForwardRef" {
-                self.aliases.insert(id.to_owned(), real.to_owned());
+                let real = real.to_owned();
+                self.imports.aliases.insert(id.to_owned(), real);
             }
         }
-        if let (Expr::StringLiteral(_), Some(id)) = (value, last(target)) {
-            self.held.insert(id.to_owned());
+        if let (Expr::StringLiteral(text), Some(id)) = (value, last(target)) {
+            let texts = self.texts.entry(id.to_owned()).or_default();
+            texts.push(text);
+            // A name with many texts costs a parse for each text at each annotation.
+            if texts.len() > MAX_TEXTS {
+                self.taint(target);
+            }
         }
         if path(value) {
             let mut sources = Vec::new();
@@ -175,8 +190,20 @@ impl<'a> Scan<'a> {
             names.truncate(1);
             self.edges
                 .extend(names.into_iter().map(|n| (n, sources.clone())));
-        } else if !inert(value) {
+        } else if !inert(value, &|call| self.factory(call)) {
             self.taint(target);
+        }
+    }
+
+    /// A name in an annotation: a tainted name is a site; the texts of a held name get the same
+    /// checks as a quoted annotation, one level deep (a held name inside them is a site).
+    fn name(&self, id: &str, expr: &Expr, found: &mut Vec<TextRange>, depth: usize) {
+        if self.tainted.contains(id) || (depth > 0 && self.texts.contains_key(id)) {
+            found.push(expr.range());
+            return;
+        }
+        for text in self.texts.get(id).into_iter().flatten() {
+            self.quoted(text, found, depth);
         }
     }
 
@@ -202,14 +229,11 @@ impl<'a> Scan<'a> {
             | Expr::BooleanLiteral(_)
             | Expr::BytesLiteral(_)
             | Expr::EllipsisLiteral(_) => {}
-            Expr::Name(node) => {
-                if self.tainted.contains(node.id.as_str()) {
-                    found.push(node.range());
-                }
-            }
+            Expr::Name(node) => self.name(node.id.as_str(), expr, found, depth),
             Expr::Attribute(node) => {
-                if self.tainted.contains(node.attr.as_str()) {
-                    found.push(node.range());
+                let attr = node.attr.as_str();
+                if self.tainted.contains(attr) || self.texts.contains_key(attr) {
+                    self.name(attr, expr, found, depth);
                 } else {
                     self.dynamic(&node.value, found, depth);
                 }
@@ -237,7 +261,12 @@ impl<'a> Scan<'a> {
 
 impl<'a> Visitor<'a> for Scan<'a> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        assigned(stmt, |target, value| self.bind(target, value));
+        assigned(stmt, |target, value| self.binds.push((target, value)));
+        match stmt {
+            Stmt::FunctionDef(node) => self.defs.insert(node.name.to_string()),
+            Stmt::ClassDef(node) => self.defs.insert(node.name.to_string()),
+            _ => false,
+        };
         match stmt {
             Stmt::AugAssign(node) => self.taint(&node.target),
             Stmt::For(node) => self.taint(&node.target),
@@ -247,8 +276,11 @@ impl<'a> Visitor<'a> for Scan<'a> {
                 .filter_map(|item| item.optional_vars.as_deref())
                 .for_each(|target| self.taint(target)),
             // An evaluator that the module imports under another name is an evaluator.
-            Stmt::Import(node) => self.imports(&node.names),
-            Stmt::ImportFrom(node) => self.imports(&node.names),
+            Stmt::Import(node) => self.imports.add(None, &node.names),
+            Stmt::ImportFrom(node) => {
+                let module = node.module.as_deref().filter(|_| node.level == 0);
+                self.imports.add(module, &node.names);
+            }
             Stmt::FunctionDef(node) => {
                 node.decorator_list
                     .iter()
@@ -311,7 +343,7 @@ impl<'a> Visitor<'a> for Scan<'a> {
             self.reaches.push(expr.range());
         }
         if name.is_some_and(|n| EVALUATORS.contains(&n)) {
-            self.evaluates = true;
+            self.imports.evaluates = true;
         }
         match expr {
             Expr::StringLiteral(text) => {
@@ -320,7 +352,7 @@ impl<'a> Visitor<'a> for Scan<'a> {
                     self.reaches.push(expr.range());
                 }
                 // An evaluator that the module looks up by name is an evaluator.
-                self.evaluates |= EVALUATORS.contains(&text);
+                self.imports.evaluates |= EVALUATORS.contains(&text);
             }
             Expr::Call(call) => {
                 let callee = last(&call.func);
@@ -329,7 +361,7 @@ impl<'a> Visitor<'a> for Scan<'a> {
                     .keywords
                     .iter()
                     .any(|k| k.arg.as_ref().is_some_and(|a| a.as_str() == "eval_str"));
-                self.evaluates |= eval_str;
+                self.imports.evaluates |= eval_str;
                 let literal_ref =
                     matches!(call.arguments.args.first(), Some(Expr::StringLiteral(_)));
                 if let Some(callee) = callee {

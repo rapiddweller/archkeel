@@ -18,6 +18,8 @@ use crate::parse::Unread;
 pub(in crate::survey::hazards) mod class;
 #[path = "hazards_annotation_forms.rs"]
 mod forms;
+#[path = "hazards_annotation_imports.rs"]
+mod imports;
 
 pub(in crate::survey::hazards) use forms::literal;
 
