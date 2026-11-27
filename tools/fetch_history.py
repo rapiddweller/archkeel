@@ -10,7 +10,7 @@ edge of a shallow history can only hide an ancestor, never invent one. When no d
 ancestry, it fetches the whole commit graph, so the merge base is exact. A base that has no merge
 base with `HEAD` or with `origin/main` fails with exit 1: the gate would read a wrong base.
 `--whole` goes to the whole commit graph at once, for a job whose tests read the history of paths
-(`tests/test_doc_references_exist.py` runs `git log --all --name-only`). It fetches no blobs.
+(`git log --all --name-only`). It fetches no blobs.
 
 A shallow merge base with `origin/main` can be older than the true one. A diff from it only holds
 more paths, never fewer, so the selection of areas and the new-file check stay safe.
