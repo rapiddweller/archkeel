@@ -18,3 +18,5 @@
 
 **Done.**
 - Clone baseline: this pull request.
+- Table overlap: #2180.
+- Size and length: #2186. `tools/file_size.py` stays: `make self-check` reads it to print sizes.
