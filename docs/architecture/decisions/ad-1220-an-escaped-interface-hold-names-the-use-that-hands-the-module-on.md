@@ -22,8 +22,9 @@ its place and its count. The Studio shell decodes it and holds no rule.
 No verdict changes: a module escapes in the same cases as before; the survey only keeps the place.
 
 **Reason.** A team cannot judge or fix a hold without the use that causes it. Measured on EE
-`560d5c7ef`: 2,525 route holds are `escaped_value` or `escaped_name`, 808 of them from one use
-(`datamimic_ee/domains/registry/entities.py:52`, a name imported from `datamimic_ee.domains`).
+`560d5c7ef`: 2,525 route holds are escapes: 2,409 `escaped_name` and 116 `escaped_value`. 808 come from one use
+(`datamimic_ee/domains/registry/entities.py:52`, a name imported from `datamimic_ee.domains`), and the
+escape reaches every module below that package.
 
 **Limit.** An `outside_write` names the module, not the file outside the scan (#2026 names it as a gap
 site). A first-pass escape that the second pass does not repeat is `escaped` without a place.
