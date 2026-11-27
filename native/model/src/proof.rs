@@ -204,7 +204,11 @@ pub(crate) fn hold_rule(
 /// the first part of some profiles, if no limit is a fact. `Scope::run` reads it.
 pub(crate) fn hold_run(contract: &Contract, graph: &Graph) -> Result<Option<Part>, Reason> {
     let mut unread = None;
-    for limit in limits::run_limits(contract, graph.observed()) {
+    for limit in limits::run_limits(
+        contract,
+        graph.observed(),
+        graph.settings().compared_budgets(),
+    ) {
         hold(Some(limit), &mut unread)?;
     }
     Ok(unread)

@@ -7,9 +7,12 @@
   }
   let engine = null;
   // The layout blocks the page; one painted frame first lets the canvas show that it is arranging.
+  // A page that never gets a frame (a throttled tab, a headless run under load) must still arrange: the
+  // timer ends the wait, because the frame only lets the canvas show its notice first.
   const painted = () => new Promise((done) => {
-    if (typeof requestAnimationFrame !== "function" || document.hidden) done();
-    else requestAnimationFrame(() => setTimeout(done, 0));
+    if (typeof requestAnimationFrame !== "function" || document.hidden) return done();
+    const fallback = setTimeout(done, 100);
+    requestAnimationFrame(() => setTimeout(() => { clearTimeout(fallback); done(); }, 0));
   });
   async function layout(graph) {
     if (!engine) {

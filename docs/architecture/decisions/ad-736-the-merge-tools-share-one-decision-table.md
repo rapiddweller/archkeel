@@ -1,6 +1,6 @@
 # AD-736 The merge tools share one decision table
 
-**Status.** Accepted. Part of #880, #1451 (Wave 4). Owner decision 2026-11-17: `tools/merge_check.py` stays. Visible change: `mergeable` UNKNOWN and pending checks are WAIT, no longer "resolve the conflict"; new exit codes and `--json`, `--wait`.
+**Status.** Accepted. Part of #880, #1451 (Wave 4). Owner decision 2026-11-17: `tools/merge_check.py` stays. Visible change: `mergeable` UNKNOWN and pending checks are WAIT, no longer "resolve the conflict"; new exit codes and `--json`, `--wait`. Superseded by [AD-1270](ad-1270-the-merge-tools-are-deleted-and-github-enforces-the-pr-gate.md): the merge tools are deleted.
 
 **Reason.** `tools/merge_pr.py` had its rules in one `if` chain: an UNKNOWN merge state read as a conflict, a queued check as "not success", and the status of a check was mixed with its conclusion. `tools/merge_check.py` warned "no PR CI by policy", which is false since AD-674.
 

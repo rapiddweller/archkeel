@@ -52,7 +52,9 @@ HOOK = (
     '        return "1"\n\n\n'
 )
 
-PREMISE = {
+NEW_SOURCE = "def f():\n    return 'hooked'\n"
+
+WRITES = {
     "files of a joined name": (
         "import importlib.resources\n"
         'importlib.resources.files("".join(["ap", "p"])).joinpath("service.py").write_text(NEW)\n'
@@ -68,11 +70,6 @@ PREMISE = {
         'importlib.resources.files(f"app").joinpath("service.py").write_text(NEW)\n'
         "import app.client\nprint(app.client.run())\n"
     ),
-}
-
-NEW_SOURCE = "def f():\n    return 'hooked'\n"
-
-WRITES = {
     "subscript write": (
         'import sys\nimport app.service\nsys.modules["app.service"].f = lambda: "hooked"\n'
         "import app.client\nprint(app.client.run())\n"
@@ -173,10 +170,15 @@ def run(root: Path, script: str) -> str:
     return done.stdout.strip() if done.returncode == 0 else done.stderr.strip()
 
 
-def check(release_core: Path, root: Path, script: str) -> dict[str, str]:
+def check(
+    release_core: Path, root: Path, script: str, extra: dict[str, str] | None = None
+) -> dict[str, str]:
     tree(root, script.replace("NEW", repr(NEW_SOURCE)))
     (root / "src/app/client.py").write_text(CLIENT)
     (root / "src/app/service.py").write_text(SERVICE)
+    for name, text in (extra or {}).items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text)
     for step in (
         ["add", "-A"],
         ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
@@ -188,11 +190,9 @@ def check(release_core: Path, root: Path, script: str) -> dict[str, str]:
 def test_a_read_only_script_still_holds_the_symbol_records(
     release_core: Path, tmp_path: Path
 ) -> None:
-    """The hold is restored (revert of #2072): no outside script is proven read-only today.
+    """A read-only script with a `try` is outside the closed grammar: the hold stays.
 
-    A script that only reads (`version`, `files(...).read_text()`, `in sys.modules`) is harmless,
-    but a detector of bad forms in a script assumed harmless leaked five times. A closed grammar
-    of allowed forms has to prove it first.
+    The grammar proves a script harmless; no detector of bad forms may do it (AD-1211).
     """
     found = check(release_core, tmp_path, READS)
     assert found["INTERFACE"] == "UNKNOWN", found
@@ -215,15 +215,196 @@ def test_a_use_that_can_hand_out_a_module_keeps_the_hold(
     assert check(release_core, tmp_path, HELD[name])["INTERFACE"] == "UNKNOWN"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="a name that the file does not spell as a plain string is the stated premise (AD-770): "
-    "known limit, docs/known-limits.md",
-)
-@pytest.mark.parametrize("name", sorted(PREMISE))
-def test_a_computed_name_is_a_known_limit_not_a_hold(
+# Each script is in the closed grammar: `import sys` only, plain values, a test of `sys.modules`,
+# `print` of plain values. Nothing else is imported or called, no path is written, nothing is
+# defined.
+CLOSED = {
+    "reads": (
+        "import sys\n\n"
+        'assert "zzz_never_installed" not in sys.modules\n'
+        'print("app" in sys.modules)\n'
+        'if "app" in sys.modules or not "app" in sys.modules:\n    print("done")\n'
+    ),
+    "plain f-string is the text": (
+        'import sys\n\nprint(f"app", f"app" in sys.modules)\nname = "x"\nprint(name)\n'
+    ),
+    "plain values": 'print(1, None, True, "app.service")\n',
+}
+
+
+@pytest.mark.parametrize("name", sorted(CLOSED))
+def test_a_script_in_the_closed_grammar_holds_nothing(
     release_core: Path, tmp_path: Path, name: str
 ) -> None:
-    found = check(release_core, tmp_path, PREMISE[name])
-    assert run(tmp_path, PREMISE[name]) == "hooked", "the plant must change the scanned code"
-    assert found["INTERFACE"] == "UNKNOWN", found
+    found = check(release_core, tmp_path, CLOSED[name])
+    assert found == dict.fromkeys(found, "PASS"), found
+    assert "hooked" not in run(tmp_path, CLOSED[name])
+
+
+# One form outside the grammar keeps the hold of the whole file, with the reads beside it. The
+# import of `importlib.metadata` is a site of AD-770 that names `app.service` through the texts.
+BASE = "import importlib.metadata\n" + CLOSED["reads"].replace('"app"', '"app.service"')
+OUTSIDE = {
+    "an import of importlib": BASE,
+    "a def": BASE + "\n\ndef unused():\n    return 1\n",
+    "a try": BASE + "try:\n    importlib.metadata.version('app')\nexcept KeyError:\n    pass\n",
+    "an alias": BASE.replace("import sys", "import sys as system"),
+    "a call of another function": BASE + 'print(len("x"))\n',
+    "a keyword of print": BASE + 'print("x", end="")\n',
+    "a name used twice": BASE + 'name = "a"\nname = "b"\n',
+    "a name passed on": BASE + 'name = "a"\nprint(len(name))\n',
+    "a test of an object": BASE + 'name = "a"\nassert name in sys.modules\n',
+    "files of a package of the scan": BASE
+    + 'import importlib.resources\nprint(importlib.resources.files("app"))\n',
+    "find_spec of a submodule": BASE + 'assert importlib.util.find_spec("app.service") is None\n',
+}
+
+
+@pytest.mark.parametrize("name", sorted(OUTSIDE))
+def test_one_form_outside_the_grammar_keeps_the_hold(
+    release_core: Path, tmp_path: Path, name: str
+) -> None:
+    assert check(release_core, tmp_path, OUTSIDE[name])["INTERFACE"] == "UNKNOWN"
+
+
+# A loader or resource API with a name that is not a text written in the source: the name can be
+# any module of the scan, so the file holds each of them (no hook is needed to see the hold).
+COMPUTED = {
+    "import_module": "import importlib\nname = 'ap' + 'p'\nimportlib.import_module(name)\n",
+    "__import__": "name = ''.join(['ap', 'p'])\n__import__(name)\n",
+    "find_spec": "import importlib.util\nname = 'ap' + 'p'\nimportlib.util.find_spec(name)\n",
+    "version": "import importlib.metadata\nimportlib.metadata.version('a' + 'pp')\n",
+    "distribution": "from importlib.metadata import distribution\ndistribution(f'a{1}')\n",
+    "exec": "exec('a' + 'pp')\n",
+    "runpy": "import runpy\nrunpy.run_module('a' + 'pp')\n",
+    "spec_from_file_location": (
+        "import importlib.util\nimportlib.util.spec_from_file_location('a' + 'pp', 'x.py')\n"
+    ),
+    "files with an alias": (
+        "import importlib.resources as resources\nresources.files('a' + 'pp')\n"
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(COMPUTED))
+def test_a_computed_name_in_a_loader_call_holds_every_module(
+    release_core: Path, tmp_path: Path, name: str
+) -> None:
+    assert check(release_core, tmp_path, COMPUTED[name])["INTERFACE"] == "UNKNOWN"
+
+
+# `files(text)` imports the package of the text: the initializer of a package outside the scan runs
+# code that no site shows (Codex #2144). Only a module of the scan is proven.
+PAYLOAD = {
+    "scripts/payload/__init__.py": (
+        "import pathlib\n"
+        'pathlib.Path("src/app/service.py").write_text("def f():\\n    return \'hooked\'\\n")\n'
+    ),
+    "scripts/payload/sub.py": "",
+}
+RUNS_PACKAGE_CODE = {
+    "files of an outside package": (
+        "from importlib.resources import files\n"
+        'print(files("payload").joinpath("app.service").read_text())\n'
+    ),
+    "find_spec of a submodule": (
+        'import importlib.util\nassert importlib.util.find_spec("payload.sub") is None\n'
+        'print("app.service")\n'
+    ),
+}
+
+# Any import but `sys` can run a file beside the script: `importlib.metadata` imports `csv`.
+CSV = {"scripts/csv.py": PAYLOAD["scripts/payload/__init__.py"]}
+
+
+def test_an_import_of_importlib_metadata_keeps_the_hold_when_a_csv_file_sits_beside(
+    release_core: Path, tmp_path: Path
+) -> None:
+    script = 'import importlib.metadata\nprint("app.service")\n'
+    assert check(release_core, tmp_path, script, CSV)["INTERFACE"] == "UNKNOWN"
+    run(tmp_path, script)
+    assert "hooked" in (tmp_path / "src/app/service.py").read_text()
+
+
+# A package beside the script shadows the package of the scan: `files("app")` runs its initializer.
+SHADOW = {"scripts/app/__init__.py": PAYLOAD["scripts/payload/__init__.py"]}
+SHADOWED = (
+    "from importlib.resources import files\n"
+    'print(files("app").joinpath("app.service").read_text())\n'
+)
+
+
+def test_files_of_a_name_that_a_package_beside_the_script_shadows_keeps_the_hold(
+    release_core: Path, tmp_path: Path
+) -> None:
+    assert check(release_core, tmp_path, SHADOWED, SHADOW)["INTERFACE"] == "UNKNOWN"
+    run(tmp_path, SHADOWED)
+    assert "hooked" in (tmp_path / "src/app/service.py").read_text()
+
+
+@pytest.mark.parametrize("name", sorted(RUNS_PACKAGE_CODE))
+def test_a_resource_read_of_a_package_outside_the_scan_keeps_the_hold(
+    release_core: Path, tmp_path: Path, name: str
+) -> None:
+    script = RUNS_PACKAGE_CODE[name]
+    assert check(release_core, tmp_path, script, PAYLOAD)["INTERFACE"] == "UNKNOWN"
+    assert run(tmp_path, script) != "orig"
+    assert "hooked" in (tmp_path / "src/app/service.py").read_text()
+
+
+def test_find_spec_of_a_top_level_name_imports_nothing(release_core: Path, tmp_path: Path) -> None:
+    script = 'import importlib.util\nassert importlib.util.find_spec("payload") is not None\n'
+    assert check(release_core, tmp_path, script, PAYLOAD)["INTERFACE"] == "PASS"
+    run(tmp_path, script)
+    assert "hooked" not in (tmp_path / "src/app/service.py").read_text()
+
+
+# A dunder name that the grammar binds changes how Python imports below the module: `__path__ = "h"`
+# makes `import tool.sub` load `h/sub.py`. Three files; the writer is a plain file write (AD-770).
+WRITER = PAYLOAD["scripts/payload/__init__.py"]
+DUNDER_FILES = {
+    "scripts/main.py": "import tool.sub\n",
+    "h/sub.py": WRITER,
+}
+
+
+def test_a_path_binding_keeps_the_hold(release_core: Path, tmp_path: Path) -> None:
+    # The other dunder names and the builtin names are pinned by the unit test of the grammar.
+    script = "import sys\n__path__ = 'h'\nprint('app.service' in sys.modules)\n"
+    assert check(release_core, tmp_path, script, DUNDER_FILES)["INTERFACE"] == "UNKNOWN"
+
+
+def test_a_path_binding_really_loads_the_writer_below_the_module(tmp_path: Path) -> None:
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "h").mkdir()
+    (tmp_path / "src/app").mkdir(parents=True)
+    (tmp_path / "src/app/service.py").write_text(SERVICE)
+    (tmp_path / "scripts/tool.py").write_text("import sys\n__path__ = 'h'\n")
+    (tmp_path / "h/sub.py").write_text(WRITER)
+    env = {"PYTHONPATH": str(tmp_path / "scripts"), "PATH": ""}
+    subprocess.run([sys.executable, "-c", "import tool.sub"], env=env, cwd=tmp_path, check=True)
+    assert "hooked" in (tmp_path / "src/app/service.py").read_text()
+
+
+# The marker of a build folder is a valid `CACHEDIR.TAG` only (AD-432, one rule with the repository
+# walk): an empty file, a wrong signature or a directory of that name skips nothing.
+TAGS = {
+    "empty": {"scripts/lib/CACHEDIR.TAG": ""},
+    "wrong signature": {"scripts/lib/CACHEDIR.TAG": "Signature: 0000\n"},
+    "a directory": {"scripts/lib/CACHEDIR.TAG/x": ""},
+}
+LIB_WRITER = {"scripts/lib/patch.py": "import app.service\napp.service.f = None\n"}
+
+
+@pytest.mark.parametrize("name", sorted(TAGS))
+def test_only_a_valid_cache_tag_skips_a_folder(
+    release_core: Path, tmp_path: Path, name: str
+) -> None:
+    extra = {**LIB_WRITER, **TAGS[name]}
+    assert check(release_core, tmp_path, CLOSED["reads"], extra)["INTERFACE"] == "UNKNOWN"
+
+
+def test_a_valid_cache_tag_skips_the_folder(release_core: Path, tmp_path: Path) -> None:
+    tag = "Signature: 8a477f597d28d172789f06886806bc55\n# cache\n"
+    extra = {**LIB_WRITER, "scripts/lib/CACHEDIR.TAG": tag}
+    assert check(release_core, tmp_path, CLOSED["reads"], extra)["INTERFACE"] == "PASS"

@@ -32,7 +32,7 @@ def test_the_precheck_runs_only_the_cheap_steps_and_all_failures_are_listed(caps
     assert code == 1
     assert len(ran) == len([s for s in pr_report.steps("b") if s.kind == pr_report.CHEAP])
     assert not any("make" in command for command in ran)
-    assert "rust-api-baseline | FAIL" in out and "hygiene-and-file-size | FAIL" in out
+    assert "rust-api-baseline | FAIL" in out and "hygiene | FAIL" in out
     assert "E  tools/rust_api.py broke" in out and "fix:" in out
     assert "2 of 7 steps failed" in out
 

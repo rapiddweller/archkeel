@@ -59,7 +59,7 @@ fn a_trojan_horse_in_a_script_escapes_the_modules_that_its_strings_name() {
 #[test]
 fn code_that_writes_no_module_of_the_scan_changes_nothing() {
     let base = escaped(&[]);
-    let cases: [&[(&str, &str)]; 11] = [
+    let cases: [&[(&str, &str)]; 10] = [
         // A read, a call and a named import are no write (AD-504).
         &[("outside.py", READ)],
         &[("outside.py", "from app.lib.pub import f\nf()\n")],
@@ -84,12 +84,28 @@ fn code_that_writes_no_module_of_the_scan_changes_nothing() {
             "import importlib\nimportlib.import_module('a' if c else 'b')\n",
         )],
         &[("tools/calc.py", "eval('1 + 1')\nexec('pass')\n")],
-        // A trojan horse that spells no module of the scan: the premise covers the name.
-        &[("tools/any.py", LOAD)],
     ];
     for files in cases {
         assert_eq!(escaped(files), base, "{files:?}");
     }
+}
+
+#[test]
+fn a_computed_name_in_a_loader_call_escapes_every_module_of_the_scan() {
+    // AD-1211: the name can be any module, so the premise of AD-770 no longer covers it.
+    let all = escaped(&[("tools/any.py", LOAD)]);
+    for module in [
+        "app",
+        "app.consumer",
+        "app.lib",
+        "app.lib._priv",
+        "app.lib.pub",
+    ] {
+        assert!(all.contains(&module.to_owned()), "{module}");
+    }
+    // A name that cannot be a module of the scan is no site.
+    let foreign = "import importlib\nimportlib.import_module(f'tools.{x}')\n";
+    assert_eq!(escaped(&[("tools/load.py", foreign)]), escaped(&[]));
 }
 
 #[test]

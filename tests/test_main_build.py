@@ -290,47 +290,6 @@ def test_the_asset_names_follow_the_live_release_api() -> None:
     assert re.search(r"^Commit: ([0-9a-f]{40})\s*$", notes.replace("\n", "\r\n"), re.MULTILINE)
 
 
-def test_no_group_cancels_a_started_build_or_publication() -> None:
-    text = (Path(__file__).parents[1] / ".github/workflows/main-build.yml").read_text()
-    assert "\nconcurrency:\n" not in text
-    assert "cancel-in-progress: true" not in text
-    wheels = text.split("\n  wheels:\n")[1].split("\n  publish:\n")[0]
-    publish = text.split("\n  publish:\n")[1]
-    # Manual runs have their own queue, so they cannot replace the waiting build of a push.
-    assert (
-        "group: main-build-wheels-${{ github.event_name }}\n      cancel-in-progress: false"
-        in wheels
-    )
-    assert "group: main-build-publish\n      cancel-in-progress: false" in publish
-
-
-def _finished(pushes: list[int], duration: int, cancel: bool) -> list[int]:
-    """One concurrency group by the minute: one run, one waiting place that a newer run takes."""
-    done: list[int] = []
-    running: tuple[int, int] | None = None  # (start minute, push minute)
-    waiting: int | None = None
-    for minute in range(max(pushes) + 3 * duration):
-        if running and minute - running[0] == duration:
-            done.append(running[1])
-            running = None
-        if minute in pushes:
-            if running and cancel:
-                running = (minute, minute)
-            else:
-                waiting = minute
-        if running is None and waiting is not None:
-            running, waiting = (minute, waiting), None
-    return done
-
-
-def test_builds_that_finish_keep_the_publication_moving_when_merges_are_faster() -> None:
-    # 2026-11-18: a build takes about 20 minutes, merges came every 10 to 17 minutes.
-    pushes = [0, 12, 24, 36, 48, 60, 72]
-    assert _finished(pushes, 20, cancel=True) == [72]
-    # Every started build ends; a build starts with the newest push that waits.
-    assert _finished(pushes, 20, cancel=False) == [0, 12, 36, 60, 72]
-
-
 def test_a_damaged_upload_stops_before_the_first_public_change(
     hub: Hub, monkeypatch: pytest.MonkeyPatch
 ) -> None:

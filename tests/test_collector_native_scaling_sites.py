@@ -1,13 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-323: the sites of the native walk are linear in time and in memory (PR 4.3a-2).
+"""AD-323, AD-1252: the memory of the sites of the native walk is linear (PR 4.3a-2).
 
 Consumer: the later phases of the native collector, which read the sites. The shapes are in
-`scaling_shapes.py` (their names start with `sites-`), and the method is the one of
-`test_collector_native_scaling.py`: the CPU time of n and 2n, with a ratio below 3. This file holds
-the sites only, so that the matrix runs on two workers (a file stays on one worker with
-`--dist=loadgroup`) and stays inside the time limit of the Full run. The equality of each shape
+`scaling_shapes.py` (their names start with `sites-`). The peak memory of 2n is at most 2.5 times
+the peak of n; no test here times anything. This file holds the sites only, so that the cases run
+on two workers (a file stays on one worker with `--dist=loadgroup`). The equality of each shape
 with `parse.parse()` and the tables stay in the first file.
 """
 
@@ -16,13 +15,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from scaling_shapes import SHAPES, SITE_PARTS, SITE_TIMED
+from scaling_shapes import SHAPES, SITE_PARTS
 from scaling_walk_only import WALK_ONLY
 from test_collector_native_scaling import (
     MEMORY_CAP,
     SITE_PREFIX,
     _peak_memory,
-    assert_time_grows_linearly,
     collector,  # noqa: F401
 )
 
@@ -30,24 +28,6 @@ from test_collector_native_scaling import (
 def test_every_site_shape_is_a_part_of_exactly_one_timed_shape() -> None:
     parts = [name for names in SITE_PARTS.values() for name in names]
     assert sorted(parts) == sorted(n for n in SHAPES if n.startswith(SITE_PREFIX))
-
-
-@pytest.mark.parametrize("name", sorted(SITE_TIMED))
-def test_time_grows_linearly_with_the_size(
-    tmp_path: Path,
-    collector: Path,  # noqa: F811
-    dump_binary: Path,  # noqa: F811
-    name: str,
-) -> None:
-    assert_time_grows_linearly(tmp_path, collector, name, dump_binary)
-
-
-def test_nested_comparison_wrappers_take_linear_time(
-    tmp_path: Path,
-    collector: Path,  # noqa: F811
-    dump_binary: Path,  # noqa: F811
-) -> None:
-    assert_time_grows_linearly(tmp_path, collector, "sites-comparison-wrappers", dump_binary)
 
 
 # The sites keep a chain, a path or a range of bytes for each node, and never a copy of the names

@@ -92,7 +92,7 @@ def showcase_runs(matrix: Path = MATRIX) -> list[dict[str, Any]]:
 
 
 def summarize(envelope: Mapping[str, Any]) -> dict[str, Any]:
-    """The facts of one CLI envelope that the matrix pins and the index shows."""
+    """The facts of one CLI envelope that the index shows."""
     frame = envelope.get("frame") or {}
     counts = dict.fromkeys(STATUSES, 0)
     for entry in frame.get("rules", {}).values():

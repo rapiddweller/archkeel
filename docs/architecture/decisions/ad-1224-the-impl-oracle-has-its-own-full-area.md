@@ -23,5 +23,5 @@ it under 15 minutes. Running the oracle on four workers is a separate change.
 
 ## Checks
 
-`tests/test_area_selection.py`, `tests/test_core_cache.py`, the area floors and the Full matrix test in
+`tests/test_area_selection.py`, `tests/test_core_cache.py` and the Full matrix test in
 `tests/test_make_gate.py`.

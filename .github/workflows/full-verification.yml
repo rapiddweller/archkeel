@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish the wheels (not used by Full)"
+        description: "Publish the wheels as the latest main build"
         type: boolean
         default: false
   schedule:
@@ -15,9 +15,11 @@ on:
 permissions:
   contents: read
 
+# AD-1223: a run that can publish the main build has its own group and is never cancelled, so a
+# check run by dispatch cannot stop a publication half way.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ (github.event_name == 'schedule' || inputs.publish) && 'publish' || 'check' }}
+  cancel-in-progress: ${{ !(github.event_name == 'schedule' || inputs.publish) }}
 
 jobs:
   full-suite-and-reports:
@@ -57,39 +59,10 @@ jobs:
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1
 
-      - name: Remove any self-check result that the checkout holds
-        run: rm -f test-artifacts/selfcheck/result.json test-artifacts/selfcheck/base.json
-
-      # AD-1061: the release core must give the result that the gate profile gave on main CI for this
-      # commit (AD-754). The base comparison is not run here: it is for the PR gate.
-      - name: Restore the gate-profile self-check result of this commit
-        id: gate_result
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: test-artifacts/selfcheck/base.json
-          key: selfcheck-v2-${{ runner.os }}-${{ github.sha }}
-          restore-keys: selfcheck-v1-${{ runner.os }}-${{ github.sha }}
-
       - name: Check native/ and the Python shell with the core (AD-1064)
         env:
           NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
-        run: make self-validate SELFCHECK_ARGS=--no-compare
-
-      - name: Check native self-check timing budgets
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
-            uv run --locked python -m tools.native_timing_budget "$RUNNER_TEMP/native-selfcheck-timings.json" test-artifacts/validation-native/result.json
-          else
-            uv run --locked python -m tools.native_timing_budget "$RUNNER_TEMP/native-selfcheck-timings.json" test-artifacts/validation-native/result.json --report-only
-          fi
-
-      - name: Compare the release result with the gate-profile result of this commit
-        run: |
-          if [ ! -f test-artifacts/selfcheck/base.json ]; then
-            echo "No gate-profile result is cached for ${GITHUB_SHA} (a main CI run did not finish for it): not compared." | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            uv run --locked python tools/self_check_diff.py same test-artifacts/selfcheck/base.json test-artifacts/selfcheck/result.json
-          fi
+        run: make self-validate
 
       - name: Check documentation diagrams
         run: make mermaid
@@ -256,6 +229,38 @@ jobs:
   native-wheels:
     uses: ./.github/workflows/native-wheels.yml
 
+  # AD-1223: the nightly run builds the six wheels once and publishes them as the latest main build.
+  # A tag run (the release calls Full) has no branch ref and skips this job.
+  publish-main-build:
+    name: Publish the latest main build
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish)
+    needs: native-wheels
+    runs-on: ubuntu-24.04
+    # A started publication runs to its end. The newest waiting publication replaces older waiting ones.
+    concurrency:
+      group: main-build-publish
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the built commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the tested wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: native-wheel-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Publish the tested wheels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/publish_main_build.py
+
   verified:
     name: All Full checks passed
     needs:
@@ -275,12 +280,12 @@ jobs:
         with:
           persist-credentials: false
 
-      # AD-341: a warning for each job over the time budget. A failed report does not fail the run.
-      - name: Report each job time against the time budget
+      # AD-341, AD-1251: the time of each job, as a table. No limit warns or fails.
+      - name: Report the time of each job
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' | python3 tools/ci_budget.py --job-minutes 15 --path-minutes 30 --summary "$GITHUB_STEP_SUMMARY"
+        run: gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' | python3 tools/ci_budget.py --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Require every Full job
         env:

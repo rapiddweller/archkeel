@@ -1,21 +1,19 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Helpers of the tests of `tools/self_check_diff.py`: real result files and the tool process."""
+"""Helpers of the tests of `tools/self_check_gate.py`: real result files and the tool process."""
 
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).parents[1]
 FIXTURES = Path(__file__).parent / "selfcheck_fixtures"
-TOOL = Path(os.environ.get("SELF_CHECK_DIFF_TOOL", ROOT / "tools/self_check_diff.py"))
+TOOL = ROOT / "tools/self_check_gate.py"
 RULE = "TINY-INTERFACE-BOUNDARY"
 
 
@@ -29,52 +27,19 @@ def save(tmp_path: Path, name: str, result: dict[str, Any] | str) -> str:
     return str(path)
 
 
-def run(
-    tmp_path: Path,
-    base: str,
-    pr: str,
-    *,
-    labels: str = "",
-    extra: tuple[str, ...] = (),
-) -> subprocess.CompletedProcess[str]:
-    args = [sys.executable, str(TOOL), base, pr, "--labels", labels, *extra]
-    return subprocess.run(args, capture_output=True, text=True, timeout=60)
+def gate(path: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(TOOL), path], capture_output=True, text=True, timeout=60
+    )
 
 
-def worse(status: str) -> Callable[[dict[str, Any]], None]:
-    def edit(result: dict[str, Any]) -> None:
-        result["frame"]["rules"][RULE][1] = status
-
-    return edit
+def worse(status: str, result: dict[str, Any]) -> None:
+    result["frame"]["rules"][RULE][1] = status
 
 
-def unknown_reason(result: dict[str, Any]) -> None:
-    worse("UNKNOWN")(result)
-    result["frame"]["unknown_kinds"] = {RULE: "scope_incomplete"}
-
-
-def violation(result: dict[str, Any]) -> None:
-    worse("FAIL")(result)
+def violation(result: dict[str, Any], count: int = 1) -> None:
+    worse("FAIL", result)
     row = {"source": "a", "target": "b", "cause": "forbidden", "evidence": []}
-    result["frame"]["details"] = {RULE: [row]}
-    result["frame"]["violations"] = {RULE: 1}
+    result["frame"]["details"] = {RULE: [{**row, "source": f"s{i}"} for i in range(count)]}
+    result["frame"]["violations"] = {RULE: count}
     result["exit_code"] = 1
-
-
-def red(done: subprocess.CompletedProcess[str], *named: str) -> None:
-    assert done.returncode == 1, done.stdout + done.stderr
-    for text in named:
-        assert text in done.stdout, done.stdout
-
-
-def green(done: subprocess.CompletedProcess[str], *named: str) -> None:
-    assert done.returncode == 0, done.stdout + done.stderr
-    for text in named:
-        assert text in done.stdout, done.stdout
-
-
-def many_gaps(count: int) -> dict[str, Any]:
-    more = real("base.json")
-    gap = more["gaps"][0]
-    more["gaps"] += [{**gap, "subject": f"{gap['subject']}/new{i}"} for i in range(count)]
-    return more

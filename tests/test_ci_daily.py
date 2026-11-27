@@ -4,7 +4,6 @@
 """The daily CI line of the merge policy (epic #880) is computed from recorded `gh` JSON."""
 
 from datetime import UTC, datetime
-from pathlib import Path
 
 from tools.ci_daily import daily_line
 
@@ -76,20 +75,6 @@ def test_an_open_red_run_counts_to_now_and_a_day_without_runs_gives_n_a() -> Non
         "2026-11-10: CI wall n/a (median of 0), CI queue median n/a, p90 n/a, max n/a, "
         "Full wall on main n/a (0 runs), Full runs 0, re-runs 0, red main 0.0 h"
     )
-
-
-def test_the_main_tier_queues_and_the_nightly_run_cancels() -> None:
-    """AD-674: a run on main finishes (one newest run waits); the nightly Full run cancels."""
-    workflows = Path(__file__).parents[1] / ".github/workflows"
-    queued = "  group: ci-main\n  cancel-in-progress: false\n"
-    cancelled = (
-        "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}\n"
-        "  cancel-in-progress: true\n"
-    )
-    for name, group in (("ci.yml", queued), ("full-verification.yml", cancelled)):
-        text = (workflows / name).read_text()
-        assert "draft" not in text, name
-        assert group in text, name
 
 
 def test_a_red_that_began_the_day_before_carries_into_the_day() -> None:

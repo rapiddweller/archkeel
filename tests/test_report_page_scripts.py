@@ -29,6 +29,7 @@ PAGES = {
     "fixture-typescript": ("fixtures/H-typescript", "archkeel.toml"),
 }
 SCRIPT = re.compile(r"<script(?![^>]*application/json)[^>]*>(.*?)</script>", re.S)
+POLICY_META = re.compile(r'<meta http-equiv="Content-Security-Policy"[^>]*>')
 POLICY = re.compile(r'Content-Security-Policy" content="([^"]+)"')
 READY = 'data-layout-state="ready"'
 CHROME_NAMES = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser")
@@ -143,3 +144,19 @@ def test_the_explorer_does_not_start_when_a_script_has_no_hash(
     )
     assert unadmitted(broken.read_text(encoding="utf-8"))
     assert READY not in dom_of(broken, tmp_path)
+
+
+def test_the_explorer_arranges_when_the_page_never_gets_an_animation_frame(
+    pages: dict[str, Path], tmp_path: Path
+) -> None:
+    """#2126: the layout waited for a frame; a page without frames stayed `pending`."""
+    page = pages["shell"].read_text(encoding="utf-8")
+    # The test page drops the policy, so that its own stub runs before the page scripts.
+    open_page = POLICY_META.sub("", page, count=1).replace(
+        "<head>", "<head><script>window.requestAnimationFrame = () => 0;</script>", 1
+    )
+    stubbed = tmp_path / "no-frames.html"
+    stubbed.write_text(open_page, encoding="utf-8")
+    dom = dom_of(stubbed, tmp_path)
+    assert "requestAnimationFrame = () => 0" in dom, "the stub did not run"
+    assert READY in dom, "the Explorer waited for an animation frame that never came"

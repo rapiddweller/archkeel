@@ -242,9 +242,9 @@ See the [CLI reference](reference.md) for current commands and baselines.
   provenance file. A file that it cannot read refuses the contract. A missing, repeated or stale marked
   graph, and the reference, rationale, responsibility, closed-world and `public_api` defects of 4.0.1,
   give a row that keeps the run from PASS. A cited path must be in normal form. An `interface_boundary`
-  rule gets the interface lifecycle rows of AD-514. A contract with `declarations.compat` or
-  `declarations.measurement_budgets`, and a mounted contract with an `allowed_dependency` rule, get
-  a named gap: these checks are not ported.
+  rule gets the interface lifecycle rows of AD-514. A contract with `declarations.compat`, and a mounted
+  contract with an `allowed_dependency` rule, get a named gap: these checks are not ported. The
+  `declarations.measurement_budgets` are compared with a baseline of schema 1.4.0 (AD-1090).
 - Source that nests deeper than the parse work limit is the typed refusal `parse_work_limit` (AD-735).
 - A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
 - The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.
@@ -291,6 +291,8 @@ namespace that does not resolve to the scan root are not seen. `insert` and each
 `sys.path` stay the gap of the whole run. A read of `sys.path` as the source of a loop or a
 comprehension, or as a subscript read, is no gap. Comparisons keep the gap (AD-894).
 
+**Runtime writes by outside Python files (#2174, P3, known limit, no rule).** Runtime writes by Python files outside the scan roots are not examined; ArchKeel checks the committed state.
+
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 
 A use of a name through a module object (`import app.lib` then `app.lib._priv.secret()`) is the
@@ -308,8 +310,7 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
   reads the code of the repository outside the scan roots (AD-770): a script or an extension source
   that writes a module of the scan, or names it beside a trojan horse, withholds its routes (UNKNOWN). A test
   file (`test_*.py`, `*_test.py`, a file below `test/` or `tests/`), a name built at run time from
-  data (`files("".join(["ap", "p"]))`, `files(b"app".decode())`, `files(f"app")`: strict xfail plants in
-  `tests/test_cli_python_outside_reads.py`), and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
+  data and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
   the stated premise of the run: "Code outside the scan roots, including test code, hands in no
   module object of the scan and writes no binding of a module or class of the scan." In the scan, a
   write through `sys.modules` or a computed `importlib.import_module` is a survey gap, so the rule is

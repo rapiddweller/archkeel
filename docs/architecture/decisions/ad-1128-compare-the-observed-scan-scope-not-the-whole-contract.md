@@ -1,6 +1,6 @@
 # AD-1128 Compare the contract without cosmetic JSON changes
 
-**Status.** Accepted. Amends AD-1113.
+**Status.** Accepted. Amends AD-1113. Superseded by [AD-1260](ad-1260-the-self-check-gate-checks-one-run-and-compares-nothing.md): the self-check compares nothing.
 
 **Decision.** Compare all contract fields, scanned paths, module ownership and component
 scope. Compare the `[scan]` table as before. Normalize JSON whitespace, object key order and
