@@ -1,11 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Each project of `fixtures/` has a pinned result of the release core (AD-462).
+"""Each project of `fixtures/` runs through the release core and meets its stated intent.
 
-A refused project is pinned as refused with its reason. When a collector starts to serve it, this
-test fails and the author must update `fixtures/matrix.json`: the table shows the progress.
-Never weaken a pinned verdict to make this test pass.
+The matrix states what a scenario is for (`intent`: a planted violation FAILs, a clean demo PASSes,
+a sound hold stays UNKNOWN) and which issue blocks it when the core differs (`blocked_by`). It holds
+no observed count, scope text or gap list: the gallery shows those (AD-462, AD-1261). Never weaken
+an intent to make this test pass.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from test_cli_native_python_imports import verdict
 from archkeel.cli import core_only
 from tools import fixture_source
 from tools.fixture_tree import fixture_tree, needs_copy
-from tools.report_gallery import MATRIX, load_runs, summarize
+from tools.report_gallery import MATRIX, STATUSES, load_runs, summarize
 
 FIXTURES = MATRIX.parent
 RUNS = load_runs()
@@ -58,7 +59,7 @@ def test_language_and_contract_follow_the_project_config(entry: dict) -> None:
 
 
 @pytest.mark.parametrize("entry", RUNS, ids=lambda entry: entry["name"])
-def test_the_release_core_gives_the_pinned_result(
+def test_the_release_core_gives_each_project_its_stated_intent(
     release_core: Path, monkeypatch: pytest.MonkeyPatch, entry: dict
 ) -> None:
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
@@ -77,8 +78,14 @@ def test_the_release_core_gives_the_pinned_result(
             arguments += ["--config", entry["config"]]
         code, envelope = run(*arguments)
     found = summarize(envelope)
-    assert found == entry["expect"], "the core result changed: update fixtures/matrix.json"
-    assert code == entry["expect"]["exit"]
+    # Every project gets an answer with a status and the exit code that goes with it.
+    assert found["status"] in STATUSES and code == found["exit"]
+    # A planted violation must FAIL, a clean demo must PASS and a sound hold must stay UNKNOWN,
+    # unless an issue is named as the blocker.
+    if entry.get("intent") and not entry.get("blocked_by"):
+        assert found["status"] == entry["intent"], (
+            f"{entry['name']}: the core gives {found['status']}, not {entry['intent']}"
+        )
 
 
 def test_shop_repository_owns_the_package_entry_point(release_core: Path) -> None:

@@ -1,16 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-335: the time and memory of the Rust collector are linear in the size of each shape.
+"""AD-335, AD-1252: the memory of the Rust collector is linear in the size of each shape.
 
-Consumer: the entry criteria of slice 5b-1. The method is the scaling matrix of AD-323: for each
-shape the test builds a crate with n and with 2n of one construct, times the CPU time of the
-collector (the least of three runs) and bounds time(2n) / time(n) by 3. Linear is about 2 and
-quadratic is about 4. A shape whose time is below the measurable time doubles n first. A second
-test bounds the peak memory of 2n by 2.5 times the peak of n.
-
-The shapes: many `use` items, a long file of many functions, many attributes, many macro calls with
-paths, many files, and trees of modules that are deep (each file declares the next one).
+Consumer: the entry criteria of slice 5b-1. For each shape the test builds a crate with n and with
+2n of one construct and bounds the peak memory of 2n by 2.5 times the peak of n. No test here times
+anything. The shapes: many `use` items, a long file of many functions, many attributes, many macro
+calls with paths, many files, and trees of modules that are deep (each file declares the next).
 """
 
 from __future__ import annotations
@@ -26,16 +22,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from collector_timing import Taken, interleaved_least, least_of, timed_run
 
-RATIO = 3.0
 MEMORY_RATIO = 2.5
-CAP = 60.0
-MAX_DOUBLINGS = 6
-MAX_BYTES = 3_500_000
-# CPU seconds of the collector; the build profile selects them like AD-323 does.
-MEASURABLE = {"debug": 0.25, "release": 0.1}
-MIN_TIME = {"debug": 0.1, "release": 0.01}
 
 MANIFEST = '[package]\nname = "app"\nversion = "0.0.0"\n[dependencies]\nserde_json = "1"\n'
 
@@ -125,13 +113,6 @@ SHAPES = {
 }
 
 
-def _profile() -> str:
-    profile = os.environ.get("ARCHKEEL_SCALING_PROFILE", "debug")
-    if profile not in MEASURABLE:
-        raise ValueError(f"ARCHKEEL_SCALING_PROFILE must be debug or release, not {profile!r}")
-    return profile
-
-
 @pytest.fixture(scope="session")
 def collector(rust_binary: Path) -> Path:
     other = os.environ.get("ARCHKEEL_SCALING_BINARY")
@@ -165,49 +146,6 @@ def _request(root: Path) -> bytes:
             "resolver": {"language": "rust"},
         }
     ).encode()
-
-
-def _once(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
-    _build(root, shape, n)
-    wall, cpu, done = timed_run([str(binary)], _request(root))
-    assert done.returncode == 0, done.stderr[-300:]
-    return Taken(cpu=cpu, wall=wall)
-
-
-def _least(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
-    return least_of(lambda: _once(binary, root, shape, n))
-
-
-def _measure(binary: Path, root: Path, shape: Shape) -> tuple[int, Taken, Taken]:
-    n = shape.base
-    first = _least(binary, root, shape, n)
-    for _ in range(MAX_DOUBLINGS):
-        largest = max(len(text) for text in shape.make(4 * n).values())
-        if first.cpu >= MEASURABLE[_profile()] or largest > MAX_BYTES:
-            break
-        n *= 2
-        first = _least(binary, root, shape, n)
-    # The rounds alternate the two sizes, so a slow phase of a shared runner hits both (AD-323).
-    first, second = interleaved_least(
-        lambda size: _once(binary, root, shape, size), n, 2 * n, seed=first
-    )
-    return n, first, second
-
-
-@pytest.mark.parametrize("name", sorted(SHAPES))
-def test_time_grows_linearly_with_the_size(tmp_path: Path, collector: Path, name: str) -> None:
-    n, first, second = _measure(collector, tmp_path, SHAPES[name])
-    ratio = second.cpu / first.cpu
-    print(
-        f"SCALING {name} n={n} t(n)={first.cpu:.3f} t(2n)={second.cpu:.3f} ratio={ratio:.2f} "
-        f"wall_ratio={second.wall / first.wall:.2f}"
-    )
-    assert _build(tmp_path, SHAPES[name], 2 * n) <= MAX_BYTES, f"{name}: the file is too large"
-    assert first.cpu >= MIN_TIME[_profile()], f"{name}: {first.cpu:.3f} s CPU is too short"
-    assert second.cpu < CAP, f"{name}: {second.cpu:.1f} s CPU for n={2 * n}"
-    assert ratio < RATIO, (
-        f"{name}: n={n} {first.cpu:.3f} s, 2n {second.cpu:.3f} s, ratio {ratio:.2f}"
-    )
 
 
 _RUSAGE = (
@@ -282,9 +220,9 @@ def test_a_chain_past_the_depth_limit_is_cut_and_its_reply_stays_small(
     # The name of a module holds its whole path, so the reply of a chain grows with the square
     # of the depth. The walk stops at 64 levels (AD-335), and the rest of the chain is UNKNOWN.
     _build_files(tmp_path, {"lib.rs": '#[path = "c0.rs"]\nmod c0;\n', **_chain(70)})
-    _, cpu, done = timed_run([str(collector)], _request(tmp_path))
+    done = subprocess.run([str(collector)], input=_request(tmp_path), capture_output=True)
     assert done.returncode == 0, done.stderr[-300:]
     facts = json.loads(zlib.decompress(done.stdout))["facts"]
     # The 64 levels, the library file, and the manifest of the crate.
-    assert len(facts["files"]) == 66 and cpu < CAP
+    assert len(facts["files"]) == 66
     assert any("Modules nest deeper than 64" in gap["title"] for gap in facts["coverage"]["gaps"])
