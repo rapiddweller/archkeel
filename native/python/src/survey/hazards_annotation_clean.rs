@@ -16,7 +16,7 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::entity::{typing_style, Active, Entity, Project, MAX_BINDINGS, MAX_DEPTH};
 use super::facts::{Binding, ScopeId, TEXT};
-use super::forms::{items, literal, type_subscription, TYPE_FORMS};
+use super::forms::{items, keeps, literal, type_subscription, TYPE_FORMS};
 use crate::parse::Unread;
 
 impl<'a> Project<'a> {
@@ -87,8 +87,7 @@ impl<'a> Project<'a> {
         found.is_empty()
     }
 
-    /// A quoted annotation is read as code: the same rule applies to its text. A text that does
-    /// not parse raises `SyntaxError` and imports nothing; a text over the parser bound is not clean.
+    /// A quoted annotation is read as code. A text that does not parse imports nothing.
     pub(super) fn text(&self, text: &ExprStringLiteral, depth: usize, active: &mut Active) -> bool {
         // The text is read where the annotated object is evaluated, not where the string is held.
         let at = self.context.get();
@@ -101,8 +100,7 @@ impl<'a> Project<'a> {
         }
     }
 
-    /// What a definition stands for once its decorators ran: a decorator of the standard library
-    /// (`dataclass`, `total_ordering`, ..) returns the class; any other can return any value.
+    /// What a definition stands for once its decorators ran: a decorator that keeps what it gets (`dataclass`, `total_ordering`, ..) returns the class; any other can return any value.
     fn decorated(
         &self,
         decorators: &[Decorator],
@@ -111,25 +109,22 @@ impl<'a> Project<'a> {
         depth: usize,
         active: &mut Active,
     ) -> Entity {
-        let standard = |d: &Decorator| {
+        let keeps_it = |d: &Decorator| {
             let callee = match &d.expression {
                 Expr::Call(call) => &*call.func,
                 other => other,
             };
-            matches!(
-                self.path(callee, at.0, at.1, depth, active),
-                Entity::Standard(_)
-            )
+            let entity = self.path(callee, at.0, at.1, depth, active);
+            matches!(entity, Entity::Standard(path) if keeps(&path))
         };
-        if decorators.iter().all(standard) {
+        if decorators.iter().all(keeps_it) {
             plain
         } else {
             Entity::Unknown
         }
     }
 
-    /// A call of a standard type factory whose arguments after the name are clean: `bound=`,
-    /// the constraints and `default=` are annotations, and Python evaluates their strings.
+    /// A standard type factory call whose arguments after the name (`bound=`, ..) are clean.
     pub(super) fn factory(
         &self,
         call: &ExprCall,
@@ -284,8 +279,7 @@ impl<'a> Project<'a> {
         }
     }
 
-    /// The name `name` of module `module`: standard (clean), a scanned module (its own binding),
-    /// a submodule, or else unknown (a third-party or other standard module: no record proves it).
+    /// The name `name` of module `module`: standard, of the scan, or unknown (third party).
     pub(super) fn member(
         &self,
         module: &str,
@@ -337,8 +331,34 @@ impl<'a> Project<'a> {
         }
     }
 
-    /// The attribute of a class of the scan: its own bindings and every store of that name
-    /// (for any receiver), else the attribute of its bases.
+    /// True when the class and its bases have no metaclass (it can add a data descriptor).
+    fn plain_class(&self, m: usize, body: ScopeId, depth: usize, active: &mut Active) -> bool {
+        let facts = self.facts(m);
+        let scope = &facts.scopes[body];
+        let Some(class) = scope.class else {
+            return false;
+        };
+        let keywords = class.arguments.iter().flat_map(|a| &a.keywords);
+        if keywords
+            .into_iter()
+            .any(|k| k.arg.as_ref().is_some_and(|n| n.as_str() == "metaclass"))
+        {
+            return false;
+        }
+        let parent = scope.parent.unwrap_or(0);
+        let bases = class.arguments.iter().flat_map(|a| &a.args);
+        bases
+            .into_iter()
+            .all(|base| match self.path(base, m, parent, depth + 1, active) {
+                Entity::Standard(_) => true,
+                Entity::Class(m2, b2) => {
+                    depth < MAX_DEPTH && self.plain_class(m2, b2, depth + 1, active)
+                }
+                _ => false,
+            })
+    }
+
+    /// The attribute of a class of the scan: its bindings and every store of the name, else its bases.
     pub(super) fn attribute(
         &self,
         m: usize,
@@ -349,6 +369,9 @@ impl<'a> Project<'a> {
     ) -> Entity {
         let facts = self.facts(m);
         if facts.opaque || depth > MAX_DEPTH * 2 {
+            return Entity::Unknown;
+        }
+        if !self.plain_class(m, body, depth, active) {
             return Entity::Unknown;
         }
         let scope = &facts.scopes[body];
@@ -363,14 +386,6 @@ impl<'a> Project<'a> {
         let Some(class) = scope.class else {
             return Entity::Unknown;
         };
-        let metaclass = class
-            .arguments
-            .iter()
-            .flat_map(|a| &a.keywords)
-            .any(|k| k.arg.as_ref().is_some_and(|n| n.as_str() == "metaclass"));
-        if metaclass {
-            return Entity::Unknown;
-        }
         let parent = scope.parent.unwrap_or(0);
         let bases = class.arguments.iter().flat_map(|a| &a.args);
         let found: Vec<Entity> = bases

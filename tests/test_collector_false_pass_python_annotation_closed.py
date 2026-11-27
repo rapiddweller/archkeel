@@ -401,6 +401,42 @@ SCOPES = {
             x: C.s
         """
     ),
+    "metaclass property wins over the class binding": source(
+        """
+        class Meta(type):
+            s = property(lambda cls: str(PAYLOAD))
+
+
+        class C(metaclass=Meta):
+            s = 'int'
+
+
+        class K:
+            x: C.s
+        """
+    ),
+    "class replaced by a decorator that a standard call makes": source(
+        """
+        import functools
+
+
+        class Evil:
+            s = PAYLOAD
+
+
+        def wrap(cls):
+            return Evil
+
+
+        @functools.partial(wrap)
+        class C:
+            s = 'int'
+
+
+        class K:
+            x: C.s
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

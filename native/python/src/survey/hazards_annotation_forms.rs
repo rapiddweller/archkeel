@@ -95,3 +95,33 @@ pub(super) fn namespace(expr: &Expr) -> bool {
         _ => false,
     }
 }
+
+/// The standard decorators that return the class or function that they get, with the builtins
+/// that wrap it as a method: any other decorator, also one that a standard constructor makes
+/// (`functools.partial(f)`), can return any value.
+pub(super) fn keeps(path: &str) -> bool {
+    matches!(
+        path,
+        "dataclasses.dataclass"
+            | "functools.total_ordering"
+            | "functools.cache"
+            | "functools.lru_cache"
+            | "functools.cached_property"
+            | "functools.singledispatch"
+            | "typing.final"
+            | "typing.overload"
+            | "typing.runtime_checkable"
+            | "typing.type_check_only"
+            | "typing.no_type_check"
+            | "typing_extensions.final"
+            | "typing_extensions.overload"
+            | "typing_extensions.runtime_checkable"
+            | "enum.unique"
+            | "abc.abstractmethod"
+            | "contextlib.contextmanager"
+            | "contextlib.asynccontextmanager"
+            | "staticmethod"
+            | "classmethod"
+            | "property"
+    )
+}
