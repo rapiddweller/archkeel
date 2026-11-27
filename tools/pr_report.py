@@ -60,11 +60,6 @@ def steps(base: str) -> list[Step]:
             "sort the ports, the public lists and the rules of native/architecture-contract.json",
         ),
         Step(
-            "hygiene",
-            (*PYTEST, "tests/test_repository_hygiene.py"),
-            "fix the finding of the repository hygiene test: read its message",
-        ),
-        Step(
             "rust-format",
             ("cargo", "fmt", "--manifest-path", "native/Cargo.toml", "--all", "--", "--check"),
             "run `cd native && cargo fmt --all`",

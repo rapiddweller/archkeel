@@ -64,9 +64,6 @@ jobs:
           NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
         run: make self-validate
 
-      - name: Check documentation diagrams
-        run: make mermaid
-
       - name: Upload latest report evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

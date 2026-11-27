@@ -29,7 +29,7 @@ Python collectors are deleted; the Python collectors are gone, and a release 4.0
 make ci-pr-check BASE=origin/main        # lint, types and a fixed set of tests
 ```
 
-`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the contract sort, the hygiene test and `cargo fmt`. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
+`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint and `cargo fmt`. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
 
 
 Merge only when the required check `PR gate` has passed (GitHub branch protection enforces it) and the review is done. A PR that deletes a whole feature says in its text that the owner approved the deletion; no label is needed ([AD-1270](docs/architecture/decisions/ad-1270-the-merge-tools-are-deleted-and-github-enforces-the-pr-gate.md)). Never `git reset --soft` onto a moved `origin/main`: your tree is then compared with a newer main and reverts what landed in between.
@@ -70,8 +70,7 @@ Dart import rules run through the release core in `tests/test_cli_native_dart_im
 No new recordings replace the other Dart project tests.
 
 The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS=1`, which
-includes the UML TypeScript compiler check. It also runs `make self-validate` and
-`make mermaid`. It runs the whole suite in area jobs on Linux/Python 3.11, and the shell tests
+includes the UML TypeScript compiler check. It also runs `make self-validate`. It runs the whole suite in area jobs on Linux/Python 3.11, and the shell tests
 and the package check on Linux/Python 3.12. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
@@ -92,11 +91,10 @@ aggregate would count as passed.
 | CI: Lint, types and architecture | each push to `main` | `make ci-pr-static BASE=origin/main`, then `make self-validate` |
 | PR gate: PR gate | each pull request | `make pr-gate` |
 | CI: Tests: `<area>` | each push to `main` | `make fast-test AREA="<area>"` |
-| CI: Docs diagrams | each push to `main` | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check` |
 | Pages: Publish the report gallery | a push to `main` that changes a gallery input (AD-1223), nightly, and dispatch on `main` | `make report-gallery` |
 | CI: All checks passed | each push to `main` | none: it needs every CI job and reports the time of each job ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
-| Full: Architecture, build and report checks | nightly, dispatch, release | `make ci-core-check SKIP_TESTS=1`, `make self-validate`, `make mermaid` |
+| Full: Architecture, build and report checks | nightly, dispatch, release | `make ci-core-check SKIP_TESTS=1`, `make self-validate` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Publish the latest main build | nightly and dispatch with `publish`, on `main` only | `python3 tools/publish_main_build.py` after the wheels of Full |
 | Full: Linux: shell and package on Python 3.12 | same as above | `make shell-compat`, then `make build smoke` |
@@ -194,12 +192,12 @@ Studio UI contract at `studio/architecture-contract.json`. The tools have no arc
   alternatives, its limit and the tests that check it. The index is generated from the files
   (`python tools/decision_index.py`, [README](docs/architecture/decisions/README.md)): add the one file and edit no
   shared list. Update documents that describe
-  the old behaviour. Keep the decision under the tested 70-line limit. The
+  the old behaviour. The
   [roadmap](docs/roadmap.md) lists open work only.
 - **Keep the contract true.** A new crate or module in `native/` needs a component in
   `native/architecture-contract.json`, and a new import between components needs a `requires`
-  entry with its reason. A new module in `src/archkeel/` belongs to a component of the shell contract
-  and to the closed set of shell modules (AD-432). Its first docstring or `//!` line names one
+  entry with its reason. A new module in `src/archkeel/` belongs to a component of the shell contract.
+  Its first docstring or `//!` line names one
   responsibility, and no `forbidden_responsibilities` item of its component applies to it.
   Never widen a rule to make a check pass.
 - **Keep a source file near 500 lines or less.** `make self-check` prints the sizes (AD-1088). No test

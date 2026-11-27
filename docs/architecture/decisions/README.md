@@ -12,8 +12,7 @@ every pull request that adds a record edited the same lines and conflicted with 
 
 - `python tools/decision_index.py` prints the list: number, title (the first heading) and link, newest first.
 - `python tools/decision_index.py --write PATH` writes it; `make decision-index` writes `test-artifacts/decision-index.md`.
-- `python tools/decision_index.py --check` fails on a record that no number or heading identifies and on a number that
-  two records share. The tests of CI run the same check.
+- No check runs on the folder: a number that two records share shows in the list.
 - [INDEX.md](INDEX.md) keeps the hand-written list as it was on 2026-11-17.
 
 To add a record, add one file with the next free number from the board. Do not edit another file.

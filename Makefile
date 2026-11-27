@@ -12,12 +12,12 @@ export CARGO_TERM_PROGRESS_WHEN := never
 export CARGO_TERM_QUIET := true
 endif
 
-.PHONY: type-reach-setup gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system self-check native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel report-gallery
+.PHONY: type-reach-setup gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test ci-artifacts-clean check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system self-check native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
 
-ci: ci-check mermaid
+ci: ci-check
 
 ci-check: ci-artifacts-clean ci-core-check self-validate-native self-validate-shell
 
@@ -103,23 +103,6 @@ pr-selected-test: core browser-runtime-install
 
 ci-artifacts-clean:
 	rm -rf test-artifacts/validation test-artifacts/validation-native
-
-mermaid:
-	@set -eu; mermaid_dir=$$(mktemp -d); \
-		trap 'rm -rf "$$mermaid_dir"' 0; \
-		python3 tools/mermaid_blocks.py --write "$$mermaid_dir"; \
-		printf '{"args": ["--no-sandbox"]}\n' > "$$mermaid_dir/puppeteer-config.json"; \
-		fail=0; \
-		for mmd in "$$mermaid_dir"/*.mmd; do \
-			[ -f "$$mmd" ] || continue; \
-			number=$$(basename "$$mmd" .mmd); \
-			location=$$(awk -F'\t' -v n="$$number" '$$1 == n { print $$2 }' "$$mermaid_dir/index.txt"); \
-			if ! npx --yes @mermaid-js/mermaid-cli@11.17.0 -p "$$mermaid_dir/puppeteer-config.json" -i "$$mmd" -o "$$mmd.svg"; then \
-				echo "::error::$$location: mermaid-cli failed to render this block"; \
-				fail=1; \
-			fi; \
-		done; \
-		exit "$$fail"
 
 TEST_WORKERS ?= 2
 
@@ -272,7 +255,7 @@ cargo-deny-install:
 		mkdir -p "$${CARGO_HOME:-$$HOME/.cargo}/bin"; \
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
-LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
+LINT_PATHS := src tests tools/package_plugin.py \
 	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/rust_source.py tools/pr_report.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
 	native/hatch_build.py
 

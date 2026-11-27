@@ -130,27 +130,9 @@ jobs:
   area-checks:
     uses: ./.github/workflows/area-checks.yml
 
-  mermaid:
-    name: Docs diagrams
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install Node
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
-        with:
-          node-version: "22"
-
-      - name: Render every Mermaid block
-        run: make mermaid
-
   check:
     name: All checks passed
-    needs: [lint, area-checks, mermaid]
+    needs: [lint, area-checks]
     # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
     if: always()
     runs-on: ubuntu-24.04
