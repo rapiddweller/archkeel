@@ -365,6 +365,42 @@ SCOPES = {
             x: C.hint
         """
     ),
+    "method called with a module as its first argument": source(
+        """
+        import contextlib
+
+
+        class Patch:
+            def patch(self):
+                self.AbstractContextManager = PAYLOAD
+
+
+        Patch.patch(contextlib)
+
+
+        class K:
+            x: contextlib.AbstractContextManager
+        """
+    ),
+    "class replaced by its decorator": source(
+        """
+        class Evil:
+            s = PAYLOAD
+
+
+        def wrap(cls):
+            return Evil
+
+
+        @wrap
+        class C:
+            s = 'int'
+
+
+        class K:
+            x: C.s
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)
@@ -388,11 +424,11 @@ CONTROLS = {
         ),
         {},
     ),
-    "instance attribute named like a standard name": (
-        HEAD
-        + "import datetime\n\n\nclass A:\n    def __init__(self):\n        self.date = 1\n\n\n"
-        + "class K:\n    x: datetime.date\n"
-        + HINTS,
+    "class of the standard decorator": (
+        consumer(
+            "import dataclasses\n\n\n@dataclasses.dataclass\nclass C:\n    n: int = 0\n\n\n",
+            "C",
+        ),
         {},
     ),
     "typing alias": (consumer("Alias = typing.Optional[int]\n", "Alias"), {}),
@@ -451,6 +487,22 @@ def test_a_third_party_name_is_a_site(
 ) -> None:
     """A name of a third-party module has no record that proves it a class: UNKNOWN (AD-1175)."""
     source = consumer("from pydantic import BaseModel as D\n", "D")
+    root = _root_with(tmp_path, source, {})
+    frame = _verdict(root, release_core, monkeypatch)["frame"]
+
+    assert frame["rules"]["NO-LIB"][1] == "UNKNOWN", frame
+
+
+def test_a_store_through_an_unknown_receiver_holds_the_standard_name(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cost of AD-1175: `self.date = 1` may write the attribute `date` of any module."""
+    source = (
+        HEAD
+        + "import datetime\n\n\nclass A:\n    def __init__(self):\n        self.date = 1\n\n\n"
+        + "class K:\n    x: datetime.date\n"
+        + HINTS
+    )
     root = _root_with(tmp_path, source, {})
     frame = _verdict(root, release_core, monkeypatch)["frame"]
 

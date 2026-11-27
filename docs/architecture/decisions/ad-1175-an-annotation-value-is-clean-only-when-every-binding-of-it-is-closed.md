@@ -16,6 +16,8 @@ Unchanged from AD-1173: any reach of `__annotations__`; `TypedDict`, `NamedTuple
 
 **Effect.** Verdicts do not move on CE (`23bd48d9`), EE (`560d5c7ef`) or FastAPI 0.163.0. CE: 0 new sites. EE: 1 (`construction/factory.py`: `SetupContext` comes from a module with a computed `setattr`). FastAPI: 11 to 66 gaps, all in `fastapi.dependencies.utils`, which was already UNKNOWN: third-party names (pydantic, starlette) and `_compat/v2.py` and `params.py`, which hold a computed `setattr` or `object.__setattr__`.
 
+**Cost.** A store `x.name = v` whose receiver no import names (`self.date = 1`) may write the attribute `name` of any module, so names `name` of standard and scanned modules are sites in the whole scan. The first parameter of a method is no proven receiver: `Patch.patch(module)` passes a module. A decorator that is not from the standard library may replace a class or function: the name is unknown.
+
 **Limit.** A third-party class is a site until a record proves it (YAGNI: no contract list now). A computed `setattr` makes its whole module opaque (the safe choice). A module that only a library evaluates is not gated.
 
 **Tests.** `tests/test_collector_false_pass_python_annotation_closed.py` (cross-module, standard-module write, receiver and `TypeVar` plants; controls) with the 31 plants of `..._class.py`. With the rule disabled 48 plants fail; with the standard-write check disabled the assignment plants fail.

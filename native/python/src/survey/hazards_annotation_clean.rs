@@ -9,7 +9,9 @@
 
 use std::collections::HashSet;
 
-use ruff_python_ast::{Expr, ExprCall, ExprList, ExprStringLiteral, ExprTuple, Operator};
+use ruff_python_ast::{
+    Decorator, Expr, ExprCall, ExprList, ExprStringLiteral, ExprTuple, Operator,
+};
 use ruff_text_size::{Ranged, TextRange};
 
 use super::entity::{typing_style, Active, Entity, Project, MAX_BINDINGS, MAX_DEPTH};
@@ -96,6 +98,33 @@ impl<'a> Project<'a> {
             }
             Ok(_) | Err(Unread::Bound) => false,
             Err(Unread::Syntax) => true,
+        }
+    }
+
+    /// What a definition stands for once its decorators ran: a decorator of the standard library
+    /// (`dataclass`, `total_ordering`, ..) returns the class; any other can return any value.
+    fn decorated(
+        &self,
+        decorators: &[Decorator],
+        at: (usize, ScopeId),
+        plain: Entity,
+        depth: usize,
+        active: &mut Active,
+    ) -> Entity {
+        let standard = |d: &Decorator| {
+            let callee = match &d.expression {
+                Expr::Call(call) => &*call.func,
+                other => other,
+            };
+            matches!(
+                self.path(callee, at.0, at.1, depth, active),
+                Entity::Standard(_)
+            )
+        };
+        if decorators.iter().all(standard) {
+            plain
+        } else {
+            Entity::Unknown
         }
     }
 
@@ -216,11 +245,16 @@ impl<'a> Project<'a> {
     ) -> Entity {
         match binding {
             Binding::Value(value, scope) => self.value(value, m, *scope, depth + 1, active),
-            Binding::Class(body) => Entity::Class(m, *body),
+            Binding::Class(body, decorators, at) => {
+                self.decorated(decorators, (m, *at), Entity::Class(m, *body), depth, active)
+            }
+            Binding::Function(decorators, at) => {
+                self.decorated(decorators, (m, *at), Entity::Clean, depth, active)
+            }
             Binding::Inert => Entity::Clean,
             Binding::Import(module, None) => self.module(module),
             Binding::Import(module, Some(name)) => self.member(module, name, depth, active),
-            Binding::Unknown | Binding::Receiver => Entity::Unknown,
+            Binding::Unknown => Entity::Unknown,
         }
     }
 

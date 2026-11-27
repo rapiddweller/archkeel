@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ruff_python_ast::{Expr, StmtClassDef};
+use ruff_python_ast::{Decorator, Expr, StmtClassDef};
 use ruff_text_size::TextRange;
 
 pub(super) type ScopeId = usize;
@@ -59,13 +59,14 @@ pub(super) enum Binding<'a> {
     /// `name = value`, with the scope that evaluates `value`: a `global` or `nonlocal` write puts
     /// the binding into another scope than its value belongs to.
     Value(&'a Expr, ScopeId),
-    Class(ScopeId),
+    /// A class: its body scope, its decorators (each can replace the class) and their scope.
+    Class(ScopeId, &'a [Decorator], ScopeId),
+    /// A function and its decorators: a decorator can replace it by any value.
+    Function(&'a [Decorator], ScopeId),
     /// A function, or a name that is no value of an annotation (`type X = ..`).
     Inert,
     /// `import m` binds `(m, None)`; `from m import n` binds `(m, Some(n))`.
     Import(String, Option<String>),
-    /// The first parameter of a method: an instance or a class, never a module.
-    Receiver,
     Unknown,
 }
 
@@ -196,16 +197,5 @@ impl<'a> Facts<'a> {
         let above = std::iter::successors(self.scopes[scope].parent, |at| self.scopes[*at].parent);
         let mut functions = above.filter(|at| self.scopes[*at].kind == Kind::Function);
         functions.next()
-    }
-}
-
-impl Binding<'_> {
-    /// The binding of a parameter: the first of a method is the instance or the class.
-    pub(super) fn parameter(receiver: bool) -> Self {
-        if receiver {
-            Self::Receiver
-        } else {
-            Self::Unknown
-        }
     }
 }

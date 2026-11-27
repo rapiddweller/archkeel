@@ -217,7 +217,11 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         match stmt {
             Stmt::FunctionDef(node) => {
-                self.bind(node.name.as_str(), Binding::Inert);
+                let at = self.current;
+                self.bind(
+                    node.name.as_str(),
+                    Binding::Function(&node.decorator_list, at),
+                );
                 node.decorator_list
                     .iter()
                     .for_each(|d| self.visit_decorator(d));
@@ -231,16 +235,8 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
                 self.signature = false;
                 let outer = self.current;
                 self.current = self.open(Kind::Function, None);
-                let fixed = node
-                    .decorator_list
-                    .iter()
-                    .any(|d| last(&d.expression) == Some("staticmethod"));
-                let method = self.facts.scopes[outer].kind == Kind::Class && !fixed;
-                for (at, parameter) in node.parameters.iter().enumerate() {
-                    self.bind(
-                        parameter.name().as_str(),
-                        Binding::parameter(method && at == 0),
-                    );
+                for parameter in node.parameters.iter() {
+                    self.bind(parameter.name().as_str(), Binding::Unknown);
                 }
                 self.visit_body(&node.body);
                 self.current = outer;
@@ -256,7 +252,11 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
                 node.arguments.iter().for_each(|a| self.visit_arguments(a));
                 let outer = self.current;
                 let body = self.open(Kind::Class, Some(node));
-                self.bind(node.name.as_str(), Binding::Class(body));
+                let at = outer;
+                self.bind(
+                    node.name.as_str(),
+                    Binding::Class(body, &node.decorator_list, at),
+                );
                 self.current = body;
                 self.visit_body(&node.body);
                 self.current = outer;

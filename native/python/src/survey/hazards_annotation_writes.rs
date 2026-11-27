@@ -24,7 +24,6 @@ impl<'a> Project<'a> {
                 let attr = w.attr.clone()?;
                 match self.dotted(w.receiver, at, w.scope, 0) {
                     Some(path) => Some((path, attr)),
-                    None if self.instance(w.receiver, at, w.scope) => None,
                     None => Some(("*".to_owned(), attr)),
                 }
             });
@@ -32,19 +31,6 @@ impl<'a> Project<'a> {
         });
         let key = |m: &str| (m.to_owned(), name.to_owned());
         all.contains(&key(module)) || all.contains(&key("*"))
-    }
-
-    /// True when every binding of the receiver is the first parameter of a method.
-    fn instance(&self, receiver: &Expr, m: usize, scope: ScopeId) -> bool {
-        let Expr::Name(node) = receiver else {
-            return false;
-        };
-        let facts = self.facts(m);
-        let id = node.id.as_str();
-        let bindings = facts
-            .holder(scope, id)
-            .map(|at| &facts.scopes[at].names[id]);
-        bindings.is_some_and(|b| b.iter().all(|b| matches!(b, Binding::Receiver)))
     }
 
     /// The dotted name of the module that `receiver` names through its imports or through an
