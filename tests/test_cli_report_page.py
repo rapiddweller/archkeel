@@ -149,7 +149,11 @@ def test_the_page_stays_below_the_budget_and_keeps_its_verdict(
     _, text, found = write_page(release_core, monkeypatch, root, config, tmp_path / "p.html")
     size = len(text.encode())
     print(f"page {name}: {size} bytes")
-    causes = [g["reason"][:200] for g in found.get("collection_gaps", [])][:5]
+    causes = [
+        found.get("scope"),
+        list(found.get("explained", {}).items())[:3],
+        [g["reason"][:200] for g in found.get("gaps", [])][:4],
+    ]
     assert found["status"] == status and f"<h1>Verdict: {status}</h1>" in text, causes
     assert size < BUDGET
 
