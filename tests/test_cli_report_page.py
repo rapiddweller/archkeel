@@ -153,6 +153,7 @@ def test_the_page_stays_below_the_budget_and_keeps_its_verdict(
         found.get("scope"),
         list(found.get("explained", {}).items())[:3],
         [g["reason"][:200] for g in found.get("gaps", [])][:4],
+        [s for s in __import__("json").dumps(found).split('"') if "outside_file" in s][:3],
     ]
     assert found["status"] == status and f"<h1>Verdict: {status}</h1>" in text, causes
     assert size < BUDGET

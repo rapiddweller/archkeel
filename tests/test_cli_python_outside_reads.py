@@ -215,24 +215,20 @@ def test_a_use_that_can_hand_out_a_module_keeps_the_hold(
     assert check(release_core, tmp_path, HELD[name])["INTERFACE"] == "UNKNOWN"
 
 
-# Each script is in the closed grammar: `import` of `sys` and `importlib.*`, a read of a text, a
-# test of `sys.modules`, `find_spec` of a top-level name against `None`, `print` of a read. No path
-# is written, nothing is defined and no package is imported.
+# Each script is in the closed grammar: `import sys` only, plain values, a test of `sys.modules`,
+# `print` of plain values. Nothing else is imported or called, no path is written, nothing is
+# defined.
 CLOSED = {
     "reads": (
-        "import importlib.metadata\nimport importlib.util\nimport sys\n\n"
-        'assert importlib.util.find_spec("zzz_never_installed") is None\n'
+        "import sys\n\n"
         'assert "zzz_never_installed" not in sys.modules\n'
-        'print("app" in sys.modules, importlib.metadata.version("pip"))\n'
+        'print("app" in sys.modules)\n'
         'if "app" in sys.modules or not "app" in sys.modules:\n    print("done")\n'
     ),
     "plain f-string is the text": (
         'import sys\n\nprint(f"app", f"app" in sys.modules)\nname = "x"\nprint(name)\n'
     ),
-    "from import": (
-        "from importlib.util import find_spec\nfrom importlib.metadata import version\n"
-        'print(find_spec("zzz_never_installed") is None, version("pip"))\n'
-    ),
+    "plain values": 'print(1, None, True, "app.service")\n',
 }
 
 
@@ -245,23 +241,22 @@ def test_a_script_in_the_closed_grammar_holds_nothing(
     assert "hooked" not in run(tmp_path, CLOSED[name])
 
 
-# One form outside the grammar keeps the hold of the whole file, with a read next to it.
+# One form outside the grammar keeps the hold of the whole file, with the reads beside it. The
+# import of `importlib.metadata` is a site of AD-770 that names `app.service` through the texts.
+BASE = "import importlib.metadata\n" + CLOSED["reads"].replace('"app"', '"app.service"')
 OUTSIDE = {
-    "a def": CLOSED["reads"] + "\n\ndef unused():\n    return 1\n",
-    "a try": (
-        "import importlib.metadata\n\ntry:\n    importlib.metadata.version('app')\n"
-        "except importlib.metadata.PackageNotFoundError:\n    pass\n"
-    ),
-    "an alias": CLOSED["reads"].replace("import sys", "import sys as system"),
-    "a call of another function": CLOSED["reads"] + 'print(len("x"))\n',
-    "a keyword of print": CLOSED["reads"] + 'print("x", end="")\n',
-    "a name used twice": CLOSED["reads"] + 'name = "a"\nname = "b"\n',
-    "a name passed on": CLOSED["reads"] + 'name = "a"\nprint(len(name))\n',
-    "a test of an object": CLOSED["reads"] + 'name = "a"\nassert name in sys.modules\n',
-    "files of a package of the scan": CLOSED["reads"]
+    "an import of importlib": BASE,
+    "a def": BASE + "\n\ndef unused():\n    return 1\n",
+    "a try": BASE + "try:\n    importlib.metadata.version('app')\nexcept KeyError:\n    pass\n",
+    "an alias": BASE.replace("import sys", "import sys as system"),
+    "a call of another function": BASE + 'print(len("x"))\n',
+    "a keyword of print": BASE + 'print("x", end="")\n',
+    "a name used twice": BASE + 'name = "a"\nname = "b"\n',
+    "a name passed on": BASE + 'name = "a"\nprint(len(name))\n',
+    "a test of an object": BASE + 'name = "a"\nassert name in sys.modules\n',
+    "files of a package of the scan": BASE
     + 'import importlib.resources\nprint(importlib.resources.files("app"))\n',
-    "find_spec of a submodule": CLOSED["reads"]
-    + 'assert importlib.util.find_spec("app.service") is None\n',
+    "find_spec of a submodule": BASE + 'assert importlib.util.find_spec("app.service") is None\n',
 }
 
 
@@ -317,6 +312,19 @@ RUNS_PACKAGE_CODE = {
         'print("app.service")\n'
     ),
 }
+
+# Any import but `sys` can run a file beside the script: `importlib.metadata` imports `csv`.
+CSV = {"scripts/csv.py": PAYLOAD["scripts/payload/__init__.py"]}
+
+
+def test_an_import_of_importlib_metadata_keeps_the_hold_when_a_csv_file_sits_beside(
+    release_core: Path, tmp_path: Path
+) -> None:
+    script = 'import importlib.metadata\nprint("app.service")\n'
+    assert check(release_core, tmp_path, script, CSV)["INTERFACE"] == "UNKNOWN"
+    run(tmp_path, script)
+    assert "hooked" in (tmp_path / "src/app/service.py").read_text()
+
 
 # A package beside the script shadows the package of the scan: `files("app")` runs its initializer.
 SHADOW = {"scripts/app/__init__.py": PAYLOAD["scripts/payload/__init__.py"]}

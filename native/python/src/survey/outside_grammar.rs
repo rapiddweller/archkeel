@@ -11,7 +11,7 @@
 //! names; with an argument that is not a text written in the source it is a site for every
 //! module of the scan, because the name can be any of them.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
@@ -172,49 +172,28 @@ pub(super) fn api_calls(module: &Module, names: &HashSet<String>) -> Vec<ApiCall
     calls.found
 }
 
-/// What a name or an expression of the closed grammar stands for.
-#[derive(Clone, Copy, PartialEq)]
-enum Value {
-    /// A text, a number, a bool or `None`: no method of it runs code of the file.
-    Plain,
-    /// The spec that `importlib.util.find_spec(text)` gives; only a test against `None` uses it.
-    Spec,
-}
-
-/// The names that `from importlib... import` may bind, by module.
-const FROM_IMPORTS: [(&str, &str); 2] = [
-    ("importlib.metadata", "version"),
-    ("importlib.util", "find_spec"),
-];
-
-/// The modules that `import` may bind, without an alias.
-const IMPORTS: [&str; 5] = [
-    "sys",
-    "importlib",
-    "importlib.metadata",
-    "importlib.resources",
-    "importlib.util",
-];
+/// The only module that `import` may bind, without an alias: `sys` is built in, so no file beside
+/// the script can shadow it. Any other import (`importlib.metadata` imports `csv`, a sibling
+/// `csv.py` runs instead) can run code of the repository (Codex #2144).
+const IMPORTS: [&str; 1] = ["sys"];
 
 /// The names that no assignment may bind.
-const RESERVED: [&str; 5] = ["print", "sys", "importlib", "version", "find_spec"];
+const RESERVED: [&str; 2] = ["print", "sys"];
 
 #[derive(Default)]
 struct Grammar {
-    bound: HashMap<String, Value>,
-    from: HashSet<String>,
+    /// The names that an assignment bound to a plain value: each is bound once.
+    bound: HashSet<String>,
 }
 
-/// True when the whole file is in the closed grammar of a read-only script (#1963, AD-1211):
-/// `import` of `sys` and of `importlib.metadata`, `importlib.resources` and `importlib.util`
-/// without an alias, `from` of `version` and `find_spec`, a name that is assigned once from a
-/// read, `print` of texts and reads to the standard output, `assert` and `if` over a test of a
-/// read, and nothing else. A read is `version(text)`, `text in sys.modules` and
-/// `find_spec(top_level_text) is None`. Each value that reaches a call is a text written in the
-/// source, so no object runs its own code, and nothing imports a package: `files(text)` and
-/// `find_spec("a.b")` do, and a package beside the script can shadow the name. The file writes no
-/// path, defines nothing and calls nothing else: it cannot write a binding of the scan or change a
-/// file of it.
+/// True when the whole file is in the closed grammar of a script that reads nothing but its own
+/// texts and `sys.modules` (#1963, AD-1211): `import sys` without an alias, a name assigned once
+/// from a plain value, `print` of plain values to the standard output with no keyword, `assert`
+/// and `if` over a plain test, and nothing else. A plain value is a text, a number, a bool or
+/// `None` written in the source, a name bound to one, `not` and `and`/`or` of plain values, and
+/// `text in sys.modules`. The file imports nothing else (a file beside the script can shadow
+/// `csv`, `contextlib` or any package that `importlib` imports), calls nothing else, writes no
+/// path and defines nothing: it can write no binding of the scan and change no file of it.
 pub(super) fn closed(module: &Module) -> bool {
     let mut grammar = Grammar::default();
     module.tree.body.iter().all(|stmt| grammar.stmt(stmt))
@@ -228,15 +207,14 @@ impl Grammar {
                 .names
                 .iter()
                 .all(|a| a.asname.is_none() && IMPORTS.contains(&Identifier::as_str(&a.name))),
-            Stmt::ImportFrom(node) => self.import_from(node),
             Stmt::Expr(node) => self.statement_expr(&node.value),
             Stmt::Assign(node) => self.assign(&node.targets, &node.value),
             Stmt::Assert(node) => {
                 let msg = node.msg.as_deref().is_none_or(|m| text_of(m).is_some());
-                self.value(&node.test) == Some(Value::Plain) && msg
+                self.plain(&node.test) && msg
             }
             Stmt::If(node) => {
-                self.value(&node.test) == Some(Value::Plain)
+                self.plain(&node.test)
                     && node.body.iter().all(|s| self.stmt(s))
                     && node.elif_else_clauses.iter().all(|c| self.clause(c))
             }
@@ -245,39 +223,18 @@ impl Grammar {
     }
 
     fn clause(&mut self, clause: &ElifElseClause) -> bool {
-        let test = clause
-            .test
-            .as_ref()
-            .is_none_or(|t| self.value(t) == Some(Value::Plain));
+        let test = clause.test.as_ref().is_none_or(|t| self.plain(t));
         test && clause.body.iter().all(|s| self.stmt(s))
     }
 
-    fn import_from(&mut self, node: &ruff_python_ast::StmtImportFrom) -> bool {
-        let from = node.module.as_ref().map_or("", Identifier::as_str);
-        let allowed = |name: &str| FROM_IMPORTS.contains(&(from, name));
-        let ok = node.level == 0
-            && node
-                .names
-                .iter()
-                .all(|a| a.asname.is_none() && allowed(Identifier::as_str(&a.name)));
-        for alias in &node.names {
-            self.from.insert(Identifier::as_str(&alias.name).to_owned());
-        }
-        ok
-    }
-
-    /// `print(...)` or a bare read.
+    /// `print(plain, ...)`, or a bare plain value.
     fn statement_expr(&self, expr: &Expr) -> bool {
         let Expr::Call(call) = expr else {
-            return matches!(self.value(expr), Some(Value::Plain));
+            return self.plain(expr);
         };
-        let printed = matches!(&*call.func, Expr::Name(n) if n.id.as_str() == "print");
-        if !printed {
-            return matches!(self.value(expr), Some(Value::Plain));
-        }
         let keywords: &[Keyword] = &call.arguments.keywords;
-        let shown = |a: &Expr| matches!(self.value(a), Some(Value::Plain));
-        keywords.is_empty() && call.arguments.args.iter().all(shown)
+        let printed = matches!(&*call.func, Expr::Name(n) if n.id.as_str() == "print");
+        printed && keywords.is_empty() && call.arguments.args.iter().all(|a| self.plain(a))
     }
 
     fn assign(&mut self, targets: &[Expr], value: &Expr) -> bool {
@@ -285,84 +242,33 @@ impl Grammar {
             return false;
         };
         let name = target.id.to_string();
-        let free = !RESERVED.contains(&String::as_str(&name)) && !self.bound.contains_key(&name);
-        match self.value(value) {
-            Some(kind @ Value::Plain) if free => {
-                self.bound.insert(name, kind);
-                true
-            }
+        let free = !RESERVED.contains(&String::as_str(&name)) && !self.bound.contains(&name);
+        let ok = free && self.plain(value);
+        if ok {
+            self.bound.insert(name);
+        }
+        ok
+    }
+
+    fn plain(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::NumberLiteral(_) | Expr::BooleanLiteral(_) | Expr::NoneLiteral(_) => true,
+            Expr::StringLiteral(_) | Expr::FString(_) => text_of(expr).is_some(),
+            Expr::Name(name) => self.bound.contains(name.id.as_str()),
+            Expr::UnaryOp(node) => matches!(node.op, UnaryOp::Not) && self.plain(&node.operand),
+            Expr::BoolOp(node) => node.values.iter().all(|v| self.plain(v)),
+            Expr::Compare(node) => Self::sys_modules_test(node),
             _ => false,
         }
     }
 
-    fn value(&self, expr: &Expr) -> Option<Value> {
-        match expr {
-            Expr::NumberLiteral(_) | Expr::BooleanLiteral(_) | Expr::NoneLiteral(_) => {
-                Some(Value::Plain)
-            }
-            Expr::StringLiteral(_) | Expr::FString(_) => text_of(expr).map(|_| Value::Plain),
-            Expr::Name(name) => self.bound.get(name.id.as_str()).copied(),
-            Expr::UnaryOp(node) if matches!(node.op, UnaryOp::Not) => {
-                (self.value(&node.operand) == Some(Value::Plain)).then_some(Value::Plain)
-            }
-            Expr::BoolOp(node) => {
-                let plain = node
-                    .values
-                    .iter()
-                    .all(|v| self.value(v) == Some(Value::Plain));
-                plain.then_some(Value::Plain)
-            }
-            Expr::Compare(node) => self.compare(node),
-            Expr::Call(call) => self.call(call),
-            _ => None,
-        }
-    }
-
-    /// `text in sys.modules`, `text not in sys.modules`, `find_spec(text) is None`.
-    fn compare(&self, node: &ExprCompare) -> Option<Value> {
-        let [left, right] = &*node.operands else {
-            return None;
+    /// `text in sys.modules`, `text not in sys.modules`.
+    fn sys_modules_test(node: &ExprCompare) -> bool {
+        let ([left, right], [op]) = (&*node.operands, &*node.ops) else {
+            return false;
         };
-        let [op] = &*node.ops else {
-            return None;
-        };
-        let tested = matches!(op, CmpOp::In | CmpOp::NotIn)
+        matches!(op, CmpOp::In | CmpOp::NotIn)
             && text_of(left).is_some()
-            && chain(right).as_deref() == Some("sys.modules");
-        let spec = matches!(op, CmpOp::Is | CmpOp::IsNot)
-            && right.is_none_literal_expr()
-            && self.value(left) == Some(Value::Spec);
-        (tested || spec).then_some(Value::Plain)
-    }
-
-    /// `find_spec("a.b")` imports the parent `a`, and a package beside the script can shadow it
-    /// (`scripts/app/__init__.py`): only a top-level name is proven. `files(text)` imports the
-    /// package of the text for the same reason, so it is no part of the grammar (Codex #2144).
-    fn imports_a_package(name: &str, call: &ExprCall) -> bool {
-        let text = call
-            .arguments
-            .args
-            .first()
-            .and_then(text_of)
-            .unwrap_or_default();
-        name.ends_with("find_spec") && text.contains('.')
-    }
-
-    fn call(&self, call: &ExprCall) -> Option<Value> {
-        if !texts(call) {
-            return None;
-        }
-        let name = chain(&call.func)?;
-        let bare = |from: &str| self.from.contains(from) && !name.contains('.');
-        if Self::imports_a_package(&name, call) {
-            return None;
-        }
-        match String::as_str(&name) {
-            "importlib.metadata.version" => Some(Value::Plain),
-            "importlib.util.find_spec" => Some(Value::Spec),
-            _ if bare("version") && name == "version" => Some(Value::Plain),
-            _ if bare("find_spec") && name == "find_spec" => Some(Value::Spec),
-            _ => None,
-        }
+            && chain(right).as_deref() == Some("sys.modules")
     }
 }
