@@ -19,67 +19,22 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_contract::{head_of, Rule};
 use archkeel_eval::{CycleStep, Outcome, Violation};
-use archkeel_model::{shape, Applied, Cause, CoverageGap, Incomplete, Model, Reason, Shape};
+use archkeel_model::{
+    shape, Applied, Cause, CoverageGap, Incomplete, Model, PairOrigin, Reason, Shape,
+};
 use serde::Serialize;
 
-use crate::why::WhyUnknown;
-
-const VERSION: u8 = 1;
-/// The most cycles that one rule lists.
-const MAX_CYCLES: usize = 50;
-/// The most steps that one path lists.
-const MAX_STEPS: usize = 64;
-/// The most evidence ids that one step lists.
-const MAX_EVIDENCE: usize = 5;
-/// The most gaps and pairs that one rule lists.
-const MAX_HELD: usize = 20;
-/// The most rules that one gap lists.
-const MAX_RULES: usize = 200;
-/// The most gaps that the part lists.
-const MAX_GAPS: usize = 500;
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-struct Budgets {
-    cycles_per_rule: usize,
-    path_steps: usize,
-    evidence_per_step: usize,
-    held_per_rule: usize,
-    rules_per_gap: usize,
-    gaps: usize,
-}
-
-/// The schema of the budgets: each field is a constant, the value of `BUDGETS`. The shell reads
-/// the limits from the schema and keeps no copy of them.
-fn budgets_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-    let values = serde_json::to_value(BUDGETS).unwrap_or_default();
-    let fields: serde_json::Map<String, serde_json::Value> = values
-        .as_object()
-        .into_iter()
-        .flatten()
-        .map(|(name, value)| (name.clone(), serde_json::json!({"const": value})))
-        .collect();
-    let required: Vec<&String> = fields.keys().collect();
-    schemars::json_schema!({
-        "type": "object",
-        "properties": fields,
-        "required": required,
-        "additionalProperties": false,
-    })
-}
-
-/// The schema of the version of the part: the constant `VERSION`.
-fn version_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-    schemars::json_schema!({"const": VERSION})
-}
-
-const BUDGETS: Budgets = Budgets {
-    cycles_per_rule: MAX_CYCLES,
-    path_steps: MAX_STEPS,
-    evidence_per_step: MAX_EVIDENCE,
-    held_per_rule: MAX_HELD,
-    rules_per_gap: MAX_RULES,
-    gaps: MAX_GAPS,
+#[path = "explain_interface.rs"]
+mod interface;
+#[path = "explain_limits.rs"]
+mod limits;
+use interface::{distinct, interface_value, origin_counts};
+use limits::{
+    budgets_schema, version_schema, Budgets, BUDGETS, MAX_CYCLES, MAX_EVIDENCE, MAX_GAPS, MAX_HELD,
+    MAX_RULES, MAX_STEPS, VERSION,
 };
+
+use crate::why::WhyUnknown;
 
 /// The shape of one rule.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
@@ -146,6 +101,8 @@ enum HoldKind {
     /// Gaps that state their effect, and the rule reads the effect (AD-564).
     ScopedGaps,
     UnknownImports,
+    /// The imports of an `interface_boundary` rule that it could not decide (`interface`).
+    InterfaceImports,
     NoSourceFiles,
     /// Any other cause: the text of `explained` names it.
     Other,
@@ -156,10 +113,13 @@ enum HoldKind {
 struct Held {
     cause: WhyUnknown,
     kind: HoldKind,
-    pairs: Vec<(String, String)>,
+    pairs: Vec<(String, String, Option<PairOrigin>)>,
     /// The ids of the gaps that the reason itself names (AD-564).
     ids: Vec<String>,
     unnamed_imports: usize,
+    /// The held imports of an interface rule, as the frame writes them.
+    interface: Option<serde_json::Value>,
+    imports_total: usize,
 }
 
 impl Held {
@@ -172,7 +132,14 @@ impl Held {
             pairs: Vec::new(),
             ids: Vec::new(),
             unnamed_imports: 0,
+            interface: None,
+            imports_total: 0,
         };
+        if let Reason::Interface(hold) = reason {
+            held.kind = HoldKind::InterfaceImports;
+            held.interface = Some(interface_value(hold));
+            held.imports_total = hold.total();
+        }
         if let Reason::Incomplete(incomplete) = reason {
             held.kind = match incomplete {
                 Incomplete::CoverageGaps { .. } => HoldKind::CoverageGaps,
@@ -185,11 +152,11 @@ impl Held {
         }
         if let Reason::NotComplete(Cause::PairGaps(pairs)) = reason {
             held.kind = HoldKind::PairGaps;
-            held.pairs = distinct(pairs.pairs());
+            held.pairs = distinct(pairs.pairs(), pairs.origins());
         }
         if let Reason::NotComplete(Cause::AllowedPairGaps(pairs)) = reason {
             held.kind = HoldKind::AllowedPairGaps;
-            held.pairs = distinct(pairs.pairs());
+            held.pairs = distinct(pairs.pairs(), &[]);
         }
         if let Reason::NotComplete(Cause::ScopedGaps(scoped)) = reason {
             held.kind = HoldKind::ScopedGaps;
@@ -226,16 +193,6 @@ impl Collected {
         }
         (pairs, found)
     }
-}
-
-/// The pairs of the gap records, each once, in the order of their first record.
-fn distinct(records: &[(String, String)]) -> Vec<(String, String)> {
-    let mut seen = BTreeSet::new();
-    records
-        .iter()
-        .filter(|pair| seen.insert(*pair))
-        .cloned()
-        .collect()
 }
 
 impl Collected {
@@ -344,6 +301,9 @@ fn step(step: &CycleStep, applied: &[Applied]) -> Step {
 struct Pair {
     source: String,
     target: String,
+    /// Why the pair holds an interface rule; absent for the other rules.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    origin: Option<&'static str>,
 }
 
 /// The gaps that hold one rule.
@@ -362,6 +322,12 @@ struct RuleHolds {
     truncated: bool,
     /// The imports that the collector could not resolve and that no gap names.
     unnamed_imports: usize,
+    /// The number of held pairs of each origin, for an interface rule.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    origins: Vec<serde_json::Value>,
+    /// The held imports of an interface rule, each with its stated cause.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    interface: Option<serde_json::Value>,
 }
 
 /// One coverage gap and the rules that it holds.
@@ -410,7 +376,7 @@ fn ids_of(held: &Held, gaps: &[CoverageGap]) -> Vec<String> {
             let pairs: BTreeSet<(&str, &str)> = held
                 .pairs
                 .iter()
-                .map(|(source, target)| (source.as_str(), target.as_str()))
+                .map(|(source, target, _)| (source.as_str(), target.as_str()))
                 .collect();
             gaps.iter()
                 .filter(|gap| match (&gap.source, &gap.module) {
@@ -421,7 +387,10 @@ fn ids_of(held: &Held, gaps: &[CoverageGap]) -> Vec<String> {
                 .collect()
         }
         HoldKind::ScopedGaps => held.ids.clone(),
-        HoldKind::UnknownImports | HoldKind::NoSourceFiles | HoldKind::Other => Vec::new(),
+        HoldKind::UnknownImports
+        | HoldKind::InterfaceImports
+        | HoldKind::NoSourceFiles
+        | HoldKind::Other => Vec::new(),
     }
 }
 
@@ -439,6 +408,7 @@ impl Collected {
             // A pair rule counts distinct pairs; a record count would not match the noun.
             let total = match held.kind {
                 HoldKind::PairGaps | HoldKind::AllowedPairGaps => held.pairs.len(),
+                HoldKind::InterfaceImports => held.imports_total,
                 HoldKind::CoverageGaps
                 | HoldKind::ScopedGaps
                 | HoldKind::UnknownImports
@@ -456,14 +426,17 @@ impl Collected {
                         .pairs
                         .iter()
                         .take(MAX_HELD)
-                        .map(|(source, target)| Pair {
+                        .map(|(source, target, origin)| Pair {
                             source: source.clone(),
                             target: target.clone(),
+                            origin: origin.map(PairOrigin::word),
                         })
                         .collect(),
                     total,
                     truncated: total > MAX_HELD,
                     unnamed_imports: held.unnamed_imports,
+                    origins: origin_counts(&held.pairs),
+                    interface: held.interface.clone(),
                 },
             );
         }

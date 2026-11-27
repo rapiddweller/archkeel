@@ -2071,6 +2071,14 @@
           "format": "uint",
           "minimum": 0,
           "description": "The imports that the collector could not resolve and that no gap names."
+        },
+        "origins": {
+          "type": "array",
+          "items": true,
+          "description": "The number of held pairs of each origin, for an interface rule."
+        },
+        "interface": {
+          "description": "The held imports of an interface rule, each with its stated cause."
         }
       },
       "required": [
@@ -2104,6 +2112,11 @@
         },
         {
           "type": "string",
+          "const": "interface_imports",
+          "description": "The imports of an `interface_boundary` rule that it could not decide (`interface`)."
+        },
+        {
+          "type": "string",
           "const": "other",
           "description": "Any other cause: the text of `explained` names it."
         }
@@ -2118,6 +2131,13 @@
         },
         "target": {
           "type": "string"
+        },
+        "origin": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Why the pair holds an interface rule; absent for the other rules."
         }
       },
       "required": [

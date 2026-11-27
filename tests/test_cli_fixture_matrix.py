@@ -224,7 +224,23 @@ def test_review_demo_keeps_an_open_binding_unknown(
     assert frame["rules"][rule][1] == "UNKNOWN"
     assert frame["explained"][rule].startswith(reason)
     assert frame["collection_gaps"] == []
-    assert frame["explain"]["holds"]["rules"][rule]["kind"] == "other"
+    hold = frame["explain"]["holds"]["rules"][rule]
+    if name == "M-interface-open-route":
+        # #2086: the frame names the held import and the cause that the collector states.
+        assert hold["kind"] == "interface_imports" and hold["total"] == 1
+        [held] = hold["interface"]["imports"]
+        assert (held["source"], held["target"], held["name"]) == (
+            "orders.api",
+            "orders.pricing",
+            "mystery",
+        )
+        assert (held["gap"], held["class"]) == ("publication_route", "uncertain_hop")
+        assert held["cause"] == {"kind": "uncertain_hop", "at": "orders.pricing.mystery"}
+        assert hold["interface"]["classes"] == [
+            {"gap": "publication_route", "class": "uncertain_hop", "count": 1}
+        ]
+    else:
+        assert hold["kind"] == "other"
     [edge] = [
         edge
         for edge in frame["topology"]["edges"]
