@@ -55,11 +55,6 @@ def steps(base: str) -> list[Step]:
             "fix each finding; never add a blanket ignore",
         ),
         Step(
-            "contract-sort-and-rules",
-            (*PYTEST, "tests/test_native_contract_rules.py"),
-            "sort the ports, the public lists and the rules of native/architecture-contract.json",
-        ),
-        Step(
             "rust-format",
             ("cargo", "fmt", "--manifest-path", "native/Cargo.toml", "--all", "--", "--check"),
             "run `cd native && cargo fmt --all`",

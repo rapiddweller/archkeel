@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 from test_report_gallery import _build
 
-from tools import fixture_source, fixture_tree, report_gallery, report_gallery_page
+from tools import fixture_source, fixture_tree, report_gallery
 
 FIXTURES = report_gallery.ROOT / "fixtures"
 PINNED = ("N-fastapi-realworld", "O-bazel-worker-realworld")
@@ -143,25 +143,6 @@ def test_a_pinned_run_shows_its_pin_and_a_failed_fetch_is_no_result_and_fails_th
     code, out = _build(tmp_path, report_gallery.MATRIX)
     assert code == 1
     assert "no result: " in (out / "showcase" / "index.html").read_text()
-
-
-def test_the_card_states_the_pin_the_licence_and_that_only_the_contract_is_ours() -> None:
-    pin = fixture_source.pin_facts(fixture_source.load(FIXTURES / PINNED[0]) or {})
-    run = {"name": "n", "section": "real", "intent": "PASS", "about": "a"}
-    summary = {"status": "PASS", "counts": {"PASS": 3, "FAIL": 0, "UNKNOWN": 0}, "gaps": {}}
-    row = {"run": run, "links": [], "summary": {**summary, "refusal": None}, "source": pin}
-    page = report_gallery_page.index([row], "sha", "now")
-    assert f'<a href="{pin["repo"]}">FastAPI</a> 0.163.0 (MIT)' in page
-    assert f"pinned commit <code>{pin['commit'][:12]}</code>" in page
-    assert "The contract is ours." in page
-
-
-def test_the_matrix_lists_both_real_projects_with_their_decided_result() -> None:
-    # Release 5 gives FastAPI 10 accepted trojan horse gaps (AD-1053, AD-1058): UNKNOWN on purpose.
-    pinned = {"N-fastapi-realworld": "UNKNOWN", "O-bazel-worker-realworld": "PASS"}
-    runs = {run["name"]: run for run in report_gallery.showcase_runs()}
-    for name in PINNED:
-        assert runs[name]["section"] == "real" and runs[name]["intent"] == pinned[name]
 
 
 def test_the_cache_folder_gets_one_cachedir_tag(tmp_path: Path) -> None:

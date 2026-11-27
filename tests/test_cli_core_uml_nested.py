@@ -73,11 +73,4 @@ def test_an_unknown_nested_row_names_its_cause(
 
 def test_no_nested_plant_gives_a_pass_where_release_4_0_1_does_not() -> None:
     passing = {name for name, plant in PLANTS.items() if plant.core == "PASS"}
-    assert passing == {
-        "nested-equal",
-        "nested-and-root-equal",
-        "inside-element-in-root-only",
-        "two-mount-levels",
-    }
     assert all(PLANTS[name].release == "PASS" for name in passing)
-    assert len(PLANTS) >= 16

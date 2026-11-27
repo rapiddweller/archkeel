@@ -13,6 +13,7 @@ import hashlib
 import json
 import stat
 import sys
+import time
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -155,6 +156,19 @@ def _stated_root(file: Path) -> str:
     return str(stated)
 
 
+# `CLOCK_REALTIME_COARSE` (Linux, value 5): the clock that the kernel stamps `st_ctime` with before
+# multigrain timestamps (6.13). It lags `time_ns()` by up to one tick, so a write right after a
+# request starts could carry a time below the start and pass the check (#2204).
+_COARSE_CLOCK = 5
+
+
+def request_started_ns() -> int:
+    """The start of a request on the clock of file times, for `bind_request`."""
+    if sys.platform.startswith("linux"):
+        return time.clock_gettime_ns(_COARSE_CLOCK)
+    return time.time_ns()
+
+
 def bind_request(
     frame: Mapping[str, object], request: Mapping[str, object], derived: str, started_ns: int | None
 ) -> None:
@@ -209,7 +223,11 @@ def bind_request(
 
 
 def _bind_inside(root: Path, name: str, digest: str, budget: int, started_ns: int | None) -> int:
-    """A bounded read of the same non-linked file, with no write since the request started."""
+    """A bounded read of the same non-linked file, with no write since the request started.
+
+    The core reads the nested file itself, so only its change time can tell a write after the
+    request started from a write before it (a digest of the new bytes matches the new bytes).
+    """
     relative = PurePosixPath(name)
     if (
         relative.is_absolute()
@@ -225,7 +243,8 @@ def _bind_inside(root: Path, name: str, digest: str, budget: int, started_ns: in
         before = path.stat()
         if not stat.S_ISREG(before.st_mode):
             raise RequestMismatch(f"the nested contract is not a regular file: {name}")
-        if started_ns is not None and before.st_ctime_ns > started_ns:
+        # `>=`: a write in the tick of the start has the same coarse time. A refusal is safe.
+        if started_ns is not None and before.st_ctime_ns >= started_ns:
             raise RequestMismatch(f"the nested contract changed after the request started: {name}")
         with path.open("rb") as stream:
             payload = stream.read(budget + 1)

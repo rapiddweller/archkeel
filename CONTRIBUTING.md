@@ -192,13 +192,13 @@ Studio UI contract at `studio/architecture-contract.json`. The tools have no arc
   alternatives, its limit and the tests that check it. The index is generated from the files
   (`python tools/decision_index.py`, [README](docs/architecture/decisions/README.md)): add the one file and edit no
   shared list. Update documents that describe
-  the old behaviour. The
+  the old behaviour. Keep the decision short. The
   [roadmap](docs/roadmap.md) lists open work only.
-- **ArchKeel is the single point of truth for architecture drift.** An architecture rule goes into `native/architecture-contract.json`, or it becomes an ArchKeel feature. The self-check enforces it. Do not add a custom test, script, ledger, remembered number or CI gate for architecture drift.
+- **ArchKeel is the single point of truth for architecture drift.** ArchKeel is the single point of truth for every kind of architecture drift in this repository. An architecture rule goes into `native/architecture-contract.json`, or it becomes an ArchKeel feature. The self-check enforces it. Do not add a custom test, script, ledger, remembered number or CI gate for architecture drift.
 - **Keep the contract true.** A new crate or module in `native/` needs a component in
   `native/architecture-contract.json`, and a new import between components needs a `requires`
-  entry with its reason. A new module in `src/archkeel/` belongs to a component of the shell contract.
-  Its first docstring or `//!` line names one
+  entry with its reason. A new module in `src/archkeel/` belongs to a component of the shell contract
+  (AD-432). Its first docstring or `//!` line names one
   responsibility, and no `forbidden_responsibilities` item of its component applies to it.
   Never widen a rule to make a check pass.
 - **Keep a source file near 500 lines or less.** `make self-check` prints the sizes (AD-1088). No test

@@ -26,13 +26,13 @@ def fake(failing: set[str]):
 
 
 def test_the_precheck_runs_only_the_cheap_steps_and_all_failures_are_listed(capsys) -> None:
-    runner, ran = fake({"ruff format", "test_native_contract_rules.py"})
+    runner, ran = fake({"ruff format", "ruff check"})
     code = pr_report.main(["--mode", "precheck"], runner)
     out = capsys.readouterr().out
     assert code == 1
     assert len(ran) == len([s for s in pr_report.steps("b") if s.kind == pr_report.CHEAP])
     assert not any("make" in command for command in ran)
-    assert "format | FAIL" in out and "contract-sort-and-rules | FAIL" in out
+    assert "format | FAIL" in out and "lint | FAIL" in out
     assert "E  ruff format broke" in out and "fix:" in out
     assert f"2 of {len(ran)} steps failed" in out
 

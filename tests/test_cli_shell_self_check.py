@@ -13,7 +13,6 @@ mixed tree gives today.
 from __future__ import annotations
 
 import json
-import re
 import shutil
 import sys
 from collections.abc import Iterator
@@ -32,17 +31,6 @@ from self_check_gate import problems  # noqa: E402
 
 CONFIG = "docs/architecture/shell.toml"
 CONTRACT = "docs/architecture/target/shell-contract.json"
-DECIDED_KINDS = {
-    "complete_assignment",
-    "complete_requires",
-    "complete_external_scope",
-    "external_dependency_scope",
-    "forbidden_dependency",
-    "interface_boundary",
-    "layer_order",
-    "no_component_cycles",
-    "unused_public",
-}
 
 
 @pytest.fixture
@@ -163,29 +151,3 @@ def test_the_summary_lists_a_planted_import_with_its_place(
     count = next(line for line in found if line.startswith("violations: "))
     assert count != "violations: 0"
     assert any("src/archkeel/cli/core_json.py:" in line for line in found)
-
-
-def test_the_contract_states_every_rule_with_a_decided_kind_and_real_provenance() -> None:
-    document = json.loads((ROOT / CONTRACT).read_text())
-    assert {rule["kind"] for rule in document["rules"]} <= DECIDED_KINDS
-    for item in [*document["components"], *document["rules"]]:
-        assert item.get("rationale", "x") and item["provenance"]
-        assert [name for name in item["provenance"] if not (ROOT / name).is_file()] == []
-    assert len({rule["id"] for rule in document["rules"]}) == len(document["rules"])
-
-
-def test_each_module_of_the_shell_has_a_component_and_each_component_a_graph_node() -> None:
-    document = json.loads((ROOT / CONTRACT).read_text())
-    owned = {name for c in document["components"] for name in c["exact_modules"]}
-    modules = {
-        ".".join(path.relative_to(ROOT / "src").with_suffix("").parts).removesuffix(".__init__")
-        for path in (ROOT / "src/archkeel").rglob("*.py")
-    }
-    assert modules == owned
-    page = (ROOT / "docs/architecture/shell.md").read_text()
-    block = page.split("<!-- archkeel-component-graph -->", 1)[1].split("```", 2)[1]
-    nodes = dict(re.findall(r'n_(\d+)\["([^"]+)"\]', block))
-    assert set(nodes.values()) == {c["label"] for c in document["components"]}
-    drawn = {(nodes[a], nodes[b]) for a, b in re.findall(r"n_(\d+) --> n_(\d+)", block)}
-    declared = {(c["label"], r["component"]) for c in document["components"] for r in c["requires"]}
-    assert drawn == declared

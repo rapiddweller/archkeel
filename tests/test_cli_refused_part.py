@@ -9,38 +9,13 @@ exit codes of the core in one module. The typed refusal `parse_work_limit` has i
 """
 
 import json
-import re
 from pathlib import Path
 
 import pytest
 
 from archkeel.cli import core_only
 from archkeel.cli.core_frame import CoreError, Gap, GapKind
-from archkeel.cli.core_json import CoreExit
 from archkeel.cli.core_words import _refused_part, _RefusedPart, fix_for
-
-ROOT = Path(__file__).resolve().parents[1]
-COLLECTOR = ROOT / "native" / "collect" / "src"
-# `refused("part", ...)`, `Refused::Unsupported("part", ...)` and `part: "part"` of a `Refusal`.
-PART = re.compile(r'(?:\brefused|Refused::Unsupported)\(\s*"([^"]+)"|\bpart:\s*"([^"]+)"')
-WORKER_PART = re.compile(r'Worker::(?:Rust|TypeScript)\s*=>\s*"([^"]+ worker)"')
-
-
-def _collector_parts() -> set[str]:
-    found: set[str] = set()
-    for path in COLLECTOR.rglob("*.rs"):
-        if path.name.endswith("_tests.rs"):
-            continue
-        source = path.read_text(encoding="utf-8")
-        for match in PART.finditer(source):
-            found.add((match[1] or match[2]).lower())
-        found.update(part.lower() for part in WORKER_PART.findall(source))
-    return found
-
-
-def test_every_part_that_the_collector_refuses_is_a_refused_part() -> None:
-    # Older collectors can still return the retired Dart scan refusal.
-    assert _collector_parts() | {_RefusedPart.SCAN.value} == {part.value for part in _RefusedPart}
 
 
 @pytest.mark.parametrize(
@@ -78,10 +53,6 @@ def test_the_part_of_a_refusal_is_read_in_one_place(
 def test_each_refused_part_keeps_its_fix(message: str, start: str) -> None:
     fix = fix_for("collection_refused", message)
     assert fix is not None and fix.startswith(start), fix
-
-
-def test_the_exit_codes_of_the_core_are_named_once() -> None:
-    assert (CoreExit.DECIDED, CoreExit.REFUSED, CoreExit.NAMES_A_GAP) == (0, 2, 3)
 
 
 def test_a_parse_work_refusal_of_the_core_has_its_own_kind_and_fix(

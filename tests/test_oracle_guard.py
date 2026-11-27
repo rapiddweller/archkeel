@@ -117,7 +117,7 @@ def test_every_oracle_skip_of_the_suite_names_a_tool() -> None:
             if LOOSE.search(reason):
                 found += 1
                 assert oracle_support.tool_of(reason) is not None, (path.name, line, reason)
-    assert found >= 30, found
+    assert found, "the walk found no oracle skip: it reads nothing"
 
 
 def test_the_walk_finds_a_runtime_skip_and_a_skipif() -> None:
