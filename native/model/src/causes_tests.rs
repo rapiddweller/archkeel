@@ -6,6 +6,7 @@
 //! a cut list says how many pairs it shows.
 
 use super::{Cause, Held};
+use crate::causes::{HeldImport, InterfaceGap, InterfaceHold, PairOrigin};
 
 fn pairs(count: usize) -> Vec<(String, String)> {
     (0..count)
@@ -81,11 +82,15 @@ fn a_cut_list_shows_distinct_pairs_and_counts_them_not_the_records() {
 
 #[test]
 fn an_interface_hold_lists_its_imports_and_cuts_the_list() {
-    use super::{InterfaceGap, InterfaceHold};
     let names: Vec<String> = (0..7).map(|n| format!("m{n}")).collect();
-    let listed = names
-        .iter()
-        .map(|n| (InterfaceGap::PublicationRoute, "a", n.as_str(), Some("X")));
+    let listed = names.iter().map(|n| HeldImport {
+        gap: InterfaceGap::PublicationRoute,
+        source: "a".to_owned(),
+        target: n.clone(),
+        name: Some("X".to_owned()),
+        cause: None,
+        evidence: Vec::new(),
+    });
     let hold = InterfaceHold::of(listed).expect("an import");
     assert_eq!(
         hold.to_string(),
@@ -95,4 +100,76 @@ fn an_interface_hold_lists_its_imports_and_cuts_the_list() {
          a -> m4:X (unproven publication route) and 2 more"
     );
     assert!(InterfaceHold::of(std::iter::empty()).is_none());
+}
+
+#[test]
+fn an_interface_hold_counts_each_class_and_names_the_cause_in_its_text() {
+    use archkeel_facts::vocab::RouteWithheld;
+    let held = |target: &str, cause: Option<(RouteWithheld, Option<String>)>| HeldImport {
+        gap: InterfaceGap::PublicationRoute,
+        source: "a".to_owned(),
+        target: target.to_owned(),
+        name: Some("X".to_owned()),
+        cause,
+        evidence: vec!["EVD-1".to_owned()],
+    };
+    let hold = InterfaceHold::of(
+        [
+            held("m1", Some((RouteWithheld::AmbiguousReexport, None))),
+            held("m2", Some((RouteWithheld::AmbiguousReexport, None))),
+            held(
+                "m3",
+                Some((RouteWithheld::OutsideWrite, Some("m3".to_owned()))),
+            ),
+            held("m4", None),
+        ]
+        .into_iter(),
+    )
+    .expect("an import");
+    let classes: Vec<_> = hold.classes().collect();
+    assert_eq!(
+        classes,
+        [
+            (InterfaceGap::PublicationRoute, None, 1),
+            (
+                InterfaceGap::PublicationRoute,
+                Some(RouteWithheld::AmbiguousReexport),
+                2
+            ),
+            (
+                InterfaceGap::PublicationRoute,
+                Some(RouteWithheld::OutsideWrite),
+                1
+            ),
+        ]
+    );
+    let text = hold.to_string();
+    assert!(text.contains("a -> m1:X (unproven publication route, ambiguous_reexport)"));
+    assert!(text.contains("outside_write m3"));
+    assert_eq!(hold.total(), 4);
+}
+
+#[test]
+fn a_pair_gap_names_its_origin_from_its_flags() {
+    use crate::pair_gaps::origin;
+    assert_eq!(origin(false, true, true), PairOrigin::UnobservedModule);
+    assert_eq!(origin(true, false, true), PairOrigin::Dispatch);
+    assert_eq!(origin(true, false, false), PairOrigin::NotExecutionOnly);
+    assert_eq!(origin(true, true, false), PairOrigin::UnownedEnd);
+}
+
+#[test]
+fn an_interface_hold_keeps_twenty_imports_for_the_frame_and_shows_five() {
+    let held = (0..30).map(|n| HeldImport {
+        gap: InterfaceGap::PublicationRoute,
+        source: "a".to_owned(),
+        target: format!("m{n}"),
+        name: None,
+        cause: None,
+        evidence: Vec::new(),
+    });
+    let hold = InterfaceHold::of(held).expect("an import");
+    assert_eq!((hold.total(), hold.imports().len()), (30, 20));
+    assert!(hold.to_string().contains("(showing 5)"));
+    assert!(hold.to_string().ends_with("and 25 more"));
 }

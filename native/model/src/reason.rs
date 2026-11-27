@@ -8,7 +8,8 @@ use std::fmt;
 
 use archkeel_contract::RuleKind;
 
-use crate::causes::{Cause, InterfaceHold, Part};
+use crate::causes::InterfaceHold;
+use crate::causes::{Cause, Part};
 use crate::coverage::Incomplete;
 use crate::section::{Porting, Section};
 

@@ -37,8 +37,45 @@ class _HoldKind(StrEnum):
     ALLOWED_PAIR_GAPS = "allowed_pair_gaps"
     SCOPED_GAPS = "scoped_gaps"
     UNKNOWN_IMPORTS = "unknown_imports"
+    INTERFACE_IMPORTS = "interface_imports"
     NO_SOURCE_FILES = "no_source_files"
     OTHER = "other"
+
+
+class _InterfaceGap(StrEnum):
+    """The missing fact that holds an `interface_boundary` import."""
+
+    UNREAD_BINDING = "unread_binding"
+    PUBLICATION_ROUTE = "publication_route"
+    PUBLICATION_SURFACE = "publication_surface"
+    TYPE_PUBLICATION = "type_publication"
+
+
+class _PairOrigin(StrEnum):
+    """Why a module pair holds an `interface_boundary` rule."""
+
+    UNOBSERVED_MODULE = "unobserved_module"
+    DISPATCH = "dispatch"
+    NOT_EXECUTION_ONLY = "not_execution_only"
+    UNOWNED_END = "unowned_end"
+    NAMED_SITE = "named_site"
+
+
+class _HoldClass(StrEnum):
+    """The cause class that the collector states for a held import."""
+
+    NOT_STATED = "not_stated"
+    AMBIGUOUS_REEXPORT = "ambiguous_reexport"
+    UNCERTAIN_HOP = "uncertain_hop"
+    UNREAD_ALL = "unread_all"
+    OUTSIDE_WRITE = "outside_write"
+    ESCAPED = "escaped"
+    ESCAPED_WRITE = "escaped_write"
+    ESCAPED_NAMESPACE = "escaped_namespace"
+    ESCAPED_CHILD_MODULE = "escaped_child_module"
+    ESCAPED_VALUE = "escaped_value"
+    ESCAPED_NAME = "escaped_name"
+    TYPE_CHECKING_REEXPORT = "type_checking_reexport"
 
 
 _CAUSES: Final = frozenset(
@@ -102,6 +139,28 @@ class Cycles:
 
 
 @dataclass(frozen=True, slots=True)
+class HeldImport:
+    """One import that holds an `interface_boundary` rule, with the cause that the core states."""
+
+    source: str
+    target: str
+    name: str | None
+    gap: _InterfaceGap
+    cause_class: _HoldClass
+    cause: Mapping[str, object] | None
+    evidence: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class InterfaceHolds:
+    """The held imports of one `interface_boundary` rule: the count of each class and the first."""
+
+    classes: tuple[tuple[_InterfaceGap, _HoldClass, int], ...]
+    imports: tuple[HeldImport, ...]
+    places: tuple[tuple[_HoldClass, str, int], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class RuleHolds:
     """What holds one rule at UNKNOWN: the cause, the gaps and the pairs."""
 
@@ -112,6 +171,9 @@ class RuleHolds:
     total: int
     truncated: bool
     unnamed_imports: int
+    interface: InterfaceHolds | None = None
+    origins: tuple[tuple[_PairOrigin, int], ...] = ()
+    pair_origins: tuple[_PairOrigin | None, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,6 +317,56 @@ def _pair(value: object, where: str) -> tuple[str, str]:
     return as_text(row["source"], where), as_text(row["target"], where)
 
 
+def _pair_origin(value: object, where: str) -> _PairOrigin | None:
+    origin = as_object(value, where).get("origin")
+    return None if origin is None else _word(_PairOrigin, origin, where)
+
+
+def _origins(value: object, where: str) -> tuple[tuple[_PairOrigin, int], ...]:
+    rows = [as_object(item, where) for item in _list(value or [], where, 100_000)]
+    return tuple(
+        (_word(_PairOrigin, r["origin"], where), as_count(r["count"], where)) for r in rows
+    )
+
+
+def _held_import(value: object, where: str) -> HeldImport:
+    row = as_object(value, where)
+    name, cause = row["name"], row["cause"]
+    return HeldImport(
+        as_text(row["source"], where),
+        as_text(row["target"], where),
+        None if name is None else as_text(name, where),
+        _word(_InterfaceGap, row["gap"], where),
+        _word(_HoldClass, row["class"], where),
+        None if cause is None else as_object(cause, where),
+        _texts(row["evidence"], where),
+    )
+
+
+def _interface(value: object, where: str) -> InterfaceHolds:
+    row = as_object(value, where)
+    classes = tuple(
+        (
+            _word(_InterfaceGap, as_object(item, where)["gap"], where),
+            _word(_HoldClass, as_object(item, where)["class"], where),
+            as_count(as_object(item, where)["count"], where),
+        )
+        for item in _list(row["classes"], where, 100_000)
+    )
+    imports = tuple(
+        _held_import(item, where) for item in _list(row["imports"], where, budget("held_per_rule"))
+    )
+    places = tuple(
+        (
+            _word(_HoldClass, as_object(item, where)["class"], where),
+            as_text(as_object(item, where)["at"], where),
+            as_count(as_object(item, where)["count"], where),
+        )
+        for item in _list(row.get("places", []), where, 100_000)
+    )
+    return InterfaceHolds(classes, imports, places)
+
+
 def _rule_holds(value: object, where: str) -> RuleHolds:
     row = as_object(value, where)
     cause = as_text(row["cause"], where)
@@ -265,7 +377,10 @@ def _rule_holds(value: object, where: str) -> RuleHolds:
     pairs = tuple(_pair(item, where) for item in _list(row["pairs"], where, limit))
     total = as_count(row["total"], where)
     truncated = _bool(row["truncated"], where)
-    if truncated != (total > limit) or max(len(gaps), len(pairs)) > min(total, limit):
+    interface = row.get("interface")
+    held = None if interface is None else _interface(interface, where)
+    listed = max(len(gaps), len(pairs), len(held.imports) if held else 0)
+    if truncated != (total > limit) or listed > min(total, limit):
         raise CoreError(f"the core frame field {where} has an inconsistent hold count")
     return RuleHolds(
         cause,
@@ -275,6 +390,9 @@ def _rule_holds(value: object, where: str) -> RuleHolds:
         total,
         truncated,
         as_count(row["unnamed_imports"], where),
+        held,
+        _origins(row.get("origins"), where),
+        tuple(_pair_origin(item, where) for item in _list(row["pairs"], where, limit)),
     )
 
 

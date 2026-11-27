@@ -15,7 +15,7 @@ fn route(files: &[(&str, &str)], source: &str, symbol: &str) -> Option<Vec<Strin
     resolve(
         &mut found.imports,
         &found.files,
-        &found.opaque_surface,
+        (&found.opaque_surface, &found.surface),
         (&found.sole_binders, &found.ambiguous),
         &found.sources,
     );
@@ -23,6 +23,31 @@ fn route(files: &[(&str, &str)], source: &str, symbol: &str) -> Option<Vec<Strin
         let data = record.data.data();
         (data.source_module.as_str() == source && data.symbol.as_deref() == Some(symbol))
             .then(|| data.reexport_chain.clone().unwrap_or_default())
+    })
+}
+
+/// The cause that the survey states for the withheld route of the import of `symbol`.
+fn cause(
+    files: &[(&str, &str)],
+    source: &str,
+    symbol: &str,
+) -> Option<(RouteWithheld, Option<String>)> {
+    let mut found = surveyed(files);
+    resolve(
+        &mut found.imports,
+        &found.files,
+        (&found.opaque_surface, &found.surface),
+        (&found.sole_binders, &found.ambiguous),
+        &found.sources,
+    );
+    found.imports.iter().find_map(|record| {
+        let data = record.data.data();
+        (data.source_module.as_str() == source && data.symbol.as_deref() == Some(symbol))
+            .then(|| {
+                data.route_withheld
+                    .zip(Some(data.route_withheld_at.clone()))
+            })
+            .flatten()
     })
 }
 
@@ -176,4 +201,207 @@ fn the_survey_alone_writes_no_route() {
         .imports
         .iter()
         .all(|record| record.data.data().reexport_chain.is_none()));
+}
+
+fn with_init(init: &str) -> Option<(RouteWithheld, Option<String>)> {
+    cause(
+        &[("src/app/__init__.py", ""), (INIT, init), IMPL, USER],
+        "app.user",
+        "f",
+    )
+}
+
+#[test]
+fn an_unread_all_is_the_stated_cause() {
+    let found = with_init("from app.pkg.impl import f\n__all__ = ['f'] + other\n");
+    assert_eq!(
+        found,
+        Some((RouteWithheld::UnreadAll, Some("app.pkg".to_owned())))
+    );
+}
+
+#[test]
+fn a_write_from_another_module_is_the_stated_cause() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\nimport app.pkg._patch\n"),
+            ("src/app/pkg/_patch.py", "from app import pkg\npkg.f = 1\n"),
+            IMPL,
+            USER,
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(
+        found,
+        Some((
+            RouteWithheld::EscapedWrite,
+            Some("app.pkg <- src/app/pkg/_patch.py:2".to_owned())
+        ))
+    );
+}
+
+#[test]
+fn a_hop_that_is_not_unique_is_the_stated_cause() {
+    let found = with_init("from app.pkg.impl import f\nf = 1\n");
+    assert_eq!(
+        found,
+        Some((RouteWithheld::UncertainHop, Some("app.pkg.f".to_owned())))
+    );
+}
+
+#[test]
+fn a_guarded_reexport_is_the_stated_cause() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            IMPL,
+            (
+                "src/app/user.py",
+                "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from app.pkg import f\n",
+            ),
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(found, Some((RouteWithheld::TypeCheckingReexport, None)));
+}
+
+#[test]
+fn a_proven_route_states_no_cause() {
+    assert_eq!(with_init("from app.pkg.impl import f\n"), None);
+}
+
+#[test]
+fn a_name_that_is_the_attribute_or_the_submodule_is_the_stated_cause() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            ("src/app/pkg/f.py", "x = 1\n"),
+            IMPL,
+            USER,
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(found, Some((RouteWithheld::AmbiguousReexport, None)));
+}
+
+#[test]
+fn code_outside_the_scan_that_writes_a_module_is_the_stated_cause() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            IMPL,
+            USER,
+            ("tools/patch.py", "import app.pkg\napp.pkg.f = 1\n"),
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(
+        found,
+        Some((RouteWithheld::OutsideWrite, Some("app.pkg".to_owned())))
+    );
+}
+
+/// The cause of the import of `f` from `app.pkg` when `other` is a module that uses `app.pkg`.
+fn escaping_use(other: &str) -> Option<(RouteWithheld, Option<String>)> {
+    cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            IMPL,
+            USER,
+            ("src/app/other.py", other),
+        ],
+        "app.user",
+        "f",
+    )
+}
+
+#[test]
+fn a_module_handed_on_as_a_value_is_named_with_its_use() {
+    let found = escaping_use("from app import pkg\nconsume(pkg)\n");
+    assert_eq!(
+        found,
+        Some((
+            RouteWithheld::EscapedValue,
+            Some("app.pkg <- src/app/other.py:2".to_owned())
+        ))
+    );
+}
+
+#[test]
+fn an_imported_name_of_unproven_kind_is_named_with_its_use() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            ("src/app/lib.py", "def f(): pass\nVALUE = factory()\n"),
+            ("src/app/user.py", "from app.lib import f\n"),
+            (
+                "src/app/other.py",
+                "from app.lib import VALUE\nconsume(VALUE)\n",
+            ),
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(
+        found,
+        Some((
+            RouteWithheld::EscapedName,
+            Some("app.lib <- src/app/other.py:2".to_owned())
+        ))
+    );
+}
+
+#[test]
+fn a_namespace_read_is_named_with_its_use() {
+    let found = escaping_use("from app import pkg\nnames = pkg.__dict__\n");
+    assert_eq!(
+        found,
+        Some((
+            RouteWithheld::EscapedNamespace,
+            Some("app.pkg <- src/app/other.py:2".to_owned())
+        ))
+    );
+}
+
+#[test]
+fn a_child_module_handed_on_is_named_with_its_use() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            IMPL,
+            USER,
+            (
+                "src/app/other.py",
+                "from app import pkg\nconsume(pkg.impl)\n",
+            ),
+        ],
+        "app.user",
+        "f",
+    );
+    assert!(matches!(
+        found,
+        Some((RouteWithheld::EscapedChildModule, Some(at))) if at.ends_with("src/app/other.py:2")
+    ));
+}
+
+#[test]
+fn a_namespace_import_names_its_target_and_its_file() {
+    let found = escaping_use("from app.pkg import __dict__ as names\n");
+    assert_eq!(
+        found,
+        Some((
+            RouteWithheld::EscapedNamespace,
+            Some("app.pkg <- src/app/other.py (import of __dict__)".to_owned())
+        ))
+    );
 }
