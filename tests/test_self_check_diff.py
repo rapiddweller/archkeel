@@ -26,6 +26,7 @@ from self_check_support import (
     FIXTURES,
     RULE,
     TOOL,
+    green,
     real,
     red,
     run,
@@ -34,12 +35,6 @@ from self_check_support import (
     violation,
     worse,
 )
-
-
-def green(done: subprocess.CompletedProcess[str], *named: str) -> None:
-    assert done.returncode == 0, done.stdout + done.stderr
-    for text in named:
-        assert text in done.stdout, done.stdout
 
 
 def test_equal_results_are_green(tmp_path: Path) -> None:
