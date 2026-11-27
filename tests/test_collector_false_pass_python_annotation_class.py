@@ -95,7 +95,14 @@ REVIEW = {
     + f's = str("{IMPORT}")\n\n\nclass K:\n    x: s\n\n\n'
     + "try:\n    hints(K)\nexcept Exception:\n    pass\n",
 }
-PLANTS = {**WRITES, **NAMES, **BUILDERS, **LOOKUP, **REVIEW}
+REVIEW2 = {
+    "quoted annotation of a computed name": named(f's = str("{IMPORT}")').replace("x: s", 'x: "s"'),
+    "alias of a held string": named(f's = "{IMPORT}"\nt = s').replace("x: s", "x: t"),
+    "builder imported under an alias": "from typing import TypedDict as TD, get_type_hints\n\n\n"
+    + f'K = TD("K", {{"x": "{IMPORT}"}})\n\n\n'
+    + "try:\n    get_type_hints(K)\nexcept Exception:\n    pass\n",
+}
+PLANTS = {**WRITES, **NAMES, **BUILDERS, **LOOKUP, **REVIEW, **REVIEW2}
 CONTROLS = {
     "plain forms": HEAD
     + "class K:\n    x: int\n    y: typing.Optional[str]\n    z: list[int] | None\n"

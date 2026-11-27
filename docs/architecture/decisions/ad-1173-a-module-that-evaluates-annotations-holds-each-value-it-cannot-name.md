@@ -10,6 +10,8 @@
 3. A part of an annotation that is no type form: a call, a condition, a computed string, a lambda, a dict. The strings in `Literal[..]` and the metadata of `Annotated[..]` are no annotation and are not checked.
 4. A name or attribute name in an annotation that the module binds to a value that may be a string. Bindings that taint: an assignment of anything but a string literal, a type factory call (`TypeVar`, `NewType`, ..) or a function; an unpack; `:=`; `+=`; a `for` or `with` target; a comprehension or `match` capture. `Alias = other` is as tainted as `other`.
 
+The checks also apply to the text of a quoted annotation, to the signature of a nested function (the annotation of a local variable is no annotation: Python neither evaluates nor stores it), and to names that the module imports under another name (an evaluator or a builder). An alias of a held string is as uncertain as a tainted name. `cast` is no type factory: it returns its second argument.
+
 A string literal that a name or attribute name holds is read as code (AD-1134), also through an attribute (`C.s`). The statement forms of AD-1134 stay a site in every module.
 
 **Effect.** The class rule only adds sites. On the CE (`23bd48d9`) and EE (`560d5c7ef`) references the verdicts and the gap records are the same before and after (CE 176/99/1 and 1087 gaps, EE 256/223/0 and 1633 gaps).

@@ -16,12 +16,13 @@ use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    Alias, Comprehension, Expr, Identifier, ModModule, Operator, Pattern, PatternMatchAs,
-    PatternMatchMapping, PatternMatchStar, Stmt,
+    Alias, Comprehension, Expr, ExprStringLiteral, Identifier, ModModule, Operator, Pattern,
+    PatternMatchAs, PatternMatchMapping, PatternMatchStar, Stmt,
 };
 use ruff_text_size::{Ranged, TextRange};
 
 use super::super::trojan_horse::Site;
+use crate::parse::Unread;
 use crate::survey::hazards_names::DYNAMIC;
 
 /// The names that hold or run annotations.
@@ -83,7 +84,12 @@ pub(super) fn assigned<'a>(stmt: &'a Stmt, mut each: impl FnMut(&'a Expr, &'a Ex
 struct Scan<'a> {
     evaluates: bool,
     reaches: Vec<TextRange>,
-    builders: Vec<TextRange>,
+    /// `(callee, first argument is a string literal, range)` of each call.
+    calls: Vec<(String, bool, TextRange)>,
+    /// `import a as b`: `b` is `a`.
+    aliases: HashMap<String, String>,
+    /// The names and attribute names that the module binds to a string literal.
+    held: HashSet<String>,
     annotations: Vec<&'a Expr>,
     /// In a function body: Python neither evaluates nor stores a local variable annotation.
     local: bool,
@@ -104,7 +110,9 @@ fn sites(tree: &ModModule) -> Vec<Site> {
     let mut scan = Scan {
         evaluates: false,
         reaches: Vec::new(),
-        builders: Vec::new(),
+        calls: Vec::new(),
+        aliases: HashMap::new(),
+        held: HashSet::new(),
         annotations: Vec::new(),
         local: false,
         tainted: HashSet::new(),
@@ -120,12 +128,15 @@ fn sites(tree: &ModModule) -> Vec<Site> {
         found.push(Site::plain(DYNAMIC, detail, range));
     };
     scan.reaches.iter().for_each(|r| add("__annotations__", *r));
-    scan.builders
-        .iter()
-        .for_each(|r| add("annotation builder", *r));
+    for (callee, literal_ref, range) in &scan.calls {
+        let name = scan.aliases.get(callee).unwrap_or(callee).as_str();
+        if BUILDERS.contains(&name) || (name == "ForwardRef" && !literal_ref) {
+            add("annotation builder", *range);
+        }
+    }
     let mut ranges = Vec::new();
     for expr in &scan.annotations {
-        scan.dynamic(expr, &mut ranges);
+        scan.dynamic(expr, &mut ranges, 0);
     }
     ranges.iter().for_each(|r| add("annotation value", *r));
     found.sort_by_key(|site| site.range.start());
@@ -141,21 +152,29 @@ impl<'a> Scan<'a> {
                 targets.entry(source).or_default().push(target);
             }
         }
-        let mut seen: HashSet<&str> = self.tainted.iter().map(String::as_str).collect();
-        let mut queue: Vec<&str> = seen.iter().copied().collect();
+        // An alias of a held string is as uncertain as an alias of a tainted name.
+        let seeds = self.tainted.iter().chain(&self.held);
+        let mut queue: Vec<&str> = seeds.map(String::as_str).collect();
+        let mut seen: HashSet<&str> = queue.iter().copied().collect();
+        let mut grown: Vec<String> = Vec::new();
         while let Some(source) = queue.pop() {
             let next = targets.get(source).into_iter().flatten();
-            queue.extend(next.filter(|target| seen.insert(**target)).copied());
+            for target in next.filter(|target| seen.insert(**target)) {
+                queue.push(target);
+                grown.push((*target).to_owned());
+            }
         }
-        let grown: Vec<String> = seen.into_iter().map(str::to_owned).collect();
         self.tainted.extend(grown);
     }
 
     fn imports(&mut self, aliases: &[Alias]) {
-        let named = |alias: &Alias| alias.name.rsplit('.').next().unwrap_or_default().to_owned();
-        self.evaluates |= aliases
-            .iter()
-            .any(|a| EVALUATORS.contains(&named(a).as_str()));
+        for alias in aliases {
+            let name = alias.name.rsplit('.').next().unwrap_or_default();
+            self.evaluates |= EVALUATORS.contains(&name);
+            if let Some(local) = &alias.asname {
+                self.aliases.insert(local.to_string(), name.to_owned());
+            }
+        }
     }
 
     fn taint(&mut self, target: &Expr) {
@@ -178,6 +197,9 @@ impl<'a> Scan<'a> {
         if !matches!(target, Expr::Name(_) | Expr::Attribute(_)) {
             return self.taint(target);
         }
+        if let (Expr::StringLiteral(_), Some(id)) = (value, last(target)) {
+            self.held.insert(id.to_owned());
+        }
         if path(value) {
             let mut sources = Vec::new();
             ids(value, &mut sources);
@@ -191,11 +213,24 @@ impl<'a> Scan<'a> {
         }
     }
 
+    /// A quoted annotation is read as code: the same checks apply to its text.
+    fn quoted(&self, text: &ExprStringLiteral, found: &mut Vec<TextRange>, depth: usize) {
+        let mut inner = Vec::new();
+        match crate::parse::expression(text.value.to_str()) {
+            Ok(code) if depth < 8 => self.dynamic(&code, &mut inner, depth + 1),
+            Ok(_) | Err(Unread::Bound) => inner.push(text.range()),
+            Err(Unread::Syntax) => {}
+        }
+        if !inner.is_empty() {
+            found.push(text.range());
+        }
+    }
+
     /// Push the ranges of the parts of an annotation that the survey cannot name as a type form.
-    fn dynamic(&self, expr: &Expr, found: &mut Vec<TextRange>) {
+    fn dynamic(&self, expr: &Expr, found: &mut Vec<TextRange>, depth: usize) {
         match expr {
-            Expr::StringLiteral(_)
-            | Expr::NoneLiteral(_)
+            Expr::StringLiteral(text) => self.quoted(text, found, depth),
+            Expr::NoneLiteral(_)
             | Expr::NumberLiteral(_)
             | Expr::BooleanLiteral(_)
             | Expr::BytesLiteral(_)
@@ -209,11 +244,11 @@ impl<'a> Scan<'a> {
                 if self.tainted.contains(node.attr.as_str()) {
                     found.push(node.range());
                 } else {
-                    self.dynamic(&node.value, found);
+                    self.dynamic(&node.value, found, depth);
                 }
             }
             Expr::Subscript(node) => {
-                self.dynamic(&node.value, found);
+                self.dynamic(&node.value, found, depth);
                 if literal(&node.value) {
                     return;
                 }
@@ -230,14 +265,14 @@ impl<'a> Scan<'a> {
                 items
                     .into_iter()
                     .take(count)
-                    .for_each(|i| self.dynamic(i, found));
+                    .for_each(|i| self.dynamic(i, found, depth));
             }
-            Expr::Tuple(node) => node.elts.iter().for_each(|e| self.dynamic(e, found)),
-            Expr::List(node) => node.elts.iter().for_each(|e| self.dynamic(e, found)),
-            Expr::Starred(node) => self.dynamic(&node.value, found),
+            Expr::Tuple(node) => node.elts.iter().for_each(|e| self.dynamic(e, found, depth)),
+            Expr::List(node) => node.elts.iter().for_each(|e| self.dynamic(e, found, depth)),
+            Expr::Starred(node) => self.dynamic(&node.value, found, depth),
             Expr::BinOp(node) if node.op == Operator::BitOr => {
-                self.dynamic(&node.left, found);
-                self.dynamic(&node.right, found);
+                self.dynamic(&node.left, found, depth);
+                self.dynamic(&node.right, found, depth);
             }
             other => found.push(other.range()),
         }
@@ -383,10 +418,9 @@ impl<'a> Visitor<'a> for Scan<'a> {
                 self.evaluates |= eval_str;
                 let literal_ref =
                     matches!(call.arguments.args.first(), Some(Expr::StringLiteral(_)));
-                let build = callee.is_some_and(|n| BUILDERS.contains(&n))
-                    || (callee == Some("ForwardRef") && !literal_ref);
-                if build {
-                    self.builders.push(expr.range());
+                if let Some(callee) = callee {
+                    self.calls
+                        .push((callee.to_owned(), literal_ref, expr.range()));
                 }
             }
             Expr::Named(node) => self.taint(&node.target),
