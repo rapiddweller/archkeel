@@ -248,7 +248,7 @@ impl<'a> Project<'a> {
             Binding::Function(decorators, at) => {
                 self.decorated(decorators, (m, *at), Entity::Clean, depth, active)
             }
-            Binding::Inert => Entity::Clean,
+            Binding::Inert | Binding::Absent => Entity::Clean,
             Binding::Import(module, None) => self.module(module),
             Binding::Import(module, Some(name)) => self.member(module, name, depth, active),
             Binding::Unknown => Entity::Unknown,
@@ -386,7 +386,8 @@ impl<'a> Project<'a> {
         }
         let parent = scope.parent.unwrap_or(0);
         let bases = class.arguments.iter().flat_map(|a| &a.args);
-        for base in bases.filter(|_| own.is_empty()) {
+        let stored_here = own.iter().any(|b| !matches!(b, Binding::Absent));
+        for base in bases.filter(|_| !stored_here) {
             found.push(match self.path(base, m, parent, depth + 1, active) {
                 Entity::Standard(path) => Entity::Standard(format!("{path}.{attr}")),
                 Entity::Class(m2, b2) => self.attribute(m2, b2, attr, depth + 1, active),

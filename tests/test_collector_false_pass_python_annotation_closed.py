@@ -550,6 +550,20 @@ SCOPES = {
             x: C.s
         """
     ),
+    "inherited string behind an annotation-only declaration": source(
+        """
+        class B:
+            s = str(PAYLOAD)
+
+
+        class C(B):
+            s: int
+
+
+        class K:
+            x: C.s
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

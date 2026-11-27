@@ -65,6 +65,8 @@ pub(super) enum Binding<'a> {
     Function(&'a [Decorator], ScopeId),
     /// A function, or a name that is no value of an annotation (`type X = ..`).
     Inert,
+    /// `s: int` without a value: the name is local to the scope, but nothing is stored.
+    Absent,
     /// `import m` binds `(m, None)`; `from m import n` binds `(m, Some(n))`.
     Import(String, Option<String>),
     Unknown,

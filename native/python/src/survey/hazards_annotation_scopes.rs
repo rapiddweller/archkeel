@@ -268,7 +268,7 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
             Stmt::AnnAssign(node) => match (&node.value, &*node.target) {
                 (Some(value), target) => self.target(target, Some(value)),
                 // `s: int` binds no value, yet makes `s` local to a class.
-                (None, Expr::Name(name)) => self.bind(name.id.as_str(), Binding::Inert),
+                (None, Expr::Name(name)) => self.bind(name.id.as_str(), Binding::Absent),
                 (None, _) => {}
             },
             Stmt::AugAssign(node) => self.target(&node.target, None),
