@@ -80,6 +80,11 @@ impl Touched<'_> {
 /// The most types that one call visits. A type that grows without end (`R<T>` holds `R<Vec<T>>`) is open.
 const BUDGET: usize = 300;
 
+/// The definition is in another crate of the workspace than the one that the driver compiles.
+fn foreign_member(st: &mut State, tcx: TyCtxt<'_>, d: DefId) -> bool {
+    d.krate != LOCAL_CRATE && crate::body::inside(st, tcx, d)
+}
+
 /// Visit one type: its definition file, the files of its impls, and the types inside it. A closure shows its
 /// captured types and the arguments of its parent, not its signature (a signature is a function pointer type).
 /// `trusted` is true inside the field of an allowed type of the standard library (a container keeps raw
@@ -108,6 +113,9 @@ fn visit<'tcx>(
     let inner: Vec<(Ty<'tcx>, bool)> = match *ty.kind() {
         ty::Adt(def, args) => {
             found.files.insert(crate::items::file(tcx, st, def.did()));
+            if foreign_member(st, tcx, def.did()) {
+                found.open_by("<member>");
+            }
             for imp in tcx.inherent_impls(def.did()) {
                 found.files.insert(crate::items::file(tcx, st, *imp));
             }
@@ -216,6 +224,11 @@ fn touch<'tcx>(
         ) {
             found.open_by("<callee>");
             continue;
+        }
+        // The statics of another member of the workspace are not indexed, so its code is unknown here.
+        found.files.insert(crate::items::file(tcx, st, *callee));
+        if foreign_member(st, tcx, *callee) {
+            found.open_by("<member>");
         }
         let sig = tcx.fn_sig(*callee).instantiate(tcx, *args).skip_binder();
         let mut types: Vec<Ty<'tcx>> = sig.inputs().to_vec();
