@@ -1,12 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-1275 (#2184): a baseline does not drift when only the way a rule shows its causes changes.
+"""AD-1330 (#2184): a baseline does not drift when only the way a rule shows its causes changes.
 
-A rule can have several causes and its row shows the first. Before AD-1275 the baseline keyed that
+A rule can have several causes and its row shows the first. Before AD-1330 the baseline keyed that
 first cause only, so resolving it showed the next cause as new debt (thousands of entries on a real
-tree), and a reworded collector text was one new and one gone entry. Plants: an interface rule with
-an unread import (the first cause) and a dynamic import (a collector gap and a later cause).
+tree). A collector gap is matched by its exact key. Plants: an interface rule with an unread import
+(the first cause) and a dynamic import (a collector gap and a later cause).
 """
 
 from __future__ import annotations
@@ -85,23 +85,31 @@ def test_a_file_of_1_4_0_names_the_first_cause_only_and_stays_current(
     assert (found["state"], found["new"], found["gone"]) == ("current", [], [])
 
 
-def test_a_reworded_collector_gap_is_no_drift_and_a_real_new_gap_is(
+def test_a_swap_of_one_collector_gap_for_another_is_drift_never_current(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """A baseline never takes one gap for another: an entry is matched by its exact key."""
+    document = write(release_core, tree(tmp_path / "a", HEAD + "f()\n" + LOAD))
+    swapped = HEAD + "f()\ndef load(name):\n    return importlib.reload(name)\n"
+    found = compare(release_core, tree(tmp_path / "b", swapped), document)
+    assert found["state"] == "drift"
+    assert [row["reason"] for row in found["new"] if row["kind"] == "source_resolution_gap"] == [
+        "dynamic_import: importlib.reload"
+    ], found["new"]
+    assert len([row for row in found["gone"] if row["kind"] == "source_resolution_gap"]) == 1
+
+
+def test_a_reworded_collector_text_is_one_new_and_one_gone_entry(
     release_core: Path, tmp_path: Path
 ) -> None:
     root = tree(tmp_path / "a", HEAD + "f()\n" + LOAD)
     document = write(release_core, root)
-    reworded = json.loads(json.dumps(document))
-    for entry in reworded["unknowns"]:
+    for entry in document["unknowns"]:
         if entry["kind"] == "source_resolution_gap":
             entry["reason"] = "an older text of the same gap"
-    found = compare(release_core, root, reworded)
-    assert (found["state"], found["new"], found["gone"]) == ("current", [], [])
-    more = tree(
-        tmp_path / "b", HEAD + "f()\n" + LOAD + "def other(name):\n    return __import__(name)\n"
-    )
-    again = compare(release_core, more, document)
-    assert again["state"] == "drift"
-    assert "source_resolution_gap" in kinds(again["new"])
+    found = compare(release_core, root, document)
+    assert found["state"] == "drift"
+    assert len(found["new"]) == 1 and len(found["gone"]) == 1, found
 
 
 def test_validate_and_report_give_the_same_gap_list(release_core: Path, tmp_path: Path) -> None:

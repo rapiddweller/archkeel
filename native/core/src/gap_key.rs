@@ -17,7 +17,7 @@
 //! A part that no key can name is not acceptable (a refused contract, a refused reply, a section
 //! or the report that no slice ports). It is in `unacceptable`, and a baseline never covers it.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use archkeel_contract::head_of;
 use archkeel_facts::{FactData, GapFact, Record};
@@ -43,10 +43,6 @@ pub(crate) struct Gaps {
     /// The keys that come from a cause beyond the first of a rule, with their counts (AD-1330). A baseline of
     /// schema 1.4.0 holds the first cause only, so the compare leaves these out for such a file.
     pub(crate) beyond: BTreeMap<Key, u64>,
-    /// The keys whose reason is the text that a collector wrote. A collector can reword that text with no
-    /// change of the code, so the baseline matches such a key by kind and subject when no entry has its
-    /// exact text (AD-1330). The reason of any other key is typed and is matched exactly.
-    pub(crate) reworded: BTreeSet<Key>,
     pub(crate) unacceptable: Vec<String>,
 }
 
@@ -99,9 +95,7 @@ pub(crate) fn of_run(
         .into_iter()
         .flat_map(|reply| &reply.reply().facts.coverage.gaps);
     for record in records {
-        let key = collector(record);
-        gaps.reworded.insert(key.clone());
-        gaps.add(key, 1);
+        gaps.add(collector(record), 1);
     }
     gaps
 }

@@ -103,3 +103,17 @@ fn a_rule_is_accepted_on_the_counts_that_a_file_of_1_4_0_is_compared_with() {
     assert_eq!((found.new.len(), found.gone.len()), (0, 0), "{found:?}");
     assert_eq!(found.accepted_rules, vec!["RULE".to_owned()]);
 }
+
+#[test]
+fn a_collector_gap_is_matched_by_its_exact_key_so_a_swap_or_a_reword_is_new_and_gone() {
+    // The text of a gap is its identity: a gap replaced by another of the same kind and subject, with the same
+    // count, is one new and one gone entry, and so is a reworded text. No pairing hides a new finding.
+    let accepted = file(
+        "1.5.0",
+        &[("source_resolution_gap", "dynamic_import: import_module")],
+    );
+    let swapped = run(&[("source_resolution_gap", "dynamic_import: reload")], &[]);
+    let found = compare(&accepted, &swapped);
+    assert_eq!((found.new.len(), found.gone.len()), (1, 1), "{found:?}");
+    assert_eq!(found.new[0].reason, "dynamic_import: reload");
+}
