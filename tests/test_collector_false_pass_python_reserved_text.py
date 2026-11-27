@@ -31,6 +31,30 @@ EQ = (
 )
 # name -> (consumer source, source of the module app.rules)
 CONTROLS = {
+    "reproduction of the issue": (
+        "def reserved(name):\n    return type(name) is str and name in "
+        "{'__globals__', '__builtins__', '__import__'}\n\n\nreserved('x')\n",
+        "",
+    ),
+    "tuple and list": (
+        "def f(n):\n    return type(n) is str and n in ('__globals__',)\n\n\n"
+        "def g(n):\n    return type(n) is str and n not in ['__import__']\n\n\nf('x')\ng('x')\n",
+        "",
+    ),
+    "equality": (
+        "def f(n):\n    return type(n) is str and n == '__import__'\n\n\nf('x')\n",
+        "",
+    ),
+    "frozenset bound to a module name": (
+        "_RESERVED = frozenset({'__globals__', '__import__'})\n\n\n"
+        "def f(n):\n    return type(n) is str and n in _RESERVED\n\n\nf('x')\n",
+        "",
+    ),
+    "set in another module that nobody reads": (
+        "from app import rules\n\nrules.reserved('x')\n",
+        "_R = frozenset({'__import__'})\n\n\n"
+        "def reserved(n):\n    return type(n) is str and n in _R\n",
+    ),
     "exact str beside an equality hook": (
         EQ.replace("return False\n", "return False\n\n    def __hash__(self):\n        return 1\n")
         + "def reserved(name):\n"
@@ -38,31 +62,33 @@ CONTROLS = {
         "reserved('x')\n",
         "",
     ),
-    "set literal": (TEST + "reserved('x')\n", ""),
-    "reproduction of the issue": (
-        "def reserved(name):\n    return type(name) is str and name in "
-        "{'__globals__', '__builtins__', '__import__'}\n\n\nreserved('x')\n",
-        "",
-    ),
-    "tuple and list": (
-        "def f(n):\n    return n in ('__globals__',) or n not in ['__import__']\n\n\nf('x')\n",
-        "",
-    ),
-    "equality": (
-        "def f(n):\n    return n == '__import__' or '__globals__' != n\n\n\nf('x')\n",
-        "",
-    ),
-    "frozenset bound to a module name": (
-        "_RESERVED = frozenset({'__globals__', '__import__'})\n\n\n"
-        "def f(n):\n    return n in _RESERVED\n\n\nf('x')\n",
-        "",
-    ),
-    "tuple in another module that nobody reads": (
-        "from app import rules\n\nrules.reserved('x')\n",
-        "_R = ('__import__',)\n\n\ndef reserved(n):\n    return n in _R\n",
-    ),
 }
 PLANTS = {
+    "comparison chain that shares the literal": (
+        quiet(EQ, "'_' in '__globals__' == Lookup()"),
+        "",
+    ),
+    "equality hook bound by an unpacking assignment": (
+        quiet(
+            EQ.replace("def __eq__(self, name):", "def compare(self, name):").replace(
+                "        return False\n",
+                "        return False\n    __eq__, unused = compare, None\n",
+            ),
+            "Lookup() == '__globals__'",
+        ),
+        "",
+    ),
+    "set display with an element that runs the hook": (
+        quiet(
+            EQ.replace(
+                "return False\n",
+                "return False\n\n    def __hash__(self):\n        return hash('__globals__')\n",
+            )
+            + "n = 'x'\n",
+            "type(n) is str and n in {'__globals__', Lookup()}",
+        ),
+        "",
+    ),
     "set test with an inherited equality hook and an own hash": (
         quiet(
             EQ

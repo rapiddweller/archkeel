@@ -2,17 +2,24 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A reserved name that is only tested is data, not a dynamic import (AD-1340, #2196).
+//! A reserved name that an exact `str` tests is data, not a dynamic import (AD-1340, #2196).
 //!
-//! `name in {"__globals__", "__builtins__"}` lists names; it looks nothing up. One closed rule: a
-//! string literal is inert when it is an element of a set, tuple or list display that is the right
-//! side of `in` or `not in`, or the right side itself, or an operand of `==` or `!=`. A display
-//! that is bound to a name counts too, when the module binds the name once, each other use of the
-//! name is the right side of an `in` test, and no other module of the scan imports or reads that
-//! name. A scan that defines `__eq__` or `__ne__` has no inert text in a comparison or in a list or
-//! tuple test (the hook runs with the literal), and none in a set test when a class also defines
-//! `__hash__`. Any other place of the literal keeps the gap: an argument of `getattr`, `__import__`, any
-//! call, a store, a return, a dict key, a `match` case, an iteration of the bound display.
+//! `type(name) is str and name in {"__globals__", "__builtins__"}` lists names; it looks nothing up.
+//! The proof is the type of the left operand, not the form of the text: an exact `str` has the
+//! hooks of `str`, and a display of string literals builds without user code. Any other test of a
+//! text can call `__eq__` of the other operand with the literal (a class of the scan, an inherited
+//! hook, a metaclass, a rebound name), so it keeps the site.
+//!
+//! A string literal is inert when it stands in a comparison that:
+//! - is the operand right after `type(name) is str` in an `and` chain (nothing stands between, so
+//!   the name cannot be written in between), with one operator and the name on the left; and
+//! - is `name in D`, `name not in D`, `name == "text"` or `name != "text"`, where `D` is a string
+//!   literal, a set, tuple or list display of string literals only (or `frozenset`, `set`, `tuple`
+//!   of one such display, with the builtin visible), or a name that the module binds once to such a
+//!   display and uses only in tests of this form, and no other module of the scan imports it, reads
+//!   it as an attribute, writes it as a string, or star-imports.
+//!
+//! Every other place of the literal keeps the gap.
 
 use std::collections::{HashMap, HashSet};
 
@@ -25,7 +32,6 @@ use crate::survey::binders::Binders;
 
 /// The ranges of the inert string literals of each module.
 pub(super) fn ranges(modules: &[Module], binders: &[Binders]) -> Vec<HashSet<TextRange>> {
-    let hooks = Hooks::of(modules);
     let bound: Vec<Vec<Candidate>> = modules
         .iter()
         .zip(binders)
@@ -49,21 +55,14 @@ pub(super) fn ranges(modules: &[Module], binders: &[Binders]) -> Vec<HashSet<Tex
             let mut found = HashSet::new();
             let mut tests = Tests {
                 visible: &|name| binders.builtin_visible(name),
-                hooks,
-                guarded: HashSet::new(),
                 found: &mut found,
                 uses: HashMap::new(),
             };
             tests.visit_body(&module.tree.body);
             let uses = tests.uses;
-            for candidate in candidates.iter() {
-                let (loads, in_tests) =
-                    uses.get(candidate.name.as_str()).copied().unwrap_or((0, 0));
-                let tested = in_tests > 0 && loads == in_tests;
-                if tested
-                    && hooks.allows(candidate.set)
-                    && !outside.contains(candidate.name.as_str())
-                {
+            for candidate in candidates {
+                let (loads, tested) = uses.get(candidate.name.as_str()).copied().unwrap_or((0, 0));
+                if tested > 0 && loads == tested && !outside.contains(candidate.name.as_str()) {
                     found.extend(candidate.elements.iter().copied());
                 }
             }
@@ -72,89 +71,10 @@ pub(super) fn ranges(modules: &[Module], binders: &[Binders]) -> Vec<HashSet<Tex
         .collect()
 }
 
-/// The equality hooks of the scan. A comparison calls `__eq__` of the other operand, which then holds
-/// the literal; a set test calls it only when the hash of the operand collides, so it needs a class
-/// that defines `__hash__` too.
-#[derive(Clone, Copy, Default)]
-struct Hooks {
-    /// A statement defines or writes `__eq__` or `__ne__`.
-    eq: bool,
-    /// The scan defines or writes `__eq__` or `__ne__` and also `__hash__`: a subclass can inherit one and
-    /// define the other, so the two need not stand in one class.
-    pair: bool,
-}
-
-impl Hooks {
-    fn of(modules: &[Module]) -> Hooks {
-        let mut watch = Watch::default();
-        modules
-            .iter()
-            .for_each(|module| watch.visit_body(&module.tree.body));
-        Hooks {
-            eq: watch.eq,
-            pair: watch.eq && watch.hash,
-        }
-    }
-
-    /// Whether a literal in a set (`set`) or in a sequence is data.
-    fn allows(self, set: bool) -> bool {
-        if set {
-            !self.pair
-        } else {
-            !self.eq
-        }
-    }
-}
-
-#[derive(Default)]
-struct Watch {
-    eq: bool,
-    hash: bool,
-}
-
-impl<'a> Visitor<'a> for Watch {
-    fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        let defined = match stmt {
-            Stmt::FunctionDef(node) => Some(node.name.as_str()),
-            Stmt::Assign(node) => match node.targets.as_slice() {
-                [Expr::Name(name)] => Some(name.id.as_str()),
-                _ => None,
-            },
-            Stmt::AnnAssign(node) => match &*node.target {
-                Expr::Name(name) => Some(name.id.as_str()),
-                _ => None,
-            },
-            _ => None,
-        };
-        self.note(defined);
-        visitor::walk_stmt(self, stmt);
-    }
-
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        // A store `K.__eq__ = f`, a text `setattr(K, '__eq__', f)` or `type('K', (), {'__eq__': f})`.
-        let written = match expr {
-            Expr::Attribute(node) if node.ctx != ExprContext::Load => Some(node.attr.as_str()),
-            Expr::StringLiteral(text) => Some(text.value.to_str()),
-            _ => None,
-        };
-        self.note(written);
-        visitor::walk_expr(self, expr);
-    }
-}
-
-impl Watch {
-    fn note(&mut self, name: Option<&str>) {
-        self.eq |= matches!(name, Some("__eq__" | "__ne__"));
-        self.hash |= name == Some("__hash__");
-    }
-}
-
-/// A name that the module binds once to a display of strings.
+/// A name that the module binds once to a display of string literals.
 struct Candidate {
     name: String,
     elements: Vec<TextRange>,
-    /// The display is a set: a test hashes the other operand before it compares.
-    set: bool,
 }
 
 fn candidates(tree: &ModModule, binders: &Binders) -> Vec<Candidate> {
@@ -178,13 +98,11 @@ impl Assigns<'_> {
             return None;
         };
         let id = name.id.as_str();
-        let (items, set) = display_of(value, &|builtin| self.binders.builtin_visible(builtin))?;
+        let elements = strings_of(value, &|builtin| self.binders.builtin_visible(builtin))?;
         (self.binders.count(id) == Some(1)).then_some(())?;
-        let elements = strings(items)?;
         Some(Candidate {
             name: id.to_owned(),
             elements,
-            set,
         })
     }
 }
@@ -204,32 +122,26 @@ impl<'a> Visitor<'a> for Assigns<'_> {
     }
 }
 
-/// The elements of a set, tuple or list display, or of `frozenset(display)` with the builtin visible,
-/// and whether the container is a set.
-fn display_of<'e>(value: &'e Expr, visible: &dyn Fn(&str) -> bool) -> Option<(&'e [Expr], bool)> {
-    match value {
-        Expr::Set(node) => Some((&node.elts, true)),
-        Expr::Tuple(node) => Some((&node.elts, false)),
-        Expr::List(node) => Some((&node.elts, false)),
+/// The ranges of the elements of a set, tuple or list display, or of `frozenset`, `set` or `tuple`
+/// of one display, when each element is a string literal and the builtin is visible.
+fn strings_of(value: &Expr, visible: &dyn Fn(&str) -> bool) -> Option<Vec<TextRange>> {
+    let items: &[Expr] = match value {
+        Expr::Set(node) => &node.elts,
+        Expr::Tuple(node) => &node.elts,
+        Expr::List(node) => &node.elts,
         Expr::Call(call) => {
             let Expr::Name(func) = &*call.func else {
                 return None;
             };
-            let set = matches!(func.id.as_str(), "frozenset" | "set");
-            let builtin = set || func.id.as_str() == "tuple";
+            let builtin = matches!(func.id.as_str(), "frozenset" | "set" | "tuple");
             let plain = call.arguments.keywords.is_empty() && call.arguments.args.len() == 1;
-            if builtin && plain && visible(func.id.as_str()) {
-                display_of(&call.arguments.args[0], visible).map(|(items, _)| (items, set))
-            } else {
-                None
+            if !(builtin && plain && visible(func.id.as_str())) {
+                return None;
             }
+            return strings_of(&call.arguments.args[0], visible);
         }
-        _ => None,
-    }
-}
-
-/// The ranges of the elements when each one is a string literal.
-fn strings(items: &[Expr]) -> Option<Vec<TextRange>> {
+        _ => return None,
+    };
     items
         .iter()
         .map(|item| match item {
@@ -288,85 +200,55 @@ impl<'a> Visitor<'a> for Outside<'_, '_> {
     }
 }
 
-/// The tests of the module, and for each name: its loads and the loads that are an `in` test.
+/// The guarded tests of the module, and for each name: its loads and the loads that stand in a guarded test.
 struct Tests<'f> {
     visible: &'f dyn Fn(&str) -> bool,
-    hooks: Hooks,
-    /// The comparisons whose left operand is a name that `type(name) is str` proves an exact `str`.
-    guarded: HashSet<TextRange>,
     found: &'f mut HashSet<TextRange>,
     uses: HashMap<String, (usize, usize)>,
 }
 
 impl Tests<'_> {
-    fn right_side_of_in(&mut self, side: &Expr, hooks: Hooks) {
-        match side {
-            Expr::StringLiteral(text) => {
-                self.found.insert(text.range());
-            }
-            Expr::Name(name) if name.ctx == ExprContext::Load => {
-                self.uses.entry(name.id.to_string()).or_default().1 += 1;
-            }
-            other => {
-                let shown = display_of(other, self.visible);
-                let items = shown.filter(|(_, set)| hooks.allows(*set));
-                self.found
-                    .extend(items.into_iter().flat_map(|(items, _)| strings_in(items)));
-            }
-        }
-    }
-}
-
-/// The ranges of the string literals among the elements.
-fn strings_in(items: &[Expr]) -> impl Iterator<Item = TextRange> + '_ {
-    items.iter().filter_map(|item| match item {
-        Expr::StringLiteral(text) => Some(text.range()),
-        _ => None,
-    })
-}
-
-impl Tests<'_> {
-    /// `type(name) is str and name in {...}`: the comparison right after the proof has an exact `str` on the
-    /// left. Nothing stands between them, so the name cannot be written in between.
+    /// `type(name) is str and name in D`: the comparison right after the proof.
     fn guard(&mut self, values: &[Expr]) {
         for pair in values.windows(2) {
-            let proven: HashSet<&str> = exact_str(&pair[0], self.visible).into_iter().collect();
-            self.guarded.extend(guarded_compare(&pair[1], &proven));
-        }
-    }
-
-    /// One comparison `a op b op c`: the pairs of neighbours.
-    fn compare(&mut self, ops: &[CmpOp], operands: &[Expr], guarded: bool) {
-        // An exact `str` has the hooks of `str`: no code of the scan runs with the literal.
-        let hooks = if guarded {
-            Hooks::default()
-        } else {
-            self.hooks
-        };
-        for (at, op) in ops.iter().enumerate() {
-            let (left, right) = (&operands[at], &operands[at + 1]);
-            match op {
-                CmpOp::In | CmpOp::NotIn => self.right_side_of_in(right, hooks),
-                CmpOp::Eq | CmpOp::NotEq if hooks.allows(false) => {
-                    self.found.extend(text_range(left).chain(text_range(right)))
-                }
-                _ => {}
+            let Some(proven) = exact_str(&pair[0], self.visible) else {
+                continue;
+            };
+            if let Expr::Compare(node) = &pair[1] {
+                self.guarded(&node.ops, &node.operands, proven);
             }
         }
     }
+
+    /// One comparison with one operator and the proven name on the left.
+    fn guarded(&mut self, ops: &[CmpOp], operands: &[Expr], proven: &str) {
+        let ([op], [Expr::Name(left), right]) = (ops, operands) else {
+            return;
+        };
+        if left.id.as_str() != proven {
+            return;
+        }
+        match (op, right) {
+            (CmpOp::Eq | CmpOp::NotEq, Expr::StringLiteral(text)) => {
+                self.found.insert(text.range());
+            }
+            (CmpOp::In | CmpOp::NotIn, Expr::StringLiteral(text)) => {
+                self.found.insert(text.range());
+            }
+            (CmpOp::In | CmpOp::NotIn, Expr::Name(name)) if name.ctx == ExprContext::Load => {
+                self.uses.entry(name.id.to_string()).or_default().1 += 1;
+            }
+            (CmpOp::In | CmpOp::NotIn, display) => {
+                self.found
+                    .extend(strings_of(display, self.visible).into_iter().flatten());
+            }
+            _ => {}
+        }
+    }
 }
 
-/// The range of a one-step comparison whose left operand is a proven name.
-fn guarded_compare(value: &Expr, proven: &HashSet<&str>) -> Option<TextRange> {
-    let Expr::Compare(node) = value else {
-        return None;
-    };
-    let first = matches!(&node.operands[0], Expr::Name(n) if proven.contains(n.id.as_str()));
-    (first && node.ops.len() == 1).then(|| node.range())
-}
-
-/// The name of `type(name) is str`, with `type` and `str` the builtins. `==` is no proof: a metaclass
-/// can define it.
+/// The name of `type(name) is str`, with `type` and `str` the builtins. `==` is no proof: a
+/// metaclass can define it; `isinstance` is none either.
 fn exact_str<'e>(value: &'e Expr, visible: &dyn Fn(&str) -> bool) -> Option<&'e str> {
     let Expr::Compare(node) = value else {
         return None;
@@ -385,23 +267,10 @@ fn exact_str<'e>(value: &'e Expr, visible: &dyn Fn(&str) -> bool) -> Option<&'e 
     (builtins && plain).then_some(arg.id.as_str())
 }
 
-/// The range of a string literal operand.
-fn text_range(side: &Expr) -> impl Iterator<Item = TextRange> {
-    match side {
-        Expr::StringLiteral(text) => Some(text.range()),
-        _ => None,
-    }
-    .into_iter()
-}
-
 impl<'a> Visitor<'a> for Tests<'_> {
     fn visit_expr(&mut self, expr: &'a Expr) {
         match expr {
             Expr::BoolOp(node) if node.op == BoolOp::And => self.guard(&node.values),
-            Expr::Compare(node) => {
-                let guarded = self.guarded.contains(&node.range());
-                self.compare(&node.ops, &node.operands, guarded);
-            }
             Expr::Name(name) if name.ctx == ExprContext::Load => {
                 self.uses.entry(name.id.to_string()).or_default().0 += 1;
             }
