@@ -6,7 +6,7 @@
 
 use crate::ids::{ModuleName, PackageName};
 use crate::nullable::Nullable;
-use crate::vocab::Visibility;
+use crate::vocab::{RouteWithheld, Visibility};
 
 facts_data! {
     /// An import: one record for each statement or bound name (TypeScript, Rust), or for each
@@ -40,6 +40,11 @@ facts_data! {
         [read] module_level_import: bool,
         /// The names whose route the collector records.
         [read skip] reexport_chain: Option<Vec<String>>,
+        /// Why the collector withholds the publication route of this import. Absent: it states
+        /// no cause, or the route is not withheld.
+        [live never] route_withheld: Option<RouteWithheld>,
+        /// The hop or the module that the cause names.
+        [live never] route_withheld_at: Option<String>,
         /// `false` when the collector proves only the first hops of `reexport_chain`: a later
         /// hop may follow (AD-604). Absent: the route is complete, or there is none.
         [read skip] route_complete: Option<bool>,
@@ -78,6 +83,12 @@ facts_data! {
 }
 
 impl ImportData {
+    /// The cause that the collector states for the withheld route, and the hop or module it names.
+    pub fn withheld(&self) -> Option<(RouteWithheld, Option<String>)> {
+        let at = self.route_withheld_at.clone();
+        self.route_withheld.map(|cause| (cause, at))
+    }
+
     /// The source, provider, declaration and binding of a direct, unique import.
     pub fn direct_symbol_route(&self) -> Option<[&str; 4]> {
         if !self.module_level_import
@@ -114,6 +125,8 @@ impl ImportData {
             module_level_import: false,
             reexport_chain: None,
             route_complete: None,
+            route_withheld: None,
+            route_withheld_at: None,
             published_as: None,
             other_crate: None,
             inferred_receiver: false,

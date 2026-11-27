@@ -373,6 +373,35 @@ closed! {
 }
 
 closed! {
+    /// Why the collector withholds the publication route of an import (#2086, AD-1210).
+    pub enum RouteWithheld {
+        /// The package body binds the name too, so it may be the attribute or the submodule.
+        AmbiguousReexport = "ambiguous_reexport",
+        /// A hop is not proven: not one plain statement, two targets or a cycle.
+        UncertainHop = "uncertain_hop",
+        /// A module on the route has an `__all__` that is not one literal list.
+        UnreadAll = "unread_all",
+        /// Code outside the scan roots can write to a module on the route.
+        OutsideWrite = "outside_write",
+        /// A use inside the scan hands a module on the route on, and the survey does not locate it.
+        Escaped = "escaped",
+        /// A use inside the scan writes or deletes an attribute of a module on the route.
+        EscapedWrite = "escaped_write",
+        /// A use inside the scan reads the namespace of a module on the route (`__dict__`).
+        EscapedNamespace = "escaped_namespace",
+        /// A use inside the scan hands a child module of a module on the route on.
+        EscapedChildModule = "escaped_child_module",
+        /// A use inside the scan hands the object of a module on the route on as a value.
+        EscapedValue = "escaped_value",
+        /// A use inside the scan hands on a name imported from a module on the route that the
+        /// survey cannot prove to be no module (a call result, a constant of unproven kind).
+        EscapedName = "escaped_name",
+        /// The import sits under `TYPE_CHECKING` and passes a re-export.
+        TypeCheckingReexport = "type_checking_reexport",
+    }
+}
+
+closed! {
     /// The context of a reference.
     pub enum ReferenceContext {
         /// The reference sits in an annotation.

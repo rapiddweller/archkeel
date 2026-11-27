@@ -20,9 +20,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use archkeel_facts::data::{GapEffect, TrojanHorseForm};
 use archkeel_facts::envelope::{Facts, FileFact, Target};
 use archkeel_facts::profile_traits::TargetMarks;
-use archkeel_facts::vocab::ResolutionDimension;
-use archkeel_facts::Record;
-use archkeel_facts::{ImportFact, Section};
+use archkeel_facts::vocab::{ResolutionDimension, RouteWithheld};
+use archkeel_facts::{ImportFact, Record, Section};
 
 /// What the typed target of a resolved import is.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -44,6 +43,7 @@ pub(crate) struct Published {
     pub(crate) complete: bool,
     pub(crate) outside: Option<String>,
     pub(crate) other_crate: bool,
+    pub(crate) withheld: Option<(RouteWithheld, Option<String>)>,
 }
 
 impl Published {
@@ -359,6 +359,7 @@ pub(crate) fn split(facts: &Facts, marks: TargetMarks, declared: impl Fn(&str) -
                 complete: data.route_complete != Some(false),
                 outside: data.published_as.clone(),
                 other_crate: data.other_crate == Some(true),
+                withheld: data.withheld(),
             },
             relative: data.relative_level != 0,
             resolved,
