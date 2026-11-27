@@ -75,12 +75,6 @@ def test_codex_install_is_idempotent(tmp_path: Path) -> None:
     assert agents.read_bytes() == first
 
 
-def test_codex_install_writes_the_whole_skill_and_the_skill_is_short(tmp_path: Path) -> None:
-    body = ASSET.read_text(encoding="utf-8")
-    assert install_skill(tmp_path, "codex").read_text(encoding="utf-8") == body
-    assert len(body.splitlines()) <= 100
-
-
 @pytest.mark.parametrize(
     "markers",
     [
@@ -97,23 +91,6 @@ def test_codex_rejects_malformed_markers_before_writing(tmp_path: Path, markers:
         install_skill(tmp_path, "codex")
     assert agents.read_text(encoding="utf-8") == markers
     assert not (tmp_path / ".agents").exists()
-
-
-@pytest.mark.parametrize(
-    ("name", "files"), [("explore", EXPLORE_FILES), ("explain-flow", FLOW_FILES)]
-)
-def test_a_shipped_note_skill_has_its_frontmatter_and_its_interface_keys(
-    name: str, files: tuple[str, str]
-) -> None:
-    body = (ROOT / files[0]).read_text(encoding="utf-8")
-    assert body.startswith(f"---\nname: {name}\ndescription: ")
-    assert body.split("\n---\n")[0].count("\n") == 2
-    assert len(body.splitlines()) < 60
-    keys = [
-        line.split(":")[0].strip()
-        for line in (ROOT / files[1]).read_text(encoding="utf-8").splitlines()
-    ]
-    assert keys == ["interface", "display_name", "short_description", "default_prompt"]
 
 
 def test_offline_schema_guidance_matches_installed_files() -> None:

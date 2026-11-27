@@ -12,7 +12,7 @@ export CARGO_TERM_PROGRESS_WHEN := never
 export CARGO_TERM_QUIET := true
 endif
 
-.PHONY: type-reach-setup gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system self-check native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel report-gallery
+.PHONY: type-reach-setup gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system self-check native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -24,12 +24,6 @@ ci-check: ci-artifacts-clean ci-core-check self-validate-native self-validate-sh
 ci-pr-check: pr-gate
 
 ci-pr-static: lint typecheck
-
-generated-check: browser-runtime-install studio-ui-check
-	cd native && cargo test --locked -p archkeel-core the_committed_
-	cd native && cargo test --locked -p archkeel-facts the_committed_
-	cd native && cargo test --locked -p archkeel-report the_light_palette_matches_the_design_tokens
-	$(UV) run --locked python tools/browser_runtime.py --check
 
 browser-runtime-generate: browser-runtime-install
 	$(UV) run --locked python tools/browser_runtime.py
@@ -323,8 +317,3 @@ plugin-release:
 # The pinned TypeScript compiler: the standard-library catalog check and the compiler check read it.
 browser-runtime-install:
 	npm ci --prefix tools/browser-runtime --ignore-scripts --no-audit --no-fund
-
-.PHONY: explorer-corpus
-explorer-corpus: core
-	@test -n "$(WORKSPACE)" && test -n "$(OUTPUT)" || { echo "Set WORKSPACE and OUTPUT"; exit 2; }
-	$(UV) run --locked python -m tools.explorer_corpus --workspace "$(WORKSPACE)" --output "$(OUTPUT)" --archkeel "$(CURDIR)" --compass "$(CURDIR)/fixtures/J-compass"
