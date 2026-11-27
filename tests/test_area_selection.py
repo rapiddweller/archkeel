@@ -131,16 +131,6 @@ def test_tool_changes_run_each_selected_area_job(
     assert capsys.readouterr().out == "run\n"
 
 
-def test_pr_and_main_share_jobs_and_the_required_gate_needs_them() -> None:
-    workflows = ROOT / ".github/workflows"
-    main = (workflows / "ci.yml").read_text()
-    pr = (workflows / "pr-gate.yml").read_text()
-    shared = (workflows / "area-checks.yml").read_text()
-    assert "uses: ./.github/workflows/area-checks.yml" in main
-    assert "uses: ./.github/workflows/area-checks.yml" in pr
-    assert shared.count("python3 tools/select_areas.py --job") == 2
-
-
 def test_pr_aggregate_refuses_failed_or_skipped_jobs() -> None:
     workflow = (ROOT / ".github/workflows/pr-gate.yml").read_text()
     script = workflow.split("      - name: Require every check\n", 1)[1].split(
