@@ -70,6 +70,11 @@ class _HoldClass(StrEnum):
     UNREAD_ALL = "unread_all"
     OUTSIDE_WRITE = "outside_write"
     ESCAPED = "escaped"
+    ESCAPED_WRITE = "escaped_write"
+    ESCAPED_NAMESPACE = "escaped_namespace"
+    ESCAPED_CHILD_MODULE = "escaped_child_module"
+    ESCAPED_VALUE = "escaped_value"
+    ESCAPED_NAME = "escaped_name"
     TYPE_CHECKING_REEXPORT = "type_checking_reexport"
 
 
@@ -152,6 +157,7 @@ class InterfaceHolds:
 
     classes: tuple[tuple[_InterfaceGap, _HoldClass, int], ...]
     imports: tuple[HeldImport, ...]
+    places: tuple[tuple[_HoldClass, str, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -350,7 +356,15 @@ def _interface(value: object, where: str) -> InterfaceHolds:
     imports = tuple(
         _held_import(item, where) for item in _list(row["imports"], where, budget("held_per_rule"))
     )
-    return InterfaceHolds(classes, imports)
+    places = tuple(
+        (
+            _word(_HoldClass, as_object(item, where)["class"], where),
+            as_text(as_object(item, where)["at"], where),
+            as_count(as_object(item, where)["count"], where),
+        )
+        for item in _list(row.get("places", []), where, 100_000)
+    )
+    return InterfaceHolds(classes, imports, places)
 
 
 def _rule_holds(value: object, where: str) -> RuleHolds:

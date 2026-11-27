@@ -235,7 +235,10 @@ fn a_write_from_another_module_is_the_stated_cause() {
     );
     assert_eq!(
         found,
-        Some((RouteWithheld::Escaped, Some("app.pkg".to_owned())))
+        Some((
+            RouteWithheld::EscapedWrite,
+            Some("app.pkg <- src/app/pkg/_patch.py:2".to_owned())
+        ))
     );
 }
 
@@ -303,5 +306,102 @@ fn code_outside_the_scan_that_writes_a_module_is_the_stated_cause() {
     assert_eq!(
         found,
         Some((RouteWithheld::OutsideWrite, Some("app.pkg".to_owned())))
+    );
+}
+
+/// The cause of the import of `f` from `app.pkg` when `other` is a module that uses `app.pkg`.
+fn escaping_use(other: &str) -> Option<(RouteWithheld, Option<String>)> {
+    cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            IMPL,
+            USER,
+            ("src/app/other.py", other),
+        ],
+        "app.user",
+        "f",
+    )
+}
+
+#[test]
+fn a_module_handed_on_as_a_value_is_named_with_its_use() {
+    let found = escaping_use("from app import pkg\nconsume(pkg)\n");
+    assert_eq!(
+        found,
+        Some((
+            RouteWithheld::EscapedValue,
+            Some("app.pkg <- src/app/other.py:2".to_owned())
+        ))
+    );
+}
+
+#[test]
+fn an_imported_name_of_unproven_kind_is_named_with_its_use() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            ("src/app/lib.py", "def f(): pass\nVALUE = factory()\n"),
+            ("src/app/user.py", "from app.lib import f\n"),
+            (
+                "src/app/other.py",
+                "from app.lib import VALUE\nconsume(VALUE)\n",
+            ),
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(
+        found,
+        Some((
+            RouteWithheld::EscapedName,
+            Some("app.lib <- src/app/other.py:2".to_owned())
+        ))
+    );
+}
+
+#[test]
+fn a_namespace_read_is_named_with_its_use() {
+    let found = escaping_use("from app import pkg\nnames = pkg.__dict__\n");
+    assert_eq!(
+        found,
+        Some((
+            RouteWithheld::EscapedNamespace,
+            Some("app.pkg <- src/app/other.py:2".to_owned())
+        ))
+    );
+}
+
+#[test]
+fn a_child_module_handed_on_is_named_with_its_use() {
+    let found = cause(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            IMPL,
+            USER,
+            (
+                "src/app/other.py",
+                "from app import pkg\nconsume(pkg.impl)\n",
+            ),
+        ],
+        "app.user",
+        "f",
+    );
+    assert!(matches!(
+        found,
+        Some((RouteWithheld::EscapedChildModule, Some(at))) if at.ends_with("src/app/other.py:2")
+    ));
+}
+
+#[test]
+fn a_namespace_import_names_its_target_and_its_file() {
+    let found = escaping_use("from app.pkg import __dict__ as names\n");
+    assert_eq!(
+        found,
+        Some((
+            RouteWithheld::EscapedNamespace,
+            Some("app.pkg <- src/app/other.py (import of __dict__)".to_owned())
+        ))
     );
 }
