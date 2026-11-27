@@ -1,148 +1,46 @@
-# ArchKeel 5.0.0 (unreleased) — Explicit architecture ports and native ownership evidence
+# ArchKeel 5.0.0 (unreleased) — Breaking changes and migration
 
-## Removed
+The Rust core decides each run ([AD-432](docs/architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md)).
+The Python engine of 4.0.1 is deleted. The facts below are measured on the development line and on release 4.0.1.
+For an EE or CE gate, follow [docs/migration-4-to-5.md](docs/migration-4-to-5.md).
 
-- `architecture-graph.schema.json`, `architecture-report.schema.json`, `architecture-comparison.schema.json`, `source-member-inventory.schema.json`: 4.0.1 wrote these artifacts; 5.0 does not.
+## Breaking changes
 
-## Native core
+| What | 4.0.1 | 5.0 |
+|---|---|---|
+| Exit code | `validate` exits 0, or 2 for diagnostics (1 only with `--baseline` or `--against`). `report` exits 0 when it observed the repository, also with violations. | `validate` and `report`: PASS 0, FAIL 1, UNKNOWN or refusal 2. UNKNOWN never exits 0. |
+| `validate` without `archkeel.toml` | Exit 2 with the diagnostic `contract.invalid` ("run archkeel init"). Writes nothing. | Drafts `archkeel.toml` and a contract, then checks. Use `--no-init` or `ARCHKEEL_NO_INIT=1` to write nothing (exit 2). |
+| Command `check` | Available. | Refused: `not_on_this_development_line`, exit 2. |
+| `validate` options | `--against`, `--amendment`, `--write-amendment`, `--accept-new`, `--write-graph`, `--compact-open-decisions`, `--decided-by`, `--rationale` | Refused by name, exit 2. |
+| `report` options | `--only`, `--rule`, `--component`, `--full`, `--input`, `--baseline` | `--baseline` is an unknown argument (exit 1). The others are refused by name (exit 2). |
+| `init` options | `--source`, `--namespace`, `--language`, `--tsconfig`, `--full`, `--force`, `--collector-argv`, `--collector-output-limit-bytes` | Refused (exit 2). Run `init`, then edit `archkeel.toml`. |
+| `--write-baseline` | A flag. It writes the file of `--baseline`. | Takes a file: `--write-baseline FILE`. `--baseline` and `--write-baseline` cannot name the same file. |
+| Baseline file | Schema 1.0.0 to 1.3.0. | Schema 1.4.0. An older file is read, accepts no UNKNOWN, and its call and typing budgets exit 2 (`baseline.budget_of_older_schema`). |
+| `report` output | Saved `architecture.json`, focused reports. | `--output FILE` writes one `html` (default), `json` or `markdown` file. |
+| `archkeel.toml` | `collector_argv` starts your own collector. | `collector_argv` is refused: the core runs only its own collectors. All other `[scan]` keys stay. New keys: `collector_timeout_seconds`, `bundler`, `exclude_test_sources`, `python`, `import_roots_ambiguous`, `rust_type_reach`, `root`. |
+| JSON result | Result schema 7.0 and 8.0. | Starts with `command`, `outcome`, `status`, `exit_code`. A run that decides has a core `frame`. A refusal has `refusal` and no frame. |
+| Removed schemas | `architecture-graph`, `architecture-report`, `architecture-comparison`, `source-member-inventory` | Not written. |
+| Python API | `archkeel.api`, `archkeel.analyzer`, `archkeel.check`, `archkeel.ir`, `archkeel.host` | Not in the package. Run `archkeel` as a subprocess and read the JSON. |
+| Install | One pure wheel with six runtime dependencies. | Six platform wheels (macOS x86_64 and arm64, manylinux x86_64 and aarch64, musllinux x86_64, Windows x86_64). No runtime dependency. Other platforms need a native build. |
+| Commands | `check`, `init`, `report`, `skill`, `validate` | `validate`, `report`, `init`, `skill` and `studio` (`explore` is an alias). `guide`, `story` and `view` are unknown commands. |
 
-The Rust core decides architecture rules using native Rust, TypeScript, Python and Dart
-collectors (AD-432). The core evaluates rules when the collector provides sufficient evidence.
-Python checks direct function witnesses for `call_owner` (AD-1002). Dart checks cycles when
-the survey proves the relevant package map (AD-800).
-See [known limits](docs/known-limits.md) for collector coverage.
+## Verdict changes
 
-`validate` and `report` print the core result as text or JSON. PASS exits 0, FAIL exits 1 and
-UNKNOWN exits 2. `init` drafts a contract. The development checkout supports `studio` and the
-optional `archkeel-mcp` server. Run `make core` from the checkout before using it.
-Release 4.0.1 provides the Python engine and its `check` command.
+- The core says UNKNOWN when its evidence is not complete, and it names the cause in `frame.gaps`. Some rules that read PASS on 4.0.1 now read UNKNOWN. A proven violation stays FAIL.
+- A rule kind that the core does not decide is UNKNOWN with the gap `rule_kind_not_ported`. These kinds are `catalog_argument`, `catalog_use`, `forbidden_effect_under_condition`, `source_ownership` and `bounded_numeric_operand`: 4.0.1 has none of them. No rule kind of 4.0.1 is removed.
+- Code that the scan does not read can change a verdict. A Python file outside the scan roots that can write a module of the scan holds the rules that read it ([AD-770](docs/architecture/decisions/ad-770-code-of-the-repository-outside-the-scan-that-writes-a-module-of-the-scan-withholds-its-routes.md)). A Rust crate outside the workspace members that can reach a member holds the member ([AD-1097](docs/architecture/decisions/ad-1097-a-crate-that-is-no-workspace-member-is-foreign-code-in-the-rust-scan.md)). Without `ARCHKEEL_ALLOW_BUILD=1` such a crate is not proven and holds.
+- `rust_type_reach` runs `cargo check` only with `ARCHKEEL_ALLOW_BUILD=1` ([AD-1130](docs/architecture/decisions/ad-1130-the-operator-allows-the-build-of-a-scanned-repository.md)).
 
-Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD need a native build to scan.
+## Migration
 
-The result schemas no longer define the host source `github_initial_pr_head` and its member
-`initial_pr`: nothing produced them after AD-281 (#767).
-
-Declare component responsibilities, exact interfaces and invocation ownership, with
-native source evidence and conservative UNKNOWNs.
-
-## Highlights
-
-- **Detailed architecture contracts.** ArchKeel's own Target defines lower-level
-  owners, ports and responsibilities across Core, language collectors and reports.
-  Observation, policy evaluation and rendering have separate owners.
-- **JavaScript script-global dependencies.** The TypeScript adapter records supported
-  script-global crossings for existing dependency rules, including bounded alias,
-  factory-member and destructuring forms. Standard globals follow supported
-  compiler target/lib settings; UMD publications require an explicit classic-browser
-  host and authenticated provider evidence. Ambiguous bindings and unsupported
-  effects remain UNKNOWN; source identity does not prove runtime availability.
-- **Explicit browser ports.** First-party report sources use named ES imports and
-  exports under the existing component boundaries. A checked, pinned build creates
-  an inline first-party bundle after unchanged canonical ELK; reports stay offline
-  and compatibility globals remain available. Native direct
-  named-export witnesses support exact ports; missing or competing bindings retain
-  UNKNOWN. Opaque vendor calls do not acquire a purity assumption.
-- **Call ownership.** Opt-in contract **3.7.0** adds `call_owner` for exact targets
-  and allowed caller scopes. Bound calls can fail; unrelated same-named methods
-  do not. Missing target proof stays UNKNOWN. Declared receivers prove a static
-  boundary, not runtime dispatch. Saved receipts bind the exact evaluation claim
-  and observation version; copying a receipt cannot certify a different scope.
-- **Typed standard-library receivers.** Import-proven `subprocess.Popen`,
-  `threading.Thread` and `threading.Event` methods receive partial targets.
-  Documented `base64`, `hmac` and `secrets` byte results support partial
-  `bytes.decode`, `bytes.hex` and `bytes.rstrip` targets. Unsupported or
-  optional annotations remain unresolved. Import-proven `hmac.new().digest().hex()` chains
-  also receive partial targets; HMAC runtime behavior is not inferred.
-- **Less repeated analysis work.** Python collectors share lexical indexes within
-  one parsed snapshot while resolving import bindings live. Changed compiler inputs
-  rebuild the index; binding decisions are not cached.
-  Member escapes use a worklist instead of repeated full-edge scans. Nested record
-  data is validated once before immutable conversion. Producers and consumers retain
-  full response validation without reparsing the producer's own JSON output.
-  Core indexes uncertain re-exports, static field routes and module ownership once
-  per evaluation pass instead of rescanning them for each symbol or import.
-  Immutable symbol records are reused instead of being constructed twice.
-  Report projections reuse module ownership within each snapshot; import cells
-  preselect applicable rule kinds and index coverage by module without changing proof.
-  Scope-specific decisions and mutable escape proofs remain separate.
-  Main and detail HTML share one strictly decoded observation and report projection;
-  existing Python entry points retain their behavior. Browser assets are republished
-  as a checked first-party bundle after the canonical vendor.
-- **Complete release assets.** Releases require a version-matched plugin ZIP and
-  checksum. The release tag sets both exported manifest versions automatically;
-  canonical skill content and the finished ZIP are checked independently. GitHub
-  assets are downloaded and checked before publishing the Python package.
-- **Bounded Actions inventory.** Reviewed workflow files cover CI, full
-  verification, Pages and release; temporary workflows fail the repository
-  inventory check. Pages retains its Main-only deployment policy.
-- **Local Studio.** `archkeel studio` opens the architecture of a repository with or
-  without a contract. Explore observed packages, imports and calls, or play a checked story.
-  `explore` is an alias. The optional MCP server reads the pinned snapshot.
-  See the [Studio guide](docs/explorer.md).
-
-## Upgrade from 4.0.1
-
-The step-by-step guide for EE and CE is [docs/migration-4-to-5.md](docs/migration-4-to-5.md).
-
-The facts below are measured on the development line at `d3d10f846` and on release 4.0.1.
-They are not measurements of a release build. Measure the release artifact before you publish.
-
-### Commands and options
-
-- `check` exits 2 with the refusal `not_on_this_development_line`. Use 4.0.1 for `check`.
-- `guide`, `story` and `view` are unknown commands on this line. Each exits 2.
-- `validate` removes these options: `--against`, `--amendment`, `--write-amendment`, `--accept-new`,
-  `--write-graph`, `--compact-open-decisions`, `--decided-by` and `--rationale`. `--against` and
-  `--accept-new` exit 2 with a refusal.
-- `report` removes these options: `--only`, `--rule`, `--component`, `--full`, `--input` and
-  `--baseline`. `--only` exits 2 with a refusal. `--baseline` exits 1 as an unknown argument.
-  Use `validate --baseline` for the baseline check.
-- `init` removes these options: `--source`, `--namespace`, `--language`, `--tsconfig`, `--full`,
-  `--force`, `--collector-argv` and `--collector-output-limit-bytes`. `init --source` exits 2 with a
-  refusal.
-- New options: `validate` has `--summary`, `--all`, `--text`, `--timings`, `--no-init` and
-  `--verbose`. `report` has `--format`, `--part-of`, `--system-href`, `--topology`, `--timings`,
-  `--summary`, `--all`, `--text`, `--no-init` and `--verbose`. `init` has `--adapters`, `--layers`
-  and `--preset`.
-- `archkeel.api` is removed. `import archkeel.api` raises `ModuleNotFoundError`.
-
-### Exit codes
-
-| Command | PASS | FAIL | UNKNOWN or refusal |
-|---|---|---|---|
-| `validate`, `report` | 0 | 1 | 2 |
-
-The table is in [reference: exit codes](docs/reference.md#exit-codes). Tests of this table pass on
-the development line: `tests/test_cli_core_only_exit_table.py` and `tests/test_cli_exit_outcome.py`.
-
-### Baselines
-
-- `validate --baseline FILE` and `validate --write-baseline FILE` use schema 1.4.0
-  ([AD-546](docs/architecture/decisions/ad-546-a-baseline-accepts-an-unknown-by-what-it-is-and-the-core-compares-it-both-ways.md)).
-- A new violation, gap or budget exits 1. An accepted entry that the run no longer has also exits 1.
-- An accepted UNKNOWN keeps exit 2. Exit 0 needs no UNKNOWN.
-- Run `archkeel validate --write-baseline FILE` once after you upgrade. Review the diff before you commit it.
-- A 4.0.1 baseline (schema 1.0.0 to 1.3.0) is still read. It accepts no UNKNOWN. Its
-  `calls_unresolved`, `typing_positions` and `untyped_private_accesses` budgets exit 2 with
-  `baseline.budget_of_older_schema`. Write the file again.
-- `--accept-new` is not available. Write the file again and review the diff.
-- A refused run under a baseline exits 1 ([AD-731](docs/architecture/decisions/ad-731-under-a-baseline-only-a-verdict-exits-2.md)).
-
-### JSON consumers
-
-- Read `status` and `exit_code` first. Each JSON result starts with them.
-- A command refusal has no frame. It has the field `refusal` with `kind` and `message`.
-- A collection refusal or a failed file write keeps its frame. Its JSON also has `refusal` and
-  `refusals`, which lists each refusal in order.
-- Rescan both revisions before you compare two results.
-
-### Not measured
-
-- Verdict parity with 4.0.1 on your project. Run both versions and compare.
-- Runtime on a large project.
-- The effect of dynamic imports on this line. The 4.0.1 counts in older notes belong to the
-  deleted Python engine.
-- The version of a release build. `archkeel --version` prints `4.0.2.dev944+gd3d10f846` on this line.
+1. Install a platform wheel. Run `archkeel --version`.
+2. Replace each removed command and option in your scripts with the table above. Keep 4.0.1 for `check`, amendments and `--against`.
+3. Read `status` and `exit_code` of the JSON. Treat 1 as FAIL and 2 as not decided.
+4. Run `archkeel validate --no-init` in CI, so that a missing `archkeel.toml` writes no file.
+5. Write the baseline again: `archkeel validate --write-baseline known-violations.json`. Review the diff. Then run `archkeel validate --baseline known-violations.json`.
+6. Read each UNKNOWN in `frame.gaps`. Fix the cause, or accept it in the baseline.
+7. Replace an import of `archkeel.*` with a subprocess call.
+8. Move a `collector_argv` setting to a collector that the core provides, or remove it.
 
 ---
 
