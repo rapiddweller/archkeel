@@ -203,6 +203,22 @@ def _same(expected: tuple[str, str], found: tuple[str, bytes], modes: bool) -> b
     return _blob_id(data) == blob
 
 
+CACHE_TAG = (
+    "Signature: 8a477f597d28d172789f06886806bc55\n"
+    "# A cache of pinned sources: not code of the scan.\n"
+)
+
+
+def mark_cache(cache: Path) -> None:
+    """Mark the cache folder with a `CACHEDIR.TAG`: the walk of ArchKeel over a repository that
+    holds the cache skips it (AD-432). A pinned source has `exec` and `import_module` with
+    names that it builds, and each such call would hold every module of the scan (AD-1211)."""
+    cache.mkdir(parents=True, exist_ok=True)
+    tag = cache / "CACHEDIR.TAG"
+    if not tag.exists():
+        tag.write_text(CACHE_TAG, encoding="utf-8")
+
+
 @contextmanager
 def checkout(spec: Mapping[str, Any], cache: Path | None = None) -> Iterator[Path]:
     """The pinned commit as a folder. A cache folder keeps the checkout for the next build. A
@@ -211,7 +227,7 @@ def checkout(spec: Mapping[str, Any], cache: Path | None = None) -> Iterator[Pat
     slug = re.sub(r"[^A-Za-z0-9]+", "-", spec["repo"].split("//", 1)[-1]).strip("-")
     with tempfile.TemporaryDirectory(prefix="archkeel-source-") as scratch:
         if cache is not None:
-            cache.mkdir(parents=True, exist_ok=True)
+            mark_cache(cache)
         home = cache if cache is not None else Path(scratch)
         ready = home / f"{slug}-{spec['commit']}"
         if not ready.is_dir():
