@@ -79,7 +79,7 @@ def test_an_open_red_run_counts_to_now_and_a_day_without_runs_gives_n_a() -> Non
 
 
 def test_the_main_tier_queues_and_the_nightly_run_cancels() -> None:
-    """AD-674: a run on main finishes (one newest run waits); a check run of Full cancels, a publishing run of Full never does (AD-1223)."""
+    """AD-674: a run on main finishes; a check run of Full cancels, a publishing run never (AD-1223)."""
     workflows = Path(__file__).parents[1] / ".github/workflows"
     queued = "  group: ci-main\n  cancel-in-progress: false\n"
     cancelled = (
