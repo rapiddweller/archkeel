@@ -11,15 +11,18 @@ use std::collections::HashSet;
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    Comprehension, ExceptHandler, Expr, ExprCall, ExprContext, Pattern, PatternMatchAs,
-    PatternMatchMapping, PatternMatchStar, Stmt,
+    Comprehension, ExceptHandler, Expr, ExprCall, ExprContext, Identifier, Pattern, PatternMatchAs,
+    PatternMatchMapping, PatternMatchStar, Stmt, StmtClassDef, StmtImport, StmtImportFrom,
 };
-use ruff_text_size::Ranged;
+use ruff_text_size::{Ranged, TextRange};
 
-use super::facts::{Binding, Build, Call, Facts, Kind, Write, EVALUATORS, READERS, RESERVED};
+use super::facts::{
+    Binding, Call, Facts, Kind, Scope, ScopeId, Write, EVALUATORS, READERS, RESERVED,
+};
 use super::forms::{last, namespace};
 use crate::module::Module;
 use crate::survey::globals_project::PURE_BUILTINS;
+use crate::survey::package_body::anchor;
 use crate::survey::typing_count::builtin;
 use crate::survey::uses_typing_guard::READS;
 
@@ -39,7 +42,119 @@ pub(super) fn build(module: &Module) -> Facts<'_> {
     walk.facts
 }
 
+/// The walk that fills `Facts` (`hazards_annotation_scopes.rs`).
+struct Build<'a, 'm> {
+    facts: Facts<'a>,
+    current: ScopeId,
+    package: &'m str,
+    /// The namespace expressions that the parent only reads.
+    blessed: HashSet<TextRange>,
+    /// The depth of `if`, loop, `try` and `match` bodies around the statement in its scope.
+    branch: usize,
+    /// Inside the signature of a function: its annotations are evaluated.
+    signature: bool,
+}
+
 impl<'a> Build<'a, '_> {
+    fn open(&mut self, kind: Kind, class: Option<&'a StmtClassDef>) -> ScopeId {
+        let scope = Scope::new(kind, Some(self.current), class);
+        self.facts.scopes.push(scope);
+        self.facts.scopes.len() - 1
+    }
+
+    /// The scope that a binding of `name` goes to: `global` and `nonlocal` redirect it.
+    fn home(&self, name: &str) -> ScopeId {
+        let scope = &self.facts.scopes[self.current];
+        if scope.globals.contains(name) {
+            return 0;
+        }
+        self.current
+    }
+
+    fn bind(&mut self, name: &str, binding: Binding<'a>) {
+        if self.facts.scopes[self.current].nonlocals.contains(name) {
+            let at = self.current;
+            self.facts.pending.push((at, name.to_owned(), binding));
+            return;
+        }
+        let home = self.home(name);
+        if self.branch == 0 && !matches!(binding, Binding::Absent) {
+            self.facts.scopes[home].sure.insert(name.to_owned());
+        }
+        let names = &mut self.facts.scopes[home].names;
+        names.entry(name.to_owned()).or_default().push(binding);
+    }
+
+    /// `target = value`; `None` is a binding of a value that the survey does not read.
+    fn target(&mut self, target: &'a Expr, value: Option<&'a Expr>) {
+        let at = self.current;
+        let binding = || value.map_or(Binding::Unknown, |v| Binding::Value(v, at));
+        match target {
+            Expr::Name(node) => self.bind(node.id.as_str(), binding()),
+            Expr::Attribute(node) => {
+                let stores = self.facts.stores.entry(node.attr.to_string());
+                stores.or_default().push(binding());
+                self.facts.writes.push(Write {
+                    receiver: &node.value,
+                    scope: self.current,
+                    attr: Some(node.attr.to_string()),
+                });
+            }
+            // `d[k] = v` changes the value of `d`; a write into `vars(C)` or `x.__dict__` is opaque.
+            Expr::Subscript(node) => self.target(&node.value, None),
+            Expr::Tuple(node) => node.elts.iter().for_each(|e| self.target(e, None)),
+            Expr::List(node) => node.elts.iter().for_each(|e| self.target(e, None)),
+            Expr::Starred(node) => self.target(&node.value, None),
+            _ => {}
+        }
+    }
+
+    fn import_from(&mut self, node: &'a StmtImportFrom) {
+        let module = anchor(node, self.package);
+        for alias in &node.names {
+            let name = alias.name.as_str();
+            self.facts.evaluates |= EVALUATORS.contains(&name);
+            let future = node
+                .module
+                .as_ref()
+                .is_some_and(|m| m.as_str() == "__future__");
+            self.facts.postponed |= future && name == "annotations";
+            let local = alias.asname.as_ref().map_or(name, Identifier::as_str);
+            match (&module, name) {
+                (Some(module), "*") => {
+                    let scope = &mut self.facts.scopes[self.current];
+                    scope.stars.push(module.clone());
+                }
+                (Some(module), _) => {
+                    let binding = Binding::Import(module.clone(), Some(name.to_owned()));
+                    self.bind(local, binding);
+                }
+                (None, _) => self.bind(local, Binding::Unknown),
+            }
+        }
+    }
+
+    /// `import a`, `import a.b as c`: the name binds the module.
+    fn import(&mut self, node: &'a StmtImport) {
+        for alias in &node.names {
+            let name = alias.name.as_str();
+            self.facts.evaluates |=
+                EVALUATORS.contains(&name.rsplit('.').next().unwrap_or_default());
+            let first = name.split('.').next().unwrap_or(name);
+            let (local, module) = alias
+                .asname
+                .as_ref()
+                .map_or((first, first), |l| (l.as_str(), name));
+            self.bind(local, Binding::Import(module.to_owned(), None));
+        }
+    }
+
+    fn target_inert(&mut self, target: &'a Expr) {
+        if let Expr::Name(node) = target {
+            self.bind(node.id.as_str(), Binding::Inert);
+        }
+    }
+
     /// The expression `expr` is a namespace and its parent only reads it.
     fn bless(&mut self, expr: &Expr) {
         match expr {
@@ -118,7 +233,13 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         let branching = matches!(
             stmt,
-            Stmt::If(_) | Stmt::While(_) | Stmt::For(_) | Stmt::Try(_) | Stmt::Match(_)
+            Stmt::If(_)
+                | Stmt::While(_)
+                | Stmt::For(_)
+                | Stmt::Try(_)
+                | Stmt::Match(_)
+                // `with` can suppress an exception and skip the rest of its body.
+                | Stmt::With(_)
         );
         self.branch += usize::from(branching);
         match stmt {

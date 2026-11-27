@@ -605,6 +605,50 @@ SCOPES = {
             x: contextlib.AbstractContextManager
         """
     ),
+    "custom class subscription returns a string": source(
+        """
+        class C:
+            def __class_getitem__(cls, key):
+                return str(PAYLOAD)
+
+
+        s = C['key']
+
+
+        class K:
+            x: s
+        """
+    ),
+    "inherited string behind a with body that stops early": source(
+        """
+        import contextlib
+
+
+        class B:
+            s = str(PAYLOAD)
+
+
+        class C(B):
+            with contextlib.suppress(ValueError):
+                raise ValueError()
+                s = 'int'
+
+
+        class K:
+            x: C.s
+        """
+    ),
+    "re-exported module alias with two possible modules": (
+        consumer(
+            'from app.cfg import alias\nalias.AbstractContextManager = str("' + IMPORT + '")\n',
+            "contextlib.AbstractContextManager",
+            HEAD + "import contextlib\n",
+        ),
+        {
+            "src/app/cfg.py": "if True:\n    import contextlib as alias\n"
+            "else:\n    import inspect as alias\n"
+        },
+    ),
 }
 
 PLANTS.update(SCOPES)

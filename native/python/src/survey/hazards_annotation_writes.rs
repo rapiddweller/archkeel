@@ -110,7 +110,12 @@ impl<'a> Project<'a> {
             let facts = self.facts(at);
             let home = facts.holder(0, name)?;
             let bindings = facts.scopes[home].names.get(name)?;
-            self.agree(at, bindings.iter().collect(), depth + 1)
+            // Module aliases that disagree name no one module: the write counts for every one.
+            let aliases = bindings
+                .iter()
+                .any(|b| matches!(b, Binding::Import(..) | Binding::Value(..)));
+            let agreed = self.agree(at, bindings.iter().collect(), depth + 1);
+            agreed.or_else(|| aliases.then(|| "*".to_owned()))
         });
         match named {
             Some(next) if depth < 8 && next != path => self.canonical(next, depth + 1),

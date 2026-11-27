@@ -14,8 +14,6 @@ use ruff_python_ast::{Expr, ExprCall, ExprStringLiteral, Identifier, ModModule, 
 
 use crate::parse::Unread;
 
-#[path = "hazards_annotation_binds.rs"]
-mod binds;
 #[path = "hazards_annotation_clean.rs"]
 mod clean;
 #[path = "hazards_annotation_entity.rs"]

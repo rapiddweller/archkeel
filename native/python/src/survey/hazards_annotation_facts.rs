@@ -200,16 +200,3 @@ impl Facts<'_> {
         }
     }
 }
-
-/// The walk that fills `Facts` (`hazards_annotation_scopes.rs`).
-pub(super) struct Build<'a, 'm> {
-    pub(super) facts: Facts<'a>,
-    pub(super) current: ScopeId,
-    pub(super) package: &'m str,
-    /// The namespace expressions that the parent only reads.
-    pub(super) blessed: HashSet<TextRange>,
-    /// The depth of `if`, loop, `try` and `match` bodies around the statement in its scope.
-    pub(super) branch: usize,
-    /// Inside the signature of a function: its annotations are evaluated.
-    pub(super) signature: bool,
-}

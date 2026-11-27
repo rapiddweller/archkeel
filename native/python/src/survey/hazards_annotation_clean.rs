@@ -49,7 +49,13 @@ impl<'a> Project<'a> {
                 self.dynamic(&node.value, at, found, depth, active);
                 // `os.environ['X']` is data: only a type form subscripts to a type.
                 let base = self.path(&node.value, at.0, at.1, depth, active);
-                if matches!(base, Entity::Standard(path) if !type_subscription(&path)) {
+                let proven = match &base {
+                    Entity::Standard(path) => type_subscription(path),
+                    // A class of the scan can define `__class_getitem__` to return any value.
+                    Entity::Class(m, body) => !self.defines_getitem(*m, *body, depth, active),
+                    _ => true,
+                };
+                if !proven {
                     found.push(node.range());
                 }
                 let parts = if literal(&node.value) {
@@ -331,6 +337,27 @@ impl<'a> Project<'a> {
             Entity::Class(m, body) => self.attribute(m, body, attr, depth, active),
             Entity::Clean | Entity::Unknown => Entity::Unknown,
         }
+    }
+
+    /// True when the class or a base of the scan defines `__class_getitem__`.
+    fn defines_getitem(&self, m: usize, body: ScopeId, depth: usize, active: &mut Active) -> bool {
+        let facts = self.facts(m);
+        let scope = &facts.scopes[body];
+        let own = scope.names.contains_key("__class_getitem__");
+        let parent = scope.parent.unwrap_or(0);
+        let bases = scope
+            .class
+            .into_iter()
+            .flat_map(|c| &c.arguments)
+            .flat_map(|a| &a.args);
+        own || bases
+            .into_iter()
+            .any(|base| match self.path(base, m, parent, depth + 1, active) {
+                Entity::Class(m2, b2) => {
+                    depth < MAX_DEPTH && self.defines_getitem(m2, b2, depth + 1, active)
+                }
+                _ => false,
+            })
     }
 
     /// True when no metaclass (also by `**kwargs`) can add a data descriptor.
