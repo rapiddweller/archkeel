@@ -88,6 +88,7 @@ class GapAction(StrEnum):
 
     NO_IMPORT_FOUND = "no_import_found"
     IMPORT_SEEN = "import_seen"
+    ROUTE_HELD = "route_held"
 
 
 @dataclass(frozen=True, slots=True)

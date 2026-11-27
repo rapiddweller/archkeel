@@ -127,6 +127,9 @@ See [MCP setup and queries](docs/explorer.md#connect-an-agent).
 **Other builds.** The [main build](https://github.com/rapiddweller/archkeel/releases/tag/main-build)
 contains a native core. Release [4.0.1](https://github.com/rapiddweller/archkeel/tree/4.0.1/docs)
 uses the earlier Python engine. Check `archkeel --help` in the installation you use.
+The main build keeps its newest 30 builds. Until 5.0.0 is on PyPI, pin an exact build with the same page:
+`uv tool install --prerelease allow --find-links https://github.com/rapiddweller/archkeel/releases/expanded_assets/main-build "archkeel==<version>"`.
+`SHA256SUMS` of the release lists the digest of each kept wheel.
 
 ### Claude Code
 

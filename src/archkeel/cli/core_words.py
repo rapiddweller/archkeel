@@ -28,6 +28,7 @@ UNKNOWN_CAUSES: Final = {
 GAP_ACTIONS: Final = {
     GapAction.NO_IMPORT_FOUND: "no import found: delete the entry or name the importer",
     GapAction.IMPORT_SEEN: "import seen, no proven use: read the import or delete the entry",
+    GapAction.ROUTE_HELD: "route held, not proven: read the cause; the entry may be in use",
 }
 #: A gap of the collector, in the words of a reader. A kind that is not here is spelled out.
 GAP_KINDS: Final = {
