@@ -137,3 +137,22 @@ fn a_run_baseline_is_sorted_and_has_no_zero_count() {
     assert!(AcceptedUnknown::new("a".into(), "s".into(), "r".into(), 0).is_err());
     assert_eq!(parse_baseline(text.as_bytes()).unwrap(), baseline);
 }
+
+#[test]
+fn schema_1_5_0_names_every_cause_and_a_run_writes_it_while_1_4_0_keeps_its_form() {
+    // AD-1290: a file of 1.4.0 names the first cause of a rule only; a file of 1.5.0 names them all.
+    let mut value = document(json!([entry("a", "s", "r")]));
+    let legacy = parse(&value).unwrap();
+    assert!(!legacy.all_causes());
+    assert!(String::from_utf8(baseline_bytes(&legacy))
+        .unwrap()
+        .contains("\"schema_version\": \"1.4.0\""));
+    value["schema_version"] = json!("1.5.0");
+    let current = parse(&value).unwrap();
+    assert!(*current.all_causes());
+    assert!(String::from_utf8(baseline_bytes(&current))
+        .unwrap()
+        .contains("\"schema_version\": \"1.5.0\""));
+    let run = ValidationBaseline::of_run(Vec::new(), Vec::new(), Vec::new());
+    assert!(*run.all_causes());
+}

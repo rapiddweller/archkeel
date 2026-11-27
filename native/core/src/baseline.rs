@@ -14,7 +14,7 @@
 //! A baseline cannot accept a refused part of the run (`Gaps::unacceptable`).
 
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_contract::policy::{budget_word, BaselineBudget, BaselineRole, ValidationBaseline};
 use archkeel_contract::BudgetName;
@@ -406,6 +406,21 @@ fn unknowns(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
             (key, *item.count())
         })
         .collect();
+    // A file of schema 1.4.0 names the first cause of each rule only: the causes beyond it are not compared,
+    // so a file that a build wrote stays current for the same source (AD-1290).
+    let held = |key: &Key, count: u64| -> u64 {
+        match file.all_causes() {
+            true => count,
+            false => count.saturating_sub(run.gaps.beyond.get(key).copied().unwrap_or(0)),
+        }
+    };
+    let run_keys: BTreeMap<&Key, u64> = run
+        .gaps
+        .keys
+        .iter()
+        .map(|(key, count)| (key, held(key, *count)))
+        .filter(|(_, count)| *count > 0)
+        .collect();
     found.accepted_rules = run
         .gaps
         .by_rule
@@ -418,21 +433,61 @@ fn unknowns(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
         })
         .map(|(rule, _)| rule.clone())
         .collect();
-    for (key, run_count) in &run.gaps.keys {
-        let file_count = file_counts.get(key).copied().unwrap_or(0);
+    let mut newer: Vec<(Key, u64, u64)> = Vec::new();
+    let mut gone: Vec<(Key, u64, u64)> = Vec::new();
+    for (key, run_count) in &run_keys {
+        let file_count = file_counts.get(*key).copied().unwrap_or(0);
         let shared = (*run_count).min(file_count);
         found.accepted_unknowns += shared;
         found.accepted_entries += u64::from(shared > 0);
         if *run_count > file_count {
-            found.new.push(entry(key, *run_count, file_count));
+            newer.push(((*key).clone(), *run_count, file_count));
         }
     }
     for (key, file_count) in &file_counts {
-        let run_count = run.gaps.keys.get(key).copied().unwrap_or(0);
+        let run_count = run_keys.get(key).copied().unwrap_or(0);
         if run_count < *file_count {
-            found.gone.push(entry(key, run_count, *file_count));
+            gone.push((key.clone(), run_count, *file_count));
         }
     }
+    reworded(&run.gaps.reworded, &mut newer, &mut gone, found);
+    found
+        .new
+        .extend(newer.iter().map(|(key, run, file)| entry(key, *run, *file)));
+    found
+        .gone
+        .extend(gone.iter().map(|(key, run, file)| entry(key, *run, *file)));
+}
+
+/// A collector gap whose text changed and whose kind, subject and count did not is no drift (AD-1290).
+/// Each surplus of the run is paired with a missing entry of the file of the same kind and subject, one
+/// item for one item. What no pair absorbs stays new or gone. Only a key whose reason is the text of
+/// a collector is paired; a typed reason is exact.
+fn reworded(
+    reworded: &BTreeSet<Key>,
+    newer: &mut Vec<(Key, u64, u64)>,
+    gone: &mut Vec<(Key, u64, u64)>,
+    found: &mut Compared,
+) {
+    for (key, run_count, file_count) in newer.iter_mut() {
+        if !reworded.contains(key) {
+            continue;
+        }
+        for (other, run_other, file_other) in gone.iter_mut() {
+            if (&other.kind, &other.subject) != (&key.kind, &key.subject) {
+                continue;
+            }
+            let moved = (*run_count - *file_count).min(*file_other - *run_other);
+            if moved == 0 {
+                continue;
+            }
+            *file_count += moved;
+            *run_other += moved;
+            found.accepted_unknowns += moved;
+        }
+    }
+    newer.retain(|(_, run, file)| run > file);
+    gone.retain(|(_, run, file)| run < file);
 }
 
 fn entry(key: &Key, run: u64, file: u64) -> Difference {
@@ -449,3 +504,11 @@ fn entry(key: &Key, run: u64, file: u64) -> Difference {
 #[cfg(test)]
 #[path = "baseline_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "baseline_reworded_tests.rs"]
+mod reworded_tests;
+
+#[cfg(test)]
+#[path = "baseline_causes_tests.rs"]
+mod causes_tests;

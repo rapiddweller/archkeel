@@ -130,6 +130,9 @@ record!(
         budgets: Vec<BaselineBudget>,
         /// The checked accepted UNKNOWN entries.
         unknowns: Option<Vec<AcceptedUnknown>>,
+        /// True for schema 1.5.0: the entries name every cause of an UNKNOWN rule. A file of schema 1.4.0
+        /// names the first cause only, so the compare leaves the other causes of a rule out (AD-1290).
+        all_causes: bool,
     }
 );
 
@@ -161,7 +164,7 @@ impl BaselineRole {
 }
 
 impl ValidationBaseline {
-    /// The baseline that a run writes: schema 1.4.0 with its accepted UNKNOWN entries. The
+    /// The baseline that a run writes: schema 1.5.0 with its accepted UNKNOWN entries. The
     /// entries are sorted by (kind, subject, reason) and by fingerprint, so one run gives one byte
     /// string (AD-546).
     pub fn of_run(
@@ -178,6 +181,7 @@ impl ValidationBaseline {
             violations,
             budgets,
             unknowns: Some(unknowns),
+            all_causes: true,
         }
     }
 }
@@ -244,7 +248,7 @@ impl fmt::Display for BaselineError {
             Self::TooLarge => write!(out, "baseline exceeds the {MAX_BASELINE_BYTES}-byte limit"),
             Self::IntegerRange(label) => write!(out, "{label} exceeds the unsigned 64-bit integer range"),
             Self::NotObject(label) => write!(out, "{label} must be an object"),
-            Self::UnsupportedSchema(value) => write!(out, "baseline schema {value} cannot be read as 1.0.0, 1.1.0, 1.2.0, 1.3.0, 1.4.0"),
+            Self::UnsupportedSchema(value) => write!(out, "baseline schema {value} cannot be read as 1.0.0, 1.1.0, 1.2.0, 1.3.0, 1.4.0, 1.5.0"),
             Self::UnorderedUnknown { index, repeated: true, name } => write!(out, "baseline.unknowns[{index}] repeats an earlier entry, {name}; give it one count instead"),
             Self::UnorderedUnknown { index, repeated: false, name } => write!(out, "baseline.unknowns[{index}], {name}, is not sorted by kind, subject and reason"),
             Self::FieldsMismatch(label) => write!(out, "{label} fields mismatch"),

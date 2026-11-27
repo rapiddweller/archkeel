@@ -105,6 +105,11 @@ impl<'id, 'm> Scope<'id, 'm> {
         })
     }
 
+    /// Every cause that holds `rule`, the first one first (AD-1290). Empty when the scope of the rule is complete.
+    pub fn causes(&self, rule: &Rule) -> Vec<Reason> {
+        crate::scope_order::rule_causes(self.model, rule)
+    }
+
     /// The scope state of the whole run: `Ok` only when the model has no cause and no unread
     /// part. The status of a frame reads it (lead decision L-35b): a run whose scope is not
     /// complete is never PASS, also with zero rules. It reads the same sources as `complete`, in

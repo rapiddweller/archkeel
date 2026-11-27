@@ -17,9 +17,11 @@
 //! A part that no key can name is not acceptable (a refused contract, a refused reply, a section
 //! or the report that no slice ports). It is in `unacceptable`, and a baseline never covers it.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
+use archkeel_contract::head_of;
 use archkeel_facts::{FactData, GapFact, Record};
+use archkeel_model::{ModelTree, Reason};
 use archkeel_report::{RuleReasons, Ruling};
 use archkeel_store::Ingested;
 
@@ -36,8 +38,15 @@ pub(crate) struct Key {
 pub(crate) struct Gaps {
     pub(crate) keys: BTreeMap<Key, u64>,
     /// The keys of each rule row without a decision, so that a row can be called accepted only
-    /// when all its keys are (AD-546).
+    /// when all its keys are (AD-546). These are the keys of the first cause, the one that the row shows.
     pub(crate) by_rule: BTreeMap<String, Vec<Key>>,
+    /// The keys that come from a cause beyond the first of a rule, with their counts (AD-1290). A baseline of
+    /// schema 1.4.0 holds the first cause only, so the compare leaves these out for such a file.
+    pub(crate) beyond: BTreeMap<Key, u64>,
+    /// The keys whose reason is the text that a collector wrote. A collector can reword that text with no
+    /// change of the code, so the baseline matches such a key by kind and subject when no entry has its
+    /// exact text (AD-1290). The reason of any other key is typed and is matched exactly.
+    pub(crate) reworded: BTreeSet<Key>,
     pub(crate) unacceptable: Vec<String>,
 }
 
@@ -49,23 +58,40 @@ impl Gaps {
 }
 
 /// The keys of a ruling and of the gaps of the collector reply.
-pub(crate) fn of_run(ruling: &Ruling, reply: Option<&Ingested>) -> Gaps {
+pub(crate) fn of_run(
+    ruling: &Ruling,
+    reply: Option<&Ingested>,
+    models: Option<&ModelTree>,
+) -> Gaps {
     let mut gaps = Gaps::default();
     if let RuleReasons::All(text) = ruling.unsupported() {
         gaps.unacceptable
             .push(format!("the whole contract: {text}"));
     }
+    let also = other_causes(ruling, models);
     for (rule, reason) in ruling.causes() {
-        for entry in archkeel_model::stable(reason) {
+        let more = also.get(rule.as_str()).into_iter().flatten();
+        let first = archkeel_model::stable(reason)
+            .into_iter()
+            .map(|entry| (entry, false));
+        let rest = more
+            .flat_map(archkeel_model::stable)
+            .map(|entry| (entry, true));
+        for (entry, beyond) in first.chain(rest) {
             let key = Key {
                 kind: entry.kind,
                 subject: entry.subject.unwrap_or_else(|| rule.clone()),
                 reason: entry.reason,
             };
-            gaps.by_rule
-                .entry(rule.clone())
-                .or_default()
-                .push(key.clone());
+            if beyond {
+                let total = gaps.beyond.entry(key.clone()).or_default();
+                *total = total.saturating_add(entry.count);
+            } else {
+                gaps.by_rule
+                    .entry(rule.clone())
+                    .or_default()
+                    .push(key.clone());
+            }
             gaps.add(key, entry.count);
         }
     }
@@ -73,9 +99,35 @@ pub(crate) fn of_run(ruling: &Ruling, reply: Option<&Ingested>) -> Gaps {
         .into_iter()
         .flat_map(|reply| &reply.reply().facts.coverage.gaps);
     for record in records {
-        gaps.add(collector(record), 1);
+        let key = collector(record);
+        gaps.reworded.insert(key.clone());
+        gaps.add(key, 1);
     }
     gaps
+}
+
+/// The causes of an UNKNOWN rule beyond the one that its row shows. A rule can have several causes; the row
+/// names the first, so the key of a rule would move when the first cause is resolved and the next one shows.
+/// The baseline keys every cause instead (AD-1290). A rule whose first cause is not the reason of its row
+/// (a named row, a mounted root) adds nothing.
+fn other_causes<'a>(
+    ruling: &'a Ruling,
+    models: Option<&'a ModelTree>,
+) -> BTreeMap<&'a str, Vec<Reason>> {
+    let mut found: BTreeMap<&str, Vec<Reason>> = BTreeMap::new();
+    for model in models.into_iter().flat_map(ModelTree::models) {
+        for rule in model.contract().rules() {
+            let id = head_of(rule).id().as_text();
+            let Some(shown) = ruling.causes().get(id) else {
+                continue;
+            };
+            let all = model.scope(|scope| scope.causes(rule));
+            if all.first() == Some(shown) && all.len() > 1 {
+                found.insert(id, all.into_iter().skip(1).collect());
+            }
+        }
+    }
+    found
 }
 
 /// The key of one gap of the collector. The module names the subject, else the file, else the

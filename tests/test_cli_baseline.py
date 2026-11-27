@@ -40,7 +40,7 @@ def test_a_pass_run_writes_an_empty_list_and_validates_with_exit_0(built: Path) 
         code, _ = run(built, root, "--write-baseline", "b.json")
         assert code == 0
         document = json.loads((root / "b.json").read_text(encoding="utf-8"))
-        assert document["schema_version"] == "1.4.0"
+        assert document["schema_version"] == "1.5.0"
         assert document["unknowns"] == [] and document["violations"] == []
         code, result = run(built, root, "--baseline", "b.json")
     assert code == 0 and result["status"] == "PASS"
