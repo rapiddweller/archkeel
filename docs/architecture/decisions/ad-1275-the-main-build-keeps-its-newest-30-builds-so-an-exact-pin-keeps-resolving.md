@@ -19,7 +19,8 @@ then the dev wheels need a stable URL.
 3. A name that is public keeps its bytes (AD-863, unchanged). So a pin keeps its URL and its digest.
 4. `SHA256SUMS` lists the digest of every public wheel that stays, the older builds too. A consumer can verify an
    old wheel. The notes of the release say that the newest 30 builds stay and how to pin one.
-5. The order of the steps, the staging names, the check before the first public name changes, the rule that an
+5. The inventory of the assets reads every page (`gh api --paginate --slurp`): 180 files do not fit in one page of 100.
+6. The order of the steps, the staging names, the check before the first public name changes, the rule that an
    older run does not replace a newer build, and the tag move are unchanged.
 
 ## Why not a release for each build
@@ -33,6 +34,7 @@ one function and the notes. The page `expanded_assets/main-build` lists all kept
 
 - A new build next to an older one: both are public, the sums list both, the old digest is the same.
 - The 31st build: the oldest build is deleted, the newer 30 stay, a file that is not ours stays.
+- An inventory of many pages (a page of 7 assets in the test): every page is read.
 - A rerun of the same commit: nothing public changes.
 - An older run after a newer build: skipped, no change.
 - A failure at any step of the publication: the old set stays usable, and a rerun recovers.

@@ -108,8 +108,12 @@ def candidate(sha: str) -> list[Path]:
 
 
 def assets_of(repo: str, release: dict) -> dict[str, dict]:
+    # Up to KEEP builds of six wheels are public: one page of 100 is not enough (#2183).
     path = f"repos/{repo}/releases/{release['id']}/assets?per_page=100"
-    return {item["name"]: item for item in json.loads(command("gh", "api", path))}
+    pages = json.loads(command("gh", "api", "--paginate", "--slurp", path))
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
+        raise ValueError("The asset inventory of the release is not a list of pages")
+    return {item["name"]: item for page in pages for item in page}
 
 
 def rename(repo: str, asset: dict, name: str) -> None:

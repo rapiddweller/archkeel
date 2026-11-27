@@ -51,6 +51,7 @@ class Hub:
         self.fail_at: int | None = None
         self.corrupt_next_upload = False
         self.partial_upload = False
+        self.page_size = 100
         self.calls: list[tuple[str, ...]] = []
         for tag in sorted(build.TAGS):
             self._add(
@@ -104,8 +105,10 @@ class Hub:
                 else:
                     self.assets[self._find(args[4])]["name"] = args[6].removeprefix("name=")
                 return ""
-            case ("gh", "api") if "/assets" in args[2]:
-                return json.dumps([{"id": key, **item} for key, item in self.assets.items()])
+            case ("gh", "api") if "--paginate" in args and "/assets" in args[-1]:
+                items = [{"id": key, **item} for key, item in self.assets.items()]
+                size = self.page_size
+                return json.dumps([items[i : i + size] for i in range(0, len(items), size)])
             case ("gh", "api"):
                 return json.dumps(
                     {
@@ -218,6 +221,16 @@ def test_the_builds_past_the_newest_keep_are_pruned(
     assert not any(
         c[:3] in (("gh", "release", "create"), ("gh", "release", "delete")) for c in hub.calls
     )
+
+
+def test_the_inventory_reads_every_page(hub: Hub, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The real API gives at most 100 assets in a page. A page of 7 makes four builds need many pages.
+    hub.page_size = 7
+    _publish(hub, monkeypatch, 1)
+    _publish(hub, monkeypatch, 2)
+    _publish(hub, monkeypatch, 3)
+    _assert_clean(hub, 3, (0, 1, 2))
+    assert sum(1 for c in hub.calls if "--paginate" in c) > 3
 
 
 def test_a_rerun_changes_nothing_public(hub: Hub, monkeypatch: pytest.MonkeyPatch) -> None:
