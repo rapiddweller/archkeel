@@ -127,15 +127,6 @@ A source request takes a reference from the index. It checks the file content be
 returning the excerpt. A call step describes static analysis. Runtime dispatch and
 deployment bindings require separate evidence.
 
-## Measure a local corpus
-
-```sh
-make explorer-corpus WORKSPACE=/path/to/checkouts OUTPUT=/private/local/results
-```
-
-The output can contain private repository paths and source information. Keep it local.
-Check the revision, working tree state and scan configuration when comparing results.
-
 ## Query a snapshot
 
 The browser uses GET requests under `/api/v1/`. The MCP tools use the same operation
