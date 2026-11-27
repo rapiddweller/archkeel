@@ -163,13 +163,17 @@ def _wheels(hub: Hub) -> set[str]:
     return {name for name in hub.names() if name.endswith(".whl")}
 
 
-def _assert_clean(hub: Hub, number: int) -> None:
+def _build_of(hub: Hub, number: int) -> set[str]:
+    sha = hub.commits[number]
+    return {n for n in hub.names() if n.startswith(f"archkeel-4.0.2.dev{sha[0]}+g{sha[:9]}")}
+
+
+def _assert_clean(hub: Hub, number: int, kept: tuple[int, ...] = (0,)) -> None:
+    """`number` is the newest build; `kept` are the older builds that stay public (#2183)."""
     sha = hub.commits[number]
     names = hub.names()
-    assert _wheels(hub) == {
-        n for n in names if n.startswith(f"archkeel-4.0.2.dev{sha[0]}+g{sha[:9]}")
-    }
-    assert len(_wheels(hub)) == 6
+    assert _wheels(hub) == set().union(*(_build_of(hub, n) for n in (number, *kept)))
+    assert len(_build_of(hub, number)) == 6
     assert set(names) == {*_wheels(hub), build.SUMS, FOREIGN}
     sums = next(i for i in hub.assets.values() if i["name"] == build.SUMS)
     listed = dict(
@@ -181,11 +185,35 @@ def _assert_clean(hub: Hub, number: int) -> None:
     assert build.LINKS in hub.body and re.search(r"^Commit: [0-9a-f]{40}$", hub.body, re.M)
 
 
-def test_two_builds_in_a_row_replace_the_set(hub: Hub, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_new_build_adds_its_wheels_and_keeps_the_older_ones(
+    hub: Hub, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = _build_of(hub, 0)
+    urls = hub.names()
     _publish(hub, monkeypatch, 1)
-    _assert_clean(hub, 1)
+    _assert_clean(hub, 1, (0,))
     _publish(hub, monkeypatch, 2)
-    _assert_clean(hub, 2)
+    _assert_clean(hub, 2, (0, 1))
+    assert first <= set(hub.names())
+    # A wheel that was public keeps its name and its bytes (the URL of a pin does not change).
+    assert all(hub.names()[name] == digest for name, digest in urls.items() if name in first)
+    assert hub.names()[FOREIGN].startswith("sha256:")
+    assert not any(
+        c[:3] in (("gh", "release", "create"), ("gh", "release", "delete")) for c in hub.calls
+    )
+
+
+def test_the_builds_past_the_newest_keep_are_pruned(
+    hub: Hub, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The Hub starts with build 0. With KEEP 3 the third new build drops build 0 and keeps the rest.
+    monkeypatch.setattr(build, "KEEP", 3)
+    _publish(hub, monkeypatch, 1)
+    _assert_clean(hub, 1, (0,))
+    _publish(hub, monkeypatch, 2)
+    _assert_clean(hub, 2, (0, 1))
+    _publish(hub, monkeypatch, 3)
+    _assert_clean(hub, 3, (1, 2))
     assert hub.names()[FOREIGN].startswith("sha256:")
     assert not any(
         c[:3] in (("gh", "release", "create"), ("gh", "release", "delete")) for c in hub.calls
@@ -242,7 +270,7 @@ def test_a_failure_at_any_step_keeps_a_usable_set_and_a_rerun_recovers(
         } == build.TAGS
         assert FOREIGN in names
         _publish(hub, monkeypatch, 2)
-        _assert_clean(hub, 2)
+        _assert_clean(hub, 2, (0, 1))
 
 
 @pytest.mark.parametrize("partial", [False, True])
@@ -273,7 +301,7 @@ def test_an_older_run_does_not_clear_away_a_newer_stopped_promotion(
             assert (hub.names(), hub.body, hub.tag) == before
             assert hub.mutations == 0
         _publish(hub, monkeypatch, 3)
-        _assert_clean(hub, 3)
+        _assert_clean(hub, 3, (0, 1))
     # The cases include public newer wheels under old notes, and only staged newer wheels.
     assert {(True, True), (False, True)} <= shown
 
