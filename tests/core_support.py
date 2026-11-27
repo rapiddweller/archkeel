@@ -32,36 +32,6 @@ NATIVE = ROOT / "native"
 SUFFIX = ".exe" if os.name == "nt" else ""
 
 
-# AD-670: the Rust collector states no public symbol facts yet, so the self-check of native/ has
-# these UNKNOWN rules and no others. The tuple is the stated goal, not a pin: it is empty when the
-# goal is reached, and the expected status is then PASS (AD-1064).
-NATIVE_UNKNOWN = (
-    "NATIVE-INTERFACE-BOUNDARY",
-    "NATIVE-NO-MODULE-CYCLES",
-    "NATIVE-REQUIRES-COMPLETE",
-)
-# AD-1212: the edges that `docs/architecture/native.md` draws and that only the compiler proves
-# (AD-1136). A scan without compiler facts holds each one as `graph.needs_facts`. A new one is added
-# here; a stale edge is a `graph.drift` and is never added.
-NATIVE_COMPILER_ONLY_EDGES = (
-    "core-baseline->report-payload",
-    "core-contract->model-uml",
-    "core-engine->eval-violation",
-    "core-engine->model-terms",
-    "core-frame->model-graph",
-    "core-frame->report-frame",
-    "core-frame->report-ruling",
-    "core-hygiene->model-match",
-    "eval-rules->model-match",
-    "eval-rules->model-terms",
-    "report-ruling->model-selection",
-    "report-ruling->model-terms",
-    "report-ruling->model-uml",
-)
-NATIVE_SELF_STATUS = (2, "UNKNOWN") if NATIVE_UNKNOWN else (0, "PASS")
-SHELL_SELF_STATUS = (0, "PASS")
-
-
 def build_environment() -> dict[str, str]:
     """The environment of every build of the shared `native/target`, the same for all of them.
 

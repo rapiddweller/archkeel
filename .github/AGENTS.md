@@ -7,5 +7,4 @@ use existing Make targets or dispatch Full verification. A new workflow file nee
 approval in its PR text: no test lists the workflow files (AD-1251).
 
 To run a check on a PR, add a trigger to an existing workflow instead of a new workflow file.
-After the label `ratchet-lead`, the lead runs the latest PR gate run of the head again by hand: `gh run rerun <id>`.
 No label or edit trigger may start `pr-gate.yml`: a skipped run replaces the required `PR gate` check (AD-1061).

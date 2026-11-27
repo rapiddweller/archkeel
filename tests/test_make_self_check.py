@@ -41,9 +41,9 @@ def test_native_self_check_requests_timings_only_when_given_a_path(tmp_path: Pat
 @pytest.mark.parametrize(
     ("target", "printed", "shown"),
     [
-        ("self-validate-native", REFUSED, "the PR result is a refusal: core_error: x"),
-        ("self-validate-native", "", "the self-check result is unusable"),
-        ("self-validate-shell", REFUSED, "the PR result is a refusal: core_error: x"),
+        ("self-validate-native", REFUSED, "the result is a refusal: core_error: x"),
+        ("self-validate-native", "", "is empty or corrupt"),
+        ("self-validate-shell", REFUSED, "the result is a refusal: core_error: x"),
         ("self-validate-shell", "", "is empty or corrupt"),
     ],
 )
@@ -59,15 +59,9 @@ def test_a_self_check_without_a_usable_core_result_fails(
         "esac\n"
     )
     uv.chmod(0o755)
-    for name in (
-        "tools/self_check_contract.py",
-        "tools/self_check_gate.py",
-        "tools/self_check_diff.py",
-        "tools/self_check_shell.py",
-        "docs/architecture/target/shell-contract.json",
-    ):
-        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / name).write_bytes((ROOT / name).read_bytes())
+    name = "tools/self_check_gate.py"
+    (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / name).write_bytes((ROOT / name).read_bytes())
     (tmp_path / "native").mkdir()
     (tmp_path / "native/lib.rs").write_text("// one\n")
     env = {
