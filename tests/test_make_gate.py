@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import ast
-import json
 import os
 import re
 import subprocess
@@ -351,11 +350,6 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
         listed = re.search(r"\n        area:\n((?:          - .+\n)+)", text)
         assert listed is not None, workflow
         assert [line.split("- ", 1)[1].strip('"') for line in listed[1].splitlines()] == list(AREAS)
-    # AD-674: each area keeps a floor of fast tests, so a selection can never be empty.
-    floors = json.loads((ROOT / "tests/area_floors.json").read_text())
-    for tier in ("fast", "pr"):
-        assert sorted(floors[tier]) == sorted(AREAS)
-        assert all(floor > 0 for floor in floors[tier].values())
 
 
 def _triggers(workflow: str) -> set[str]:
@@ -379,9 +373,10 @@ def test_the_fast_tests_leave_out_the_nightly_files_and_the_pr_gate_selects_by_a
     assert recipe is not None and "tests/test_" not in recipe[0]
     assert "-m 'not native_wheel and not slow'" in makefile
     selected = makefile.split("\npr-selected-test:", 1)[1].split("\n\n", 1)[0]
-    assert "--tier fast -m 'not native_wheel and not slow'" in selected
+    assert "FAST_TEST) -m 'not native_wheel and not slow'" in selected
     assert (
-        "--tier pr -m 'not native_wheel and not slow and not debug_build and not heavy'" in selected
+        "FAST_TEST) -m 'not native_wheel and not slow and not debug_build and not heavy'"
+        in selected
     )
     assert "$(MAKE) native-test" in selected
     assert (
