@@ -109,7 +109,10 @@ def test_native_collector_job_restores_the_same_core_and_builds_on_a_miss() -> N
     hash_line = next(line for line in gate.splitlines() if "hashFiles('native/**'" in line)
     assert hash_line in body
     assert "key: core-gate-${{ runner.os }}-${{ steps.native_tree.outputs.hash }}" in body
-    areas = "(matrix.area == 'native collectors' || matrix.area == 'native collector evidence')"
+    areas = (
+        "(matrix.area == 'native collectors' || matrix.area == 'native collector evidence'"
+        " || matrix.area == 'native impl oracle')"
+    )
     for name in (
         "Hash the native tree",
         "Restore the core of main for this native tree",

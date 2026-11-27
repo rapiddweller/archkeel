@@ -52,13 +52,13 @@ def test_parallel_area_jobs_replace_the_base_area_tests(tmp_path: Path, cli_sele
 
 def test_a_changed_test_file_selects_its_own_area_and_nothing_else() -> None:
     assert areas_of_change(["tests/test_cli_help.py"]) == ["CLI and core"]
-    assert areas_of_change(["tests/test_collector_native_rust_impl_oracle.py"]) == [
-        "native collector evidence"
-    ]
     assert areas_of_change(["tests/test_collector_native_catalog.py"]) == [
         "native collector evidence"
     ]
     assert areas_of_change(["tests/test_collector_native_scaling.py"]) == ["native collectors"]
+    for name in ("rust_impl_oracle", "python_first_difference"):
+        path = f"tests/test_collector_native_{name}.py"
+        assert areas_of_change([path]) == ["native impl oracle"], path
     assert areas_of_change(["tests/test_collector_native_scaling_sites.py"]) == [
         "native collector evidence"
     ]

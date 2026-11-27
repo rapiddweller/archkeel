@@ -22,6 +22,12 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_native_interface_boundary.py",
         "test_project_demo_snapshots.py",
     ),
+    # #2148: the impl oracle (20 summed minutes) has its own job. The PR tier needs one light test
+    # in each area, so the three tests of `first_difference` come with it.
+    "native impl oracle": (
+        "test_collector_native_rust_impl_oracle.py",
+        "test_collector_native_python_first_difference.py",
+    ),
     "native collector evidence": (
         "test_collector_native_catalog.py",
         "test_collector_native_rust*.py",
