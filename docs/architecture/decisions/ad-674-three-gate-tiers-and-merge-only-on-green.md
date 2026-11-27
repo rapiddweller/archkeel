@@ -1,6 +1,6 @@
 # AD-674 Three gate tiers, and a merge only on green
 
-**Status.** Accepted. Owner decision of 2026-11-16. Part of #880. It amends AD-348 and AD-341.
+**Status.** Accepted. Owner decision of 2026-11-16. Part of #880. It amends AD-348 and AD-341. The merge-tool part (`tools/merge_pr.py` refuses a red check) is superseded by [AD-1270](ad-1270-the-merge-tools-are-deleted-and-github-enforces-the-pr-gate.md): the merge tools are deleted.
 
 **Reason.** From 2026-11-15 19:45Z no area test ran on CI for 19 hours (the pytest list named deleted files), and red merged anyway: pipelines ran on `main` only, merges used `--admin`, and the lead fixed forward. A gate that does not block prevents nothing.
 

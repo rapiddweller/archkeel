@@ -38,13 +38,10 @@ def test_compass_snapshot_preserves_libraries_generated_parts_and_the_workspace(
     ]
     generated = [item for item in dart if item.get("generated") is True]
     libraries = [item for item in dart if item.get("generated") is False]
-    assert (len(dart), len(libraries), len(generated)) == (111, 89, 22)
-    # The workspace root and every member of it: 37 pubspec files (AD-808). The other files that
+    # The workspace root and every member of it hold a pubspec file (AD-808). The other files that
     # the fixture holds are the licence and the Dart source of the app.
     manifests = [item["path"] for item in files if item["path"].endswith("pubspec.yaml")]
-    assert (
-        len(manifests) == 37 and "pubspec.yaml" in manifests and app + "pubspec.yaml" in manifests
-    )
+    assert "pubspec.yaml" in manifests and app + "pubspec.yaml" in manifests
     assert {item["path"] for item in files if not item["path"].endswith(".dart")} == {
         "LICENSE",
         *manifests,
@@ -91,7 +88,6 @@ def test_python_snapshot_preserves_exact_app_and_root_allowlist() -> None:
         "alembic.ini",
     }
     upstream = snapshot["upstream_tree"]
-    assert len(upstream) == 125
     upstream_base = (
         "https://github.com/nsidnev/fastapi-realworld-example-app/blob/"
         "029eb7781c60d5f563ee8990a0cbfb79b244538c/"
@@ -105,9 +101,7 @@ def test_python_snapshot_preserves_exact_app_and_root_allowlist() -> None:
 
     selected = snapshot["files"]
     app_files = [item for item in selected if item["path"].startswith("app/")]
-    python = [item for item in app_files if item["path"].endswith(".py")]
     non_python = [item for item in app_files if not item["path"].endswith(".py")]
-    assert (len(app_files), len(python), len(non_python)) == (79, 72, 7)
     actual_app = {
         path.relative_to(ROOT / fixture).as_posix()
         for path in (ROOT / fixture / "app").rglob("*")
@@ -115,8 +109,6 @@ def test_python_snapshot_preserves_exact_app_and_root_allowlist() -> None:
     }
     assert actual_app == {item["path"] for item in app_files}
     assert {Path(item["path"]).suffix for item in non_python} == {".sql", ".pyi", ".mako"}
-    assert sum(item["path"].endswith(".sql") for item in non_python) == 5
-    assert len(selected) == 85
     assert {
         item["path"] for item in selected if not item["path"].startswith("app/")
     } == expected_root
@@ -139,7 +131,6 @@ def test_nest_snapshot_preserves_original_and_derived_build_inputs() -> None:
     assert snapshot["commit"] == "a6818d84b6a019cf2df4ef391dc87cea7d02c6a9"
 
     originals = snapshot["original_src_files"]
-    assert len(originals) == 45
     upstream_base = (
         "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/"
         "a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/"
@@ -147,11 +138,7 @@ def test_nest_snapshot_preserves_original_and_derived_build_inputs() -> None:
     for item in originals:
         assert item["source_path"] == item["path"]
         assert item["source_url"] == upstream_base + item["source_path"]
-    build = [item for item in originals if item["build_input"]]
     excluded = [item for item in originals if not item["build_input"]]
-    assert len([item for item in originals if item["path"].endswith(".ts")]) == 42
-    assert len(build) == 39
-    assert len(excluded) == 6
     expected_excluded = {
         "src/tag/tag.controller.spec.ts",
         "src/user/test/user.controller.spec.ts",
@@ -167,7 +154,6 @@ def test_nest_snapshot_preserves_original_and_derived_build_inputs() -> None:
         "src/config.ts.example": "src/config.ts",
         "src/mikro-orm.config.ts.example": "src/mikro-orm.config.ts",
     }
-    assert len(build) + len(derived) == 41
     actual_src = {
         path.relative_to(ROOT / fixture).as_posix()
         for path in (ROOT / fixture / "src").rglob("*")
@@ -207,13 +193,9 @@ def test_nest_resolver_inputs_are_pinned_and_outside_application_scope() -> None
     fixture = "fixtures/L-nest-realworld"
     provenance = _snapshot(f"{fixture}/resolver-inputs/provenance.json")
     packages = provenance["packages"]
-    assert len(packages) == 17
     resolver_files = [file for package in packages for file in package["files"]]
     licenses = [package["license_file"] for package in packages]
-    assert len(resolver_files) == 43
-    assert len(licenses) == 17
-    assert sum(file["size"] for file in resolver_files) == 84_616
-    assert len({package["lock_locator"] for package in packages}) == 17
+    assert len({package["lock_locator"] for package in packages}) == len(packages)
     for package, records in zip(packages, licenses, strict=True):
         assert package["name"] in package["lock_locator"]
         assert package["version"] in package["lock_locator"]

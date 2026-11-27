@@ -29,17 +29,16 @@ Python collectors are deleted; the Python collectors are gone, and a release 4.0
 make ci-pr-check BASE=origin/main        # lint, types and a fixed set of tests
 ```
 
-`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the hygiene and 500-line rule, `cargo fmt` and the API gate. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
+`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the hygiene test, `cargo fmt` and the API gate. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
 
-Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, warns when the branch is behind `main`, and adds the reasons of the merge decision table (below).
 
-Merge with `python tools/merge_pr.py <number>` (AD-676, AD-736). One decision table gives MERGE, WAIT or REFUSE with reason codes (`--json` prints `{verdict, reasons, required, head}`; `--wait N` loops while the verdict is WAIT). Exit codes: 0 merged, 1 refused, 2 empty landing, 3 wait, 4 merged but the landing is not visible yet. A check that is queued or in progress, or a merge state that GitHub has not computed, is WAIT; a completed check that is not a success is REFUSE. The tool also refuses a pull request that deletes a file or removes more than 300 lines net (`deletion_unapproved`), unless the lead has set the label `deletion-approved` after owner approval. Never `git reset --soft` onto a moved `origin/main`: your tree is then compared with a newer main and reverts what landed in between.
+Merge only when the required check `PR gate` has passed (GitHub branch protection enforces it) and the review is done. A PR that deletes a whole feature says in its text that the owner approved the deletion; no label is needed ([AD-1270](docs/architecture/decisions/ad-1270-the-merge-tools-are-deleted-and-github-enforces-the-pr-gate.md)). Never `git reset --soft` onto a moved `origin/main`: your tree is then compared with a newer main and reverts what landed in between.
 
 Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md), updated by [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md), 2026-11-10):
 
 1. One review per PR. The review checks the responsibility of each new file, module and crate against the contract (see "Keep the contract true"), and the PR text shows the dog-food run (AGENTS.md). A PR that can enable a PASS also gets the false-PASS probes (`tests/test_collector_false_pass_*.py`); a probe expects UNKNOWN or FAIL, never PASS. See "Counter-examples for a PASS". The author fixes the findings and the lead checks the fixes. There is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not perfection.
-2. Local gate on the final head: `make ci-pr-static BASE=origin/main`, the area tests, `make native-check` when `native/` changes, `make merge-check`, and the lead's merge-tree check. Push only on a green local gate.
-3. Merge only on green (AD-674): the check `PR gate` of the PR must pass, and `tools/merge_pr.py` refuses a red or missing required check. Three tiers: the PR gate (static checks, core build, self and system check, and main-tier tests of touched areas), the main tier (a push to `main`: the whole fast suite and `make native-check`, at most 15 minutes) and the nightly Full run (scaling, large scans, Windows and Python matrix, at most 45 minutes). AD-674 amends [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md).
+2. Local gate on the final head: `make ci-pr-static BASE=origin/main`, the area tests, `make native-check` when `native/` changes, and the lead's merge-tree check. Push only on a green local gate.
+3. Merge only on green (AD-674): the required check `PR gate` of the PR must pass; GitHub enforces it for everyone, also for admins. Three tiers: the PR gate (static checks, core build, self and system check, and main-tier tests of touched areas), the main tier (a push to `main`: the whole fast suite and `make native-check`, at most 15 minutes) and the nightly Full run (scaling, large scans, Windows and Python matrix, at most 45 minutes). AD-674 amends [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md).
 4. Do not update the branch unless the merge-tree shows a real conflict.
 5. Full runs on `main` nightly, and by dispatch when useful. A failure on `main` becomes a backlog issue with a priority, except when `main` no longer builds locally: then fix it at once, because no agent can work.
 6. Run `python3 tools/ci_daily.py` for the daily line. Targets: CI at most 10 min, queue wait at most 3 min.
@@ -64,7 +63,7 @@ selects the CLI and report areas. Other native and CLI changes select every area
 also runs `native-check`. Changes to the gate run all areas and the native check. Other changes
 keep the PR-tier selection. A path that no rule names selects every area.
 The slow files of `SLOW_FILES` in
-`tests/areas.py` (scaling, memory, large scans) carry the marker `slow` and run only in the nightly Full run.
+`tests/areas.py` (memory, large scans) carry the marker `slow` and run only in the nightly Full run.
 A requested area that holds no test after the marker filter fails. Samples do not replace testing the behavior you change.
 Python import rules run through the release core in `tests/test_cli_native_python_imports.py`.
 Dart import rules run through the release core in `tests/test_cli_native_dart_imports.py`.
@@ -80,8 +79,8 @@ Jobs run on pinned images (`ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `
 `macos-15-intel`). The Linux wheel jobs use manylinux and musllinux images pinned by digest. A move
 to a new image is a deliberate change. The PR needs the local gate; CI and Full on `main` check the image after the merge.
 
-Keep the reviewed workflow inventory in `tests/test_make_gate.py`. Use existing Make targets
-or dispatch Full verification for diagnostics; do not add temporary workflows.
+Use existing Make targets or dispatch Full verification for diagnostics; do not add temporary
+workflows. A new workflow file needs the approval of the owner in its PR text (AD-1251).
 
 ## Where things run
 
@@ -96,7 +95,7 @@ aggregate would count as passed.
 | CI: Docs diagrams | each push to `main` | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check` |
 | Pages: Publish the report gallery | a push to `main` that changes a gallery input (AD-1223), nightly, and dispatch on `main` | `make report-gallery` |
-| CI: All checks passed | each push to `main` | none: it needs every CI job and reports each job time against the budget ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
+| CI: All checks passed | each push to `main` | none: it needs every CI job and reports the time of each job ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
 | Full: Architecture, build and report checks | nightly, dispatch, release | `make ci-core-check SKIP_TESTS=1`, `make self-validate`, `make mermaid` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Publish the latest main build | nightly and dispatch with `publish`, on `main` only | `python3 tools/publish_main_build.py` after the wheels of Full |
@@ -131,8 +130,9 @@ repository must be set to GitHub Actions. The gallery has two sections: ArchKeel
 `docs/architecture/architecture-system.json`, an interim,
 [AD-522](docs/architecture/decisions/ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md)),
 with the reports of the Rust core, Python shell and Studio UI (one HTML file and a
-shield endpoint file for each part), and the fixture table. The README links these paths, so do not rename them. `fixtures/matrix.json` pins the
-result of the core for each fixture; a test fails when the result changes. Update the pin in the same change.
+shield endpoint file for each part), and the fixture table. The README links these paths, so do not rename them. `fixtures/matrix.json` states the intent of each
+run (PASS, FAIL or UNKNOWN) and the issue that blocks it when the core differs; it holds no observed
+count. A test fails when the core gives another status than the intent without a named blocker (AD-1261).
 The Python engine built the older gallery and its Pages workflow (`pages.yml`); AD-432 deleted both.
 The Windows wheel job builds and checks the wheel. It also runs the disk-root Rust tests and
 `tests/test_cli_windows_root.py` through the release core. It does not run the full shell suite.
@@ -185,8 +185,6 @@ full result is in ignored `test-artifacts/validation-native/result.json`.
 `docs/architecture/target/shell-contract.json` ([shell](docs/architecture/shell.md), AD-478) with the
 same gate. `make self-validate` runs both checks and the system check. The system check includes the
 Studio UI contract at `studio/architecture-contract.json`. The tools have no architecture contract.
-The hygiene test also fails on an untracked local file that is named like a pin (`*expected-gaps*`,
-`*expected-growth*`, `*shell-expected*`): delete it.
 
 ## A behaviour change carries its decision
 
@@ -204,10 +202,8 @@ The hygiene test also fails on an untracked local file that is named like a pin 
   and to the closed set of shell modules (AD-432). Its first docstring or `//!` line names one
   responsibility, and no `forbidden_responsibilities` item of its component applies to it.
   Never widen a rule to make a check pass.
-- **Keep a source file at 500 lines or less.** This covers each Python file under `src/` and each
-  Rust file under `native/` and `crates/` ([AD-314](docs/architecture/decisions/ad-314-source-files-have-at-most-500-lines-and-legacy-files-only-shrink.md)).
-  A split must follow a responsibility seam. A legacy file over the limit is in
-  `tests/file_size_baseline.json`. It must not grow. Remove its entry when it reaches 500 lines.
+- **Keep a source file near 500 lines or less.** `make self-check` prints the sizes (AD-1088). No test
+  fails on size (owner decision 2026-11-27). A split must follow a responsibility seam.
 - **A change in `native/` needs a Rust toolchain.** `native/rust-toolchain.toml` pins it. Run
   `make native-tools` once for the pinned `cargo-deny` and `cargo-auditable`. Then run
   `make native-check` ([AD-316](docs/architecture/decisions/ad-316-native-collectors-live-in-native-and-reply-with-protocol-8.md)).

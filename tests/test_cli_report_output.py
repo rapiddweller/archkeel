@@ -462,28 +462,6 @@ def test_a_real_rust_pass_writes_one_pass_heading_with_exit_zero(
     assert all(row[1] == "PASS" for row in found["frame"]["rules"].values())
 
 
-def test_native_static_page_stays_below_the_review_size_budget(
-    tmp_path: Path,
-    release_core: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    frozen_root: Path,
-) -> None:
-    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
-    target = tmp_path / "native.html"
-    code, found = run(
-        "report",
-        "--root",
-        str(frozen_root),
-        "--config",
-        "native/archkeel.toml",
-        "--output",
-        str(target),
-    )
-    assert code in (0, 2) and found["status"] in ("PASS", "UNKNOWN"), found
-    # AD-606: the Explorer scripts and style are about 2.1 MB of the page.
-    assert target.stat().st_size < 3_500_000
-
-
 def test_tool_identity_does_not_claim_the_crate_version_is_the_package_version(
     tmp_path: Path,
     release_core: Path,

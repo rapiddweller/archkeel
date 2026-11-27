@@ -152,7 +152,7 @@ def test_a_json_import_does_not_stop_the_report(
 
 def test_the_source_suffixes_have_one_owner_that_the_shell_and_the_core_read() -> None:
     """The table of source suffixes is the file `schema/archkeel-source-suffixes.txt`: the contract
-    crate embeds it and the shell reads it. A second table in code fails `test_table_overlap.py`."""
+    crate embeds it and the shell reads it."""
     from archkeel.cli.init_typescript import _code_suffixes
 
     rows = [

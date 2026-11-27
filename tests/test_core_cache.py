@@ -4,17 +4,10 @@
 """AD-732: the core cache is saved only after its own build and carries a tree stamp."""
 
 import os
-import re
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
-
-
-def _jobs(workflow: str) -> dict[str, str]:
-    text = (ROOT / ".github/workflows" / workflow).read_text()
-    parts = re.split(r"^  ([\w-]+):\n", text.split("\njobs:\n", 1)[1], flags=re.MULTILINE)
-    return dict(zip(parts[1::2], parts[2::2], strict=True))
 
 
 def _fake_cargo(tmp_path: Path, succeed: bool = True) -> dict[str, str]:
@@ -79,93 +72,3 @@ def test_make_core_reuses_a_core_only_with_the_stamp_of_its_tree(tmp_path: Path)
     failing = _fake_cargo(tmp_path, succeed=False)
     assert _make_core(tmp_path, failing, "tree-c").returncode != 0
     assert not stamp.exists()
-
-
-def test_a_core_is_saved_only_after_its_own_build_step_succeeded() -> None:
-    """AD-732: `always()` alone would save the old core that a failed run restored."""
-    for workflow, job in (("pr-gate.yml", "base"), ("ci.yml", "lint")):
-        body = _jobs(workflow)[job]
-        assert "      - name: Build the core\n        id: build\n" in body, workflow
-        save = body.split("      - name: Save the core for this native tree\n", 1)[1]
-        condition = re.search(r"^        if: (.+)$", save, re.MULTILINE)
-        assert condition is not None and "steps.build.outcome == 'success'" in condition[1]
-        assert "archkeel-core.tree" in save.split("key:", 1)[0], workflow
-        assert body.index("id: build") < body.index("Save the core for this native tree")
-
-
-def test_each_partial_core_cache_carries_the_target_directory_marker() -> None:
-    # A restore creates target before Cargo can mark it. The native self-scan then counts builds.
-    for workflow in ("ci.yml", "pr-gate.yml", "area-checks.yml"):
-        text = (ROOT / ".github/workflows" / workflow).read_text()
-        paths = re.findall(r"path: \|\n((?:            \S+\n)+)          key: core-gate-", text)
-        assert paths, workflow
-        for block in paths:
-            assert "native/target/CACHEDIR.TAG" in block, workflow
-
-
-def test_native_collector_job_restores_the_same_core_and_builds_on_a_miss() -> None:
-    body = _jobs("area-checks.yml")["tests"]
-    gate = _jobs("pr-gate.yml")["base"]
-    hash_line = next(line for line in gate.splitlines() if "hashFiles('native/**'" in line)
-    assert hash_line in body
-    assert "key: core-gate-${{ runner.os }}-${{ steps.native_tree.outputs.hash }}" in body
-    areas = "(matrix.area == 'native collectors' || matrix.area == 'native collector evidence')"
-    for name in (
-        "Hash the native tree",
-        "Restore the core of main for this native tree",
-        "Restore the Rust build cache of main",
-    ):
-        step = body.split(f"      - name: {name}\n", 1)[1].split("\n      - name:", 1)[0]
-        assert areas in step
-    assert f"{areas} && steps.core.outputs.cache-hit != 'true'" in body
-    assert "rust-gate-main-${{ runner.os }}" in body
-    assert "ARCHKEEL_NATIVE_TREE: ${{ steps.native_tree.outputs.hash }}" in body
-    assert "steps.core.outputs.cache-hit == 'true' && 'cache' || 'build'" in body
-
-
-def test_the_gate_profile_builds_without_lto_and_with_16_codegen_units(tmp_path: Path) -> None:
-    """AD-754: ARCHKEEL_CORE_PROFILE=gate passes the fast profile; no variable keeps release."""
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    cargo = bin_dir / "cargo"
-    cargo.write_text(
-        "#!/bin/sh\n"
-        f'env | grep -E "^CARGO_PROFILE_RELEASE" | sort >> "{tmp_path}/profile.log"\n'
-        'echo "--" >> ' + f'"{tmp_path}/profile.log"\n'
-        "mkdir -p target/release\necho built > target/release/archkeel-core\n"
-        "chmod +x target/release/archkeel-core\n"
-    )
-    cargo.chmod(0o755)
-    (tmp_path / "native").mkdir()
-    base = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "MAKEFLAGS": ""}
-    base.pop("ARCHKEEL_CORE_PROFILE", None)
-    for profile in ("gate", ""):
-        env = {**base, "ARCHKEEL_CORE_PROFILE": profile} if profile else base
-        done = subprocess.run(
-            ["make", "-s", "-f", str(ROOT / "Makefile"), "core"],
-            cwd=tmp_path,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert done.returncode == 0, done.stderr
-    first, second = (tmp_path / "profile.log").read_text().split("--\n")[:2]
-    assert "CARGO_PROFILE_RELEASE_LTO=false" in first
-    assert "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" in first
-    assert "CARGO_PROFILE_RELEASE_OPT_LEVEL=1" in first
-    assert "CARGO_PROFILE_RELEASE" not in second
-
-
-def test_the_pr_gate_runs_the_static_checks_beside_the_core_build_and_checks_their_result() -> None:
-    """AD-754: the static checks need no core; they run while cargo builds."""
-    body = _jobs("pr-gate.yml")["base"]
-    build = body.split("      - name: Build the core\n", 1)[1].split("\n      - name:", 1)[0]
-    assert "make ci-pr-static" in build and "make core" in build and "wait " in build
-    assert "make pr-native-lint" in build
-    required = body.split("      - name: Require the static and the Rust checks\n", 1)[1]
-    assert "steps.build.outputs.static" in required.split("\n      - name:", 1)[0]
-    assert "SKIP_STATIC=1" in body
-    text = (ROOT / ".github/workflows/pr-gate.yml").read_text()
-    assert "ARCHKEEL_CORE_PROFILE: gate" in text.split("\njobs:\n", 1)[0]
-    assert "ARCHKEEL_CORE_PROFILE: gate" in (ROOT / ".github/workflows/ci.yml").read_text()

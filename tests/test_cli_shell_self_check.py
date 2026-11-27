@@ -141,7 +141,6 @@ def test_the_summary_lists_a_planted_import_with_its_place(
 ) -> None:
     """AD-1088: the text of `make self-check` names a new violation with its file and line."""
     (shell_tree / "tests").mkdir()
-    (shell_tree / "tests/file_size_baseline.json").write_text("{}")
 
     def lines() -> list[str]:
         commit_tree(shell_tree)

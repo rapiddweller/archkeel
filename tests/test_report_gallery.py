@@ -64,7 +64,7 @@ print(json.dumps(envelope))
 
 
 def _run(name: str, root: str) -> dict:
-    return {"name": name, "root": root, "command": "report", "contract": ["c.json"], "expect": {}}
+    return {"name": name, "root": root, "command": "report", "contract": ["c.json"]}
 
 
 def _matrix(path: Path, runs: list[dict]) -> Path:
@@ -383,9 +383,8 @@ def test_every_shown_matrix_run_states_a_section_an_intent_and_a_blocker_when_it
         assert run.get("section") in known, run["name"]
         assert run.get("intent") in STATUSES, run["name"]
         assert run.get("about"), run["name"]
-        pinned = run["expect"]["status"]
-        # What the matrix pins today may differ from the intent only with a named issue.
-        assert run["intent"] == pinned or run.get("blocked_by"), run["name"]
+        # The release core meets the intent unless an issue is named (`test_cli_fixture_matrix.py`).
+        assert isinstance(run.get("blocked_by", []), list), run["name"]
 
 
 # A stand-in that writes what it saw below the root: the folder `node_modules` and the root itself.

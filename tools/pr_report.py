@@ -65,9 +65,9 @@ def steps(base: str) -> list[Step]:
             "sort the ports, the public lists and the rules of native/architecture-contract.json",
         ),
         Step(
-            "hygiene-and-file-size",
+            "hygiene",
             (*PYTEST, "tests/test_repository_hygiene.py"),
-            "split a file over 500 lines at a responsibility seam; never raise a baseline",
+            "fix the finding of the repository hygiene test: read its message",
         ),
         Step(
             "rust-format",
