@@ -16,108 +16,15 @@ use ruff_python_ast::{
 };
 use ruff_text_size::{Ranged, TextRange};
 
+use super::facts::{
+    Binding, Call, Facts, Kind, Scope, ScopeId, Write, EVALUATORS, NAMESPACES, READERS,
+    READ_METHODS, RESERVED,
+};
 use super::forms::last;
 use crate::module::Module;
 use crate::survey::package_body::anchor;
 
-pub(super) type ScopeId = usize;
-
-/// The names that hold or run annotations.
-const RESERVED: [&str; 4] = [
-    "__annotations__",
-    "__annotate__",
-    "__annotate_func__",
-    "__annotations_cache__",
-];
-pub(super) const EVALUATORS: [&str; 5] = [
-    "get_type_hints",
-    "get_annotations",
-    "ForwardRef",
-    "_eval_type",
-    "evaluate_forward_ref",
-];
-/// A call of these gives the namespace of a module, a class or a frame: a write into it binds a
-/// name by a name that the table cannot read. So does a use of `x.__dict__`.
-const NAMESPACES: [&str; 3] = ["globals", "vars", "locals"];
-/// Calls that only read the namespace that they get.
-const READERS: [&str; 24] = [
-    "getattr",
-    "hasattr",
-    "isinstance",
-    "issubclass",
-    "len",
-    "sorted",
-    "list",
-    "dict",
-    "set",
-    "tuple",
-    "frozenset",
-    "print",
-    "repr",
-    "str",
-    "format",
-    "iter",
-    "next",
-    "any",
-    "all",
-    "sum",
-    "min",
-    "max",
-    "zip",
-    "enumerate",
-];
-const READ_METHODS: [&str; 5] = ["get", "items", "keys", "values", "copy"];
 const WRITERS: [&str; 2] = ["setattr", "delattr"];
-
-#[derive(PartialEq)]
-pub(super) enum Kind {
-    Module,
-    Class,
-    Function,
-}
-
-pub(super) enum Binding<'a> {
-    /// `name = value`.
-    Value(&'a Expr),
-    Class(ScopeId),
-    /// A function, or a name that is no value of an annotation (`type X = ..`).
-    Inert,
-    /// `import m` binds `(m, None)`; `from m import n` binds `(m, Some(n))`.
-    Import(String, Option<String>),
-    Unknown,
-}
-
-pub(super) struct Scope<'a> {
-    pub(super) kind: Kind,
-    pub(super) parent: Option<ScopeId>,
-    pub(super) names: HashMap<String, Vec<Binding<'a>>>,
-    /// The class of a class scope.
-    pub(super) class: Option<&'a StmtClassDef>,
-    /// The modules of `from m import *`.
-    pub(super) stars: Vec<String>,
-    globals: HashSet<String>,
-    nonlocals: HashSet<String>,
-}
-
-pub(super) struct Call<'a> {
-    pub(super) callee: &'a Expr,
-    pub(super) scope: ScopeId,
-    pub(super) literal_ref: bool,
-    pub(super) range: TextRange,
-}
-
-pub(super) struct Facts<'a> {
-    pub(super) scopes: Vec<Scope<'a>>,
-    /// Each annotation that Python evaluates, with the scope that holds it.
-    pub(super) annotations: Vec<(&'a Expr, ScopeId)>,
-    /// `x.a = v` and `setattr(x, "a", v)` by the attribute name, for any receiver.
-    pub(super) stores: HashMap<String, Vec<Binding<'a>>>,
-    /// A write by a name that the table cannot read: no name of the module is closed.
-    pub(super) opaque: bool,
-    pub(super) evaluates: bool,
-    pub(super) reaches: Vec<TextRange>,
-    pub(super) calls: Vec<Call<'a>>,
-}
 
 pub(super) fn build(module: &Module) -> Facts<'_> {
     let root = Scope::new(Kind::Module, None, None);
@@ -126,6 +33,7 @@ pub(super) fn build(module: &Module) -> Facts<'_> {
             scopes: vec![root],
             annotations: Vec::new(),
             stores: HashMap::new(),
+            writes: Vec::new(),
             opaque: false,
             evaluates: false,
             reaches: Vec::new(),
@@ -138,20 +46,6 @@ pub(super) fn build(module: &Module) -> Facts<'_> {
     };
     walk.visit_body(&module.tree.body);
     walk.facts
-}
-
-impl<'a> Scope<'a> {
-    fn new(kind: Kind, parent: Option<ScopeId>, class: Option<&'a StmtClassDef>) -> Self {
-        Self {
-            kind,
-            parent,
-            names: HashMap::new(),
-            class,
-            stars: Vec::new(),
-            globals: HashSet::new(),
-            nonlocals: HashSet::new(),
-        }
-    }
 }
 
 struct Build<'a, 'm> {
@@ -201,6 +95,11 @@ impl<'a> Build<'a, '_> {
             Expr::Attribute(node) => {
                 let stores = self.facts.stores.entry(node.attr.to_string());
                 stores.or_default().push(binding());
+                self.facts.writes.push(Write {
+                    receiver: &node.value,
+                    scope: self.current,
+                    attr: Some(node.attr.to_string()),
+                });
             }
             // `d[k] = v` changes the value of `d`; a write into `vars(C)` or `x.__dict__` is opaque.
             Expr::Subscript(node) => self.target(&node.value, None),
@@ -267,6 +166,18 @@ impl<'a> Build<'a, '_> {
         self.facts.evaluates |= eval_str;
         let args = &call.arguments.args;
         if last(&call.func).is_some_and(|name| WRITERS.contains(&name)) {
+            if let Some(receiver) = args.first() {
+                let attr = match args.get(1) {
+                    Some(Expr::StringLiteral(name)) => Some(name.value.to_string()),
+                    _ => None,
+                };
+                let scope = self.current;
+                self.facts.writes.push(Write {
+                    receiver,
+                    scope,
+                    attr,
+                });
+            }
             match (args.get(1), args.get(2)) {
                 (Some(Expr::StringLiteral(name)), value) => {
                     let binding = value.map_or(Binding::Unknown, Binding::Value);

@@ -81,6 +81,25 @@ PLANTS = {
         consumer("from app.mid import s\n", "s"),
         {**CFG, "src/app/mid.py": "from app.cfg import s\n"},
     ),
+    "standard attribute written by another module": (
+        consumer("import app.patch\nimport inspect\n", "inspect.Signature"),
+        {"src/app/patch.py": f'import inspect\n\ninspect.Signature = "{IMPORT}"\n'},
+    ),
+    "standard name from-imported after a write": (
+        consumer("import app.patch\nfrom inspect import Signature\n", "Signature"),
+        {"src/app/patch.py": f'import inspect\n\ninspect.Signature = "{IMPORT}"\n'},
+    ),
+    "standard attribute set by setattr": (
+        consumer("import app.patch\nimport inspect\n", "inspect.Signature"),
+        {"src/app/patch.py": f'import inspect\n\nsetattr(inspect, "Signature", "{IMPORT}")\n'},
+    ),
+    "standard attribute set by a computed setattr": (
+        consumer("import app.patch\nimport inspect\n", "inspect.Signature"),
+        {
+            "src/app/patch.py": "import inspect\n\nname = 'Sig' + 'nature'\n"
+            f'setattr(inspect, name, "{IMPORT}")\n'
+        },
+    ),
     "string of another module through an alias": (
         consumer("from app.cfg import s as t\n", "t"),
         CFG,
@@ -99,6 +118,12 @@ CONTROLS = {
     "module attribute class of another module": (
         consumer("import app.cfg as cfg\n", "cfg.T"),
         {"src/app/cfg.py": "class T:\n    pass\n"},
+    ),
+    "standard names without a write": (
+        consumer(
+            "import inspect\nimport contextlib\n", "inspect.Signature | contextlib.AsyncExitStack"
+        ),
+        {},
     ),
     "typing alias": (consumer("Alias = typing.Optional[int]\n", "Alias"), {}),
     "name of a parameter elsewhere": (
@@ -147,11 +172,11 @@ def test_a_closed_binding_stays_pass(
     assert frame["rules"]["NO-LIB"][1] == "PASS", frame
 
 
-def test_an_import_that_no_record_proves_is_a_site(
+def test_a_third_party_name_is_a_site(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A name of a module outside the fixed list and the scan has no proof: UNKNOWN (AD-1175 c)."""
-    source = consumer("from json import JSONDecoder as D\n", "D")
+    """A name of a third-party module has no record that proves it a class: UNKNOWN (AD-1175)."""
+    source = consumer("from pydantic import BaseModel as D\n", "D")
     root = _root_with(tmp_path, source, {})
     frame = _verdict(root, release_core, monkeypatch)["frame"]
 

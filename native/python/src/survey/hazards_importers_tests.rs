@@ -234,6 +234,7 @@ fn a_module_that_evaluates_annotations_keeps_plain_type_forms_clean() {
         "Alias = list['int']\nclass K:\n    x: Alias\n",
         "s = 'int'\nt = s\nclass K:\n    x: t\n",
         "class K:\n    x: typing.Annotated[int, f('meta')]\n",
+        "import inspect\nimport contextlib\nclass K:\n    x: inspect.Signature | contextlib.AsyncExitStack\n",
         "def f():\n    x: make_type()\n",
         "class A: ...\ndef f(a: A) -> A: ...\n",
         "s = 'int'\nclass K:\n    x: s\n",

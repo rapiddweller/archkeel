@@ -16,10 +16,18 @@ use crate::parse::Unread;
 
 #[path = "hazards_annotation_clean.rs"]
 pub(in crate::survey::hazards) mod clean;
+#[path = "hazards_annotation_entity.rs"]
+pub(in crate::survey::hazards) mod entity;
+#[path = "hazards_annotation_facts.rs"]
+mod facts;
 #[path = "hazards_annotation_forms.rs"]
 mod forms;
+#[path = "hazards_annotation_resolve.rs"]
+mod resolve;
 #[path = "hazards_annotation_scopes.rs"]
 mod scopes;
+#[path = "hazards_annotation_stdlib.rs"]
+mod stdlib;
 
 pub(in crate::survey::hazards) use forms::literal;
 
