@@ -2,29 +2,28 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A `sys.modules.get("text")` whose value is only compared by identity or tested for truth is no
-//! import-system change (#2197). The lookup reads the table. It writes nothing, and the value
-//! reaches no code: `is` and `is not` run no method, and a truth test of a module object runs
-//! none either.
+//! A `sys.modules.get("text")` whose value is only compared by identity is no import-system change
+//! (#2197). The lookup reads the table. It writes nothing, and `is` and `is not` run no method of
+//! the value. A truth test is not in the proof: it runs `__bool__` or `__len__` of an object that a
+//! dependency put into the table, and that code can import a module of the scan (Codex #2200).
 //!
-//! The value is safe when each use of it is one of:
-//! - an operand of `is` or `is not` (`sys.modules.get("x") is None`, `value is found`);
-//! - the whole of a test of an `if`, `elif`, `while`, `assert` or conditional expression, or an
-//!   operand of `not`, `and` or `or` inside such a test.
+//! The value is safe when each use of it is an operand of `is` or `is not`
+//! (`sys.modules.get("x") is None`, `value is found`).
 //!
 //! The lookup is read in one of two forms: inline in such a use, or bound by one statement
 //! `found = sys.modules.get("text")` of a function body whose name has one binding in the module
 //! and no `global` or `nonlocal`, and each load of `found` in the function is such a use. Other
-//! forms keep the site: a call or an attribute on the value (`.attr`), `==` (it can run `__eq__`), a
-//! return, an argument, a store, a lookup with a computed key or a default, `setdefault`, `pop`,
-//! `update`, an item write or delete. `sys` must be the standard module, bound once (`Names::sys`),
-//! and a lookup at module level keeps its site, because another module can import its name.
+//! forms keep the site: a truth test, a call or an attribute on the value (`.attr`), `==` (it can
+//! run `__eq__`), a return, an argument, a store, a lookup with a computed key or a default,
+//! `setdefault`, `pop`, `update`, an item write or delete. `sys` must be the standard module, bound
+//! once (`Names::sys`), and a lookup at module level keeps its site, because another module can
+//! import its name.
 
 use std::collections::HashSet;
 
 use ruff_python_ast::helpers::any_over_body;
 use ruff_python_ast::name::Name;
-use ruff_python_ast::{CmpOp, Expr, ExprContext, Stmt, StmtFunctionDef, UnaryOp};
+use ruff_python_ast::{CmpOp, Expr, ExprContext, Stmt, StmtFunctionDef};
 use ruff_text_size::{Ranged, TextRange};
 
 use super::walk::{child_bodies, name_of, on_name, positional};
@@ -43,7 +42,6 @@ pub(super) struct Names<'a> {
 /// hazards reports the whole attribute chain.
 pub(super) fn lookups(facts: &Names, body: &[Stmt], found: &mut HashSet<TextRange>) {
     let mut safe: HashSet<TextRange> = HashSet::new();
-    truth_tests(body, &mut safe);
     any_over_body(body, |expr| {
         in_position(expr, &mut safe);
         false
@@ -72,53 +70,18 @@ fn lookup(facts: &Names, expr: &Expr) -> Option<TextRange> {
         .then(|| call.func.range())
 }
 
-/// Marks `expr` as only tested: it is the test, or an operand of `not`, `and` or `or` in it.
-fn truth(expr: &Expr, safe: &mut HashSet<TextRange>) {
-    safe.insert(expr.range());
-    match expr {
-        Expr::BoolOp(node) => node.values.iter().for_each(|value| truth(value, safe)),
-        Expr::UnaryOp(node) if node.op == UnaryOp::Not => truth(&node.operand, safe),
-        _ => {}
-    }
-}
-
-/// The tests of the compound statements, at any depth.
-fn truth_tests(body: &[Stmt], safe: &mut HashSet<TextRange>) {
-    for stmt in body {
-        match stmt {
-            Stmt::If(node) => {
-                truth(&node.test, safe);
-                for clause in &node.elif_else_clauses {
-                    clause.test.iter().for_each(|test| truth(test, safe));
-                }
-            }
-            Stmt::While(node) => truth(&node.test, safe),
-            Stmt::Assert(node) => truth(&node.test, safe),
-            _ => {}
-        }
-        child_bodies(stmt)
-            .into_iter()
-            .for_each(|inner| truth_tests(inner, safe));
-    }
-}
-
-/// The expressions that are a safe use wherever they stand: the operands of a chain of `is` and
-/// `is not`, the test of a conditional expression, and the operand of `not`.
+/// The operands of a chain of `is` and `is not` are a safe use.
 fn in_position(expr: &Expr, safe: &mut HashSet<TextRange>) {
-    match expr {
-        Expr::Compare(node)
-            if node
-                .ops
-                .iter()
-                .all(|op| matches!(op, CmpOp::Is | CmpOp::IsNot)) =>
+    if let Expr::Compare(node) = expr {
+        if node
+            .ops
+            .iter()
+            .all(|op| matches!(op, CmpOp::Is | CmpOp::IsNot))
         {
             node.operands.iter().for_each(|side| {
                 safe.insert(side.range());
             });
         }
-        Expr::If(node) => truth(&node.test, safe),
-        Expr::UnaryOp(node) if node.op == UnaryOp::Not => truth(&node.operand, safe),
-        _ => {}
     }
 }
 

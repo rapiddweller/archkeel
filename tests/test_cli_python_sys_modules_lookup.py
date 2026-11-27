@@ -1,8 +1,8 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""#2197: a `sys.modules.get("text")` that is only compared by identity or tested for truth is no
-import-system change. A write, a delete, an escape or any other use keeps every rule UNKNOWN.
+"""#2197: a `sys.modules.get("text")` that is only compared by identity is no import-system
+change. A write, a delete, an escape or any other use keeps every rule UNKNOWN.
 
 Each plant that holds runs with Python in the unit tests of the collector. Here the verdict of a
 whole project shows the effect on the rules.
@@ -25,15 +25,16 @@ READ = {
     "    return found is not None and value is found\n",
     "inline identity": HEAD
     + 'def f(v: object) -> bool:\n    return sys.modules.get("math") is v\n',
+}
+
+# Each of these keeps the hold: a write, a delete, an escape or a use that can run code.
+HELD = {
+    # Codex #2200: a truth test runs `__bool__` of an object that a dependency put into the table.
     "truth test": HEAD
     + 'def f() -> int:\n    if sys.modules.get("math"):\n        return 1\n    return 0\n',
     "bound truth test": HEAD
     + 'def f() -> int:\n    m = sys.modules.get("math")\n    if not m:\n        return 0\n'
     "    return 1\n",
-}
-
-# Each of these keeps the hold: a write, a delete, an escape or a use that can run code.
-HELD = {
     "item write": HEAD + 'sys.modules["x"] = object()\n',
     "item delete": HEAD + 'del sys.modules["x"]\n',
     "setdefault": HEAD + 'sys.modules.setdefault("x", object())\n',
