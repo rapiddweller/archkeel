@@ -261,6 +261,38 @@ SCOPES = {
         K = outer()
         """
     ),
+    "global write of a local value": source(
+        """
+        s = 'int'
+
+
+        def patch():
+            global s
+            value = str(PAYLOAD)
+            s = value
+
+
+        patch()
+
+
+        class K:
+            x: s
+        """
+    ),
+    "class of another module written by its consumer": (
+        consumer('from app.cfg import C\nC.s = str("' + IMPORT + '")\n', "C.s"),
+        {"src/app/cfg.py": "class C:\n    s = 'int'\n"},
+    ),
+    "class text reads the module first": source(
+        """
+        s = str(PAYLOAD)
+
+
+        class K:
+            s = 'int'
+            x: 's'
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

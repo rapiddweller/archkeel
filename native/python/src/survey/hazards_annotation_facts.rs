@@ -56,8 +56,9 @@ pub(super) enum Kind {
 }
 
 pub(super) enum Binding<'a> {
-    /// `name = value`.
-    Value(&'a Expr),
+    /// `name = value`, with the scope that evaluates `value`: a `global` or `nonlocal` write puts
+    /// the binding into another scope than its value belongs to.
+    Value(&'a Expr, ScopeId),
     Class(ScopeId),
     /// A function, or a name that is no value of an annotation (`type X = ..`).
     Inert,
@@ -100,7 +101,7 @@ pub(super) struct Facts<'a> {
     /// Each annotation that Python evaluates, with the scope that holds it.
     pub(super) annotations: Vec<(&'a Expr, ScopeId)>,
     /// `x.a = v` and `setattr(x, "a", v)` by the attribute name, for any receiver.
-    pub(super) stores: HashMap<String, Vec<(ScopeId, Binding<'a>)>>,
+    pub(super) stores: HashMap<String, Vec<Binding<'a>>>,
     /// `nonlocal` writes: `(scope of the write, name, binding)`, placed when the walk is over.
     pub(super) pending: Vec<(ScopeId, String, Binding<'a>)>,
     /// The same writes with their receiver.
@@ -131,30 +132,36 @@ impl<'a> Scope<'a> {
 }
 
 impl<'a> Facts<'a> {
-    /// The scope that binds `id` for code in `scope`. A `global` declaration reads the module, a
-    /// `nonlocal` one skips its scope; a class scope is read only by its own body; the text of a
-    /// quoted annotation reads its class and the module.
-    pub(super) fn holder(&self, scope: ScopeId, id: &str) -> Option<ScopeId> {
+    /// The scopes that bind `id` for code in `scope`. A `global` declaration reads the module, a
+    /// `nonlocal` one skips its scope; a class scope is read only by its own body. The text of a
+    /// quoted annotation reads the module and its class, in either order: `get_type_hints` of a
+    /// class tries the module first, other evaluators the class first.
+    pub(super) fn holders(&self, scope: ScopeId, id: &str) -> Vec<ScopeId> {
         let start = scope & !TEXT;
         let has = |at: &ScopeId| self.scopes[*at].names.contains_key(id);
         if scope & TEXT != 0 {
             let class = (self.scopes[start].kind == Kind::Class).then_some(start);
-            return class.into_iter().chain([0]).find(has);
+            return class.into_iter().chain([0]).filter(has).collect();
         }
         let mut up = Some(start);
         while let Some(at) = up {
             let found = &self.scopes[at];
             if found.globals.contains(id) {
-                return has(&0).then_some(0);
+                return [0].into_iter().filter(has).collect();
             }
             let skipped =
                 found.nonlocals.contains(id) || (found.kind == Kind::Class && at != start);
             if !skipped && has(&at) {
-                return Some(at);
+                return vec![at];
             }
             up = found.parent;
         }
-        None
+        Vec::new()
+    }
+
+    /// The first scope of `holders`: for a read that needs one scope (a receiver of a write).
+    pub(super) fn holder(&self, scope: ScopeId, id: &str) -> Option<ScopeId> {
+        self.holders(scope, id).first().copied()
     }
 
     /// Place the `nonlocal` writes: Python binds the name in the nearest enclosing function that

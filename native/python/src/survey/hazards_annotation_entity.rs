@@ -44,6 +44,8 @@ pub(super) struct Project<'a> {
     pub(super) budget: Cell<usize>,
     /// `(module, name)` of each standard attribute that the scan writes; name `*` is any.
     pub(super) written: OnceCell<HashSet<(String, String)>>,
+    /// The stores of each attribute name, in all modules: `(module, index in its list)`.
+    pub(super) stores: OnceCell<HashMap<String, Vec<(usize, usize)>>>,
 }
 
 /// The names that a read is in the middle of: a cycle is not clean.
@@ -61,6 +63,7 @@ impl<'a> Project<'a> {
             facts: modules.iter().map(|_| OnceCell::new()).collect(),
             budget: Cell::new(0),
             written: OnceCell::new(),
+            stores: OnceCell::new(),
         }
     }
 

@@ -91,12 +91,13 @@ impl<'a> Build<'a, '_> {
 
     /// `target = value`; `None` is a binding of a value that the survey does not read.
     fn target(&mut self, target: &'a Expr, value: Option<&'a Expr>) {
-        let binding = || value.map_or(Binding::Unknown, Binding::Value);
+        let at = self.current;
+        let binding = || value.map_or(Binding::Unknown, |v| Binding::Value(v, at));
         match target {
             Expr::Name(node) => self.bind(node.id.as_str(), binding()),
             Expr::Attribute(node) => {
                 let stores = self.facts.stores.entry(node.attr.to_string());
-                stores.or_default().push((self.current, binding()));
+                stores.or_default().push(binding());
                 self.facts.writes.push(Write {
                     receiver: &node.value,
                     scope: self.current,
@@ -186,9 +187,10 @@ impl<'a> Build<'a, '_> {
             }
             match (args.get(1), args.get(2)) {
                 (Some(Expr::StringLiteral(name)), value) => {
-                    let binding = value.map_or(Binding::Unknown, Binding::Value);
+                    let at = self.current;
+                    let binding = value.map_or(Binding::Unknown, |v| Binding::Value(v, at));
                     let stores = self.facts.stores.entry(name.value.to_string());
-                    stores.or_default().push((self.current, binding));
+                    stores.or_default().push(binding);
                 }
                 _ => self.facts.opaque = true,
             }

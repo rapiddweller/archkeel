@@ -164,9 +164,11 @@ impl<'a> Project<'a> {
         if active.contains(&key) {
             return Entity::Unknown;
         }
-        if let Some(at) = facts.holder(scope, id) {
+        let holders = facts.holders(scope, id);
+        if !holders.is_empty() {
+            let bindings = holders.iter().flat_map(|at| &facts.scopes[*at].names[id]);
             active.push(key);
-            let entity = self.merge(m, at, &facts.scopes[at].names[id], depth, active);
+            let entity = self.merge(m, bindings.collect(), depth, active);
             active.pop();
             return entity;
         }
@@ -183,17 +185,16 @@ impl<'a> Project<'a> {
     pub(super) fn merge(
         &self,
         m: usize,
-        scope: ScopeId,
-        bindings: &[Binding<'a>],
+        bindings: Vec<&Binding<'a>>,
         depth: usize,
         active: &mut Active,
     ) -> Entity {
         // An equal text adds no value: a name with many equal texts is as clean as with one.
         let mut texts = HashSet::new();
         let distinct: Vec<&Binding<'a>> = bindings
-            .iter()
+            .into_iter()
             .filter(|b| match b {
-                Binding::Value(Expr::StringLiteral(text)) => texts.insert(text.value.to_str()),
+                Binding::Value(Expr::StringLiteral(text), _) => texts.insert(text.value.to_str()),
                 _ => true,
             })
             .collect();
@@ -202,20 +203,19 @@ impl<'a> Project<'a> {
         }
         let found = distinct
             .into_iter()
-            .map(|b| self.binding(m, scope, b, depth, active));
+            .map(|b| self.binding(m, b, depth, active));
         self.merge_all(found.collect::<Vec<_>>().into_iter())
     }
 
     pub(super) fn binding(
         &self,
         m: usize,
-        scope: ScopeId,
         binding: &Binding<'a>,
         depth: usize,
         active: &mut Active,
     ) -> Entity {
         match binding {
-            Binding::Value(value) => self.value(value, m, scope, depth + 1, active),
+            Binding::Value(value, scope) => self.value(value, m, *scope, depth + 1, active),
             Binding::Class(body) => Entity::Class(m, *body),
             Binding::Inert => Entity::Clean,
             Binding::Import(module, None) => self.module(module),
@@ -318,23 +318,12 @@ impl<'a> Project<'a> {
             return Entity::Unknown;
         }
         let scope = &facts.scopes[body];
-        let own = scope
-            .names
-            .get(attr)
-            .into_iter()
-            .flatten()
-            .map(|b| (body, b));
-        let stored = facts
-            .stores
-            .get(attr)
-            .into_iter()
-            .flatten()
-            .map(|(s, b)| (*s, b));
-        let bound: Vec<(ScopeId, &Binding<'a>)> = own.chain(stored).collect();
+        let own = scope.names.get(attr).into_iter().flatten().map(|b| (m, b));
+        let bound: Vec<(usize, &Binding<'a>)> = own.chain(self.stores_of(attr)).collect();
         if !bound.is_empty() {
             let found = bound
                 .into_iter()
-                .map(|(at, b)| self.binding(m, at, b, depth, active));
+                .map(|(at, b)| self.binding(at, b, depth, active));
             return self.merge_all(found.collect::<Vec<_>>().into_iter());
         }
         let Some(class) = scope.class else {

@@ -5,6 +5,8 @@
 //! The attributes of standard modules that the scan writes (AD-1175): names from such a module are
 //! no longer type forms.
 
+use std::collections::HashMap;
+
 use ruff_python_ast::Expr;
 
 use super::entity::Project;
@@ -70,7 +72,7 @@ impl<'a> Project<'a> {
                     .map(|b| match b {
                         Binding::Import(module, None) => Some(module.clone()),
                         Binding::Import(module, Some(name)) => Some(format!("{module}.{name}")),
-                        Binding::Value(value) => self.dotted(value, m, at, depth + 1),
+                        Binding::Value(value, home) => self.dotted(value, m, *home, depth + 1),
                         _ => None,
                     })
                     .collect();
@@ -82,5 +84,28 @@ impl<'a> Project<'a> {
             }
             _ => None,
         }
+    }
+
+    /// The stores of the attribute `attr` in all modules of the scan (`C.attr = v` can stand in a
+    /// consumer of `C`), with the module of each.
+    pub(super) fn stores_of(&self, attr: &str) -> Vec<(usize, &Binding<'a>)> {
+        let index = self.stores.get_or_init(|| {
+            let lists = (0..self.modules.len()).flat_map(|at| {
+                self.facts(at)
+                    .stores
+                    .iter()
+                    .map(move |(name, list)| (at, name, list))
+            });
+            let mut found: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
+            for (at, name, list) in lists {
+                let each = (0..list.len()).map(|i| (at, i));
+                found.entry(name.clone()).or_default().extend(each);
+            }
+            found
+        });
+        let places = index.get(attr).into_iter().flatten();
+        places
+            .map(|(at, i)| (*at, &self.facts(*at).stores[attr][*i]))
+            .collect()
     }
 }
