@@ -146,8 +146,8 @@ pub(super) fn named(module: &Module, names: &HashSet<String>) -> Vec<String> {
     struct Strings<'n>(&'n HashSet<String>, Vec<String>);
     impl<'a> Visitor<'a> for Strings<'_> {
         fn visit_expr(&mut self, expr: &'a Expr) {
-            if let Expr::StringLiteral(text) = expr {
-                self.1.extend(reached(text.value.to_str().trim(), self.0));
+            if let Some(text) = text_of(expr) {
+                self.1.extend(reached(text.trim(), self.0));
             }
             visitor::walk_expr(self, expr);
         }
@@ -177,7 +177,7 @@ fn call_at(module: &Module, range: TextRange) -> Option<&ExprCall> {
 }
 
 /// True when each value that `expr` can have is no name of a module of `names`.
-fn foreign(expr: &Expr, names: &HashSet<String>) -> bool {
+pub(super) fn foreign(expr: &Expr, names: &HashSet<String>) -> bool {
     heads(expr).is_some_and(|heads| {
         heads.iter().all(|(head, exact)| {
             !head.starts_with('.')
@@ -296,4 +296,31 @@ fn inert(text: &str) -> bool {
         }
     }
     !names.0
+}
+
+/// The text of a string written in the source. An f-string without a field is that text:
+/// `f"app"` names `app` like `"app"` does.
+pub(super) fn text_of(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::StringLiteral(text) => Some(text.value.to_str().to_owned()),
+        Expr::FString(node) => {
+            let mut text = String::new();
+            for part in node.value.iter() {
+                let plain = match part {
+                    FStringPartRef::Literal(literal) => {
+                        text.push_str(&literal.value);
+                        true
+                    }
+                    FStringPartRef::FString(fstring) => {
+                        literal_elements(&mut text, &fstring.elements)
+                    }
+                };
+                if !plain {
+                    return None;
+                }
+            }
+            Some(text)
+        }
+        _ => None,
+    }
 }

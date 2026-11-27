@@ -291,6 +291,8 @@ namespace that does not resolve to the scan root are not seen. `insert` and each
 `sys.path` stay the gap of the whole run. A read of `sys.path` as the source of a loop or a
 comprehension, or as a subscript read, is no gap. Comparisons keep the gap (AD-894).
 
+**Runtime writes by outside Python files (#2174, P3, known limit, no rule).** Runtime writes by Python files outside the scan roots are not examined; ArchKeel checks the committed state.
+
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 
 A use of a name through a module object (`import app.lib` then `app.lib._priv.secret()`) is the
@@ -308,8 +310,7 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
   reads the code of the repository outside the scan roots (AD-770): a script or an extension source
   that writes a module of the scan, or names it beside a trojan horse, withholds its routes (UNKNOWN). A test
   file (`test_*.py`, `*_test.py`, a file below `test/` or `tests/`), a name built at run time from
-  data (`files("".join(["ap", "p"]))`, `files(b"app".decode())`, `files(f"app")`: strict xfail plants in
-  `tests/test_cli_python_outside_reads.py`), and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
+  data and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
   the stated premise of the run: "Code outside the scan roots, including test code, hands in no
   module object of the scan and writes no binding of a module or class of the scan." In the scan, a
   write through `sys.modules` or a computed `importlib.import_module` is a survey gap, so the rule is

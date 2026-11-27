@@ -258,7 +258,7 @@ fn literal_method(callee: &Expr) -> bool {
     clippy::too_many_lines,
     reason = "the fixed builtin set is independent of the interpreter"
 )]
-fn builtin(name: &str) -> bool {
+pub(super) fn builtin(name: &str) -> bool {
     matches!(
         name,
         "ArithmeticError"

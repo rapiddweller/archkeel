@@ -80,7 +80,7 @@ def test_a_fetch_that_fails_raises_and_leaves_no_partial_checkout(
         fixture_source.checkout(spec, cache),
     ):
         pass
-    assert list(cache.iterdir()) == []
+    assert [p.name for p in cache.iterdir()] == ["CACHEDIR.TAG"]
     # AD-1062: three attempts, a wait of 5 s and 15 s between them, no wait after the last.
     assert waits == [5, 15]
 
@@ -163,3 +163,12 @@ def test_the_matrix_lists_both_real_projects_with_their_decided_result() -> None
     for name in PINNED:
         assert runs[name]["section"] == "real" and runs[name]["intent"] == pinned[name]
         assert runs[name]["expect"]["status"] == pinned[name], name
+
+
+def test_the_cache_folder_gets_one_cachedir_tag(tmp_path: Path) -> None:
+    """AD-1211: the cache is marked, so a scan of a repository that holds it skips it."""
+    cache = tmp_path / "test-artifacts" / "source-cache"
+    fixture_source.mark_cache(cache)
+    fixture_source.mark_cache(cache)
+    assert (cache / "CACHEDIR.TAG").read_text(encoding="utf-8") == fixture_source.CACHE_TAG
+    assert fixture_source.CACHE_TAG.startswith("Signature: 8a477f597d28d172789f06886806bc55")

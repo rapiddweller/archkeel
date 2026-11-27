@@ -1,6 +1,6 @@
 # AD-1230: The facts producer keeps no incremental state, and the result reuse names its tools
 
-Status: accepted. Amends AD-1047 and AD-1061. Closes #2140.
+Status: accepted. Amends AD-1047 and AD-1061. Closes #2140. Point 2 (the reuse inputs of the saved base result) is superseded by [AD-1260](ad-1260-the-self-check-gate-checks-one-run-and-compares-nothing.md): there is no saved base result.
 
 ## Why
 

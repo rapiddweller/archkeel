@@ -200,8 +200,11 @@
         "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
       ],
       "public": [
+        "native.archkeel_snapshot.paths:CACHE_SIGNATURE",
+        "native.archkeel_snapshot.paths:CACHE_TAG",
         "native.archkeel_snapshot.paths:basename",
         "native.archkeel_snapshot.paths:dirname",
+        "native.archkeel_snapshot.paths:is_cache_tag",
         "native.archkeel_snapshot.paths:is_outside",
         "native.archkeel_snapshot.paths:join",
         "native.archkeel_snapshot.paths:normpath",
@@ -7224,6 +7227,7 @@
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.module_scopes",
         "native.archkeel_python_collector.survey.external_loader",
+        "native.archkeel_python_collector.survey.outside.grammar",
         "native.archkeel_python_collector.survey.outside.sites",
         "native.archkeel_python_collector.survey.class_writes"
       ],
@@ -7313,6 +7317,7 @@
         "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.external_loader",
+        "native.archkeel_python_collector.survey.outside.grammar",
         "native.archkeel_python_collector.survey.outside.sites",
         "native.archkeel_python_collector.survey.stable.class_inventory"
       ],
