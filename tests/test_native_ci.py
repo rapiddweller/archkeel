@@ -58,7 +58,7 @@ def test_pr_gate_starts_only_on_a_push_and_no_workflow_reruns_it() -> None:
     assert (
         "name: PR gate\n    needs: [base, area-checks, windows-native]\n    if: always()\n" in gate
     )
-    # After a ratchet-lead label the lead reruns the gate by hand (AD-1221).
+    # No workflow reruns the gate for a label (AD-1223, AD-1260).
     assert not (WORKFLOWS / "pr-gate-rerun.yml").exists()
 
 

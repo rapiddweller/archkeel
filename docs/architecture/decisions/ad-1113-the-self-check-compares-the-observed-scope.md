@@ -1,6 +1,6 @@
 # AD-1113 The self-check compares the observed scope
 
-**Status.** Accepted. Amends AD-1061 and AD-1064.
+**Status.** Accepted. Amends AD-1061 and AD-1064. Superseded by [AD-1260](ad-1260-the-self-check-gate-checks-one-run-and-compares-nothing.md): the self-check compares nothing.
 
 **Decision.** The native gate keeps the scanned paths and component scopes from the core topology.
 It compares them with the base as one grown item. It also compares the root contract digest.

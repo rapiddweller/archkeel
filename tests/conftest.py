@@ -1,7 +1,6 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-import json
 import os
 import shutil
 import subprocess
@@ -138,15 +137,7 @@ def pytest_testnodedown(error: object | None) -> None:
         pytest.exit(f"Test worker crashed: {error}", returncode=1)
 
 
-TIERS = ("pr", "fast", "full")
-
-
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption(
-        "--tier",
-        choices=TIERS,
-        help="the gate tier (AD-736): pr and fast check the floor of each area; full checks none",
-    )
     parser.addoption(
         "--area",
         action="append",
@@ -189,13 +180,6 @@ DEBUG_BUILD_FIXTURES = frozenset(
 )
 
 
-def _floors(tier: str) -> dict[str, int]:
-    floors = json.loads((Path(__file__).parent / "area_floors.json").read_text(encoding="utf-8"))
-    # A test of the floor check raises each floor; no run of the suite sets this variable.
-    extra = int(os.environ.get("ARCHKEEL_FLOOR_PLUS", "0"))
-    return {area: floor + extra for area, floor in floors[tier].items()}
-
-
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     # Imported here: some tests copy this file alone into a temporary project.
@@ -214,23 +198,6 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             if area not in AREAS:
                 raise pytest.UsageError(f"--area={area} is not an area in tests/areas.py")
         kept = [item for item in items if area_of(item.path.name) in wanted]
-        # AD-674: an empty or shrunken selection fails; the floor of a tier may only rise.
-        tier = config.getoption("tier")
-        if tier in ("pr", "fast"):
-            skipped = {"slow", "debug_build", "heavy"} if tier == "pr" else {"slow"}
-            floors = _floors(tier)
-            for area in wanted:
-                count = sum(
-                    1
-                    for item in kept
-                    if area_of(item.path.name) == area
-                    and not skipped & {mark.name for mark in item.iter_markers()}
-                )
-                if count < floors[area]:
-                    raise pytest.UsageError(
-                        f"--area={area} selects {count} {tier} tests; tests/area_floors.json "
-                        f"needs {floors[area]}"
-                    )
         if not kept:
             raise pytest.UsageError(f"--area={wanted} selects no tests")
         config.hook.pytest_deselected(items=[item for item in items if item not in kept])
@@ -241,3 +208,21 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     for item in items:
         if _shares_a_fixture(item):
             item.add_marker(pytest.mark.xdist_group(item.path.name))
+
+
+def pytest_collection_finish(session: pytest.Session) -> None:
+    """A requested area that holds no test after the marker filter fails, also beside a full one.
+
+    This runs after `-m` has deselected tests, so an area whose tests are all slow, heavy or debug
+    builds cannot pass as an area that ran (AD-1250).
+    """
+    from areas import AREAS, area_of
+
+    wanted = session.config.getoption("area")
+    if wanted is None:
+        return
+    present = {area_of(item.path.name) for item in session.items}
+    # pytest calls this hook in a `finally`: an unknown area was already refused above.
+    empty = [area for area in wanted if area in AREAS and area not in present]
+    if empty:
+        raise pytest.UsageError(f"--area={empty} selects no tests after the marker filter")

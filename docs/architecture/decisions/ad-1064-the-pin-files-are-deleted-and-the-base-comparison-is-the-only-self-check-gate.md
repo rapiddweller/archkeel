@@ -1,6 +1,6 @@
 # AD-1064 The pin files are deleted and the base comparison is the only self-check gate
 
-**Status.** Accepted. Owner decision of 2026-11-23, confirmed on 2026-11-24. This is stage 3 of 3 of [AD-1061](ad-1061-the-self-check-is-compared-with-its-base-commit-beside-the-pins.md). It supersedes in full AD-672, AD-733, AD-944 and AD-945. It amends AD-357, AD-382, AD-432, AD-478 and AD-736 (point 8).
+**Status.** Accepted. Owner decision of 2026-11-23, confirmed on 2026-11-24. This is stage 3 of 3 of [AD-1061](ad-1061-the-self-check-is-compared-with-its-base-commit-beside-the-pins.md). It supersedes in full AD-672, AD-733, AD-944 and AD-945. It amends AD-357, AD-382, AD-432, AD-478 and AD-736 (point 8). Superseded by [AD-1260](ad-1260-the-self-check-gate-checks-one-run-and-compares-nothing.md): the self-check compares nothing.
 
 **Reason.** The probe on the real runner (PR #1981, closed) showed the new gate. With no label, the PR gate was red and named the grown gaps. With the label and `Ratchet growth: 118 items: <reason>`, it was green. With a wrong count, it failed with `the PR text says Ratchet growth: 117 items, the grown count is 118`. Two gates gave one verdict, so the pins had no job left. They held 257,641 lines that no person read.
 

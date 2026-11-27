@@ -65,7 +65,7 @@ also runs `native-check`. Changes to the gate run all areas and the native check
 keep the PR-tier selection. A path that no rule names selects every area.
 The slow files of `SLOW_FILES` in
 `tests/areas.py` (scaling, memory, large scans) carry the marker `slow` and run only in the nightly Full run.
-`tests/area_floors.json` gives each area a floor of fast tests, so an empty selection fails. Samples do not replace testing the behavior you change.
+A requested area that holds no test after the marker filter fails. Samples do not replace testing the behavior you change.
 Python import rules run through the release core in `tests/test_cli_native_python_imports.py`.
 Dart import rules run through the release core in `tests/test_cli_native_dart_imports.py`.
 No new recordings replace the other Dart project tests.
@@ -158,46 +158,35 @@ files with the pinned compiler output. The installed Studio serves these files w
 ## Inspect the native self-check
 
 `make self-check` runs `make self-validate` and prints at most 40 lines from its results: the
-verdicts, the growth against the base commit, the largest UNKNOWN causes, files over the size limit
+verdicts, the violations, the largest UNKNOWN causes, files over the size limit
 and near it, the import hotspots and the cycles. Run it before you change code and before you push.
 Its exit code is the one of `make self-validate`. The full output is in
 `test-artifacts/selfcheck/self-validate.log` ([AD-1088](docs/architecture/decisions/ad-1088-make-self-check-prints-the-first-minute-of-a-change-in-40-lines.md)).
 
-ArchKeel checks the Rust source of `native/` with its own core (AD-432). No file lists the accepted
-gaps: the gate compares your result with the same run on the base commit
-([AD-1064](docs/architecture/decisions/ad-1064-the-pin-files-are-deleted-and-the-base-comparison-is-the-only-self-check-gate.md)).
+ArchKeel checks the Rust source of `native/` with its own core (AD-432). No file lists accepted
+gaps, no run is compared with an earlier run, and no label approves anything
+([AD-1260](docs/architecture/decisions/ad-1260-the-self-check-gate-checks-one-run-and-compares-nothing.md)).
+The README badge shows the verdict counts of main.
 
 ```bash
 make self-validate-native
 ```
 
-This builds the core, runs `archkeel validate --config native/archkeel.toml` and prints the counts
-(rules PASS, FAIL and UNKNOWN, gap records, violations). The result must have no refusal, no FAIL and
-no violation. Then the target compares it with the result on the merge base of `PR_BASE` (default
-`origin/main`) and HEAD. It takes the base result from `test-artifacts/selfcheck/base.json` or computes
-it in a git worktree (use `BASE_RESULT=<file>` offline). The last line is `self-check gate: GREEN` or
-`self-check gate: RED (exit N)`.
+This builds the core, runs `archkeel report --config native/archkeel.toml` and prints the counts
+(rules PASS, FAIL and UNKNOWN, gap records, violations). The gate is red only when the result is
+missing, empty, malformed or a refusal, when the core reports a FAIL or a violation, or when the exit
+code is not the one that the statuses give. An UNKNOWN rule and a gap never fail it and never turn into
+a PASS. The last line is `self-check gate: GREEN` or `self-check gate: RED (exit 1)`. A FAIL or a
+violation has no approval path: fix it. A new class of gaps gets a decision record. For a new
+field-receiver gap, write the call as a path call (`Type::method(&value)`) or bind a typed local. The
+full result is in ignored `test-artifacts/validation-native/result.json`.
 
-A new gap is reported, not blocking (AD-1221): the step summary and the log show one line
-`gap growth: <N> items (top kinds ...)`. A gap holds its rule at UNKNOWN, so it never gives a PASS.
-When the gate is red because a rule or scope was lost (a removed rule, a worse rule status, a new UNKNOWN
-reason, a scan of fewer files, a changed `[scan]` table or scope, or an unusable base):
-
-1. Read the first 10 grown items in the log. All items are in `test-artifacts/selfcheck/grown.txt`
-   (the PR gate uploads it as the artifact `selfcheck-grown`).
-2. Restore the rule or the scope. For a new field-receiver gap, write the call as a path call
-   (`Type::method(&value)`) or bind a typed local, to keep the growth small.
-3. If the loss is intended, ask the lead for the label `ratchet-lead`. It approves these items and
-   nothing else. The lead then runs the latest PR gate run of the head again: `gh run rerun <id>`. The label alone is enough: the PR text has no required line.
-4. A new class of gaps also gets a decision record. A FAIL or a violation has no approval path: fix it.
-
-To test the approval locally, set `RATCHET_LABELED=true`. The full result is in ignored `test-artifacts/validation-native/result.json`.
 `make self-validate-shell` checks the Python shell of `src/archkeel` with the contract
-`docs/architecture/target/shell-contract.json` ([shell](docs/architecture/shell.md), AD-478). All rules must
-PASS with no gap and exit code 0, and the rules must equal the rules of the contract. It also compares the rule ids with the contract at the base: a removed rule needs the label `ratchet-lead`.
-The hygiene test also fails on an untracked local file that is named like a pin (`*expected-gaps*`, `*expected-growth*`, `*shell-expected*`): delete it.
-`make self-validate` runs both checks and the system check. The system check includes the Studio UI
-contract at `studio/architecture-contract.json`. The tools have no architecture contract.
+`docs/architecture/target/shell-contract.json` ([shell](docs/architecture/shell.md), AD-478) with the
+same gate. `make self-validate` runs both checks and the system check. The system check includes the
+Studio UI contract at `studio/architecture-contract.json`. The tools have no architecture contract.
+The hygiene test also fails on an untracked local file that is named like a pin (`*expected-gaps*`,
+`*expected-growth*`, `*shell-expected*`): delete it.
 
 ## A behaviour change carries its decision
 

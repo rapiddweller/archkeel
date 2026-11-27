@@ -1,6 +1,6 @@
 # AD-1145 A missing base result is reused from an earlier main commit only when no input differs
 
-**Status.** Accepted. Amends [AD-1061](ad-1061-the-self-check-is-compared-with-its-base-commit-beside-the-pins.md), point 2 and its Limit.
+**Status.** Accepted. Amends [AD-1061](ad-1061-the-self-check-is-compared-with-its-base-commit-beside-the-pins.md), point 2 and its Limit. Superseded by [AD-1260](ad-1260-the-self-check-gate-checks-one-run-and-compares-nothing.md): the self-check compares nothing.
 
 **Reason.** The job "PR base checks" has a 15-minute limit. Issue #2077 measured 40 PR gate runs: 5 of 27 observed restores were misses, and 4 of those 5 jobs were cancelled. 0 of 22 hits were cancelled. A miss happens when main CI has not saved the entry of the base commit before the PR gate starts. The gate then scans the base commit in a worktree. The log did not time that scan.
 

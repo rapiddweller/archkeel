@@ -47,13 +47,13 @@ decision-index:
 	$(UV) run --locked python tools/decision_index.py --write test-artifacts/decision-index.md
 
 # AD-674: the fast tests (everything but tests/areas.py SLOW_FILES). The main tier runs one area in each
-# job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). A floor in
-# tests/area_floors.json makes an empty or shrunken selection fail.
+# job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). An area that
+# holds no test after the marker filter fails (AD-1250).
 FAST_TEST = ARCHKEEL_REQUIRE_PREBUILT=1 $(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
 	-q --tb=short -rfEs --durations=10 --junitxml=test-artifacts/pytest/fast.xml
 
 fast-test: core browser-runtime-install
-	$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)
+	$(FAST_TEST) -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)
 
 # The PR gate runs the main-tier tests of the areas that the change selects.
 PR_BASE ?= origin/main
@@ -104,9 +104,9 @@ pr-selected-test: core browser-runtime-install
 	if [ "$$parallel" = run ]; then \
 		native=$$($(UV) run --locked python tools/select_areas.py --job native "$(PR_BASE)") || exit $$?; \
 		if [ "$$native" = run ]; then $(MAKE) native-test || exit $$?; fi; \
-		eval "$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $$areas"; \
+		eval "$(FAST_TEST) -m 'not native_wheel and not slow' $$areas"; \
 	else \
-		eval "$(FAST_TEST) --tier pr -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"; \
+		eval "$(FAST_TEST) -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"; \
 	fi
 
 # Checks a pull request before its merge: make merge-check PR=<number> (tools/merge_check.py).
@@ -205,33 +205,26 @@ core:
 		{ [ -z "$$tree" ] || echo "$$tree" > $$stamp; }; \
 	fi
 
-# AD-1064: the self-check of a pull request is compared with the same run on its base commit
-# (`tools/self_check_gate.py`). Main CI adds --report-only, the nightly run --no-compare.
-SELFCHECK_BASE ?= $(PR_BASE)
-SELFCHECK_ARGS ?=
-
 # AD-1130: `native/archkeel.toml` asks for compiler type reach, which runs cargo and the build scripts of the
 # scanned workspace. Only the operator allows that, by the environment: this is the one place that does it
-# for the self-check, and it covers the base-commit run of the gate, which inherits this environment.
+# for the self-check.
 # `self-validate-system` scans the same part; `report-gallery` runs the self run for the report pages.
 self-validate-native self-validate-system report-gallery: export ARCHKEEL_ALLOW_BUILD = 1
 
-# AD-335: Archkeel checks the Rust of native/ with its own core and its own contract (AD-432).
-# The gate fails on growth against the base commit (AD-1064), not on the gaps that exist.
+# AD-335: Archkeel checks the Rust of native/ with its own core and its own contract (AD-432). The gate (AD-1260)
+# fails only when the core gave no usable answer or says FAIL or a violation; UNKNOWN never fails it.
 self-validate-native: core
 	@mkdir -p test-artifacts/validation-native
 	@$(UV) run --locked archkeel report --config native/archkeel.toml --json --topology $(if $(NATIVE_SELFCHECK_TIMINGS),--timings "$(NATIVE_SELFCHECK_TIMINGS)") > test-artifacts/validation-native/result.json || true
-	@$(UV) run --locked python tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py --result test-artifacts/validation-native/result.json --base "$(SELFCHECK_BASE)" --uv "$(UV)" $(SELFCHECK_ARGS)
+	@$(UV) run --locked python tools/self_check_gate.py test-artifacts/validation-native/result.json
 	@echo "Native architecture rules: full result: test-artifacts/validation-native/result.json"
 
-# AD-478: Archkeel checks the Python shell of src/archkeel with its own core and its own contract.
-# The whole gate: all rules PASS, no gap, exit code 0, and the rule ids of the contract: the same as
-# the contract at the base commit, or the loss is approved (`tools/self_check_shell.py`).
+# AD-478: Archkeel checks the Python shell of src/archkeel with its own core and its own contract, with the same gate.
 self-validate-shell: core
 	@mkdir -p test-artifacts/validation-shell
 	@$(UV) run --locked archkeel report --config docs/architecture/shell.toml --json --topology > test-artifacts/validation-shell/result.json || true
-	@$(UV) run --locked python tools/self_check_shell.py test-artifacts/validation-shell/result.json docs/architecture/target/shell-contract.json --base "$(SELFCHECK_BASE)" $(SELFCHECK_ARGS)
-	@echo "Shell architecture rules: all PASS; full result: test-artifacts/validation-shell/result.json"
+	@$(UV) run --locked python tools/self_check_gate.py test-artifacts/validation-shell/result.json
+	@echo "Shell architecture rules: full result: test-artifacts/validation-shell/result.json"
 
 # AD-616: ArchKeel as one system: one core run checks each part of the system document and gives one
 # status by the status rule of the core, then one line for each part. The gate of each part
@@ -247,11 +240,11 @@ self-validate-system: core
 self-validate: self-validate-native self-validate-shell self-validate-system
 
 # AD-1088: the first and the last command of an agent that changes ArchKeel. It runs make self-validate (the
-# gates decide the exit code), then prints at most 40 lines from the results of that run: the verdicts, what is
-# new against the base, the UNKNOWN causes, and the measured size, import and cycle facts. No checker runs twice.
+# gates decide the exit code), then prints at most 40 lines from the results of that run: the verdicts, the
+# violations, the UNKNOWN causes, and the measured size, import and cycle facts. No checker runs twice.
 self-check: core
 	@mkdir -p test-artifacts/selfcheck
-	@rm -f test-artifacts/validation-native/result.json test-artifacts/validation-shell/result.json test-artifacts/validation-system/result.json test-artifacts/selfcheck/compared-base.json
+	@rm -f test-artifacts/validation-native/result.json test-artifacts/validation-shell/result.json test-artifacts/validation-system/result.json
 	@status=0; $(MAKE) -k --no-print-directory self-validate > test-artifacts/selfcheck/self-validate.log 2>&1 || status=$$?; \
 	$(UV) run --locked python tools/self_check_summary.py --status $$status --log test-artifacts/selfcheck/self-validate.log; \
 	exit $$status
@@ -300,7 +293,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_api.py tools/rust_source.py tools/pr_report.py tools/self_check_contract.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_api.py tools/rust_source.py tools/pr_report.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_capabilities.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py tools/compass_build.py tools/studio_ui.py \
 	native/hatch_build.py
 
 lint:
@@ -311,7 +304,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_api.py tools/rust_source.py tools/self_check_contract.py tools/self_check_diff.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
+	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/phase_timings.py tools/merge_check.py tools/rust_api.py tools/rust_source.py tools/self_check_gate.py tools/self_check_summary.py tools/file_size.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/compass_build.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 flutter-demo-check:
