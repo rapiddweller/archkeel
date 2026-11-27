@@ -2,3 +2,4 @@
 
 // Generated from flow/; source-sha256=040025cec4154dd77c4d28f93b6e3b74f81696b07e78b6f7d88088d789a96ace
 // Owner: tools/browser_runtime.py. Edit a part of flow/; make browser-runtime-generate.
+// Check: tests/test_report_generated_assets.py

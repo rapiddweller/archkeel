@@ -62,6 +62,7 @@ def runtime(source: bytes) -> bytes:
     footer = (
         f"// Generated from flow/; source-sha256={hashlib.sha256(source).hexdigest()}\n"
         "// Owner: tools/browser_runtime.py. Edit a part of flow/; make browser-runtime-generate.\n"
+        "// Check: tests/test_report_generated_assets.py\n"
     )
     return result.stdout + b"\n" + footer.encode()
 
