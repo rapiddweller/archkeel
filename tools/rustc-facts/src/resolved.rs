@@ -8,7 +8,7 @@
 //! to one function. The site is the span of `m(..)` (`fn_span`), the place where the scan reads the method name.
 //! A call with a type parameter, a trait object or a call that a macro wrote gives no record.
 
-use crate::holders::holds_only_arguments;
+use crate::holders::classify;
 use crate::items::absolute;
 use crate::state::{ImplIndex, Resolved, State};
 use rustc_hir::def::DefKind;
@@ -122,14 +122,18 @@ fn visit<'tcx>(
             // adapter; another one (`Waker`, `Formatter`) is open.
             let standard =
                 [sym::core, sym::alloc, sym::std].contains(&tcx.crate_name(def.did().krate));
-            let allowed = standard && holds_only_arguments(tcx, def.did());
+            let (holds, from_alloc) = if standard {
+                classify(tcx, st, def.did())
+            } else {
+                (false, false)
+            };
+            let allowed = standard && holds;
             if standard && !allowed {
                 found.open_by(&crate::names::path(tcx, def.did()));
             }
             // Only an owner of `alloc` (`Vec`, `Box`, `Rc`) or what it holds is trusted to keep bytes in raw
             // pointers. A pointer wrapper that a user type names (`NonNull<u8>`) can hide a callback.
-            let allowed =
-                allowed && (trusted || crate::names::path(tcx, def.did()).starts_with("alloc::"));
+            let allowed = allowed && (trusted || from_alloc);
             for field in def.all_fields() {
                 match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
                     Ok(field_ty) => all.push((field_ty, allowed)),
