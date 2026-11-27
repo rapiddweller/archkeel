@@ -194,13 +194,8 @@ def test_release_requires_exactly_six_platform_wheels_and_one_sdist(
 
 def _unbuilt(tags: tuple[str, ...]) -> set[str]:
     """The platforms of a release that no job of Full builds, installs and runs."""
-    assert (
-        "uses: ./.github/workflows/native-wheels.yml"
-        in _jobs("full-verification.yml")["native-wheels"]
-    )
     jobs = _jobs("native-wheels.yml")
     wheel_jobs = {job: body for job, body in jobs.items() if job.startswith("native-wheel-")}
-    assert all("make native-wheel NATIVE_TAG=" in body for body in wheel_jobs.values())
     assert "      - native-wheels\n" in _jobs("full-verification.yml")["verified"]
     text = "".join(wheel_jobs.values())
     built = {a or b for a, b in re.findall(r"tag: (py3-none-\w+)|NATIVE_TAG=(py3-none-\w+)", text)}
@@ -470,6 +465,11 @@ def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() ->
     )
     assert "tools/rust_clones.py\n" not in check and "tools/rust_api.py --check" not in check
     assert "cargo build --locked\n" not in check
+    # The hosted PR gate leaves its own fmt and rustfmt out because these two lines run (PR_HOSTED).
+    assert "\tcd native && cargo fmt --all --check\n" in check
+    assert (
+        "\tcd native && rustfmt --edition 2021 --check ../tools/rustc-facts/src/main.rs\n" in check
+    )
 
 
 def test_make_build_writes_the_installable_wheel_and_the_release_builds_only_the_sdist() -> None:

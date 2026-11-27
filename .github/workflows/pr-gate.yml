@@ -103,8 +103,9 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           # AD-754: the static checks and, AD-756, the Rust format and lint of the touched crates
-          # run beside the core build (they need no release core); their result is checked next.
-          { make ci-pr-static && make pr-native-lint PR_BASE="$PR_BASE"; } \
+          # run beside the core build (they need no release core); their result is checked next. PR_HOSTED=1:
+          # the `native` job and the area jobs run the checks that this call would repeat.
+          { make ci-pr-static && make pr-native-lint PR_BASE="$PR_BASE" PR_HOSTED=1; } \
             > "$RUNNER_TEMP/static.log" 2>&1 &
           static=$!
           make core

@@ -45,11 +45,19 @@ def test_equal_results_are_green(tmp_path: Path) -> None:
     )
     assert done.returncode == 0, done.stdout
     assert "grown 0, removed 0" in done.stdout
+    assert "rules PASS" in done.stdout and "gap records" in done.stdout
 
 
 def test_one_new_gap_is_red_and_named(tmp_path: Path) -> None:
     done = run(tmp_path, str(FIXTURES / "base.json"), str(FIXTURES / "plus-one-gap.json"))
-    red(done, "GROWN 1 new gaps [interface.usage_unknown]", "inventory.stock", "grown 1")
+    red(
+        done,
+        "GROWN 1 new gaps [interface.usage_unknown]",
+        "inventory.stock",
+        "grown 1",
+        "`make self-validate-native`",
+    )
+    assert "DISAGREEMENT" not in done.stdout
 
 
 def test_removal_only_is_green(tmp_path: Path) -> None:

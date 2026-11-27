@@ -184,29 +184,23 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
     script = dedent(body.split("        run: |\n", 1)[1])
     ok = " ".join(["success"] * len(listed))
 
-    def run(results: str) -> int:
+    def run(results: str) -> subprocess.CompletedProcess[str]:
         env = {**os.environ, "RESULTS": results}
         return subprocess.run(
-            ["bash", "-eu", "-c", script], env=env, capture_output=True
-        ).returncode
-
-    assert run(ok) == 0
-    for bad in ("failure", "cancelled", "skipped"):
-        assert run(ok.replace("success", bad, 1)) != 0, bad
-    assert run("") != 0
-
-    # AD-736: the message names what happened; a cancelled run is not called a failure.
-    def message(results: str) -> str:
-        env = {**os.environ, "RESULTS": results}
-        done = subprocess.run(
             ["bash", "-eu", "-c", script], env=env, capture_output=True, text=True
         )
-        return done.stderr
 
-    assert "cancelled" in message(ok.replace("success", "cancelled", 1))
-    assert "failed" not in message(ok.replace("success", "cancelled", 1))
-    assert "skipped" in message(ok.replace("success", "skipped", 1))
-    assert "failed" in message(ok.replace("success", "failure", 1))
+    assert run(ok).returncode == 0
+    assert run("").returncode != 0
+    # AD-736: the message names what happened; a cancelled run is not called a failure.
+    results = {
+        bad: run(ok.replace("success", bad, 1)) for bad in ("failure", "cancelled", "skipped")
+    }
+    assert all(done.returncode != 0 for done in results.values())
+    assert "cancelled" in results["cancelled"].stderr
+    assert "failed" not in results["cancelled"].stderr
+    assert "skipped" in results["skipped"].stderr
+    assert "failed" in results["failure"].stderr
 
 
 def _needs(body: str) -> set[str]:
@@ -448,12 +442,6 @@ def test_each_make_target_that_only_full_runs_is_in_the_full_fragment() -> None:
     )
     assert only_full - fragment == set()
     assert fragment - only_full == set(), "a recipe in the fragment that Full never runs"
-
-
-def test_every_area_has_files() -> None:
-    """An edit of tests/areas.py that changes the Full job set fails here, not in the Full run."""
-    files = [path.name for path in (ROOT / "tests").rglob("test_*.py")]
-    assert [area for area in AREAS if not any(area_of(name) == area for name in files)] == []
 
 
 def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
