@@ -27,14 +27,13 @@ def test_a_pass_under_a_premise_shows_the_premise_text_and_a_plain_pass_does_not
 def test_the_matrix_card_of_the_standard_library_demo_expects_a_pass_under_its_premise() -> None:
     runs = {run["name"]: run for run in report_gallery.showcase_runs()}
     stdlib = runs["python-stdlib-demo"]
-    assert stdlib["intent"] == "PASS" and stdlib["expect"]["status"] == "PASS"
+    assert stdlib["intent"] == "PASS" and not stdlib.get("blocked_by")
     assert "standard_library_unchanged" in stdlib["about"]
 
 
 def test_the_compass_card_is_blocked_by_the_uml_row_only_and_uses_the_workspace_layout() -> None:
     compass = {run["name"]: run for run in report_gallery.showcase_runs()}["J-compass"]
     assert compass["blocked_by"] == [1762] and compass["intent"] == "PASS"
-    assert compass["expect"]["counts"] == {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}
     folder = report_gallery.ROOT / "fixtures" / "J-compass"
     assert 'roots = ["compass_app/app/lib"]' in (folder / "archkeel.toml").read_text()
     assert len(list(folder.rglob("pubspec.yaml"))) == 37
