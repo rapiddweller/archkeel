@@ -304,6 +304,26 @@ def test_no_group_cancels_a_started_build_or_publication() -> None:
     assert "group: main-build-publish\n      cancel-in-progress: false" in publish
 
 
+def test_the_main_build_is_published_once_a_night_by_full_and_by_hand_here() -> None:
+    """AD-1223: a push builds nothing; Full builds the six wheels once and publishes them."""
+    workflows = Path(__file__).parents[1] / ".github/workflows"
+    manual = (workflows / "main-build.yml").read_text()
+    assert manual.split("\npermissions:", 1)[0].count("push:") == 0
+    assert "  workflow_dispatch:\n" in manual and "schedule:" not in manual
+    full = (workflows / "full-verification.yml").read_text()
+    assert full.count("uses: ./.github/workflows/native-wheels.yml") == 1
+    publish = full.split("\n  publish-main-build:\n")[1].split("\n  verified:\n")[0]
+    assert (
+        "if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish)"
+        in publish
+    )
+    assert (
+        "needs: native-wheels\n" in publish
+        and "run: python3 tools/publish_main_build.py" in publish
+    )
+    assert "group: main-build-publish\n      cancel-in-progress: false" in publish
+
+
 def _finished(pushes: list[int], duration: int, cancel: bool) -> list[int]:
     """One concurrency group by the minute: one run, one waiting place that a newer run takes."""
     done: list[int] = []

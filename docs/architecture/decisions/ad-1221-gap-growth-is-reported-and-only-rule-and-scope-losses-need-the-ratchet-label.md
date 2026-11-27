@@ -18,8 +18,7 @@ approval FAIL. Each one cost an edit of the PR text and a gate run of 12 to 15 m
 3. The label alone approves. The line `Ratchet growth: <N> items: <reason>` and the line
    `Ratchet growth (shell): ...` are gone, and no tool reads the PR text. The shell gate asks the label for a
    removed rule.
-4. `pr-gate-rerun.yml` runs the gate again only for the label `ratchet-lead`. A body edit starts nothing. An
-   edit of the base still fails the job with the reopen message (#2134).
+4. A body edit starts nothing. After the label the lead runs the gate again by hand (AD-1223 deleted the rerun workflow).
 
 **Counter-example.** A gap cannot produce a PASS: the core holds the affected rules at UNKNOWN and the
 exit code of the result is 2 (`absolute()` checks it). The tests `test_a_new_gap_...` run this on the real
