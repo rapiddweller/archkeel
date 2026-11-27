@@ -24,9 +24,9 @@ from typing import Any
 import pytest
 from self_check_support import (
     FIXTURES,
-    LINE,
     RULE,
     TOOL,
+    green,
     real,
     red,
     run,
@@ -47,9 +47,9 @@ def test_equal_results_are_green(tmp_path: Path) -> None:
     assert "grown 0, removed 0" in done.stdout
 
 
-def test_one_new_gap_is_red_and_named(tmp_path: Path) -> None:
+def test_one_new_gap_is_green_and_named(tmp_path: Path) -> None:
     done = run(tmp_path, str(FIXTURES / "base.json"), str(FIXTURES / "plus-one-gap.json"))
-    red(done, "GROWN 1 new gaps [interface.usage_unknown]", "inventory.stock", "grown 1")
+    green(done, "GROWN 1 new gaps [interface.usage_unknown]", "inventory.stock", "grown 1")
 
 
 def test_removal_only_is_green(tmp_path: Path) -> None:
@@ -67,7 +67,8 @@ def test_a_removed_gap_does_not_offset_an_added_gap(tmp_path: Path) -> None:
     other = real("base.json")
     other["gaps"][0]["subject"] = other["gaps"][0]["subject"].replace("public/0", "public/7")
     done = run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", other))
-    red(done, "grown 1, removed 1", "ratchet-lead")
+    assert done.returncode == 0, done.stdout
+    assert "grown 1, removed 1" in done.stdout
 
 
 def test_a_reworded_reason_is_one_new_and_one_removed_gap(tmp_path: Path) -> None:
@@ -76,13 +77,13 @@ def test_a_reworded_reason_is_one_new_and_one_removed_gap(tmp_path: Path) -> Non
         "Remove the entry", "Delete the entry"
     )
     done = run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", other))
-    red(done, "Delete the entry", "grown 1, removed 1", "reworded reason")
+    green(done, "Delete the entry", "grown 1, removed 1", "reworded reason")
 
 
 def test_a_gap_counts_for_each_occurrence(tmp_path: Path) -> None:
     twice = real("base.json")
     twice["gaps"] = twice["gaps"] * 2
-    red(run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", twice)), "grown 1")
+    green(run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", twice)), "grown 1")
 
 
 @pytest.mark.parametrize(
@@ -130,7 +131,6 @@ def test_a_pr_result_with_a_violation_stays_red_with_approval(tmp_path: Path) ->
         str(FIXTURES / "base.json"),
         save(tmp_path, "p.json", pr),
         labels="ratchet-lead",
-        body=LINE.format(n=2),
     )
     red(done, "violation:")
 
@@ -151,14 +151,12 @@ def test_a_missing_base_is_red_and_names_the_file(tmp_path: Path) -> None:
     red(done, "no-base.json is missing")
 
 
-def test_a_refused_base_is_red_until_the_growth_is_approved(tmp_path: Path) -> None:
+def test_a_refused_base_is_red_until_the_label_is_set(tmp_path: Path) -> None:
     refused = real("base.json")
     refused["refusal"] = {"kind": "core_error", "message": "x"}
     base, pr = save(tmp_path, "b.json", refused), str(FIXTURES / "base.json")
     red(run(tmp_path, base, pr), "is a refusal", "nothing is compared")
-    red(run(tmp_path, base, pr, labels="ratchet-lead"), "Ratchet growth")
-    red(run(tmp_path, base, pr, labels="ratchet-lead", body=LINE.format(n=5)), "grown count is 1")
-    done = run(tmp_path, base, pr, labels="ratchet-lead", body=LINE.format(n=1))
+    done = run(tmp_path, base, pr, labels="ratchet-lead")
     assert done.returncode == 0, done.stdout
 
 
@@ -186,36 +184,43 @@ def test_a_base_of_another_native_tree_is_compared_and_both_trees_print(tmp_path
     assert "native tree treeone" in done.stdout and "native tree treetwo" in done.stdout
 
 
-@pytest.mark.parametrize(
-    ("labels", "body", "green", "named"),
-    [
-        ("ratchet-lead", LINE.format(n=1), True, ""),
-        ("ratchet-lead", "text\n" + LINE.format(n=1) + "\nmore", True, ""),
-        ("ratchet-lead", "", False, "no plain line"),
-        ("ratchet-lead", LINE.format(n=2), False, "grown count is 1"),
-        ("", LINE.format(n=1), False, "needs the label ratchet-lead"),
-        ("deletion-approved", LINE.format(n=1), False, "needs the label ratchet-lead"),
-        ("", "", False, "needs the label ratchet-lead"),
-        ("ratchet-lead", "Ratchet growth: 1 items: short", False, "no plain line"),
-    ],
-)
-def test_growth_passes_only_with_the_label_and_the_exact_count(
-    tmp_path: Path, labels: str, body: str, green: bool, named: str
-) -> None:
+def test_a_new_gap_needs_no_label_and_is_printed_in_the_summary(tmp_path: Path) -> None:
+    summary = tmp_path / "summary.md"
     done = run(
         tmp_path,
         str(FIXTURES / "base.json"),
         str(FIXTURES / "plus-one-gap.json"),
-        labels=labels,
-        body=body,
+        extra=("--summary-file", str(summary)),
     )
-    if green:
-        assert done.returncode == 0, done.stdout
-    else:
-        red(done, named)
+    assert done.returncode == 0, done.stdout
+    assert "gap growth: 1 items (top kinds interface.usage_unknown x1)" in done.stdout
+    assert "gap growth: 1 items" in summary.read_text()
 
 
-def test_the_label_and_the_line_do_not_matter_without_growth(tmp_path: Path) -> None:
+def test_a_worse_rule_status_fails_without_the_label_and_passes_with_it(tmp_path: Path) -> None:
+    pr = real("base.json")
+    unknown_reason(pr)
+    pr["exit_code"] = 2
+    base, path = str(FIXTURES / "base.json"), save(tmp_path, "p.json", pr)
+    red(run(tmp_path, base, path), "rule status", "blocking items need the label ratchet-lead")
+    assert run(tmp_path, base, path, labels="ratchet-lead").returncode == 0
+    assert run(tmp_path, base, path, labels="deletion-approved").returncode == 1
+
+
+def test_a_gap_cannot_give_a_pass() -> None:
+    """The counter-example of AD-1221: a result with a gap and a PASS rule has a false exit code."""
+    sys.path.insert(0, str(TOOL.parent))
+    from self_check_diff import absolute, condense
+
+    result = condense(real("base.json"))
+    assert result["gaps"] and result["exit_code"] == 2
+    assert absolute(result) == []
+    assert any(
+        "exit code 0 differs from 2" in line for line in absolute({**result, "exit_code": 0})
+    )
+
+
+def test_the_label_does_not_matter_without_blocking_items(tmp_path: Path) -> None:
     done = run(
         tmp_path, str(FIXTURES / "base.json"), str(FIXTURES / "base.json"), labels="ratchet-lead"
     )
@@ -243,7 +248,7 @@ def test_an_unusable_base_needs_the_label_even_when_the_pr_has_nothing_to_approv
     clean["gaps"] = []
     clean["exit_code"] = 0
     pr, base = save(tmp_path, "p.json", clean), save(tmp_path, "b.json", "")
-    red(run(tmp_path, base, pr), "unusable base: set the label ratchet-lead")
+    red(run(tmp_path, base, pr), "unusable base: set the label ratchet-lead to pass")
     done = run(tmp_path, base, pr, labels="ratchet-lead")
     assert done.returncode == 0, done.stdout
     assert "nothing is compared" in done.stdout
@@ -256,7 +261,7 @@ def test_a_scan_that_reads_fewer_files_is_growth_even_when_the_gaps_are_equal(
     assert real("base.json")["frame"]["self_test"]["reply"]["files"] == 4
     base, shrunk = str(FIXTURES / "base.json"), str(FIXTURES / "scan-shrank.json")
     red(run(tmp_path, base, shrunk), "scope shrank: files 4 -> 3", "grown 1")
-    done = run(tmp_path, base, shrunk, labels="ratchet-lead", body=LINE.format(n=1))
+    done = run(tmp_path, base, shrunk, labels="ratchet-lead")
     assert done.returncode == 0, done.stdout
     assert run(tmp_path, shrunk, base).returncode == 0
 
@@ -279,7 +284,6 @@ def test_a_rule_that_disappears_is_growth(tmp_path: Path) -> None:
         str(FIXTURES / "base.json"),
         save(tmp_path, "p.json", pr),
         labels="ratchet-lead",
-        body=LINE.format(n=1),
     )
     assert done.returncode == 0, done.stdout
 
@@ -302,9 +306,7 @@ def test_a_degenerate_core_output_is_never_green(
     broken(pr)
     pr["exit_code"] = 2
     base = str(FIXTURES / "base.json")
-    done = run(
-        tmp_path, base, save(tmp_path, "p.json", pr), labels="ratchet-lead", body=LINE.format(n=9)
-    )
+    done = run(tmp_path, base, save(tmp_path, "p.json", pr), labels="ratchet-lead")
     assert done.returncode == 1, done.stdout
     assert "the PR result is unusable" in done.stdout or "has no rules" in done.stdout
 
@@ -316,68 +318,6 @@ def test_a_degenerate_base_is_unusable(tmp_path: Path) -> None:
         run(tmp_path, save(tmp_path, "b.json", base), str(FIXTURES / "base.json")),
         "base result is unusable",
     )
-
-
-FENCE = "```"
-APPROVAL = LINE.format(n=1)
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        f"{FENCE}\n{APPROVAL}\n{FENCE}",
-        f"~~~\n{APPROVAL}\n~~~",
-        f"> {APPROVAL}",
-        f"> quote\n{APPROVAL}",
-        f"<!--\n{APPROVAL}\n-->",
-        f"<!-- {APPROVAL} -->",
-        f"<!--\n{APPROVAL}",
-        f"    {APPROVAL}",
-        f"- {APPROVAL}",
-        "Ratchet growth: \uff11 items: the scan reads a new public name",
-        "Ratchet growth: 01 items: the scan reads a new public name",
-        f"{APPROVAL}\n{APPROVAL}",
-        f"{APPROVAL}\r\n{LINE.format(n=2)}",
-        "Ratchet growth: 1 items: too short",
-    ],
-    ids=[
-        "fence",
-        "tilde",
-        "quote",
-        "lazy-quote",
-        "comment",
-        "inline-comment",
-        "open-comment",
-        "indented",
-        "list",
-        "fullwidth",
-        "leading-zero",
-        "twice",
-        "two-counts",
-        "short",
-    ],
-)
-def test_the_approval_line_is_a_plain_exact_line(tmp_path: Path, body: str) -> None:
-    done = run(
-        tmp_path,
-        str(FIXTURES / "base.json"),
-        str(FIXTURES / "plus-one-gap.json"),
-        labels="ratchet-lead",
-        body=body,
-    )
-    red(done, "Ratchet growth")
-
-
-def test_a_plain_line_after_a_fence_or_a_comment_counts(tmp_path: Path) -> None:
-    body = f"{FENCE}\nx\n{FENCE}\n<!-- note -->\n{APPROVAL}\r\n"
-    done = run(
-        tmp_path,
-        str(FIXTURES / "base.json"),
-        str(FIXTURES / "plus-one-gap.json"),
-        labels="ratchet-lead",
-        body=body,
-    )
-    assert done.returncode == 0, done.stdout
 
 
 def test_results_of_two_commits_are_not_the_same_commit(tmp_path: Path) -> None:
@@ -416,52 +356,3 @@ def test_a_rule_row_of_the_wrong_shape_is_an_unusable_result(tmp_path: Path) -> 
     done = run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", pr))
     red(done, "the PR result is unusable", "is corrupt")
     assert "Traceback" not in done.stderr
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        f"<details>\n{APPROVAL}\n</details>",
-        f"<details><summary>x</summary>\n{APPROVAL}\n</details>",
-        f"<DETAILS>\n<details>\n</details>\n{APPROVAL}\n</details>",
-        "Ratchet growth: 1 items: x         ",
-    ],
-    ids=["details", "details-summary", "nested-details", "blank-padded-reason"],
-)
-def test_a_hidden_or_padded_approval_line_is_refused(tmp_path: Path, body: str) -> None:
-    done = run(
-        tmp_path,
-        str(FIXTURES / "base.json"),
-        str(FIXTURES / "plus-one-gap.json"),
-        labels="ratchet-lead",
-        body=body,
-    )
-    red(done, "Ratchet growth")
-
-
-def test_a_line_after_a_closed_details_block_counts(tmp_path: Path) -> None:
-    body = f"<details>\nnote\n</details>\n{APPROVAL}  \n"
-    done = run(
-        tmp_path,
-        str(FIXTURES / "base.json"),
-        str(FIXTURES / "plus-one-gap.json"),
-        labels="ratchet-lead",
-        body=body,
-    )
-    assert done.returncode == 0, done.stdout
-
-
-@pytest.mark.parametrize(
-    "body",
-    [f"{FENCE}html\n<details>\n{FENCE}\n\n{APPROVAL}", f"Use `<details>` for logs.\n{APPROVAL}"],
-    ids=["fenced-tag", "inline-code-tag"],
-)
-def test_a_details_tag_in_code_hides_nothing(tmp_path: Path, body: str) -> None:
-    done = run(
-        tmp_path,
-        str(FIXTURES / "base.json"),
-        str(FIXTURES / "plus-one-gap.json"),
-        labels="ratchet-lead",
-        body=body,
-    )
-    assert done.returncode == 0, done.stdout
