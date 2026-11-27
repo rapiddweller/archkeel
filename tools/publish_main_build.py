@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Replace the rolling main build with the next set of six tested wheels (AD-863)."""
+"""Add the next six tested wheels to the main build; prune builds past the newest 30 (AD-863)."""
 
 import hashlib
 import json
@@ -26,6 +26,9 @@ SUMS = "SHA256SUMS"
 STAGING = ".staging"
 PREVIOUS = ".old"
 TITLE = "Latest main build (not a release)"
+# These builds stay public: a consumer can pin an exact version until 5.0.0 is on PyPI (#2183).
+KEEP = 30
+WHEEL = re.compile(rf"archkeel-([^-]+)-(?:{'|'.join(map(re.escape, TAGS))})\.whl")
 # Only these names are ours. Any other asset of the release stays.
 OWN = re.compile(
     rf"archkeel-[^-]+-({'|'.join(map(re.escape, TAGS))})\.whl(\.staging)?"
@@ -59,6 +62,27 @@ def commit_of(version: str) -> str:
     return done.stdout.strip()
 
 
+def depth(version: str) -> int:
+    """The age of a build: the number of commits that lead to it. Main history is linear."""
+    done = subprocess.run(
+        ["git", "rev-list", "--count", commit_of(version)], text=True, capture_output=True
+    )
+    if done.returncode:
+        raise RuntimeError(f"Cannot count the commits of version {version}")
+    return int(done.stdout)
+
+
+def retained(assets: dict[str, dict], current: str) -> list[str]:
+    """The public wheels of the newest older builds. The build `current` is always kept."""
+    older: dict[str, list[str]] = {}
+    for name in assets:
+        found = WHEEL.fullmatch(name)
+        if found and found[1] != current:
+            older.setdefault(found[1], []).append(name)
+    newest = sorted(older, key=depth, reverse=True)[: KEEP - 1]
+    return sorted(name for version in newest for name in older[version])
+
+
 def digest(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
@@ -84,8 +108,12 @@ def candidate(sha: str) -> list[Path]:
 
 
 def assets_of(repo: str, release: dict) -> dict[str, dict]:
+    # Up to KEEP builds of six wheels are public: one page of 100 is not enough (#2183).
     path = f"repos/{repo}/releases/{release['id']}/assets?per_page=100"
-    return {item["name"]: item for item in json.loads(command("gh", "api", path))}
+    pages = json.loads(command("gh", "api", "--paginate", "--slurp", path))
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
+        raise ValueError("The asset inventory of the release is not a list of pages")
+    return {item["name"]: item for page in pages for item in page}
 
 
 def rename(repo: str, asset: dict, name: str) -> None:
@@ -108,6 +136,7 @@ def main() -> None:
     sha = os.environ["GITHUB_SHA"]
     repo = os.environ["GITHUB_REPOSITORY"]
     wheels = candidate(sha)
+    current = wheels[0].name.split("-")[1]
 
     release = json.loads(command("gh", "api", f"repos/{repo}/releases/tags/{RELEASE}"))
     if release["draft"] or not release["prerelease"]:
@@ -136,8 +165,11 @@ def main() -> None:
         if public is not None and not public.get("digest"):
             raise ValueError(f"The published {wheel.name} has no digest")
         final[wheel.name] = public["digest"] if public else digest(wheel.read_bytes())
+    # The sums list each public wheel that stays, also the older builds (#2183).
+    listed = {n: assets[n]["digest"] for n in retained(assets, current) if assets[n].get("digest")}
+    listed.update(final)
     sums = "".join(
-        f"{value.removeprefix('sha256:')}  {name}\n" for name, value in sorted(final.items())
+        f"{value.removeprefix('sha256:')}  {name}\n" for name, value in sorted(listed.items())
     )
     sums_digest = digest(sums.encode())
 
@@ -186,6 +218,8 @@ def main() -> None:
     notes.write_text(
         f"Development build, not a release.\n\nCommit: {sha}\nDate: {date}\n\n"
         + "".join(f"- {name}\n" for name in sorted(final))
+        + f"\nThe newest {KEEP} builds stay under their own names; SHA256SUMS lists them all.\n"
+        + "Pin one exact version: `archkeel==<version>` with the same `--find-links`.\n"
         + f"\n```sh\npip install --pre --find-links {LINKS} archkeel\n"
         + f"uv tool install --prerelease allow --find-links {LINKS} archkeel\n```\n",
         encoding="utf-8",
@@ -219,8 +253,8 @@ def main() -> None:
         "-F",
         "force=true",
     )
-    # Only now is the previous set obsolete. Names that are not ours stay.
-    keep = {*final, SUMS}
+    # Only now is a build past the newest KEEP obsolete. Names that are not ours stay.
+    keep = {*final, SUMS, *retained(assets, current)}
     for name, asset in assets.items():
         if name not in keep and OWN.fullmatch(name):
             remove(repo, asset)
