@@ -16,12 +16,13 @@ use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    Alias, Comprehension, Expr, ExprStringLiteral, Identifier, ModModule, Operator, Pattern,
-    PatternMatchAs, PatternMatchMapping, PatternMatchStar, Stmt,
+    Alias, Comprehension, Expr, ExprStringLiteral, ModModule, Operator, Pattern, PatternMatchAs,
+    PatternMatchMapping, PatternMatchStar, Stmt,
 };
 use ruff_text_size::{Ranged, TextRange};
 
 use super::super::trojan_horse::Site;
+use super::forms::{assigned, ids, inert, items, last, literal, path};
 use crate::parse::Unread;
 use crate::survey::hazards_names::DYNAMIC;
 
@@ -40,47 +41,6 @@ const EVALUATORS: [&str; 5] = [
     "evaluate_forward_ref",
 ];
 const BUILDERS: [&str; 3] = ["TypedDict", "NamedTuple", "make_dataclass"];
-/// A call of these makes a type form, not a string.
-const TYPE_FORMS: [&str; 7] = [
-    "TypeVar",
-    "ParamSpec",
-    "TypeVarTuple",
-    "NewType",
-    "TypeAliasType",
-    "namedtuple",
-    "Enum",
-];
-
-/// True for `Literal` and `typing.Literal`: its strings are values, no annotation.
-pub(in crate::survey::hazards) fn literal(value: &Expr) -> bool {
-    named(value, "Literal")
-}
-
-fn named(value: &Expr, name: &str) -> bool {
-    match value {
-        Expr::Name(node) => node.id.as_str() == name,
-        Expr::Attribute(node) => Identifier::as_str(&node.attr) == name,
-        _ => false,
-    }
-}
-
-pub(super) fn last(expr: &Expr) -> Option<&str> {
-    match expr {
-        Expr::Name(node) => Some(node.id.as_str()),
-        Expr::Attribute(node) => Some(Identifier::as_str(&node.attr)),
-        _ => None,
-    }
-}
-
-/// Each `target = value` of a statement: an assignment, or an annotated assignment with a value.
-pub(super) fn assigned<'a>(stmt: &'a Stmt, mut each: impl FnMut(&'a Expr, &'a Expr)) {
-    match stmt {
-        Stmt::Assign(node) => node.targets.iter().for_each(|t| each(t, &node.value)),
-        Stmt::AnnAssign(node) => node.value.iter().for_each(|v| each(&node.target, v)),
-        _ => {}
-    }
-}
-
 struct Scan<'a> {
     evaluates: bool,
     reaches: Vec<TextRange>,
@@ -197,6 +157,13 @@ impl<'a> Scan<'a> {
         if !matches!(target, Expr::Name(_) | Expr::Attribute(_)) {
             return self.taint(target);
         }
+        if let (true, Some(id), Some(source)) = (path(value), last(target), last(value)) {
+            // `TD = typing.TypedDict`: the alias builds annotations as the original does.
+            let real = self.aliases.get(source).map_or(source, String::as_str);
+            if BUILDERS.contains(&real) || real == "ForwardRef" {
+                self.aliases.insert(id.to_owned(), real.to_owned());
+            }
+        }
         if let (Expr::StringLiteral(_), Some(id)) = (value, last(target)) {
             self.held.insert(id.to_owned());
         }
@@ -252,19 +219,8 @@ impl<'a> Scan<'a> {
                 if literal(&node.value) {
                     return;
                 }
-                let items = match &*node.slice {
-                    Expr::Tuple(tuple) => tuple.elts.iter().collect(),
-                    one => vec![one],
-                };
-                // The metadata of `Annotated` is no annotation.
-                let count = if named(&node.value, "Annotated") {
-                    1
-                } else {
-                    items.len()
-                };
-                items
+                items(node)
                     .into_iter()
-                    .take(count)
                     .for_each(|i| self.dynamic(i, found, depth));
             }
             Expr::Tuple(node) => node.elts.iter().for_each(|e| self.dynamic(e, found, depth)),
@@ -276,48 +232,6 @@ impl<'a> Scan<'a> {
             }
             other => found.push(other.range()),
         }
-    }
-}
-
-/// A name, an attribute path, a subscript of one, or a union of them: a type form alias.
-fn path(value: &Expr) -> bool {
-    match value {
-        Expr::Name(_) | Expr::NoneLiteral(_) => true,
-        Expr::Attribute(node) => path(&node.value),
-        Expr::Subscript(node) => path(&node.value),
-        Expr::BinOp(node) => node.op == Operator::BitOr && path(&node.left) && path(&node.right),
-        _ => false,
-    }
-}
-
-/// The names that a path holds: each attribute name and the root name.
-fn ids(value: &Expr, out: &mut Vec<String>) {
-    match value {
-        Expr::Name(node) => out.push(node.id.to_string()),
-        Expr::Attribute(node) => {
-            out.push(node.attr.to_string());
-            ids(&node.value, out);
-        }
-        Expr::Subscript(node) => ids(&node.value, out),
-        Expr::BinOp(node) => {
-            ids(&node.left, out);
-            ids(&node.right, out);
-        }
-        _ => {}
-    }
-}
-
-/// A value that is no string the survey could miss: a literal, a type factory, a function.
-fn inert(value: &Expr) -> bool {
-    match value {
-        Expr::StringLiteral(_)
-        | Expr::NumberLiteral(_)
-        | Expr::BooleanLiteral(_)
-        | Expr::BytesLiteral(_)
-        | Expr::EllipsisLiteral(_)
-        | Expr::Lambda(_) => true,
-        Expr::Call(call) => last(&call.func).is_some_and(|name| TYPE_FORMS.contains(&name)),
-        _ => false,
     }
 }
 

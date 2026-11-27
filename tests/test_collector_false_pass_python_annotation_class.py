@@ -102,7 +102,19 @@ REVIEW2 = {
     + f'K = TD("K", {{"x": "{IMPORT}"}})\n\n\n'
     + "try:\n    get_type_hints(K)\nexcept Exception:\n    pass\n",
 }
-PLANTS = {**WRITES, **NAMES, **BUILDERS, **LOOKUP, **REVIEW, **REVIEW2}
+REVIEW3 = {
+    "alias with a computed name in a subscript": named(
+        f's = str("{IMPORT}")\nAlias = list[s]'
+    ).replace("x: s", "x: Alias"),
+    "alias with a string in a subscript": one(
+        f'Alias = list["{IMPORT}"]\n\n\nclass K:\n    x: Alias\n'
+    ),
+    "builder bound to another name": HEAD
+    + "TD = typing.TypedDict\n"
+    + f'K = TD("K", {{"x": "{IMPORT}"}})\n'
+    + HINTS,
+}
+PLANTS = {**WRITES, **NAMES, **BUILDERS, **LOOKUP, **REVIEW, **REVIEW2, **REVIEW3}
 CONTROLS = {
     "plain forms": HEAD
     + "class K:\n    x: int\n    y: typing.Optional[str]\n    z: list[int] | None\n"

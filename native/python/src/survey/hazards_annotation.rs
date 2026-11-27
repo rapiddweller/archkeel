@@ -16,8 +16,10 @@ use crate::parse::Unread;
 
 #[path = "hazards_annotation_class.rs"]
 pub(in crate::survey::hazards) mod class;
+#[path = "hazards_annotation_forms.rs"]
+mod forms;
 
-pub(in crate::survey::hazards) use class::literal;
+pub(in crate::survey::hazards) use forms::literal;
 
 /// What `expr` evaluates as code: a string in an annotation, the first argument of `ForwardRef`,
 /// or a name in an annotation that the module assigns a string.
@@ -33,7 +35,7 @@ pub(super) fn evaluated<'a>(expr: &'a Expr, in_annotation: bool, strings: &Strin
         Expr::StringLiteral(text) if in_annotation => Text::Literal(text),
         Expr::Call(call) => forward_ref(call).map_or(Text::None, Text::Literal),
         Expr::Name(_) | Expr::Attribute(_) if in_annotation => {
-            match strings.held(class::last(expr).unwrap_or_default()) {
+            match strings.held(forms::last(expr).unwrap_or_default()) {
                 Held::None => Text::None,
                 Held::Texts(texts) => Text::Held(texts.to_vec()),
                 Held::Opaque => Text::Opaque,
@@ -191,7 +193,7 @@ impl Strings {
     }
 
     fn bind(&mut self, target: &Expr, value: &Expr) {
-        let Some(id) = class::last(target) else {
+        let Some(id) = forms::last(target) else {
             return;
         };
         let id = id.to_owned();
@@ -229,7 +231,7 @@ impl Strings {
 
 impl<'a> Visitor<'a> for Strings {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        class::assigned(stmt, |target, value| self.bind(target, value));
+        forms::assigned(stmt, |target, value| self.bind(target, value));
         visitor::walk_stmt(self, stmt);
     }
 }
