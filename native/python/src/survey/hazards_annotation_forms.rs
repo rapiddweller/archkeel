@@ -7,6 +7,8 @@
 
 use ruff_python_ast::{Expr, ExprSubscript, Identifier, Stmt};
 
+use super::facts::NAMESPACES;
+
 use crate::survey::typing_count::builtin;
 
 /// A call of these makes a type form, not a string.
@@ -81,4 +83,15 @@ pub(super) fn type_subscription(path: &str) -> bool {
             | "weakref"
     ) || builtin(path)
         || matches!(path, "type" | "os.PathLike")
+}
+
+/// A call of `globals`, `vars` or `locals`, or `x.__dict__`: the namespace of a module, a class or a frame.
+pub(super) fn namespace(expr: &Expr) -> bool {
+    match expr {
+        Expr::Call(call) => {
+            matches!(&*call.func, Expr::Name(n) if NAMESPACES.contains(&n.id.as_str()))
+        }
+        Expr::Attribute(node) => node.attr.as_str() == "__dict__",
+        _ => false,
+    }
 }

@@ -109,6 +109,8 @@ pub(super) struct Facts<'a> {
     /// A write by a name that the table cannot read: no name of the module is closed.
     pub(super) opaque: bool,
     pub(super) evaluates: bool,
+    /// `from __future__ import annotations`: each annotation is text, read like a quoted one.
+    pub(super) postponed: bool,
     pub(super) reaches: Vec<TextRange>,
     pub(super) calls: Vec<Call<'a>>,
 }

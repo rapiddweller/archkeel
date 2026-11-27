@@ -165,6 +165,10 @@ impl<'a> Project<'a> {
             return Entity::Unknown;
         }
         let holders = facts.holders(scope, id);
+        // A write into the module through an alias of it (`me.s = v`) changes the bare name too.
+        if holders.contains(&0) && self.written(&self.modules[m].name, id) {
+            return Entity::Unknown;
+        }
         if !holders.is_empty() {
             let bindings = holders.iter().flat_map(|at| &facts.scopes[*at].names[id]);
             active.push(key);

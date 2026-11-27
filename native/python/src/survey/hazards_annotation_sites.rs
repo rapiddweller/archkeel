@@ -8,6 +8,7 @@ use ruff_text_size::TextRange;
 
 use super::super::trojan_horse::Site;
 use super::entity::{Entity, Project, BUDGET, BUILDERS};
+use super::facts::TEXT;
 use super::forms::last;
 use crate::module::Module;
 use crate::survey::hazards_names::DYNAMIC;
@@ -47,9 +48,19 @@ impl<'a> Project<'a> {
             }
         }
         let mut ranges = Vec::new();
+        // A postponed annotation is text: read it in the namespace of the text as well.
+        let modes = if facts.postponed {
+            vec![0, TEXT]
+        } else {
+            vec![0]
+        };
         for (expr, scope) in &facts.annotations {
-            self.dynamic(expr, (at, *scope), &mut ranges, 0, &mut Vec::new());
+            for mode in &modes {
+                self.dynamic(expr, (at, *scope | mode), &mut ranges, 0, &mut Vec::new());
+            }
         }
+        ranges.sort_by_key(|r| r.start());
+        ranges.dedup();
         ranges.iter().for_each(|r| add("annotation value", *r));
         found.sort_by_key(|site| site.range.start());
         found

@@ -293,6 +293,56 @@ SCOPES = {
             x: 's'
         """
     ),
+    "postponed annotation reads the module globals": (
+        "from __future__ import annotations\n\n"
+        + source(
+            """
+            s = str(PAYLOAD)
+
+
+            def make():
+                s = 'int'
+
+                def f(x: s):
+                    pass
+
+                return f
+
+
+            K = make()
+            """
+        )
+    ),
+    "static method writes a module it gets": source(
+        """
+        import contextlib
+
+
+        class Patch:
+            @staticmethod
+            def patch(module):
+                module.AbstractContextManager = PAYLOAD
+
+
+        Patch.patch(contextlib)
+
+
+        class K:
+            x: contextlib.AbstractContextManager
+        """
+    ),
+    "name of the module written through an alias of the module": source(
+        """
+        import app.consumer as me
+
+        s = 'int'
+        me.s = str(PAYLOAD)
+
+
+        class K:
+            x: s
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

@@ -17,9 +17,9 @@ use ruff_python_ast::{
 use ruff_text_size::{Ranged, TextRange};
 
 use super::facts::{
-    Binding, Call, Facts, Kind, Scope, ScopeId, Write, EVALUATORS, NAMESPACES, READERS, RESERVED,
+    Binding, Call, Facts, Kind, Scope, ScopeId, Write, EVALUATORS, READERS, RESERVED,
 };
-use super::forms::last;
+use super::forms::{last, namespace};
 use crate::module::Module;
 use crate::survey::globals_project::PURE_BUILTINS;
 use crate::survey::package_body::anchor;
@@ -39,6 +39,7 @@ pub(super) fn build(module: &Module) -> Facts<'_> {
             writes: Vec::new(),
             opaque: false,
             evaluates: false,
+            postponed: false,
             reaches: Vec::new(),
             calls: Vec::new(),
         },
@@ -118,6 +119,11 @@ impl<'a> Build<'a, '_> {
         for alias in &node.names {
             let name = alias.name.as_str();
             self.facts.evaluates |= EVALUATORS.contains(&name);
+            let future = node
+                .module
+                .as_ref()
+                .is_some_and(|m| m.as_str() == "__future__");
+            self.facts.postponed |= future && name == "annotations";
             let local = alias.asname.as_ref().map_or(name, Identifier::as_str);
             match (&module, name) {
                 (Some(module), "*") => {
@@ -207,16 +213,6 @@ impl<'a> Build<'a, '_> {
     }
 }
 
-fn namespace(expr: &Expr) -> bool {
-    match expr {
-        Expr::Call(call) => {
-            matches!(&*call.func, Expr::Name(n) if NAMESPACES.contains(&n.id.as_str()))
-        }
-        Expr::Attribute(node) => node.attr.as_str() == "__dict__",
-        _ => false,
-    }
-}
-
 impl<'a> Visitor<'a> for Build<'a, '_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         match stmt {
@@ -235,7 +231,11 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
                 self.signature = false;
                 let outer = self.current;
                 self.current = self.open(Kind::Function, None);
-                let method = self.facts.scopes[outer].kind == Kind::Class;
+                let fixed = node
+                    .decorator_list
+                    .iter()
+                    .any(|d| last(&d.expression) == Some("staticmethod"));
+                let method = self.facts.scopes[outer].kind == Kind::Class && !fixed;
                 for (at, parameter) in node.parameters.iter().enumerate() {
                     self.bind(
                         parameter.name().as_str(),
