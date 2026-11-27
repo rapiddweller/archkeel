@@ -44,7 +44,7 @@ fn part(root: &Path) -> Value {
 fn a_run_written_and_read_back_has_no_difference_and_the_same_bytes() {
     let root = repository("base-round");
     let first = written(&root);
-    assert!(first.contains("\"schema_version\": \"1.4.0\""));
+    assert!(first.contains("\"schema_version\": \"1.5.0\""));
     assert_eq!(first, written(&root));
     fs::write(root.join("b.json"), &first).unwrap();
     let found = part(&root);
@@ -170,7 +170,7 @@ fn a_damaged_baseline_is_red_with_its_entry_and_never_a_silent_nothing_accepted(
         ),
         (
             "schema",
-            with(&good, |d| d["schema_version"] = json!("1.5.0")),
+            with(&good, |d| d["schema_version"] = json!("1.6.0")),
             "cannot be read",
         ),
     ];

@@ -301,8 +301,13 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
     let refused = frame_parts::refusals(&reply, &contract, &sections, report.as_ref().err());
     let baseline = run.accept.map(|input| {
         let counts = (hygiene.budgets.as_slice(), measures.as_ref());
-        let seen =
-            baseline_frame::observed(&ruling, engine.reply(), engine.graph(), refused, counts);
+        let seen = baseline_frame::observed(
+            &ruling,
+            engine.reply(),
+            (engine.graph(), engine.tree()),
+            refused,
+            counts,
+        );
         baseline_frame::build(input, &seen)
     });
     let names_a_gap = report.is_err()

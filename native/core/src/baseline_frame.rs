@@ -17,7 +17,7 @@ use archkeel_contract::policy::{
     ValidationBaseline,
 };
 use archkeel_contract::BudgetName;
-use archkeel_model::{Graph, Hygiene, Measures, Reason};
+use archkeel_model::{Graph, Hygiene, Measures, ModelTree, Reason};
 use archkeel_report::{RuleReasons, Ruling, Status};
 use archkeel_store::Ingested;
 use serde::Serialize;
@@ -219,11 +219,11 @@ fn violations(ruling: &Ruling) -> BTreeMap<Violation, u64> {
 pub(crate) fn observed(
     ruling: &Ruling,
     reply: Option<&Ingested>,
-    graph: Option<&Graph>,
+    (graph, models): (Option<&Graph>, Option<&ModelTree>),
     refusals: Vec<String>,
     (declared, counts): (&[BudgetName], Option<&Measures>),
 ) -> Observed {
-    let mut gaps = gap_key::of_run(ruling, reply);
+    let mut gaps = gap_key::of_run(ruling, reply, models);
     gaps.unacceptable.extend(refusals);
     Observed {
         gaps,

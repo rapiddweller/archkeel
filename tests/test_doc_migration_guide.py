@@ -87,7 +87,7 @@ def guide_run(tmp_path_factory: pytest.TempPathFactory, release_core: Path) -> I
 
 def test_the_write_and_compare_keep_the_unknowns_list(guide_run: Path) -> None:
     document = json.loads((guide_run / "known-violations.json").read_text(encoding="utf-8"))
-    assert document["schema_version"] == "1.4.0"
+    assert document["schema_version"] == "1.5.0"
     assert isinstance(document["unknowns"], list) and document["unknowns"]
     assert set(document["budgets"]) >= {"calls_unresolved", "typing_positions"}
     done = _run(guide_run, "validate", "--baseline", "known-violations.json", "--json")
