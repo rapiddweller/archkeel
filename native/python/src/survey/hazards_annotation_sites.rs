@@ -56,6 +56,7 @@ impl<'a> Project<'a> {
         };
         for (expr, scope) in &facts.annotations {
             for mode in &modes {
+                self.context.set((at, *scope | mode));
                 self.dynamic(expr, (at, *scope | mode), &mut ranges, 0, &mut Vec::new());
             }
         }

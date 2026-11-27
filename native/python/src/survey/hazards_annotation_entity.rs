@@ -42,6 +42,8 @@ pub(super) struct Project<'a> {
     pub(super) by_name: HashMap<&'a str, usize>,
     pub(super) facts: Vec<OnceCell<Facts<'a>>>,
     pub(super) budget: Cell<usize>,
+    /// The module and scope of the annotation that is read: its text is evaluated there.
+    pub(super) context: Cell<(usize, ScopeId)>,
     /// `(module, name)` of each standard attribute that the scan writes; name `*` is any.
     pub(super) written: OnceCell<HashSet<(String, String)>>,
     /// The stores of each attribute name, in all modules: `(module, index in its list)`.
@@ -62,6 +64,7 @@ impl<'a> Project<'a> {
                 .collect(),
             facts: modules.iter().map(|_| OnceCell::new()).collect(),
             budget: Cell::new(0),
+            context: Cell::new((0, 0)),
             written: OnceCell::new(),
             stores: OnceCell::new(),
         }

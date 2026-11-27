@@ -343,6 +343,28 @@ SCOPES = {
             x: s
         """
     ),
+    "class reads the outer name before its own assignment": source(
+        """
+        s = str(PAYLOAD)
+
+
+        class K:
+            x: s
+            s = 'int'
+        """
+    ),
+    "held text is read where the annotated class is evaluated": source(
+        """
+        class C:
+            s = int
+            hint = 's'
+
+
+        class K:
+            s = str(PAYLOAD)
+            x: C.hint
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

@@ -29,7 +29,7 @@ impl<'a> Project<'a> {
     ) {
         match expr {
             Expr::StringLiteral(text) => {
-                if !self.text(text, at, depth, active) {
+                if !self.text(text, depth, active) {
                     found.push(text.range());
                 }
             }
@@ -87,13 +87,9 @@ impl<'a> Project<'a> {
 
     /// A quoted annotation is read as code: the same rule applies to its text. A text that does
     /// not parse raises `SyntaxError` and imports nothing; a text over the parser bound is not clean.
-    pub(super) fn text(
-        &self,
-        text: &ExprStringLiteral,
-        at: (usize, ScopeId),
-        depth: usize,
-        active: &mut Active,
-    ) -> bool {
+    pub(super) fn text(&self, text: &ExprStringLiteral, depth: usize, active: &mut Active) -> bool {
+        // The text is read where the annotated object is evaluated, not where the string is held.
+        let at = self.context.get();
         match crate::parse::expression(text.value.to_str()) {
             Ok(code) if depth < MAX_DEPTH => {
                 self.clean(&code, (at.0, at.1 | TEXT), depth + 1, active)
@@ -239,7 +235,7 @@ impl<'a> Project<'a> {
         let clean = |ok: bool| if ok { Entity::Clean } else { Entity::Unknown };
         match value {
             Expr::Name(_) | Expr::Attribute(_) => self.path(value, m, scope, depth, active),
-            Expr::StringLiteral(text) => clean(self.text(text, (m, scope), depth, active)),
+            Expr::StringLiteral(text) => clean(self.text(text, depth, active)),
             Expr::NoneLiteral(_)
             | Expr::NumberLiteral(_)
             | Expr::BooleanLiteral(_)

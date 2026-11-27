@@ -135,7 +135,7 @@ impl<'a> Scope<'a> {
 
 impl<'a> Facts<'a> {
     /// The scopes that bind `id` for code in `scope`. A `global` declaration reads the module, a
-    /// `nonlocal` one skips its scope; a class scope is read only by its own body. The text of a
+    /// `nonlocal` one skips its scope; a class scope is read only by its own body, and before its own assignment the outer name is read. The text of a
     /// quoted annotation reads the module and its class, in either order: `get_type_hints` of a
     /// class tries the module first, other evaluators the class first.
     pub(super) fn holders(&self, scope: ScopeId, id: &str) -> Vec<ScopeId> {
@@ -145,20 +145,27 @@ impl<'a> Facts<'a> {
             let class = (self.scopes[start].kind == Kind::Class).then_some(start);
             return class.into_iter().chain([0]).filter(has).collect();
         }
+        let mut holders = Vec::new();
         let mut up = Some(start);
         while let Some(at) = up {
-            let found = &self.scopes[at];
-            if found.globals.contains(id) {
-                return [0].into_iter().filter(has).collect();
+            let scope = &self.scopes[at];
+            if scope.globals.contains(id) {
+                holders.extend([0].into_iter().filter(has));
+                break;
             }
             let skipped =
-                found.nonlocals.contains(id) || (found.kind == Kind::Class && at != start);
-            if !skipped && has(&at) {
-                return vec![at];
+                scope.nonlocals.contains(id) || (scope.kind == Kind::Class && at != start);
+            let bound = !skipped && has(&at);
+            if bound {
+                holders.push(at);
             }
-            up = found.parent;
+            // A class body reads the outer name until it assigns its own.
+            if bound && scope.kind != Kind::Class {
+                break;
+            }
+            up = scope.parent;
         }
-        Vec::new()
+        holders
     }
 
     /// The first scope of `holders`: for a read that needs one scope (a receiver of a write).
