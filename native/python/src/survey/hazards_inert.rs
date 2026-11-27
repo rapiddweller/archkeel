@@ -15,6 +15,8 @@
 //!   class is only stored or compared, not used. This holds for the name form and for the attribute
 //!   form on the standard module `types`.
 //! - `"text" in sys.modules` with a literal: the membership test calls no code of the key.
+//! - `sys.modules.get("text")` that is only compared by identity or tested for truth (#2197, see
+//!   `hazards_modules_get.rs`).
 //! - `globals().keys()` as the only argument of a pure builtin: a view of the names (text) of one
 //!   module.
 //! - `s = x.__spec__` in a function, where `s` has only these uses: a test `is None`, a read of
@@ -26,10 +28,13 @@ use std::collections::{HashMap, HashSet};
 use ruff_python_ast::helpers::any_over_body;
 use ruff_python_ast::name::Name;
 use ruff_python_ast::{
-    Arguments, CmpOp, ElifElseClause, ExceptHandler, Expr, ExprCall, ExprContext, Identifier,
-    Keyword, ModModule, Operator, Stmt, StmtFunctionDef,
+    Arguments, CmpOp, Expr, ExprCall, ExprContext, Identifier, Keyword, ModModule, Operator, Stmt,
+    StmtFunctionDef,
 };
 use ruff_text_size::{Ranged, TextRange};
+
+use super::modules_get::{lookups, Names};
+use super::walk::{child_bodies, name_of, on_name, positional};
 
 pub(super) fn code_type_check(call: &ExprCall, types: &HashSet<String>, visible: bool) -> bool {
     visible
@@ -218,6 +223,12 @@ pub(in crate::survey) fn cleared(
     };
     any_over_body(&tree.body, tests);
     in_statements(&tree.body, &facts, (&mut found, false));
+    let names = Names {
+        sys: &facts.sys,
+        single: facts.single,
+        declared: &facts.declared,
+    };
+    lookups(&names, &tree.body, &mut found);
     found
 }
 
@@ -245,24 +256,6 @@ fn visible(facts: &Facts, name: &str) -> bool {
     HashSet::contains(facts.visible, name)
 }
 
-/// The name of a plain `Name` expression.
-fn name_of(expr: &Expr) -> Option<&str> {
-    match expr {
-        Expr::Name(node) => Some(Name::as_str(&node.id)),
-        _ => None,
-    }
-}
-
-/// The name `base` of the load `base.attr`.
-fn on_name<'e>(expr: &'e Expr, attr: &str) -> Option<&'e str> {
-    match expr {
-        Expr::Attribute(node) if Identifier::as_str(&node.attr) == attr => {
-            name_of(&node.value).filter(|_| node.ctx == ExprContext::Load)
-        }
-        _ => None,
-    }
-}
-
 /// `types.CodeType` or `types.FunctionType` on a name that is the standard module `types`.
 fn class_attribute(facts: &Facts, expr: &Expr) -> bool {
     let Expr::Attribute(node) = expr else {
@@ -273,13 +266,6 @@ fn class_attribute(facts: &Facts, expr: &Expr) -> bool {
     class
         && node.ctx == ExprContext::Load
         && name_of(&node.value).is_some_and(|name| types.contains(name))
-}
-
-/// The positional arguments of a call that has no keyword argument.
-fn positional(call: &ExprCall) -> Option<&[Expr]> {
-    let args: &[Expr] = &call.arguments.args;
-    let keywords: &[Keyword] = &call.arguments.keywords;
-    keywords.is_empty().then_some(args)
 }
 
 /// `isinstance(x, types.CodeType)`: the class is only compared.
@@ -381,33 +367,6 @@ fn in_statements(body: &[Stmt], facts: &Facts, (found, local): (&mut HashSet<Tex
         for each in child_bodies(stmt) {
             in_statements(each, facts, (&mut *found, inner));
         }
-    }
-}
-
-/// The statement lists that a statement holds.
-fn child_bodies(stmt: &Stmt) -> Vec<&[Stmt]> {
-    match stmt {
-        Stmt::FunctionDef(node) => vec![&node.body],
-        Stmt::ClassDef(node) => vec![&node.body],
-        Stmt::If(node) => {
-            let clauses: &[ElifElseClause] = &node.elif_else_clauses;
-            let mut found: Vec<&[Stmt]> = vec![&node.body];
-            found.extend(clauses.iter().map(|clause| clause.body.as_slice()));
-            found
-        }
-        Stmt::For(node) => vec![&node.body, &node.orelse],
-        Stmt::While(node) => vec![&node.body, &node.orelse],
-        Stmt::With(node) => vec![&node.body],
-        Stmt::Try(node) => {
-            let handlers: &[ExceptHandler] = &node.handlers;
-            let mut found: Vec<&[Stmt]> = vec![&node.body, &node.orelse, &node.finalbody];
-            for ExceptHandler::ExceptHandler(handler) in handlers {
-                found.push(&handler.body);
-            }
-            found
-        }
-        Stmt::Match(node) => node.cases.iter().map(|case| case.body.as_slice()).collect(),
-        _ => Vec::new(),
     }
 }
 
