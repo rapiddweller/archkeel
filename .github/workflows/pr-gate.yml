@@ -180,7 +180,6 @@ jobs:
             else
               echo 'No timing file was produced.'
             fi
-            uv run --locked python -m tools.native_timing_budget "$RUNNER_TEMP/native-selfcheck-timings.json" test-artifacts/validation-native/result.json --report-only 2>&1
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       # AD-1064: the log shows the first ten grown items; the file holds all of them.

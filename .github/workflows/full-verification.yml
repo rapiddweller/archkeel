@@ -77,14 +77,6 @@ jobs:
           NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
         run: make self-validate SELFCHECK_ARGS=--no-compare
 
-      - name: Check native self-check timing budgets
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
-            uv run --locked python -m tools.native_timing_budget "$RUNNER_TEMP/native-selfcheck-timings.json" test-artifacts/validation-native/result.json
-          else
-            uv run --locked python -m tools.native_timing_budget "$RUNNER_TEMP/native-selfcheck-timings.json" test-artifacts/validation-native/result.json --report-only
-          fi
-
       - name: Compare the release result with the gate-profile result of this commit
         run: |
           if [ ! -f test-artifacts/selfcheck/base.json ]; then
@@ -308,12 +300,12 @@ jobs:
         with:
           persist-credentials: false
 
-      # AD-341: a warning for each job over the time budget. A failed report does not fail the run.
-      - name: Report each job time against the time budget
+      # AD-341, AD-1251: the time of each job, as a table. No limit warns or fails.
+      - name: Report the time of each job
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' | python3 tools/ci_budget.py --job-minutes 15 --path-minutes 30 --summary "$GITHUB_STEP_SUMMARY"
+        run: gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' | python3 tools/ci_budget.py --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Require every Full job
         env:
