@@ -168,7 +168,7 @@ CASES = {
 HELD_OR_RIGHT = {
     "synthetic-package-maps": {
         "#internal": {("index.ts", "internal.ts")},
-        "patterned/features/one": set(),
+        "patterned/features/one": {("index.ts", "external:patterned")},
         "synth-maps": {("index.ts", "index.ts")},
     }
 }
@@ -190,6 +190,6 @@ def test_the_native_collector_resolves_the_imports_as_typescript_does(
     for reason in want_reasons:
         assert any(reason in found for found in reasons), reason
     for specifier, edges in right.items():
-        package = specifier.split("/")[0]
+        # A gap that names the specifier, or the right edge: never nothing, never another file.
         held = any(specifier in found for found in reasons)
-        assert held or edges <= resolved or any(package in target for _, target in other), specifier
+        assert held or any(edge in resolved | other for edge in edges), specifier
