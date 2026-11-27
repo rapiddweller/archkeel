@@ -86,7 +86,8 @@ def ratchet(
         own = load(str(kept)) if kept is not None else condense(native, scan=scan_table(root))
     except Unusable:
         return ["native vs base: no gate result; run `make self-validate-native`"], 0
-    items, removed = grown(before, own)[1:]
+    _lines, gaps, blocking, removed = grown(before, own)
+    items = [*blocking, *gaps]
     sha = str(before.get("sha") or "?")[:12]
     lines = [f"native vs base {sha}: {len(items)} new items, {removed} gaps gone"]
     lines += [f"  new: {item[0]}" for item in items[:3]]

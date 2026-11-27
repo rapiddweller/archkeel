@@ -17,7 +17,6 @@ ROOT = Path(__file__).parents[1]
 FIXTURES = Path(__file__).parent / "selfcheck_fixtures"
 TOOL = Path(os.environ.get("SELF_CHECK_DIFF_TOOL", ROOT / "tools/self_check_diff.py"))
 RULE = "TINY-INTERFACE-BOUNDARY"
-LINE = "Ratchet growth: {n} items: the scan reads a new public name"
 
 
 def real(name: str) -> dict[str, Any]:
@@ -36,12 +35,9 @@ def run(
     pr: str,
     *,
     labels: str = "",
-    body: str = "",
     extra: tuple[str, ...] = (),
 ) -> subprocess.CompletedProcess[str]:
     args = [sys.executable, str(TOOL), base, pr, "--labels", labels, *extra]
-    if body:
-        args += ["--body-file", save(tmp_path, "body.txt", body)]
     return subprocess.run(args, capture_output=True, text=True, timeout=60)
 
 
