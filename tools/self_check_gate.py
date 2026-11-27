@@ -15,7 +15,7 @@ the base in a git worktree of that commit (the core of this tree is reused when 
 same). A v1 cached base uses the old comparison during migration. The gate refuses an incomplete
 v2 scope or topology.
 It never skips: when the base cannot be computed, the gate fails and names the reason. The
-label and the PR text for growth come from RATCHET_LABELED (`true`) and RATCHET_BODY_FILE.
+label that approves the blocking items comes from RATCHET_LABELED (`true`).
 `BASE_RESULT=<file>` replaces the base. The base that it compares is kept in `compared-base.json`
 for `make self-check`. All grown items go to `grown.txt` in the same directory
 and the first ten to `GITHUB_STEP_SUMMARY`. The last line is `self-check gate: GREEN` or
@@ -402,8 +402,6 @@ def gate(argv: list[str]) -> int:
         os.environ.get("GITHUB_STEP_SUMMARY", ""),
     ]
     args += ["--report-only"] if "--report-only" in argv else []
-    if os.environ.get("RATCHET_BODY_FILE"):
-        args += ["--body-file", os.environ["RATCHET_BODY_FILE"]]
     return diff(args)
 
 

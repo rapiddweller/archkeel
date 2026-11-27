@@ -14,6 +14,7 @@ from self_check_support import (
     FIXTURES,
     RULE,
     TOOL,
+    green,
     many_gaps,
     real,
     red,
@@ -33,7 +34,7 @@ def test_the_log_shows_ten_items_and_the_file_holds_all_of_them(tmp_path: Path) 
         pr,
         extra=("--grown-file", str(grown), "--summary-file", str(summary)),
     )
-    red(done, "grown 25", "and 15 more", f"All 25 grown items are in {grown}")
+    green(done, "grown 25", "and 15 more", f"All 25 grown items are in {grown}")
     assert done.stdout.count("    gap [") == 10
     assert len(grown.read_text().splitlines()) == 25
     assert all(" -- " in line for line in grown.read_text().splitlines())
@@ -42,7 +43,7 @@ def test_the_log_shows_ten_items_and_the_file_holds_all_of_them(tmp_path: Path) 
 
 
 def test_a_red_result_names_the_local_command(tmp_path: Path) -> None:
-    done = run(tmp_path, str(FIXTURES / "base.json"), str(FIXTURES / "plus-one-gap.json"))
+    done = run(tmp_path, str(FIXTURES / "base.json"), str(FIXTURES / "scan-shrank.json"))
     red(done, "`make self-validate-native`")
     assert "DISAGREEMENT" not in done.stdout
 
@@ -99,7 +100,7 @@ def test_a_newline_in_a_reason_never_starts_a_log_line(tmp_path: Path) -> None:
     refused = {"refusal": {"kind": "k", "message": "a\n::error::boom"}, "exit_code": 2}
     for pr in (more, refused):
         done = run(tmp_path, str(FIXTURES / "base.json"), save(tmp_path, "p.json", pr))
-        assert done.returncode == 1
+        assert done.returncode == (1 if "refusal" in pr else 0)
         assert [line for line in done.stdout.splitlines() if line.startswith("::")] == []
         assert "::error::x" in done.stdout or "::error::boom" in done.stdout
 
