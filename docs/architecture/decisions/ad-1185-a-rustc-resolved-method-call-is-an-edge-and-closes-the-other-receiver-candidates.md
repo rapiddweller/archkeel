@@ -66,5 +66,5 @@ Each is in `tests/test_cli_native_rust_resolved_call*.py` with the real driver a
 ## Not done yet
 
 - A candidate that the callee confirms is still held for the interface; the route of the receiver type is not proven.
-- A path call `T::m(..)` or a macro call has no place that the scan reads.
-- The `REQUIRES-COMPLETE` holds are the honest state. Any gap between two scanned modules can be a compiler-only hold (AD-1212).
+- A path call `T::m(..)` or a macro call has no place that the scan reads. A global that the callee names in
+  another file is a named edge (`d -> t -> b`): the proof does not walk the callee body.
