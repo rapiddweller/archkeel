@@ -76,7 +76,7 @@ const SPECIAL: [&str; 6] = [
 ];
 
 /// The methods of a mapping that change nothing.
-const READS: [&str; 5] = ["keys", "items", "values", "get", "copy"];
+pub(super) const READS: [&str; 5] = ["keys", "items", "values", "get", "copy"];
 
 /// True when a statement of one of the modules can change what a typing factory makes.
 pub(super) fn withheld(modules: &[Module]) -> bool {

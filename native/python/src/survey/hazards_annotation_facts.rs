@@ -28,22 +28,16 @@ pub(super) const EVALUATORS: [&str; 5] = [
 /// A call of these gives the namespace of a module, a class or a frame: a write into it binds a
 /// name by a name that the table cannot read. So does a use of `x.__dict__`.
 pub(super) const NAMESPACES: [&str; 3] = ["globals", "vars", "locals"];
-/// Calls that only read the namespace that they get.
-pub(super) const READERS: [&str; 24] = [
+/// Calls that only read the namespace that they get (with the pure builtins of `globals_project`).
+pub(super) const READERS: [&str; 18] = [
     "getattr",
     "hasattr",
-    "isinstance",
-    "issubclass",
-    "len",
     "sorted",
     "list",
     "dict",
     "set",
     "tuple",
     "frozenset",
-    "print",
-    "repr",
-    "str",
     "format",
     "iter",
     "next",
@@ -55,7 +49,6 @@ pub(super) const READERS: [&str; 24] = [
     "zip",
     "enumerate",
 ];
-pub(super) const READ_METHODS: [&str; 5] = ["get", "items", "keys", "values", "copy"];
 #[derive(PartialEq)]
 pub(super) enum Kind {
     Module,

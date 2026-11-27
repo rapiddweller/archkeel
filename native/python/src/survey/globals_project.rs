@@ -17,7 +17,7 @@ use crate::module::Module;
 /// The builtins that give a scalar or a verdict and never a container of their argument: a dict
 /// that reaches one cannot come back as a dict. Any other builtin, such as `list`, `dict`, `iter`
 /// or `vars`, is an unknown callee.
-const PURE_BUILTINS: [&str; 10] = [
+pub(super) const PURE_BUILTINS: [&str; 10] = [
     "len",
     "isinstance",
     "issubclass",

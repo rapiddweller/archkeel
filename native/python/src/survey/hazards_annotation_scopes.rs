@@ -17,12 +17,13 @@ use ruff_python_ast::{
 use ruff_text_size::{Ranged, TextRange};
 
 use super::facts::{
-    Binding, Call, Facts, Kind, Scope, ScopeId, Write, EVALUATORS, NAMESPACES, READERS,
-    READ_METHODS, RESERVED,
+    Binding, Call, Facts, Kind, Scope, ScopeId, Write, EVALUATORS, NAMESPACES, READERS, RESERVED,
 };
 use super::forms::last;
 use crate::module::Module;
+use crate::survey::globals_project::PURE_BUILTINS;
 use crate::survey::package_body::anchor;
+use crate::survey::uses_typing_guard::READS;
 
 const WRITERS: [&str; 2] = ["setattr", "delattr"];
 
@@ -146,7 +147,10 @@ impl<'a> Build<'a, '_> {
 
     fn call(&mut self, call: &'a ExprCall, expr: &'a Expr) {
         let callee = last(&call.func).unwrap_or_default();
-        if READERS.contains(&callee) || EVALUATORS.contains(&callee) {
+        if READERS.contains(&callee)
+            || PURE_BUILTINS.contains(&callee)
+            || EVALUATORS.contains(&callee)
+        {
             let keywords = call.arguments.keywords.iter().map(|k| &k.value);
             call.arguments
                 .args
@@ -155,7 +159,7 @@ impl<'a> Build<'a, '_> {
                 .for_each(|a| self.bless(a));
         }
         if let Expr::Attribute(method) = &*call.func {
-            if READ_METHODS.contains(&method.attr.as_str()) {
+            if READS.contains(&method.attr.as_str()) {
                 self.bless(&method.value);
             }
         }

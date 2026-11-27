@@ -2,17 +2,14 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The closed-binding rule of AD-1175 (#2156). A module that evaluates annotations runs each string
-//! that reaches an annotation. An annotation-valued expression is *clean* when every binding that
-//! can give its value is a type form the survey reads: a builtin, a class or function, an import of
-//! a standard typing-style module or of a clean name of a scanned module, an assignment of a clean
-//! value. Anything else, and each name that the module binds by a write the table cannot read, is a
-//! `dynamic_import` site. The same holds for any reach of `__annotations__` and for a call that
-//! builds annotations from data (`TypedDict(..)`, `NamedTuple(..)`, `ForwardRef(name)`).
+//! The closed-binding rule of AD-1175 (#2156). In a module that evaluates annotations, an
+//! annotation-valued expression is *clean* when every binding that can give its value is a type form
+//! the survey reads (AD-1175 lists them). Anything else, a reach of `__annotations__` and a call that
+//! builds annotations from data is a `dynamic_import` site.
 
 use std::collections::HashSet;
 
-use ruff_python_ast::{Expr, ExprCall, ExprStringLiteral, Operator};
+use ruff_python_ast::{Expr, ExprCall, ExprList, ExprStringLiteral, ExprTuple, Operator};
 use ruff_text_size::{Ranged, TextRange};
 
 use super::super::trojan_horse::Site;
@@ -21,12 +18,19 @@ use super::entity::{
 };
 use super::facts::{Binding, ScopeId};
 use super::forms::{items, last, literal, TYPE_FORMS};
+use crate::module::Module;
 use crate::parse::Unread;
 use crate::survey::hazards_names::DYNAMIC;
 
+/// The sites of the closed-binding rule for each module of the scan, in the order of `modules`.
+pub(in crate::survey) fn annotation_sites(modules: &[Module]) -> Vec<Vec<Site>> {
+    let project = Project::of(modules);
+    (0..modules.len()).map(|at| project.sites(at)).collect()
+}
+
 impl<'a> Project<'a> {
     /// The sites of the rule for one module; none when it evaluates no annotation.
-    pub(in crate::survey) fn sites(&self, at: usize) -> Vec<Site> {
+    fn sites(&self, at: usize) -> Vec<Site> {
         let facts = self.facts(at);
         if !facts.evaluates {
             return Vec::new();
@@ -97,27 +101,17 @@ impl<'a> Project<'a> {
                     self.dynamic(part, at, found, depth, active);
                 }
             }
-            Expr::Tuple(node) => self.each(&node.elts, at, found, depth, active),
-            Expr::List(node) => self.each(&node.elts, at, found, depth, active),
+            Expr::Tuple(ExprTuple { elts, .. }) | Expr::List(ExprList { elts, .. }) => {
+                for elt in elts {
+                    self.dynamic(elt, at, found, depth, active);
+                }
+            }
             Expr::Starred(node) => self.dynamic(&node.value, at, found, depth, active),
             Expr::BinOp(node) if node.op == Operator::BitOr => {
                 self.dynamic(&node.left, at, found, depth, active);
                 self.dynamic(&node.right, at, found, depth, active);
             }
             other => found.push(other.range()),
-        }
-    }
-
-    pub(super) fn each(
-        &self,
-        parts: &[Expr],
-        at: (usize, ScopeId),
-        found: &mut Vec<TextRange>,
-        depth: usize,
-        active: &mut Active,
-    ) {
-        for part in parts {
-            self.dynamic(part, at, found, depth, active);
         }
     }
 

@@ -37,7 +37,7 @@ pub(super) enum Entity {
     Unknown,
 }
 
-pub(in crate::survey) struct Project<'a> {
+pub(super) struct Project<'a> {
     pub(super) modules: &'a [Module],
     pub(super) by_name: HashMap<&'a str, usize>,
     pub(super) facts: Vec<OnceCell<Facts<'a>>>,
@@ -50,7 +50,7 @@ pub(in crate::survey) struct Project<'a> {
 pub(super) type Active = Vec<(usize, ScopeId, String)>;
 
 impl<'a> Project<'a> {
-    pub(in crate::survey) fn of(modules: &'a [Module]) -> Self {
+    pub(super) fn of(modules: &'a [Module]) -> Self {
         Self {
             modules,
             by_name: modules
