@@ -27,7 +27,7 @@ product page) and `showcase/index.html` (the fixture table).
 1. `fixtures/matrix.json` is the table of every project under `fixtures/`. One key is one fixture directory.
    Each key has one language and one or more runs. A run has a name, a root, an optional config,
    the contract paths and the result that the core gives today.
-2. The pinned result is the exit code, the project verdict, the PASS, FAIL and UNKNOWN rule counts,
+2. (Replaced by AD-1261: the matrix holds the intent, not the result.) The pinned result was the exit code, the project verdict, the PASS, FAIL and UNKNOWN rule counts,
    the scope text, the gap kinds and the refusal kind and message, or no refusal.
    A project that the core refuses is pinned as refused with its exact reason.
    When a collector starts to serve it, the test fails and the author updates the pin in the same change.

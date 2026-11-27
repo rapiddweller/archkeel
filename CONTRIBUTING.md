@@ -131,8 +131,9 @@ repository must be set to GitHub Actions. The gallery has two sections: ArchKeel
 `docs/architecture/architecture-system.json`, an interim,
 [AD-522](docs/architecture/decisions/ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md)),
 with the reports of the Rust core, Python shell and Studio UI (one HTML file and a
-shield endpoint file for each part), and the fixture table. The README links these paths, so do not rename them. `fixtures/matrix.json` pins the
-result of the core for each fixture; a test fails when the result changes. Update the pin in the same change.
+shield endpoint file for each part), and the fixture table. The README links these paths, so do not rename them. `fixtures/matrix.json` states the intent of each
+run (PASS, FAIL or UNKNOWN) and the issue that blocks it when the core differs; it holds no observed
+count. A test fails when the core gives another status than the intent without a named blocker (AD-1261).
 The Python engine built the older gallery and its Pages workflow (`pages.yml`); AD-432 deleted both.
 The Windows wheel job builds and checks the wheel. It also runs the disk-root Rust tests and
 `tests/test_cli_windows_root.py` through the release core. It does not run the full shell suite.

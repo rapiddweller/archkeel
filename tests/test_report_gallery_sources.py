@@ -162,7 +162,6 @@ def test_the_matrix_lists_both_real_projects_with_their_decided_result() -> None
     runs = {run["name"]: run for run in report_gallery.showcase_runs()}
     for name in PINNED:
         assert runs[name]["section"] == "real" and runs[name]["intent"] == pinned[name]
-        assert runs[name]["expect"]["status"] == pinned[name], name
 
 
 def test_the_cache_folder_gets_one_cachedir_tag(tmp_path: Path) -> None:
