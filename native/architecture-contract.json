@@ -622,7 +622,8 @@
         "native.archkeel_model:shape",
         "native.archkeel_model:stable",
         "native.archkeel_model:unused_allowances",
-        "native.archkeel_model:unused_public"
+        "native.archkeel_model:unused_public",
+        "native.archkeel_model:withheld_cause"
       ],
       "decided_by": "architect"
     },
@@ -725,7 +726,6 @@
         "native.archkeel_model.gaps",
         "native.archkeel_model.graph",
         "native.archkeel_model.imports",
-        "native.archkeel_model.imports_surface",
         "native.archkeel_model.measures",
         "native.archkeel_model.modules",
         "native.archkeel_model.observed",
@@ -1193,8 +1193,10 @@
         "native.archkeel_model.facade_reach:facade_types",
         "native.archkeel_model.interface:interface_crossings",
         "native.archkeel_model.interface:interface_publications",
+        "native.archkeel_model.interface:opaque_surface",
         "native.archkeel_model.interface:publishes",
         "native.archkeel_model.interface:receipt",
+        "native.archkeel_model.interface:withheld_cause",
         "native.archkeel_model.placement:unused_allowances",
         "native.archkeel_model.placement:violations",
         "native.archkeel_model.published:Unused",
@@ -1412,7 +1414,6 @@
           "through": [
             "native.archkeel_model.graph",
             "native.archkeel_model.imports",
-            "native.archkeel_model.imports_surface",
             "native.archkeel_model.modules",
             "native.archkeel_model.symbols"
           ]
@@ -1431,6 +1432,13 @@
           "through": [
             "native.archkeel_model.scope",
             "native.archkeel_model.verdict"
+          ]
+        },
+        {
+          "component": "model-match",
+          "rationale": "Name the cause that an import states for a module whose symbol records are withheld (#2089).",
+          "through": [
+            "native.archkeel_model.interface"
           ]
         }
       ],
@@ -2821,7 +2829,8 @@
             "native.archkeel_model:facade_types",
             "native.archkeel_model:in_scope",
             "native.archkeel_model:publishes",
-            "native.archkeel_model:unused_allowances"
+            "native.archkeel_model:unused_allowances",
+            "native.archkeel_model:withheld_cause"
           ]
         },
         {
@@ -2862,8 +2871,7 @@
           "through": [
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph",
-            "native.archkeel_model.imports",
-            "native.archkeel_model.imports_surface"
+            "native.archkeel_model.imports"
           ]
         },
         {

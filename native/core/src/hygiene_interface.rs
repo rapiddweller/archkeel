@@ -28,7 +28,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use archkeel_contract::policy::InsideMount;
 use archkeel_contract::Component;
-use archkeel_model::{facade_types, publishes, ComponentId, Import, Model, ModelTree};
+use archkeel_model::{
+    facade_types, publishes, withheld_cause, ComponentId, Import, Model, ModelTree,
+};
 
 use crate::hygiene_refs::Finding;
 
@@ -155,9 +157,7 @@ fn block(record: &Import) -> &'static str {
     } else if record.unbound_type() {
         "unbound_type"
     } else if record.symbol().is_some() && record.reexport_chain().is_empty() {
-        record
-            .withheld_cause()
-            .map_or("not_stated", |(word, _)| word)
+        withheld_cause(record).map_or("not_stated", |(word, _)| word)
     } else {
         "other_symbol"
     }
@@ -180,8 +180,7 @@ fn import_seen(seen: &[&&Import]) -> String {
         .iter()
         .min_by_key(|r| (r.source_module(), r.symbol()))
         .map(|record| {
-            let at = record
-                .withheld_cause()
+            let at = withheld_cause(record)
                 .and_then(|(_, at)| at)
                 .map(|at| format!(" ({at})"))
                 .unwrap_or_default();

@@ -327,6 +327,26 @@ pub fn publishes(
     })
 }
 
+/// The word of the cause that the collector states for the withheld route of an import
+/// (AD-1210), and the module or hop that it names, when it names one (#2089).
+pub fn withheld_cause(import: &Import) -> Option<(&'static str, Option<&str>)> {
+    let (cause, at) = import.route_withheld()?;
+    Some((cause.as_str(), at.as_deref()))
+}
+
+/// The module whose surface the collector cannot read, and the word of the cause, when the import
+/// states one: `unread_all`, `outside_write` or `escaped`. The survey writes no symbol record for
+/// such a module (#2089).
+pub(crate) fn opaque_surface(import: &Import) -> Option<(&str, &'static str)> {
+    use archkeel_facts::vocab::RouteWithheld::{Escaped, OutsideWrite, UnreadAll};
+    match import.route_withheld()? {
+        (cause @ (UnreadAll | OutsideWrite | Escaped), Some(module)) => {
+            Some((module.as_str(), cause.as_str()))
+        }
+        _ => None,
+    }
+}
+
 impl Import {
     /// Why the collector withholds the route of this import, when it states a cause (#2086).
     pub fn route_withheld(&self) -> Option<&(RouteWithheld, Option<String>)> {

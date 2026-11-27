@@ -14,6 +14,7 @@
 use archkeel_contract::{Entity, EntityKind, PresenceKind, Relationship, RelationshipKind};
 use archkeel_contract::{ResolutionKind, Target};
 
+use crate::interface::opaque_surface;
 use crate::symbols::{self, Symbols};
 use crate::uml_facts::{entity, word, Assessed, Facts, UmlDiff};
 
@@ -133,7 +134,7 @@ fn absent(facts: &Facts<'_>, symbol: &str) -> String {
         graph
             .imports()
             .iter()
-            .filter_map(|import| import.opaque_surface())
+            .filter_map(opaque_surface)
             .find_map(|(module, word)| (module == name).then_some(word))
     });
     match (module, cause) {
