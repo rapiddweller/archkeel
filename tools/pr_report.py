@@ -75,9 +75,9 @@ def steps(base: str) -> list[Step]:
             "run `cd native && cargo fmt --all`",
         ),
         Step(
-            "rust-clones-and-api",
-            (*PYTEST, "tests/test_rust_clones.py", "tests/test_rust_api.py"),
-            "share the code of a clone; never add it to native/clone_baseline.json",
+            "rust-api",
+            (*PYTEST, "tests/test_rust_api.py"),
+            "the public Rust API changed: update native/api_baseline.json with the tool",
         ),
         Step("types", ("make", "typecheck"), "fix the mypy findings", HEAVY),
         Step(
@@ -89,7 +89,7 @@ def steps(base: str) -> list[Step]:
         Step(
             "native-lint",
             ("make", "pr-native-lint", f"PR_BASE={base}"),
-            "clippy `-D warnings` for the touched crates, then the clone and API gates",
+            "clippy `-D warnings` for the touched crates, then the API gate",
             HEAVY,
         ),
         Step(

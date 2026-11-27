@@ -146,7 +146,6 @@ HEAVY_FILES = frozenset(
         "test_native_self_core_rows.py",
         "test_native_self_rules.py",
         "test_parallel_execution.py",
-        "test_rust_clones.py",
     }
 )
 
