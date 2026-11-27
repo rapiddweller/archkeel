@@ -82,6 +82,9 @@ pub(super) struct Scope<'a> {
     pub(super) stars: Vec<String>,
     pub(super) globals: HashSet<String>,
     pub(super) nonlocals: HashSet<String>,
+    /// The names that the scope binds with a value on a path that always runs (no `if`, loop,
+    /// `try` or `match` around): only these override what a base class gives.
+    pub(super) sure: HashSet<String>,
 }
 
 pub(super) struct Call<'a> {
@@ -132,47 +135,21 @@ impl<'a> Scope<'a> {
             stars: Vec::new(),
             globals: HashSet::new(),
             nonlocals: HashSet::new(),
+            sure: HashSet::new(),
         }
     }
 }
 
 impl<'a> Facts<'a> {
-    /// The scopes that bind `id` for code in `scope`. A `global` declaration reads the module, a
-    /// `nonlocal` one skips its scope; a class scope is read only by its own body, and before its own assignment the outer name is read. The text of a
-    /// quoted annotation reads the module and its class, in either order: `get_type_hints` of a
-    /// class tries the module first, other evaluators the class first.
+    /// Every scope that binds `id` and that code in `scope` can read: the scopes of its lexical
+    /// chain (the module last), a class scope too. Python reads one of them, by rules that the
+    /// order of the statements, `global`, `nonlocal`, a class body and the evaluator change; the
+    /// rule takes all, so it holds when each is clean.
     pub(super) fn holders(&self, scope: ScopeId, id: &str) -> Vec<ScopeId> {
-        let start = scope & !TEXT;
-        let has = |at: &ScopeId| self.scopes[*at].names.contains_key(id);
-        if scope & TEXT != 0 {
-            let class = (self.scopes[start].kind == Kind::Class).then_some(start);
-            return class.into_iter().chain([0]).filter(has).collect();
-        }
-        let mut holders = Vec::new();
-        let mut up = Some(start);
-        while let Some(at) = up {
-            let scope = &self.scopes[at];
-            if scope.globals.contains(id) {
-                holders.extend([0].into_iter().filter(has));
-                break;
-            }
-            let skipped =
-                scope.nonlocals.contains(id) || (scope.kind == Kind::Class && at != start);
-            let bound = !skipped && has(&at);
-            if bound {
-                holders.push(at);
-            }
-            // A class body that assigns the name reads the module, not a function local.
-            let class = bound && scope.kind == Kind::Class;
-            if class {
-                holders.extend([0].into_iter().filter(has));
-            }
-            if bound {
-                break;
-            }
-            up = scope.parent;
-        }
-        holders
+        let chain = std::iter::successors(Some(scope & !TEXT), |at| self.scopes[*at].parent);
+        chain
+            .filter(|at| self.scopes[*at].names.contains_key(id))
+            .collect()
     }
 
     /// The first scope of `holders`: for a read that needs one scope (a receiver of a write).
@@ -222,4 +199,17 @@ impl Facts<'_> {
             calls: Vec::new(),
         }
     }
+}
+
+/// The walk that fills `Facts` (`hazards_annotation_scopes.rs`).
+pub(super) struct Build<'a, 'm> {
+    pub(super) facts: Facts<'a>,
+    pub(super) current: ScopeId,
+    pub(super) package: &'m str,
+    /// The namespace expressions that the parent only reads.
+    pub(super) blessed: HashSet<TextRange>,
+    /// The depth of `if`, loop, `try` and `match` bodies around the statement in its scope.
+    pub(super) branch: usize,
+    /// Inside the signature of a function: its annotations are evaluated.
+    pub(super) signature: bool,
 }

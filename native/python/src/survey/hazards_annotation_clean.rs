@@ -386,7 +386,7 @@ impl<'a> Project<'a> {
         }
         let parent = scope.parent.unwrap_or(0);
         let bases = class.arguments.iter().flat_map(|a| &a.args);
-        let stored_here = own.iter().any(|b| !matches!(b, Binding::Absent));
+        let stored_here = scope.sure.contains(attr);
         for base in bases.filter(|_| !stored_here) {
             found.push(match self.path(base, m, parent, depth + 1, active) {
                 Entity::Standard(path) => Entity::Standard(format!("{path}.{attr}")),

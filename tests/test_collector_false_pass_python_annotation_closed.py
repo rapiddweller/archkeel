@@ -564,6 +564,47 @@ SCOPES = {
             x: C.s
         """
     ),
+    "inherited string behind a conditional assignment": source(
+        """
+        class B:
+            s = str(PAYLOAD)
+
+
+        class C(B):
+            if False:
+                s = 'int'
+
+
+        class K:
+            x: C.s
+        """
+    ),
+    "receiver shadowed later in a class body": source(
+        """
+        import contextlib
+
+
+        class Patch:
+            contextlib.AbstractContextManager = PAYLOAD
+            import inspect as contextlib
+
+
+        class K:
+            x: contextlib.AbstractContextManager
+        """
+    ),
+    "receiver shadowed by a comprehension target": source(
+        """
+        import contextlib
+        import inspect as m
+
+        [None for m in [contextlib] for m.AbstractContextManager in [PAYLOAD]]
+
+
+        class K:
+            x: contextlib.AbstractContextManager
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

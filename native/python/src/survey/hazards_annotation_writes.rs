@@ -34,7 +34,7 @@ impl<'a> Project<'a> {
     }
 
     /// The dotted module that all `bindings` name, if they agree.
-    fn agree(&self, m: usize, bindings: &[Binding<'a>], depth: usize) -> Option<String> {
+    fn agree(&self, m: usize, bindings: Vec<&Binding<'a>>, depth: usize) -> Option<String> {
         let paths: Vec<Option<String>> = bindings
             .iter()
             .map(|b| match b {
@@ -70,8 +70,10 @@ impl<'a> Project<'a> {
             }
             Expr::Name(node) => {
                 let facts = self.facts(m);
-                let at = facts.holder(scope, node.id.as_str())?;
-                self.agree(m, &facts.scopes[at].names[node.id.as_str()], depth)
+                let id = node.id.as_str();
+                let holders = facts.holders(scope, id);
+                let all = holders.iter().flat_map(|at| &facts.scopes[*at].names[id]);
+                self.agree(m, all.collect(), depth)
             }
             _ => None,
         }
@@ -108,7 +110,7 @@ impl<'a> Project<'a> {
             let facts = self.facts(at);
             let home = facts.holder(0, name)?;
             let bindings = facts.scopes[home].names.get(name)?;
-            self.agree(at, bindings, depth + 1)
+            self.agree(at, bindings.iter().collect(), depth + 1)
         });
         match named {
             Some(next) if depth < 8 && next != path => self.canonical(next, depth + 1),
