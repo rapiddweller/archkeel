@@ -17,6 +17,8 @@
 **Not changed.** The area floors, the base comparison of `make self-check`, and the fixture matrix.
 
 **Done.**
-- Clone baseline: this pull request.
+- Clone baseline: #2177.
 - Table overlap: #2180.
 - Size and length: #2186. `tools/file_size.py` stays: `make self-check` reads it to print sizes.
+- Suppressions, conventions, textual callers: #2193.
+- API ledger: the last pull request of the series. `tools/rust_source.py` stays: the native self-rule tests read it.

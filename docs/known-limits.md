@@ -930,18 +930,6 @@ The crate reads, writes and binds an amendment (`policy::parse_amendment`, `poli
 
 The baseline codec reads schemas 1.0.0 through 1.4.0 ([AD-386](architecture/decisions/ad-386-the-contract-crate-reads-and-writes-baselines.md), [AD-546](architecture/decisions/ad-546-a-baseline-accepts-an-unknown-by-what-it-is-and-the-core-compares-it-both-ways.md)). It writes 1.4.0 for a run and 1.3.0 for a file that has no `unknowns` list. It keeps every entry and the permissive Python string rules. It refuses repeated JSON keys, lone surrogates, numbers outside its integer range, nesting deeper than 128 and files over 16 MiB. `validate --baseline` and `--write-baseline` use it. The core measures only `cycle_edges` and `private_crossings`. The three call and typing budgets are `budget.unmeasured` until slice D. The HTML report does not mark accepted entries. A TypeScript parser gap and a Dart file gap give their position in the reason, and the key drops a trailing `at line N` or `:N` by the text.
 
-The API list of `tools/rust_api.py` expands the `macro_rules!` calls of a crate before it counts
-(`tools/rust_macros.py`, [#1048](https://github.com/rapiddweller/archkeel/issues/1048)). A call that
-it cannot expand, an exported macro and a name with two definitions are lines `unexpanded` in
-`native/api_baseline.json`. A macro of another crate, of the standard library, and a proc macro
-(attribute or derive) are not expanded. A call by a path is expanded when the path starts at `crate`,
-`self`, `super` or a module of the crate; a path through an alias or an extern crate with a name that
-a local macro has is a line `unexpanded`. A macro that a macro call defines serves the later calls of
-the same file only; a transcribed `$name` that the call does not bind (a variable of the inner
-definition) is a line `unexpanded`. A call under `#[cfg(...)]` counts as if the configuration were on,
-like any other item of the list. Two `pub fn` of the same name in two `impl` blocks of one
-file are two equal lines, so a move between the two blocks does not show (AD-382).
-
 The system-access test of the core side (AD-382) is a text scan. It does not see an access
 through another crate, a method on a value of a type that it does not name (except the file
 methods of `Path` by name), a macro such as `eprintln!` or `include_str!`, or an io trait method.
