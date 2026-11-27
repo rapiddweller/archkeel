@@ -291,6 +291,8 @@ namespace that does not resolve to the scan root are not seen. `insert` and each
 `sys.path` stay the gap of the whole run. A read of `sys.path` as the source of a loop or a
 comprehension, or as a subscript read, is no gap. Comparisons keep the gap (AD-894).
 
+**Runtime writes by outside Python files (#2174, P3, known limit, no rule).** Runtime writes by Python files outside the scan roots are not examined; ArchKeel checks the committed state.
+
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 
 A use of a name through a module object (`import app.lib` then `app.lib._priv.secret()`) is the
