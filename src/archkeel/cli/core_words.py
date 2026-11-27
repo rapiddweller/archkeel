@@ -46,6 +46,7 @@ GAP_KINDS: Final = {
     "responsibility.missing": "a component without a written responsibility",
     "rationale.placeholder": "a rationale that is still a placeholder",
     "graph.drift": "a drawn component graph that differs from the imports",
+    "graph.needs_facts": "a drawn edge that only compiler facts can confirm (the scan has none)",
     "unused_allowance": "an exception of a rule that matches nothing (it protects nothing)",
     "trojan_horse_reach.declared": (
         "a trojan horse whose reach the contract declares (a premise, not a proof)"
