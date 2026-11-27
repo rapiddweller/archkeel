@@ -8,6 +8,17 @@
 use crate::type_reach_facts::{Facts, Names, Parts, SelectedFacts};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// What the configuration knows of the resolved method calls at one place (AD-1185): the files of the callees, the files
+/// that the type arguments can run, whether an argument is open, and whether a library unit holds the place. A plain value.
+pub(crate) struct Place {
+    pub(crate) callees: BTreeSet<Option<String>>,
+    pub(crate) touch: BTreeSet<String>,
+    pub(crate) open: bool,
+    pub(crate) library: bool,
+}
+
+type Callees = BTreeMap<(String, i64, i64), Place>;
+
 /// The reach model of one configuration. `known` names the modules that the scan uses: a rustc module
 /// belongs to the longest of these that is a prefix of its path (an inline `mod tests` joins its file).
 pub struct Reach<'f> {
@@ -24,6 +35,10 @@ pub struct Reach<'f> {
     pub(crate) parts: Parts,
     /// The selected impls whose two ends are scan modules, with the scan names (AD-1136).
     pub(crate) selected: Vec<SelectedFacts>,
+    /// The file that holds the callee of each resolved method call at a place (file, line, column): `None` for a
+    /// foreign callee. Two callees at one place stay both, and a place that only test code holds is kept for the
+    /// veto alone (AD-1185).
+    pub(crate) callees: Callees,
 }
 
 impl<'f> Reach<'f> {
@@ -91,8 +106,23 @@ impl<'f> Reach<'f> {
             })
             .filter(|s| s.from != s.to && known.contains(&s.from) && known.contains(&s.to))
             .collect();
+        let mut callees = Callees::new();
+        for c in &facts.calls {
+            let key = (c.file.clone(), c.line, c.column);
+            let entry = callees.entry(key).or_insert_with(|| Place {
+                callees: BTreeSet::new(),
+                touch: BTreeSet::new(),
+                open: false,
+                library: false,
+            });
+            entry.callees.insert(c.callee_file.clone());
+            entry.touch.extend(c.touch.iter().cloned());
+            entry.open |= c.open;
+            entry.library |= !c.test;
+        }
         let mut reach = Reach {
             selected,
+            callees,
             facts,
             inst: BTreeMap::new(),
             coerced: BTreeMap::new(),

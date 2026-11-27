@@ -45,8 +45,18 @@ NATIVE_UNKNOWN = (
 # here; a stale edge is a `graph.drift` and is never added.
 NATIVE_COMPILER_ONLY_EDGES = (
     "core-baseline->report-payload",
+    "core-contract->model-uml",
+    "core-engine->eval-violation",
     "core-engine->model-terms",
+    "core-frame->model-graph",
+    "core-frame->report-frame",
+    "core-frame->report-ruling",
+    "core-hygiene->model-match",
     "eval-rules->model-match",
+    "eval-rules->model-terms",
+    "report-ruling->model-selection",
+    "report-ruling->model-terms",
+    "report-ruling->model-uml",
 )
 NATIVE_SELF_STATUS = (2, "UNKNOWN") if NATIVE_UNKNOWN else (0, "PASS")
 SHELL_SELF_STATUS = (0, "PASS")

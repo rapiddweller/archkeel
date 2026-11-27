@@ -7,7 +7,7 @@
 // Consumer: the trait-impl, destructor and receiver gaps of `impl_flow` (AD-1047).
 
 use crate::type_reach_facts::{Facts, Names, SelectedFacts};
-use crate::type_reach_fold::Reach;
+use crate::type_reach_fold::{Place, Reach};
 use crate::type_reach_model::{Mode, Verdict};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -74,6 +74,39 @@ impl<'f> Filter<'f> {
             .iter()
             .filter(|s| others.iter().all(|set| set.contains(&key(s))));
         kept.filter(|s| seen.insert(key(s))).collect()
+    }
+
+    /// True when the compiler resolved the method call at `(file, line, column)` to a function that another file than
+    /// `target` holds, and no type argument of the call can run code of `target`: the call cannot reach a method in
+    /// the file of the target (AD-1185). Every configuration must hold the place in a library unit with the same
+    /// callee, and no argument may be open, or defined in `target`, or carry an impl from it.
+    pub(crate) fn resolved_elsewhere(
+        reach: Option<&Filter<'_>>,
+        target: &str,
+        (file, line, column): (&str, i64, i64),
+    ) -> bool {
+        let Some(this) = reach else {
+            return false;
+        };
+        let key = (file.to_owned(), line, column);
+        let mut places = this
+            .models
+            .iter()
+            .map(|m| m.callees.get(&key).filter(|p| p.library));
+        let Some(Some(first)) = places.next() else {
+            return false;
+        };
+        let mut one = first.callees.iter();
+        let (Some(callee), None) = (one.next(), one.next()) else {
+            return false;
+        };
+        let same = |p: Option<&Place>| {
+            p.is_some_and(|p| p.callees.len() == 1 && p.callees.contains(callee))
+        };
+        let all: Vec<Option<&Place>> = std::iter::once(Some(first)).chain(places).collect();
+        let held = all.iter().copied().all(same);
+        let runs = |p: &Place| p.open || p.touch.contains(target);
+        held && callee.as_deref() != Some(target) && !all.iter().flatten().any(|p| runs(p))
     }
 
     /// True when no body of `a` can hold the self type of an impl of `b` that runs code.

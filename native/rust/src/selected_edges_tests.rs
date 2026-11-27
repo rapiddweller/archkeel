@@ -227,3 +227,198 @@ fn configurations_that_select_the_impl_in_different_files_give_no_edge() {
     ]));
     assert!(selected(&found).is_empty());
 }
+
+const A_M: &str = "pub fn f() { crate::c::make().m(); }\n";
+const B_M: &str = "pub struct S;\nimpl S { pub fn m(&self) {} }\n";
+const C_M: &str = "pub fn make() -> crate::b::S { crate::b::S }\n";
+
+fn collect_methods(announce: Announced) -> Collected {
+    let tree = Tree::new(&[
+        ("crates/Cargo.toml", WORKSPACE),
+        ("crates/base/Cargo.toml", BASE),
+        ("crates/base/src/lib.rs", "pub fn f() {}"),
+        ("crates/app/Cargo.toml", APP),
+        (
+            "crates/app/src/lib.rs",
+            "pub mod a;\npub mod b;\npub mod c;\n",
+        ),
+        ("crates/app/src/a.rs", A_M),
+        ("crates/app/src/b.rs", B_M),
+        ("crates/app/src/c.rs", C_M),
+    ]);
+    let request = RustRequest {
+        protocol_version: Version::V8,
+        snapshot: Snapshot {
+            root: tree.path(),
+            git_head: "a".repeat(40),
+            dirty: Dirty::Known(false),
+        },
+        scope: Scope {
+            roots: vec!["crates".to_owned()],
+            namespace: "ns".to_owned(),
+            exclude_test_sources: Some(false),
+        },
+        resolver: RustSettings {},
+    };
+    let provenance = Provenance::native(Profile::Rust, ("1", "d"), ("1.88.0", "1.88"));
+    crate::collect::collect_with(&request, provenance, |_, _| announce)
+}
+
+/// The record of a resolved method call at the method name of `A_M`, plus a column shift.
+fn call(to: &str, callee_file: &str, shift: usize) -> String {
+    call_with(to, callee_file, shift, ("[]", false))
+}
+
+/// The same record with the files that the type arguments touch, and whether an argument is open.
+fn call_with(to: &str, callee_file: &str, shift: usize, (touch, open): (&str, bool)) -> String {
+    let col = A_M.find("m()").unwrap() + shift;
+    let open = if open { "6" } else { "null" };
+    format!(
+        "{{\"k\":\"call\",\"from\":0,\"to\":{to},\"callee\":6,\"file\":3,\"callee_file\":{callee_file},\"touch\":{touch},\"open\":{open},\"line\":1,\"col\":{col}}}"
+    )
+}
+
+fn method_gap(found: &Collected) -> bool {
+    found.gaps.iter().any(|gap| {
+        gap.title
+            .contains("method m of a type in its own file ns.app.b")
+    })
+}
+
+fn edges_to(found: &Collected, target: &str) -> usize {
+    let edges = selected(found);
+    edges
+        .iter()
+        .filter(|r| r.data.data().target_module.as_str() == target)
+        .count()
+}
+
+#[test]
+fn an_unresolved_receiver_call_keeps_its_method_gap() {
+    let found = collect_methods(announced(false, &[]));
+    assert!(method_gap(&found), "the baseline holds the gap a -> b");
+}
+
+#[test]
+fn a_call_that_the_compiler_resolved_outside_the_workspace_drops_the_gap() {
+    let found = collect_methods(announced(false, &[&call("null", "null", 0)]));
+    assert!(!method_gap(&found));
+    assert!(selected(&found).is_empty(), "a foreign callee is no edge");
+}
+
+#[test]
+fn a_call_resolved_to_another_module_drops_the_gap_and_is_an_edge() {
+    let found = collect_methods(announced(false, &[&call("2", "10", 0)]));
+    assert!(!method_gap(&found));
+    assert_eq!(edges_to(&found, "ns.app.c"), 1);
+}
+
+#[test]
+fn a_callee_in_the_file_of_the_candidate_keeps_the_gap_whatever_its_module_name() {
+    // The module name of the callee maps to `c`, but the file is `b.rs`: only the file is verified.
+    let found = collect_methods(announced(false, &[&call("2", "9", 0)]));
+    assert!(method_gap(&found));
+}
+
+#[test]
+fn a_call_resolved_to_the_candidate_keeps_the_gap_and_is_an_edge() {
+    let found = collect_methods(announced(false, &[&call("1", "9", 0)]));
+    assert!(method_gap(&found), "the named use of b stays held");
+    assert_eq!(edges_to(&found, "ns.app.b"), 1);
+}
+
+#[test]
+fn a_call_at_another_place_or_in_a_test_unit_keeps_the_gap() {
+    let moved = collect_methods(announced(false, &[&call("null", "null", 1)]));
+    assert!(method_gap(&moved), "another column is another call");
+    let test = collect_methods(announced(true, &[&call("null", "null", 0)]));
+    assert!(
+        method_gap(&test),
+        "a place that only test code holds decides nothing"
+    );
+}
+
+#[test]
+fn every_configuration_must_resolve_the_call_to_the_same_callee() {
+    let foreign = call("null", "null", 0);
+    let both = announced_in(vec![
+        facts_of(false, &[&foreign]),
+        facts_of(false, &[&foreign]),
+    ]);
+    assert!(!method_gap(&collect_methods(both)));
+    let lacking = announced_in(vec![facts_of(false, &[&foreign]), facts_of(false, &[])]);
+    assert!(
+        method_gap(&collect_methods(lacking)),
+        "a feature can drop the call"
+    );
+    let other = announced_in(vec![
+        facts_of(false, &[&foreign]),
+        facts_of(false, &[&call("2", "10", 0)]),
+    ]);
+    assert!(
+        method_gap(&collect_methods(other)),
+        "a feature can change the callee"
+    );
+}
+
+/// The facts of one configuration that holds a library unit and a test unit.
+fn units(library: &[&str], test: &[&str]) -> Facts {
+    let mut facts = facts_of(false, library);
+    let mut lines = vec![
+        "{\"k\":\"build\",\"test\":true}".to_owned(),
+        format!("{{\"k\":\"str\",\"v\":{TABLE}}}"),
+    ];
+    lines.extend(test.iter().map(|r| (*r).to_owned()));
+    facts.absorb(&lines.join("\n")).unwrap();
+    facts
+}
+
+#[test]
+fn a_test_unit_that_names_another_callee_vetoes_the_decision() {
+    let same = call("null", "null", 0);
+    let found = collect_methods(announced_in(vec![units(&[&same], &[&same])]));
+    assert!(
+        !method_gap(&found),
+        "a test unit with the same callee agrees"
+    );
+    let other = call("1", "9", 0);
+    let found = collect_methods(announced_in(vec![units(&[&same], &[&other])]));
+    assert!(
+        method_gap(&found),
+        "under `cfg(test)` the call runs the candidate"
+    );
+}
+
+#[test]
+fn a_type_argument_that_can_run_the_candidate_keeps_the_gap() {
+    // `Map<Once<()>, impl FnMut>`: the callee is `core`, but the closure is defined in `b.rs` (file 9).
+    let touching = call_with("null", "null", 0, ("[9]", false));
+    assert!(method_gap(&collect_methods(announced(false, &[&touching]))));
+    let unrelated = call_with("null", "null", 0, ("[10]", false));
+    assert!(!method_gap(&collect_methods(announced(
+        false,
+        &[&unrelated]
+    ))));
+    let open = call_with("null", "null", 0, ("[]", true));
+    assert!(
+        method_gap(&collect_methods(announced(false, &[&open]))),
+        "an open argument proves nothing"
+    );
+    let other = announced_in(vec![
+        facts_of(false, &[&unrelated]),
+        facts_of(false, &[&touching]),
+    ]);
+    assert!(
+        method_gap(&collect_methods(other)),
+        "one configuration is enough"
+    );
+}
+
+#[test]
+fn an_open_record_of_a_test_unit_vetoes_the_decision() {
+    // A place that a test unit reaches through a trait object has an open record: the library cannot decide alone.
+    let same = call("null", "null", 0);
+    let open = call_with("null", "null", 0, ("[]", true));
+    let found = collect_methods(announced_in(vec![units(&[&same], &[&open])]));
+    assert!(method_gap(&found));
+}

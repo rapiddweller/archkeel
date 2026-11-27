@@ -343,8 +343,8 @@ fn root(
     let compiler_only = if models.root().used_compiler_facts() {
         BTreeSet::new()
     } else {
-        let execution = models.root().execution_pair_gaps();
-        hygiene_pairs::compiler_only(contract, &observed, execution)
+        let resolvable = models.root().resolvable_pair_gaps();
+        hygiene_pairs::compiler_only(contract, &observed, resolvable)
     };
     let edges = (&observed, &unconfirmed, &compiler_only);
     for (code, subject, claim) in hygiene_graph::findings(&texts, edges, &permitted) {

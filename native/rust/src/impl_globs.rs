@@ -457,3 +457,26 @@ pub(super) fn aliases(module: &Module) -> impl Iterator<Item = &str> {
     });
     aliases.chain(renames)
 }
+
+pub(crate) fn build_ingress(builder: &Builder, index: &Index<'_>, modules: &[Module]) -> BitSet {
+    let mut names = builder.opaque_values.clone();
+    names.extend(
+        modules
+            .iter()
+            .filter(|module| module.scan.has_static)
+            .map(|module| module.module.clone()),
+    );
+    let count = builder.interned_count();
+    let mut bits = BitSet::new(count);
+    if names.is_empty() {
+        return bits;
+    }
+    for raw in 0..count {
+        let id = u32::try_from(raw).unwrap_or(u32::MAX);
+        let module = builder.interned_text(id);
+        if names.contains(index.file_of(module).unwrap_or(module)) {
+            bits.set(id);
+        }
+    }
+    bits
+}
