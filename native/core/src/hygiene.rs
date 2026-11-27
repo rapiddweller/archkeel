@@ -18,7 +18,7 @@
 //! A row only holds back a PASS: it never makes a verdict. Only the scan request reads the
 //! repository, so only a scan run has the documents.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 
 use archkeel_contract::policy::{self, InsideMount};
@@ -336,10 +336,17 @@ fn root(
         };
         texts.push((reference, text));
     }
-    let permitted: std::collections::BTreeSet<Pair> = hygiene_pairs::permitted(contract);
+    let permitted: BTreeSet<Pair> = hygiene_pairs::permitted(contract);
     let dropped = models.root().dropped_pair_gaps();
     let unconfirmed = hygiene_pairs::unconfirmed(contract, &observed, dropped);
-    let edges = (&observed, &unconfirmed);
+    // AD-1212: a scan without compiler facts cannot see the edges that only the compiler proves.
+    let compiler_only = if models.root().used_compiler_facts() {
+        BTreeSet::new()
+    } else {
+        let execution = models.root().execution_pair_gaps();
+        hygiene_pairs::compiler_only(contract, &observed, execution)
+    };
+    let edges = (&observed, &unconfirmed, &compiler_only);
     for (code, subject, claim) in hygiene_graph::findings(&texts, edges, &permitted) {
         found.defect(path, (code, "/components".to_owned(), subject, claim));
     }

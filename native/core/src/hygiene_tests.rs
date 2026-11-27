@@ -13,7 +13,8 @@ use serde_json::{json, Value};
 
 use super::check;
 use crate::contract::{answer, ContractInput};
-use crate::hygiene_pairs::{closed_world, permitted};
+use crate::hygiene_graph::Pair;
+use crate::hygiene_pairs::{closed_world, compiler_only, permitted};
 use crate::provenance::Documents;
 
 const PAGE: &str = "# Page\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n```\n";
@@ -201,4 +202,23 @@ fn only_a_path_in_normal_form_is_read() {
     ] {
         assert!(!normal(path), "{path}");
     }
+}
+
+#[test]
+fn a_compiler_only_edge_joins_two_owned_components_and_is_not_observed() {
+    // AD-1212: the gap of an executed impl names a pair of modules. Only a pair that two different
+    // components own, and that the code does not show as an edge, can wait for compiler facts.
+    let contract = contract(vec![component("a", &[]), component("b", &[])], Vec::new());
+    let edge = |from: &str, to: &str| -> Pair { (from.to_owned(), to.to_owned()) };
+    let gaps = [
+        ("app.a.x", "app.b.y"),
+        ("app.a.x", "app.a.z"),
+        ("app.a.x", "outside.m"),
+        ("app.b.y", "app.a.x"),
+    ];
+    let found = compiler_only(&contract, &BTreeSet::new(), gaps.into_iter());
+    assert_eq!(found, BTreeSet::from([edge("a", "b"), edge("b", "a")]));
+    let observed = BTreeSet::from([edge("b", "a")]);
+    let found = compiler_only(&contract, &observed, gaps.into_iter());
+    assert_eq!(found, BTreeSet::from([edge("a", "b")]));
 }

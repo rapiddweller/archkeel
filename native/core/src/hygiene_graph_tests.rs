@@ -32,10 +32,14 @@ fn codes(
         .map(|(path, body)| ((*path).to_owned(), body.clone()))
         .collect();
     let observed = pairs(observed);
-    findings(&documents, (&observed, &BTreeMap::new()), &pairs(permitted))
-        .into_iter()
-        .map(|(code, subject, _)| format!("{code} {subject}"))
-        .collect()
+    findings(
+        &documents,
+        (&observed, &BTreeMap::new(), &BTreeSet::new()),
+        &pairs(permitted),
+    )
+    .into_iter()
+    .map(|(code, subject, _)| format!("{code} {subject}"))
+    .collect()
 }
 
 #[test]
@@ -206,7 +210,7 @@ fn held(page: String, observed: &[(&str, &str)], unconfirmed: &[(&str, &str)]) -
         .iter()
         .map(|(a, b)| (((*a).to_owned(), (*b).to_owned()), format!("ns.{a}")))
         .collect();
-    let edges = (&observed, &unconfirmed);
+    let edges = (&observed, &unconfirmed, &BTreeSet::new());
     findings(&documents, edges, &BTreeSet::new())
         .into_iter()
         .map(|(_, _, claim)| claim)
@@ -257,7 +261,7 @@ fn the_target_graph_holds_no_edge() {
     let unconfirmed = BTreeMap::from([(("a".to_owned(), "b".to_owned()), "ns.a".to_owned())]);
     let found = findings(
         &documents,
-        (&BTreeSet::new(), &unconfirmed),
+        (&BTreeSet::new(), &unconfirmed, &BTreeSet::new()),
         &BTreeSet::new(),
     );
     let drift: Vec<_> = found
@@ -266,4 +270,38 @@ fn the_target_graph_holds_no_edge() {
         .collect();
     assert_eq!(drift.len(), 1);
     assert!(drift[0].2.contains("drawn and not found: a->b"));
+}
+
+fn needs(page: String, observed: &[(&str, &str)], compiler_only: &[(&str, &str)]) -> Vec<String> {
+    let documents = [("d.md".to_owned(), page)];
+    let (observed, compiler_only) = (pairs(observed), pairs(compiler_only));
+    let edges = (&observed, &BTreeMap::new(), &compiler_only);
+    findings(&documents, edges, &BTreeSet::new())
+        .into_iter()
+        .map(|(code, subject, _)| format!("{code} {subject}"))
+        .collect()
+}
+
+#[test]
+fn a_drawn_edge_that_only_compiler_facts_prove_is_named_and_no_drift() {
+    // AD-1212: the scan has no facts and an executed-impl gap joins the components.
+    let page = block(COMPONENT, "    a --> b\n    a --> c\n");
+    assert_eq!(
+        needs(page, &[("a", "c")], &[("a", "b")]),
+        ["graph.needs_facts d.md a->b"]
+    );
+}
+
+#[test]
+fn a_stale_drawn_edge_with_no_gap_is_still_a_drift() {
+    // The counter-example: no code, no gap, so the edge is not compiler-only.
+    let page = block(COMPONENT, "    a --> b\n    a --> d\n");
+    let found = needs(page, &[], &[("a", "b")]);
+    assert_eq!(
+        found,
+        [
+            "graph.needs_facts d.md a->b",
+            "graph.drift d.md (component graph)"
+        ]
+    );
 }
