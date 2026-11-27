@@ -340,7 +340,9 @@ pub(crate) fn method_site<'tcx>(
         return;
     };
     let trait_of = tcx.trait_of_assoc(def);
+    // The operator site of AD-1136 owns `PartialEq::eq`. A dot call `x.eq(y)` still vetoes in a test unit.
     if trait_of.is_some() && trait_of == tcx.lang_items().eq_trait() {
+        unresolved(st, tcx, caller, fn_span);
         return;
     }
     let env = ty::TypingEnv::post_analysis(tcx, owner);
