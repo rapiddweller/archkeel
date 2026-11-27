@@ -177,24 +177,23 @@ no violation. Then the target compares it with the result on the merge base of `
 it in a git worktree (use `BASE_RESULT=<file>` offline). The last line is `self-check gate: GREEN` or
 `self-check gate: RED (exit N)`.
 
-When the gate is red because the result grew (a new gap, a new UNKNOWN reason, a worse rule status or a
-scan of fewer files):
+A new gap is reported, not blocking (AD-1221): the step summary and the log show one line
+`gap growth: <N> items (top kinds ...)`. A gap holds its rule at UNKNOWN, so it never gives a PASS.
+When the gate is red because a rule or scope was lost (a removed rule, a worse rule status, a new UNKNOWN
+reason, a scan of fewer files, a changed `[scan]` table or scope, or an unusable base):
 
 1. Read the first 10 grown items in the log. All items are in `test-artifacts/selfcheck/grown.txt`
    (the PR gate uploads it as the artifact `selfcheck-grown`).
-2. Reduce the growth. For a new field-receiver gap, write the call as a path call
-   (`Type::method(&value)`) or bind a typed local. Run `make self-validate-native` again.
-3. If the growth is intended, ask the lead for the label `ratchet-lead`. It approves growth of the
-   self-check and nothing else. Write one plain line in the PR text:
-   `Ratchet growth: <N> items: <reason>`. N is the printed count. A later push with more growth fails again.
+2. Restore the rule or the scope. For a new field-receiver gap, write the call as a path call
+   (`Type::method(&value)`) or bind a typed local, to keep the growth small.
+3. If the loss is intended, ask the lead for the label `ratchet-lead`. It approves these items and
+   nothing else. The label alone is enough: the PR text has no required line.
 4. A new class of gaps also gets a decision record. A FAIL or a violation has no approval path: fix it.
 
-To test the approval locally, set `RATCHET_LABELED=true` and `RATCHET_BODY_FILE=<file>`. A reworded
-reason or a renamed module shows as the same number of new and removed gaps and needs the approval too.
-The full result is in ignored `test-artifacts/validation-native/result.json`.
+To test the approval locally, set `RATCHET_LABELED=true`. The full result is in ignored `test-artifacts/validation-native/result.json`.
 `make self-validate-shell` checks the Python shell of `src/archkeel` with the contract
 `docs/architecture/target/shell-contract.json` ([shell](docs/architecture/shell.md), AD-478). All rules must
-PASS with no gap and exit code 0, and the rules must equal the rules of the contract. It also compares the rule ids with the contract at the base: a removed rule needs `ratchet-lead` and its own line `Ratchet growth (shell): <N> items: <reason>`. A PR that grows native and removes a shell rule needs both lines, each with its own count (`Ratchet growth: <N> items: <reason>` is the native one).
+PASS with no gap and exit code 0, and the rules must equal the rules of the contract. It also compares the rule ids with the contract at the base: a removed rule needs the label `ratchet-lead`.
 The hygiene test also fails on an untracked local file that is named like a pin (`*expected-gaps*`, `*expected-growth*`, `*shell-expected*`): delete it.
 `make self-validate` runs both checks and the system check. The system check includes the Studio UI
 contract at `studio/architecture-contract.json`. The tools have no architecture contract.
