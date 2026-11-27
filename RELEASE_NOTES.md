@@ -18,7 +18,7 @@ For an EE or CE gate, follow [docs/migration-4-to-5.md](docs/migration-4-to-5.md
 | Baseline file | Schema 1.0.0 to 1.3.0. | Schema 1.4.0. An older file is read, accepts no UNKNOWN, and its call and typing budgets exit 2 (`baseline.budget_of_older_schema`). |
 | `report` output | Saved `architecture.json`, focused reports. | `--output FILE` writes one `html` (default), `json` or `markdown` file. |
 | `archkeel.toml` | `collector_argv` starts your own collector. | `collector_argv` is refused: the core runs only its own collectors. All other `[scan]` keys stay. New keys: `collector_timeout_seconds`, `bundler`, `exclude_test_sources`, `python`, `import_roots_ambiguous`, `rust_type_reach`, `root`. |
-| JSON result | Result schema 7.0 and 8.0. | Starts with `command`, `outcome`, `status`, `exit_code`. A run that decides has a core `frame`. A refusal has `refusal` and no frame. |
+| JSON result | Result schema 7.0 and 8.0. | Starts with `command`, `outcome`, `status`, `exit_code`. A run that decides has a core `frame`. A command refusal has `refusal` and no frame. A collection refusal or a failed file write keeps its frame and also has `refusal`. |
 | Removed schemas | `architecture-graph`, `architecture-report`, `architecture-comparison`, `source-member-inventory` | Not written. |
 | Python API | `archkeel.api`, `archkeel.analyzer`, `archkeel.check`, `archkeel.ir`, `archkeel.host` | Not in the package. Run `archkeel` as a subprocess and read the JSON. |
 | Install | One pure wheel with six runtime dependencies. | Six platform wheels (macOS x86_64 and arm64, manylinux x86_64 and aarch64, musllinux x86_64, Windows x86_64). No runtime dependency. Other platforms need a native build. |
@@ -35,7 +35,7 @@ For an EE or CE gate, follow [docs/migration-4-to-5.md](docs/migration-4-to-5.md
 
 1. Install a platform wheel. Run `archkeel --version`.
 2. Replace each removed command and option in your scripts with the table above. Keep 4.0.1 for `check`, amendments and `--against`.
-3. Read `status` and `exit_code` of the JSON. Treat 1 as FAIL and 2 as not decided.
+3. Read `status`, `outcome` and `exit_code` of the JSON. Exit 1 is FAIL. With `--baseline`, exit 1 is also a difference, a refused run or a file that was not written. Exit 2 is not decided, or a refusal.
 4. Run `archkeel validate --no-init` in CI, so that a missing `archkeel.toml` writes no file.
 5. Write the baseline again: `archkeel validate --write-baseline known-violations.json`. Review the diff. Then run `archkeel validate --baseline known-violations.json`.
 6. Read each UNKNOWN in `frame.gaps`. Fix the cause, or accept it in the baseline.
