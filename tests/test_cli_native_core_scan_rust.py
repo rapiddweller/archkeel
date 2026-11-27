@@ -13,7 +13,14 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from core_support import NATIVE, NATIVE_SELF_STATUS, SUFFIX, copy_native, ensure_target_dir
+from core_support import (
+    NATIVE,
+    NATIVE_COMPILER_ONLY_EDGES,
+    NATIVE_SELF_STATUS,
+    SUFFIX,
+    copy_native,
+    ensure_target_dir,
+)
 from corpus_support import commit_tree, corpus_cases, materialized
 from filelock import FileLock
 from frozen_native import frozen_root as frozen_root
@@ -100,9 +107,15 @@ def test_the_core_scans_its_own_workspace_with_no_shell_reply(
         str(built / f"archkeel-core{SUFFIX}"), "scan", json.dumps(request).encode()
     )
     frame = json.loads(stdout)
-    # AD-418: the core decides each rule of its own contract, so the frame names no part (exit 0).
-    assert code == 0, frame["unsupported"]
-    assert not frame["unsupported"]["rules"]
+    # AD-418: the core decides each rule of its own contract, so the frame names no part, with one
+    # exception (AD-1212). This scan has no compiler facts, so each drawn edge that only the
+    # compiler proves is a named hold. The set is exact: a new stale edge is a `graph.drift` and
+    # fails here, and a new compiler-only edge in `native.md` is added to this set.
+    assert code == 3, frame["unsupported"]
+    place = "hygiene:graph.needs_facts:native/architecture-contract.json/components"
+    assert sorted(frame["unsupported"]["rules"]) == [
+        f"{place}:docs/architecture/native.md {edge}" for edge in NATIVE_COMPILER_ONLY_EDGES
+    ]
     # AD-1064: the status follows the stated UNKNOWN rules of the self-contract.
     assert frame["status"] == NATIVE_SELF_STATUS[1]
     assert frame["self_test"]["collect"]["request"]["resolver"] == {"language": "rust"}
