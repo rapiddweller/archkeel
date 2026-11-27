@@ -95,10 +95,11 @@ aggregate would count as passed.
 | CI: Tests: `<area>` | each push to `main` | `make fast-test AREA="<area>"` |
 | CI: Docs diagrams | each push to `main` | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check` |
-| Pages: Publish the report gallery | each push to `main`, nightly, and dispatch on `main` | `make report-gallery` |
+| Pages: Publish the report gallery | a push to `main` that changes a gallery input (AD-1223), nightly, and dispatch on `main` | `make report-gallery` |
 | CI: All checks passed | each push to `main` | none: it needs every CI job and reports each job time against the budget ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
 | Full: Architecture, build and report checks | nightly, dispatch, release | `make ci-core-check SKIP_TESTS=1`, `make self-validate`, `make mermaid` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
+| Full: Publish the latest main build | nightly and dispatch with `publish`, on `main` only | `python3 tools/publish_main_build.py` after the wheels of Full |
 | Full: Linux: shell and package on Python 3.12 | same as above | `make shell-compat`, then `make build smoke` |
 | Full: Native wheel: `<target>` (six targets) | same as above | `make native-wheel NATIVE_TAG=<tag>` on the target |
 | Full: All Full checks passed | same as above | none: it needs every Full job |
@@ -121,7 +122,7 @@ still gives each area its files and matches the Full job matrix. A change to a `
 (`UV`, `TEST_WORKERS`) does not start Full: the nightly run covers it. Full on `main` checks it
 after the merge. Name a new test file so that an area pattern matches it.
 
-Each push to `main` publishes the report gallery to GitHub Pages
+Each push to `main` that changes a gallery input publishes the report gallery to GitHub Pages
 ([AD-462](docs/architecture/decisions/ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md)).
 The job `publish-gallery` of the workflow `pages.yml` (AD-740; it ran in CI before, and a newer push cancelled it) runs `make report-gallery` and deploys `test-artifacts/gallery`. It is
 not in the needs of `All checks passed`, so a Pages error never fails CI. The Pages source of the
@@ -187,7 +188,7 @@ reason, a scan of fewer files, a changed `[scan]` table or scope, or an unusable
 2. Restore the rule or the scope. For a new field-receiver gap, write the call as a path call
    (`Type::method(&value)`) or bind a typed local, to keep the growth small.
 3. If the loss is intended, ask the lead for the label `ratchet-lead`. It approves these items and
-   nothing else. The label alone is enough: the PR text has no required line.
+   nothing else. The lead then runs the latest PR gate run of the head again: `gh run rerun <id>`. The label alone is enough: the PR text has no required line.
 4. A new class of gaps also gets a decision record. A FAIL or a violation has no approval path: fix it.
 
 To test the approval locally, set `RATCHET_LABELED=true`. The full result is in ignored `test-artifacts/validation-native/result.json`.

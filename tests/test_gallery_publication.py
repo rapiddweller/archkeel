@@ -36,7 +36,7 @@ def test_the_publication_runs_only_for_a_push_or_a_dispatch_on_main() -> None:
     assert condition is not None
     assert condition[1] == "github.ref == 'refs/heads/main'"
     for workflow in WORKFLOWS.glob("*.yml"):
-        if workflow.name not in {"pr-gate.yml", "pr-gate-rerun.yml"}:
+        if workflow.name != "pr-gate.yml":
             assert "pull_request:" not in workflow.read_text().split("\nconcurrency:\n", 1)[0], (
                 workflow.name
             )
@@ -100,7 +100,10 @@ def test_the_release_caller_gives_every_permission_that_a_called_job_asks_for() 
         )
     )
     assert asked
-    assert all(f"      {item}\n" in caller for item in asked)
+    # A caller that gives `write` also gives `read` of the same scope.
+    assert all(
+        f"      {item}\n" in caller or item.replace("read", "write") in caller for item in asked
+    )
 
 
 def test_no_push_cancels_a_publication_and_the_nightly_run_publishes_too() -> None:
@@ -109,7 +112,20 @@ def test_no_push_cancels_a_publication_and_the_nightly_run_publishes_too() -> No
     head = text.split("\njobs:\n", 1)[0]
     assert "\nconcurrency:\n  group: github-pages\n  cancel-in-progress: false\n" in head
     assert "cancel-in-progress: true" not in text
-    assert "push:\n    branches: [main]" in head and "schedule:" in head
+    assert "push:\n    branches: [main]\n    paths:\n" in head and "schedule:" in head
+    # AD-1223: only the inputs of the gallery start a push run; a test or another workflow does not.
+    paths = head.split("    paths:\n", 1)[1].split("  schedule:", 1)[0]
+    for needed in (
+        "native/**",
+        "src/**",
+        "docs/**",
+        "fixtures/**",
+        "tools/**",
+        "Makefile",
+        "uv.lock",
+    ):
+        assert f'      - "{needed}"\n' in paths
+    assert '      - "!docs/architecture/decisions/**"\n' in paths and "tests/" not in paths
     assert "publish-gallery" not in (WORKFLOWS / "ci.yml").read_text()
 
 
