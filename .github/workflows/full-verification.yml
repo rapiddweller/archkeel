@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish the wheels (not used by Full)"
+        description: "Publish the wheels as the latest main build"
         type: boolean
         default: false
   schedule:
@@ -15,9 +15,11 @@ on:
 permissions:
   contents: read
 
+# AD-1223: a run that can publish the main build has its own group and is never cancelled, so a
+# check run by dispatch cannot stop a publication half way.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ (github.event_name == 'schedule' || inputs.publish) && 'publish' || 'check' }}
+  cancel-in-progress: ${{ !(github.event_name == 'schedule' || inputs.publish) }}
 
 jobs:
   full-suite-and-reports:
@@ -254,6 +256,38 @@ jobs:
 
   native-wheels:
     uses: ./.github/workflows/native-wheels.yml
+
+  # AD-1223: the nightly run builds the six wheels once and publishes them as the latest main build.
+  # A tag run (the release calls Full) has no branch ref and skips this job.
+  publish-main-build:
+    name: Publish the latest main build
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish)
+    needs: native-wheels
+    runs-on: ubuntu-24.04
+    # A started publication runs to its end. The newest waiting publication replaces older waiting ones.
+    concurrency:
+      group: main-build-publish
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the built commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the tested wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: native-wheel-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Publish the tested wheels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/publish_main_build.py
 
   verified:
     name: All Full checks passed

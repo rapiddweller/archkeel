@@ -83,6 +83,13 @@ DIRECT_ONLY = {
 }
 
 
+# The tests share two module fixtures (a copy of the tree and a build directory), so `conftest.py`
+# keeps all tests of a file on one worker: 20 summed minutes on one worker (#2148). Each group below
+# runs on one worker with its own copy. A CI runner has 4 CPUs. The cargo check is deterministic
+# at any parallelism (`--keep-going`, #2124), so the split does not change a result.
+GROUPS = 4
+
+
 def _code(text: str) -> list[tuple[int, str]]:
     """Each code character of `text` with its offset: comments, strings and chars are left out."""
     kept: list[tuple[int, str]] = []
@@ -253,10 +260,15 @@ def _candidates() -> list[Any]:
         if path.name.endswith("_tests.rs") or "/tests/" in relative or path.name == "build.rs":
             continue
         kinds = {is_trait for _, is_trait in _impl_blocks(path.read_text())}
-        found += [
-            pytest.param(relative, kind, id=f"{'trait' if kind else 'inherent'}-impls-{relative}")
-            for kind in sorted(kinds)
-        ]
+        for kind in sorted(kinds):
+            found.append(
+                pytest.param(
+                    relative,
+                    kind,
+                    id=f"{'trait' if kind else 'inherent'}-impls-{relative}",
+                    marks=pytest.mark.xdist_group(f"impl-oracle-{len(found) % GROUPS}"),
+                )
+            )
     return found
 
 
@@ -279,6 +291,12 @@ def test_each_file_that_fails_without_the_impls_of_a_file_is_held_against_it(
     assert not unreached, f"the compiler fails in {unreached} without the impls of {relative}"
     direct_only = [other for other in others if not held.holds(other, relative)]
     assert direct_only == DIRECT_ONLY.get(relative, []), relative
+
+
+def test_the_candidates_run_on_four_workers_and_none_is_left_out() -> None:
+    groups = [mark.args[0] for param in _candidates() for mark in param.marks]
+    assert sorted(set(groups)) == [f"impl-oracle-{number}" for number in range(GROUPS)]
+    assert len(groups) == len(_candidates())
 
 
 def test_the_scanner_finds_the_top_level_impl_blocks_and_their_kind() -> None:
