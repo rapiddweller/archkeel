@@ -139,6 +139,10 @@ pub(crate) struct State {
     /// The impl index, built at the first resolved call.
     pub(crate) impls: Option<ImplIndex>,
     pub(crate) workspace_defs: HashMap<DefId, bool>,
+    /// The file id of a definition, and the verdict of `holders::classify`: each is a pure function of the
+    /// definition, and the closedness walk asks for them once for each type that it visits.
+    pub(crate) files: HashMap<DefId, u32>,
+    pub(crate) holders: HashMap<DefId, (bool, bool)>,
     /// The canonical workspace root, with a closing slash.
     pub(crate) root: String,
     /// The directory where each verified member run registers its crate id: a crate without an entry is foreign.
@@ -163,6 +167,8 @@ static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
         calls: BTreeSet::new(),
         impls: None,
         workspace_defs: HashMap::new(),
+        files: HashMap::new(),
+        holders: HashMap::new(),
         root: String::new(),
         registry: String::new(),
     })

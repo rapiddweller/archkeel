@@ -4,6 +4,7 @@
 
 //! The types of the standard library that the closedness proof of a resolved call trusts (AD-1185).
 
+use crate::state::State;
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::TyCtxt;
 
@@ -56,10 +57,19 @@ const ARGUMENT_HOLDERS: [&str; 43] = [
     "std::sys::",
 ];
 
-/// True for a type of another crate that holds only what its type arguments name.
-pub(crate) fn holds_only_arguments(tcx: TyCtxt<'_>, d: DefId) -> bool {
+/// For a type of the standard library: whether it holds only what its type arguments name, and whether it is a
+/// type of `alloc`. Both read the path of the definition, so the answer is kept for each definition.
+pub(crate) fn classify(tcx: TyCtxt<'_>, st: &mut State, d: DefId) -> (bool, bool) {
+    if let Some(known) = st.holders.get(&d) {
+        return *known;
+    }
     let path = crate::names::path(tcx, d);
-    ARGUMENT_HOLDERS
-        .iter()
-        .any(|prefix| path.starts_with(prefix))
+    let known = (
+        ARGUMENT_HOLDERS
+            .iter()
+            .any(|prefix| path.starts_with(prefix)),
+        path.starts_with("alloc::"),
+    );
+    st.holders.insert(d, known);
+    known
 }
