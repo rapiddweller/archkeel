@@ -7,7 +7,7 @@ with itself. It passes when the workflow is wrong (#2134 passed every wiring tes
 when a harmless edit moves a line. No such test caught a defect that a run of the real thing would not show.
 
 **Decision.** Deleted:
-1. Workflow and Make text pins (`test_gallery_publication.py`, `test_native_ci_type_reach.py`, runner images, job
+1. Workflow and Make text pins, also the reviewed list of workflow files (CONTRIBUTING and `.github/AGENTS.md` now ask the owner's approval of a new workflow in its PR text) (`test_gallery_publication.py`, `test_native_ci_type_reach.py`, runner images, job
    order, cache keys, flags, triggers, Make step order) and the tests that copied them.
 2. Hygiene checks: file allowlist of the root, local paths, license header, plans, conflict markers, run output,
    decision links and numbers (`test_doc_references_exist.py`, parts of `test_repository_hygiene.py`).
