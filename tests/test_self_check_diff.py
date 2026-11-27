@@ -45,6 +45,7 @@ def test_equal_results_are_green(tmp_path: Path) -> None:
     )
     assert done.returncode == 0, done.stdout
     assert "grown 0, removed 0" in done.stdout
+    assert "rules PASS" in done.stdout and "gap records" in done.stdout
 
 
 def test_one_new_gap_is_green_and_named(tmp_path: Path) -> None:

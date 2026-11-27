@@ -48,15 +48,6 @@ def test_a_red_result_names_the_local_command(tmp_path: Path) -> None:
     assert "DISAGREEMENT" not in done.stdout
 
 
-def test_the_summary_prints_the_counts_of_the_run(tmp_path: Path) -> None:
-    done = run(
-        tmp_path,
-        save(tmp_path, "b.json", real("base.json")),
-        save(tmp_path, "p.json", real("base.json")),
-    )
-    assert "rules PASS" in done.stdout and "gap records" in done.stdout
-
-
 def test_report_only_fails_on_a_result_that_is_not_clean_but_not_on_growth(tmp_path: Path) -> None:
     growth = ("--report-only",)
     done = run(
@@ -87,7 +78,8 @@ def test_a_clean_result_alone_is_green_and_a_refusal_or_a_fail_is_red(tmp_path: 
     failing = real("base.json")
     violation(failing)
     assert tool(failing).returncode == 1
-    assert tool(REFUSED).returncode == 1 and "refusal" in tool(REFUSED).stdout
+    refused = tool(REFUSED)
+    assert refused.returncode == 1 and "refusal" in refused.stdout
     assert tool("").returncode == 1
 
 
