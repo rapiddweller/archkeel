@@ -60,7 +60,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_native_conventions.py",
         "test_native_targets_have_callers.py",
         "test_native_neutral_crates.py",
-        "test_table_overlap.py",
         "test_native_contract_rules.py",
         "test_native_report.py",
         "test_native_standard_library.py",
