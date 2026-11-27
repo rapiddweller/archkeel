@@ -23,8 +23,17 @@ INPUT_FILES = (
     "uv.lock",
     "Makefile",
     "tools/self_check_diff.py",
+    "tools/self_check_contract.py",
+    "tools/self_check_gate.py",
 )
-UNRELATED_FILES = ("docs/guide.md", "tests/test_x.py", "tools/other.py")
+# `self_check_summary.py` and `self_check_shell.py` only read and print a result (#2140).
+UNRELATED_FILES = (
+    "docs/guide.md",
+    "tests/test_x.py",
+    "tools/other.py",
+    "tools/self_check_summary.py",
+    "tools/self_check_shell.py",
+)
 
 
 # The documents that the scanned contract cites. The cached result binds only the first one

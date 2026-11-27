@@ -122,6 +122,7 @@ pub(crate) fn sealed(rustup: &Path, channel: &str, subcommand: &str) -> Command 
     cmd.args(["--config", "build.rustflags=[]"]);
     cmd.args(["--config", "build.rustc-wrapper=\"\""]);
     cmd.args(["--config", "build.rustc=\"rustc\""]);
+    cmd.args(["--config", "build.incremental=false"]);
     cmd.env_clear().env("RUSTFLAGS", "");
     for name in KEPT_ENV {
         if let Some(value) = std::env::var_os(name) {
