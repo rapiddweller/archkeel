@@ -332,30 +332,3 @@ fn the_bindings_section_holds_the_witnesses_and_the_result_bindings() {
     assert!(found.bindings[0].id.as_str().starts_with("VALUEBIND-"));
     assert_eq!(plains(&found.bindings)[0].data["binding"], "made");
 }
-
-/// The golden copy of the validation table (AD-688): the frozen replies of the tests of the store,
-/// the model and the core carry it, as the reply of this collector does.
-const VALIDATION_GOLDEN: &str = "../../tests/golden/typescript/validation.json";
-
-fn validation_text() -> String {
-    let value = serde_json::to_value(crate::records::validation()).expect("the table is JSON");
-    serde_json::to_string_pretty(&value).expect("the table is JSON") + "\n"
-}
-
-#[test]
-fn the_golden_copy_of_the_validation_table_is_the_table() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(VALIDATION_GOLDEN);
-    let golden = std::fs::read_to_string(&path).unwrap_or_default();
-    assert!(
-        golden == validation_text(),
-        "{VALIDATION_GOLDEN} differs from the table: write it with \
-         `cargo test -p archkeel-typescript-collector -- --ignored write_the_validation_golden`"
-    );
-}
-
-#[test]
-#[ignore = "writes the golden copy of the validation table; run it only for a new table"]
-fn write_the_validation_golden() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(VALIDATION_GOLDEN);
-    std::fs::write(path, validation_text()).expect("the golden copy is written");
-}

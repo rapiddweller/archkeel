@@ -338,8 +338,8 @@ pub(crate) mod tests;
 mod package_tests;
 
 #[cfg(test)]
-#[path = "import_survey/fixture_tests.rs"]
-mod fixture_tests;
+#[path = "import_survey/import_forms_tests.rs"]
+mod import_forms_tests;
 
 #[cfg(test)]
 #[path = "import_survey/plant_tests.rs"]
