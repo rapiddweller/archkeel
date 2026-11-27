@@ -236,6 +236,9 @@ def test_review_demo_keeps_an_open_binding_unknown(
         )
         assert (held["gap"], held["class"]) == ("publication_route", "uncertain_hop")
         assert held["cause"] == {"kind": "uncertain_hop", "at": "orders.pricing.mystery"}
+        assert hold["interface"]["places"] == [
+            {"class": "uncertain_hop", "at": "orders.pricing.mystery", "count": 1}
+        ]
         assert hold["interface"]["classes"] == [
             {"gap": "publication_route", "class": "uncertain_hop", "count": 1}
         ]

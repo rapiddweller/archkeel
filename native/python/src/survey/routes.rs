@@ -49,14 +49,21 @@ struct Link {
 pub(crate) struct SurfaceCauses {
     pub(crate) unread_all: HashSet<String>,
     pub(crate) outside: HashSet<String>,
+    /// The first use inside the scan that escapes each module (#2117).
+    pub(crate) escapes: super::uses::Escapes,
 }
 
 impl SurfaceCauses {
     /// The causes: the modules with an unread `__all__` and those that outside code can write.
-    pub(crate) fn of(unread_all: HashSet<String>, outside: HashSet<String>) -> Self {
+    pub(crate) fn of(
+        unread_all: HashSet<String>,
+        outside: HashSet<String>,
+        escapes: super::uses::Escapes,
+    ) -> Self {
         Self {
             unread_all,
             outside,
+            escapes,
         }
     }
 }
@@ -131,14 +138,15 @@ pub(crate) fn resolve(
             .filter_map(|hop| hop.rsplit_once('.').map(|(module, _)| module))
             .find(|module| opaque.contains(*module))
         {
-            let form = if causes.unread_all.contains(module) {
-                RouteWithheld::UnreadAll
+            if causes.unread_all.contains(module) {
+                Some((RouteWithheld::UnreadAll, Some(module.to_owned())))
             } else if causes.outside.contains(module) {
-                RouteWithheld::OutsideWrite
+                Some((RouteWithheld::OutsideWrite, Some(module.to_owned())))
+            } else if let Some((kind, at)) = causes.escapes.get(module) {
+                Some((*kind, Some(at.clone())))
             } else {
-                RouteWithheld::Escaped
-            };
-            Some((form, Some(module.to_owned())))
+                Some((RouteWithheld::Escaped, Some(module.to_owned())))
+            }
         } else {
             // A route under `TYPE_CHECKING` that passes a re-export is not proven for the model,
             // which reads the first hop of a guarded import only (the TypeScript type rule).

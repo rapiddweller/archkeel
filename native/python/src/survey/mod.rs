@@ -204,7 +204,8 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     let unread_all = binders::unread_all(modules, &binders);
     let mut opaque_surface = unread_all.clone();
     opaque_surface.extend(written);
-    opaque_surface.extend(uses::settled(modules, &imports, &mut sources));
+    let escapes = uses::settled_sites(modules, &imports, &mut sources);
+    opaque_surface.extend(escapes.keys().cloned());
     let viewed = lazy_cover::viewed(&imports, &sources);
     let symbols = declarations(
         (modules, &binders),
@@ -346,7 +347,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         coverage,
         evidence: evidence.into_values().collect(),
         opaque_surface,
-        surface: routes::SurfaceCauses::of(unread_all, outside),
+        surface: routes::SurfaceCauses::of(unread_all, outside, escapes),
         listings,
         sole_binders,
         sources,
