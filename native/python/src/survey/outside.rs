@@ -37,7 +37,7 @@ use archkeel_facts::ids::ModuleName;
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::vocab::ResolutionDimension;
 use archkeel_facts::{GapFact, ImportFact, Record};
-use archkeel_snapshot::paths::join;
+use archkeel_snapshot::paths::{is_cache_tag, join, CACHE_TAG};
 use archkeel_snapshot::{Entry, Snapshot};
 
 use super::binders::Binders;
@@ -73,7 +73,7 @@ const SKIPPED: [&str; 6] = [
 ];
 
 /// The files that prove a directory as build output or as installed packages.
-const MARKERS: [&str; 2] = ["CACHEDIR.TAG", "pyvenv.cfg"];
+const VENV_MARKER: &str = "pyvenv.cfg";
 
 /// The reason word of the gap that names a file outside the scan that withholds symbol records.
 const WITHHELD: &str = "outside_file_withholds_symbols";
@@ -392,6 +392,15 @@ fn outside(name: &str) -> bool {
     name.starts_with(OUTSIDE)
 }
 
+/// True when the directory holds a regular `CACHEDIR.TAG` with the valid signature: the rule of the
+/// repository walk (AD-432). An empty tag, a wrong one or a directory of that name skips nothing.
+fn has_cache_tag(snapshot: &mut Snapshot, names: &HashMap<&str, Entry>, directory: &str) -> bool {
+    names.get(CACHE_TAG) == Some(&Entry::File)
+        && snapshot
+            .read(&join(directory, CACHE_TAG))
+            .is_some_and(|raw| is_cache_tag(&raw))
+}
+
 /// The Python files and the extension files of the snapshot outside the scan modules.
 fn walk(snapshot: &mut Snapshot, selected: &HashSet<&str>) -> Files {
     let mut files = Files::default();
@@ -408,9 +417,8 @@ fn walk(snapshot: &mut Snapshot, selected: &HashSet<&str>) -> Files {
             .iter()
             .map(|(n, e)| (String::as_str(n), *e))
             .collect();
-        if MARKERS
-            .iter()
-            .any(|marker| names.get(marker) == Some(&Entry::File))
+        if names.get(VENV_MARKER) == Some(&Entry::File)
+            || has_cache_tag(snapshot, &names, &directory)
         {
             continue;
         }

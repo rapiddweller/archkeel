@@ -357,3 +357,54 @@ def test_find_spec_of_a_top_level_name_imports_nothing(release_core: Path, tmp_p
     assert check(release_core, tmp_path, script, PAYLOAD)["INTERFACE"] == "PASS"
     run(tmp_path, script)
     assert "hooked" not in (tmp_path / "src/app/service.py").read_text()
+
+
+# A dunder name that the grammar binds changes how Python imports below the module: `__path__ = "h"`
+# makes `import tool.sub` load `h/sub.py`. Three files; the writer is a plain file write (AD-770).
+WRITER = PAYLOAD["scripts/payload/__init__.py"]
+DUNDER_FILES = {
+    "scripts/main.py": "import tool.sub\n",
+    "h/sub.py": WRITER,
+}
+
+
+def test_a_path_binding_keeps_the_hold(release_core: Path, tmp_path: Path) -> None:
+    # The other dunder names and the builtin names are pinned by the unit test of the grammar.
+    script = "import sys\n__path__ = 'h'\nprint('app.service' in sys.modules)\n"
+    assert check(release_core, tmp_path, script, DUNDER_FILES)["INTERFACE"] == "UNKNOWN"
+
+
+def test_a_path_binding_really_loads_the_writer_below_the_module(tmp_path: Path) -> None:
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "h").mkdir()
+    (tmp_path / "src/app").mkdir(parents=True)
+    (tmp_path / "src/app/service.py").write_text(SERVICE)
+    (tmp_path / "scripts/tool.py").write_text("import sys\n__path__ = 'h'\n")
+    (tmp_path / "h/sub.py").write_text(WRITER)
+    env = {"PYTHONPATH": str(tmp_path / "scripts"), "PATH": ""}
+    subprocess.run([sys.executable, "-c", "import tool.sub"], env=env, cwd=tmp_path, check=True)
+    assert "hooked" in (tmp_path / "src/app/service.py").read_text()
+
+
+# The marker of a build folder is a valid `CACHEDIR.TAG` only (AD-432, one rule with the repository
+# walk): an empty file, a wrong signature or a directory of that name skips nothing.
+TAGS = {
+    "empty": {"scripts/lib/CACHEDIR.TAG": ""},
+    "wrong signature": {"scripts/lib/CACHEDIR.TAG": "Signature: 0000\n"},
+    "a directory": {"scripts/lib/CACHEDIR.TAG/x": ""},
+}
+LIB_WRITER = {"scripts/lib/patch.py": "import app.service\napp.service.f = None\n"}
+
+
+@pytest.mark.parametrize("name", sorted(TAGS))
+def test_only_a_valid_cache_tag_skips_a_folder(
+    release_core: Path, tmp_path: Path, name: str
+) -> None:
+    extra = {**LIB_WRITER, **TAGS[name]}
+    assert check(release_core, tmp_path, CLOSED["reads"], extra)["INTERFACE"] == "UNKNOWN"
+
+
+def test_a_valid_cache_tag_skips_the_folder(release_core: Path, tmp_path: Path) -> None:
+    tag = "Signature: 8a477f597d28d172789f06886806bc55\n# cache\n"
+    extra = {**LIB_WRITER, "scripts/lib/CACHEDIR.TAG": tag}
+    assert check(release_core, tmp_path, CLOSED["reads"], extra)["INTERFACE"] == "PASS"

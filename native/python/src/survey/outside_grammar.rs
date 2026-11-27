@@ -19,6 +19,7 @@ use ruff_python_ast::{
 };
 use ruff_text_size::Ranged;
 
+use super::super::call_count::builtin;
 use super::super::hazards_names::IMPORT_FUNCTIONS;
 use super::sites::{foreign, text_of};
 use crate::module::Module;
@@ -177,8 +178,13 @@ pub(super) fn api_calls(module: &Module, names: &HashSet<String>) -> Vec<ApiCall
 /// `csv.py` runs instead) can run code of the repository (Codex #2144).
 const IMPORTS: [&str; 1] = ["sys"];
 
-/// The names that no assignment may bind.
-const RESERVED: [&str; 2] = ["print", "sys"];
+/// A name that no assignment may bind: `sys`, a builtin (it can change what `print` or a test
+/// means) and any dunder name. A module binding `__path__`, `__loader__`, `__spec__`, `__all__` or
+/// `__builtins__` changes how Python imports a name below the module (`import tool.sub` loads
+/// `h/sub.py` after `__path__ = "h"`), and that runs code of the repository (verifier of #2144).
+fn reserved(name: &str) -> bool {
+    name == "sys" || builtin(name) || (name.starts_with("__") && name.ends_with("__"))
+}
 
 #[derive(Default)]
 struct Grammar {
@@ -242,7 +248,7 @@ impl Grammar {
             return false;
         };
         let name = target.id.to_string();
-        let free = !RESERVED.contains(&String::as_str(&name)) && !self.bound.contains(&name);
+        let free = !reserved(&name) && !self.bound.contains(&name);
         let ok = free && self.plain(value);
         if ok {
             self.bound.insert(name);
@@ -270,5 +276,52 @@ impl Grammar {
         matches!(op, CmpOp::In | CmpOp::NotIn)
             && text_of(left).is_some()
             && chain(right).as_deref() == Some("sys.modules")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn closed_text(source: &str) -> bool {
+        let tree = crate::test_tree(source, 12).expect("the probe parses");
+        closed(&Module::new(
+            "scripts/t.py".into(),
+            "scripts.t".into(),
+            source.into(),
+            tree,
+        ))
+    }
+
+    #[test]
+    fn a_plain_script_is_closed() {
+        assert!(closed_text(
+            "import sys\nname = 'x'\nprint(name, 'a' in sys.modules)\n"
+        ));
+    }
+
+    #[test]
+    fn no_dunder_name_and_no_builtin_name_is_bound_inside_the_grammar() {
+        for name in [
+            "__path__",
+            "__loader__",
+            "__all__",
+            "__spec__",
+            "__builtins__",
+            "__file__",
+            "__x__",
+            "len",
+            "str",
+            "open",
+            "__import__",
+            "sys",
+            "print",
+        ] {
+            assert!(
+                !closed_text(&format!("import sys\n{name} = 'x'\n")),
+                "{name}"
+            );
+        }
+        assert!(closed_text("import sys\n_x_ = 'x'\n__y = 'x'\nx__ = 'x'\n"));
     }
 }
