@@ -129,7 +129,7 @@ pub(crate) fn typed(
     routes::resolve(
         &mut survey.imports,
         &survey.files,
-        &survey.opaque_surface,
+        (&survey.opaque_surface, &survey.surface),
         (&survey.sole_binders, &survey.ambiguous),
         &survey.sources,
     );

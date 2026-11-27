@@ -10,12 +10,13 @@ use std::collections::HashSet;
 use archkeel_contract::{Component, InterfaceBoundary, Rule};
 use archkeel_facts::envelope::LimitSupport;
 
-use crate::causes::{InterfaceGap, InterfaceHold};
+use crate::causes::{HeldImport, InterfaceGap, InterfaceHold};
 use crate::direction::{Crossing, Judged};
 use crate::imports::Import;
 use crate::model::Model;
 use crate::ownership::owner_of;
 use crate::reason::Reason;
+use archkeel_facts::vocab::RouteWithheld;
 
 /// One judgement serves both violations and the existing scope proof.
 pub fn interface_crossings<'m>(model: &'m Model, rule: &InterfaceBoundary) -> Vec<Crossing<'m>> {
@@ -157,9 +158,14 @@ pub(crate) fn receipt(model: &Model, rule: &InterfaceBoundary) -> Result<(), Rea
             undecided.push((gap, publication.import, Some(publication.name)));
         }
     }
-    let listed = undecided
-        .iter()
-        .map(|(gap, import, name)| (*gap, import.source_module(), import.target_module(), *name));
+    let listed = undecided.iter().map(|(gap, import, name)| HeldImport {
+        gap: *gap,
+        source: import.source_module().to_owned(),
+        target: import.target_module().to_owned(),
+        name: name.map(str::to_owned),
+        cause: import.route_withheld().cloned(),
+        evidence: import.evidence().to_vec(),
+    });
     if let Some(hold) = InterfaceHold::of(listed) {
         return Err(Reason::Interface(hold));
     }
@@ -319,4 +325,11 @@ pub fn publishes(
             covers(model, &public, hop_module, hop_name) == Ok(true)
         })
     })
+}
+
+impl Import {
+    /// Why the collector withholds the route of this import, when it states a cause (#2086).
+    pub fn route_withheld(&self) -> Option<&(RouteWithheld, Option<String>)> {
+        self.published.withheld.as_ref()
+    }
 }

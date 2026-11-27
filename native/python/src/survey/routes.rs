@@ -29,6 +29,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use archkeel_facts::envelope::FileFact;
+use archkeel_facts::vocab::RouteWithheld;
 use archkeel_facts::{ImportFact, Record};
 
 use super::lazy_cover::{self, Sources};
@@ -43,12 +44,29 @@ struct Link {
     proven: bool,
 }
 
+/// Why a module is opaque: its `__all__` is not read, or code outside the scan can write it.
+#[derive(Default)]
+pub(crate) struct SurfaceCauses {
+    pub(crate) unread_all: HashSet<String>,
+    pub(crate) outside: HashSet<String>,
+}
+
+impl SurfaceCauses {
+    /// The causes: the modules with an unread `__all__` and those that outside code can write.
+    pub(crate) fn of(unread_all: HashSet<String>, outside: HashSet<String>) -> Self {
+        Self {
+            unread_all,
+            outside,
+        }
+    }
+}
+
 /// Write the route of each import that names a symbol. `opaque` holds the modules whose
 /// `__all__` the survey cannot read.
 pub(crate) fn resolve(
     imports: &mut [Record<ImportFact>],
     files: &[FileFact],
-    opaque: &HashSet<String>,
+    (opaque, causes): (&HashSet<String>, &SurfaceCauses),
     (sole, ambiguous): (&HashSet<String>, &HashSet<String>),
     sources: &Sources,
 ) {
@@ -102,17 +120,35 @@ pub(crate) fn resolve(
             &format!("{}.{symbol}", data.target_module.as_str()),
             &reexports,
         );
-        let withheld = chain.iter().any(|hop| {
-            uncertain.contains(hop)
-                || hop
-                    .rsplit_once('.')
-                    .is_some_and(|(module, _)| opaque.contains(module))
-        });
-        // A route under `TYPE_CHECKING` that passes a re-export is not proven for the model,
-        // which reads the first hop of a guarded import only (the TypeScript type rule).
+        // The first cause that withholds the route; the reply states it with the empty chain.
         let guarded = data.under_type_checking && chain.len() > 1;
-        let open = withheld || guarded || skipped;
-        data.reexport_chain = Some(if open { Vec::new() } else { chain });
+        let cause = if skipped {
+            Some((RouteWithheld::AmbiguousReexport, None))
+        } else if let Some(hop) = chain.iter().find(|hop| uncertain.contains(*hop)) {
+            Some((RouteWithheld::UncertainHop, Some(hop.clone())))
+        } else if let Some(module) = chain
+            .iter()
+            .filter_map(|hop| hop.rsplit_once('.').map(|(module, _)| module))
+            .find(|module| opaque.contains(*module))
+        {
+            let form = if causes.unread_all.contains(module) {
+                RouteWithheld::UnreadAll
+            } else if causes.outside.contains(module) {
+                RouteWithheld::OutsideWrite
+            } else {
+                RouteWithheld::Escaped
+            };
+            Some((form, Some(module.to_owned())))
+        } else {
+            // A route under `TYPE_CHECKING` that passes a re-export is not proven for the model,
+            // which reads the first hop of a guarded import only (the TypeScript type rule).
+            guarded.then_some((RouteWithheld::TypeCheckingReexport, None))
+        };
+        data.reexport_chain = Some(if cause.is_some() { Vec::new() } else { chain });
+        (data.route_withheld, data.route_withheld_at) = match cause {
+            Some((cause, at)) => (Some(cause), at),
+            None => (None, None),
+        };
     }
 }
 

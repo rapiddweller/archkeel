@@ -82,6 +82,8 @@ pub(crate) struct Survey {
     pub evidence: Vec<Evidence>,
     /// The modules whose `__all__` the survey cannot read (`routes`).
     pub opaque_surface: HashSet<String>,
+    /// Why a module is opaque (`routes`).
+    pub surface: routes::SurfaceCauses,
     pub listings: Vec<pathscope::Listing>,
     pub sole_binders: HashSet<String>,
     pub sources: lazy_cover::Sources,
@@ -199,12 +201,8 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         &stdlib,
         &mut evidence,
     );
-    let mut opaque_surface: HashSet<String> = modules
-        .iter()
-        .zip(&binders)
-        .filter(|(_, binders)| binders.all_unread)
-        .map(|(module, _)| module.name.clone())
-        .collect();
+    let unread_all = binders::unread_all(modules, &binders);
+    let mut opaque_surface = unread_all.clone();
     opaque_surface.extend(written);
     opaque_surface.extend(uses::settled(modules, &imports, &mut sources));
     let viewed = lazy_cover::viewed(&imports, &sources);
@@ -348,6 +346,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         coverage,
         evidence: evidence.into_values().collect(),
         opaque_surface,
+        surface: routes::SurfaceCauses::of(unread_all, outside),
         listings,
         sole_binders,
         sources,
