@@ -84,6 +84,7 @@ fn verdict(facts: &Facts<'_>, found: Vec<Assessed>, id: &str) -> UmlOutcome {
     let mut diffs = Vec::new();
     let mut kinds = BTreeSet::new();
     let mut undecided = 0;
+    let mut absent = BTreeSet::new();
     for item in found {
         match item {
             Assessed::Pass => {}
@@ -92,6 +93,11 @@ fn verdict(facts: &Facts<'_>, found: Vec<Assessed>, id: &str) -> UmlOutcome {
                 undecided += 1;
                 kinds.insert(kind);
             }
+            Assessed::Absent(symbol) => {
+                undecided += 1;
+                kinds.insert("absent symbol: the symbol inventory is not complete".to_owned());
+                absent.insert(symbol);
+            }
         }
     }
     if !diffs.is_empty() {
@@ -99,9 +105,11 @@ fn verdict(facts: &Facts<'_>, found: Vec<Assessed>, id: &str) -> UmlOutcome {
     }
     if undecided > 0 {
         let kinds = kinds.into_iter().collect();
+        let absent = absent.into_iter().collect();
         return UmlOutcome::Unknown(UmlGap::Undecided {
             count: undecided,
             kinds,
+            absent,
         });
     }
     match crate::scope::uml_pass(facts.model, id, facts.read) {

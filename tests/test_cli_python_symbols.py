@@ -12,6 +12,7 @@ difference from the release is a stricter UNKNOWN.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -92,9 +93,10 @@ def test_a_class_without_a_declared_attribute_stays_unknown(
     result = json.loads(done.stdout)
     # Absence is not provable for a partial Python inventory.
     assert result["frame"]["rules"][ROW] == ["uml_target", "UNKNOWN"], result
-    assert (
-        "absent symbol: the symbol inventory is not complete" in result["frame"]["explained"][ROW]
-    )
+    text = result["frame"]["explained"][ROW]
+    assert "absent symbol: the symbol inventory is not complete" in text
+    # #2089: the row names the symbol that the inventory lacks.
+    assert re.search(r"not in the symbol inventory: \S*A\.x\b", text), text
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))

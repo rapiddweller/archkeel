@@ -27,6 +27,8 @@ pub(crate) enum Assessed {
     Pass,
     Fail(UmlDiff),
     Unknown(String),
+    /// A target symbol that the symbol inventory does not hold (#2089): its qualified name.
+    Absent(String),
 }
 
 /// The facts that the comparison reads: the modules, the imports and the symbol table.
