@@ -121,7 +121,20 @@ REVIEW4 = {
     "held text names a computed name": named(f't = str("{IMPORT}")\ns = "t"'),
     "shadowed type factory": named(f'def TypeVar(v):\n    return v\n\n\ns = TypeVar("{IMPORT}")'),
 }
-PLANTS = {**WRITES, **NAMES, **BUILDERS, **LOOKUP, **REVIEW, **REVIEW2, **REVIEW3, **REVIEW4}
+REVIEW5 = {
+    "held name reassigned from a computed name": named(f's = "int"\nt = str("{IMPORT}")\ns = t'),
+}
+PLANTS = {
+    **WRITES,
+    **NAMES,
+    **BUILDERS,
+    **LOOKUP,
+    **REVIEW,
+    **REVIEW2,
+    **REVIEW3,
+    **REVIEW4,
+    **REVIEW5,
+}
 CONTROLS = {
     "plain forms": HEAD
     + "class K:\n    x: int\n    y: typing.Optional[str]\n    z: list[int] | None\n"

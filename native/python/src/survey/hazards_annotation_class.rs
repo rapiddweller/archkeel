@@ -117,14 +117,18 @@ impl<'a> Scan<'a> {
         // An alias of a held string is as uncertain as an alias of a tainted name.
         let seeds = self.tainted.iter().chain(self.texts.keys());
         let mut queue: Vec<&str> = seeds.map(String::as_str).collect();
-        let mut seen: HashSet<&str> = queue.iter().copied().collect();
+        // `queued` stops a second visit; `tainted` is apart, so a held name can still become one.
+        let mut queued: HashSet<&str> = queue.iter().copied().collect();
+        let mut tainted: HashSet<&str> = self.tainted.iter().map(String::as_str).collect();
         let mut grown: Vec<String> = Vec::new();
         while let Some(source) = queue.pop() {
-            let next = targets.get(source).into_iter().flatten();
-            for target in next.filter(|target| seen.insert(**target)) {
-                queue.push(target);
-                grown.push((*target).to_owned());
-            }
+            let next: Vec<&str> = targets.get(source).into_iter().flatten().copied().collect();
+            grown.extend(
+                next.iter()
+                    .filter(|t| tainted.insert(**t))
+                    .map(|t| (*t).to_owned()),
+            );
+            queue.extend(next.into_iter().filter(|t| queued.insert(*t)));
         }
         self.tainted.extend(grown);
     }

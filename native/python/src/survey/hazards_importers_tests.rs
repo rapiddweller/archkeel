@@ -189,6 +189,7 @@ fn a_module_that_evaluates_annotations_holds_each_value_it_cannot_name() {
         "class K: ...\nprint(K.__annotations__.update(x='int'))\n",
         "def f():\n    class L:\n        x: make_type()\n",
         "def f(x: make_type()): ...\n",
+        "s = 'int'\nt = str('a')\ns = t\nclass K:\n    x: s\n",
         "from typing import ForwardRef as FR\nr = FR('int')\n",
         "s = 't'\nt = str('a')\nclass K:\n    x: s\n",
         "def TypeVar(v): return v\ns = TypeVar('a')\nclass K:\n    x: s\n",
