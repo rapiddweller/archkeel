@@ -7,7 +7,7 @@
 //! `def`, a `class`, a parameter, an `except` or `match` capture. A binding that the survey does
 //! not read as a value is `Unknown`. The rule of `hazards_annotation_clean.rs` asks only this table.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
@@ -29,20 +29,8 @@ use crate::survey::uses_typing_guard::READS;
 const WRITERS: [&str; 2] = ["setattr", "delattr"];
 
 pub(super) fn build(module: &Module) -> Facts<'_> {
-    let root = Scope::new(Kind::Module, None, None);
     let mut walk = Build {
-        facts: Facts {
-            scopes: vec![root],
-            annotations: Vec::new(),
-            stores: HashMap::new(),
-            pending: Vec::new(),
-            writes: Vec::new(),
-            opaque: false,
-            evaluates: false,
-            postponed: false,
-            reaches: Vec::new(),
-            calls: Vec::new(),
-        },
+        facts: Facts::new(),
         current: 0,
         package: &module.package,
         blessed: HashSet::new(),
@@ -110,6 +98,17 @@ impl<'a> Build<'a, '_> {
             Expr::Tuple(node) => node.elts.iter().for_each(|e| self.target(e, None)),
             Expr::List(node) => node.elts.iter().for_each(|e| self.target(e, None)),
             Expr::Starred(node) => self.target(&node.value, None),
+            _ => {}
+        }
+    }
+
+    /// The writes of a target that is no plain name.
+    fn stores_of(&mut self, target: &'a Expr) {
+        match target {
+            Expr::Attribute(_) | Expr::Subscript(_) => self.target(target, None),
+            Expr::Tuple(node) => node.elts.iter().for_each(|e| self.stores_of(e)),
+            Expr::List(node) => node.elts.iter().for_each(|e| self.stores_of(e)),
+            Expr::Starred(node) => self.stores_of(&node.value),
             _ => {}
         }
     }
@@ -324,6 +323,8 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
 
     fn visit_comprehension(&mut self, comprehension: &'a Comprehension) {
         self.bless(&comprehension.iter);
+        // A name of the target is local to the comprehension; an attribute or item is written.
+        self.stores_of(&comprehension.target);
         visitor::walk_comprehension(self, comprehension);
     }
 

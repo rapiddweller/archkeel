@@ -437,6 +437,42 @@ SCOPES = {
             x: C.s
         """
     ),
+    "name created in the module through an alias of the module": source(
+        """
+        import app.consumer as me
+
+        me.s = str(PAYLOAD)
+
+
+        class K:
+            x: s
+        """
+    ),
+    "standard attribute written by a comprehension target": source(
+        """
+        import contextlib
+
+        [None for contextlib.AbstractContextManager in [PAYLOAD]]
+
+
+        class K:
+            x: contextlib.AbstractContextManager
+        """
+    ),
+    "metaclass given by unpacked keywords": source(
+        """
+        class Meta(type):
+            s = property(lambda cls: str(PAYLOAD))
+
+
+        class C(**{'metaclass': Meta}):
+            s = 'int'
+
+
+        class K:
+            x: C.s
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

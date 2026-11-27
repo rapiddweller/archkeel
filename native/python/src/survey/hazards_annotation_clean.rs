@@ -10,7 +10,7 @@
 use std::collections::HashSet;
 
 use ruff_python_ast::{
-    Decorator, Expr, ExprCall, ExprList, ExprStringLiteral, ExprTuple, Operator,
+    Decorator, Expr, ExprCall, ExprList, ExprStringLiteral, ExprTuple, Keyword, Operator,
 };
 use ruff_text_size::{Ranged, TextRange};
 
@@ -186,7 +186,8 @@ impl<'a> Project<'a> {
         }
         let holders = facts.holders(scope, id);
         // A write into the module through an alias of it (`me.s = v`) changes the bare name too.
-        if holders.contains(&0) && self.written(&self.modules[m].name, id) {
+        let at_module = holders.is_empty() || holders.contains(&0);
+        if at_module && self.written(&self.modules[m].name, id) {
             return Entity::Unknown;
         }
         if !holders.is_empty() {
@@ -331,7 +332,7 @@ impl<'a> Project<'a> {
         }
     }
 
-    /// True when the class and its bases have no metaclass (it can add a data descriptor).
+    /// True when no metaclass (also by `**kwargs`) can add a data descriptor.
     fn plain_class(&self, m: usize, body: ScopeId, depth: usize, active: &mut Active) -> bool {
         let facts = self.facts(m);
         let scope = &facts.scopes[body];
@@ -339,10 +340,8 @@ impl<'a> Project<'a> {
             return false;
         };
         let keywords = class.arguments.iter().flat_map(|a| &a.keywords);
-        if keywords
-            .into_iter()
-            .any(|k| k.arg.as_ref().is_some_and(|n| n.as_str() == "metaclass"))
-        {
+        let meta = |k: &Keyword| k.arg.as_ref().is_none_or(|n| n.as_str() == "metaclass");
+        if keywords.into_iter().any(meta) {
             return false;
         }
         let parent = scope.parent.unwrap_or(0);

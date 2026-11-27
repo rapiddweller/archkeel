@@ -199,3 +199,21 @@ impl<'a> Facts<'a> {
         functions.next()
     }
 }
+
+impl Facts<'_> {
+    /// The facts of an empty module: its scope and nothing else.
+    pub(super) fn new() -> Self {
+        Self {
+            scopes: vec![Scope::new(Kind::Module, None, None)],
+            annotations: Vec::new(),
+            stores: HashMap::new(),
+            pending: Vec::new(),
+            writes: Vec::new(),
+            opaque: false,
+            evaluates: false,
+            postponed: false,
+            reaches: Vec::new(),
+            calls: Vec::new(),
+        }
+    }
+}
