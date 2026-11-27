@@ -29,6 +29,15 @@ fn impl_index(st: &mut State, tcx: TyCtxt<'_>) -> ImplIndex {
         if cnum != LOCAL_CRATE && !crate::body::inside(st, tcx, root) {
             continue;
         }
+        if cnum == LOCAL_CRATE {
+            for id in tcx.hir_crate_items(()).free_items() {
+                if matches!(tcx.def_kind(id.owner_id), DefKind::Static { .. }) {
+                    let did = id.owner_id.to_def_id();
+                    let file = crate::items::file(tcx, st, did);
+                    index.statics.entry(file).or_default().push(did);
+                }
+            }
+        }
         for imp in tcx.trait_impls_in_crate(cnum) {
             let file = crate::items::file(tcx, st, *imp);
             match tcx.type_of(*imp).skip_binder().kind() {
@@ -224,6 +233,25 @@ fn touch<'tcx>(
         if found.plain {
             found.files.extend(index.other.iter().copied());
         }
+    }
+    // A static of a touched file can hold a callback (`static CALLBACK: fn()`): its type is part of the proof.
+    let statics: Vec<DefId> = st.impls.as_ref().map_or_else(Vec::new, |index| {
+        found
+            .files
+            .iter()
+            .filter_map(|f| index.statics.get(f))
+            .flatten()
+            .copied()
+            .collect()
+    });
+    for did in statics {
+        let Ok(ty) =
+            tcx.try_normalize_erasing_regions(env, tcx.type_of(did).instantiate_identity())
+        else {
+            found.open_by("<static>");
+            continue;
+        };
+        visit(st, tcx, env, ty, (&mut found, false));
     }
     (found.files, found.why)
 }
