@@ -141,17 +141,15 @@ jobs:
           key: selfcheck-v2-${{ runner.os }}-${{ github.event.pull_request.base.sha }}
           restore-keys: ${{ steps.earlier.outputs.keys }}
 
-      # AD-1061: read the labels and the text now, not from the event: a re-run must see a later label.
-      - name: Read the labels and the text of the pull request
+      # AD-1061, AD-1221: read the labels now, not from the event: a re-run must see a later label.
+      - name: Read the labels of the pull request
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ github.event.pull_request.number }}
         run: |
           gh api "repos/$GITHUB_REPOSITORY/pulls/$NUMBER" > "$RUNNER_TEMP/pull.json"
-          jq -r '.body // ""' "$RUNNER_TEMP/pull.json" > "$RUNNER_TEMP/pull-body.txt"
           # A boolean only: label text never reaches GITHUB_ENV.
           echo "RATCHET_LABELED=$(jq '[.labels[].name] | index("ratchet-lead") != null' "$RUNNER_TEMP/pull.json")" >> "$GITHUB_ENV"
-          echo "RATCHET_BODY_FILE=$RUNNER_TEMP/pull-body.txt" >> "$GITHUB_ENV"
 
       - name: Run the PR gate
         env:
@@ -179,7 +177,7 @@ jobs:
 
       # AD-1064: the log shows the first ten grown items; the file holds all of them.
       - name: Keep the list of grown self-check items
-        if: failure() && hashFiles('test-artifacts/selfcheck/grown.txt') != ''
+        if: always() && hashFiles('test-artifacts/selfcheck/grown.txt') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: selfcheck-grown
