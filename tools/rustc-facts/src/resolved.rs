@@ -140,6 +140,9 @@ fn visit<'tcx>(
         }
         ty::Closure(d, args) => {
             found.files.insert(crate::items::file(tcx, st, d));
+            if foreign_member(tcx, d) {
+                found.open_by("<member>");
+            }
             let closure = args.as_closure();
             let mut all = nested(closure.parent_args());
             all.extend(closure.upvar_tys().iter().map(|t| (t, false)));
@@ -147,10 +150,14 @@ fn visit<'tcx>(
         }
         ty::FnDef(d, args) => {
             found.files.insert(crate::items::file(tcx, st, d));
+            if foreign_member(tcx, d) {
+                found.open_by("<member>");
+            }
             nested(&args[..])
         }
         ty::Foreign(d) => {
             found.files.insert(crate::items::file(tcx, st, d));
+            found.open_by("<foreign type>");
             Vec::new()
         }
         // A pointer to `()`, `c_void`, an extern type or a number erases the type of its value: a callback can hide
