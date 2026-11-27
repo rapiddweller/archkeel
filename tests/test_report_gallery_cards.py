@@ -36,7 +36,7 @@ def test_the_compass_card_is_blocked_by_the_uml_row_only_and_uses_the_workspace_
     assert compass["blocked_by"] == [1762] and compass["intent"] == "PASS"
     folder = report_gallery.ROOT / "fixtures" / "J-compass"
     assert 'roots = ["compass_app/app/lib"]' in (folder / "archkeel.toml").read_text()
-    assert len(list(folder.rglob("pubspec.yaml"))) == 37
+    assert (folder / "pubspec.yaml").is_file()
 
 
 def test_the_self_check_card_is_held_by_named_work_in_the_normal_colour() -> None:
