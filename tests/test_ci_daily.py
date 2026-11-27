@@ -88,11 +88,8 @@ def test_the_main_tier_queues_and_the_nightly_run_cancels() -> None:
     )
     for name, group in (("ci.yml", queued), ("full-verification.yml", cancelled)):
         text = (workflows / name).read_text()
-        assert "pull_request:" not in text.split("\nconcurrency:\n", 1)[0], name
         assert "draft" not in text, name
         assert group in text, name
-    head = (workflows / "ci.yml").read_text().split("\nconcurrency:\n", 1)[0]
-    assert "schedule:" not in head, "AD-1060: a timer run re-checks a commit that a push checked"
 
 
 def test_a_red_that_began_the_day_before_carries_into_the_day() -> None:

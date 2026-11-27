@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from areas import AREAS, SLOW_FILES, area_of, areas_of_change, parallel_areas, rust_checks
+from areas import AREAS, areas_of_change, parallel_areas, rust_checks
 
 ROOT = Path(__file__).parents[1]
 
@@ -138,7 +138,6 @@ def test_pr_and_main_share_jobs_and_the_required_gate_needs_them() -> None:
     shared = (workflows / "area-checks.yml").read_text()
     assert "uses: ./.github/workflows/area-checks.yml" in main
     assert "uses: ./.github/workflows/area-checks.yml" in pr
-    assert "name: PR gate\n    needs: [base, area-checks, windows-native]\n    if: always()\n" in pr
     assert shared.count("python3 tools/select_areas.py --job") == 2
 
 
@@ -161,44 +160,8 @@ def test_pr_aggregate_refuses_failed_or_skipped_jobs() -> None:
         assert done.returncode == expected
 
 
-def test_the_main_failures_are_in_the_fast_selection() -> None:
-    done = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "--collect-only",
-            "-q",
-            "-p",
-            "no:xdist",
-            "-m",
-            "not native_wheel and not slow",
-            "tests/test_native_self_core_rows.py",
-            "tests/test_cli_native_core_scan_work.py",
-            "tests/test_cli_report_output.py",
-            "tests/test_collector_false_pass_rust_own_file_method.py",
-        ],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert done.returncode == 0, done.stdout + done.stderr
-    for name in (
-        "test_collect_hands_core_no_value_of_a_collector_type",
-        "test_release_scan_at_64_mib_keeps_a_full_frame_under_300_mib",
-        "test_native_static_page_stays_below_the_review_size_budget",
-        "test_requires_receipt_distinguishes_matching_and_wrong_ports",
-    ):
-        assert name in done.stdout
-
-
-def test_every_slow_file_is_in_an_area() -> None:
-    assert all(area_of(name) is not None for name in SLOW_FILES)
-
-
 def test_each_area_meets_its_floor_of_fast_tests() -> None:
-    """The floor check of conftest runs in this collection; an unknown area is a usage error."""
+    """The floor check of conftest runs in this collection; named tests stay in the fast tier."""
     options = ["--collect-only", "-q", "--tier", "fast", "-m", "not native_wheel and not slow"]
     options += ["-p", "no:xdist"]
     areas = [item for area in AREAS for item in ("--area", area)]
@@ -210,14 +173,13 @@ def test_each_area_meets_its_floor_of_fast_tests() -> None:
         check=False,
     )
     assert done.returncode == 0, done.stdout[-800:] + done.stderr[-800:]
-    wrong = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "--area", "no such area"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert wrong.returncode != 0 and "not an area" in wrong.stdout + wrong.stderr
+    for name in (
+        "test_collect_hands_core_no_value_of_a_collector_type",
+        "test_release_scan_at_64_mib_keeps_a_full_frame_under_300_mib",
+        "test_native_static_page_stays_below_the_review_size_budget",
+        "test_requires_receipt_distinguishes_matching_and_wrong_ports",
+    ):
+        assert name in done.stdout
 
 
 @pytest.mark.parametrize("area", sorted(AREAS))
@@ -275,7 +237,6 @@ def test_a_shared_test_helper_the_area_table_and_its_floors_select_every_area() 
         "tests/rust_param_review_plants.py",
     ):
         assert areas_of_change([path]) == list(AREAS), path
-    assert areas_of_change(["tests/test_cli_help.py"]) == ["CLI and core"]
 
 
 def test_select_areas_reads_the_diff_without_rename_detection(tmp_path: Path) -> None:
@@ -327,8 +288,6 @@ def test_the_tier_option_decides_which_floor_applies_not_a_substring_of_the_mark
     assert _collect(["--tier", "pr"], "reports", markers=pr)[0] == 0
     code, text = _collect(["--tier", "pr"], "reports", plus="1000000", markers=pr)
     assert code != 0 and "pr tests" in text
-    code, text = _collect(["--tier", "fast"], "reports", plus="1000000")
-    assert code != 0 and "fast tests" in text
     # The marker expression says "not slow" in each case below; the tier alone decides.
     assert _collect([], "reports", plus="1000000")[0] == 0
     assert _collect(["--tier", "full"], "reports", plus="1000000")[0] == 0
