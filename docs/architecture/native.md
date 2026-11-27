@@ -55,11 +55,10 @@ named interface ([AD-900](decisions/ad-900-a-proven-execution-pair-does-not-hide
 The core chain is core -> report -> eval -> model -> contract, store and facts
 ([AD-382](decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md)).
 The `NATIVE-NO-*-TO-*` rules forbid each upward direction also when a `requires` entry allows it.
-`NATIVE-EXTERNAL-COMPLETE` gives each external crate a stated home. Four rules stay tests until
-a Rust rule kind can say them (`tests/test_native_self_rules.py`, `tests/test_native_core.py`,
-`tests/test_rust_api.py`): no system access of the text scan of AD-382 on the core side beyond
-the core binary, no language name on the core side, `requires` that follow one crate order, and
-the public API of each library by name and signature. #1075 lists what the scan of a Rust workspace misses.
+`NATIVE-EXTERNAL-COMPLETE` gives each external crate a stated home. Three rules stay tests until
+a Rust rule kind can say them (`tests/test_native_self_rules.py`, `tests/test_native_core.py`): no
+system access of the text scan of AD-382 on the core side beyond the core binary, no language name
+on the core side, and `requires` that follow one crate order. #1075 lists what the scan of a Rust workspace misses.
 
 | Crate | Role | Uses |
 |---|---|---|

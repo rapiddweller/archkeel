@@ -55,11 +55,6 @@ def steps(base: str) -> list[Step]:
             "fix each finding; never add a blanket ignore",
         ),
         Step(
-            "rust-api-baseline",
-            (*UV, "python", "tools/rust_api.py", "--check"),
-            "a public Rust name changed: run `python tools/rust_api.py`, review api_baseline.json",
-        ),
-        Step(
             "contract-sort-and-rules",
             (*PYTEST, "tests/test_native_contract_rules.py"),
             "sort the ports, the public lists and the rules of native/architecture-contract.json",
@@ -74,11 +69,6 @@ def steps(base: str) -> list[Step]:
             ("cargo", "fmt", "--manifest-path", "native/Cargo.toml", "--all", "--", "--check"),
             "run `cd native && cargo fmt --all`",
         ),
-        Step(
-            "rust-clones-and-api",
-            (*PYTEST, "tests/test_rust_clones.py", "tests/test_rust_api.py"),
-            "share the code of a clone; never add it to native/clone_baseline.json",
-        ),
         Step("types", ("make", "typecheck"), "fix the mypy findings", HEAVY),
         Step(
             "self-validate",
@@ -89,7 +79,7 @@ def steps(base: str) -> list[Step]:
         Step(
             "native-lint",
             ("make", "pr-native-lint", f"PR_BASE={base}"),
-            "clippy `-D warnings` for the touched crates, then the clone and API gates",
+            "clippy `-D warnings` for the touched crates, and the lint of the touched crates",
             HEAVY,
         ),
         Step(

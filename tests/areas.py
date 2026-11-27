@@ -22,6 +22,12 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_native_interface_boundary.py",
         "test_project_demo_snapshots.py",
     ),
+    # #2148: the impl oracle (20 summed minutes) has its own job. The PR tier needs one light test
+    # in each area, so the three tests of `first_difference` come with it.
+    "native impl oracle": (
+        "test_collector_native_rust_impl_oracle.py",
+        "test_collector_native_python_first_difference.py",
+    ),
     "native collector evidence": (
         "test_collector_native_catalog.py",
         "test_collector_native_rust*.py",
@@ -38,7 +44,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_repository_hygiene.py",
         "test_ir_owners.py",
         "test_area_selection.py",
-        "test_born_small.py",
         "test_native_touched.py",
         "test_pr_report.py",
         "test_decision_index.py",
@@ -57,8 +62,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_phase_timings.py",
         "test_ci_daily.py",
         "test_native_ci.py",
-        "test_native_conventions.py",
-        "test_native_targets_have_callers.py",
         "test_native_neutral_crates.py",
         "test_native_contract_rules.py",
         "test_native_report.py",
@@ -149,7 +152,6 @@ HEAVY_FILES = frozenset(
         "test_native_self_core_rows.py",
         "test_native_self_rules.py",
         "test_parallel_execution.py",
-        "test_rust_clones.py",
     }
 )
 

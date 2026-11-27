@@ -248,12 +248,27 @@ pub(crate) fn run(run: Run, clock: Option<&dyn Fn() -> Duration>) -> Result<Answ
     let locations = frame_parts::locations(engine.reply(), &input.path, &input.bytes, &settings);
     let (collection_gaps, measures) = frame_parts::collection_metadata(engine.reply());
     let contract_digest = archkeel_facts::identity::sha256_hex(&input.bytes);
-    engine.answer(Request::Settings(settings));
+    engine.answer(Request::Settings(settings.clone()));
     let path = input.path.clone();
     let contract = match engine.answer(Request::Contract(input)) {
         Answer::Contract(state) => state,
         other => ContractState::Refused(format!("unexpected answer {other:?}")),
     };
+    // A budget that the baseline compares within its ceiling is decided by the comparison, so the
+    // profile does not hold the run for it. The values come from a first derivation (#2162).
+    let _ = engine.inputs();
+    let derived = engine.graph().zip(engine.reply());
+    let compared = baseline_frame::compared_budgets(
+        run.accept.as_ref(),
+        (
+            derived.map(|(graph, _)| graph),
+            derived.map(|(_, reply)| reply),
+            measures.as_ref(),
+        ),
+    );
+    if !compared.is_empty() {
+        engine.answer(Request::Settings(settings.with_compared_budgets(compared)));
+    }
     let rows = match engine.answer(Request::Sections(run.sections)) {
         Answer::Sections(rows) => rows,
         _ => Vec::new(),

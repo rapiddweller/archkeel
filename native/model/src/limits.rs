@@ -44,7 +44,8 @@ const UNDECIDED_KINDS: &[RuleKind] = &[
     RuleKind::ForbiddenEffectUnderCondition,
 ];
 
-/// The measurement budgets that no store-accepted profile measures (`unmeasured`).
+/// The measurement budgets that no store-accepted profile measures (`unmeasured`). A baseline that
+/// compares one in the run decides it (`Settings::with_compared_budgets`, AD-1090).
 const UNMEASURED: &[BudgetName] = &[
     BudgetName::PrivateCrossings,
     BudgetName::TypingPositions,
@@ -70,7 +71,11 @@ pub(crate) fn undecided_kind(kind: RuleKind) -> bool {
 /// `profile_failures`: a symbol entry of a component (a rule that reads it is held by
 /// `rule_limit`), and a declaration that no rule reads. The core decides no declaration, so each
 /// one keeps the run UNKNOWN.
-pub(crate) fn run_limits(contract: &Contract, observed: &Observed) -> Vec<Limit> {
+pub(crate) fn run_limits(
+    contract: &Contract,
+    observed: &Observed,
+    compared: &[BudgetName],
+) -> Vec<Limit> {
     let symbols = |subject: &str| symbol_limit(observed, subject);
     let mut found = Vec::new();
     for component in contract.components() {
@@ -114,7 +119,7 @@ pub(crate) fn run_limits(contract: &Contract, observed: &Observed) -> Vec<Limit>
             found.push(Limit::Certain(format!("declarations.{name}")));
         }
         for budget in declarations.measurement_budgets() {
-            if UNMEASURED.contains(budget.name()) {
+            if UNMEASURED.contains(budget.name()) && !compared.contains(budget.name()) {
                 found.push(Limit::Certain(format!(
                     "declarations.measurement_budgets.{}",
                     word(budget.name())

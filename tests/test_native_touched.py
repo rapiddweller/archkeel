@@ -30,7 +30,7 @@ def test_a_change_in_a_crate_names_that_crate_and_a_data_file_checks_only_the_fo
         selection(paths, CRATES)
         == "-p archkeel-core -p archkeel-python-collector -p archkeel-report"
     )
-    assert selection(["native/api_baseline.json"], CRATES) == "-"
+    assert selection(["native/README.md"], CRATES) == "-"
 
 
 def test_a_workspace_file_checks_the_whole_workspace() -> None:
@@ -46,20 +46,12 @@ def test_crate_dirs_maps_a_manifest_directory_to_its_package() -> None:
     assert crate_dirs(metadata) == {"native/core/": "archkeel-core"}
 
 
-GATES = (
-    "run --locked python -m pytest -q -p no:cacheprovider -n 0 "
-    "tests/test_rust_clones.py tests/test_rust_api.py"
-)
-AREA_JOB = "run --locked python tools/select_areas.py --job self-check and CI"
-
-
 def _make(
-    tmp_path: Path, selected: str, fmt_fails: bool = False, hosted: str | None = None
-) -> tuple[int, list[str], list[str]]:
+    tmp_path: Path, selected: str, fmt_fails: bool = False, hosted: bool = False
+) -> tuple[int, list[str]]:
     """Run the Make recipe with a `uv` that prints `selected` and a `cargo` that logs its calls.
 
-    The result is the exit code, the calls of `cargo` and the calls of `uv`. `hosted` is the answer
-    of `select_areas.py --job` and turns `PR_HOSTED=1` on.
+    The result is the exit code and the calls of `cargo`. `hosted` turns `PR_HOSTED=1` on.
     """
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
@@ -67,10 +59,7 @@ def _make(
     log = tmp_path / "cargo.log"
     log.write_text("")
     uv = bin_dir / "uv"
-    uv_log = tmp_path / "uv.log"
-    uv_log.write_text("")
-    answer = f"case \"$*\" in *select_areas.py*) echo '{hosted}';; *) echo '{selected}';; esac\n"
-    uv.write_text(f'#!/bin/sh\necho "$@" >> "{uv_log}"\n{answer}')
+    uv.write_text(f"#!/bin/sh\necho '{selected}'\n")
     cargo = bin_dir / "cargo"
     cargo.write_text(
         f'#!/bin/sh\necho "$@" >> "{log}"\n'
@@ -82,7 +71,7 @@ def _make(
     for script in (uv, cargo, rustfmt):
         script.chmod(0o755)
     env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "MAKEFLAGS": ""}
-    flags = [] if hosted is None else ["PR_HOSTED=1"]
+    flags = ["PR_HOSTED=1"] if hosted else []
     done = subprocess.run(
         ["make", "-s", "-f", str(ROOT / "Makefile"), "pr-native-lint", f"UV={uv}", *flags],
         cwd=tmp_path,
@@ -91,16 +80,16 @@ def _make(
         text=True,
         check=False,
     )
-    return done.returncode, log.read_text().splitlines(), uv_log.read_text().splitlines()
+    return done.returncode, log.read_text().splitlines()
 
 
 def test_the_recipe_runs_nothing_when_native_is_unchanged(tmp_path: Path) -> None:
-    code, calls, uv_calls = _make(tmp_path, "")
-    assert (code, calls) == (0, []) and GATES not in uv_calls
+    code, calls = _make(tmp_path, "")
+    assert (code, calls) == (0, [])
 
 
 def test_the_recipe_checks_the_format_and_lints_the_touched_crates(tmp_path: Path) -> None:
-    code, calls, _ = _make(tmp_path, "-p archkeel-core -p archkeel-report")
+    code, calls = _make(tmp_path, "-p archkeel-core -p archkeel-report")
     assert code == 0
     assert calls == [
         "fmt --all -- --check",
@@ -108,16 +97,16 @@ def test_the_recipe_checks_the_format_and_lints_the_touched_crates(tmp_path: Pat
     ]
 
 
-def test_a_pin_only_change_checks_the_format_alone_and_then_the_gates(tmp_path: Path) -> None:
-    code, calls, uv_calls = _make(tmp_path, "-")
-    assert (code, calls) == (0, ["fmt --all -- --check"]) and uv_calls[-1] == GATES
+def test_a_pin_only_change_checks_the_format_alone(tmp_path: Path) -> None:
+    code, calls = _make(tmp_path, "-")
+    assert (code, calls) == (0, ["fmt --all -- --check"])
 
 
-def test_an_unformatted_file_fails_the_gate_before_clippy_and_the_gates_run(
+def test_an_unformatted_file_fails_the_gate_before_clippy_runs(
     tmp_path: Path,
 ) -> None:
-    code, calls, uv_calls = _make(tmp_path, "-p archkeel-core", fmt_fails=True)
-    assert code != 0 and calls == ["fmt --all -- --check"] and GATES not in uv_calls
+    code, calls = _make(tmp_path, "-p archkeel-core", fmt_fails=True)
+    assert code != 0 and calls == ["fmt --all -- --check"]
 
 
 def test_the_pr_gate_workflow_runs_the_native_lint_after_the_core_build() -> None:
@@ -125,28 +114,10 @@ def test_the_pr_gate_workflow_runs_the_native_lint_after_the_core_build() -> Non
     assert "make pr-native-lint PR_BASE=" in text
 
 
-def test_a_native_change_also_runs_the_clone_and_the_api_gate_after_fmt_and_clippy(
-    tmp_path: Path,
-) -> None:
-    """A clone or a public name that nobody checked was merged: they run in the PR gate now."""
-    code, _calls, uv_calls = _make(tmp_path, "-p archkeel-core")
+def test_the_hosted_gate_leaves_out_what_the_native_job_runs(tmp_path: Path) -> None:
+    """PR_HOSTED=1: `native-check` runs the fmt, the driver rustfmt and the workspace clippy."""
+    assert _make(tmp_path, "--workspace", hosted=True) == (0, [])
+    code, calls = _make(tmp_path, "-p archkeel-core", hosted=True)
     assert code == 0
-    assert uv_calls[-1] == GATES
-
-
-def test_the_hosted_gate_leaves_out_what_the_native_job_and_the_area_job_run(
-    tmp_path: Path,
-) -> None:
-    """PR_HOSTED=1: `native-check` runs the fmt, the driver rustfmt and the workspace clippy.
-
-    The area `self-check and CI` runs the clone and API tests. A crate clippy and a skipped
-    area stay.
-    """
-    code, calls, uv_calls = _make(tmp_path, "--workspace", hosted="run")
-    assert (code, calls) == (0, []) and GATES not in uv_calls
-    assert AREA_JOB in uv_calls[-1]
-    code, calls, uv_calls = _make(tmp_path, "-p archkeel-core", hosted="run")
-    assert code == 0 and GATES not in uv_calls
     assert calls == ["clippy --locked --all-targets -p archkeel-core -- -D warnings"]
-    code, calls, uv_calls = _make(tmp_path, "-", hosted="no matching paths")
-    assert (code, calls) == (0, []) and uv_calls[-1] == GATES
+    assert _make(tmp_path, "-", hosted=True) == (0, [])

@@ -26,15 +26,15 @@ def fake(failing: set[str]):
 
 
 def test_the_precheck_runs_only_the_cheap_steps_and_all_failures_are_listed(capsys) -> None:
-    runner, ran = fake({"tools/rust_api.py", "test_repository_hygiene.py"})
+    runner, ran = fake({"ruff format", "test_repository_hygiene.py"})
     code = pr_report.main(["--mode", "precheck"], runner)
     out = capsys.readouterr().out
     assert code == 1
     assert len(ran) == len([s for s in pr_report.steps("b") if s.kind == pr_report.CHEAP])
     assert not any("make" in command for command in ran)
-    assert "rust-api-baseline | FAIL" in out and "hygiene | FAIL" in out
-    assert "E  tools/rust_api.py broke" in out and "fix:" in out
-    assert "2 of 7 steps failed" in out
+    assert "format | FAIL" in out and "hygiene | FAIL" in out
+    assert "E  ruff format broke" in out and "fix:" in out
+    assert "2 of 5 steps failed" in out
 
 
 def test_the_report_runs_the_steps_after_a_failure_and_the_cheap_ones_come_first() -> None:
