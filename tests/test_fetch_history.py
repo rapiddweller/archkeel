@@ -105,6 +105,16 @@ def test_a_base_with_no_common_history_fails_loud(
     assert "wrong base" in capsys.readouterr().err
 
 
+def test_whole_gives_the_complete_commit_graph_for_a_job_that_reads_the_history(
+    pull: tuple[Path, str],
+) -> None:
+    work, base = pull
+    assert fetch_history.main([base, "--whole"]) == 0
+    assert git(work, "rev-parse", "--is-shallow-repository") == "false"
+    assert "m0" in git(work, "log", "--all", "--name-only", "--pretty=format:")
+
+
 def test_the_tool_asks_for_one_full_sha() -> None:
+    assert fetch_history.main(["a" * 40, "--deep"]) == 2
     assert fetch_history.main(["origin/main"]) == 2
     assert fetch_history.main([]) == 2

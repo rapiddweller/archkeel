@@ -15,6 +15,8 @@ base commit, `origin/main` and a few first-parent ancestors of the base.
   `git ls-tree`, a worktree of the base, and `git diff` between earlier main commits (the base-result reuse).
 - `pr-gate.yml`: `git rev-list --first-parent -n 8 <base>^`.
 - `tests/test_born_small.py`: `git diff origin/main...HEAD`. It skips without `origin/main`.
+- `tests/test_doc_references_exist.py`: `git log --all --name-only` (the paths that history deleted). Its
+  area `self-check and CI` fetches the whole commit graph (`--whole`), still without blobs and branches.
 - No test or tool of these jobs reads a tag. The version comes from `hatch-vcs` and is `0.1.dev1+g<sha>`
   in a shallow clone; no test of these jobs reads it. Wheel, sdist and release jobs keep full history.
 
