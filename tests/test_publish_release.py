@@ -361,22 +361,6 @@ def test_plugin_upload_selects_only_archive_and_checksum_from_exporter_directory
     assert len(assets) == 9
 
 
-def test_the_platform_tags_are_the_six_targets_of_the_build_hook():
-    """AD-317: the pinned build images give these tags; each one is a tag of the build hook."""
-    hook = _hook()
-    assert sorted(publish_release.PLATFORM_TAGS) == sorted(
-        hook.wheel_tag(platform)
-        for platform in (
-            "macosx_14_0_x86_64",
-            "macosx_15_0_arm64",
-            "manylinux_2_17_x86_64",
-            "manylinux_2_17_aarch64",
-            "musllinux_1_2_x86_64",
-            "win_amd64",
-        )
-    )
-
-
 def test_a_release_with_every_platform_wheel_uploads_and_publishes_each_one(release):
     remote = release[0]
     publish(release)

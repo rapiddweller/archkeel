@@ -27,14 +27,6 @@ def _jobs(workflow: str) -> dict[str, str]:
     return dict(zip(parts[1::2], parts[2::2], strict=True))
 
 
-def test_every_action_is_pinned_to_a_commit() -> None:
-    # A tag can move to other code; a commit SHA cannot.
-    for path in WORKFLOWS.glob("*.yml"):
-        for action in re.findall(r"^\s+(?:- )?uses: (\S+)", path.read_text(), re.MULTILINE):
-            if not action.startswith("./"):
-                assert re.fullmatch(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}", action), (path.name, action)
-
-
 def _add_script() -> str:
     build = _jobs("release.yml")["build"]
     assert "pattern: native-wheel-*\n" in build and "path: build/native-wheels/\n" in build

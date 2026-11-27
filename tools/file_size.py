@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Which files the 500-line limit covers, and how a file is measured (AD-314).
 
-`tests/test_repository_hygiene.py` fails on a file over the limit. `tools/self_check_summary.py`
-shows the same measurement. This file is the one place that says which files count.
+`tools/self_check_summary.py` shows the measurement; no test fails on size. This file is the
+one place that says which files count.
 """
 
 from pathlib import Path

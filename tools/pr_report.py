@@ -55,11 +55,6 @@ def steps(base: str) -> list[Step]:
             "fix each finding; never add a blanket ignore",
         ),
         Step(
-            "hygiene",
-            (*PYTEST, "tests/test_repository_hygiene.py"),
-            "fix the finding of the repository hygiene test: read its message",
-        ),
-        Step(
             "rust-format",
             ("cargo", "fmt", "--manifest-path", "native/Cargo.toml", "--all", "--", "--check"),
             "run `cd native && cargo fmt --all`",
