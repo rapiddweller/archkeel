@@ -90,6 +90,7 @@ jobs:
         area:
           - core scans
           - CLI and core
+          - native impl oracle
           - native collector evidence
           - native collectors
           - collectors
