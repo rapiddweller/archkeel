@@ -756,6 +756,7 @@
           "component": "contract",
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
+            "native.archkeel_contract:BudgetName",
             "native.archkeel_contract:Component",
             "native.archkeel_contract:EntityKind",
             "native.archkeel_contract:ModifierKind",
@@ -2706,6 +2707,7 @@
             "native.archkeel_model:Hygiene",
             "native.archkeel_model:Measures",
             "native.archkeel_model:Reason",
+            "native.archkeel_model:Settings",
             "native.archkeel_model:gap_kind",
             "native.archkeel_model:stable"
           ]
@@ -2780,7 +2782,8 @@
         "native.archkeel_core.baseline_frame:build",
         "native.archkeel_core.baseline_frame:gap_rows",
         "native.archkeel_core.baseline_frame:holds_budgets",
-        "native.archkeel_core.baseline_frame:observed"
+        "native.archkeel_core.baseline_frame:observed",
+        "native.archkeel_core.baseline_frame:with_compared_budgets"
       ],
       "decided_by": "architect"
     },

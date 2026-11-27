@@ -59,7 +59,7 @@ pub(crate) struct Budgets {
 
 impl Budgets {
     /// The measured value of a budget, or `None` when the run does not measure it.
-    fn of(&self, name: BudgetName) -> Option<u64> {
+    pub(crate) fn of(&self, name: BudgetName) -> Option<u64> {
         match name {
             BudgetName::CycleEdges => self.cycle_edges,
             BudgetName::PrivateCrossings => self.private_crossings,

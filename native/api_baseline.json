@@ -2910,6 +2910,7 @@
     "fn settings::new(namespace:String,profile:String,standard_library:Vec<String>)->Self",
     "fn settings::producer(&self)->Producer",
     "fn settings::standard(&self,root:&str)->bool",
+    "fn settings::with_compared_budgets(self,compared_budgets:Vec<BudgetName>)->Self",
     "fn settings::with_contract_source(self,path:&str,bytes:&[u8])->Self",
     "fn settings::with_producer(self,producer:Producer)->Self",
     "fn settings::with_roots(self,roots:Vec<String>)->Self",
