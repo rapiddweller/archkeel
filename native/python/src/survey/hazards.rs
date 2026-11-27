@@ -44,12 +44,16 @@ mod bind;
 mod comprehension;
 #[path = "hazards_inert.rs"]
 mod inert;
+#[path = "hazards_modules_get.rs"]
+mod modules_get;
 #[path = "hazards_reexport.rs"]
 mod reexport;
 #[path = "hazards_reflect.rs"]
 pub(super) mod reflect;
 #[path = "hazards_trojan_horse.rs"]
 mod trojan_horse;
+#[path = "hazards_walk.rs"]
+mod walk;
 
 /// The sites of a module, in source order.
 pub(super) fn sites(

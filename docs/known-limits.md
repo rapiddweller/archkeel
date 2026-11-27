@@ -316,6 +316,8 @@ premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_p
   write through `sys.modules` or a computed `importlib.import_module` is a survey gap, so the rule is
   UNKNOWN. A direct scanned read of another function's `__globals__` also keeps its named gap, and an
   outside library dictionary that hides an importer gives the gap of AD-760 (#1521).
+  A `sys.modules.get("text")` whose value is only compared with `is`/`is not` or tested for truth is a read, not a
+  write (AD-1276, #2197); every other use of the table keeps the gap.
 
 ## Open false PASS: a code object or a module name reached by a route that the collector does not read (Python, #1969, #1970)
 
