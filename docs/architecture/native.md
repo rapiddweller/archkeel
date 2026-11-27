@@ -55,10 +55,9 @@ named interface ([AD-900](decisions/ad-900-a-proven-execution-pair-does-not-hide
 The core chain is core -> report -> eval -> model -> contract, store and facts
 ([AD-382](decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md)).
 The `NATIVE-NO-*-TO-*` rules forbid each upward direction also when a `requires` entry allows it.
-`NATIVE-EXTERNAL-COMPLETE` gives each external crate a stated home. Three rules stay tests until
-a Rust rule kind can say them (`tests/test_native_self_rules.py`, `tests/test_native_core.py`): no
-system access of the text scan of AD-382 on the core side beyond the core binary, no language name
-on the core side, and `requires` that follow one crate order. #1075 lists what the scan of a Rust workspace misses.
+`NATIVE-EXTERNAL-COMPLETE` gives each external crate a stated home. The text scans of AD-382 (system
+access and language names on the core side, the order of the `requires`) are retired: the contract does
+not say them and no test checks them (owner decision 2026-11-27). #1075 lists what the scan of a Rust workspace misses.
 
 | Crate | Role | Uses |
 |---|---|---|
@@ -85,8 +84,7 @@ A collector crate never uses another collector crate. Only a collector crate use
 Only `archkeel-collect` uses a collector crate, and only `archkeel-core` uses `archkeel-collect`.
 `archkeel-collect` uses only `facts`, `store`, `wire`, `snapshot` and the collectors, and a collector uses no
 `store` and no crate of the core side (`NATIVE-NO-*-TO-TYPESCRIPT`, `NATIVE-NO-*-TO-COLLECT`,
-`NATIVE-NO-COLLECT-TO-*`, `NATIVE-NO-<collector>-TO-*`, and the crate order of
-`tests/native_rules_support.py`, AD-406).
+`NATIVE-NO-COLLECT-TO-*`, `NATIVE-NO-<collector>-TO-*`, AD-406).
 
 The Python collection spine has four layers ([AD-389](decisions/ad-389-the-native-python-collector-checks-compiler-refusals-before-facts.md)):
 `py-survey` -> `py-symbols` -> `py-unparse` -> `py-module`, `py-tree` and `py-parse`; `py-survey` and `py-symbols` also read `py-declare`, which reads `py-module` and `facts` (AD-518).
