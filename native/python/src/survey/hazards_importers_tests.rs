@@ -146,6 +146,7 @@ fn a_text_over_the_parser_bound_a_run_time_write_and_a_string_variable_are_sites
         "s = 'a' + 'b'\nclass K:\n    x: s\n",
         "J = \"list[J]\"\ndef f(x: J): ...\n",
         "J = \"list[Ｊ]\"\ndef f(x: J): ...\n",
+        "class C:\n    s = \"list[C.s]\"\nclass K:\n    x: C.s\n",
         "J = \"list['J']\"\ndef f(x: J): ...\n",
         "A = \"B\"\nB = \"A\"\ndef f(x: A): ...\n",
         "A = \"B\"\nB = \"__import__('a.b')\"\ndef f(x: A): ...\n",
@@ -178,5 +179,79 @@ fn a_name_with_many_different_texts_stops_collecting() {
     let many: String = (0..40_000).map(|n| format!("s = 'int{n}'\n")).collect();
     let start = std::time::Instant::now();
     assert!(!details(&format!("{many}class K:\n    x: s\n")).is_empty());
+    assert!(start.elapsed().as_secs() < 5);
+}
+
+#[test]
+fn a_module_that_evaluates_annotations_holds_each_value_it_cannot_name() {
+    let head = "import typing\ntyping.get_type_hints(K)\n";
+    for body in [
+        "class K: ...\nprint(K.__annotations__.update(x='int'))\n",
+        "def f():\n    class L:\n        x: make_type()\n",
+        "def f(x: make_type()): ...\n",
+        "s = 'int'\nt = str('a')\ns = t\nclass K:\n    x: s\n",
+        "from typing import ForwardRef as FR\nr = FR('int')\n",
+        "s = 't'\nt = str('a')\nclass K:\n    x: s\n",
+        "def TypeVar(v): return v\ns = TypeVar('a')\nclass K:\n    x: s\n",
+        "from mylib import TypeVar\ns = TypeVar('a')\nclass K:\n    x: s\n",
+        "s = str('a')\nAlias = list[s]\nclass K:\n    x: Alias\n",
+        "Alias = list['int']\nclass K:\n    x: Alias\n",
+        "TD = typing.TypedDict\nK = TD('K', {'x': 'int'})\n",
+        "s = str('a')\nclass K:\n    x: 's'\n",
+        "s = 'int'\nt = s\nclass K:\n    x: t\n",
+        "from typing import TypedDict as TD\nK = TD('K', {'x': 'int'})\n",
+        "from typing import ForwardRef as FR\nr = FR(s)\n",
+        "def f():\n    def g(x: make_type()): ...\n",
+        "s = typing.cast(str, 'a')\nclass K:\n    x: s\n",
+        "from typing import get_type_hints as hints\ns = str('a')\nclass K:\n    x: s\n",
+        "class K: ...\na = K.__annotations__\n",
+        "K = type('K', (), {'__annotations__': {}})\n",
+        "s, t = 'a', 'b'\nclass K:\n    x: s\n",
+        "s = 'a'\ns += 'b'\nclass K:\n    x: s\n",
+        "for s in ['a']: ...\nclass K:\n    x: s\n",
+        "(s := 'a')\nclass K:\n    x: s\n",
+        "s = str('a')\nclass K:\n    x: s\n",
+        "d = {}\nclass K:\n    x: d['a']\n",
+        "class K:\n    x: str('a')\n",
+        "K = typing.TypedDict('K', {'x': 'int'})\n",
+        "r = typing.ForwardRef(s)\n",
+        "class C:\n    s = 'int'\n    s = f()\nclass K:\n    x: C.s\n",
+    ] {
+        let source = format!("{head}{body}");
+        assert!(!details(&source).is_empty(), "{source}");
+    }
+}
+
+#[test]
+fn a_module_that_evaluates_annotations_keeps_plain_type_forms_clean() {
+    let head = "import typing\ntyping.get_type_hints(K)\n";
+    for body in [
+        "class K:\n    x: int\n    y: typing.Optional[str]\n    z: list[int] | None\n",
+        "A = list[int]\nT = typing.TypeVar('T')\nclass K:\n    x: A\n    y: T\n",
+        "from typing import TypeVar as TV\nT = TV('T')\nclass K:\n    y: T\n",
+        "class K:\n    x: typing.Annotated[int, f('meta')]\n",
+        "def f():\n    x: make_type()\n",
+        "class A: ...\ndef f(a: A) -> A: ...\n",
+        "s = 'int'\nclass K:\n    x: s\n",
+    ] {
+        let source = format!("{head}{body}");
+        assert_eq!(details(&source), Vec::<String>::new(), "{source}");
+    }
+    // No evaluator in the module: a read of `__annotations__` is no site.
+    assert_eq!(
+        details("class K: ...\nprint(K.__annotations__)\n"),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_long_chain_of_aliases_costs_no_more_than_one_pass() {
+    let mut source = String::from("import typing\ntyping.get_type_hints(K)\ns0 = str('int')\n");
+    for n in 1..30_000 {
+        source.push_str(&format!("s{n} = s{}\n", n - 1));
+    }
+    source.push_str("class K:\n    x: s29999\n");
+    let start = std::time::Instant::now();
+    assert!(!details(&source).is_empty());
     assert!(start.elapsed().as_secs() < 5);
 }

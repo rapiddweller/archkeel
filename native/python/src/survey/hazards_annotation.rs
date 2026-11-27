@@ -14,6 +14,15 @@ use ruff_python_ast::{Expr, ExprCall, ExprStringLiteral, Identifier, ModModule, 
 
 use crate::parse::Unread;
 
+#[path = "hazards_annotation_class.rs"]
+pub(in crate::survey::hazards) mod class;
+#[path = "hazards_annotation_forms.rs"]
+mod forms;
+#[path = "hazards_annotation_imports.rs"]
+mod imports;
+
+pub(in crate::survey::hazards) use forms::literal;
+
 /// What `expr` evaluates as code: a string in an annotation, the first argument of `ForwardRef`,
 /// or a name in an annotation that the module assigns a string.
 pub(super) enum Text<'a> {
@@ -27,11 +36,13 @@ pub(super) fn evaluated<'a>(expr: &'a Expr, in_annotation: bool, strings: &Strin
     match expr {
         Expr::StringLiteral(text) if in_annotation => Text::Literal(text),
         Expr::Call(call) => forward_ref(call).map_or(Text::None, Text::Literal),
-        Expr::Name(name) if in_annotation => match strings.held(name.id.as_str()) {
-            Held::None => Text::None,
-            Held::Texts(texts) => Text::Held(texts.to_vec()),
-            Held::Opaque => Text::Opaque,
-        },
+        Expr::Name(_) | Expr::Attribute(_) if in_annotation => {
+            match strings.held(forms::last(expr).unwrap_or_default()) {
+                Held::None => Text::None,
+                Held::Texts(texts) => Text::Held(texts.to_vec()),
+                Held::Opaque => Text::Opaque,
+            }
+        }
         _ => Text::None,
     }
 }
@@ -45,15 +56,6 @@ fn forward_ref(call: &ExprCall) -> Option<&ExprStringLiteral> {
     match call.arguments.args.first() {
         Some(Expr::StringLiteral(text)) if callee == "ForwardRef" => Some(text),
         _ => None,
-    }
-}
-
-/// True for `Literal` and `typing.Literal`: its strings are values, no annotation.
-pub(super) fn literal(value: &Expr) -> bool {
-    match value {
-        Expr::Name(node) => node.id.as_str() == "Literal",
-        Expr::Attribute(node) => Identifier::as_str(&node.attr) == "Literal",
-        _ => false,
     }
 }
 
@@ -132,6 +134,10 @@ impl<'a> Visitor<'a> for Names {
             Expr::Name(node) => {
                 self.found.insert(node.id.to_string());
             }
+            Expr::Attribute(node) => {
+                self.found.insert(node.attr.to_string());
+                visitor::walk_expr(self, expr);
+            }
             Expr::StringLiteral(text) => match parsed(text) {
                 Ok(code) if self.depth < 8 => {
                     self.depth += 1;
@@ -189,8 +195,10 @@ impl Strings {
     }
 
     fn bind(&mut self, target: &Expr, value: &Expr) {
-        let Expr::Name(name) = target else { return };
-        let id = name.id.to_string();
+        let Some(id) = forms::last(target) else {
+            return;
+        };
+        let id = id.to_owned();
         if self.opaque.contains(&id) {
             return;
         }
@@ -225,15 +233,7 @@ impl Strings {
 
 impl<'a> Visitor<'a> for Strings {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        match stmt {
-            Stmt::Assign(node) => node.targets.iter().for_each(|t| self.bind(t, &node.value)),
-            Stmt::AnnAssign(node) => {
-                if let Some(value) = &node.value {
-                    self.bind(&node.target, value);
-                }
-            }
-            _ => {}
-        }
+        forms::assigned(stmt, |target, value| self.bind(target, value));
         visitor::walk_stmt(self, stmt);
     }
 }

@@ -91,7 +91,7 @@ pub(super) fn sites(
             None => walk.visit_stmt(stmt),
         }
     }
-    walk.found
+    annotation::class::with(walk.found, tree)
 }
 
 struct Walk<'r> {
