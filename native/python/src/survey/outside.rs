@@ -72,9 +72,6 @@ const SKIPPED: [&str; 6] = [
     "__tests__",
 ];
 
-/// The file that makes a folder below the root another ArchKeel project.
-const CONFIG: &str = "archkeel.toml";
-
 /// The files that prove a directory as build output or as installed packages.
 const MARKERS: [&str; 2] = ["CACHEDIR.TAG", "pyvenv.cfg"];
 
@@ -411,13 +408,9 @@ fn walk(snapshot: &mut Snapshot, selected: &HashSet<&str>) -> Files {
             .iter()
             .map(|(n, e)| (String::as_str(n), *e))
             .collect();
-        // A folder with an `archkeel.toml` below the root is another ArchKeel project (a fixture,
-        // a sub-project): its code is not code of this scan (AD-1211).
-        let nested = !directory.is_empty() && names.get(CONFIG) == Some(&Entry::File);
-        if nested
-            || MARKERS
-                .iter()
-                .any(|marker| names.get(marker) == Some(&Entry::File))
+        if MARKERS
+            .iter()
+            .any(|marker| names.get(marker) == Some(&Entry::File))
         {
             continue;
         }
