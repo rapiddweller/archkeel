@@ -109,10 +109,11 @@ fn escaped_with(modules: &[Module], imports: &[Record<ImportFact>], sources: &So
             .or_default()
             .push((target, symbol));
         if symbol.is_some_and(|name| NAMESPACE.contains(&name)) {
-            let use_of = (
-                RouteWithheld::EscapedNamespace,
-                format!("import in {source}"),
-            );
+            let rel = (modules.iter()).find(|module| module.name == source);
+            let place = rel.map_or(source, |module| module.rel.as_str());
+            let name = symbol.unwrap_or_default();
+            let at = format!("{target} <- {place} (import of {name})");
+            let use_of = (RouteWithheld::EscapedNamespace, at);
             for module in scan.below(target) {
                 found.entry(module).or_insert_with(|| use_of.clone());
             }

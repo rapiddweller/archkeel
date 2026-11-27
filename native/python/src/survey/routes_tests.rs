@@ -393,3 +393,15 @@ fn a_child_module_handed_on_is_named_with_its_use() {
         Some((RouteWithheld::EscapedChildModule, Some(at))) if at.ends_with("src/app/other.py:2")
     ));
 }
+
+#[test]
+fn a_namespace_import_names_its_target_and_its_file() {
+    let found = escaping_use("from app.pkg import __dict__ as names\n");
+    assert_eq!(
+        found,
+        Some((
+            RouteWithheld::EscapedNamespace,
+            Some("app.pkg <- src/app/other.py (import of __dict__)".to_owned())
+        ))
+    );
+}
