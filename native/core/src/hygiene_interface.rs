@@ -24,7 +24,7 @@
 //! This module walks every owner of a mount up to the root, as 4.0.1 does (AD-514, amended).
 //! A row holds back a PASS.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use archkeel_contract::policy::InsideMount;
 use archkeel_contract::Component;
@@ -41,9 +41,7 @@ const NO_IMPORT: (&str, &str) = (
 );
 const IMPORT_SEEN: (&str, &str) = (
     "import_seen",
-    "An import of this module reaches the component, but the core proves no use of this entry: \
-     the symbol record of the import is withheld, or the import names another symbol. Read the \
-     import, or remove the entry from `public`.",
+    "An import of this module reaches the component, but the core proves no use of this entry",
 );
 
 /// A finding, and the word of the action that it asks for when its code has more than one.
@@ -126,25 +124,80 @@ pub(crate) fn findings(tree: &ModelTree, mounts: &[InsideMount], index: Option<u
 }
 
 /// An entry that no proven import reaches. An import of its module that proves no use is a
-/// different answer than no import at all: the first one needs a read, the second a delete.
+/// different answer than no import at all: the first one needs a read, the second a delete. The
+/// first one names why each import proves no use (#2089).
 fn unknown(pointer: String, entry: &str, records: &[&Import]) -> Row {
     let module = entry.split(':').next().unwrap_or(entry);
     let touches = |hop: &String| {
         hop.rsplit_once('.')
             .is_some_and(|(found, _)| found == module)
     };
-    let seen = records
+    let seen: Vec<&&Import> = records
         .iter()
-        .any(|r| r.target_module() == module || r.reexport_chain().iter().any(touches));
-    let (action, claim) = if seen { IMPORT_SEEN } else { NO_IMPORT };
+        .filter(|r| r.target_module() == module || r.reexport_chain().iter().any(touches))
+        .collect();
+    let (action, claim) = if seen.is_empty() {
+        (NO_IMPORT.0, NO_IMPORT.1.to_owned())
+    } else {
+        (IMPORT_SEEN.0, import_seen(&seen))
+    };
     (
-        (
-            "interface.usage_unknown",
-            pointer,
-            entry.to_owned(),
-            claim.to_owned(),
-        ),
+        ("interface.usage_unknown", pointer, entry.to_owned(), claim),
         Some(action),
+    )
+}
+
+/// Why an import that reaches the module of an entry proves no use of it: the word of the cause
+/// that the collector states for its route (AD-1210), or the form of the import.
+fn block(record: &Import) -> &'static str {
+    if record.call_form() {
+        "call_form"
+    } else if record.unbound_type() {
+        "unbound_type"
+    } else if record.symbol().is_some() && record.reexport_chain().is_empty() {
+        record
+            .withheld_cause()
+            .map_or("not_stated", |(word, _)| word)
+    } else {
+        "other_symbol"
+    }
+}
+
+/// The text of an `import_seen` hold: the number of imports for each cause, and the first import
+/// with the module or hop that withheld its route.
+fn import_seen(seen: &[&&Import]) -> String {
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for record in seen {
+        *counts.entry(block(record)).or_default() += 1;
+    }
+    let mut causes: Vec<(&str, usize)> = counts.into_iter().collect();
+    causes.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+    let causes: Vec<String> = causes
+        .iter()
+        .map(|(word, count)| format!("{count} {word}"))
+        .collect();
+    let first = seen
+        .iter()
+        .min_by_key(|r| (r.source_module(), r.symbol()))
+        .map(|record| {
+            let at = record
+                .withheld_cause()
+                .and_then(|(_, at)| at)
+                .map(|at| format!(" ({at})"))
+                .unwrap_or_default();
+            format!(
+                " First: {} imports {}, {}{at}.",
+                record.source_module(),
+                record.symbol().unwrap_or("*"),
+                block(record)
+            )
+        })
+        .unwrap_or_default();
+    format!(
+        "{}. Cause of each of {} imports: {}.{first}",
+        IMPORT_SEEN.1,
+        seen.len(),
+        causes.join(", ")
     )
 }
 

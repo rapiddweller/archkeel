@@ -2820,6 +2820,8 @@
     "fn imports::unbound_type(&self)->bool",
     "fn imports::under_type_checking(&self)->bool",
     "fn imports::written_name(&self)->bool",
+    "fn imports_surface::opaque_surface(&self)->Option<(&str,&'static str)>",
+    "fn imports_surface::withheld_cause(&self)->Option<(&'static str,Option<&str>)>",
     "fn interface::interface_crossings<'m>(model:&'m Model,rule:&InterfaceBoundary)->Vec<Crossing<'m>>",
     "fn interface::interface_publications<'m>(model:&'m Model,rule:&InterfaceBoundary,)->Vec<Publication<'m>>",
     "fn interface::publishes(model:&Model,target:&Component,module:&str,symbol:Option<&str>,hops:&[String],)->bool",
