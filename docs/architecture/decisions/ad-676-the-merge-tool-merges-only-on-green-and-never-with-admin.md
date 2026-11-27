@@ -1,6 +1,6 @@
 # AD-676 The merge tool merges only on green and never with admin
 
-**Status.** Accepted. Owner decision of 2026-11-16. Part of #880. Follows AD-674.
+**Status.** Accepted. Owner decision of 2026-11-16. Part of #880. Follows AD-674. Superseded by [AD-1270](ad-1270-the-merge-tools-are-deleted-and-github-enforces-the-pr-gate.md): the merge tools are deleted.
 
 **Reason.** The merge helper in `/tmp` used `gh pr merge --admin`, so a red required check did not block, and a broken worktree landed three empty squash commits (#1337, #1338, #1340).
 
