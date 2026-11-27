@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""#2196, AD-1320: a reserved name that is only tested is data; every other use keeps the gap.
+"""#2196, AD-1340: a reserved name that is only tested is data; every other use keeps the gap.
 
 Consumer: `archkeel validate`. `NO-LIB` forbids `app.consumer` to depend on `app.lib`. A control
 tests reserved names (`name in {"__globals__", "__import__"}`) and imports nothing: CPython leaves

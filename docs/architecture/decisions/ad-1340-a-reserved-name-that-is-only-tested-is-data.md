@@ -1,4 +1,4 @@
-# AD-1320 A reserved name that is only tested is data
+# AD-1340 A reserved name that is only tested is data
 
 **Status.** Accepted. Issue #2196. It narrows the string site of [AD-1059](ad-1059-a-standard-library-name-that-imports-by-a-string-is-a-trojan-horse.md) and [AD-450](ad-450-python-import-rules-use-a-bound-import-survey.md).
 

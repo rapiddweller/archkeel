@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A reserved name that is only tested is data, not a dynamic import (AD-1320, #2196).
+//! A reserved name that is only tested is data, not a dynamic import (AD-1340, #2196).
 //!
 //! `name in {"__globals__", "__builtins__"}` lists names; it looks nothing up. One closed rule: a
 //! string literal is inert when it is an element of a set, tuple or list display that is the right

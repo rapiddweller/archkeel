@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A reserved name that is only tested is data (AD-1320, #2196). `tests/test_collector_false_pass_python_reserved_text.py`
+//! A reserved name that is only tested is data (AD-1340, #2196). `tests/test_collector_false_pass_python_reserved_text.py`
 //! runs the escaping forms under CPython.
 
 use super::super::split;
