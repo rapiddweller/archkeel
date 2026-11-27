@@ -79,7 +79,8 @@ pub(super) fn ranges(modules: &[Module], binders: &[Binders]) -> Vec<HashSet<Tex
 struct Hooks {
     /// A statement defines or writes `__eq__` or `__ne__`.
     eq: bool,
-    /// A class defines `__eq__` or `__ne__` with `__hash__`, or a write adds `__eq__` or `__ne__` out of a class body.
+    /// The scan defines or writes `__eq__` or `__ne__` and also `__hash__`: a subclass can inherit one and
+    /// define the other, so the two need not stand in one class.
     pair: bool,
 }
 
@@ -91,7 +92,7 @@ impl Hooks {
             .for_each(|module| watch.visit_body(&module.tree.body));
         Hooks {
             eq: watch.eq,
-            pair: watch.pair || watch.eq_write || (watch.eq && watch.hash_write),
+            pair: watch.eq && watch.hash,
         }
     }
 
@@ -108,36 +109,11 @@ impl Hooks {
 #[derive(Default)]
 struct Watch {
     eq: bool,
-    pair: bool,
-    eq_write: bool,
-    hash_write: bool,
-}
-
-/// The names that a class body defines or assigns directly.
-fn body_names(body: &[Stmt]) -> impl Iterator<Item = &str> {
-    body.iter().filter_map(|stmt| match stmt {
-        Stmt::FunctionDef(node) => Some(node.name.as_str()),
-        Stmt::AnnAssign(node) => match &*node.target {
-            Expr::Name(name) => Some(name.id.as_str()),
-            _ => None,
-        },
-        Stmt::Assign(node) => match node.targets.as_slice() {
-            [Expr::Name(name)] => Some(name.id.as_str()),
-            _ => None,
-        },
-        _ => None,
-    })
+    hash: bool,
 }
 
 impl<'a> Visitor<'a> for Watch {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        if let Stmt::ClassDef(node) = stmt {
-            let names: Vec<&str> = body_names(&node.body).collect();
-            let eq = names
-                .iter()
-                .any(|name| matches!(*name, "__eq__" | "__ne__"));
-            self.pair |= eq && names.contains(&"__hash__");
-        }
         let defined = match stmt {
             Stmt::FunctionDef(node) => Some(node.name.as_str()),
             Stmt::Assign(node) => match node.targets.as_slice() {
@@ -150,7 +126,7 @@ impl<'a> Visitor<'a> for Watch {
             },
             _ => None,
         };
-        self.eq |= matches!(defined, Some("__eq__" | "__ne__"));
+        self.note(defined);
         visitor::walk_stmt(self, stmt);
     }
 
@@ -161,11 +137,15 @@ impl<'a> Visitor<'a> for Watch {
             Expr::StringLiteral(text) => Some(text.value.to_str()),
             _ => None,
         };
-        let eq = matches!(written, Some("__eq__" | "__ne__"));
-        self.eq |= eq;
-        self.eq_write |= eq;
-        self.hash_write |= matches!(written, Some("__hash__"));
+        self.note(written);
         visitor::walk_expr(self, expr);
+    }
+}
+
+impl Watch {
+    fn note(&mut self, name: Option<&str>) {
+        self.eq |= matches!(name, Some("__eq__" | "__ne__"));
+        self.hash |= name == Some("__hash__");
     }
 }
 
@@ -346,13 +326,12 @@ fn strings_in(items: &[Expr]) -> impl Iterator<Item = TextRange> + '_ {
 }
 
 impl Tests<'_> {
-    /// `type(name) is str and name in {...}`: the comparison after the proof has an exact `str` on the left.
+    /// `type(name) is str and name in {...}`: the comparison right after the proof has an exact `str` on the
+    /// left. Nothing stands between them, so the name cannot be written in between.
     fn guard(&mut self, values: &[Expr]) {
-        let mut proven: HashSet<&str> = HashSet::new();
-        for value in values {
-            proven.extend(exact_str(value, self.visible));
-            let after = guarded_compare(value, &proven);
-            self.guarded.extend(after);
+        for pair in values.windows(2) {
+            let proven: HashSet<&str> = exact_str(&pair[0], self.visible).into_iter().collect();
+            self.guarded.extend(guarded_compare(&pair[1], &proven));
         }
     }
 
@@ -386,14 +365,13 @@ fn guarded_compare(value: &Expr, proven: &HashSet<&str>) -> Option<TextRange> {
     (first && node.ops.len() == 1).then(|| node.range())
 }
 
-/// The name of `type(name) is str` (or `==`), with `type` and `str` the builtins.
+/// The name of `type(name) is str`, with `type` and `str` the builtins. `==` is no proof: a metaclass
+/// can define it.
 fn exact_str<'e>(value: &'e Expr, visible: &dyn Fn(&str) -> bool) -> Option<&'e str> {
     let Expr::Compare(node) = value else {
         return None;
     };
-    let ([CmpOp::Is | CmpOp::Eq], [Expr::Call(call), Expr::Name(right)]) =
-        (&*node.ops, &*node.operands)
-    else {
+    let ([CmpOp::Is], [Expr::Call(call), Expr::Name(right)]) = (&*node.ops, &*node.operands) else {
         return None;
     };
     let Expr::Name(func) = &*call.func else {

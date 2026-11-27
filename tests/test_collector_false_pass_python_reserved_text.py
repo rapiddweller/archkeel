@@ -63,6 +63,34 @@ CONTROLS = {
     ),
 }
 PLANTS = {
+    "set test with an inherited equality hook and an own hash": (
+        quiet(
+            EQ
+            + "class Child(Lookup):\n    def __hash__(self):\n"
+            + "        return hash('__globals__')\n\n\n",
+            "Child() in {'__globals__'}",
+        ),
+        "",
+    ),
+    "name rebound between the type check and the comparison": (
+        quiet(
+            EQ + "n = 'x'\n",
+            "type(n) is str and (n := Lookup()) and n == '__globals__'",
+        ),
+        "",
+    ),
+    "type check by equality with a metaclass hook": (
+        quiet(
+            EQ.replace(
+                "class Lookup:",
+                "class Meta(type):\n    def __eq__(cls, other):\n        return True\n\n"
+                "    def __hash__(cls):\n        return 1\n\n\nclass Lookup(metaclass=Meta):",
+            )
+            + "n = Lookup()\n",
+            "type(n) == str and n == '__globals__'",
+        ),
+        "",
+    ),
     "comparison that calls an equality hook with the literal": (
         quiet(EQ, "Lookup() == '__globals__'"),
         "",

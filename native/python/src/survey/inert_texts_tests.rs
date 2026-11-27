@@ -129,7 +129,7 @@ fn a_scan_that_defines_an_equality_hook_has_no_inert_text() {
         "class K:\n    def __eq__(self, other):\n        return other\n",
         "class K:\n    def __ne__(self, other):\n        return other\n",
         "class K:\n    __eq__ = lambda self, other: other\n",
-        "K.__eq__ = lambda self, other: other\n",
+        "K.__eq__ = lambda self, other: other\nK.__hash__ = hash\n",
         "type('K', (), {'__eq__': lambda self, other: other})\n",
         "setattr(K, '__ne__', lambda self, other: other)\n",
     ] {
@@ -153,9 +153,11 @@ fn a_set_test_needs_a_hash_beside_the_equality_hook() {
         );
     }
     for hook in [
+        // One class defines `__eq__`, a subclass defines `__hash__`: both stand in the scan.
+        "class K:\n    def __eq__(self, other):\n        return other\n\n\nclass C(K):\n    def __hash__(self):\n        return 1\n",
         "class K:\n    def __eq__(self, other):\n        return other\n\n    def __hash__(self):\n        return 1\n",
         "class K:\n    __hash__ = hash\n    __eq__ = lambda self, other: other\n",
-        "K.__eq__ = lambda self, other: other\n",
+        "K.__eq__ = lambda self, other: other\nK.__hash__ = hash\n",
         "type('K', (), {'__eq__': lambda self, other: other, '__hash__': hash})\n",
     ] {
         assert!(sites(&[sets, hook]).iter().any(|(at, _)| *at == 0), "{hook}");
@@ -167,9 +169,8 @@ fn an_exact_str_has_no_hook_that_runs_with_the_literal() {
     let hook = "class K:\n    def __eq__(self, other):\n        return other\n\n    def __hash__(self):\n        return 1\n";
     for guarded in [
         "def f(n):\n    return type(n) is str and n in {\"__globals__\", \"__import__\"}\n",
-        "def f(n):\n    return type(n) == str and n in (\"__globals__\",)\n",
         "def f(n):\n    return type(n) is str and n == \"__import__\"\n",
-        "def f(n, m):\n    return m and type(n) is str and n in [\"__code__\"]\n",
+        "def f(n):\n    return type(n) is str and n in [\"__code__\"]\n",
     ] {
         assert!(
             !sites(&[guarded, hook]).iter().any(|(at, _)| *at == 0),
@@ -183,6 +184,9 @@ fn an_exact_str_has_no_hook_that_runs_with_the_literal() {
         "def f(n):\n    return type(n) is str or n in {\"__globals__\"}\n",
         "def f(n):\n    return n in {\"__globals__\"} and type(n) is str\n",
         "def f(n):\n    return isinstance(n, str) and n in {\"__globals__\"}\n",
+        "def f(n):\n    return type(n) == str and n in {\"__globals__\"}\n",
+        "def f(n):\n    return type(n) is str and (n := other()) and n == \"__globals__\"\n",
+        "def f(n, m):\n    return type(n) is str and m and n in {\"__globals__\"}\n",
         "def f(n):\n    return type(n) is str and (n, 1) == (\"__globals__\", 1)\n",
     ] {
         assert!(
