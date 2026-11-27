@@ -29,7 +29,7 @@ Python collectors are deleted; the Python collectors are gone, and a release 4.0
 make ci-pr-check BASE=origin/main        # lint, types and a fixed set of tests
 ```
 
-`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the Rust API baseline, the contract sort, the hygiene test, `cargo fmt` and the API gate. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
+`make pr-precheck` runs the cheap static checks in about 20 seconds: format, lint, the contract sort, the hygiene test and `cargo fmt`. Run it before every push. `make pr-gate-report` (or `make pr-gate KEEP_GOING=1`) runs every step of the PR gate, cheap ones first, and prints one table of all failures with their first lines and a fix hint, so one run shows every problem. The CI gate stays fail-fast (AD-756).
 
 
 Merge only when the required check `PR gate` has passed (GitHub branch protection enforces it) and the review is done. A PR that deletes a whole feature says in its text that the owner approved the deletion; no label is needed ([AD-1270](docs/architecture/decisions/ad-1270-the-merge-tools-are-deleted-and-github-enforces-the-pr-gate.md)). Never `git reset --soft` onto a moved `origin/main`: your tree is then compared with a newer main and reverts what landed in between.
