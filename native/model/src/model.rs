@@ -141,6 +141,19 @@ impl Model {
         self.pairs.kept.len()
     }
 
+    /// The module pairs `(source, target)` of the kept and the dropped pair gaps that only the
+    /// execution of an impl explains. A compiler fact can resolve such a gap into an edge (AD-1136).
+    pub fn execution_pair_gaps(&self) -> impl Iterator<Item = (&str, &str)> {
+        let gaps = self.pairs.kept.iter().chain(&self.pairs.dropped);
+        gaps.filter(|gap| gap.execution)
+            .map(|gap| (String::as_str(&gap.source), String::as_str(&gap.target)))
+    }
+
+    /// True when the run used compiler facts (AD-1047): the reply proves it, not the config.
+    pub fn used_compiler_facts(&self) -> bool {
+        self.graph.observed().type_reach.is_some()
+    }
+
     /// The number of gaps that state their effect (AD-564). The reference engine makes each rule
     /// UNKNOWN for one; the core holds only the rules that read the effect.
     pub fn effect_gaps(&self) -> usize {

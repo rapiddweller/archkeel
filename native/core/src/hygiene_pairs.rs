@@ -45,6 +45,26 @@ pub(crate) fn observed(contract: &Contract, graph: &Graph) -> BTreeSet<Pair> {
         .collect()
 }
 
+/// The component pair of each module pair `(source, target)` that two different components own and
+/// that the code does not show as an edge, with the source module.
+fn unobserved<'a>(
+    contract: &Contract,
+    observed: &BTreeSet<Pair>,
+    gaps: impl Iterator<Item = (&'a str, &'a str)>,
+) -> Vec<(Pair, &'a str)> {
+    let components = contract.components();
+    let mut found = Vec::new();
+    for (source, target) in gaps {
+        if let (Some(from), Some(to)) = (owner(components, source), owner(components, target)) {
+            let pair = (from.to_owned(), to.to_owned());
+            if from != to && !observed.contains(&pair) {
+                found.push((pair, source));
+            }
+        }
+    }
+    found
+}
+
 /// The component edges that only a dropped pair gap names (#1021): the contract allows the pair
 /// and the collector could not tell whether the call reaches it. Such an edge is neither observed
 /// nor absent. The value is the module of the call. An edge that the code also observes is not in
@@ -54,17 +74,22 @@ pub(crate) fn unconfirmed<'a>(
     observed: &BTreeSet<Pair>,
     dropped: impl Iterator<Item = (&'a str, &'a str)>,
 ) -> BTreeMap<Pair, String> {
-    let components = contract.components();
     let mut held = BTreeMap::new();
-    for (source, target) in dropped {
-        if let (Some(from), Some(to)) = (owner(components, source), owner(components, target)) {
-            let pair = (from.to_owned(), to.to_owned());
-            if from != to && !observed.contains(&pair) {
-                held.entry(pair).or_insert_with(|| source.to_owned());
-            }
-        }
+    for (pair, source) in unobserved(contract, observed, dropped) {
+        held.entry(pair).or_insert_with(|| source.to_owned());
     }
     held
+}
+
+/// The component edges that only compiler facts can confirm (AD-1212): a pair gap of an executed
+/// impl joins a module of each component, and the code shows no edge. A scan with facts has none.
+pub(crate) fn compiler_only<'a>(
+    contract: &Contract,
+    observed: &BTreeSet<Pair>,
+    execution: impl Iterator<Item = (&'a str, &'a str)>,
+) -> BTreeSet<Pair> {
+    let found = unobserved(contract, observed, execution);
+    found.into_iter().map(|(pair, _)| pair).collect()
 }
 
 /// The pair that a whole-package rule decides (`component_pair`).

@@ -21,7 +21,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import NATIVE_SELF_STATUS, NATIVE_UNKNOWN, ROOT, SUFFIX, run
+from core_support import (
+    NATIVE_COMPILER_ONLY_EDGES,
+    NATIVE_SELF_STATUS,
+    NATIVE_UNKNOWN,
+    ROOT,
+    SUFFIX,
+    run,
+)
 from frozen_native import frozen_root as frozen_root
 from rustc_dev_support import needs_rustc_dev
 
@@ -50,9 +57,11 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert absolute(condensed) == []
     assert core, "the self-contract has rules"
     # No rule names a part of the scope proof: each one has a decision. The copy has no compiler
-    # facts, so the three edges that AD-1136 proves are drawn in `native.md` and not found.
-    # That drift is the only gap.
-    assert [gap for gap in result["gaps"] if gap["kind"] != "graph.drift"] == []
+    # facts, so the edges that AD-1136 proves are drawn in `native.md` and not found. Each is a
+    # named hold (AD-1212), and those holds are the only gaps.
+    assert [gap["kind"] for gap in result["gaps"]] == ["graph.needs_facts"] * len(
+        NATIVE_COMPILER_ONLY_EDGES
+    )
     # AD-668: a known violation would stay FAIL (honesty rule); the self-contract has none. An
     # UNKNOWN rule is a stated one (AD-670: the Rust collector states no public symbol facts yet).
     assert {rule for rule, status in core.items() if status == "UNKNOWN"} == set(NATIVE_UNKNOWN), (
