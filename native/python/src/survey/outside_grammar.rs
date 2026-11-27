@@ -206,8 +206,9 @@ const PATH_READS: [&str; 5] = ["read_text", "read_bytes", "is_file", "is_dir", "
 /// The names that no assignment may bind.
 const RESERVED: [&str; 6] = ["print", "sys", "importlib", "version", "files", "find_spec"];
 
-#[derive(Default)]
-struct Grammar {
+struct Grammar<'n> {
+    /// The modules of the scan: the only packages that `files` may import.
+    names: &'n HashSet<String>,
     bound: HashMap<String, Value>,
     from: HashSet<String>,
 }
@@ -221,8 +222,12 @@ struct Grammar {
 /// that reaches a call is a text written in the source, so no object runs its own code. The file
 /// writes no path, defines nothing and calls nothing else: it cannot write a binding of the scan
 /// or change a file of it.
-pub(super) fn closed(module: &Module) -> bool {
-    let mut grammar = Grammar::default();
+pub(super) fn closed(module: &Module, names: &HashSet<String>) -> bool {
+    let mut grammar = Grammar {
+        names,
+        bound: HashMap::new(),
+        from: HashSet::new(),
+    };
     module.tree.body.iter().all(|stmt| grammar.stmt(stmt))
 }
 
@@ -234,7 +239,7 @@ fn path_call(attr: &str) -> Option<Value> {
     }
 }
 
-impl Grammar {
+impl Grammar<'_> {
     fn stmt(&mut self, stmt: &Stmt) -> bool {
         match stmt {
             Stmt::Pass(_) => true,
@@ -353,6 +358,30 @@ impl Grammar {
         (tested || spec).then_some(Value::Plain)
     }
 
+    /// `files(text)` imports the package of the text and `find_spec("a.b")` imports its parent:
+    /// the initializer of a package outside the scan runs code that no site shows
+    /// (`files("payload")` with `payload/__init__.py` that writes a scanned file). Only the
+    /// modules of the scan, whose code is read anyway, and a top-level name for `find_spec` are
+    /// proven.
+    fn runs_package_code(&self, name: &str, call: &ExprCall) -> bool {
+        let text = call
+            .arguments
+            .args
+            .first()
+            .and_then(text_of)
+            .unwrap_or_default();
+        let scanned = |text: &str| {
+            self.names
+                .iter()
+                .any(|module| module == text || module.starts_with(&format!("{text}.")))
+        };
+        match name.rsplit('.').next() {
+            Some("files") => !scanned(&text),
+            Some("find_spec") => text.contains('.') && !scanned(&text),
+            _ => false,
+        }
+    }
+
     fn call(&self, call: &ExprCall) -> Option<Value> {
         if !texts(call) {
             return None;
@@ -364,6 +393,9 @@ impl Grammar {
         }
         let name = chain(&call.func)?;
         let bare = |from: &str| self.from.contains(from) && !name.contains('.');
+        if self.runs_package_code(&name, call) {
+            return None;
+        }
         match String::as_str(&name) {
             "importlib.metadata.version" => Some(Value::Plain),
             "importlib.resources.files" => Some(Value::Path),

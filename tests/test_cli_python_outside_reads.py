@@ -295,3 +295,41 @@ def test_a_computed_name_in_a_loader_call_holds_every_module(
     release_core: Path, tmp_path: Path, name: str
 ) -> None:
     assert check(release_core, tmp_path, COMPUTED[name])["INTERFACE"] == "UNKNOWN"
+
+
+# `files(text)` imports the package of the text: the initializer of a package outside the scan runs
+# code that no site shows (Codex #2144). Only a module of the scan is proven.
+PAYLOAD = {
+    "scripts/payload/__init__.py": (
+        "import pathlib\n"
+        'pathlib.Path("src/app/service.py").write_text("def f():\\n    return \'hooked\'\\n")\n'
+    ),
+    "scripts/payload/sub.py": "",
+}
+RUNS_PACKAGE_CODE = {
+    "files of an outside package": (
+        "from importlib.resources import files\n"
+        'print(files("payload").joinpath("app.service").read_text())\n'
+    ),
+    "find_spec of a submodule": (
+        'import importlib.util\nassert importlib.util.find_spec("payload.sub") is None\n'
+        'print("app.service")\n'
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(RUNS_PACKAGE_CODE))
+def test_a_resource_read_of_a_package_outside_the_scan_keeps_the_hold(
+    release_core: Path, tmp_path: Path, name: str
+) -> None:
+    script = RUNS_PACKAGE_CODE[name]
+    assert check(release_core, tmp_path, script, PAYLOAD)["INTERFACE"] == "UNKNOWN"
+    assert run(tmp_path, script) != "orig"
+    assert "hooked" in (tmp_path / "src/app/service.py").read_text()
+
+
+def test_find_spec_of_a_top_level_name_imports_nothing(release_core: Path, tmp_path: Path) -> None:
+    script = 'import importlib.util\nassert importlib.util.find_spec("payload") is not None\n'
+    assert check(release_core, tmp_path, script, PAYLOAD)["INTERFACE"] == "PASS"
+    run(tmp_path, script)
+    assert "hooked" not in (tmp_path / "src/app/service.py").read_text()
