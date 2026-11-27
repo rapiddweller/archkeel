@@ -145,8 +145,6 @@ def test_equal_count_path_swap_is_growth(tmp_path: Path) -> None:
     )
     assert done.returncode == 1, done.stdout
     assert "scanned paths or contract scope differ" in done.stdout
-    body = tmp_path / "body.txt"
-    body.write_text("Ratchet growth: 1 items: the scanned paths changed on purpose\n")
     approved = subprocess.run(
         [
             sys.executable,
@@ -154,8 +152,6 @@ def test_equal_count_path_swap_is_growth(tmp_path: Path) -> None:
             *files,
             "--labels",
             "ratchet-lead",
-            "--body-file",
-            str(body),
         ],
         capture_output=True,
         text=True,
@@ -233,7 +229,7 @@ def test_a_legacy_cached_base_uses_the_old_comparison(repo: Path) -> None:
     assert done.returncode == 0, done.stdout
     assert done.stdout.count(message) == 1 and "grown 0" in done.stdout
     assert (repo / "summary.md").read_text().strip() == message
-    assert gate(repo, "plus-one-gap.json").returncode == 1
+    assert gate(repo, "scan-shrank.json").returncode == 1
     result.update(format="selfcheck-v2", scope={})
     path.write_text(json.dumps(result))
     assert gate(repo, "base.json").returncode == 1
@@ -302,15 +298,25 @@ def test_a_cached_base_is_compared_and_equal_results_pass(repo: Path) -> None:
     assert "cache hit" in done.stdout and "grown 0, removed 0" in done.stdout
 
 
-def test_growth_against_the_cached_base_fails_and_the_last_line_says_red(repo: Path) -> None:
+def test_a_new_gap_against_the_cached_base_is_listed_and_the_gate_is_green(repo: Path) -> None:
     keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
     done = gate(repo, "plus-one-gap.json")
-    assert done.returncode == 1, done.stdout
-    assert "inventory.stock" in done.stdout
+    assert done.returncode == 0, done.stdout
+    assert "inventory.stock" in done.stdout and "gap growth: 1 items" in done.stdout
     assert "DISAGREEMENT" not in done.stdout
-    assert done.stdout.splitlines()[-1] == "self-check gate: RED (exit 1)"
+    assert done.stdout.splitlines()[-1] == "self-check gate: GREEN"
     grown = (repo / "test-artifacts/selfcheck/grown.txt").read_text()
     assert "inventory.stock" in grown and grown.count("\n") == 1
+
+
+def test_a_lost_scope_against_the_cached_base_is_red(repo: Path) -> None:
+    keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
+    done = gate(repo, "scan-shrank.json")
+    assert done.returncode == 1, done.stdout
+    assert "scope shrank" in done.stdout
+    assert done.stdout.splitlines()[-1] == "self-check gate: RED (exit 1)"
+    grown = (repo / "test-artifacts/selfcheck/grown.txt").read_text()
+    assert "scope shrank" in grown and grown.count("\n") == 2
 
 
 def test_a_green_gate_says_green_and_leaves_no_grown_file(repo: Path) -> None:
@@ -330,9 +336,9 @@ def test_the_job_summary_gets_the_grown_items(repo: Path, tmp_path: Path) -> Non
 
 def test_report_only_does_not_fail_on_growth_but_fails_on_a_tracked_base(repo: Path) -> None:
     keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
-    done = gate(repo, "plus-one-gap.json", "--report-only")
+    done = gate(repo, "scan-shrank.json", "--report-only")
     assert done.returncode == 0
-    assert "inventory.stock" in done.stdout and "make self-validate-native" in done.stdout
+    assert "scope shrank" in done.stdout and "make self-validate-native" in done.stdout
 
 
 def test_a_base_that_cannot_be_computed_fails_and_gives_the_reason(repo: Path) -> None:
@@ -360,8 +366,8 @@ def test_an_unknown_base_ref_fails_and_names_the_command(repo: Path) -> None:
 def test_a_base_result_file_replaces_the_cache_and_the_computation(repo: Path) -> None:
     base = repo / "input-base.json"
     base.write_text(json.dumps(with_topology(json.loads((FIXTURES / "base.json").read_text()))))
-    done = gate(repo, "plus-one-gap.json", BASE_RESULT=str(base))
-    assert done.returncode == 1 and "inventory.stock" in done.stdout
+    done = gate(repo, "scan-shrank.json", BASE_RESULT=str(base))
+    assert done.returncode == 1 and "scope shrank" in done.stdout
 
 
 def test_a_head_equal_to_the_base_compares_with_itself(repo: Path) -> None:
@@ -422,15 +428,14 @@ def test_an_untracked_result_file_is_not_a_base_candidate(repo: Path) -> None:
     assert done.returncode == 1 and "cache miss" in done.stdout
 
 
-def test_the_label_comes_as_a_boolean_and_label_text_is_ignored(repo: Path, tmp_path: Path) -> None:
+def test_the_label_comes_as_a_boolean_and_label_text_is_ignored(repo: Path) -> None:
     keep_base(repo, "base.json", git(repo, "rev-parse", "HEAD~1"))
-    body = tmp_path / "body.txt"
-    body.write_text("Ratchet growth: 1 items: the scan reads a new public name\n")
-    env = {"RATCHET_BODY_FILE": str(body)}
-    assert gate(repo, "plus-one-gap.json", **env).returncode == 1
-    assert gate(repo, "plus-one-gap.json", RATCHET_LABELS="ratchet-lead", **env).returncode == 1
-    assert gate(repo, "plus-one-gap.json", RATCHET_LABELED="yes", **env).returncode == 1
-    done = gate(repo, "plus-one-gap.json", RATCHET_LABELED="true", **env)
+    # A new gap needs no label; a scan of fewer files does.
+    assert gate(repo, "plus-one-gap.json").returncode == 0
+    assert gate(repo, "scan-shrank.json").returncode == 1
+    assert gate(repo, "scan-shrank.json", RATCHET_LABELS="ratchet-lead").returncode == 1
+    assert gate(repo, "scan-shrank.json", RATCHET_LABELED="yes").returncode == 1
+    done = gate(repo, "scan-shrank.json", RATCHET_LABELED="true")
     assert done.returncode == 0, done.stdout
 
 
