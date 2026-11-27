@@ -1,17 +1,7 @@
 name: Latest main build
 
+# AD-1223: the nightly Full run builds and publishes the main build. This workflow is the manual path.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "native/**"
-      - "src/**"
-      - "pyproject.toml"
-      - "Cargo.lock"
-      - "schema/**"
-      - ".github/workflows/main-build.yml"
-      - ".github/workflows/native-wheels.yml"
-      - "tools/publish_main_build.py"
   workflow_dispatch:
     inputs:
       publish:
@@ -23,9 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  # AD-863: a build that has started finishes, and the newest waiting build replaces older waiting
-  # ones. A build takes about 20 minutes and merges come faster, so a cancel would starve the
-  # publication. Manual runs wait in their own queue and never replace a build of a push.
+  # AD-863: a build that has started finishes, and the newest waiting build replaces older waiting ones.
   wheels:
     uses: ./.github/workflows/native-wheels.yml
     concurrency:
@@ -33,7 +21,7 @@ jobs:
       cancel-in-progress: false
 
   publish:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
+    if: github.ref == 'refs/heads/main' && inputs.publish
     needs: wheels
     runs-on: ubuntu-24.04
     # A started publication runs to its end. The newest waiting publication replaces older waiting ones.

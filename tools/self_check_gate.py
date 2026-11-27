@@ -48,8 +48,10 @@ COMPARED = Path("test-artifacts/selfcheck/compared-base.json")
 CONFIG = Path("native/archkeel.toml")
 # Everything the saved result of a commit depends on: the scanned tree and its contract and
 # config (`native`), the compiler drivers, the Python shell that runs the report, the locked
-# tools, the recipe, and the code that condenses the result. A commit that differs from the
-# saved one in any of them gets no reuse of that result.
+# tools, the recipe, and the code that condenses and normalizes the result (`self_check_diff.py`,
+# `self_check_contract.py`, this file). `self_check_summary.py` and `self_check_shell.py` only
+# read a result and print, so a change there leaves the saved result true. A commit that differs
+# from the saved one in any of them gets no reuse of that result.
 INPUTS = (
     "native",
     "tools/rustc-facts",
@@ -57,7 +59,9 @@ INPUTS = (
     "pyproject.toml",
     "uv.lock",
     "Makefile",
-    ":(glob)tools/self_check_*.py",
+    "tools/self_check_diff.py",
+    "tools/self_check_contract.py",
+    "tools/self_check_gate.py",
 )
 # The Rust walk of the scan reads the whole repository for Cargo settings (`registry_overrides.rs`):
 # a `.cargo` directory, a link to a directory, a path deeper than its depth limit, or a tree
